@@ -184,18 +184,30 @@ const stampTransaction = `SELECT set_config($1, $2, true), set_config($3, $4, tr
 // pool's PrepareConn hook: pgxpool calls it on every checkout, with the context
 // of the caller doing the checking out, before that caller's first statement.
 //
-// The (true, error) return is deliberate and is the reason this is PrepareConn
-// rather than the deprecated BeforeAcquire. True keeps the connection — the
-// failure is the statement, not the socket — and the non-nil error fails the
-// query that triggered the checkout. Returning false instead would destroy the
-// connection and silently retry on another, which for a hook that can only
-// fail when the connection is already gone means churning the pool. Either
-// way the caller never gets a connection carrying somebody else's tenant.
+// The return values follow pgxpool's contract for PrepareConn. A connection
+// that is already gone answers (false, nil): the pool destroys it and retries
+// the query on another connection, which is the only correct thing to do with
+// a dead socket. This happens in ordinary operation, not only in failures: the
+// pool retires connections at MaxConnLifetime, and the server drops idle ones,
+// and a checkout can race either. Answering (true, err) here instead, as this
+// hook once did, turned every such race into a 500 for whoever was borrowing
+// the connection.
+//
+// A statement failure on a live connection still answers (true, err): the
+// connection is fine and goes back to the pool, and the query that asked for
+// it fails, because it must never run carrying somebody else's tenant.
 func StampTenantScope(ctx context.Context, conn *pgx.Conn) (bool, error) {
+	if conn.IsClosed() {
+		return false, nil
+	}
+
 	complexID, bypass := scopeFrom(ctx)
 
 	_, err := conn.Exec(ctx, stampSession, tenantSettingName, complexID, bypassSettingName, bypass)
 	if err != nil {
+		if conn.IsClosed() {
+			return false, nil
+		}
 		return true, fmt.Errorf("stamping the tenant scope on a pooled connection: %w", err)
 	}
 	return true, nil

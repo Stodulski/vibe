@@ -790,9 +790,9 @@ func openDB(cfg config) (*pgxpool.Pool, error) {
 	// inside a transaction — see internal/data/tenant.go for the whole
 	// mechanism and for why a transaction repeats it with SET LOCAL.
 	//
-	// PrepareConn rather than the deprecated BeforeAcquire: it can return an
-	// error, so a connection that cannot be stamped fails the query that asked
-	// for it instead of being destroyed and silently retried.
+	// PrepareConn rather than the deprecated BeforeAcquire: it can tell a dead
+	// connection (destroyed, query retried on another) from a statement that
+	// failed on a live one (kept, query fails). See data.StampTenantScope.
 	poolConfig.PrepareConn = data.StampTenantScope
 
 	// Set on every connection as it is established, so it applies to every
