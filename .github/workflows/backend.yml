@@ -54,6 +54,19 @@ jobs:
           cache: true
           cache-dependency-path: backend/go.sum
 
+      # setup-go saves its build cache only when go.sum changes, and whichever
+      # job saves it first fills it with that job's flavour of the build; the
+      # objects this job needs (race-instrumented, or CGO_ENABLED=0) were never
+      # in it, so every run compiled the tree from scratch. This one is keyed
+      # per job and saved on every run, so the next run restores the newest.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-
+            go-build-${{ github.job }}-
+
       # Integration and security tests are behind the `integration` build tag
       # and need a live Postgres, so they are not part of this gate. They run
       # via `make test/integration` in the job below.
@@ -71,6 +84,19 @@ jobs:
           go-version-file: backend/go.mod
           cache: true
           cache-dependency-path: backend/go.sum
+
+      # setup-go saves its build cache only when go.sum changes, and whichever
+      # job saves it first fills it with that job's flavour of the build; the
+      # objects this job needs (race-instrumented, or CGO_ENABLED=0) were never
+      # in it, so every run compiled the tree from scratch. This one is keyed
+      # per job and saved on every run, so the next run restores the newest.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-
+            go-build-${{ github.job }}-
 
       - name: Build
         run: make build
@@ -104,6 +130,19 @@ jobs:
           go-version-file: backend/go.mod
           cache: true
           cache-dependency-path: backend/go.sum
+
+      # setup-go saves its build cache only when go.sum changes, and whichever
+      # job saves it first fills it with that job's flavour of the build; the
+      # objects this job needs (race-instrumented, or CGO_ENABLED=0) were never
+      # in it, so every run compiled the tree from scratch. This one is keyed
+      # per job and saved on every run, so the next run restores the newest.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-
+            go-build-${{ github.job }}-
 
       # The published binary, pinned to the library version in go.mod: building
       # goose from source cost a minute and a half per run.
