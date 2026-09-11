@@ -20,6 +20,14 @@ func newTestHandler(t *testing.T, webhookURL string) (*Handler, *bytes.Buffer) {
 	return h, logs
 }
 
+// answerOK writes what the Apps Script web app writes on success. Its verdict
+// travels in the body, never in the status (see readSheetAnswer), so a stub
+// that only sets 200 would now be read as a failure.
+func answerOK(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"ok":true}`))
+}
+
 func doCapture(t *testing.T, h *Handler, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/public/leads/abandoned-registration", strings.NewReader(body))
@@ -32,7 +40,7 @@ func TestCaptureAbandonedRegistration_ValidEmail_ForwardsToWebhook(t *testing.T)
 	var received sheetPayload
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&received)
-		w.WriteHeader(http.StatusOK)
+		answerOK(w)
 	}))
 	defer srv.Close()
 
@@ -57,7 +65,7 @@ func TestCaptureAbandonedRegistration_GoogleSource_ForwardsWithGoogleOrigin(t *t
 	var received sheetPayload
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&received)
-		w.WriteHeader(http.StatusOK)
+		answerOK(w)
 	}))
 	defer srv.Close()
 
@@ -122,6 +130,68 @@ func TestCaptureAbandonedRegistration_WebhookDown_StillAcceptsAndLogs(t *testing
 	}
 }
 
+// The Apps Script web app never fails with a status code: a wrong token, an
+// address it would not take, or an exception all come back as HTTP 200 with
+// `ok: false` in the body. Reading only the status turned every one of them
+// into a silent success, which is how a rotated token could drop every lead
+// with nothing in the logs.
+func TestCaptureAbandonedRegistration_WebhookAnswersOkFalse_StillAcceptsAndLogs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":false,"error":"token invalido"}`))
+	}))
+	defer srv.Close()
+
+	h, logs := newTestHandler(t, srv.URL)
+	rr := doCapture(t, h, `{"email":"juan@example.com"}`)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d (a webhook refusal must not fail the caller)", rr.Code, http.StatusAccepted)
+	}
+	if !strings.Contains(logs.String(), "token invalido") {
+		t.Errorf("expected the script's own reason in the log; got %q", logs.String())
+	}
+}
+
+// A duplicate is the sheet's business, not a failure: the address is there.
+func TestCaptureAbandonedRegistration_WebhookAnswersRepetido_IsNotAnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true,"repetido":true}`))
+	}))
+	defer srv.Close()
+
+	h, logs := newTestHandler(t, srv.URL)
+	rr := doCapture(t, h, `{"email":"juan@example.com"}`)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusAccepted)
+	}
+	if logs.Len() != 0 {
+		t.Errorf("a repeated address must not be logged as a failure; got %q", logs.String())
+	}
+}
+
+// A 200 with no verdict is what a wrong URL answers (a login page, another
+// host). It is a failure, and the log says what came back.
+func TestCaptureAbandonedRegistration_WebhookAnswersNoVerdict_IsLogged(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`<html>Sign in</html>`))
+	}))
+	defer srv.Close()
+
+	h, logs := newTestHandler(t, srv.URL)
+	rr := doCapture(t, h, `{"email":"juan@example.com"}`)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusAccepted)
+	}
+	if !strings.Contains(logs.String(), "Sign in") {
+		t.Errorf("expected the unexpected body in the log; got %q", logs.String())
+	}
+}
+
 // navigator.sendBeacon can only send CORS-safelisted content types across
 // origins (it can't do a preflight), so the frontend sends this body as
 // text/plain rather than application/json. The decoder must not care.
@@ -179,7 +249,7 @@ func TestCaptureAbandonedRegistration_EmailLengthBoundary(t *testing.T) {
 			forwarded := false
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				forwarded = true
-				w.WriteHeader(http.StatusOK)
+				answerOK(w)
 			}))
 			defer srv.Close()
 
@@ -234,7 +304,7 @@ func TestCaptureAbandonedRegistration_FormulaShapedEmail_IsForwardedEscaped(t *t
 			var received sheetPayload
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewDecoder(r.Body).Decode(&received)
-				w.WriteHeader(http.StatusOK)
+				answerOK(w)
 			}))
 			defer srv.Close()
 

@@ -34,7 +34,6 @@ function RegisterFormHeader({ step }: { step: Step }) {
 export function RegisterForm() {
   const turnstileRef = useRef<TurnstileFieldHandle>(null);
   const turnstile = useTurnstileChallenge();
-  const registerMutation = useRegister({ resetTurnstile: () => turnstileRef.current?.reset() });
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -49,7 +48,11 @@ export function RegisterForm() {
   });
 
   const { step, goNext, goBack } = useRegisterFormNavigation(trigger);
-  const { captureOnAdvance } = useAbandonedRegistrationLead(step, getValues);
+  const lead = useAbandonedRegistrationLead(getValues);
+  const registerMutation = useRegister({
+    resetTurnstile: () => turnstileRef.current?.reset(),
+    onRegistered: lead.markRegistered,
+  });
 
   const onSubmit = (formData: RegisterDto) => {
     const { confirm_password, ...data } = formData;
@@ -73,7 +76,7 @@ export function RegisterForm() {
               setShowPassword(!showPassword);
             }}
             onNext={(fromStep) => {
-              void goNext(fromStep, captureOnAdvance);
+              void goNext(fromStep);
             }}
             onBack={goBack}
             isPending={registerMutation.isPending}

@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -26,6 +29,25 @@ type sheetPayload struct {
 	Origen string `json:"origen"`
 	Fecha  string `json:"fecha"`
 }
+
+// sheetAnswer is what the Apps Script web app writes back (see `responder` in
+// landing/scripts/apps-script-lista.gs). Every outcome arrives as HTTP 200:
+// the script reports its own failures only in this body, `ok: false` with a
+// reason, so the status code alone says nothing about whether the row exists.
+type sheetAnswer struct {
+	OK       bool   `json:"ok"`
+	Error    string `json:"error"`
+	Repetido bool   `json:"repetido"`
+}
+
+// maxSheetAnswerBytes bounds how much of the webhook's answer is read. A real
+// answer is a few dozen bytes; anything larger is not the script talking.
+const maxSheetAnswerBytes = 64 << 10
+
+// errSheetRefused is the class of failure the spreadsheet reports in its body
+// rather than its status: a wrong token, an address the script would not take,
+// or an exception inside it. It is wrapped with the script's own reason.
+var errSheetRefused = errors.New("leads: spreadsheet refused the lead")
 
 // captureOrigin tags the rows the password register form produces, so they
 // read apart from the landing page's own mailing-list signups in the same
@@ -140,5 +162,42 @@ func (h *Handler) forward(ctx context.Context, email, origin string) error {
 		return fmt.Errorf("leads: webhook returned status %d", resp.StatusCode)
 	}
 
+	return readSheetAnswer(resp.Body)
+}
+
+// readSheetAnswer turns the webhook's body into the success or failure the
+// status code does not carry.
+//
+// Apps Script answers 200 whatever happened and puts the verdict in JSON:
+// `{"ok":true}`, `{"ok":true,"repetido":true}` (already in the sheet, which is
+// a success here), or `{"ok":false,"error":"token invalido"}`. Reading only
+// the status meant a rotated token, a script republished under another URL, or
+// an exception inside it dropped every lead while the logs stayed clean. The
+// body is therefore required to parse and to say ok: an empty or non-JSON
+// answer is treated as a failure too, deliberately, because nothing this
+// handler talks to answers that way on purpose, and a misconfigured URL
+// (a login page, a 200 from the wrong host) is exactly what would.
+func readSheetAnswer(body io.Reader) error {
+	raw, err := io.ReadAll(io.LimitReader(body, maxSheetAnswerBytes))
+	if err != nil {
+		return fmt.Errorf("leads: reading the webhook answer: %w", err)
+	}
+
+	var answer sheetAnswer
+	if err := json.Unmarshal(raw, &answer); err != nil {
+		return fmt.Errorf("leads: webhook answered something other than its JSON verdict (%q): %w",
+			truncate(strings.TrimSpace(string(raw)), 120), err)
+	}
+	if !answer.OK {
+		return fmt.Errorf("%w: %s", errSheetRefused, answer.Error)
+	}
 	return nil
+}
+
+// truncate keeps the first n bytes of s for a log line.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }

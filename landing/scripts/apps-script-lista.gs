@@ -19,6 +19,8 @@
  *
  * Cada vez que se cambia este código hay que volver a implementar, eligiendo
  * "Nueva versión". Editar y guardar no actualiza la aplicación publicada.
+ * El cambio del control de repetidos (por email y origen, no solo por email)
+ * necesita esa nueva implementación para estar activo.
  */
 
 var TOKEN = 'CAMBIAR-POR-UN-SECRETO-LARGO';
@@ -40,13 +42,18 @@ function doPost(e) {
 
     var hoja = obtenerHoja();
 
-    /* Sin esto, alguien que hace doble click queda dos veces en la lista. */
-    if (yaEsta(hoja, email)) return responder({ ok: true, repetido: true });
+    var origen = String(cuerpo.origen || '').trim();
+
+    /* Sin esto, alguien que hace doble click queda dos veces en la lista. El
+       repetido se mide por email Y origen: la misma dirección puede anotarse en
+       la lista de espera desde la landing y, meses después, abandonar el
+       registro en la app. Son dos filas distintas y las dos importan. */
+    if (yaEsta(hoja, email, origen)) return responder({ ok: true, repetido: true });
 
     hoja.appendRow([
       cuerpo.fecha || new Date().toISOString(),
       email,
-      cuerpo.origen || '',
+      origen,
     ]);
 
     if (AVISAR_A) {
@@ -107,12 +114,16 @@ function obtenerHoja() {
   return hoja;
 }
 
-function yaEsta(hoja, email) {
+/* Verdadero solo si ya hay una fila con ese email Y ese origen. Un origen
+   vacío en el pedido coincide con una celda vacía. */
+function yaEsta(hoja, email, origen) {
   var filas = hoja.getLastRow();
   if (filas < 2) return false;
-  var columna = hoja.getRange(2, 2, filas - 1, 1).getValues();
-  for (let i = 0; i < columna.length; i++) {
-    if (String(columna[i][0]).trim().toLowerCase() === email) return true;
+  var columnas = hoja.getRange(2, 2, filas - 1, 2).getValues();
+  for (let i = 0; i < columnas.length; i++) {
+    var mismoEmail = String(columnas[i][0]).trim().toLowerCase() === email;
+    var mismoOrigen = String(columnas[i][1] || '').trim() === origen;
+    if (mismoEmail && mismoOrigen) return true;
   }
   return false;
 }

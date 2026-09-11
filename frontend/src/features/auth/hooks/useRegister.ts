@@ -16,6 +16,15 @@ function errorBody(error: unknown): unknown {
 interface UseRegisterOptions {
   /** Called on every failed submit — Turnstile tokens are single-use, so the widget must reset before the next attempt. */
   resetTurnstile?: () => void;
+  /**
+   * Runs the moment the account exists on the server, before any state
+   * update. It lives in `mutationFn` and not in an `onSuccess` on purpose:
+   * the hook-level `onSuccess` below navigates to `/verify-email-sent`, and
+   * a mutate-level `onSuccess` is skipped by TanStack Query once the
+   * observer has unmounted, so a flag set there could be lost in exactly
+   * the case it exists for (see `useAbandonedRegistrationLead`).
+   */
+  onRegistered?: () => void;
 }
 
 export function useRegister(options?: UseRegisterOptions) {
@@ -23,7 +32,11 @@ export function useRegister(options?: UseRegisterOptions) {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: (data: RegisterRequest) => authApi.register(data),
+    mutationFn: async (data: RegisterRequest) => {
+      const response = await authApi.register(data);
+      options?.onRegistered?.();
+      return response;
+    },
     onSuccess: (_data, variables) => {
       void navigate('/verify-email-sent', { replace: true, state: { email: variables.email } });
     },

@@ -13,7 +13,10 @@ vi.mock('../api/auth.api', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 /** Mutates once with a rejected `authApi.register` and waits for the error state. */
-async function triggerRegisterError(backendError: unknown, options?: { resetTurnstile?: () => void }) {
+async function triggerRegisterError(
+  backendError: unknown,
+  options?: { resetTurnstile?: () => void; onRegistered?: () => void },
+) {
   const { authApi } = await import('../api/auth.api');
   vi.mocked(authApi.register).mockRejectedValueOnce(backendError);
 
@@ -32,6 +35,45 @@ async function triggerRegisterError(backendError: unknown, options?: { resetTurn
     expect(result.current.isError).toBe(true);
   });
 }
+
+describe('useRegister — onRegistered', () => {
+  const PAYLOAD = {
+    first_name: 'Juan',
+    last_name: 'Perez',
+    email: 'juan@test.com',
+    password: 'password123',
+    phone: '+541123456789',
+  };
+
+  it('runs onRegistered once the server has created the account', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.register).mockResolvedValueOnce({ message: 'verification email sent' });
+    const onRegistered = vi.fn();
+
+    const { useRegister } = await import('./useRegister');
+    const { result } = renderHook(() => useRegister({ onRegistered }), { wrapper: createWrapper(['/register']) });
+
+    result.current.mutate(PAYLOAD);
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(onRegistered).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not run onRegistered when the registration fails', async () => {
+    const onRegistered = vi.fn();
+
+    await triggerRegisterError(await makeConsumedHttpError(500, {}), { onRegistered });
+
+    expect(onRegistered).not.toHaveBeenCalled();
+  });
+
+  afterEach(async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.register).mockReset();
+  });
+});
 
 describe('useRegister — Turnstile 422 handling', () => {
   it('shows the turnstile-specific message instead of the generic register-error one', async () => {

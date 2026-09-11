@@ -5,17 +5,30 @@ import { emailField } from '@/shared/lib/validations';
 import type { RegisterDto } from '../../schemas/auth.schemas';
 
 /**
- * Captures the register form's email as a lead if the person never finishes
- * — either they move past step 1 (call `captureOnAdvance` right there) or
- * they abandon the page while still on it (a visibilitychange/pagehide
- * listener, fired via sendBeacon — the only delivery mechanism reliable
- * during an unload). Guarded so it only ever fires once per visit.
+ * Captures the register form's email as a lead if the person leaves without
+ * registering, whichever step they are on. The email is read at capture time,
+ * so a valid address typed on step 1 is captured even from step 3.
+ *
+ * Three ways out of the form, and what each does:
+ * - the tab is hidden or closed (`visibilitychange`/`pagehide`): the capture
+ *   goes out via sendBeacon, the only delivery that survives an unload;
+ * - an in-app navigation (the "already have an account" link) unmounts the
+ *   form while the document lives on: a plain fetch is fine there;
+ * - the account was registered: the caller says so through `markRegistered`
+ *   before the success path navigates away, and nothing is captured.
+ *
+ * It used to capture the moment the person advanced past step 1, which put
+ * everyone who reached step 2 in the sheet, those who finished included.
+ *
+ * Guarded so it fires at most once per mount. Same shape as
+ * `useAbandonedGoogleSignupLead`.
  */
-export function useAbandonedRegistrationLead(step: number, getValues: UseFormGetValues<RegisterDto>) {
+export function useAbandonedRegistrationLead(getValues: UseFormGetValues<RegisterDto>) {
   const capturedRef = useRef(false);
+  const registeredRef = useRef(false);
 
-  const captureIfValid = (viaBeacon: boolean) => {
-    if (capturedRef.current) return;
+  const captureIfPending = (viaBeacon: boolean) => {
+    if (capturedRef.current || registeredRef.current) return;
     const email = getValues('email');
     if (!emailField.safeParse(email).success) return;
     capturedRef.current = true;
@@ -27,30 +40,29 @@ export function useAbandonedRegistrationLead(step: number, getValues: UseFormGet
   };
 
   useEffect(() => {
-    if (step !== 1) return;
     // A pagehide is a departure whatever the visibility state says (a
     // bfcache unload can fire it with the document still "visible"), so it
     // captures unconditionally; visibilitychange only counts when hidden.
-    // Same split as useAbandonedGoogleSignupLead.
     const handleHidden = () => {
       if (document.visibilityState === 'visible') return;
-      captureIfValid(true);
+      captureIfPending(true);
     };
     const handlePageHide = () => {
-      captureIfValid(true);
+      captureIfPending(true);
     };
     document.addEventListener('visibilitychange', handleHidden);
     window.addEventListener('pagehide', handlePageHide);
     return () => {
       document.removeEventListener('visibilitychange', handleHidden);
       window.removeEventListener('pagehide', handlePageHide);
+      captureIfPending(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- captureIfValid reads refs/getValues, not reactive state
-  }, [step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- captureIfPending reads refs and getValues, not reactive state
+  }, []);
 
   return {
-    captureOnAdvance: () => {
-      captureIfValid(false);
+    markRegistered: () => {
+      registeredRef.current = true;
     },
   };
 }

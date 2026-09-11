@@ -10,21 +10,13 @@ const STEP_FIELDS = {
   2: ['first_name', 'last_name', 'phone'],
 } as const;
 
-/**
- * Step state and forward/back navigation for the 3-step register wizard.
- *
- * `goNext` takes the "advanced past step 1" callback per call, not up
- * front: that callback comes from `useAbandonedRegistrationLead(step, ...)`,
- * which itself needs this hook's `step` — passing it at call time avoids
- * that circular dependency.
- */
+/** Step state and forward/back navigation for the 3-step register wizard. */
 export function useRegisterFormNavigation(trigger: UseFormTrigger<RegisterDto>) {
   const [step, setStep] = useState<Step>(1);
 
-  const goNext = async (fromStep: 1 | 2, onAdvanceFromStep1?: () => void) => {
+  const goNext = async (fromStep: 1 | 2) => {
     const valid = await trigger(STEP_FIELDS[fromStep]);
     if (valid) {
-      if (fromStep === 1) onAdvanceFromStep1?.();
       setStep((fromStep + 1) as Step);
     }
   };
