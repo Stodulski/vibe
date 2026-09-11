@@ -2,9 +2,9 @@
 
 Court booking for padel clubs. One repository, three packages, each with its own toolchain, lockfile and `CLAUDE.md`:
 
-- `vibe-server/` — Go API (Railway)
-- `vibe-client/` — React app (Vercel, app.vibe.com.ar)
-- `vibe-landing/` — Astro site (Vercel, vibe.com.ar)
+- `backend/` — Go API (Railway)
+- `frontend/` — React app (Vercel, app.vibe.com.ar)
+- `landing/` — Astro site (Vercel, vibe.com.ar)
 
 Work inside the package you are changing. CI and deployment are described in `README.md`. Refer to packages by directory name; the pre-2026-09 names `padel-server` and `padel-client` are gone.
 

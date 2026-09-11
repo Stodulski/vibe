@@ -35,7 +35,7 @@ permissions:
 # steps below use gh against the repository root, which is where they belong.
 defaults:
   run:
-    working-directory: vibe-landing
+    working-directory: landing
 
 jobs:
   verificar:
@@ -97,7 +97,7 @@ jobs:
           delete-branch: true
           title: 'chore(costos): MercadoPago actualizó los costos de Checkout'
           body: |
-            El chequeo diario encontró una diferencia entre `vibe-landing/src/data/mercadopago-costos.ts` y lo que publica MercadoPago, y la reescribió.
+            El chequeo diario encontró una diferencia entre `landing/src/data/mercadopago-costos.ts` y lo que publica MercadoPago, y la reescribió.
 
             ```
             ${{ steps.write.outputs.reporte }}
@@ -135,7 +135,7 @@ jobs:
             --json number --jq '.[0].number // empty')
 
           cuerpo=$(printf '%s\n\n```\n%s\n```\n%s\nCorrida: %s\n' \
-            'El chequeo diario no pudo confirmar los costos de MercadoPago contra la fuente (el parseo no es confiable, o la página no respondió). Esto necesita que alguien revise vibe-landing/scripts/check-mercadopago.mjs a mano, no un diff automático.' \
+            'El chequeo diario no pudo confirmar los costos de MercadoPago contra la fuente (el parseo no es confiable, o la página no respondió). Esto necesita que alguien revise landing/scripts/check-mercadopago.mjs a mano, no un diff automático.' \
             "$REPORTE" \
             "${REPORTE_WRITE:+$(printf 'Salida de --write:\n```\n%s\n```\n' "$REPORTE_WRITE")}" \
             "$CORRIDA")
