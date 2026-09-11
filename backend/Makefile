@@ -193,12 +193,18 @@ e2e-db-down:
 # each run — which teaches everyone to re-run it rather than read it. A gate
 # nobody believes is a gate nobody has.
 .PHONY: test/integration
+# Only the packages that carry integration files. The tag makes every package
+# compile again, so `./...` re-ran the whole unit suite a second time, serially
+# (`-p 1` keeps the packages that share the database from stepping on each
+# other) and under the race detector, which the unit target already applies.
+INTEGRATION_PKGS := $(shell go list -tags integration -f '{{.ImportPath}}{{range .TestGoFiles}} {{.}}{{end}}' ./... | grep _integration_test.go | cut -d' ' -f1)
+
 test/integration:
 	DATABASE_URL="$(E2E_DSN)" \
 	DATABASE_ADMIN_URL="$(E2E_ADMIN_DSN)" \
 	DATABASE_APP_URL="$(E2E_APP_DSN)" \
 	JWT_SECRET="e2e-test-secret-key-32-bytes-long!" \
-	go test -tags integration -race -v -count=1 -p 1 ./...
+	go test -tags integration -v -count=1 -p 1 $(INTEGRATION_PKGS)
 
 ## test/security: run security tests against real database
 .PHONY: test/security
