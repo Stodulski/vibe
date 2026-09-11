@@ -52,13 +52,13 @@ var errSheetRefused = errors.New("leads: spreadsheet refused the lead")
 // captureOrigin tags the rows the password register form produces, so they
 // read apart from the landing page's own mailing-list signups in the same
 // spreadsheet.
-const captureOrigin = "vibe-client:registro-abandonado"
+const captureOrigin = "registro-abandonado"
 
 // captureOriginGoogle tags the rows the Google sign-up produces: the address
 // was verified by Google and prefilled, and the person left on the step that
 // asks for the phone number. It is a warmer lead than a typed address, which
 // is why the spreadsheet gets to tell the two apart.
-const captureOriginGoogle = "vibe-client:registro-google-abandonado"
+const captureOriginGoogle = "registro-google-abandonado"
 
 const (
 	sourceRegister = "register"
