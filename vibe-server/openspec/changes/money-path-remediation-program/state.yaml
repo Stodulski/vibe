@@ -1,0 +1,129 @@
+# DAG state for the remediation program's planning umbrella.
+#
+# This folder holds only the exploration that decides how the work is cut. The
+# 37 changes it defines get their own folders under openspec/changes/ as each
+# one is proposed.
+
+change: money-path-remediation-program
+kind: program-umbrella
+created: 2026-08-20
+
+session:
+  execution_mode: auto
+  artifact_store: openspec
+  delivery_strategy: auto-chain
+  review_budget_lines: 1200
+
+phases:
+  explore:
+    status: complete
+    artifact: exploration.md
+    note: >
+      Produced by the sdd-explore phase agent, which had no filesystem write
+      capability and persisted to Engram (sdd/money-path-remediation-program/explore,
+      id 21). The orchestrator materialized it into this folder. Gate verdict:
+      the phase returned status=partial for that reason alone; content passed
+      every other gate check.
+  propose:
+    status: scoped
+    note: >
+      Scope decided by the user: full SDD runs only on the changes carrying
+      genuine design ambiguity. The other 31 are understood fixes and are
+      delivered directly, grouped by phase, each with mutation-verified test
+      evidence. SDD's value is reducing ambiguity; writing a proposal, spec and
+      design for a decision already made is ceremony, not traceability.
+
+# Route per change. `sdd` = full six-phase cycle. `direct` = delegated
+# implementation with mutation-verified tests, no SDD artifacts.
+routes:
+  sdd:
+    - name: cmd-api-new-application-extraction
+      status: archived
+      date: 2026-08-21
+      note: >
+        Completed and archived. All 25 tasks checked; 8 gates green; pass-with-warnings
+        verdict with documented gap on wrong-SOURCE compile check (by design decision,
+        crosses every module, pushed to follow-up). Slice-2 catalogue confirmed;
+        integration suite now executable.
+    - name: notification-delivery-durability
+      status: largely-delivered-directly
+      note: >
+        Substantially delivered outside SDD cycle during this session. May require
+        follow-up SDD if architectural decisions remain open.
+    - name: mp-oauth-credential-integrity
+      status: archived
+      date: 2026-08-22
+      note: >
+        Encryption at rest. Keying, rotation, migration completed as two chained
+        slices (plaintext-guard-relocation, then AEAD-encryption). Spec requirement 2
+        overclaim resolved (migration 009 is schema-constraint-only; plaintext conversion
+        is cmd/mpcredkey seal, a required operator step). Prerequisite for
+        refund-durability-and-collector-integrity now met.
+    - name: refund-durability-and-collector-integrity
+      status: archived
+      date: 2026-08-23
+      note: >
+        Three slices (collector verification ~85L, per-arm seller-token refusal ~140L,
+        marker+sweep ~335L). All 64 tasks complete. Verification PASS; one WARNING
+        closed in commit 674ebe3. Follows mp-oauth-credential-integrity. Both properties
+        (sweep unrepresentable, owesRefund single expression) verified by mutation tests.
+        Removes platform-token fallback from three refund call sites; preference-expiry
+        stays unchanged. Integration suite tests concurrent sweep claims and false-positive
+        safety against out-of-window client cancellations.
+    - name: tenant-isolation-integrity
+      status: largely-delivered-directly
+      note: >
+        Largely delivered via migration 006 during this session. Schema constraints
+        work captured separately.
+    - name: operational-observability
+      status: delivered-directly
+      note: >
+        Delivered outside SDD cycle (commit a141155 during this session).
+    - name: booking-link-credential-hardening
+      status: archived
+      date: 2026-08-23
+      note: >
+        Two slices (mint/store/emit, then switch authorization). All 50 tasks complete.
+        Verification PASS; one WARNING closed in commit a1a13ed. Product decision
+        taken 2026-08-21: expiry, not rotation. Design falsified the ground
+        for the invariant (CanRefund deadlines do not dominate booking end for
+        cancellationHours=0); replacement is a tautology, verified by mutation
+        test. Parameter-name requirement carries two regression scenarios proving
+        the scrubber works with ?token= and fails with ?booking_token=; second
+        regression is load-bearing. Public response bodies drop the primary key
+        and ten other fields in PublicBook; frontend coordination required before
+        slice 2 lands live.
+  direct:
+    count: 31
+    note: >
+      Everything else. Grouped by the exploration's phases and delivered in the
+      order money -> authorization -> correctness -> lower-consequence -> sweep.
+
+findings_total: 108
+changes_defined: 37
+collapse_ratio: "2.9:1 aggregate, 3.1:1 within the collapsed set"
+
+# Product decisions taken by the owner on 2026-08-21. Recorded here because the
+# changes they unblock have no folder yet, and a decision that lives only in a
+# conversation is a decision nobody can find later.
+product_decisions:
+  - change: booking-link-credential-hardening
+    question: How is a booking link shared with a client protected?
+    decision: expiry
+    unblocked: 2026-08-21
+    reason: >
+      Expiry does not depend on anything firing to protect the link. A link
+      leaked into a group chat, a forwarded email or a screenshot stops working
+      on its own, without anyone having to notice the leak. Rotation only helps
+      when the booking changes, and the common case is a booking that never
+      does — so a leaked link would stay live indefinitely.
+
+  - change: whatsapp-reply-handling
+    question: Was reply-driven cancellation descoped, or lost in the modularization?
+    decision: descoped
+    resolved: 2026-08-21
+    outcome: >
+      normalizeResponse, removeAccents and their tests deleted in ea617a0. The
+      message-extraction switch stays so an operator can still see that clients
+      are replying on this channel. No further work; not a change in this
+      program.

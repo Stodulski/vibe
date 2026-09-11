@@ -1,0 +1,35 @@
+# SDD configuration for vibe-server.
+#
+# Created for the 108-finding remediation program that followed two adversarial
+# review rounds (13 reviewers). See changes/money-path-remediation-program/.
+
+project: vibe-server
+module: github.com/stodulski/vibe-server
+stack: go
+
+commands:
+  test: "make test"
+  test_integration: "make e2e-db-up && make test/integration"
+  lint: "golangci-lint run"
+  build: "go build ./..."
+  generate: "make sqlc"
+
+rules:
+  # Repository conventions live in CLAUDE.md at the repo root and are mandatory.
+  conventions: CLAUDE.md
+
+  # A fix whose absence no test can detect is not done. Where a fix cannot be
+  # unit-tested, name the integration test that proves it — a real-database
+  # harness exists behind the `integration` build tag.
+  evidence: mutation-verified
+
+  # Never hand-edit internal/db: it is sqlc-generated. Edit db/queries/*.sql and
+  # run `make sqlc`.
+  generated_paths:
+    - internal/db/
+
+session:
+  execution_mode: auto
+  artifact_store: openspec
+  delivery_strategy: auto-chain
+  review_budget_lines: 1200

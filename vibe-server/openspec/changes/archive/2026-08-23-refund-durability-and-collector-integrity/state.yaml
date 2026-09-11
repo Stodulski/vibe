@@ -1,0 +1,236 @@
+change: refund-durability-and-collector-integrity
+created: 2026-08-22
+
+session:
+  execution_mode: auto
+  artifact_store: openspec
+  delivery_strategy: auto-chain
+  review_budget_lines: 800
+
+phases:
+  explore:
+    status: complete
+    artifact: exploration.md
+    note: >
+      Third exploration in this program whose phase agent had no write tool; it
+      persisted to Engram and the orchestrator materialized the file. Worth
+      fixing in the agent's tooling rather than paying the round trip again.
+
+  propose:
+    status: complete
+    artifact: proposal.md
+    decisions:
+      - item: getSellerToken policy
+        verdict: per-arm refusal through the existing seam
+        reason: >
+          internal/data/mpcred.go already returns the three arms as typed
+          sentinels and getSellerToken throws that away for "". Stop discarding
+          it and let recordRefundFailure/transientProviderFailure classify, so no
+          second rule appears beside the one the codebase already has.
+
+          Decisive against reclassify-at-record-time: it is the only option whose
+          safety depends on the unconfirmed MercadoPago rejection premise. If
+          MercadoPago accepts a platform-token refund, that option issues a
+          wrong-account refund and the other two do not.
+      - item: durability
+        verdict: durable intent marker in the cancel transaction, plus a sweep that consumes it
+        reason: See sweep_alone_is_unsound below — the marker is what makes the sweep safe.
+      - item: collector check
+        verdict: in, moved ahead of every writing branch
+        reason: No tradeoff found. ~85 lines with tests.
+      - item: amount check
+        verdict: explicitly NOT moved with the collector check
+        reason: >
+          process.go:276-283 documents that the cancelled branch records
+          MercadoPago's TransactionAmount on purpose: a deposit that moved since
+          checkout would fail the expected-amount comparison and a legitimate
+          refund would be refused. Flagged because an implementer reading "apply
+          the checks before the branch writes" would plausibly move both.
+
+  spec:
+    status: complete
+    artifacts:
+      - specs/payment-collector-verification/spec.md
+      - specs/refund-intent-durability/spec.md
+      - specs/seller-credential-integrity/spec.md
+    note: >
+      Three capabilities, one file each, per the openspec convention — the
+      orchestrator's brief said "<capability>" in the singular and the agent
+      followed the convention instead, correctly.
+
+      It scoped the amendment to the archived seller-credential requirement more
+      finely than the brief did, and the finer scope is right. The brief said the
+      requirement is modified; the spec says it is superseded ONLY for
+      getSellerToken's three sites, and left loud-and-continue standing for
+      cancel.go:104 and cron.go:171. Orchestrator-verified: refund.go:247 commits
+      ClaimRefund before :273 calls getSellerToken, so a refusal there is queued;
+      cancel.go:104 never calls getSellerToken at all — it is preference expiry,
+      with no claim and no money moving. Amending the whole block would have told
+      the next change that preference expiry should refuse too.
+
+      It also corrected an orchestrator line number: RefundPayment starts at
+      mp.go:477, not :467, and used its own verified numbers rather than repeat
+      the offset.
+
+  design:
+    status: complete
+    artifact: design.md
+    note: >
+      One nullable column, bookings.refund_intent_at, serving as both marker and
+      lease. It rides the optimistic-concurrency UPDATE that already writes
+      payment_status, so it costs no extra round trip.
+
+      The sweep is safe because of what its query CANNOT NAME. The predicate is
+      refund_intent_at IS NOT NULL AND refund_intent_at < NOW() - interval;
+      status, payment_status, deposit_amount and payments are absent from it, so
+      no value of any of them can pull a row in. That is unrepresentable rather
+      than unlikely, which is what the brief asked for.
+
+      And the second property is stronger than the first: the marker is written
+      from the SAME expression that decides whether AutoRefundIfPaid runs.
+      public.go's declining branch is literally !owesRefund, so an edit that
+      marks a declined cancellation is the same edit that refunds it. One
+      expression cannot drift from itself.
+
+  tasks:
+    status: complete
+    artifact: tasks.md
+    note: >
+      77 tasks, 21 phases, three slices. Every design file:line was re-verified
+      against live source before authoring; no drift found.
+
+      Three points the design stated tersely were made explicit by source-tracing
+      rather than left for the implementer to rediscover: the four non-claim exit
+      branches of AutoRefundIfPaid that each need the marker cleared; the exact
+      line where the in-memory fix belongs (actions.go:139, found by grepping the
+      existing paymentStatusAfter idiom, not derivable from the design); and that
+      RefundIntentStore needs no new store in cmd/api/app.go, because Go's
+      structural satisfaction means d.models.Bookings already qualifies.
+
+      The sharpest of them: owesRefund must be ONE shared boolean feeding both
+      the marker write and the refund dispatch in each cancel handler. That is
+      what makes the design's safety property hold by construction rather than by
+      two conditions staying in sync — and two conditions do not stay in sync.
+
+review_workload:
+  estimated_changed_lines: 560   # 85 + 140 + 335 across three slices
+  chained_prs_recommended: true
+  budget_risk: medium            # slice 3 alone approaches the 400 base
+  decision_needed_before_apply: false
+
+chain_strategy: stacked-to-main
+chain_strategy_reason: >
+  Unchanged from both archived changes and for the same reason: sequential
+  commits on one branch, no remote, no open pull requests, so each slice is the
+  next commit against the same line of history.
+
+# Design deviation from the proposal, argued rather than applied silently, and
+# orchestrator-verified. The proposal offered "hoist the collector check above
+# process.go:35 so it runs once". That does not achieve once: the recursion at
+# :125 re-enters processApprovedPayment from the top, so the check runs twice
+# wherever it sits. Confirmed in source. What achieves once is replacing that
+# recursion with a direct refundCancelledBookingPayment call, which is exactly
+# what the re-entry reaches.
+design_deviations:
+  - item: collector check placement
+    proposal_said: hoist above process.go:35
+    design_does: place at :44 and replace the recursion at :125
+    verdict: correction, accepted
+  - item: MISSING/UNREADABLE still spend the retry budget
+    reason: >
+      After per-arm refusal a retry costs one local read and no MercadoPago
+      call, the credential alert already fired at t=0, and a credential
+      re-linked inside the window finishes the refund by itself. Immediate
+      exhaustion would need a third classification the codebase does not have —
+      the second rule the proposal forbade.
+
+# The proposal's real finding, and the reason the exploration's preferred shape
+# would have introduced a money bug. Orchestrator-verified against source.
+#
+# A reconciliation sweep cannot tell a LOST refund from a DELIBERATELY DECLINED
+# one, because both produce the identical row: status='cancelled',
+# payment_status='deposit_paid', no attempt row.
+#
+#   internal/bookings/public.go default branch -> RefundNotEligible, "cancelled
+#   outside the complex's refund window". No claim, no attempt row. Confirmed.
+#
+#   internal/bookings/actions.go:96-99 -> staff cancellations refund REGARDLESS
+#   of the window, and the comment says that asymmetry is the product's own
+#   decision, not an oversight. Confirmed.
+#
+# So a sweep scanning that row shape would refund every out-of-window client
+# cancellation — money the venue is entitled to keep by the product's own policy.
+# The sweep is the consumer of the marker, never a substitute for it, and it
+# bounds how long an orphan stays invisible rather than closing the crash window.
+sweep_alone_is_unsound: true
+
+# Two more constraints the proposal proved, both orchestrator-verified.
+verified_constraints:
+  - claim: payment_status='refund_pending' cannot be the intent marker
+    verdict: confirmed
+    evidence: >
+      refundable() at internal/payments/refund.go:320-323 reads refund_pending as
+      "a claim is already committed" and returns RefundQueued. The marker would
+      make AutoRefundIfPaid decline the very refund it exists to guarantee.
+  - claim: the exploration was mechanically wrong about the cancel write
+    verdict: confirmed, and it matters
+    evidence: >
+      The exploration said the cancel write does not touch payment_status.
+      BookingModel.Update writes it (internal/data/bookings.go:334) — it writes
+      back the unchanged in-memory value. The end state the exploration described
+      is right; the mechanism is not. The difference is what makes the marker one
+      added column riding an existing optimistic-concurrency UPDATE rather than a
+      new statement.
+
+# The exploration corrected the orchestrator's own launch brief, and the
+# correction leads the artifact. Recorded here so it cannot be lost downstream.
+corrected_framing:
+  claim_made_by_orchestrator: >
+    That falling back to the platform token means the platform pays out of its
+    own MercadoPago account and someone reconciles it later.
+  correction: >
+    Wrong for the refund call sites. mp.go:467 RefundPayment presented with an
+    empty seller token is rejected by MercadoPago, because the platform is not
+    the collector of a seller-scoped payment. The wrong-payee hazard lived at
+    mp.go:352 CreatePreference, where an empty token was silently accepted, and
+    the prerequisite change closed it.
+  qualification_added_by_orchestrator: >
+    Nobody in this chain has had network access to MercadoPago. The rejection is
+    inferred from its marketplace authorization model — the same model that makes
+    GetPayment(ctx, id, "") legitimately work for the app owner. A strong
+    inference, not an observation. Design must treat it as a premise to confirm,
+    and if it is wrong the severity of everything else changes.
+  what_fail_closed_actually_buys: >
+    Not fund protection. A credential-unavailable refusal is not classified by
+    transientProviderFailure, so it spends the full 1m/5m/15m/1h/4h budget —
+    about 5h20m — before alerting. For MISSING and UNREADABLE those hours are
+    guaranteed-doomed: retrying cannot connect an account or decrypt a bad key.
+
+# Orchestrator-verified against source before the artifact was accepted.
+verified_by_orchestrator:
+  - claim: The cancelled-booking branch returns before both money checks
+    verdict: confirmed
+    evidence: >
+      internal/payments/process.go:62 returns refundCancelledBookingPayment,
+      ahead of the amount check at :66 and collectorMatchesComplex at :92.
+      Unchanged from the program's original finding.
+
+# Worse than the program's one-line scope said, and the reason is not theft.
+collector_bypass_severity:
+  fund_loss: false
+  reason: MercadoPago's own collector check blocks the wrong-payee refund
+  actual_defect: >
+    A fictitious payment row is durably attached to a victim complex and booking;
+    the booking goes to payment_status='refund_pending' and stays there once the
+    retry budget exhausts, because a collector mismatch is permanent rather than
+    transient. No automatic recovery exists. The exhausted attempt fires the same
+    REFUND EXHAUSTED and MANUAL REFUND OWED alerts genuine cases use, pointing an
+    operator at a venue that received nothing.
+  bar_to_reach: >
+    A booking id already cancelled at the target complex. Client cancellations
+    and the fifteen-minute expiry cron produce those routinely.
+
+open_questions_for_design:
+  - getSellerToken policy: one uniform refusal, per-arm handling, or reclassify at record time
+  - durability: reconciliation sweep, one transaction, or a durable intent marker
+  - collector: apply the existing check before the cancelled branch writes — no tradeoff found

@@ -1,0 +1,314 @@
+change: booking-link-credential-hardening
+created: 2026-08-23
+
+session:
+  execution_mode: auto
+  artifact_store: openspec
+  delivery_strategy: auto-chain
+  review_budget_lines: 400   # program base for this change; no 2x modifier
+
+phases:
+  explore:
+    status: complete
+    artifact: exploration.md
+    note: >
+      Fourth exploration in this program whose phase agent had no write tool. It
+      persisted to Engram and the orchestrator materialized the file. No longer
+      an incident worth noting per-change — a standing gap in the agent's
+      tooling.
+
+  propose:
+    status: complete
+    artifact: proposal.md
+    decisions:
+      - item: replace vs accompany
+        verdict: replace
+        reason: >
+          Agreed with the exploration, plus a reason it did not have: there is a
+          THIRD construction site. internal/mp/mp.go:304,306 builds
+          ?booking_id= into MercadoPago's back_urls — the URL handed to a third
+          party, which then redirects the client's browser to it. Under
+          accompany, all three sites keep emitting the primary key.
+
+          Held itself to a precision worth keeping: replace does NOT mean the id
+          never leaves the process. mp.go keeps sending it as external_reference
+          and metadata.booking_id, correctly — that is correlation for a
+          signature-authenticated webhook, not a credential.
+      - item: token lifetime
+        verdict: booking end plus a buffer, not a flat TTL
+        reason: >
+          The link is minted once and never re-sent (the 2h reminder carries no
+          cancel link), and there is NO maximum-advance-booking limit in config.
+          So a flat TTL is either long enough not to be an expiry at all, or it
+          kills links for exactly the cohort with the most time to change their
+          mind.
+
+          The invariant it buys is the product answer: both CanRefund deadlines
+          fall strictly before booking start, hence before end+buffer, so token
+          expiry can never block a refund-eligible cancellation BY
+          CONSTRUCTION rather than by tuning a number.
+      - item: expired-link response
+        verdict: 410 Gone, distinguishable, with a stated recourse
+        reason: >
+          All three routes answer a bare 404 today, which reads as a bug and
+          becomes a venue support call — a cost this change would otherwise
+          create. The enumeration objection does not apply: at 122+ bits, only
+          someone who already held a valid token can observe the distinction.
+      - item: Sentry scrubber work
+        verdict: in scope, and cheaper than expected
+        reason: See scrubber_finding below.
+  spec:
+    status: complete
+    artifact: specs/booking-link-credential/spec.md
+    note: >
+      Seven requirements. Two worth keeping in mind.
+
+      The invariant is written as an inequality, token_expiry >= booking_end,
+      with the explicit instruction that a future edit to either refund deadline
+      or to the expiry offset must preserve it. A tuned number breaks quietly
+      when somebody adjusts it; an inequality in the spec breaks loudly.
+
+      The parameter-name requirement carries TWO regression scenarios: one
+      proving ?token= is redacted, and one proving ?booking_token= is NOT. The
+      second is the load-bearing one — a test that only checks the working name
+      passes after a rename, because the rename would move the test too.
+
+  design:
+    status: complete
+    artifact: design.md
+    note: >
+      256-bit random token, SHA-256 at rest, in a new 1:N booking_link_tokens
+      table shaped after email_verification_tokens. Rejected the house
+      uuid.New() idiom for a reason specific to this change: a UUID-shaped token
+      would be indistinguishable from a booking id in any URL or log, which is
+      the confusion the change exists to end.
+
+      URL construction moves OUT of internal/mp into a leaf package. mp.go loses
+      FrontendURL and ComplexSlug entirely and builds no client-facing URL at
+      all; BookingID stays only for external_reference and metadata.
+
+# The design falsified the ground the proposal (and the orchestrator, to the
+# owner) gave for this change's central invariant. Orchestrator-verified.
+
+
+# The sharpest finding of the round, and it is free.
+#
+# cmd/api/sentry.go's "named secret" rule already redacts ?token=<value> in
+# request.URL and QueryString. But only if the parameter is named EXACTLY
+# `token`: the word boundary before that alternative cannot match inside `booking_token`,
+# because an underscore is a word character. The code says this about itself in
+# its own comment, orchestrator-verified.
+#
+# So the naming choice does the scrubber work for free — and a well-meant rename
+# to booking_token silently undoes it, with no visible signal. That is why the
+# name belongs in the spec with a regression test rather than in a comment.
+#
+# The proposal explicitly REJECTED adding a UUID rule to the scrubbers on its own
+# merits: it would redact every legitimate diagnostic booking id in every
+# captured error string, which is what those ids are for. And cron.go:185 is
+# deliberately untouched — it becomes harmless because the id stops being a
+# credential, not because the line changes.
+  tasks:
+    status: complete
+    artifact: tasks.md
+    note: >
+      50 tasks, 17 phases, two slices. The slice boundary is enforced
+      structurally rather than by instruction: the helper hardcodes
+      QueryParam = "booking_id" with an inline comment saying slice 2 flips it,
+      and only one task in slice 2 does. A reader cannot accidentally do both.
+
+      Every citation is a function name, not a line number. Five stale line
+      references have been fixed in this program.
+
+      Tooling note: the agent reported no CodeGraph index in this tree and fell
+      back to grep. The index exists at .codegraph/ — orchestrator-verified. The
+      verification it did was sound, just slower. Worth knowing that the tool is
+      not reaching subagents reliably.
+
+review_workload:
+  estimated_changed_lines: 410   # 230 slice 1 + 180 slice 2
+  chained_prs_recommended: true
+  budget_risk: medium            # as two slices; high as one unit
+  decision_needed_before_apply: false
+
+chain_strategy: stacked-to-main
+chain_strategy_reason: >
+  Unchanged from all three archived changes: sequential commits on one branch,
+  no remote, no open pull requests.
+
+scrubber_finding: naming-the-param-token-is-the-fix
+
+# The proposal refuted a claim the exploration made AND the orchestrator
+# repeated to the owner as fact.
+refuted_claim:
+  claim: >
+    That a query string rides into Referer headers and CDN logs in a way a path
+    segment does not.
+  verdict: wrong, and dropped rather than repeated
+  reason: >
+    Referer carries the full URL including path and query, subject to
+    Referrer-Policy equally for both, and access logs record the whole request
+    line. The replace-versus-accompany case stands on the third construction
+    site and the double-duty framing without it.
+
+# Two things the proposal added beyond its brief, both verified negatives worth
+# keeping.
+proposal_additions:
+  - item: rescheduling does not exist
+    detail: >
+      Staff Update accepts only status, payment_status, notes and version, so a
+      stored expires_at cannot go stale today. That makes store-versus-derive a
+      free choice. Recorded as the coupling to revisit if a reschedule route is
+      ever added.
+  - item: the public responses return the primary key
+    detail: >
+      public.go:304,409,468,633. Replacing the credential on the way in while
+      still emitting it on the way out would be half a fix, so stopping that is
+      scoped in — and it is a frontend-visible contract change, named as such.
+
+falsified_invariant_ground:
+  claimed: >
+    Both CanRefund deadlines fall strictly before booking start, so a token
+    living until booking end plus a buffer dominates them by construction.
+  verdict: false for a legal configuration
+  evidence: >
+    internal/pricing/refund.go:36 returns true unconditionally when
+    cancellationHours <= 0, and migration 006 constrains the column to
+    0..168 — so 0 is legal and reachable from the settings screen. For such a
+    complex there is no deadline at all. Separately, the grace branch is
+    anchored to CreatedAt, not to booking start, so it was never a
+    start-relative deadline either.
+  replacement: >
+    Stop comparing numbers. LinkLive returns
+    now.Before(expiresAt) || CanRefund(...), four lines below CanRefund in the
+    same file. The right-hand term is the same call the refund dispatch makes,
+    so A implies (A or B) for every value of every number in that file —
+    including cancellationHours == 0, a negative buffer, and any future edit.
+    Tautology rather than arithmetic coincidence.
+  consequence_to_tell_the_owner: >
+    A complex with cancellation_hours = 0 gets non-expiring links, which is what
+    that setting already means for refunds. Reachable from the settings screen
+    today.
+
+# A second correction, also verified, that moves a risk rather than removing it.
+sentry_exposure_is_prospective:
+  finding: >
+    The exploration said any error on those three routes ships booking_id to
+    Sentry verbatim. There is no capture path on them today: both
+    sentry.CaptureMessage calls in internal/bookings live in PublicBook and emit
+    complex_id, never booking_id, and no sentryhttp handler sits in the chain.
+    scrubRequest is defensive infrastructure for a path that does not exist yet.
+  effect_on_scope: >
+    Does not weaken the parameter-name requirement — it moves the risk from
+    present to future, which is the cheaper time to fix it. The design adds a
+    test asserting the three routes capture nothing at all.
+  but: >
+    httpx errors.go:37 logs r.URL.RequestURI(), query string included, to slog.
+    So the token WILL appear in plaintext in server logs on any error response.
+    Out of this change's scope, named rather than left to be discovered.
+
+# Forced by hash-at-rest, and the proposal did not see it.
+two_live_tokens:
+  why: >
+    Hashing at rest makes the plaintext unrecoverable, so payments/process.go —
+    running hours later in a different request — cannot read back a token
+    PublicBook minted. Either the plaintext becomes reversible at rest, or every
+    emission site mints its own row.
+  consequence: >
+    A public booking ends with two live tokens: the checkout back_url and the
+    confirmation email. The checkout one is deliberately not revoked at
+    confirmation, because MercadoPago redirects the browser to the success URL
+    at roughly the moment the webhook fires.
+  alternative_if_the_owner_wants_one: reversible at rest via the existing crypto.Keyring
+
+# Design deviation, argued rather than applied silently.
+design_deviations:
+  - item: what is inside slice 1
+    proposal_said: >
+      Slice 1 is purely additive and emits ?token= while the routes still read
+      booking_id.
+    design_says: >
+      Both cannot hold — emitting ?token= against routes that read booking_id
+      kills every link for the duration of the slice. Slice 1's helper still
+      emits booking_id; the credential argument is an opaque string, so
+      signatures do not move, and slice 2 flips one constant. Slices were not
+      reordered; what is inside slice 1 was corrected.
+  - item: the expiry predicate
+    detail: >
+      The proposal cited the existing token tables' WHERE ... AND expires_at >
+      NOW() as the shape to copy. Adopting it makes the 410 unrepresentable —
+      which is exactly why auth/handlers.go can only answer a generic "invalid
+      or expired". The lookup carries no expiry predicate; Go decides.
+
+product_decision:
+  question: How is a booking link shared with a client protected?
+  decision: expiry
+  decided_by: owner
+  decided: 2026-08-21
+  status: settled — this change implements it, it does not reopen it
+
+# What the booking link actually is, recorded because the name suggests a
+# feature and it is not one.
+what_it_is: >
+  The booking's own UUID primary key, used as a bearer credential. Three public
+  routes — /api/v1/book/{status,cancel-info,cancel} — take booking_id and
+  nothing else, parse it, and call GetByID. That is the whole authorization.
+  Whoever holds the UUID owns the booking as far as the system is concerned.
+
+# Orchestrator-verified against source before the artifact was accepted.
+verified_by_orchestrator:
+  - claim: No Sentry scrubber rule matches a bare hyphenated UUID
+    verdict: confirmed
+    evidence: >
+      cmd/api/sentry.go's rules cover JWTs, APP_USR/TEST/TG tokens, bearer and
+      basic values, named secrets, emails, phones and 13-19 digit runs. None
+      matches a UUID. request.URL and request.QueryString pass through those
+      same rules at :188-189, so booking_id reaches Sentry verbatim on any error
+      raised by those three routes.
+  - claim: bookingCeiling does not cover the three routes
+    verdict: confirmed
+    evidence: >
+      ratelimit.go:98 matches r.URL.Path == "/api/v1/book" exactly, POST only.
+      status, cancel-info and cancel fall through to the general per-IP ceiling.
+      Close to irrelevant to the threat model — a UUIDv4 is unguessable, so this
+      bounds abuse of an already-leaked id rather than discovery of one.
+
+# The finding that reframes the change.
+#
+# The scrubber list is evidence somebody already reasoned carefully about what
+# counts as a secret here. A booking id was never on it — correctly, because for
+# every other use in this codebase it is a primary key and nothing more.
+#
+# The defect is not a careless list. It is that ONE VALUE IS A PRIMARY KEY AND A
+# BEARER CREDENTIAL AT THE SAME TIME, and no single handling policy can be right
+# for both. That is why replace beats accompany: it ends the double duty rather
+# than gating it.
+core_finding: primary-key-doing-double-duty
+
+blast_radius:
+  attacker_financial_gain: none
+  reason: >
+    AutoRefundIfPaid resolves the booking's own stored payment and returns money
+    to whoever originally paid, through the original method. A leaked link
+    cannot redirect money.
+  victim_harm: denial, asymmetric across the refund window
+  inside_window: refunded automatically, but loses a slot they never gave up
+  outside_window: loses the slot AND the deposit, with no recourse
+  capped_at: >
+    One event. PublicCancel already refuses a second cancel on a terminal
+    booking, and ClaimRefund's atomic predicate — hardened by the archived
+    refund-durability-and-collector-integrity change — prevents a double refund.
+
+open_questions_for_proposal:
+  - mechanism: replace booking_id with the token, or accompany it (exploration recommends replace)
+  - lifetime: tied to the booking's date with a buffer, or a flat TTL from creation
+  - expired_link_ux: >
+      What a holder of an expired link sees. A bare 404 is a dead end with no
+      recourse — it reads as a bug and becomes a support call to the venue.
+      Product-adjacent; surfaced, not decided.
+
+acceptance_criterion_design_must_carry: >
+  What Sentry sees on these three routes AFTER the change. Neither mechanism
+  closes that gap on its own: if the new token is not added to the scrubber
+  rules, or an error path logs the resolved booking_id instead of the token, the
+  fix is cosmetic.

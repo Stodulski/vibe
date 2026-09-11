@@ -1,0 +1,211 @@
+change: mp-oauth-credential-integrity
+created: 2026-08-21
+
+session:
+  execution_mode: auto
+  artifact_store: openspec
+  delivery_strategy: auto-chain
+  review_budget_lines: 800
+
+phases:
+  explore:
+    status: complete
+    artifact: exploration.md
+    note: >
+      The phase agent had no filesystem write tool, same as the parent program's
+      exploration, so it persisted to Engram and the orchestrator materialized
+      the file. Content passed every other gate check.
+
+      Four load-bearing claims were re-verified against source before the
+      artifact was accepted; all four hold and one was understated. See the
+      artifact's Orchestrator verification section.
+
+  propose:
+    status: complete
+    artifact: proposal.md
+    scope_decisions:
+      - item: UNIQUE on mp_user_id
+        verdict: out
+        reason: >
+          Argued down rather than forgotten. GetComplexesByOwner means one owner
+          can hold several venues, and connecting one MercadoPago seller account
+          to both is ordinary, not a defect. A global UNIQUE refuses exactly that
+          legitimate case. The genuine invariant is "unique within one owner",
+          which is a product decision nobody has taken.
+      - item: MercadoPago token revocation on Disconnect
+        verdict: out
+        reason: >
+          Honest deferral: the phase agent had no network tool and could not
+          confirm the endpoint exists. Scoping a deliverable whose feasibility is
+          unverified imports an unbounded unknown. It is also incident response
+          for a leak that already happened, and with nothing deployed there is no
+          captured token to revoke — unlike the rotation path, which is only
+          cheap before the first deploy. Follow-up's first task is checking the
+          live docs.
+      - item: recording token expiry
+        verdict: out
+        reason: >
+          A 12h refresh against a ~6-month lifetime is a ~360x margin. The real
+          signal is whether the cron ran at all, which operational-observability
+          already delivers. Cost is a migration plus a sqlc regeneration carrying
+          the known stray WebhookEvent diff, inside a change whose reviewable
+          core is the guard move.
+      - item: Sentry on the inline refresh-persist failure
+        verdict: in
+        reason: >
+          MercadoPago rotates the refresh token on use, so a lost persist kills
+          the stored one for up to 12h with no alert. Three lines, in a function
+          this change already rewrites.
+
+  spec:
+    status: complete
+    artifact: specs/seller-credential-integrity/spec.md
+    note: >
+      10 requirements. The spec agent re-verified all eight predicates the
+      proposal listed and found no discrepancy. It also declined to follow a
+      prompt instruction that contradicted the proposal — the orchestrator asked
+      for "alert loudly and refuse" at existing-obligation sites, the proposal
+      says keep the documented loud-but-continue policy, and the agent matched
+      the proposal and flagged the conflict. That was correct: obeying silently
+      would have smuggled a behaviour change into a storage change.
+
+  design:
+    status: complete
+    artifact: design.md
+    note: >
+      Chose to UNEXPORT the raw fields on data.Complex and data.CronBooking
+      rather than relocate the emptiness guards. Writing
+      complex.MPAccessToken != "" stops being a lapse of judgement and becomes a
+      compile error, and the missing json:"-" on CronBooking closes by
+      construction rather than by tag. Needs no store-interface change: the
+      accessors live on the value.
+
+      AES-256-GCM from stdlib, zero new dependencies. The envelope carries a key
+      id so rotation needs no window, and the AAD binds each ciphertext to its
+      row AND its column, so an attacker holding UPDATE cannot copy a token
+      between complexes or between the two columns. A nil keyring errors on
+      every Seal and Open and never passes plaintext through — "silently not
+      encrypted" is the exact failure class this change exists to remove.
+
+  tasks:
+    status: complete
+    artifact: tasks.md
+    note: >
+      24 phases. Two judgement calls worth keeping.
+
+      Unexporting the fields is Phase 11, LAST in slice 1, as enforcement rather
+      than as the opening move. The nine guards relocate first; unexporting then
+      proves no consumer still reads the field directly. Unexporting first would
+      produce a wall of compile errors with no way to tell a guard apart from an
+      incidental read.
+
+      Spec requirement 6's test is split across Phase 14 and Phase 18, because
+      the credential-unreadable arm cannot be constructed in slice 1 — no
+      decryption exists yet. Split honestly rather than fabricated.
+
+# Review Workload Guard — resolved by the orchestrator, same as the archived
+# change. The tasks forecast recommends chained PRs, so auto-chain applies and
+# the split happens without asking. chain_strategy is the orchestrator's call.
+review_workload:
+  estimated_changed_lines: 650   # slice 1; slice 2 adds ~600
+  chained_prs_recommended: true
+  budget_risk: medium            # each slice under 800; combined well over
+  decision_needed_before_apply: false
+
+chain_strategy: stacked-to-main
+chain_strategy_reason: >
+  Unchanged from the archived change and for the same reason: the work is
+  sequential commits on one branch with no remote and no open pull requests, so
+  each slice is the next commit against the same line of history. A tracker
+  branch earns its keep only when child PRs need somewhere to target that is
+  not main, and there are none here.
+
+# The count kept growing every time somebody looked, which is the finding.
+# Exploration implied one guard. Proposal found eight. Design found NINE, and
+# the orchestrator verified the new one: internal/bookings/public.go:626 tests
+# MPRefreshToken != nil and :628 dereferences it into RefreshOAuthToken, so
+# under ciphertext it ships an envelope to MercadoPago as a refresh token.
+guard_sites: 9
+
+# The platform-token fallback appears FOUR times in internal/mp/mp.go, and the
+# discriminator is not the code shape — it is what MercadoPago does with a
+# platform token.
+#
+#   :352 CreatePreference        accepts and SETTLES MONEY to the platform  -> the defect
+#   :395 UpdatePreferenceExpired rejected against the wrong account         -> loud but safe
+#   :423 GetPayment              accepts CORRECTLY, by marketplace design   -> load-bearing
+#   :467 RefundPayment           rejected against the wrong account         -> loud but safe
+#
+# Only :352 changes, and by DELETING the branch rather than guarding it, so no
+# hazardous idiom is left to be copied into a fifth method.
+#
+# :423 must keep its fallback: internal/payments/webhook.go:334 passes "" on
+# purpose. Making the four consistent would silently break webhook payment
+# confirmation, which is what marks a booking paid. The design carries that as
+# an apply-time warning plus a test that fails the moment somebody tries.
+platform_token_fallback:
+  sites: 4
+  changing: 1
+  consistency_is_the_wrong_instinct: true
+
+# Findings the proposal added to the exploration, both verified by the
+# orchestrator against source.
+#
+# 1. The emptiness-means-connected pattern is EIGHT predicates, not one --
+#    including a SQL-level filter at internal/data/complexes.go:241-242
+#    (mp_refresh_token != ''), which also becomes always-true under ciphertext.
+#    That is why slice 1 relocates every guard while values are still plaintext.
+#
+# 2. data.CronBooking (internal/data/bookings.go:669-678) is a SECOND struct
+#    carrying MPAccessToken and MPRefreshToken, with NO struct tags at all. The
+#    exploration's claim that json:"-" covers the credential surfaces is true of
+#    data.Complex only.
+#
+#    Scoped honestly: CronBooking is never marshalled, never returned in a
+#    response and never audited -- verified, it is read only by the cron paths --
+#    so this is a latent risk rather than a live leak. It matters because it is a
+#    second place credentials are read into memory, so the decrypt work has to
+#    cover it too.
+#
+# 3. Correction to the exploration: the four writes are 3+1, not 4.
+#    DisconnectMercadoPago calls ClearMPCredentials, not UpdateMPCredentials.
+#    Immaterial to the argument, recorded so the count is not repeated wrong.
+
+# The constraint that shapes the whole change, recorded here so it survives
+# even if nobody reads the exploration end to end.
+#
+# internal/mp/mp.go:352 initialises the request token to the PLATFORM's own
+# access token and only overrides it when SellerAccessToken is non-empty. An
+# empty seller token is therefore not an error path — it is the default, it
+# logs nothing, and the preference settles real money into the platform's
+# MercadoPago account instead of the venue's.
+#
+# What prevents that today is internal/bookings/public.go:239, which refuses on
+# a nil or empty MPAccessToken. Once the column holds ciphertext that field is
+# non-nil and non-empty, so THAT GUARD PASSES ON EXACTLY THE INPUT IT EXISTS TO
+# REJECT. Encryption cannot be treated here as a transparent storage detail.
+design_constraint:
+  id: decrypt-failure-must-not-reach-createpreference
+  severity: blocking
+  statement: >
+    A decrypt failure must collapse into the same refusal the nil/empty check
+    produces today, at every call site that creates a new payment obligation.
+    Design must state where that check moves to, and prove the old guard is not
+    left checking a value that can no longer be empty.
+  cost_of_getting_it_wrong: >
+    Not a 500 the client retries. A real payment settled into the wrong account,
+    with real reversal difficulty.
+
+product_context:
+  never_deployed: true
+  note: >
+    No live seller tokens and no production data. A single decrypt-all,
+    re-encrypt-all migration is the correct shape today; staged rollouts and
+    dual-write windows are not. This stops being true on the first deploy, which
+    is the argument for building the key-rotation path now rather than later.
+
+open_questions_for_design:
+  - keying: env-var key versus a versioned keyring; exploration recommends the keyring
+  - algorithm: AES-256-GCM from stdlib, zero new dependencies; chacha20poly1305 equivalent
+  - revocation: does MercadoPago expose a token-revocation endpoint for Disconnect to call
+  - scope_call: whether the missing UNIQUE on mp_user_id belongs to this change

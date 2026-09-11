@@ -1,0 +1,116 @@
+change: cmd-api-new-application-extraction
+created: 2026-08-20
+
+session:
+  execution_mode: auto
+  artifact_store: openspec
+  delivery_strategy: auto-chain
+  review_budget_lines: 800   # per-change override of the 1200 session default
+
+phases:
+  propose:
+    status: complete
+    artifact: proposal.md
+  spec:
+    status: complete
+    artifact: specs/application-composition-root/spec.md
+  design:
+    status: complete
+    artifact: design.md
+  tasks:
+    status: complete
+    artifact: tasks.md
+  apply:
+    status: complete
+    unblocked: 2026-08-20
+    unblocked_note: >
+      Every direct-delivery agent has landed and committed; the working tree is
+      clean at 3141f86 with 29 packages green, golangci-lint at 0 issues (now
+      including the integration build tag) and make audit at exit 0. No file
+      cmd-api-new-application-extraction touches has an uncommitted writer.
+
+      Phase 0 still re-reads the tree before editing, and that is not a
+      formality: eleven commits landed while this change sat blocked, and
+      several of them moved files it rewrites. cmd/api/cron.go gained
+      cronJobs(), split out of startCronJobs(); cmd/api/main.go gained the
+      request-log sample config, the health.Dependencies literal and the
+      observedLocker wrapper; cmd/api/mock_stores_test.go gained
+      DeleteResolved; internal/realtime/hub.go had its comments rewritten.
+      The design was written against an older shape of all four.
+
+  verify:
+    status: complete
+    artifact: verify-report.md
+    verdict: pass-with-warnings
+    note: >
+      Every gate re-run independently: build clean, 29/29 packages green under
+      -race, golangci-lint 0 issues, make audit 0 reachable vulnerabilities,
+      the full integration suite and all security tests green, and
+      routes_authz_test.go a zero-line diff across all five commits.
+
+      Two gaps found and closed after the verdict rather than carried: the
+      constructor's Redis branch had never been executed by any test, and the
+      unit harness leaked the rate-limiter evictor because it never closed
+      app.shutdown. Both fixed in 926c894, the Redis one mutation-verified.
+
+      One gap accepted and written into the spec instead of closed: wrong
+      wiring SOURCE still compiles. See the requirement's own caveat block.
+
+# Evidence that arrived after the tasks phase and strengthens slice 2.
+#
+# `make test/security` was run for the first time and every test in it panics
+# before its first assertion: newIntegrationApp builds an *application literal
+# that never sets `middleware`, so routes.go:31 -> middleware.Wrap ->
+# ratelimit.go:117 dereferences nil. The whole cmd/api integration suite has
+# therefore never executed, including all of security_test.go.
+#
+# This is the same defect class as the nil *notifications.Service that broke
+# user registration: a struct field left unset because nothing forces it. It is
+# exactly what slice 2 exists to remove, and it raises that slice from
+# housekeeping to the reason the change is worth doing.
+#
+# Slice 2's rule stands unchanged: catalogue, do not fix. Whatever a suite that
+# can finally run then reveals is separate work, not this change's scope.
+slice_2_evidence:
+  observed: 2026-08-20
+  panic_site: cmd/api/testutils_integration_test.go:123 -> routes.go:31 -> ratelimit.go:117
+  suites_affected: [make test/integration, make test/security]
+
+# Review Workload Guard — resolved by the orchestrator.
+#
+# The tasks forecast reported chained PRs recommended and high budget risk, so
+# the cached auto-chain strategy applies and the split happens without asking.
+# chain_strategy was left pending by the tasks phase, correctly: it is the
+# orchestrator's to choose.
+review_workload:
+  estimated_changed_lines: 775   # slice 1; slice 2 adds ~150
+  chained_prs_recommended: true
+  budget_risk: high
+  decision_needed_before_apply: false
+
+chain_strategy: stacked-to-main
+chain_strategy_reason: >
+  All work so far lives as sequential commits on one branch with no remote and
+  no open pull requests, so each slice is the next commit against the same line
+  of history. feature-branch-chain earns its extra tracker branch only when
+  child PRs need somewhere to target that is not main; there are no PRs here to
+  target. Choosing the simpler shape now does not foreclose the other later —
+  a tracker branch can be introduced when the work is actually opened for
+  review, and the slice boundary is the same either way.
+
+slices:
+  - name: slice-1
+    scope: >
+      Split the realtime hub's constructor from its Start, add the locals-then-
+      publish constructor, repoint adapters and main.go, add the two missing
+      mock stores, repoint the unit harness, and prove the route table and its
+      authorization are unchanged.
+    boundary: end of Phase 7
+    fallback_cut: >
+      Before Phase 6 if the constructor body runs long. Accepted cost: the unit
+      harness holds a divergent copy for that interim state.
+  - name: slice-2
+    scope: >
+      Repoint the integration harness so cmd/api's integration suite can
+      construct a real application, and catalogue what it reveals.
+    rule: catalogue, do not fix
