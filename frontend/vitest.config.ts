@@ -26,7 +26,12 @@ export default defineConfig({
     // happy-dom, and four workers on a 16 GB machine got the run killed for
     // memory when anything else was running. Two workers finish in about ten
     // minutes with a 3 GB heap per worker (see `test` in package.json).
-    maxWorkers: '50%',
+    //
+    // CI is a different machine: four cores, 16 GB, and nothing else running,
+    // so it takes all of them. Each isolated file re-imports the module graph,
+    // and that import time is most of the run; more workers is the one knob
+    // that cuts it without giving up the isolation above.
+    maxWorkers: process.env.CI ? '100%' : '50%',
     clearMocks: true,
     restoreMocks: true,
     testTimeout: 10000,
