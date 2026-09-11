@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Sin dependencias: el script usa fetch y lee el .ts con el stripping de
       # TypeScript que ya trae Node. `npm ci` acá solo agregaría minutos.

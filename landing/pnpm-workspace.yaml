@@ -2,3 +2,7 @@
 # the same allowance the frontend makes.
 allowBuilds:
   esbuild: true
+# vite pins tsx 4.21, which pins esbuild 0.27 (Dependabot alert); tsx 4.23 moved
+# to esbuild 0.28.
+overrides:
+  'tsx@4': '>=4.23.13'
