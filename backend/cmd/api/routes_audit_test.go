@@ -22,8 +22,8 @@ var publicRoutes = map[string]string{
 	"GET /api/v1/public/prerender/:slug":              "server-rendered page for social and search crawlers",
 	"GET /api/v1/public/complexes/:slug":              "the public booking page for a complex",
 	"GET /api/v1/public/complexes/:slug/availability": "slot grid on the public booking page",
-	"POST /api/v1/public/leads/abandoned-registration": "captures an email typed into the register " +
-		"form before an account exists, so there is no session yet",
+	"POST /api/v1/public/leads/abandoned-registration": "captures an email left on the register form " +
+		"or the Google sign-up before an account exists, so there is no session yet",
 
 	"POST /api/v1/auth/register": "creates the account, so there is no session yet",
 	"POST /api/v1/auth/login":    "establishes the session",

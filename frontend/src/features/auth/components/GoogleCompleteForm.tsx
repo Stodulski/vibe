@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { HTTPError } from 'ky';
 import { googleCompleteSchema, type GoogleCompleteDto } from '../schemas/auth.schemas';
 import { useGoogleComplete } from '../hooks/useGoogleComplete';
+import { useAbandonedGoogleSignupLead } from './google-complete/useAbandonedGoogleSignupLead';
 import { GoogleCompleteEmailField } from './google-complete/GoogleCompleteEmailField';
 import { GoogleCompleteNameFields } from './google-complete/GoogleCompleteNameFields';
 import { GoogleCompletePhoneField } from './google-complete/GoogleCompletePhoneField';
@@ -39,7 +40,8 @@ interface GoogleCompleteFormProps {
  * validation and input.
  */
 export function GoogleCompleteForm({ profileToken, profile }: GoogleCompleteFormProps) {
-  const googleComplete = useGoogleComplete();
+  const lead = useAbandonedGoogleSignupLead(profile.email);
+  const googleComplete = useGoogleComplete({ onAccountCreated: lead.markAccountCreated });
 
   const {
     register,

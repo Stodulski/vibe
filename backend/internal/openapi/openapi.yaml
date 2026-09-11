@@ -2393,11 +2393,13 @@ paths:
     post:
       tags: [leads]
       operationId: leadsCaptureAbandonedRegistration
-      summary: Capture an email typed into the register form before it was submitted
+      summary: Capture an email from a registration that was started but never finished
       description: >-
-        Public. Designed to be called via `navigator.sendBeacon`. The only endpoint in the API
-        with an empty success body, no envelope at all. Downstream forwarding failures are
-        logged, never surfaced.
+        Public. Designed to be called via `navigator.sendBeacon`. Covers the password register
+        form (an address typed before submitting) and the Google sign-up second step (an address
+        Google verified, left before the phone number was given); `source` says which. The only
+        endpoint in the API with an empty success body, no envelope at all. Downstream forwarding
+        failures are logged, never surfaced.
       security: []
       responses:
         "202":
@@ -2418,6 +2420,11 @@ paths:
               required: [email]
               properties:
                 email: {type: string, format: email}
+                source:
+                  type: string
+                  enum: [register, google]
+                  default: register
+                  description: Which form was abandoned; it decides the row's origin in the spreadsheet.
 
   # ---------------------------------------------------------------------
   # payments

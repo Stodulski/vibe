@@ -16,12 +16,29 @@ import type { GoogleCompleteRequest } from '@/shared/types/api.types';
  * passed to `mutate()` (same pattern as `useComplexForm`), so the person
  * sees the error under the field instead of only in a toast.
  */
-export function useGoogleComplete() {
+export interface UseGoogleCompleteOptions {
+  /**
+   * Runs the moment the account exists on the server, before any state
+   * update. It lives in `mutationFn` and not in an `onSuccess` on purpose:
+   * the hook-level `onSuccess` below navigates away, and a mutate-level
+   * `onSuccess` is skipped by TanStack Query once the observer has
+   * unmounted, so a flag set there could be lost in exactly the case it
+   * exists for (see `useAbandonedGoogleSignupLead`).
+   */
+  onAccountCreated?: () => void;
+}
+
+export function useGoogleComplete(options: UseGoogleCompleteOptions = {}) {
   const t = ES_AR;
   const handleAuthSuccess = useAuthSuccessHandler();
+  const { onAccountCreated } = options;
 
   return useMutation({
-    mutationFn: (data: GoogleCompleteRequest) => authApi.googleComplete(data),
+    mutationFn: async (data: GoogleCompleteRequest) => {
+      const response = await authApi.googleComplete(data);
+      onAccountCreated?.();
+      return response;
+    },
     onSuccess: handleAuthSuccess,
     onError: (error: unknown) => {
       const status = getHttpStatus(error);

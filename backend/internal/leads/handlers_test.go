@@ -53,6 +53,40 @@ func TestCaptureAbandonedRegistration_ValidEmail_ForwardsToWebhook(t *testing.T)
 	}
 }
 
+func TestCaptureAbandonedRegistration_GoogleSource_ForwardsWithGoogleOrigin(t *testing.T) {
+	var received sheetPayload
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	h, _ := newTestHandler(t, srv.URL)
+	rr := doCapture(t, h, `{"email":"juan@example.com","source":"google"}`)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusAccepted)
+	}
+	if received.Email != "juan@example.com" {
+		t.Errorf("forwarded email = %q, want %q", received.Email, "juan@example.com")
+	}
+	if received.Origen != captureOriginGoogle {
+		t.Errorf("forwarded origen = %q, want %q", received.Origen, captureOriginGoogle)
+	}
+}
+
+func TestCaptureAbandonedRegistration_UnknownSource_Rejected(t *testing.T) {
+	h, _ := newTestHandler(t, "")
+	rr := doCapture(t, h, `{"email":"juan@example.com","source":"landing"}`)
+
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnprocessableEntity)
+	}
+	if !strings.Contains(rr.Body.String(), `"source"`) {
+		t.Errorf("body should name the source field; got %s", rr.Body.String())
+	}
+}
+
 func TestCaptureAbandonedRegistration_InvalidEmail_Rejected(t *testing.T) {
 	h, _ := newTestHandler(t, "")
 	rr := doCapture(t, h, `{"email":"not-an-email"}`)

@@ -15,6 +15,9 @@ import (
 
 type captureRequest struct {
 	Email string `json:"email"`
+	// Source names the form the person left. Empty means the password
+	// register form; see captureOrigin and captureOriginGoogle.
+	Source string `json:"source"`
 }
 
 type sheetPayload struct {
@@ -24,13 +27,35 @@ type sheetPayload struct {
 	Fecha  string `json:"fecha"`
 }
 
-// captureOrigin tags every row this handler writes, so it reads apart from
-// the landing page's own mailing-list signups in the same spreadsheet.
+// captureOrigin tags the rows the password register form produces, so they
+// read apart from the landing page's own mailing-list signups in the same
+// spreadsheet.
 const captureOrigin = "vibe-client:registro-abandonado"
+
+// captureOriginGoogle tags the rows the Google sign-up produces: the address
+// was verified by Google and prefilled, and the person left on the step that
+// asks for the phone number. It is a warmer lead than a typed address, which
+// is why the spreadsheet gets to tell the two apart.
+const captureOriginGoogle = "vibe-client:registro-google-abandonado"
+
+const (
+	sourceRegister = "register"
+	sourceGoogle   = "google"
+)
+
+// originFor maps a request's source onto the spreadsheet origin. The caller
+// has already validated the value; an empty source is the register form.
+func originFor(source string) string {
+	if source == sourceGoogle {
+		return captureOriginGoogle
+	}
+	return captureOrigin
+}
 
 // CaptureAbandonedRegistration handles POST
 // /api/v1/public/leads/abandoned-registration — the safety net for someone
-// who typed their email into the register form and left before finishing.
+// who typed their email into the register form, or signed in with Google and
+// left before giving the phone number, without finishing the account.
 // The caller (often navigator.sendBeacon during page unload) doesn't wait
 // on the response, so this always accepts a well-formed request immediately
 // and forwards to the spreadsheet webhook best-effort.
@@ -52,6 +77,7 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 	// endpoints agreeing matters more than the exact number.
 	v.Check(len(req.Email) <= 254, "email", "must not be more than 254 characters")
 	v.Check(validator.Matches(req.Email, validator.EmailRX), "email", "must be a valid email address")
+	v.Check(validator.PermittedValue(req.Source, "", sourceRegister, sourceGoogle), "source", "must be one of register, google")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -63,7 +89,7 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := h.forward(r.Context(), req.Email); err != nil {
+	if err := h.forward(r.Context(), req.Email, originFor(req.Source)); err != nil {
 		h.respond.LogError(r, err)
 	}
 }
@@ -85,11 +111,11 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 // The escaped value is what is sent, not what is stored anywhere else — nothing
 // on this path keeps the lead locally — so the apostrophe exists only in the
 // sheet, which is the one reader that needs it and does not display it.
-func (h *Handler) forward(ctx context.Context, email string) error {
+func (h *Handler) forward(ctx context.Context, email, origin string) error {
 	payload := sheetPayload{
 		Token:  h.token,
 		Email:  spreadsheet.EscapeFormulaCell(email),
-		Origen: captureOrigin,
+		Origen: origin,
 		Fecha:  time.Now().UTC().Format(time.RFC3339),
 	}
 

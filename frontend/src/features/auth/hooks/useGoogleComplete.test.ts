@@ -107,3 +107,55 @@ describe('useGoogleComplete — onSuccess', () => {
     mockNavigate.mockReset();
   });
 });
+
+describe('useGoogleComplete — onAccountCreated', () => {
+  it('runs once the server created the account, before the success path navigates', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleComplete).mockResolvedValueOnce({
+      csrf_token: 'token',
+      user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
+    });
+    const onAccountCreated = vi.fn(() => {
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    const { useGoogleComplete } = await import('./useGoogleComplete');
+    const { result } = renderHook(() => useGoogleComplete({ onAccountCreated }), {
+      wrapper: createWrapper(['/register/google']),
+    });
+
+    result.current.mutate(PAYLOAD);
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(onAccountCreated).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+  });
+
+  it('does not run when the server refused', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleComplete).mockRejectedValueOnce(await makeConsumedHttpError(409, {}));
+    const onAccountCreated = vi.fn();
+
+    const { useGoogleComplete } = await import('./useGoogleComplete');
+    const { result } = renderHook(() => useGoogleComplete({ onAccountCreated }), {
+      wrapper: createWrapper(['/register/google']),
+    });
+
+    result.current.mutate(PAYLOAD);
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(onAccountCreated).not.toHaveBeenCalled();
+  });
+
+  afterEach(async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleComplete).mockReset();
+    mockNavigate.mockReset();
+  });
+});
