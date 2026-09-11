@@ -51,9 +51,12 @@ export function useGoogleSignIn() {
         return;
       }
       // Generic message for inactive/locked accounts, same reasoning as
-      // useLogin's invalidCredentials: doesn't say which case it was.
+      // useLogin's invalidCredentials: doesn't say which case it was. Unlike
+      // useLogin, no "check your inbox" hint: Google already proved the
+      // address, so an unverified account is promoted and signs in here; a
+      // 401 on this path is never about verification.
       if (status === 401) {
-        toast.error(t.auth.invalidCredentials, { description: t.auth.checkInboxIfUnverified });
+        toast.error(t.auth.invalidCredentials);
         return;
       }
 

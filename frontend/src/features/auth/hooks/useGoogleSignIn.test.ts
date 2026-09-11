@@ -54,9 +54,9 @@ describe('useGoogleSignIn — onError', () => {
 
   it('shows the generic invalid-credentials message on a 401 (inactive/locked account)', async () => {
     await triggerGoogleSignInError(await makeConsumedHttpError(401, {}));
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.invalidCredentials, {
-      description: ES_AR.auth.checkInboxIfUnverified,
-    });
+    // No "check your inbox" hint here, unlike useLogin: Google already
+    // verified the address, so a 401 on this path is never about verification.
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.invalidCredentials);
   });
 
   it('falls back to the generic Google sign-in error on anything else (e.g. 422)', async () => {

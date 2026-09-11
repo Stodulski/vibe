@@ -28,15 +28,22 @@ export function useAbandonedRegistrationLead(step: number, getValues: UseFormGet
 
   useEffect(() => {
     if (step !== 1) return;
-    const handleAbandon = () => {
+    // A pagehide is a departure whatever the visibility state says (a
+    // bfcache unload can fire it with the document still "visible"), so it
+    // captures unconditionally; visibilitychange only counts when hidden.
+    // Same split as useAbandonedGoogleSignupLead.
+    const handleHidden = () => {
       if (document.visibilityState === 'visible') return;
       captureIfValid(true);
     };
-    document.addEventListener('visibilitychange', handleAbandon);
-    window.addEventListener('pagehide', handleAbandon);
+    const handlePageHide = () => {
+      captureIfValid(true);
+    };
+    document.addEventListener('visibilitychange', handleHidden);
+    window.addEventListener('pagehide', handlePageHide);
     return () => {
-      document.removeEventListener('visibilitychange', handleAbandon);
-      window.removeEventListener('pagehide', handleAbandon);
+      document.removeEventListener('visibilitychange', handleHidden);
+      window.removeEventListener('pagehide', handlePageHide);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- captureIfValid reads refs/getValues, not reactive state
   }, [step]);
