@@ -1,0 +1,87 @@
+config:
+  target: "http://localhost:8080"
+  phases:
+    # Warm-up: 5 users/sec for 30 seconds
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm-up"
+    # Ramp-up: 5 to 30 users/sec over 60 seconds
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 30
+      name: "Ramp-up"
+    # Sustained load: 30 users/sec for 60 seconds
+    - duration: 60
+      arrivalRate: 30
+      name: "Sustained load"
+    # Spike: 60 users/sec for 30 seconds
+    - duration: 30
+      arrivalRate: 60
+      name: "Spike"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+  ensure:
+    thresholds:
+      - http.response_time.p99: 500
+      - http.response_time.p95: 300
+      - http.response_time.median: 100
+    conditions:
+      - expression: "http.codes.200 / (http.codes.200 + http.codes.500) > 0.99"
+        strict: true
+
+scenarios:
+  # ── Public endpoints (no auth) ──
+  - name: "Healthcheck"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/v1/healthcheck"
+          expect:
+            - statusCode: 200
+
+  - name: "Public complex page"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/v1/public/complexes/complejo-e2e-shared"
+          expect:
+            - statusCode:
+                - 200
+                - 404
+
+  - name: "Public availability"
+    weight: 40
+    flow:
+      - get:
+          url: "/api/v1/public/complexes/complejo-e2e-shared/availability?date={{ $formatDate('yyyy-MM-dd', $dateNow()) }}"
+          expect:
+            - statusCode:
+                - 200
+                - 404
+
+  # ── Auth endpoints ──
+  - name: "Login attempt"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/v1/auth/login"
+          json:
+            email: "load-test-{{ $randomNumber(1, 100) }}@test.com"
+            password: "wrong-password"
+          expect:
+            - statusCode: 401
+
+  - name: "Register attempt"
+    weight: 5
+    flow:
+      - post:
+          url: "/api/v1/auth/register"
+          json:
+            email: "loadtest-{{ $uuid }}@test.com"
+            password: "LoadTestPass123!"
+            first_name: "Load"
+            last_name: "Test"
+            phone: "+5491100{{ $randomNumber(100000, 999999) }}"
+          expect:
+            - statusCode: 201

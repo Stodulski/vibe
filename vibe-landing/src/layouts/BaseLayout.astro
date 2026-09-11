@@ -1,0 +1,121 @@
+---
+import '../styles/global.css';
+import AnalyticsLoader from '../components/AnalyticsLoader.astro';
+import WhatsappFab from '../components/WhatsappFab.astro';
+
+export interface Props {
+  title: string;
+  description: string;
+  /** Absolute canonical URL. Also used for the three hreflang alternates. */
+  canonical: string;
+  date?: string;
+  appleTouchIcon?: string;
+  ogTitle: string;
+  ogDescription: string;
+  ogUrl: string;
+  ogImage: string;
+  ogImageWidth: string;
+  ogImageHeight: string;
+  ogImageAlt: string;
+  twitterCard: string;
+  twitterTitle: string;
+  twitterDescription: string;
+  twitterImage: string;
+  twitterImageAlt: string;
+  /** Raw JSON-LD payloads, each rendered as its own <script type="application/ld+json">. */
+  jsonLd?: string[];
+  /** index.html renders 2 decorative blobs, the legal pages render 4. */
+  blobs?: number;
+  skipLink?: boolean;
+  /** GA4/Contentsquare lazy loader + WhatsApp FAB. Homepage only. */
+  tracking?: boolean;
+  /** Image behind the hero mockup. It is the page's LCP element, so it is
+      preloaded at high priority instead of being found once the CSS resolves. */
+  heroPoster?: string;
+  robots?: string;
+}
+
+const {
+  title,
+  description,
+  canonical,
+  date,
+  appleTouchIcon = '/apple-touch-icon.png',
+  robots = 'index, follow',
+  ogTitle,
+  ogDescription,
+  ogUrl,
+  ogImage,
+  ogImageWidth,
+  ogImageHeight,
+  ogImageAlt,
+  twitterCard,
+  twitterTitle,
+  twitterDescription,
+  twitterImage,
+  twitterImageAlt,
+  jsonLd = [],
+  blobs = 2,
+  skipLink = false,
+  tracking = false,
+  heroPoster,
+} = Astro.props;
+
+const blobList = Array.from({ length: blobs });
+---
+<!DOCTYPE html>
+<html lang="es-AR">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>{title}</title>
+  <meta content={description} name="description"/>
+  <meta content={robots} name="robots"/>
+  <link href={canonical} rel="canonical"/>
+  <link href={canonical} hreflang="es-AR" rel="alternate"/>
+  <link href={canonical} hreflang="es" rel="alternate"/>
+  <link href={canonical} hreflang="x-default" rel="alternate"/>
+  <link href={canonical} rel="alternate" type="text/markdown"/>
+  <meta content="#0b0b0b" name="theme-color"/>
+  <meta content="Vibe" name="author"/>
+  {date && <meta content={date} name="date"/>}
+  <link href="/favicon.ico" rel="icon" sizes="16x16 32x32 48x48" type="image/x-icon"/>
+  <link href="/favicon.svg" rel="icon" type="image/svg+xml"/>
+  <link href={appleTouchIcon} rel="apple-touch-icon"/>
+  <meta content={ogTitle} property="og:title"/>
+  <meta content={ogDescription} property="og:description"/>
+  <meta content="website" property="og:type"/>
+  <meta content={ogUrl} property="og:url"/>
+  <meta content={ogImage} property="og:image"/>
+  <meta content={ogImageWidth} property="og:image:width"/>
+  <meta content={ogImageHeight} property="og:image:height"/>
+  <meta content={ogImageAlt} property="og:image:alt"/>
+  <meta content="es_AR" property="og:locale"/>
+  <meta content="Vibe" property="og:site_name"/>
+  <meta content={twitterCard} name="twitter:card"/>
+  <meta content={twitterTitle} name="twitter:title"/>
+  <meta content={twitterDescription} name="twitter:description"/>
+  <meta content={twitterImage} name="twitter:image"/>
+  <meta content={twitterImageAlt} name="twitter:image:alt"/>
+  {jsonLd.map((block) => <script type="application/ld+json" is:inline set:html={block} />)}
+  <link as="font" crossorigin="" href="/fonts/dm-sans-latin.woff2" rel="preload" type="font/woff2"/>
+  {heroPoster && <link as="image" fetchpriority="high" href={heroPoster} rel="preload"/>}
+  <slot name="head" />
+ </head>
+ <body>
+  {skipLink && <a class="skip-link" href="#inicio">Saltar al contenido principal</a>}
+  <div aria-hidden="true" class="bg-mesh">
+   {blobList.map(() => <div class="bg-mesh__blob"></div>)}
+  </div>
+  <div aria-hidden="true" class="bg-noise">
+  </div>
+  <div aria-hidden="true" class="cursor-blob">
+  </div>
+  <slot />
+  {tracking && <WhatsappFab />}
+  <script>
+   import '../scripts/main.js';
+  </script>
+  {tracking && <AnalyticsLoader />}
+ </body>
+</html>

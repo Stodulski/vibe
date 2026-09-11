@@ -1,0 +1,96 @@
+---
+export interface Props {
+  /** Legal pages ship the `scrolled` class in the static markup; the homepage lets main.js add it on scroll. */
+  startScrolled?: boolean;
+  /** Homepage links are same-page hashes; legal pages link back to the homepage. */
+  linkPrefix?: string;
+  logoHref?: string;
+  logoAlt?: string;
+  navAriaLabel?: string;
+  toggleAriaLabel?: string;
+  menuAriaLabel?: string;
+  comoFuncionaLabel?: string;
+}
+
+const {
+  startScrolled = false,
+  linkPrefix = '',
+  logoHref = '#',
+  logoAlt = 'Vibe',
+  navAriaLabel = 'Navegación principal',
+  toggleAriaLabel = 'Menú',
+  menuAriaLabel = 'Menú de navegación',
+  comoFuncionaLabel = 'Cómo funciona',
+} = Astro.props;
+
+const navClass = startScrolled ? 'nav scrolled' : 'nav';
+---
+<header>
+<nav aria-label={navAriaLabel} class={navClass}>
+ <div class="nav-inner">
+  <a aria-label="Vibe - Inicio" class="nav-logo" href={logoHref}>
+   <img alt={logoAlt} class="nav-logo-img" height="32" src="/logo.svg" width="46"/>
+  </a>
+  <ul class="nav-links">
+   <li>
+    <a href={`${linkPrefix}#funcionalidades`}>
+     Funcionalidades
+    </a>
+   </li>
+   <li>
+    <a href={`${linkPrefix}#como-funciona`}>
+     {comoFuncionaLabel}
+    </a>
+   </li>
+   <li>
+    <a href={`${linkPrefix}#precio`}>
+     Precio
+    </a>
+   </li>
+   <li>
+    <a href={`${linkPrefix}#faq`}>
+     FAQ
+    </a>
+   </li>
+   <li>
+    <a href="https://app.vibe.com.ar/login" rel="noopener">
+     Ingresar
+    </a>
+   </li>
+   <li>
+    <a class="nav-cta" href="https://app.vibe.com.ar/register" rel="noopener">
+     Crear mi cuenta
+    </a>
+   </li>
+  </ul>
+  <button aria-expanded="false" aria-label={toggleAriaLabel} class="nav-toggle">
+   <span>
+   </span>
+   <span>
+   </span>
+   <span>
+   </span>
+  </button>
+ </div>
+</nav>
+</header>
+<div aria-hidden="true" aria-label={menuAriaLabel} class="mobile-menu" role="dialog">
+ <a href={`${linkPrefix}#funcionalidades`}>
+  Funcionalidades
+ </a>
+ <a href={`${linkPrefix}#como-funciona`}>
+  {comoFuncionaLabel}
+ </a>
+ <a href={`${linkPrefix}#precio`}>
+  Precio
+ </a>
+ <a href={`${linkPrefix}#faq`}>
+  FAQ
+ </a>
+ <a href="https://app.vibe.com.ar/login" rel="noopener">
+  Ingresar
+ </a>
+ <a class="btn-primary" href="https://app.vibe.com.ar/register" rel="noopener">
+  Crear mi cuenta
+ </a>
+</div>

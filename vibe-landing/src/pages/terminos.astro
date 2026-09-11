@@ -1,0 +1,134 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { terminosJsonLd } from '../data/jsonld';
+---
+<BaseLayout
+  title="Términos y Condiciones | Vibe - Reservas de canchas online"
+  description="Términos y condiciones de uso de Vibe. Conocé las reglas que rigen el uso de nuestra plataforma de gestión de reservas de canchas deportivas."
+  canonical="https://vibe.com.ar/terminos"
+  appleTouchIcon="/logo.png"
+  ogTitle="Términos y Condiciones | Vibe - Reservas de canchas online"
+  ogDescription="Términos y condiciones de uso de Vibe. Conocé las reglas que rigen el uso de nuestra plataforma de gestión de reservas de canchas deportivas."
+  ogUrl="https://vibe.com.ar/terminos"
+  ogImage="https://vibe.com.ar/logo.png"
+  ogImageWidth="512"
+  ogImageHeight="512"
+  ogImageAlt="Vibe - Plataforma de gestión de complejos deportivos"
+  twitterCard="summary"
+  twitterTitle="Términos y Condiciones | Vibe - Reservas de canchas online"
+  twitterDescription="Términos y condiciones de uso de Vibe. Conocé las reglas que rigen el uso de nuestra plataforma de gestión de reservas de canchas deportivas."
+  twitterImage="https://vibe.com.ar/logo.png"
+  twitterImageAlt="Vibe - Plataforma de gestión de complejos deportivos"
+  jsonLd={terminosJsonLd}
+  blobs={4}
+>
+ <Nav
+  startScrolled={true}
+  linkPrefix="/"
+  logoHref="/"
+  logoAlt="Vibe"
+  navAriaLabel="Navegación principal"
+  toggleAriaLabel="Menu"
+  menuAriaLabel="Menu de navegación"
+  comoFuncionaLabel="Cómo funciona"
+ />
+ <main class="legal-page">
+  <h1>Términos y Condiciones</h1>
+  <p class="legal-date">Última actualización: <time datetime="2026-08-24">24 de agosto de 2026</time></p>
+  <p>Bienvenido a <strong>Vibe</strong> ("nosotros", "la plataforma"). Estos Términos y Condiciones regulan el acceso y uso del sitio web <a href="https://vibe.com.ar">vibe.com.ar</a> y de la aplicación web <a href="https://app.vibe.com.ar">app.vibe.com.ar</a>. Al utilizar nuestros servicios, aceptas estos términos en su totalidad.</p>
+  <h2>1. Aceptación de los términos</h2>
+  <p>Al acceder a este sitio, registrarte y utilizar la plataforma, aceptas quedar vinculado por estos Términos y Condiciones, así como por nuestra <a href="/privacidad">Política de Privacidad</a>. Si no estás de acuerdo con alguno de estos términos, no debes utilizar el servicio.</p>
+  <h2>2. Descripción del servicio</h2>
+  <p><strong>Vibe</strong> es una plataforma SaaS (Software as a Service) que permite a complejos deportivos gestionar sus canchas, horarios, reservas y cobros de forma digital. La plataforma conecta a dueños de complejos con jugadores que desean reservar canchas online.</p>
+  <p>El servicio incluye:</p>
+  <ul>
+   <li>Panel de administración para gestionar canchas, horarios y precios</li>
+   <li>Sistema de reservas online con cobro de seña vía MercadoPago</li>
+   <li>Notificaciones automáticas de confirmación y recordatorio por email y WhatsApp</li>
+   <li>Gestión de clientes y estadísticas del complejo</li>
+  </ul>
+  <h2>3. Registro y cuenta</h2>
+  <p>Para utilizar la plataforma como dueño de complejo, creás una cuenta proporcionando información verídica y actualizada, y sos responsable de:</p>
+  <ul>
+   <li>Proporcionar datos reales y mantenerlos actualizados</li>
+   <li>Mantener la confidencialidad de tu contraseña y credenciales de acceso</li>
+   <li>Todas las actividades que ocurran bajo tu cuenta</li>
+   <li>Notificarnos inmediatamente ante cualquier uso no autorizado de tu cuenta</li>
+  </ul>
+  <p>Nos reservamos el derecho de suspender o cancelar cuentas que contengan información falsa o que violen estos términos.</p>
+  <h2>4. Reservas y pagos</h2>
+  <p>El proceso de reservas funciona de la siguiente manera:</p>
+  <ul>
+   <li>Los clientes seleccionan una cancha, fecha y horario disponible en la página pública del complejo</li>
+   <li>El complejo puede configurar un porcentaje de seña que el cliente debe abonar al reservar</li>
+   <li>Los pagos de seña de reservas online se procesan a través de <strong>MercadoPago</strong>. Las reservas manuales creadas por el dueño del complejo pueden registrarse con pago en efectivo o transferencia</li>
+   <li>Vibe no almacena datos de tarjetas ni información financiera sensible</li>
+   <li>El saldo restante (si lo hubiera) se abona directamente en el complejo</li>
+   <li>Se aplica un cargo de servicio del 7% (mínimo $1.000 ARS) sobre la seña al cliente, que no forma parte del pago de la cancha</li>
+  </ul>
+  <p>Los pagos recibidos por MercadoPago se acreditan directamente en la cuenta del complejo, según los plazos establecidos por MercadoPago.</p>
+  <h2>5. Cancelaciones y reembolsos</h2>
+  <p>Cada complejo puede configurar una ventana de cancelación (en horas antes de la reserva). Las reglas son las siguientes:</p>
+  <ul>
+   <li>Si el cliente cancela dentro de la ventana de cancelación, el reembolso de la seña se procesa automáticamente a través de MercadoPago</li>
+   <li>Si el cliente cancela fuera de la ventana de cancelación, no se realiza reembolso</li>
+   <li>Los reembolsos se acreditan en la cuenta de MercadoPago del cliente según los plazos de MercadoPago</li>
+   <li>El cargo de servicio se reembolsa junto con la seña cuando corresponde</li>
+  </ul>
+  <p>Vibe no es responsable por demoras en la acreditación de reembolsos, ya que estos dependen de los plazos de procesamiento de MercadoPago.</p>
+  <h2>6. Obligaciones del complejo</h2>
+  <p>Al utilizar la plataforma como dueño de complejo, te comprometes a:</p>
+  <ul>
+   <li>Mantener los horarios de disponibilidad actualizados y precisos</li>
+   <li>Honrar todas las reservas confirmadas a través de la plataforma</li>
+   <li>Garantizar que las canchas estén en condiciones adecuadas para su uso</li>
+   <li>Conectar una cuenta de MercadoPago válida para recibir pagos online</li>
+   <li>Respetar los precios publicados en la plataforma</li>
+   <li>Atender las consultas y reclamos de los clientes de manera oportuna</li>
+  </ul>
+  <h2>7. Obligaciones del usuario</h2>
+  <p>Al utilizar la plataforma como cliente (jugador), te comprometes a:</p>
+  <ul>
+   <li>Proporcionar datos de contacto válidos al realizar una reserva</li>
+   <li>No realizar reservas falsas o sin intención de asistir</li>
+   <li>Presentarte en el complejo en el horario reservado o cancelar con anticipación</li>
+   <li>Abonar el saldo restante en el complejo si corresponde</li>
+   <li>Utilizar las canchas de forma responsable y respetar las normas del complejo</li>
+   <li>No utilizar la plataforma con fines fraudulentos o ilegales</li>
+  </ul>
+  <h2>8. Limitación de responsabilidad</h2>
+  <p><strong>Vibe actúa exclusivamente como intermediario tecnológico</strong> entre complejos deportivos y clientes. Por lo tanto:</p>
+  <ul>
+   <li>No somos responsables por la calidad, estado o condiciones de las canchas</li>
+   <li>No somos responsables por incumplimientos del complejo respecto a las reservas</li>
+   <li>No somos responsables por lesiones, daños o perjuicios que ocurran en las instalaciones del complejo</li>
+   <li>No somos responsables por la indisponibilidad temporal del servicio por mantenimiento o causas de fuerza mayor</li>
+   <li>No garantizamos la disponibilidad ininterrumpida de la plataforma</li>
+  </ul>
+  <p>En ningún caso la responsabilidad total de Vibe excederá el monto del cargo de servicio cobrado en la transacción en cuestión.</p>
+  <h2>9. Propiedad intelectual</h2>
+  <p>Todo el contenido de la plataforma, incluyendo pero no limitado a: logotipos, diseño, código fuente, textos, gráficos y software, es propiedad de Vibe o de sus licenciantes y está protegido por las leyes de propiedad intelectual aplicables.</p>
+  <p>Queda prohibido:</p>
+  <ul>
+   <li>Copiar, modificar o distribuir el contenido de la plataforma sin autorización</li>
+   <li>Realizar ingeniería inversa del software</li>
+   <li>Utilizar la marca "Vibe" sin autorización previa por escrito</li>
+   <li>Extraer datos de la plataforma de forma sistemática o automatizada</li>
+  </ul>
+  <h2>10. Modificaciones a los términos</h2>
+  <p>Nos reservamos el derecho de modificar estos Términos y Condiciones en cualquier momento. Los cambios serán publicados en esta página con la fecha de actualización. El uso continuado de la plataforma después de la publicación de los cambios constituye la aceptación de los términos modificados.</p>
+  <p>En caso de cambios sustanciales, notificaremos a los usuarios registrados por email.</p>
+  <h2>11. Ley aplicable y jurisdicción</h2>
+  <p>Estos Términos y Condiciones se rigen por las leyes de la <strong>República Argentina</strong>. Cualquier controversia derivada del uso de la plataforma será sometida a la jurisdicción de los tribunales ordinarios de la Ciudad Autónoma de Buenos Aires, República Argentina, renunciando las partes a cualquier otro fuero o jurisdicción que pudiera corresponderles.</p>
+  <h2>12. Contacto</h2>
+  <p>Si tenés preguntas sobre estos Términos y Condiciones, contactanos por email a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>.</p>
+ </main>
+ <Footer
+  linkPrefix="/"
+  logoHref="/"
+  logoAlt="Vibe"
+  comoFuncionaLabel="Cómo funciona"
+ />
+</BaseLayout>

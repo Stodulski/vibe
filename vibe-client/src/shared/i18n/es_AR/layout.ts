@@ -1,0 +1,17 @@
+export const layout = {
+  skipToContent: 'Ir al contenido principal',
+  mobileMenuTitle: 'Menu de navegación',
+  sidebar: 'Barra lateral',
+  mainNav: 'Navegación principal',
+  openMenu: 'Abrir menú de navegación',
+  collapse: 'Colapsar',
+  userMenuLabel: 'Menu de usuario',
+  errorTitle: 'Algo salió mal',
+  errorDescription: 'Ocurrió un error inesperado. Intentá de nuevo o volvé al inicio.',
+  retry: 'Reintentar',
+  backHome: 'Volver al inicio',
+  poweredBy: 'Powered by Vibe',
+  notFoundTitle: 'Página no encontrada',
+  notFoundDescription: 'La página que buscás no existe.',
+  offline: 'Sin conexión a internet',
+} as const;

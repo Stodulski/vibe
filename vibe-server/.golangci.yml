@@ -1,0 +1,63 @@
+version: "2"
+
+# Integration tests carry `//go:build integration`, so without this tag the
+# linter never parses them and answers "0 issues" for files it never opened.
+# Setting it here rather than on the `make lint` command line means editors and
+# pre-commit hooks that shell out to golangci-lint see the same files CI does.
+run:
+  build-tags:
+    - integration
+
+# golangci-lint truncates by default (max-same-issues: 3, max-issues-per-linter:
+# 50) and prints the truncated count as if it were the total. A capped report is
+# a report that lies about how much is left, so no caps.
+#
+# `uniq-by-line` is the third mechanism and the quietest: on by default, it
+# keeps one issue per line, so when two linters land on the same line the
+# second is dropped with nothing said. A revive "should have comment" on a
+# func line hid a funlen "92 > 40" on that same line here — and fixing the
+# comment is what made the real defect appear, which is backwards.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false
+
+linters:
+  default: standard
+  enable:
+    - gosec
+    - errorlint
+    - bodyclose
+    - sqlclosecheck
+    - rowserrcheck
+    - noctx
+    - contextcheck
+    - nilerr
+    - wastedassign
+    - unconvert
+    - unparam
+    - copyloopvar
+    - durationcheck
+    - exhaustive
+    - gocritic
+    - funlen
+    - revive
+
+  settings:
+    funlen:
+      lines: 60
+      statements: 40
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+        - name: package-comments
+          disabled: true
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - unparam
+          - funlen

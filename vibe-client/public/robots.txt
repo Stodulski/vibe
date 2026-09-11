@@ -1,0 +1,22 @@
+# app.vibe.com.ar
+#
+# Crawling is open on purpose, including the pages that must NOT be indexed.
+# Disallow and noindex are not the same thing: Disallow blocks the fetch, so a
+# crawler never reads the noindex and keeps the URL in the index forever with no
+# content behind it. That is exactly what happened here — /login and /register
+# were listed as Disallow and were indexed anyway, ranking for brand queries.
+#
+# So the rule is inverted: everything is crawlable, and vercel.json sends
+# `X-Robots-Tag: noindex` on every route that is not a complex's public page.
+# Once Google refetches these URLs it reads that header and drops them.
+#
+# The only surface meant to be indexed on this host is /<slug>, the public page
+# of each complex.
+
+User-agent: *
+Allow: /
+
+# The landing's sitemap. The previous line here pointed at /api/sitemap.xml,
+# which does not exist and returns 404. When complexes go live, this host gets
+# its own sitemap listing every /<slug> page and it should be added below.
+Sitemap: https://vibe.com.ar/sitemap.xml

@@ -1,0 +1,371 @@
+// Package health answers whether the process can serve traffic, and why not
+// when it cannot.
+//
+// There are two endpoints because they have two audiences. The public one is
+// polled by the platform's load balancer and says only up or degraded, plus
+// which subsystem is impaired. The detailed one is for an operator debugging
+// an incident: connection-pool figures, circuit-breaker states, queue backlogs
+// and the process's own request counters. It is behind the superadmin role,
+// because pool saturation, dependency topology and traffic volume are not
+// public information.
+//
+// # Why the detailed endpoint is where production metrics live
+//
+// The alternative was expvar on /debug/vars, which this service already
+// computes and then registers only when the environment is "development" — so
+// in production the numbers exist and nothing can reach them. Making that
+// route unconditional would put goroutine counts, memory statistics and the
+// process command line on the open internet. Adding a second authenticated
+// route would duplicate the guard, the responder and the "what is this
+// process" preamble that the detailed check already carries.
+//
+// So metrics live on GET /api/v1/admin/healthcheck. It is already
+// superadmin-gated, it is already the page an operator opens during an
+// incident, and "is it healthy" and "what are its numbers" are the same
+// question asked at two levels of detail. The cost is real and worth naming:
+// this is not a Prometheus exposition format and it is not scrapeable without
+// a superadmin credential. That is the right trade while the operator is a
+// person; the day it becomes a scraper, the answer is a separate route bound
+// to the private network, not a public /metrics.
+package health
+
+import (
+	"context"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/stodulski/vibe-server/internal/httpx"
+)
+
+// pingTimeout bounds each dependency probe. A health check that can hang is
+// worse than useless: the balancer times out and pulls a healthy instance.
+const pingTimeout = 2 * time.Second
+
+// queueTimeout bounds the queue-depth query, which is an aggregate over two
+// tables and is only ever asked for by the detailed endpoint. Same argument as
+// pingTimeout, with more room because it is a real query rather than a ping.
+const queueTimeout = 3 * time.Second
+
+// Dependency states, as reported in the response.
+const (
+	stateOK            = "ok"
+	stateUnreachable   = "unreachable"
+	stateNotConfigured = "not configured"
+)
+
+// Overall states, as reported in the response.
+const (
+	statusAvailable = "available"
+	statusDegraded  = "degraded"
+)
+
+// Impairment names, as reported in the "impaired" list. They name a capability
+// the product has lost, not the vendor that lost it: "payments" is what an
+// operator is paged about, and it stays true if the provider is ever swapped.
+const (
+	impairedDatabase = "database"
+	impairedCache    = "cache"
+	impairedPayments = "payments"
+)
+
+// Pinger is a dependency that can be asked whether it is reachable.
+type Pinger interface {
+	Ping(ctx context.Context) error
+}
+
+// PoolReporter is an optional capability: a dependency that can also describe
+// its connection pool. Implementations that cannot are simply omitted from the
+// detailed response.
+type PoolReporter interface {
+	PoolStats() map[string]int64
+}
+
+// Breaker is one external dependency's circuit breaker, as the health
+// endpoints see it.
+//
+// The interface is declared here rather than imported so this package does not
+// depend on the breaker implementation, and so the composition root is the
+// only place that decides which dependency is which.
+type Breaker interface {
+	// Name identifies the dependency: "mercadopago", "whatsapp", "mailer".
+	Name() string
+	// State is "closed", "open" or "half-open".
+	State() string
+	// BlocksRevenue reports whether an open circuit means no client, on any
+	// tenant, can complete a payment. Only the payment provider does: losing
+	// WhatsApp or the mailer costs notifications, which is bad, but the
+	// product still takes money.
+	BlocksRevenue() bool
+}
+
+// QueueStats is one durable work queue's backlog.
+//
+// Both sweepers log a completion count bounded by their own batch limit, so a
+// backlog of fifty and a backlog of fifty thousand produce the same line.
+// These are the figures that tell them apart.
+type QueueStats struct {
+	// Name is the queue: "webhook_events", "failed_refunds".
+	Name string `json:"name"`
+	// Pending is work waiting to be picked up.
+	Pending int64 `json:"pending"`
+	// Processing is work claimed by a worker. A number that does not fall is a
+	// worker that died holding rows.
+	Processing int64 `json:"processing"`
+	// Exhausted is work that spent its retries and will never be attempted
+	// again without someone intervening. On these two queues that is money:
+	// a payment never reconciled, a refund never paid.
+	Exhausted int64 `json:"exhausted"`
+	// OldestDueSeconds is how long the oldest item that is already due has
+	// been waiting. Depth alone cannot distinguish a queue that is draining
+	// steadily from one that has stopped; this can.
+	OldestDueSeconds int64 `json:"oldest_due_seconds"`
+}
+
+// QueueReporter reports the backlog of the durable work queues.
+type QueueReporter interface {
+	QueueStats(ctx context.Context) ([]QueueStats, error)
+}
+
+// MetricsSource is the process's own counters: request volume, latency
+// distribution, requests in flight, goroutines, the notifier's queue counters.
+type MetricsSource interface {
+	Metrics() map[string]any
+}
+
+// Handler serves the health endpoints.
+type Handler struct {
+	// database must be reachable for the process to be usable at all.
+	database Pinger
+	// cache is optional: the application degrades to in-memory behaviour
+	// without Redis, so its absence is reported, not failed.
+	cache       Pinger
+	dbPool      PoolReporter
+	cachePool   PoolReporter
+	breakers    []Breaker
+	queues      QueueReporter
+	metrics     MetricsSource
+	respond     *httpx.Responder
+	environment string
+	version     string
+}
+
+// Dependencies is everything the handler probes. Every field is optional
+// except Database and Respond; an absent one is reported as not configured or
+// left out of the response rather than failing the check.
+type Dependencies struct {
+	Database  Pinger
+	Cache     Pinger
+	DBPool    PoolReporter
+	CachePool PoolReporter
+	// Breakers are the external-dependency circuit breakers. Without them the
+	// check is blind to the payment stack: with MercadoPago down, no client on
+	// any tenant can pay and this endpoint answered 200 available.
+	Breakers []Breaker
+	Queues   QueueReporter
+	Metrics  MetricsSource
+	Respond  *httpx.Responder
+}
+
+// Config is what the handler needs to describe this deployment.
+type Config struct {
+	Environment string
+	Version     string
+}
+
+// NewHandler returns a Handler. A nil cache means Redis is not configured,
+// which is a supported deployment rather than a fault. Either pooler may be
+// nil; those figures are then left out of the detailed response.
+func NewHandler(d Dependencies, cfg Config) *Handler {
+	return &Handler{
+		database:    d.Database,
+		cache:       d.Cache,
+		dbPool:      d.DBPool,
+		cachePool:   d.CachePool,
+		breakers:    d.Breakers,
+		queues:      d.Queues,
+		metrics:     d.Metrics,
+		respond:     d.Respond,
+		environment: cfg.Environment,
+		version:     cfg.Version,
+	}
+}
+
+// Routes registers both endpoints. The public one has to stay reachable
+// without credentials — a load balancer has none.
+func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
+	router.HandlerFunc(http.MethodGet, "/api/v1/healthcheck", h.Check)
+	router.HandlerFunc(http.MethodGet, "/api/v1/admin/healthcheck",
+		guards.RequireAuth(guards.RequireSuperAdmin(h.Detailed)))
+}
+
+// ping probes a dependency under its own bounded timeout.
+func ping(ctx context.Context, p Pinger) string {
+	if p == nil {
+		return stateNotConfigured
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
+	defer cancel()
+
+	if err := p.Ping(ctx); err != nil {
+		return stateUnreachable
+	}
+	return stateOK
+}
+
+// breakerStates reads every configured breaker and reports whether any of the
+// ones that gate revenue is not closed.
+//
+// Half-open counts as impaired. It means the breaker is testing a dependency
+// that was failing a moment ago and is admitting at most a couple of probes:
+// the payment path is not working, it is being retried.
+func (h *Handler) breakerStates() (states map[string]string, revenueBlocked bool) {
+	if len(h.breakers) == 0 {
+		return nil, false
+	}
+
+	states = make(map[string]string, len(h.breakers))
+	for _, breaker := range h.breakers {
+		state := breaker.State()
+		states[breaker.Name()] = state
+		if state != "closed" && breaker.BlocksRevenue() {
+			revenueBlocked = true
+		}
+	}
+	return states, revenueBlocked
+}
+
+// report is what both endpoints compute: the overall verdict, the HTTP code
+// that goes with it, and the evidence.
+type report struct {
+	status   string
+	code     int
+	deps     map[string]string
+	breakers map[string]string
+	impaired []string
+}
+
+// assess probes everything and decides the verdict.
+//
+// Only the database can take the instance out of rotation.
+//
+// An unreachable cache is reported as degraded but still answers 200, because
+// the application falls back to in-memory behaviour — returning 503 there would
+// pull every instance out of the balancer over a dependency the process can
+// survive without.
+//
+// An open payments breaker is the same shape of decision and deserves saying
+// out loud, because the obvious answer is wrong. It is the most severe thing
+// this endpoint can report — no client on any tenant can pay — and it still
+// answers 200. Restarting the container does not restore MercadoPago; it
+// removes the instance that was still serving the schedule, the dashboard and
+// every booking a venue takes at the counter, and if the provider outage is
+// platform-wide it removes all of them at once, turning a payment outage into
+// a total one. So: visible in the body, loud in "impaired", never in the exit
+// code the orchestrator reads.
+func (h *Handler) assess(ctx context.Context) report {
+	deps := map[string]string{
+		"database": ping(ctx, h.database),
+		"redis":    ping(ctx, h.cache),
+	}
+	breakers, revenueBlocked := h.breakerStates()
+
+	rep := report{
+		status:   statusAvailable,
+		code:     http.StatusOK,
+		deps:     deps,
+		breakers: breakers,
+	}
+
+	if deps["database"] == stateUnreachable {
+		rep.impaired = append(rep.impaired, impairedDatabase)
+		rep.code = http.StatusServiceUnavailable
+	}
+	if deps["redis"] == stateUnreachable {
+		rep.impaired = append(rep.impaired, impairedCache)
+	}
+	if revenueBlocked {
+		rep.impaired = append(rep.impaired, impairedPayments)
+	}
+	if len(rep.impaired) > 0 {
+		rep.status = statusDegraded
+	}
+
+	return rep
+}
+
+// Check handles GET /api/v1/healthcheck, the load balancer's probe.
+//
+// It names the impaired subsystem even though it is unauthenticated. "payments"
+// tells a reader that our payment provider is unhappy, which is close to
+// worthless to an attacker and is the difference between an uptime monitor
+// that can page someone and one that reports green while revenue is zero.
+func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
+	rep := h.assess(r.Context())
+
+	body := httpx.Envelope{
+		"status":  rep.status,
+		"version": h.version,
+	}
+	if len(rep.impaired) > 0 {
+		body["impaired"] = rep.impaired
+	}
+
+	h.respond.JSON(w, r, rep.code, body)
+}
+
+// Detailed handles GET /api/v1/admin/healthcheck: everything Check knows, plus
+// the pool figures, breaker states, queue backlogs and process counters an
+// operator needs during an incident.
+func (h *Handler) Detailed(w http.ResponseWriter, r *http.Request) {
+	rep := h.assess(r.Context())
+
+	deps := rep.deps
+	for prefix, pool := range map[string]PoolReporter{"db_pool": h.dbPool, "redis_pool": h.cachePool} {
+		if pool == nil {
+			continue
+		}
+		for key, value := range pool.PoolStats() {
+			deps[prefix+"_"+key] = strconv.FormatInt(value, 10)
+		}
+	}
+
+	body := httpx.Envelope{
+		"status":       rep.status,
+		"version":      h.version,
+		"environment":  h.environment,
+		"dependencies": deps,
+	}
+	if len(rep.impaired) > 0 {
+		body["impaired"] = rep.impaired
+	}
+	if rep.breakers != nil {
+		body["breakers"] = rep.breakers
+	}
+	if h.metrics != nil {
+		body["metrics"] = h.metrics.Metrics()
+	}
+	if queues, err := h.queueStats(r.Context()); err != nil {
+		// A failed backlog query must not fail the health check: the endpoint's
+		// first job is to say whether the process is serving, and it still can.
+		// Reported rather than swallowed, so the gap is visible as a gap.
+		body["queues_error"] = err.Error()
+	} else if queues != nil {
+		body["queues"] = queues
+	}
+
+	h.respond.JSON(w, r, rep.code, body)
+}
+
+// queueStats reads the backlogs under their own deadline.
+func (h *Handler) queueStats(ctx context.Context) ([]QueueStats, error) {
+	if h.queues == nil {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, queueTimeout)
+	defer cancel()
+
+	return h.queues.QueueStats(ctx)
+}

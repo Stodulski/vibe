@@ -1,0 +1,3686 @@
+openapi: 3.1.0
+
+info:
+  title: Vibe API
+  version: "1.0.0"
+  description: |
+    Vibe is a multi-tenant SaaS backend for padel and racket-sports court management: venue
+    profiles, court and price configuration, bookings, payments, staff accounts and a public
+    storefront per venue.
+
+    Authentication is cookie based. A successful login or registration flow sets an HttpOnly
+    `access_token` cookie (a 15 minute JWT) and an HttpOnly `refresh_token` cookie (a 30 day
+    opaque token, scoped to `/api/v1/auth`). Every request that changes state and carries a
+    session must also send the `X-CSRF-Token` header, whose value is returned in the JSON body
+    of a successful login or refresh call. Public endpoints that create a session
+    (register, login, refresh, logout, verify-email, resend-verification, forgot-password,
+    reset-password) and the two webhook endpoints are exempt from the CSRF check because they
+    either establish the session or authenticate by a provider signature instead of a cookie.
+
+    Every JSON error response uses the envelope `{"error": <message>}`. Validation failures
+    answer `422 Unprocessable Entity` with `error` as an object mapping field name to message
+    or to one of the stable machine codes documented per field. Every other error status uses a
+    plain string message. Paginated list endpoints share one cursor convention: an opaque
+    `cursor` query parameter and a `limit` query parameter (default 50, maximum 200), with the
+    response envelope carrying a `metadata` object (`next_cursor`, `has_more`, `total_count`).
+
+    This document excludes the `/debug/vars` and `/debug/pprof/*` routes. They are stdlib
+    introspection endpoints registered only when the server runs with `ENV=development` (and,
+    for pprof, the `-pprof` flag), never part of the product API surface, and answer in
+    non-JSON, tool-specific formats that do not fit an OpenAPI schema.
+  license:
+    name: AGPL-3.0
+    identifier: AGPL-3.0-only
+
+servers:
+  - url: https://api.vibe.com.ar
+    description: Production (placeholder domain)
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: admin
+    description: Platform-operator views. Cross-tenant, superadmin only. Every read is itself recorded to the audit trail.
+  - name: audit
+    description: The tenant-facing mirror of a complex's own audit trail.
+  - name: auth
+    description: Registration, session cookies, email verification, password reset and account self-service.
+  - name: bookings
+    description: Reservation lifecycle, both the owner-facing and the public no-account booking flow.
+  - name: clients
+    description: The client roster a complex accumulates from its bookings.
+  - name: complexes
+    description: Venue profile, slug, hours, images and the MercadoPago connection. The tenant boundary.
+  - name: courts
+    description: Courts, price bands, blocked slots and the public availability grid.
+  - name: health
+    description: Liveness and operator incident-debugging views.
+  - name: leads
+    description: Best-effort capture of an email left before a signup completes.
+  - name: payments
+    description: The MercadoPago payment-provider webhook.
+  - name: places
+    description: A pass-through proxy to Google Places so the API key never reaches the browser.
+  - name: publicsite
+    description: The public storefront's sitemap and crawler-facing prerendered pages.
+  - name: realtime
+    description: Server-Sent Events feed for an owner dashboard's live booking updates.
+  - name: reporting
+    description: Read-only, one-complex-scoped analytics and exports.
+  - name: openapi
+    description: This document and the interactive reference built from it.
+
+security:
+  - {}
+
+paths:
+  # ---------------------------------------------------------------------
+  # admin
+  # ---------------------------------------------------------------------
+  /api/v1/admin/stats:
+    get:
+      tags: [admin]
+      operationId: adminGetStats
+      summary: Platform-wide statistics
+      description: Superadmin only. Cross-tenant by design (bypass reason `platform`).
+      security: [{cookieAuth: []}]
+      responses:
+        "200":
+          description: Platform statistics.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stats]
+                properties:
+                  stats: {$ref: "#/components/schemas/PlatformStats"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/admin/users:
+    get:
+      tags: [admin]
+      operationId: adminListUsers
+      summary: List platform users
+      description: Superadmin only. Cross-tenant by design (bypass reason `platform`). Paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - name: search
+          in: query
+          schema: {type: string, maxLength: 200}
+        - name: role
+          in: query
+          schema: {type: string, enum: [owner, client, superadmin]}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of users.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users, metadata]
+                properties:
+                  users:
+                    type: array
+                    items: {$ref: "#/components/schemas/AdminUserRow"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Malformed cursor.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/admin/users/{id}:
+    get:
+      tags: [admin]
+      operationId: adminGetUser
+      summary: Get a platform user and the complexes they own
+      description: Superadmin only. Cross-tenant by design (bypass reason `platform`).
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The user and the complexes they own.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user, complexes]
+                properties:
+                  user: {$ref: "#/components/schemas/User"}
+                  complexes:
+                    type: array
+                    items: {$ref: "#/components/schemas/Complex"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/admin/users/{id}/toggle-active:
+    patch:
+      tags: [admin]
+      operationId: adminToggleUserActive
+      summary: Activate or deactivate a platform user
+      description: >-
+        Superadmin only. Cross-tenant scope is not granted for this route: it writes
+        `users.is_active` by primary key and touches no tenant table. Refuses to let a
+        superadmin deactivate their own account.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_active]
+              properties:
+                is_active: {type: boolean}
+      responses:
+        "200":
+          description: The user was updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "user updated"}
+        "400":
+          description: Malformed request body.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The caller tried to change their own account status.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/admin/complexes:
+    get:
+      tags: [admin]
+      operationId: adminListComplexes
+      summary: List every complex on the platform
+      description: Superadmin only. Cross-tenant by design (bypass reason `platform`). Paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - name: search
+          in: query
+          schema: {type: string, maxLength: 200}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of complexes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [complexes, metadata]
+                properties:
+                  complexes:
+                    type: array
+                    items: {$ref: "#/components/schemas/AdminComplexRow"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Malformed cursor.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/admin/complexes/{id}:
+    get:
+      tags: [admin]
+      operationId: adminGetComplex
+      summary: Get one complex with owner and usage figures
+      description: >-
+        Superadmin only. Cross-tenant by design (bypass reason `platform`, with no ownership
+        check by design).
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The complex plus derived figures.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  [complex, owner_name, owner_email, courts_count, clients_count, bookings_count, total_revenue]
+                properties:
+                  complex: {$ref: "#/components/schemas/Complex"}
+                  owner_name: {type: string}
+                  owner_email: {type: string, format: email}
+                  courts_count: {type: integer}
+                  clients_count: {type: integer}
+                  bookings_count: {type: integer}
+                  total_revenue:
+                    type: integer
+                    description: Centavos ARS.
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/admin/audit-log:
+    get:
+      tags: [admin]
+      operationId: adminListAuditLog
+      summary: List the platform-wide audit trail
+      description: Superadmin only. Cross-tenant by design (bypass reason `platform`). Paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - name: entity_type
+          in: query
+          schema: {type: string}
+        - name: complex_id
+          in: query
+          schema: {type: string, format: uuid}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of audit log rows.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [audit_logs, metadata]
+                properties:
+                  audit_logs:
+                    type: array
+                    items: {$ref: "#/components/schemas/AuditLogRow"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Malformed `complex_id` or cursor.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/admin/healthcheck:
+    get:
+      tags: [admin, health]
+      operationId: adminGetHealthDetailed
+      summary: Detailed health check for operators
+      description: >-
+        Superadmin only. Cross-tenant by design (bypass reason `platform`, queue depths are
+        counted across every tenant). Answers `200` with `status: degraded` when Redis or the
+        payments circuit breaker is impaired, and `503` when the database is unreachable.
+      security: [{cookieAuth: []}]
+      responses:
+        "200":
+          description: The process is available, possibly degraded.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/HealthDetailed"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503":
+          description: The database is unreachable, this instance should be pulled from rotation.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/HealthDetailed"}
+
+  # ---------------------------------------------------------------------
+  # audit
+  # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/audit-log:
+    get:
+      tags: [audit]
+      operationId: auditListComplexLog
+      summary: List a complex's own audit trail
+      description: >-
+        The tenant-scoped mirror of the platform audit log. The complex is taken from the
+        `{id}` path segment consumed by the ownership guard, not from a query parameter, so a
+        caller cannot name a tenant other than the one they own. Paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: entity_type
+          in: query
+          schema: {type: string}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of this complex's audit log rows.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [audit_logs, metadata]
+                properties:
+                  audit_logs:
+                    type: array
+                    items: {$ref: "#/components/schemas/AuditLogRow"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Invalid cursor value.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # auth
+  # ---------------------------------------------------------------------
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      operationId: authRegister
+      summary: Register a new owner account
+      description: >-
+        Public. Not rate limited beyond the shared auth ceiling. Answers `201` identically
+        whether the email is new or already registered, to prevent account enumeration. When
+        `TURNSTILE_SECRET_KEY` is configured the request must also carry a valid
+        `turnstile_token`.
+      responses:
+        "201":
+          description: Verification email sent, or would have been for a new address.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "verification email sent"}
+        "400":
+          description: Malformed JSON body.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, first_name, last_name, phone]
+              properties:
+                email: {type: string, format: email}
+                password: {type: string, minLength: 8, maxLength: 72}
+                first_name: {type: string, maxLength: 100}
+                last_name: {type: string, maxLength: 100}
+                phone:
+                  type: string
+                  description: Normalized server-side to E.164.
+                  example: "+5491112345678"
+                turnstile_token:
+                  type: string
+                  description: Required only when Cloudflare Turnstile is configured.
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: authLogin
+      summary: Log in and start a session
+      description: >-
+        Public. Sets the `access_token` and `refresh_token` cookies on success. A wrong
+        password, an unknown email, a locked account and an unverified email all answer the
+        same `401` message, to prevent enumeration and lockout probing.
+      responses:
+        "200":
+          description: Session established.
+          headers:
+            Set-Cookie:
+              description: Sets `access_token` and `refresh_token`.
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user, csrf_token]
+                properties:
+                  user: {$ref: "#/components/schemas/User"}
+                  csrf_token:
+                    type: string
+                    description: Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
+        "401":
+          description: Invalid credentials, locked account or unverified email (indistinguishable by design).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: {type: string, format: email}
+                password: {type: string}
+                turnstile_token: {type: string}
+
+  /api/v1/auth/google:
+    post:
+      tags: [auth]
+      operationId: authGoogle
+      summary: Sign in with a Google Identity Services ID token
+      description: >-
+        Public. Verifies `credential` against Google's JWKS. An existing account (matched by
+        verified email) gets a session exactly like `/auth/login`, `email_verified` is set to
+        `true` if it was not already, and the Google account is linked. An address with no
+        account answers `200` with `needs_profile: true` and a `profile_token` for
+        `/auth/google/complete`, since registration requires a phone number Google never
+        provides. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
+      responses:
+        "200":
+          description: Session established, or a profile token for an address with no account yet.
+          headers:
+            Set-Cookie:
+              description: Sets `access_token` and `refresh_token`, only when a session was established.
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [user, csrf_token]
+                    properties:
+                      user: {$ref: "#/components/schemas/User"}
+                      csrf_token:
+                        type: string
+                        description: Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
+                  - type: object
+                    required: [needs_profile, profile_token, profile]
+                    properties:
+                      needs_profile: {type: boolean, enum: [true]}
+                      profile_token:
+                        type: string
+                        description: Signed, 10-minute token. Send back to `/auth/google/complete`.
+                      profile:
+                        type: object
+                        required: [email, first_name, last_name]
+                        properties:
+                          email: {type: string, format: email}
+                          first_name: {type: string}
+                          last_name: {type: string}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`), or Google's JWKS is unreachable.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential:
+                  type: string
+                  description: The Google Identity Services ID token from the client's sign-in button.
+
+  /api/v1/auth/google/complete:
+    post:
+      tags: [auth]
+      operationId: authGoogleComplete
+      summary: Finish a first-time Google sign-in by supplying a phone number
+      description: >-
+        Public. Consumes the `profile_token` from `/auth/google`'s `needs_profile` answer,
+        creates the account with `email_verified: true` and a session exactly like
+        `/auth/login`. `first_name`/`last_name` are optional overrides of the profile token's own
+        Google-supplied names. `409` if the address was claimed between the two requests. `503`
+        when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
+      responses:
+        "200":
+          description: Account created and session established.
+          headers:
+            Set-Cookie:
+              description: Sets `access_token` and `refresh_token`.
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user, csrf_token]
+                properties:
+                  user: {$ref: "#/components/schemas/User"}
+                  csrf_token:
+                    type: string
+                    description: Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
+        "401":
+          description: Missing, expired, forged or wrong-purpose profile token.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "409":
+          description: An account for this address was created between `/auth/google` and this request.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile_token, phone]
+              properties:
+                profile_token: {type: string}
+                phone:
+                  type: string
+                  description: Normalized server-side to E.164.
+                  example: "+5491112345678"
+                first_name: {type: string, maxLength: 100, description: "Overrides the profile token's given_name."}
+                last_name: {type: string, maxLength: 100, description: "Overrides the profile token's family_name."}
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: authRefresh
+      summary: Rotate the session using the refresh cookie
+      description: >-
+        Public by necessity: it runs on an expired access token. Reads only the `refresh_token`
+        cookie, no body. Presenting an already-rotated token within a 30 second grace window is
+        treated as a benign concurrent-tab race; outside that window every session for the user
+        is revoked as suspected theft.
+      responses:
+        "200":
+          description: Session rotated.
+          headers:
+            Set-Cookie:
+              description: Rotates `access_token` and `refresh_token`.
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [csrf_token]
+                properties:
+                  csrf_token: {type: string}
+        "401":
+          description: Missing, unknown or reused refresh token, or an inactive user.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: authLogout
+      summary: End the current session
+      description: >-
+        Public by design, so it also succeeds with no session at all. Clears both cookies,
+        deletes the refresh token and blacklists the current access token when present.
+      responses:
+        "200":
+          description: Always returned, even with no active session.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "successfully logged out"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+
+  /api/v1/auth/verify-email:
+    post:
+      tags: [auth]
+      operationId: authVerifyEmail
+      summary: Verify an email address by token
+      security: []
+      responses:
+        "200":
+          description: Email verified.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "email verified successfully"}
+        "400":
+          description: Missing token, malformed body, or the token does not resolve.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string}
+
+  /api/v1/auth/resend-verification:
+    post:
+      tags: [auth]
+      operationId: authResendVerification
+      summary: Resend the verification email
+      description: >-
+        Public. Always answers the same `200` message regardless of whether the email exists,
+        is already verified, or is under a cooldown, to prevent enumeration and spam.
+      responses:
+        "200":
+          description: Always returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "if the email exists, a verification link has been sent"}
+        "400":
+          description: Malformed JSON body.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string}
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [auth]
+      operationId: authForgotPassword
+      summary: Request a password reset email
+      description: Public. Always answers the same `200` message, and audits the attempt unconditionally before any lookup.
+      responses:
+        "200":
+          description: Always returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "if the email exists, a password reset link has been sent"}
+        "400":
+          description: Malformed JSON body.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email}
+                turnstile_token: {type: string}
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [auth]
+      operationId: authResetPassword
+      summary: Reset a password using an emailed token
+      description: >-
+        Public. On success revokes every existing session for the account and deletes every
+        outstanding reset token.
+      responses:
+        "200":
+          description: Password reset.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "password reset successfully"}
+        "400":
+          description: The token is invalid, expired, or belongs to an inactive user.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: {type: string}
+                password: {type: string, minLength: 8, maxLength: 72}
+
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      operationId: authGetCurrentUser
+      summary: Get the current session's user
+      security: [{cookieAuth: []}]
+      responses:
+        "200":
+          description: The authenticated user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user: {$ref: "#/components/schemas/User"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+    put:
+      tags: [auth]
+      operationId: authUpdateCurrentUser
+      summary: Update the current account
+      description: >-
+        All body fields are optional pointers, omitted means unchanged. Changing `email` clears
+        `email_verified` and re-triggers verification. Changing `phone` to a non-normalizing
+        value is refused unless it is byte-identical to the value already stored (grandfathers
+        pre-existing bad numbers). Changing the password requires both `current_password` and
+        `new_password`, and revokes every other session. Cross-tenant bypass reason `platform`.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      responses:
+        "200":
+          description: The updated user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user: {$ref: "#/components/schemas/User"}
+        "401":
+          description: Unauthenticated, or `current_password` did not match.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "409": {$ref: "#/components/responses/EditConflict"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {type: string, format: email}
+                first_name: {type: string, maxLength: 100}
+                last_name: {type: string, maxLength: 100}
+                phone: {type: string}
+                current_password: {type: string}
+                new_password: {type: string, minLength: 8, maxLength: 72}
+    delete:
+      tags: [auth]
+      operationId: authDeleteAccount
+      summary: Delete the current account
+      description: >-
+        Cascades to every complex, court, client and booking the account owns. Cross-tenant
+        bypass reason `by-owner`.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      responses:
+        "200":
+          description: Account deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "account deleted"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409":
+          description: The account has a complex with active bookings.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # bookings
+  # ---------------------------------------------------------------------
+  /api/v1/webhooks/whatsapp:
+    get:
+      tags: [bookings]
+      operationId: bookingsWhatsAppVerifyWebhook
+      summary: Meta's WhatsApp webhook subscription handshake
+      description: Public, not rate limited. Authenticated by Meta's `hub.verify_token`, not a session.
+      security: []
+      parameters:
+        - name: hub.mode
+          in: query
+          required: true
+          schema: {type: string, enum: [subscribe]}
+        - name: hub.verify_token
+          in: query
+          required: true
+          schema: {type: string}
+        - name: hub.challenge
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: Echoes `hub.challenge` back verbatim.
+          content:
+            text/plain:
+              schema: {type: string}
+        "403":
+          description: Bad mode or wrong verify token.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+    post:
+      tags: [bookings]
+      operationId: bookingsWhatsAppWebhook
+      summary: Receive a WhatsApp Cloud API webhook delivery
+      description: >-
+        Public, not rate limited. HMAC-SHA256 signed (`X-Hub-Signature-256`), verified before
+        the body is trusted. Always answers `200` except for a bad signature (`401`, empty
+        body), so Meta never redelivers a message this service already saw. Inbound text is
+        only logged, this endpoint changes no booking state.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Meta Cloud API webhook payload.
+              additionalProperties: true
+      responses:
+        "200":
+          description: Accepted (also returned for an unreadable or unparseable body, to stop redelivery).
+        "401":
+          description: Invalid signature. Empty body.
+
+  /api/v1/book:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicCreate
+      summary: Create a booking without an account
+      description: >-
+        Public. Rate limited under the dedicated `book` ceiling (1 request per 20 seconds,
+        burst 3) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. The
+        booking's primary key is deliberately never included in the response, only the opaque
+        `token` used by the status/cancel endpoints below.
+      security: []
+      responses:
+        "201":
+          description: Booking created, awaiting payment confirmation.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicBookingResult"}
+        "400":
+          description: Malformed body, or the complex has no MercadoPago connected.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "404":
+          description: Unknown or inactive complex or court, or the court belongs to a different complex.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "409":
+          description: Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503":
+          description: MercadoPago checkout preference creation failed. The booking is auto-cancelled.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [complex_id, court_id, date, start_time, duration_minutes,
+                 client_first_name, client_last_name, client_phone]
+              properties:
+                complex_id: {type: string, format: uuid}
+                court_id: {type: string, format: uuid}
+                date: {type: string, format: date}
+                start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                duration_minutes: {type: integer, description: "Must be one of the permitted slot durations."}
+                client_first_name: {type: string}
+                client_last_name: {type: string}
+                client_phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
+                client_email: {type: string, format: email}
+                client_notes: {type: string, maxLength: 2000}
+
+  /api/v1/book/status:
+    get:
+      tags: [bookings]
+      operationId: bookingsPublicStatus
+      summary: Look up a public booking by its link token
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/BookingToken"}
+      responses:
+        "200":
+          description: The booking's current status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking]
+                properties:
+                  booking: {$ref: "#/components/schemas/PublicBookingStatus"}
+        "400":
+          description: Missing token.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "410": {$ref: "#/components/responses/LinkExpired"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/book/cancel-info:
+    get:
+      tags: [bookings]
+      operationId: bookingsPublicCancelInfo
+      summary: Preview refund terms before cancelling a public booking
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/BookingToken"}
+      responses:
+        "200":
+          description: What cancelling now would do.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicCancelInfo"}
+        "400":
+          description: Missing token.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "410": {$ref: "#/components/responses/LinkExpired"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/book/cancel:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicCancel
+      summary: Cancel a public booking by its link token
+      description: >-
+        Public. Respects the complex's cancellation window (unlike the staff cancel endpoint).
+        Cross-tenant bypass reason `resolves`.
+      security: []
+      responses:
+        "200":
+          description: Cancelled, with the resulting refund outcome.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking, refunded, refund]
+                properties:
+                  booking:
+                    type: object
+                    required: [status, collection_status, refund_status]
+                    properties:
+                      status: {$ref: "#/components/schemas/BookingStatus"}
+                      collection_status: {$ref: "#/components/schemas/CollectionStatus"}
+                      refund_status: {$ref: "#/components/schemas/RefundStatus"}
+                  refunded: {type: boolean}
+                  refund: {$ref: "#/components/schemas/RefundOutcome"}
+        "400":
+          description: The booking is already cancelled or completed.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "410": {$ref: "#/components/responses/LinkExpired"}
+        "422":
+          description: Missing token.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string}
+
+  /api/v1/complexes/{id}/bookings:
+    get:
+      tags: [bookings]
+      operationId: bookingsList
+      summary: List a complex's bookings for one day
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: date
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: status
+          in: query
+          description: Filtered in application code, not a database predicate.
+          schema: {$ref: "#/components/schemas/BookingStatus"}
+        - name: search
+          in: query
+          description: Matches client name or phone. Filtered in application code.
+          schema: {type: string}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of bookings for the given day.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bookings, metadata]
+                properties:
+                  bookings:
+                    type: array
+                    items: {$ref: "#/components/schemas/Booking"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Missing or malformed `date`, or an invalid cursor.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [bookings]
+      operationId: bookingsCreate
+      summary: Create a staff booking, confirmed immediately
+      description: No payment step. Optionally records a cash or transfer payment in the same call.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "201":
+          description: Booking created and confirmed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking]
+                properties:
+                  booking: {$ref: "#/components/schemas/Booking"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: A blocked slot, a blocked client, or a concurrent slot conflict.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [court_id, date, start_time, client_phone, client_first_name, client_last_name, duration_minutes]
+              properties:
+                court_id: {type: string, format: uuid}
+                date: {type: string, format: date}
+                start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                duration_minutes: {type: integer}
+                client_phone: {type: string, example: "+5491112345678"}
+                client_email: {type: string, format: email}
+                client_first_name: {type: string}
+                client_last_name: {type: string}
+                payment_method: {type: string, enum: ["", cash, transfer]}
+                payment_option: {type: string, enum: ["", unpaid, deposit, full]}
+                notes: {type: string}
+                deposit_amount: {type: integer, description: "Centavos ARS."}
+                price: {type: integer, description: "Centavos ARS. Required when no price rule covers the slot."}
+
+  /api/v1/complexes/{id}/bookings/{bookingID}:
+    get:
+      tags: [bookings]
+      operationId: bookingsGet
+      summary: Get one booking with its client and payments
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/BookingID"}
+      responses:
+        "200":
+          description: The booking, its payments, and its client and current payment when resolvable.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking, payments]
+                properties:
+                  booking: {$ref: "#/components/schemas/Booking"}
+                  client: {$ref: "#/components/schemas/Client"}
+                  payment: {$ref: "#/components/schemas/Payment"}
+                  payments:
+                    type: array
+                    items: {$ref: "#/components/schemas/Payment"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    put:
+      tags: [bookings]
+      operationId: bookingsUpdate
+      summary: Update a booking's status or notes
+      description: >-
+        Every status field is optional and independently validated against a legal-transition
+        matrix. Cancelling a paid booking here is refused, use the dedicated cancel endpoint.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/BookingID"}
+      responses:
+        "200":
+          description: The updated booking.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking]
+                properties:
+                  booking: {$ref: "#/components/schemas/Booking"}
+        "400":
+          description: Malformed body, or an attempt to cancel a paid booking through this endpoint.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: Illegal collection or refund status transition, or a concurrent edit.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: {$ref: "#/components/schemas/BookingStatus"}
+                collection_status: {$ref: "#/components/schemas/CollectionStatus"}
+                refund_status: {$ref: "#/components/schemas/RefundStatus"}
+                notes: {type: string}
+
+  /api/v1/complexes/{id}/bookings/{bookingID}/cancel:
+    post:
+      tags: [bookings]
+      operationId: bookingsCancel
+      summary: Staff-cancel a booking, refunding if money was collected
+      description: >-
+        Ignores the complex's cancellation window, unlike the public cancel endpoint.
+        Cancelling an already-cancelled booking is idempotent and answers `200` unchanged.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/BookingID"}
+      responses:
+        "200":
+          description: The booking and the resulting refund outcome.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking, refund]
+                properties:
+                  booking: {$ref: "#/components/schemas/Booking"}
+                  refund: {$ref: "#/components/schemas/RefundOutcome"}
+        "400":
+          description: The booking is already completed or a no-show, both terminal.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string}
+
+  /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment:
+    post:
+      tags: [bookings]
+      operationId: bookingsConfirmPayment
+      summary: Record a cash or transfer payment taken by staff
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/BookingID"}
+      responses:
+        "200":
+          description: The booking and the payment row created for it.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking, payment]
+                properties:
+                  booking: {$ref: "#/components/schemas/Booking"}
+                  payment: {$ref: "#/components/schemas/Payment"}
+        "400":
+          description: The booking is cancelled, or already fully paid.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: A blocked slot, or a concurrent edit.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method, amount]
+              properties:
+                method: {type: string, enum: [cash, transfer]}
+                amount: {type: integer, minimum: 1, maximum: 99999999, description: "Centavos ARS."}
+
+  /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund:
+    post:
+      tags: [bookings]
+      operationId: bookingsManualRefund
+      summary: Close out the manual half of a split refund
+      description: >-
+        Only legal when the booking reads `status: cancelled` and `refund_status: partial`,
+        meaning an automatic refund covered part of the payment and the rest must be handed
+        back by hand (cash or transfer).
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/BookingID"}
+      responses:
+        "200":
+          description: The booking, its payments, and how much was returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking, payments, returned_amount]
+                properties:
+                  booking: {$ref: "#/components/schemas/Booking"}
+                  payments:
+                    type: array
+                    items: {$ref: "#/components/schemas/Payment"}
+                  returned_amount: {type: integer, description: "Centavos ARS."}
+        "400":
+          description: No manual refund is pending on this booking.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # clients
+  # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/clients:
+    get:
+      tags: [clients]
+      operationId: clientsList
+      summary: List a complex's clients
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: search
+          in: query
+          description: Matched against client name and phone.
+          schema: {type: string}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of clients.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [clients, metadata]
+                properties:
+                  clients:
+                    type: array
+                    items: {$ref: "#/components/schemas/Client"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Invalid cursor value.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/clients/{clientID}:
+    get:
+      tags: [clients]
+      operationId: clientsGet
+      summary: Get one client with their recent bookings
+      description: >-
+        Answers `404`, not `403`, when the client belongs to a different complex, so this
+        endpoint cannot be used to probe which client ids exist elsewhere.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ClientID"}
+      responses:
+        "200":
+          description: The client and up to 20 recent bookings.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [client, recent_bookings]
+                properties:
+                  client: {$ref: "#/components/schemas/Client"}
+                  recent_bookings:
+                    type: array
+                    items: {$ref: "#/components/schemas/Booking"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    put:
+      tags: [clients]
+      operationId: clientsUpdate
+      summary: Update a client's notes or blocked status
+      description: >-
+        Only `notes` and `is_blocked` are owner-editable. Identity fields come from bookings
+        and cannot be written here.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ClientID"}
+      responses:
+        "200":
+          description: The updated client.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [client]
+                properties:
+                  client: {$ref: "#/components/schemas/Client"}
+        "400":
+          description: Malformed body.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/EditConflict"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: {type: string}
+                is_blocked: {type: boolean}
+
+  # ---------------------------------------------------------------------
+  # complexes
+  # ---------------------------------------------------------------------
+  /api/v1/public/complexes/{slug}:
+    get:
+      tags: [complexes]
+      operationId: complexesGetPublic
+      summary: The public storefront landing page for a complex
+      description: Public. Cross-tenant bypass reason `resolves`. Strips owner and MercadoPago identifiers.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+      responses:
+        "200":
+          description: The complex, its active courts and their prices, and its schedule.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [complex, courts, schedules]
+                properties:
+                  complex: {$ref: "#/components/schemas/PublicComplex"}
+                  courts:
+                    type: array
+                    items: {$ref: "#/components/schemas/CourtWithPrices"}
+                  schedules:
+                    type: array
+                    items: {$ref: "#/components/schemas/Schedule"}
+        "404":
+          description: Unknown slug, or the complex is inactive.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/slug-available:
+    get:
+      tags: [complexes]
+      operationId: complexesSlugAvailable
+      summary: Check whether a slug is free platform-wide
+      description: >-
+        Not nested under `/complexes/` because httprouter cannot mix a static segment with the
+        `:id` wildcard already registered at that position. Cross-tenant bypass reason
+        `platform` (a global uniqueness check).
+      security: [{cookieAuth: []}]
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: >-
+            Always `200`, even for an empty or malformed slug (answered as unavailable and
+            invalid rather than as an error).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SlugAvailability"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes:
+    get:
+      tags: [complexes]
+      operationId: complexesList
+      summary: List the complexes the caller owns
+      description: >-
+        Not paginated, owners have few venues, capped by a configured maximum. Cross-tenant
+        bypass reason `by-owner` (filtered by `owner_id` in SQL).
+      security: [{cookieAuth: []}]
+      responses:
+        "200":
+          description: Every complex owned by the caller.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [complexes]
+                properties:
+                  complexes:
+                    type: array
+                    items: {$ref: "#/components/schemas/Complex"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [complexes]
+      operationId: complexesCreate
+      summary: Create a new complex
+      description: >-
+        Cross-tenant bypass reason `bootstrap`. Refused past the account's configured maximum
+        complex count. Seeds 7 default schedule rows (Monday through Sunday, 08:00 to 23:00).
+      security: [{cookieAuth: [], csrfHeader: []}]
+      responses:
+        "201":
+          description: The created complex.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [complex]
+                properties:
+                  complex: {$ref: "#/components/schemas/Complex"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403":
+          description: The account already owns the maximum number of complexes.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug, address, city, province, phone, deposit_percentage, cancellation_hours]
+              properties:
+                name: {type: string, maxLength: 200}
+                slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+                address: {type: string}
+                city: {type: string}
+                province: {type: string}
+                phone: {type: string}
+                email: {type: string, format: email}
+                deposit_percentage: {type: integer, minimum: 0, maximum: 100}
+                cancellation_hours: {type: integer, minimum: 1, maximum: 168}
+                latitude: {type: number}
+                longitude: {type: number}
+
+  /api/v1/complexes/{id}:
+    get:
+      tags: [complexes]
+      operationId: complexesGet
+      summary: Get a complex by id, owner view
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The full, owner-facing complex, including MercadoPago fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [complex]
+                properties:
+                  complex: {$ref: "#/components/schemas/Complex"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    put:
+      tags: [complexes]
+      operationId: complexesUpdate
+      summary: Update a complex's profile
+      description: >-
+        Every field is an optional pointer. Slug uniqueness is re-checked only when it
+        actually changes. Amenities are validated against a closed vocabulary.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The updated complex.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [complex]
+                properties:
+                  complex: {$ref: "#/components/schemas/Complex"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/EditConflict"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string}
+                slug: {type: string}
+                address: {type: string}
+                city: {type: string}
+                province: {type: string}
+                phone: {type: string}
+                email: {type: string, format: email}
+                logo_url: {type: string}
+                cover_url: {type: string}
+                deposit_percentage: {type: integer, minimum: 0, maximum: 100}
+                cancellation_hours: {type: integer, minimum: 1, maximum: 168}
+                is_active: {type: boolean}
+                latitude: {type: number}
+                longitude: {type: number}
+                amenities:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - parking
+                      - changing_rooms
+                      - showers
+                      - bar
+                      - racket_rental
+                      - pro_shop
+                      - wifi
+                      - lockers
+                      - lessons
+                      - tournaments
+                      - accessible
+                      - match_recording
+    delete:
+      tags: [complexes]
+      operationId: complexesDelete
+      summary: Soft-delete a complex and its courts
+      description: The one cascading write in this module. Refused while the complex has active bookings.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, courts_deactivated]
+                properties:
+                  message: {type: string, example: "complex deleted"}
+                  courts_deactivated: {type: integer}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The complex has active bookings.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/schedules:
+    put:
+      tags: [complexes]
+      operationId: complexesUpdateSchedules
+      summary: Replace a complex's weekly opening hours
+      description: >-
+        Requires exactly 7 entries, one per weekday, no duplicates. `close_time` before
+        `open_time` is valid and means the venue closes after midnight.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The updated schedule.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedules]
+                properties:
+                  schedules:
+                    type: array
+                    items: {$ref: "#/components/schemas/Schedule"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [schedules]
+              properties:
+                schedules:
+                  type: array
+                  minItems: 7
+                  maxItems: 7
+                  items:
+                    type: object
+                    required: [day, is_closed]
+                    properties:
+                      day: {$ref: "#/components/schemas/Weekday"}
+                      open_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                      close_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                      is_closed: {type: boolean}
+
+  /api/v1/complexes/{id}/uploads/presign:
+    post:
+      tags: [complexes]
+      operationId: complexesPresignUpload
+      summary: Get a short-lived presigned URL to upload a logo or cover image
+      description: >-
+        Browsers upload directly to object storage, image bytes never traverse this service.
+        Answers `501` when no storage backend is configured.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: A 10 minute presigned PUT URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [upload_url, public_url, key]
+                properties:
+                  upload_url: {type: string, format: uri}
+                  public_url: {type: string, format: uri}
+                  key: {type: string}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: No object storage backend is configured.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, content_type, file_size]
+              properties:
+                type: {type: string, enum: [logo, cover]}
+                content_type: {type: string, enum: [image/jpeg, image/png, image/webp]}
+                file_size: {type: integer, minimum: 1, maximum: 5242880, description: "Bytes, capped at 5 MiB."}
+
+  /api/v1/complexes/{id}/uploads:
+    delete:
+      tags: [complexes]
+      operationId: complexesDeleteUpload
+      summary: Delete a previously uploaded logo or cover image
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "deleted"}
+        "400":
+          description: The URL does not belong to this storage.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404":
+          description: >-
+            The key exists but does not fall under this complex's own storage prefix (reported
+            as 404, not 403, so this cannot be used to probe another tenant's storage keys).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: No object storage backend is configured.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: {type: string, format: uri}
+
+  /api/v1/complexes/{id}/mp/connect:
+    post:
+      tags: [complexes]
+      operationId: complexesConnectMercadoPago
+      summary: Connect the complex's MercadoPago account (OAuth PKCE exchange)
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Connected.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connected, mp_user_id]
+                properties:
+                  connected: {type: boolean, example: true}
+                  mp_user_id: {type: string}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500":
+          description: >-
+            The OAuth exchange with MercadoPago failed. Unlike most 500s, this message includes
+            the wrapped error detail.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, redirect_uri]
+              properties:
+                code: {type: string}
+                redirect_uri: {type: string, format: uri}
+                code_verifier: {type: string}
+    delete:
+      tags: [complexes]
+      operationId: complexesDisconnectMercadoPago
+      summary: Disconnect the complex's MercadoPago account
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Disconnected.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connected]
+                properties:
+                  connected: {type: boolean, example: false}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409":
+          description: The complex has active bookings.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/mp/status:
+    get:
+      tags: [complexes]
+      operationId: complexesMercadoPagoStatus
+      summary: Get the complex's MercadoPago connection status
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Connection status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connected]
+                properties:
+                  connected: {type: boolean}
+                  app_id: {type: string, description: "Present only when MP_APP_ID is configured."}
+                  mp_user_id: {type: string, description: "Present only when connected and set."}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # courts
+  # ---------------------------------------------------------------------
+  /api/v1/public/complexes/{slug}/availability:
+    get:
+      tags: [courts]
+      operationId: courtsPublicAvailability
+      summary: The storefront's bookable-slot grid for one day
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Unpriced slots are omitted from the
+        `slots` array. Booked, blocked and past slots are included with `available: false`. A
+        closed day or a complex with zero active courts answers `200` with `is_open: false`
+        rather than an error.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+        - name: date
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: duration
+          in: query
+          description: Defaults to the platform's default slot duration. Must be one of the permitted durations.
+          schema: {type: integer}
+      responses:
+        "200":
+          description: The day's availability grid.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [availability]
+                properties:
+                  availability: {$ref: "#/components/schemas/Availability"}
+        "400":
+          description: Missing `date`.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "404":
+          description: Unknown slug, or the complex is inactive.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/courts:
+    get:
+      tags: [courts]
+      operationId: courtsList
+      summary: List every court in a complex
+      description: Includes inactive courts, the owner manages both.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Every court, with its price bands.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [courts]
+                properties:
+                  courts:
+                    type: array
+                    items: {$ref: "#/components/schemas/CourtWithPrices"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [courts]
+      operationId: courtsCreate
+      summary: Create a court
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "201":
+          description: The created court.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [court]
+                properties:
+                  court: {$ref: "#/components/schemas/Court"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, sport, court_type]
+              properties:
+                name: {type: string, maxLength: 100}
+                sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+                court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+                description: {type: string, maxLength: 200}
+
+  /api/v1/complexes/{id}/courts/{courtID}:
+    put:
+      tags: [courts]
+      operationId: courtsUpdate
+      summary: Update a court
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/CourtID"}
+      responses:
+        "200":
+          description: The updated court.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [court]
+                properties:
+                  court: {$ref: "#/components/schemas/Court"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/EditConflict"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string, maxLength: 100}
+                sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+                court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+                description: {type: string, maxLength: 200}
+                is_active: {type: boolean}
+    delete:
+      tags: [courts]
+      operationId: courtsDelete
+      summary: Soft-delete a court
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/CourtID"}
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "court deleted"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The court has active bookings.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/courts/{courtID}/prices:
+    put:
+      tags: [courts]
+      operationId: courtsUpdatePrices
+      summary: Replace a court's price bands
+      description: >-
+        Full wholesale replacement. Bands sharing only an endpoint do not overlap (half-open
+        intervals). `time_to` at or before `time_from` means the band runs past midnight.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/CourtID"}
+      responses:
+        "200":
+          description: The updated price bands.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [prices]
+                properties:
+                  prices:
+                    type: array
+                    items: {$ref: "#/components/schemas/CourtPrice"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prices]
+              properties:
+                prices:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [price, day_type, time_from, time_to]
+                    properties:
+                      price: {type: integer, minimum: 1, description: "Centavos ARS per hour."}
+                      day_type: {$ref: "#/components/schemas/Weekday"}
+                      time_from: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                      time_to: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+
+  /api/v1/complexes/{id}/courts/{courtID}/block:
+    post:
+      tags: [courts]
+      operationId: courtsBlockSlot
+      summary: Block a time range on a court
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/CourtID"}
+      responses:
+        "201":
+          description: The created blocked slot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [blocked_slot]
+                properties:
+                  blocked_slot: {$ref: "#/components/schemas/BlockedSlot"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The range overlaps an existing booking, or is already blocked.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, start_time, end_time]
+              properties:
+                date: {type: string, format: date}
+                start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                reason: {type: string, maxLength: 500}
+
+  /api/v1/complexes/{id}/blocked-slots:
+    get:
+      tags: [courts]
+      operationId: courtsListBlockedSlots
+      summary: List blocked slots in a date range
+      description: The range is capped at 366 days.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: date_from
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: date_to
+          in: query
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        "200":
+          description: Blocked slots in range, never `null`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [blocked_slots]
+                properties:
+                  blocked_slots:
+                    type: array
+                    items: {$ref: "#/components/schemas/BlockedSlot"}
+        "400":
+          description: Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/blocked-slots/{slotID}:
+    delete:
+      tags: [courts]
+      operationId: courtsDeleteBlockedSlot
+      summary: Remove a blocked slot
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: slotID
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "blocked slot deleted"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # health
+  # ---------------------------------------------------------------------
+  /api/v1/healthcheck:
+    get:
+      tags: [health]
+      operationId: healthCheck
+      summary: Liveness probe
+      description: >-
+        Public. Polled by the load balancer. `503` pulls the instance from rotation (database
+        unreachable). A degraded cache or payments provider still answers `200` with
+        `status: degraded`, so a payment-provider outage does not become a total outage.
+      security: []
+      responses:
+        "200":
+          description: Available, possibly degraded.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/HealthStatus"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503":
+          description: The database is unreachable.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/HealthStatus"}
+
+  # ---------------------------------------------------------------------
+  # leads
+  # ---------------------------------------------------------------------
+  /api/v1/public/leads/abandoned-registration:
+    post:
+      tags: [leads]
+      operationId: leadsCaptureAbandonedRegistration
+      summary: Capture an email typed into the register form before it was submitted
+      description: >-
+        Public. Designed to be called via `navigator.sendBeacon`. The only endpoint in the API
+        with an empty success body, no envelope at all. Downstream forwarding failures are
+        logged, never surfaced.
+      security: []
+      responses:
+        "202":
+          description: Accepted, empty body.
+        "400":
+          description: Malformed JSON body.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email}
+
+  # ---------------------------------------------------------------------
+  # payments
+  # ---------------------------------------------------------------------
+  /api/v1/webhooks/mercadopago:
+    post:
+      tags: [payments]
+      operationId: paymentsMercadoPagoWebhook
+      summary: Receive a MercadoPago IPN notification
+      description: >-
+        Public, not rate limited. Cross-tenant bypass reason `resolves` (the tenant is found
+        from the payment's external reference). Signature verified via the `x-signature` and
+        `x-request-id` headers before the body is parsed or trusted. An unsigned or invalid
+        request gets a bare `200` with nothing recorded, so MercadoPago stops retrying an
+        attack while nothing is trusted. A recording failure answers `5xx` so MercadoPago
+        redelivers; an oversized body is dropped with `200` since redelivery cannot fix it.
+      security: []
+      parameters:
+        - name: x-signature
+          in: header
+          required: true
+          schema: {type: string}
+        - name: x-request-id
+          in: header
+          required: true
+          schema: {type: string}
+        - name: data.id
+          in: query
+          description: MercadoPago's own signature covers this parameter, preferred over the body field when present.
+          schema: {type: string}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, action, data]
+              properties:
+                type: {type: string}
+                action: {type: string}
+                data:
+                  type: object
+                  properties:
+                    id:
+                      description: Arrives as either a JSON string or a JSON number.
+      responses:
+        "200":
+          description: Recorded, or dropped after signature or size rejection. Always empty body.
+        "500":
+          description: Recording the event failed. MercadoPago will redeliver.
+        "503":
+          description: Recording the event failed. MercadoPago will redeliver.
+
+  # ---------------------------------------------------------------------
+  # places
+  # ---------------------------------------------------------------------
+  /api/v1/places/autocomplete:
+    get:
+      tags: [places]
+      operationId: placesAutocomplete
+      summary: Google Places Autocomplete proxy
+      description: >-
+        An `input` under 3 characters short-circuits to an empty result without calling Google,
+        since the call is billable.
+      security: [{cookieAuth: []}]
+      parameters:
+        - name: input
+          in: query
+          required: true
+          schema: {type: string}
+        - name: session_token
+          in: query
+          schema: {type: string}
+      responses:
+        "200":
+          description: Google's Autocomplete predictions, passed through unchanged.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [predictions]
+                properties:
+                  predictions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404":
+          description: Upstream reported the input could not be resolved.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429":
+          description: >-
+            Either this API's own rate limit, or Google Places' quota exhausted (the platform's
+            own quota, surfaced as 429 because backing off is the only useful response either way).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "502":
+          description: >-
+            The upstream call failed for any other reason (a 5xx, a bad key, an unreadable
+            body). Reported as a gateway failure rather than naming Google.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+
+  /api/v1/places/details:
+    get:
+      tags: [places]
+      operationId: placesDetails
+      summary: Google Places Details proxy, flattened to an address
+      description: A hand-flattened projection of Google's response, not a passthrough.
+      security: [{cookieAuth: []}]
+      parameters:
+        - name: place_id
+          in: query
+          required: true
+          schema: {type: string}
+        - name: session_token
+          in: query
+          schema: {type: string}
+      responses:
+        "200":
+          description: The resolved address.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PlaceDetails"}
+        "400":
+          description: Missing `place_id`.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404":
+          description: Unknown `place_id`.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429":
+          description: This API's own rate limit, or Google Places' quota exhausted.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "502":
+          description: The upstream call failed for any other reason.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+
+  # ---------------------------------------------------------------------
+  # publicsite
+  # ---------------------------------------------------------------------
+  /api/sitemap.xml:
+    get:
+      tags: [publicsite]
+      operationId: publicsiteSitemap
+      summary: Platform sitemap
+      description: >-
+        Public. Note this path has no `/api/v1` prefix. Cross-tenant bypass reason `platform`
+        (every active slug on the platform, by definition). One `<url>` per active complex slug.
+      security: []
+      responses:
+        "200":
+          description: XML sitemap.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: "public, max-age=3600"}
+          content:
+            application/xml:
+              schema: {type: string}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/prerender/{slug}:
+    get:
+      tags: [publicsite]
+      operationId: publicsitePrerender
+      summary: Server-rendered HTML for crawlers
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. The frontend's `index.html`, cached 10
+        minutes server-side, with title, description, OpenGraph tags, canonical link and JSON-LD
+        substituted in for this complex. All interpolated values are HTML-escaped.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+      responses:
+        "200":
+          description: Prerendered HTML.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
+          content:
+            text/html:
+              schema: {type: string}
+        "404":
+          description: Unknown slug, or the complex is inactive.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # realtime
+  # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/events:
+    get:
+      tags: [realtime]
+      operationId: realtimeStream
+      summary: Live booking-change feed for the owner dashboard (Server-Sent Events)
+      description: >-
+        Not a conventional JSON endpoint. The connection opens with `event: connected`, then a
+        `: keepalive` comment every 30 seconds, then `event: booking_changed` with an empty
+        `data: {}` payload whenever a booking on this complex is created, updated, cancelled or
+        paid (the dashboard reacts by refetching rather than reading the event body). The
+        stream ends with one of two terminal frames before closing: `event: expired` after 15
+        minutes (matching the access-token lifetime) or two consecutive re-authorization
+        failures, or `event: unauthorized` when a re-check (every 60 seconds) finds the caller
+        no longer authorized. Admission may refuse before any header is written when the
+        per-complex or global subscriber cap is hit.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: >-
+            An open `text/event-stream` connection. See the description for the frame protocol
+            and the event catalogue (`connected`, `booking_changed`, `expired`, `unauthorized`).
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >-
+                  Server-Sent Events frames. Not representable as discrete JSON responses, see
+                  the operation description for the full protocol.
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429":
+          description: The per-complex or global subscriber cap was reached. The connection was never upgraded.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # reporting
+  # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/stats:
+    get:
+      tags: [reporting]
+      operationId: reportingGetDashboardStats
+      summary: Dashboard summary statistics
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Today's, yesterday's and this month's figures.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stats]
+                properties:
+                  stats: {$ref: "#/components/schemas/DashboardStats"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/stats/revenue:
+    get:
+      tags: [reporting]
+      operationId: reportingGetRevenueChart
+      summary: Daily revenue chart
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: period
+          in: query
+          schema: {type: string, enum: [week, month], default: week}
+      responses:
+        "200":
+          description: One point per day.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revenue]
+                properties:
+                  revenue:
+                    type: array
+                    items: {$ref: "#/components/schemas/RevenueDataPoint"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/stats/occupancy:
+    get:
+      tags: [reporting]
+      operationId: reportingGetOccupancyChart
+      summary: Occupancy heatmap by day of week and hour
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: weeks
+          in: query
+          schema: {type: integer, default: 4, minimum: 1, maximum: 12}
+      responses:
+        "200":
+          description: Occupancy percentage per day-of-week/hour cell.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [occupancy]
+                properties:
+                  occupancy:
+                    type: array
+                    items: {$ref: "#/components/schemas/OccupancyPoint"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/stats/clients:
+    get:
+      tags: [reporting]
+      operationId: reportingGetClientInsights
+      summary: Client retention and frequency panel
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Retention and frequency figures.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [clients]
+                properties:
+                  clients: {$ref: "#/components/schemas/ClientInsights"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/reports/monthly:
+    get:
+      tags: [reporting]
+      operationId: reportingGetMonthlyReport
+      summary: Monthly payments report
+      description: >-
+        Defaults to the current month and year in the Argentina timezone. Period validation
+        errors answer `400` with the bare machine code string as the `error` value (not an
+        object), unlike the field-validation convention used elsewhere in the API.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: month
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 12}
+        - name: year
+          in: query
+          schema: {type: integer}
+      responses:
+        "200":
+          description: The monthly report.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [report]
+                properties:
+                  report: {$ref: "#/components/schemas/MonthlyReport"}
+        "400":
+          description: >-
+            `month_out_of_range`, `report_period_in_future` or
+            `report_period_before_complex_existed`, as the bare `error` string.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/reports/export:
+    get:
+      tags: [reporting]
+      operationId: reportingExportPaymentsExcel
+      summary: Download the monthly payments report as an Excel workbook
+      description: >-
+        Same period parameters and validation as the monthly report. Bounded by an 8 second
+        budget and a 50,000 row cap.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: month
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 12}
+        - name: year
+          in: query
+          schema: {type: integer}
+      responses:
+        "200":
+          description: A two-sheet Excel workbook (payment detail plus a summary sheet).
+          headers:
+            Content-Disposition:
+              schema: {type: string, example: 'attachment; filename="pagos_mi-complejo_9_2026.xlsx"'}
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: {type: string, format: binary}
+        "400":
+          description: Period validation failed, same machine-code shape as the monthly report.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422":
+          description: The report exceeds the 50,000 row export cap (`report_export_too_large`).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: The export did not finish inside its budget (`report_export_timed_out`).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+
+  # ---------------------------------------------------------------------
+  # openapi
+  # ---------------------------------------------------------------------
+  /api/v1/openapi.json:
+    get:
+      tags: [openapi]
+      operationId: openapiGetJSON
+      summary: This document, rendered as JSON
+      description: Public. General rate-limit tier. Rendered from the same parsed document served as YAML and used by /docs.
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI document.
+          content:
+            application/json:
+              schema: {type: object}
+        "429": {$ref: "#/components/responses/RateLimited"}
+
+  /api/v1/openapi.yaml:
+    get:
+      tags: [openapi]
+      operationId: openapiGetYAML
+      summary: This document, as raw YAML bytes
+      description: Public. General rate-limit tier. The source of truth committed to the repository at internal/openapi/openapi.yaml.
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI document.
+          content:
+            application/yaml:
+              schema: {type: string}
+        "429": {$ref: "#/components/responses/RateLimited"}
+
+  /api/v1/docs:
+    get:
+      tags: [openapi]
+      operationId: openapiGetDocs
+      summary: Interactive API reference
+      description: >-
+        Public. General rate-limit tier. An HTML page that loads Scalar's API reference pointed
+        at /api/v1/openapi.json. Not intended for search indexing, answers `X-Robots-Tag: noindex`.
+      security: []
+      responses:
+        "200":
+          description: The documentation page.
+          headers:
+            X-Robots-Tag:
+              schema: {type: string, example: "noindex"}
+            Cache-Control:
+              schema: {type: string, example: "public, max-age=3600"}
+          content:
+            text/html:
+              schema: {type: string}
+        "429": {$ref: "#/components/responses/RateLimited"}
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: >-
+        A 15 minute HS256 JWT set as an HttpOnly, Secure (outside development), SameSite=Lax
+        cookie by login, register (in development) and refresh. Every private route resolves
+        the caller from this cookie, falling back to an `Authorization: Bearer <token>` header
+        when the cookie is absent.
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: >-
+        Required on every state-changing request that carries a session, except the routes
+        listed as CSRF-exempt in the description of this document. The value is returned as
+        `csrf_token` in the JSON body of a successful login or refresh call, and is validated as
+        an HMAC-SHA256 of the current access token.
+
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque pagination cursor from a previous page's `metadata.next_cursor`.
+      schema: {type: string}
+    Limit:
+      name: limit
+      in: query
+      description: Page size. Default 50, maximum 200.
+      schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+    PathID:
+      name: id
+      in: path
+      required: true
+      description: Complex id.
+      schema: {type: string, format: uuid}
+    PathSlug:
+      name: slug
+      in: path
+      required: true
+      schema: {type: string}
+    BookingID:
+      name: bookingID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    CourtID:
+      name: courtID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    ClientID:
+      name: clientID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    BookingToken:
+      name: token
+      in: query
+      required: true
+      description: The opaque booking-link token, never the booking's primary key.
+      schema: {type: string}
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid session.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Forbidden:
+      description: Authenticated, but not permitted to reach this resource.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    NotFound:
+      description: The requested resource could not be found.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    ValidationError:
+      description: One or more fields failed validation.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ValidationError"}
+    RateLimited:
+      description: Too many requests. See the `Retry-After` header.
+      headers:
+        Retry-After:
+          schema: {type: integer}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    ServerError:
+      description: An unexpected server error. The message is always generic, it never leaks internal detail.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    EditConflict:
+      description: A concurrent edit was detected. Retry the request.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    LinkExpired:
+      description: The booking link has expired.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human readable, safe to display.
+
+    ValidationError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          description: >-
+            Field name (dotted or bracketed for nested fields, e.g. `schedules[3].open_time`) to
+            message. A message is either free text or one of the stable machine codes intended
+            for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`,
+            `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`,
+            `report_period_before_complex_existed`, `report_export_too_large`,
+            `report_export_timed_out`, `price_required`).
+          additionalProperties: {type: string}
+
+    Metadata:
+      type: object
+      required: [has_more]
+      properties:
+        next_cursor: {type: string}
+        has_more: {type: boolean}
+        total_count: {type: integer}
+
+    Weekday:
+      type: string
+      enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+
+    BookingStatus:
+      type: string
+      enum: [pending, confirmed, cancelled, completed, no_show]
+
+    CollectionStatus:
+      type: string
+      enum: [unpaid, deposit_paid, fully_paid]
+
+    RefundStatus:
+      type: string
+      description: "`partial` is set only by the system, never accepted as client input."
+      enum: [none, pending, partial, full]
+
+    User:
+      type: object
+      required: [id, email, first_name, last_name, phone, role, is_active, email_verified, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string, format: email}
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string, example: "+5491112345678"}
+        role: {type: string, enum: [owner, client, superadmin]}
+        is_active: {type: boolean}
+        email_verified: {type: boolean}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+
+    Complex:
+      type: object
+      required:
+        [id, owner_id, name, slug, address, city, province, country_code, currency, phone,
+         deposit_percentage, cancellation_hours, is_active, amenities, payments_enabled,
+         created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        owner_id: {type: string, format: uuid}
+        name: {type: string}
+        slug: {type: string}
+        address: {type: string}
+        city: {type: string}
+        province: {type: string}
+        country_code: {type: string, example: "AR"}
+        currency: {type: string, example: "ARS"}
+        phone: {type: string, example: "+5491112345678"}
+        email: {type: [string, "null"], format: email}
+        logo_url: {type: [string, "null"], format: uri}
+        cover_url: {type: [string, "null"], format: uri}
+        deposit_percentage: {type: integer, minimum: 0, maximum: 100}
+        cancellation_hours: {type: integer, minimum: 1, maximum: 168}
+        latitude: {type: [number, "null"]}
+        longitude: {type: [number, "null"]}
+        is_active: {type: boolean}
+        amenities:
+          type: array
+          items: {type: string}
+        court_count:
+          type: integer
+          description: Present only when returned by the owner's complex-list query.
+        payments_enabled: {type: boolean}
+        mp_user_id: {type: [string, "null"]}
+        mp_token_expires_at: {type: [string, "null"], format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+
+    PublicComplex:
+      type: object
+      description: >-
+        The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds
+        `payments_enabled` derived from the connection state.
+      required:
+        [id, name, slug, address, city, province, country_code, currency, phone,
+         deposit_percentage, cancellation_hours, amenities, payments_enabled]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        slug: {type: string}
+        address: {type: string}
+        city: {type: string}
+        province: {type: string}
+        country_code: {type: string, example: "AR"}
+        currency: {type: string, example: "ARS"}
+        phone: {type: string}
+        email: {type: string, format: email}
+        logo_url: {type: string, format: uri}
+        cover_url: {type: string, format: uri}
+        deposit_percentage: {type: integer}
+        cancellation_hours: {type: integer}
+        latitude: {type: number}
+        longitude: {type: number}
+        amenities:
+          type: array
+          items: {type: string}
+        payments_enabled: {type: boolean}
+
+    Schedule:
+      type: object
+      required: [id, complex_id, day, open_time, close_time, is_closed]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        day: {$ref: "#/components/schemas/Weekday"}
+        open_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        close_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        is_closed: {type: boolean}
+
+    Court:
+      type: object
+      required: [id, complex_id, name, sport, court_type, is_active, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        name: {type: string}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+        court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+        is_active: {type: boolean}
+        description: {type: [string, "null"]}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+
+    CourtWithPrices:
+      allOf:
+        - {$ref: "#/components/schemas/Court"}
+        - type: object
+          required: [prices]
+          properties:
+            prices:
+              type: array
+              items: {$ref: "#/components/schemas/CourtPrice"}
+
+    CourtPrice:
+      type: object
+      required: [id, court_id, price, day_type, time_from, time_to]
+      properties:
+        id: {type: string, format: uuid}
+        court_id: {type: string, format: uuid}
+        price: {type: integer, description: "Centavos ARS per hour."}
+        day_type: {$ref: "#/components/schemas/Weekday"}
+        time_from: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        time_to:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+          description: "At or before time_from means the band runs past midnight."
+        from_min: {type: integer, description: Minutes from weekday midnight.}
+        to_min: {type: integer, description: "Minutes from weekday midnight, may exceed 1440."}
+
+    BlockedSlot:
+      type: object
+      required: [id, court_id, date, start_time, end_time, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        court_id: {type: string, format: uuid}
+        date: {type: string, format: date}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        reason: {type: [string, "null"]}
+        created_by: {type: [string, "null"], format: uuid}
+        created_at: {type: string, format: date-time}
+        court_name: {type: string, description: "Enrichment, present on list responses."}
+
+    Client:
+      type: object
+      required: [id, complex_id, first_name, last_name, phone, is_blocked, total_bookings, no_shows, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string, example: "+5491112345678"}
+        email: {type: [string, "null"], format: email}
+        notes: {type: [string, "null"]}
+        is_blocked: {type: boolean}
+        total_bookings: {type: integer, description: "A live count, not a stored counter."}
+        no_shows: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+
+    Booking:
+      type: object
+      required:
+        [id, complex_id, court_id, client_id, starts_at, ends_at, date, start_time,
+         duration_minutes, price, deposit_amount, status, collection_status, refund_status,
+         reminder_sent_2h, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        court_id: {type: string, format: uuid}
+        client_id: {type: string, format: uuid}
+        starts_at: {type: string, format: date-time}
+        ends_at: {type: string, format: date-time}
+        date:
+          type: string
+          format: date-time
+          description: >-
+            Serializes as a full RFC 3339 timestamp, not a date-only string, when the struct is
+            returned directly by this endpoint.
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        duration_minutes: {type: integer}
+        price: {type: integer, description: "Centavos ARS."}
+        deposit_amount: {type: integer, description: "Centavos ARS."}
+        status: {$ref: "#/components/schemas/BookingStatus"}
+        collection_status: {$ref: "#/components/schemas/CollectionStatus"}
+        refund_status: {$ref: "#/components/schemas/RefundStatus"}
+        reminder_sent_2h: {type: boolean}
+        notes: {type: [string, "null"]}
+        created_by: {type: [string, "null"], format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        court_name: {type: string, description: "Enrichment, present when joined."}
+        client_name: {type: string, description: "Enrichment, present when joined."}
+        client_phone: {type: string, description: "Enrichment, present when joined."}
+
+    Payment:
+      type: object
+      required: [id, booking_id, complex_id, amount, service_fee, method, status, refund_amount, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        booking_id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        amount: {type: integer, description: "Centavos ARS."}
+        service_fee: {type: integer, description: "Centavos ARS."}
+        method: {type: string, enum: [mercadopago, cash, transfer]}
+        status:
+          type: string
+          description: >-
+            The payments table's own, wider status vocabulary. Distinct from
+            Booking.collection_status/refund_status, which were split off it at the booking level.
+          enum: [unpaid, deposit_paid, fully_paid, refunded, refund_pending, partial_refund]
+        mp_payment_id: {type: [string, "null"]}
+        mp_preference_id: {type: [string, "null"]}
+        refund_amount: {type: integer, description: "Centavos ARS."}
+        status_detail: {type: [string, "null"], description: "MercadoPago's own status_detail string."}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+
+    RefundOutcome:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [none, not_eligible, issued, already_issued, queued, manual]
+        message: {type: string, description: "Spanish, human-readable, safe to show a client."}
+        amount: {type: integer, description: "Centavos ARS. Present only when greater than zero, the automatic-refund half."}
+        manual_amount: {type: integer, description: "Centavos ARS. Present only when greater than zero, a balance nothing automatic can move."}
+        manual_message: {type: string, description: Present only when manual_amount is.}
+
+    PublicBookingResult:
+      type: object
+      required: [booking, token]
+      properties:
+        booking:
+          type: object
+          required:
+            [status, collection_status, refund_status, date, start_time, starts_at, ends_at,
+             court_name, complex_name, price, deposit_amount]
+          properties:
+            status: {$ref: "#/components/schemas/BookingStatus"}
+            collection_status: {$ref: "#/components/schemas/CollectionStatus"}
+            refund_status: {$ref: "#/components/schemas/RefundStatus"}
+            date: {type: string, format: date}
+            start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+            starts_at: {type: string, format: date-time}
+            ends_at: {type: string, format: date-time}
+            court_name: {type: string}
+            complex_name: {type: string}
+            price: {type: integer, description: "Centavos ARS."}
+            deposit_amount: {type: integer, description: "Centavos ARS."}
+        token:
+          type: string
+          description: Opaque booking-link credential. The booking's primary key is never included.
+        mp_init_point: {type: string, format: uri}
+        mp_preference_id: {type: string}
+        service_fee: {type: integer, description: "Centavos ARS."}
+        total_client_pays: {type: integer, description: "Centavos ARS."}
+
+    PublicBookingStatus:
+      type: object
+      required:
+        [status, collection_status, refund_status, complex_name, complex_address, court_name,
+         sport, court_type, date, start_time, starts_at, ends_at, duration_minutes, price,
+         deposit_amount, service_fee, remaining_amount, cancellation]
+      properties:
+        status: {$ref: "#/components/schemas/BookingStatus"}
+        collection_status: {$ref: "#/components/schemas/CollectionStatus"}
+        refund_status: {$ref: "#/components/schemas/RefundStatus"}
+        complex_name: {type: string}
+        complex_address: {type: string}
+        complex_phone: {type: string}
+        court_name: {type: string}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+        court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+        date: {type: string, format: date}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        starts_at: {type: string, format: date-time}
+        ends_at: {type: string, format: date-time}
+        duration_minutes: {type: integer}
+        price: {type: integer, description: "Centavos ARS."}
+        deposit_amount: {type: integer, description: "Centavos ARS."}
+        service_fee: {type: integer, description: "Centavos ARS."}
+        remaining_amount: {type: integer, description: "Centavos ARS."}
+        cancellation:
+          type: object
+          required: [can_cancel, can_refund_now, cancellation_hours]
+          properties:
+            can_cancel: {type: boolean}
+            can_refund_now: {type: boolean}
+            cancellation_hours: {type: integer}
+            refund_deadline: {type: [string, "null"], format: date-time}
+
+    PublicCancelInfo:
+      type: object
+      required: [booking, can_cancel, can_refund, refund_method, cancellation_hours, refund_amount, paid_amount]
+      properties:
+        booking:
+          type: object
+          required: [status, date, start_time, starts_at, ends_at, duration_minutes, court_name, sport, court_type, complex_name]
+          properties:
+            status: {$ref: "#/components/schemas/BookingStatus"}
+            date: {type: string, format: date}
+            start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+            starts_at: {type: string, format: date-time}
+            ends_at: {type: string, format: date-time}
+            duration_minutes: {type: integer}
+            court_name: {type: string}
+            sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+            court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+            complex_name: {type: string}
+            complex_address: {type: string}
+        can_cancel: {type: boolean}
+        can_refund: {type: boolean}
+        refund_method: {type: string, enum: [mercadopago, manual, none]}
+        cancellation_hours: {type: integer}
+        refund_amount: {type: integer, description: "Centavos ARS."}
+        paid_amount: {type: integer, description: "Centavos ARS."}
+
+    SlugAvailability:
+      type: object
+      required: [slug, valid, available]
+      properties:
+        slug: {type: string}
+        valid: {type: boolean}
+        available: {type: boolean}
+        suggestion:
+          type: string
+          description: Present only when the slug is taken and a free alternative was found.
+
+    PlatformStats:
+      type: object
+      required:
+        [total_users, active_users, new_users_month, total_complexes, new_complexes_month,
+         total_courts, total_bookings, total_revenue]
+      properties:
+        total_users: {type: integer}
+        active_users: {type: integer}
+        new_users_month: {type: integer}
+        total_complexes: {type: integer}
+        new_complexes_month: {type: integer}
+        total_courts: {type: integer}
+        total_bookings: {type: integer}
+        total_revenue: {type: integer, description: "Centavos ARS."}
+
+    AdminUserRow:
+      type: object
+      required: [id, email, first_name, last_name, phone, role, is_active, email_verified, created_at, complex_count]
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string, format: email}
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string}
+        role: {type: string, enum: [owner, client, superadmin]}
+        is_active: {type: boolean}
+        email_verified: {type: boolean}
+        created_at: {type: string, format: date-time}
+        complex_count: {type: integer}
+
+    AdminComplexRow:
+      type: object
+      required: [id, owner_id, owner_name, owner_email, name, slug, city, is_active, mp_connected, courts_count, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        owner_id: {type: string, format: uuid}
+        owner_name: {type: string}
+        owner_email: {type: string, format: email}
+        name: {type: string}
+        slug: {type: string}
+        city: {type: string}
+        is_active: {type: boolean}
+        mp_connected: {type: boolean}
+        courts_count: {type: integer}
+        created_at: {type: string, format: date-time}
+
+    AuditLogRow:
+      type: object
+      description: Every pointer field lacks `omitempty` in Go, so an absent value serializes as JSON `null`, not as an absent key.
+      required: [id, user_id, user_email, complex_id, action, entity_type, entity_id, ip_address, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        user_id: {type: [string, "null"], format: uuid}
+        user_email: {type: [string, "null"], format: email}
+        complex_id: {type: [string, "null"], format: uuid}
+        action: {type: string}
+        entity_type: {type: string}
+        entity_id: {type: [string, "null"], format: uuid}
+        ip_address: {type: [string, "null"]}
+        created_at: {type: string, format: date-time}
+
+    Availability:
+      type: object
+      required: [date, day, is_open, courts]
+      properties:
+        date: {type: string, format: date}
+        day: {$ref: "#/components/schemas/Weekday"}
+        is_open: {type: boolean}
+        courts:
+          type: array
+          items: {$ref: "#/components/schemas/AvailabilityCourt"}
+
+    AvailabilityCourt:
+      type: object
+      required: [court_id, court_name, sport, court_type, slots]
+      properties:
+        court_id: {type: string, format: uuid}
+        court_name: {type: string}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+        court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+        description: {type: string}
+        slots:
+          type: array
+          items: {$ref: "#/components/schemas/AvailabilitySlot"}
+
+    AvailabilitySlot:
+      type: object
+      required: [start_time, end_time, start_min, duration_minutes, price, available]
+      properties:
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        start_min:
+          type: integer
+          description: Minutes from the window's midnight, unwrapped past 1440 for overnight venues so past-midnight slots sort correctly.
+        duration_minutes: {type: integer}
+        price: {type: integer, description: "Centavos ARS."}
+        available: {type: boolean}
+
+    HealthStatus:
+      type: object
+      required: [status, version]
+      properties:
+        status: {type: string, enum: [available, degraded]}
+        version: {type: string}
+        impaired:
+          type: array
+          description: Present only when non-empty.
+          items:
+            type: string
+            enum: [database, cache, payments]
+
+    HealthDetailed:
+      type: object
+      required: [status, version, environment, dependencies]
+      properties:
+        status: {type: string, enum: [available, degraded]}
+        version: {type: string}
+        environment: {type: string}
+        dependencies:
+          type: object
+          description: Dependency name to state, plus merged db_pool_*/redis_pool_* figures.
+          additionalProperties: {type: string}
+        impaired:
+          type: array
+          items: {type: string, enum: [database, cache, payments]}
+        breakers:
+          type: object
+          description: "Per external dependency (mercadopago, whatsapp, mailer) to circuit state."
+          additionalProperties: {type: string, enum: [closed, open, half-open]}
+        metrics:
+          type: object
+          description: Process counters (request volume, latency, goroutines, notifier queue depths). Shape not fixed.
+          additionalProperties: true
+        queues:
+          type: array
+          items: {$ref: "#/components/schemas/QueueStats"}
+        queues_error:
+          type: string
+          description: Present only when the queue-stats query itself failed. Does not fail the whole health check.
+
+    QueueStats:
+      type: object
+      required: [name, pending, processing, exhausted, oldest_due_seconds]
+      properties:
+        name: {type: string, example: "webhook_events"}
+        pending: {type: integer}
+        processing: {type: integer}
+        exhausted: {type: integer}
+        oldest_due_seconds: {type: integer}
+
+    PlaceDetails:
+      type: object
+      required: [address, city, province, formatted_address, latitude, longitude]
+      properties:
+        address: {type: string}
+        city: {type: string}
+        province: {type: string}
+        formatted_address: {type: string}
+        latitude: {type: string, description: 'Formatted with "%f", a string rather than a JSON number.'}
+        longitude: {type: string, description: 'Formatted with "%f", a string rather than a JSON number.'}
+
+    DashboardStats:
+      type: object
+      description: Built as an ad-hoc map in the handler, not a named Go struct.
+      required:
+        [today_bookings, today_revenue, yesterday_bookings, yesterday_revenue, weekly_revenue,
+         monthly_revenue, occupancy_rate, pending_bookings, total_clients, upcoming_bookings,
+         payment_summary]
+      properties:
+        today_bookings: {type: integer}
+        today_revenue: {type: integer, description: "Centavos ARS."}
+        yesterday_bookings: {type: integer}
+        yesterday_revenue: {type: integer, description: "Centavos ARS."}
+        weekly_revenue: {type: integer, description: "Centavos ARS."}
+        monthly_revenue: {type: integer, description: "Centavos ARS."}
+        occupancy_rate:
+          type: integer
+          description: "0 to 100. Booked minutes over active courts times today's open hours."
+        pending_bookings: {type: integer}
+        total_clients: {type: integer}
+        upcoming_bookings:
+          type: array
+          description: The next 10 bookings due today.
+          items: {$ref: "#/components/schemas/Booking"}
+        payment_summary: {$ref: "#/components/schemas/PaymentSummary"}
+
+    PaymentSummary:
+      type: object
+      required: [by_status, by_method]
+      properties:
+        by_status:
+          type: object
+          description: Collection or refund status name to its breakdown.
+          additionalProperties: {$ref: "#/components/schemas/PaymentStatusBreakdown"}
+        by_method:
+          type: object
+          description: Payment method name to count.
+          additionalProperties: {type: integer}
+
+    PaymentStatusBreakdown:
+      type: object
+      required: [count, total]
+      properties:
+        count: {type: integer}
+        total: {type: integer, description: "Centavos ARS."}
+
+    RevenueDataPoint:
+      type: object
+      required: [date, amount]
+      properties:
+        date: {type: string, format: date}
+        amount: {type: integer, description: "Centavos ARS."}
+
+    OccupancyPoint:
+      type: object
+      required: [day_of_week, hour, percentage]
+      properties:
+        day_of_week: {type: integer, minimum: 0, maximum: 6}
+        hour: {type: integer, minimum: 0, maximum: 23}
+        percentage: {type: integer, description: "0 to 100, capped."}
+
+    ClientInsights:
+      type: object
+      required: [top, no_show_rate, no_show_count, resolved_count, new_clients_30d, recurring_30d, total_active_30d]
+      properties:
+        top:
+          type: array
+          items: {$ref: "#/components/schemas/TopClient"}
+        no_show_rate: {type: integer}
+        no_show_count: {type: integer}
+        resolved_count:
+          type: integer
+          description: "JSON tag is resolved_count, the Go field is named CompletedCount."
+        new_clients_30d: {type: integer}
+        recurring_30d: {type: integer}
+        total_active_30d: {type: integer}
+
+    TopClient:
+      type: object
+      required: [id, name, phone, booking_count, total_spent]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        phone: {type: string}
+        booking_count: {type: integer}
+        total_spent: {type: integer, description: "Centavos ARS."}
+
+    MonthlyReport:
+      type: object
+      description: Built as ad-hoc nested maps in the handler, not named Go structs.
+      required: [month, year, by_method, by_court, totals, previous_totals]
+      properties:
+        month: {type: integer, minimum: 1, maximum: 12}
+        year: {type: integer}
+        by_method:
+          type: object
+          description: Payment method name to its summary for the month.
+          additionalProperties: {$ref: "#/components/schemas/MonthlyReportSummary"}
+        by_court:
+          type: array
+          items: {$ref: "#/components/schemas/MonthlyReportCourtSummary"}
+        totals: {$ref: "#/components/schemas/MonthlyReportSummary"}
+        previous_totals:
+          allOf:
+            - {$ref: "#/components/schemas/MonthlyReportSummary"}
+          description: Same shape as totals, for the prior month.
+
+    MonthlyReportSummary:
+      type: object
+      required: [count, total, refunded, net]
+      properties:
+        count: {type: integer}
+        total: {type: integer, description: "Centavos ARS."}
+        service_fees: {type: integer, description: "Centavos ARS. Present on the totals/previous_totals rows."}
+        refunded: {type: integer, description: "Centavos ARS."}
+        net: {type: integer, description: "Centavos ARS."}
+
+    MonthlyReportCourtSummary:
+      type: object
+      required: [court_id, court_name, count, total, refunded, net]
+      properties:
+        court_id: {type: string}
+        court_name: {type: string}
+        count: {type: integer}
+        total: {type: integer, description: "Centavos ARS."}
+        refunded: {type: integer, description: "Centavos ARS."}
+        net: {type: integer, description: "Centavos ARS."}

@@ -1,0 +1,55 @@
+# Disposable PostgreSQL for the integration suite (`make e2e-db-up`).
+#
+# Kept separate from docker-compose.yml on purpose:
+#   - its own project name, so `docker compose -f docker-compose.e2e.yml ...`
+#     never adopts, recreates or tears down the running development containers
+#     (both files live in the same directory, and Compose otherwise derives the
+#     project name from that directory and treats the two `db` services as one);
+#   - its own named volume, so `make e2e-db-down` wiping the E2E data can never
+#     reach development data;
+#   - host port 5433 and database/user/password matching E2E_DSN in the Makefile.
+#
+# Redis is separate from db for the same reason db is separate from the dev
+# compose file: its own port (6380, never the dev instance's 6379) so the
+# `make e2e` API instance (see `scripts/e2e-run.sh`) never shares a queue with
+# the developer's running dev API. Plain integration tests still don't need
+# it — they construct the application with a nil Redis client (see
+# newIntegrationApp in cmd/api/testutils_integration_test.go) and never boot
+# through cmd/api/main.go, which is the only place Redis is required.
+name: vibe-e2e
+
+services:
+  db:
+    image: postgres:18.6-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: vibe_e2e
+      POSTGRES_USER: vibe
+      POSTGRES_PASSWORD: vibe_e2e
+    volumes:
+      # PostgreSQL 18 images keep PGDATA under /var/lib/postgresql/<major>/docker,
+      # so the volume mounts one level up or the data lands outside it.
+      - pgdata-e2e:/var/lib/postgresql
+    # `e2e-db-up` runs `up -d --wait`, which blocks on this healthcheck; without
+    # it the goose migration on the next line races the server's startup.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibe -d vibe_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  redis:
+    image: redis:8.10.1-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+volumes:
+  pgdata-e2e:

@@ -1,0 +1,34 @@
+interface ComplexLogoProps {
+  logoUrl: string | null;
+  name: string;
+}
+
+/**
+ * The club's logo, climbing over the bottom edge of the cover.
+ *
+ * At every width: cover, logo overlapping it, then the name. That grouping
+ * stays together as one block and simply becomes the left-hand column on a
+ * wide screen, rather than rearranging itself into a different relationship
+ * at each breakpoint.
+ */
+export function ComplexLogo({ logoUrl, name }: ComplexLogoProps) {
+  return (
+    // Indented from the cover's left edge at every width. Flush against it,
+    // the logo reads as falling off the photo rather than resting on it.
+    <div className="mb-4 -mt-10 ml-4 sm:-mt-12">
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt={name}
+          loading="eager"
+          decoding="async"
+          className="size-20 rounded-2xl border-2 border-bg-subtle object-cover shadow-md sm:size-24"
+        />
+      ) : (
+        <div className="flex size-20 items-center justify-center rounded-2xl border-2 border-bg-subtle bg-primary-500/10 text-2xl font-bold text-primary-500 shadow-md sm:size-24 sm:text-3xl">
+          {name.charAt(0).toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
+}

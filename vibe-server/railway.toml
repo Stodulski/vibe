@@ -1,0 +1,34 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Runs after the image is built and before any container starts serving. The
+# migrations are compiled into the binary, so this needs no goose, no psql and
+# no db/ directory in the image — it is the same binary startCommand runs, told
+# to migrate and exit instead of to listen.
+#
+# Railway does not retry it and does not proceed with the deploy when it exits
+# non-zero, which is exactly the behaviour a schema change wants: a migration
+# that fails leaves the previous release serving the previous schema.
+#
+# It runs once per deploy rather than once per replica, which is why
+# DB_AUTO_MIGRATE stays off here. The two paths are alternatives, not layers:
+# turning both on means every replica also races to apply the same chain at
+# boot (survivable — the migrator takes an advisory lock — but pointless).
+#
+# The schema (backboard.railway.app/railway.schema.json) accepts either a
+# string or a one-element array here; the array is the form Railway's own
+# documentation shows.
+preDeployCommand = ["/app/api -migrate-only"]
+startCommand = "/app/api"
+healthcheckPath = "/api/v1/healthcheck"
+# Seconds Railway keeps probing before it declares the replica unhealthy. Five
+# was the Docker HEALTHCHECK per-probe timeout copied by mistake; the boot opens
+# Postgres, pings Redis and only then listens, so give it a real window.
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[service]
+internalPort = 8080

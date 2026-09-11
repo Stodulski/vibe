@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+coverage
+pnpm-lock.yaml
+e2e-results
+playwright-report
+blob-report
+lighthouse-results
+.lighthouseci
+.codegraph
+.playwright-mcp

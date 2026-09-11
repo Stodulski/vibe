@@ -1,0 +1,1020 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Self-hosted fonts ─── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url('/fonts/inter-italic-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url('/fonts/inter-italic-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url('/fonts/jakarta-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url('/fonts/jakarta-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/jetbrains-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/jetbrains-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@theme {
+  --color-bg-base: #0b0b0b;
+  --color-bg-subtle: #111111;
+  --color-bg-elevated: #181818;
+  --color-bg-overlay: #1e1e1e;
+  --color-bg-highlight: #252525;
+
+  --color-primary-50: #ecfdf3;
+  --color-primary-100: #d1fae5;
+  --color-primary-200: #a7f3d0;
+  --color-primary-300: #6ee7a0;
+  --color-primary-400: #34d669;
+  --color-primary-500: #1db954;
+  --color-primary-600: #16a34a;
+  --color-primary-700: #15803d;
+  --color-primary-800: #166534;
+  --color-primary-900: #14532d;
+
+  --color-accent-300: #c4b5fd;
+  --color-accent-400: #a78bfa;
+  --color-accent-500: #8b5cf6;
+  --color-accent-600: #7c3aed;
+
+  --color-neutral-400: #a0a0a0;
+  --color-neutral-500: #6b6b6b;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #3a3a3a;
+  --color-neutral-800: #2a2a2a;
+  --color-neutral-900: #1e1e1e;
+
+  /* Three tiers of readable text, and one that is deliberately not.
+   *
+   * Contrast against the page ground (#121212), WCAG 2.1 AA wants 4.5:1 for
+   * text under 24px:
+   *   primary    #FFFFFF   18.7:1
+   *   secondary  #A0A0A0    7.2:1
+   *   tertiary   #8A8A8A    5.4:1   <- the dimmest tier text may use
+   *   disabled   #525252    2.4:1   <- fails on purpose, see below
+   *
+   * `disabled` is for controls a person cannot currently act on, which WCAG
+   * exempts from the contrast minimum precisely so that "unavailable" can look
+   * unavailable. It is NOT a fourth text tier. It read as one for a while and
+   * drifted onto table headers, section labels, form hints and the resting
+   * state of nav items — 80 places, none of them disabled, every one of them
+   * below half the required contrast. The public storefront alone failed 62
+   * times on this one value.
+   *
+   * Its two defensible text users lived in SlotButton, where an unbookable
+   * slot was dimmed AND struck through — the strike-through kept the meaning
+   * off colour alone. They went with the court-major grid: the storefront no
+   * longer draws an hour it cannot sell, so it has no disabled text at all.
+   * What is left uses this as a fill (`bg-text-disabled`) or for placeholder
+   * rows standing in for absent data, neither of which is body text.
+   *
+   * If something needs to be quieter than tertiary, the answer is not a dimmer
+   * grey. It is less weight, smaller size, or more space around it.
+   */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a0a0a0;
+  --color-text-tertiary: #8a8a8a;
+  --color-text-disabled: #525252;
+  --color-text-inverse: #0b0b0b;
+
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+  --color-border-brand: #1db954;
+
+  /* The border a control's own shape is drawn in — inputs, selects,
+   * checkboxes, the outline button variant. Named by what it is FOR, not by
+   * how loud it is, because none of the three greys above were ever loud
+   * enough for this: WCAG 2.1 AA wants 3:1 for a form field's own boundary,
+   * and even --color-border-strong (15% white) only reaches 1.53:1 against
+   * this page's darkest ground. White has to sit at 35% before it clears 3:1
+   * against every background tier in this file (#0b0b0b through #252525);
+   * measured directly, not estimated.
+   *
+   * subtle/default/strong stay as they are for dividers and card edges,
+   * which WCAG's own UI-element rule doesn't reach — those are decorative,
+   * not something a person has to perceive as a control's edge to use it.
+   */
+  --color-border-interactive: rgba(255, 255, 255, 0.35);
+  --color-border-interactive-hover: rgba(255, 255, 255, 0.45);
+
+  --color-success-text: #4ade80;
+  --color-success-icon: #22c55e;
+  --color-success-bg: #052e16;
+  --color-success-border: #166534;
+
+  --color-warning-text: #facc15;
+  --color-warning-icon: #eab308;
+  --color-warning-bg: #1a1700;
+  --color-warning-border: #854d0e;
+
+  --color-error-text: #f87171;
+  --color-error-icon: #ef4444;
+  --color-error-bg: #1c0a0a;
+  --color-error-border: #b91c1c;
+
+  --color-info-text: #7dd3fc;
+  --color-info-icon: #38bdf8;
+  --color-info-bg: #0c1929;
+  --color-info-border: #0369a1;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-brand: none;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Three sizes below Tailwind's own text-xs (12px), used consistently by
+   * role across the app but never named — every call site re-wrote the same
+   * pixel value as an arbitrary text-[Npx] instead of a shared token.
+   * Formalizing them here changes nothing visually; it just gives the
+   * already-consistent choice a name so future call sites reuse it too. */
+  --text-micro: 11px;
+  --text-micro--line-height: 14px;
+  --text-nav: 13px;
+  --text-nav--line-height: 18px;
+  --text-brand: 15px;
+  --text-brand--line-height: 20px;
+}
+
+:root {
+  --radius: 0.625rem;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+
+  --background: oklch(0.1 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.13 0 0);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.13 0 0);
+  --popover-foreground: oklch(1 0 0);
+  --primary: oklch(0.65 0.17 150);
+  --primary-foreground: oklch(0.1 0 0);
+  --secondary: oklch(0.16 0 0);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.16 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.16 0 0);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(1 0 0 / 6%);
+  --input: oklch(1 0 0 / 10%);
+  --ring: oklch(0.65 0.17 150);
+  --chart-1: oklch(0.65 0.17 150);
+  --chart-2: oklch(0.65 0.16 290);
+  --chart-3: oklch(0.58 0.22 25);
+  --chart-4: oklch(0.72 0.16 155);
+  --chart-5: oklch(0.75 0.12 75);
+  --sidebar: oklch(0.1 0 0);
+  --sidebar-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.65 0.17 150);
+  --sidebar-primary-foreground: oklch(0.14 0 0);
+  --sidebar-accent: oklch(0.15 0 0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --sidebar-ring: oklch(0.65 0.17 150);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Two deliberate choices packed into one line.
+   `clip` rather than `hidden`: both refuse a horizontal scrollbar, but `hidden`
+   makes the element a scroll container, and a scroll container here is what
+   every `position: sticky` descendant then tries to stick inside — so they all
+   silently stopped sticking. `clip` cuts the overflow without creating one.
+   On `body` alone, not `html`: the viewport takes its overflow from `html`, and
+   only falls through to `body` while `html` is `visible`. Declaring it on
+   `html` captured that fall-through, so the `overflow: hidden` Radix puts on
+   the body to lock the page behind a dialog reached nothing and the page still
+   scrolled with a drawer open. */
+body {
+  overflow-x: clip;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-color: var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 100;
+  padding: 12px 24px;
+  background: var(--color-primary-500);
+  color: var(--color-bg-base);
+  font-weight: 600;
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 16px;
+}
+
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+  /* 44px is the touch-target floor, but on a textarea this selector outranks
+     the utility class a component sets, so a notes field asking for three
+     lines collapsed to one. Keep the floor, let the component ask for more. */
+  textarea {
+    min-height: max(44px, var(--textarea-min-height, 0px));
+  }
+  [data-slot='switch'],
+  [data-slot='checkbox'],
+  [data-slot='dialog-close'],
+  [data-slot='sheet-close'],
+  [data-slot='select-scroll-up-button'],
+  [data-slot='select-scroll-down-button'] {
+    min-height: 0;
+  }
+  /* Better touch targets for select items on touch devices */
+  [data-slot='select-item'] {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* The page is the scroller now; `main` no longer has a scrollbar of its own. */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Radix locks the page behind a dialog through react-remove-scroll, which
+   assumes it is about to make a scrollbar vanish and re-reserves that width as
+   `margin-right: <gap>px !important` on the body. The gutter above never
+   vanishes, so both reservations applied at once and the content slid a
+   scrollbar's width to the left every time a modal or drawer opened — while
+   the masthead and sidebar held still, being `fixed` against the viewport.
+   One reservation is enough, and the gutter is the one that also spares us a
+   jump when moving between a page that scrolls and one that doesn't.
+   `html` prefixed only to outrank the library's own `!important`. */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(29, 185, 84, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(29, 185, 84, 0.5);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 185, 84, 0.3) transparent;
+}
+
+/* Scrolls, but shows no bar — for surfaces that already advertise the movement
+   some other way (arrows, a partly-cut item at the edge). */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Accordion panels. `height: auto` cannot be animated, so Radix measures the
+   collapsed content and publishes the result as `--radix-accordion-content-height`
+   for these two to interpolate against. Without them the panel would still
+   open and close correctly — it would just snap. */
+@keyframes accordion-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+/* `backwards`, not `both`: `both` keeps the final keyframe applied forever,
+   and every one of these ends on a transform. A transform other than `none`
+   makes the element a containing block, which silently re-anchors any
+   `position: sticky` or `fixed` descendant to it instead of the viewport —
+   the court-name header stopped sticking because of exactly this. Each
+   animation ends on its element's natural state, so dropping the forwards
+   fill changes nothing visible. */
+.animate-fade-in {
+  animation: fade-in 300ms var(--ease-out) backwards;
+}
+.animate-fade-in-scale {
+  animation: fade-in-scale 200ms var(--ease-out) backwards;
+}
+.animate-accordion-down {
+  animation: accordion-down 220ms var(--ease-out);
+}
+.animate-accordion-up {
+  animation: accordion-up 180ms var(--ease-out);
+}
+@keyframes count-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-count-in {
+  animation: count-in 400ms var(--ease-out) backwards;
+}
+
+.stagger-children > * {
+  animation: fade-in 300ms var(--ease-out) backwards;
+}
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+/* Decorative animations removed — keeping the app minimal like the landing */
+.animate-float {
+  /* noop — removed for minimal style */
+}
+.animate-pulse-glow {
+  /* noop — removed for minimal style */
+}
+
+.animate-slide-in-left {
+  animation: fade-in 300ms var(--ease-out) backwards;
+}
+.animate-slide-in-right {
+  animation: fade-in 300ms var(--ease-out) backwards;
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-step-in {
+  animation: step-in 400ms var(--ease-out) backwards;
+}
+
+.animate-spring-scale {
+  animation: fade-in 300ms var(--ease-out) backwards;
+}
+
+@keyframes progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.animate-progress-120s {
+  animation: progress-fill 120s linear both;
+  transform-origin: left center;
+  will-change: transform;
+  contain: layout style;
+}
+
+.animate-ping-limited {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) 3;
+}
+
+/* Optimized transitions for form controls (color, bg, border, ring, opacity) */
+.transition-input {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-timing-function: var(--ease-out);
+  transition-duration: 200ms;
+}
+/* Optimized transitions for interactive cards (colors + scale) */
+.transition-card {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-timing-function: var(--ease-out);
+  transition-duration: 150ms;
+}
+
+/* Pause animations when tab is hidden */
+.tab-hidden .animate-progress-120s,
+.tab-hidden .animate-ping-limited,
+.tab-hidden .animate-spin,
+.tab-hidden .auth-blob {
+  animation-play-state: paused !important;
+}
+
+.glass {
+  background: rgba(11, 11, 11, 0.95);
+}
+
+.glow-hover {
+  transition: background-color var(--duration-normal) var(--ease-out);
+}
+.glow-hover:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.score-text {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.data-dense {
+  text-rendering: optimizeSpeed;
+}
+
+.offscreen-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ─── Auth page backgrounds (landing-inspired) ─── */
+@keyframes mesh-drift-1 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(8vw, 12vh) scale(1.15);
+  }
+  100% {
+    transform: translate(-5vw, 8vh) scale(0.95);
+  }
+}
+@keyframes mesh-drift-2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-10vw, -8vh) scale(1.1);
+  }
+  100% {
+    transform: translate(5vw, -12vh) scale(1.05);
+  }
+}
+@keyframes mesh-drift-3 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-6vw, 10vh) scale(1.2);
+  }
+  100% {
+    transform: translate(8vw, -5vh) scale(0.9);
+  }
+}
+
+/* GPU-promoted blob layer — uses radial-gradient instead of filter:blur for mobile perf */
+.auth-blob {
+  will-change: transform;
+  contain: strict;
+  border-radius: 50%;
+  position: absolute;
+  background: radial-gradient(circle, var(--blob-color) 0%, transparent 70%);
+}
+.auth-blob-1 {
+  --blob-color: rgba(29, 185, 84, 0.09);
+  animation: mesh-drift-1 25s ease-in-out infinite alternate;
+}
+.auth-blob-2 {
+  --blob-color: rgba(20, 184, 166, 0.07);
+  animation: mesh-drift-2 30s ease-in-out infinite alternate;
+}
+.auth-blob-3 {
+  --blob-color: rgba(29, 185, 84, 0.055);
+  animation: mesh-drift-3 20s ease-in-out infinite alternate;
+}
+
+/* Lightweight noise — uses a tiny repeating SVG with reduced octaves */
+.auth-noise {
+  contain: strict;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+  opacity: 0.045;
+  pointer-events: none;
+}
+
+/* Card entrance — simple fade-in */
+.animate-auth-card-in {
+  animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Auth stagger — simplified, shorter delays */
+.auth-stagger-1,
+.auth-stagger-2,
+.auth-stagger-3,
+.auth-stagger-4,
+.auth-stagger-5 {
+  /* No stagger — everything appears together for a cleaner feel */
+}
+
+.auth-card {
+  position: relative;
+}
+
+.hover-lift {
+  transition:
+    border-color var(--duration-normal) var(--ease-out),
+    background-color var(--duration-normal) var(--ease-out);
+}
+.hover-lift:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.safe-area-inset {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
+.safe-area-x {
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+
+.press-scale {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.press-scale:active {
+  transform: scale(0.98);
+}
+
+[aria-invalid='true'] {
+  border-color: var(--color-error-border);
+}
+/* react-hook-form focuses the first invalid field on submit, so the global
+   :focus-visible ring above can land on an aria-invalid field at the same
+   time — keep the ring red there instead of green-over-red. */
+[aria-invalid='true']:focus-visible {
+  outline-color: var(--color-error-border);
+}
+[aria-disabled='true'],
+:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Opts an element out of the global ring because it already shows its own
+   focused state — the booking grid's slots and blocks light their whole face
+   up, and the ring lands a second green outline around a shape that is already
+   unmistakably lit.
+ *
+ * It has to live here, unlayered and after the :focus-visible rule above,
+ * rather than as Tailwind's `outline-none` on the element: utilities sit in
+ * @layer utilities and an unlayered rule beats every layer no matter how
+ * specific the selector. `outline-none` on those controls was silently doing
+ * nothing for exactly that reason.
+ *
+ * Only for elements that DO replace it. Focus has to stay visible; this hides
+ * the default indicator, it does not excuse the absence of one. */
+.focus-self:focus-visible {
+  outline: none;
+}
+
+/* A NATIVE TIME INPUT, WEARING THIS APP'S CLOTHES.
+ *
+ * `<input type="time">` replaced fourteen Radix selects on the schedules tab:
+ * a list of forty-eight half hours cost about a second to mount, and the
+ * browser gives the same snapping for nothing. What it also gives is its own
+ * chrome, built for a light page — the picker button is a black clock glyph,
+ * which on a black field is an invisible control.
+ *
+ * Every rule here is about that, not decoration:
+ *
+ * - The picker indicator is inverted to a light glyph and dimmed to match the
+ *   other trailing icons in the app, brightening on hover so it reads as the
+ *   button it is.
+ * - The segments inherit the field's colour, which they otherwise do not: an
+ *   unstyled `::-webkit-datetime-edit` renders in the UA's text colour and
+ *   comes out near-black.
+ * - The focused segment gets the brand tint rather than the OS highlight,
+ *   which is a system blue that belongs to no palette here.
+ * - `field-sizing: content` where supported, so "08:00" does not sit in a box
+ *   sized for a locale that shows AM/PM.
+ *
+ * Unlayered, like the rules above it, because the ::-webkit pseudo-elements
+ * cannot be reached from a Tailwind utility at all. */
+.time-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.time-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.9;
+}
+
+.time-input::-webkit-datetime-edit,
+.time-input::-webkit-datetime-edit-fields-wrapper {
+  color: inherit;
+  padding: 0;
+}
+
+.time-input::-webkit-datetime-edit-hour-field:focus,
+.time-input::-webkit-datetime-edit-minute-field:focus,
+.time-input::-webkit-datetime-edit-ampm-field:focus {
+  background-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+  color: var(--color-text-primary);
+  border-radius: 3px;
+  outline: none;
+}
+
+/* The spinner Chrome adds on hover is a second way to change a value that the
+   arrow keys already cover, and it crowds a 120px field. */
+.time-input::-webkit-inner-spin-button,
+.time-input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* A disabled day is closed, not broken: the whole field dims together rather
+   than the text staying bright above a faded icon. */
+.time-input:disabled::-webkit-calendar-picker-indicator {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+/* Says a horizontal scroller continues past its edge, on whichever side still
+   has content. The booking grid needs it: six of twelve courts fit, and the
+   sixth lands so close to flush that the grid reads as finished rather than
+   cut. The pager arrows used to be the tell; this replaces them without
+   spending a control on it, and it answers for the trackpad and the drag too,
+   which the arrows never did.
+ *
+ * Painted on the frame rather than inside the scroller — inside, the fade
+ * would scroll away with the columns it is describing. `data-more-start` and
+ * `data-more-end` are written on the frame by the scroll handler. */
+.scroll-edges {
+  /* Brand green, not the page background: the grid's own cells ARE the
+     background, so a fade to it degrades black into black and shows nothing.
+     The tint has to be a colour the grid does not already have. */
+  --scroll-edge-tint: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+  /* Set by the frame when something sits above the scroller that the fade has
+     no business covering — the booking grid's court names. */
+  --scroll-edge-top: 0px;
+}
+.scroll-edges::before,
+.scroll-edges::after {
+  content: '';
+  position: absolute;
+  top: var(--scroll-edge-top);
+  bottom: 0;
+  z-index: 1;
+  width: 32px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.scroll-edges::before {
+  left: 0;
+  background: linear-gradient(to right, var(--scroll-edge-tint), transparent);
+}
+.scroll-edges::after {
+  right: 0;
+  background: linear-gradient(to left, var(--scroll-edge-tint), transparent);
+}
+.scroll-edges[data-more-start]::before,
+.scroll-edges[data-more-end]::after {
+  opacity: 1;
+}
+
+/* Quieter on a phone. The desktop values are read against six courts; a phone
+   shows about one and a half, so the same band covers a far larger share of
+   what there is to look at — and once scrolled, both edges are lit at once and
+   the grid is mostly fade. Narrower and lighter says the same thing at that
+   size, where the columns are already obviously cut. */
+@media (width < 40rem) {
+  .scroll-edges {
+    --scroll-edge-tint: color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+  }
+  .scroll-edges::before,
+  .scroll-edges::after {
+    width: 18px;
+  }
+}
+
+/* Toaster's own toastOptions.style sets an inline background/border/color for
+   every toast so the default/loading case matches the app's dark theme —
+   inline style beats any class, so these type overrides need !important to
+   win back semantic colour for error/success/warning toasts (and, via
+   currentColor, their icon). */
+[data-sonner-toast].toast-error {
+  background: var(--color-error-bg) !important;
+  border-color: var(--color-error-border) !important;
+  color: var(--color-error-text) !important;
+}
+[data-sonner-toast].toast-success {
+  background: var(--color-success-bg) !important;
+  border-color: var(--color-success-border) !important;
+  color: var(--color-success-text) !important;
+}
+[data-sonner-toast].toast-warning {
+  background: var(--color-warning-bg) !important;
+  border-color: var(--color-warning-border) !important;
+  color: var(--color-warning-text) !important;
+}
+
+/* Global number input spinner hiding */
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+/* Smooth error message animation */
+@keyframes error-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+[role='alert'] {
+  animation: error-in 200ms var(--ease-out) backwards;
+}
+
+.sr-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  button,
+  [role='button'],
+  a,
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'],
+  select,
+  label,
+  summary,
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'] {
+    cursor: pointer;
+  }
+
+  /* WHILE A DRAG IS LIVE, the surface's children stop arguing with it about
+     the cursor. Crossing a slot mid-drag used to turn the closed hand into a
+     click finger and back, dozens of times across one gesture — the same
+     gesture changing its own affordance as it goes.
+
+     Only while dragging, though. At rest each child keeps its own cursor, so a
+     free slot and a booking block say "click me" — which is what a click on
+     them does. The grab hand stays on the bare grid, where there is nothing to
+     click and dragging IS the only thing to do. A hand over a bookable slot
+     promised a drag and then booked a court; that promise was the bug.
+
+     Declared here rather than as a Tailwind utility because the rule it
+     answers is unlayered, and anything in `@layer utilities` loses to it
+     whatever its specificity. */
+  .drag-surface[data-dragging] * {
+    cursor: inherit;
+  }
+
+  /* Subtle transitions on cards only */
+  [data-slot='card'] {
+    transition: border-color var(--duration-normal) var(--ease-out);
+  }
+}

@@ -1,0 +1,157 @@
+# Vigila que los costos de MercadoPago que publica la landing sigan siendo los
+# que publica MercadoPago.
+#
+# Corre acá y no en Vercel Cron porque lo único que necesita es red y un Node, y
+# porque cuando encuentra algo lo que hace falta es que quede anotado en algún
+# lado que alguien mire. Un cron de Vercel escribe en un log que nadie abre.
+#
+# El chequeo distingue dos casos, con dos salidas distintas:
+#
+# - Los VALORES cambiaron (el parseo es confiable, pero el dataset quedó viejo):
+#   el propio script reescribe src/data/mercadopago-costos.ts con --write y este
+#   workflow abre (o actualiza) una pull request. NUNCA escribe en main
+#   directamente: alguien tiene que revisar el diff y mergearlo a mano, porque
+#   los porcentajes son una afirmación sobre plata en la página de precios.
+# - El PARSEO se rompió (grupos de más o de menos, sin fecha, o ni siquiera se
+#   pudo leer la página): un cambio de markup puede parecerse a un cambio de
+#   valores sin serlo, y ahí lo que hace falta es que un humano mire el
+#   parser, no un diff automático. Este caso sigue abriendo/comentando un
+#   issue, como siempre.
+name: Costos de MercadoPago
+
+on:
+  schedule:
+    # 09:00 en Buenos Aires (UTC-3). El horario no importa mucho, sí que sea uno
+    # solo por día: es la página de ayuda de un tercero, no una API.
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+# The check and the rewrite run inside the landing package; the PR and issue
+# steps below use gh against the repository root, which is where they belong.
+defaults:
+  run:
+    working-directory: vibe-landing
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Sin dependencias: el script usa fetch y lee el .ts con el stripping de
+      # TypeScript que ya trae Node. `npm ci` acá solo agregaría minutos.
+      #
+      # Códigos de salida del script (ver scripts/check-mercadopago.mjs):
+      #   0 sin diferencias · 1 valores distintos · 2 el parseo no es confiable
+      - name: Comparar contra la fuente
+        id: check
+        run: |
+          set +e
+          salida=$(node scripts/check-mercadopago.mjs 2>&1)
+          codigo=$?
+          echo "$salida"
+          {
+            echo "reporte<<FIN"
+            echo "$salida"
+            echo "FIN"
+          } >> "$GITHUB_OUTPUT"
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      # Los valores cambiaron y el parseo es confiable: se reescribe el dataset
+      # y se manda a revisión, nunca directo a main.
+      - name: Reescribir el dataset
+        id: write
+        if: steps.check.outputs.codigo == '1'
+        run: |
+          set +e
+          salida=$(node scripts/check-mercadopago.mjs --write 2>&1)
+          codigo=$?
+          echo "$salida"
+          {
+            echo "reporte<<FIN"
+            echo "$salida"
+            echo "FIN"
+          } >> "$GITHUB_OUTPUT"
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Abrir pull request
+        if: steps.check.outputs.codigo == '1' && steps.write.outputs.codigo == '0'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ github.token }}
+          commit-message: 'chore(costos): MercadoPago actualizó los costos de Checkout'
+          branch: costos-mercadopago
+          # Una sola rama/PR reusada todos los días, no una por corrida: si ya
+          # hay una abierta, esto la actualiza en vez de abrir una segunda.
+          delete-branch: true
+          title: 'chore(costos): MercadoPago actualizó los costos de Checkout'
+          body: |
+            El chequeo diario encontró una diferencia entre `vibe-landing/src/data/mercadopago-costos.ts` y lo que publica MercadoPago, y la reescribió.
+
+            ```
+            ${{ steps.write.outputs.reporte }}
+            ```
+
+            Fuente: https://www.mercadopago.com.ar/ayuda/33399
+
+            Antes de mergear: confirmar los números contra la fuente. La suite de tests (`npm test`) verifica que la home y la guía de MercadoPago muestren este mismo dataset.
+
+            Corrida: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      # El parseo se rompió (codigo 2) o el script terminó de alguna otra forma
+      # que no sea "valores distintos, reescritos y en su PR" (codigo 1 sin que
+      # el --write haya salido en 0): acá hace falta que alguien mire el
+      # parser, no un diff automático. Un issue abierto por día sería ruido que
+      # se aprende a ignorar, así que si ya hay uno abierto se le agrega un
+      # comentario y listo.
+      - name: Avisar
+        if: >-
+          steps.check.outputs.codigo != '0' &&
+          !(steps.check.outputs.codigo == '1' && steps.write.outputs.codigo == '0')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORTE: ${{ steps.check.outputs.reporte }}
+          REPORTE_WRITE: ${{ steps.write.outputs.reporte }}
+          CORRIDA: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # El label tiene que existir antes de usarlo. --force lo crea o lo deja como esta.
+          gh label create costos-mercadopago --color D93F0B \
+            --description "El chequeo diario detecto un cambio en los costos de MercadoPago" \
+            --force
+
+          abierto=$(gh issue list --state open --label costos-mercadopago \
+            --json number --jq '.[0].number // empty')
+
+          cuerpo=$(printf '%s\n\n```\n%s\n```\n%s\nCorrida: %s\n' \
+            'El chequeo diario no pudo confirmar los costos de MercadoPago contra la fuente (el parseo no es confiable, o la página no respondió). Esto necesita que alguien revise vibe-landing/scripts/check-mercadopago.mjs a mano, no un diff automático.' \
+            "$REPORTE" \
+            "${REPORTE_WRITE:+$(printf 'Salida de --write:\n```\n%s\n```\n' "$REPORTE_WRITE")}" \
+            "$CORRIDA")
+
+          if [ -n "$abierto" ]; then
+            echo "Ya existe el issue #$abierto, se agrega un comentario."
+            gh issue comment "$abierto" --body "$cuerpo"
+          else
+            gh issue create \
+              --title "Los costos de MercadoPago cambiaron" \
+              --label costos-mercadopago \
+              --body "$cuerpo"
+          fi
+
+      # Que la corrida quede en rojo cuando hubo algo que mirar, se haya abierto
+      # PR o issue: la corrida verde solo significa "no hacía falta nada".
+      - name: Marcar la corrida
+        if: steps.check.outputs.codigo != '0'
+        run: exit 1

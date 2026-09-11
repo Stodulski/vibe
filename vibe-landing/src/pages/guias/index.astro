@@ -1,0 +1,102 @@
+---
+/**
+ * El índice de guías.
+ *
+ * Existe por dos razones y ninguna es estética: le da a las guías un padre al
+ * que enlazar desde el footer, y le da a un rastreador un solo lugar del que
+ * salgan todas. Una guía enlazada desde ningún lado depende del sitemap y nada
+ * más, que es la forma más frágil de que la encuentren.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { guias } from '../../data/guias';
+import { guiasIndexJsonLd } from '../../data/jsonld';
+import { LAST_MODIFIED } from '../../data/site-dates';
+
+const TITULO = 'Guías para complejos deportivos | Vibe';
+const BAJADA = 'Respuestas concretas, con números y fuente, a lo que se pregunta antes de '
+  + 'digitalizar las reservas de un complejo de pádel, tenis o fútbol.';
+---
+<BaseLayout
+  title={TITULO}
+  description={BAJADA}
+  canonical="https://vibe.com.ar/guias"
+  date={LAST_MODIFIED}
+  ogTitle="Guías para complejos deportivos"
+  ogDescription={BAJADA}
+  ogUrl="https://vibe.com.ar/guias"
+  ogImage="https://vibe.com.ar/og-image.png"
+  ogImageWidth="1200"
+  ogImageHeight="630"
+  ogImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  twitterCard="summary_large_image"
+  twitterTitle="Guías para complejos deportivos"
+  twitterDescription={BAJADA}
+  twitterImage="https://vibe.com.ar/og-image.png"
+  twitterImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  jsonLd={guiasIndexJsonLd(guias)}
+  blobs={4}
+  skipLink={true}
+>
+  <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
+  <main class="guia" id="inicio">
+    <div class="container guia-inner">
+      <nav aria-label="Ubicación" class="guia-breadcrumb">
+        <a href="/">Inicio</a>
+        <span aria-hidden="true">/</span>
+        <span>Guías</span>
+      </nav>
+
+      <header class="guia-header">
+        <h1>Guías</h1>
+        <p class="guia-respuesta">{BAJADA}</p>
+      </header>
+
+      {/* El indice tenia 65 palabras y la puerta SEO lo rechazo por contenido
+          delgado, con razon: un listado de una linea por guia no le dice nada a
+          nadie que no haya entrado ya sabiendo que buscaba. Esto explica de que
+          se tratan y para quien son, que es lo unico que justifica que la pagina
+          exista aparte de las guias que lista. */}
+      <section class="guia-bloque">
+        <h2>Qué vas a encontrar acá</h2>
+        <p>
+          Antes de digitalizar las reservas de un complejo hay un puñado de preguntas
+          que se repiten siempre, y casi todas terminan en un número: cuánto se lleva
+          la pasarela de pago, cuánto cuesta un sistema de gestión, cuánto se pierde
+          por turnos que nadie ocupa. Las respuestas suelen estar desparramadas en
+          foros, en grupos de WhatsApp o adentro de la página de precios de alguien
+          que te quiere vender algo.
+        </p>
+        <p>
+          Estas guías responden una pregunta por página, con el número adelante y la
+          fuente a la vista. Si el dato es de un tercero, está el link a donde lo
+          publica, y la fecha en que se leyó. Si algo no se puede verificar, no está.
+        </p>
+      </section>
+
+      <section class="guia-bloque">
+        <h2>Para quién son</h2>
+        <p>
+          Para el que administra un complejo de pádel, tenis o fútbol y está evaluando
+          cobrar señas online, comparando plataformas, o simplemente tratando de
+          entender por qué la plata que le entra nunca coincide con el precio que
+          publicó. No hace falta usar Vibe para que sirvan.
+        </p>
+      </section>
+
+      <ul class="guia-index">
+        {guias.map(guia => (
+          <li class="guia-index-item">
+            <a href={`/guias/${guia.slug}`}>
+              <h2>{guia.title}</h2>
+              <p>{guia.excerpt}</p>
+              <span class="guia-index-fecha">Actualizado el {guia.dateModified}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </main>
+  <Footer linkPrefix="/" logoHref="/" />
+</BaseLayout>

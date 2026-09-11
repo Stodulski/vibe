@@ -1,0 +1,12 @@
+# Local tooling state, never published
+.env
+node_modules/
+.codegraph/
+.atl/
+.agents/
+.playwright-mcp/
+
+# Test and build output
+test-results/
+playwright-report/
+dist/

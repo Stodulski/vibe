@@ -1,0 +1,27 @@
+---
+/**
+ * A product screenshot in its two art-directed sizes and two formats.
+ *
+ * The mobile capture is a separate photo taken at phone width, not a scaled-down
+ * desktop one — a desktop panel shrunk to 264px is unreadable. WebP comes first
+ * and the PNG stays as the fallback; the same pixels weigh about a third.
+ *
+ * width/height are always set so the browser reserves the box before the image
+ * arrives and nothing below it jumps.
+ */
+export interface Props {
+  /** File stem shared by every variant, e.g. "panel-reservas-canchas". */
+  name: string;
+  /** Empty for the carousel clones: they repeat a slide a reader already met. */
+  alt: string;
+}
+
+const { name, alt } = Astro.props;
+const MOBILE = '(max-width: 768px)';
+---
+<picture>
+ <source media={MOBILE} type="image/webp" srcset={`/screenshots/mobile/${name}.webp`} width="860" height="1400" />
+ <source media={MOBILE} srcset={`/screenshots/mobile/${name}.png`} width="860" height="1400" />
+ <source type="image/webp" srcset={`/screenshots/${name}.webp`} width="1669" height="869" />
+ <img src={`/screenshots/${name}.png`} width="1669" height="869" alt={alt} loading="lazy" />
+</picture>

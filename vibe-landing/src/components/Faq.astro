@@ -1,0 +1,25 @@
+---
+/* Las preguntas salen de src/data/faq.ts, que es la misma fuente que arma el
+   FAQPage del schema. Estaban escritas dos veces, y una FAQ que se despega de su
+   structured data hace que Google descarte el markup entero. */
+import { faq } from '../data/faq';
+---
+<section class="faq" id="faq">
+ <div class="container">
+  <div class="faq-inner">
+   <div class="faq-header">
+    <div class="section-label anim">Preguntas frecuentes</div>
+    <h2 class="section-title anim anim-d1">Todo lo que necesitás saber</h2>
+    <p class="section-desc anim anim-d2">Si tenés otra duda, escribinos y te respondemos al toque.</p>
+   </div>
+   <div class="faq-list">
+    {faq.map((item, i) => (
+     <details name="faq" class={`faq-item anim ${item.anim}`} open={i === 0}>
+      <summary>{item.question}</summary>
+      <p>{item.answer}</p>
+     </details>
+    ))}
+   </div>
+  </div>
+ </div>
+</section>

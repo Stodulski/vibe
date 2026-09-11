@@ -1,0 +1,82 @@
+name: E2E
+
+# The Playwright suite lives in vibe-client and runs against an isolated API
+# built from vibe-server, so a change to either package triggers it. Both live
+# in this repository now: no cross-repository checkout, no token.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "vibe-server/**"
+      - "vibe-client/**"
+      - ".github/workflows/e2e.yml"
+  push:
+    branches: [main]
+    paths:
+      - "vibe-server/**"
+      - "vibe-client/**"
+      - ".github/workflows/e2e.yml"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E (make e2e)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: vibe-server/go.mod
+          cache: true
+          cache-dependency-path: vibe-server/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: vibe-client/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: vibe-client/.nvmrc
+          cache: pnpm
+          cache-dependency-path: vibe-client/pnpm-lock.yaml
+
+      - name: Install goose
+        run: go install github.com/pressly/goose/v3/cmd/goose@latest
+
+      # The fixtures seal a fake MercadoPago credential and reset the e2e
+      # database through psql.
+      - name: Install psql
+        run: sudo apt-get update -q && sudo apt-get install -y -q postgresql-client
+
+      - name: Install client dependencies
+        working-directory: vibe-client
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: vibe-client
+        run: pnpm exec playwright install --with-deps chromium
+
+      # CI=1 makes playwright.config.ts run one worker with one retry and
+      # refuse test.only; the runner starts the isolated API, Vite and the
+      # e2e Postgres and Redis itself. `make e2e` finds the client at
+      # ../vibe-client by default, which is exactly where it is.
+      - name: E2E
+        working-directory: vibe-server
+        env:
+          CI: "1"
+        run: make e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            vibe-client/playwright-report
+            vibe-client/e2e-results
+          retention-days: 7

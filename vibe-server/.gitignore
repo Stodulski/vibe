@@ -1,0 +1,22 @@
+.env
+node_modules
+bin/
+coverage.out
+coverage.html
+# CodeGraph local index (machine-specific, per-checkout)
+.codegraph/
+.atl/
+
+# Stray build artifact: the Makefile builds to ./bin/api. A 43 MB binary
+# tracked at the repo root dirties the tree on every local `go build -o api`.
+/api
+
+# Test and tooling output. The integration suite takes minutes, so runs get
+# teed to a file often enough that one eventually gets staged by a wide `git
+# add` — which is exactly how the 43 MB binary above got committed.
+*.log
+
+# Local-only material, never published
+/data.test
+/package.json
+/openspec/

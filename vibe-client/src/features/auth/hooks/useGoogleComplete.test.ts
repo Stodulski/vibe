@@ -1,0 +1,109 @@
+import { renderHook, waitFor } from '@testing-library/react';
+import { toast } from 'sonner';
+import { createWrapper } from '@/test/test-utils';
+import { makeConsumedHttpError } from '@/test/factories';
+import { ES_AR } from '@/shared/i18n/es_AR';
+
+vi.mock('../api/auth.api', () => ({
+  authApi: {
+    googleComplete: vi.fn(),
+  },
+}));
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() } }));
+
+const mockSetUser = vi.fn();
+const mockSetCsrfToken = vi.fn();
+vi.mock('@/shared/stores', () => ({
+  useStore: () => ({
+    setUser: mockSetUser,
+    setCsrfToken: mockSetCsrfToken,
+  }),
+}));
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+const PAYLOAD = { profile_token: 'a-profile-token', phone: '+541123456789', first_name: 'Juan', last_name: 'Perez' };
+
+async function triggerGoogleCompleteError(backendError: unknown) {
+  const { authApi } = await import('../api/auth.api');
+  vi.mocked(authApi.googleComplete).mockRejectedValueOnce(backendError);
+
+  const { useGoogleComplete } = await import('./useGoogleComplete');
+  const { result } = renderHook(() => useGoogleComplete(), { wrapper: createWrapper(['/register/google']) });
+
+  result.current.mutate(PAYLOAD);
+
+  await waitFor(() => {
+    expect(result.current.isError).toBe(true);
+  });
+}
+
+describe('useGoogleComplete — onError', () => {
+  it('shows the session-expired message on a 401 (expired profile_token)', async () => {
+    await triggerGoogleCompleteError(await makeConsumedHttpError(401, {}));
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.googleSessionExpired);
+  });
+
+  it('shows the account-exists message on a 409', async () => {
+    await triggerGoogleCompleteError(await makeConsumedHttpError(409, { error: 'account already exists' }));
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.googleAccountExists);
+  });
+
+  it('shows the rate-limit message on a 429', async () => {
+    await triggerGoogleCompleteError(await makeConsumedHttpError(429, {}));
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.rateLimitError);
+  });
+
+  // 422 field errors are applied to the form by the page's own per-call
+  // onError (see GoogleCompleteForm) — the hook itself must stay silent so
+  // the person doesn't get both a toast and a field-level message.
+  it('does not toast on a 422 — the caller applies field errors instead', async () => {
+    await triggerGoogleCompleteError(await makeConsumedHttpError(422, { error: { phone: 'phone_invalid' } }));
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the generic Google sign-in error on anything else', async () => {
+    await triggerGoogleCompleteError(new TypeError('Failed to fetch'));
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.googleSignInError);
+  });
+
+  afterEach(async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleComplete).mockReset();
+    mockNavigate.mockReset();
+  });
+});
+
+describe('useGoogleComplete — onSuccess', () => {
+  it('behaves exactly like a login success', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleComplete).mockResolvedValueOnce({
+      csrf_token: 'token',
+      user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
+    });
+
+    const { useGoogleComplete } = await import('./useGoogleComplete');
+    const { result } = renderHook(() => useGoogleComplete(), { wrapper: createWrapper(['/register/google']) });
+
+    result.current.mutate(PAYLOAD);
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(mockSetCsrfToken).toHaveBeenCalledWith('token');
+    expect(mockSetUser).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+  });
+
+  afterEach(async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleComplete).mockReset();
+    mockNavigate.mockReset();
+  });
+});

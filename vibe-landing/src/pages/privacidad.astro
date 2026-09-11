@@ -1,0 +1,118 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { privacidadJsonLd } from '../data/jsonld';
+---
+<BaseLayout
+  title="Política de Privacidad | Vibe - Reservas de canchas online"
+  description="Política de privacidad de Vibe. Conocé cómo recopilamos, usamos y protegemos tus datos personales al gestionar reservas de canchas deportivas."
+  canonical="https://vibe.com.ar/privacidad"
+  appleTouchIcon="/logo.png"
+  ogTitle="Política de Privacidad | Vibe - Reservas de canchas online"
+  ogDescription="Conocé cómo Vibe recopila, usa y protege tus datos personales al gestionar reservas de canchas deportivas."
+  ogUrl="https://vibe.com.ar/privacidad"
+  ogImage="https://vibe.com.ar/logo.png"
+  ogImageWidth="512"
+  ogImageHeight="512"
+  ogImageAlt="Vibe - Plataforma de gestión de complejos deportivos"
+  twitterCard="summary"
+  twitterTitle="Política de Privacidad | Vibe - Reservas de canchas online"
+  twitterDescription="Conocé cómo Vibe recopila, usa y protege tus datos personales al gestionar reservas de canchas deportivas."
+  twitterImage="https://vibe.com.ar/logo.png"
+  twitterImageAlt="Vibe - Plataforma de gestión de complejos deportivos"
+  jsonLd={privacidadJsonLd}
+  blobs={4}
+>
+ <Nav
+  startScrolled={true}
+  linkPrefix="/"
+  logoHref="/"
+  logoAlt="Vibe"
+  navAriaLabel="Navegación principal"
+  toggleAriaLabel="Menu"
+  menuAriaLabel="Menu de navegación"
+  comoFuncionaLabel="Cómo funciona"
+ />
+ <main class="legal-page">
+  <h1>Política de Privacidad</h1>
+  <p class="legal-date">Última actualización: <time datetime="2026-08-24">24 de agosto de 2026</time></p>
+  <p><strong>Vibe</strong> ("nosotros", "la plataforma") opera el sitio web <a href="https://vibe.com.ar">vibe.com.ar</a> y desarrolla la aplicación web <a href="https://app.vibe.com.ar">app.vibe.com.ar</a>. Esta política describe cómo recopilamos, usamos y protegemos la información personal de los usuarios.</p>
+  <h2>1. Correos de la lista de espera</h2>
+  <p>Antes del lanzamiento, quienes querían anotarse dejaban su correo en un formulario de este sitio. Guardábamos la dirección de correo, la fecha y hora del alta, y la página desde la que se envió, en una planilla de Google Sheets alojada en Google Workspace.</p>
+  <p>Vibe ya está abierto. Esos correos se conservan únicamente para enviar el aviso de lanzamiento y se borran después de enviarlo. Si querés que eliminemos el tuyo antes, escribinos a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>.</p>
+  <h2>2. Información que recopilamos</h2>
+  <p>Recopilamos la siguiente información según el tipo de usuario:</p>
+  <p><strong>Dueños de complejos deportivos:</strong></p>
+  <ul>
+   <li>Nombre, email y teléfono al registrarse</li>
+   <li>Datos del complejo: nombre, dirección, canchas, horarios y precios</li>
+   <li>Credenciales de MercadoPago al conectar su cuenta para cobrar señas</li>
+  </ul>
+  <p><strong>Clientes que reservan:</strong></p>
+  <ul>
+   <li>Nombre, teléfono y opcionalmente email al realizar una reserva</li>
+   <li>Historial de reservas, cancelaciones y asistencia</li>
+   <li>Datos de pago procesados por MercadoPago (no almacenamos datos de tarjetas)</li>
+  </ul>
+  <h2>3. Cómo usamos la información</h2>
+  <ul>
+   <li>Gestionar reservas de canchas y procesar pagos de señas</li>
+   <li>Enviar confirmaciones de reserva por email y WhatsApp</li>
+   <li>Enviar recordatorios automáticos antes del turno por email y WhatsApp</li>
+   <li>Permitir a los dueños gestionar su complejo, clientes y estadísticas</li>
+   <li>Generar reportes financieros y permitir la exportación de datos de pagos al dueño del complejo</li>
+   <li>Mejorar el funcionamiento y la seguridad de la plataforma</li>
+  </ul>
+  <h2>4. Comunicaciones por WhatsApp</h2>
+  <p>Utilizamos la <strong>API de WhatsApp Business</strong> (Meta Platforms) para enviar mensajes transaccionales relacionados con las reservas. Estos mensajes incluyen:</p>
+  <ul>
+   <li>Confirmación de reserva con datos de la cancha, fecha y horario</li>
+   <li>Recordatorio 2 horas antes del turno</li>
+  </ul>
+  <p>Estos mensajes son exclusivamente transaccionales. <strong>No enviamos mensajes publicitarios ni de marketing por WhatsApp.</strong> El número de teléfono del cliente se utiliza únicamente para notificaciones relacionadas con sus reservas.</p>
+  <h2>5. Pagos y MercadoPago</h2>
+  <p>Los pagos de señas se procesan a través de <strong>MercadoPago</strong>. No almacenamos datos de tarjetas de crédito ni información financiera sensible. Toda la información de pago es gestionada directamente por MercadoPago bajo sus propios términos de servicio y política de privacidad. Los reembolsos se procesan automáticamente a través de MercadoPago cuando corresponde.</p>
+  <h2>6. Almacenamiento y seguridad</h2>
+  <ul>
+   <li>Los datos se almacenan en servidores seguros con conexión encriptada (HTTPS/TLS)</li>
+   <li>Las contraseñas se almacenan con hash criptográfico (nunca en texto plano)</li>
+   <li>Implementamos protección CSRF, rate limiting y validación de entradas</li>
+   <li>El acceso a la plataforma esta protegido mediante tokens JWT con expiración</li>
+  </ul>
+  <h2>7. Compartir información con terceros</h2>
+  <p>No vendemos ni compartimos datos personales con terceros con fines comerciales. Compartimos información únicamente con:</p>
+  <ul>
+   <li><strong>MercadoPago:</strong> para procesar pagos y reembolsos</li>
+   <li><strong>Meta (WhatsApp Business API):</strong> para enviar notificaciones transaccionales</li>
+   <li><strong>Brevo (email):</strong> para enviar notificaciones por correo electrónico</li>
+   <li><strong>Sentry:</strong> para monitoreo de errores y estabilidad de la plataforma (puede incluir dirección IP y contexto del error, sin datos personales identificables)</li>
+   <li><strong>OpenStreetMap (Nominatim):</strong> para geocodificar la dirección del complejo y mostrarla en el mapa</li>
+   <li><strong>Google (Workspace):</strong> aloja la planilla donde se guardaron los correos de la lista de espera descrita en la sección 1</li>
+  </ul>
+  <h2>8. Derechos del usuario</h2>
+  <p>Conforme a la legislación vigente en Argentina (Ley 25.326 de Protección de Datos Personales), tenés derecho a:</p>
+  <ul>
+   <li>Acceder a tus datos personales almacenados</li>
+   <li>Solicitar la rectificación de datos incorrectos</li>
+   <li>Solicitar la eliminación de tus datos</li>
+   <li>Oponerte al tratamiento de tus datos</li>
+  </ul>
+  <p>Para ejercer cualquiera de estos derechos, contactanos por email a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>.</p>
+  <h2>9. Cookies y analytics</h2>
+  <p>Utilizamos <strong>Google Analytics</strong> en el sitio web vibe.com.ar (landing page) para entender cómo los visitantes interactúan con el sitio. Google Analytics recopila información anónima sobre las visitas, incluyendo páginas vistas, tiempo de permanencia y origen del tráfico. No recopilamos información que identifique personalmente a los visitantes. La aplicación web (app.vibe.com.ar) no utiliza Google Analytics.</p>
+  <h2>10. Retención de datos</h2>
+  <p>Los correos de la lista de espera se conservan según lo indicado en la sección 1: hasta que se envía el aviso de lanzamiento, o hasta que pidas la baja.</p>
+  <p>Los datos de reservas y clientes se conservan mientras el complejo mantenga su cuenta activa. Si un dueño de complejo elimina su cuenta, todos los datos asociados (incluyendo reservas y clientes) se eliminan de forma permanente. Los datos de pago se conservan según los plazos legales y fiscales aplicables.</p>
+  <h2>11. Cambios en esta política</h2>
+  <p>Podemos actualizar esta política periódicamente. Publicaremos cualquier cambio en esta página con la fecha de actualización. El uso continuado de la plataforma después de los cambios constituye la aceptación de la política actualizada.</p>
+  <h2>12. Contacto</h2>
+  <p>Si tenés preguntas sobre esta política de privacidad o sobre el tratamiento de tus datos, contactanos por email a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>.</p>
+ </main>
+ <Footer
+  linkPrefix="/"
+  logoHref="/"
+  logoAlt="Vibe"
+  comoFuncionaLabel="Cómo funciona"
+ />
+</BaseLayout>

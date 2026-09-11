@@ -1,0 +1,6 @@
+allowBuilds:
+  '@playwright/browser-chromium': true
+  esbuild: true
+  msw: true
+  protobufjs: true
+  unix-dgram: false

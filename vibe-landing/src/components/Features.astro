@@ -1,0 +1,226 @@
+---
+import Screenshot from './Screenshot.astro';
+---
+<!-- ========== FUNCIONALIDADES ========== -->
+<section class="features" id="funcionalidades">
+ <div class="container">
+  <div class="features-header">
+   <div class="section-label anim">Funcionalidades</div>
+   <h2 class="section-title anim anim-d1">Todo lo que necesitás,<br>nada que te sobre</h2>
+   <p class="section-desc anim anim-d2">Cada funcionalidad resuelve un problema real que tienen los complejos deportivos todos los días.</p>
+  </div>
+
+  <div class="ft-carousel">
+   <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior">‹</button>
+   <div class="ft-viewport">
+    <div class="ft-stack">
+     <!-- Decorative-only clone of Reportes (2nd-to-last), so the Multi-sede wrap-target clone
+          right after it has something to peek at on its own left during the transition. -->
+     <div class="ft-block ft-block--clone" aria-hidden="true">
+      <div class="ft-block-text">
+       <h3>Reportes de facturación al día</h3>
+       <p>Total facturado por mes, desglosado por método de pago y listo para descargar. Sin armar planillas a mano para el contador.</p>
+       <ul class="ft-bullets">
+        <li>Reporte mensual por método de pago</li>
+        <li>Total, reembolsado y neto de un vistazo</li>
+        <li>Descarga en Excel con un click</li>
+        <li>Elegí el mes y el año que necesites</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="reporte-de-facturacion" alt="" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Loop clone of the last slide (Multi-sede), peeks on the left of slide 1 — this is
+          the one goToFeature actually animates onto when wrapping backward from slide 1. -->
+     <div class="ft-block ft-block--reverse ft-block--clone" data-clone="before" aria-hidden="true">
+      <div class="ft-block-text">
+       <h3>Varios complejos, una sola cuenta</h3>
+       <p>Administrá hasta 4 complejos desde el mismo login. Cada sede con su propia página pública, canchas y precios.</p>
+       <ul class="ft-bullets">
+        <li>Hasta 4 complejos por cuenta</li>
+        <li>Cada sede con URL, canchas y precios propios</li>
+        <li>Cambiá de complejo con un click</li>
+        <li>Un solo login para todo tu negocio</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="varios-complejos-una-cuenta" alt="" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 1: Reservas -->
+     <div class="ft-block active">
+      <div class="ft-block-text">
+       <h3>Reservas online que funcionan solas</h3>
+       <p>Tu cliente entra desde el celular, elige cancha y horario, paga la seña con MercadoPago y listo. Recibís la plata en tu cuenta.</p>
+       <ul class="ft-bullets">
+        <li>Sin descarga de app ni registro obligatorio</li>
+        <li>Pago instantáneo con MercadoPago</li>
+        <li>Confirmación automática por WhatsApp y email</li>
+        <li>Recordatorio 2 horas antes por WhatsApp y email</li>
+        <li>Reembolso automático en cancelación</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="panel-reservas-canchas" alt="Panel real de reservas de Vibe con turnos confirmados y seña pagada, agrupados por mañana, tarde y noche" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 2: Dashboard (reversed) -->
+     <div class="ft-block ft-block--reverse">
+      <div class="ft-block-text">
+       <h3>Tu negocio, de un vistazo</h3>
+       <p>Reservas de hoy, ingresos, ocupación y tus próximos turnos, todo en una sola pantalla apenas entrás al panel.</p>
+       <ul class="ft-bullets">
+        <li>Reservas e ingresos del día en tiempo real</li>
+        <li>Ocupación y tendencia de ingresos semanal</li>
+        <li>Control de caja por método de pago</li>
+        <li>Ranking de tus clientes más fieles</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="dashboard-complejo-deportivo" alt="Dashboard real de Vibe con reservas del día, ingresos, ocupación y clientes más fieles" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 3: Precios -->
+     <div class="ft-block">
+      <div class="ft-block-text">
+       <h3>Precios por cancha, día y horario</h3>
+       <p>Configurá cada cancha con su propio horario, duración de turno y tarifas. Distinto precio para la semana y el fin de semana, sin planillas.</p>
+       <ul class="ft-bullets">
+        <li>Precios distintos por franja horaria y por día</li>
+        <li>Tarifa especial para sábado y domingo</li>
+        <li>Turnos de 60, 90 o 120 minutos configurables</li>
+        <li>Activá o desactivá una cancha con un click</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="precios-por-cancha-y-horario" alt="Panel real de canchas de Vibe con tarifas distintas para Lun-Vie y Sáb-Dom" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 4: Clientes (reversed) -->
+     <div class="ft-block ft-block--reverse">
+      <div class="ft-block-text">
+       <h3>Historial completo de cada cliente</h3>
+       <p>Toda tu base de clientes en un solo lugar: quién reservó, cuántas veces vino y su porcentaje de asistencia.</p>
+       <ul class="ft-bullets">
+        <li>Lista completa con reservas, ausencias y asistencia</li>
+        <li>Identificá a tus clientes más fieles de un vistazo</li>
+        <li>Bloqueá clientes problemáticos con un click</li>
+        <li>Buscá por nombre, email o teléfono</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="historial-de-clientes" alt="Lista real de clientes de Vibe con cantidad de reservas, ausencias y porcentaje de asistencia de cada uno" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 5: Reportes -->
+     <div class="ft-block">
+      <div class="ft-block-text">
+       <h3>Reportes de facturación al día</h3>
+       <p>Total facturado por mes, desglosado por método de pago y listo para descargar. Sin armar planillas a mano para el contador.</p>
+       <ul class="ft-bullets">
+        <li>Reporte mensual por método de pago</li>
+        <li>Total, reembolsado y neto de un vistazo</li>
+        <li>Descarga en Excel con un click</li>
+        <li>Elegí el mes y el año que necesites</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="reporte-de-facturacion" alt="Reporte mensual real de Vibe con facturación desglosada por efectivo y transferencia" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 6: Multi-sede (reversed) -->
+     <div class="ft-block ft-block--reverse">
+      <div class="ft-block-text">
+       <h3>Varios complejos, una sola cuenta</h3>
+       <p>Administrá hasta 4 complejos desde el mismo login. Cada sede con su propia página pública, canchas y precios.</p>
+       <ul class="ft-bullets">
+        <li>Hasta 4 complejos por cuenta</li>
+        <li>Cada sede con URL, canchas y precios propios</li>
+        <li>Cambiá de complejo con un click</li>
+        <li>Un solo login para todo tu negocio</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="varios-complejos-una-cuenta" alt="Selector real de complejos de Vibe mostrando varias sedes administradas desde la misma cuenta" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Loop clone of the first slide (Reservas), peeks on the right of the last slide — the
+          one goToFeature actually animates onto when wrapping forward from the last slide. -->
+     <div class="ft-block ft-block--clone" data-clone="after" aria-hidden="true">
+      <div class="ft-block-text">
+       <h3>Reservas online que funcionan solas</h3>
+       <p>Tu cliente entra desde el celular, elige cancha y horario, paga la seña con MercadoPago y listo. Recibís la plata en tu cuenta.</p>
+       <ul class="ft-bullets">
+        <li>Sin descarga de app ni registro obligatorio</li>
+        <li>Pago instantáneo con MercadoPago</li>
+        <li>Confirmación automática por WhatsApp y email</li>
+        <li>Recordatorio 2 horas antes por WhatsApp y email</li>
+        <li>Reembolso automático en cancelación</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="panel-reservas-canchas" alt="" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Decorative-only clone of Dashboard (2nd slide), so the Reservas wrap-target clone
+          right before it has something to peek at on its own right during the transition. -->
+     <div class="ft-block ft-block--reverse ft-block--clone" aria-hidden="true">
+      <div class="ft-block-text">
+       <h3>Tu negocio, de un vistazo</h3>
+       <p>Reservas de hoy, ingresos, ocupación y tus próximos turnos, todo en una sola pantalla apenas entrás al panel.</p>
+       <ul class="ft-bullets">
+        <li>Reservas e ingresos del día en tiempo real</li>
+        <li>Ocupación y tendencia de ingresos semanal</li>
+        <li>Control de caja por método de pago</li>
+        <li>Ranking de tus clientes más fieles</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="dashboard-complejo-deportivo" alt="" />
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+   <button type="button" class="ft-arrow ft-arrow-next" aria-label="Siguiente funcionalidad">›</button>
+  </div>
+
+  <div class="ft-dots">
+   <button type="button" class="ft-dot active" aria-label="Ir a: Reservas online que funcionan solas"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Tu negocio, de un vistazo"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Precios por cancha, día y horario"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Historial completo de cada cliente"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Reportes de facturación al día"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Varios complejos, una sola cuenta"></button>
+  </div>
+ </div>
+</section>
