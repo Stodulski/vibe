@@ -271,6 +271,8 @@ func TestRouteAuthorizationMatrix(t *testing.T) {
 
 		for _, class := range callerClasses {
 			t.Run(key+"/"+class.String(), func(t *testing.T) {
+				// Every cell owns its fixture (below), so cells can run at once.
+				t.Parallel()
 				// A fixture per cell, not one for the whole run.
 				//
 				// These are real handlers against real stores, and some of them

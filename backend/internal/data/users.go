@@ -31,9 +31,17 @@ type User struct {
 	LastFailedLogin     *time.Time `json:"-"`
 }
 
+// PasswordHashCost is the bcrypt cost SetPassword hashes with. 12 is the
+// production value: about a quarter of a second per hash on current hardware,
+// which is the point of it. Test binaries lower it to bcrypt.MinCost from
+// their TestMain, because the same hash under the race detector takes nine
+// seconds and the suites that register or sign in users paid it hundreds of
+// times per run. Nothing outside a test may change it.
+var PasswordHashCost = 12
+
 // SetPassword hashes the plaintext password with bcrypt and stores it on the user.
 func (u *User) SetPassword(plain string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(plain), 12)
+	hash, err := bcrypt.GenerateFromPassword([]byte(plain), PasswordHashCost)
 	if err != nil {
 		return err
 	}

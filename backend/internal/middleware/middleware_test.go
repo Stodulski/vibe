@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"golang.org/x/crypto/bcrypt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +26,7 @@ import (
 // is a global, so setting it from inside a test races with the connection
 // goroutines an earlier test left behind.
 func TestMain(m *testing.M) {
+	data.PasswordHashCost = bcrypt.MinCost
 	redis.SetLogger(quietRedisLogger{})
 	os.Exit(m.Run())
 }
