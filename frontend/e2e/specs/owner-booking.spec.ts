@@ -68,8 +68,13 @@ test.describe('Owner Booking Management', () => {
     // starting before the shared complex's priced 08:00-23:00 window
     // (DEFAULT_SCHEDULE/DEFAULT_PRICES in test-data.ts) -- the earliest slots
     // have no price band and force a "no hay tarifa configurada" manual-price
-    // detour instead of advancing. 10:00 is safely inside that window.
-    await page.getByRole('option', { name: '10:00' }).click();
+    // detour instead of advancing. And not a fixed hour: the list omits slots
+    // other specs in this run already booked on the same day, so the first
+    // free one inside the priced window is taken instead.
+    await page
+      .getByRole('option', { name: /^(0[89]|1\d|2[0-2]):[03]0$/ })
+      .first()
+      .click();
 
     await page.getByRole('button', { name: 'Siguiente' }).click();
 

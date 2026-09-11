@@ -65,7 +65,11 @@ test.describe('Confirm Payment', () => {
   });
 
   test('owner can confirm cash payment for an unpaid booking', async ({ authenticatedPage: page }) => {
-    const apiHelper = await createApiHelper(page.context().request);
+    // Own request context, not the page's: logging the helper in through the
+    // browser's cookie jar replaces the session the fixture just opened for
+    // the page, and the backend then sees a refresh token reused and revokes
+    // both, which lands the next page load on /login.
+    const apiHelper = await createApiHelper();
     // Unique per run: this DB is not reset between local runs (no e2e DB
     // stack in this sandbox — see slice 6/7 apply-progress). The backend
     // resolves the client by phone number, so a reused phone silently
