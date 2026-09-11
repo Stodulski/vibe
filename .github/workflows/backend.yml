@@ -148,8 +148,8 @@ jobs:
       # goose from source cost a minute and a half per run.
       - name: Install goose
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/goose" https://github.com/pressly/goose/releases/download/v3.27.3/goose_linux_x86_64
-          echo "ca18112e2438b3ad608af9a5938beafd01fa36a4a19a3edbe4f29226ca5c8533  $RUNNER_TEMP/goose" | sha256sum --check --strict
+          curl -fsSL -o "$RUNNER_TEMP/goose" https://github.com/pressly/goose/releases/download/v3.28.0/goose_linux_x86_64
+          echo "ab073515b78ef345f64f018c0d79aa7db50106806efc686dda7181253765ae13  $RUNNER_TEMP/goose" | sha256sum --check --strict
           sudo install -m 0755 "$RUNNER_TEMP/goose" /usr/local/bin/goose
           goose --version
 
