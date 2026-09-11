@@ -5,22 +5,17 @@ import { getSharedSetup } from '../helpers/shared-setup';
 import { createApiHelper, typedJson } from '../helpers/api.helper';
 import type { ApiBooking } from '../helpers/api.helper';
 
-// The bookings page defaults to today; navigate forward to reach the
-// booking's date. Shared between the initial navigation and the
-// post-reload one — a reload always drops the page back to today.
-async function navigateToBookingsForDate(page: Page, daysAhead: number) {
+// The selected day lives in the bookings page URL (`?date=`, see
+// useDateNav), so it is addressed directly instead of clicking "next day" N
+// times: a reload keeps the date, which made a second round of clicks land N
+// days past the booking, and rapid clicks can drop URL updates.
+async function openBookingsForDate(page: Page, date: string) {
+  await page.goto(`/bookings?date=${date}`);
   await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({
     timeout: 10_000,
   });
-  const nextDayButton = page.getByRole('button', { name: 'Día siguiente' });
-  for (let i = 0; i < daysAhead; i++) {
-    await nextDayButton.click();
-    await page.waitForTimeout(300);
-  }
 }
 
-// Picks a pseudo-random half-hour slot between 08:00 and 21:00 so repeated
-// local runs don't collide with a previous run's booking on the same slot.
 function getRandomSlotStartTime(): string {
   const slotsFromEight = Math.floor(Math.random() * 26); // 0..25 -> 08:00..20:30
   const hour = 8 + Math.floor(slotsFromEight / 2);
@@ -42,16 +37,16 @@ async function createUniqueUnpaidBooking(
 ) {
   const maxAttempts = 15;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const daysAhead = 1 + (attempt % 5);
+    const date = getFutureDate(1 + (attempt % 5));
     try {
       const booking = await apiHelper.createBooking(complexId, courtId, {
-        date: getFutureDate(daysAhead),
+        date,
         start_time: getRandomSlotStartTime(),
         client_first_name: 'Pago',
         client_last_name: clientLastName,
         client_phone: clientPhone,
       });
-      return { booking, daysAhead };
+      return { booking, date };
     } catch (e) {
       if (attempt === maxAttempts - 1) throw e;
     }
@@ -79,7 +74,7 @@ test.describe('Confirm Payment', () => {
     const uniqueSuffix = String(Date.now()).slice(-9);
     const uniqueClientName = `E2E${uniqueSuffix}`;
 
-    const { booking, daysAhead } = await createUniqueUnpaidBooking(
+    const { booking, date } = await createUniqueUnpaidBooking(
       apiHelper,
       complexId,
       courtId,
@@ -91,8 +86,7 @@ test.describe('Confirm Payment', () => {
     await page.evaluate((id) => {
       localStorage.setItem('selectedComplexId', id);
     }, complexId);
-    await page.goto('/bookings');
-    await navigateToBookingsForDate(page, daysAhead);
+    await openBookingsForDate(page, date);
 
     // Open the booking detail sheet for the client we just created. Scoped
     // by its "Reserva" heading (not position) since a second dialog stacks
@@ -130,7 +124,7 @@ test.describe('Confirm Payment', () => {
     // Reload to bypass any client-side query cache and verify the UI
     // reflects the server-persisted state independently of cache timing.
     await page.reload();
-    await navigateToBookingsForDate(page, daysAhead);
+    await openBookingsForDate(page, date);
     await page.getByText(`Pago ${uniqueClientName}`).first().click();
     // BookingStatusBadge's fully_paid label is "Pago completo", not "Pagada"
     // (t.bookings.paymentStatusLabels.fully_paid in es_AR/bookings.ts).

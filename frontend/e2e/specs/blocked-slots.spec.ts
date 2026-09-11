@@ -31,25 +31,23 @@ async function expectBlockedSlotOnCalendar(page: Page, complexId: string, courtI
     await page.evaluate((id) => {
       localStorage.setItem('selectedComplexId', id);
     }, complexId);
-    await page.goto('/bookings');
+    // The selected day lives in the URL (`?date=`, see useDateNav), so the
+    // page is opened on the slot's day directly: 21 rapid clicks on "next
+    // day" dropped some of their URL updates and landed short of it.
+    await page.goto(`/bookings?date=${futureDate}`);
     await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({
       timeout: 10_000,
     });
-
-    const nextDayButton = page.getByRole('button', { name: 'Día siguiente' });
-    for (let i = 0; i < 21; i++) {
-      await nextDayButton.click();
-    }
 
     await expect(page.getByRole('button', { name: /Horario bloqueado/ })).toBeVisible({
       timeout: 10_000,
     });
   } finally {
     // Re-login for a fresh CSRF token rather than reusing `apiHelper`'s: the
-    // 21 client-side page navigations above can trigger the app's own
-    // session/token refresh on the shared request context, rotating the
-    // CSRF token issued at the top of this test and turning a reused one
-    // into a 403 "invalid or missing CSRF token".
+    // page load above can trigger the app's own session/token refresh on the
+    // shared request context, rotating the CSRF token issued at the top of
+    // this test and turning a reused one into a 403 "invalid or missing CSRF
+    // token".
     const cleanupHelper = await createApiHelper(page.context().request);
     await cleanupHelper.deleteBlockedSlot(complexId, blocked.id);
   }
