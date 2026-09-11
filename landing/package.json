@@ -10,16 +10,16 @@
     "check:mp": "node scripts/check-mercadopago.mjs",
     "seo:gate": "node scripts/seo-gate.mjs --dist",
     "seo:prod": "node scripts/seo-gate.mjs --url https://vibe.com.ar",
-    "predeploy": "npm run build && npm run seo:gate",
+    "predeploy": "pnpm build && pnpm seo:gate",
     "test:setup": "playwright install chromium"
   },
   "dependencies": {
-    "@vercel/functions": "^3.9.5",
-    "astro": "^7.2.4"
+    "@vercel/functions": "^3.9.7",
+    "astro": "^7.3.2"
   },
   "devDependencies": {
-    "@vercel/node": "^11.0.0",
-    "playwright": "^1.62.1",
+    "playwright": "^1.63.0",
     "turndown": "^7.2.4"
-  }
+  },
+  "packageManager": "pnpm@11.25.0"
 }

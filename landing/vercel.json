@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install && npm run build && npm run seo:gate",
+  "buildCommand": "pnpm install --frozen-lockfile && pnpm build && pnpm seo:gate",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,

@@ -1,0 +1,4 @@
+# Install scripts pnpm may run. esbuild's fetches the binary for this platform;
+# the same allowance the frontend makes.
+allowBuilds:
+  esbuild: true
