@@ -39,7 +39,7 @@ jobs:
       # inline annotations on the pull request. Config lives in .golangci.yml.
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.12
+          version: v2.13
           working-directory: backend
 
   test:
