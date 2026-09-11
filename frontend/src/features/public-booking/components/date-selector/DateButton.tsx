@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
-import { format, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { isSameDay } from 'date-fns/isSameDay';
+import { es } from 'date-fns/locale/es';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import type { Schedule } from '@/shared/types/api.types';

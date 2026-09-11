@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import { useBookingModals, useBookingActions } from '@/features/bookings';
 import { queryKeys } from '@/shared/lib/queryKeys';
 

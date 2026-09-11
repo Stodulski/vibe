@@ -1,5 +1,5 @@
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { es } from 'date-fns/locale/es';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice, toDisplayDate } from '@/shared/lib/utils';
 import type { BookingSlotInfo } from './types';

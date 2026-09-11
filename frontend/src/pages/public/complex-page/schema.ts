@@ -1,4 +1,6 @@
-import { isValid, parseISO, startOfDay } from 'date-fns';
+import { isValid } from 'date-fns/isValid';
+import { parseISO } from 'date-fns/parseISO';
+import { startOfDay } from 'date-fns/startOfDay';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
 
 const SCHEMA_DAY_MAP: Record<string, string> = {

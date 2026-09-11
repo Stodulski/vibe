@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import { useDateNav } from './useDateNav';
 
 function wrapperFor(initialEntries: string[]) {

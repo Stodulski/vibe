@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { format, addDays } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { addDays } from 'date-fns/addDays';
+import { es } from 'date-fns/locale/es';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { Schedule } from '@/shared/types/api.types';
 import { useLoadMoreOnScroll } from './date-selector/useLoadMoreOnScroll';

@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { es } from 'date-fns/locale/es';
 import { HTTPError } from 'ky';
 import { getFieldErrors, translateServerError } from '@/shared/lib/serverErrors';
 import { ES_AR } from '@/shared/i18n/es_AR';

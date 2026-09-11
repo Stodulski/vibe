@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import type { SelectedSlot } from '@/features/public-booking';
 import type { DurationMinutes, Sport } from '@/shared/types/api.types';
 import { parseDateParam } from './schema';

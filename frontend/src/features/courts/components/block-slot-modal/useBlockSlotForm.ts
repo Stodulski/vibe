@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useForm, type UseFormReturn, type UseFormWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { isToday, parseISO } from 'date-fns';
+import { isToday } from 'date-fns/isToday';
+import { parseISO } from 'date-fns/parseISO';
 import { useBlockCourtSlot } from '../../hooks/useBlockCourtSlot';
 import { useBlockedSlots } from '../../hooks/useBlockedSlots';
 import { useBookingsByDate } from '@/shared/hooks/useBookingsByDate';

@@ -1,5 +1,6 @@
-import { format, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { es } from 'date-fns/locale/es';
 import { CalendarIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { Calendar } from '@/shared/components/ui/calendar';

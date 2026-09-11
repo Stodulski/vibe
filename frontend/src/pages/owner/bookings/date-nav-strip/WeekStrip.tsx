@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
-import { format, addDays, subDays, parseISO, isToday as isTodayFn } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { addDays } from 'date-fns/addDays';
+import { subDays } from 'date-fns/subDays';
+import { parseISO } from 'date-fns/parseISO';
+import { isToday as isTodayFn } from 'date-fns/isToday';
+import { es } from 'date-fns/locale/es';
 import { cn } from '@/shared/lib/utils';
 import { useElementWidth } from '@/shared/hooks/useElementWidth';
 

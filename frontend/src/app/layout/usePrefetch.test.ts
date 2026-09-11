@@ -23,7 +23,7 @@ vi.mock('@/features/bookings/api/bookings.api', () => ({
   bookingsApi: { list: vi.fn().mockResolvedValue({}) },
 }));
 
-vi.mock('date-fns', () => ({
+vi.mock('date-fns/format', () => ({
   format: () => '2026-03-18',
 }));
 

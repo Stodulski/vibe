@@ -4,7 +4,7 @@ import { queryKeys } from '@/shared/lib/queryKeys';
 import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
 import { courtsApi } from '@/features/courts/api/courts.api';
 import { bookingsApi } from '@/features/bookings/api/bookings.api';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 
 /**
  * Prefetch data for a route on hover to eliminate loading states

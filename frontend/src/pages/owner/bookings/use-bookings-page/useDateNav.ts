@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { format, addDays, parseISO, isValid } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { addDays } from 'date-fns/addDays';
+import { parseISO } from 'date-fns/parseISO';
+import { isValid } from 'date-fns/isValid';
+import { es } from 'date-fns/locale/es';
 
 const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import { useComplexPageState } from './useComplexPageState';
 
 // Plain .ts file (no JSX loader here), so the router wrapper is built with

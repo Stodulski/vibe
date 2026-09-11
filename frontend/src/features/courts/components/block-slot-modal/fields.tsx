@@ -1,5 +1,7 @@
-import { format, parseISO, startOfDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { startOfDay } from 'date-fns/startOfDay';
+import { es } from 'date-fns/locale/es';
 import { CalendarIcon } from 'lucide-react';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Calendar } from '@/shared/components/ui/calendar';

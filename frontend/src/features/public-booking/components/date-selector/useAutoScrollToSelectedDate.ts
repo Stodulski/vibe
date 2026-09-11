@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { isSameDay } from 'date-fns';
+import { isSameDay } from 'date-fns/isSameDay';
 
 /**
  * Scrolls the selected date's button into view: instantly on first mount,
