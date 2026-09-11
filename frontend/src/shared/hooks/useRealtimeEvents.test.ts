@@ -211,3 +211,25 @@ describe('useRealtimeEvents — server-closed streams', () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 });
+
+describe('useRealtimeEvents — document unload', () => {
+  it('closes the stream on pagehide and does not refresh the token from the error that follows', async () => {
+    renderHook(
+      () => {
+        useRealtimeEvents('complex-1');
+      },
+      { wrapper: createWrapper() },
+    );
+    const es = firstInstance();
+
+    window.dispatchEvent(new Event('pagehide'));
+    expect(es.closed).toBe(true);
+
+    // The browser reports the dropped connection as an ordinary error.
+    es.onerror?.(new Event('error'));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(refreshAccessToken).not.toHaveBeenCalled();
+    expect(MockEventSource.instances).toHaveLength(1);
+  });
+});

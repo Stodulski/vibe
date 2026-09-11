@@ -95,6 +95,7 @@ interface StreamRefs {
   retryTimerRef: RefObject<ReturnType<typeof setTimeout> | undefined>;
   connectRef: RefObject<() => void>;
   lastCloseReasonRef: RefObject<StreamCloseReason>;
+  unloadingRef: RefObject<boolean>;
 }
 
 /**
@@ -128,6 +129,16 @@ function wireStreamListeners(es: EventSource, complexId: string, queryClient: Qu
   };
 
   es.onerror = () => {
+    // The browser drops the stream when the document unloads, and that
+    // arrives here as an ordinary error. Refreshing from a dying document
+    // rotates the refresh token on the server while the response is thrown
+    // away with the page, so the next document presents a stale token and
+    // is signed out.
+    if (refs.unloadingRef.current) {
+      es.close();
+      refs.esRef.current = null;
+      return;
+    }
     const reason = refs.lastCloseReasonRef.current;
     refs.lastCloseReasonRef.current = null;
 
@@ -162,6 +173,7 @@ export function useRealtimeEvents(complexId: string | null) {
   const retriesRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastCloseReasonRef = useRef<StreamCloseReason>(null);
+  const unloadingRef = useRef(false);
   // Holds the latest `connect` so the retry timer below can call it without
   // referencing `connect` inside its own closure (self-recursive `useCallback`
   // bodies aren't supported by the React Compiler).
@@ -183,6 +195,7 @@ export function useRealtimeEvents(complexId: string | null) {
       retryTimerRef,
       connectRef,
       lastCloseReasonRef,
+      unloadingRef,
     });
   }, [complexId, queryClient]);
 
@@ -213,10 +226,19 @@ export function useRealtimeEvents(complexId: string | null) {
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
+    // Close the stream ourselves before the browser tears the document down,
+    // so its `onerror` never runs a token refresh on the way out (see
+    // `wireStreamListeners`).
+    const handlePageHide = () => {
+      unloadingRef.current = true;
+      disconnect();
+    };
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       disconnect();
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', handlePageHide);
     };
   }, [complexId, connect, disconnect]);
 }
