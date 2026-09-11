@@ -21,13 +21,43 @@ type captureRequest struct {
 	// Source names the form the person left. Empty means the password
 	// register form; see captureOrigin and captureOriginGoogle.
 	Source string `json:"source"`
+	// FirstName, LastName and Phone are whatever the person had filled in
+	// when they left, as far as they got. They are partial by nature: a phone
+	// typed halfway ("+5411") is still worth a follow-up, so none of them is
+	// validated beyond a length bound, and the phone is never normalized.
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Phone     string `json:"phone"`
 }
 
+// maxNameLength matches the register form's own bound on a name; maxPhoneLength
+// leaves room for a number typed with spaces, dashes or a country prefix, since
+// this is raw input and not an E.164 value.
+const (
+	maxNameLength  = 100
+	maxPhoneLength = 32
+)
+
+// lead is what forward sends: the request after validation, plus the origin
+// the source resolved to.
+type lead struct {
+	Email     string
+	FirstName string
+	LastName  string
+	Phone     string
+	Origin    string
+}
+
+// sheetPayload is the row the Apps Script web app appends. The keys are the
+// sheet's own column names, in Spanish, because that script reads them by
+// name (see doPost in landing/scripts/apps-script-lista.gs).
 type sheetPayload struct {
-	Token  string `json:"token"`
-	Email  string `json:"email"`
-	Origen string `json:"origen"`
-	Fecha  string `json:"fecha"`
+	Token    string `json:"token"`
+	Email    string `json:"email"`
+	Origen   string `json:"origen"`
+	Fecha    string `json:"fecha"`
+	Nombre   string `json:"nombre"`
+	Telefono string `json:"telefono"`
 }
 
 // sheetAnswer is what the Apps Script web app writes back (see `responder` in
@@ -100,6 +130,12 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 	v.Check(len(req.Email) <= 254, "email", "must not be more than 254 characters")
 	v.Check(validator.Matches(req.Email, validator.EmailRX), "email", "must be a valid email address")
 	v.Check(validator.PermittedValue(req.Source, "", sourceRegister, sourceGoogle), "source", "must be one of register, google")
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
+	req.Phone = strings.TrimSpace(req.Phone)
+	v.Check(len(req.FirstName) <= maxNameLength, "first_name", "must not be more than 100 characters")
+	v.Check(len(req.LastName) <= maxNameLength, "last_name", "must not be more than 100 characters")
+	v.Check(len(req.Phone) <= maxPhoneLength, "phone", "must not be more than 32 characters")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -111,7 +147,14 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := h.forward(r.Context(), req.Email, originFor(req.Source)); err != nil {
+	err := h.forward(r.Context(), lead{
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Phone:     req.Phone,
+		Origin:    originFor(req.Source),
+	})
+	if err != nil {
 		h.respond.LogError(r, err)
 	}
 }
@@ -133,12 +176,17 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 // The escaped value is what is sent, not what is stored anywhere else — nothing
 // on this path keeps the lead locally — so the apostrophe exists only in the
 // sheet, which is the one reader that needs it and does not display it.
-func (h *Handler) forward(ctx context.Context, email, origin string) error {
+//
+// The name and phone are free text from the same caller and land in cells of
+// their own, so they take the same escape.
+func (h *Handler) forward(ctx context.Context, l lead) error {
 	payload := sheetPayload{
-		Token:  h.token,
-		Email:  spreadsheet.EscapeFormulaCell(email),
-		Origen: origin,
-		Fecha:  time.Now().UTC().Format(time.RFC3339),
+		Token:    h.token,
+		Email:    spreadsheet.EscapeFormulaCell(l.Email),
+		Origen:   l.Origin,
+		Fecha:    time.Now().UTC().Format(time.RFC3339),
+		Nombre:   spreadsheet.EscapeFormulaCell(strings.TrimSpace(l.FirstName + " " + l.LastName)),
+		Telefono: spreadsheet.EscapeFormulaCell(l.Phone),
 	}
 
 	body, err := json.Marshal(payload)

@@ -20,7 +20,9 @@
  * Cada vez que se cambia este código hay que volver a implementar, eligiendo
  * "Nueva versión". Editar y guardar no actualiza la aplicación publicada.
  * El cambio del control de repetidos (por email y origen, no solo por email)
- * necesita esa nueva implementación para estar activo.
+ * necesita esa nueva implementación para estar activo. Lo mismo la versión
+ * que agrega las columnas Nombre y Teléfono: hasta que no se implemente de
+ * nuevo, esos datos llegan y se descartan.
  */
 
 var TOKEN = 'CAMBIAR-POR-UN-SECRETO-LARGO';
@@ -43,24 +45,42 @@ function doPost(e) {
     var hoja = obtenerHoja();
 
     var origen = String(cuerpo.origen || '').trim();
+    /* Lo que la persona había cargado antes de irse, hasta donde llegó. Pueden
+       venir vacíos; el teléfono llega tal cual se tipeó, sin validar. */
+    var nombre = String(cuerpo.nombre || '').trim();
+    var telefono = String(cuerpo.telefono || '').trim();
 
     /* Sin esto, alguien que hace doble click queda dos veces en la lista. El
        repetido se mide por email Y origen: la misma dirección puede anotarse en
        la lista de espera desde la landing y, meses después, abandonar el
-       registro en la app. Son dos filas distintas y las dos importan. */
-    if (yaEsta(hoja, email, origen)) return responder({ ok: true, repetido: true });
+       registro en la app. Son dos filas distintas y las dos importan.
+
+       Si la fila ya existe, no se descarta el pedido: se completan las celdas
+       de Nombre y Teléfono que estén vacías con lo que llegó ahora. Alguien
+       que abandonó dos veces suele haber llegado más lejos la segunda. Una
+       celda con dato nunca se pisa. */
+    var fila = filaExistente(hoja, email, origen);
+    if (fila > 0) {
+      var completado = completarFila(hoja, fila, nombre, telefono);
+      return responder({ ok: true, repetido: true, completado: completado });
+    }
 
     hoja.appendRow([
       cuerpo.fecha || new Date().toISOString(),
       email,
       origen,
+      nombre,
+      telefono,
     ]);
 
     if (AVISAR_A) {
+      var lineas = [email, cuerpo.fecha || '', origen];
+      if (nombre) lineas.push('Nombre: ' + nombre);
+      if (telefono) lineas.push('Teléfono: ' + telefono);
       MailApp.sendEmail({
         to: AVISAR_A,
         subject: 'Nuevo anotado en la lista de Vibe: ' + email,
-        body: email + '\n' + (cuerpo.fecha || '') + '\n' + (cuerpo.origen || ''),
+        body: lineas.join('\n'),
       });
     }
 
@@ -103,29 +123,53 @@ function doGet() {
   return responder({ ok: true, servicio: 'lista de espera de Vibe' });
 }
 
+var ENCABEZADO = ['Fecha', 'Email', 'Origen', 'Nombre', 'Teléfono'];
+
 function obtenerHoja() {
   var libro = SpreadsheetApp.getActiveSpreadsheet();
   let hoja = libro.getSheetByName(HOJA);
   if (!hoja) {
     hoja = libro.insertSheet(HOJA);
-    hoja.appendRow(['Fecha', 'Email', 'Origen']);
+    hoja.appendRow(ENCABEZADO);
   }
-  if (hoja.getLastRow() === 0) hoja.appendRow(['Fecha', 'Email', 'Origen']);
+  if (hoja.getLastRow() === 0) hoja.appendRow(ENCABEZADO);
+  /* Migración única: una planilla creada por la versión anterior tiene solo
+     tres columnas. Se le agregan los dos títulos que faltan; las filas viejas
+     quedan con esas celdas vacías. */
+  if (hoja.getRange(1, 4).getValue() === '') {
+    hoja.getRange(1, 4, 1, 2).setValues([[ENCABEZADO[3], ENCABEZADO[4]]]);
+  }
   return hoja;
 }
 
-/* Verdadero solo si ya hay una fila con ese email Y ese origen. Un origen
-   vacío en el pedido coincide con una celda vacía. */
-function yaEsta(hoja, email, origen) {
+/* Número de la fila que ya tiene ese email Y ese origen, o -1 si no hay. Un
+   origen vacío en el pedido coincide con una celda vacía. */
+function filaExistente(hoja, email, origen) {
   var filas = hoja.getLastRow();
-  if (filas < 2) return false;
+  if (filas < 2) return -1;
   var columnas = hoja.getRange(2, 2, filas - 1, 2).getValues();
   for (let i = 0; i < columnas.length; i++) {
     var mismoEmail = String(columnas[i][0]).trim().toLowerCase() === email;
     var mismoOrigen = String(columnas[i][1] || '').trim() === origen;
-    if (mismoEmail && mismoOrigen) return true;
+    if (mismoEmail && mismoOrigen) return i + 2;
   }
-  return false;
+  return -1;
+}
+
+/* Rellena Nombre (D) y Teléfono (E) de una fila existente solo donde la celda
+   está vacía y el pedido trae algo. Devuelve true si escribió alguna. */
+function completarFila(hoja, fila, nombre, telefono) {
+  var escribio = false;
+  var celdas = hoja.getRange(fila, 4, 1, 2).getValues()[0];
+  if (nombre && String(celdas[0] || '').trim() === '') {
+    hoja.getRange(fila, 4).setValue(nombre);
+    escribio = true;
+  }
+  if (telefono && String(celdas[1] || '').trim() === '') {
+    hoja.getRange(fila, 5).setValue(telefono);
+    escribio = true;
+  }
+  return escribio;
 }
 
 function responder(obj) {

@@ -2425,6 +2425,18 @@ paths:
                   enum: [register, google]
                   default: register
                   description: Which form was abandoned; it decides the row's origin in the spreadsheet.
+                first_name:
+                  type: string
+                  maxLength: 100
+                  description: As far as the person got; forwarded as typed.
+                last_name:
+                  type: string
+                  maxLength: 100
+                  description: As far as the person got; forwarded as typed.
+                phone:
+                  type: string
+                  maxLength: 32
+                  description: As far as the person got; not validated as a phone number.
 
   # ---------------------------------------------------------------------
   # payments

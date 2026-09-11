@@ -327,3 +327,107 @@ func TestCaptureAbandonedRegistration_FormulaShapedEmail_IsForwardedEscaped(t *t
 		})
 	}
 }
+
+func TestCaptureAbandonedRegistration_PartialProfile_IsForwarded(t *testing.T) {
+	tests := []struct {
+		name         string
+		body         string
+		wantNombre   string
+		wantTelefono string
+	}{
+		{
+			name:       "name and phone",
+			body:       `{"email":"juan@example.com","first_name":" Juan ","last_name":"Pérez","phone":"+54 11 2345"}`,
+			wantNombre: "Juan Pérez",
+			// "+" opens a formula in Sheets, so every E.164-style phone
+			// arrives with the H-24 apostrophe, which the sheet does not show.
+			wantTelefono: "'+54 11 2345",
+		},
+		{
+			name:         "only a first name",
+			body:         `{"email":"juan@example.com","first_name":"Juan"}`,
+			wantNombre:   "Juan",
+			wantTelefono: "",
+		},
+		{
+			name:         "only a phone typed halfway",
+			body:         `{"email":"juan@example.com","phone":"+5411"}`,
+			wantNombre:   "",
+			wantTelefono: "'+5411",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var received sheetPayload
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewDecoder(r.Body).Decode(&received)
+				answerOK(w)
+			}))
+			defer srv.Close()
+
+			h, _ := newTestHandler(t, srv.URL)
+			rr := doCapture(t, h, tt.body)
+
+			if rr.Code != http.StatusAccepted {
+				t.Fatalf("status = %d, want %d (%s)", rr.Code, http.StatusAccepted, rr.Body.String())
+			}
+			if received.Nombre != tt.wantNombre {
+				t.Errorf("forwarded nombre = %q, want %q", received.Nombre, tt.wantNombre)
+			}
+			if received.Telefono != tt.wantTelefono {
+				t.Errorf("forwarded telefono = %q, want %q", received.Telefono, tt.wantTelefono)
+			}
+		})
+	}
+}
+
+func TestCaptureAbandonedRegistration_ProfileFieldsAreBounded(t *testing.T) {
+	tests := []struct {
+		name  string
+		body  string
+		field string
+	}{
+		{name: "first name over 100", body: `{"email":"juan@example.com","first_name":"` + strings.Repeat("a", 101) + `"}`, field: "first_name"},
+		{name: "last name over 100", body: `{"email":"juan@example.com","last_name":"` + strings.Repeat("a", 101) + `"}`, field: "last_name"},
+		{name: "phone over 32", body: `{"email":"juan@example.com","phone":"` + strings.Repeat("1", 33) + `"}`, field: "phone"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h, _ := newTestHandler(t, "")
+			rr := doCapture(t, h, tt.body)
+
+			if rr.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnprocessableEntity)
+			}
+			if !strings.Contains(rr.Body.String(), tt.field) {
+				t.Errorf("body = %s, want an error on %q", rr.Body.String(), tt.field)
+			}
+		})
+	}
+}
+
+// A name is free text from the same unauthenticated caller as the address, so
+// it gets the same H-24 treatment: accepted, forwarded as text.
+func TestCaptureAbandonedRegistration_FormulaShapedName_IsForwardedEscaped(t *testing.T) {
+	var received sheetPayload
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		answerOK(w)
+	}))
+	defer srv.Close()
+
+	h, _ := newTestHandler(t, srv.URL)
+	rr := doCapture(t, h, `{"email":"juan@example.com","first_name":"=HYPERLINK(\"https://evil\")","phone":"+5411"}`)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusAccepted)
+	}
+	if received.Nombre != `'=HYPERLINK("https://evil")` {
+		t.Errorf("forwarded nombre = %q — the sheet cell would open as a formula", received.Nombre)
+	}
+	if received.Telefono != "'+5411" {
+		t.Errorf("forwarded telefono = %q, want %q", received.Telefono, "'+5411")
+	}
+}
