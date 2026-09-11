@@ -17,7 +17,9 @@ import type { Page } from '@playwright/test';
  * repo's max-lines-per-function cap.
  */
 async function expectBlockedSlotOnCalendar(page: Page, complexId: string, courtId: string): Promise<void> {
-  const apiHelper = await createApiHelper(page.context().request);
+  // Own request context: logging in through the page's cookie jar replaces
+  // the page's session and races its token refresh.
+  const apiHelper = await createApiHelper();
   const futureDate = getFutureDate(21);
 
   const blocked = await apiHelper.blockSlot(complexId, courtId, {
@@ -43,13 +45,7 @@ async function expectBlockedSlotOnCalendar(page: Page, complexId: string, courtI
       timeout: 10_000,
     });
   } finally {
-    // Re-login for a fresh CSRF token rather than reusing `apiHelper`'s: the
-    // page load above can trigger the app's own session/token refresh on the
-    // shared request context, rotating the CSRF token issued at the top of
-    // this test and turning a reused one into a 403 "invalid or missing CSRF
-    // token".
-    const cleanupHelper = await createApiHelper(page.context().request);
-    await cleanupHelper.deleteBlockedSlot(complexId, blocked.id);
+    await apiHelper.deleteBlockedSlot(complexId, blocked.id);
   }
 }
 

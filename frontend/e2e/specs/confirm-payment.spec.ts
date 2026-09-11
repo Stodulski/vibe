@@ -127,8 +127,13 @@ test.describe('Confirm Payment', () => {
 
     // Reload to bypass any client-side query cache and verify the UI
     // reflects the server-persisted state independently of cache timing.
+    // A reload keeps `?date=`, so no second navigation: navigating while the
+    // app's boot refresh is in flight aborts it client-side after the server
+    // has already rotated the token, and the next load lands on /login.
     await page.reload();
-    await openBookingsForDate(page, date);
+    await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
     await page.getByText(`Pago ${uniqueClientName}`).first().click();
     // BookingStatusBadge's fully_paid label is "Pago completo", not "Pagada"
     // (t.bookings.paymentStatusLabels.fully_paid in es_AR/bookings.ts).
