@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,6 +73,27 @@ func (u *User) IsLocked() bool {
 // ComparePassword is a package-level helper for timing-safe dummy comparisons.
 func ComparePassword(hash []byte, plain string) error {
 	return bcrypt.CompareHashAndPassword(hash, []byte(plain))
+}
+
+var (
+	dummyHashOnce sync.Once
+	dummyHash     []byte
+)
+
+// DummyPasswordHash is a real bcrypt hash at PasswordHashCost, for the sign-in
+// path to compare against when the account does not exist, so that a miss
+// costs the same as a wrong password. It is hashed once, on first use, and at
+// the configured cost rather than a literal one: a test binary that lowered
+// the cost must not pay a cost-12 comparison for every failed sign-in either.
+func DummyPasswordHash() []byte {
+	dummyHashOnce.Do(func() {
+		hash, err := bcrypt.GenerateFromPassword([]byte("not-a-real-password"), PasswordHashCost)
+		if err != nil {
+			panic("data: hashing the dummy password: " + err.Error())
+		}
+		dummyHash = hash
+	})
+	return dummyHash
 }
 
 // UserModel implements UserStore against PostgreSQL.

@@ -225,8 +225,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.users.GetByEmail(r.Context(), input.Email)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			dummyHash := []byte("$2a$12$000000000000000000000000000000000000000000000000000000")
-			_ = data.ComparePassword(dummyHash, input.Password)
+			_ = data.ComparePassword(data.DummyPasswordHash(), input.Password)
 			h.loginFailed(w, r, input.Email)
 			return
 		}
