@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { renderHook, waitFor } from '@testing-library/react';
 import { createWrapper } from '@/test/test-utils';
 import { makeBooking } from '@/test/factories';

@@ -10,7 +10,6 @@ const VENDOR_CHUNKS: Record<string, string> = {
   'react-dom': 'vendor-react',
   'react-router-dom': 'vendor-react',
   '@tanstack/react-query': 'vendor-query',
-  '@tanstack/react-table': 'vendor-table',
   'radix-ui': 'vendor-ui',
   sonner: 'vendor-ui',
   'lucide-react': 'vendor-ui',
