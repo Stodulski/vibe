@@ -70,6 +70,8 @@ export default defineConfig({
     command: WEB_SERVER_COMMAND,
     url: BASE_URL,
     reuseExistingServer: !CI,
-    timeout: 30_000,
+    // `make e2e` builds the app before serving it (see backend/scripts/e2e-run.sh):
+    // the default dev server needs seconds, the production build needs a minute.
+    timeout: 180_000,
   },
 });

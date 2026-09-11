@@ -2,7 +2,7 @@
 # Drives the client Playwright E2E suite against a fully isolated stack:
 # vibe-e2e db (:5433), vibe-e2e redis (:6380), a
 # purpose-built API instance (:8081) bound to both, and the client's own
-# `--mode e2e` Vite server (:5174, started/stopped by Playwright itself via
+# `--mode e2e` production build served by `vite preview` (:5174, started/stopped by Playwright itself via
 # its `webServer` config).
 #
 # Never touches the developer's running dev API (:8080), dev Vite (:5173),
@@ -142,7 +142,7 @@ set +e
   E2E_DB_NAME="vibe_e2e" \
   E2E_DB_PASSWORD="vibe_e2e" \
   PLAYWRIGHT_BASE_URL="$CLIENT_BASE_URL" \
-  PLAYWRIGHT_WEB_SERVER_COMMAND="pnpm exec vite --mode e2e --port ${E2E_CLIENT_PORT}" \
+  PLAYWRIGHT_WEB_SERVER_COMMAND="pnpm exec vite build --mode e2e --outDir dist-e2e && pnpm exec vite preview --mode e2e --outDir dist-e2e --port ${E2E_CLIENT_PORT} --strictPort" \
   MP_CREDENTIAL_KEYS="$E2E_MP_CREDENTIAL_KEYS" \
   VITE_TURNSTILE_SITE_KEY="1x00000000000000000000AA" \
   SERVER_DIR="$ROOT_DIR" \

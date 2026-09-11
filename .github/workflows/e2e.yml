@@ -45,8 +45,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
+      # The published binary, pinned to the library version in go.mod: building
+      # goose from source cost a minute and a half per run.
       - name: Install goose
-        run: go install github.com/pressly/goose/v3/cmd/goose@latest
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/goose" https://github.com/pressly/goose/releases/download/v3.27.3/goose_linux_x86_64
+          echo "ca18112e2438b3ad608af9a5938beafd01fa36a4a19a3edbe4f29226ca5c8533  $RUNNER_TEMP/goose" | sha256sum --check --strict
+          sudo install -m 0755 "$RUNNER_TEMP/goose" /usr/local/bin/goose
+          goose --version
 
       # The fixtures seal a fake MercadoPago credential and reset the e2e
       # database through psql.

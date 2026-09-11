@@ -18,6 +18,16 @@ const VENDOR_CHUNKS: Record<string, string> = {
   'react-leaflet': 'vendor-leaflet',
 };
 
+// Defaults to the dev API (:8080) so `pnpm dev` is unchanged. `make e2e` in
+// backend overrides this to its isolated API instance (:8081) so the E2E
+// suite never talks to the dev API.
+const apiProxy = {
+  '/api': {
+    target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080',
+    changeOrigin: true,
+  },
+};
+
 export default defineConfig({
   plugins: [
     react(),
@@ -84,14 +94,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        // Defaults to the dev API (:8080) so `pnpm dev` is unchanged.
-        // `make e2e` in backend overrides this to its isolated API
-        // instance (:8081) so the E2E suite never talks to the dev API.
-        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080',
-        changeOrigin: true,
-      },
-    },
+    proxy: apiProxy,
+  },
+  // `vite preview` serves the production build for the E2E suite, which
+  // needs the same `/api` proxy the dev server has.
+  preview: {
+    proxy: apiProxy,
   },
 });

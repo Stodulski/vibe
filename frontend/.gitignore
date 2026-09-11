@@ -55,3 +55,5 @@ coverage/
 /.git-blame-ignore-revs
 /lint-baseline.md
 /eslint-disables.md
+# Production build the E2E runner serves (backend/scripts/e2e-run.sh)
+dist-e2e

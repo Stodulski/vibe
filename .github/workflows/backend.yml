@@ -105,8 +105,14 @@ jobs:
           cache: true
           cache-dependency-path: backend/go.sum
 
+      # The published binary, pinned to the library version in go.mod: building
+      # goose from source cost a minute and a half per run.
       - name: Install goose
-        run: go install github.com/pressly/goose/v3/cmd/goose@latest
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/goose" https://github.com/pressly/goose/releases/download/v3.27.3/goose_linux_x86_64
+          echo "ca18112e2438b3ad608af9a5938beafd01fa36a4a19a3edbe4f29226ca5c8533  $RUNNER_TEMP/goose" | sha256sum --check --strict
+          sudo install -m 0755 "$RUNNER_TEMP/goose" /usr/local/bin/goose
+          goose --version
 
       # docker-compose.e2e.yml brings up the e2e Postgres on 5433 and Redis on
       # 6380 and migrates the database; the `integration` build tag then runs

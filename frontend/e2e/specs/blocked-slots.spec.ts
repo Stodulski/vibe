@@ -59,8 +59,9 @@ test.describe('Blocked Slots', () => {
     courtId = setup.courtId;
   });
 
-  test('can block, list, and delete slots via API', async ({ authenticatedPage: page }) => {
-    const apiHelper = await createApiHelper(page.context().request);
+  // API only: the helper signs in on its own, so no page is needed.
+  test('can block, list, and delete slots via API', async () => {
+    const apiHelper = await createApiHelper();
 
     const futureDate = getFutureDate(14);
 

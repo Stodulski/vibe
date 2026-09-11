@@ -18,7 +18,7 @@ test.describe('Blocked Slots — Public Availability', () => {
   });
 
   test('blocked slot appears in availability as unavailable', async ({ authenticatedPage: page }) => {
-    const apiHelper = await createApiHelper(page.context().request);
+    const apiHelper = await createApiHelper();
     const setup = await getSharedSetup();
 
     const futureDate = getFutureDate(15);
