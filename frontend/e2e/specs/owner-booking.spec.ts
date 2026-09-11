@@ -70,9 +70,10 @@ test.describe('Owner Booking Management', () => {
     // have no price band and force a "no hay tarifa configurada" manual-price
     // detour instead of advancing. And not a fixed hour: the list omits slots
     // other specs in this run already booked on the same day, so the first
-    // free one inside the priced window is taken instead.
+    // free one inside the priced window is taken instead. The window is the
+    // one every day shares: weekends are priced from 09:00, not 08:00.
     await page
-      .getByRole('option', { name: /^(0[89]|1\d|2[0-2]):[03]0$/ })
+      .getByRole('option', { name: /^(09|1\d|20):[03]0$/ })
       .first()
       .click();
 
