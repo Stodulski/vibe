@@ -66,6 +66,13 @@ export interface RefreshResponse {
   csrf_token: string;
 }
 
+/**
+ * `GET /auth/me`: the user plus the CSRF token bound to the access token the
+ * request authenticated with. The same shape sign-in answers with, named for
+ * what it is on the boot path: the session a page load starts from.
+ */
+export type CurrentUserResponse = AuthResponse;
+
 export type UpdateMeRequest = Partial<Pick<User, 'first_name' | 'last_name' | 'email' | 'phone'>> & {
   current_password?: string;
   new_password?: string;

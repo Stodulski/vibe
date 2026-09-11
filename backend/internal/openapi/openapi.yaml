@@ -815,17 +815,23 @@ paths:
       tags: [auth]
       operationId: authGetCurrentUser
       summary: Get the current session's user
+      description: >-
+        The frontend bootstraps every fresh page load from here, so the answer also carries the
+        session's CSRF token: it is derived from the access token the request authenticated with
+        and rotates nothing. A page load therefore never spends the refresh token; `/auth/refresh`
+        is only called once the access token has expired and this endpoint answered 401.
       security: [{cookieAuth: []}]
       responses:
         "200":
-          description: The authenticated user.
+          description: The authenticated user and the CSRF token bound to this access token.
           content:
             application/json:
               schema:
                 type: object
-                required: [user]
+                required: [user, csrf_token]
                 properties:
                   user: {$ref: "#/components/schemas/User"}
+                  csrf_token: {type: string}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "429": {$ref: "#/components/responses/RateLimited"}
     put:

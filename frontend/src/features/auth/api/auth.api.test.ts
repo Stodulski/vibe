@@ -81,11 +81,6 @@ describe('authApi', () => {
     await expect(authApi.resetPassword('tok', 'newpass')).resolves.toEqual({ message: 'ok' });
   });
 
-  it('getMe parses a user envelope', async () => {
-    mockJsonOnce(mockGet, { user: makeUser() });
-    await expect(authApi.getMe()).resolves.toEqual({ user: makeUser() });
-  });
-
   it('updateMe parses a user envelope', async () => {
     const data: UpdateMeRequest = { first_name: 'Juan' };
     mockPut.mockReturnValueOnce({ json: vi.fn().mockResolvedValue({ user: makeUser() }) });
@@ -95,5 +90,23 @@ describe('authApi', () => {
   it('deleteAccount parses a message response', async () => {
     mockDelete.mockReturnValueOnce({ json: vi.fn().mockResolvedValue({ message: 'ok' }) });
     await expect(authApi.deleteAccount()).resolves.toEqual({ message: 'ok' });
+  });
+});
+
+// A sibling describe, not nested in the one above: max-lines-per-function
+// counts a describe callback's whole body.
+describe('authApi.getMe', () => {
+  beforeEach(() => {
+    mockGet.mockClear();
+  });
+
+  it('parses the user and the CSRF token the session boots from', async () => {
+    mockJsonOnce(mockGet, { user: makeUser(), csrf_token: 'tok' });
+    await expect(authApi.getMe()).resolves.toEqual({ user: makeUser(), csrf_token: 'tok' });
+  });
+
+  it('rejects an answer with no csrf_token, since the boot path cannot run without one', async () => {
+    mockJsonOnce(mockGet, { user: makeUser() });
+    await expect(authApi.getMe()).rejects.toThrow(ApiResponseError);
   });
 });

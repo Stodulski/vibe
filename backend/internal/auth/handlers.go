@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -677,6 +678,20 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // CurrentUser handles GET /api/v1/auth/me.
+//
+// The answer carries the session's CSRF token next to the user. The frontend
+// bootstraps every fresh document load from this endpoint, so a page load never
+// spends the refresh token: rotation happens only once the access token has
+// expired and this request answered 401. The token is a pure HMAC of the access
+// token (see TokenService.GenerateCSRFToken), so returning it costs no storage
+// and rotates nothing; it is the same value the sign-in and refresh answers
+// carry for that access token.
+//
+// The raw credential is read the way middleware.credential reads it, cookie
+// first and then the Bearer header. That helper is not imported because the
+// middleware package already depends on this one. RequireAuth put the user in
+// the context, so one of the two is present; if neither is, the field is left
+// out rather than turned into a 500.
 func (h *Handler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := httpx.ContextGetAuthenticatedUser(r)
 	if !ok {
@@ -684,7 +699,26 @@ func (h *Handler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"user": user})
+	envelope := httpx.Envelope{"user": user}
+	if accessToken := rawAccessToken(r); accessToken != "" {
+		envelope["csrf_token"] = h.tokenService.GenerateCSRFToken(accessToken)
+	}
+
+	h.respond.JSON(w, r, http.StatusOK, envelope)
+}
+
+// rawAccessToken returns the access token the request authenticated with: the
+// cookie first, then a Bearer header, in the order the authentication
+// middleware consults them.
+func rawAccessToken(r *http.Request) string {
+	if cookie, err := r.Cookie("access_token"); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	scheme, token, found := strings.Cut(r.Header.Get("Authorization"), " ")
+	if found && scheme == "Bearer" && token != "" {
+		return token
+	}
+	return ""
 }
 
 // DeleteAccount handles DELETE /api/v1/auth/me. It is refused while any complex

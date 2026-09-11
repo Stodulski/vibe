@@ -1,9 +1,15 @@
 import api, { withSignal } from '@/shared/lib/ky';
 import { parseWith } from '@/shared/lib/apiParse';
-import { authResponseSchema, userEnvelopeSchema, googleSignInResponseSchema } from '@/shared/schemas/auth.schema';
+import {
+  authResponseSchema,
+  currentUserResponseSchema,
+  userEnvelopeSchema,
+  googleSignInResponseSchema,
+} from '@/shared/schemas/auth.schema';
 import { messageResponseSchema } from '@/shared/schemas/envelope.schema';
 import type {
   AuthResponse,
+  CurrentUserResponse,
   LoginRequest,
   RegisterRequest,
   UpdateMeRequest,
@@ -57,8 +63,8 @@ export const authApi = {
       .json()
       .then(parseWith(messageResponseSchema, 'authApi.resetPassword')),
 
-  getMe: (signal?: AbortSignal): Promise<{ user: User }> =>
-    api.get('auth/me', withSignal(signal)).json().then(parseWith(userEnvelopeSchema, 'authApi.getMe')),
+  getMe: (signal?: AbortSignal): Promise<CurrentUserResponse> =>
+    api.get('auth/me', withSignal(signal)).json().then(parseWith(currentUserResponseSchema, 'authApi.getMe')),
 
   updateMe: (data: UpdateMeRequest): Promise<{ user: User }> =>
     api.put('auth/me', { json: data }).json().then(parseWith(userEnvelopeSchema, 'authApi.updateMe')),

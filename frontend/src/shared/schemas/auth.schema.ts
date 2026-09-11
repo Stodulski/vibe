@@ -4,6 +4,7 @@ import type {
   UserRole,
   AuthResponse,
   RefreshResponse,
+  CurrentUserResponse,
   GoogleProfilePreview,
   GoogleNeedsProfileResponse,
   GoogleSignInResponse,
@@ -46,7 +47,19 @@ export const refreshResponseSchema = z
   })
   .loose() satisfies z.ZodType<RefreshResponse>;
 
-/** `{ user: User }` — `authApi.getMe` / `authApi.updateMe`. */
+/**
+ * `{ user, csrf_token }` — `authApi.getMe`. A page load bootstraps the session
+ * from this answer instead of rotating the refresh token, so a missing
+ * `csrf_token` is a malformed session, not an optional extra.
+ */
+export const currentUserResponseSchema = z
+  .object({
+    user: userSchema,
+    csrf_token: z.string(),
+  })
+  .loose() satisfies z.ZodType<CurrentUserResponse>;
+
+/** `{ user: User }` — `authApi.updateMe`. */
 export const userEnvelopeSchema = z
   .object({
     user: userSchema,

@@ -5,12 +5,23 @@ import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
+const { mockSetUser, mockSetCsrfToken, mockBootstrapSession, mockRefreshAccessToken, bootUser } = vi.hoisted(() => {
+  const bootUser = { id: 'u1', first_name: 'Juan' };
+  return {
+    bootUser,
+    mockSetUser: vi.fn(),
+    mockSetCsrfToken: vi.fn(),
+    mockBootstrapSession: vi.fn().mockResolvedValue({ user: bootUser, csrf_token: 'from-me' }),
+    mockRefreshAccessToken: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 vi.mock('../api/auth.api', () => ({
   authApi: {
     login: vi.fn().mockResolvedValue({ user: { id: 'u1', role: 'owner' }, csrf_token: 'tok' }),
     register: vi.fn().mockResolvedValue({ message: 'ok' }),
     logout: vi.fn().mockResolvedValue({}),
-    getMe: vi.fn().mockResolvedValue({ user: { id: 'u1', first_name: 'Juan' } }),
+    getMe: vi.fn().mockResolvedValue({ user: { id: 'u1', first_name: 'Juan' }, csrf_token: 'tok' }),
   },
 }));
 
@@ -18,12 +29,12 @@ vi.mock('@/shared/stores', () => ({
   useStore: Object.assign(
     () => ({
       user: null,
-      setUser: vi.fn(),
-      setCsrfToken: vi.fn(),
+      setUser: mockSetUser,
+      setCsrfToken: mockSetCsrfToken,
       csrfToken: 'test',
       logout: vi.fn(),
     }),
-    { getState: () => ({ csrfToken: 'test', setCsrfToken: vi.fn() }) },
+    { getState: () => ({ csrfToken: 'test', setCsrfToken: mockSetCsrfToken }) },
   ),
 }));
 
@@ -33,7 +44,8 @@ vi.mock('@/shared/lib/queryKeys', () => ({
 
 vi.mock('@/shared/lib/ky', () => ({
   default: {},
-  refreshAccessToken: vi.fn().mockResolvedValue(undefined),
+  bootstrapSession: mockBootstrapSession,
+  refreshAccessToken: mockRefreshAccessToken,
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -83,6 +95,24 @@ describe('useAuth', () => {
     // Checked synchronously, before the background getMe() fetch this query
     // triggers (enabled: !user) has a chance to resolve.
     expect(result.current.user).toBeNull();
+  });
+
+  // A page load boots from GET /auth/me, which carries the CSRF token for the
+  // access token the cookie holds. Nothing here may spend the refresh token:
+  // that is `bootstrapSession`'s job, and only once /auth/me answered 401.
+  it('feeds the store from the bootstrapped session without refreshing the tokens', async () => {
+    mockSetUser.mockClear();
+    mockSetCsrfToken.mockClear();
+    mockRefreshAccessToken.mockClear();
+
+    const { useAuth } = await import('./useAuth');
+    renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(mockSetUser).toHaveBeenCalledWith(bootUser);
+    });
+    expect(mockSetCsrfToken).toHaveBeenCalledWith('from-me');
+    expect(mockRefreshAccessToken).not.toHaveBeenCalled();
   });
 });
 

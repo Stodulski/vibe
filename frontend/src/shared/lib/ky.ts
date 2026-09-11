@@ -1,10 +1,10 @@
-import ky from 'ky';
+import ky, { HTTPError } from 'ky';
 import type { Options } from 'ky';
 import { useStore } from '@/shared/stores';
 import { env } from '@/shared/lib/env';
 import { parseWith } from '@/shared/lib/apiParse';
-import { refreshResponseSchema } from '@/shared/schemas/auth.schema';
-import type { RefreshResponse } from '@/shared/types/api.types';
+import { currentUserResponseSchema, refreshResponseSchema } from '@/shared/schemas/auth.schema';
+import type { CurrentUserResponse, RefreshResponse } from '@/shared/types/api.types';
 
 let refreshPromise: Promise<void> | null = null;
 
@@ -71,6 +71,53 @@ export async function refreshAccessToken(): Promise<void> {
   } finally {
     refreshPromise = null;
   }
+}
+
+/**
+ * Reads the current session the way a fresh document load needs it: without
+ * spending the refresh token.
+ *
+ * `GET /auth/me` answers the user together with the CSRF token bound to the
+ * access token the cookie carries, so while that access token is alive a
+ * page load rotates nothing. Only a 401 (the access token expired) leads to
+ * `refreshAccessToken`, after which the read is repeated with the new cookie.
+ * That shrinks the window in which a navigation can abort a refresh whose
+ * rotation the server already committed, from every page load to at most one
+ * per access-token lifetime.
+ *
+ * Like `postRefresh`, this bypasses the `api` instance and its hooks: the 401
+ * hook below logs the visitor out and sends them to `/login`, which is the
+ * wrong answer for an anonymous boot on a public or guest page. Here a 401
+ * that no refresh can recover is simply "no session", answered as `null`;
+ * the store is left to the caller. Any other failure propagates.
+ */
+export async function bootstrapSession(signal?: AbortSignal): Promise<CurrentUserResponse | null> {
+  try {
+    return await getCurrentUser(signal);
+  } catch (error) {
+    if (!(error instanceof HTTPError) || error.response.status !== 401) {
+      throw error;
+    }
+  }
+
+  try {
+    await refreshAccessToken();
+  } catch {
+    return null;
+  }
+
+  return getCurrentUser(signal);
+}
+
+function getCurrentUser(signal?: AbortSignal): Promise<CurrentUserResponse> {
+  return ky
+    .get('auth/me', {
+      prefix: env.VITE_API_URL,
+      credentials: 'include',
+      ...withSignal(signal),
+    })
+    .json()
+    .then(parseWith(currentUserResponseSchema, 'ky.getCurrentUser'));
 }
 
 const api = ky.create({

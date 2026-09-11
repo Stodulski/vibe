@@ -580,6 +580,66 @@ func TestCurrentUserReturnsTheAuthenticatedAccount(t *testing.T) {
 	}
 }
 
+// The frontend bootstraps each page load from GET /auth/me instead of spending
+// the refresh token, so the answer must carry the CSRF token bound to the
+// access token the request authenticated with, read the way the middleware
+// reads it: cookie first, then the Bearer header.
+func TestCurrentUserCarriesTheCSRFTokenOfTheSession(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	accessToken, err := f.handler.tokenService.GenerateAccessToken(user.ID, user.Role)
+	if err != nil {
+		t.Fatalf("minting access token: %v", err)
+	}
+	want := f.handler.tokenService.GenerateCSRFToken(accessToken)
+
+	t.Run("from the access_token cookie", func(t *testing.T) {
+		r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), user)
+		r.AddCookie(&http.Cookie{Name: "access_token", Value: accessToken})
+
+		w := httptest.NewRecorder()
+		f.handler.CurrentUser(w, r)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+		}
+		if got := decode(t, w)["csrf_token"]; got != want {
+			t.Errorf("csrf_token must be derived from the cookie's access token; got %v", got)
+		}
+	})
+
+	t.Run("from the Bearer header when there is no cookie", func(t *testing.T) {
+		r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), user)
+		r.Header.Set("Authorization", "Bearer "+accessToken)
+
+		w := httptest.NewRecorder()
+		f.handler.CurrentUser(w, r)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+		}
+		if got := decode(t, w)["csrf_token"]; got != want {
+			t.Errorf("csrf_token must be derived from the Bearer token; got %v", got)
+		}
+	})
+
+	t.Run("omitted when the request carries no credential", func(t *testing.T) {
+		r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), user)
+
+		w := httptest.NewRecorder()
+		f.handler.CurrentUser(w, r)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+		}
+		if _, present := decode(t, w)["csrf_token"]; present {
+			t.Error("csrf_token must be omitted when there is no access token to derive it from")
+		}
+	})
+}
+
 // observable renders everything an unauthenticated caller can see of a response.
 // Asserting the status alone would miss the oracle simply moving channel — into
 // a Retry-After header, a WWW-Authenticate challenge, or the error message.
