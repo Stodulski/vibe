@@ -61,22 +61,48 @@ export const DEFAULT_PRICES = [
 ];
 
 /**
- * Returns a date string (YYYY-MM-DD) for the next occurrence of a weekday (Mon-Fri).
+ * The venue timezone every complex on the platform lives in. The browser is
+ * pinned to it in playwright.config.ts and the app computes "today" in it, so
+ * the suite must too: `new Date().toISOString()` reads the runner's UTC day,
+ * which between 21:00 and 00:00 Argentina time is already tomorrow. A booking
+ * created for "today + N" in UTC then sits one day past where the calendar
+ * lands after N clicks on "next day".
+ */
+const VENUE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
+
+/** Calendar date ("YYYY-MM-DD") of the given instant, read in the venue timezone. */
+function venueDate(instant: Date): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: VENUE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(instant);
+}
+
+/** Midnight UTC of the venue's current calendar day; safe to add whole days to. */
+function venueTodayAtUtcMidnight(): Date {
+  return new Date(`${venueDate(new Date())}T00:00:00Z`);
+}
+
+/**
+ * Returns a date string (YYYY-MM-DD) for the next occurrence of a weekday (Mon-Fri), in the venue timezone.
  */
 export function getNextWeekday(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
+  const d = venueTodayAtUtcMidnight();
+  d.setUTCDate(d.getUTCDate() + 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
   }
   return d.toISOString().slice(0, 10);
 }
 
 /**
- * Returns a date string for N days from now.
+ * Returns a date string for N days from today, in the venue timezone.
  */
 export function getFutureDate(daysAhead: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
+  const d = venueTodayAtUtcMidnight();
+  d.setUTCDate(d.getUTCDate() + daysAhead);
   return d.toISOString().slice(0, 10);
 }

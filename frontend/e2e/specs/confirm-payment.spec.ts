@@ -1,3 +1,4 @@
+import { getFutureDate } from '../helpers/test-data';
 import type { Page } from '@playwright/test';
 import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
@@ -16,12 +17,6 @@ async function navigateToBookingsForDate(page: Page, daysAhead: number) {
     await nextDayButton.click();
     await page.waitForTimeout(300);
   }
-}
-
-function getFutureDate(daysAhead: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  return d.toISOString().slice(0, 10);
 }
 
 // Picks a pseudo-random half-hour slot between 08:00 and 21:00 so repeated

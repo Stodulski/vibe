@@ -43,30 +43,38 @@ export async function getSharedSetup(): Promise<SharedSetupResult & { api: ApiHe
         courtName: court.name,
       };
     } catch (e: unknown) {
-      // If slug already exists, find and reuse it
-      const err = e as Error;
-      if (err.message.includes('422') || err.message.includes('slug')) {
-        // The complex already exists from a previous spec — list and find
-        // it via the typed public `ApiHelper.get()` accessor (avoids
-        // reaching into the class's private `request`/`csrfToken` fields
-        // through bracket-notation access).
-        const { complexes } = await api.get<{ complexes: ApiComplex[] }>('/complexes');
-        const existing = complexes.find((c) => c.slug === SHARED_SLUG);
-        if (existing) {
-          // Get courts for this complex
-          const { courts } = await api.get<{ courts: ApiCourt[] }>(`/complexes/${existing.id}/courts`);
-          const court = courts[0];
-          if (court) {
-            return {
-              complexId: existing.id,
-              complexSlug: existing.slug,
-              courtId: court.id,
-              courtName: court.name,
-            };
-          }
-        }
+      // Only a taken slug means "another worker already built it". Any other
+      // failure is a real one and must surface as itself.
+      if (!(e instanceof Error) || !e.message.includes('slug_taken')) throw e;
+
+      // Playwright restarts the worker after a failure and this promise cache
+      // is per worker, so a retry lands here with the complex already in place.
+      // Look it up through the typed public `ApiHelper.get()` accessor rather
+      // than the class's private request fields.
+      const { complexes } = await api.get<{ complexes: ApiComplex[] }>('/complexes');
+      const existing = complexes.find((c) => c.slug === SHARED_SLUG);
+      if (!existing) {
+        throw new Error(
+          `shared complex "${SHARED_SLUG}" is slug_taken but is not among this owner's ${String(complexes.length)} complexes`,
+          { cause: e },
+        );
       }
-      throw e;
+
+      // Re-create the court when a previous worker's setup died between
+      // creating the complex and its court: reusing a court-less complex only
+      // moves the failure into the first spec that needs a court.
+      const { courts } = await api.get<{ courts: ApiCourt[] }>(`/complexes/${existing.id}/courts`);
+      let court = courts[0];
+      if (!court) {
+        court = await api.createCourt(existing.id);
+        await api.setCourtPrices(existing.id, court.id);
+      }
+      return {
+        complexId: existing.id,
+        complexSlug: existing.slug,
+        courtId: court.id,
+        courtName: court.name,
+      };
     }
   })();
 
