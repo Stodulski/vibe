@@ -1,3 +1,10 @@
+/**
+ * Cloudflare Turnstile's documented dummy token. `make e2e` runs the API with the
+ * always-pass test secret, so any token verifies; the API still refuses a request
+ * that sends none. Direct API calls in the suite send this one.
+ */
+export const TURNSTILE_TEST_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
+
 export const TEST_OWNER = {
   email: 'e2e-owner@test.com',
   password: 'TestPassword123!',

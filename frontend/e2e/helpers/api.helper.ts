@@ -1,6 +1,13 @@
 import { request as apiRequest } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
-import { TEST_OWNER, TEST_COMPLEX, TEST_COURT, DEFAULT_SCHEDULE, DEFAULT_PRICES } from './test-data';
+import {
+  TEST_OWNER,
+  TEST_COMPLEX,
+  TEST_COURT,
+  DEFAULT_SCHEDULE,
+  DEFAULT_PRICES,
+  TURNSTILE_TEST_TOKEN,
+} from './test-data';
 
 const API = `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 
@@ -243,6 +250,7 @@ export async function createApiHelper(existingRequest?: APIRequestContext): Prom
     data: {
       email: TEST_OWNER.email,
       password: TEST_OWNER.password,
+      turnstile_token: TURNSTILE_TEST_TOKEN,
     },
   });
 

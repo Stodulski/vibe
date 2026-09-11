@@ -1,3 +1,4 @@
+import { TURNSTILE_TEST_TOKEN } from '../helpers/test-data';
 import { test, expect } from '@playwright/test';
 import { LoginPage } from '../pages/login.page';
 
@@ -51,6 +52,7 @@ test.describe('Auth Flow', () => {
         first_name: 'Auth',
         last_name: 'Test',
         phone: '+5491100000001',
+        turnstile_token: TURNSTILE_TEST_TOKEN,
       },
     });
 

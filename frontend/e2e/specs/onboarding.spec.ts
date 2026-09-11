@@ -1,3 +1,4 @@
+import { TURNSTILE_TEST_TOKEN } from '../helpers/test-data';
 import { test, expect, type Page } from '@playwright/test';
 
 const API = `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api/v1`;
@@ -18,6 +19,7 @@ async function registerAndLogin(page: Page): Promise<void> {
       first_name: ONBOARDING_USER.firstName,
       last_name: ONBOARDING_USER.lastName,
       phone: ONBOARDING_USER.phone,
+      turnstile_token: TURNSTILE_TEST_TOKEN,
     },
   });
 

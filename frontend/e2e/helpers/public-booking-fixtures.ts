@@ -1,3 +1,4 @@
+import { TURNSTILE_TEST_TOKEN } from './test-data';
 import type { APIRequestContext, Locator } from '@playwright/test';
 import { typedJson } from './api.helper';
 import type { ApiComplex, ApiCourt } from './api.helper';
@@ -18,6 +19,7 @@ export async function registerAndLoginOwner(ctx: APIRequestContext): Promise<Rec
       first_name: 'Owner',
       last_name: 'PublicTest',
       phone: '+5491100000099',
+      turnstile_token: TURNSTILE_TEST_TOKEN,
     },
   });
 
@@ -25,6 +27,7 @@ export async function registerAndLoginOwner(ctx: APIRequestContext): Promise<Rec
     data: {
       email: 'public-booking-owner@test.com',
       password: 'TestPassword123!',
+      turnstile_token: TURNSTILE_TEST_TOKEN,
     },
   });
   if (loginRes.status() !== 200) {

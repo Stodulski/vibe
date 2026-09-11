@@ -1,5 +1,5 @@
 import { test as setup, expect } from '@playwright/test';
-import { TEST_OWNER } from '../helpers/test-data';
+import { TEST_OWNER, TURNSTILE_TEST_TOKEN } from '../helpers/test-data';
 
 const API = `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 const AUTH_FILE = 'e2e/.auth/owner.json';
@@ -13,6 +13,7 @@ setup('create authenticated owner state', async ({ page }) => {
       first_name: TEST_OWNER.firstName,
       last_name: TEST_OWNER.lastName,
       phone: TEST_OWNER.phone,
+      turnstile_token: TURNSTILE_TEST_TOKEN,
     },
   });
   expect(registerRes.status()).toBe(201);
