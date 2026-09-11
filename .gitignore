@@ -10,3 +10,8 @@ node_modules/
 test-results/
 playwright-report/
 dist/
+
+# Vercel CLI link, local only
+.vercel/
+# Local env files the Vercel CLI writes
+.env*.local

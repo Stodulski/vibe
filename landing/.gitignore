@@ -3,3 +3,8 @@ node_modules/
 dist/
 .claude/
 .astro/
+
+# Vercel CLI link, local only
+.vercel
+# Local env files the Vercel CLI writes
+.env*.local
