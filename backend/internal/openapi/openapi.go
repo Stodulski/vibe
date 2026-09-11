@@ -17,6 +17,7 @@ import (
 	_ "embed"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/getkin/kin-openapi/openapi3"
 
@@ -43,27 +44,54 @@ type Handler struct {
 	jsonBody []byte
 }
 
-// NewHandler parses and validates the embedded document once. The returned
-// error is meant to abort application startup: see cmd/api/app.go.
+// NewHandler hands out the embedded document, parsed and validated once per
+// process (see load). The returned error is meant to abort application
+// startup: see cmd/api/app.go.
 func NewHandler(respond *httpx.Responder) (*Handler, error) {
-	doc, err := openapi3.NewLoader().LoadFromData(specYAML)
+	doc, rendered, err := load()
 	if err != nil {
-		return nil, fmt.Errorf("openapi: parsing the embedded document: %w", err)
+		return nil, err
 	}
-	if err := doc.Validate(context.Background()); err != nil {
-		return nil, fmt.Errorf("openapi: the embedded document failed validation: %w", err)
-	}
-
-	rendered, err := doc.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("openapi: rendering the document as JSON: %w", err)
-	}
-
 	return &Handler{respond: respond, doc: doc, jsonBody: rendered}, nil
 }
 
+// loaded is the embedded document, parsed, validated and rendered once per
+// process. The bytes are fixed at build time, so every application built in
+// the same process gets the same result: production builds one, but a test
+// binary builds hundreds, and parsing plus schema-validating the document
+// was more than a third of the CPU the cmd/api suite spent. The document is
+// shared and must be treated as read-only by everyone who receives it.
+var loaded struct {
+	once sync.Once
+	doc  *openapi3.T
+	json []byte
+	err  error
+}
+
+func load() (*openapi3.T, []byte, error) {
+	loaded.once.Do(func() {
+		doc, err := openapi3.NewLoader().LoadFromData(specYAML)
+		if err != nil {
+			loaded.err = fmt.Errorf("openapi: parsing the embedded document: %w", err)
+			return
+		}
+		if err := doc.Validate(context.Background()); err != nil {
+			loaded.err = fmt.Errorf("openapi: the embedded document failed validation: %w", err)
+			return
+		}
+		rendered, err := doc.MarshalJSON()
+		if err != nil {
+			loaded.err = fmt.Errorf("openapi: rendering the document as JSON: %w", err)
+			return
+		}
+		loaded.doc, loaded.json = doc, rendered
+	})
+	return loaded.doc, loaded.json, loaded.err
+}
+
 // Document returns the parsed document, for anything that needs to inspect
-// it directly (the sync and conformance tests).
+// it directly (the sync and conformance tests). It is shared by every
+// handler in the process: read it, never modify it.
 func (h *Handler) Document() *openapi3.T {
 	return h.doc
 }
