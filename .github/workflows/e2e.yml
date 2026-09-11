@@ -71,8 +71,11 @@ jobs:
           CI: "1"
         run: make e2e
 
+      # Uploaded on green runs too: a test that failed its first attempt and
+      # passed the retry leaves its screenshot and page snapshot here, and
+      # that is the only evidence a flaky test leaves behind.
       - name: Upload Playwright report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
