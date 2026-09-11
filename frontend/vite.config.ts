@@ -32,10 +32,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Prompt mode: a new worker waits instead of taking over, so a deploy
+      // never reloads an open tab on its own. src/shared/lib/serviceWorkerUpdate.ts
+      // shows a toast and reloads only when the person accepts it.
+      registerType: 'prompt',
       manifest: false,
-      // Registered from src/main.tsx via virtual:pwa-register so the page
-      // reloads when a new service worker takes control.
+      // Registered from src/main.tsx via virtual:pwa-register; the plugin
+      // injects nothing itself.
       injectRegister: null,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp}'],
@@ -57,7 +60,13 @@ export default defineConfig({
             },
           },
         ],
-        skipWaiting: true,
+        // No skipWaiting: the new worker waits, so the old one keeps serving
+        // the old build's chunks to the tabs that loaded them until they
+        // accept the update or close. The generated worker still skips
+        // waiting on the SKIP_WAITING message that updateSW(true) sends.
+        // clientsClaim stays: once that worker activates it must take over
+        // the tab that asked, because the plugin reloads on the "controlling"
+        // event and without a claim that event never fires.
         clientsClaim: true,
       },
     }),
