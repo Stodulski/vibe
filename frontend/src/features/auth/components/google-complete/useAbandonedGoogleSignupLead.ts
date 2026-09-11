@@ -1,12 +1,16 @@
 import { useEffect, useRef } from 'react';
+import type { UseFormGetValues } from 'react-hook-form';
 import { captureAbandonedRegistrationLead, captureAbandonedRegistrationLeadBeacon } from '../../api/leads.api';
 import { emailField } from '@/shared/lib/validations';
+import type { GoogleCompleteDto } from '../../schemas/auth.schemas';
 
 /**
  * Captures the Google sign-up's email as a lead if the person never finishes
  * the second step (the phone number). The address came from Google, already
  * verified, so this is a warmer lead than a typed one; the server files it
- * under its own origin (`source: 'google'`).
+ * under its own origin (`source: 'google'`). The names (prefilled from the
+ * profile, possibly edited) and whatever phone was typed go along, read from
+ * the form at capture time.
  *
  * Three ways out of the page, and what each does:
  * - the tab is hidden or closed (`visibilitychange`/`pagehide`): the capture
@@ -18,7 +22,7 @@ import { emailField } from '@/shared/lib/validations';
  *
  * Guarded so it fires at most once per mount.
  */
-export function useAbandonedGoogleSignupLead(email: string) {
+export function useAbandonedGoogleSignupLead(email: string, getValues: UseFormGetValues<GoogleCompleteDto>) {
   const capturedRef = useRef(false);
   const accountCreatedRef = useRef(false);
 
@@ -26,10 +30,17 @@ export function useAbandonedGoogleSignupLead(email: string) {
     if (capturedRef.current || accountCreatedRef.current) return;
     if (!emailField.safeParse(email).success) return;
     capturedRef.current = true;
+    const lead = {
+      email,
+      source: 'google' as const,
+      first_name: getValues('first_name'),
+      last_name: getValues('last_name'),
+      phone: getValues('phone'),
+    };
     if (viaBeacon) {
-      captureAbandonedRegistrationLeadBeacon(email, 'google');
+      captureAbandonedRegistrationLeadBeacon(lead);
     } else {
-      captureAbandonedRegistrationLead(email, 'google');
+      captureAbandonedRegistrationLead(lead);
     }
   };
 
@@ -51,7 +62,7 @@ export function useAbandonedGoogleSignupLead(email: string) {
       window.removeEventListener('pagehide', handlePageHide);
       captureIfPending(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- captureIfPending reads refs and a prop that never changes for a mounted form
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- captureIfPending reads refs, getValues and a prop that never changes for a mounted form
   }, [email]);
 
   return {

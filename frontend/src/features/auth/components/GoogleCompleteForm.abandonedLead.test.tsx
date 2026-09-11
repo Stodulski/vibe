@@ -43,9 +43,31 @@ describe('GoogleCompleteForm abandoned-signup lead capture', () => {
     expect(captureAbandonedRegistrationLead).not.toHaveBeenCalled();
     unmount();
 
-    expect(captureAbandonedRegistrationLead).toHaveBeenCalledWith('juan@test.com', 'google');
+    expect(captureAbandonedRegistrationLead).toHaveBeenCalledWith({
+      email: 'juan@test.com',
+      source: 'google',
+      first_name: 'Juan',
+      last_name: 'Perez',
+      phone: '',
+    });
     expect(captureAbandonedRegistrationLead).toHaveBeenCalledTimes(1);
     expect(captureAbandonedRegistrationLeadBeacon).not.toHaveBeenCalled();
+  });
+
+  it('captures the profile names and the phone typed so far', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<GoogleCompleteForm profileToken="a-token" profile={PROFILE} />);
+
+    await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    unmount();
+
+    expect(captureAbandonedRegistrationLead).toHaveBeenCalledWith({
+      email: 'juan@test.com',
+      source: 'google',
+      first_name: 'Juan',
+      last_name: 'Perez',
+      phone: '+541123456789',
+    });
   });
 
   it('captures via sendBeacon on pagehide, and does not capture again on the later unmount', () => {
@@ -55,7 +77,9 @@ describe('GoogleCompleteForm abandoned-signup lead capture', () => {
       window.dispatchEvent(new Event('pagehide'));
     });
 
-    expect(captureAbandonedRegistrationLeadBeacon).toHaveBeenCalledWith('juan@test.com', 'google');
+    expect(captureAbandonedRegistrationLeadBeacon).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'juan@test.com', source: 'google' }),
+    );
     expect(captureAbandonedRegistrationLeadBeacon).toHaveBeenCalledTimes(1);
 
     unmount();

@@ -56,9 +56,33 @@ describe('RegisterForm abandoned-registration lead capture', () => {
     await user.type(screen.getByLabelText(/email/i), 'juan@test.com');
     unmount();
 
-    expect(captureAbandonedRegistrationLead).toHaveBeenCalledWith('juan@test.com');
+    expect(captureAbandonedRegistrationLead).toHaveBeenCalledWith({
+      email: 'juan@test.com',
+      first_name: undefined,
+      last_name: undefined,
+      phone: undefined,
+    });
     expect(captureAbandonedRegistrationLead).toHaveBeenCalledTimes(1);
     expect(captureAbandonedRegistrationLeadBeacon).not.toHaveBeenCalled();
+  });
+
+  it('captures the name and phone filled in so far when leaving from step 2', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<RegisterForm />);
+
+    await user.type(screen.getByLabelText(/email/i), 'juan@test.com');
+    await user.click(screen.getByRole('button', { name: /siguiente/i }));
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^nombre$/i)).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText(/^nombre$/i), 'Juan');
+    await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    unmount();
+
+    expect(captureAbandonedRegistrationLead).toHaveBeenCalledTimes(1);
+    const [lead] = vi.mocked(captureAbandonedRegistrationLead).mock.calls[0] ?? [];
+    expect(lead).toMatchObject({ email: 'juan@test.com', first_name: 'Juan', phone: '+541123456789' });
+    expect(lead?.last_name ?? '').toBe('');
   });
 
   it('does not capture an invalid email', async () => {
@@ -94,7 +118,9 @@ describe('RegisterForm abandoned-registration lead capture — unload and succes
       window.dispatchEvent(new Event('pagehide'));
     });
 
-    expect(captureAbandonedRegistrationLeadBeacon).toHaveBeenCalledWith('juan@test.com');
+    expect(captureAbandonedRegistrationLeadBeacon).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'juan@test.com' }),
+    );
     expect(captureAbandonedRegistrationLeadBeacon).toHaveBeenCalledTimes(1);
 
     unmount();

@@ -6,8 +6,9 @@ import type { RegisterDto } from '../../schemas/auth.schemas';
 
 /**
  * Captures the register form's email as a lead if the person leaves without
- * registering, whichever step they are on. The email is read at capture time,
- * so a valid address typed on step 1 is captured even from step 3.
+ * registering, whichever step they are on. The fields are read at capture
+ * time, so a valid address typed on step 1 is captured even from step 3, and
+ * whatever name and phone were filled in by then travel with it.
  *
  * Three ways out of the form, and what each does:
  * - the tab is hidden or closed (`visibilitychange`/`pagehide`): the capture
@@ -32,10 +33,18 @@ export function useAbandonedRegistrationLead(getValues: UseFormGetValues<Registe
     const email = getValues('email');
     if (!emailField.safeParse(email).success) return;
     capturedRef.current = true;
+    // Partial by design: the person may have left on any step. The API
+    // helper drops the empty ones.
+    const lead = {
+      email,
+      first_name: getValues('first_name'),
+      last_name: getValues('last_name'),
+      phone: getValues('phone'),
+    };
     if (viaBeacon) {
-      captureAbandonedRegistrationLeadBeacon(email);
+      captureAbandonedRegistrationLeadBeacon(lead);
     } else {
-      captureAbandonedRegistrationLead(email);
+      captureAbandonedRegistrationLead(lead);
     }
   };
 

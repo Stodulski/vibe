@@ -40,14 +40,12 @@ interface GoogleCompleteFormProps {
  * validation and input.
  */
 export function GoogleCompleteForm({ profileToken, profile }: GoogleCompleteFormProps) {
-  const lead = useAbandonedGoogleSignupLead(profile.email);
-  const googleComplete = useGoogleComplete({ onAccountCreated: lead.markAccountCreated });
-
   const {
     register,
     handleSubmit,
     control,
     setError,
+    getValues,
     formState: { errors },
   } = useForm<GoogleCompleteDto>({
     resolver: zodResolver(googleCompleteSchema),
@@ -57,6 +55,9 @@ export function GoogleCompleteForm({ profileToken, profile }: GoogleCompleteForm
       phone: '',
     },
   });
+
+  const lead = useAbandonedGoogleSignupLead(profile.email, getValues);
+  const googleComplete = useGoogleComplete({ onAccountCreated: lead.markAccountCreated });
 
   const onSubmit = (data: GoogleCompleteDto) => {
     googleComplete.mutate(

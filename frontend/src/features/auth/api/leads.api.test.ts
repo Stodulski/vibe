@@ -16,7 +16,7 @@ describe('leads.api', () => {
   });
 
   it('captureAbandonedRegistrationLead sends the register source by default', () => {
-    captureAbandonedRegistrationLead('juan@test.com');
+    captureAbandonedRegistrationLead({ email: 'juan@test.com' });
 
     expect(mockPost).toHaveBeenCalledWith('public/leads/abandoned-registration', {
       json: { email: 'juan@test.com', source: 'register' },
@@ -24,10 +24,18 @@ describe('leads.api', () => {
   });
 
   it('captureAbandonedRegistrationLead sends the google source when asked', () => {
-    captureAbandonedRegistrationLead('juan@test.com', 'google');
+    captureAbandonedRegistrationLead({ email: 'juan@test.com', source: 'google' });
 
     expect(mockPost).toHaveBeenCalledWith('public/leads/abandoned-registration', {
       json: { email: 'juan@test.com', source: 'google' },
+    });
+  });
+
+  it('captureAbandonedRegistrationLead sends the partial profile and drops the empty fields', () => {
+    captureAbandonedRegistrationLead({ email: 'juan@test.com', first_name: ' Juan ', last_name: '', phone: '+5411' });
+
+    expect(mockPost).toHaveBeenCalledWith('public/leads/abandoned-registration', {
+      json: { email: 'juan@test.com', source: 'register', first_name: 'Juan', phone: '+5411' },
     });
   });
 
@@ -35,7 +43,7 @@ describe('leads.api', () => {
     mockPost.mockReturnValueOnce(Promise.reject(new Error('down')));
 
     expect(() => {
-      captureAbandonedRegistrationLead('juan@test.com');
+      captureAbandonedRegistrationLead({ email: 'juan@test.com' });
     }).not.toThrow();
     await Promise.resolve();
   });
@@ -55,13 +63,13 @@ describe('leads.api', () => {
       },
     );
 
-    captureAbandonedRegistrationLeadBeacon('juan@test.com', 'google');
+    captureAbandonedRegistrationLeadBeacon({ email: 'juan@test.com', source: 'google', phone: '+5411' });
 
     expect(sendBeacon).toHaveBeenCalledTimes(1);
     const [url, blob] = sendBeacon.mock.calls[0] as [string, { parts: string[]; options: { type: string } }];
     expect(url).toMatch(/\/public\/leads\/abandoned-registration$/);
     expect(blob.options.type).toBe('text/plain');
-    expect(JSON.parse(blob.parts[0] ?? '')).toEqual({ email: 'juan@test.com', source: 'google' });
+    expect(JSON.parse(blob.parts[0] ?? '')).toEqual({ email: 'juan@test.com', source: 'google', phone: '+5411' });
 
     vi.unstubAllGlobals();
     await Promise.resolve();
