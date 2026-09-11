@@ -7,6 +7,7 @@ import {
   seedTestCourt,
   fakeMercadoPagoConnection,
   findAndClickAvailableSlot,
+  waitForOnlineBooking,
 } from '../helpers/public-booking-fixtures';
 
 const SLUG = 'complejo-publico-e2e';
@@ -32,6 +33,8 @@ test.describe('Public Booking Flow', () => {
   let setupDone = false;
 
   test.beforeAll(async () => {
+    // The readiness wait below may outlast Playwright's default hook timeout.
+    test.setTimeout(150_000);
     const ctx = await apiRequest.newContext();
     const headers = await registerAndLoginOwner(ctx);
     const complexId = await ensureTestComplex(ctx, headers, SLUG);
@@ -39,6 +42,7 @@ test.describe('Public Booking Flow', () => {
       await seedTestCourt(ctx, headers, complexId);
       await fakeMercadoPagoConnection(complexId);
     }
+    await waitForOnlineBooking(ctx, SLUG);
     await ctx.dispose();
     setupDone = true;
   });

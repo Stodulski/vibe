@@ -201,8 +201,43 @@ export async function fakeMercadoPagoConnection(complexId: string): Promise<void
   const serverDir = process.env.SERVER_DIR ?? path.resolve(process.cwd(), '../backend');
   const dsn = `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}?sslmode=disable`;
 
-  execFileSync('go', ['run', './cmd/mpcredkey', 'seal', `-db-dsn=${dsn}`, `-mp-credential-keys=${mpCredentialKeys}`], {
-    cwd: serverDir,
-    stdio: 'pipe',
-  });
+  const sealArgs = ['seal', `-db-dsn=${dsn}`, `-mp-credential-keys=${mpCredentialKeys}`];
+  const prebuilt = process.env.E2E_MPCREDKEY_BIN;
+  if (prebuilt) {
+    // `make e2e` builds the tool once (backend/scripts/e2e-run.sh).
+    execFileSync(prebuilt, sealArgs, { cwd: serverDir, stdio: 'pipe' });
+  } else {
+    execFileSync('go', ['run', './cmd/mpcredkey', ...sealArgs], { cwd: serverDir, stdio: 'pipe' });
+  }
+}
+
+/**
+ * Waits until the storefront reports the complex as taking online bookings.
+ *
+ * Playwright runs the tests of one file across workers, and each worker runs
+ * `beforeAll` for itself: the second one finds the complex already created
+ * and skips the seeding, while the first may still be sealing the fake
+ * MercadoPago credential. A page loaded in between sees the "book by
+ * WhatsApp" fallback and the spec waits its whole timeout for a booking
+ * widget that never comes. Polling the public endpoint makes every worker
+ * wait for the same fact instead of for its own work.
+ */
+export async function waitForOnlineBooking(ctx: APIRequestContext, slug: string): Promise<void> {
+  // Sealing the credential is a few seconds once the tool is built; the
+  // deadline covers a cold `go run` fallback. Callers raise their hook
+  // timeout above it (see the specs' `beforeAll`).
+  const deadline = Date.now() + 120_000;
+  let last = 'no response yet';
+  while (Date.now() < deadline) {
+    const res = await ctx.get(`${API}/public/complexes/${slug}`);
+    if (res.ok()) {
+      const { complex } = await typedJson<{ complex: { payments_enabled?: boolean } }>(res);
+      if (complex.payments_enabled) return;
+      last = 'payments_enabled is false';
+    } else {
+      last = `HTTP ${String(res.status())}`;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`public complex "${slug}" never reported online booking enabled (${last})`);
 }

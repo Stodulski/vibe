@@ -67,6 +67,11 @@ fi
 
 echo "[e2e] building API binary..."
 CGO_ENABLED=0 go build -o "$ROOT_DIR/bin/vibe-api-e2e" "$ROOT_DIR/cmd/api"
+# The public-booking fixtures seal a fake MercadoPago credential with this
+# tool; built once here rather than `go run` from inside the test process,
+# which compiled it on every call and, on a cold CI runner, took long enough
+# for a second worker's test to load the storefront before it was connected.
+CGO_ENABLED=0 go build -o "$ROOT_DIR/bin/vibe-mpcredkey-e2e" "$ROOT_DIR/cmd/mpcredkey"
 
 API_PID=""
 cleanup() {
@@ -146,6 +151,7 @@ set +e
   MP_CREDENTIAL_KEYS="$E2E_MP_CREDENTIAL_KEYS" \
   VITE_TURNSTILE_SITE_KEY="1x00000000000000000000AA" \
   SERVER_DIR="$ROOT_DIR" \
+  E2E_MPCREDKEY_BIN="$ROOT_DIR/bin/vibe-mpcredkey-e2e" \
   "$PNPM" test:e2e --workers="${PLAYWRIGHT_WORKERS:-2}"
 )
 STATUS=$?
