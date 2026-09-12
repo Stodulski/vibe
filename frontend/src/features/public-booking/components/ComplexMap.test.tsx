@@ -14,8 +14,14 @@ vi.mock('react-leaflet', () => ({
   Popup: ({ children }: { children?: React.ReactNode }) => <div data-testid="map-popup">{children}</div>,
 }));
 
+// Recorded at import time: `markerIcon` is built once, at module scope.
+const { iconCalls } = vi.hoisted(() => ({ iconCalls: [] as Record<string, unknown>[] }));
+
 vi.mock('leaflet', () => ({
-  icon: () => ({}),
+  icon: (options: Record<string, unknown>) => {
+    iconCalls.push(options);
+    return {};
+  },
 }));
 
 describe('ComplexMap', () => {
@@ -28,6 +34,22 @@ describe('ComplexMap', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  // The three marker images used to be fetched from unpkg.com at runtime:
+  // a third-party CDN in the storefront's render path, dead offline and
+  // under a strict CSP (MAP-03). They are bundled now, so every URL the
+  // icon gets is same-origin (a hashed asset path, or a data: URI for the
+  // ones Vite inlines).
+  it('builds its marker from bundled assets instead of a third-party CDN', () => {
+    const options = iconCalls[0];
+    expect(options).toBeDefined();
+
+    for (const key of ['iconUrl', 'iconRetinaUrl', 'shadowUrl']) {
+      const url = options?.[key];
+      expect(typeof url).toBe('string');
+      expect(url as string).not.toMatch(/^https?:\/\//);
+    }
   });
 
   it('renders map container', () => {
