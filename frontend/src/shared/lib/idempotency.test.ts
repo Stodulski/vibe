@@ -1,46 +1,69 @@
-import { renderHook } from '@testing-library/react';
-import { useIdempotencyKey } from './idempotency';
+import { renderHook, waitFor } from '@testing-library/react';
+import { createQueryWrapper } from '@/test/test-utils';
+import { useIdempotentMutation, type WithAttemptKey } from './idempotency';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
- * The whole point of the key is that it is stable across the retries of one
- * submit and different for a new one — the backend replays the stored answer
- * for a repeated key and refuses a repeated key with a different body, so a
- * key that changed per retry would defeat the deduplication and a key that
- * never changed would make the second, deliberate booking a 409.
+ * The key has to be stable across the retries of one submit and different for
+ * a new one — the backend replays the stored answer for a repeated key and
+ * refuses a repeated key carrying a different body. Putting it in the
+ * variables is what gets both: React Query hands the same variables object to
+ * every retry of one `mutate()`, and never shares it between two of them.
  */
-describe('useIdempotencyKey', () => {
-  it('hands out the same key for every read within one attempt', () => {
-    const { result } = renderHook(() => useIdempotencyKey());
+describe('useIdempotentMutation', () => {
+  it('adds a UUID attemptKey to the variables the mutationFn receives', async () => {
+    const seen: WithAttemptKey<{ id: string }>[] = [];
+    const { result } = renderHook(
+      () =>
+        useIdempotentMutation({
+          mutationFn: (variables: WithAttemptKey<{ id: string }>) => {
+            seen.push(variables);
+            return Promise.resolve('ok');
+          },
+        }),
+      { wrapper: createQueryWrapper() },
+    );
 
-    const key = result.current.begin();
-    expect(result.current.current()).toBe(key);
-    expect(result.current.current()).toBe(key);
+    // Called with the bare variables: `attemptKey` is the hook's business,
+    // not the call site's, so no consumer had to change.
+    result.current.mutate({ id: 'a' });
+    await waitFor(() => {
+      expect(seen).toHaveLength(1);
+    });
+
+    expect(seen[0]?.id).toBe('a');
+    expect(seen[0]?.attemptKey).toMatch(UUID);
   });
 
-  it('mints a different key for the next attempt', () => {
-    const { result } = renderHook(() => useIdempotencyKey());
+  it('gives two overlapping calls different keys', async () => {
+    const seen: WithAttemptKey<{ id: string }>[] = [];
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
 
-    const first = result.current.begin();
-    const second = result.current.begin();
+    const { result } = renderHook(
+      () =>
+        useIdempotentMutation({
+          mutationFn: async (variables: WithAttemptKey<{ id: string }>) => {
+            seen.push(variables);
+            await gate;
+            return 'ok';
+          },
+        }),
+      { wrapper: createQueryWrapper() },
+    );
 
-    expect(second).not.toBe(first);
-    expect(result.current.current()).toBe(second);
-  });
+    result.current.mutate({ id: 'a' });
+    result.current.mutate({ id: 'b' });
+    await waitFor(() => {
+      expect(seen).toHaveLength(2);
+    });
+    release?.();
 
-  it('survives a re-render without changing the key in flight', () => {
-    const { result, rerender } = renderHook(() => useIdempotencyKey());
-
-    const key = result.current.begin();
-    rerender();
-
-    expect(result.current.current()).toBe(key);
-  });
-
-  it('produces a UUID, which is inside the backend 64-character limit', () => {
-    const { result } = renderHook(() => useIdempotencyKey());
-    const key = result.current.begin();
-
-    expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-    expect(key.length).toBeLessThanOrEqual(64);
+    expect(seen[0]?.id).toBe('a');
+    expect(seen[1]?.id).toBe('b');
+    expect(seen[1]?.attemptKey).not.toBe(seen[0]?.attemptKey);
   });
 });

@@ -28,7 +28,7 @@ export const publicBookingApi = {
 
   /**
    * `idempotencyKey` makes a retried submit replay the first answer instead
-   * of creating a second booking — see `useIdempotencyKey`.
+   * of creating a second booking — see `useIdempotentMutation`.
    */
   createBooking: (data: PublicBookingRequest, idempotencyKey: string) =>
     api
