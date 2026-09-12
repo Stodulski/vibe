@@ -30,11 +30,17 @@ export type Loose<T> = T extends (infer U)[]
  * file should have to know about the `Loose<T>` friction above. The
  * parameter type still forces the structural check against `Loose<T>`, so a
  * genuine mismatch (a wrong field type, a missing required field) still
- * fails to compile; only the optional-field friction above is bridged, via a
- * cast justified by the same reasoning as {@link Loose}.
+ * fails to compile; only the optional-field friction above is bridged.
+ *
+ * Expressed as an overload over an identity implementation rather than as a
+ * `schema as unknown as z.ZodType<T>` body: the runtime *is* the identity —
+ * nothing is converted — and stating that as the implementation signature
+ * keeps the only visible contract the narrow one callers are checked
+ * against, instead of a double cast TypeScript can no longer police.
  */
-export function exact<T>(schema: z.ZodType<Loose<T>>): z.ZodType<T> {
-  return schema as unknown as z.ZodType<T>;
+export function exact<T>(schema: z.ZodType<Loose<T>>): z.ZodType<T>;
+export function exact(schema: z.ZodType): z.ZodType {
+  return schema;
 }
 
 /**
