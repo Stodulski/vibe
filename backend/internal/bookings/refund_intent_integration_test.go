@@ -122,6 +122,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 
 	logger := slog.New(slog.NewTextHandler(&discard{}, nil))
 	svc := NewService(Dependencies{
+		Facade:    NewFacade(f.models.Bookings),
 		Store:     f.models.Bookings,
 		Clients:   &stubClients{},
 		Complexes: f.models.Complexes,

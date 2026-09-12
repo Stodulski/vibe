@@ -32,6 +32,16 @@ import (
 // It is also where the scheduled sweeps live — the four booking cron jobs — so
 // that a rule is written once whether a person or a timer triggers it.
 type Service struct {
+	// Facade carries the reads other domains enter this one through. It is
+	// embedded rather than re-proxied so there is one implementation of each:
+	// a rule added to a cross-domain read lands there and applies whether the
+	// caller is another domain, a handler or a sweep.
+	//
+	// Service.Update shadows Facade.Update deliberately — the owner's editing
+	// use case is this domain's own, and the bare write behind it stays
+	// reachable as s.Facade.Update.
+	*Facade
+
 	store        Store
 	clients      ClientStore
 	complexes    ComplexReader
@@ -53,6 +63,7 @@ type Service struct {
 // NewService returns a Service backed by the given dependencies.
 func NewService(d Dependencies, cfg Config) *Service {
 	return &Service{
+		Facade:       d.Facade,
 		store:        d.Store,
 		clients:      d.Clients,
 		complexes:    d.Complexes,
@@ -70,108 +81,6 @@ func NewService(d Dependencies, cfg Config) *Service {
 		cfg:          cfg,
 		run:          d.Run,
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Reads other domains enter this one through
-// ---------------------------------------------------------------------------
-//
-// Each carries the store's own signature, so *Service satisfies the interfaces
-// its consumers declare for themselves. A method that only proxies the store is
-// deliberate: the point is that the entry point into this domain is the
-// service, so a rule added later (authorization, caching) lands in one place.
-
-// GetByID returns one booking. Exported for payments.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error) {
-	return s.store.GetByID(ctx, id)
-}
-
-// UpdateBooking writes a booking row. Exported for payments, which confirms and
-// cancels bookings from the provider's side.
-//
-// It is not named Update because Update is this domain's own use case — the
-// owner editing a booking through the dashboard, with every transition rule
-// that entails. This one is the bare write those rules have already been
-// applied before.
-func (s *Service) UpdateBooking(ctx context.Context, b *bookingstore.Booking) error {
-	return s.store.Update(ctx, b)
-}
-
-// GetByComplex returns a complex's bookings for a date range. Exported for
-// other domains that page over them.
-func (s *Service) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error) {
-	return s.store.GetByComplex(ctx, complexID, dateFrom, dateTo, filters)
-}
-
-// GetByClient returns one client's recent bookings. Exported for clients.
-func (s *Service) GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error) {
-	return s.store.GetByClient(ctx, complexID, clientID, limit)
-}
-
-// GetBookedSlotsByCourtIDs returns the spans already sold on a date. Exported
-// for courts, whose availability grid subtracts them.
-func (s *Service) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error) {
-	return s.store.GetBookedSlotsByCourtIDs(ctx, courtIDs, date)
-}
-
-// HasActiveBookings reports whether a complex still has live bookings. Exported
-// for complexes and auth, both of which refuse a deletion while it does.
-func (s *Service) HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error) {
-	return s.store.HasActiveBookings(ctx, complexID)
-}
-
-// HasActiveBookingsByCourt is the same question for one court. Exported for
-// courts.
-func (s *Service) HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error) {
-	return s.store.HasActiveBookingsByCourt(ctx, courtID)
-}
-
-// CancelFutureByComplex cancels everything still ahead of a venue being closed.
-// Exported for complexes.
-func (s *Service) CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error {
-	return s.store.CancelFutureByComplex(ctx, complexID)
-}
-
-// GetDashboardStats returns the dashboard headline figures. Exported for reporting.
-func (s *Service) GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error) {
-	return s.store.GetDashboardStats(ctx, complexID, today)
-}
-
-// GetUpcomingToday returns today's remaining bookings. Exported for reporting.
-func (s *Service) GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error) {
-	return s.store.GetUpcomingToday(ctx, complexID, today, nowTime, limit)
-}
-
-// GetPaymentSummary returns today's money figures. Exported for reporting.
-func (s *Service) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error) {
-	return s.store.GetPaymentSummary(ctx, complexID, today)
-}
-
-// GetRevenueByDay returns the revenue chart's series. Exported for reporting.
-func (s *Service) GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error) {
-	return s.store.GetRevenueByDay(ctx, complexID, from, to)
-}
-
-// GetOccupancyByHourDay returns the occupancy grid's series. Exported for reporting.
-func (s *Service) GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error) {
-	return s.store.GetOccupancyByHourDay(ctx, complexID, from, to)
-}
-
-// GetRefundIntentOrphans returns cancellations whose refund-intent marker has
-// stood past its grace period. Exported for payments' reconciliation sweep.
-func (s *Service) GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error) {
-	return s.store.GetRefundIntentOrphans(ctx, olderThan, limit)
-}
-
-// ClaimRefundIntent takes one orphan for a single sweep run. Exported for payments.
-func (s *Service) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error {
-	return s.store.ClaimRefundIntent(ctx, id, seen)
-}
-
-// ClearRefundIntent drops the marker once the refund path is done with the
-// booking. Exported for payments.
-func (s *Service) ClearRefundIntent(ctx context.Context, id uuid.UUID) error {
-	return s.store.ClearRefundIntent(ctx, id)
 }
 
 // ---------------------------------------------------------------------------

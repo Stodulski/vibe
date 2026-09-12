@@ -295,7 +295,17 @@ func newApplication(cfg config, d deps) (*application, error) {
 	cache := userCache{mw: mw}
 
 	placesHandler := places.NewHandler(places.Config{APIKey: cfg.google.placesAPIKey}, respond)
-	clientsService := clients.NewService(d.models.Clients, d.models.Bookings)
+
+	// The booking domain's cross-domain entry point, built over the booking
+	// store alone and therefore available here, before any domain service
+	// exists. Every domain that reads bookings — clients, complexes, courts,
+	// auth, reporting, payments — takes this instead of d.models.Bookings, so
+	// no domain outside internal/bookings holds a booking store. The booking
+	// service still has to be built last, because it depends on those domains;
+	// it embeds this same facade (see bookings.Dependencies.Facade below).
+	bookingsFacade := bookings.NewFacade(d.models.Bookings)
+
+	clientsService := clients.NewService(d.models.Clients, bookingsFacade)
 	clientsHandler := clients.NewHandler(clientsService, respond)
 	// The stream re-authorizes through the same chain that admitted it: see
 	// streamAuthorizer. Its cadence and lifetime are the package's defaults.
@@ -347,11 +357,11 @@ func newApplication(cfg config, d deps) (*application, error) {
 	//     takes the complexes service, and SetCourts closes the loop below —
 	//     once, here, before the router exists.
 	//   - bookings and payments: bookings takes the payments service, and
-	//     payments keeps the booking store. Closing that one needs a second
-	//     setter, which is not this change.
+	//     payments takes bookingsFacade. The booking service cannot exist yet
+	//     — it takes payments — so the facade is what stands in for it.
 	//
 	// Everything upstream of bookings (clients, complexes, courts, auth,
-	// reporting) still reads bookings through the store for the same reason:
+	// reporting) reads bookings through bookingsFacade for the same reason:
 	// the booking service is built last, because it depends on all of them.
 	complexesConfig := complexes.Config{
 		MaxComplexes: cfg.limits.maxComplexes,
@@ -367,7 +377,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	complexesService := complexes.NewService(complexes.Dependencies{
 		Store:    d.models.Complexes,
 		Courts:   nil,
-		Bookings: d.models.Bookings,
+		Bookings: bookingsFacade,
 		Payments: mpClient,
 		OAuth:    mpOAuthClient,
 		Storage:  d.storage,
@@ -377,7 +387,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	}, complexesConfig)
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 
-	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, complexesService, auditor)
+	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor)
 	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
 
 	// The one edge that cannot be a constructor argument, closed the moment the
@@ -407,7 +417,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Verifications: d.models.EmailVerification,
 		Resets:        d.models.PasswordReset,
 		Complexes:     complexesService,
-		Bookings:      d.models.Bookings,
+		Bookings:      bookingsFacade,
 		Blacklist:     blacklist,
 		Notify:        notify,
 		Cache:         cache,
@@ -423,7 +433,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
 	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
 
-	reportingService := reporting.NewService(d.models.Bookings, clientsService, courtsService,
+	reportingService := reporting.NewService(bookingsFacade, clientsService, courtsService,
 		complexesService, d.models.Reports)
 	reportingHandler := reporting.NewHandler(reportingService, respond)
 
@@ -435,16 +445,16 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Clients:   clientsService,
 		Complexes: complexesService,
 		Courts:    courtsService,
-		// Bookings and RefundIntents stay on the store: the booking service
+		// Bookings and RefundIntents both take the facade: the booking service
 		// takes this one (AutoRefundIfPaid), so it cannot exist yet. See the
 		// note on the two mutually reading domains above.
-		Bookings:      d.models.Bookings,
+		Bookings:      bookingsFacade,
 		FailedRefunds: d.models.FailedRefunds,
 		WebhookEvents: d.models.WebhookEvents,
-		// d.models.Bookings is typed stores.BookingStore, which composes
-		// BookingRefundIntentManager, so it already structurally satisfies
-		// payments.RefundIntentStore — no new store instance is constructed.
-		RefundIntents: d.models.Bookings,
+		// The same facade satisfies payments.RefundIntentStore, whose three
+		// methods it carries for the reconciliation sweep — no second entry
+		// point into the booking domain.
+		RefundIntents: bookingsFacade,
 		// d.models.BookingLinkTokens is typed stores.BookingLinkTokenStore, which
 		// already structurally satisfies payments.LinkMinter's one method — no
 		// new store instance is constructed.
@@ -470,6 +480,9 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// not app.payments. Move this block above paymentsService's and
 	// `undefined: paymentsService` fails the build, before any test runs.
 	bookingsService := bookings.NewService(bookings.Dependencies{
+		// The same facade every other domain took above, so the cross-domain
+		// reads have one implementation whoever the caller is.
+		Facade:    bookingsFacade,
 		Store:     d.models.Bookings,
 		Clients:   clientsService,
 		Complexes: complexesService,

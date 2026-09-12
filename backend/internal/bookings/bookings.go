@@ -23,7 +23,6 @@ import (
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -36,27 +35,12 @@ import (
 // out of cmd/api into Service, so the sweeps they run are reads and writes of
 // this domain like any other.
 type Store interface {
-	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
-	InsertSafe(ctx context.Context, b *bookingstore.Booking) error
-	Update(ctx context.Context, b *bookingstore.Booking) error
+	// The reads other domains enter this one through, which Service's own
+	// rules go through too. They live on FacadeStore (facade.go) because
+	// *Facade is built over them alone, before any domain service exists.
+	FacadeStore
 
-	// Reads other domains enter this one through, on Service. They carry the
-	// store's own signatures so that *Service satisfies the interfaces
-	// courts, complexes, clients, auth, reporting and payments declare.
-	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
-	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
-	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
-	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
-	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error
-	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
-	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
-	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error)
-	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
-	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
-	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error)
-	ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error
-	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
+	InsertSafe(ctx context.Context, b *bookingstore.Booking) error
 
 	// The scheduled sweeps.
 	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
@@ -223,6 +207,11 @@ type Config struct {
 
 // Dependencies groups what NewService needs.
 type Dependencies struct {
+	// Facade is the cross-domain entry point this Service embeds, so the
+	// handler and cron paths reach those reads through the same code every
+	// other domain does. It must wrap the same store as Store below; cmd/api
+	// builds it from that store and hands it to both.
+	Facade       *Facade
 	Store        Store
 	Clients      ClientStore
 	Complexes    ComplexReader

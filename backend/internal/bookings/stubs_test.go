@@ -740,7 +740,8 @@ func newFixture(t *testing.T) *fixture {
 	}
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	f.service = NewService(Dependencies{
-		Store: f.store, Clients: f.clients, Complexes: f.complexes, Courts: f.courts,
+		Facade: NewFacade(f.store),
+		Store:  f.store, Clients: f.clients, Complexes: f.complexes, Courts: f.courts,
 		Payments: f.payments, Locks: f.locks, Checkout: f.checkout,
 		Refunds: f.refunds, LinkResolver: f.linkResolver, LinkTokens: f.linkTokens,
 		Notify: f.notify, Realtime: f.realtime, Audit: f.audit,
