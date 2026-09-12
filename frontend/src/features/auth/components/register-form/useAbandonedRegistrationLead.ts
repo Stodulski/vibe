@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import type { UseFormGetValues } from 'react-hook-form';
 import { captureAbandonedRegistrationLead, captureAbandonedRegistrationLeadBeacon } from '../../api/leads.api';
 import { emailField } from '@/shared/lib/validations';
@@ -28,7 +28,11 @@ export function useAbandonedRegistrationLead(getValues: UseFormGetValues<Registe
   const capturedRef = useRef(false);
   const registeredRef = useRef(false);
 
-  const captureIfPending = (viaBeacon: boolean) => {
+  // `useEffectEvent`: reads refs and getValues at call time, like the plain
+  // closure it replaces, but — unlike that closure — it is never itself a
+  // reactive dependency, so the effect below can leave it out of its array
+  // instead of silencing `exhaustive-deps` (CI-02).
+  const captureIfPending = useEffectEvent((viaBeacon: boolean) => {
     if (capturedRef.current || registeredRef.current) return;
     const email = getValues('email');
     if (!emailField.safeParse(email).success) return;
@@ -46,7 +50,7 @@ export function useAbandonedRegistrationLead(getValues: UseFormGetValues<Registe
     } else {
       captureAbandonedRegistrationLead(lead);
     }
-  };
+  });
 
   useEffect(() => {
     // A pagehide is a departure whatever the visibility state says (a
@@ -66,7 +70,6 @@ export function useAbandonedRegistrationLead(getValues: UseFormGetValues<Registe
       window.removeEventListener('pagehide', handlePageHide);
       captureIfPending(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- captureIfPending reads refs and getValues, not reactive state
   }, []);
 
   return {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import type { UseFormGetValues } from 'react-hook-form';
 import { captureAbandonedRegistrationLead, captureAbandonedRegistrationLeadBeacon } from '../../api/leads.api';
 import { emailField } from '@/shared/lib/validations';
@@ -26,7 +26,11 @@ export function useAbandonedGoogleSignupLead(email: string, getValues: UseFormGe
   const capturedRef = useRef(false);
   const accountCreatedRef = useRef(false);
 
-  const captureIfPending = (viaBeacon: boolean) => {
+  // `useEffectEvent`: reads refs, getValues and `email` at call time, like
+  // the plain closure it replaces, but — unlike that closure — it is never
+  // itself a reactive dependency, so the effect below can leave it out of
+  // its array instead of silencing `exhaustive-deps` (CI-02).
+  const captureIfPending = useEffectEvent((viaBeacon: boolean) => {
     if (capturedRef.current || accountCreatedRef.current) return;
     if (!emailField.safeParse(email).success) return;
     capturedRef.current = true;
@@ -42,7 +46,7 @@ export function useAbandonedGoogleSignupLead(email: string, getValues: UseFormGe
     } else {
       captureAbandonedRegistrationLead(lead);
     }
-  };
+  });
 
   useEffect(() => {
     // A pagehide is a departure whatever the visibility state says (a
@@ -62,7 +66,6 @@ export function useAbandonedGoogleSignupLead(email: string, getValues: UseFormGe
       window.removeEventListener('pagehide', handlePageHide);
       captureIfPending(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- captureIfPending reads refs, getValues and a prop that never changes for a mounted form
   }, [email]);
 
   return {
