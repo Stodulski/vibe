@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 // @vitest-environment node
 import { fetchMPFees } from './mpFees.api';
 import { ApiResponseError } from '@/shared/lib/apiParse';

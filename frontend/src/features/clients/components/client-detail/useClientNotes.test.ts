@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';

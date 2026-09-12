@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useOnboardingStep } from './useOnboardingStep';
 import type { Complex } from '@/shared/types/api.types';

@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { buildBookingRequest } from './buildBookingRequest';
 import type { BookingSlotInfo, PublicBookingFormData } from '@/features/public-booking';
 

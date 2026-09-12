@@ -2,7 +2,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-
 /**
  * The backend prerenders a complex's public page by fetching this index.html
  * and running `strings.ReplaceAll` over it with the literals below. A

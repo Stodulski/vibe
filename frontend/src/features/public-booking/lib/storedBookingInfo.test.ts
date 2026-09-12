@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from 'vitest';
 import { BOOKING_INFO_KEY, readStoredBookingInfo } from './storedBookingInfo';
 
 const validBookingInfo = {

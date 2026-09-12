@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 // @vitest-environment node
 import { z } from 'zod';
 import { parseResponse, parseWith, ApiResponseError } from './apiParse';

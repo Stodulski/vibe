@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { startOfDay, minutesInto, overlaps, toSpan, spanOnDay, MINUTES_PER_DAY } from './instants';
 
 describe('startOfDay', () => {

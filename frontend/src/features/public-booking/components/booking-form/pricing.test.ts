@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { computeBookingPricing } from './pricing';
 import type { BookingSlotInfo } from './types';
 

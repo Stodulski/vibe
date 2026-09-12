@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from 'vitest';
 import type { StoreApi } from 'zustand';
 import { createUISlice, type UISlice } from './ui.slice';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';

@@ -1,5 +1,5 @@
 import { screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mockAutocompleteJson, mockGet, setup } from './address-input-test-helpers';
 
 // Finding M2: a slow response for an earlier query could land after a faster

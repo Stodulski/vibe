@@ -12,7 +12,7 @@ export default defineConfig({
     APP_RELEASE: JSON.stringify('test'),
   },
   test: {
-    globals: true,
+    globals: false,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
     // Root-level `*.test.ts` too: middleware.ts and index.html live outside

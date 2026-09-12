@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
 import { CourtSetupStep } from './CourtSetupStep';

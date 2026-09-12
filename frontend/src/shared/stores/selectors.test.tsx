@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { useStore } from './index';
 

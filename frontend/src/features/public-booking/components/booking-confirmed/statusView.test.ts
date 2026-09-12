@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { resolveBookingStatusView, type BookingStatusSignals } from './statusView';
 
 const base: BookingStatusSignals = {

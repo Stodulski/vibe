@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 /// <reference types="node" />
 import type { FieldValues, SubmitHandler, UseFormHandleSubmit } from 'react-hook-form';
 import { submitHandler } from './form';

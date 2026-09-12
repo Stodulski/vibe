@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createRef, act } from 'react';
 import { render, screen } from '@testing-library/react';
 import { ES_AR } from '@/shared/i18n/es_AR';

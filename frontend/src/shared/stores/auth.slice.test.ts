@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { StoreApi } from 'zustand';
 import { createAuthSlice, type AuthSlice } from './auth.slice';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';

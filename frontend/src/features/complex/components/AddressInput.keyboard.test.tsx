@@ -1,5 +1,5 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mockAutocompleteSuccess, typeAndFlush, setup } from './address-input-test-helpers';
 
 describe('AddressInput keyboard navigation', () => {

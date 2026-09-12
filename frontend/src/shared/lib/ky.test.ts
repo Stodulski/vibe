@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // @vitest-environment node
 import { HTTPError } from 'ky';
 import { bootstrapSession, loginUrlPreserving, refreshAccessToken, REFRESH_RETRY_DELAY_MS } from './ky';

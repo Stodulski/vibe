@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 // @vitest-environment node
 import { makeUser } from '@/test/factories';
 import { userSchema, authResponseSchema, refreshResponseSchema, userEnvelopeSchema } from './auth.schema';

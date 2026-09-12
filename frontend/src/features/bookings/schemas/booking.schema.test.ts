@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { createBookingSchema } from './booking.schema';
 
 const validBase = {

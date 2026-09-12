@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { buildConfirmState } from './buildConfirmState';
 import type { PublicComplex } from '@/shared/types/api.types';
 import type { SelectedSlot } from '@/features/public-booking';

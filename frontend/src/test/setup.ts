@@ -1,3 +1,4 @@
+import { afterEach, beforeAll, afterAll } from 'vitest';
 import { server } from './msw/server';
 
 // Starts the MSW server that stands in for the backend across the whole

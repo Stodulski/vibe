@@ -1,4 +1,4 @@
-import { beforeAll, afterAll } from 'vitest';
+import { beforeAll, afterAll, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ComplexHeader } from './ComplexHeader';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
