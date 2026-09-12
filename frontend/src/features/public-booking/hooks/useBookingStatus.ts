@@ -47,6 +47,10 @@ export function useBookingStatus(token: string | null): BookingStatusResult {
     queryFn: ({ signal }) => publicBookingApi.getBookingStatus(safeToken, signal),
     select: (data) => data.booking,
     enabled: !!token,
+    // This one polls after a payment. Its terminal states (404/410/timeout/
+    // malformed) are rendered by `BookSuccessPage` itself; a 5xx mid-poll is
+    // the same situation, not a reason to lose the page the payment returned to.
+    throwOnError: false,
     retry: (failureCount, error) => {
       // 404/410 are permanent — the token will never resolve differently, so
       // retrying only delays the client seeing the right message. A schema

@@ -59,6 +59,29 @@ describe('queryClient', () => {
     expect(defaults.queries?.refetchOnWindowFocus).toBe(false);
   });
 
+  it('throws a 5xx to the error boundary and keeps every 4xx inline', () => {
+    const throwOnError = queryClient.getDefaultOptions().queries?.throwOnError;
+    if (typeof throwOnError !== 'function') throw new Error('expected a throwOnError predicate');
+
+    for (const status of [500, 502, 503]) {
+      expect(throwOnError(makeHttpError(status), {} as never)).toBe(true);
+    }
+    for (const status of [400, 401, 403, 404, 422]) {
+      expect(throwOnError(makeHttpError(status), {} as never)).toBe(false);
+    }
+  });
+
+  // A dropped connection or a schema mismatch has no status. It stays inline:
+  // the boundary's copy ("something went wrong, retry") says less than the
+  // screen's own offline/empty state does.
+  it('does not throw a failure that never got a response at all', () => {
+    const throwOnError = queryClient.getDefaultOptions().queries?.throwOnError;
+    if (typeof throwOnError !== 'function') throw new Error('expected a throwOnError predicate');
+
+    expect(throwOnError(new TimeoutError(new Request('https://api.vibe.com.ar/v1/bookings')), {} as never)).toBe(false);
+    expect(throwOnError(new Error('Invalid API response shape'), {} as never)).toBe(false);
+  });
+
   it('has retry set to 0 for mutations', () => {
     const defaults = queryClient.getDefaultOptions();
     expect(defaults.mutations?.retry).toBe(0);

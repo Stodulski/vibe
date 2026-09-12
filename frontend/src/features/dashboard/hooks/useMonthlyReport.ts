@@ -10,6 +10,9 @@ export function useMonthlyReport(complexId: string | null, month: number, year: 
     queryKey: [...queryKeys.dashboard.stats(id), 'monthly-report', month, year],
     queryFn: ({ signal }) => dashboardApi.getMonthlyReport(id, month, year, signal),
     enabled: !!complexId,
+    // One card on a page of cards: `toReportCardState` gives it an 'error'
+    // state so the rest of the reports page keeps rendering.
+    throwOnError: false,
     select: (data) => data.report,
     staleTime: 5 * 60 * 1000,
   });

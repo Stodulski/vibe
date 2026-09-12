@@ -22,6 +22,9 @@ export function useCancelBookingFlow(token: string) {
     queryFn: ({ signal }) => publicBookingApi.getCancelInfo(token, signal),
     enabled: !!token,
     retry: false,
+    // The page distinguishes 404 (never existed) from 410 (no longer live)
+    // and offers a retry for anything else — all of it inline.
+    throwOnError: false,
     // The token is single-use and the page is a one-shot visit from an email:
     // nothing about this answer changes while the tab is open, and refetching
     // it would only risk re-reading a link the cancel below just spent.

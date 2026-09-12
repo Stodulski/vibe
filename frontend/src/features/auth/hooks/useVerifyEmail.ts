@@ -33,6 +33,8 @@ export function useVerifyEmail() {
     // The token is single-use — retrying a failed attempt would consume it
     // again and could turn a real success into a false "already used" error.
     retry: false,
+    // `VerifyEmailStatus` is the error UI for this page.
+    throwOnError: false,
     staleTime: Infinity,
   });
 

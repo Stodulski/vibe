@@ -58,6 +58,22 @@ function isClientError(error: unknown): boolean {
   return error instanceof HTTPError && error.response.status >= 400 && error.response.status < 500;
 }
 
+/**
+ * Which query failures stop being the component's problem.
+ *
+ * A 4xx is part of what a screen is for — an empty result, a permission it has
+ * copy for, a form the backend rejected — and it is rendered in place. A 5xx is
+ * not: the backend broke, the component has nothing true to draw, and every
+ * screen used to invent its own half-answer for it (a blank list, a zeroed
+ * stat, a spinner that stopped). Throwing hands those to the `ErrorBoundary`
+ * that is already mounted around every route, which says so once and offers a
+ * retry. A query that genuinely renders its own 5xx state opts out with an
+ * explicit `throwOnError: false`.
+ */
+function isServerError(error: unknown): boolean {
+  return error instanceof HTTPError && error.response.status >= 500;
+}
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: reportQueryError }),
   mutationCache: new MutationCache({ onError: reportQueryError }),
@@ -66,6 +82,7 @@ export const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
       retry: (failureCount, error) => failureCount < 1 && !isClientError(error),
+      throwOnError: isServerError,
       refetchOnWindowFocus: false,
     },
     mutations: {
