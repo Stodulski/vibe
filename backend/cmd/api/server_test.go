@@ -71,7 +71,7 @@ func newShutdownFixture(t *testing.T) *shutdownFixture {
 		respond:  httpx.NewResponder(logger),
 		shutdown: make(chan struct{}),
 	}
-	f.app.events = realtime.NewHub(nil, logger)
+	f.app.events = realtime.NewHub(nil, logger, "test")
 	return f
 }
 

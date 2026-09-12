@@ -13,10 +13,19 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 )
 
 const (
 	// redisTokenKey prefixes the per-token revocation keys.
+	//
+	// It is a suffix of the real key: every key this type writes is built on
+	// platformredis.KeyPrefix(env) as well, so two deployments sharing one
+	// Redis cannot revoke each other's sessions (RED-01). A blacklist is
+	// exactly the kind of thing that collision is worst on — the shared key
+	// means a logout in staging silently signs a production user out, and
+	// nothing anywhere reports it.
 	redisTokenKey = "bl:token:"
 	// redisUserKey prefixes the per-user "everything issued before this
 	// instant is void" keys.
@@ -47,16 +56,20 @@ const (
 // token as valid, but it is not the full protection — which is why every
 // fallback is logged at error level and reported to Sentry.
 type TokenBlacklist struct {
-	rdb               *redis.Client
-	logger            *slog.Logger
+	rdb    *redis.Client
+	logger *slog.Logger
+	// prefix namespaces every key by application and environment.
+	prefix            string
 	tokens            sync.Map // [32]byte → time.Time (token expiry)
 	userInvalidatedAt sync.Map // uuid.UUID → time.Time (cutoff)
 }
 
 // NewTokenBlacklist returns a blacklist. A nil Redis client makes it purely
 // in-memory, which revokes correctly for a single instance and for tests.
-func NewTokenBlacklist(rdb *redis.Client, logger *slog.Logger) *TokenBlacklist {
-	return &TokenBlacklist{rdb: rdb, logger: logger}
+//
+// env is the deployment's environment, which becomes part of every key.
+func NewTokenBlacklist(rdb *redis.Client, logger *slog.Logger, env string) *TokenBlacklist {
+	return &TokenBlacklist{rdb: rdb, logger: logger, prefix: platformredis.KeyPrefix(env)}
 }
 
 // BlacklistToken revokes a single access token until it naturally expires.
@@ -76,7 +89,7 @@ func (b *TokenBlacklist) BlacklistToken(ctx context.Context, rawToken string, ex
 		defer cancel()
 
 		hexHash := hex.EncodeToString(hash[:])
-		if err := b.rdb.Set(ctx, redisTokenKey+hexHash, "1", ttl).Err(); err != nil {
+		if err := b.rdb.Set(ctx, b.prefix+redisTokenKey+hexHash, "1", ttl).Err(); err != nil {
 			b.tokens.Store(hash, expiry)
 			b.degraded("failed to SET token", err)
 			return fmt.Errorf("blacklist token: %w", err)
@@ -99,7 +112,7 @@ func (b *TokenBlacklist) InvalidateUserTokens(ctx context.Context, userID uuid.U
 		ctx, cancel := context.WithTimeout(ctx, redisOpTimeout)
 		defer cancel()
 
-		err := b.rdb.Set(ctx, redisUserKey+userID.String(),
+		err := b.rdb.Set(ctx, b.prefix+redisUserKey+userID.String(),
 			cutoff.Format(time.RFC3339Nano), accessTokenExpiry+time.Minute).Err()
 		if err != nil {
 			b.userInvalidatedAt.Store(userID, cutoff)
@@ -125,8 +138,8 @@ func (b *TokenBlacklist) IsBlacklisted(ctx context.Context, rawToken string, use
 
 		// Pipeline both checks into a single round trip.
 		pipe := b.rdb.Pipeline()
-		existsCmd := pipe.Exists(ctx, redisTokenKey+hexHash)
-		getCmd := pipe.Get(ctx, redisUserKey+userID.String())
+		existsCmd := pipe.Exists(ctx, b.prefix+redisTokenKey+hexHash)
+		getCmd := pipe.Get(ctx, b.prefix+redisUserKey+userID.String())
 		_, pipeErr := pipe.Exec(ctx)
 
 		// redis.Nil is expected: it only means the user has no invalidation

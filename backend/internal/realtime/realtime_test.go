@@ -17,7 +17,7 @@ import (
 
 func testHub(t *testing.T) *Hub {
 	t.Helper()
-	h := NewHub(nil, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	h := NewHub(nil, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), "test")
 	t.Cleanup(h.Shutdown)
 	return h
 }
@@ -140,7 +140,7 @@ func TestASlowSubscriberDoesNotBlockPublish(t *testing.T) {
 }
 
 func TestShutdownIsIdempotent(t *testing.T) {
-	hub := NewHub(nil, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	hub := NewHub(nil, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), "test")
 	hub.Shutdown()
 	hub.Shutdown() // must not panic on a already-closed channel
 }

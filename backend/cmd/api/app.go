@@ -241,8 +241,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		OnStateChange:   cbStateChange,
 	})
 
-	blacklist := auth.NewTokenBlacklist(d.rdb, d.logger)
-	events := realtime.NewHub(d.rdb, d.logger)
+	blacklist := auth.NewTokenBlacklist(d.rdb, d.logger, cfg.Env)
+	events := realtime.NewHub(d.rdb, d.logger, cfg.Env)
 
 	mpClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpCB)
 	mpOAuthClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpOAuthCB)

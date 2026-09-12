@@ -82,3 +82,31 @@ func Open(ctx context.Context, cfg Config) (*Client, error) {
 
 	return rdb, nil
 }
+
+// KeyPrefix is the namespace every key this deployment writes lives under:
+// "vibe:<env>:".
+//
+// It exists because nothing else guaranteed it (RED-01). Every key in this
+// service was already built from a constant or a helper with a domain prefix —
+// "cache:user:", "bl:token:", "sse:events" — and not one of them named the
+// application or the environment. Two deployments pointed at one Redis, which
+// is the ordinary shape of a managed instance with a staging database beside
+// the production one, then share the token blacklist, the user cache and the
+// SSE channel: a session revoked in staging is revoked in production, and a
+// user edited in one is served stale from the other. Nothing fails; it just
+// quietly answers with the wrong tenant's data.
+//
+// The environment is in the key rather than in a Redis logical database
+// because a logical database is selected by the connection URL, which is the
+// thing an operator gets wrong, and a key prefix is visible in every KEYS,
+// SCAN and MONITOR line while a database number is not.
+//
+// An empty environment is deliberately not treated as the default one. It
+// means nobody said, and sharing a namespace with development on a guess is
+// exactly the collision this exists to prevent.
+func KeyPrefix(env string) string {
+	if env == "" {
+		env = "unset"
+	}
+	return "vibe:" + env + ":"
+}

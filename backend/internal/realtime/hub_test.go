@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ func newHubDeps(t *testing.T) (hub *redis.Client, publisher *redis.Client) {
 
 // publishRaw publishes directly on the Pub/Sub channel Hub.consume reads,
 // bypassing Hub.Publish entirely — this is what "another instance" does.
-func publishRaw(t *testing.T, rdb *redis.Client, complexID uuid.UUID) {
+func publishRaw(t *testing.T, h *Hub, rdb *redis.Client, complexID uuid.UUID) {
 	t.Helper()
 
 	payload, err := json.Marshal(message{ComplexID: complexID, Event: Event{Type: "test_event"}})
@@ -50,7 +51,7 @@ func publishRaw(t *testing.T, rdb *redis.Client, complexID uuid.UUID) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	if err := rdb.Publish(ctx, channel, payload).Err(); err != nil {
+	if err := rdb.Publish(ctx, h.channel, payload).Err(); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 }
@@ -63,7 +64,7 @@ func testLogger() *slog.Logger {
 // this change NewHub started consume() itself whenever rdb was non-nil.
 func TestNewHubStartsNoSubscriber(t *testing.T) {
 	hubClient, publisher := newHubDeps(t)
-	h := NewHub(hubClient, testLogger())
+	h := NewHub(hubClient, testLogger(), "test")
 	t.Cleanup(h.Shutdown)
 
 	complexID := uuid.New()
@@ -72,7 +73,7 @@ func TestNewHubStartsNoSubscriber(t *testing.T) {
 
 	// Give miniredis a moment to prove a subscription that should not exist.
 	time.Sleep(50 * time.Millisecond)
-	publishRaw(t, publisher, complexID)
+	publishRaw(t, h, publisher, complexID)
 
 	select {
 	case <-c.events:
@@ -83,7 +84,7 @@ func TestNewHubStartsNoSubscriber(t *testing.T) {
 
 func TestHubStartLaunchesExactlyOneSubscriber(t *testing.T) {
 	hubClient, publisher := newHubDeps(t)
-	h := NewHub(hubClient, testLogger())
+	h := NewHub(hubClient, testLogger(), "test")
 	t.Cleanup(h.Shutdown)
 
 	h.Start()
@@ -94,7 +95,7 @@ func TestHubStartLaunchesExactlyOneSubscriber(t *testing.T) {
 	c := mustSubscribe(t, h, complexID)
 	defer h.Unsubscribe(complexID, c)
 
-	publishRaw(t, publisher, complexID)
+	publishRaw(t, h, publisher, complexID)
 
 	select {
 	case ev := <-c.events:
@@ -110,7 +111,7 @@ func TestHubStartLaunchesExactlyOneSubscriber(t *testing.T) {
 // second subscriber: exactly one event is delivered per publish, not two.
 func TestHubStartIsIdempotent(t *testing.T) {
 	hubClient, publisher := newHubDeps(t)
-	h := NewHub(hubClient, testLogger())
+	h := NewHub(hubClient, testLogger(), "test")
 	t.Cleanup(h.Shutdown)
 
 	h.Start()
@@ -121,7 +122,7 @@ func TestHubStartIsIdempotent(t *testing.T) {
 	c := mustSubscribe(t, h, complexID)
 	defer h.Unsubscribe(complexID, c)
 
-	publishRaw(t, publisher, complexID)
+	publishRaw(t, h, publisher, complexID)
 
 	received := 0
 	timeout := time.After(500 * time.Millisecond)
@@ -142,9 +143,25 @@ loop:
 // TestHubStartIsNoopWithoutRedis covers the local-only path: Start must not
 // panic when rdb is nil.
 func TestHubStartIsNoopWithoutRedis(t *testing.T) {
-	h := NewHub(nil, testLogger())
+	h := NewHub(nil, testLogger(), "test")
 	t.Cleanup(h.Shutdown)
 
 	h.Start()
 	h.Start()
+}
+
+// TestTheEventChannelCarriesTheEnvironment is RED-01 for the relay. Two
+// deployments sharing one Redis would otherwise deliver each other's booking
+// events to each other's dashboards, which reads as a dashboard refreshing for
+// a booking that does not exist in it.
+func TestTheEventChannelCarriesTheEnvironment(t *testing.T) {
+	staging := NewHub(nil, testLogger(), "staging")
+	production := NewHub(nil, testLogger(), "production")
+
+	if staging.channel == production.channel {
+		t.Fatal("two environments publish booking events on the same channel")
+	}
+	if !strings.HasPrefix(staging.channel, "vibe:staging:") {
+		t.Errorf("channel %q is not namespaced by application and environment", staging.channel)
+	}
 }

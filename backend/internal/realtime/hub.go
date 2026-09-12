@@ -17,10 +17,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 )
 
-// channel is the Redis Pub/Sub channel every instance publishes to and reads.
-const channel = "sse:events"
+// channelSuffix names the Redis Pub/Sub channel every instance publishes to
+// and reads. The full channel carries platformredis.KeyPrefix(env) in front of
+// it, so two deployments sharing one Redis do not deliver each other's booking
+// events to each other's dashboards (RED-01).
+const channelSuffix = "sse:events"
 
 // publishTimeout bounds a single Redis publish. It is deliberately short: the
 // caller is usually finishing a request and must not wait on the fan-out.
@@ -88,8 +93,10 @@ type Hub struct {
 	totalLimit      int
 	rdb             *redis.Client
 	logger          *slog.Logger
-	shutdown        chan struct{}
-	started         atomic.Bool
+	// channel is the prefixed Pub/Sub channel this hub relays through.
+	channel  string
+	shutdown chan struct{}
+	started  atomic.Bool
 }
 
 // NewHub returns a Hub. Passing a nil Redis client is supported and means
@@ -100,13 +107,14 @@ type Hub struct {
 // root that builds a Hub must not start background work on construction, so
 // that building one twice in a test process — or building one that is never
 // used — cannot leak a goroutine. Call Start to begin relaying.
-func NewHub(rdb *redis.Client, logger *slog.Logger) *Hub {
+func NewHub(rdb *redis.Client, logger *slog.Logger, env string) *Hub {
 	return &Hub{
 		clients:         make(map[uuid.UUID]map[*client]struct{}),
 		perComplexLimit: maxStreamsPerComplex,
 		totalLimit:      maxStreams,
 		rdb:             rdb,
 		logger:          logger,
+		channel:         platformredis.KeyPrefix(env) + channelSuffix,
 		shutdown:        make(chan struct{}),
 	}
 }
@@ -216,7 +224,7 @@ func (h *Hub) Publish(complexID uuid.UUID, event Event) {
 	ctx, cancel := context.WithTimeout(context.Background(), publishTimeout)
 	defer cancel()
 
-	if err := h.rdb.Publish(ctx, channel, data).Err(); err != nil {
+	if err := h.rdb.Publish(ctx, h.channel, data).Err(); err != nil {
 		h.logger.Error("realtime: redis publish failed, delivering locally only", "error", err)
 		h.broadcast(complexID, event)
 	}
@@ -233,7 +241,7 @@ func (h *Hub) PublishBookingChanged(complexID uuid.UUID) {
 // go-redis reconnects internally; the loop ends when Shutdown closes the
 // subscription.
 func (h *Hub) consume() {
-	sub := h.rdb.Subscribe(context.Background(), channel)
+	sub := h.rdb.Subscribe(context.Background(), h.channel)
 
 	go func() {
 		<-h.shutdown
