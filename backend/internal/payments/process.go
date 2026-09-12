@@ -273,7 +273,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			if client.Email != nil {
 				clientEmail = *client.Email
 			}
-			confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus)
+			confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
 			s.notify.BookingConfirmed(notifications.BookingConfirmation{
 				// The online route: this is a sale the owner did not enter, so
 				// the owner's "Nueva reserva" email goes out.

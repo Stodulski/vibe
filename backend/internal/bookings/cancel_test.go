@@ -370,8 +370,8 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 	mpID := "mp-123"
 	tests := []struct {
 		name             string
-		collectionStatus string
-		refundStatus     string
+		collectionStatus bookingstore.CollectionStatus
+		refundStatus     bookingstore.RefundStatus
 		payment          *paymentstore.Payment
 		ledger           []*paymentstore.Payment
 		paymentErr       error

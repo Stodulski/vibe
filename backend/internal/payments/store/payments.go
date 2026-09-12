@@ -359,8 +359,8 @@ func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *b
 		// UPDATE booking status.
 		dbBooking, err := qtx.UpdateBooking(ctx, db.UpdateBookingParams{
 			Status:           db.BookingStatus(b.Status),
-			CollectionStatus: b.CollectionStatus,
-			RefundStatus:     b.RefundStatus,
+			CollectionStatus: string(b.CollectionStatus),
+			RefundStatus:     string(b.RefundStatus),
 			Notes:            data.TextToPg(b.Notes),
 			//nolint:gosec // G115: DepositAmount bounded to Price (bookings_create.go validation); far below int32 range.
 			DepositAmount: int32(b.DepositAmount),
@@ -422,8 +422,8 @@ func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		// UPDATE booking status.
 		dbBooking, err := qtx.UpdateBooking(ctx, db.UpdateBookingParams{
 			Status:           db.BookingStatus(b.Status),
-			CollectionStatus: b.CollectionStatus,
-			RefundStatus:     b.RefundStatus,
+			CollectionStatus: string(b.CollectionStatus),
+			RefundStatus:     string(b.RefundStatus),
 			Notes:            data.TextToPg(b.Notes),
 			//nolint:gosec // G115: DepositAmount bounded to Price (bookings_create.go validation); far below int32 range.
 			DepositAmount: int32(b.DepositAmount),

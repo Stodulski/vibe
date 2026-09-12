@@ -426,7 +426,7 @@ func TestARedeliveredWebhookLeavesExactlyOnePaymentRow(t *testing.T) {
 	tests := []struct {
 		name string
 		// status is what the booking is in when the first delivery lands.
-		status string
+		status bookingstore.BookingStatus
 		// wantInserts is how many payment rows the webhook may create. Zero when
 		// the public booking flow already wrote the checkout row, which the
 		// webhook settles in place rather than duplicating.

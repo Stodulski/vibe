@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -240,5 +242,82 @@ func TestTheBookingWritesAssertTheirTenant(t *testing.T) {
 	}
 	if err := store.CancelFutureByComplex(data.ContextWithTenant(context.Background(), other), own); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("CancelFutureByComplex for another tenant: want ErrRecordNotFound; got %v", err)
+	}
+}
+
+// Valid answers "could the column hold this", which is what separates a value
+// the database would refuse from one only a particular caller may not set.
+func TestTheStatusTypesKnowTheirOwnVocabulary(t *testing.T) {
+	for _, s := range []BookingStatus{
+		BookingStatusPending, BookingStatusConfirmed, BookingStatusCancelled,
+		BookingStatusCompleted, BookingStatusNoShow,
+	} {
+		if !s.Valid() {
+			t.Errorf("BookingStatus %q is one of the five the column accepts", s)
+		}
+	}
+	for _, s := range []BookingStatus{"", "Confirmed", "confirmed ", "unpaid", "none"} {
+		if s.Valid() {
+			t.Errorf("BookingStatus %q is not a booking status", s)
+		}
+	}
+
+	for _, s := range []CollectionStatus{
+		CollectionStatusUnpaid, CollectionStatusDepositPaid, CollectionStatusFullyPaid,
+	} {
+		if !s.Valid() {
+			t.Errorf("CollectionStatus %q is one of the three the column accepts", s)
+		}
+	}
+	// The cross-vocabulary case the types exist for: 'confirmed' is a real
+	// value of a different column, and a bare string field accepted it.
+	for _, s := range []CollectionStatus{"", "confirmed", "none", "partial"} {
+		if s.Valid() {
+			t.Errorf("CollectionStatus %q is not a collection status", s)
+		}
+	}
+
+	for _, s := range []RefundStatus{
+		RefundStatusNone, RefundStatusPending, RefundStatusPartial, RefundStatusFull,
+	} {
+		if !s.Valid() {
+			t.Errorf("RefundStatus %q is one of the four the column accepts", s)
+		}
+	}
+	for _, s := range []RefundStatus{"", "unpaid", "confirmed", "refunded"} {
+		if s.Valid() {
+			t.Errorf("RefundStatus %q is not a refund status", s)
+		}
+	}
+}
+
+// The JSON is the compatibility promise: a named string type must serialize
+// exactly as the bare string did, in both directions.
+func TestTheStatusTypesRoundTripThroughJSONUnchanged(t *testing.T) {
+	b := Booking{
+		Status:           BookingStatusConfirmed,
+		CollectionStatus: CollectionStatusDepositPaid,
+		RefundStatus:     RefundStatusNone,
+	}
+
+	encoded, err := json.Marshal(b)
+	if err != nil {
+		t.Fatalf("marshalling: %v", err)
+	}
+	for _, want := range []string{
+		`"status":"confirmed"`, `"collection_status":"deposit_paid"`, `"refund_status":"none"`,
+	} {
+		if !strings.Contains(string(encoded), want) {
+			t.Errorf("want %s in the JSON; got %s", want, encoded)
+		}
+	}
+
+	var back Booking
+	if err := json.Unmarshal([]byte(`{"status":"no_show","collection_status":"fully_paid","refund_status":"full"}`), &back); err != nil {
+		t.Fatalf("unmarshalling: %v", err)
+	}
+	if back.Status != BookingStatusNoShow || back.CollectionStatus != CollectionStatusFullyPaid ||
+		back.RefundStatus != RefundStatusFull {
+		t.Errorf("want no_show/fully_paid/full; got %s/%s/%s", back.Status, back.CollectionStatus, back.RefundStatus)
 	}
 }

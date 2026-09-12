@@ -201,9 +201,9 @@ type BookingOptions struct {
 	// "19:30" reads as ninety minutes and "23:00" to "01:00" as two hours
 	// crossing midnight.
 	EndTime          string
-	Status           string
-	CollectionStatus string
-	RefundStatus     string
+	Status           bookingstore.BookingStatus
+	CollectionStatus bookingstore.CollectionStatus
+	RefundStatus     bookingstore.RefundStatus
 	Price            int
 	DepositAmount    int
 	// Public marks the booking as created by an anonymous visitor (created_by NULL).

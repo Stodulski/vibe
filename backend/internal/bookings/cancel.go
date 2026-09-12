@@ -169,7 +169,7 @@ func refundEnvelope(outcome paymentstore.RefundOutcome) httpx.Envelope {
 // It answers on the refund axis only. Since the payment_status split a refund no longer
 // overwrites what the booking collected, so the collection status on the
 // in-memory struct is still correct and is left alone.
-func refundStatusAfter(booking *bookingstore.Booking, outcome paymentstore.RefundOutcome) string {
+func refundStatusAfter(booking *bookingstore.Booking, outcome paymentstore.RefundOutcome) bookingstore.RefundStatus {
 	switch {
 	case outcome.ManualAmountCentavos > 0:
 		// The automatic half came back — MoneyReturned() would also be true

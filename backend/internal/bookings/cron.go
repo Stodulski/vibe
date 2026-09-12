@@ -68,7 +68,7 @@ func (s *Service) Reminder2h(ctx context.Context) {
 			// What is left to pay at the venue. Two hours out this is the fact
 			// a client acts on, and the confirmation that carried it went out
 			// days ago.
-			BalanceAmount: notifications.BalanceAmount(b.Price, b.DepositAmount, b.CollectionStatus),
+			BalanceAmount: notifications.BalanceAmount(b.Price, b.DepositAmount, b.CollectionStatus.String()),
 			MapsQuery:     booklink.MapsQuery(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
 			MapsURL:       booklink.MapsURL(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
 			CancelPath:    cancelPath,

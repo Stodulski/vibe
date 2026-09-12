@@ -814,7 +814,7 @@ func (s *Service) manualOwedForBooking(ctx context.Context, bookingID uuid.UUID)
 // column since the payment_status split and no writer here touches it: a deposit-only
 // booking whose deposit came back reads (deposit_paid, full), which under the
 // single payment_status enum read 'refunded' and lost the deposit half.
-func bookingRefundStatusAfterRefund(manualOwedCentavos int) string {
+func bookingRefundStatusAfterRefund(manualOwedCentavos int) bookingstore.RefundStatus {
 	if manualOwedCentavos > 0 {
 		return bookingstore.RefundStatusPartial
 	}

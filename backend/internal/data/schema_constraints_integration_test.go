@@ -624,7 +624,7 @@ func TestTheTransitionsTheMoneyPathsPerformStillGoThrough(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := f.CreateBooking(t, datatest.BookingOptions{
 				StartTime: "08:00", EndTime: "09:30",
-				Status: tt.from, CollectionStatus: tt.fromCollection, RefundStatus: tt.fromRefund,
+				Status: bookingstore.BookingStatus(tt.from), CollectionStatus: bookingstore.CollectionStatus(tt.fromCollection), RefundStatus: bookingstore.RefundStatus(tt.fromRefund),
 			})
 
 			err := exec(f, `

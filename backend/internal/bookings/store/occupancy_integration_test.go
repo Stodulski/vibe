@@ -274,7 +274,7 @@ func TestTheUpcomingListShowsTheResaleAndNotTheNoShow(t *testing.T) {
 	if len(upcoming) != 1 {
 		ids := make([]string, 0, len(upcoming))
 		for _, b := range upcoming {
-			ids = append(ids, b.ID.String()+"="+b.Status)
+			ids = append(ids, b.ID.String()+"="+b.Status.String())
 		}
 		t.Fatalf("one booking holds 18:00; the list returned %d (%v)", len(upcoming), ids)
 	}

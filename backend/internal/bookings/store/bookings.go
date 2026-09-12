@@ -19,34 +19,136 @@ import (
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
-// The two vocabularies bookings.payment_status was split into. They
-// are text + CHECK in the database rather than a native enum — see the
-// bookings section of db/migrations/001_init.sql for why — so nothing but these
-// the column. Use them.
-// They are spelled *Status* rather than the shorter CollectionUnpaid /
-// RefundNone because RefundResult (internal/payments/store/refunds.go) already owns the
-// short names, and its "none" answers a different question — "what did this
-// cancellation do about the money" rather than "where does this booking's
-// give-back stand".
-const (
-	// CollectionStatusUnpaid: nothing has been collected for this booking yet.
-	CollectionStatusUnpaid = "unpaid"
-	// CollectionStatusDepositPaid: part of the price is in, the balance is not.
-	CollectionStatusDepositPaid = "deposit_paid"
-	// CollectionStatusFullyPaid: the whole price has been collected.
-	CollectionStatusFullyPaid = "fully_paid"
+// The three vocabularies a booking's state is written in, each a type of its
+// own rather than a bare string.
+//
+// They were plain string fields with untyped constants beside them, which is
+// how a booking ends up carrying a value no column would accept: every one of
+// these is a Postgres enum or a CHECK on the other side, so the database
+// refuses the typo — at the end of the request, as a 500, from a handler that
+// cannot say which of the three fields was wrong. A named type moves that
+// refusal to the compiler for the literal case and to Valid() for the case a
+// client supplied it, and makes "which vocabulary is this" answerable from a
+// signature instead of from a variable name.
+//
+// The underlying type is string and the JSON tags are untouched, so what goes
+// over the wire and into the column is byte-for-byte what it was.
+//
+// The CONSTANTS below stay untyped on purpose, which is the one part of this
+// that looks like a compromise and is not. An untyped string constant is usable
+// wherever any of these three types is expected AND wherever a plain string
+// still is, so the notification copy and the other readers that legitimately
+// hold one of these values as a string keep comparing against the same named
+// constants instead of against a literal. The types are on the FIELDS, which is
+// where a wrong value would be stored, and that is what the compiler now
+// refuses: a CollectionStatus cannot be assigned to Status, and neither can be
+// assigned from an arbitrary string without a conversion that says so.
 
-	// RefundStatusNone: no money is owed back.
+// BookingStatus is where a booking sits in its own lifecycle. It is the
+// booking_status enum in db/migrations/001_init.sql.
+type BookingStatus string
+
+// The booking lifecycle. The legal moves between them are the matrix in
+// bookings.Service.Update; what refuses an illegitimate one at the database is
+// the bookings_forbid_status_reversal trigger.
+const (
+	// BookingStatusPending is the slot held while nothing is settled.
+	BookingStatusPending = "pending"
+	// BookingStatusConfirmed is a booking that is on.
+	BookingStatusConfirmed = "confirmed"
+	// BookingStatusCancelled is a booking that will not happen, whoever called it off.
+	BookingStatusCancelled = "cancelled"
+	// BookingStatusCompleted is a booking whose hours were played.
+	BookingStatusCompleted = "completed"
+	// BookingStatusNoShow is a booking whose hours were not played and that nobody
+	// called off in time.
+	BookingStatusNoShow = "no_show"
+)
+
+// Valid reports whether s is one of the five statuses the column accepts.
+func (s BookingStatus) Valid() bool {
+	switch s {
+	case BookingStatusPending, BookingStatusConfirmed, BookingStatusCancelled,
+		BookingStatusCompleted, BookingStatusNoShow:
+		return true
+	}
+	return false
+}
+
+// String returns the stored spelling, which is what the column and the JSON
+// carry.
+func (s BookingStatus) String() string { return string(s) }
+
+// CollectionStatus is how much of a booking's price has been collected.
+//
+// It and RefundStatus are the two vocabularies bookings.payment_status was
+// split into. They are text + CHECK in the database rather than a native enum —
+// see the bookings section of db/migrations/001_init.sql for why — so nothing
+// but these values belongs in the column. Use them.
+//
+// They are spelled *Status* rather than the shorter CollectionUnpaid /
+// RefundNone because RefundResult (internal/payments/store/refunds.go) already
+// owns the short names, and its "none" answers a different question — "what did
+// this cancellation do about the money" rather than "where does this booking's
+// give-back stand".
+type CollectionStatus string
+
+const (
+	// CollectionStatusUnpaid is a booking nothing has been collected for yet.
+	CollectionStatusUnpaid = "unpaid"
+	// CollectionStatusDepositPaid is part of the price in and the balance not.
+	CollectionStatusDepositPaid = "deposit_paid"
+	// CollectionStatusFullyPaid is the whole price collected.
+	CollectionStatusFullyPaid = "fully_paid"
+)
+
+// Valid reports whether s is one of the three the column accepts.
+func (s CollectionStatus) Valid() bool {
+	switch s {
+	case CollectionStatusUnpaid, CollectionStatusDepositPaid, CollectionStatusFullyPaid:
+		return true
+	}
+	return false
+}
+
+// String returns the stored spelling.
+func (s CollectionStatus) String() string { return string(s) }
+
+// RefundStatus is where a booking's give-back stands.
+type RefundStatus string
+
+const (
+	// RefundStatusNone is no money owed back.
 	RefundStatusNone = "none"
-	// RefundStatusPending: a refund claim is in flight and has not landed.
+	// RefundStatusPending is a refund claim in flight that has not landed.
 	RefundStatusPending = "pending"
-	// RefundStatusPartial: the provider-backed rows are back and a cash or
+	// RefundStatusPartial is the provider-backed rows back while a cash or
 	// transfer balance is still owed by hand. Only RecordManualRefund moves a
-	// booking off this value — see the payment_status enum in db/migrations/001_init.sql for the state it names.
+	// booking off this value — see the payment_status enum in
+	// db/migrations/001_init.sql for the state it names.
 	RefundStatusPartial = "partial"
-	// RefundStatusFull: everything that was collected has been given back.
+	// RefundStatusFull is everything that was collected given back.
 	RefundStatusFull = "full"
 )
+
+// Valid reports whether s is one of the four the column accepts.
+//
+// It includes 'partial', which no client may ask for: only the refund pipeline
+// that computed the split writes it (see bookings.Service.Update, which
+// deliberately keeps it out of the set a staff edit may name). Valid answers
+// "could this value be in the column", not "may this caller set it" — those are
+// different questions and collapsing them would make a stored 'partial' read as
+// corrupt.
+func (s RefundStatus) Valid() bool {
+	switch s {
+	case RefundStatusNone, RefundStatusPending, RefundStatusPartial, RefundStatusFull:
+		return true
+	}
+	return false
+}
+
+// String returns the stored spelling.
+func (s RefundStatus) String() string { return string(s) }
 
 // Booking represents a reserved court slot for a client.
 type Booking struct {
@@ -64,27 +166,27 @@ type Booking struct {
 	// the schema: it stored what the clock would read, so a 23:00
 	// booking of two hours carried '01:00' with nothing saying which 01:00.
 	// EndsAt is that same end with its date attached.
-	StartsAt        time.Time `json:"starts_at"`
-	EndsAt          time.Time `json:"ends_at"`
-	Date            time.Time `json:"date"`
-	StartTime       string    `json:"start_time"`
-	DurationMinutes int       `json:"duration_minutes"`
-	Price           int       `json:"price"`
-	DepositAmount   int       `json:"deposit_amount"`
-	Status          string    `json:"status"`
+	StartsAt        time.Time     `json:"starts_at"`
+	EndsAt          time.Time     `json:"ends_at"`
+	Date            time.Time     `json:"date"`
+	StartTime       string        `json:"start_time"`
+	DurationMinutes int           `json:"duration_minutes"`
+	Price           int           `json:"price"`
+	DepositAmount   int           `json:"deposit_amount"`
+	Status          BookingStatus `json:"status"`
 	// CollectionStatus and RefundStatus are the two axes payment_status was split
 	// out of the single payment_status enum: how much of the booking's price
 	// has been collected, and where the give-back stands. They are
 	// independent — a booking that took only a deposit and is being refunded
 	// reads (deposit_paid, pending), which the one-column spelling could not
 	// express at all.
-	CollectionStatus string     `json:"collection_status"`
-	RefundStatus     string     `json:"refund_status"`
-	ReminderSent2h   bool       `json:"reminder_sent_2h"`
-	Notes            *string    `json:"notes,omitempty"`
-	CreatedBy        *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	CollectionStatus CollectionStatus `json:"collection_status"`
+	RefundStatus     RefundStatus     `json:"refund_status"`
+	ReminderSent2h   bool             `json:"reminder_sent_2h"`
+	Notes            *string          `json:"notes,omitempty"`
+	CreatedBy        *uuid.UUID       `json:"created_by,omitempty"`
+	CreatedAt        time.Time        `json:"created_at"`
+	UpdatedAt        time.Time        `json:"updated_at"`
 	// RefundIntentAt marks a cancellation that owes a refund, written by the
 	// same UPDATE that cancels the booking and cleared inside ClaimRefund's own
 	// committed transaction. It is internal bookkeeping for the reconciliation
@@ -232,8 +334,8 @@ func (m *Store) Insert(ctx context.Context, b *Booking) error {
 		// derived from DepositPercentage validated <= 100; bounded by Price above, far below int32 range.
 		DepositAmount:    int32(b.DepositAmount),
 		Status:           db.BookingStatus(b.Status),
-		CollectionStatus: b.CollectionStatus,
-		RefundStatus:     b.RefundStatus,
+		CollectionStatus: string(b.CollectionStatus),
+		RefundStatus:     string(b.RefundStatus),
 		Notes:            data.TextToPg(b.Notes),
 		CreatedBy:        data.UUIDPtrToPg(b.CreatedBy),
 	})
@@ -605,8 +707,8 @@ func (m *Store) Update(ctx context.Context, b *Booking) error {
 	dbBooking, err := m.Q.UpdateBooking(ctx, db.UpdateBookingParams{
 		ID:               data.UUIDToPg(b.ID),
 		Status:           db.BookingStatus(b.Status),
-		CollectionStatus: b.CollectionStatus,
-		RefundStatus:     b.RefundStatus,
+		CollectionStatus: string(b.CollectionStatus),
+		RefundStatus:     string(b.RefundStatus),
 		Notes:            data.TextToPg(b.Notes),
 		//nolint:gosec // G115: DepositAmount is accumulated from validated per-payment amounts (bookings_actions.go)
 		// bounded to the same currency-amount range as Price; far below int32 range.
@@ -698,9 +800,9 @@ func BookingFromDB(b db.Booking) *Booking {
 		DurationMinutes:  int(b.DurationMinutes),
 		Price:            int(b.Price),
 		DepositAmount:    int(b.DepositAmount),
-		Status:           string(b.Status),
-		CollectionStatus: b.CollectionStatus,
-		RefundStatus:     b.RefundStatus,
+		Status:           BookingStatus(b.Status),
+		CollectionStatus: CollectionStatus(b.CollectionStatus),
+		RefundStatus:     RefundStatus(b.RefundStatus),
 		ReminderSent2h:   b.ReminderSent2h,
 		Notes:            data.PgToTextPtr(b.Notes),
 		CreatedBy:        data.PgToUUIDPtr(b.CreatedBy),

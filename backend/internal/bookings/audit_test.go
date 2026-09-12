@@ -169,7 +169,7 @@ func TestPublicCancelRecordsTheRefundWindowDecision(t *testing.T) {
 	tests := []struct {
 		name             string
 		booking          func(uuid.UUID) *bookingstore.Booking
-		collectionStatus string
+		collectionStatus bookingstore.CollectionStatus
 		wantWithinWindow bool
 		wantOwesRefund   bool
 	}{
