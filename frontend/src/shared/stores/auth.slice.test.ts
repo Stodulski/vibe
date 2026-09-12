@@ -2,7 +2,6 @@ import type { StoreApi } from 'zustand';
 import { createAuthSlice, type AuthSlice } from './auth.slice';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
 import { API_CACHE_NAME } from '@/shared/lib/apiCache';
-import type { User } from '@/shared/types/api.types';
 
 const mockSetUser = vi.fn<(user: { id: string } | null) => void>();
 
@@ -38,45 +37,14 @@ function createStore() {
   };
 }
 
-const mockUser: User = {
-  id: 'user-1',
-  email: 'test@example.com',
-  first_name: 'Juan',
-  last_name: 'Perez',
-  role: 'owner',
-  phone: '1123456789',
-  is_active: true,
-  email_verified: true,
-  created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z',
-};
-
 describe('authSlice', () => {
   beforeEach(() => {
     mockSetUser.mockClear();
   });
 
-  it('has null user initially', () => {
-    const store = createStore();
-    expect(store.getState().user).toBeNull();
-  });
-
   it('has null csrfToken initially', () => {
     const store = createStore();
     expect(store.getState().csrfToken).toBeNull();
-  });
-
-  it('setUser stores the given user', () => {
-    const store = createStore();
-    store.setUser(mockUser);
-    expect(store.getState().user).toEqual(mockUser);
-  });
-
-  it('setUser can clear the user back to null', () => {
-    const store = createStore();
-    store.setUser(mockUser);
-    store.setUser(null);
-    expect(store.getState().user).toBeNull();
   });
 
   it('setCsrfToken stores the given token', () => {
@@ -85,15 +53,21 @@ describe('authSlice', () => {
     expect(store.getState().csrfToken).toBe('test-csrf-token');
   });
 
-  it('logout clears user and csrfToken', () => {
+  it('logout clears the csrfToken', () => {
     const store = createStore();
-    store.setUser(mockUser);
     store.setCsrfToken('test-csrf-token');
 
     store.logout();
 
-    expect(store.getState().user).toBeNull();
     expect(store.getState().csrfToken).toBeNull();
+  });
+
+  // DATA-11: the signed-in user is React Query's now (`auth/hooks/session.ts`).
+  // The slice must not grow a second copy of it back.
+  it('holds no user of its own', () => {
+    const store = createStore();
+    expect(store.getState()).not.toHaveProperty('user');
+    expect(store.getState()).not.toHaveProperty('setUser');
   });
 
   it('logout removes the persisted complex selection and MercadoPago OAuth state', () => {
@@ -122,28 +96,16 @@ describe('authSlice', () => {
 });
 
 // OBS-05: every place session identity changes must also tell Sentry, so
-// reported events carry the id of who was signed in when they happened.
+// reported events carry the id of who was signed in when they happened. The
+// signing-in half moved to `identifySession` (see session.test.ts); ending the
+// session is still this slice's job.
 describe('authSlice Sentry integration', () => {
   beforeEach(() => {
     mockSetUser.mockClear();
   });
 
-  it('setUser tells Sentry about the signed-in user, with only their id', () => {
-    const store = createStore();
-    store.setUser(mockUser);
-    expect(mockSetUser).toHaveBeenCalledWith({ id: 'user-1' });
-  });
-
-  it('setUser(null) clears the Sentry user', () => {
-    const store = createStore();
-    store.setUser(mockUser);
-    store.setUser(null);
-    expect(mockSetUser).toHaveBeenLastCalledWith(null);
-  });
-
   it('logout clears the Sentry user', () => {
     const store = createStore();
-    store.setUser(mockUser);
     store.logout();
     expect(mockSetUser).toHaveBeenLastCalledWith(null);
   });

@@ -10,8 +10,7 @@ import { createQueryWrapper } from '@/test/test-utils';
 
 const bootUser = makeUser({ id: 'u1', first_name: 'Juan' });
 
-const { mockSetUser, mockSetCsrfToken } = vi.hoisted(() => ({
-  mockSetUser: vi.fn(),
+const { mockSetCsrfToken } = vi.hoisted(() => ({
   mockSetCsrfToken: vi.fn(),
 }));
 
@@ -26,13 +25,8 @@ vi.mock('../api/auth.api', () => ({
 
 vi.mock('@/shared/stores', () => ({
   useStore: Object.assign(
-    () => ({
-      user: null,
-      setUser: mockSetUser,
-      setCsrfToken: mockSetCsrfToken,
-      csrfToken: 'test',
-      logout: vi.fn(),
-    }),
+    (selector: (s: { csrfToken: string; setCsrfToken: typeof mockSetCsrfToken; logout: () => void }) => unknown) =>
+      selector({ csrfToken: 'test', setCsrfToken: mockSetCsrfToken, logout: vi.fn() }),
     { getState: () => ({ csrfToken: 'test', setCsrfToken: mockSetCsrfToken }) },
   ),
 }));
@@ -61,27 +55,21 @@ describe('useAuth', () => {
     expect(result.current.user).toBeNull();
   });
 
-  // M5: the store is the single source of truth for `user` — Sidebar,
-  // RootRedirect and other non-auth consumers read `useStore().user`
-  // directly, not this hook's query cache. The old implementation fell back
-  // to `query.data?.user` whenever the store had none, so a stale cache
-  // entry (e.g. left over after a missed `queryClient.clear()`) could make
-  // this hook report someone logged in while every other reader of the
-  // store still said logged out.
-  it('does not report a user from the query cache when the store itself has none', async () => {
+  // DATA-11: the session's user *is* this query's data. The store used to
+  // hold a copy and the query deliberately returned `null`, so a cache entry
+  // could never speak for the session; now it is the only thing that does.
+  it('reports the user the session cache already holds, before any fetch resolves', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(['auth', 'me'], {
-      user: { id: 'stale-cached-user', first_name: 'Stale' },
-    });
+    queryClient.setQueryData(['auth', 'me'], bootUser);
 
     const { useAuth } = await import('./useAuth');
     const { result } = renderHook(() => useAuth(), {
       wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
     });
 
-    // Checked synchronously, before the background getMe() fetch this query
-    // triggers (enabled: !user) has a chance to resolve.
-    expect(result.current.user).toBeNull();
+    expect(result.current.user).toEqual(bootUser);
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.isLoading).toBe(false);
   });
 
   // A page load boots from GET /auth/me, which carries the CSRF token for the
@@ -91,21 +79,46 @@ describe('useAuth', () => {
   // `refreshAccessToken` proves it was never invoked, while the MSW handler
   // for `GET auth/me` below answers the real network call `bootstrapSession`
   // makes.
-  it('feeds the store from the bootstrapped session without refreshing the tokens', async () => {
+  it('answers the bootstrapped session without refreshing the tokens', async () => {
     const ky = await import('@/shared/lib/ky');
     const refreshAccessToken = vi.spyOn(ky, 'refreshAccessToken');
-    mockSetUser.mockClear();
     mockSetCsrfToken.mockClear();
     server.use(http.get('*/auth/me', () => HttpResponse.json({ user: bootUser, csrf_token: 'from-me' })));
 
     const { useAuth } = await import('./useAuth');
-    renderHook(() => useAuth(), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => useAuth(), { wrapper: createQueryWrapper() });
 
     await waitFor(() => {
-      expect(mockSetUser).toHaveBeenCalledWith(bootUser);
+      expect(result.current.user).toEqual(bootUser);
     });
     expect(mockSetCsrfToken).toHaveBeenCalledWith('from-me');
     expect(refreshAccessToken).not.toHaveBeenCalled();
+  });
+
+  // The reason DATA-11 exists. With `user` in the store the query was
+  // `enabled: !user`, so once a session was read it was never read again for
+  // as long as the tab stayed open — a deactivated account, a changed role or
+  // a renamed profile kept showing the boot-time answer. Now the session is an
+  // ordinary cache entry, and invalidating it re-reads it.
+  it('re-reads the session when its cache entry is invalidated', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: bootUser, csrf_token: 'from-me' })));
+
+    const { useAuth } = await import('./useAuth');
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
+    });
+    await waitFor(() => {
+      expect(result.current.user?.first_name).toBe('Juan');
+    });
+
+    const renamed = makeUser({ id: 'u1', first_name: 'Juana' });
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: renamed, csrf_token: 'from-me' })));
+    await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+
+    await waitFor(() => {
+      expect(result.current.user?.first_name).toBe('Juana');
+    });
   });
 });
 

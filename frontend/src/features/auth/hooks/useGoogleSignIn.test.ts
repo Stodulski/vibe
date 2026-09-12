@@ -12,13 +12,19 @@ vi.mock('../api/auth.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() } }));
 
-const mockSetUser = vi.fn();
 const mockSetCsrfToken = vi.fn();
+// DATA-11: `authSuccess` reads one atomic slice of the store (STORE-02) and
+// writes the user into the query cache instead (`./session`).
+const mockSetSessionUser = vi.fn();
+vi.mock('./session', () => ({
+  identifySession: (user: unknown) => user,
+  setSessionUser: (_queryClient: unknown, user: unknown) => {
+    mockSetSessionUser(user);
+  },
+}));
 vi.mock('@/shared/stores', () => ({
-  useStore: () => ({
-    setUser: mockSetUser,
-    setCsrfToken: mockSetCsrfToken,
-  }),
+  useStore: (selector: (s: { setCsrfToken: typeof mockSetCsrfToken }) => unknown) =>
+    selector({ setCsrfToken: mockSetCsrfToken }),
 }));
 
 const mockNavigate = vi.fn();
@@ -89,7 +95,7 @@ describe('useGoogleSignIn — onSuccess', () => {
     });
 
     expect(mockSetCsrfToken).toHaveBeenCalledWith('token');
-    expect(mockSetUser).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
+    expect(mockSetSessionUser).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
     expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
   });
 
@@ -116,7 +122,7 @@ describe('useGoogleSignIn — onSuccess', () => {
         profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
       },
     });
-    expect(mockSetUser).not.toHaveBeenCalled();
+    expect(mockSetSessionUser).not.toHaveBeenCalled();
   });
 
   afterEach(async () => {

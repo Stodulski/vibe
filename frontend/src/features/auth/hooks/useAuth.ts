@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@/shared/stores';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { bootstrapSession } from '@/shared/lib/ky';
+import { identifySession } from './session';
 import type { User } from '@/shared/types/api.types';
 
 interface AuthState {
@@ -10,16 +11,22 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-// The zustand store is the single source of truth for `user` — it's what
-// Sidebar, RootRedirect and other non-auth consumers read directly. This
-// query's job is only to run the session check (`bootstrapSession`) and feed
-// the store; it used to also hand back its own `data.user` as a fallback,
-// which meant two places could disagree about who's logged in (e.g. a stale
-// cache entry surviving a missed `queryClient.clear()`). See
-// 06-auth-shared-tooling.md M5.
+/**
+ * Who is signed in, as one query.
+ *
+ * The user is server state and is cached as server state: this query's `data`
+ * *is* the session, and every consumer — the sidebars, `RootRedirect`, the
+ * route guards, the profile form — reads it through this hook. It used to be
+ * copied into zustand and read from there, with the query `enabled: !user` and
+ * returning `null` on purpose; that meant the session was fetched once per tab
+ * and then never revalidated, however long the tab stayed open. Now `staleTime`
+ * decides when to re-check, and a login, a profile update or a logout write
+ * through `session.ts` instead of into a second source of truth.
+ *
+ * The store keeps only what is not server state: the in-memory CSRF token and
+ * the selected complex.
+ */
 export function useAuth(): AuthState {
-  const { user, setUser } = useStore();
-
   const query = useQuery({
     queryKey: queryKeys.auth.me,
     queryFn: async ({ signal }) => {
@@ -33,25 +40,29 @@ export function useAuth(): AuthState {
       } catch {
         // The session could not be read at all — treated as signed out, as a
         // failed refresh always was; the next guarded request retries.
-        return null;
+        return identifySession(null);
       }
       if (!session) {
         // No valid session — user needs to log in.
-        return null;
+        return identifySession(null);
       }
 
       useStore.getState().setCsrfToken(session.csrf_token);
-      setUser(session.user);
-      return null;
+      return identifySession(session.user);
     },
-    enabled: !user,
     staleTime: 5 * 60 * 1000,
     retry: false,
+    // A session that cannot be read is "signed out", not a broken screen: the
+    // queryFn above already answers `null` for it, and the route guards turn
+    // that into a redirect to /login.
+    throwOnError: false,
   });
+
+  const user = query.data ?? null;
 
   return {
     user,
-    isLoading: query.isLoading && !user,
+    isLoading: query.isLoading,
     isAuthenticated: !!user,
   };
 }

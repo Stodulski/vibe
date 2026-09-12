@@ -1,4 +1,4 @@
-import { useStore } from '@/shared/stores';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { AdminBrand } from '@/shared/components/layout/admin-sidebar/AdminBrand';
@@ -15,7 +15,7 @@ interface AdminSidebarProps {
 
 /** Desktop is permanently icon-only (no expand/collapse toggle); the mobile sheet stays fully expanded. */
 export function AdminSidebar({ onNavigate, isMobile = false }: AdminSidebarProps) {
-  const user = useStore((s) => s.user);
+  const { user } = useAuth();
   const collapsed = !isMobile;
 
   return (

@@ -1,7 +1,7 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { authApi } from '../api/auth.api';
-import { useStore } from '@/shared/stores';
+import { setSessionUser } from './session';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
@@ -15,15 +15,15 @@ interface UpdateProfileData {
 }
 
 export function useUpdateProfile() {
-  const { setUser } = useStore();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data: UpdateProfileData) => authApi.updateMe(data),
     onSuccess: (data) => {
-      // The store is the single source of truth for `user` — see useAuth.ts
-      // (06-auth-shared-tooling.md M5). Writing it into the query cache too
-      // used to risk the two disagreeing (e.g. after queryClient.clear()).
-      setUser(data.user);
+      // The response already carries the updated user, so the cache is written
+      // straight through rather than invalidated: the profile screen shows the
+      // new name immediately instead of flickering through a refetch.
+      setSessionUser(queryClient, data.user);
       toast.success(t.auth.profileUpdated);
     },
     onError: (error: unknown) => {

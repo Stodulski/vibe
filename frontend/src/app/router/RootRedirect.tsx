@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
-import { useStore } from '@/shared/stores';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 
 export function RootRedirect() {
-  const user = useStore((s) => s.user);
+  const { user } = useAuth();
   return <Navigate to={user?.role === 'superadmin' ? '/admin' : '/complexes'} replace />;
 }

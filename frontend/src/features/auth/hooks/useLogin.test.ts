@@ -15,11 +15,10 @@ vi.mock('../api/auth.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() } }));
 
+// Selector-aware, like the real store: `authSuccess` reads `setCsrfToken` as
+// its own atomic slice (STORE-02) and no longer holds a `user` (DATA-11).
 vi.mock('@/shared/stores', () => ({
-  useStore: () => ({
-    setUser: vi.fn(),
-    setCsrfToken: vi.fn(),
-  }),
+  useStore: (selector: (s: { setCsrfToken: () => void }) => unknown) => selector({ setCsrfToken: vi.fn() }),
 }));
 
 /** Mutates once with a rejected `authApi.login` and waits for the error state. */
