@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // The tests here are about the one hole the advisory lock did not cover. A public
@@ -30,8 +31,8 @@ const staleAge = 20 * time.Minute
 func staleBookingOptions() bookingOptions {
 	return bookingOptions{
 		StartTime: "09:00", EndTime: "11:00",
-		Status: "pending", CollectionStatus: CollectionStatusUnpaid,
-		RefundStatus: RefundStatusNone, Public: true,
+		Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
+		RefundStatus: data.RefundStatusNone, Public: true,
 	}
 }
 
@@ -41,7 +42,7 @@ func overlappingBookingOptions() bookingOptions {
 
 // newStaleBooking inserts a public unpaid booking through the real insert path and
 // ages it past the fixture's payment expiry.
-func newStaleBooking(t *testing.T, f *testFixture) *Booking {
+func newStaleBooking(t *testing.T, f *testFixture) *data.Booking {
 	t.Helper()
 
 	stale := f.newBooking(staleBookingOptions())
@@ -95,16 +96,16 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 	// made without the refund branch following it: the money stopped going
 	// back and nothing here said so, because this file was not being run.
 	err := f.confirmBooking(f.Models, stale)
-	if !errors.Is(err, ErrBookingCancelled) && !errors.Is(err, ErrSlotUnavailable) {
+	if !errors.Is(err, data.ErrBookingCancelled) && !errors.Is(err, data.ErrSlotUnavailable) {
 		t.Errorf("confirming a stale booking whose slot was taken must be refused with an error the "+
 			"webhook refunds on (ErrBookingCancelled or ErrSlotUnavailable); got %v", err)
 	}
 
-	// The taker's insert released the stale booking (releaseStalePendingOverlaps),
+	// The taker's insert released the stale booking (ReleaseStalePendingOverlaps),
 	// so it is cancelled by the time its payment arrives; what the refusal must
 	// not do is turn it back into a confirmed one or record its payment.
 	status, collectionStatus, _ := f.readBookingState(t, stale.ID)
-	if status != "cancelled" || collectionStatus != CollectionStatusUnpaid {
+	if status != "cancelled" || collectionStatus != data.CollectionStatusUnpaid {
 		t.Errorf("a refused confirmation must leave the released booking as it was; got status=%q collection_status=%q", status, collectionStatus)
 	}
 	if confirmed := f.countBookings(t, "confirmed"); confirmed != 1 {
@@ -137,7 +138,7 @@ func TestConfirmingAStalePendingBookingWhoseSlotIsFreeSucceeds(t *testing.T) {
 	}
 
 	status, collectionStatus, _ := f.readBookingState(t, stale.ID)
-	if status != "confirmed" || collectionStatus != CollectionStatusDepositPaid {
+	if status != "confirmed" || collectionStatus != data.CollectionStatusDepositPaid {
 		t.Errorf("the booking must be confirmed and paid; got status=%q collection_status=%q", status, collectionStatus)
 	}
 }
@@ -154,13 +155,13 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	// Stores configured to hold a slot for a full hour, against the fixture's
 	// default fifteen minutes.
-	longHold := NewModels(f.Pool, Config{PaymentExpiry: time.Hour})
+	longHold := data.NewModels(f.Pool, data.Config{PaymentExpiry: time.Hour})
 
 	newStaleBooking(t, f)
 
 	newcomer := f.newBooking(overlappingBookingOptions())
 	err := longHold.Bookings.InsertSafe(ctx, newcomer)
-	if !errors.Is(err, ErrSlotUnavailable) {
+	if !errors.Is(err, data.ErrSlotUnavailable) {
 		t.Fatalf("under an hour-long payment expiry a %v-old booking still holds its slot; got %v", staleAge, err)
 	}
 
@@ -173,7 +174,7 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 // The defect this test guards against: GetBookedSlots, the query behind the
 // public availability grid, used to hardcode INTERVAL '15 minutes' for this
-// same carve-out while slotTaken (InsertSafe's collision guard, exercised
+// same carve-out while SlotTaken (InsertSafe's collision guard, exercised
 // above) took the configured payment expiry as a parameter. With any expiry
 // other than fifteen minutes the two disagreed — a stale booking between the
 // hardcoded value and the configured one showed as free on the grid and was
@@ -194,7 +195,7 @@ func TestAvailabilityFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	// Under a 30-minute configured expiry the same 20-minute-old booking has not
 	// expired yet: the grid must show the slot taken.
-	longHold := NewModels(f.Pool, Config{PaymentExpiry: 30 * time.Minute})
+	longHold := data.NewModels(f.Pool, data.Config{PaymentExpiry: 30 * time.Minute})
 	takenSlots, err := longHold.Bookings.GetBookedSlotsByCourtIDs(ctx, []uuid.UUID{f.CourtID}, stale.Date)
 	if err != nil {
 		t.Fatalf("reading booked slots under a 30m expiry: %v", err)
@@ -288,7 +289,7 @@ func TestAnInsertAndAConfirmationRacingForTheSameSlotLeaveOneWinner(t *testing.T
 				// TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken
 				// for why the confirmation's loser can now answer with the
 				// cancelled one.
-				case errors.Is(err, ErrSlotUnavailable), errors.Is(err, ErrBookingCancelled):
+				case errors.Is(err, data.ErrSlotUnavailable), errors.Is(err, data.ErrBookingCancelled):
 					rejected++
 				default:
 					t.Errorf("attempt %d failed for an unexpected reason: %v", i, err)

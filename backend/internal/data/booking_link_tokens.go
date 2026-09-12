@@ -26,7 +26,7 @@ type BookingLinkTokenModel struct {
 	DB *DB
 }
 
-// linkTokenByteLength is how much entropy mintLinkToken draws for a plaintext
+// linkTokenByteLength is how much entropy MintLinkToken draws for a plaintext
 // token: 32 random bytes, base64.RawURLEncoding-encoded to 43 characters —
 // the same shape generateRefreshToken/hashRefreshToken (internal/auth/tokens.go)
 // use for a refresh token, duplicated here rather than imported —
@@ -43,12 +43,12 @@ func hashLinkToken(plaintext string) []byte {
 	return sum[:]
 }
 
-// mintLinkToken generates a fresh plaintext token and inserts its hash within
+// MintLinkToken generates a fresh plaintext token and inserts its hash within
 // tx, so a caller that already holds a transaction (BookingModel.InsertSafe)
 // can mint atomically with the booking it belongs to — a crash between the
 // two commits would otherwise strand a booking with no usable link on any of
 // its public routes.
-func mintLinkToken(ctx context.Context, tx pgx.Tx, bookingID uuid.UUID, expiresAt time.Time) (string, error) {
+func MintLinkToken(ctx context.Context, tx pgx.Tx, bookingID uuid.UUID, expiresAt time.Time) (string, error) {
 	buf := make([]byte, linkTokenByteLength)
 	if _, err := rand.Read(buf); err != nil {
 		return "", fmt.Errorf("generate booking link token: %w", err)
@@ -86,7 +86,7 @@ func (m *BookingLinkTokenModel) Mint(ctx context.Context, bookingID uuid.UUID, e
 	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	plaintext, err := mintLinkToken(ctx, tx, bookingID, expiresAt)
+	plaintext, err := MintLinkToken(ctx, tx, bookingID, expiresAt)
 	if err != nil {
 		return "", err
 	}
@@ -118,14 +118,14 @@ func (m *BookingLinkTokenModel) ResolveBooking(ctx context.Context, plaintext st
 	var b db.Booking
 	var courtName, clientName, clientPhone string
 	var expiresAt time.Time
-	// bookingColumns rather than the names this query used to spell out. The
+	// BookingColumns rather than the names this query used to spell out. The
 	// list it spelled out was the same one minus b.span, and
-	// bookingFromDB reads StartsAt and EndsAt off the span — so every booking
+	// BookingFromDB reads StartsAt and EndsAt off the span — so every booking
 	// resolved through a link token came back starting and ending in the year
 	// one. Sharing the constant with the other hand-written booking SELECTs is
 	// what stops the nineteenth column from being forgotten again.
 	err := m.DB.QueryRow(ctx, `
-		SELECT `+bookingColumns+`,
+		SELECT `+BookingColumns+`,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
 		       COALESCE(cl.phone, '') AS client_phone,
@@ -152,7 +152,7 @@ func (m *BookingLinkTokenModel) ResolveBooking(ctx context.Context, plaintext st
 		}
 		return nil, time.Time{}, err
 	}
-	booking := bookingFromDB(b)
+	booking := BookingFromDB(b)
 	booking.CourtName = courtName
 	booking.ClientName = clientName
 	booking.ClientPhone = clientPhone

@@ -536,7 +536,7 @@ func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) erro
 	// defect blocked_slots.span exists to unwind. The insert happens first so the
 	// comparison is against the value the database stored; nothing commits
 	// unless the answer is no.
-	booked, err := spanTaken(ctx, tx, s.CourtID, span, m.PaymentExpiry)
+	booked, err := SpanTaken(ctx, tx, s.CourtID, span, m.PaymentExpiry)
 	if err != nil {
 		return err
 	}
@@ -566,7 +566,7 @@ func isOverlapRefusal(err error) bool {
 	if !errors.As(err, &pgErr) {
 		return false
 	}
-	return pgErr.Code == sqlStateExclusionViolation
+	return pgErr.Code == SQLStateExclusionViolation
 }
 
 // GetBlockedSlots returns the blocked slots for a court on the given date.

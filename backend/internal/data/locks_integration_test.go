@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"bytes"
@@ -12,12 +12,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // newLockModel returns a lock store over pool whose log output the test can read.
-func newLockModel(pool *pgxpool.Pool) (*LockModel, *bytes.Buffer) {
+func newLockModel(pool *pgxpool.Pool) (*data.LockModel, *bytes.Buffer) {
 	logs := &bytes.Buffer{}
-	return &LockModel{DB: NewDB(pool), Logger: slog.New(slog.NewTextHandler(logs, nil))}, logs
+	return &data.LockModel{DB: data.NewDB(pool), Logger: slog.New(slog.NewTextHandler(logs, nil))}, logs
 }
 
 // lockKey returns a key no other test can collide with, and deletes whatever
@@ -227,9 +228,9 @@ func TestALeaseIsBoundedByItsCallersDeadline(t *testing.T) {
 		t.Errorf("the lease (%v) expires before its caller's deadline (%v), so a second worker "+
 			"can take the lock while the first is still working", lease, budget)
 	}
-	if lease > budget+leaseGrace+5*time.Second {
+	if lease > budget+data.LeaseGraceForTest+5*time.Second {
 		t.Errorf("the lease (%v) outlives its caller's deadline (%v) by more than the grace (%v)",
-			lease, budget, leaseGrace)
+			lease, budget, data.LeaseGraceForTest)
 	}
 }
 
@@ -329,7 +330,7 @@ func TestALongAbandonedLeaseIsSweptAwayByOrdinaryTraffic(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx,
 		`UPDATE job_locks SET expires_at = NOW() - $2::interval WHERE key = $1`,
-		abandoned, (abandonedLeaseRetention + time.Hour).String()); err != nil {
+		abandoned, (data.AbandonedLeaseRetentionForTest + time.Hour).String()); err != nil {
 		t.Fatalf("ageing the abandoned lease: %v", err)
 	}
 

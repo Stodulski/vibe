@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // These tests exercise the booking-link-token store layer
@@ -26,7 +27,7 @@ import (
 // byproduct of the same successful insert, since splitting them would insert
 // the same booking twice for no added coverage.
 //
-// Mutation, run and recorded: move the mint call (mintLinkToken) outside
+// Mutation, run and recorded: move the mint call (MintLinkToken) outside
 // InsertSafe's transaction — i.e. after tx.Commit(ctx) — re-run, and the
 // booking row must persist despite the mint failing, because a mint that no
 // longer participates in the transaction cannot roll it back.
@@ -34,7 +35,7 @@ func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: CollectionStatusUnpaid, Public: true})
+	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: data.CollectionStatusUnpaid, Public: true})
 	if err := f.Models.Bookings.InsertSafe(ctx, b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
 //
 // Mutation, run and recorded: reuse a per-booking constant (e.g. derive the
 // plaintext from bookingID.String() instead of fresh crypto/rand bytes)
-// instead of fresh random bytes in mintLinkToken — re-run, and either the
+// instead of fresh random bytes in MintLinkToken — re-run, and either the
 // second Mint fails (token_hash UNIQUE collision) or, if the constant is
 // varied by call count instead, the two plaintexts stop being independently
 // unguessable, which this test's non-equality assertion alone would not
@@ -139,7 +140,7 @@ func TestResolveBookingUnknownTokenIsNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, "never-minted-value")
-	if !errors.Is(err, ErrRecordNotFound) {
+	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("ResolveBooking(unknown) = %v, want ErrRecordNotFound", err)
 	}
 }
@@ -174,7 +175,7 @@ func TestDeleteExpiredTerminalNeverTouchesALiveBooking(t *testing.T) {
 	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, liveToken); err != nil {
 		t.Errorf("a live (confirmed) booking's token must survive the sweep however old its expiry; got %v", err)
 	}
-	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, terminalToken); !errors.Is(err, ErrRecordNotFound) {
+	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, terminalToken); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("a terminal booking's token past retention must be swept; ResolveBooking = %v, want ErrRecordNotFound", err)
 	}
 }
@@ -219,7 +220,7 @@ func TestDeleteExpiredTerminalRespectsRetention(t *testing.T) {
 //
 //	_, _ = tx.Exec(ctx, `DELETE FROM booking_link_tokens WHERE booking_id = $1`, UUIDToPg(bookingID))
 //
-// — right before the INSERT in mintLinkToken, standing in for a revoke-on-
+// — right before the INSERT in MintLinkToken, standing in for a revoke-on-
 // confirm the production confirmation path (internal/payments/process.go)
 // does not and must not have. Re-run: the checkout token's ResolveBooking
 // call must then fail, breaking the "checkout token still resolves"
@@ -228,7 +229,7 @@ func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: CollectionStatusUnpaid, Public: true})
+	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: data.CollectionStatusUnpaid, Public: true})
 	if err := f.Models.Bookings.InsertSafe(ctx, b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
@@ -270,12 +271,12 @@ func TestMintRejectsAnUnknownBooking(t *testing.T) {
 // TestResolveBookingCarriesTheSpansInstants pins the one enrichment
 // ResolveBooking's SELECT used to leave out.
 //
-// bookingFromDB reads StartsAt and EndsAt off `span` (bookings.go), so a
+// BookingFromDB reads StartsAt and EndsAt off `span` (bookings.go), so a
 // SELECT that does not list b.span hands back a zero pgtype.Range and the
 // booking resolves with both instants at 0001-01-01T00:00:00Z. The comment
 // above that assignment already records one bug of exactly this shape — a link
 // token minted from a zero EndsAt "expires in the year one" — which is why the
-// column list is now bookingColumns rather than eighteen names typed out
+// column list is now BookingColumns rather than eighteen names typed out
 // again: the six other hand-written booking SELECTs cannot drift from it.
 //
 // The span is read back from the row itself rather than compared against

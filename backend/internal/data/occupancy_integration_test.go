@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -17,7 +18,7 @@ import (
 // FINDING 3. Three places decided whether an existing booking takes a court's
 // hours out of circulation, and all three disagreed:
 //
-//	slotTaken (slot_guard.go)              status NOT IN ('cancelled', 'no_show')
+//	SlotTaken (slot_guard.go)              status NOT IN ('cancelled', 'no_show')
 //	GetBookedSlots (db/queries)            status NOT IN ('cancelled')
 //	idx_bookings_no_double (the initial schema) WHERE status NOT IN ('cancelled')
 //
@@ -86,7 +87,7 @@ func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
 
 	second := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	err := f.Models.Bookings.InsertSafe(context.Background(), second)
-	if !errors.Is(err, ErrSlotUnavailable) {
+	if !errors.Is(err, data.ErrSlotUnavailable) {
 		t.Errorf("the overlap check must refuse a second booking on those hours; got %v", err)
 	}
 }
@@ -135,7 +136,7 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 	//    have to agree for the resale to land.
 	second := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	err := f.Models.Bookings.InsertSafe(context.Background(), second)
-	if errors.Is(err, ErrDuplicateBooking) {
+	if errors.Is(err, data.ErrDuplicateBooking) {
 		t.Fatalf("idx_bookings_no_double still counts a no_show as live: the slot is shown free and cannot be sold (%v)", err)
 	}
 	if err != nil {
@@ -148,7 +149,7 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 		t.Errorf("the resold booking must draw 18:00 as taken; the grid read %v", got)
 	}
 	third := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Models.Bookings.InsertSafe(context.Background(), third); !errors.Is(err, ErrSlotUnavailable) {
+	if err := f.Models.Bookings.InsertSafe(context.Background(), third); !errors.Is(err, data.ErrSlotUnavailable) {
 		t.Errorf("only one live booking may hold those hours; got %v", err)
 	}
 }
@@ -172,7 +173,7 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 // noShowThenResale marks the first booking absent and sells its hours again,
 // returning the resale. The order matters: idx_bookings_no_double only tolerates
 // the pair once the first row has left the live set.
-func noShowThenResale(t *testing.T, f *testFixture, first *Booking, opts bookingOptions) *Booking {
+func noShowThenResale(t *testing.T, f *testFixture, first *data.Booking, opts bookingOptions) *data.Booking {
 	t.Helper()
 
 	markStatus(t, f, first.ID, "no_show")
@@ -347,7 +348,7 @@ func TestTheDailyPaymentSummaryStillCountsWhatTheAbsentClientPaid(t *testing.T) 
 
 	first := f.createBooking(t, bookingOptions{
 		StartTime: "18:00", EndTime: "19:30",
-		CollectionStatus: CollectionStatusDepositPaid, RefundStatus: RefundStatusNone,
+		CollectionStatus: data.CollectionStatusDepositPaid, RefundStatus: data.RefundStatusNone,
 		Price: 500_000, DepositAmount: 150_000,
 	})
 	// createBooking only writes the bookings row; GetPaymentSummary INNER JOINs
@@ -356,7 +357,7 @@ func TestTheDailyPaymentSummaryStillCountsWhatTheAbsentClientPaid(t *testing.T) 
 	f.createPayment(t, first.ID, 150_000, 0, nil)
 
 	resale := noShowThenResale(t, f, first, bookingOptions{
-		CollectionStatus: CollectionStatusFullyPaid, RefundStatus: RefundStatusNone,
+		CollectionStatus: data.CollectionStatusFullyPaid, RefundStatus: data.RefundStatusNone,
 		Price: 500_000, DepositAmount: 150_000,
 	})
 	f.createPayment(t, resale.ID, 500_000, 0, nil)

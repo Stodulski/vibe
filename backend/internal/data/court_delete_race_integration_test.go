@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // H-22. These cover the other pairing the court-day advisory lock does not
@@ -97,13 +99,13 @@ func courtIsDeleted(t *testing.T, f *testFixture) bool {
 	return deleted
 }
 
-func pendingBooking(f *testFixture, date time.Time) *Booking {
-	return &Booking{
+func pendingBooking(f *testFixture, date time.Time) *data.Booking {
+	return &data.Booking{
 		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
 		Date: date, StartTime: "10:00", DurationMinutes: 60,
 		Price: 500_000, DepositAmount: 150_000,
-		Status: "pending", CollectionStatus: CollectionStatusUnpaid,
-		RefundStatus: RefundStatusNone,
+		Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
+		RefundStatus: data.RefundStatusNone,
 	}
 }
 
@@ -171,7 +173,7 @@ func TestBookingOnACourtDeletedMidTransactionIsRefused(t *testing.T) {
 	}
 	release()
 
-	if err := <-result; !errors.Is(err, ErrRecordNotFound) {
+	if err := <-result; !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("a booking on a court deleted mid-transaction: got err = %v, want ErrRecordNotFound. "+
 			"The client now holds hours on a court the owner has already removed.", err)
 	}
@@ -209,7 +211,7 @@ func TestDeletingACourtWhileABookingCommitsIsRefused(t *testing.T) {
 	insertLiveBooking(t, f, date, "10:00", 60)
 	release()
 
-	if err := <-result; !errors.Is(err, ErrCourtHasActiveBookings) {
+	if err := <-result; !errors.Is(err, data.ErrCourtHasActiveBookings) {
 		t.Fatalf("deleting a court while a booking for it was committing: got err = %v, "+
 			"want ErrCourtHasActiveBookings. The booking survives on a deleted court.", err)
 	}

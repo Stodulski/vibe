@@ -183,7 +183,7 @@ func localInstant(date time.Time, hhmm string) time.Time {
 // Every query in this package that asks "did this booking take the court's
 // hours out of circulation" spells the question `status NOT IN ` +
 // releasedBookingStatuses, so the answer cannot drift between them again. It
-// had: slotTaken excluded no_show, the dashboard counters, the occupancy
+// had: SlotTaken excluded no_show, the dashboard counters, the occupancy
 // heatmap, the upcoming list and both deletion guards did not, and because
 // the schema deliberately lets a no_show and its resale share one
 // (court, date, start_time), every one of those counted that hour twice.
@@ -199,7 +199,77 @@ func localInstant(date time.Time, hhmm string) time.Time {
 // though the court was released — see the comment there.
 const releasedBookingStatuses = `('cancelled', 'no_show')`
 
-// slotTaken reports whether a live booking already covers the hours b wants on
+// ReleaseStalePendingOverlaps cancels the public, unpaid bookings older than
+// hold that overlap the hours b wants, so the exclusion constraint no longer
+// counts them. It is the carve-out SlotTaken applies, made true in the table
+// rather than only in the query; see InsertSafe for why the two must agree.
+// The caller must hold lockCourtDay for that court and date.
+//
+// The note is the one the release cron writes, so a cancelled row reads the
+// same whichever path got there first. The cron's other work — expiring the
+// MercadoPago preference and emailing the visitor — does not happen here; a
+// payment that arrives anyway is refused by guardSlotStillFree and refunded.
+func ReleaseStalePendingOverlaps(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE bookings
+		SET status = 'cancelled',
+		    notes  = COALESCE(notes || ' | ', '') || 'Cancelado automáticamente: tiempo de pago expirado'
+		WHERE court_id = $1
+		  AND span && tstzrange(
+		        booking_starts_at($2, $3),
+		        booking_starts_at($2, $3) + make_interval(mins => $4),
+		        '[)')
+		  AND status = 'pending'
+		  AND collection_status = 'unpaid'
+		  AND created_by IS NULL
+		  AND created_at < NOW() - make_interval(secs => $5)`,
+		UUIDToPg(b.CourtID), DateToPg(b.Date), TimeStrToPg(b.StartTime),
+		b.DurationMinutes, hold.Seconds(),
+	)
+	if err != nil {
+		return fmt.Errorf("release stale pending bookings: %w", err)
+	}
+	return nil
+}
+
+// SpanTaken reports whether a live booking already covers an arbitrary stretch
+// of a court's calendar. The caller must hold lockCourtDays for the local days
+// that stretch touches.
+//
+// It is SlotTaken's question asked from the other side of the fence: the
+// blocked-slot write has a span in hand — the one blocked_slots generated for
+// the row it just inserted — rather than a booking to build one from, and it
+// wants to know whether taking those hours off sale would strand a client who
+// already holds them.
+//
+// The predicate is the canonical one, spelled the same way SlotTaken and
+// GetBookedSlots (db/queries/bookings.sql) spell it, carve-out included: an
+// owner must not be refused a block by hours the storefront is already
+// offering as free, and the storefront's definition of free is this one.
+func SpanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz], hold time.Duration) (bool, error) {
+	var taken bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM bookings
+			WHERE court_id = $1
+			  AND span && $2::tstzrange
+			  AND status NOT IN `+releasedBookingStatuses+`
+			  AND NOT (
+			    status = 'pending'
+			    AND collection_status = 'unpaid'
+			    AND created_by IS NULL
+			    AND created_at < NOW() - make_interval(secs => $3)
+			  )
+		)`,
+		UUIDToPg(courtID), span, hold.Seconds(),
+	).Scan(&taken)
+	if err != nil {
+		return false, fmt.Errorf("check bookings: %w", err)
+	}
+	return taken, nil
+}
+
+// SlotTaken reports whether a live booking already covers the hours b wants on
 // its court and date. The caller must hold lockCourtDay for that court and date.
 //
 // exclude is the booking that is allowed to be found — the row being confirmed,
@@ -224,77 +294,7 @@ const releasedBookingStatuses = `('cancelled', 'no_show')`
 // '00:00', so `end_time > $3` was false against almost any candidate and the
 // row was invisible here; and a booking filed under yesterday that runs into
 // today was excluded by the date filter before the comparison even ran.
-// releaseStalePendingOverlaps cancels the public, unpaid bookings older than
-// hold that overlap the hours b wants, so the exclusion constraint no longer
-// counts them. It is the carve-out slotTaken applies, made true in the table
-// rather than only in the query; see InsertSafe for why the two must agree.
-// The caller must hold lockCourtDay for that court and date.
-//
-// The note is the one the release cron writes, so a cancelled row reads the
-// same whichever path got there first. The cron's other work — expiring the
-// MercadoPago preference and emailing the visitor — does not happen here; a
-// payment that arrives anyway is refused by guardSlotStillFree and refunded.
-func releaseStalePendingOverlaps(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration) error {
-	_, err := tx.Exec(ctx, `
-		UPDATE bookings
-		SET status = 'cancelled',
-		    notes  = COALESCE(notes || ' | ', '') || 'Cancelado automáticamente: tiempo de pago expirado'
-		WHERE court_id = $1
-		  AND span && tstzrange(
-		        booking_starts_at($2, $3),
-		        booking_starts_at($2, $3) + make_interval(mins => $4),
-		        '[)')
-		  AND status = 'pending'
-		  AND collection_status = 'unpaid'
-		  AND created_by IS NULL
-		  AND created_at < NOW() - make_interval(secs => $5)`,
-		UUIDToPg(b.CourtID), DateToPg(b.Date), TimeStrToPg(b.StartTime),
-		b.DurationMinutes, hold.Seconds(),
-	)
-	if err != nil {
-		return fmt.Errorf("release stale pending bookings: %w", err)
-	}
-	return nil
-}
-
-// spanTaken reports whether a live booking already covers an arbitrary stretch
-// of a court's calendar. The caller must hold lockCourtDays for the local days
-// that stretch touches.
-//
-// It is slotTaken's question asked from the other side of the fence: the
-// blocked-slot write has a span in hand — the one blocked_slots generated for
-// the row it just inserted — rather than a booking to build one from, and it
-// wants to know whether taking those hours off sale would strand a client who
-// already holds them.
-//
-// The predicate is the canonical one, spelled the same way slotTaken and
-// GetBookedSlots (db/queries/bookings.sql) spell it, carve-out included: an
-// owner must not be refused a block by hours the storefront is already
-// offering as free, and the storefront's definition of free is this one.
-func spanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz], hold time.Duration) (bool, error) {
-	var taken bool
-	err := tx.QueryRow(ctx, `
-		SELECT EXISTS(
-			SELECT 1 FROM bookings
-			WHERE court_id = $1
-			  AND span && $2::tstzrange
-			  AND status NOT IN `+releasedBookingStatuses+`
-			  AND NOT (
-			    status = 'pending'
-			    AND collection_status = 'unpaid'
-			    AND created_by IS NULL
-			    AND created_at < NOW() - make_interval(secs => $3)
-			  )
-		)`,
-		UUIDToPg(courtID), span, hold.Seconds(),
-	).Scan(&taken)
-	if err != nil {
-		return false, fmt.Errorf("check bookings: %w", err)
-	}
-	return taken, nil
-}
-
-func slotTaken(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration, exclude uuid.UUID) (bool, error) {
+func SlotTaken(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration, exclude uuid.UUID) (bool, error) {
 	var taken bool
 	err := tx.QueryRow(ctx, `
 		SELECT EXISTS(

@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/crypto"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 )
 
@@ -84,7 +85,7 @@ func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
 		t.Fatalf("GetWithMPConnected: %v", err)
 	}
 
-	byID := make(map[string]*Complex, len(complexes))
+	byID := make(map[string]*data.Complex, len(complexes))
 	for _, c := range complexes {
 		byID[c.ID.String()] = c
 	}
@@ -189,7 +190,7 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 	// overwrite the first tab's change with the stale row it has in memory.
 	secondTab.Province = "Concurrency Province"
 	err = f.Models.Complexes.Update(ctx, secondTab)
-	if !errors.Is(err, ErrRecordNotFound) {
+	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("second Update (stale updated_at) = %v, want ErrRecordNotFound", err)
 	}
 
@@ -297,7 +298,7 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 	}
 
 	// The complex is gone from every live-row query...
-	if _, err := f.Models.Complexes.GetBySlug(ctx, slug); !errors.Is(err, ErrRecordNotFound) {
+	if _, err := f.Models.Complexes.GetBySlug(ctx, slug); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("a soft-deleted complex is still served publicly: %v", err)
 	}
 
@@ -320,7 +321,7 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 	// wrong error. That is not an inconvenience of the constraint; it is the
 	// constraint catching the same shape of omission that put two
 	// cancellation_hours = 0 rows in the development database.
-	err = f.Models.Complexes.Insert(ctx, &Complex{
+	err = f.Models.Complexes.Insert(ctx, &data.Complex{
 		OwnerID:           f.UserID,
 		Name:              "Reuses the deleted slug",
 		Slug:              slug,
@@ -332,7 +333,7 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 		Phone:             "+5491100000002",
 		CancellationHours: 24,
 	})
-	if !errors.Is(err, ErrDuplicateSlug) {
+	if !errors.Is(err, data.ErrDuplicateSlug) {
 		t.Errorf("Insert on a taken slug returned %v; want ErrDuplicateSlug", err)
 	}
 }

@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // This file replaces version_bypass_integration_test.go.
@@ -57,7 +58,7 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 
 	// The stale writer commits its decision.
 	inFlight.Status = "confirmed"
-	inFlight.CollectionStatus = CollectionStatusFullyPaid
+	inFlight.CollectionStatus = data.CollectionStatusFullyPaid
 	err = f.Models.Bookings.Update(ctx, inFlight)
 
 	var pgErr *pgconn.PgError
@@ -80,11 +81,11 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 	if final.Status != "cancelled" {
 		t.Errorf("final status = %q, want cancelled", final.Status)
 	}
-	if final.CollectionStatus != CollectionStatusUnpaid {
+	if final.CollectionStatus != data.CollectionStatusUnpaid {
 		t.Errorf("final collection_status = %q, want unpaid — the refused write must "+
 			"have left nothing behind", final.CollectionStatus)
 	}
-	if final.RefundStatus != RefundStatusNone {
+	if final.RefundStatus != data.RefundStatusNone {
 		t.Errorf("final refund_status = %q, want none", final.RefundStatus)
 	}
 }
@@ -113,19 +114,19 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	paid.CollectionStatus = CollectionStatusDepositPaid
+	paid.CollectionStatus = data.CollectionStatusDepositPaid
 	paid.DepositAmount = 100_000
 	if err := f.Models.Bookings.Update(ctx, paid); err != nil {
 		t.Fatalf("taking the deposit: %v", err)
 	}
 	// A refund claim goes out on that deposit. The row now carries something on
 	// both axes, which is the state the single enum could not hold at all.
-	paid.RefundStatus = RefundStatusPending
+	paid.RefundStatus = data.RefundStatusPending
 	if err := f.Models.Bookings.Update(ctx, paid); err != nil {
 		t.Fatalf("claiming the refund: %v", err)
 	}
 
-	paid.CollectionStatus = CollectionStatusUnpaid
+	paid.CollectionStatus = data.CollectionStatusUnpaid
 	err = f.Models.Bookings.Update(ctx, paid)
 
 	var pgErr *pgconn.PgError
@@ -144,10 +145,10 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("final read: %v", err)
 	}
-	if final.CollectionStatus != CollectionStatusDepositPaid {
+	if final.CollectionStatus != data.CollectionStatusDepositPaid {
 		t.Errorf("final collection_status = %q, want deposit_paid", final.CollectionStatus)
 	}
-	if final.RefundStatus != RefundStatusPending {
+	if final.RefundStatus != data.RefundStatusPending {
 		t.Errorf("final refund_status = %q, want pending — the refused write must have "+
 			"left the refund axis exactly where it was", final.RefundStatus)
 	}
@@ -157,13 +158,13 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 // what CancelFutureByComplex's `date >= CURRENT_DATE` predicate selects. The
 // date is built in UTC and pinned to midnight so the row lands on exactly one
 // local day whatever hour the suite runs at.
-func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) *Booking {
+func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) *data.Booking {
 	t.Helper()
 
 	d := time.Now().In(time.UTC).AddDate(0, 0, 7)
 	date := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
 
-	b := &Booking{
+	b := &data.Booking{
 		ComplexID:        f.ComplexID,
 		CourtID:          f.CourtID,
 		ClientID:         f.ClientID,
@@ -173,8 +174,8 @@ func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) 
 		Price:            400_000,
 		DepositAmount:    0,
 		Status:           "pending",
-		CollectionStatus: CollectionStatusUnpaid,
-		RefundStatus:     RefundStatusNone,
+		CollectionStatus: data.CollectionStatusUnpaid,
+		RefundStatus:     data.RefundStatusNone,
 	}
 	if err := f.Models.Bookings.InsertSafe(context.Background(), b); err != nil {
 		t.Fatalf("seeding the booking: %v", err)

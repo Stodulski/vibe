@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // The invariant the soft-delete cascade installs: no live court under a soft-deleted
@@ -96,7 +97,7 @@ func TestSoftDeleteCascadeOnAnAlreadyDeletedComplexIsNotFound(t *testing.T) {
 	}
 
 	_, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID)
-	if !errors.Is(err, ErrRecordNotFound) {
+	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("deleting an already-deleted complex returned %v, want ErrRecordNotFound", err)
 	}
 }
@@ -221,10 +222,10 @@ func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
 
-	if _, err := f.Models.Complexes.GetBySlug(ctx, slug); !errors.Is(err, ErrRecordNotFound) {
+	if _, err := f.Models.Complexes.GetBySlug(ctx, slug); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("the public page still resolves a deleted venue by slug: %v", err)
 	}
-	if _, err := f.Models.Complexes.GetByID(ctx, f.ComplexID); !errors.Is(err, ErrRecordNotFound) {
+	if _, err := f.Models.Complexes.GetByID(ctx, f.ComplexID); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("GetByID still resolves a deleted venue: %v", err)
 	}
 
@@ -236,7 +237,7 @@ func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
 		t.Errorf("the court listing returned %d court(s) of a deleted venue", len(courts))
 	}
 
-	if _, err := f.Models.Courts.GetByID(ctx, f.CourtID); !errors.Is(err, ErrRecordNotFound) {
+	if _, err := f.Models.Courts.GetByID(ctx, f.CourtID); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("GetByID still resolves a court of a deleted venue: %v", err)
 	}
 

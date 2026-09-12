@@ -133,8 +133,8 @@ type BookedSpan struct {
 // double-booking refusal to 23P01. Matching only the first would have turned a
 // 409 the client can act on into a 500 nobody can.
 const (
-	sqlStateUniqueViolation    = "23505"
-	sqlStateExclusionViolation = "23P01"
+	SQLStateUniqueViolation    = "23505"
+	SQLStateExclusionViolation = "23P01"
 )
 
 // isSlotAlreadySold reports whether err is the database refusing to sell the
@@ -149,10 +149,10 @@ func isSlotAlreadySold(err error) bool {
 	if !errors.As(err, &pgErr) {
 		return false
 	}
-	return pgErr.Code == sqlStateUniqueViolation || pgErr.Code == sqlStateExclusionViolation
+	return pgErr.Code == SQLStateUniqueViolation || pgErr.Code == SQLStateExclusionViolation
 }
 
-// bookingColumns is the bookings-table half of every hand-written booking
+// BookingColumns is the bookings-table half of every hand-written booking
 // SELECT in this file. There were six, and the list was typed out in all six.
 //
 // It does not make adding a column free — the scan lists that consume it are
@@ -166,7 +166,7 @@ func isSlotAlreadySold(err error) bool {
 // db/migrations/001_init.sql; a Go copy of that arithmetic would be a second definition
 // that has to agree with it silently, which is the shape of defect this whole
 // migration is unwinding.
-const bookingColumns = `b.id, b.complex_id, b.court_id, b.client_id,
+const BookingColumns = `b.id, b.complex_id, b.court_id, b.client_id,
 		       b.span,
 		       b.date, b.start_time,
 		       b.duration_minutes, b.price, b.deposit_amount, b.status,
@@ -293,7 +293,7 @@ func (m *BookingModel) InsertSafe(ctx context.Context, b *Booking) error {
 	}
 
 	// Release the stale pending bookings this one would land on. GetBookedSlots
-	// and slotTaken both treat a public, unpaid booking older than the payment
+	// and SlotTaken both treat a public, unpaid booking older than the payment
 	// expiry as no longer holding its slot, but bookings_no_overlapping_span
 	// (bookings_no_overlapping_span) cannot ask the clock and still counts it, so the insert
 	// below would die on the constraint — "duplicate booking" for a slot the
@@ -301,7 +301,7 @@ func (m *BookingModel) InsertSafe(ctx context.Context, b *Booking) error {
 	// to five minutes later. Cancelling them here, under the same court-day
 	// lock, in the same transaction, is what the cron would have done; the
 	// abandoned checkout is what the carve-out exists to override.
-	if err := releaseStalePendingOverlaps(ctx, tx, b, m.PaymentExpiry); err != nil {
+	if err := ReleaseStalePendingOverlaps(ctx, tx, b, m.PaymentExpiry); err != nil {
 		return err
 	}
 
@@ -310,7 +310,7 @@ func (m *BookingModel) InsertSafe(ctx context.Context, b *Booking) error {
 	// expiry) are excluded — same logic as GetBookedSlots so the user never sees
 	// a slot as "available" that InsertSafe would then reject. Nothing is excluded
 	// from the insert itself, so uuid.Nil is passed as the row to ignore.
-	hasCollision, err := slotTaken(ctx, tx, b, m.PaymentExpiry, uuid.Nil)
+	hasCollision, err := SlotTaken(ctx, tx, b, m.PaymentExpiry, uuid.Nil)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func (m *BookingModel) InsertSafe(ctx context.Context, b *Booking) error {
 	// Check collision with blocked slots.
 	//
 	// The overlap is asked of `span`, the generated column blocked_slots gained
-	// blocked_slots, against a candidate range built exactly the way slotTaken
+	// blocked_slots, against a candidate range built exactly the way SlotTaken
 	// builds its own: the booking's start instant plus its duration. Both sides
 	// are absolute instants, so neither can wrap and neither has to agree about
 	// which day a time of day belongs to.
@@ -392,7 +392,7 @@ func (m *BookingModel) InsertSafe(ctx context.Context, b *Booking) error {
 	b.ID = PgToUUID(id)
 	// The two instants come back on whatever clock pgx decoded them into. Put
 	// them on the product's, so a booking scanned here and one read back
-	// through bookingFromDB serialize to the same offset — the API's
+	// through BookingFromDB serialize to the same offset — the API's
 	// starts_at/ends_at are the only thing left saying which day the hours end
 	// on, and "-03:00" is what makes that legible rather than merely correct.
 	b.StartsAt = b.StartsAt.In(timezone.Argentina)
@@ -406,7 +406,7 @@ func (m *BookingModel) InsertSafe(ctx context.Context, b *Booking) error {
 	// booking with no usable link on any of its three public routes. A
 	// failing mint rolls back the booking insert via the deferred
 	// tx.Rollback above — no booking row commits without a token.
-	linkToken, err := mintLinkToken(ctx, tx, b.ID, b.EndsAt.Add(m.LinkTokenBuffer))
+	linkToken, err := MintLinkToken(ctx, tx, b.ID, b.EndsAt.Add(m.LinkTokenBuffer))
 	if err != nil {
 		return fmt.Errorf("mint booking link token: %w", err)
 	}
@@ -423,7 +423,7 @@ func (m *BookingModel) GetByID(ctx context.Context, id uuid.UUID) (*Booking, err
 	var b db.Booking
 	var courtName, clientName, clientPhone string
 	err := m.DB.QueryRow(ctx, `
-		SELECT `+bookingColumns+`,
+		SELECT `+BookingColumns+`,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
 		       COALESCE(cl.phone, '') AS client_phone
@@ -447,7 +447,7 @@ func (m *BookingModel) GetByID(ctx context.Context, id uuid.UUID) (*Booking, err
 		}
 		return nil, err
 	}
-	booking := bookingFromDB(b)
+	booking := BookingFromDB(b)
 	booking.CourtName = courtName
 	booking.ClientName = clientName
 	booking.ClientPhone = clientPhone
@@ -480,7 +480,7 @@ func (m *BookingModel) GetByComplex(ctx context.Context, complexID uuid.UUID, da
 	}
 
 	rows, err := m.DB.Query(ctx, `
-		SELECT `+bookingColumns+`,
+		SELECT `+BookingColumns+`,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
 		       COALESCE(cl.phone, '') AS client_phone
@@ -525,7 +525,7 @@ func (m *BookingModel) GetByComplex(ctx context.Context, complexID uuid.UUID, da
 		if err != nil {
 			return nil, Metadata{}, err
 		}
-		booking := bookingFromDB(b)
+		booking := BookingFromDB(b)
 		booking.CourtName = courtName
 		booking.ClientName = clientName
 		booking.ClientPhone = clientPhone
@@ -591,7 +591,7 @@ func (m *BookingModel) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []
 	dbSlots, err := m.Q.GetBookedSlots(ctx, db.GetBookedSlotsParams{
 		Column1: UUIDSliceToPg(courtIDs),
 		Day:     DateToPg(date),
-		// Same configured hold slotTaken uses (see slot_guard.go), so the
+		// Same configured hold SlotTaken uses (see slot_guard.go), so the
 		// storefront and the insert-time collision guard agree on when a
 		// stale pending booking stops blocking a slot.
 		PaymentExpirySeconds: m.PaymentExpiry.Seconds(),
@@ -628,7 +628,9 @@ func (m *BookingModel) MarkReminderSent2h(ctx context.Context, id uuid.UUID) err
 	return m.Q.MarkReminderSent2h(ctx, UUIDToPg(id))
 }
 
-func bookingFromDB(b db.Booking) *Booking {
+// BookingFromDB maps one bookings row onto the domain Booking, including the
+// start and end instants the generated span carries.
+func BookingFromDB(b db.Booking) *Booking {
 	return &Booking{
 		ID:               PgToUUID(b.ID),
 		ComplexID:        PgToUUID(b.ComplexID),
@@ -656,7 +658,7 @@ func bookingFromDB(b db.Booking) *Booking {
 func bookingsFromDB(dbBookings []db.Booking) []*Booking {
 	result := make([]*Booking, len(dbBookings))
 	for i, b := range dbBookings {
-		result[i] = bookingFromDB(b)
+		result[i] = BookingFromDB(b)
 	}
 	return result
 }
@@ -742,7 +744,7 @@ func (m *BookingModel) GetUpcomingToday(ctx context.Context, complexID uuid.UUID
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
-		SELECT `+bookingColumns+`,
+		SELECT `+BookingColumns+`,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
 		       COALESCE(cl.phone, '') AS client_phone
@@ -852,7 +854,7 @@ func (m *BookingModel) GetByClient(ctx context.Context, complexID, clientID uuid
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
-		SELECT `+bookingColumns+`,
+		SELECT `+BookingColumns+`,
 		       COALESCE(co.name, '') AS court_name,
 		       '' AS client_name,
 		       '' AS client_phone
@@ -893,7 +895,7 @@ func scanBookingsWithJoins(rows pgx.Rows) ([]*Booking, error) {
 		if err != nil {
 			return nil, err
 		}
-		booking := bookingFromDB(b)
+		booking := BookingFromDB(b)
 		booking.CourtName = courtName
 		booking.ClientName = clientName
 		booking.ClientPhone = clientPhone
@@ -957,7 +959,7 @@ func (m *BookingModel) GetForReminder2hEnriched(ctx context.Context, now time.Ti
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
-		SELECT `+bookingColumns+`,
+		SELECT `+BookingColumns+`,
 		       cl.phone, COALESCE(cl.email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours
@@ -984,7 +986,7 @@ func (m *BookingModel) GetExpiredPendingEnriched(ctx context.Context, expiry tim
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
-		SELECT `+bookingColumns+`,
+		SELECT `+BookingColumns+`,
 		       cl.phone, COALESCE(cl.email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours
@@ -1032,7 +1034,7 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 		if err != nil {
 			return nil, err
 		}
-		booking := bookingFromDB(b)
+		booking := BookingFromDB(b)
 		cb := &CronBooking{
 			Booking:           *booking,
 			ClientPhone:       clientPhone,

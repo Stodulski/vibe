@@ -1,11 +1,13 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // R1-cancelled-payment-blocked / R3-confirm-guard-blocks-autorefund /
@@ -29,7 +31,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	b := f.createBooking(t, bookingOptions{Status: "pending", CollectionStatus: CollectionStatusUnpaid})
+	b := f.createBooking(t, bookingOptions{Status: "pending", CollectionStatus: data.CollectionStatusUnpaid})
 
 	// The cancellation committing in the gap between ConfirmPayment's read and
 	// this transaction — markStatus is the same raw UPDATE the sibling
@@ -41,7 +43,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	// still says "confirmed" — exactly what it would say in production at the
 	// moment the cancellation lands.
 	b.Status = "confirmed"
-	payment := &Payment{
+	payment := &data.Payment{
 		BookingID:  b.ID,
 		ComplexID:  f.ComplexID,
 		Amount:     b.DepositAmount,
@@ -60,7 +62,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	// it did: refused, nothing written, and answered as a 409 by
 	// internal/bookings/actions.go, which names both sentinels.
 	err := f.Models.Payments.InsertAndConfirmBooking(ctx, payment, b)
-	if !errors.Is(err, ErrBookingCancelled) {
+	if !errors.Is(err, data.ErrBookingCancelled) {
 		t.Errorf("confirming a concurrently cancelled booking must be refused with ErrBookingCancelled; got %v", err)
 	}
 
@@ -96,7 +98,7 @@ func TestGuardBookingConfirmableAllowsRecordingAPaymentForAnAlreadyCancelledBook
 	// calling InsertAndConfirmBooking, precisely so the guard has nothing to
 	// object to on this path.
 	b.Status = "cancelled"
-	payment := &Payment{
+	payment := &data.Payment{
 		BookingID:  b.ID,
 		ComplexID:  f.ComplexID,
 		Amount:     b.DepositAmount,

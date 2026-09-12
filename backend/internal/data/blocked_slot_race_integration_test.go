@@ -1,12 +1,14 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // These tests cover the other direction of the blocked-slot guard: the write
@@ -80,12 +82,12 @@ func TestBlockOverALiveBookingIsRefused(t *testing.T) {
 	insertLiveBooking(t, f, date, "20:00", 60)
 
 	reason := "maintenance"
-	block := &BlockedSlot{
+	block := &data.BlockedSlot{
 		CourtID: f.CourtID, Date: date,
 		StartTime: "20:30", EndTime: "21:30", Reason: &reason,
 	}
 	err := f.Models.Courts.InsertBlockedSlot(ctx, block)
-	if !errors.Is(err, ErrSlotHasBooking) {
+	if !errors.Is(err, data.ErrSlotHasBooking) {
 		t.Fatalf("blocking 20:30-21:30 over a confirmed 20:00-21:00 booking: got err = %v, want ErrSlotHasBooking", err)
 	}
 	if n := countBlocks(t, f); n != 0 {
@@ -111,7 +113,7 @@ func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
 	release := blockCourtDay(t, f, date)
 
 	reason := "maintenance"
-	block := &BlockedSlot{
+	block := &data.BlockedSlot{
 		CourtID: f.CourtID, Date: date,
 		StartTime: "19:00", EndTime: "20:00", Reason: &reason,
 	}
@@ -126,7 +128,7 @@ func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
 	release()
 
 	err := <-result
-	if !errors.Is(err, ErrSlotHasBooking) {
+	if !errors.Is(err, data.ErrSlotHasBooking) {
 		t.Fatalf("a block filed while a booking for the same hours was committing: got err = %v, "+
 			"want ErrSlotHasBooking. The court is both sold and closed for maintenance.", err)
 	}
@@ -155,12 +157,12 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 
 	release := blockCourtDay(t, f, nextDay)
 
-	b := &Booking{
+	b := &data.Booking{
 		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
 		Date: date, StartTime: "23:00", DurationMinutes: 120,
 		Price: 500_000, DepositAmount: 150_000,
-		Status: "pending", CollectionStatus: CollectionStatusUnpaid,
-		RefundStatus: RefundStatusNone,
+		Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
+		RefundStatus: data.RefundStatusNone,
 	}
 	result := make(chan error, 1)
 	go func() { result <- f.Models.Bookings.InsertSafe(ctx, b) }()
@@ -178,7 +180,7 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 	}
 	release()
 
-	if err := <-result; !errors.Is(err, ErrSlotUnavailable) {
+	if err := <-result; !errors.Is(err, data.ErrSlotUnavailable) {
 		t.Fatalf("a 23:00 +120m booking against a 00:00-01:00 block committed on the following day: "+
 			"got err = %v, want ErrSlotUnavailable. The booking locked only its own date, so the block "+
 			"landed between its check and its COMMIT.", err)
