@@ -10,6 +10,17 @@ const t = ES_AR;
 const ACCEPTED = 'image/jpeg,image/png,image/webp';
 
 /**
+ * The bounds `compressImage` caps each kind of upload to
+ * (LOGO_OPTIONS/COVER_OPTIONS), which is what a preview's intrinsic size
+ * is: it tells the browser the ratio to reserve before the file loads
+ * (PERF-08).
+ */
+const PREVIEW_SIZE = {
+  logo: { width: 512, height: 512 },
+  cover: { width: 1280, height: 720 },
+} as const;
+
+/**
  * The logo and the cover, arranged the way the public page arranges them.
  *
  * They were two bordered cards stacked on top of each other — one container
@@ -62,6 +73,21 @@ export function ImageUpload({ complex }: { complex: Complex }) {
   );
 }
 
+/** The uploaded image itself, deferred and sized (see PREVIEW_SIZE). */
+function SlotPreview({ url, label, type }: { url: string; label: string; type: 'logo' | 'cover' }) {
+  return (
+    <img
+      src={url}
+      alt={label}
+      loading="lazy"
+      decoding="async"
+      width={PREVIEW_SIZE[type].width}
+      height={PREVIEW_SIZE[type].height}
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
 /**
  * One image: the preview, the file input behind it, and its delete control.
  *
@@ -107,7 +133,7 @@ function Slot({
         {isLoading ? (
           <div className="size-5 animate-spin rounded-full border-2 border-primary-500/30 border-t-primary-500" />
         ) : url ? (
-          <img src={url} alt={label} className="h-full w-full object-cover" />
+          <SlotPreview url={url} label={label} type={type} />
         ) : (
           empty
         )}
