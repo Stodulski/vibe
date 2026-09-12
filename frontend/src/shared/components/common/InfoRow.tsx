@@ -12,8 +12,8 @@ import type { ReactNode } from 'react';
 export function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="whitespace-nowrap text-xs font-medium text-text-tertiary">{label}</p>
-      <div className="mt-0.5 text-sm text-text-primary">{children}</div>
+      <p className="text-text-tertiary text-xs font-medium whitespace-nowrap">{label}</p>
+      <div className="text-text-primary mt-0.5 text-sm">{children}</div>
     </div>
   );
 }

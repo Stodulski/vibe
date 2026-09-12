@@ -25,7 +25,7 @@ function attendanceTone(attendance: number): string {
 function StatRow({ label, value, valueClassName }: { label: string; value: string | number; valueClassName?: string }) {
   return (
     <div>
-      <p className="text-xs font-medium text-text-tertiary">{label}</p>
+      <p className="text-text-tertiary text-xs font-medium">{label}</p>
       <p className={cn('score-text mt-0.5 text-sm font-medium', valueClassName)}>{value}</p>
     </div>
   );

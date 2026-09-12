@@ -25,8 +25,8 @@ export function OfflineBanner() {
   if (!isOffline) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 animate-fade-in" role="alert">
-      <div className="flex items-center gap-2 rounded-full border border-warning-border bg-warning-bg px-4 py-2 text-sm font-medium text-warning-text shadow-lg">
+    <div className="animate-fade-in fixed bottom-4 left-1/2 z-50 -translate-x-1/2" role="alert">
+      <div className="border-warning-border bg-warning-bg text-warning-text flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-lg">
         <WifiOff className="size-4 shrink-0" />
         {t.layout.offline}
       </div>

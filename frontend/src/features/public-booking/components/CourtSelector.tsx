@@ -104,7 +104,7 @@ export function CourtSelector({
   }
 
   if (options.length === 0) {
-    return <p className="py-8 text-center text-sm text-text-tertiary">{t.publicBooking.noAvailability}</p>;
+    return <p className="text-text-tertiary py-8 text-center text-sm">{t.publicBooking.noAvailability}</p>;
   }
 
   // Either the hours or the courts, never both — see `CourtQuestion`.

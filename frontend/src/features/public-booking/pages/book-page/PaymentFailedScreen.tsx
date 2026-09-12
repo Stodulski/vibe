@@ -30,24 +30,24 @@ export function PaymentFailedScreen({ slug }: { slug: string }) {
   const booking = readStoredBookingInfo();
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-5 px-2 py-10 text-center animate-fade-in sm:gap-6 sm:px-0 sm:py-16">
-      <XCircle className="size-12 text-error-text" aria-hidden="true" />
+    <div className="animate-fade-in mx-auto flex w-full max-w-md flex-col items-center gap-5 px-2 py-10 text-center sm:gap-6 sm:px-0 sm:py-16">
+      <XCircle className="text-error-text size-12" aria-hidden="true" />
 
       <div className="mb-4 space-y-2">
-        <h1 className="text-xl font-bold text-text-primary">{t.publicBooking.paymentFailed}</h1>
-        <p className="text-sm text-text-secondary">{t.publicBooking.paymentFailedDescription}</p>
+        <h1 className="text-text-primary text-xl font-bold">{t.publicBooking.paymentFailed}</h1>
+        <p className="text-text-secondary text-sm">{t.publicBooking.paymentFailedDescription}</p>
       </div>
 
       {booking && (
-        <div className="w-full rounded-2xl border border-border-subtle bg-bg-subtle p-4 text-left">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+        <div className="border-border-subtle bg-bg-subtle w-full rounded-2xl border p-4 text-left">
+          <p className="text-text-tertiary text-xs font-semibold tracking-wide uppercase">
             {t.publicBooking.paymentFailedSlotLabel}
           </p>
-          <p className="mt-2 text-sm font-semibold text-text-primary">{booking.courtName}</p>
-          <p className="mt-0.5 text-sm text-text-secondary">
+          <p className="text-text-primary mt-2 text-sm font-semibold">{booking.courtName}</p>
+          <p className="text-text-secondary mt-0.5 text-sm">
             {formatDateFull(booking.date)} · {formatHourRange(booking.startsAt, booking.endsAt, ' a ')}
           </p>
-          <p className="mt-0.5 text-sm tabular-nums text-text-secondary">{formatPrice(booking.price)}</p>
+          <p className="text-text-secondary mt-0.5 text-sm tabular-nums">{formatPrice(booking.price)}</p>
         </div>
       )}
 

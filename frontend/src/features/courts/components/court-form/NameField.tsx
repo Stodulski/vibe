@@ -21,7 +21,7 @@ export function NameField({ register, errors }: NameFieldProps) {
         aria-invalid={!!errors.name}
         {...register('name')}
       />
-      {errors.name && <p className="text-sm text-error-text">{errors.name.message}</p>}
+      {errors.name && <p className="text-error-text text-sm">{errors.name.message}</p>}
     </div>
   );
 }

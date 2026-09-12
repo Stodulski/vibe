@@ -41,7 +41,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
       {/* A rule does what the strip's card used to: mark where picking a day
           ends and reading that day begins. Padding above it and margin below
           keep the same air on both sides of the line. */}
-      <div className="mb-6 border-b border-border-subtle pb-6 sm:mb-8 sm:pb-8">
+      <div className="border-border-subtle mb-6 border-b pb-6 sm:mb-8 sm:pb-8">
         <DateNavStrip
           selectedDate={state.selectedDate}
           dateLabel={state.dateLabel}

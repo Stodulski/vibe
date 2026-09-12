@@ -13,13 +13,13 @@ interface OwnerInfoCardProps {
 export function OwnerInfoCard({ ownerId, ownerName, ownerEmail }: OwnerInfoCardProps) {
   return (
     <Panel size="md" className="sm:p-5">
-      <h3 className="mb-2 text-sm font-semibold text-text-primary">{t.admin.detail.ownerInfo}</h3>
+      <h3 className="text-text-primary mb-2 text-sm font-semibold">{t.admin.detail.ownerInfo}</h3>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-text-secondary">{ownerName}</p>
-          <p className="text-xs text-text-tertiary">{ownerEmail}</p>
+          <p className="text-text-secondary text-sm">{ownerName}</p>
+          <p className="text-text-tertiary text-xs">{ownerEmail}</p>
         </div>
-        <Link to={`/admin/users/${ownerId}`} className="text-xs text-primary-400 hover:underline">
+        <Link to={`/admin/users/${ownerId}`} className="text-primary-400 text-xs hover:underline">
           {t.admin.detail.viewOwnerProfile}
         </Link>
       </div>

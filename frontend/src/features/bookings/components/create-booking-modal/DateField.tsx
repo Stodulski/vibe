@@ -20,14 +20,14 @@ function DateFieldTrigger({ date, hasError }: { date: string | undefined; hasErr
       id="booking-date"
       type="button"
       className={cn(
-        'flex h-10 w-full items-center gap-2.5 rounded-xl border border-border-subtle bg-bg-base/60 px-3.5 text-sm shadow-xs outline-none transition-input',
+        'border-border-subtle bg-bg-base/60 transition-input flex h-10 w-full items-center gap-2.5 rounded-xl border px-3.5 text-sm shadow-xs outline-none',
         'hover:border-border-default hover:bg-bg-base/80',
-        'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-[3px] focus-visible:ring-primary-500/15',
+        'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-primary-500/15 focus-visible:ring-[3px]',
         date ? 'text-text-primary' : 'text-text-tertiary/70',
-        hasError && 'border-error-border bg-error-bg/30 ring-1 ring-error-text/10',
+        hasError && 'border-error-border bg-error-bg/30 ring-error-text/10 ring-1',
       )}
     >
-      <CalendarIcon className="size-4 shrink-0 text-text-tertiary" />
+      <CalendarIcon className="text-text-tertiary size-4 shrink-0" />
       <span className="truncate first-letter:uppercase">
         {date ? format(parseISO(date), "EEE d 'de' MMM yyyy", { locale: es }) : t.bookings.selectDate}
       </span>

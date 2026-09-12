@@ -15,7 +15,7 @@ export function MobileNavSheet({ open, onOpenChange, sidebar }: MobileNavSheetPr
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="left"
-        className="w-[280px] max-w-[85vw] gap-0 p-0 bg-bg-base border-border-subtle"
+        className="bg-bg-base border-border-subtle w-[280px] max-w-[85vw] gap-0 p-0"
         showCloseButton={false}
       >
         <VisuallyHidden>

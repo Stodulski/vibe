@@ -14,7 +14,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, to = '/', label }: HeaderProps) {
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-base px-4 md:hidden safe-area-inset">
+    <header className="border-border-subtle bg-bg-base safe-area-inset flex h-16 shrink-0 items-center justify-between border-b px-4 md:hidden">
       <Button
         variant="ghost"
         size="icon"
@@ -25,7 +25,7 @@ export function Header({ onMenuClick, to = '/', label }: HeaderProps) {
         <Menu className="size-5" aria-hidden="true" />
       </Button>
       <Link to={to} className="flex items-center gap-2">
-        {label && <span className="text-xs font-medium text-primary-400">{label}</span>}
+        {label && <span className="text-primary-400 text-xs font-medium">{label}</span>}
         <Logo />
       </Link>
     </header>

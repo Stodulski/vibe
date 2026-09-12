@@ -51,7 +51,7 @@ export function ConfirmDialog({
         // restyle and says nothing about behaviour.
         data-variant={variant}
         className={cn(
-          'overflow-hidden rounded-2xl border bg-bg-subtle p-0',
+          'bg-bg-subtle overflow-hidden rounded-2xl border p-0',
           // Reuses the existing --shadow-lg token instead of a near-duplicate literal.
           'border-border-subtle shadow-lg',
           'sm:max-w-md',
@@ -60,7 +60,7 @@ export function ConfirmDialog({
         {/* Accent top border */}
         <div className={cn('h-[2px] w-full', isDestructive ? 'bg-error-text' : 'bg-primary-500')} />
 
-        <div className="px-6 pb-6 pt-5">
+        <div className="px-6 pt-5 pb-6">
           <ConfirmDialogHeader isDestructive={isDestructive} title={title} description={description} />
           <ConfirmDialogFooter
             isDestructive={isDestructive}

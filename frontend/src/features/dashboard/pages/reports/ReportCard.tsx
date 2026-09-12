@@ -21,8 +21,8 @@ interface ReportCardProps {
 export function ReportCard({ month, year, state }: ReportCardProps) {
   return (
     <Panel as="section" size="md">
-      <h2 className="mb-1 text-sm font-semibold text-text-primary">{t.reports.monthlyTitle}</h2>
-      <p className="mb-4 text-xs text-text-tertiary">
+      <h2 className="text-text-primary mb-1 text-sm font-semibold">{t.reports.monthlyTitle}</h2>
+      <p className="text-text-tertiary mb-4 text-xs">
         {MONTH_NAMES[month - 1]} {year}
       </p>
 

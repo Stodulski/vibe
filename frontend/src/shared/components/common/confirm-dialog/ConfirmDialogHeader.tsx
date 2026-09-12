@@ -21,10 +21,10 @@ export function ConfirmDialogHeader({ isDestructive, title, description }: Confi
         {isDestructive ? <AlertTriangle className="size-5" /> : <Info className="size-5" />}
       </div>
 
-      <AlertDialogTitle className="font-display text-base font-bold tracking-tight text-text-primary sm:text-lg">
+      <AlertDialogTitle className="font-display text-text-primary text-base font-bold tracking-tight sm:text-lg">
         {title}
       </AlertDialogTitle>
-      <AlertDialogDescription className="text-nav leading-relaxed text-text-secondary">
+      <AlertDialogDescription className="text-nav text-text-secondary leading-relaxed">
         {description}
       </AlertDialogDescription>
     </AlertDialogHeader>

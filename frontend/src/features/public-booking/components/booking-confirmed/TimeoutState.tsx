@@ -23,13 +23,13 @@ export function TimeoutState({ bookingInfo, onRetry }: TimeoutStateProps) {
       {bookingInfo?.complexPhone && (
         <a
           href={`tel:${bookingInfo.complexPhone}`}
-          className="mt-1 flex min-h-12 items-center gap-1.5 text-sm text-primary-400 transition-colors hover:text-primary-300"
+          className="text-primary-400 hover:text-primary-300 mt-1 flex min-h-12 items-center gap-1.5 text-sm transition-colors"
         >
           <Phone className="size-3.5" />
           {bookingInfo.complexPhone}
         </a>
       )}
-      <Button variant="outline" className="min-h-12 mt-2 rounded-xl" onClick={onRetry}>
+      <Button variant="outline" className="mt-2 min-h-12 rounded-xl" onClick={onRetry}>
         {t.publicBooking.makeAnother}
       </Button>
     </StatusHero>

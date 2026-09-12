@@ -26,7 +26,7 @@ interface ComplexDetailsProps {
  */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-t border-border-subtle pt-5">
+    <section className="border-border-subtle border-t pt-5">
       <h2 className="sr-only">{title}</h2>
       {children}
     </section>
@@ -69,7 +69,7 @@ export function ComplexDetails({ schedules, amenities, selectedDate }: ComplexDe
   }
 
   return (
-    <Accordion type="single" collapsible defaultValue="schedules" className="border-t border-border-subtle">
+    <Accordion type="single" collapsible defaultValue="schedules" className="border-border-subtle border-t">
       <AccordionItem value="schedules">
         <AccordionTrigger>{t.complex.schedules}</AccordionTrigger>
         <AccordionContent>

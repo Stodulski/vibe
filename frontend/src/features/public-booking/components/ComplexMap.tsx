@@ -68,13 +68,13 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${String(latitude)},${String(longitude)}`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border-subtle">
+    <div className="border-border-subtle overflow-hidden rounded-xl border">
       <MapContainer
         center={[latitude, longitude]}
         zoom={15}
         scrollWheelZoom={false}
         dragging={!('ontouchstart' in window)}
-        className="h-[200px] w-full z-0"
+        className="z-0 h-[200px] w-full"
         ref={setMap}
       >
         <TileLayer
@@ -85,7 +85,7 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
           <Popup>
             <span className="text-xs font-medium">{name}</span>
             <br />
-            <span className="text-xs text-text-secondary">{address}</span>
+            <span className="text-text-secondary text-xs">{address}</span>
           </Popup>
         </Marker>
       </MapContainer>
@@ -93,7 +93,7 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
         href={googleMapsUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 bg-bg-subtle px-4 py-2.5 text-xs font-medium text-primary-400 transition-colors hover:bg-bg-base hover:text-primary-300"
+        className="bg-bg-subtle text-primary-400 hover:bg-bg-base hover:text-primary-300 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors"
       >
         <ExternalLink className="size-3.5" />
         {t.complex.viewOnGoogleMaps}

@@ -92,7 +92,7 @@ export function FreeSlotButton({
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute inset-x-px top-0 rounded-md border border-transparent transition-all group-hover:border-primary-400/60 group-hover:bg-primary-400/10 group-focus-visible:border-primary-400 group-focus-visible:bg-primary-400/15 group-data-[open]:border-primary-400 group-data-[open]:bg-primary-400/15',
+          'group-hover:border-primary-400/60 group-hover:bg-primary-400/10 group-focus-visible:border-primary-400 group-focus-visible:bg-primary-400/15 group-data-[open]:border-primary-400 group-data-[open]:bg-primary-400/15 pointer-events-none absolute inset-x-px top-0 rounded-md border border-transparent transition-all',
           runsPastToday && 'rounded-b-none border-b-0',
         )}
         style={{ height: `${String(highlightPx)}px` }}

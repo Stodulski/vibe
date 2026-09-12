@@ -82,7 +82,7 @@ export const TurnstileField = forwardRef<TurnstileFieldHandle, TurnstileFieldPro
       {/* Always mounted so the live region exists before the text inside it
           changes — an aria-live element created with content already in it
           is not guaranteed to be announced. */}
-      <p aria-live="polite" className="text-xs text-error-text">
+      <p aria-live="polite" className="text-error-text text-xs">
         {challengeFailed ? t.auth.turnstileChallengeError : ''}
       </p>
     </div>

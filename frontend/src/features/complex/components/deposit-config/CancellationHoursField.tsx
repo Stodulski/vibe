@@ -23,7 +23,7 @@ export function CancellationHoursField({
     >
       {/* Sized for three digits — the ceiling is 168 hours. */}
       <div className="relative w-28">
-        <Clock className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-tertiary" />
+        <Clock className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
         <Input
           id="cancellation_hours"
           type="number"

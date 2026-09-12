@@ -60,7 +60,7 @@ export function ScheduleDayRow({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle py-3 last:border-0',
+        'border-border-subtle flex flex-wrap items-center gap-x-4 gap-y-2 border-b py-3 last:border-0',
         isClosed && 'text-text-tertiary',
       )}
     >
@@ -68,7 +68,7 @@ export function ScheduleDayRow({
 
       <div className="order-3 flex w-full items-center gap-2 sm:order-2 sm:flex-1">
         {isClosed ? (
-          <span className="text-xs text-text-tertiary">{t.complex.closedAllDay}</span>
+          <span className="text-text-tertiary text-xs">{t.complex.closedAllDay}</span>
         ) : (
           <OpeningHours
             dayName={dayName}
@@ -107,7 +107,7 @@ function OpeningHours({
   return (
     <>
       <TimeSelect value={openTime} aria-label={`${dayName}: ${t.complex.openTime}`} onChange={onOpenChange} />
-      <span className="shrink-0 text-micro text-text-tertiary">{t.complex.timeRangeJoiner}</span>
+      <span className="text-micro text-text-tertiary shrink-0">{t.complex.timeRangeJoiner}</span>
       <TimeSelect value={closeTime} aria-label={`${dayName}: ${t.complex.closeTime}`} onChange={onCloseChange} />
     </>
   );

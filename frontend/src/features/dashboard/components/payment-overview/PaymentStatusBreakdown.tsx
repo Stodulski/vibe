@@ -27,8 +27,8 @@ export function PaymentStatusBreakdown({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-sm font-semibold uppercase tracking-wider text-text-tertiary">{t.dashboard.paymentStatus}</p>
-      {statusEntries.length === 0 && <p className="text-sm text-text-tertiary">{t.dashboard.noBookingsToday}</p>}
+      <p className="text-text-tertiary text-sm font-semibold tracking-wider uppercase">{t.dashboard.paymentStatus}</p>
+      {statusEntries.length === 0 && <p className="text-text-tertiary text-sm">{t.dashboard.noBookingsToday}</p>}
       {statusEntries.map(([key, val]) => {
         // Widened on the way in, not on the way out: STATUS_CONFIG stays an
         // exhaustive Record so a new collection status fails to compile here,
@@ -50,7 +50,7 @@ export function PaymentStatusBreakdown({
                 figure read as "$0 pending" instead of "nothing to show
                 here". */}
             {val.total > 0 && (
-              <span className="score-text font-medium text-text-primary">{formatPrice(val.total)}</span>
+              <span className="score-text text-text-primary font-medium">{formatPrice(val.total)}</span>
             )}
           </div>
         );

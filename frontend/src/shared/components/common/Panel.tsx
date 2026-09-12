@@ -25,7 +25,7 @@ interface PanelProps extends ComponentProps<'div'> {
 export function Panel({ size = 'md', as: Tag = 'div', className, ...props }: PanelProps) {
   return (
     <Tag
-      className={cn('rounded-2xl border border-border-subtle bg-bg-subtle', PANEL_SIZES[size], className)}
+      className={cn('border-border-subtle bg-bg-subtle rounded-2xl border', PANEL_SIZES[size], className)}
       {...props}
     />
   );

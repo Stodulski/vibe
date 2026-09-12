@@ -21,12 +21,12 @@ interface ClientInsightsCardProps {
 
 function ClientInsightsSkeleton() {
   return (
-    <section className="flex h-full flex-col rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-5">
+    <section className="border-border-subtle bg-bg-subtle flex h-full flex-col rounded-2xl border p-4 sm:p-5">
       <Skeleton className="mb-4 h-4 w-24" />
 
       <div className="mb-4 grid grid-cols-3 gap-2">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="rounded-lg bg-bg-base/40 px-2.5 py-2">
+          <div key={i} className="bg-bg-base/40 rounded-lg px-2.5 py-2">
             <Skeleton className="mx-auto h-5 w-8" />
             <Skeleton className="mx-auto mt-1.5 h-3 w-12" />
           </div>
@@ -57,9 +57,9 @@ export function ClientInsightsCard({ data, isLoading, isError, onRetry, complexI
 
   if (isError) {
     return (
-      <section className="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-border-subtle bg-bg-subtle p-4 text-center sm:p-5">
-        <AlertTriangle className="size-5 text-error-icon" aria-hidden="true" />
-        <p className="text-sm text-text-tertiary">{t.common.loadError}</p>
+      <section className="border-border-subtle bg-bg-subtle flex h-full flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center sm:p-5">
+        <AlertTriangle className="text-error-icon size-5" aria-hidden="true" />
+        <p className="text-text-tertiary text-sm">{t.common.loadError}</p>
         <Button variant="outline" size="sm" onClick={onRetry}>
           {t.layout.retry}
         </Button>
@@ -71,8 +71,8 @@ export function ClientInsightsCard({ data, isLoading, isError, onRetry, complexI
 
   if (!data) {
     return (
-      <section className="flex h-full flex-col rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-5">
-        <h3 className="mb-4 text-sm font-semibold text-text-primary">{t.dashboard.clientsTitle}</h3>
+      <section className="border-border-subtle bg-bg-subtle flex h-full flex-col rounded-2xl border p-4 sm:p-5">
+        <h3 className="text-text-primary mb-4 text-sm font-semibold">{t.dashboard.clientsTitle}</h3>
         <div className="flex flex-1 items-center justify-center">
           <EmptyState icon={Users} title={t.dashboard.noClientData} description="" />
         </div>
@@ -81,8 +81,8 @@ export function ClientInsightsCard({ data, isLoading, isError, onRetry, complexI
   }
 
   return (
-    <section className="flex h-full flex-col rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-5">
-      <h3 className="mb-4 text-sm font-semibold text-text-primary">{t.dashboard.clientsTitle}</h3>
+    <section className="border-border-subtle bg-bg-subtle flex h-full flex-col rounded-2xl border p-4 sm:p-5">
+      <h3 className="text-text-primary mb-4 text-sm font-semibold">{t.dashboard.clientsTitle}</h3>
       <ClientMetricsRow data={data} />
       <TopClientsList top={data.top} onSelect={detail.handleSelectTopClient} />
       <ClientInsightsDetailModals detail={detail} complexId={complexId} />

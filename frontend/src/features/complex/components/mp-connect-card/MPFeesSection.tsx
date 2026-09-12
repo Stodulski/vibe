@@ -25,45 +25,45 @@ export function MPFeesSection({ province }: { province: string }) {
   // No spinner: this sits under a card that already finished loading, and a
   // second spinner appearing below it reads as the page still not being ready.
   if (isLoading) {
-    return <div className="mt-4 h-32 animate-pulse rounded-lg bg-bg-elevated" aria-hidden="true" />;
+    return <div className="bg-bg-elevated mt-4 h-32 animate-pulse rounded-lg" aria-hidden="true" />;
   }
 
   const grupo = data ? matchMPFeesGroup(province, data.grupos) : undefined;
 
   if (isError || !data) {
-    return <p className="mt-4 border-t border-border-subtle pt-4 text-xs text-text-tertiary">{t.mp.feesLoadError}</p>;
+    return <p className="border-border-subtle text-text-tertiary mt-4 border-t pt-4 text-xs">{t.mp.feesLoadError}</p>;
   }
 
   if (!grupo) {
     return (
-      <p className="mt-4 border-t border-border-subtle pt-4 text-xs text-text-tertiary">
+      <p className="border-border-subtle text-text-tertiary mt-4 border-t pt-4 text-xs">
         {t.mp.feesNotFound} {province}. <SourceLink href={data.fuente} />
       </p>
     );
   }
 
   return (
-    <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+    <div className="border-border-subtle mt-4 space-y-3 border-t pt-4">
+      <p className="text-text-tertiary text-xs font-semibold tracking-wider uppercase">
         {t.mp.feesTitleIn} {province}
       </p>
 
       <table className="w-full text-sm" aria-label={t.mp.feesTitle}>
         <thead>
-          <tr className="border-b border-border-subtle text-left">
-            <th scope="col" className="pb-2 pr-4 text-xs font-medium text-text-tertiary">
+          <tr className="border-border-subtle border-b text-left">
+            <th scope="col" className="text-text-tertiary pr-4 pb-2 text-xs font-medium">
               {t.mp.feesPlazo}
             </th>
-            <th scope="col" className="pb-2 text-right text-xs font-medium text-text-tertiary">
+            <th scope="col" className="text-text-tertiary pb-2 text-right text-xs font-medium">
               {t.mp.feesRate}
             </th>
           </tr>
         </thead>
         <tbody>
           {data.plazos.map((plazo, index) => (
-            <tr key={plazo} className="border-b border-border-subtle/50 last:border-0">
-              <td className="py-2 pr-4 text-text-secondary">{plazo}</td>
-              <td className="py-2 text-right font-medium text-text-primary tabular-nums">
+            <tr key={plazo} className="border-border-subtle/50 border-b last:border-0">
+              <td className="text-text-secondary py-2 pr-4">{plazo}</td>
+              <td className="text-text-primary py-2 text-right font-medium tabular-nums">
                 {formatRate(grupo.tasas[index] ?? 0)}
               </td>
             </tr>

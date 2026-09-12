@@ -17,16 +17,16 @@ export function PublicLinkBar({ publicUrl, copied, onCopy }: PublicLinkBarProps)
 
   return (
     <div className="mb-3 flex items-center gap-2 sm:mb-4">
-      <span className="min-w-0 truncate text-sm text-primary-400" title={publicUrl}>
+      <span className="text-primary-400 min-w-0 truncate text-sm" title={publicUrl}>
         {displayUrl}
       </span>
       {/* Sized to the line of text it sits next to; touch devices still get
           the 44px target from the global pointer:coarse rule. */}
       <button
         onClick={onCopy}
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-base px-2.5 text-sm font-medium text-primary-400 transition-colors hover:bg-bg-overlay"
+        className="border-border-subtle bg-bg-base text-primary-400 hover:bg-bg-overlay inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium transition-colors"
       >
-        {copied ? <Check className="size-3.5 text-success-text" /> : <Copy className="size-3.5 text-primary-400" />}
+        {copied ? <Check className="text-success-text size-3.5" /> : <Copy className="text-primary-400 size-3.5" />}
         <span className="hidden sm:inline">{t.dashboard.copyLink}</span>
         <span className="sr-only sm:hidden">{t.dashboard.copyLink}</span>
       </button>

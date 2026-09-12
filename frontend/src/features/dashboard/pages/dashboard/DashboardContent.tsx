@@ -11,7 +11,7 @@ const ClientInsightsCard = lazy(() => import('@/features/dashboard/components/Cl
 const OccupancyHeatmap = lazy(() => import('@/features/dashboard/components/OccupancyHeatmap'));
 
 function ChartSkeleton() {
-  return <div className="h-80 animate-pulse rounded-xl bg-bg-subtle" />;
+  return <div className="bg-bg-subtle h-80 animate-pulse rounded-xl" />;
 }
 
 interface DashboardContentProps {
@@ -44,7 +44,7 @@ export function DashboardContent({
           the operational block above so the squint test reads two clear
           zones (Practical UI ch.4 p.164-178, p.187). */}
       <div className="mt-8 hidden md:flex md:flex-col md:gap-4 lg:gap-6">
-        <h2 className="text-sm font-semibold text-text-tertiary">{t.dashboard.trends}</h2>
+        <h2 className="text-text-tertiary text-sm font-semibold">{t.dashboard.trends}</h2>
 
         <div className="offscreen-section">
           <Suspense fallback={<ChartSkeleton />}>

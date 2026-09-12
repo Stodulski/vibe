@@ -16,15 +16,15 @@ const t = ES_AR;
 export function ForbiddenPage() {
   usePageTitle(t.layout.forbiddenTitle);
   return (
-    <div className="relative flex min-h-dvh flex-col bg-bg-base">
+    <div className="bg-bg-base relative flex min-h-dvh flex-col">
       <MeshBackdrop />
       <AppHeader />
       <div className="flex flex-1 items-center justify-center p-6">
         <div className="text-center">
-          <h1 className="text-6xl font-bold text-text-tertiary">403</h1>
-          <p className="mt-2 text-lg font-semibold text-text-primary">{t.layout.forbiddenTitle}</p>
-          <p className="mt-1 text-sm text-text-secondary">{t.layout.forbiddenDescription}</p>
-          <Link to="/" className="mt-4 inline-block text-sm font-medium text-primary-400 hover:underline">
+          <h1 className="text-text-tertiary text-6xl font-bold">403</h1>
+          <p className="text-text-primary mt-2 text-lg font-semibold">{t.layout.forbiddenTitle}</p>
+          <p className="text-text-secondary mt-1 text-sm">{t.layout.forbiddenDescription}</p>
+          <Link to="/" className="text-primary-400 mt-4 inline-block text-sm font-medium hover:underline">
             {t.layout.backHome}
           </Link>
         </div>

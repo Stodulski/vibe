@@ -41,7 +41,7 @@ export function ResetPasswordForm({ loading, onSubmit }: ResetPasswordFormProps)
           autoComplete="new-password"
           aria-invalid={!!errors.password}
           aria-describedby={errors.password ? 'password-error' : undefined}
-          className="h-11 pl-9 pr-10 text-sm sm:h-10"
+          className="h-11 pr-10 pl-9 text-sm sm:h-10"
           {...register('password')}
         />
         <button
@@ -49,7 +49,7 @@ export function ResetPasswordForm({ loading, onSubmit }: ResetPasswordFormProps)
           onClick={() => {
             setShowPassword(!showPassword);
           }}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-text-tertiary transition-colors hover:text-text-secondary"
+          className="text-text-tertiary hover:text-text-secondary absolute top-1/2 right-1.5 -translate-y-1/2 rounded-lg p-2 transition-colors"
           aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
         >
           {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -71,10 +71,10 @@ export function ResetPasswordForm({ loading, onSubmit }: ResetPasswordFormProps)
         )}
       </Button>
 
-      <p className="!mt-4 text-center text-sm text-text-tertiary">
+      <p className="text-text-tertiary !mt-4 text-center text-sm">
         <Link
           to="/login"
-          className="font-medium text-primary-400 underline-offset-4 transition-colors hover:text-primary-300 hover:underline"
+          className="text-primary-400 hover:text-primary-300 font-medium underline-offset-4 transition-colors hover:underline"
         >
           {t.auth.goToLogin}
         </Link>

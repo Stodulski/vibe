@@ -18,9 +18,9 @@ interface TopClientsListProps {
 export function TopClientsList({ top, onSelect }: TopClientsListProps) {
   return (
     <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t.dashboard.topLoyal}</p>
+      <p className="text-text-tertiary mb-2 text-xs font-semibold tracking-wider uppercase">{t.dashboard.topLoyal}</p>
       {top.length === 0 ? (
-        <p className="py-2.5 text-xs text-text-tertiary">{t.dashboard.noTopClients}</p>
+        <p className="text-text-tertiary py-2.5 text-xs">{t.dashboard.noTopClients}</p>
       ) : (
         <ul className="space-y-1">
           {Array.from({ length: TOP_ROWS }, (_, i) => top[i] ?? null).map((client, i) => (
@@ -31,12 +31,12 @@ export function TopClientsList({ top, onSelect }: TopClientsListProps) {
                 onClick={() => {
                   if (client) onSelect(client);
                 }}
-                className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left transition-colors enabled:hover:bg-bg-base/40 disabled:cursor-default"
+                className="enabled:hover:bg-bg-base/40 flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left transition-colors disabled:cursor-default"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
                   <span
                     className={cn(
-                      'score-text flex size-5 shrink-0 items-center justify-center rounded-full text-micro font-bold',
+                      'score-text text-micro flex size-5 shrink-0 items-center justify-center rounded-full font-bold',
                       client ? 'bg-primary-500/10 text-primary-400' : 'bg-bg-base/60 text-text-disabled',
                     )}
                   >
@@ -48,11 +48,11 @@ export function TopClientsList({ top, onSelect }: TopClientsListProps) {
                 </div>
                 {client && (
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs text-text-tertiary">{client.booking_count} res.</span>
-                    <span className="score-text text-xs font-medium text-text-secondary">
+                    <span className="text-text-tertiary text-xs">{client.booking_count} res.</span>
+                    <span className="score-text text-text-secondary text-xs font-medium">
                       {formatPrice(client.total_spent)}
                     </span>
-                    <ChevronRight className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
+                    <ChevronRight className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
                   </div>
                 )}
               </button>

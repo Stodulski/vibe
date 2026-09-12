@@ -26,11 +26,11 @@ export function SubmitFooter({ isLoading, totalOnline, type, onClick }: SubmitFo
     <div className="space-y-2 pt-1">
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-text-secondary">{t.publicBooking.totalOnline}</span>
-        <span className="font-semibold tabular-nums text-text-primary">{formatPrice(totalOnline)}</span>
+        <span className="text-text-primary font-semibold tabular-nums">{formatPrice(totalOnline)}</span>
       </div>
       <Button
         type={type}
-        className="h-14 w-full rounded-xl text-base font-semibold shadow-brand"
+        className="shadow-brand h-14 w-full rounded-xl text-base font-semibold"
         disabled={isLoading}
         aria-busy={isLoading}
         onClick={onClick}

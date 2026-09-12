@@ -40,14 +40,14 @@ export function RevenueChart({ complexId }: RevenueChartProps) {
 
   return (
     <section
-      className="flex h-72 flex-col rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-5 xl:h-full"
+      className="border-border-subtle bg-bg-subtle flex h-72 flex-col rounded-2xl border p-4 sm:p-5 xl:h-full"
       aria-label={t.dashboard.revenue}
     >
       <div className="mb-4 flex items-start justify-between gap-3 sm:mb-5">
         <div className="min-w-0">
-          <h3 className="whitespace-nowrap text-sm font-semibold text-text-primary">{t.dashboard.revenue}</h3>
+          <h3 className="text-text-primary text-sm font-semibold whitespace-nowrap">{t.dashboard.revenue}</h3>
           {state.status !== 'loading' && (
-            <p className="score-text mt-0.5 whitespace-nowrap text-lg font-bold text-text-primary sm:text-xl">
+            <p className="score-text text-text-primary mt-0.5 text-lg font-bold whitespace-nowrap sm:text-xl">
               {formatPrice(total)}
             </p>
           )}

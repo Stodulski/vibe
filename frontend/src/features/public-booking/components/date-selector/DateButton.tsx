@@ -40,24 +40,24 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
       onKeyDown={onKeyDown}
       disabled={closed}
       className={cn(
-        'flex shrink-0 flex-col items-center rounded-2xl border px-3.5 py-2.5 text-center transition-colors duration-200 min-w-[72px] press-scale',
+        'press-scale flex min-w-[72px] shrink-0 flex-col items-center rounded-2xl border px-3.5 py-2.5 text-center transition-colors duration-200',
         isSelected
           ? 'border-primary-500 bg-primary-500/10 text-primary-400 shadow-brand'
           : 'border-border-subtle bg-bg-subtle text-text-secondary hover:border-border-default hover:bg-bg-overlay',
-        closed && 'cursor-not-allowed opacity-30 hover:border-border-subtle hover:bg-bg-subtle',
+        closed && 'hover:border-border-subtle hover:bg-bg-subtle cursor-not-allowed opacity-30',
       )}
     >
       {isToday && (
-        <span className="mb-0.5 text-xs font-bold uppercase tracking-wider text-primary-400">
+        <span className="text-primary-400 mb-0.5 text-xs font-bold tracking-wider uppercase">
           {t.publicBooking.today}
         </span>
       )}
-      <span className="text-xs capitalize text-text-tertiary">{format(date, 'EEE', { locale: es })}</span>
+      <span className="text-text-tertiary text-xs capitalize">{format(date, 'EEE', { locale: es })}</span>
       <span className={cn('text-lg font-bold', isSelected ? 'text-primary-400' : 'text-text-primary')}>
         {format(date, 'd')}
       </span>
-      <span className="text-xs capitalize text-text-tertiary">{format(date, 'MMM', { locale: es })}</span>
-      {closed && <span className="mt-0.5 text-xs font-medium text-error-text">{t.publicBooking.closed}</span>}
+      <span className="text-text-tertiary text-xs capitalize">{format(date, 'MMM', { locale: es })}</span>
+      {closed && <span className="text-error-text mt-0.5 text-xs font-medium">{t.publicBooking.closed}</span>}
     </button>
   );
 });

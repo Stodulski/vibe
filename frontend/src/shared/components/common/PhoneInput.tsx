@@ -43,7 +43,7 @@ export function PhoneInput({
       <span
         aria-hidden="true"
         className={cn(
-          'flex h-10 shrink-0 select-none items-center rounded-l-xl border border-r-0 border-border-interactive bg-bg-subtle px-2.5 text-sm text-text-secondary',
+          'border-border-interactive bg-bg-subtle text-text-secondary flex h-10 shrink-0 items-center rounded-l-xl border border-r-0 px-2.5 text-sm select-none',
           disabled && 'opacity-50',
           selectClassName,
         )}

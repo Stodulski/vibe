@@ -65,7 +65,7 @@ export default function SettingsPage() {
             that fills the width anyway, so it spent 32px of a 320px screen
             saying nothing. On a wide screen it earns its keep: it is what marks
             the section off from the space beside it. */}
-        <div className="min-w-0 flex-1 lg:max-w-[39rem] lg:rounded-2xl lg:border lg:border-border-subtle lg:bg-bg-subtle lg:p-6">
+        <div className="lg:border-border-subtle lg:bg-bg-subtle min-w-0 flex-1 lg:max-w-[39rem] lg:rounded-2xl lg:border lg:p-6">
           <SettingsTabContent activeTab={activeTab} complex={complex} />
         </div>
       </div>

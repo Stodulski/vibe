@@ -24,7 +24,7 @@ export function AdminNav({ collapsed, isMobile, onNavigate }: AdminNavProps) {
     to === '/admin' ? location.pathname === '/admin' : location.pathname.startsWith(to);
 
   return (
-    <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-1" aria-label={t.layout.mainNav}>
+    <nav className="flex-1 overflow-x-hidden overflow-y-auto px-3 pt-1" aria-label={t.layout.mainNav}>
       <div className="space-y-0.5">
         {adminNavItems.map((item) => (
           <SidebarNavLink

@@ -19,13 +19,13 @@ export function MobileComplexCard({ complex, onClick }: MobileComplexCardProps) 
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-text-primary">{complex.name}</p>
+          <p className="text-text-primary truncate text-sm font-medium">{complex.name}</p>
           {!complex.is_active && <ActiveStatusBadge isActive={false} className="text-micro px-1.5 py-0" />}
         </div>
-        <p className="truncate text-xs text-text-tertiary">
+        <p className="text-text-tertiary truncate text-xs">
           {complex.city} &middot; {complex.owner_name}
         </p>
-        <div className="mt-1 flex items-center gap-3 text-xs text-text-tertiary">
+        <div className="text-text-tertiary mt-1 flex items-center gap-3 text-xs">
           <span>
             {complex.courts_count} {t.admin.complexes.courts.toLowerCase()}
           </span>
@@ -37,7 +37,7 @@ export function MobileComplexCard({ complex, onClick }: MobileComplexCardProps) 
           )}
         </div>
       </div>
-      <ChevronRight className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
+      <ChevronRight className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
     </TappableCard>
   );
 }

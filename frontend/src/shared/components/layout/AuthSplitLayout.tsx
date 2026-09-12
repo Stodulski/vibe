@@ -14,7 +14,7 @@ interface AuthSplitLayoutProps {
  */
 export function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
   return (
-    <div className="relative flex min-h-dvh flex-col bg-bg-base md:h-dvh md:overflow-hidden">
+    <div className="bg-bg-base relative flex min-h-dvh flex-col md:h-dvh md:overflow-hidden">
       <MeshBackdrop />
 
       {/* Desktop: a real 50/50 flex row — image and form grow equally, with
@@ -45,10 +45,10 @@ export function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
             one line above the content, so on the status pages (mail sent,
             verified, link expired) the brand mark and the page's own icon
             stacked into two emblems glued together. */}
-        <div className="flex flex-1 flex-col px-5 pb-8 pt-6 sm:px-6 md:grow md:min-h-0 md:items-center md:justify-center md:overflow-y-auto md:py-8 md:pl-0 md:pr-8">
+        <div className="flex flex-1 flex-col px-5 pt-6 pb-8 sm:px-6 md:min-h-0 md:grow md:items-center md:justify-center md:overflow-y-auto md:py-8 md:pr-8 md:pl-0">
           <Logo size="lg" alt="" className="mx-auto md:hidden" />
           <div className="flex w-full flex-1 flex-col items-center justify-center md:flex-none">
-            <div className="w-full max-w-md animate-auth-card-in md:max-w-sm lg:max-w-md">{children}</div>
+            <div className="animate-auth-card-in w-full max-w-md md:max-w-sm lg:max-w-md">{children}</div>
           </div>
         </div>
       </div>

@@ -25,7 +25,7 @@ export function NotesField({ register }: NotesFieldProps) {
         onClick={() => {
           setNotesOpen((v) => !v);
         }}
-        className="flex min-h-[44px] items-center gap-1.5 text-sm text-text-tertiary hover:text-text-secondary transition-colors"
+        className="text-text-tertiary hover:text-text-secondary flex min-h-[44px] items-center gap-1.5 text-sm transition-colors"
         aria-expanded={notesOpen}
         aria-controls={NOTES_TEXTAREA_ID}
       >

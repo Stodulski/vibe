@@ -57,7 +57,7 @@ export function SlotDurationMenu({
       <PopoverContent side="top" align="center" sideOffset={6} collisionPadding={8} className="w-40 p-2">
         {open && (
           <>
-            <p className="score-text mb-1.5 px-1 text-xs text-text-tertiary">
+            <p className="score-text text-text-tertiary mb-1.5 px-1 text-xs">
               {open.courtName} · {formatTime(open.slot)}
             </p>
             <DurationChoices durations={open.durations} onPreview={onPreview} onPick={onPick} />

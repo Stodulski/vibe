@@ -60,7 +60,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
           );
         })}
       </nav>
-      <p className="text-xs font-semibold text-text-primary sm:hidden">
+      <p className="text-text-primary text-xs font-semibold sm:hidden">
         {t.publicBooking.stepOfPrefix} {currentStep} {t.publicBooking.stepOfMiddle} {STEPS.length}: {activeLabel}
       </p>
     </div>

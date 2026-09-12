@@ -50,7 +50,7 @@ export function BlockedSlotDetail({ open, onClose, slot, onDelete, isDeleting }:
         />
 
         {/* Only the body scrolls; the header and the action stay put. */}
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-8 pt-4 sm:px-6">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
           <InfoRow label={t.bookings.time}>
             <span className="score-text font-medium">
               {formatTime(shown.start_time)} – {formatTime(shown.end_time)}
@@ -67,7 +67,7 @@ export function BlockedSlotDetail({ open, onClose, slot, onDelete, isDeleting }:
         <SheetFooter>
           <Button
             variant="outline"
-            className="w-full rounded-lg border-error-text/30 text-error-text hover:bg-error-text/10"
+            className="border-error-text/30 text-error-text hover:bg-error-text/10 w-full rounded-lg"
             onClick={() => {
               onDelete(shown.id);
             }}

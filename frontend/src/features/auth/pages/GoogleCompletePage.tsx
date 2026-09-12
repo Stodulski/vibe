@@ -28,14 +28,14 @@ export default function GoogleCompletePage() {
   return (
     <AuthSplitLayout>
       <div className="auth-card w-full">
-        <div className="flex flex-col items-center px-0 pb-1 pt-2 text-center md:pt-7">
-          <h1 className="font-display text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
+        <div className="flex flex-col items-center px-0 pt-2 pb-1 text-center md:pt-7">
+          <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">
             {t.auth.googleCompleteTitle}
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-text-tertiary">{t.auth.googleCompleteHint}</p>
+          <p className="text-text-tertiary mt-2 text-sm leading-relaxed">{t.auth.googleCompleteHint}</p>
         </div>
 
-        <div className="px-0 pb-7 pt-5">
+        <div className="px-0 pt-5 pb-7">
           <GoogleCompleteForm profileToken={profile_token} profile={profile} />
         </div>
       </div>

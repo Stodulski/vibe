@@ -55,7 +55,7 @@ function OnboardingStepIndicatorItem({
           className={cn(
             'flex size-9 shrink-0 items-center justify-center rounded-full transition-colors duration-300 sm:size-10',
             isActive
-              ? 'bg-primary-500 text-white shadow-brand'
+              ? 'bg-primary-500 shadow-brand text-white'
               : isCompleted
                 ? 'bg-primary-500/20 text-primary-400'
                 : 'bg-bg-elevated text-text-tertiary',

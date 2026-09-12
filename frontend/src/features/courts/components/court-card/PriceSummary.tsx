@@ -18,7 +18,7 @@ export function PriceSummary({ weekdayMin, weekdayMax, weekendMin, weekendMax, h
     // Same footprint as the two rate lines below, so a court without prices
     // does not make its card shorter than the one beside it. `min-h` is the
     // two-line stack: 2 × 20px line box + the 4px gap between them.
-    return <p className="min-h-11 text-sm text-text-tertiary">{t.courts.noPrices}</p>;
+    return <p className="text-text-tertiary min-h-11 text-sm">{t.courts.noPrices}</p>;
   }
 
   return (
@@ -33,10 +33,10 @@ export function PriceSummary({ weekdayMin, weekdayMax, weekendMin, weekendMax, h
 function PriceLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3">
-      <dt className="w-16 shrink-0 whitespace-nowrap text-xs text-text-tertiary">{label}</dt>
+      <dt className="text-text-tertiary w-16 shrink-0 text-xs whitespace-nowrap">{label}</dt>
       {/* The rate in the brand green, its day label left neutral. The number is
           what the owner came to read; the label only says which one it is. */}
-      <dd className="score-text min-w-0 truncate whitespace-nowrap text-sm font-semibold text-primary-400">{value}</dd>
+      <dd className="score-text text-primary-400 min-w-0 truncate text-sm font-semibold whitespace-nowrap">{value}</dd>
     </div>
   );
 }

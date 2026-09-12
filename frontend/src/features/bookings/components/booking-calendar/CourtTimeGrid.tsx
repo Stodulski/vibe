@@ -61,7 +61,7 @@ export function CourtTimeGrid({
     // grid is the page, and a strip of padding there reads as the grid ending.
     // Only below `sm`, where that padding is 3 — from `sm` up the page's own
     // margins are worth keeping and there is room to spare.
-    <div className="relative flex -mr-3 sm:mr-0">
+    <div className="relative -mr-3 flex sm:mr-0">
       <div className={GUTTER_CLASS}>
         {/* Pushes the gutter past the court names so its hours line up with
             the grid rows rather than with the header. */}

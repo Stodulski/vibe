@@ -18,7 +18,7 @@ export function LoginFormFooter({ isPending, submitDisabled = isPending }: Login
       <div className="flex justify-end">
         <Link
           to="/forgot-password"
-          className="text-xs font-medium text-primary-400 underline-offset-4 transition-colors hover:text-primary-300 hover:underline"
+          className="text-primary-400 hover:text-primary-300 text-xs font-medium underline-offset-4 transition-colors hover:underline"
         >
           {t.auth.forgotPasswordLink}
         </Link>
@@ -45,11 +45,11 @@ export function LoginFormFooter({ isPending, submitDisabled = isPending }: Login
 
       <GoogleSignInSection />
 
-      <p className="auth-stagger-4 !mt-4 text-center text-sm text-text-tertiary">
+      <p className="auth-stagger-4 text-text-tertiary !mt-4 text-center text-sm">
         {t.auth.noAccount}{' '}
         <Link
           to="/register"
-          className="font-medium text-primary-400 underline-offset-4 transition-colors hover:text-primary-300 hover:underline"
+          className="text-primary-400 hover:text-primary-300 font-medium underline-offset-4 transition-colors hover:underline"
         >
           {t.auth.registerHere}
         </Link>

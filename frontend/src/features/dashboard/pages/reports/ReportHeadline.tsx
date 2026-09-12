@@ -20,14 +20,14 @@ const t = ES_AR;
  */
 export function ReportHeadline({ totals, previous }: { totals: MonthlyReportTotals; previous: MonthlyReportTotals }) {
   return (
-    <div className="mb-5 border-b border-border-subtle pb-4">
-      <p className="text-micro font-medium uppercase tracking-wider text-text-tertiary">{t.reports.netForMonth}</p>
+    <div className="border-border-subtle mb-5 border-b pb-4">
+      <p className="text-micro text-text-tertiary font-medium tracking-wider uppercase">{t.reports.netForMonth}</p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="score-text text-2xl font-bold text-text-primary tabular-nums">{formatPrice(totals.net)}</span>
+        <span className="score-text text-text-primary text-2xl font-bold tabular-nums">{formatPrice(totals.net)}</span>
         <ComparisonBadge current={totals.net} previous={previous.net} versus={t.dashboard.versusLastMonth} />
       </div>
       {previous.net > 0 && (
-        <p className="score-text mt-1 text-xs text-text-tertiary tabular-nums">
+        <p className="score-text text-text-tertiary mt-1 text-xs tabular-nums">
           {t.reports.previousMonth}: {formatPrice(previous.net)}
         </p>
       )}

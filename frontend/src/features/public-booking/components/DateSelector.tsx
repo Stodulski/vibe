@@ -30,14 +30,14 @@ export function DateSelector({ selectedDate, onDateSelect, schedules }: DateSele
 
   return (
     <div className="w-full">
-      <h2 className="mb-4 text-sm font-semibold first-letter:uppercase text-text-primary">
+      <h2 className="text-text-primary mb-4 text-sm font-semibold first-letter:uppercase">
         {format(selectedDate, "EEE d 'de' MMM, yyyy", { locale: es })}
       </h2>
       <div
         ref={scrollRef}
         role="radiogroup"
         aria-label={t.publicBooking.dateStripLabel}
-        className="flex gap-3 overflow-x-auto px-1 pb-3 pt-1 scrollbar-none"
+        className="flex scrollbar-none gap-3 overflow-x-auto px-1 pt-1 pb-3"
       >
         {days.map((date, index) => (
           <DateButton

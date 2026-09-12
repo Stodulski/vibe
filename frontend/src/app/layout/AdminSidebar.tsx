@@ -20,7 +20,7 @@ export function AdminSidebar({ onNavigate, isMobile = false }: AdminSidebarProps
 
   return (
     <aside
-      className={cn('flex h-full shrink-0 flex-col', isMobile ? 'w-[220px]' : 'w-[68px] border-r border-border-subtle')}
+      className={cn('flex h-full shrink-0 flex-col', isMobile ? 'w-[220px]' : 'border-border-subtle w-[68px] border-r')}
       aria-label={t.layout.sidebar}
     >
       {isMobile && (

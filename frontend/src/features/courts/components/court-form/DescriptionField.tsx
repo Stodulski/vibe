@@ -38,7 +38,7 @@ export function DescriptionField({ register, errors }: DescriptionFieldProps) {
         aria-invalid={!!errors.description}
         {...register('description')}
       />
-      {errors.description && <p className="text-sm text-error-text">{errors.description.message}</p>}
+      {errors.description && <p className="text-error-text text-sm">{errors.description.message}</p>}
     </div>
   );
 }

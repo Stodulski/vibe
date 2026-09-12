@@ -42,7 +42,7 @@ export function PersonalInfoForm() {
         </Label>
         <Input id="email" type="email" placeholder={t.placeholders.email} {...form.register('email')} />
         {form.formState.errors.email && (
-          <p className="text-xs text-error-text">{form.formState.errors.email.message}</p>
+          <p className="text-error-text text-xs">{form.formState.errors.email.message}</p>
         )}
       </div>
       <div className="space-y-1.5">
@@ -68,7 +68,7 @@ export function PersonalInfoForm() {
           )}
         />
         {form.formState.errors.phone && (
-          <p className="text-xs text-error-text">{form.formState.errors.phone.message}</p>
+          <p className="text-error-text text-xs">{form.formState.errors.phone.message}</p>
         )}
       </div>
       <SectionFooter submitLabel={t.common.save} pending={mutation.isPending} align="start" />

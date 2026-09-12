@@ -2,7 +2,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 
 export function SkeletonComplexHeader() {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-bg-subtle">
+    <div className="border-border-subtle bg-bg-subtle rounded-2xl border">
       <div className="p-6 sm:p-7">
         <div className="flex items-start gap-5">
           <Skeleton className="size-14 shrink-0 rounded-2xl sm:size-16" />

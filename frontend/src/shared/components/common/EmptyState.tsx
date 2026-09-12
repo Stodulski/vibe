@@ -27,14 +27,14 @@ export function EmptyState({
 
   return (
     <section
-      className="flex flex-col items-center justify-center py-20 text-center animate-fade-in"
+      className="animate-fade-in flex flex-col items-center justify-center py-20 text-center"
       aria-labelledby={titleId}
     >
-      <Icon className="mb-4 size-8 text-text-tertiary" aria-hidden="true" />
-      <h3 id={titleId} className="text-sm font-semibold text-text-primary">
+      <Icon className="text-text-tertiary mb-4 size-8" aria-hidden="true" />
+      <h3 id={titleId} className="text-text-primary text-sm font-semibold">
         {title}
       </h3>
-      {description && <p className="mt-2 max-w-xs text-sm leading-relaxed text-text-tertiary">{description}</p>}
+      {description && <p className="text-text-tertiary mt-2 max-w-xs text-sm leading-relaxed">{description}</p>}
       {actionLabel && onAction && (
         <Button onClick={onAction} variant={actionVariant} className="mt-6 min-h-12 rounded-lg" size="sm">
           {actionLabel}

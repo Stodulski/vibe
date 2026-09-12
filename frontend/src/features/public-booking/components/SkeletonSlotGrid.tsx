@@ -5,8 +5,8 @@ const t = ES_AR;
 
 export function SkeletonSlotGrid() {
   return (
-    <div className="space-y-8 animate-fade-in">
-      <p className="text-center text-sm text-text-tertiary">{t.publicBooking.checkingAvailability}</p>
+    <div className="animate-fade-in space-y-8">
+      <p className="text-text-tertiary text-center text-sm">{t.publicBooking.checkingAvailability}</p>
       {Array.from({ length: 2 }, (_, courtIdx) => (
         <div key={courtIdx}>
           <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-2.5">
