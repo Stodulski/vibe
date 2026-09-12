@@ -1,4 +1,3 @@
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { googleCompleteSchema, type GoogleCompleteDto } from '../schemas/auth.schema';
 import { useGoogleComplete } from '../hooks/useGoogleComplete';
@@ -7,7 +6,7 @@ import { GoogleCompleteEmailField } from './google-complete/GoogleCompleteEmailF
 import { GoogleCompleteNameFields } from './google-complete/GoogleCompleteNameFields';
 import { GoogleCompletePhoneField } from './google-complete/GoogleCompletePhoneField';
 import { GoogleCompleteSubmit } from './google-complete/GoogleCompleteSubmit';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { applyServerFieldErrors } from '@/shared/lib/serverFieldErrors';
 import type { GoogleProfilePreview } from '@/shared/types/api.types';
 
@@ -31,7 +30,7 @@ interface GoogleCompleteFormProps {
  * validation and input.
  */
 export function GoogleCompleteForm({ profileToken, profile }: GoogleCompleteFormProps) {
-  const form = useForm<GoogleCompleteDto>({
+  const form = useAppForm<GoogleCompleteDto>({
     resolver: zodResolver(googleCompleteSchema),
     defaultValues: {
       first_name: profile.first_name,

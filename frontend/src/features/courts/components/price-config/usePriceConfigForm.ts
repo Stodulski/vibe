@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useAppForm } from '@/shared/lib/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { HTTPError } from 'ky';
@@ -43,7 +43,7 @@ export function usePriceConfigForm(complexId: string, court: CourtWithPrices, on
   // `reset()` effect: `PriceConfig` is keyed by court id (see `CourtGrid`),
   // so a different court gets a fresh instance of this hook instead of the
   // same one reset out from under an in-progress edit.
-  const form = useForm<PriceFormValues>({
+  const form = useAppForm<PriceFormValues>({
     resolver: zodResolver(priceFormSchema),
     defaultValues: priceFormValues(court),
   });

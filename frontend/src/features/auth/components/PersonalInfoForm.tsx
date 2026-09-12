@@ -1,11 +1,11 @@
-import { useForm, Controller } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { PhoneInput } from '@/shared/components/common/PhoneInput';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { useAuth } from '../hooks/useAuth';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { personalInfoSchema, type PersonalInfoFormData } from './personal-info-form/personalInfo.schema';
@@ -16,7 +16,7 @@ const t = ES_AR;
 export function PersonalInfoForm() {
   const { user } = useAuth();
 
-  const form = useForm<PersonalInfoFormData>({
+  const form = useAppForm<PersonalInfoFormData>({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
       first_name: user?.first_name ?? '',

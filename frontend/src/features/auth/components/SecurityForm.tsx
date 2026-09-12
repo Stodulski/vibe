@@ -1,4 +1,3 @@
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { passwordField } from '@/shared/lib/validations';
@@ -7,7 +6,7 @@ import { Label } from '@/shared/components/ui/label';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { DeleteAccountSection } from './DeleteAccountSection';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { useChangePassword } from '../hooks/useChangePassword';
 
 const t = ES_AR;
@@ -26,7 +25,7 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 export function SecurityForm() {
-  const form = useForm<FormData>({
+  const form = useAppForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { current_password: '', new_password: '', confirm_password: '' },
   });

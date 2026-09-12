@@ -1,4 +1,4 @@
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
@@ -7,7 +7,7 @@ import { useSchedules } from '../hooks/useSchedules';
 import { useUpdateSchedules } from '../hooks/useUpdateSchedules';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { DAYS } from './schedule-config/days';
 import { ScheduleDayRow } from './schedule-config/ScheduleDayRow';
 import { ScheduleConfigSkeleton } from './schedule-config/ScheduleConfigSkeleton';
@@ -78,7 +78,7 @@ export function ScheduleConfig({ complexId, slug }: ScheduleConfigProps) {
 function ScheduleForm({ complexId, schedules }: { complexId: string; schedules: Schedule[] }) {
   const updateSchedules = useUpdateSchedules(complexId);
 
-  const { control, handleSubmit, setValue } = useForm<UpdateSchedulesDto>({
+  const { control, handleSubmit, setValue } = useAppForm<UpdateSchedulesDto>({
     resolver: zodResolver(updateSchedulesSchema),
     defaultValues: { schedules: orderedSchedules(schedules) },
   });

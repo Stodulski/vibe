@@ -1,10 +1,9 @@
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createCourtSchema, type CreateCourtDto } from '../schemas/courts.schema';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/common/AppDialog';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { NameField } from './court-form/NameField';
 import { SportAndTypeFields } from './court-form/SportAndTypeFields';
 import { DescriptionField } from './court-form/DescriptionField';
@@ -26,7 +25,7 @@ interface CourtFormProps {
  *
  * The form used to stay mounted across every open/close cycle, with an
  * effect calling `reset()` whenever `open`/`court` changed. Radix unmounts
- * `DialogContent`'s children when closed, but `useForm()` lived above that in
+ * `DialogContent`'s children when closed, but `useAppForm()` lived above that in
  * `CourtForm` itself, so its state survived the unmount — the reset effect
  * existed only to undo that survival, and it ran one render after the values
  * it was correcting were already on screen. Remounting a fresh instance per
@@ -71,7 +70,7 @@ function CourtFormBody({
     handleSubmit,
     control,
     formState: { errors },
-  } = useForm<CreateCourtDto>({
+  } = useAppForm<CreateCourtDto>({
     resolver: zodResolver(createCourtSchema),
     defaultValues: courtDefaultValues(court),
   });

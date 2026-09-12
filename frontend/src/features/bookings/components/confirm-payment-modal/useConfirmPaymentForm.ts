@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useAppForm } from '@/shared/lib/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { confirmPaymentSchema, type ConfirmPaymentDto } from '../../schemas/booking.schema';
 import type { Booking } from '@/shared/types/api.types';
@@ -22,7 +22,7 @@ export function useConfirmPaymentForm({ booking }: { booking: Booking | null }) 
     setValue,
     register,
     formState: { errors },
-  } = useForm<ConfirmPaymentDto>({
+  } = useAppForm<ConfirmPaymentDto>({
     resolver: zodResolver(confirmPaymentSchema),
     defaultValues: { method: 'cash', amount: remaining },
   });
