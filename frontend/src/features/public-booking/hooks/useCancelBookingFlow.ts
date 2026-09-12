@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { publicBookingApi } from '../api/public-booking.api';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
+import { queryKeys } from '@/shared/lib/queryKeys';
 
 const t = ES_AR;
 
@@ -17,10 +18,7 @@ export function useCancelBookingFlow(token: string) {
     error: cancelInfoError,
     refetch: refetchCancelInfo,
   } = useQuery({
-    // TODO(needs-another-owner): should go through the `queryKeys` factory
-    // (`src/shared/lib/queryKeys.ts`) as `queryKeys.cancelInfo.byToken(token)`
-    // once that file has an entry for it — out of this agent's allowed paths.
-    queryKey: ['cancel-info', token],
+    queryKey: queryKeys.cancelInfo.byToken(token),
     queryFn: ({ signal }) => publicBookingApi.getCancelInfo(token, signal),
     enabled: !!token,
     retry: false,

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth.api';
 import { useStore } from '@/shared/stores';
+import { queryKeys } from '@/shared/lib/queryKeys';
 
 export function useVerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -17,7 +18,7 @@ export function useVerifyEmail() {
     // twice in development, and without that dedup the second mount fired a
     // second POST that consumed the (single-use) token again and could
     // overwrite the first request's success with "already used".
-    queryKey: ['auth', 'verify-email', token],
+    queryKey: queryKeys.auth.verifyEmail(token ?? ''),
     queryFn: async ({ signal }) => {
       await authApi.verifyEmail(token ?? '', signal);
       // Clear any existing session (e.g. opened from phone with a

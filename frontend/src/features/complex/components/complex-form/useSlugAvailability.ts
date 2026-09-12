@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { complexApi } from '../../api/complex.api';
+import { queryKeys } from '@/shared/lib/queryKeys';
 
 export type SlugState =
   | { status: 'idle' }
@@ -9,12 +10,6 @@ export type SlugState =
   | { status: 'taken'; suggestion?: string | undefined };
 
 const DEBOUNCE_MS = 400;
-
-// `queryKeys` (shared/lib/queryKeys.ts) has no entry for this yet — see the
-// "Needs another owner" note in the fix report. Structured the same way the
-// factory's own keys are (['domain', ...params] as const) so it can be moved
-// there verbatim once that file is free to edit.
-const slugAvailabilityKey = (slug: string) => ['complexes', 'slug-available', slug] as const;
 
 // Debounces the slug itself, not just the query: `debounced` starts as
 // `undefined` (never a real slug) so the *first* mount also waits out
@@ -62,7 +57,7 @@ export function useSlugAvailability(slug: string | undefined, currentSlug?: stri
   const settled = debouncedSlug === slug;
 
   const { data, isFetching, isError } = useQuery({
-    queryKey: slugAvailabilityKey(debouncedSlug ?? ''),
+    queryKey: queryKeys.complexes.slugAvailable(debouncedSlug ?? ''),
     // `enabled` guarantees `debouncedSlug` is a real string whenever this
     // runs; the guard just gives TypeScript the same guarantee without an
     // assertion.

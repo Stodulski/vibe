@@ -1,6 +1,9 @@
 export const queryKeys = {
   auth: {
     me: ['auth', 'me'] as const,
+    // The token is part of the key so the cache itself dedupes the (single-use)
+    // verification call across StrictMode's double mount — see useVerifyEmail.
+    verifyEmail: (token: string) => ['auth', 'verify-email', token] as const,
   },
   complexes: {
     all: ['complexes'] as const,
@@ -8,6 +11,7 @@ export const queryKeys = {
     bySlug: (slug: string) => ['complexes', 'slug', slug] as const,
     schedules: (id: string) => ['complexes', id, 'schedules'] as const,
     mpStatus: (id: string) => ['complexes', id, 'mp-status'] as const,
+    slugAvailable: (slug: string) => ['complexes', 'slug-available', slug] as const,
   },
   courts: {
     byComplex: (complexId: string) => ['courts', complexId] as const,
@@ -41,6 +45,11 @@ export const queryKeys = {
     // Not complex-scoped: one shared static file on the landing, matched
     // against a province client-side.
     costs: ['mpFees', 'costs'] as const,
+  },
+  // Not booking-scoped by id: the cancellation link carries an opaque token and
+  // the booking it resolves to is exactly what this query answers.
+  cancelInfo: {
+    byToken: (token: string) => ['cancel-info', token] as const,
   },
   bookingStatus: {
     byId: (id: string) => ['bookingStatus', id] as const,
