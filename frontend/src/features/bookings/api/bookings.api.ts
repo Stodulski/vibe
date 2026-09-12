@@ -44,7 +44,7 @@ export const bookingsApi = {
       .json()
       .then(parseWith(bookingDetailResponseSchema, 'bookingsApi.getById')),
 
-  /** `idempotencyKey`: see `useIdempotencyKey` — a retry must not book the slot twice. */
+  /** `idempotencyKey`: see `useIdempotentMutation` — a retry must not book the slot twice. */
   create: (complexId: string, data: CreateBookingRequest, idempotencyKey: string): Promise<{ booking: Booking }> =>
     api
       .post(`complexes/${complexId}/bookings`, { json: data, headers: { 'Idempotency-Key': idempotencyKey } })
@@ -59,7 +59,7 @@ export const bookingsApi = {
       .json()
       .then(parseWith(cancelBookingResponseSchema, 'bookingsApi.cancel')),
 
-  /** `idempotencyKey`: see `useIdempotencyKey` — a retry must not record the payment twice. */
+  /** `idempotencyKey`: see `useIdempotentMutation` — a retry must not record the payment twice. */
   confirmPayment: (
     complexId: string,
     bookingId: string,
@@ -80,7 +80,7 @@ export const bookingsApi = {
       .json()
       .then(parseWith(bookingEnvelopeSchema, 'bookingsApi.update')),
 
-  /** `idempotencyKey`: see `useIdempotencyKey` — a retry must not refund twice. */
+  /** `idempotencyKey`: see `useIdempotentMutation` — a retry must not refund twice. */
   markManualRefund: (complexId: string, bookingId: string, idempotencyKey: string): Promise<ManualRefundResponse> =>
     api
       .post(`complexes/${complexId}/bookings/${bookingId}/manual-refund`, {

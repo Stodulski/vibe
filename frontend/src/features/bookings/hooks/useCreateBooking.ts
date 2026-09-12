@@ -1,22 +1,21 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
-import { useIdempotencyKey } from '@/shared/lib/idempotency';
+import { useIdempotentMutation, type WithAttemptKey } from '@/shared/lib/idempotency';
 import type { CreateBookingRequest } from '@/shared/types/api.types';
 
 export function useCreateBooking(complexId: string) {
   const t = ES_AR;
   const queryClient = useQueryClient();
-  const attempt = useIdempotencyKey();
 
-  return useMutation({
-    mutationFn: (data: CreateBookingRequest) => bookingsApi.create(complexId, data, attempt.current()),
-    onMutate: () => {
-      attempt.begin();
-    },
+  return useIdempotentMutation({
+    // `attemptKey` is destructured out so it reaches the header and not the
+    // JSON body, which the backend validates against its OpenAPI spec.
+    mutationFn: ({ attemptKey, ...data }: WithAttemptKey<CreateBookingRequest>) =>
+      bookingsApi.create(complexId, data, attemptKey),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.byComplex(complexId),
