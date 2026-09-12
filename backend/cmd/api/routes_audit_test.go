@@ -19,7 +19,8 @@ import (
 var publicRoutes = map[string]string{
 	"GET /api/v1/healthcheck":                         "readiness probe for the platform",
 	"GET /api/v1/livez":                               "liveness probe: a restart policy has no session",
-	"GET /api/sitemap.xml":                            "crawled by search engines",
+	"GET /api/v1/sitemap.xml":                         "crawled by search engines",
+	"GET /api/sitemap.xml":                            "the 301 to the line above, for indexes that still hold the old path",
 	"GET /api/v1/public/prerender/:slug":              "server-rendered page for social and search crawlers",
 	"GET /api/v1/public/complexes/:slug":              "the public booking page for a complex",
 	"GET /api/v1/public/complexes/:slug/availability": "slot grid on the public booking page",

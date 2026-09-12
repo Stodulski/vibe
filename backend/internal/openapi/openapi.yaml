@@ -2609,14 +2609,14 @@ paths:
   # ---------------------------------------------------------------------
   # publicsite
   # ---------------------------------------------------------------------
-  /api/sitemap.xml:
+  /api/v1/sitemap.xml:
     get:
       tags: [publicsite]
       operationId: publicsiteSitemap
       summary: Platform sitemap
       description: >-
-        Public. Note this path has no `/api/v1` prefix. Cross-tenant bypass reason `platform`
-        (every active slug on the platform, by definition). One `<url>` per active complex slug.
+        Public. Cross-tenant bypass reason `platform` (every active slug on the platform,
+        by definition). One `<url>` per active complex slug.
       security: []
       responses:
         "200":
@@ -2629,6 +2629,24 @@ paths:
               schema: {type: string}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/sitemap.xml:
+    get:
+      tags: [publicsite]
+      operationId: publicsiteSitemapMoved
+      summary: Platform sitemap (moved)
+      description: >-
+        Public. The pre-versioning address of the sitemap, kept as a permanent redirect
+        because search engines hold it in their index and answer a 404 by dropping the
+        pages it lists. Use `/api/v1/sitemap.xml`.
+      security: []
+      responses:
+        "301":
+          description: Moved permanently to `/api/v1/sitemap.xml`.
+          headers:
+            Location:
+              schema: {type: string, example: "/api/v1/sitemap.xml"}
+        "429": {$ref: "#/components/responses/RateLimited"}
 
   /api/v1/public/prerender/{slug}:
     get:

@@ -69,6 +69,14 @@ func BadGateway(message any) Refusal { return Refusal{http.StatusBadGateway, mes
 // Unavailable reports that this service cannot do the work right now: 503.
 func Unavailable(message any) Refusal { return Refusal{http.StatusServiceUnavailable, message} }
 
+// MovedPermanently redirects to location with 301, for a route that changed
+// address and whose old one is still in somebody's index. It lives here with
+// the refusals because it is the same kind of decision: a status this API
+// answers with, named once.
+func (rs *Responder) MovedPermanently(w http.ResponseWriter, r *http.Request, location string) {
+	http.Redirect(w, r, location, http.StatusMovedPermanently)
+}
+
 // IsErrorStatus reports whether a status code is a failure, for the middleware
 // that decides how loudly to log a response. It is here for the same reason the
 // constructors are: nothing outside this package should have to name 400 to ask

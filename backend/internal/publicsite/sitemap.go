@@ -8,7 +8,21 @@ import (
 // sitemapCacheSeconds is how long crawlers may reuse the sitemap.
 const sitemapCacheSeconds = 3600
 
-// Sitemap handles GET /api/sitemap.xml, listing the homepage and every
+// SitemapPath is where the sitemap lives. It is a constant because the
+// redirect below has to name the same address the route does.
+const SitemapPath = "/api/v1/sitemap.xml"
+
+// legacySitemapPath is where it lived before API-02 moved it under the version
+// prefix every other business route already carried.
+const legacySitemapPath = "/api/sitemap.xml"
+
+// SitemapMoved handles GET /api/sitemap.xml, the pre-versioning address, and
+// sends a crawler to the versioned one.
+func (h *Handler) SitemapMoved(w http.ResponseWriter, r *http.Request) {
+	h.respond.MovedPermanently(w, r, SitemapPath)
+}
+
+// Sitemap handles GET /api/v1/sitemap.xml, listing the homepage and every
 // complex's public page.
 func (h *Handler) Sitemap(w http.ResponseWriter, r *http.Request) {
 	doc, err := h.svc.Sitemap(r.Context())

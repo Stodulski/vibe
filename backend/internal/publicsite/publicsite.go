@@ -46,6 +46,11 @@ func NewHandler(svc *Service, respond *httpx.Responder) *Handler {
 // Routes registers the crawler-facing endpoints. Both are public by design:
 // they exist to be fetched by search engines and social unfurlers.
 func (h *Handler) Routes(router httpx.Router, _ httpx.Guards) {
-	router.HandlerFunc(http.MethodGet, "/api/sitemap.xml", h.Sitemap)
+	router.HandlerFunc(http.MethodGet, SitemapPath, h.Sitemap)
+	// The sitemap was the one business route outside /api/v1 (API-02). Search
+	// engines hold the old path in their index, and a crawler that gets a 404
+	// drops the pages it lists rather than looking for a new address, so the
+	// old path stays as a 301 for as long as it is being requested.
+	router.HandlerFunc(http.MethodGet, legacySitemapPath, h.SitemapMoved)
 	router.HandlerFunc(http.MethodGet, "/api/v1/public/prerender/:slug", h.Prerender)
 }

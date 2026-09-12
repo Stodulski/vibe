@@ -25,6 +25,7 @@ var apiSurface = map[string]struct{}{
 	"DELETE /api/v1/complexes/:id/mp/connect":                        {},
 	"DELETE /api/v1/complexes/:id/uploads":                           {},
 	"GET /api/sitemap.xml":                                           {},
+	"GET /api/v1/sitemap.xml":                                        {},
 	"GET /api/v1/admin/audit-log":                                    {},
 	"GET /api/v1/admin/complexes":                                    {},
 	"GET /api/v1/admin/complexes/:id":                                {},

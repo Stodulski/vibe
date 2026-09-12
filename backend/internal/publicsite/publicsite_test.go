@@ -113,6 +113,22 @@ func TestSitemapListsHomepageAndEveryComplex(t *testing.T) {
 	}
 }
 
+// The pre-versioning path is still in search engines' indexes. A 404 there
+// makes a crawler drop the pages the sitemap lists rather than look for a new
+// address, so it has to be a permanent redirect for as long as it is fetched.
+func TestTheOldSitemapPathRedirectsPermanently(t *testing.T) {
+	h := NewHandler(NewService(&stubStore{}, "https://vibe.example"), testResponder())
+	w := httptest.NewRecorder()
+	h.SitemapMoved(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/sitemap.xml", nil))
+
+	if w.Code != http.StatusMovedPermanently {
+		t.Fatalf("want 301; got %d", w.Code)
+	}
+	if got := w.Header().Get("Location"); got != SitemapPath {
+		t.Errorf("Location = %q, want %q", got, SitemapPath)
+	}
+}
+
 func TestSitemapReportsStoreFailure(t *testing.T) {
 	h := NewHandler(NewService(&stubStore{slugsErr: errors.New("db down")}, "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
