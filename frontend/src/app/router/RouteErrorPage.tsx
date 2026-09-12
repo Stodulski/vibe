@@ -26,7 +26,7 @@ export function RouteErrorPage() {
       : error instanceof Error
         ? error
         : new Error(String(error));
-    Sentry.captureException(reported);
+    Sentry.captureException(reported, { tags: { route: window.location.pathname } });
   }, [error]);
 
   return (

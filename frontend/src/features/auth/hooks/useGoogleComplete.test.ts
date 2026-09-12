@@ -67,9 +67,12 @@ describe('useGoogleComplete — onError', () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it('falls back to the generic Google sign-in error on anything else', async () => {
+  // A dropped connection gets the generic connectivity message (ERR-04), not
+  // this mutation's own googleSignInError fallback — it never reached the
+  // server at all.
+  it('shows the generic connectivity message for a network error', async () => {
     await triggerGoogleCompleteError(new TypeError('Failed to fetch'));
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.googleSignInError);
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.common.networkError);
   });
 
   afterEach(async () => {

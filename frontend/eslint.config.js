@@ -78,6 +78,17 @@ export default defineConfig([
       ],
     },
   },
+  // The only production `console` call today is the `import.meta.env.DEV`-gated
+  // `console.error` in apiParse.ts; this keeps a stray `console.log` from
+  // sneaking back into shipped app code without a lint failure. Scoped to
+  // `src/` — `e2e/`'s Playwright setup scripts are Node CLI tooling, where
+  // `console.log` is the normal way to report progress.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-console': ['error', { allow: ['error', 'warn'] }],
+    },
+  },
   // jsx-a11y catches accessibility mistakes (missing alt text, a click
   // handler with no keyboard equivalent, an interactive role with no
   // matching semantics) at lint time rather than in a screen-reader pass —
