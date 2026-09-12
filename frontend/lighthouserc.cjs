@@ -22,7 +22,11 @@ module.exports = {
       assertions: {
         // Core Web Vitals thresholds
         'categories:performance': ['error', { minScore: 0.85 }],
-        'categories:accessibility': ['warn', { minScore: 0.8 }],
+        // The audit's own bar, and an error rather than a warning: a
+        // regression here has to fail something (A11Y-12). The job that
+        // runs this is continue-on-error in CI, so the failure is a
+        // signal to read, not a blocked merge.
+        'categories:accessibility': ['error', { minScore: 0.95 }],
         'categories:best-practices': ['warn', { minScore: 0.8 }],
         'categories:seo': ['warn', { minScore: 0.7 }],
 
