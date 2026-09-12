@@ -1,6 +1,7 @@
 package main
 
 import (
+	"expvar"
 	"io"
 	"log/slog"
 	"reflect"
@@ -275,4 +276,35 @@ func (d deps) queueOf(t *testing.T) notifications.Queue {
 	}
 	t.Cleanup(func() { close(app.shutdown) })
 	return app.queue
+}
+
+// TestTheQueueMetricsMapIsPublishedOnceUnderItsOldName is CON-07 at the
+// composition root.
+//
+// The queue used to create its own map in a package-level expvar.NewMap, which
+// registers into the process's global namespace as an import side effect. That
+// had two costs: expvar.NewMap panics on a name already published, so nothing
+// could build two queues in one process — and newApplication is deliberately
+// safe to call more than once, which the unit suite does once per test — and a
+// test binary that merely imported the package published counters.
+//
+// The name is the half that must not move with it. /debug/vars is what an
+// operator's dashboard reads, and a renamed map is a graph that goes flat with
+// nothing to say it did.
+func TestTheQueueMetricsMapIsPublishedOnceUnderItsOldName(t *testing.T) {
+	first := queueMetrics()
+	if first == nil {
+		t.Fatal("queueMetrics returned nil")
+	}
+	if published, _ := expvar.Get(queueMetricsName).(*expvar.Map); published != first {
+		t.Errorf("the map is not the one published under %q", queueMetricsName)
+	}
+	if queueMetricsName != "notifier" {
+		t.Errorf("the queue publishes under %q; operators' dashboards read \"notifier\"", queueMetricsName)
+	}
+
+	// The second call is the one that used to panic.
+	if second := queueMetrics(); second != first {
+		t.Error("a second call published a second map rather than reusing the one already there")
+	}
 }

@@ -6,11 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"expvar"
 	"io"
 	"log/slog"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/jobs"
 )
@@ -197,4 +200,69 @@ func TestAPermanentRefusalDoesNotSpendTheWholeBudget(t *testing.T) {
 	if got.Attempts != 1 {
 		t.Errorf("attempts before the dead letter = %d, want 1; a permanent refusal spent the whole budget", got.Attempts)
 	}
+}
+
+// TestTheCounterNamesAreTheOnesOperatorsRead pins the queue's expvar surface
+// (CON-07). The map is injected now rather than registered by a package-level
+// expvar.NewMap, and the one thing that must not change in that move is what
+// /debug/vars is called and what the counters inside it are called: a
+// dashboard reads them by name, and a renamed counter is a graph that goes
+// flat with nothing to say it did.
+func TestTheCounterNamesAreTheOnesOperatorsRead(t *testing.T) {
+	s, jobType := newStore(t)
+	s.Backoff = []time.Duration{time.Nanosecond}
+
+	metrics := new(expvar.Map).Init()
+	enqueuer := &jobs.Enqueuer{Store: s, Logger: discardLogger(), Metrics: metrics, MaxAttempts: 2}
+
+	pool := jobs.NewPool(s, jobs.Config{
+		Workers: 1, PollInterval: 10 * time.Millisecond,
+		Metrics: metrics, Logger: discardLogger(),
+	})
+
+	fails := jobType + ":fails"
+	pool.RegisterHandler(jobType, func(context.Context, json.RawMessage) error { return nil })
+	pool.RegisterHandler(fails, func(context.Context, json.RawMessage) error {
+		return errors.New("brevo: 502 bad gateway")
+	})
+
+	key := jobs.DedupKey(jobType, "ana@example.com", uuid.NewString())
+	enqueuer.Enqueue(jobType, map[string]int{"n": 1}, key)
+	enqueuer.Enqueue(jobType, map[string]int{"n": 1}, key) // the redelivery
+	enqueuer.Enqueue(fails, map[string]int{"n": 2}, "")
+
+	pool.Start()
+	t.Cleanup(pool.Shutdown)
+
+	want := map[string]int64{
+		"enqueued":      2,
+		"deduplicated":  1,
+		"processed":     1,
+		"retried":       1,
+		"dead_lettered": 1,
+	}
+	waitFor(t, "every counter to reach its value", func() bool {
+		for name, n := range want {
+			if value(metrics, name) < n {
+				return false
+			}
+		}
+		return true
+	})
+
+	for name, n := range want {
+		if got := value(metrics, name); got != n {
+			t.Errorf("counter %q = %d, want %d", name, got, n)
+		}
+	}
+}
+
+// value reads one counter out of the map, reporting -1 when it is absent —
+// which is what a renamed counter looks like to a dashboard.
+func value(m *expvar.Map, name string) int64 {
+	v, ok := m.Get(name).(*expvar.Int)
+	if !ok {
+		return -1
+	}
+	return v.Value()
 }
