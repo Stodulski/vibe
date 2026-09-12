@@ -56,7 +56,7 @@ export const ownerDashboardRoutes: RouteObject[] = [
       },
       {
         path: '/profile',
-        element: ownerPage(() => import('@/pages/owner/ProfilePage')),
+        element: ownerPage(() => import('@/features/auth/pages/ProfilePage')),
       },
     ],
   },

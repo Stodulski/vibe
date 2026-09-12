@@ -6,13 +6,13 @@ import { lazyRetry } from './routeHelpers';
 import { PublicPageLoader } from './loaders';
 
 // Standalone auth pages (full-screen loader while auth check runs)
-const LoginPage = lazyRetry(() => import('@/pages/auth/LoginPage'));
-const RegisterPage = lazyRetry(() => import('@/pages/auth/RegisterPage'));
-const GoogleCompletePage = lazyRetry(() => import('@/pages/auth/GoogleCompletePage'));
-const VerifyEmailSentPage = lazyRetry(() => import('@/pages/auth/VerifyEmailSentPage'));
-const VerifyEmailPage = lazyRetry(() => import('@/pages/auth/VerifyEmailPage'));
-const ForgotPasswordPage = lazyRetry(() => import('@/pages/auth/ForgotPasswordPage'));
-const ResetPasswordPage = lazyRetry(() => import('@/pages/auth/ResetPasswordPage'));
+const LoginPage = lazyRetry(() => import('@/features/auth/pages/LoginPage'));
+const RegisterPage = lazyRetry(() => import('@/features/auth/pages/RegisterPage'));
+const GoogleCompletePage = lazyRetry(() => import('@/features/auth/pages/GoogleCompletePage'));
+const VerifyEmailSentPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailSentPage'));
+const VerifyEmailPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailPage'));
+const ForgotPasswordPage = lazyRetry(() => import('@/features/auth/pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazyRetry(() => import('@/features/auth/pages/ResetPasswordPage'));
 
 export const authRoutes: RouteObject[] = [
   {
