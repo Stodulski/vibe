@@ -591,11 +591,11 @@ func TestCurrentUserCarriesTheCSRFTokenOfTheSession(t *testing.T) {
 	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
 	f.users.add(user)
 
-	accessToken, err := f.handler.tokenService.GenerateAccessToken(user.ID, user.Role)
+	accessToken, err := f.service.tokenService.GenerateAccessToken(user.ID, user.Role)
 	if err != nil {
 		t.Fatalf("minting access token: %v", err)
 	}
-	want := f.handler.tokenService.GenerateCSRFToken(accessToken)
+	want := f.service.tokenService.GenerateCSRFToken(accessToken)
 
 	t.Run("from the access_token cookie", func(t *testing.T) {
 		r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), user)

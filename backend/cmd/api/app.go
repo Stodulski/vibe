@@ -372,12 +372,21 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// all take notify, and none of them can compile before this line runs.
 	notify := notifications.NewService(queue, mailerClient, waClient, d.models.Users, d.logger, whatsappEnabled)
 
-	authHandler := auth.NewHandler(auth.Dependencies{
+	authConfig := auth.Config{
+		JWTSecret:        cfg.jwt.secret,
+		CookieDomain:     cfg.cookieDomain,
+		Environment:      cfg.env,
+		FrontendURL:      cfg.frontendURL,
+		TrustProxies:     cfg.trustedProxies,
+		PasswordHashCost: cfg.passwordHashCost,
+	}
+
+	authService := auth.NewService(auth.Dependencies{
 		Users:         d.models.Users,
 		Tokens:        d.models.Tokens,
 		Verifications: d.models.EmailVerification,
 		Resets:        d.models.PasswordReset,
-		Complexes:     d.models.Complexes,
+		Complexes:     complexesService,
 		Bookings:      d.models.Bookings,
 		Blacklist:     blacklist,
 		Notify:        notify,
@@ -388,14 +397,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Identities:    d.models.UserIdentities,
 		Respond:       respond,
 		Logger:        d.logger,
-	}, auth.Config{
-		JWTSecret:        cfg.jwt.secret,
-		CookieDomain:     cfg.cookieDomain,
-		Environment:      cfg.env,
-		FrontendURL:      cfg.frontendURL,
-		TrustProxies:     cfg.trustedProxies,
-		PasswordHashCost: cfg.passwordHashCost,
-	})
+	}, authConfig)
+	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
 	paymentsHandler := payments.NewHandler(payments.Dependencies{
 		Payments:      d.models.Payments,
