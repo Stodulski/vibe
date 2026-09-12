@@ -71,7 +71,13 @@ export default defineConfig({
     maxWorkers: process.env.CI ? '100%' : '50%',
     clearMocks: true,
     restoreMocks: true,
-    testTimeout: 10000,
+    // 30s, not 10. Each isolated file re-imports the whole module graph, and
+    // since the React Compiler was turned on that graph goes through Babel —
+    // a bill of several seconds per file, paid inside whichever test triggers
+    // the import. At 10s a different handful of files timed out on every full
+    // run while every one of them passed alone, which is a clock, not a bug.
+    // 30s still fails a genuinely hung test in reasonable time.
+    testTimeout: 30000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'lcov'],
