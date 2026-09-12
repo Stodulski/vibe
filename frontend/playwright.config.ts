@@ -83,6 +83,7 @@ export default defineConfig({
         'auth.spec.ts',
         'auth-validation.spec.ts',
         'public-booking.spec.ts',
+        'public-booking-keyboard.spec.ts',
         'public-cancel.spec.ts',
         'onboarding.spec.ts',
         // Registers and logs in its own dedicated, disposable owner account
