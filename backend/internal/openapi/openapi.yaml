@@ -131,8 +131,8 @@ paths:
         "400":
           description: Malformed cursor.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "422": {$ref: "#/components/responses/ValidationError"}
@@ -203,16 +203,16 @@ paths:
         "400":
           description: Malformed request body.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409":
           description: The caller tried to change their own account status.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -245,8 +245,8 @@ paths:
         "400":
           description: Malformed cursor.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "422": {$ref: "#/components/responses/ValidationError"}
@@ -321,8 +321,8 @@ paths:
         "400":
           description: Malformed `complex_id` or cursor.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "422": {$ref: "#/components/responses/ValidationError"}
@@ -390,8 +390,8 @@ paths:
         "400":
           description: Invalid cursor value.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
@@ -425,8 +425,8 @@ paths:
         "400":
           description: Malformed JSON body.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -479,8 +479,8 @@ paths:
         "401":
           description: Invalid credentials, locked account or unverified email (indistinguishable by design).
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -546,8 +546,8 @@ paths:
         "503":
           description: Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`), or Google's JWKS is unreachable.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
       requestBody:
         required: true
         content:
@@ -591,21 +591,21 @@ paths:
         "401":
           description: Missing, expired, forged or wrong-purpose profile token.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "409":
           description: An account for this address was created between `/auth/google` and this request.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
         "503":
           description: Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`).
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
       requestBody:
         required: true
         content:
@@ -649,8 +649,8 @@ paths:
         "401":
           description: Missing, unknown or reused refresh token, or an inactive user.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -693,8 +693,8 @@ paths:
         "400":
           description: Missing token, malformed body, or the token does not resolve.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
       requestBody:
@@ -728,8 +728,8 @@ paths:
         "400":
           description: Malformed JSON body.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
       requestBody:
         required: true
@@ -761,8 +761,8 @@ paths:
         "400":
           description: Malformed JSON body.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
       requestBody:
@@ -798,8 +798,8 @@ paths:
         "400":
           description: The token is invalid, expired, or belongs to an inactive user.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -862,8 +862,8 @@ paths:
         "401":
           description: Unauthenticated, or `current_password` did not match.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "409": {$ref: "#/components/responses/EditConflict"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
@@ -902,8 +902,8 @@ paths:
         "409":
           description: The account has a complex with active bookings.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -939,8 +939,8 @@ paths:
         "403":
           description: Bad mode or wrong verify token.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
     post:
       tags: [bookings]
       operationId: bookingsWhatsAppWebhook
@@ -987,25 +987,25 @@ paths:
         "400":
           description: Malformed body, or the complex has no MercadoPago connected.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "404":
           description: Unknown or inactive complex or court, or the court belongs to a different complex.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "409":
           description: Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "503":
           description: MercadoPago checkout preference creation failed. The booking is auto-cancelled.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "500": {$ref: "#/components/responses/ServerError"}
       requestBody:
         required: true
@@ -1049,8 +1049,8 @@ paths:
         "400":
           description: Missing token.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "404": {$ref: "#/components/responses/NotFound"}
         "410": {$ref: "#/components/responses/LinkExpired"}
         "429": {$ref: "#/components/responses/RateLimited"}
@@ -1073,8 +1073,8 @@ paths:
         "400":
           description: Missing token.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "404": {$ref: "#/components/responses/NotFound"}
         "410": {$ref: "#/components/responses/LinkExpired"}
         "429": {$ref: "#/components/responses/RateLimited"}
@@ -1110,15 +1110,15 @@ paths:
         "400":
           description: The booking is already cancelled or completed.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "404": {$ref: "#/components/responses/NotFound"}
         "410": {$ref: "#/components/responses/LinkExpired"}
         "422":
           description: Missing token.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ValidationError"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
       requestBody:
@@ -1169,8 +1169,8 @@ paths:
         "400":
           description: Missing or malformed `date`, or an invalid cursor.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
@@ -1202,8 +1202,8 @@ paths:
         "409":
           description: A blocked slot, a blocked client, or a concurrent slot conflict.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -1282,16 +1282,16 @@ paths:
         "400":
           description: Malformed body, or an attempt to cancel a paid booking through this endpoint.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409":
           description: Illegal collection or refund status transition, or a concurrent edit.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -1332,8 +1332,8 @@ paths:
         "400":
           description: The booking is already completed or a no-show, both terminal.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
@@ -1371,16 +1371,16 @@ paths:
         "400":
           description: The booking is cancelled, or already fully paid.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409":
           description: A blocked slot, or a concurrent edit.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -1426,8 +1426,8 @@ paths:
         "400":
           description: No manual refund is pending on this booking.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
@@ -1436,8 +1436,8 @@ paths:
             The `Idempotency-Key` was already used for a different request, or a request
             using it is still running.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -1474,8 +1474,8 @@ paths:
         "400":
           description: Invalid cursor value.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "422": {$ref: "#/components/responses/ValidationError"}
@@ -1536,8 +1536,8 @@ paths:
         "400":
           description: Malformed body.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
@@ -1584,8 +1584,8 @@ paths:
         "404":
           description: Unknown slug, or the complex is inactive.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -1663,8 +1663,8 @@ paths:
         "403":
           description: The account already owns the maximum number of complexes.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -1812,8 +1812,8 @@ paths:
         "409":
           description: The complex has active bookings.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -1901,8 +1901,8 @@ paths:
         "501":
           description: No object storage backend is configured.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
       requestBody:
         required: true
         content:
@@ -1936,8 +1936,8 @@ paths:
         "400":
           description: The URL does not belong to this storage.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404":
@@ -1945,16 +1945,16 @@ paths:
             The key exists but does not fall under this complex's own storage prefix (reported
             as 404, not 403, so this cannot be used to probe another tenant's storage keys).
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
         "501":
           description: No object storage backend is configured.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
       requestBody:
         required: true
         content:
@@ -1993,8 +1993,8 @@ paths:
             The OAuth exchange with MercadoPago failed. Unlike most 500s, this message includes
             the wrapped error detail.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
       requestBody:
         required: true
         content:
@@ -2028,8 +2028,8 @@ paths:
         "409":
           description: The complex has active bookings.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -2095,13 +2095,13 @@ paths:
         "400":
           description: Missing `date`.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "404":
           description: Unknown slug, or the complex is inactive.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -2234,8 +2234,8 @@ paths:
         "409":
           description: The court has active bookings.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -2322,8 +2322,8 @@ paths:
         "409":
           description: The range overlaps an existing booking, or is already blocked.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -2372,8 +2372,8 @@ paths:
         "400":
           description: Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "429": {$ref: "#/components/responses/RateLimited"}
@@ -2473,8 +2473,8 @@ paths:
         "400":
           description: Malformed JSON body.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
       requestBody:
@@ -2593,22 +2593,22 @@ paths:
         "404":
           description: Upstream reported the input could not be resolved.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429":
           description: >-
             Either this API's own rate limit, or Google Places' quota exhausted (the platform's
             own quota, surfaced as 429 because backing off is the only useful response either way).
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "502":
           description: >-
             The upstream call failed for any other reason (a 5xx, a bad key, an unreadable
             body). Reported as a gateway failure rather than naming Google.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
 
   /api/v1/places/details:
     get:
@@ -2634,24 +2634,24 @@ paths:
         "400":
           description: Missing `place_id`.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "404":
           description: Unknown `place_id`.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429":
           description: This API's own rate limit, or Google Places' quota exhausted.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "502":
           description: The upstream call failed for any other reason.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
 
   # ---------------------------------------------------------------------
   # publicsite
@@ -2719,8 +2719,8 @@ paths:
         "404":
           description: Unknown slug, or the complex is inactive.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -2762,8 +2762,8 @@ paths:
         "429":
           description: The per-complex or global subscriber cap was reached. The connection was never upgraded.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "500": {$ref: "#/components/responses/ServerError"}
 
   # ---------------------------------------------------------------------
@@ -2905,8 +2905,8 @@ paths:
             `month_out_of_range`, `report_period_in_future` or
             `report_period_before_complex_existed`, as the bare `error` string.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "429": {$ref: "#/components/responses/RateLimited"}
@@ -2941,22 +2941,22 @@ paths:
         "400":
           description: Period validation failed, same machine-code shape as the monthly report.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "422":
           description: The report exceeds the 50,000 row export cap (`report_export_too_large`).
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
         "503":
           description: The export did not finish inside its budget (`report_export_timed_out`).
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
 
   # ---------------------------------------------------------------------
   # openapi
@@ -3105,70 +3105,98 @@ components:
     Unauthorized:
       description: Missing or invalid session.
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/Error"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
     Forbidden:
       description: Authenticated, but not permitted to reach this resource.
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/Error"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
     NotFound:
       description: The requested resource could not be found.
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/Error"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
     ValidationError:
       description: One or more fields failed validation.
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/ValidationError"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
     RateLimited:
       description: Too many requests. See the `Retry-After` header.
       headers:
         Retry-After:
           schema: {type: integer}
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/Error"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
     ServerError:
       description: An unexpected server error. The message is always generic, it never leaks internal detail.
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/Error"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
     EditConflict:
       description: A concurrent edit was detected. Retry the request.
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/Error"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
     LinkExpired:
       description: The booking link has expired.
       content:
-        application/json:
-          schema: {$ref: "#/components/schemas/Error"}
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
 
   schemas:
-    Error:
+    Problem:
       type: object
-      required: [error]
+      description: >-
+        An RFC 9457 problem detail. Every 4xx/5xx response uses this shape
+        (`Content-Type: application/problem+json`). The frontend switches on
+        `type`; `title`/`detail` are for humans and may change wording.
+      required: [type, title, status]
       properties:
-        error:
+        type:
           type: string
-          description: Human readable, safe to display.
-
-    ValidationError:
-      type: object
-      required: [error]
-      properties:
-        error:
-          type: object
+          format: uri
           description: >-
-            Field name (dotted or bracketed for nested fields, e.g. `schedules[3].open_time`) to
-            message. A message is either free text or one of the stable machine codes intended
-            for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`,
+            A stable URI identifying this problem's kind, e.g.
+            `https://vibe.com.ar/problems/validation`.
+        title:
+          type: string
+          description: A short, stable summary of this problem's type.
+        status:
+          type: integer
+          description: The HTTP status code, repeated here per RFC 9457.
+        detail:
+          type: string
+          description: Human readable detail for this occurrence, safe to display.
+        instance:
+          type: string
+          description: The request path that produced this problem.
+        request_id:
+          type: string
+          description: Correlates this response with the server's logs.
+        errors:
+          type: array
+          description: Present on a validation problem; one entry per invalid field.
+          items: {$ref: "#/components/schemas/FieldError"}
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: >-
+            Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`.
+        message:
+          type: string
+          description: >-
+            Free text, or one of the stable machine codes intended for
+            frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`,
             `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`,
             `report_period_before_complex_existed`, `report_export_too_large`,
             `report_export_timed_out`, `price_required`).
-          additionalProperties: {type: string}
 
     Metadata:
       type: object

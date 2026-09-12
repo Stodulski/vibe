@@ -17,7 +17,7 @@ import (
 // middleware chain, outermost first.
 func (app *application) routes() http.Handler {
 	router := httpx.NewServeMux(
-		http.HandlerFunc(app.respond.NotFound),
+		http.HandlerFunc(app.respond.RouteNotFound),
 		http.HandlerFunc(app.respond.MethodNotAllowed),
 	)
 

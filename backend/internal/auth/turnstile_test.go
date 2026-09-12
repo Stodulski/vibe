@@ -42,9 +42,9 @@ func TestRegisterTurnstile(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
 		}
-		errs, _ := decode(t, w)["error"].(map[string]any)
-		if errs["turnstile_token"] != "required" {
-			t.Errorf(`turnstile_token = %v, want "required"`, errs["turnstile_token"])
+		got, _ := fieldError(decode(t, w), "turnstile_token")
+		if got != "required" {
+			t.Errorf(`turnstile_token = %v, want "required"`, got)
 		}
 		if f.users.inserted != nil {
 			t.Error("no account may be created when the token is missing")
@@ -63,9 +63,9 @@ func TestRegisterTurnstile(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
 		}
-		errs, _ := decode(t, w)["error"].(map[string]any)
-		if errs["turnstile_token"] != "invalid" {
-			t.Errorf(`turnstile_token = %v, want "invalid"`, errs["turnstile_token"])
+		got, _ := fieldError(decode(t, w), "turnstile_token")
+		if got != "invalid" {
+			t.Errorf(`turnstile_token = %v, want "invalid"`, got)
 		}
 		if f.users.inserted != nil {
 			t.Error("no account may be created when the token is invalid")
@@ -81,9 +81,9 @@ func TestRegisterTurnstile(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
 		}
-		errs, _ := decode(t, w)["error"].(map[string]any)
-		if errs["turnstile_token"] != "unavailable" {
-			t.Errorf(`turnstile_token = %v, want "unavailable"`, errs["turnstile_token"])
+		got, _ := fieldError(decode(t, w), "turnstile_token")
+		if got != "unavailable" {
+			t.Errorf(`turnstile_token = %v, want "unavailable"`, got)
 		}
 		if f.users.inserted != nil {
 			t.Error("no account may be created when Cloudflare could not be reached")
@@ -137,9 +137,9 @@ func TestLoginTurnstile(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
 		}
-		errs, _ := decode(t, w)["error"].(map[string]any)
-		if errs["turnstile_token"] != "required" {
-			t.Errorf(`turnstile_token = %v, want "required"`, errs["turnstile_token"])
+		got, _ := fieldError(decode(t, w), "turnstile_token")
+		if got != "required" {
+			t.Errorf(`turnstile_token = %v, want "required"`, got)
 		}
 		if findCookie(w.Header(), "access_token") != nil {
 			t.Error("no session may be issued when the token is missing")
@@ -162,9 +162,9 @@ func TestLoginTurnstile(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
 		}
-		errs, _ := decode(t, w)["error"].(map[string]any)
-		if errs["turnstile_token"] != "invalid" {
-			t.Errorf(`turnstile_token = %v, want "invalid"`, errs["turnstile_token"])
+		got, _ := fieldError(decode(t, w), "turnstile_token")
+		if got != "invalid" {
+			t.Errorf(`turnstile_token = %v, want "invalid"`, got)
 		}
 	})
 
@@ -234,9 +234,9 @@ func TestForgotPasswordTurnstile(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
 		}
-		errs, _ := decode(t, w)["error"].(map[string]any)
-		if errs["turnstile_token"] != "required" {
-			t.Errorf(`turnstile_token = %v, want "required"`, errs["turnstile_token"])
+		got, _ := fieldError(decode(t, w), "turnstile_token")
+		if got != "required" {
+			t.Errorf(`turnstile_token = %v, want "required"`, got)
 		}
 		if len(f.notify.resets) != 0 {
 			t.Error("no reset email may be sent when the token is missing")
@@ -256,9 +256,9 @@ func TestForgotPasswordTurnstile(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
 		}
-		errs, _ := decode(t, w)["error"].(map[string]any)
-		if errs["turnstile_token"] != "invalid" {
-			t.Errorf(`turnstile_token = %v, want "invalid"`, errs["turnstile_token"])
+		got, _ := fieldError(decode(t, w), "turnstile_token")
+		if got != "invalid" {
+			t.Errorf(`turnstile_token = %v, want "invalid"`, got)
 		}
 		if got := forgotPasswordAuditCount(f); got != 0 {
 			t.Errorf("a Turnstile rejection must not write the password-reset-request audit entry; got %d entries", got)

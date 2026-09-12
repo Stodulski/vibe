@@ -94,67 +94,65 @@ func redactedQuery(u *url.URL) string {
 	return strings.Join(parts, "&")
 }
 
-// Error writes message as a JSON error body with the given status. If writing
-// the body itself fails there is nothing left to send, so the failure is logged
-// and the status forced to 500.
-//
-// Every error response is marked no-store. An error is a statement about one
-// request by one caller at one moment — a 401 for an expired token, a 403 for
-// an account that has just been demoted, a 429 for an address that is over its
-// limit — and all three stop being true before any cache would expire them.
-// The 401 is the one that matters: cached, it locks a user out of a session
-// they have already fixed by signing in again.
-func (rs *Responder) Error(w http.ResponseWriter, r *http.Request, status int, message any) {
-	w.Header().Set("Cache-Control", "no-store")
-	if err := WriteJSON(w, status, Envelope{"error": message}, nil); err != nil {
-		rs.LogError(r, err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
-
 // ServerError logs err and reports a generic 500, never leaking the underlying
 // message to the client.
 func (rs *Responder) ServerError(w http.ResponseWriter, r *http.Request, err error) {
 	rs.LogError(r, err)
-	rs.Error(w, r, http.StatusInternalServerError, "the server encountered a problem and could not process your request")
+	rs.writeProblem(w, r, http.StatusInternalServerError, KindInternal,
+		"the server encountered a problem and could not process your request", nil)
 }
 
-// NotFound reports 404.
+// NotFound reports 404 for a domain resource that is not there, or is not
+// this caller's.
 func (rs *Responder) NotFound(w http.ResponseWriter, r *http.Request) {
-	rs.Error(w, r, http.StatusNotFound, "the requested resource could not be found")
+	rs.writeProblem(w, r, http.StatusNotFound, KindNotFound, "the requested resource could not be found", nil)
+}
+
+// RouteNotFound reports 404 for a path this API does not serve at all — the
+// mux's own miss, before any handler or domain ever saw the request. It is a
+// distinct kind from NotFound: a caller who mistyped the path and a caller
+// who asked for a since-deleted booking get different `type` values, even
+// though both answer the same status.
+func (rs *Responder) RouteNotFound(w http.ResponseWriter, r *http.Request) {
+	rs.writeProblem(w, r, http.StatusNotFound, KindRouteNotFound, "the requested resource could not be found", nil)
 }
 
 // MethodNotAllowed reports 405.
 func (rs *Responder) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	rs.Error(w, r, http.StatusMethodNotAllowed, "the method is not supported for this resource")
+	rs.writeProblem(w, r, http.StatusMethodNotAllowed, KindMethodNotAllowed,
+		"the method is not supported for this resource", nil)
 }
 
 // BadRequest reports 400 with err's message, which callers construct to be
 // safe for the client to read. An oversized request body (BodyTooLargeError,
 // from ReadJSON) is the one exception: it reports 413 Request Entity Too
-// Large instead, with the same message and envelope.
+// Large instead, with the same message.
 func (rs *Responder) BadRequest(w http.ResponseWriter, r *http.Request, err error) {
 	var tooLarge *BodyTooLargeError
 	if errors.As(err, &tooLarge) {
-		rs.Error(w, r, http.StatusRequestEntityTooLarge, err.Error())
+		rs.writeProblem(w, r, http.StatusRequestEntityTooLarge, KindTooLarge, err.Error(), nil)
 		return
 	}
-	rs.Error(w, r, http.StatusBadRequest, err.Error())
+	rs.writeProblem(w, r, http.StatusBadRequest, KindInvalidJSON, err.Error(), nil)
 }
 
-// FailedValidation reports 422 with the per-field validation errors.
+// FailedValidation reports 422 with the per-field validation errors, sorted
+// by field name so the same set of failures always serializes in the same
+// order.
 func (rs *Responder) FailedValidation(w http.ResponseWriter, r *http.Request, errors map[string]string) {
-	rs.Error(w, r, http.StatusUnprocessableEntity, errors)
+	rs.writeProblem(w, r, http.StatusUnprocessableEntity, KindValidation,
+		"the request failed validation", sortedFieldErrors(errors))
 }
 
 // EditConflict reports 409 when an optimistic-concurrency update lost its race.
 func (rs *Responder) EditConflict(w http.ResponseWriter, r *http.Request) {
-	rs.Error(w, r, http.StatusConflict, "unable to update the record due to an edit conflict, please try again")
+	rs.writeProblem(w, r, http.StatusConflict, KindConflict,
+		"unable to update the record due to an edit conflict, please try again", nil)
 }
 
 // RateLimitExceeded reports 429.
 func (rs *Responder) RateLimitExceeded(w http.ResponseWriter, r *http.Request) {
-	rs.Error(w, r, http.StatusTooManyRequests, "rate limit exceeded")
+	rs.writeProblem(w, r, http.StatusTooManyRequests, KindRateLimited, "rate limit exceeded", nil)
 }
 
 // RateLimitExceededAfter reports 429 and tells the client, in whole seconds,
@@ -170,18 +168,19 @@ func (rs *Responder) RateLimitExceededAfter(w http.ResponseWriter, r *http.Reque
 
 // InvalidCredentials reports 401 for a failed login.
 func (rs *Responder) InvalidCredentials(w http.ResponseWriter, r *http.Request) {
-	rs.Error(w, r, http.StatusUnauthorized, "invalid authentication credentials")
+	rs.writeProblem(w, r, http.StatusUnauthorized, KindUnauthorized, "invalid authentication credentials", nil)
 }
 
 // InvalidAuthenticationToken reports 401 for a missing or unusable token and
 // advertises the expected scheme.
 func (rs *Responder) InvalidAuthenticationToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWW-Authenticate", "Bearer")
-	rs.Error(w, r, http.StatusUnauthorized, "invalid or missing authentication token")
+	rs.writeProblem(w, r, http.StatusUnauthorized, KindUnauthorized, "invalid or missing authentication token", nil)
 }
 
 // NotPermitted reports 403 for an authenticated user lacking the required role
 // or ownership.
 func (rs *Responder) NotPermitted(w http.ResponseWriter, r *http.Request) {
-	rs.Error(w, r, http.StatusForbidden, "your user account doesn't have the necessary permissions to access this resource")
+	rs.writeProblem(w, r, http.StatusForbidden, KindForbidden,
+		"your user account doesn't have the necessary permissions to access this resource", nil)
 }

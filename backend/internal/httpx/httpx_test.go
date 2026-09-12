@@ -141,14 +141,12 @@ func TestBadRequestReportsOversizedBodyAs413(t *testing.T) {
 	if w.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("want %d; got %d", http.StatusRequestEntityTooLarge, w.Code)
 	}
-	var body struct {
-		Error string `json:"error"`
-	}
+	var body Problem
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Error != "body must not be larger than 1048576 bytes" {
-		t.Errorf("want the original message preserved; got %q", body.Error)
+	if body.Detail != "body must not be larger than 1048576 bytes" {
+		t.Errorf("want the original message preserved; got %q", body.Detail)
 	}
 
 	w = httptest.NewRecorder()
@@ -270,30 +268,51 @@ func TestResponderErrorShape(t *testing.T) {
 		name     string
 		call     func(w http.ResponseWriter, r *http.Request)
 		wantCode int
+		wantKind Kind
 	}{
-		{"not found", rs.NotFound, http.StatusNotFound},
-		{"method not allowed", rs.MethodNotAllowed, http.StatusMethodNotAllowed},
-		{"edit conflict", rs.EditConflict, http.StatusConflict},
-		{"rate limited", rs.RateLimitExceeded, http.StatusTooManyRequests},
-		{"invalid credentials", rs.InvalidCredentials, http.StatusUnauthorized},
-		{"not permitted", rs.NotPermitted, http.StatusForbidden},
+		{"not found", rs.NotFound, http.StatusNotFound, KindNotFound},
+		{"method not allowed", rs.MethodNotAllowed, http.StatusMethodNotAllowed, KindMethodNotAllowed},
+		{"edit conflict", rs.EditConflict, http.StatusConflict, KindConflict},
+		{"rate limited", rs.RateLimitExceeded, http.StatusTooManyRequests, KindRateLimited},
+		{"invalid credentials", rs.InvalidCredentials, http.StatusUnauthorized, KindUnauthorized},
+		{"not permitted", rs.NotPermitted, http.StatusForbidden, KindForbidden},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			tt.call(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			r = ContextSetRequestID(r, "req-1")
+			tt.call(w, r)
 
 			if w.Code != tt.wantCode {
 				t.Errorf("want status %d; got %d", tt.wantCode, w.Code)
 			}
+			if got := w.Header().Get("Content-Type"); got != "application/problem+json" {
+				t.Errorf("want Content-Type application/problem+json; got %q", got)
+			}
 
-			var body map[string]any
+			var body Problem
 			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 				t.Fatalf("error body is not valid JSON: %v", err)
 			}
-			if _, ok := body["error"]; !ok {
-				t.Errorf(`every error body must be enveloped under "error"; got %s`, w.Body.String())
+			if body.Type != tt.wantKind.URI() {
+				t.Errorf("want type %q; got %q", tt.wantKind.URI(), body.Type)
+			}
+			if body.Status != tt.wantCode {
+				t.Errorf("want status field %d; got %d", tt.wantCode, body.Status)
+			}
+			if body.Title == "" {
+				t.Error("want a non-empty title")
+			}
+			if body.Detail == "" {
+				t.Error("want a non-empty detail")
+			}
+			if body.Instance != "/" {
+				t.Errorf("want instance %q; got %q", "/", body.Instance)
+			}
+			if body.RequestID != "req-1" {
+				t.Errorf("want request_id %q; got %q", "req-1", body.RequestID)
 			}
 		})
 	}

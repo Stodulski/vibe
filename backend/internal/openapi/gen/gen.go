@@ -1219,10 +1219,13 @@ type DashboardStats struct {
 	YesterdayRevenue int `json:"yesterday_revenue"`
 }
 
-// Error defines model for Error.
-type Error struct {
-	// Error Human readable, safe to display.
-	Error string `json:"error"`
+// FieldError defines model for FieldError.
+type FieldError struct {
+	// Field Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`.
+	Field string `json:"field"`
+
+	// Message Free text, or one of the stable machine codes intended for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`, `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`, `report_period_before_complex_existed`, `report_export_too_large`, `report_export_timed_out`, `price_required`).
+	Message string `json:"message"`
 }
 
 // HealthDetailed defines model for HealthDetailed.
@@ -1406,6 +1409,30 @@ type PlatformStats struct {
 	// TotalRevenue Centavos ARS.
 	TotalRevenue int `json:"total_revenue"`
 	TotalUsers   int `json:"total_users"`
+}
+
+// Problem An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type Problem struct {
+	// Detail Human readable detail for this occurrence, safe to display.
+	Detail *string `json:"detail,omitempty"`
+
+	// Errors Present on a validation problem; one entry per invalid field.
+	Errors *[]FieldError `json:"errors,omitempty"`
+
+	// Instance The request path that produced this problem.
+	Instance *string `json:"instance,omitempty"`
+
+	// RequestId Correlates this response with the server's logs.
+	RequestId *string `json:"request_id,omitempty"`
+
+	// Status The HTTP status code, repeated here per RFC 9457.
+	Status int `json:"status"`
+
+	// Title A short, stable summary of this problem's type.
+	Title string `json:"title"`
+
+	// Type A stable URI identifying this problem's kind, e.g. `https://vibe.com.ar/problems/validation`.
+	Type string `json:"type"`
 }
 
 // PublicBookingResult defines model for PublicBookingResult.
@@ -1633,12 +1660,6 @@ type User struct {
 // UserRole defines model for User.Role.
 type UserRole string
 
-// ValidationError defines model for ValidationError.
-type ValidationError struct {
-	// Error Field name (dotted or bracketed for nested fields, e.g. `schedules[3].open_time`) to message. A message is either free text or one of the stable machine codes intended for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`, `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`, `report_period_before_complex_existed`, `report_export_too_large`, `report_export_timed_out`, `price_required`).
-	Error map[string]string `json:"error"`
-}
-
 // Weekday defines model for Weekday.
 type Weekday string
 
@@ -1672,26 +1693,29 @@ type PathID = openapi_types.UUID
 // PathSlug defines model for PathSlug.
 type PathSlug = string
 
-// EditConflict defines model for EditConflict.
-type EditConflict = Error
+// EditConflict An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type EditConflict = Problem
 
-// Forbidden defines model for Forbidden.
-type Forbidden = Error
+// Forbidden An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type Forbidden = Problem
 
-// LinkExpired defines model for LinkExpired.
-type LinkExpired = Error
+// LinkExpired An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type LinkExpired = Problem
 
-// NotFound defines model for NotFound.
-type NotFound = Error
+// NotFound An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type NotFound = Problem
 
-// RateLimited defines model for RateLimited.
-type RateLimited = Error
+// RateLimited An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type RateLimited = Problem
 
-// ServerError defines model for ServerError.
-type ServerError = Error
+// ServerError An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type ServerError = Problem
 
-// Unauthorized defines model for Unauthorized.
-type Unauthorized = Error
+// Unauthorized An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type Unauthorized = Problem
+
+// ValidationError An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+type ValidationError = Problem
 
 // AdminListAuditLogParams defines parameters for AdminListAuditLog.
 type AdminListAuditLogParams struct {

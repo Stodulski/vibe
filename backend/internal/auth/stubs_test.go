@@ -548,6 +548,23 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	return out
 }
 
+// fieldError reads a validation Problem's errors[] array (as decode returns
+// it, still generic JSON) for field's message, if present.
+func fieldError(body map[string]any, field string) (string, bool) {
+	errs, _ := body["errors"].([]any)
+	for _, e := range errs {
+		entry, ok := e.(map[string]any)
+		if !ok {
+			continue
+		}
+		if entry["field"] == field {
+			msg, _ := entry["message"].(string)
+			return msg, true
+		}
+	}
+	return "", false
+}
+
 // withUser puts an authenticated account in the request context, as the
 // authentication middleware does.
 func withUser(r *http.Request, u *authstore.User) *http.Request {

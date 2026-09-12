@@ -969,7 +969,7 @@ func TestAnExpiredTokenGetsA410(t *testing.T) {
 		t.Fatalf("want 410 for an expired token; got %d (%s)", w.Code, w.Body.String())
 	}
 	body := decode(t, w)
-	if msg, _ := body["error"].(string); msg == "" || msg == "the requested resource could not be found" {
+	if msg, _ := body["detail"].(string); msg == "" || msg == "the requested resource could not be found" {
 		t.Errorf("want a non-empty body distinguishable from the 404 case; got %v", body)
 	}
 }

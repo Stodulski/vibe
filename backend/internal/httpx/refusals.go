@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/stodulski/vibe-server/internal/data"
@@ -24,53 +25,75 @@ import (
 // "cannot delete complex while it has active bookings" on one route and
 // "cannot disconnect MercadoPago while you have active bookings" on another.
 
-// Refusal is a refused request's answer: the status, and the message the client
-// reads. A nil Message writes the status alone with no body, which is what a
-// webhook's provider reads and all it reads.
+// Refusal is a refused request's answer: the status, the Problem kind it
+// answers as, and the message the client reads as Problem.Detail. A nil
+// Message writes the status alone with no body, which is what a webhook's
+// provider reads and all it reads.
 type Refusal struct {
 	Status  int
+	Kind    Kind
 	Message any
 }
 
 // The refusal constructors. They exist so that a domain package names the
 // meaning of a refusal rather than a number, and so that grepping the tree for
 // http.Status finds this file and the third-party statuses it does not own.
+//
+// Each constructor's Kind is fixed to the status it answers with: two
+// domains refusing the same way always answer the same Problem `type`, which
+// is what lets the frontend switch on it instead of on status plus wording.
+// NotImplemented and BadGateway have no kind of their own in the RFC 9457
+// rollout (docs/auditoria-backend-2026-09-11); both are, from the caller's
+// side, "this deployment cannot do that right now", so both answer
+// KindUnavailable.
 
 // BadRequest refuses a request the caller can fix: 400.
-func BadRequest(message any) Refusal { return Refusal{http.StatusBadRequest, message} }
+func BadRequest(message any) Refusal { return Refusal{http.StatusBadRequest, KindInvalidJSON, message} }
 
 // Unauthorized refuses a request with no usable credential: 401.
-func Unauthorized(message any) Refusal { return Refusal{http.StatusUnauthorized, message} }
+func Unauthorized(message any) Refusal {
+	return Refusal{http.StatusUnauthorized, KindUnauthorized, message}
+}
 
 // Forbidden refuses a caller who is known and still not allowed: 403.
-func Forbidden(message any) Refusal { return Refusal{http.StatusForbidden, message} }
+func Forbidden(message any) Refusal { return Refusal{http.StatusForbidden, KindForbidden, message} }
 
 // NotFound refuses a resource that is not there, or is not this caller's: 404.
-func NotFound(message any) Refusal { return Refusal{http.StatusNotFound, message} }
+func NotFound(message any) Refusal { return Refusal{http.StatusNotFound, KindNotFound, message} }
 
 // Conflict refuses a write that collides with the state it found: 409.
-func Conflict(message any) Refusal { return Refusal{http.StatusConflict, message} }
+func Conflict(message any) Refusal { return Refusal{http.StatusConflict, KindConflict, message} }
 
 // Gone refuses a resource that existed and deliberately does not any more: 410.
-func Gone(message any) Refusal { return Refusal{http.StatusGone, message} }
+func Gone(message any) Refusal { return Refusal{http.StatusGone, KindGone, message} }
 
 // Unprocessable refuses a well-formed request the rules reject: 422.
-func Unprocessable(message any) Refusal { return Refusal{http.StatusUnprocessableEntity, message} }
+func Unprocessable(message any) Refusal {
+	return Refusal{http.StatusUnprocessableEntity, KindValidation, message}
+}
 
 // TooLarge refuses a request body over the size an endpoint accepts: 413.
-func TooLarge(message any) Refusal { return Refusal{http.StatusRequestEntityTooLarge, message} }
+func TooLarge(message any) Refusal {
+	return Refusal{http.StatusRequestEntityTooLarge, KindTooLarge, message}
+}
 
 // TooManyRequests refuses a caller who is over a limit: 429.
-func TooManyRequests(message any) Refusal { return Refusal{http.StatusTooManyRequests, message} }
+func TooManyRequests(message any) Refusal {
+	return Refusal{http.StatusTooManyRequests, KindRateLimited, message}
+}
 
 // NotImplemented refuses a feature this deployment is not configured for: 501.
-func NotImplemented(message any) Refusal { return Refusal{http.StatusNotImplemented, message} }
+func NotImplemented(message any) Refusal {
+	return Refusal{http.StatusNotImplemented, KindUnavailable, message}
+}
 
 // BadGateway reports that a dependency did not give us an answer: 502.
-func BadGateway(message any) Refusal { return Refusal{http.StatusBadGateway, message} }
+func BadGateway(message any) Refusal { return Refusal{http.StatusBadGateway, KindUnavailable, message} }
 
 // Unavailable reports that this service cannot do the work right now: 503.
-func Unavailable(message any) Refusal { return Refusal{http.StatusServiceUnavailable, message} }
+func Unavailable(message any) Refusal {
+	return Refusal{http.StatusServiceUnavailable, KindUnavailable, message}
+}
 
 // MovedPermanently redirects to location with 301, for a route that changed
 // address and whose old one is still in somebody's index. It lives here with
@@ -114,14 +137,28 @@ func (rs *Responder) WithRefusals(table Refusals) *Refuser {
 	return &Refuser{Responder: rs, table: table}
 }
 
-// Refuse writes a refusal. A refusal with no message writes the status alone.
+// Refuse writes a refusal. A refusal with no message writes the status alone
+// with no body at all — not even a Problem — which is what a provider
+// reading a bare status code (a webhook ack, WhatsApp's callback) needs and
+// all it reads.
 func (rs *Responder) Refuse(w http.ResponseWriter, r *http.Request, ref Refusal) {
 	if ref.Message == nil {
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(ref.Status)
 		return
 	}
-	rs.Error(w, r, ref.Status, ref.Message)
+	rs.writeProblem(w, r, ref.Status, ref.Kind, detailOf(ref.Message), nil)
+}
+
+// detailOf renders a Refusal's Message as Problem.Detail. Every call site in
+// this codebase passes a string or a stable machine code (see codes.go); the
+// fallback exists so a caller that ever hands over something else still gets
+// a readable detail instead of Go's %v noise silently reaching a client.
+func detailOf(message any) string {
+	if s, ok := message.(string); ok {
+		return s
+	}
+	return fmt.Sprint(message)
 }
 
 // DomainError answers err with the status its kind of failure earns.

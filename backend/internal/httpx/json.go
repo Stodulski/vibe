@@ -65,6 +65,29 @@ func WriteJSON(w http.ResponseWriter, status int, data Envelope, headers http.He
 	return nil
 }
 
+// WriteProblemJSON encodes problem as application/problem+json (RFC 9457) and
+// writes it with the given status. It exists apart from WriteJSON because a
+// Problem is a struct with a fixed shape, not a caller-assembled Envelope,
+// and because its content type is never "application/json".
+func WriteProblemJSON(w http.ResponseWriter, status int, problem Problem) error {
+	buf, _ := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(problem); err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(status)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ReadJSON decodes a single JSON value from the request body into dst. Unknown
 // fields are rejected, the body is capped at MaxJSONBody, and every decoding
 // failure is translated into a message safe to return to the client.

@@ -269,14 +269,12 @@ func TestMonthlyReportRejectsANonNumericPeriodInsteadOfDefaulting(t *testing.T) 
 				t.Errorf("must not query any period for malformed input; queried %v", reports.periods)
 			}
 
-			var body struct {
-				Error string `json:"error"`
-			}
+			var body httpx.Problem
 			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
-			if body.Error != httpx.CodeInvalidReportPeriod {
-				t.Errorf("want %q; got %q", httpx.CodeInvalidReportPeriod, body.Error)
+			if body.Detail != httpx.CodeInvalidReportPeriod {
+				t.Errorf("want %q; got %q", httpx.CodeInvalidReportPeriod, body.Detail)
 			}
 		})
 	}
@@ -351,14 +349,18 @@ func TestRevenueChartPeriod(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusUnprocessableEntity {
-				var body struct {
-					Error map[string]string `json:"error"`
-				}
+				var body httpx.Problem
 				if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 					t.Fatalf("decode response: %v", err)
 				}
-				if _, ok := body.Error["period"]; !ok {
-					t.Errorf("want a validation error on the period field; got %v", body.Error)
+				found := false
+				for _, fe := range body.Errors {
+					if fe.Field == "period" {
+						found = true
+					}
+				}
+				if !found {
+					t.Errorf("want a validation error on the period field; got %v", body.Errors)
 				}
 			}
 		})
@@ -619,16 +621,14 @@ func TestExportRefusesAPeriodOverTheRowCap(t *testing.T) {
 	}
 	assertNotADownload(t, w)
 
-	var body struct {
-		Error string `json:"error"`
-	}
+	var body httpx.Problem
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("body is not valid JSON: %v", err)
 	}
 	// The owner has to be told which limit they hit, or the refusal is
 	// indistinguishable from the export being broken.
-	if body.Error != httpx.CodeExportTooLarge {
-		t.Errorf("want the %q code; got %q", httpx.CodeExportTooLarge, body.Error)
+	if body.Detail != httpx.CodeExportTooLarge {
+		t.Errorf("want the %q code; got %q", httpx.CodeExportTooLarge, body.Detail)
 	}
 }
 
