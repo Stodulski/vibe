@@ -3,6 +3,8 @@ package data
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // MaxAttempts is how many times a retryable single statement is sent before
@@ -30,6 +32,30 @@ type StatementRunner interface {
 // no pool and must not be asked for one.
 func NewDBOver(r StatementRunner, sleep func(ctx context.Context, d time.Duration) error) *DB {
 	return &DB{r: retrier{db: r, sleep: sleep}}
+}
+
+// NewDBOverTx builds a DB that lives entirely inside one already-open
+// transaction: single statements go to r, and Begin opens a savepoint on tx
+// instead of checking a connection out of a pool.
+//
+// It exists for the integration fixture (internal/data/datatest). A test that
+// runs inside a transaction its harness rolls back afterwards leaves nothing
+// behind, which is what lets the suite stop deleting and truncating shared
+// tables between cases — but only if the stores under test reach the same
+// transaction, and they reach the database exclusively through a *DB. Handing
+// them a *DB built here is the whole substitution; not one store call site
+// changes.
+//
+// r is separate from tx on purpose. A statement a test expects to be refused —
+// the constraint suite is nothing but those — aborts the transaction it runs
+// in, so the fixture wraps each single statement in its own savepoint before
+// it reaches the transaction. That wrapper is r. Passing tx itself works and
+// is what a caller with no failing statements wants; it just cannot survive
+// the first refusal.
+//
+// A DB built here has no pool and must not be asked for one, same as NewDBOver.
+func NewDBOverTx(r StatementRunner, tx pgx.Tx) *DB {
+	return &DB{r: retrier{db: r, sleep: waitFor}, begin: tx.Begin}
 }
 
 // RetryTxLoop is RetryTx's retry policy over an opaque unit of work: which

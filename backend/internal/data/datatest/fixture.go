@@ -5,6 +5,7 @@ package datatest
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"os"
 	"sync"
 	"testing"
@@ -86,11 +87,33 @@ func SetupTestDB(t *testing.T) *pgxpool.Pool {
 // Fixture is one complex's worth of real rows — owner, complex, court and client —
 // on which a test can hang the bookings and payments it actually cares about.
 //
-// Everything it creates is reachable from ComplexID or UserID, so cleanup deletes
-// exactly this test's rows instead of truncating shared tables. That keeps a failing
-// test's neighbours intact and keeps the database usable for the next test without a
-// global reset between every case.
+// It comes in two modes, and the choice is the whole of this file's design.
+//
+// Isolated is the default a test should reach for: the fixture opens one
+// connection, begins a transaction on it, and every store and every raw
+// statement the test runs goes inside that transaction, which is rolled back
+// when the test ends. Nothing is ever committed, so there is nothing to clean
+// up, nothing another package can see, and nothing another package's leftovers
+// can do to this test. Rows other tests left behind are invisible to it only in
+// the sense that matters — it counts its own complex's rows — but its own rows
+// are genuinely invisible to everyone else.
+//
+// Shared is for the tests that cannot run inside one transaction, and the test
+// for that is concrete rather than a matter of taste: does the test need two
+// database connections that can see each other? An advisory-lock race, a
+// FOR UPDATE SKIP LOCKED claim race, a row-level-security check that connects
+// as a second role, anything with a goroutine that writes — all of those need
+// real concurrency, and two statements inside one transaction are never
+// concurrent. Those keep the pool and the scoped DELETEs that came before.
 type Fixture struct {
+	// DB is the handle every test statement goes through, whichever mode the
+	// fixture is in. In Isolated it is bound to the fixture's transaction; in
+	// Shared it wraps the pool.
+	DB *data.DB
+	// Pool is the connection pool, and it is nil in Isolated mode — on purpose.
+	// Reaching for it is how a test says "I need more than one connection",
+	// which is exactly the thing a transactional fixture cannot give, so the
+	// nil is the error message.
 	Pool      *pgxpool.Pool
 	Stores    stores.Stores
 	UserID    uuid.UUID
@@ -99,18 +122,94 @@ type Fixture struct {
 	ClientID  uuid.UUID
 }
 
-// NewFixture creates the owner, complex, court and client a test hangs its
-// own rows on, and registers the cleanup that removes them again.
-func NewFixture(t *testing.T) *Fixture {
+// Isolated returns a fixture whose every statement runs inside one transaction,
+// rolled back when the test ends.
+//
+// This is the constructor to use unless the test needs two connections; see
+// Fixture for the distinction and Shared for the other side of it.
+func Isolated(t *testing.T) *Fixture {
+	t.Helper()
+
+	conn := connectForTx(t)
+	ctx := context.Background()
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatalf("beginning the fixture transaction: %v", err)
+	}
+	// The rollback is the cleanup, and it is the only one: it undoes the seed
+	// rows below and everything the test wrote on top of them, in one
+	// statement, with no list of tables to keep in step with the schema.
+	t.Cleanup(func() {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := tx.Rollback(rollbackCtx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			t.Errorf("rolling the fixture transaction back: %v", err)
+		}
+	})
+
+	handle := data.NewDBOverTx(savepointRunner{tx: tx}, tx)
+	f := &Fixture{DB: handle, Stores: stores.NewOver(handle, stores.Config{Keys: CredentialKeyring(t)})}
+	f.seed(t)
+
+	// The tenant scope the pool's checkout hook stamps in production, stamped
+	// once on this transaction instead: there is no checkout here, and a store
+	// that opens its own transaction re-stamps it as SET LOCAL inside a
+	// savepoint, which reverts to this when the savepoint ends.
+	if _, err := f.DB.Exec(f.Scoped(ctx),
+		`SELECT set_config('app.complex_id', $1, true), set_config('app.bypass_tenant', 'off', true)`,
+		f.ComplexID.String(),
+	); err != nil {
+		t.Fatalf("stamping the tenant scope on the fixture transaction: %v", err)
+	}
+
+	return f
+}
+
+// Shared returns a fixture on the shared pool, cleaned up with the scoped
+// deletes below.
+//
+// Only for a test that genuinely needs more than one connection — see Fixture.
+// Its rows are committed, so they are visible to every other test running
+// against the same database, which is why the suite still runs the packages
+// one at a time.
+func Shared(t *testing.T) *Fixture {
 	t.Helper()
 
 	pool := SetupTestDB(t)
+	f := &Fixture{
+		Pool:   pool,
+		DB:     data.NewDB(pool),
+		Stores: stores.New(pool, stores.Config{Keys: CredentialKeyring(t)}),
+	}
+	f.seed(t)
+	return f
+}
+
+// SharedPool is Shared's pool, and it fails the test rather than return nil.
+//
+// A Shared-only helper reached from an Isolated fixture is a test that has
+// asked for concurrency it does not have; saying so here beats a nil-pointer
+// panic ten frames down inside pgxpool.
+func (f *Fixture) SharedPool(t *testing.T, helper string) *pgxpool.Pool {
+	t.Helper()
+
+	if f.Pool == nil {
+		t.Fatalf("%s needs a second connection, so it needs datatest.Shared(t); this fixture is transactional", helper)
+	}
+	return f.Pool
+}
+
+// seed creates the owner, complex, court and client a test hangs its own rows
+// on, and — in Shared mode only — registers the cleanup that removes them
+// again. An Isolated fixture needs no cleanup: the rollback is the cleanup.
+func (f *Fixture) seed(t *testing.T) {
+	t.Helper()
+
 	ctx := context.Background()
 	suffix := uuid.NewString()
 
-	f := &Fixture{Pool: pool, Stores: stores.New(pool, stores.Config{Keys: CredentialKeyring(t)})}
-
-	err := pool.QueryRow(ctx, `
+	err := f.DB.QueryRow(ctx, `
 		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
 		VALUES ($1, $2, 'Owner', 'Test', '+5491100000000', 'owner', true)
 		RETURNING id`,
@@ -122,13 +221,15 @@ func NewFixture(t *testing.T) *Fixture {
 
 	// Registered before the child rows exist so it runs last (t.Cleanup is LIFO),
 	// after the scoped delete below has cleared everything that references it.
-	t.Cleanup(func() {
-		if _, err := pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, f.UserID); err != nil {
-			t.Errorf("deleting owner: %v", err)
-		}
-	})
+	if f.Pool != nil {
+		t.Cleanup(func() {
+			if _, err := f.DB.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, f.UserID); err != nil {
+				t.Errorf("deleting owner: %v", err)
+			}
+		})
+	}
 
-	err = pool.QueryRow(ctx, `
+	err = f.DB.QueryRow(ctx, `
 		INSERT INTO complexes (owner_id, name, slug, address, city, province, phone)
 		VALUES ($1, 'Test Complex', $2, 'Av. Siempreviva 742', 'Rosario', 'Santa Fe', '+5491100000001')
 		RETURNING id`,
@@ -138,9 +239,11 @@ func NewFixture(t *testing.T) *Fixture {
 		t.Fatalf("creating complex: %v", err)
 	}
 
-	t.Cleanup(func() { f.deleteComplexData(t) })
+	if f.Pool != nil {
+		t.Cleanup(func() { f.deleteComplexData(t) })
+	}
 
-	err = pool.QueryRow(ctx, `
+	err = f.DB.QueryRow(ctx, `
 		INSERT INTO courts (complex_id, name)
 		VALUES ($1, 'Court 1')
 		RETURNING id`, f.ComplexID).Scan(&f.CourtID)
@@ -148,18 +251,18 @@ func NewFixture(t *testing.T) *Fixture {
 		t.Fatalf("creating court: %v", err)
 	}
 
-	err = pool.QueryRow(ctx, `
+	err = f.DB.QueryRow(ctx, `
 		INSERT INTO clients (complex_id, first_name, last_name, phone)
 		VALUES ($1, 'Ana', 'Diaz', $2)
 		RETURNING id`, f.ComplexID, "+54911"+suffix[:8]).Scan(&f.ClientID)
 	if err != nil {
 		t.Fatalf("creating client: %v", err)
 	}
-
-	return f
 }
 
 // deleteComplexData removes every row this fixture's complex owns, child tables first.
+//
+// Shared mode only: an Isolated fixture's rollback undoes all of this and more.
 //
 // The deletes are explicit rather than a CASCADE from the complex because the FK graph
 // is not a tree: payments.booking_id and bookings.court_id have no ON DELETE action, so
@@ -339,7 +442,7 @@ func (f *Fixture) CreatePayment(t *testing.T, bookingID uuid.UUID, amount, servi
 func (f *Fixture) ReadPaymentState(t *testing.T, paymentID uuid.UUID) (status string, refundAmount int) {
 	t.Helper()
 
-	err := f.Pool.QueryRow(context.Background(),
+	err := f.DB.QueryRow(context.Background(),
 		`SELECT status, COALESCE(refund_amount, 0) FROM payments WHERE id = $1`, paymentID,
 	).Scan(&status, &refundAmount)
 	if err != nil {
@@ -352,7 +455,7 @@ func (f *Fixture) ReadPaymentState(t *testing.T, paymentID uuid.UUID) (status st
 func (f *Fixture) ReadBookingState(t *testing.T, bookingID uuid.UUID) (status, collectionStatus, refundStatus string) {
 	t.Helper()
 
-	err := f.Pool.QueryRow(context.Background(),
+	err := f.DB.QueryRow(context.Background(),
 		`SELECT status, collection_status, refund_status FROM bookings WHERE id = $1`, bookingID,
 	).Scan(&status, &collectionStatus, &refundStatus)
 	if err != nil {
@@ -369,7 +472,7 @@ func (f *Fixture) ReadBookingState(t *testing.T, bookingID uuid.UUID) (status, c
 func (f *Fixture) BackdateBookingCreatedAt(t *testing.T, id uuid.UUID, age time.Duration) {
 	t.Helper()
 
-	tag, err := f.Pool.Exec(context.Background(),
+	tag, err := f.DB.Exec(context.Background(),
 		`UPDATE bookings SET created_at = NOW() - make_interval(secs => $2) WHERE id = $1`,
 		id, age.Seconds())
 	if err != nil {
@@ -404,7 +507,7 @@ func (f *Fixture) CountBookings(t *testing.T, status string) int {
 	t.Helper()
 
 	var n int
-	err := f.Pool.QueryRow(context.Background(),
+	err := f.DB.QueryRow(context.Background(),
 		`SELECT COUNT(*) FROM bookings WHERE court_id = $1 AND status = $2::booking_status`,
 		f.CourtID, status,
 	).Scan(&n)
@@ -425,7 +528,7 @@ func (f *Fixture) BackdateFailedRefundUpdatedAt(t *testing.T, id uuid.UUID, age 
 
 	ctx := context.Background()
 
-	tx, err := f.Pool.Begin(ctx)
+	tx, err := f.DB.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin backdate tx: %v", err)
 	}
@@ -466,7 +569,7 @@ func (f *Fixture) BlockCourtDay(t *testing.T, date time.Time) (release func()) {
 	t.Helper()
 
 	ctx := context.Background()
-	conn, err := f.Pool.Acquire(ctx)
+	conn, err := f.SharedPool(t, "BlockCourtDay").Acquire(ctx)
 	if err != nil {
 		t.Fatalf("acquiring the gate connection: %v", err)
 	}
@@ -510,7 +613,7 @@ func (f *Fixture) WaitForLockWaiters(t *testing.T, want int) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var waiting int
-		err := f.Pool.QueryRow(context.Background(), `
+		err := f.DB.QueryRow(context.Background(), `
 			SELECT COUNT(*) FROM pg_locks
 			WHERE locktype = 'advisory' AND NOT granted
 			  AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`,
@@ -534,7 +637,7 @@ func (f *Fixture) WaitForLockWaiters(t *testing.T, want int) {
 func (f *Fixture) MarkStatus(t *testing.T, id uuid.UUID, status string) {
 	t.Helper()
 
-	_, err := f.Pool.Exec(context.Background(),
+	_, err := f.DB.Exec(context.Background(),
 		`UPDATE bookings SET status = $1 WHERE id = $2`, status, id)
 	if err != nil {
 		t.Fatalf("marking booking %s: %v", status, err)
