@@ -99,7 +99,15 @@ export const publicComplexSchema = exact<PublicComplex>(
 export const publicComplexResponseSchema = z
   .object({
     complex: publicComplexSchema,
-    courts: z.array(courtWithPricesSchema),
+    // Nullable, not just an array: a Go `nil` slice (zero courts matched at
+    // the instant this was queried — seen under concurrent court writes on a
+    // shared E2E complex, e.g. blocked-slots-availability.spec.ts) marshals
+    // to JSON `null`, not `[]`. Treat it the same as empty rather than
+    // failing the whole page's schema.
+    courts: z
+      .array(courtWithPricesSchema)
+      .nullable()
+      .transform((v) => v ?? []),
     schedules: z.array(scheduleSchema),
   })
   .loose() satisfies z.ZodType<PublicComplexResponse>;

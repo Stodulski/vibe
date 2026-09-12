@@ -211,27 +211,58 @@ export class ApiHelper {
     await this.setSchedules(complex.id);
     await this.setCourtPrices(complex.id, court.id);
 
-    // Fake MercadoPago connection to bypass onboarding redirect
+    // Fake a MercadoPago connection so the public page's booking grid renders
+    // (bypasses the onboarding redirect and the "Reservá por WhatsApp"
+    // fallback). `payments_enabled` is derived server-side from
+    // `Complex.MPConnected()`, which requires `mp_access_token` to *decrypt*
+    // successfully (internal/data/mpcred.go) — setting `mp_user_id` alone (this
+    // helper's original, pre-encryption shape) fails the AES-GCM open and is
+    // treated as "not connected", same as empty. This went unnoticed because
+    // no spec exercised the shared complex's public page until
+    // blocked-slots-availability.spec.ts started running (it was wired into
+    // no Playwright project before). Two steps, same as
+    // `public-booking-fixtures.ts`'s `fakeMercadoPagoConnection`: write a
+    // plaintext value, then seal it into the v1 envelope with the same
+    // operator tool (`cmd/mpcredkey seal`, backend) the app uses for real
+    // credential rotation, under the same key `make e2e`'s isolated API is
+    // built with.
     const { execFileSync } = await import('child_process');
+    const path = await import('path');
+
+    const dbHost = process.env.E2E_DB_HOST ?? 'localhost';
+    const dbPort = process.env.E2E_DB_PORT ?? '5433';
+    const dbUser = process.env.E2E_DB_USER ?? 'vibe';
+    const dbName = process.env.E2E_DB_NAME ?? 'vibe_e2e';
+    const dbPassword = process.env.E2E_DB_PASSWORD ?? 'vibe_e2e';
+
     execFileSync(
       'psql',
       [
         '-h',
-        process.env.E2E_DB_HOST ?? 'localhost',
+        dbHost,
         '-p',
-        process.env.E2E_DB_PORT ?? '5433',
+        dbPort,
         '-U',
-        process.env.E2E_DB_USER ?? 'vibe',
+        dbUser,
         '-d',
-        process.env.E2E_DB_NAME ?? 'vibe_e2e',
+        dbName,
         '-c',
-        `UPDATE complexes SET mp_user_id = 'fake-e2e-mp-user' WHERE id = '${complex.id}';`,
+        `UPDATE complexes SET mp_user_id = 'fake-e2e-mp-user', mp_access_token = 'fake-e2e-access-token', mp_refresh_token = 'fake-e2e-refresh-token' WHERE id = '${complex.id}';`,
       ],
-      {
-        stdio: 'pipe',
-        env: { ...process.env, PGPASSWORD: process.env.E2E_DB_PASSWORD ?? 'vibe_e2e' },
-      },
+      { stdio: 'pipe', env: { ...process.env, PGPASSWORD: dbPassword } },
     );
+
+    const mpCredentialKeys = process.env.MP_CREDENTIAL_KEYS ?? 'e2e:MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=';
+    const serverDir = process.env.SERVER_DIR ?? path.resolve(process.cwd(), '../backend');
+    const dsn = `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}?sslmode=disable`;
+
+    const sealArgs = ['seal', `-db-dsn=${dsn}`, `-mp-credential-keys=${mpCredentialKeys}`];
+    const prebuilt = process.env.E2E_MPCREDKEY_BIN;
+    if (prebuilt) {
+      execFileSync(prebuilt, sealArgs, { cwd: serverDir, stdio: 'pipe' });
+    } else {
+      execFileSync('go', ['run', './cmd/mpcredkey', ...sealArgs], { cwd: serverDir, stdio: 'pipe' });
+    }
 
     return { complex, court };
   }
