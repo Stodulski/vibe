@@ -103,7 +103,7 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 |---|---|---|---|
 | `HTTP_READ_HEADER_TIMEOUT` | Deadline for reading the request line and headers alone (Go duration). This is the Slowloris bound: `HTTP_READ_TIMEOUT` does not cover a peer that dribbles its headers a byte at a time. | Optional | `5s` |
 | `HTTP_READ_TIMEOUT` | Deadline for reading the whole request, headers and body (Go duration). | Optional | `5s` |
-| `HTTP_WRITE_TIMEOUT` | Deadline for writing the response (Go duration). Must be greater than the 50s spreadsheet export budget (`reporting.ExportBudget`) — boot refuses a smaller value, because the timeout closes the connection without cancelling the handler and the export would be built and then discarded. | Optional | `60s` |
+| `HTTP_WRITE_TIMEOUT` | Deadline for writing the response (Go duration). The spreadsheet export's own time budget is derived from it as three quarters of its value. | Optional | `60s` |
 | `HTTP_IDLE_TIMEOUT` | How long a keep-alive connection may sit idle between requests (Go duration). | Optional | `60s` |
 
 ### Database

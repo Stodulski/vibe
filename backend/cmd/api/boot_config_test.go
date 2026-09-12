@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/platform/config"
-	"github.com/stodulski/vibe-server/internal/reporting"
 )
 
 // testConfig builds a config that passes validateBootConfig, so each test
@@ -153,37 +152,6 @@ func TestValidateBootConfig(t *testing.T) {
 				c.Booking.PaymentExpiry = 15 * time.Minute
 			},
 		},
-		{
-			name: "write timeout under the export budget, production: fatal",
-			mutate: func(c *config.Config) {
-				c.Env = "production"
-				c.HTTP.WriteTimeout = 10 * time.Second
-			},
-			wantErr:   true,
-			errSubstr: "http-write-timeout",
-		},
-		{
-			name: "write timeout exactly the export budget: refused, the export needs room to flush",
-			mutate: func(c *config.Config) {
-				c.Env = "production"
-				c.HTTP.WriteTimeout = reporting.ExportBudget
-			},
-			wantErr:   true,
-			errSubstr: "http-write-timeout",
-		},
-		{
-			name: "write timeout under the export budget, development: logged, not fatal",
-			mutate: func(c *config.Config) {
-				c.HTTP.WriteTimeout = 10 * time.Second
-			},
-		},
-		{
-			name: "write timeout of zero means no limit at all, so nothing to check",
-			mutate: func(c *config.Config) {
-				c.Env = "production"
-				c.HTTP.WriteTimeout = 0
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -201,6 +169,27 @@ func TestValidateBootConfig(t *testing.T) {
 			}
 			if tt.wantErr && tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
 				t.Errorf("expected error to contain %q; got %q", tt.errSubstr, err.Error())
+			}
+		})
+	}
+}
+
+func TestExportBudgetFor(t *testing.T) {
+	tests := []struct {
+		name         string
+		writeTimeout time.Duration
+		want         time.Duration
+	}{
+		{"60s write timeout leaves three quarters for the export", 60 * time.Second, 45 * time.Second},
+		{"30s write timeout leaves three quarters for the export", 30 * time.Second, 22*time.Second + 500*time.Millisecond},
+		{"unbounded write timeout falls back to the default budget", 0, 50 * time.Second},
+		{"a tiny write timeout is floored rather than starved further", 4 * time.Second, 5 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := exportBudgetFor(tt.writeTimeout); got != tt.want {
+				t.Errorf("exportBudgetFor(%s) = %s, want %s", tt.writeTimeout, got, tt.want)
 			}
 		})
 	}

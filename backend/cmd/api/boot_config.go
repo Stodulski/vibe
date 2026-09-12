@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/stodulski/vibe-server/internal/platform/config"
-	"github.com/stodulski/vibe-server/internal/reporting"
 )
 
 // validateBootConfig checks configuration invariants that nothing else in the
@@ -20,11 +20,6 @@ import (
 //     — OAuth link-a-seller flows fail, and an unconfigured webhook secret
 //     is refused explicitly elsewhere (mp.VerifyWebhookSignature), but only
 //     once the first webhook arrives.
-//   - The HTTP write timeout must be longer than the spreadsheet export's own
-//     budget. WriteTimeout closes the connection but does not cancel the
-//     handler, so a timeout under the budget means every large export is built
-//     in full and then thrown away, and the owner sees a truncated download
-//     rather than a refusal.
 //   - The booking slot lock TTL must be at least as long as the payment
 //     expiry: a lock that expires before the payment window closes lets a
 //     second client claim a slot while the first client's payment can still
@@ -39,13 +34,6 @@ func validateBootConfig(cfg config.Config, logger *slog.Logger) error {
 
 	if cfg.MP.AccessToken != "" {
 		missing = append(missing, missingMPConfig(cfg)...)
-	}
-
-	if cfg.HTTP.WriteTimeout > 0 && cfg.HTTP.WriteTimeout <= reporting.ExportBudget {
-		missing = append(missing, fmt.Sprintf(
-			"http-write-timeout (%s) must be greater than the spreadsheet export budget (%s), "+
-				"otherwise the connection is closed while the export is still building and the work is wasted",
-			cfg.HTTP.WriteTimeout, reporting.ExportBudget))
 	}
 
 	if cfg.Booking.SlotLockTTL < cfg.Booking.PaymentExpiry {
@@ -65,6 +53,29 @@ func validateBootConfig(cfg config.Config, logger *slog.Logger) error {
 	logger.Error("invalid boot configuration (continuing outside production)",
 		"issues", strings.Join(missing, "; "))
 	return nil
+}
+
+// defaultExportBudget is exportBudgetFor's answer for an unbounded (0)
+// HTTP_WRITE_TIMEOUT: the ceiling the export always had before it was derived.
+const defaultExportBudget = 50 * time.Second
+
+// minExportBudget is the floor under which a derived budget leaves the
+// spreadsheet export no meaningful time to build and stream the workbook.
+const minExportBudget = 5 * time.Second
+
+// exportBudgetFor derives the spreadsheet export's time budget from
+// HTTP_WRITE_TIMEOUT: three quarters of it, leaving the last quarter to flush
+// the response before WriteTimeout closes the connection out from under the
+// still-running handler. Below minExportBudget that quarter is too little to
+// matter — a full-cap export takes about a second — so the floor takes over.
+func exportBudgetFor(writeTimeout time.Duration) time.Duration {
+	if writeTimeout <= 0 {
+		return defaultExportBudget
+	}
+	if budget := writeTimeout * 3 / 4; budget >= minExportBudget {
+		return budget
+	}
+	return minExportBudget
 }
 
 // missingMPConfig reports what a MercadoPago-enabled deployment (a non-empty

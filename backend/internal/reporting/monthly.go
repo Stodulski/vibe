@@ -102,22 +102,6 @@ func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 // the process.
 const defaultMaxExportRows = 50_000
 
-// ExportBudget bounds the whole export — the query, the build and the
-// serialisation.
-//
-// The request context carries no deadline of its own: http.Server's
-// WriteTimeout closes the connection but does not cancel the handler, so
-// without this an export keeps allocating for a client that hung up minutes
-// ago. The budget therefore has to sit under that timeout, with room left to
-// flush what was built; validateBootConfig in cmd/api refuses a configuration
-// where it does not, because HTTP_WRITE_TIMEOUT is an operator's knob and this
-// is the invariant it can break. A full-cap export measures around a second,
-// so the fifty here is headroom for a slow database rather than a target.
-//
-// It is exported only so that boot check can name it; nothing outside this
-// package uses it to do work.
-const ExportBudget = 50 * time.Second
-
 // exportRowCheckInterval is how often the row loop looks at the budget.
 // Checking every row would cost more than it saves; checking never would make
 // the budget decorative.

@@ -38,18 +38,27 @@ type Service struct {
 
 	// maxExportRows is defaultMaxExportRows, held as a field so a test can
 	// exercise the cap boundary — which is an off-by-one in one comparison —
-	// without building a fifty-thousand-row workbook to do it. The budget
-	// beside it needs no such seam, so it stays a constant.
+	// without building a fifty-thousand-row workbook to do it.
 	maxExportRows int
+
+	// exportBudget bounds the whole export — the query, the build and the
+	// serialisation — so a client that hung up does not leave the handler
+	// allocating for it forever (WriteTimeout closes the connection but does
+	// not cancel the handler). It is a constructor argument rather than a
+	// constant because it has to sit under HTTP_WRITE_TIMEOUT: cmd/api
+	// derives it from that timeout and hands it in at wiring time.
+	exportBudget time.Duration
 }
 
-// NewService returns a Service backed by the given readers.
+// NewService returns a Service backed by the given readers, budgeting every
+// export to exportBudget.
 func NewService(
 	bookings BookingReader,
 	clients ClientReader,
 	courts CourtReader,
 	complexes ScheduleReader,
 	reports PaymentReportReader,
+	exportBudget time.Duration,
 ) *Service {
 	return &Service{
 		bookings:      bookings,
@@ -58,6 +67,7 @@ func NewService(
 		complexes:     complexes,
 		reports:       reports,
 		maxExportRows: defaultMaxExportRows,
+		exportBudget:  exportBudget,
 	}
 }
 
@@ -306,7 +316,7 @@ type Export struct {
 // error object stapled to the end, and Excel reported a corrupt file rather
 // than the server reporting a problem.
 func (s *Service) ExportPaymentsExcel(ctx context.Context, complex *complexstore.Complex, month, year int) (export *Export, rowCount int, err error) {
-	ctx, cancel := context.WithTimeout(ctx, ExportBudget)
+	ctx, cancel := context.WithTimeout(ctx, s.exportBudget)
 	defer cancel()
 
 	from := periodStart(month, year)

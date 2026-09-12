@@ -500,26 +500,23 @@ func TestPrerenderSubstitutesIntoTheFrontendsRealMarkup(t *testing.T) {
 	}
 }
 
-// A crawler reads a 500 as "this URL is broken" and drops the page from its
-// index. Every one of these is a transient failure on our side, and none of
-// them is a reason to cost a venue its search entry.
-
-func TestAStoreFailureServesTheShellRatherThanA500(t *testing.T) {
+// A crawler treats a 5xx as transient and retries it later, but reads a 2xx
+// as final and indexes whatever page came back. A store failure used to
+// answer 200 with the generic shell for exactly that reason — but the shell
+// then got indexed in this venue's own place, which a crawler never revisits
+// on its own; a 503 it retries once the read works again costs nothing.
+func TestAStoreFailureAnswers503WithRetryAfter(t *testing.T) {
 	store := &stubStore{complexErr: errors.New("db down")}
 
 	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200 with the shell; got %d (%s)", w.Code, w.Body.String())
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("want 503; got %d (%s)", w.Code, w.Body.String())
 	}
-	body := w.Body.String()
-	if !strings.Contains(body, `<link rel="canonical"`) {
-		t.Error("the shell was served without this venue's canonical URL")
-	}
-	if !strings.Contains(body, placeholderTitleTag) {
-		t.Error("the shell is not the frontend's own markup")
+	if got := w.Header().Get("Retry-After"); got != "60" {
+		t.Errorf("Retry-After = %q, want 60", got)
 	}
 }
 
@@ -534,6 +531,11 @@ func TestAnUnknownSlugIsStillNotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("want 404; got %d (%s)", w.Code, w.Body.String())
+	}
+	// The frontend's edge only passes a 404 through to a crawler when this
+	// header says so; any other 404 becomes a 503 on its side.
+	if got := w.Header().Get("X-Prerender-Result"); got != "venue-not-found" {
+		t.Errorf("X-Prerender-Result = %q, want venue-not-found", got)
 	}
 }
 

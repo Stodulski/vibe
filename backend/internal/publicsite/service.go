@@ -60,6 +60,11 @@ func (s *Service) Sitemap(ctx context.Context) (string, error) {
 	return b.String(), nil
 }
 
+// ErrComplexUnavailable reports that the venue exists as far as anyone knows
+// but this request could not read it — a database blip, not an unknown or
+// deactivated slug.
+var ErrComplexUnavailable = errors.New("complex temporarily unavailable")
+
 // Prerender fetches the frontend's index.html and substitutes the complex's own
 // title, description, image and structured data, so a crawler that runs no
 // JavaScript sees a fully described page rather than an empty app shell.
@@ -75,12 +80,11 @@ func (s *Service) Prerender(ctx context.Context, slug string) (Prerendered, erro
 	case errors.Is(err, data.ErrRecordNotFound):
 		return Prerendered{}, err
 	case err != nil:
-		// The venue exists as far as anyone knows; this request just could not
-		// read it. A 500 here tells a crawler the URL is broken, and a crawler
-		// told that drops the page from its index — a database blip becomes a
-		// week of lost search traffic. The shell is what a browser would have
-		// been served anyway.
-		return s.degraded(ctx, slug, err), nil
+		// This used to answer 200 with the generic shell, on the theory that
+		// a 500 costs the page its index entry — but a crawler treats 2xx as
+		// final and 5xx as transient: the shell got indexed in the venue's
+		// place permanently, where a 503 is simply retried once reads work.
+		return Prerendered{}, fmt.Errorf("%w: %w", ErrComplexUnavailable, err)
 	case !complex.IsActive:
 		return Prerendered{}, data.ErrRecordNotFound
 	}
@@ -116,28 +120,15 @@ func (s *Service) Prerender(ctx context.Context, slug string) (Prerendered, erro
 // Prerendered is a crawler-facing page and, when something went wrong on the
 // way to building it, what that was.
 //
-// Degraded is never a reason to fail the request — it is what the handler logs
-// while serving the page anyway. Everything this module serves is read by
-// search engines and social unfurlers, and for them an error status is not "try
-// again later", it is "this URL is broken": a 500 costs the page its index
-// entry, and the entry is the whole reason this endpoint exists.
+// Degraded is never a reason to fail the request — it is what the handler
+// logs while serving the page anyway, because the complex itself was read
+// successfully and only the opening hours or the frontend's own template was
+// lost. A failed complex read is not a Prerendered with Degraded set — see
+// ErrComplexUnavailable — because that page has nothing of this venue on it.
 type Prerendered struct {
 	Page string
-	// Degraded is why this page is less than it should be — the generic shell
-	// instead of the complex's own, or the complex's own without its opening
-	// hours — or nil when nothing went wrong.
+	// Degraded is why this page is less than it should be — the complex's own
+	// page without its opening hours, or built from the fallback template
+	// instead of the frontend's real one — or nil when nothing went wrong.
 	Degraded error
-}
-
-// degraded renders the generic shell for a slug whose complex could not be
-// read, so that a crawler is answered with a page rather than a status.
-func (s *Service) degraded(ctx context.Context, slug string, cause error) Prerendered {
-	tmpl, err := s.templates.get(ctx, s.frontendURL)
-	if err != nil {
-		tmpl = fallbackTemplate
-	}
-	// No complex, so no substitutions: the shell keeps the frontend's own
-	// generic copy, which is exactly what a browser hitting this URL sees
-	// before the app boots. The canonical URL is still this venue's.
-	return Prerendered{Page: s.withCanonical(tmpl, slug), Degraded: cause}
 }

@@ -17,6 +17,15 @@ import (
 // serving a stale copy for another minute while it refreshes.
 const prerenderCacheHeader = "public, max-age=300, stale-while-revalidate=60"
 
+// prerenderRetryAfterSeconds tells a crawler, in RFC 9110 §10.2.3's
+// whole-seconds form, when to retry a venue this request could not read.
+const prerenderRetryAfterSeconds = "60"
+
+// prerenderResultHeader tells the frontend's edge middleware what this
+// endpoint decided, because it only passes a 404 through to a crawler when
+// this header says so — any other 404 becomes a 503 on its side.
+const prerenderResultHeader = "X-Prerender-Result"
+
 // Prerender handles GET /api/v1/public/prerender/:slug.
 //
 // It fetches the frontend's index.html and substitutes the complex's own title,
@@ -31,9 +40,17 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 
 	rendered, err := h.svc.Prerender(r.Context(), slug)
 	if err != nil {
-		if errors.Is(err, data.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			w.Header().Set(prerenderResultHeader, "venue-not-found")
 			h.respond.NotFound(w, r)
-		} else {
+		case errors.Is(err, ErrComplexUnavailable):
+			// A crawler retries a transient 5xx; a 200 here would get the old
+			// generic shell indexed in this venue's own place instead.
+			h.respond.LogError(r, err)
+			w.Header().Set("Retry-After", prerenderRetryAfterSeconds)
+			h.respond.Refuse(w, r, httpx.Unavailable(nil))
+		default:
 			h.respond.ServerError(w, r, err)
 		}
 		return
@@ -44,12 +61,15 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 	// broken" and drops the entry, where a shell is merely a page it will see
 	// again on its next pass. The failure is logged through the Responder, so
 	// the line carries the request id the client was handed.
+	result := "ok"
 	if rendered.Degraded != nil {
+		result = "degraded"
 		h.respond.LogError(r, fmt.Errorf("prerender %q degraded to a plainer page: %w", slug, rendered.Degraded))
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", prerenderCacheHeader)
+	w.Header().Set(prerenderResultHeader, result)
 	w.WriteHeader(http.StatusOK)
 	// The response is committed; a write failure can no longer be reported.
 	//
@@ -94,16 +114,6 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 		fmt.Sprintf("    <script type=\"application/ld+json\">%s</script>\n    ", structuredData(complex, schedules, canonicalURL))
 
 	return strings.Replace(page, "</head>", extraHead+"</head>", 1)
-}
-
-// withCanonical injects only the canonical URL and og:url, for the shell served
-// when the complex behind a slug could not be read. Two crawlers landing on the
-// same venue by two URLs still agree on which one is the page.
-func (s *Service) withCanonical(tmpl, slug string) string {
-	canonical := html.EscapeString(strings.TrimRight(s.frontendURL, "/") + "/" + slug)
-	extraHead := fmt.Sprintf(`<link rel="canonical" href="%s" />`+"\n", canonical) +
-		fmt.Sprintf(`    <meta property="og:url" content="%s" />`+"\n    ", canonical)
-	return strings.Replace(tmpl, "</head>", extraHead+"</head>", 1)
 }
 
 // fallbackTemplate is the last resort: the frontend's index.html has never been

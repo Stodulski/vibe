@@ -103,10 +103,10 @@ type HTTP struct {
 	// ReadTimeout bounds reading the whole request, headers and body.
 	ReadTimeout time.Duration
 	// WriteTimeout bounds writing the response, measured from the end of the
-	// request headers. It is the ceiling the spreadsheet export's own budget
-	// has to sit under (see reporting.ExportBudget and validateBootConfig):
-	// the timeout closes the connection but does not cancel the handler, so
-	// work that outlives it is work nobody will ever read.
+	// request headers. The timeout closes the connection but does not cancel
+	// the handler, so work that outlives it is work nobody will ever read —
+	// which is why cmd/api derives the spreadsheet export's own time budget
+	// from this value (three quarters of it) rather than holding it fixed.
 	WriteTimeout time.Duration
 	// IdleTimeout bounds how long a keep-alive connection may sit unused
 	// between requests.

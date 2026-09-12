@@ -453,7 +453,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	adminHandler := admin.NewHandler(adminService, respond, d.trustedProxies.Any())
 
 	reportingService := reporting.NewService(bookingsFacade, clientsService, courtsService,
-		complexesService, d.models.Reports)
+		complexesService, d.models.Reports, exportBudgetFor(cfg.HTTP.WriteTimeout))
 	reportingHandler := reporting.NewHandler(reportingService, respond)
 
 	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL)
