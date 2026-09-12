@@ -17,11 +17,16 @@ export function ComplexLogo({ logoUrl, name }: ComplexLogoProps) {
     // the logo reads as falling off the photo rather than resting on it.
     <div className="mb-4 -mt-10 ml-4 sm:-mt-12">
       {logoUrl ? (
+        // Eager on purpose: this is above the fold on the storefront. The
+        // intrinsic size is the square the upload pipeline caps logos to,
+        // so the box is reserved before the file arrives (PERF-08).
         <img
           src={logoUrl}
           alt={name}
           loading="eager"
           decoding="async"
+          width={512}
+          height={512}
           className="size-20 rounded-2xl border-2 border-bg-subtle object-cover shadow-md sm:size-24"
         />
       ) : (

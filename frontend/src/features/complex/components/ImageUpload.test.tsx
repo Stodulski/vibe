@@ -54,6 +54,18 @@ describe('ImageUpload', () => {
     expect(screen.getByRole('button', { name: 'Portada' })).toBeInTheDocument();
   });
 
+  // A preview is decoration in a settings panel: it must not compete with
+  // the page's own data for the connection, and it must not resize the slot
+  // when it arrives (PERF-08).
+  it('defers each preview and declares the size of the box it fills', () => {
+    render(<ImageUpload complex={{ ...mockComplex, logo_url: 'https://cdn.test/logo.webp' }} />);
+
+    const logo = screen.getByAltText('Logo');
+    expect(logo).toHaveAttribute('loading', 'lazy');
+    expect(logo).toHaveAttribute('width', '512');
+    expect(logo).toHaveAttribute('height', '512');
+  });
+
   it('renders file format description', () => {
     render(<ImageUpload complex={mockComplex} />);
     expect(screen.getByText(/JPG, PNG o WebP/i)).toBeInTheDocument();

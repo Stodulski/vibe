@@ -25,7 +25,19 @@ export function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
           the whole page. */}
       <div className="relative z-10 flex flex-1 flex-col md:min-h-0 md:flex-row md:gap-8 md:py-8 md:pl-8">
         <div className="hidden md:flex md:grow md:basis-0">
-          <img src="/auth-hero.webp" alt="" className="h-full w-full rounded-2xl object-cover" />
+          {/* 272 kB of decoration that a phone never shows: `lazy` lets the
+              browser skip it while the column is display:none, and the
+              intrinsic size (the file is 1600x2400) lets it reserve the box
+              before the bytes arrive (PERF-08). */}
+          <img
+            src="/auth-hero.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            width={1600}
+            height={2400}
+            className="h-full w-full rounded-2xl object-cover"
+          />
         </div>
 
         {/* Mobile: the logo is pinned to the top of the column and the card

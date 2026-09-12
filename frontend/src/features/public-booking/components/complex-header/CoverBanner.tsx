@@ -24,7 +24,18 @@ export function CoverBanner({ coverUrl }: CoverBannerProps) {
   return (
     <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl">
       {coverUrl ? (
-        <img src={coverUrl} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" />
+        // width/height are the bounds the upload pipeline compresses covers
+        // to; the 16:9 box above already prevents the shift, this just makes
+        // the ratio explicit to the browser (PERF-08).
+        <img
+          src={coverUrl}
+          alt=""
+          loading="eager"
+          decoding="async"
+          width={1280}
+          height={720}
+          className="h-full w-full object-cover"
+        />
       ) : (
         <CoverPlaceholder />
       )}
