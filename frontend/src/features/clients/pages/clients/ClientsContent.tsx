@@ -21,7 +21,24 @@ interface ClientsContentProps {
   onBlockClient: (client: Client) => void;
 }
 
-export function ClientsContent({
+export function ClientsContent(props: ClientsContentProps) {
+  const { isLoading, isError, clients } = props;
+
+  return (
+    <>
+      {/* Outside every branch below, and mounted before the rows exist: a
+          live region that appears together with its text is not reliably
+          announced, and the empty branch draws a different tree entirely —
+          from inside it, "0 resultados" would never be spoken. `null` while
+          the query is loading or failed, so the region is there from the
+          first render without announcing a count nobody has yet. */}
+      <ResultCountAnnouncer count={isLoading || isError ? null : clients.length} />
+      <ClientsBody {...props} />
+    </>
+  );
+}
+
+function ClientsBody({
   isLoading,
   isError,
   onRetry,
@@ -52,8 +69,6 @@ export function ClientsContent({
 
   return (
     <>
-      <ResultCountAnnouncer count={clients.length} />
-
       <ClientGrid clients={clients} onSelectClient={onSelectClient} onBlockClient={onBlockClient} />
 
       {hasNextPage && (

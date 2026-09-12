@@ -1,5 +1,6 @@
 import { Search, AlertCircle } from 'lucide-react';
 import { EmptyState } from '@/shared/components/common/EmptyState';
+import { ResultCountAnnouncer } from '@/shared/components/common/ResultCountAnnouncer';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { UsersTableFilters } from './users-table/UsersTableFilters';
 import { UsersTableSkeleton } from './users-table/UsersTableSkeleton';
@@ -32,6 +33,12 @@ export function UsersTable() {
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
       />
+
+      {/* Beside the whole conditional, not inside the branch that draws the
+          rows: the region has to exist before the count changes, and the
+          empty branch is exactly the one a person filtering needs to hear
+          (A11Y-07). */}
+      <ResultCountAnnouncer count={isError || isLoading ? null : users.length} />
 
       {isError ? (
         <EmptyState

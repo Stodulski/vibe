@@ -28,4 +28,20 @@ describe('ResultCountAnnouncer', () => {
     render(<ResultCountAnnouncer count={0} />);
     expect(screen.getByText('0 resultados')).toBeInTheDocument();
   });
+
+  // The region must outlive the states around it: mounted while the query is
+  // still in flight, and the same node once the answer arrives — a region
+  // that appears together with its text is not reliably announced.
+  it('stays mounted and silent until there is a settled count', () => {
+    const { container, rerender } = render(<ResultCountAnnouncer count={null} />);
+
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).toBeInTheDocument();
+    expect(region).toHaveTextContent('');
+
+    rerender(<ResultCountAnnouncer count={0} />);
+
+    expect(container.querySelector('[aria-live="polite"]')).toBe(region);
+    expect(region).toHaveTextContent('0 resultados');
+  });
 });

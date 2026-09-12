@@ -1,7 +1,6 @@
 import type { RefObject } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { AdminComplexRow } from '@/shared/types/api.types';
-import { ResultCountAnnouncer } from '@/shared/components/common/ResultCountAnnouncer';
 import { MobileComplexCard } from './MobileComplexCard';
 import { DesktopComplexesTable } from './DesktopComplexesTable';
 
@@ -22,8 +21,6 @@ export function ComplexesTableResults({
 }: ComplexesTableResultsProps) {
   return (
     <>
-      <ResultCountAnnouncer count={complexes.length} />
-
       {/* Mobile card view */}
       <div className="flex flex-col gap-2 md:hidden">
         {complexes.map((complex) => (

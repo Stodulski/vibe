@@ -31,6 +31,32 @@ describe('ClientsContent', () => {
     expect(region).toHaveAttribute('aria-live', 'polite');
   });
 
+  // The case that matters most when filtering, and the one an announcer
+  // living inside the populated branch could never reach.
+  it('announces "0 resultados" alongside the empty state', () => {
+    render(<ClientsContent {...baseProps} />);
+
+    expect(screen.getByText('Todavía no hay clientes registrados')).toBeInTheDocument();
+    expect(screen.getByText('0 resultados')).toHaveAttribute('aria-live', 'polite');
+  });
+
+  // Mounted before the rows exist, so the browser has a region to announce
+  // into when the count arrives — but silent until the query settles, or it
+  // would announce a zero the server never returned.
+  it('keeps the live region mounted and silent while loading and on error', () => {
+    const { container, rerender } = render(<ClientsContent {...baseProps} isLoading={true} />);
+
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).toBeInTheDocument();
+    expect(region).toHaveTextContent('');
+
+    rerender(<ClientsContent {...baseProps} isError={true} />);
+    expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent('');
+
+    rerender(<ClientsContent {...baseProps} clients={[makeClient({ id: 'c1' })]} />);
+    expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent('1 resultado');
+  });
+
   it('shows the error state instead of the empty state when the query fails', () => {
     render(<ClientsContent {...baseProps} isError={true} />);
     expect(screen.getByText('No pudimos cargar los datos.')).toBeInTheDocument();
