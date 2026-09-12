@@ -29,7 +29,7 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, err := h.svc.Prerender(r.Context(), slug)
+	rendered, err := h.svc.Prerender(r.Context(), slug)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
 			h.respond.NotFound(w, r)
@@ -37,6 +37,15 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 			h.respond.ServerError(w, r, err)
 		}
 		return
+	}
+
+	// A degraded page is still a page, and for this endpoint's readers that is
+	// the difference that matters: a crawler reads a 500 as "this URL is
+	// broken" and drops the entry, where a shell is merely a page it will see
+	// again on its next pass. The failure is logged through the Responder, so
+	// the line carries the request id the client was handed.
+	if rendered.Degraded != nil {
+		h.respond.LogError(r, fmt.Errorf("prerender %q degraded to a plainer page: %w", slug, rendered.Degraded))
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -47,7 +56,7 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 	//nolint:gosec // G705: the page is the frontend's own index.html with this
 	// complex's meta tags substituted in, and every owner-supplied value in
 	// them is HTML-escaped where it is interpolated (Service.render below).
-	_, _ = w.Write([]byte(page))
+	_, _ = w.Write([]byte(rendered.Page))
 }
 
 // render substitutes the frontend's default meta tags with this complex's, and
@@ -86,6 +95,32 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 
 	return strings.Replace(page, "</head>", extraHead+"</head>", 1)
 }
+
+// withCanonical injects only the canonical URL and og:url, for the shell served
+// when the complex behind a slug could not be read. Two crawlers landing on the
+// same venue by two URLs still agree on which one is the page.
+func (s *Service) withCanonical(tmpl, slug string) string {
+	canonical := html.EscapeString(strings.TrimRight(s.frontendURL, "/") + "/" + slug)
+	extraHead := fmt.Sprintf(`<link rel="canonical" href="%s" />`+"\n", canonical) +
+		fmt.Sprintf(`    <meta property="og:url" content="%s" />`+"\n    ", canonical)
+	return strings.Replace(tmpl, "</head>", extraHead+"</head>", 1)
+}
+
+// fallbackTemplate is the last resort: the frontend's index.html has never been
+// fetched successfully in this process and there is no stale copy to reuse.
+//
+// It carries the same placeholders the real one does, so a complex's own tags
+// still substitute into it, and it redirects a human to the real app. It is
+// deliberately tiny — it exists so that a crawler is answered with a page
+// rather than a 500, not so that anyone reads it.
+const fallbackTemplate = `<!doctype html><html lang="es"><head><meta charset="utf-8" />` +
+	`<title>Vibe</title>` +
+	`<meta name="description" content="Vibe - Gestión de complejos deportivos, reservas y canchas" />` +
+	`<meta property="og:type" content="website" />` +
+	`<meta property="og:title" content="Vibe - Reserva tu cancha" />` +
+	`<meta property="og:description" content="Reserva canchas de pádel, tenis y fútbol de forma rápida y segura." />` +
+	`<meta property="og:image" content="https://app.vibe.com.ar/logo.png" />` +
+	`</head><body></body></html>`
 
 // schemaDays maps the stored day names to the capitalised forms schema.org
 // requires.

@@ -18,20 +18,31 @@ func pageTitle(complexName string) string {
 
 // pageDescription is the meta description and og:description.
 func pageDescription(complexName string) string {
-	return fmt.Sprintf("Reserva canchas en %s. Rapido y seguro.", complexName)
+	return fmt.Sprintf("Reserva canchas en %s. Rápido y seguro.", complexName)
 }
 
 // The placeholders below are the copy shipped in the frontend's index.html.
 // Prerendering works by substituting them, so they must match that file
-// exactly; changing the frontend's defaults without changing these silently
-// disables prerendering.
+// byte for byte; a placeholder that does not match is not an error anywhere —
+// the substitution simply finds nothing and the tag keeps Vibe's generic copy,
+// so the page is served with a 200 and looks fine while carrying none of this
+// complex's description or image.
+//
+// Three of the five were exactly that: the accents were missing from
+// "Gestión", "pádel", "fútbol" and "rápida", and the image was the relative
+// "/logo.png" where index.html ships an absolute URL. They are reproduced here
+// from frontend/index.html, and publicsite_test.go asserts them against a
+// literal copy of that file's tags rather than against these constants, so the
+// next drift fails a test instead of quietly turning prerendering off.
 const (
 	placeholderTitleTag    = `<title>Vibe</title>`
-	placeholderDescription = `content="Vibe - Gestion de complejos deportivos, reservas y canchas"`
+	placeholderDescription = `content="Vibe - Gestión de complejos deportivos, reservas y canchas"`
 	placeholderOGTitle     = `content="Vibe - Reserva tu cancha"`
-	placeholderOGDesc      = `content="Reserva canchas de padel, tenis y futbol de forma rapida y segura."`
-	placeholderImage       = `content="/logo.png"`
+	placeholderOGDesc      = `content="Reserva canchas de pádel, tenis y fútbol de forma rápida y segura."`
+	placeholderImage       = `content="https://app.vibe.com.ar/logo.png"`
 )
 
 // defaultImage is the fallback social preview image when a complex has no logo.
-const defaultImage = "/logo.png"
+// Absolute, matching the frontend's own og:image: a social unfurler fetches
+// this URL on its own and has no page to resolve a relative one against.
+const defaultImage = "https://app.vibe.com.ar/logo.png"
