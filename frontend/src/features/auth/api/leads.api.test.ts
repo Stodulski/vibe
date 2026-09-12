@@ -1,54 +1,63 @@
 // @vitest-environment node
-const { mockPost } = vi.hoisted(() => ({
-  mockPost: vi.fn(),
-}));
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/msw/server';
+import {
+  captureAbandonedRegistrationLead,
+  captureAbandonedRegistrationLeadBeacon,
+  type AbandonedLead,
+} from './leads.api';
 
-vi.mock('@/shared/lib/ky', () => ({
-  default: { post: mockPost },
-}));
+/** Captures the JSON body `captureAbandonedRegistrationLead` sends, once the fire-and-forget POST lands. */
+async function capturedLeadBody(lead: AbandonedLead): Promise<unknown> {
+  let receivedBody: unknown;
+  server.use(
+    http.post('*/public/leads/abandoned-registration', async ({ request }) => {
+      receivedBody = await request.json();
+      return HttpResponse.json({});
+    }),
+  );
 
-import { captureAbandonedRegistrationLead, captureAbandonedRegistrationLeadBeacon } from './leads.api';
+  captureAbandonedRegistrationLead(lead);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return receivedBody;
+}
 
-describe('leads.api', () => {
-  beforeEach(() => {
-    mockPost.mockReset();
-    mockPost.mockReturnValue(Promise.resolve());
+describe('leads.api — captureAbandonedRegistrationLead', () => {
+  it('sends the register source by default', async () => {
+    const body = await capturedLeadBody({ email: 'juan@test.com' });
+    expect(body).toEqual({ email: 'juan@test.com', source: 'register' });
   });
 
-  it('captureAbandonedRegistrationLead sends the register source by default', () => {
-    captureAbandonedRegistrationLead({ email: 'juan@test.com' });
+  it('sends the google source when asked', async () => {
+    const body = await capturedLeadBody({ email: 'juan@test.com', source: 'google' });
+    expect(body).toEqual({ email: 'juan@test.com', source: 'google' });
+  });
 
-    expect(mockPost).toHaveBeenCalledWith('public/leads/abandoned-registration', {
-      json: { email: 'juan@test.com', source: 'register' },
+  it('sends the partial profile and drops the empty fields', async () => {
+    const body = await capturedLeadBody({
+      email: 'juan@test.com',
+      first_name: ' Juan ',
+      last_name: '',
+      phone: '+5411',
     });
+    expect(body).toEqual({ email: 'juan@test.com', source: 'register', first_name: 'Juan', phone: '+5411' });
   });
 
-  it('captureAbandonedRegistrationLead sends the google source when asked', () => {
-    captureAbandonedRegistrationLead({ email: 'juan@test.com', source: 'google' });
-
-    expect(mockPost).toHaveBeenCalledWith('public/leads/abandoned-registration', {
-      json: { email: 'juan@test.com', source: 'google' },
-    });
-  });
-
-  it('captureAbandonedRegistrationLead sends the partial profile and drops the empty fields', () => {
-    captureAbandonedRegistrationLead({ email: 'juan@test.com', first_name: ' Juan ', last_name: '', phone: '+5411' });
-
-    expect(mockPost).toHaveBeenCalledWith('public/leads/abandoned-registration', {
-      json: { email: 'juan@test.com', source: 'register', first_name: 'Juan', phone: '+5411' },
-    });
-  });
-
-  it('captureAbandonedRegistrationLead swallows a failed request', async () => {
-    mockPost.mockReturnValueOnce(Promise.reject(new Error('down')));
+  it('swallows a failed request', async () => {
+    server.use(http.post('*/public/leads/abandoned-registration', () => HttpResponse.error()));
 
     expect(() => {
       captureAbandonedRegistrationLead({ email: 'juan@test.com' });
     }).not.toThrow();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
+});
 
-  it('captureAbandonedRegistrationLeadBeacon posts a text/plain body carrying the source', async () => {
+// A sibling describe, not nested in the one above: max-lines-per-function
+// counts a describe callback's whole body, so this stays a genuinely
+// separate top-level call.
+describe('leads.api — captureAbandonedRegistrationLeadBeacon', () => {
+  it('posts a text/plain body carrying the source', async () => {
     const sendBeacon = vi.fn().mockReturnValue(true);
     vi.stubGlobal('navigator', { sendBeacon });
     vi.stubGlobal(

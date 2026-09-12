@@ -1,24 +1,13 @@
 // @vitest-environment node
-const { mockGet } = vi.hoisted(() => ({
-  mockGet: vi.fn(),
-}));
-
-vi.mock('@/shared/lib/ky', () => ({
-  default: { get: mockGet },
-  withSignal: (signal?: AbortSignal) => (signal ? { signal } : {}),
-}));
-
-vi.mock('@sentry/react', () => ({
-  captureException: vi.fn(),
-}));
-
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/msw/server';
 import { dashboardApi } from './dashboard.api';
 import { ApiResponseError } from '@/shared/lib/apiParse';
 import { makeBooking } from '@/test/factories';
 
-function mockJsonOnce(data: unknown) {
-  mockGet.mockReturnValueOnce({ json: vi.fn().mockResolvedValue(data) });
-}
+vi.mock('@sentry/react', () => ({
+  captureException: vi.fn(),
+}));
 
 const STATS_RESPONSE = {
   stats: {
@@ -40,41 +29,41 @@ const STATS_RESPONSE = {
 };
 
 describe('dashboardApi — stats and revenue', () => {
-  beforeEach(() => {
-    mockGet.mockClear();
-  });
-
   it('getStats parses a complete DashboardStatsResponse', async () => {
-    mockJsonOnce(STATS_RESPONSE);
+    server.use(http.get('*/complexes/:complexId/stats', () => HttpResponse.json(STATS_RESPONSE)));
 
     const result = await dashboardApi.getStats('c1');
 
-    expect(mockGet).toHaveBeenCalledWith('complexes/c1/stats', expect.any(Object));
     expect(result).toEqual(STATS_RESPONSE);
   });
 
   it('getStats rejects with ApiResponseError when the response body does not match the schema', async () => {
-    mockJsonOnce({ stats: { today_bookings: 3 } });
+    server.use(http.get('*/complexes/:complexId/stats', () => HttpResponse.json({ stats: { today_bookings: 3 } })));
 
     await expect(dashboardApi.getStats('c1')).rejects.toThrow(ApiResponseError);
   });
 
-  it('getRevenue parses a RevenueChartResponse', async () => {
-    mockJsonOnce({ revenue: [{ date: '2026-03-01', amount: 12000 }] });
+  it('getRevenue parses a RevenueChartResponse and sends the period as a search param', async () => {
+    let receivedPeriod: string | null = null;
+    server.use(
+      http.get('*/complexes/:complexId/stats/revenue', ({ request }) => {
+        receivedPeriod = new URL(request.url).searchParams.get('period');
+        return HttpResponse.json({ revenue: [{ date: '2026-03-01', amount: 12000 }] });
+      }),
+    );
 
     const result = await dashboardApi.getRevenue('c1', 'week');
 
-    expect(mockGet).toHaveBeenCalledWith(
-      'complexes/c1/stats/revenue',
-      expect.objectContaining({
-        searchParams: { period: 'week' },
-      }),
-    );
+    expect(receivedPeriod).toBe('week');
     expect(result).toEqual({ revenue: [{ date: '2026-03-01', amount: 12000 }] });
   });
 
   it('getOccupancy parses an OccupancyChartResponse', async () => {
-    mockJsonOnce({ occupancy: [{ day_of_week: 1, hour: 20, percentage: 0.8 }] });
+    server.use(
+      http.get('*/complexes/:complexId/stats/occupancy', () =>
+        HttpResponse.json({ occupancy: [{ day_of_week: 1, hour: 20, percentage: 0.8 }] }),
+      ),
+    );
 
     const result = await dashboardApi.getOccupancy('c1', 4);
 
@@ -83,10 +72,6 @@ describe('dashboardApi — stats and revenue', () => {
 });
 
 describe('dashboardApi — client insights, monthly report and export', () => {
-  beforeEach(() => {
-    mockGet.mockClear();
-  });
-
   it('getClientInsights parses a ClientInsightsResponse', async () => {
     const response = {
       clients: {
@@ -99,7 +84,7 @@ describe('dashboardApi — client insights, monthly report and export', () => {
         total_active_30d: 9,
       },
     };
-    mockJsonOnce(response);
+    server.use(http.get('*/complexes/:complexId/stats/clients', () => HttpResponse.json(response)));
 
     await expect(dashboardApi.getClientInsights('c1')).resolves.toEqual(response);
   });
@@ -125,15 +110,18 @@ describe('dashboardApi — client insights, monthly report and export', () => {
         previous_totals: totals,
       },
     };
-    mockJsonOnce(response);
+    server.use(http.get('*/complexes/:complexId/reports/monthly', () => HttpResponse.json(response)));
 
     await expect(dashboardApi.getMonthlyReport('c1', 3, 2026)).resolves.toEqual(response);
   });
 
   it('exportPaymentsExcel returns a blob without JSON parsing', async () => {
-    const blob = new Blob(['x']);
-    mockGet.mockReturnValueOnce({ blob: vi.fn().mockResolvedValue(blob) });
+    const bytes = new TextEncoder().encode('x');
+    server.use(http.get('*/complexes/:complexId/reports/export', () => HttpResponse.arrayBuffer(bytes.buffer)));
 
-    await expect(dashboardApi.exportPaymentsExcel('c1', 3, 2026)).resolves.toBe(blob);
+    const blob = await dashboardApi.exportPaymentsExcel('c1', 3, 2026);
+
+    expect(blob).toBeInstanceOf(Blob);
+    expect(await blob.text()).toBe('x');
   });
 });

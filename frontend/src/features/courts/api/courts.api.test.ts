@@ -1,23 +1,9 @@
 // @vitest-environment node
-const { mockGet, mockPost, mockPut, mockDelete } = vi.hoisted(() => ({
-  mockGet: vi.fn(),
-  mockPost: vi.fn(),
-  mockPut: vi.fn(),
-  mockDelete: vi.fn(),
-}));
-
-vi.mock('@/shared/lib/ky', () => ({
-  default: { get: mockGet, post: mockPost, put: mockPut, delete: mockDelete },
-  withSignal: (signal?: AbortSignal) => (signal ? { signal } : {}),
-}));
-
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/msw/server';
 import { courtsApi } from './courts.api';
 import { ApiResponseError } from '@/shared/lib/apiParse';
 import { makeCourt, makePrice } from '@/test/factories';
-
-function jsonOf(body: unknown) {
-  return { json: vi.fn().mockResolvedValue(body) };
-}
 
 async function expectApiResponseError(promise: Promise<unknown>, context: string) {
   try {
@@ -30,21 +16,23 @@ async function expectApiResponseError(promise: Promise<unknown>, context: string
 }
 
 describe('courtsApi response validation', () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it('list resolves with a valid response', async () => {
-    mockGet.mockReturnValue(jsonOf({ courts: [{ ...makeCourt(), prices: [makePrice()] }] }));
+    server.use(
+      http.get('*/complexes/:complexId/courts', () =>
+        HttpResponse.json({ courts: [{ ...makeCourt(), prices: [makePrice()] }] }),
+      ),
+    );
     const result = await courtsApi.list('c1');
     expect(result.courts).toHaveLength(1);
   });
 
   it('list rejects with ApiResponseError carrying its context when prices is missing', async () => {
-    mockGet.mockReturnValue(jsonOf({ courts: [makeCourt()] }));
+    server.use(http.get('*/complexes/:complexId/courts', () => HttpResponse.json({ courts: [makeCourt()] })));
     await expectApiResponseError(courtsApi.list('c1'), 'courtsApi.list');
   });
 
   it('blockSlot rejects with ApiResponseError carrying its context when blocked_slot is missing', async () => {
-    mockPost.mockReturnValue(jsonOf({}));
+    server.use(http.post('*/complexes/:complexId/courts/:courtId/block', () => HttpResponse.json({})));
     await expectApiResponseError(
       courtsApi.blockSlot('c1', 'ct1', {
         date: '2026-03-18',

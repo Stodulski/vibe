@@ -8,13 +8,6 @@ vi.mock('@/shared/lib/mpAuth', () => ({
   buildMPAuthUrl: (complexId: string, pkce: unknown, appId?: string) => buildMPAuthUrl(complexId, pkce, appId),
 }));
 
-vi.mock('@/shared/lib/ky', () => ({
-  default: {
-    get: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
 let mockMpStatus: { connected: boolean; mp_user_id: string | null; app_id?: string } = {
   connected: false,
   mp_user_id: null,

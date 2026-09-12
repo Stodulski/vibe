@@ -1,8 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { toast } from 'sonner';
+import * as ky from '@/shared/lib/ky';
 import { useRealtimeEvents } from './useRealtimeEvents';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('@/shared/lib/queryKeys', () => ({
   queryKeys: {
@@ -17,10 +17,22 @@ vi.mock('@/shared/lib/queryKeys', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
-const refreshAccessToken = vi.fn<() => Promise<void>>();
-vi.mock('@/shared/lib/ky', () => ({
-  refreshAccessToken: (...args: []) => refreshAccessToken(...args),
-}));
+// A spy wrapping the real `refreshAccessToken` rather than a stub: the
+// network call it makes goes through the real `ky` client and is answered by
+// the MSW handler for `POST auth/refresh` (src/test/msw/handlers.ts), so this
+// still proves the hook calls (or doesn't call) the real refresh path — not
+// just a mock. `vitest.config.ts`'s `restoreMocks: true` tears this spy back
+// down to the un-instrumented function before every test, so it is
+// re-created fresh in each `beforeEach` below rather than once here.
+//
+// The return type is captured through this helper (rather than writing out
+// `vi.spyOn<typeof ky, 'refreshAccessToken'>` inline) because a `* as ky`
+// namespace import is a readonly object type, and instantiating that generic
+// explicitly against it does not resolve the same way plain inference does.
+function spyOnRefreshAccessToken() {
+  return vi.spyOn(ky, 'refreshAccessToken');
+}
+let refreshAccessToken: ReturnType<typeof spyOnRefreshAccessToken>;
 
 class MockEventSource {
   url: string;
@@ -67,14 +79,6 @@ function firstInstance(): MockEventSource {
   return es;
 }
 
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 // Hoisted to file scope (rather than nested in the describe below) partly to
 // keep that describe callback's own line count under the repo's
 // max-lines-per-function cap, which counts a nested `beforeEach`/`afterEach`'s
@@ -83,7 +87,7 @@ beforeEach(() => {
   MockEventSource.reset();
   vi.stubGlobal('EventSource', MockEventSource);
   Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
-  refreshAccessToken.mockReset().mockResolvedValue(undefined);
+  refreshAccessToken = spyOnRefreshAccessToken();
   vi.mocked(toast.error).mockReset();
 });
 
@@ -97,7 +101,7 @@ describe('useRealtimeEvents', () => {
       () => {
         useRealtimeEvents(null);
       },
-      { wrapper: createWrapper() },
+      { wrapper: createQueryWrapper() },
     );
     expect(MockEventSource.instances).toHaveLength(0);
   });
@@ -107,7 +111,7 @@ describe('useRealtimeEvents', () => {
       () => {
         useRealtimeEvents('complex-1');
       },
-      { wrapper: createWrapper() },
+      { wrapper: createQueryWrapper() },
     );
     expect(MockEventSource.instances).toHaveLength(1);
     expect(firstInstance().url).toContain('/complexes/complex-1/events');
@@ -118,7 +122,7 @@ describe('useRealtimeEvents', () => {
       () => {
         useRealtimeEvents('complex-1');
       },
-      { wrapper: createWrapper() },
+      { wrapper: createQueryWrapper() },
     );
     expect(firstInstance().withCredentials).toBe(true);
   });
@@ -128,7 +132,7 @@ describe('useRealtimeEvents', () => {
       () => {
         useRealtimeEvents('complex-1');
       },
-      { wrapper: createWrapper() },
+      { wrapper: createQueryWrapper() },
     );
     const es = firstInstance();
     const bookingChangedListeners = es.listeners.booking_changed;
@@ -142,7 +146,7 @@ describe('useRealtimeEvents', () => {
         useRealtimeEvents('complex-1');
       },
       {
-        wrapper: createWrapper(),
+        wrapper: createQueryWrapper(),
       },
     );
     const es = firstInstance();
@@ -157,7 +161,7 @@ describe('useRealtimeEvents — server-closed streams', () => {
     MockEventSource.reset();
     vi.stubGlobal('EventSource', MockEventSource);
     Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
-    refreshAccessToken.mockReset().mockResolvedValue(undefined);
+    refreshAccessToken = spyOnRefreshAccessToken();
     vi.mocked(toast.error).mockReset();
   });
 
@@ -170,7 +174,7 @@ describe('useRealtimeEvents — server-closed streams', () => {
       () => {
         useRealtimeEvents('complex-1');
       },
-      { wrapper: createWrapper() },
+      { wrapper: createQueryWrapper() },
     );
     const es = firstInstance();
 
@@ -195,7 +199,7 @@ describe('useRealtimeEvents — server-closed streams', () => {
       () => {
         useRealtimeEvents('complex-1');
       },
-      { wrapper: createWrapper() },
+      { wrapper: createQueryWrapper() },
     );
     const es = firstInstance();
 
@@ -218,7 +222,7 @@ describe('useRealtimeEvents — document unload', () => {
       () => {
         useRealtimeEvents('complex-1');
       },
-      { wrapper: createWrapper() },
+      { wrapper: createQueryWrapper() },
     );
     const es = firstInstance();
 
