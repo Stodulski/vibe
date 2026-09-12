@@ -36,7 +36,7 @@ func TestTheVersionMovesOnEveryWriteWhetherTheWriterChecksItOrNot(t *testing.T) 
 	// that stands still while the row changes is worse than no version, because
 	// it is a lock that reports success.
 	court.Name = "Cancha Uno"
-	if err := f.Stores.Courts.Update(ctx, court, nil); err != nil {
+	if err := f.Stores.Courts.Update(f.Scoped(ctx), court, nil); err != nil {
 		t.Fatalf("Update with no precondition: %v", err)
 	}
 	if court.Version != first+1 {
@@ -67,12 +67,12 @@ func TestASecondTabWithAStaleVersionIsRefused(t *testing.T) {
 	staleVersion := secondTab.Version
 
 	firstTab.Name = "Renamed By The First Tab"
-	if err := f.Stores.Courts.Update(ctx, firstTab, &firstTab.Version); err != nil {
+	if err := f.Stores.Courts.Update(f.Scoped(ctx), firstTab, &firstTab.Version); err != nil {
 		t.Fatalf("first Update (should win the race): %v", err)
 	}
 
 	secondTab.Name = "Renamed By The Second Tab"
-	err = f.Stores.Courts.Update(ctx, secondTab, &staleVersion)
+	err = f.Stores.Courts.Update(f.Scoped(ctx), secondTab, &staleVersion)
 	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("second Update with a stale version = %v, want ErrRecordNotFound", err)
 	}
@@ -87,7 +87,7 @@ func TestASecondTabWithAStaleVersionIsRefused(t *testing.T) {
 
 	// And the losing tab can retry against the row it can now re-read.
 	secondTab.Version = final.Version
-	if err := f.Stores.Courts.Update(ctx, secondTab, &final.Version); err != nil {
+	if err := f.Stores.Courts.Update(f.Scoped(ctx), secondTab, &final.Version); err != nil {
 		t.Fatalf("retry against the current version: %v", err)
 	}
 }
@@ -108,11 +108,11 @@ func TestAWriteWithNoVersionIsStillLastWriteWins(t *testing.T) {
 	}
 
 	firstTab.Name = "First"
-	if err := f.Stores.Courts.Update(ctx, firstTab, nil); err != nil {
+	if err := f.Stores.Courts.Update(f.Scoped(ctx), firstTab, nil); err != nil {
 		t.Fatalf("first Update: %v", err)
 	}
 	secondTab.Name = "Second"
-	if err := f.Stores.Courts.Update(ctx, secondTab, nil); err != nil {
+	if err := f.Stores.Courts.Update(f.Scoped(ctx), secondTab, nil); err != nil {
 		t.Fatalf("second Update with no precondition should not be refused: %v", err)
 	}
 

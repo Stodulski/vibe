@@ -65,7 +65,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 			f := datatest.NewFixture(t)
 
 			paid := f.NewBooking(depositPaidStaleBookingOptions())
-			if err := f.Stores.Bookings.InsertSafe(context.Background(), paid); err != nil {
+			if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), paid); err != nil {
 				t.Fatalf("inserting the deposit-paid booking: %v", err)
 			}
 			f.BackdateBookingCreatedAt(t, paid.ID, staleAge)
@@ -85,7 +85,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 			newStaleBooking(t, f)
 
 			newcomer := f.NewBooking(overlappingBookingOptions())
-			if err := f.Stores.Bookings.InsertSafe(context.Background(), newcomer); err != nil {
+			if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), newcomer); err != nil {
 				t.Errorf("a booking overlapping only a stale unpaid pending one must be accepted: %v", err)
 			}
 		})
@@ -94,13 +94,13 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 			f := datatest.NewFixture(t)
 
 			paid := f.NewBooking(depositPaidStaleBookingOptions())
-			if err := f.Stores.Bookings.InsertSafe(context.Background(), paid); err != nil {
+			if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), paid); err != nil {
 				t.Fatalf("inserting the deposit-paid booking: %v", err)
 			}
 			f.BackdateBookingCreatedAt(t, paid.ID, staleAge)
 
 			newcomer := f.NewBooking(overlappingBookingOptions())
-			err := f.Stores.Bookings.InsertSafe(context.Background(), newcomer)
+			err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), newcomer)
 			if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 				t.Errorf("selling hours a paid pending booking already holds must be refused with "+
 					"ErrSlotUnavailable; got %v", err)

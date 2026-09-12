@@ -53,14 +53,14 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 		t.Fatalf("seeded status = %q, want pending", inFlight.Status)
 	}
 
-	if err := f.Stores.Bookings.CancelFutureByComplex(ctx, f.ComplexID); err != nil {
+	if err := f.Stores.Bookings.CancelFutureByComplex(f.Scoped(ctx), f.ComplexID); err != nil {
 		t.Fatalf("CancelFutureByComplex: %v", err)
 	}
 
 	// The stale writer commits its decision.
 	inFlight.Status = "confirmed"
 	inFlight.CollectionStatus = bookingstore.CollectionStatusFullyPaid
-	err = f.Stores.Bookings.Update(ctx, inFlight)
+	err = f.Stores.Bookings.Update(f.Scoped(ctx), inFlight)
 
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -117,18 +117,18 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 	}
 	paid.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	paid.DepositAmount = 100_000
-	if err := f.Stores.Bookings.Update(ctx, paid); err != nil {
+	if err := f.Stores.Bookings.Update(f.Scoped(ctx), paid); err != nil {
 		t.Fatalf("taking the deposit: %v", err)
 	}
 	// A refund claim goes out on that deposit. The row now carries something on
 	// both axes, which is the state the single enum could not hold at all.
 	paid.RefundStatus = bookingstore.RefundStatusPending
-	if err := f.Stores.Bookings.Update(ctx, paid); err != nil {
+	if err := f.Stores.Bookings.Update(f.Scoped(ctx), paid); err != nil {
 		t.Fatalf("claiming the refund: %v", err)
 	}
 
 	paid.CollectionStatus = bookingstore.CollectionStatusUnpaid
-	err = f.Stores.Bookings.Update(ctx, paid)
+	err = f.Stores.Bookings.Update(f.Scoped(ctx), paid)
 
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -178,7 +178,7 @@ func seedFutureBooking(t *testing.T, f *datatest.Fixture, startTime, endTime str
 		CollectionStatus: bookingstore.CollectionStatusUnpaid,
 		RefundStatus:     bookingstore.RefundStatusNone,
 	}
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), b); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), b); err != nil {
 		t.Fatalf("seeding the booking: %v", err)
 	}
 	return b

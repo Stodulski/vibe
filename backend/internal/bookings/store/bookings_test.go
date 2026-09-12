@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 func TestBooking_StructFields(t *testing.T) {
@@ -211,5 +214,31 @@ func TestIsSlotAlreadySold(t *testing.T) {
 				t.Errorf("isSlotAlreadySold = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// The store refuses a write whose row belongs to another tenant, and one whose
+// caller declared no tenant at all. Neither refusal depends on the HTTP chain
+// having run, which is the point: the chain is where every other check lives.
+func TestTheBookingWritesAssertTheirTenant(t *testing.T) {
+	own, other := uuid.New(), uuid.New()
+	store := &Store{}
+
+	b := &Booking{ComplexID: own}
+
+	if err := store.Insert(data.ContextWithTenant(context.Background(), other), b); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("Insert for another tenant: want ErrRecordNotFound; got %v", err)
+	}
+	if err := store.Insert(context.Background(), b); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("Insert with no tenant on the context: want ErrRecordNotFound; got %v", err)
+	}
+	if err := store.Update(data.ContextWithTenant(context.Background(), other), b); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("Update for another tenant: want ErrRecordNotFound; got %v", err)
+	}
+	if err := store.InsertSafe(data.ContextWithTenant(context.Background(), other), b); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("InsertSafe for another tenant: want ErrRecordNotFound; got %v", err)
+	}
+	if err := store.CancelFutureByComplex(data.ContextWithTenant(context.Background(), other), own); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("CancelFutureByComplex for another tenant: want ErrRecordNotFound; got %v", err)
 	}
 }

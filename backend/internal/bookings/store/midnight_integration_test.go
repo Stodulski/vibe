@@ -44,7 +44,7 @@ func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
 	overnight := f.NewBooking(datatest.BookingOptions{StartTime: "23:00", EndTime: "01:00"})
 	overnight.DurationMinutes = 120
 
-	if err := f.Stores.Bookings.InsertSafe(ctx, overnight); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), overnight); err != nil {
 		t.Fatalf("a venue open past midnight must be able to sell 23:00-01:00; got %v", err)
 	}
 
@@ -54,7 +54,7 @@ func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
 	overlapping.DurationMinutes = 60
 	overlapping.Date = overnight.Date.AddDate(0, 0, 1)
 
-	err := f.Stores.Bookings.InsertSafe(ctx, overlapping)
+	err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), overlapping)
 	if err == nil {
 		t.Fatal("00:30 falls inside a booking that runs to 01:00; accepting it sells one court to two clients")
 	}

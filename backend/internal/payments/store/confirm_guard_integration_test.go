@@ -63,7 +63,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	// cancels — is unaffected by that split and must keep behaving exactly as
 	// it did: refused, nothing written, and answered as a 409 by
 	// internal/bookings/actions.go, which names both sentinels.
-	err := f.Stores.Payments.InsertAndConfirmBooking(ctx, payment, b)
+	err := f.Stores.Payments.InsertAndConfirmBooking(f.Scoped(ctx), payment, b)
 	if !errors.Is(err, bookingstore.ErrBookingCancelled) {
 		t.Errorf("confirming a concurrently cancelled booking must be refused with ErrBookingCancelled; got %v", err)
 	}
@@ -109,7 +109,7 @@ func TestGuardBookingConfirmableAllowsRecordingAPaymentForAnAlreadyCancelledBook
 		Status:     "deposit_paid",
 	}
 
-	if err := f.Stores.Payments.InsertAndConfirmBooking(ctx, payment, b); err != nil {
+	if err := f.Stores.Payments.InsertAndConfirmBooking(f.Scoped(ctx), payment, b); err != nil {
 		t.Fatalf("recording a payment for an already-cancelled booking must succeed: %v", err)
 	}
 

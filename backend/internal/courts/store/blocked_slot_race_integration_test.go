@@ -167,7 +167,7 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 		RefundStatus: bookingstore.RefundStatusNone,
 	}
 	result := make(chan error, 1)
-	go func() { result <- f.Stores.Bookings.InsertSafe(ctx, b) }()
+	go func() { result <- f.Stores.Bookings.InsertSafe(f.Scoped(ctx), b) }()
 
 	f.WaitForLockWaiters(t, 1)
 

@@ -38,7 +38,7 @@ func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
 	ctx := context.Background()
 
 	b := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
-	if err := f.Stores.Bookings.InsertSafe(ctx, b); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
 
@@ -232,7 +232,7 @@ func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
 	ctx := context.Background()
 
 	b := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
-	if err := f.Stores.Bookings.InsertSafe(ctx, b); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
 	checkoutToken := b.LinkToken
@@ -290,7 +290,7 @@ func TestResolveBookingCarriesTheSpansInstants(t *testing.T) {
 	ctx := context.Background()
 
 	b := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30", Public: true})
-	if err := f.Stores.Bookings.InsertSafe(ctx, b); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
 

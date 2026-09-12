@@ -129,7 +129,7 @@ func TestOneMercadoPagoPaymentIDCannotBeOnTwoPaymentRows(t *testing.T) {
 		Status:      "deposit_paid",
 		MPPaymentID: &mpPaymentID,
 	}
-	if err := f.Stores.Payments.Insert(ctx, duplicate); err == nil {
+	if err := f.Stores.Payments.Insert(f.Scoped(ctx), duplicate); err == nil {
 		t.Fatal("the database accepted a second payment row carrying the same mp_payment_id; GetPaymentByMPID can no longer be deterministic")
 	}
 

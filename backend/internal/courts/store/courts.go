@@ -148,6 +148,14 @@ func (m *Store) Insert(ctx context.Context, c *Court) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
+	// The store's own authorization check: see data.AssertTenant. Every caller
+	// today reaches here through the HTTP chain, which has already decided
+	// this; the point is that a caller which does not is refused rather than
+	// trusted.
+	if err := data.AssertTenant(ctx, c.ComplexID); err != nil {
+		return err
+	}
+
 	dbCourt, err := m.Q.InsertCourt(ctx, db.InsertCourtParams{
 		ComplexID:   data.UUIDToPg(c.ComplexID),
 		Name:        c.Name,
@@ -209,6 +217,10 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court
 func (m *Store) Update(ctx context.Context, c *Court, expectedVersion *int) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
+
+	if err := data.AssertTenant(ctx, c.ComplexID); err != nil {
+		return err
+	}
 
 	dbCourt, err := m.Q.UpdateCourt(ctx, db.UpdateCourtParams{
 		ExpectedVersion: data.Int4PtrToPg(expectedVersion),

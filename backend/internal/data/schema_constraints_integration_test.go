@@ -365,7 +365,7 @@ func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
 
 	// Through the real store, so the domain error the handler will see is proven
 	// too rather than only the constraint underneath it.
-	err := f.Stores.Courts.Insert(ctx, &courtstore.Court{
+	err := f.Stores.Courts.Insert(f.Scoped(ctx), &courtstore.Court{
 		ComplexID: f.ComplexID, Name: "Court 1", Sport: "padel", CourtType: "indoor",
 	})
 	if !errors.Is(err, courtstore.ErrDuplicateCourtName) {

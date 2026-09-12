@@ -66,7 +66,7 @@ func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
 	f := datatest.NewFixture(t)
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), first); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
 	}
 
 	second := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	err := f.Stores.Bookings.InsertSafe(context.Background(), second)
+	err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), second)
 	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("the overlap check must refuse a second booking on those hours; got %v", err)
 	}
@@ -87,7 +87,7 @@ func TestACancelledBookingReleasesItsSlotEverywhere(t *testing.T) {
 	f := datatest.NewFixture(t)
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), first); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
 	f.MarkStatus(t, first.ID, "cancelled")
@@ -97,7 +97,7 @@ func TestACancelledBookingReleasesItsSlotEverywhere(t *testing.T) {
 	}
 
 	second := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), second); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), second); err != nil {
 		t.Errorf("the hours of a cancelled booking must be resellable: %v", err)
 	}
 }
@@ -109,7 +109,7 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 	f := datatest.NewFixture(t)
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), first); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
 	f.MarkStatus(t, first.ID, "no_show")
@@ -124,7 +124,7 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 	//    not, and answered with a duplicate error the grid contradicted. Both
 	//    have to agree for the resale to land.
 	second := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	err := f.Stores.Bookings.InsertSafe(context.Background(), second)
+	err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), second)
 	if errors.Is(err, bookingstore.ErrDuplicateBooking) {
 		t.Fatalf("idx_bookings_no_double still counts a no_show as live: the slot is shown free and cannot be sold (%v)", err)
 	}
@@ -138,7 +138,7 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 		t.Errorf("the resold booking must draw 18:00 as taken; the grid read %v", got)
 	}
 	third := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), third); !errors.Is(err, bookingstore.ErrSlotUnavailable) {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), third); !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("only one live booking may hold those hours; got %v", err)
 	}
 }

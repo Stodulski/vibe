@@ -208,6 +208,14 @@ func (m *Store) Insert(ctx context.Context, b *Booking) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
+	// The store's own authorization check: see data.AssertTenant. Every caller
+	// today reaches here through the HTTP chain, which has already decided
+	// this; the point is that a caller which does not is refused rather than
+	// trusted.
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
+
 	dbBooking, err := m.Q.InsertBooking(ctx, db.InsertBookingParams{
 		ComplexID: data.UUIDToPg(b.ComplexID),
 		CourtID:   data.UUIDToPg(b.CourtID),
@@ -259,6 +267,10 @@ func (m *Store) Insert(ctx context.Context, b *Booking) error {
 func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
+
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
 
 	// RetryTx rather than WithTx: this transaction takes the court-day advisory
 	// lock and then row locks (ReleaseStalePendingOverlaps, LockCourtLive), and
@@ -585,6 +597,10 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 func (m *Store) Update(ctx context.Context, b *Booking) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
+
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
 
 	dbBooking, err := m.Q.UpdateBooking(ctx, db.UpdateBookingParams{
 		ID:               data.UUIDToPg(b.ID),
@@ -1169,6 +1185,10 @@ func (m *Store) HasActiveBookings(ctx context.Context, complexID uuid.UUID) (boo
 func (m *Store) CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
+
+	if err := data.AssertTenant(ctx, complexID); err != nil {
+		return err
+	}
 
 	_, err := m.DB.Exec(ctx,
 		`UPDATE bookings SET status = 'cancelled', updated_at = NOW()

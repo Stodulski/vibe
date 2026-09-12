@@ -145,6 +145,14 @@ func (m *Payments) Insert(ctx context.Context, p *Payment) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
+	// The store's own authorization check: see data.AssertTenant. Every caller
+	// today reaches here through the HTTP chain, which has already decided
+	// this; the point is that a caller which does not is refused rather than
+	// trusted.
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return err
+	}
+
 	dbPayment, err := m.Q.InsertPayment(ctx, db.InsertPaymentParams{
 		BookingID: data.UUIDToPg(p.BookingID),
 		ComplexID: data.UUIDToPg(p.ComplexID),
@@ -232,6 +240,10 @@ func (m *Payments) Update(ctx context.Context, p *Payment) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return err
+	}
+
 	dbPayment, err := m.Q.UpdatePayment(ctx, db.UpdatePaymentParams{
 		Status:         db.PaymentStatus(p.Status),
 		MpPaymentID:    data.TextToPg(p.MPPaymentID),
@@ -261,6 +273,13 @@ func (m *Payments) Update(ctx context.Context, p *Payment) error {
 func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *bookingstore.Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
+
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return err
+	}
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
 
 	return m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
 		// H-15: booking.Status was read by ConfirmPayment well before this
@@ -368,6 +387,13 @@ func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *b
 func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *bookingstore.Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
+
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return err
+	}
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
 
 	return m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
 		// Before anything is written: the slot this booking is about to claim has to
