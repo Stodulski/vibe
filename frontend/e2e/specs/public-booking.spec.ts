@@ -29,6 +29,11 @@ async function answerDurationQuestion(page: Page): Promise<void> {
   await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 }
 
+// Empty-state copy of the slot list, `t.publicBooking.noAvailability`
+// (src/shared/i18n/es_AR/publicBooking.ts). The e2e tsconfig only includes
+// e2e/, so the string is mirrored here instead of imported; keep both in sync.
+const NO_AVAILABILITY_COPY = 'Sin horarios para esta fecha';
+
 test.describe('Public Booking Flow', () => {
   let setupDone = false;
 
@@ -69,7 +74,7 @@ test.describe('Public Booking Flow', () => {
     // availability or its explicit "no slots" message (never nothing).
     await expect(page.locator('.scrollbar-none').first()).toBeVisible({ timeout: 30_000 });
     await answerDurationQuestion(page);
-    await expect(page.locator('[data-slot-time]').first().or(page.getByText('No hay horarios'))).toBeVisible({
+    await expect(page.locator('[data-slot-time]').first().or(page.getByText(NO_AVAILABILITY_COPY))).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -92,7 +97,7 @@ test.describe('Public Booking Flow', () => {
     }
 
     // Should have slots or a "no availability" message
-    await expect(page.locator('[data-slot-time]').first().or(page.getByText('No hay horarios'))).toBeVisible({
+    await expect(page.locator('[data-slot-time]').first().or(page.getByText(NO_AVAILABILITY_COPY))).toBeVisible({
       timeout: 10_000,
     });
   });
