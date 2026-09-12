@@ -56,6 +56,7 @@ func (s *stubReader) ListAuditLogs(_ context.Context, complexID *uuid.UUID, enti
 
 type trailFixture struct {
 	handler *Handler
+	service *Service
 	reader  *stubReader
 	store   *stubStore
 	complex *complexstore.Complex
@@ -75,7 +76,8 @@ func newTrailFixture(t *testing.T) *trailFixture {
 	// The real Recorder, over a store that captures what was written: the
 	// entry is asserted as it reaches persistence, encoding included.
 	recorder := NewRecorder(f.store, logger, runInline)
-	f.handler = NewHandler(f.reader, recorder, httpx.NewResponder(logger), false)
+	f.service = NewService(f.reader, recorder)
+	f.handler = NewHandler(f.service, httpx.NewResponder(logger), false)
 	return f
 }
 

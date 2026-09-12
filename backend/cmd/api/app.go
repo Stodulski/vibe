@@ -268,7 +268,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 	}
 
 	auditor := audit.NewRecorder(d.models.Audit, d.logger, app.background)
-	auditTrailHandler := audit.NewHandler(d.models.Audit, auditor, respond, cfg.trustedProxies)
+	auditService := audit.NewService(d.models.Audit, auditor)
+	auditTrailHandler := audit.NewHandler(auditService, respond, cfg.trustedProxies)
 
 	tokens := auth.NewTokenService(auth.TokenServiceConfig{
 		JWTSecret:    cfg.jwt.secret,
@@ -307,7 +308,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	})
 	reportingHandler := reporting.NewHandler(d.models.Bookings, d.models.Clients, d.models.Courts,
 		d.models.Complexes, d.models.Reports, respond)
-	adminService := admin.NewService(d.models.Admin, d.models.Audit, cache, auditor)
+	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
 	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
 
 	var queues health.QueueReporter
