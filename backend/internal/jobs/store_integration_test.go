@@ -5,6 +5,7 @@ package jobs_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,16 +19,37 @@ import (
 
 // newStore opens a store against the E2E database.
 //
-// Every test below invents its own job type, so the rows one test writes are
-// invisible to the claim of another. That is what lets this file run beside
-// the rest of the integration suite — which shares one database and truncates
-// across it — without a cleanup step of its own, and it is closer to
-// production than an empty table: a real claim always competes with rows it
-// must not take.
+// Every test below invents its own job type — named after the test itself
+// plus a UUID, so a row is traceable back to the test that left it and never
+// collides with another run's — so the rows one test writes are invisible to
+// the claim of another. That still is not enough on its own: Store.Claim and
+// Pool.work both take the oldest *due* rows off the whole table with no type
+// filter, so a row a test leaves behind in 'pending' (Release's open-breaker
+// case, or a backoff that later elapses) keeps competing for every later
+// test's Claim budget once its run_at arrives. The Cleanup below deletes only
+// this test's own rows, by type prefix, so nothing outlives the test that
+// created it — which is what lets this file run beside the rest of the
+// integration suite, sharing one database, under any run order or repeat
+// count, without truncating it.
 func newStore(t *testing.T) (*jobs.Store, string) {
 	t.Helper()
 	pool := datatest.SetupTestDB(t)
-	return &jobs.Store{DB: data.NewDB(pool)}, "test:" + uuid.NewString()
+	s := &jobs.Store{DB: data.NewDB(pool)}
+
+	name := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	jobType := "test:" + name + ":" + uuid.NewString()
+
+	// Prefix match, not equality: a pool test registers handlers (and
+	// enqueues) under jobType plus a suffix such as ":sentinel" or ":fails",
+	// and every one of those rows belongs to this test alone.
+	t.Cleanup(func() {
+		ctx := data.ContextWithTenantBypass(context.Background())
+		if _, err := s.DB.Exec(ctx, `DELETE FROM jobs WHERE type LIKE $1`, jobType+"%"); err != nil {
+			t.Logf("cleanup: deleting jobs of type %q: %v", jobType, err)
+		}
+	})
+
+	return s, jobType
 }
 
 // bypass is the tenant scope every background worker runs under. jobs carries
