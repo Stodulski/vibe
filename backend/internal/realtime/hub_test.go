@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -164,4 +166,89 @@ func TestTheEventChannelCarriesTheEnvironment(t *testing.T) {
 	if !strings.HasPrefix(staging.channel, "vibe:staging:") {
 		t.Errorf("channel %q is not namespaced by application and environment", staging.channel)
 	}
+}
+
+// TestAPanicRelayingOneEventDoesNotTakeDownTheRelay is half of CON-01. Both
+// goroutines this type starts used to be bare `go` statements with no recover,
+// so a panic while decoding or delivering one message took the whole process
+// with it — the API, the payment webhook and every other tenant included.
+//
+// The recover is per message rather than around the loop, so the assertion is
+// not only "the process survived": the next event still arrives.
+func TestAPanicRelayingOneEventDoesNotTakeDownTheRelay(t *testing.T) {
+	hubClient, publisher := newHubDeps(t)
+	h := NewHub(hubClient, testLogger(), "test")
+
+	var calls atomic.Int64
+	delivered := make(chan struct{}, 1)
+	h.deliver = func(m message) {
+		if calls.Add(1) == 1 {
+			panic("a relayed event carried something the broadcast could not hold")
+		}
+		select {
+		case delivered <- struct{}{}:
+		default:
+		}
+	}
+
+	h.Start()
+	t.Cleanup(h.Shutdown)
+	// Let the SUBSCRIBE reach miniredis before publishing, as every other
+	// test in this file does.
+	time.Sleep(50 * time.Millisecond)
+
+	complexID := uuid.New()
+	publishRaw(t, h, publisher, complexID)
+	publishRaw(t, h, publisher, complexID)
+
+	select {
+	case <-delivered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the relay never delivered the event after the one before it panicked; " +
+			"one bad event ended the relay for the life of the process")
+	}
+}
+
+// TestShutdownWaitsForTheRelay is the other half. Shutdown used to return the
+// instant the channel was closed, so a graceful stop raced the relay: the
+// process could close its Redis client, or exit, with consume still running.
+func TestShutdownWaitsForTheRelay(t *testing.T) {
+	hubClient, publisher := newHubDeps(t)
+	h := NewHub(hubClient, testLogger(), "test")
+
+	running := make(chan struct{})
+	release := make(chan struct{})
+	var once sync.Once
+	h.deliver = func(message) {
+		once.Do(func() { close(running) })
+		<-release
+	}
+
+	h.Start()
+	time.Sleep(50 * time.Millisecond)
+	publishRaw(t, h, publisher, uuid.New())
+	<-running
+
+	stopped := make(chan struct{})
+	go func() {
+		h.Shutdown()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+		t.Fatal("Shutdown returned while the relay was still delivering an event")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown did not return once the relay finished")
+	}
+
+	// Twice is safe, and the second call must not block on an already-drained
+	// wait group.
+	h.Shutdown()
 }

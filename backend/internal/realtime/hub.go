@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -94,9 +95,16 @@ type Hub struct {
 	rdb             *redis.Client
 	logger          *slog.Logger
 	// channel is the prefixed Pub/Sub channel this hub relays through.
-	channel  string
+	channel string
+	// wg tracks the two goroutines this type starts, so Shutdown can wait for
+	// them rather than returning while the relay is still running (CON-01).
+	wg       sync.WaitGroup
 	shutdown chan struct{}
 	started  atomic.Bool
+	// deliver is what consume does with one decoded message. It is a field so
+	// a test can make it panic and watch the relay survive; nothing outside
+	// this package sets it.
+	deliver func(message)
 }
 
 // NewHub returns a Hub. Passing a nil Redis client is supported and means
@@ -108,7 +116,7 @@ type Hub struct {
 // that building one twice in a test process — or building one that is never
 // used — cannot leak a goroutine. Call Start to begin relaying.
 func NewHub(rdb *redis.Client, logger *slog.Logger, env string) *Hub {
-	return &Hub{
+	h := &Hub{
 		clients:         make(map[uuid.UUID]map[*client]struct{}),
 		perComplexLimit: maxStreamsPerComplex,
 		totalLimit:      maxStreams,
@@ -117,6 +125,28 @@ func NewHub(rdb *redis.Client, logger *slog.Logger, env string) *Hub {
 		channel:         platformredis.KeyPrefix(env) + channelSuffix,
 		shutdown:        make(chan struct{}),
 	}
+	h.deliver = func(m message) { h.broadcast(m.ComplexID, m.Event) }
+	return h
+}
+
+// supervise runs fn on a goroutine this Hub tracks and recovers.
+//
+// It is the same contract cmd/api's app.background offers, kept here because
+// a Hub is constructed before that helper exists and is used by tests that
+// have no application at all. What matters is that it is the only way this
+// type starts a goroutine: both of them used to be bare `go` statements, so a
+// panic decoding one message took the process down with it, and Shutdown
+// returned while the relay was still running (CON-01).
+func (h *Hub) supervise(what string, fn func()) {
+	h.wg.Go(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				h.logger.Error("realtime: goroutine panicked",
+					"goroutine", what, "panic", r, "stack", string(debug.Stack()))
+			}
+		}()
+		fn()
+	})
 }
 
 // Start begins relaying events published by other instances to this one's
@@ -130,7 +160,7 @@ func (h *Hub) Start() {
 	if !h.started.CompareAndSwap(false, true) {
 		return
 	}
-	go h.consume()
+	h.supervise("pubsub relay", h.consume)
 }
 
 // Subscribe registers a dashboard for a complex and returns its event channel.
@@ -243,28 +273,54 @@ func (h *Hub) PublishBookingChanged(complexID uuid.UUID) {
 func (h *Hub) consume() {
 	sub := h.rdb.Subscribe(context.Background(), h.channel)
 
-	go func() {
+	h.supervise("subscription closer", func() {
 		<-h.shutdown
 		// Nothing can observe a close error during shutdown; closing only
 		// unblocks the range below, which then returns.
 		_ = sub.Close() //nolint:errcheck // see above: nothing can observe a close error during shutdown
-	}()
+	})
 
 	for msg := range sub.Channel() {
-		var m message
-		if err := json.Unmarshal([]byte(msg.Payload), &m); err != nil {
-			h.logger.Error("realtime: failed to unmarshal redis message", "error", err)
-			continue
-		}
-		h.broadcast(m.ComplexID, m.Event)
+		h.handle(msg.Payload)
 	}
 }
 
-// Shutdown stops the Redis subscription. It is safe to call more than once.
+// handle decodes and delivers one relayed message.
+//
+// The recover is per message rather than around the loop, and that is the
+// whole of it: with one recover outside, a single undecodable event ends the
+// relay for the life of the process — every dashboard on this instance stops
+// receiving updates from every other instance, silently, while the process
+// stays healthy and keeps serving. One lost event and one log line naming it
+// is the right size of failure.
+func (h *Hub) handle(payload string) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.logger.Error("realtime: panic while relaying an event, the event is dropped",
+				"panic", r, "stack", string(debug.Stack()))
+		}
+	}()
+
+	var m message
+	if err := json.Unmarshal([]byte(payload), &m); err != nil {
+		h.logger.Error("realtime: failed to unmarshal redis message", "error", err)
+		return
+	}
+	h.deliver(m)
+}
+
+// Shutdown stops the Redis subscription and waits for the relay to finish.
+//
+// The wait is the point. Shutdown used to return the instant the channel was
+// closed, so a graceful stop raced the relay: the process could close its
+// Redis client, or exit, while consume was mid-broadcast. It is safe to call
+// more than once, and on a Hub that was never started — the wait group is
+// then empty.
 func (h *Hub) Shutdown() {
 	select {
 	case <-h.shutdown:
 	default:
 		close(h.shutdown)
 	}
+	h.wg.Wait()
 }
