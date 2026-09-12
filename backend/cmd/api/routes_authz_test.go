@@ -12,6 +12,8 @@ import (
 
 	"github.com/google/uuid"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/middleware"
 )
@@ -436,8 +438,8 @@ func newAuthzFixture(t *testing.T) *authzFixture {
 		t.Fatalf("complex store is %T, not *mockComplexStore", app.models.Complexes)
 	}
 
-	account := func(email, role string) *data.User {
-		return users.seed(data.User{
+	account := func(email, role string) *authstore.User {
+		return users.seed(authstore.User{
 			ID:            uuid.New(),
 			Email:         email,
 			FirstName:     "Test",
@@ -454,7 +456,7 @@ func newAuthzFixture(t *testing.T) *authzFixture {
 	other := account("other-owner@example.com", "owner")
 	admin := account("super@example.com", "superadmin")
 
-	complexOf := func(o *data.User, slug string) *data.Complex {
+	complexOf := func(o *authstore.User, slug string) *data.Complex {
 		return complexes.seed(data.Complex{
 			ID:                uuid.New(),
 			OwnerID:           o.ID,
@@ -489,7 +491,7 @@ func newAuthzFixture(t *testing.T) *authzFixture {
 	fx.seedSubResources(t, target)
 	fx.ts = newTestServer(t, app)
 
-	for class, user := range map[callerClass]*data.User{
+	for class, user := range map[callerClass]*authstore.User{
 		authenticated: stranger,
 		foreignOwner:  other,
 		resourceOwner: owner,
@@ -567,11 +569,11 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *data.Complex) {
 
 	// The admin detail routes read the platform store rather than the tenant
 	// stores, so they need their own records.
-	admin.GetUserDetailFn = func(_ context.Context, userID uuid.UUID) (*data.AdminUserDetail, error) {
-		return &data.AdminUserDetail{User: &data.User{ID: userID, Email: "detail@example.com"}}, nil
+	admin.GetUserDetailFn = func(_ context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error) {
+		return &adminstore.AdminUserDetail{User: &authstore.User{ID: userID, Email: "detail@example.com"}}, nil
 	}
-	admin.GetComplexDetailFn = func(_ context.Context, complexID uuid.UUID) (*data.AdminComplexDetail, error) {
-		return &data.AdminComplexDetail{Complex: &data.Complex{ID: complexID}}, nil
+	admin.GetComplexDetailFn = func(_ context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error) {
+		return &adminstore.AdminComplexDetail{Complex: &data.Complex{ID: complexID}}, nil
 	}
 }
 

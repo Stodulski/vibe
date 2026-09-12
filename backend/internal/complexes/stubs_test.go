@@ -15,6 +15,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -240,7 +241,7 @@ func ownerRequest(t *testing.T, method, target string, ownerID uuid.UUID, comple
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
 	}
 
-	r = httpx.ContextSetUser(r, &data.User{ID: ownerID, Role: "owner"})
+	r = httpx.ContextSetUser(r, &authstore.User{ID: ownerID, Role: "owner"})
 	if complex != nil {
 		r = httpx.ContextSetComplex(r, complex)
 	}

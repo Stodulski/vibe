@@ -1,15 +1,16 @@
-package data
+package store
 
 import (
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestUser_SetPassword(t *testing.T) {
 	u := &User{}
-	err := u.SetPassword("mysecretpassword")
+	err := u.SetPassword("mysecretpassword", bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("SetPassword() returned error: %v", err)
 	}
@@ -22,10 +23,10 @@ func TestUser_SetPassword_DifferentInputs(t *testing.T) {
 	u1 := &User{}
 	u2 := &User{}
 
-	if err := u1.SetPassword("password1"); err != nil {
+	if err := u1.SetPassword("password1", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword(password1) error: %v", err)
 	}
-	if err := u2.SetPassword("password2"); err != nil {
+	if err := u2.SetPassword("password2", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword(password2) error: %v", err)
 	}
 
@@ -39,10 +40,10 @@ func TestUser_SetPassword_SameInputProducesDifferentHashes(t *testing.T) {
 	u1 := &User{}
 	u2 := &User{}
 
-	if err := u1.SetPassword("samepassword"); err != nil {
+	if err := u1.SetPassword("samepassword", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword error: %v", err)
 	}
-	if err := u2.SetPassword("samepassword"); err != nil {
+	if err := u2.SetPassword("samepassword", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword error: %v", err)
 	}
 
@@ -55,7 +56,7 @@ func TestUser_SetPassword_SameInputProducesDifferentHashes(t *testing.T) {
 func TestUser_PasswordMatches_Correct(t *testing.T) {
 	u := &User{}
 	password := "correcthorsebatterystaple"
-	if err := u.SetPassword(password); err != nil {
+	if err := u.SetPassword(password, bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword error: %v", err)
 	}
 
@@ -70,7 +71,7 @@ func TestUser_PasswordMatches_Correct(t *testing.T) {
 
 func TestUser_PasswordMatches_Incorrect(t *testing.T) {
 	u := &User{}
-	if err := u.SetPassword("rightpassword"); err != nil {
+	if err := u.SetPassword("rightpassword", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword error: %v", err)
 	}
 
@@ -85,7 +86,7 @@ func TestUser_PasswordMatches_Incorrect(t *testing.T) {
 
 func TestUser_PasswordMatches_EmptyPassword(t *testing.T) {
 	u := &User{}
-	if err := u.SetPassword("somepassword"); err != nil {
+	if err := u.SetPassword("somepassword", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword error: %v", err)
 	}
 
@@ -123,7 +124,7 @@ func TestUser_IsLocked_PastTime(t *testing.T) {
 
 func TestComparePassword_Match(t *testing.T) {
 	u := &User{}
-	if err := u.SetPassword("testpassword"); err != nil {
+	if err := u.SetPassword("testpassword", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword error: %v", err)
 	}
 
@@ -135,7 +136,7 @@ func TestComparePassword_Match(t *testing.T) {
 
 func TestComparePassword_Mismatch(t *testing.T) {
 	u := &User{}
-	if err := u.SetPassword("testpassword"); err != nil {
+	if err := u.SetPassword("testpassword", bcrypt.MinCost); err != nil {
 		t.Fatalf("SetPassword error: %v", err)
 	}
 
@@ -183,8 +184,8 @@ func TestUser_StructFields(t *testing.T) {
 	}
 }
 
-// TestUserModel_RequiresDB documents that UserModel methods
+// TestUserModel_RequiresDB documents that Users methods
 // require a database connection.
 func TestUserModel_RequiresDB(t *testing.T) {
-	t.Skip("UserModel methods all require *pgxpool.Pool and *db.Queries")
+	t.Skip("Users methods all require *pgxpool.Pool and *db.Queries")
 }

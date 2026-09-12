@@ -18,7 +18,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -70,11 +70,11 @@ var testPasswordHash = sync.OnceValue(func() []byte {
 // testUser returns an account with a real bcrypt hash, because the defect is
 // only visible through bcrypt: a nil hash is not a mismatch, it is
 // ErrHashTooShort, and the handler turns that into a 500 rather than a 401.
-func testUser(t *testing.T) *data.User {
+func testUser(t *testing.T) *authstore.User {
 	t.Helper()
 
 	lockedUntil := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
-	user := &data.User{
+	user := &authstore.User{
 		ID:                  uuid.New(),
 		Email:               "ana@example.com",
 		FirstName:           "Ana",
@@ -163,7 +163,7 @@ func TestCachedUserMirrorsEveryFieldOfDataUser(t *testing.T) {
 		return names
 	}
 
-	got, want := fields(cachedUser{}), fields(data.User{})
+	got, want := fields(cachedUser{}), fields(authstore.User{})
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("cachedUser and data.User must carry the same fields\n"+
 			"cachedUser: %v\n data.User: %v\n"+
@@ -205,7 +205,7 @@ func TestAuthenticateServesACacheHitWithoutADatabaseRead(t *testing.T) {
 	// Any store read from here is a bug: the entry is warm.
 	f.users.err = errUnexpectedStoreRead
 
-	var got *data.User
+	var got *authstore.User
 	handler := f.mw.Authenticate(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got, _ = httpx.ContextGetAuthenticatedUser(r)
 	}))

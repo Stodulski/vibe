@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -57,8 +57,8 @@ func TestPasswordResetToken_ShorterThanEmailVerification(t *testing.T) {
 	}
 }
 
-// TestPasswordResetModel_RequiresDB documents that all PasswordResetModel methods
+// TestPasswordResetModel_RequiresDB documents that all PasswordResets methods
 // require a database connection.
 func TestPasswordResetModel_RequiresDB(t *testing.T) {
-	t.Skip("PasswordResetModel methods (InsertWithCooldown, GetByHash, DeleteByUser, DeleteExpired) all require *pgxpool.Pool")
+	t.Skip("PasswordResets methods (InsertWithCooldown, GetByHash, DeleteByUser, DeleteExpired) all require *pgxpool.Pool")
 }

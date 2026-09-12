@@ -15,6 +15,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/stores"
 )
 
 // testCredentialKeyring is the MercadoPago credential keyring every
@@ -88,7 +89,7 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 // global reset between every case.
 type testFixture struct {
 	Pool      *pgxpool.Pool
-	Models    data.Models
+	Models    stores.Stores
 	UserID    uuid.UUID
 	ComplexID uuid.UUID
 	CourtID   uuid.UUID
@@ -102,7 +103,7 @@ func newTestFixture(t *testing.T) *testFixture {
 	ctx := context.Background()
 	suffix := uuid.NewString()
 
-	f := &testFixture{Pool: pool, Models: data.NewModels(pool, data.Config{Keys: testCredentialKeyring(t)})}
+	f := &testFixture{Pool: pool, Models: stores.New(pool, stores.Config{Keys: testCredentialKeyring(t)})}
 
 	err := pool.QueryRow(ctx, `
 		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
@@ -365,7 +366,7 @@ func (f *testFixture) backdateBookingCreatedAt(t *testing.T, id uuid.UUID, age t
 // one a MercadoPago webhook takes when it confirms a paid booking — and returns
 // whatever the store decided. models is passed in so a test can confirm through a
 // differently configured set of stores.
-func (f *testFixture) confirmBooking(models data.Models, b *data.Booking) error {
+func (f *testFixture) confirmBooking(models stores.Stores, b *data.Booking) error {
 	b.Status = "confirmed"
 	b.CollectionStatus = data.CollectionStatusDepositPaid
 

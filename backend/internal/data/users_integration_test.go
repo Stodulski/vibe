@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// UserModel.Update used to leave email_verified out of its SET list, so clearing the
+// Users.Update used to leave email_verified out of its SET list, so clearing the
 // flag in Go changed nothing in the database. That matters because changing an account's
 // email address is supposed to un-verify it: if the flag survives, the account keeps a
 // verified badge on an address nobody proved they own, and password-reset links follow

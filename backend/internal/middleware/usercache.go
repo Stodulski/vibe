@@ -9,8 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-
-	"github.com/stodulski/vibe-server/internal/data"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 )
 
 const (
@@ -174,7 +173,7 @@ type cachedUser struct {
 }
 
 // newCachedUser copies an account into its cache representation.
-func newCachedUser(u *data.User) cachedUser {
+func newCachedUser(u *authstore.User) cachedUser {
 	return cachedUser{
 		Schema:              userCacheSchema,
 		ID:                  u.ID,
@@ -199,12 +198,12 @@ func newCachedUser(u *data.User) cachedUser {
 // A record from an older schema, or one whose credential material is missing,
 // is treated as a miss rather than as an account: serving a half-decoded user
 // is how this went wrong the first time, and a miss costs one database read.
-func (c cachedUser) user() (*data.User, bool) {
+func (c cachedUser) user() (*authstore.User, bool) {
 	if c.Schema != userCacheSchema || c.ID == uuid.Nil || len(c.PasswordHash) == 0 {
 		return nil, false
 	}
 
-	return &data.User{
+	return &authstore.User{
 		ID:                  c.ID,
 		Email:               c.Email,
 		PasswordHash:        c.PasswordHash,
@@ -231,7 +230,7 @@ func userCacheKey(id uuid.UUID) string { return "cache:user:" + id.String() }
 // What the paths do not share is whether anything went wrong: an expired entry
 // is the cache working, and a Redis that refused the connection is the cache
 // being gone. They were the same silent nil.
-func (m *Middleware) getCachedUser(ctx context.Context, id uuid.UUID) *data.User {
+func (m *Middleware) getCachedUser(ctx context.Context, id uuid.UUID) *authstore.User {
 	if m.rdb == nil {
 		return nil
 	}
@@ -270,7 +269,7 @@ func (m *Middleware) getCachedUser(ctx context.Context, id uuid.UUID) *data.User
 }
 
 // cacheUser stores an account for userCacheTTL.
-func (m *Middleware) cacheUser(ctx context.Context, user *data.User) {
+func (m *Middleware) cacheUser(ctx context.Context, user *authstore.User) {
 	if m.rdb == nil {
 		return
 	}

@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/notifications"
 )
 
@@ -77,11 +77,11 @@ func TestRegisterDuplicateEmailEnqueuesDuplicateNotice(t *testing.T) {
 		t.Fatalf("test application user store is %T, not *mockUserStore", app.models.Users)
 	}
 	// Set before the server starts so the handler goroutine sees it.
-	users.InsertFn = func(context.Context, *data.User) error { return data.ErrDuplicateEmail }
+	users.InsertFn = func(context.Context, *authstore.User) error { return authstore.ErrDuplicateEmail }
 	// The account that already owns this address, whose real first name is not
 	// the one the registration form was filled in with.
-	users.GetByEmailFn = func(context.Context, string) (*data.User, error) {
-		return &data.User{Email: email, FirstName: "Mariana"}, nil
+	users.GetByEmailFn = func(context.Context, string) (*authstore.User, error) {
+		return &authstore.User{Email: email, FirstName: "Mariana"}, nil
 	}
 
 	ts := newTestServer(t, app)

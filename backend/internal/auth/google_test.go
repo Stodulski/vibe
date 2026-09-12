@@ -10,8 +10,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/googleid"
 )
 
@@ -52,12 +53,12 @@ func TestGoogleCompleteDisabledConfig(t *testing.T) {
 // and nothing they were issued still valid.
 func TestGoogleSignInExistingUser(t *testing.T) {
 	f := newFixtureWithGoogle(t)
-	user := &data.User{
+	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
 		Phone: "+5491112345678", Role: "owner", IsActive: true, EmailVerified: false,
 		FailedLoginAttempts: 3,
 	}
-	if err := user.SetPassword("registrant-chose-this"); err != nil {
+	if err := user.SetPassword("registrant-chose-this", bcrypt.MinCost); err != nil {
 		t.Fatal(err)
 	}
 	registrantHash := append([]byte(nil), user.PasswordHash...)
@@ -125,7 +126,7 @@ func TestGoogleSignInExistingUser(t *testing.T) {
 // the password they chose. Only the never-verified case is a credential reset.
 func TestGoogleSignInVerifiedAccountKeepsCredentials(t *testing.T) {
 	f := newFixtureWithGoogle(t)
-	user := &data.User{
+	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
 		Phone: "+5491112345678", Role: "owner", IsActive: true, EmailVerified: true,
 	}
@@ -149,7 +150,7 @@ func TestGoogleSignInVerifiedAccountKeepsCredentials(t *testing.T) {
 // top of a password somebody else chose.
 func TestGoogleSignInClaimNotPersisted(t *testing.T) {
 	f := newFixtureWithGoogle(t)
-	user := &data.User{
+	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
 		Phone: "+5491112345678", Role: "owner", IsActive: true, EmailVerified: false,
 	}
@@ -174,7 +175,7 @@ func TestGoogleSignInClaimNotPersisted(t *testing.T) {
 // same generic 401 Login gives a wrong password — see loginFailed.
 func TestGoogleSignInInactiveAccount(t *testing.T) {
 	f := newFixtureWithGoogle(t)
-	user := &data.User{
+	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
 		Phone: "+5491112345678", Role: "owner", IsActive: false, EmailVerified: true,
 	}
@@ -197,7 +198,7 @@ func TestGoogleSignInInactiveAccount(t *testing.T) {
 func TestGoogleSignInLockedAccount(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	lockedUntil := time.Now().Add(time.Hour)
-	user := &data.User{
+	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
 		Phone: "+5491112345678", Role: "owner", IsActive: true, EmailVerified: true,
 		LockedUntil: &lockedUntil,
@@ -420,7 +421,7 @@ func TestGoogleCompleteExistingEmail(t *testing.T) {
 func TestGoogleCompleteExistingEmailRaceAtInsert(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	token := mintProfileToken(t, f, "google-sub-4", "race@example.com", "Ana", "Perez")
-	f.users.insertErr = data.ErrDuplicateEmail
+	f.users.insertErr = authstore.ErrDuplicateEmail
 
 	w := httptest.NewRecorder()
 	f.handler.GoogleComplete(w, postJSON(t,

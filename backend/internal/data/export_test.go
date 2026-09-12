@@ -10,9 +10,6 @@ import "time"
 // caller has no use for them, and a test that needs them says so here rather
 // than by forcing them exported.
 const (
-	// ListAuditLogsSQLForTest is the audit-log listing query, so a test can
-	// EXPLAIN exactly the statement the store runs.
-	ListAuditLogsSQLForTest = listAuditLogsSQL
 	// LeaseGraceForTest is the slack added to a lease's TTL before it is
 	// considered abandoned.
 	LeaseGraceForTest = leaseGrace

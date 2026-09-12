@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -143,7 +144,7 @@ func TestOpenAPIConformance_LoginSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	users.seed(data.User{
+	users.seed(authstore.User{
 		ID:            uuid.New(),
 		Email:         "ana@example.com",
 		FirstName:     "Ana",
@@ -199,7 +200,7 @@ func TestOpenAPIConformance_AuthenticatedPaginatedList(t *testing.T) {
 		t.Fatalf("client store is %T, not *mockClientStore", app.models.Clients)
 	}
 
-	owner := users.seed(data.User{
+	owner := users.seed(authstore.User{
 		ID: uuid.New(), Email: "owner@example.com", FirstName: "Owner", LastName: "Account",
 		Phone: "+5491112345678", Role: "owner", IsActive: true, EmailVerified: true,
 	})

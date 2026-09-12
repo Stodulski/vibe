@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -24,8 +26,8 @@ import (
 type stubUsers struct {
 	mu sync.Mutex
 
-	byEmail map[string]*data.User
-	byID    map[uuid.UUID]*data.User
+	byEmail map[string]*authstore.User
+	byID    map[uuid.UUID]*authstore.User
 
 	getErr    error
 	insertErr error
@@ -36,12 +38,12 @@ type stubUsers struct {
 	// points at one of the owner's complexes did in production.
 	deleteErr error
 
-	inserted *data.User
+	inserted *authstore.User
 	// updated is the account as Update was asked to persist it. The stub used to
 	// take the argument and drop it, which made every field this handler writes
 	// unobservable — a phone number could be mangled on the way through and
 	// every test still passed.
-	updated         *data.User
+	updated         *authstore.User
 	deleted         *uuid.UUID
 	verified        *uuid.UUID
 	passwordUpdated *uuid.UUID
@@ -50,16 +52,16 @@ type stubUsers struct {
 }
 
 func newStubUsers() *stubUsers {
-	return &stubUsers{byEmail: map[string]*data.User{}, byID: map[uuid.UUID]*data.User{}}
+	return &stubUsers{byEmail: map[string]*authstore.User{}, byID: map[uuid.UUID]*authstore.User{}}
 }
 
-func (s *stubUsers) add(u *data.User) *stubUsers {
+func (s *stubUsers) add(u *authstore.User) *stubUsers {
 	s.byEmail[strings.ToLower(u.Email)] = u
 	s.byID[u.ID] = u
 	return s
 }
 
-func (s *stubUsers) GetByEmail(_ context.Context, email string) (*data.User, error) {
+func (s *stubUsers) GetByEmail(_ context.Context, email string) (*authstore.User, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
@@ -69,14 +71,14 @@ func (s *stubUsers) GetByEmail(_ context.Context, email string) (*data.User, err
 	return nil, data.ErrRecordNotFound
 }
 
-func (s *stubUsers) GetByID(_ context.Context, id uuid.UUID) (*data.User, error) {
+func (s *stubUsers) GetByID(_ context.Context, id uuid.UUID) (*authstore.User, error) {
 	if u, ok := s.byID[id]; ok {
 		return u, nil
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (s *stubUsers) Insert(_ context.Context, u *data.User) error {
+func (s *stubUsers) Insert(_ context.Context, u *authstore.User) error {
 	if s.insertErr != nil {
 		return s.insertErr
 	}
@@ -84,7 +86,7 @@ func (s *stubUsers) Insert(_ context.Context, u *data.User) error {
 	// database raises, not from a pre-read — which is what makes registration
 	// race-free. The stub has to behave the same way.
 	if _, taken := s.byEmail[strings.ToLower(u.Email)]; taken {
-		return data.ErrDuplicateEmail
+		return authstore.ErrDuplicateEmail
 	}
 	u.ID = uuid.New()
 	s.inserted = u
@@ -92,7 +94,7 @@ func (s *stubUsers) Insert(_ context.Context, u *data.User) error {
 	return nil
 }
 
-func (s *stubUsers) Update(_ context.Context, u *data.User) error {
+func (s *stubUsers) Update(_ context.Context, u *authstore.User) error {
 	// Copy, so a later mutation by the handler cannot rewrite what the test
 	// observes as having been persisted.
 	stored := *u
@@ -137,8 +139,8 @@ func (s *stubUsers) UpdatePassword(_ context.Context, id uuid.UUID, _ []byte) er
 }
 
 type stubTokens struct {
-	stored    map[string]*data.RefreshToken
-	used      map[string]*data.RefreshToken
+	stored    map[string]*authstore.RefreshToken
+	used      map[string]*authstore.RefreshToken
 	deleted   [][]byte
 	allWiped  []uuid.UUID
 	markedUse [][]byte
@@ -149,25 +151,25 @@ type stubTokens struct {
 }
 
 func newStubTokens() *stubTokens {
-	return &stubTokens{stored: map[string]*data.RefreshToken{}, used: map[string]*data.RefreshToken{}}
+	return &stubTokens{stored: map[string]*authstore.RefreshToken{}, used: map[string]*authstore.RefreshToken{}}
 }
 
 func (s *stubTokens) InsertRefreshToken(_ context.Context, userID uuid.UUID, hash []byte, ttl time.Duration) error {
 	if s.insertErr != nil {
 		return s.insertErr
 	}
-	s.stored[string(hash)] = &data.RefreshToken{UserID: userID, ExpiresAt: time.Now().Add(ttl)}
+	s.stored[string(hash)] = &authstore.RefreshToken{UserID: userID, ExpiresAt: time.Now().Add(ttl)}
 	return nil
 }
 
-func (s *stubTokens) GetRefreshToken(_ context.Context, hash []byte) (*data.RefreshToken, error) {
+func (s *stubTokens) GetRefreshToken(_ context.Context, hash []byte) (*authstore.RefreshToken, error) {
 	if t, ok := s.stored[string(hash)]; ok {
 		return t, nil
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (s *stubTokens) GetUsedRefreshToken(_ context.Context, hash []byte) (*data.RefreshToken, error) {
+func (s *stubTokens) GetUsedRefreshToken(_ context.Context, hash []byte) (*authstore.RefreshToken, error) {
 	if t, ok := s.used[string(hash)]; ok {
 		return t, nil
 	}
@@ -204,7 +206,7 @@ func (s *stubTokens) DeleteAllForUser(_ context.Context, userID uuid.UUID) error
 }
 
 type stubVerifications struct {
-	tokens    map[string]*data.EmailVerificationToken
+	tokens    map[string]*authstore.EmailVerificationToken
 	inserted  int
 	cooldowns int
 	deleted   []uuid.UUID
@@ -212,7 +214,7 @@ type stubVerifications struct {
 }
 
 func newStubVerifications() *stubVerifications {
-	return &stubVerifications{tokens: map[string]*data.EmailVerificationToken{}}
+	return &stubVerifications{tokens: map[string]*authstore.EmailVerificationToken{}}
 }
 
 func (s *stubVerifications) Insert(_ context.Context, userID uuid.UUID, hash []byte) error {
@@ -220,7 +222,7 @@ func (s *stubVerifications) Insert(_ context.Context, userID uuid.UUID, hash []b
 		return s.insertErr
 	}
 	s.inserted++
-	s.tokens[string(hash)] = &data.EmailVerificationToken{UserID: userID, ExpiresAt: time.Now().Add(time.Hour)}
+	s.tokens[string(hash)] = &authstore.EmailVerificationToken{UserID: userID, ExpiresAt: time.Now().Add(time.Hour)}
 	return nil
 }
 
@@ -229,7 +231,7 @@ func (s *stubVerifications) InsertWithCooldown(ctx context.Context, userID uuid.
 	return s.Insert(ctx, userID, hash)
 }
 
-func (s *stubVerifications) GetByHash(_ context.Context, hash []byte) (*data.EmailVerificationToken, error) {
+func (s *stubVerifications) GetByHash(_ context.Context, hash []byte) (*authstore.EmailVerificationToken, error) {
 	if t, ok := s.tokens[string(hash)]; ok {
 		return t, nil
 	}
@@ -242,7 +244,7 @@ func (s *stubVerifications) DeleteByUser(_ context.Context, userID uuid.UUID) er
 }
 
 type stubResets struct {
-	tokens  map[string]*data.PasswordResetToken
+	tokens  map[string]*authstore.PasswordResetToken
 	deleted []uuid.UUID
 	err     error
 	// getErr is what GetByHash returns, so a test can drive a store failure
@@ -253,18 +255,18 @@ type stubResets struct {
 }
 
 func newStubResets() *stubResets {
-	return &stubResets{tokens: map[string]*data.PasswordResetToken{}}
+	return &stubResets{tokens: map[string]*authstore.PasswordResetToken{}}
 }
 
 func (s *stubResets) InsertWithCooldown(_ context.Context, userID uuid.UUID, hash []byte) error {
 	if s.err != nil {
 		return s.err
 	}
-	s.tokens[string(hash)] = &data.PasswordResetToken{UserID: userID, ExpiresAt: time.Now().Add(time.Hour)}
+	s.tokens[string(hash)] = &authstore.PasswordResetToken{UserID: userID, ExpiresAt: time.Now().Add(time.Hour)}
 	return nil
 }
 
-func (s *stubResets) GetByHash(_ context.Context, hash []byte) (*data.PasswordResetToken, error) {
+func (s *stubResets) GetByHash(_ context.Context, hash []byte) (*authstore.PasswordResetToken, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
@@ -381,11 +383,11 @@ func (s *stubGoogleVerifier) Verify(_ context.Context, credential string) (*goog
 // stubIdentities is an IdentityStore double, recording every link it was
 // asked to write.
 type stubIdentities struct {
-	inserted []*data.UserIdentity
+	inserted []*authstore.UserIdentity
 	err      error
 }
 
-func (s *stubIdentities) Insert(_ context.Context, identity *data.UserIdentity) error {
+func (s *stubIdentities) Insert(_ context.Context, identity *authstore.UserIdentity) error {
 	if s.err != nil {
 		return s.err
 	}
@@ -491,6 +493,11 @@ func newFixture(t *testing.T) *fixture {
 		JWTSecret:   testJWTSecret,
 		Environment: "test",
 		FrontendURL: "https://vibe.test",
+		// bcrypt.MinCost, not the production cost: this suite registers and
+		// signs in hundreds of users, and a cost-12 hash under the race
+		// detector takes seconds each. It used to be a package variable a
+		// TestMain wrote; it is configuration now.
+		PasswordHashCost: bcrypt.MinCost,
 	})
 	return f
 }
@@ -539,7 +546,7 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 
 // withUser puts an authenticated account in the request context, as the
 // authentication middleware does.
-func withUser(r *http.Request, u *data.User) *http.Request {
+func withUser(r *http.Request, u *authstore.User) *http.Request {
 	return httpx.ContextSetUser(r, u)
 }
 

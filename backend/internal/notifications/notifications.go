@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
@@ -36,7 +36,7 @@ type WhatsAppSender interface {
 
 // UserReader resolves the owner an owner-facing email is addressed to.
 type UserReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error)
 }
 
 // Service enqueues notifications and, on the worker side, delivers them.

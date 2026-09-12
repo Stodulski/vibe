@@ -17,8 +17,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/stores"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const integrationJWTSecret = "e2e-test-secret-key-32-bytes-long!"
@@ -104,6 +104,9 @@ func newIntegrationApp(t *testing.T, pool *pgxpool.Pool, opts ...func(*config)) 
 		jwt: struct{ secret string }{
 			secret: jwtSecret,
 		},
+		// bcrypt.MinCost, for the reason the unit harness gives: this suite
+		// registers and signs in real users against a real database.
+		passwordHashCost: bcrypt.MinCost,
 		// Placeholder credentials, matching what the previous hand-built
 		// application literal passed directly to mp.NewMPClient /
 		// whatsapp.NewWAClient. No test talks to the real MercadoPago or
@@ -166,7 +169,7 @@ func newIntegrationApp(t *testing.T, pool *pgxpool.Pool, opts ...func(*config)) 
 
 	app, err := newApplication(cfg, deps{
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		models: data.NewModels(pool, data.Config{PaymentExpiry: 15 * time.Minute}),
+		models: stores.New(pool, stores.Config{PaymentExpiry: 15 * time.Minute}),
 		db:     pool,
 		// rdb, storage stay nil: in-memory blacklist/hub/limiter/queue, and
 		// no R2 — the same fallback production takes without Redis/R2

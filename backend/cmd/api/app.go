@@ -17,7 +17,6 @@ import (
 	"github.com/stodulski/vibe-server/internal/clients"
 	"github.com/stodulski/vibe-server/internal/complexes"
 	"github.com/stodulski/vibe-server/internal/courts"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -35,6 +34,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/reporting"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 	"github.com/stodulski/vibe-server/internal/storage"
+	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
@@ -46,7 +46,7 @@ type deps struct {
 	logger *slog.Logger
 	// models is the full set of stores. All 16 are required — see
 	// validateDeps.
-	models data.Models
+	models stores.Stores
 	// db backs the database health probe only; it MAY be nil (health then
 	// reports "not configured" instead of failing).
 	db *pgxpool.Pool
@@ -358,11 +358,12 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Respond:       respond,
 		Logger:        d.logger,
 	}, auth.Config{
-		JWTSecret:    cfg.jwt.secret,
-		CookieDomain: cfg.cookieDomain,
-		Environment:  cfg.env,
-		FrontendURL:  cfg.frontendURL,
-		TrustProxies: cfg.trustedProxies,
+		JWTSecret:        cfg.jwt.secret,
+		CookieDomain:     cfg.cookieDomain,
+		Environment:      cfg.env,
+		FrontendURL:      cfg.frontendURL,
+		TrustProxies:     cfg.trustedProxies,
+		PasswordHashCost: cfg.passwordHashCost,
 	})
 
 	paymentsHandler := payments.NewHandler(payments.Dependencies{

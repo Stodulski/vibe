@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"golang.org/x/crypto/bcrypt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +17,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/stodulski/vibe-server/internal/auth"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -26,7 +26,6 @@ import (
 // is a global, so setting it from inside a test races with the connection
 // goroutines an earlier test left behind.
 func TestMain(m *testing.M) {
-	data.PasswordHashCost = bcrypt.MinCost
 	redis.SetLogger(quietRedisLogger{})
 	os.Exit(m.Run())
 }
@@ -36,14 +35,14 @@ func TestMain(m *testing.M) {
 var errUnexpectedStoreRead = errors.New("the store was read when it should not have been")
 
 type stubUsers struct {
-	user *data.User
+	user *authstore.User
 	err  error
 	// deadline records the budget the caller gave this read, so a test can
 	// assert the chain does not run it on the bare request context.
 	deadline time.Duration
 }
 
-func (s *stubUsers) GetByID(ctx context.Context, _ uuid.UUID) (*data.User, error) {
+func (s *stubUsers) GetByID(ctx context.Context, _ uuid.UUID) (*authstore.User, error) {
 	s.deadline = budget(ctx)
 	if s.err != nil {
 		return nil, s.err
@@ -224,9 +223,9 @@ func TestAuthenticateSetsTheUserForAValidToken(t *testing.T) {
 	f := newFixture(t, Config{})
 	userID := uuid.New()
 	f.tokens.claims = validClaims(userID)
-	f.users.user = &data.User{ID: userID, Email: "ana@example.com", Role: "owner", IsActive: true}
+	f.users.user = &authstore.User{ID: userID, Email: "ana@example.com", Role: "owner", IsActive: true}
 
-	var got *data.User
+	var got *authstore.User
 	handler := f.mw.Authenticate(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got, _ = httpx.ContextGetAuthenticatedUser(r)
 	}))
@@ -262,7 +261,7 @@ func TestAuthenticateNeverRejects(t *testing.T) {
 		{"deactivated account", func(f *fixture) {
 			id := uuid.New()
 			f.tokens.claims = validClaims(id)
-			f.users.user = &data.User{ID: id, IsActive: false}
+			f.users.user = &authstore.User{ID: id, IsActive: false}
 		}},
 	}
 
@@ -271,7 +270,7 @@ func TestAuthenticateNeverRejects(t *testing.T) {
 			f := newFixture(t, Config{})
 			tt.setup(f)
 
-			var user *data.User
+			var user *authstore.User
 			handler := f.mw.Authenticate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				user, _ = httpx.ContextGetAuthenticatedUser(r)
 				w.WriteHeader(http.StatusOK)
@@ -364,7 +363,7 @@ func TestRequireRoleRejectsTheWrongRole(t *testing.T) {
 	var reached bool
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-	r = httpx.ContextSetUser(r, &data.User{ID: uuid.New(), Role: "owner"})
+	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
 
 	w := httptest.NewRecorder()
 	f.mw.RequireRole("superadmin")(ok(&reached))(w, r)
@@ -390,7 +389,7 @@ func TestRequireComplexOwnerRefusesAnotherOwnersComplex(t *testing.T) {
 	f.complexes.complex = &data.Complex{ID: complexID, OwnerID: uuid.New()}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-	r = httpx.ContextSetUser(r, &data.User{ID: uuid.New(), Role: "owner"})
+	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
 	r = withComplexParam(r, complexID)
 
 	var reached bool
@@ -411,7 +410,7 @@ func TestRequireComplexOwnerPutsTheComplexInContext(t *testing.T) {
 	f.complexes.complex = &data.Complex{ID: complexID, OwnerID: ownerID}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-	r = httpx.ContextSetUser(r, &data.User{ID: ownerID, Role: "owner"})
+	r = httpx.ContextSetUser(r, &authstore.User{ID: ownerID, Role: "owner"})
 	r = withComplexParam(r, complexID)
 
 	var got *data.Complex
@@ -435,7 +434,7 @@ func TestRequireComplexOwnerDoesNotExemptASuperadmin(t *testing.T) {
 	f.complexes.complex = &data.Complex{ID: complexID, OwnerID: uuid.New()}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-	r = httpx.ContextSetUser(r, &data.User{ID: uuid.New(), Role: "superadmin"})
+	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "superadmin"})
 	r = withComplexParam(r, complexID)
 
 	var reached bool

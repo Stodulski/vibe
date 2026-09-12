@@ -14,18 +14,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 type stubStore struct {
-	stats       *data.PlatformStats
-	users       []*data.AdminUserRow
-	userDetail  *data.AdminUserDetail
-	complexes   []*data.AdminComplexRow
-	cxDetail    *data.AdminComplexDetail
-	logs        []*data.AuditLogRow
+	stats       *adminstore.PlatformStats
+	users       []*adminstore.AdminUserRow
+	userDetail  *adminstore.AdminUserDetail
+	complexes   []*adminstore.AdminComplexRow
+	cxDetail    *adminstore.AdminComplexDetail
+	logs        []*adminstore.AuditLogRow
 	err         error
 	toggleErr   error
 	toggledTo   *bool
@@ -37,35 +39,35 @@ type stubStore struct {
 	lastFilters                          data.Filters
 }
 
-func (s *stubStore) GetPlatformStats(context.Context) (*data.PlatformStats, error) {
+func (s *stubStore) GetPlatformStats(context.Context) (*adminstore.PlatformStats, error) {
 	return s.stats, s.err
 }
 
-func (s *stubStore) ListUsers(_ context.Context, search, role string, f data.Filters) ([]*data.AdminUserRow, data.Metadata, error) {
+func (s *stubStore) ListUsers(_ context.Context, search, role string, f data.Filters) ([]*adminstore.AdminUserRow, data.Metadata, error) {
 	s.lastSearch, s.lastRole, s.lastFilters = search, role, f
 	return s.users, data.Metadata{}, s.err
 }
 
-func (s *stubStore) GetUserDetail(context.Context, uuid.UUID) (*data.AdminUserDetail, error) {
+func (s *stubStore) GetUserDetail(context.Context, uuid.UUID) (*adminstore.AdminUserDetail, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 	return s.userDetail, nil
 }
 
-func (s *stubStore) ListComplexes(_ context.Context, search string, f data.Filters) ([]*data.AdminComplexRow, data.Metadata, error) {
+func (s *stubStore) ListComplexes(_ context.Context, search string, f data.Filters) ([]*adminstore.AdminComplexRow, data.Metadata, error) {
 	s.lastSearch, s.lastFilters = search, f
 	return s.complexes, data.Metadata{}, s.err
 }
 
-func (s *stubStore) GetComplexDetail(context.Context, uuid.UUID) (*data.AdminComplexDetail, error) {
+func (s *stubStore) GetComplexDetail(context.Context, uuid.UUID) (*adminstore.AdminComplexDetail, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 	return s.cxDetail, nil
 }
 
-func (s *stubStore) ListAuditLogs(_ context.Context, complexID *uuid.UUID, entityType string, f data.Filters) ([]*data.AuditLogRow, data.Metadata, error) {
+func (s *stubStore) ListAuditLogs(_ context.Context, complexID *uuid.UUID, entityType string, f data.Filters) ([]*adminstore.AuditLogRow, data.Metadata, error) {
 	s.lastComplexID, s.lastEntityType, s.lastFilters = complexID, entityType, f
 	return s.logs, data.Metadata{}, s.err
 }
@@ -106,7 +108,7 @@ func operatorRequest(t *testing.T, method, target string, operator uuid.UUID, pa
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
 	}
 
-	r = httpx.ContextSetUser(r, &data.User{ID: operator, Role: "superadmin"})
+	r = httpx.ContextSetUser(r, &authstore.User{ID: operator, Role: "superadmin"})
 	if pathID != nil {
 		params := httprouter.Params{{Key: "id", Value: pathID.String()}}
 		r = r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
@@ -124,7 +126,7 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 }
 
 func TestStatsReturnsThePlatformFigures(t *testing.T) {
-	store := &stubStore{stats: &data.PlatformStats{TotalUsers: 10}}
+	store := &stubStore{stats: &adminstore.PlatformStats{TotalUsers: 10}}
 	h, _, _ := newTestHandler(store)
 
 	w := httptest.NewRecorder()

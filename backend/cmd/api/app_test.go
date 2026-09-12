@@ -9,8 +9,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
-
-	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/stores"
 )
 
 // validTestDeps returns a deps value that satisfies validateDeps, for tests
@@ -20,7 +19,7 @@ func validTestDeps(t *testing.T) deps {
 
 	return deps{
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		models: data.Models{
+		models: stores.Stores{
 			Users:             &mockUserStore{},
 			UserIdentities:    &mockUserIdentityStore{},
 			Tokens:            &mockTokenStore{},
@@ -64,25 +63,25 @@ func TestNewApplicationRejectsAMissingStore(t *testing.T) {
 func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 	cases := []struct {
 		name string
-		zero func(*data.Models)
+		zero func(*stores.Stores)
 	}{
-		{"Users", func(m *data.Models) { m.Users = nil }},
-		{"UserIdentities", func(m *data.Models) { m.UserIdentities = nil }},
-		{"Complexes", func(m *data.Models) { m.Complexes = nil }},
-		{"Courts", func(m *data.Models) { m.Courts = nil }},
-		{"Bookings", func(m *data.Models) { m.Bookings = nil }},
-		{"BookingLinkTokens", func(m *data.Models) { m.BookingLinkTokens = nil }},
-		{"Tokens", func(m *data.Models) { m.Tokens = nil }},
-		{"Clients", func(m *data.Models) { m.Clients = nil }},
-		{"Payments", func(m *data.Models) { m.Payments = nil }},
-		{"EmailVerification", func(m *data.Models) { m.EmailVerification = nil }},
-		{"PasswordReset", func(m *data.Models) { m.PasswordReset = nil }},
-		{"FailedRefunds", func(m *data.Models) { m.FailedRefunds = nil }},
-		{"WebhookEvents", func(m *data.Models) { m.WebhookEvents = nil }},
-		{"SlotLocks", func(m *data.Models) { m.SlotLocks = nil }},
-		{"Admin", func(m *data.Models) { m.Admin = nil }},
-		{"Reports", func(m *data.Models) { m.Reports = nil }},
-		{"Locks", func(m *data.Models) { m.Locks = nil }},
+		{"Users", func(m *stores.Stores) { m.Users = nil }},
+		{"UserIdentities", func(m *stores.Stores) { m.UserIdentities = nil }},
+		{"Complexes", func(m *stores.Stores) { m.Complexes = nil }},
+		{"Courts", func(m *stores.Stores) { m.Courts = nil }},
+		{"Bookings", func(m *stores.Stores) { m.Bookings = nil }},
+		{"BookingLinkTokens", func(m *stores.Stores) { m.BookingLinkTokens = nil }},
+		{"Tokens", func(m *stores.Stores) { m.Tokens = nil }},
+		{"Clients", func(m *stores.Stores) { m.Clients = nil }},
+		{"Payments", func(m *stores.Stores) { m.Payments = nil }},
+		{"EmailVerification", func(m *stores.Stores) { m.EmailVerification = nil }},
+		{"PasswordReset", func(m *stores.Stores) { m.PasswordReset = nil }},
+		{"FailedRefunds", func(m *stores.Stores) { m.FailedRefunds = nil }},
+		{"WebhookEvents", func(m *stores.Stores) { m.WebhookEvents = nil }},
+		{"SlotLocks", func(m *stores.Stores) { m.SlotLocks = nil }},
+		{"Admin", func(m *stores.Stores) { m.Admin = nil }},
+		{"Reports", func(m *stores.Stores) { m.Reports = nil }},
+		{"Locks", func(m *stores.Stores) { m.Locks = nil }},
 	}
 
 	for _, c := range cases {

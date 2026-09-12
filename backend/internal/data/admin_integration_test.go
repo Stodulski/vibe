@@ -4,10 +4,9 @@ package data_test
 
 import (
 	"context"
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"strings"
 	"testing"
-
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // int32Max is the ceiling an ::int cast silently imposes on a SUM(). Postgres does
@@ -141,7 +140,7 @@ func TestListAuditLogsUsesTheCreatedAtIndex(t *testing.T) {
 	// EXPLAIN the constant the store itself issues, so this can never assert a plan
 	// for a copy of the SQL that has drifted from the real one. Arguments mirror an
 	// unfiltered first page: no complex, no entity type, no cursor.
-	rows, err := f.Pool.Query(ctx, "EXPLAIN "+data.ListAuditLogsSQLForTest, nil, "", false, nil, nil, 21)
+	rows, err := f.Pool.Query(ctx, "EXPLAIN "+adminstore.ListAuditLogsSQLForTest, nil, "", false, nil, nil, 21)
 	if err != nil {
 		t.Fatalf("explaining the audit-log query: %v", err)
 	}
@@ -188,7 +187,7 @@ func TestListAuditLogsKeepsTheComplexScopedPlan(t *testing.T) {
 	}
 
 	complexID := f.ComplexID
-	rows, err := f.Pool.Query(ctx, "EXPLAIN "+data.ListAuditLogsSQLForTest, complexID, "", false, nil, nil, 21)
+	rows, err := f.Pool.Query(ctx, "EXPLAIN "+adminstore.ListAuditLogsSQLForTest, complexID, "", false, nil, nil, 21)
 	if err != nil {
 		t.Fatalf("explaining the scoped audit-log query: %v", err)
 	}

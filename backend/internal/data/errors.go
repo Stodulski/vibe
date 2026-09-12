@@ -6,8 +6,6 @@ import "errors"
 var (
 	// ErrRecordNotFound is returned when a lookup by ID or unique key matches no row.
 	ErrRecordNotFound = errors.New("record not found")
-	// ErrDuplicateEmail is returned when an email address is already registered.
-	ErrDuplicateEmail = errors.New("duplicate email")
 	// ErrDuplicateSlug is returned when a complex's public slug is already
 	// taken.
 	//

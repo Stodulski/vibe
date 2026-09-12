@@ -14,6 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -26,7 +28,7 @@ import (
 // verified complex and not from the request, and a reader that discarded its
 // arguments could not tell the two apart.
 type stubReader struct {
-	logs []*data.AuditLogRow
+	logs []*adminstore.AuditLogRow
 	meta data.Metadata
 	err  error
 
@@ -38,7 +40,7 @@ type stubReader struct {
 
 func (s *stubReader) ListAuditLogs(_ context.Context, complexID *uuid.UUID, entityType string,
 	filters data.Filters,
-) ([]*data.AuditLogRow, data.Metadata, error) {
+) ([]*adminstore.AuditLogRow, data.Metadata, error) {
 	s.called++
 	if complexID != nil {
 		id := *complexID
@@ -56,7 +58,7 @@ type trailFixture struct {
 	reader  *stubReader
 	store   *stubStore
 	complex *data.Complex
-	caller  *data.User
+	caller  *authstore.User
 }
 
 func newTrailFixture(t *testing.T) *trailFixture {
@@ -67,7 +69,7 @@ func newTrailFixture(t *testing.T) *trailFixture {
 		reader:  &stubReader{},
 		store:   &stubStore{},
 		complex: &data.Complex{ID: uuid.New(), Name: "Vibe Palermo"},
-		caller:  &data.User{ID: uuid.New(), Role: "owner"},
+		caller:  &authstore.User{ID: uuid.New(), Role: "owner"},
 	}
 	// The real Recorder, over a store that captures what was written: the
 	// entry is asserted as it reaches persistence, encoding included.
@@ -86,8 +88,8 @@ func (f *trailFixture) request(t *testing.T, target string) *http.Request {
 	return httpx.ContextSetComplex(r, f.complex)
 }
 
-func (f *trailFixture) row() *data.AuditLogRow {
-	return &data.AuditLogRow{
+func (f *trailFixture) row() *adminstore.AuditLogRow {
+	return &adminstore.AuditLogRow{
 		ID:         uuid.New(),
 		UserID:     &f.caller.ID,
 		ComplexID:  &f.complex.ID,
@@ -100,7 +102,7 @@ func (f *trailFixture) row() *data.AuditLogRow {
 // The trail of a venue was readable by the platform and not by the venue.
 func TestTenantReadsItsOwnTrail(t *testing.T) {
 	f := newTrailFixture(t)
-	f.reader.logs = []*data.AuditLogRow{f.row(), f.row()}
+	f.reader.logs = []*adminstore.AuditLogRow{f.row(), f.row()}
 
 	w := httptest.NewRecorder()
 	f.handler.List(w, f.request(t, "/api/v1/complexes/x/audit-log"))
@@ -190,7 +192,7 @@ func TestTrailAppliesADefaultPageSize(t *testing.T) {
 // The person who can read the trail must leave a record of having read it.
 func TestReadingTheTrailIsItselfRecorded(t *testing.T) {
 	f := newTrailFixture(t)
-	f.reader.logs = []*data.AuditLogRow{f.row(), f.row(), f.row()}
+	f.reader.logs = []*adminstore.AuditLogRow{f.row(), f.row(), f.row()}
 
 	w := httptest.NewRecorder()
 	f.handler.List(w, f.request(t, "/api/v1/complexes/x/audit-log?entity_type=booking"))

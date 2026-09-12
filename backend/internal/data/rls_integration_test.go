@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/stores"
 )
 
 // These tests are the only ones in the repository that connect as the
@@ -142,7 +143,7 @@ type tenant struct {
 type rlsFixture struct {
 	Admin  *pgxpool.Pool
 	App    *pgxpool.Pool
-	Models data.Models
+	Models stores.Stores
 	A      tenant
 	B      tenant
 }
@@ -151,7 +152,7 @@ func newRLSFixture(t *testing.T) *rlsFixture {
 	t.Helper()
 
 	f := &rlsFixture{Admin: adminPool(t), App: appPool(t)}
-	f.Models = data.NewModels(f.App, data.Config{Keys: testCredentialKeyring(t)})
+	f.Models = stores.New(f.App, stores.Config{Keys: testCredentialKeyring(t)})
 	f.A = f.seedTenant(t, "a")
 	f.B = f.seedTenant(t, "b")
 	return f

@@ -21,13 +21,14 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/stodulski/vibe-server/internal/auth"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 // UserReader loads the account a session belongs to.
 type UserReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error)
 }
 
 // ComplexReader loads the complex an ownership-scoped route names.

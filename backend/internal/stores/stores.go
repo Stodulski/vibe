@@ -1,4 +1,4 @@
-package data
+package stores
 
 import (
 	"context"
@@ -8,7 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/crypto"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -18,10 +21,10 @@ import (
 
 // UserCRUD defines create, read, update and delete operations for user accounts.
 type UserCRUD interface {
-	Insert(ctx context.Context, user *User) error
-	GetByEmail(ctx context.Context, email string) (*User, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
-	Update(ctx context.Context, user *User) error
+	Insert(ctx context.Context, user *authstore.User) error
+	GetByEmail(ctx context.Context, email string) (*authstore.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error)
+	Update(ctx context.Context, user *authstore.User) error
 	UpdatePassword(ctx context.Context, userID uuid.UUID, newHash []byte) error
 	Delete(ctx context.Context, userID uuid.UUID) error
 }
@@ -53,9 +56,9 @@ type UserStore interface {
 // local account. Not tenant-scoped, like UserStore: an identity link belongs
 // to the platform account, not to any one complex.
 type UserIdentityStore interface {
-	Insert(ctx context.Context, identity *UserIdentity) error
-	GetByProviderSubject(ctx context.Context, provider, subject string) (*UserIdentity, error)
-	GetByUser(ctx context.Context, userID uuid.UUID) ([]*UserIdentity, error)
+	Insert(ctx context.Context, identity *authstore.UserIdentity) error
+	GetByProviderSubject(ctx context.Context, provider, subject string) (*authstore.UserIdentity, error)
+	GetByUser(ctx context.Context, userID uuid.UUID) ([]*authstore.UserIdentity, error)
 }
 
 // ---------------------------------------------------------------------------
@@ -66,7 +69,7 @@ type UserIdentityStore interface {
 type EmailVerificationStore interface {
 	Insert(ctx context.Context, userID uuid.UUID, tokenHash []byte) error
 	InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error
-	GetByHash(ctx context.Context, tokenHash []byte) (*EmailVerificationToken, error)
+	GetByHash(ctx context.Context, tokenHash []byte) (*authstore.EmailVerificationToken, error)
 	DeleteByUser(ctx context.Context, userID uuid.UUID) error
 	DeleteExpired(ctx context.Context) error
 }
@@ -78,7 +81,7 @@ type EmailVerificationStore interface {
 // PasswordResetStore manages password reset tokens.
 type PasswordResetStore interface {
 	InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error
-	GetByHash(ctx context.Context, tokenHash []byte) (*PasswordResetToken, error)
+	GetByHash(ctx context.Context, tokenHash []byte) (*authstore.PasswordResetToken, error)
 	DeleteByUser(ctx context.Context, userID uuid.UUID) error
 	DeleteExpired(ctx context.Context) error
 }
@@ -90,7 +93,7 @@ type PasswordResetStore interface {
 // BookingLinkTokenStore mints and resolves the single-purpose access tokens
 // that authorize a booking's public routes (specs/booking-link-credential).
 //
-// A top-level Models field, matching EmailVerificationStore/PasswordResetStore
+// A top-level Stores field, matching EmailVerificationStore/PasswordResetStore
 // rather than composed into BookingStore (ISP): these three methods are a
 // credential's lifecycle, not a booking's.
 type BookingLinkTokenStore interface {
@@ -99,7 +102,7 @@ type BookingLinkTokenStore interface {
 	// expiry in one JOIN, mirroring GetByID's hand-written SELECT.
 	// ErrRecordNotFound means no row carries that hash — never that the row
 	// expired; the caller decides expiry.
-	ResolveBooking(ctx context.Context, plaintext string) (*Booking, time.Time, error)
+	ResolveBooking(ctx context.Context, plaintext string) (*data.Booking, time.Time, error)
 	DeleteExpiredTerminal(ctx context.Context, retention time.Duration) error
 }
 
@@ -109,8 +112,8 @@ type BookingLinkTokenStore interface {
 
 // TokenReader looks up refresh tokens by their hash.
 type TokenReader interface {
-	GetRefreshToken(ctx context.Context, tokenHash []byte) (*RefreshToken, error)
-	GetUsedRefreshToken(ctx context.Context, tokenHash []byte) (*RefreshToken, error)
+	GetRefreshToken(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error)
+	GetUsedRefreshToken(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error)
 }
 
 // TokenWriter creates, consumes and expires refresh tokens.
@@ -134,11 +137,11 @@ type TokenStore interface {
 
 // ComplexCRUD defines create, read, update and soft-delete operations for padel complexes.
 type ComplexCRUD interface {
-	Insert(ctx context.Context, complex *Complex) error
-	GetByID(ctx context.Context, id uuid.UUID) (*Complex, error)
-	GetBySlug(ctx context.Context, slug string) (*Complex, error)
-	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, error)
-	Update(ctx context.Context, complex *Complex) error
+	Insert(ctx context.Context, complex *data.Complex) error
+	GetByID(ctx context.Context, id uuid.UUID) (*data.Complex, error)
+	GetBySlug(ctx context.Context, slug string) (*data.Complex, error)
+	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*data.Complex, error)
+	Update(ctx context.Context, complex *data.Complex) error
 	// SoftDeleteCascade soft-deletes the complex and returns how many of its
 	// courts went down with it. There is no plain SoftDelete: stamping a
 	// complex without closing its courts is the state the soft-delete cascade exists to
@@ -146,24 +149,24 @@ type ComplexCRUD interface {
 	SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SlugsWithPrefix(ctx context.Context, base string) ([]string, error)
-	GetAllSlugs(ctx context.Context) ([]ComplexSlug, error)
+	GetAllSlugs(ctx context.Context) ([]data.ComplexSlug, error)
 }
 
 // ComplexScheduleManager manages a complex's weekly opening schedule.
 type ComplexScheduleManager interface {
-	UpsertSchedule(ctx context.Context, schedule *Schedule) error
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*Schedule, error)
+	UpsertSchedule(ctx context.Context, schedule *data.Schedule) error
+	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error)
 }
 
 // ComplexMPManager manages a complex's MercadoPago OAuth credentials.
 type ComplexMPManager interface {
 	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
 	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
-	GetWithMPConnected(ctx context.Context) ([]*Complex, error)
+	GetWithMPConnected(ctx context.Context) ([]*data.Complex, error)
 	// ListComplexesNeedingMPRefresh narrows GetWithMPConnected to complexes
 	// whose token has no known expiry or expires within 30 days — what
 	// cronRefreshMPTokens actually needs to refresh.
-	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*Complex, error)
+	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*data.Complex, error)
 }
 
 // ComplexStore composes every complex-related store capability.
@@ -179,21 +182,21 @@ type ComplexStore interface {
 
 // CourtCRUD defines create, read, update and soft-delete operations for courts.
 type CourtCRUD interface {
-	Insert(ctx context.Context, court *Court) error
-	GetByID(ctx context.Context, id uuid.UUID) (*Court, error)
-	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court, error)
-	Update(ctx context.Context, court *Court) error
+	Insert(ctx context.Context, court *data.Court) error
+	GetByID(ctx context.Context, id uuid.UUID) (*data.Court, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*data.Court, error)
+	Update(ctx context.Context, court *data.Court) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 }
 
 // CourtPricingManager manages per-court, time-based price rules.
 type CourtPricingManager interface {
-	InsertPrice(ctx context.Context, price *CourtPrice) error
-	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*CourtPrice, error)
-	UpdatePrice(ctx context.Context, price *CourtPrice) error
+	InsertPrice(ctx context.Context, price *data.CourtPrice) error
+	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*data.CourtPrice, error)
+	UpdatePrice(ctx context.Context, price *data.CourtPrice) error
 	DeletePrice(ctx context.Context, id uuid.UUID) error
 	DeletePricesByCourtID(ctx context.Context, courtID uuid.UUID) error
-	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*CourtPrice, error)
+	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*data.CourtPrice, error)
 	// ReplacePrices atomically replaces a court's whole price table — see its
 	// comment in courts.go (H-07). Declared here, alongside the two calls it
 	// replaces in internal/courts.Handler.UpdatePrices, because this interface
@@ -201,16 +204,16 @@ type CourtPricingManager interface {
 	// (courts.NewHandler(d.models.Courts, ...) in cmd/api/app.go): a mock
 	// implementing CourtStore there needs an additive stub for this method to
 	// keep compiling, and cmd/api/mock_stores_test.go carries one.
-	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*CourtPrice) (failedIndex int, err error)
+	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*data.CourtPrice) (failedIndex int, err error)
 }
 
 // CourtBlockedSlotManager manages manually blocked (unbookable) court slots.
 type CourtBlockedSlotManager interface {
-	InsertBlockedSlot(ctx context.Context, slot *BlockedSlot) error
-	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*BlockedSlot, error)
-	GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*BlockedSlot, error)
-	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*BlockedSlot, error)
-	GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*BlockedSlot, error)
+	InsertBlockedSlot(ctx context.Context, slot *data.BlockedSlot) error
+	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*data.BlockedSlot, error)
+	GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*data.BlockedSlot, error)
+	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*data.BlockedSlot, error)
+	GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*data.BlockedSlot, error)
 	DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error
 }
 
@@ -227,30 +230,30 @@ type CourtStore interface {
 
 // BookingCreator creates new bookings, with a race-safe variant for concurrent slot claims.
 type BookingCreator interface {
-	Insert(ctx context.Context, booking *Booking) error
-	InsertSafe(ctx context.Context, booking *Booking) error
+	Insert(ctx context.Context, booking *data.Booking) error
+	InsertSafe(ctx context.Context, booking *data.Booking) error
 }
 
 // BookingReader queries bookings and the slots they occupy.
 type BookingReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*Booking, error)
-	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters Filters) ([]*Booking, Metadata, error)
-	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]BookedSpan, error)
-	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*Booking, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*data.Booking, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*data.Booking, data.Metadata, error)
+	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]data.BookedSpan, error)
+	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*data.Booking, error)
 }
 
 // BookingUpdater persists changes to an existing booking.
 type BookingUpdater interface {
-	Update(ctx context.Context, booking *Booking) error
+	Update(ctx context.Context, booking *data.Booking) error
 }
 
 // BookingStatsQuerier computes dashboard and reporting aggregates over bookings.
 type BookingStatsQuerier interface {
-	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*DashboardStats, error)
-	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*Booking, error)
-	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]RevenueDataPoint, error)
-	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]OccupancyDataPoint, error)
-	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*PaymentSummary, error)
+	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.DashboardStats, error)
+	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*data.Booking, error)
+	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.RevenueDataPoint, error)
+	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.OccupancyDataPoint, error)
+	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.PaymentSummary, error)
 }
 
 // BookingReminderManager selects bookings due for reminder or confirmation notifications.
@@ -258,14 +261,14 @@ type BookingReminderManager interface {
 	// Both take the caller's clock rather than reading the database's NOW():
 	// the two-hour window is a range between instants, and the instant it is
 	// measured from is the one thing a test has to be able to choose.
-	GetForReminder2h(ctx context.Context, now time.Time) ([]*Booking, error)
-	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*CronBooking, error)
+	GetForReminder2h(ctx context.Context, now time.Time) ([]*data.Booking, error)
+	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*data.CronBooking, error)
 	MarkReminderSent2h(ctx context.Context, id uuid.UUID) error
 }
 
 // BookingLifecycleManager drives booking state transitions such as expiry, completion and bulk cancellation.
 type BookingLifecycleManager interface {
-	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*CronBooking, error)
+	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*data.CronBooking, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 	CompletePastBookings(ctx context.Context) (int64, error)
@@ -279,7 +282,7 @@ type BookingLifecycleManager interface {
 // BookingUpdater, whose single Update method is the ordinary write path every
 // other booking mutation already uses.
 type BookingRefundIntentManager interface {
-	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*Booking, error)
+	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*data.Booking, error)
 	ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error
 	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
 }
@@ -301,10 +304,10 @@ type BookingStore interface {
 
 // ClientCRUD defines create, read and update operations for clients.
 type ClientCRUD interface {
-	Insert(ctx context.Context, client *Client) error
-	GetByID(ctx context.Context, id uuid.UUID) (*Client, error)
-	GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters Filters) ([]*Client, Metadata, error)
-	Update(ctx context.Context, client *Client) error
+	Insert(ctx context.Context, client *data.Client) error
+	GetByID(ctx context.Context, id uuid.UUID) (*data.Client, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*data.Client, data.Metadata, error)
+	Update(ctx context.Context, client *data.Client) error
 }
 
 // ClientLookup resolves clients by phone, creating one when none exists.
@@ -313,15 +316,15 @@ type ClientLookup interface {
 	// apart from the public, unauthenticated one on a phone match — see
 	// ClientModel.GetOrCreate's own comment for why the two must not share
 	// one answer.
-	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*Client, error)
-	GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*Client, error)
+	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*data.Client, error)
+	GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*data.Client, error)
 }
 
 // ClientMetrics computes client-related counters and insights for a complex.
 type ClientMetrics interface {
 	IncrementNoShows(ctx context.Context, clientID uuid.UUID) error
 	CountByComplex(ctx context.Context, complexID uuid.UUID) (int, error)
-	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*ClientInsights, error)
+	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.ClientInsights, error)
 }
 
 // ClientStore composes every client-related store capability.
@@ -337,17 +340,17 @@ type ClientStore interface {
 
 // PaymentReader looks up payments by booking or MercadoPago payment ID.
 type PaymentReader interface {
-	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*Payment, error)
-	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*Payment, error)
-	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*Payment, error)
+	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error)
+	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*data.Payment, error)
+	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*data.Payment, error)
 }
 
 // PaymentWriter creates and updates payments, including atomic booking confirmation.
 type PaymentWriter interface {
-	Insert(ctx context.Context, payment *Payment) error
-	InsertAndConfirmBooking(ctx context.Context, payment *Payment, booking *Booking) error
-	ConfirmWebhookPayment(ctx context.Context, payment *Payment, booking *Booking) error
-	Update(ctx context.Context, payment *Payment) error
+	Insert(ctx context.Context, payment *data.Payment) error
+	InsertAndConfirmBooking(ctx context.Context, payment *data.Payment, booking *data.Booking) error
+	ConfirmWebhookPayment(ctx context.Context, payment *data.Payment, booking *data.Booking) error
+	Update(ctx context.Context, payment *data.Payment) error
 }
 
 // PaymentRefunder runs the refund lifecycle: claim, then call the provider, then
@@ -358,11 +361,11 @@ type PaymentWriter interface {
 // payment, its booking and the attempt record — which is a different
 // responsibility from writing a payment row.
 type PaymentRefunder interface {
-	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*RefundClaim, error)
+	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*data.RefundClaim, error)
 	// manualOwedCentavos is the booking's still-outstanding cash/transfer
 	// balance; see the identical parameter on payments.PaymentStore.
-	RecordRefundSuccess(ctx context.Context, claim RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
-	RecordRefundFailure(ctx context.Context, claim RefundClaim, cause string) (exhausted bool, err error)
+	RecordRefundSuccess(ctx context.Context, claim data.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
+	RecordRefundFailure(ctx context.Context, claim data.RefundClaim, cause string) (exhausted bool, err error)
 	// RecordManualRefund closes out a partial_refund booking's remaining
 	// cash/transfer rows once the owner confirms they returned that money by
 	// hand, in one transaction with the booking write. See
@@ -384,8 +387,8 @@ type PaymentStore interface {
 // FailedRefundQueue records a refund attempt and drives it to a terminal state.
 // It is the whole of what the refund sweeper needs.
 type FailedRefundQueue interface {
-	Insert(ctx context.Context, fr *FailedRefund) error
-	GetPendingDue(ctx context.Context) ([]*FailedRefund, error)
+	Insert(ctx context.Context, fr *data.FailedRefund) error
+	GetPendingDue(ctx context.Context) ([]*data.FailedRefund, error)
 	MarkProcessing(ctx context.Context, id uuid.UUID) error
 	MarkResolved(ctx context.Context, id uuid.UUID) error
 	MarkExhausted(ctx context.Context, id uuid.UUID) error
@@ -414,13 +417,13 @@ type FailedRefundStore interface {
 // because it is the only part the HTTP handler needs: the endpoint records the
 // event and answers, and everything after that is the worker's problem.
 type WebhookEventRecorder interface {
-	Insert(ctx context.Context, e *WebhookEvent) error
+	Insert(ctx context.Context, e *data.WebhookEvent) error
 }
 
 // WebhookEventWorker drives a recorded event to a terminal state, with the same
 // claim/retry vocabulary the failed-refund queue uses.
 type WebhookEventWorker interface {
-	GetPendingDue(ctx context.Context) ([]*WebhookEvent, error)
+	GetPendingDue(ctx context.Context) ([]*data.WebhookEvent, error)
 	Claim(ctx context.Context, id uuid.UUID) (claimed bool, err error)
 	MarkProcessed(ctx context.Context, id uuid.UUID) error
 	MarkFailed(ctx context.Context, id uuid.UUID, cause string) (exhausted bool, err error)
@@ -452,27 +455,8 @@ type SlotLockStore interface {
 }
 
 // ---------------------------------------------------------------------------
-// Models — aggregate of all stores
+// Stores — aggregate of all stores
 // ---------------------------------------------------------------------------
-
-// MaxBookingHorizonDays bounds how far into the future a booking or a court's
-// blocked slot may be dated.
-//
-// H-08: internal/courts.BlockSlot and internal/bookings.PublicBook — the two
-// write paths an anonymous visitor can reach with no account — validated a
-// date's lower bound (not in the past) but never its upper one. A booking
-// dated "9999-12-31" was accepted with a real MercadoPago preference: it
-// holds a slot forever and is never reaped, since cron's completeBookings
-// only completes a booking whose end time has already passed. A block that
-// far out is merely inert, but the booking half is a standing way for an
-// anonymous caller to leave permanent rows behind, one request at a time.
-//
-// A year is generous for a real booking. It lives here, next to
-// defaultPaymentExpiry below, rather than as a literal duplicated in two
-// handlers in two different packages — so the two validators agree by
-// construction, and raising it later is a one-line change rather than an
-// audit of every date check in the codebase.
-const MaxBookingHorizonDays = 365
 
 // defaultPaymentExpiry is the hold a Config that names none falls back to. It is
 // the default of the -booking-payment-expiry flag, and it exists so a zero Config
@@ -502,6 +486,11 @@ type Config struct {
 	// Config built without it fails loudly the first time a credential is
 	// touched, rather than storing or returning plaintext.
 	Keys *crypto.Keyring
+	// PasswordHashCost is the bcrypt cost the user store reports to whoever
+	// hashes a password. Zero means authstore.DefaultHashCost — see
+	// authstore.SetPassword for why this is configuration rather than a
+	// package variable.
+	PasswordHashCost int
 	// LinkTokenBuffer is added to a booking's end time to compute a booking
 	// link token's expires_at. BookingModel.InsertSafe and
 	// BookingLinkTokenModel.Mint's callers both use it. Zero falls back to
@@ -530,8 +519,8 @@ func (c Config) linkTokenBuffer() time.Duration {
 	return c.LinkTokenBuffer
 }
 
-// Models aggregates every store interface used by the application.
-type Models struct {
+// Stores aggregates every store interface used by the application.
+type Stores struct {
 	Users             UserStore
 	UserIdentities    UserIdentityStore
 	Complexes         ComplexStore
@@ -546,18 +535,18 @@ type Models struct {
 	FailedRefunds     FailedRefundStore
 	WebhookEvents     WebhookEventStore
 	SlotLocks         SlotLockStore
-	Admin             AdminStore
-	Reports           ReportStore
-	Locks             LockStore
+	Admin             adminstore.AdminStore
+	Reports           data.ReportStore
+	Locks             data.LockStore
 }
 
-// NewModels builds a Models with every store backed by the given connection pool
+// New builds a Stores with every store backed by the given connection pool
 // and the given configuration.
-func NewModels(pool *pgxpool.Pool, cfg Config) Models {
-	return newModels(NewDB(pool), cfg)
+func New(pool *pgxpool.Pool, cfg Config) Stores {
+	return newStores(data.NewDB(pool), cfg)
 }
 
-// newModels builds the stores over a handle that already retries.
+// newStores builds the stores over a handle that already retries.
 //
 // The raw pool does not reach this function, and that is the point: sqlc's
 // generated queries are built against whatever is passed to db.New, so if the
@@ -565,26 +554,26 @@ func NewModels(pool *pgxpool.Pool, cfg Config) Models {
 // generated query would quietly leave the retry behind. Taking only the
 // retrying handle makes that impossible to write, and lets a test drive every
 // store — generated queries included — without a database.
-func newModels(pooled *DB, cfg Config) Models {
+func newStores(pooled *data.DB, cfg Config) Stores {
 	q := db.New(pooled)
 	paymentExpiry := cfg.paymentExpiry()
-	return Models{
-		Users:             &UserModel{DB: pooled, Q: q},
-		UserIdentities:    &UserIdentityModel{DB: pooled, Q: q},
-		Complexes:         &ComplexModel{DB: pooled, Q: q, Keys: cfg.Keys},
-		Courts:            &CourtModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
-		Bookings:          &BookingModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
-		BookingLinkTokens: &BookingLinkTokenModel{DB: pooled},
-		Tokens:            &TokenModel{DB: pooled, Q: q},
-		Clients:           &ClientModel{DB: pooled, Q: q},
-		Payments:          &PaymentModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
-		EmailVerification: &EmailVerificationModel{DB: pooled, Q: q},
-		PasswordReset:     &PasswordResetModel{DB: pooled},
-		FailedRefunds:     &FailedRefundModel{DB: pooled},
-		WebhookEvents:     &WebhookEventModel{DB: pooled},
-		Reports:           &ReportModel{DB: pooled},
-		Locks:             &LockModel{DB: pooled, Logger: cfg.Logger},
-		SlotLocks:         &SlotLockModel{DB: pooled},
-		Admin:             &AdminModel{DB: pooled},
+	return Stores{
+		Users:             &authstore.Users{DB: pooled, Q: q, HashCost: cfg.PasswordHashCost},
+		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
+		Complexes:         &data.ComplexModel{DB: pooled, Q: q, Keys: cfg.Keys},
+		Courts:            &data.CourtModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
+		Bookings:          &data.BookingModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
+		BookingLinkTokens: &data.BookingLinkTokenModel{DB: pooled},
+		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
+		Clients:           &data.ClientModel{DB: pooled, Q: q},
+		Payments:          &data.PaymentModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
+		EmailVerification: &authstore.EmailVerifications{DB: pooled, Q: q},
+		PasswordReset:     &authstore.PasswordResets{DB: pooled},
+		FailedRefunds:     &data.FailedRefundModel{DB: pooled},
+		WebhookEvents:     &data.WebhookEventModel{DB: pooled},
+		Reports:           &data.ReportModel{DB: pooled},
+		Locks:             &data.LockModel{DB: pooled, Logger: cfg.Logger},
+		SlotLocks:         &data.SlotLockModel{DB: pooled},
+		Admin:             &adminstore.Store{DB: pooled},
 	}
 }
