@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // staleWebhookProcessing is how long a webhook event may sit in 'processing'
@@ -59,9 +60,9 @@ type WebhookEvent struct {
 	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
-// WebhookEventModel implements WebhookEventStore against PostgreSQL.
-type WebhookEventModel struct {
-	DB *DB
+// WebhookEvents implements WebhookEventStore against PostgreSQL.
+type WebhookEvents struct {
+	DB *data.DB
 }
 
 // Insert records a delivered event and populates e with its generated ID and
@@ -70,8 +71,8 @@ type WebhookEventModel struct {
 // This is the statement the 200 is worth: it has to be committed before the
 // response is written, so a caller that gets an error here must refuse the
 // delivery rather than acknowledge it.
-func (m *WebhookEventModel) Insert(ctx context.Context, e *WebhookEvent) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *WebhookEvents) Insert(ctx context.Context, e *WebhookEvent) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	provider := e.Provider
@@ -103,15 +104,15 @@ func (m *WebhookEventModel) Insert(ctx context.Context, e *WebhookEvent) error {
 // GetPendingDue returns events that are due to be worked: the ones waiting their
 // turn, the ones abandoned mid-flight, and the ones whose retry budget is spent.
 //
-// Same shape and same reasoning as FailedRefundModel.GetPendingDue, including
+// Same shape and same reasoning as FailedRefunds.GetPendingDue, including
 // why 'exhausted' is in the list. A pending-only filter would leave a row that
 // died in 'processing' invisible forever, which here means a captured payment
 // whose booking never got confirmed and which nothing would ever look at again;
 // and an exhausted row is the same thing entered deliberately, by a provider
 // outage that outlasted five attempts. Nothing ever moved a row out of that
 // status. It comes back here on the tail of its own backoff instead.
-func (m *WebhookEventModel) GetPendingDue(ctx context.Context) ([]*WebhookEvent, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *WebhookEvents) GetPendingDue(ctx context.Context) ([]*WebhookEvent, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -138,8 +139,8 @@ func (m *WebhookEventModel) GetPendingDue(ctx context.Context) ([]*WebhookEvent,
 // one whose UPDATE matches may go on to call MercadoPago. The condition is the
 // same predicate GetPendingDue selects on, so a row another worker is honestly
 // still working is refused until its attempt has gone stale.
-func (m *WebhookEventModel) Claim(ctx context.Context, id uuid.UUID) (bool, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *WebhookEvents) Claim(ctx context.Context, id uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx, `
@@ -162,8 +163,8 @@ func (m *WebhookEventModel) Claim(ctx context.Context, id uuid.UUID) (bool, erro
 // reason: the sweep may have spent its budget on the very row it just finished,
 // and a closing write that is skipped leaves that row in 'processing' to be
 // worked all over again.
-func (m *WebhookEventModel) MarkProcessed(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := DetachedQueryContext(ctx)
+func (m *WebhookEvents) MarkProcessed(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.DetachedQueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -190,8 +191,8 @@ func (m *WebhookEventModel) MarkProcessed(ctx context.Context, id uuid.UUID) err
 // write there leaves the row in 'processing' with no backoff and no recorded
 // reason, invisible to every instance until it goes stale — which for this table
 // is a captured payment whose booking is still unconfirmed.
-func (m *WebhookEventModel) MarkFailed(ctx context.Context, id uuid.UUID, cause string) (bool, error) {
-	ctx, cancel := TxContext(context.WithoutCancel(ctx))
+func (m *WebhookEvents) MarkFailed(ctx context.Context, id uuid.UUID, cause string) (bool, error) {
+	ctx, cancel := data.TxContext(context.WithoutCancel(ctx))
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -207,7 +208,7 @@ func (m *WebhookEventModel) MarkFailed(ctx context.Context, id uuid.UUID, cause 
 	).Scan(&retryCount, &maxRetries)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, ErrRecordNotFound
+			return false, data.ErrRecordNotFound
 		}
 		return false, fmt.Errorf("lock webhook event: %w", err)
 	}
@@ -258,8 +259,8 @@ func (m *WebhookEventModel) MarkFailed(ctx context.Context, id uuid.UUID, cause 
 //
 // Only 'processed' rows are eligible. Anything still pending, in flight or
 // exhausted describes unfinished money and stays until it is resolved.
-func (m *WebhookEventModel) DeleteProcessed(ctx context.Context, olderThan time.Duration) (int64, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *WebhookEvents) DeleteProcessed(ctx context.Context, olderThan time.Duration) (int64, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx,

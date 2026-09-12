@@ -9,6 +9,7 @@ import (
 
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // A booking can carry more than one payment row: the deposit paid online
@@ -34,15 +35,15 @@ func TestAutoRefundIssuesTheMercadoPagoRowAndAlertsOnTheCashRemainder(t *testing
 		Status: "confirmed", CollectionStatus: data.CollectionStatusFullyPaid,
 		RefundStatus: data.RefundStatusNone, Price: 500_000, DepositAmount: 150_000,
 	}
-	deposit := &data.Payment{
+	deposit := &paymentstore.Payment{
 		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID,
 		Amount: 150_000, ServiceFee: 7_500, Status: "deposit_paid", MPPaymentID: &mpID,
 	}
-	cash := &data.Payment{
+	cash := &paymentstore.Payment{
 		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID,
 		Amount: 350_000, ServiceFee: 0, Status: "deposit_paid", Method: "cash",
 	}
-	f.payments.byBookingAll = []*data.Payment{deposit, cash}
+	f.payments.byBookingAll = []*paymentstore.Payment{deposit, cash}
 	f.payments.claimAmount = 157_500
 	f.complexes.complex = linkedComplex(complexID, "")
 	f.clients.client = &clientstore.Client{ID: booking.ClientID}
@@ -63,9 +64,9 @@ func TestAutoRefundIssuesTheMercadoPagoRowAndAlertsOnTheCashRemainder(t *testing
 			want, f.payments.recordedSuccessManualOwed)
 	}
 
-	if outcome.Result != data.RefundIssued {
+	if outcome.Result != paymentstore.RefundIssued {
 		t.Errorf("the automatic half succeeded, so the result describes it; want %q, got %q (reason %q)",
-			data.RefundIssued, outcome.Result, outcome.Reason)
+			paymentstore.RefundIssued, outcome.Result, outcome.Reason)
 	}
 	if outcome.AmountCentavos != 157_500 {
 		t.Errorf("AmountCentavos must be what the MercadoPago row returned; want 157500, got %d", outcome.AmountCentavos)
@@ -101,15 +102,15 @@ func TestAutoRefundSumsMultipleCashRowsIntoOneManualOutcome(t *testing.T) {
 		Status: "confirmed", CollectionStatus: data.CollectionStatusFullyPaid,
 		RefundStatus: data.RefundStatusNone, Price: 500_000, DepositAmount: 100_000,
 	}
-	deposit := &data.Payment{
+	deposit := &paymentstore.Payment{
 		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID,
 		Amount: 100_000, ServiceFee: 0, Status: "deposit_paid", Method: "cash",
 	}
-	balance := &data.Payment{
+	balance := &paymentstore.Payment{
 		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID,
 		Amount: 50_000, ServiceFee: 0, Status: "deposit_paid", Method: "cash",
 	}
-	f.payments.byBookingAll = []*data.Payment{deposit, balance}
+	f.payments.byBookingAll = []*paymentstore.Payment{deposit, balance}
 
 	sentryEvents := withCapturedSentryEvents(t)
 
@@ -118,7 +119,7 @@ func TestAutoRefundSumsMultipleCashRowsIntoOneManualOutcome(t *testing.T) {
 	if len(f.payments.claimed) != 0 {
 		t.Fatalf("neither row carries a mercadopago id, so nothing may be claimed; got claimed=%v", f.payments.claimed)
 	}
-	if outcome.Result != data.RefundManual {
+	if outcome.Result != paymentstore.RefundManual {
 		t.Fatalf("no automatic row exists, so this is a plain manual outcome; got %q", outcome.Result)
 	}
 	want := deposit.Amount + balance.Amount

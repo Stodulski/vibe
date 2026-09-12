@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -86,10 +86,10 @@ func TestFailedRefund_NilResolvedAt(t *testing.T) {
 	}
 }
 
-// TestFailedRefundModel_RequiresDB documents that all FailedRefundModel methods
+// TestFailedRefundModel_RequiresDB documents that all FailedRefunds methods
 // require a database connection.
 func TestFailedRefundModel_RequiresDB(t *testing.T) {
-	t.Skip("FailedRefundModel methods all require *pgxpool.Pool")
+	t.Skip("FailedRefunds methods all require *pgxpool.Pool")
 }
 
 // The line between "the provider said no" and "the provider said nothing" is

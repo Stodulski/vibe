@@ -14,6 +14,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 const webhookBody = `{"type":"payment","data":{"id":"mp-123"}}`
@@ -211,31 +212,31 @@ func TestRejectedPaymentLeavesASettledBookingAlone(t *testing.T) {
 func TestAutoRefundSkipsWhatCannotBeRefunded(t *testing.T) {
 	tests := []struct {
 		name    string
-		prepare func(*fixture, *data.Booking, *data.Payment)
+		prepare func(*fixture, *data.Booking, *paymentstore.Payment)
 	}{
 		{
 			name: "the booking was never paid",
-			prepare: func(f *fixture, b *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, b *data.Booking, _ *paymentstore.Payment) {
 				b.CollectionStatus = data.CollectionStatusUnpaid
 			},
 		},
 		{
 			name: "the payment did not go through MercadoPago",
-			prepare: func(f *fixture, _ *data.Booking, p *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, p *paymentstore.Payment) {
 				p.MPPaymentID = nil
 				f.payments.byBooking = p
 			},
 		},
 		{
 			name: "it was refunded already",
-			prepare: func(f *fixture, _ *data.Booking, p *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, p *paymentstore.Payment) {
 				p.Status = "refunded"
 				f.payments.byBooking = p
 			},
 		},
 		{
 			name: "there is no payment record at all",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.payments.bookingErr = data.ErrRecordNotFound
 			},
 		},
@@ -347,8 +348,8 @@ func TestAConcurrentRefundIsNotIssuedTwice(t *testing.T) {
 		name    string
 		refusal error
 	}{
-		{name: "the payment is already refunded", refusal: data.ErrAlreadyRefunded},
-		{name: "another claim holds the refund", refusal: data.ErrRefundInFlight},
+		{name: "the payment is already refunded", refusal: paymentstore.ErrAlreadyRefunded},
+		{name: "another claim holds the refund", refusal: paymentstore.ErrRefundInFlight},
 	}
 
 	for _, tt := range tests {
@@ -404,7 +405,7 @@ func TestRetryQueueResolvesASucceedingRefund(t *testing.T) {
 	frID := uuid.New()
 	mpID := "mp-123"
 
-	f.failedRefunds.pending = []*data.FailedRefund{{
+	f.failedRefunds.pending = []*paymentstore.FailedRefund{{
 		ID: frID, BookingID: booking.ID, ComplexID: complexID,
 		PaymentID: payment.ID, Amount: 150_000, MPPaymentID: mpID,
 	}}
@@ -439,7 +440,7 @@ func TestRetryQueueKeepsRetryingAFailingRefund(t *testing.T) {
 	frID := uuid.New()
 	mpID := "mp-123"
 
-	f.failedRefunds.pending = []*data.FailedRefund{{
+	f.failedRefunds.pending = []*paymentstore.FailedRefund{{
 		ID: frID, BookingID: booking.ID, ComplexID: complexID,
 		PaymentID: payment.ID, Amount: 150_000, MPPaymentID: mpID, RetryCount: 1,
 	}}
@@ -623,7 +624,7 @@ func TestApprovedPaymentIsRefusedAndRefundedWhenTheSlotWasTaken(t *testing.T) {
 		{
 			name: "an existing checkout payment",
 			prepare: func(f *fixture, booking *data.Booking) {
-				f.payments.byBooking = &data.Payment{
+				f.payments.byBooking = &paymentstore.Payment{
 					ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount, Status: "pending",
 				}
 			},
@@ -713,7 +714,7 @@ func TestAConfirmationThatFailsOnTheDatabaseIsRetriedRatherThanRefunded(t *testi
 
 	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 	f.bookings.booking = booking
-	f.payments.byBooking = &data.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount}
+	f.payments.byBooking = &paymentstore.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount}
 	f.payments.confirmErr = errDatabase
 
 	err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")

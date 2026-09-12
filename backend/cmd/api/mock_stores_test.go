@@ -14,6 +14,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -996,62 +997,62 @@ func (m *mockClientStore) GetInsights(ctx context.Context, complexID uuid.UUID, 
 // ---------------------------------------------------------------------------
 
 type mockPaymentStore struct {
-	InsertFn                  func(ctx context.Context, payment *data.Payment) error
-	InsertAndConfirmBookingFn func(ctx context.Context, payment *data.Payment, booking *data.Booking) error
-	ConfirmWebhookPaymentFn   func(ctx context.Context, payment *data.Payment, booking *data.Booking) error
-	GetByBookingIDFn          func(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error)
-	ListByBookingIDFn         func(ctx context.Context, bookingID uuid.UUID) ([]*data.Payment, error)
-	GetByMPPaymentFn          func(ctx context.Context, mpPaymentID string) (*data.Payment, error)
-	UpdateFn                  func(ctx context.Context, payment *data.Payment) error
-	ClaimRefundFn             func(ctx context.Context, paymentID uuid.UUID) (*data.RefundClaim, error)
-	RecordRefundSuccessFn     func(ctx context.Context, claim data.RefundClaim, manualOwedCentavos int) (int, error)
-	RecordRefundFailureFn     func(ctx context.Context, claim data.RefundClaim, cause string) (bool, error)
+	InsertFn                  func(ctx context.Context, payment *paymentstore.Payment) error
+	InsertAndConfirmBookingFn func(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	ConfirmWebhookPaymentFn   func(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	GetByBookingIDFn          func(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
+	ListByBookingIDFn         func(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
+	GetByMPPaymentFn          func(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
+	UpdateFn                  func(ctx context.Context, payment *paymentstore.Payment) error
+	ClaimRefundFn             func(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
+	RecordRefundSuccessFn     func(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (int, error)
+	RecordRefundFailureFn     func(ctx context.Context, claim paymentstore.RefundClaim, cause string) (bool, error)
 	RecordManualRefundFn      func(ctx context.Context, bookingID uuid.UUID) (int, error)
 }
 
-func (m *mockPaymentStore) Insert(ctx context.Context, payment *data.Payment) error {
+func (m *mockPaymentStore) Insert(ctx context.Context, payment *paymentstore.Payment) error {
 	if m.InsertFn != nil {
 		return m.InsertFn(ctx, payment)
 	}
 	return nil
 }
 
-func (m *mockPaymentStore) InsertAndConfirmBooking(ctx context.Context, payment *data.Payment, booking *data.Booking) error {
+func (m *mockPaymentStore) InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error {
 	if m.InsertAndConfirmBookingFn != nil {
 		return m.InsertAndConfirmBookingFn(ctx, payment, booking)
 	}
 	return nil
 }
 
-func (m *mockPaymentStore) ConfirmWebhookPayment(ctx context.Context, payment *data.Payment, booking *data.Booking) error {
+func (m *mockPaymentStore) ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error {
 	if m.ConfirmWebhookPaymentFn != nil {
 		return m.ConfirmWebhookPaymentFn(ctx, payment, booking)
 	}
 	return nil
 }
 
-func (m *mockPaymentStore) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error) {
+func (m *mockPaymentStore) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error) {
 	if m.GetByBookingIDFn != nil {
 		return m.GetByBookingIDFn(ctx, bookingID)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockPaymentStore) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*data.Payment, error) {
+func (m *mockPaymentStore) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error) {
 	if m.ListByBookingIDFn != nil {
 		return m.ListByBookingIDFn(ctx, bookingID)
 	}
 	return nil, nil
 }
 
-func (m *mockPaymentStore) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*data.Payment, error) {
+func (m *mockPaymentStore) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error) {
 	if m.GetByMPPaymentFn != nil {
 		return m.GetByMPPaymentFn(ctx, mpPaymentID)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockPaymentStore) Update(ctx context.Context, payment *data.Payment) error {
+func (m *mockPaymentStore) Update(ctx context.Context, payment *paymentstore.Payment) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, payment)
 	}
@@ -1060,21 +1061,21 @@ func (m *mockPaymentStore) Update(ctx context.Context, payment *data.Payment) er
 
 // The refund lifecycle. Each default refuses rather than succeeding: a mock that
 // silently reports a refund done is how a broken money path passes its tests.
-func (m *mockPaymentStore) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*data.RefundClaim, error) {
+func (m *mockPaymentStore) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error) {
 	if m.ClaimRefundFn != nil {
 		return m.ClaimRefundFn(ctx, paymentID)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockPaymentStore) RecordRefundSuccess(ctx context.Context, claim data.RefundClaim, manualOwedCentavos int) (int, error) {
+func (m *mockPaymentStore) RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (int, error) {
 	if m.RecordRefundSuccessFn != nil {
 		return m.RecordRefundSuccessFn(ctx, claim, manualOwedCentavos)
 	}
 	return 0, data.ErrRecordNotFound
 }
 
-func (m *mockPaymentStore) RecordRefundFailure(ctx context.Context, claim data.RefundClaim, cause string) (bool, error) {
+func (m *mockPaymentStore) RecordRefundFailure(ctx context.Context, claim paymentstore.RefundClaim, cause string) (bool, error) {
 	if m.RecordRefundFailureFn != nil {
 		return m.RecordRefundFailureFn(ctx, claim, cause)
 	}
@@ -1096,11 +1097,11 @@ type mockFailedRefundStore struct {
 	DeleteResolvedFn func(ctx context.Context, olderThan time.Duration) (int64, error)
 }
 
-func (m *mockFailedRefundStore) Insert(ctx context.Context, fr *data.FailedRefund) error {
+func (m *mockFailedRefundStore) Insert(ctx context.Context, fr *paymentstore.FailedRefund) error {
 	return nil
 }
 
-func (m *mockFailedRefundStore) GetPendingDue(ctx context.Context) ([]*data.FailedRefund, error) {
+func (m *mockFailedRefundStore) GetPendingDue(ctx context.Context) ([]*paymentstore.FailedRefund, error) {
 	return nil, nil
 }
 
@@ -1136,11 +1137,11 @@ func (m *mockFailedRefundStore) DeleteResolved(ctx context.Context, olderThan ti
 // fail; this one only keeps the wiring in newTestApplication honest.
 type mockWebhookEventStore struct{}
 
-func (m *mockWebhookEventStore) Insert(ctx context.Context, e *data.WebhookEvent) error {
+func (m *mockWebhookEventStore) Insert(ctx context.Context, e *paymentstore.WebhookEvent) error {
 	return nil
 }
 
-func (m *mockWebhookEventStore) GetPendingDue(ctx context.Context) ([]*data.WebhookEvent, error) {
+func (m *mockWebhookEventStore) GetPendingDue(ctx context.Context) ([]*paymentstore.WebhookEvent, error) {
 	return nil, nil
 }
 

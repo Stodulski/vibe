@@ -23,27 +23,28 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // PaymentStore is the payment persistence this module uses.
 type PaymentStore interface {
-	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*data.Payment, error)
-	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error)
-	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*data.Payment, error)
-	InsertAndConfirmBooking(ctx context.Context, payment *data.Payment, booking *data.Booking) error
-	ConfirmWebhookPayment(ctx context.Context, payment *data.Payment, booking *data.Booking) error
-	Update(ctx context.Context, payment *data.Payment) error
+	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
+	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
+	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
+	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	Update(ctx context.Context, payment *paymentstore.Payment) error
 
 	// The refund lifecycle, in the order it runs. ClaimRefund commits a durable
 	// reservation, the provider is then called with no database resource held, and
 	// exactly one of the two recorders closes the attempt out.
-	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*data.RefundClaim, error)
+	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's cash/transfer balance still owed by
 	// hand — computed by manualBalance or manualOwedForBooking — so the
 	// booking is written 'partial_refund' rather than 'refunded' whenever this
 	// refund settles the automatic half but leaves that balance outstanding.
-	RecordRefundSuccess(ctx context.Context, claim data.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
-	RecordRefundFailure(ctx context.Context, claim data.RefundClaim, cause string) (exhausted bool, err error)
+	RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
+	RecordRefundFailure(ctx context.Context, claim paymentstore.RefundClaim, cause string) (exhausted bool, err error)
 }
 
 // BookingStore is the booking side of confirming and cancelling.
@@ -100,7 +101,7 @@ type CourtReader interface {
 // and resolved in the same transaction as the money state it describes — which is
 // exactly what this module used to get wrong by issuing them as separate calls.
 type FailedRefundStore interface {
-	GetPendingDue(ctx context.Context) ([]*data.FailedRefund, error)
+	GetPendingDue(ctx context.Context) ([]*paymentstore.FailedRefund, error)
 	MarkProcessing(ctx context.Context, id uuid.UUID) error
 }
 
@@ -111,8 +112,8 @@ type FailedRefundStore interface {
 // Everything after that point works from the committed row: a failure requeues
 // it instead of dropping it with the goroutine that hit the failure.
 type WebhookEventStore interface {
-	Insert(ctx context.Context, e *data.WebhookEvent) error
-	GetPendingDue(ctx context.Context) ([]*data.WebhookEvent, error)
+	Insert(ctx context.Context, e *paymentstore.WebhookEvent) error
+	GetPendingDue(ctx context.Context) ([]*paymentstore.WebhookEvent, error)
 	Claim(ctx context.Context, id uuid.UUID) (claimed bool, err error)
 	MarkProcessed(ctx context.Context, id uuid.UUID) error
 	MarkFailed(ctx context.Context, id uuid.UUID, cause string) (exhausted bool, err error)

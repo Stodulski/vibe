@@ -18,6 +18,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -36,7 +37,7 @@ func TestPublicCancelReportsTheRefundThatActuallyHappened(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
-	f.refunds.outcome = data.RefundOutcome{Result: data.RefundIssued, AmountCentavos: 250_000}
+	f.refunds.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 250_000}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -53,8 +54,8 @@ func TestPublicCancelReportsTheRefundThatActuallyHappened(t *testing.T) {
 	if !ok {
 		t.Fatalf("the response must carry the refund outcome; got %v", body["refund"])
 	}
-	if refund["status"] != string(data.RefundIssued) {
-		t.Errorf("want status %q; got %v", data.RefundIssued, refund["status"])
+	if refund["status"] != string(paymentstore.RefundIssued) {
+		t.Errorf("want status %q; got %v", paymentstore.RefundIssued, refund["status"])
 	}
 	if refund["amount"] != float64(250_000) {
 		t.Errorf("want the refunded amount; got %v", refund["amount"])
@@ -81,8 +82,8 @@ func TestPublicCancelReportsPartialRefundWhenCashIsStillOwed(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
-	f.refunds.outcome = data.RefundOutcome{
-		Result: data.RefundIssued, AmountCentavos: 150_000, ManualAmountCentavos: 350_000,
+	f.refunds.outcome = paymentstore.RefundOutcome{
+		Result: paymentstore.RefundIssued, AmountCentavos: 150_000, ManualAmountCentavos: 350_000,
 	}
 
 	w := httptest.NewRecorder()
@@ -113,18 +114,18 @@ func TestPublicCancelReportsPartialRefundWhenCashIsStillOwed(t *testing.T) {
 // Every outcome a cancellation can reach has to say something about the money.
 // Six of them used to say nothing at all.
 func TestEveryCancellationOutcomeTellsTheClientSomething(t *testing.T) {
-	all := []data.RefundResult{
-		data.RefundNone,
-		data.RefundNotEligible,
-		data.RefundIssued,
-		data.RefundAlreadyIssued,
-		data.RefundQueued,
-		data.RefundManual,
+	all := []paymentstore.RefundResult{
+		paymentstore.RefundNone,
+		paymentstore.RefundNotEligible,
+		paymentstore.RefundIssued,
+		paymentstore.RefundAlreadyIssued,
+		paymentstore.RefundQueued,
+		paymentstore.RefundManual,
 	}
 
 	for _, result := range all {
 		t.Run(string(result), func(t *testing.T) {
-			e := refundEnvelope(data.RefundOutcome{Result: result, AmountCentavos: 1000})
+			e := refundEnvelope(paymentstore.RefundOutcome{Result: result, AmountCentavos: 1000})
 
 			if e["status"] != string(result) {
 				t.Errorf("the machine-readable status must survive; got %v", e["status"])
@@ -153,7 +154,7 @@ func TestPublicCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
-	f.refunds.outcome = data.RefundOutcome{Result: data.RefundIssued, AmountCentavos: 500_000}
+	f.refunds.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 500_000}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))
@@ -188,15 +189,15 @@ func TestPublicCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 // outcome must therefore produce a sentence, and every sentence that is about
 // an amount must name it.
 func TestRefundNoticeNamesTheMoneyForEveryOutcome(t *testing.T) {
-	for _, result := range []data.RefundResult{
-		data.RefundNotEligible,
-		data.RefundIssued,
-		data.RefundAlreadyIssued,
-		data.RefundQueued,
-		data.RefundManual,
+	for _, result := range []paymentstore.RefundResult{
+		paymentstore.RefundNotEligible,
+		paymentstore.RefundIssued,
+		paymentstore.RefundAlreadyIssued,
+		paymentstore.RefundQueued,
+		paymentstore.RefundManual,
 	} {
 		t.Run(string(result), func(t *testing.T) {
-			line, _ := refundNotice(data.RefundOutcome{Result: result, AmountCentavos: 500_000})
+			line, _ := refundNotice(paymentstore.RefundOutcome{Result: result, AmountCentavos: 500_000})
 			if line == "" {
 				t.Fatalf("outcome %q leaves the client with nothing to read", result)
 			}
@@ -212,7 +213,7 @@ func TestRefundNoticeNamesTheMoneyForEveryOutcome(t *testing.T) {
 	}
 
 	t.Run("nothing was ever paid", func(t *testing.T) {
-		line, amount := refundNotice(data.RefundOutcome{Result: data.RefundNone})
+		line, amount := refundNotice(paymentstore.RefundOutcome{Result: paymentstore.RefundNone})
 		if line == "" {
 			t.Error("a cancellation with no payment still has to say so")
 		}
@@ -225,8 +226,8 @@ func TestRefundNoticeNamesTheMoneyForEveryOutcome(t *testing.T) {
 	// Dropping the second is how somebody comes to believe they were made
 	// whole.
 	t.Run("split outcome carries both halves", func(t *testing.T) {
-		line, amount := refundNotice(data.RefundOutcome{
-			Result:               data.RefundIssued,
+		line, amount := refundNotice(paymentstore.RefundOutcome{
+			Result:               paymentstore.RefundIssued,
 			AmountCentavos:       500_000,
 			ManualAmountCentavos: 350_000,
 		})
@@ -241,7 +242,7 @@ func TestRefundNoticeNamesTheMoneyForEveryOutcome(t *testing.T) {
 	// Money exists and is staying where it is. Naming an amount in the preview
 	// line of an email about not getting it back reads as a promise.
 	t.Run("an ineligible cancellation promises nothing in the preview", func(t *testing.T) {
-		line, amount := refundNotice(data.RefundOutcome{Result: data.RefundNotEligible, AmountCentavos: 500_000})
+		line, amount := refundNotice(paymentstore.RefundOutcome{Result: paymentstore.RefundNotEligible, AmountCentavos: 500_000})
 		if !strings.Contains(line, "$5.000") {
 			t.Errorf("the body still says which money is being kept; got %q", line)
 		}
@@ -263,7 +264,7 @@ func TestAnOutOfWindowCancelStillExpiresTheCheckoutLink(t *testing.T) {
 	preferenceID := "pref-1"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
+	f.payments.payment = &paymentstore.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
@@ -304,7 +305,7 @@ func TestAnOutOfWindowCancelSaysTheDepositIsKept(t *testing.T) {
 	if !ok {
 		t.Fatalf("the response must carry the refund outcome; got %s", w.Body.String())
 	}
-	if refund["status"] != string(data.RefundNotEligible) {
+	if refund["status"] != string(paymentstore.RefundNotEligible) {
 		t.Errorf("a deposit kept by policy is not the same as no deposit at all; got %v", refund["status"])
 	}
 	if refund["message"] == "" || refund["message"] == nil {
@@ -371,8 +372,8 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 		name             string
 		collectionStatus string
 		refundStatus     string
-		payment          *data.Payment
-		ledger           []*data.Payment
+		payment          *paymentstore.Payment
+		ledger           []*paymentstore.Payment
 		paymentErr       error
 		wantRefund       bool
 		wantMethod       string
@@ -381,7 +382,7 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 			name:             "paid through MercadoPago",
 			collectionStatus: data.CollectionStatusDepositPaid,
 			refundStatus:     data.RefundStatusNone,
-			payment:          &data.Payment{Status: "deposit_paid", MPPaymentID: &mpID},
+			payment:          &paymentstore.Payment{Status: "deposit_paid", MPPaymentID: &mpID},
 			wantRefund:       true,
 			wantMethod:       refundByMercadoPago,
 		},
@@ -389,7 +390,7 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 			name:             "paid in cash",
 			collectionStatus: data.CollectionStatusDepositPaid,
 			refundStatus:     data.RefundStatusNone,
-			payment:          &data.Payment{Status: "deposit_paid", Method: "cash"},
+			payment:          &paymentstore.Payment{Status: "deposit_paid", Method: "cash"},
 			wantRefund:       true,
 			wantMethod:       refundByHand,
 		},
@@ -427,7 +428,7 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 			name:             "paid through MercadoPago and in cash",
 			collectionStatus: data.CollectionStatusFullyPaid,
 			refundStatus:     data.RefundStatusNone,
-			ledger: []*data.Payment{
+			ledger: []*paymentstore.Payment{
 				{Status: "deposit_paid", MPPaymentID: &mpID},
 				{Status: "deposit_paid", Method: "cash"},
 			},
@@ -483,7 +484,7 @@ func TestCancelInfoReportsTheRefundAndPaidAmountInsideTheWindow(t *testing.T) {
 	booking.CollectionStatus = data.CollectionStatusDepositPaid
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.payment = &data.Payment{
+	f.payments.payment = &paymentstore.Payment{
 		Status: "deposit_paid", MPPaymentID: &mpID, Amount: 150_000, ServiceFee: 12_000,
 	}
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
@@ -519,7 +520,7 @@ func TestCancelInfoReportsNoRefundButPaidAmountOutsideTheWindow(t *testing.T) {
 	booking.CollectionStatus = data.CollectionStatusDepositPaid
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.payment = &data.Payment{
+	f.payments.payment = &paymentstore.Payment{
 		Status: "deposit_paid", MPPaymentID: &mpID, Amount: 150_000, ServiceFee: 12_000,
 	}
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
@@ -627,8 +628,8 @@ func TestStaffCancelReportsARefundOnlyAPersonCanMake(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
-	f.refunds.outcome = data.RefundOutcome{
-		Result: data.RefundManual, AmountCentavos: 150_000, Reason: "paid in cash",
+	f.refunds.outcome = paymentstore.RefundOutcome{
+		Result: paymentstore.RefundManual, AmountCentavos: 150_000, Reason: "paid in cash",
 	}
 
 	w := httptest.NewRecorder()
@@ -642,7 +643,7 @@ func TestStaffCancelReportsARefundOnlyAPersonCanMake(t *testing.T) {
 	if !ok {
 		t.Fatalf("the owner must be told what the cancellation owes; got %s", w.Body.String())
 	}
-	if refund["status"] != string(data.RefundManual) {
+	if refund["status"] != string(paymentstore.RefundManual) {
 		t.Errorf("want a manual refund; got %v", refund["status"])
 	}
 	if refund["amount"] != float64(150_000) {
@@ -660,7 +661,7 @@ func TestStaffCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	f.store.booking = booking
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
-	f.refunds.outcome = data.RefundOutcome{Result: data.RefundIssued, AmountCentavos: 500_000}
+	f.refunds.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 500_000}
 
 	// RequireComplexOwner puts the complex on the request, so that is the one
 	// Cancel reads — not the store's.
@@ -785,7 +786,7 @@ func TestAnUnreadableCredentialNeverExpiresThePreferenceAsThePlatform(t *testing
 	preferenceID := "pref-1"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
+	f.payments.payment = &paymentstore.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
 	unreadable := complexstore.NewComplexWithUnreadableCredentialForTest(complexID)
 	unreadable.Name = "Vibe"
 	unreadable.CancellationHours = 24
@@ -833,7 +834,7 @@ func TestAFailedPreferenceExpiryIsRetried(t *testing.T) {
 	sellerToken := "seller-token"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
+	f.payments.payment = &paymentstore.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
 	complex := complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 	complex.Name = "Vibe"
 	complex.CancellationHours = 24
@@ -873,7 +874,7 @@ func TestAPreferenceThatCannotBeExpiredAlerts(t *testing.T) {
 	sellerToken := "seller-token"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
+	f.payments.payment = &paymentstore.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
 	complex := complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 	complex.Name = "Vibe"
 	complex.CancellationHours = 24
@@ -1000,7 +1001,7 @@ func TestTheCheckoutLinkIsClosedEvenWhenTheClientDisconnected(t *testing.T) {
 	sellerToken := "seller-token"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
+	f.payments.payment = &paymentstore.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
 	complex := complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 	complex.Name = "Vibe"
 	complex.CancellationHours = 24

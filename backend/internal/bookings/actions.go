@@ -10,6 +10,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -113,10 +114,10 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	// only the public path applies it. That asymmetry is the product's, not an
 	// oversight — the owner cancelling is the venue's own decision, and it should
 	// not charge the client a penalty for it.
-	var outcome data.RefundOutcome
+	var outcome paymentstore.RefundOutcome
 	if !owesRefund {
 		h.expireCheckoutPreference(r.Context(), booking, complex)
-		outcome = data.RefundOutcome{Result: data.RefundNone, Reason: "the booking was never paid"}
+		outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundNone, Reason: "the booking was never paid"}
 	} else {
 		outcome = h.refunds.AutoRefundIfPaid(r.Context(), booking)
 	}
@@ -262,7 +263,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payment := &data.Payment{
+	payment := &paymentstore.Payment{
 		BookingID: booking.ID,
 		ComplexID: booking.ComplexID,
 		Amount:    input.Amount,
@@ -383,7 +384,7 @@ func (h *Handler) ManualRefund(w http.ResponseWriter, r *http.Request) {
 	returned, err := h.payments.RecordManualRefund(r.Context(), booking.ID)
 	if err != nil {
 		switch {
-		case errors.Is(err, data.ErrNoManualRefundOwed):
+		case errors.Is(err, paymentstore.ErrNoManualRefundOwed):
 			// Locked under its own transaction, the booking no longer read
 			// refund_status 'partial' — another request closed it out between
 			// the read above and the write.

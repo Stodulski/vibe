@@ -15,7 +15,6 @@ func TestSentinelErrors_NotNil(t *testing.T) {
 		{"ErrDuplicateBooking", ErrDuplicateBooking},
 		{"ErrSlotUnavailable", ErrSlotUnavailable},
 		{"ErrInvalidCursor", ErrInvalidCursor},
-		{"ErrAlreadyRefunded", ErrAlreadyRefunded},
 		{"ErrCooldownActive", ErrCooldownActive},
 		{"ErrSlotLocked", ErrSlotLocked},
 	}
@@ -35,7 +34,6 @@ func TestSentinelErrors_Distinct(t *testing.T) {
 		ErrDuplicateBooking,
 		ErrSlotUnavailable,
 		ErrInvalidCursor,
-		ErrAlreadyRefunded,
 		ErrCooldownActive,
 		ErrSlotLocked,
 	}
@@ -55,7 +53,6 @@ func TestSentinelErrors_MatchWithErrorsIs(t *testing.T) {
 		ErrDuplicateBooking,
 		ErrSlotUnavailable,
 		ErrInvalidCursor,
-		ErrAlreadyRefunded,
 		ErrCooldownActive,
 		ErrSlotLocked,
 	}
@@ -74,11 +71,6 @@ func TestSentinelErrors_WrappedMatch(t *testing.T) {
 	if !errors.Is(wrapped, ErrRecordNotFound) {
 		t.Error("wrapped ErrRecordNotFound should be matched by errors.Is")
 	}
-
-	wrapped2 := fmt.Errorf("payment error: %w", ErrAlreadyRefunded)
-	if !errors.Is(wrapped2, ErrAlreadyRefunded) {
-		t.Error("wrapped ErrAlreadyRefunded should be matched by errors.Is")
-	}
 }
 
 func TestSentinelErrors_NonEmptyMessage(t *testing.T) {
@@ -87,7 +79,6 @@ func TestSentinelErrors_NonEmptyMessage(t *testing.T) {
 		ErrDuplicateBooking,
 		ErrSlotUnavailable,
 		ErrInvalidCursor,
-		ErrAlreadyRefunded,
 		ErrCooldownActive,
 		ErrSlotLocked,
 	}

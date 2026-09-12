@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // The webhook inbox exists so that a 200 to MercadoPago means "this event is
@@ -25,7 +26,7 @@ import (
 // nothing else uses so cleanup deletes exactly this test's rows.
 type webhookFixture struct {
 	Pool       *pgxpool.Pool
-	Store      *data.WebhookEventModel
+	Store      *paymentstore.WebhookEvents
 	ExternalID string
 }
 
@@ -35,7 +36,7 @@ func newWebhookFixture(t *testing.T) *webhookFixture {
 	pool := setupTestDB(t)
 	f := &webhookFixture{
 		Pool:       pool,
-		Store:      &data.WebhookEventModel{DB: data.NewDB(pool)},
+		Store:      &paymentstore.WebhookEvents{DB: data.NewDB(pool)},
 		ExternalID: "mp-" + uuid.NewString(),
 	}
 
@@ -52,10 +53,10 @@ func newWebhookFixture(t *testing.T) *webhookFixture {
 }
 
 // record inserts one event through the real store.
-func (f *webhookFixture) record(t *testing.T, eventType string) *data.WebhookEvent {
+func (f *webhookFixture) record(t *testing.T, eventType string) *paymentstore.WebhookEvent {
 	t.Helper()
 
-	e := &data.WebhookEvent{
+	e := &paymentstore.WebhookEvent{
 		Provider:   "mercadopago",
 		ExternalID: f.ExternalID,
 		EventType:  eventType,
@@ -159,7 +160,7 @@ func (f *webhookFixture) separateConn(t *testing.T) *pgx.Conn {
 
 // dueContains reports whether id is among the events the sweeper would pick up.
 // The queue is global, so tests look for their own row rather than counting.
-func dueContains(events []*data.WebhookEvent, id uuid.UUID) bool {
+func dueContains(events []*paymentstore.WebhookEvent, id uuid.UUID) bool {
 	for _, e := range events {
 		if e.ID == id {
 			return true
@@ -424,7 +425,7 @@ func TestAnEventAbandonedInProcessingIsReclaimed(t *testing.T) {
 	}
 
 	// The worker dies here, with the row reading 'processing' forever.
-	f.backdateWebhookEvent(t, event.ID, data.StaleWebhookProcessingForTest+5*time.Minute)
+	f.backdateWebhookEvent(t, event.ID, paymentstore.StaleWebhookProcessingForTest+5*time.Minute)
 
 	due, err := f.Store.GetPendingDue(ctx)
 	if err != nil {
@@ -544,8 +545,8 @@ func TestAProviderOutageDoesNotSpendTheRetryBudget(t *testing.T) {
 	if state.status != "pending" {
 		t.Errorf("want the event left queued; got %q", state.status)
 	}
-	if wait := time.Until(state.nextRetryAt); wait > data.ProviderOutageRetryDelayForTest+time.Minute || wait < time.Minute {
-		t.Errorf("want a steady outage probe of about %v; got %v", data.ProviderOutageRetryDelayForTest, wait)
+	if wait := time.Until(state.nextRetryAt); wait > paymentstore.ProviderOutageRetryDelayForTest+time.Minute || wait < time.Minute {
+		t.Errorf("want a steady outage probe of about %v; got %v", paymentstore.ProviderOutageRetryDelayForTest, wait)
 	}
 }
 
@@ -682,7 +683,7 @@ func TestTheWebhookSweepReadsNoMoreThanARunCanWork(t *testing.T) {
 	f := newWebhookFixture(t)
 	ctx := context.Background()
 
-	for range data.WebhookSweepBatchForTest + 3 {
+	for range paymentstore.WebhookSweepBatchForTest + 3 {
 		f.record(t, "payment")
 	}
 
@@ -690,7 +691,7 @@ func TestTheWebhookSweepReadsNoMoreThanARunCanWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
-	if len(due) > data.WebhookSweepBatchForTest {
-		t.Errorf("the sweep read %d events; a run can only work %d of them", len(due), data.WebhookSweepBatchForTest)
+	if len(due) > paymentstore.WebhookSweepBatchForTest {
+		t.Errorf("the sweep read %d events; a run can only work %d of them", len(due), paymentstore.WebhookSweepBatchForTest)
 	}
 }

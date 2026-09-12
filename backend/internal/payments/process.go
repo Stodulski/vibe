@@ -15,6 +15,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -167,7 +168,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *data.Book
 
 	// settled is whichever row now holds this money, so the audit entry below
 	// can name the payment it confirmed without either branch repeating it.
-	var settled *data.Payment
+	var settled *paymentstore.Payment
 
 	if existingPayment != nil {
 		// The public booking flow already inserted this row at checkout; the
@@ -193,7 +194,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *data.Book
 		settled = existingPayment
 	} else {
 		// Fallback: insert new payment (e.g. if booking was created without initial payment record).
-		payment := &data.Payment{
+		payment := &paymentstore.Payment{
 			BookingID:    booking.ID,
 			ComplexID:    booking.ComplexID,
 			Amount:       booking.DepositAmount,
@@ -381,7 +382,7 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *da
 			"booking_id", booking.ID,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND NOT CLAIMED: mp_payment_id=%s booking_id=%s error=%v", mpPaymentID, booking.ID, err))
-		if errors.Is(err, data.ErrAlreadyRefunded) || errors.Is(err, data.ErrRefundInFlight) {
+		if errors.Is(err, paymentstore.ErrAlreadyRefunded) || errors.Is(err, paymentstore.ErrRefundInFlight) {
 			// Another claim owns this refund, or it is already back. Not ours to retry.
 			return nil
 		}
@@ -416,7 +417,7 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *da
 		)
 		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND RECORD FAILED (money refunded, queued for retry): mp_payment_id=%s booking_id=%s attempt_id=%s", mpPaymentID, booking.ID, claim.AttemptID))
 		h.record(booking.ComplexID, booking.ID, "refund", claimEvent(*claim, settled.RefundCentavos,
-			data.RefundQueued, "the refund was issued but could not be recorded, and stays queued"))
+			paymentstore.RefundQueued, "the refund was issued but could not be recorded, and stays queued"))
 		return nil
 	}
 
@@ -426,7 +427,7 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *da
 		"refund_amount", centavosToPesos(settled.RefundCentavos),
 	)
 	h.record(booking.ComplexID, booking.ID, "refund",
-		claimEvent(*claim, settled.RefundCentavos, data.RefundIssued, ""))
+		claimEvent(*claim, settled.RefundCentavos, paymentstore.RefundIssued, ""))
 
 	// A shortfall gets its own second entry rather than replacing the one
 	// above: the part that moved is genuinely refunded and the client has been
@@ -460,7 +461,7 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *da
 // expressing as 'refund_pending' for precisely this reason. The two cancel
 // paths already write it the same way (internal/bookings), so the shape
 // SweepOrphanedRefundIntents recovers is identical whichever path produced it.
-func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) (*data.Payment, error) {
+func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
 	existing, err := h.payments.GetByBookingID(ctx, booking.ID)
 	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
 		return nil, fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
@@ -496,7 +497,7 @@ func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *data.Bo
 		amount, serviceFee = booking.DepositAmount, pricing.ServiceFee(booking.DepositAmount)
 	}
 
-	payment := &data.Payment{
+	payment := &paymentstore.Payment{
 		BookingID:   booking.ID,
 		ComplexID:   booking.ComplexID,
 		Amount:      amount,

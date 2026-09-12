@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // mercadoPagoProvider names the provider column of the events this handler records.
@@ -160,7 +161,7 @@ func (h *Handler) MercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 		eventType = "unknown"
 	}
 
-	event := &data.WebhookEvent{
+	event := &paymentstore.WebhookEvent{
 		Provider:   mercadoPagoProvider,
 		ExternalID: dataID,
 		EventType:  eventType,
@@ -242,7 +243,7 @@ func (h *Handler) ProcessPendingWebhookEvents(ctx context.Context) {
 // when the work is done, 'pending' with a backoff when it failed, 'exhausted'
 // when the budget is spent and a human is needed, and 'processing' only for as
 // long as this attempt lives — the sweeper reclaims that after the stale window.
-func (h *Handler) workWebhookEvent(ctx context.Context, event *data.WebhookEvent) {
+func (h *Handler) workWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent) {
 	claimed, err := h.webhookEvents.Claim(ctx, event.ID)
 	if err != nil {
 		// The row is untouched, so it is still due and the next sweep retries it.
@@ -272,7 +273,7 @@ func (h *Handler) workWebhookEvent(ctx context.Context, event *data.WebhookEvent
 }
 
 // requeueWebhookEvent records a failed attempt and alerts when the budget is spent.
-func (h *Handler) requeueWebhookEvent(ctx context.Context, event *data.WebhookEvent, cause error) {
+func (h *Handler) requeueWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent, cause error) {
 	h.logger.Error("mp webhook: processing failed, event queued for retry",
 		"error", cause,
 		"event_id", event.ID,
@@ -306,7 +307,7 @@ func (h *Handler) requeueWebhookEvent(ctx context.Context, event *data.WebhookEv
 // decisions that refuse to act — an unknown event type, or a payment whose
 // booking cannot be identified. Retrying those would only burn the budget and end
 // in a false alert.
-func (h *Handler) dispatchWebhookEvent(ctx context.Context, event *data.WebhookEvent) error {
+func (h *Handler) dispatchWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent) error {
 	switch event.EventType {
 	case "payment":
 		return h.processPaymentWebhook(ctx, event.ExternalID)

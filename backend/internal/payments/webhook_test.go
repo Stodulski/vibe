@@ -15,6 +15,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // TestWebhookStillConfirmsABookingThroughThePlatformAppOwnerToken guards the
@@ -442,7 +443,7 @@ func TestARedeliveredWebhookLeavesExactlyOnePaymentRow(t *testing.T) {
 			status:      "pending",
 			wantInserts: 0,
 			prepare: func(f *fixture, b *data.Booking) {
-				f.payments.byBooking = &data.Payment{
+				f.payments.byBooking = &paymentstore.Payment{
 					ID: uuid.New(), BookingID: b.ID, ComplexID: b.ComplexID,
 					Amount: b.DepositAmount, Method: "mercadopago", Status: "pending",
 				}
@@ -515,7 +516,7 @@ func TestARedeliveredWebhookLeavesExactlyOnePaymentRow(t *testing.T) {
 // permanently forgotten.
 func TestTheSweeperWorksEventsLeftBehind(t *testing.T) {
 	f := newFixture(t)
-	abandoned := &data.WebhookEvent{
+	abandoned := &paymentstore.WebhookEvent{
 		ID:         uuid.New(),
 		Provider:   mercadoPagoProvider,
 		ExternalID: "mp-123",
@@ -523,7 +524,7 @@ func TestTheSweeperWorksEventsLeftBehind(t *testing.T) {
 		Payload:    json.RawMessage(webhookBody),
 		Status:     "processing",
 	}
-	f.webhookEvents.pending = []*data.WebhookEvent{abandoned}
+	f.webhookEvents.pending = []*paymentstore.WebhookEvent{abandoned}
 
 	f.handler.ProcessPendingWebhookEvents(t.Context())
 
@@ -543,7 +544,7 @@ func TestTheSweeperWorksEventsLeftBehind(t *testing.T) {
 func TestASweptEventAlreadyClaimedElsewhereIsLeftAlone(t *testing.T) {
 	f := newFixture(t)
 	f.webhookEvents.claimRefused = true
-	f.webhookEvents.pending = []*data.WebhookEvent{{
+	f.webhookEvents.pending = []*paymentstore.WebhookEvent{{
 		ID: uuid.New(), Provider: mercadoPagoProvider, ExternalID: "mp-123",
 		EventType: "payment", Payload: json.RawMessage(webhookBody), Status: "pending",
 	}}

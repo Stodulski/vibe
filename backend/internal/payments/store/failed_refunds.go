@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // Exponential backoff durations for retry attempts.
@@ -138,14 +139,14 @@ type FailedRefund struct {
 	ResolvedAt   *time.Time `json:"resolved_at,omitempty"`
 }
 
-// FailedRefundModel implements FailedRefundStore against PostgreSQL.
-type FailedRefundModel struct {
-	DB *DB
+// FailedRefunds implements FailedRefundStore against PostgreSQL.
+type FailedRefunds struct {
+	DB *data.DB
 }
 
 // Insert records a new failed refund and populates fr with its generated ID and timestamps.
-func (m *FailedRefundModel) Insert(ctx context.Context, fr *FailedRefund) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *FailedRefunds) Insert(ctx context.Context, fr *FailedRefund) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	err := m.DB.QueryRow(ctx, `
@@ -178,8 +179,8 @@ func (m *FailedRefundModel) Insert(ctx context.Context, fr *FailedRefund) error 
 // hours, so a provider that has started answering finishes the refund by itself
 // and one that has not re-alerts four times a day until a person deals with it.
 // It is never deleted on a timer either; see the retention sweep below.
-func (m *FailedRefundModel) GetPendingDue(ctx context.Context) ([]*FailedRefund, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *FailedRefunds) GetPendingDue(ctx context.Context) ([]*FailedRefund, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -211,8 +212,8 @@ func (m *FailedRefundModel) GetPendingDue(ctx context.Context) ([]*FailedRefund,
 // It reports ErrRecordNotFound when there was no row to take — it does not
 // exist, or another worker's attempt on it is still honest. The caller's move in
 // either case is the same: leave it alone and take the next row.
-func (m *FailedRefundModel) MarkProcessing(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *FailedRefunds) MarkProcessing(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx, `
@@ -226,14 +227,14 @@ func (m *FailedRefundModel) MarkProcessing(ctx context.Context, id uuid.UUID) er
 		return fmt.Errorf("claim refund attempt: %w", err)
 	}
 	if tag.RowsAffected() != 1 {
-		return ErrRecordNotFound
+		return data.ErrRecordNotFound
 	}
 	return nil
 }
 
 // MarkResolved marks a failed refund as successfully completed and records the resolution time.
-func (m *FailedRefundModel) MarkResolved(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := DetachedQueryContext(ctx)
+func (m *FailedRefunds) MarkResolved(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.DetachedQueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -242,8 +243,8 @@ func (m *FailedRefundModel) MarkResolved(ctx context.Context, id uuid.UUID) erro
 }
 
 // MarkExhausted marks a failed refund as permanently failed after exceeding its retry budget.
-func (m *FailedRefundModel) MarkExhausted(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := DetachedQueryContext(ctx)
+func (m *FailedRefunds) MarkExhausted(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.DetachedQueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -273,8 +274,8 @@ func retryBackoff(retryCount int) time.Duration {
 // two-minute budget with this row claimed. Losing this write leaves the row in
 // 'processing' with no backoff and no recorded reason, invisible to every
 // instance until it goes stale.
-func (m *FailedRefundModel) IncrementRetry(ctx context.Context, id uuid.UUID, retryCount int, errMsg string) error {
-	ctx, cancel := DetachedQueryContext(ctx)
+func (m *FailedRefunds) IncrementRetry(ctx context.Context, id uuid.UUID, retryCount int, errMsg string) error {
+	ctx, cancel := data.DetachedQueryContext(ctx)
 	defer cancel()
 
 	if transientProviderFailure(errMsg) {
@@ -318,8 +319,8 @@ func (m *FailedRefundModel) IncrementRetry(ctx context.Context, id uuid.UUID, re
 //
 // Only 'resolved' rows are eligible. A pending, in-flight or exhausted row
 // describes money that has not come back yet, and no timer may delete that.
-func (m *FailedRefundModel) DeleteResolved(ctx context.Context, olderThan time.Duration) (int64, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *FailedRefunds) DeleteResolved(ctx context.Context, olderThan time.Duration) (int64, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx,

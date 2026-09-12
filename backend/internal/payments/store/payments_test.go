@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -61,8 +61,8 @@ func TestPayment_NilOptionalFields(t *testing.T) {
 	}
 }
 
-// TestPaymentModel_RequiresDB documents that all PaymentModel methods
+// TestPaymentModel_RequiresDB documents that all Payments methods
 // require a database connection.
 func TestPaymentModel_RequiresDB(t *testing.T) {
-	t.Skip("PaymentModel methods all require *pgxpool.Pool and *db.Queries")
+	t.Skip("Payments methods all require *pgxpool.Pool and *db.Queries")
 }

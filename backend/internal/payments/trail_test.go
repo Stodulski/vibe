@@ -11,6 +11,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // only returns the single entry recorded under action, failing if the trail
@@ -147,49 +148,51 @@ func TestAConfirmationTheDatabaseRefusedIsNotRecorded(t *testing.T) {
 func TestEveryRefundOutcomeReachesTheTrail(t *testing.T) {
 	tests := []struct {
 		name       string
-		prepare    func(*fixture, *data.Booking, *data.Payment)
-		want       data.RefundResult
+		prepare    func(*fixture, *data.Booking, *paymentstore.Payment)
+		want       paymentstore.RefundResult
 		wantAmount int
 		wantReason bool
 	}{
 		{
 			name:       "MercadoPago accepted the refund",
-			prepare:    func(*fixture, *data.Booking, *data.Payment) {},
-			want:       data.RefundIssued,
+			prepare:    func(*fixture, *data.Booking, *paymentstore.Payment) {},
+			want:       paymentstore.RefundIssued,
 			wantAmount: 150_000,
 		},
 		{
-			name:       "the booking was never paid",
-			prepare:    func(_ *fixture, b *data.Booking, _ *data.Payment) { b.CollectionStatus = data.CollectionStatusUnpaid },
-			want:       data.RefundNone,
+			name: "the booking was never paid",
+			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) {
+				b.CollectionStatus = data.CollectionStatusUnpaid
+			},
+			want:       paymentstore.RefundNone,
 			wantReason: true,
 		},
 		{
 			name: "the booking was paid in cash, so a person has to return it",
-			prepare: func(_ *fixture, _ *data.Booking, p *data.Payment) {
+			prepare: func(_ *fixture, _ *data.Booking, p *paymentstore.Payment) {
 				p.MPPaymentID = nil
 				p.Method = "cash"
 			},
-			want:       data.RefundManual,
+			want:       paymentstore.RefundManual,
 			wantAmount: 150_000,
 			wantReason: true,
 		},
 		{
 			name: "MercadoPago rejected the refund, so it is queued",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 			},
-			want:       data.RefundQueued,
+			want:       paymentstore.RefundQueued,
 			wantAmount: 150_000,
 			wantReason: true,
 		},
 		{
 			name: "the retry budget is spent and nothing automatic is left",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 				f.payments.exhausted = true
 			},
-			want:       data.RefundManual,
+			want:       paymentstore.RefundManual,
 			wantAmount: 150_000,
 			wantReason: true,
 		},
@@ -243,13 +246,13 @@ func TestTheRetryQueueRecordsHowEachAttemptEnded(t *testing.T) {
 	tests := []struct {
 		name       string
 		prepare    func(*fixture)
-		want       data.RefundResult
+		want       paymentstore.RefundResult
 		wantAmount int
 	}{
 		{
 			name:       "the retry succeeded",
 			prepare:    func(*fixture) {},
-			want:       data.RefundIssued,
+			want:       paymentstore.RefundIssued,
 			wantAmount: 150_000,
 		},
 		{
@@ -257,7 +260,7 @@ func TestTheRetryQueueRecordsHowEachAttemptEnded(t *testing.T) {
 			prepare: func(f *fixture) {
 				f.provider.refundErr = errProvider
 			},
-			want:       data.RefundQueued,
+			want:       paymentstore.RefundQueued,
 			wantAmount: 150_000,
 		},
 		{
@@ -266,7 +269,7 @@ func TestTheRetryQueueRecordsHowEachAttemptEnded(t *testing.T) {
 				f.provider.refundErr = errProvider
 				f.payments.exhausted = true
 			},
-			want:       data.RefundManual,
+			want:       paymentstore.RefundManual,
 			wantAmount: 150_000,
 		},
 	}
@@ -276,7 +279,7 @@ func TestTheRetryQueueRecordsHowEachAttemptEnded(t *testing.T) {
 			f := newFixture(t)
 			complexID := uuid.New()
 			booking, payment := paidBooking(complexID)
-			f.failedRefunds.pending = []*data.FailedRefund{{
+			f.failedRefunds.pending = []*paymentstore.FailedRefund{{
 				ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID,
 				PaymentID: payment.ID, Amount: 150_000, MPPaymentID: "mp-123",
 			}}
@@ -432,8 +435,8 @@ func TestARefundForAnAlreadyCancelledBookingIsRecorded(t *testing.T) {
 	if got["actor"] != actorSystem {
 		t.Errorf("this system issued it; want actor %q, got %v", actorSystem, got["actor"])
 	}
-	if got["result"] != string(data.RefundIssued) {
-		t.Errorf("want result %q; got %v", data.RefundIssued, got["result"])
+	if got["result"] != string(paymentstore.RefundIssued) {
+		t.Errorf("want result %q; got %v", paymentstore.RefundIssued, got["result"])
 	}
 	if got["mp_payment_id"] != "mp-123" {
 		t.Errorf("want MercadoPago's reference; got %v", got["mp_payment_id"])

@@ -16,6 +16,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -343,17 +344,17 @@ type ClientStore interface {
 
 // PaymentReader looks up payments by booking or MercadoPago payment ID.
 type PaymentReader interface {
-	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error)
-	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*data.Payment, error)
-	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*data.Payment, error)
+	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
+	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
+	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
 }
 
 // PaymentWriter creates and updates payments, including atomic booking confirmation.
 type PaymentWriter interface {
-	Insert(ctx context.Context, payment *data.Payment) error
-	InsertAndConfirmBooking(ctx context.Context, payment *data.Payment, booking *data.Booking) error
-	ConfirmWebhookPayment(ctx context.Context, payment *data.Payment, booking *data.Booking) error
-	Update(ctx context.Context, payment *data.Payment) error
+	Insert(ctx context.Context, payment *paymentstore.Payment) error
+	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	Update(ctx context.Context, payment *paymentstore.Payment) error
 }
 
 // PaymentRefunder runs the refund lifecycle: claim, then call the provider, then
@@ -364,11 +365,11 @@ type PaymentWriter interface {
 // payment, its booking and the attempt record — which is a different
 // responsibility from writing a payment row.
 type PaymentRefunder interface {
-	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*data.RefundClaim, error)
+	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's still-outstanding cash/transfer
 	// balance; see the identical parameter on payments.PaymentStore.
-	RecordRefundSuccess(ctx context.Context, claim data.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
-	RecordRefundFailure(ctx context.Context, claim data.RefundClaim, cause string) (exhausted bool, err error)
+	RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
+	RecordRefundFailure(ctx context.Context, claim paymentstore.RefundClaim, cause string) (exhausted bool, err error)
 	// RecordManualRefund closes out a partial_refund booking's remaining
 	// cash/transfer rows once the owner confirms they returned that money by
 	// hand, in one transaction with the booking write. See
@@ -390,8 +391,8 @@ type PaymentStore interface {
 // FailedRefundQueue records a refund attempt and drives it to a terminal state.
 // It is the whole of what the refund sweeper needs.
 type FailedRefundQueue interface {
-	Insert(ctx context.Context, fr *data.FailedRefund) error
-	GetPendingDue(ctx context.Context) ([]*data.FailedRefund, error)
+	Insert(ctx context.Context, fr *paymentstore.FailedRefund) error
+	GetPendingDue(ctx context.Context) ([]*paymentstore.FailedRefund, error)
 	MarkProcessing(ctx context.Context, id uuid.UUID) error
 	MarkResolved(ctx context.Context, id uuid.UUID) error
 	MarkExhausted(ctx context.Context, id uuid.UUID) error
@@ -420,13 +421,13 @@ type FailedRefundStore interface {
 // because it is the only part the HTTP handler needs: the endpoint records the
 // event and answers, and everything after that is the worker's problem.
 type WebhookEventRecorder interface {
-	Insert(ctx context.Context, e *data.WebhookEvent) error
+	Insert(ctx context.Context, e *paymentstore.WebhookEvent) error
 }
 
 // WebhookEventWorker drives a recorded event to a terminal state, with the same
 // claim/retry vocabulary the failed-refund queue uses.
 type WebhookEventWorker interface {
-	GetPendingDue(ctx context.Context) ([]*data.WebhookEvent, error)
+	GetPendingDue(ctx context.Context) ([]*paymentstore.WebhookEvent, error)
 	Claim(ctx context.Context, id uuid.UUID) (claimed bool, err error)
 	MarkProcessed(ctx context.Context, id uuid.UUID) error
 	MarkFailed(ctx context.Context, id uuid.UUID, cause string) (exhausted bool, err error)
@@ -569,11 +570,11 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		BookingLinkTokens: &data.BookingLinkTokenModel{DB: pooled},
 		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
 		Clients:           &clientstore.Store{DB: pooled, Q: q},
-		Payments:          &data.PaymentModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
+		Payments:          &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		EmailVerification: &authstore.EmailVerifications{DB: pooled, Q: q},
 		PasswordReset:     &authstore.PasswordResets{DB: pooled},
-		FailedRefunds:     &data.FailedRefundModel{DB: pooled},
-		WebhookEvents:     &data.WebhookEventModel{DB: pooled},
+		FailedRefunds:     &paymentstore.FailedRefunds{DB: pooled},
+		WebhookEvents:     &paymentstore.WebhookEvents{DB: pooled},
 		Reports:           &data.ReportModel{DB: pooled},
 		Locks:             &data.LockModel{DB: pooled, Logger: cfg.Logger},
 		SlotLocks:         &data.SlotLockModel{DB: pooled},
