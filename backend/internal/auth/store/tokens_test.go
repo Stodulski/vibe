@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -45,8 +45,8 @@ func TestRefreshToken_ExpiryInFuture(t *testing.T) {
 	}
 }
 
-// TestTokenModel_RequiresDB documents that all TokenModel methods
+// TestTokenModel_RequiresDB documents that all Tokens methods
 // require a database connection.
 func TestTokenModel_RequiresDB(t *testing.T) {
-	t.Skip("TokenModel methods (InsertRefreshToken, GetRefreshToken, MarkRefreshTokenUsed, etc.) all require *pgxpool.Pool and *db.Queries")
+	t.Skip("Tokens methods (InsertRefreshToken, GetRefreshToken, MarkRefreshTokenUsed, etc.) all require *pgxpool.Pool and *db.Queries")
 }

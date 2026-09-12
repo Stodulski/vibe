@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -25,10 +26,10 @@ import (
 
 // UserStore is the account persistence this module uses.
 type UserStore interface {
-	GetByEmail(ctx context.Context, email string) (*data.User, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*data.User, error)
-	Insert(ctx context.Context, user *data.User) error
-	Update(ctx context.Context, user *data.User) error
+	GetByEmail(ctx context.Context, email string) (*authstore.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error)
+	Insert(ctx context.Context, user *authstore.User) error
+	Update(ctx context.Context, user *authstore.User) error
 	Delete(ctx context.Context, userID uuid.UUID) error
 	IncrementFailedAttempts(ctx context.Context, userID uuid.UUID) error
 	ResetFailedAttempts(ctx context.Context, userID uuid.UUID) error
@@ -39,8 +40,8 @@ type UserStore interface {
 // TokenStore holds the refresh tokens that back a session.
 type TokenStore interface {
 	InsertRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash []byte, ttl time.Duration) error
-	GetRefreshToken(ctx context.Context, tokenHash []byte) (*data.RefreshToken, error)
-	GetUsedRefreshToken(ctx context.Context, tokenHash []byte) (*data.RefreshToken, error)
+	GetRefreshToken(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error)
+	GetUsedRefreshToken(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	DeleteRefreshToken(ctx context.Context, tokenHash []byte) error
 	DeleteAllForUser(ctx context.Context, userID uuid.UUID) error
@@ -50,14 +51,14 @@ type TokenStore interface {
 type VerificationStore interface {
 	Insert(ctx context.Context, userID uuid.UUID, tokenHash []byte) error
 	InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error
-	GetByHash(ctx context.Context, tokenHash []byte) (*data.EmailVerificationToken, error)
+	GetByHash(ctx context.Context, tokenHash []byte) (*authstore.EmailVerificationToken, error)
 	DeleteByUser(ctx context.Context, userID uuid.UUID) error
 }
 
 // PasswordResetStore holds the single-use password-reset tokens.
 type PasswordResetStore interface {
 	InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error
-	GetByHash(ctx context.Context, tokenHash []byte) (*data.PasswordResetToken, error)
+	GetByHash(ctx context.Context, tokenHash []byte) (*authstore.PasswordResetToken, error)
 	DeleteByUser(ctx context.Context, userID uuid.UUID) error
 }
 
@@ -71,7 +72,7 @@ type OwnershipReader interface {
 // account. Only Insert is declared here (ISP): this module records a link, it
 // never has to look one up — the account itself is always found by email.
 type IdentityStore interface {
-	Insert(ctx context.Context, identity *data.UserIdentity) error
+	Insert(ctx context.Context, identity *authstore.UserIdentity) error
 }
 
 // BookingReader answers whether a complex still has live bookings.
@@ -165,6 +166,11 @@ type Config struct {
 	Environment string
 	// FrontendURL is the origin the emailed verification and reset links point at.
 	FrontendURL string
+	// PasswordHashCost is the bcrypt cost this module hashes passwords at.
+	// Zero means authstore.DefaultHashCost, the production value; a test
+	// binary passes bcrypt.MinCost so that a suite which registers or signs in
+	// hundreds of users does not spend a quarter of a second on each one.
+	PasswordHashCost int
 	// TrustProxies decides which address the audit trail records — the peer, or
 	// the one the forwarded headers claim. Same flag every other module's
 	// trail reads (cfg.trustedProxies).

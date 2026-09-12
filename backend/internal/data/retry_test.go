@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -397,66 +396,6 @@ func TestReadOnlyStatement(t *testing.T) {
 				t.Errorf("readOnlyStatement(%q) = %v, want %v", tt.sql, got, tt.want)
 			}
 		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Wiring
-// ---------------------------------------------------------------------------
-
-// The retrier is worth nothing if the stores do not go through it.
-//
-// This drives a real store method — one whose statement lives in a .sql file
-// and is run by sqlc's generated code — and asserts the attempts arrived at the
-// runner. It is the assertion that dies if db.New is ever handed the raw pool
-// instead of the retrying handle, which would compile and pass every other test
-// in this file.
-func TestAGeneratedQueryRunsThroughTheRetrier(t *testing.T) {
-	f := &fakeRunner{failures: 100, err: connectionFailure()}
-	clock := &fakeClock{}
-	m := newModels(&DB{r: retrier{db: f, sleep: clock.sleep}}, Config{})
-
-	if _, err := m.Users.GetByID(t.Context(), uuid.New()); err == nil {
-		t.Fatal("want the connection failure to surface")
-	}
-	if len(f.calls) != maxAttempts {
-		t.Fatalf("UserModel.GetByID reached the runner %d times, want %d; "+
-			"one attempt means the generated queries are not behind the retrier",
-			len(f.calls), maxAttempts)
-	}
-}
-
-// A store that writes its own SQL rather than going through sqlc shares the
-// same handle, so it gets the same treatment.
-func TestAHandWrittenReadRunsThroughTheRetrier(t *testing.T) {
-	f := &fakeRunner{failures: 100, err: connectionFailure()}
-	clock := &fakeClock{}
-	m := newModels(&DB{r: retrier{db: f, sleep: clock.sleep}}, Config{})
-
-	if _, err := m.FailedRefunds.GetPendingDue(t.Context()); err == nil {
-		t.Fatal("want the connection failure to surface")
-	}
-	if len(f.calls) != maxAttempts {
-		t.Fatalf("FailedRefundModel.GetPendingDue reached the runner %d times, want %d",
-			len(f.calls), maxAttempts)
-	}
-}
-
-// And the write rule reaches a hand-written statement too. TryAdvisory's
-// statement is an INSERT with a RETURNING clause, so it looks like a read from
-// the method it is run through and is a write in every way that matters: a
-// second attempt would take a lease the first attempt may already have taken.
-func TestAHandWrittenWriteIsNotRepeated(t *testing.T) {
-	f := &fakeRunner{failures: 100, err: connectionFailure()}
-	clock := &fakeClock{}
-	m := newModels(&DB{r: retrier{db: f, sleep: clock.sleep}}, Config{})
-
-	if _, _, err := m.Locks.TryAdvisory(t.Context(), "some-job"); err == nil {
-		t.Fatal("want the connection failure to surface")
-	}
-	if len(f.calls) != 1 {
-		t.Fatalf("LockModel.TryAdvisory was sent %d times; the lease may already be taken",
-			len(f.calls))
 	}
 }
 

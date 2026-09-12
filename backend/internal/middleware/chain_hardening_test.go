@@ -16,6 +16,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -335,7 +336,7 @@ func TestACredentialedRequestGetsNoStore(t *testing.T) {
 	f := newFixture(t, Config{})
 	userID := uuid.New()
 	f.tokens.claims = validClaims(userID)
-	f.users.user = &data.User{ID: userID, Role: "owner", IsActive: true}
+	f.users.user = &authstore.User{ID: userID, Role: "owner", IsActive: true}
 
 	var reached bool
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/me", nil)
@@ -394,7 +395,7 @@ func TestTheChainsDatabaseReadsCarryADeadline(t *testing.T) {
 		f := newFixture(t, Config{})
 		userID := uuid.New()
 		f.tokens.claims = validClaims(userID)
-		f.users.user = &data.User{ID: userID, Role: "owner", IsActive: true}
+		f.users.user = &authstore.User{ID: userID, Role: "owner", IsActive: true}
 
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		r.Header.Set("Authorization", "Bearer some-token")
@@ -410,7 +411,7 @@ func TestTheChainsDatabaseReadsCarryADeadline(t *testing.T) {
 		f.complexes.complex = &data.Complex{ID: complexID, OwnerID: ownerID}
 
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-		r = httpx.ContextSetUser(r, &data.User{ID: ownerID, Role: "owner"})
+		r = httpx.ContextSetUser(r, &authstore.User{ID: ownerID, Role: "owner"})
 		r = withComplexParam(r, complexID)
 
 		f.mw.RequireComplexOwner(func(http.ResponseWriter, *http.Request) {})(httptest.NewRecorder(), r)

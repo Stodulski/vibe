@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 const passwordResetTokenExpiry = 1 * time.Hour
@@ -20,15 +21,15 @@ type PasswordResetToken struct {
 	CreatedAt time.Time
 }
 
-// PasswordResetModel implements PasswordResetStore against PostgreSQL.
-type PasswordResetModel struct {
-	DB *DB
+// PasswordResets implements PasswordResetStore against PostgreSQL.
+type PasswordResets struct {
+	DB *data.DB
 }
 
 // InsertWithCooldown creates a new password reset token, atomically clearing tokens older
 // than 3 minutes, unless a fresh token was already issued, returning ErrCooldownActive then.
-func (m *PasswordResetModel) InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *PasswordResets) InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	expiresAt := time.Now().Add(passwordResetTokenExpiry)
@@ -53,7 +54,7 @@ func (m *PasswordResetModel) InsertWithCooldown(ctx context.Context, userID uuid
 	err := m.DB.QueryRow(ctx, query, userID, tokenHash, expiresAt).Scan(&id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrCooldownActive
+			return data.ErrCooldownActive
 		}
 		return err
 	}
@@ -63,8 +64,8 @@ func (m *PasswordResetModel) InsertWithCooldown(ctx context.Context, userID uuid
 // GetByHash atomically fetches and deletes the password reset token in one
 // query, preventing race conditions and ensuring single-use. Returns
 // ErrRecordNotFound if no matching, unexpired token exists.
-func (m *PasswordResetModel) GetByHash(ctx context.Context, tokenHash []byte) (*PasswordResetToken, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *PasswordResets) GetByHash(ctx context.Context, tokenHash []byte) (*PasswordResetToken, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	query := `
@@ -77,7 +78,7 @@ func (m *PasswordResetModel) GetByHash(ctx context.Context, tokenHash []byte) (*
 	err := m.DB.QueryRow(ctx, query, tokenHash).Scan(&t.ID, &t.UserID, &t.TokenHash, &t.ExpiresAt, &t.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -85,8 +86,8 @@ func (m *PasswordResetModel) GetByHash(ctx context.Context, tokenHash []byte) (*
 }
 
 // DeleteByUser removes every password reset token belonging to the user.
-func (m *PasswordResetModel) DeleteByUser(ctx context.Context, userID uuid.UUID) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *PasswordResets) DeleteByUser(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1", userID)
@@ -94,8 +95,8 @@ func (m *PasswordResetModel) DeleteByUser(ctx context.Context, userID uuid.UUID)
 }
 
 // DeleteExpired removes every password reset token past its expiry, used by a periodic cleanup job.
-func (m *PasswordResetModel) DeleteExpired(ctx context.Context) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *PasswordResets) DeleteExpired(ctx context.Context) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx, "DELETE FROM password_reset_tokens WHERE expires_at <= NOW()")

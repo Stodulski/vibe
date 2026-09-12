@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/realtime"
@@ -25,7 +26,7 @@ type streamAuthzFixture struct {
 	app       *application
 	users     *mockUserStore
 	complexes *mockComplexStore
-	owner     *data.User
+	owner     *authstore.User
 	complex   *data.Complex
 	// req is the stream's original request: authenticated, owner-approved, and
 	// carrying both of those in its context, exactly as Stream receives it.
@@ -46,7 +47,7 @@ func newStreamAuthzFixture(t *testing.T) *streamAuthzFixture {
 		t.Fatalf("complex store is %T, not *mockComplexStore", app.models.Complexes)
 	}
 
-	owner := users.seed(data.User{
+	owner := users.seed(authstore.User{
 		ID:            uuid.New(),
 		Email:         "owner@example.com",
 		FirstName:     "Owner",

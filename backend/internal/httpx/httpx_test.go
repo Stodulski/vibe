@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -216,7 +217,7 @@ func TestContextUserRoundTrip(t *testing.T) {
 		t.Error("an untouched request must report no authenticated user")
 	}
 
-	user := &data.User{ID: uuid.New(), Email: "owner@example.com"}
+	user := &authstore.User{ID: uuid.New(), Email: "owner@example.com"}
 	r = ContextSetUser(r, user)
 
 	got, ok := ContextGetAuthenticatedUser(r)

@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // PlatformStats contains platform-wide aggregate statistics.
@@ -41,8 +44,8 @@ func (u *AdminUserRow) CursorKey() (time.Time, uuid.UUID) { return u.CreatedAt, 
 
 // AdminUserDetail contains a user along with their owned complexes.
 type AdminUserDetail struct {
-	User      *User      `json:"user"`
-	Complexes []*Complex `json:"complexes"`
+	User      *authstore.User `json:"user"`
+	Complexes []*data.Complex `json:"complexes"`
 }
 
 // AdminComplexRow represents a complex with owner info for admin listing.
@@ -65,13 +68,13 @@ func (c *AdminComplexRow) CursorKey() (time.Time, uuid.UUID) { return c.CreatedA
 
 // AdminComplexDetail contains a complex with aggregated statistics.
 type AdminComplexDetail struct {
-	Complex       *Complex `json:"complex"`
-	OwnerName     string   `json:"owner_name"`
-	OwnerEmail    string   `json:"owner_email"`
-	CourtsCount   int      `json:"courts_count"`
-	ClientsCount  int      `json:"clients_count"`
-	BookingsCount int      `json:"bookings_count"`
-	TotalRevenue  int      `json:"total_revenue"`
+	Complex       *data.Complex `json:"complex"`
+	OwnerName     string        `json:"owner_name"`
+	OwnerEmail    string        `json:"owner_email"`
+	CourtsCount   int           `json:"courts_count"`
+	ClientsCount  int           `json:"clients_count"`
+	BookingsCount int           `json:"bookings_count"`
+	TotalRevenue  int           `json:"total_revenue"`
 }
 
 // AuditLogRow represents an audit log entry for admin listing.
@@ -93,11 +96,11 @@ func (l *AuditLogRow) CursorKey() (time.Time, uuid.UUID) { return l.CreatedAt, l
 // AdminReader provides read-only platform admin queries.
 type AdminReader interface {
 	GetPlatformStats(ctx context.Context) (*PlatformStats, error)
-	ListUsers(ctx context.Context, search, roleFilter string, filters Filters) ([]*AdminUserRow, Metadata, error)
+	ListUsers(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*AdminUserRow, data.Metadata, error)
 	GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUserDetail, error)
-	ListComplexes(ctx context.Context, search string, filters Filters) ([]*AdminComplexRow, Metadata, error)
+	ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*AdminComplexRow, data.Metadata, error)
 	GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*AdminComplexDetail, error)
-	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters Filters) ([]*AuditLogRow, Metadata, error)
+	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*AuditLogRow, data.Metadata, error)
 }
 
 // AdminWriter provides state-changing admin operations.
@@ -115,14 +118,14 @@ type AdminStore interface {
 	AdminWriter
 }
 
-// AdminModel implements AdminStore using raw SQL queries.
-type AdminModel struct {
-	DB *DB
+// Store implements AdminStore using raw SQL queries.
+type Store struct {
+	DB *data.DB
 }
 
 // GetPlatformStats computes platform-wide user, complex, court, booking and revenue counters.
-func (m *AdminModel) GetPlatformStats(ctx context.Context) (*PlatformStats, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) GetPlatformStats(ctx context.Context) (*PlatformStats, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	var stats PlatformStats
@@ -154,13 +157,13 @@ func (m *AdminModel) GetPlatformStats(ctx context.Context) (*PlatformStats, erro
 }
 
 // ListUsers returns a paginated, optionally search- and role-filtered list of platform users.
-func (m *AdminModel) ListUsers(ctx context.Context, search, roleFilter string, filters Filters) ([]*AdminUserRow, Metadata, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) ListUsers(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*AdminUserRow, data.Metadata, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	cursorTime, cursorID, err := filters.ParseCursor()
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
 	hasCursor := !cursorTime.IsZero()
@@ -170,7 +173,7 @@ func (m *AdminModel) ListUsers(ctx context.Context, search, roleFilter string, f
 	// itself instead of widening the search — see EscapeLikeTerm's comment.
 	// The `$1 = ''` "no search" guard above stays correct against the escaped
 	// value: escaping an empty string still yields an empty string.
-	escapedSearch := EscapeLikeTerm(search)
+	escapedSearch := data.EscapeLikeTerm(search)
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.role,
@@ -188,7 +191,7 @@ func (m *AdminModel) ListUsers(ctx context.Context, search, roleFilter string, f
 		LIMIT $6
 	`, escapedSearch, roleFilter, hasCursor, cursorTime, cursorID, fetchLimit)
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 	defer rows.Close()
 
@@ -200,26 +203,26 @@ func (m *AdminModel) ListUsers(ctx context.Context, search, roleFilter string, f
 			&u.IsActive, &u.EmailVerified, &u.CreatedAt, &u.ComplexCount,
 		)
 		if err != nil {
-			return nil, Metadata{}, err
+			return nil, data.Metadata{}, err
 		}
 		users = append(users, &u)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
-	users, meta := TrimPage(users, filters.Limit, BuildTimestampCursor)
+	users, meta := data.TrimPage(users, filters.Limit, data.BuildTimestampCursor)
 	return users, meta, nil
 }
 
 // GetUserDetail returns the user along with the complexes they own, or ErrRecordNotFound if the user does not exist.
 //
 //nolint:funlen // single cohesive fetch-user-then-fetch-owned-complexes flow for one admin query
-func (m *AdminModel) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUserDetail, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUserDetail, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	var user User
+	var user authstore.User
 	err := m.DB.QueryRow(ctx, `
 		SELECT id, email, first_name, last_name, phone, role,
 		       is_active, email_verified, created_at, updated_at
@@ -231,7 +234,7 @@ func (m *AdminModel) GetUserDetail(ctx context.Context, userID uuid.UUID) (*Admi
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -249,9 +252,9 @@ func (m *AdminModel) GetUserDetail(ctx context.Context, userID uuid.UUID) (*Admi
 	}
 	defer rows.Close()
 
-	complexes := make([]*Complex, 0, 4)
+	complexes := make([]*data.Complex, 0, 4)
 	for rows.Next() {
-		var c Complex
+		var c data.Complex
 		var email, logoURL, coverURL, mpUserID *string
 		var lat, lng *float64
 		err := rows.Scan(
@@ -279,13 +282,13 @@ func (m *AdminModel) GetUserDetail(ctx context.Context, userID uuid.UUID) (*Admi
 }
 
 // ListComplexes returns a paginated, optionally search-filtered list of complexes with owner info.
-func (m *AdminModel) ListComplexes(ctx context.Context, search string, filters Filters) ([]*AdminComplexRow, Metadata, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*AdminComplexRow, data.Metadata, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	cursorTime, cursorID, err := filters.ParseCursor()
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
 	hasCursor := !cursorTime.IsZero()
@@ -293,7 +296,7 @@ func (m *AdminModel) ListComplexes(ctx context.Context, search string, filters F
 
 	// H-04: same escaping as ListUsers above, and for the same reason — see
 	// EscapeLikeTerm's comment.
-	escapedSearch := EscapeLikeTerm(search)
+	escapedSearch := data.EscapeLikeTerm(search)
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT c.id, c.owner_id,
@@ -312,7 +315,7 @@ func (m *AdminModel) ListComplexes(ctx context.Context, search string, filters F
 		LIMIT $5
 	`, escapedSearch, hasCursor, cursorTime, cursorID, fetchLimit)
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 	defer rows.Close()
 
@@ -325,24 +328,24 @@ func (m *AdminModel) ListComplexes(ctx context.Context, search string, filters F
 			&c.CourtsCount, &c.MPConnected, &c.CreatedAt,
 		)
 		if err != nil {
-			return nil, Metadata{}, err
+			return nil, data.Metadata{}, err
 		}
 		complexes = append(complexes, &c)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
-	complexes, meta := TrimPage(complexes, filters.Limit, BuildTimestampCursor)
+	complexes, meta := data.TrimPage(complexes, filters.Limit, data.BuildTimestampCursor)
 	return complexes, meta, nil
 }
 
 // GetComplexDetail returns the complex with owner info and aggregate statistics, or ErrRecordNotFound if it does not exist.
-func (m *AdminModel) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*AdminComplexDetail, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*AdminComplexDetail, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	var c Complex
+	var c data.Complex
 	var email, logoURL, coverURL, mpUserID *string
 	var lat, lng *float64
 	var ownerName, ownerEmail string
@@ -371,7 +374,7 @@ func (m *AdminModel) GetComplexDetail(ctx context.Context, complexID uuid.UUID) 
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -395,8 +398,8 @@ func (m *AdminModel) GetComplexDetail(ctx context.Context, complexID uuid.UUID) 
 }
 
 // ToggleUserActive sets a user's active status, returning ErrRecordNotFound if the user does not exist.
-func (m *AdminModel) ToggleUserActive(ctx context.Context, userID uuid.UUID, isActive bool) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) ToggleUserActive(ctx context.Context, userID uuid.UUID, isActive bool) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	result, err := m.DB.Exec(ctx, `UPDATE users SET is_active = $1 WHERE id = $2`, isActive, userID)
@@ -404,7 +407,7 @@ func (m *AdminModel) ToggleUserActive(ctx context.Context, userID uuid.UUID, isA
 		return err
 	}
 	if result.RowsAffected() == 0 {
-		return ErrRecordNotFound
+		return data.ErrRecordNotFound
 	}
 	return nil
 }
@@ -429,13 +432,13 @@ const listAuditLogsSQL = `
 `
 
 // ListAuditLogs returns a paginated, optionally complex- and entity-type-filtered list of audit log entries.
-func (m *AdminModel) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters Filters) ([]*AuditLogRow, Metadata, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*AuditLogRow, data.Metadata, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	cursorTime, cursorID, err := filters.ParseCursor()
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
 	hasCursor := !cursorTime.IsZero()
@@ -448,7 +451,7 @@ func (m *AdminModel) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, en
 
 	rows, err := m.DB.Query(ctx, listAuditLogsSQL, cID, entityType, hasCursor, cursorTime, cursorID, fetchLimit)
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 	defer rows.Close()
 
@@ -460,15 +463,15 @@ func (m *AdminModel) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, en
 			&l.EntityID, &l.IPAddress, &l.CreatedAt,
 		)
 		if err != nil {
-			return nil, Metadata{}, err
+			return nil, data.Metadata{}, err
 		}
 		logs = append(logs, &l)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
-	logs, meta := TrimPage(logs, filters.Limit, BuildTimestampCursor)
+	logs, meta := data.TrimPage(logs, filters.Limit, data.BuildTimestampCursor)
 	return logs, meta, nil
 }
 
@@ -479,7 +482,7 @@ func (m *AdminModel) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, en
 // runs on a background goroutine while the caller still owns the struct it
 // handed over: encoding moved to the caller's goroutine (internal/audit.Record)
 // so the snapshot is taken before anything can be scheduled against it.
-func (m *AdminModel) InsertAuditLog(ctx context.Context, userID, complexID *uuid.UUID, action, entityType string, entityID *uuid.UUID, oldJSON, newJSON []byte, ipAddr string) error {
+func (m *Store) InsertAuditLog(ctx context.Context, userID, complexID *uuid.UUID, action, entityType string, entityID *uuid.UUID, oldJSON, newJSON []byte, ipAddr string) error {
 	var ip *netip.Addr
 	if ipAddr != "" {
 		if parsed, parseErr := netip.ParseAddr(ipAddr); parseErr == nil {

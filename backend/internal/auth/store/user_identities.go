@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -22,9 +23,9 @@ type UserIdentity struct {
 	CreatedAt time.Time
 }
 
-// UserIdentityModel implements UserIdentityStore against PostgreSQL.
-type UserIdentityModel struct {
-	DB *DB
+// Identities implements UserIdentityStore against PostgreSQL.
+type Identities struct {
+	DB *data.DB
 	Q  *db.Queries
 }
 
@@ -33,22 +34,22 @@ type UserIdentityModel struct {
 // (user_id, provider) pair again is a silent no-op
 // (db/migrations/002_user_identities.sql), so a repeated Google sign-in never
 // fails on the identity link.
-func (m *UserIdentityModel) Insert(ctx context.Context, identity *UserIdentity) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *Identities) Insert(ctx context.Context, identity *UserIdentity) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	return m.Q.InsertUserIdentity(ctx, db.InsertUserIdentityParams{
-		UserID:   UUIDToPg(identity.UserID),
+		UserID:   data.UUIDToPg(identity.UserID),
 		Provider: identity.Provider,
 		Subject:  identity.Subject,
-		Email:    TextToPg(identity.Email),
+		Email:    data.TextToPg(identity.Email),
 	})
 }
 
 // GetByProviderSubject returns the identity link for a (provider, subject)
 // pair, or ErrRecordNotFound if none exists.
-func (m *UserIdentityModel) GetByProviderSubject(ctx context.Context, provider, subject string) (*UserIdentity, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Identities) GetByProviderSubject(ctx context.Context, provider, subject string) (*UserIdentity, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	row, err := m.Q.GetUserIdentityByProviderSubject(ctx, db.GetUserIdentityByProviderSubjectParams{
@@ -57,7 +58,7 @@ func (m *UserIdentityModel) GetByProviderSubject(ctx context.Context, provider, 
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -65,11 +66,11 @@ func (m *UserIdentityModel) GetByProviderSubject(ctx context.Context, provider, 
 }
 
 // GetByUser returns every identity linked to userID, oldest first.
-func (m *UserIdentityModel) GetByUser(ctx context.Context, userID uuid.UUID) ([]*UserIdentity, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Identities) GetByUser(ctx context.Context, userID uuid.UUID) ([]*UserIdentity, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	rows, err := m.Q.GetUserIdentitiesByUser(ctx, UUIDToPg(userID))
+	rows, err := m.Q.GetUserIdentitiesByUser(ctx, data.UUIDToPg(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +83,11 @@ func (m *UserIdentityModel) GetByUser(ctx context.Context, userID uuid.UUID) ([]
 
 func userIdentityFromDB(u db.UserIdentity) *UserIdentity {
 	return &UserIdentity{
-		ID:        PgToUUID(u.ID),
-		UserID:    PgToUUID(u.UserID),
+		ID:        data.PgToUUID(u.ID),
+		UserID:    data.PgToUUID(u.UserID),
 		Provider:  u.Provider,
 		Subject:   u.Subject,
-		Email:     PgToTextPtr(u.Email),
-		CreatedAt: PgToTime(u.CreatedAt),
+		Email:     data.PgToTextPtr(u.Email),
+		CreatedAt: data.PgToTime(u.CreatedAt),
 	}
 }

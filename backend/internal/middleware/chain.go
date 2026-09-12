@@ -13,6 +13,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -260,7 +261,7 @@ func credential(r *http.Request) string {
 
 // loadUser reads the account behind a session under its own deadline. See
 // identityQueryTimeout for why the request's context is not enough.
-func (m *Middleware) loadUser(ctx context.Context, id uuid.UUID) (*data.User, error) {
+func (m *Middleware) loadUser(ctx context.Context, id uuid.UUID) (*authstore.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, identityQueryTimeout)
 	defer cancel()
 	return m.users.GetByID(ctx, id)

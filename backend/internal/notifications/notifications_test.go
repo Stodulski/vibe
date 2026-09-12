@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
@@ -111,18 +111,18 @@ func (w *stubWhatsApp) SendTemplate(_ context.Context, to string, tmpl whatsapp.
 }
 
 type stubUsers struct {
-	user *data.User
+	user *authstore.User
 	err  error
 }
 
-func (u *stubUsers) GetByID(context.Context, uuid.UUID) (*data.User, error) {
+func (u *stubUsers) GetByID(context.Context, uuid.UUID) (*authstore.User, error) {
 	return u.user, u.err
 }
 
 func newTestService(t *testing.T, whatsappEnabled bool) (*Service, *stubQueue, *stubMailer, *stubWhatsApp, *stubUsers) {
 	t.Helper()
 	q, m, w := newStubQueue(), &stubMailer{}, &stubWhatsApp{}
-	users := &stubUsers{user: &data.User{Email: "owner@example.com"}}
+	users := &stubUsers{user: &authstore.User{Email: "owner@example.com"}}
 	s := NewService(q, m, w, users, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), whatsappEnabled)
 	return s, q, m, w, users
 }
@@ -507,7 +507,7 @@ func TestOwnerEmailIsResolvedAtDeliveryTime(t *testing.T) {
 	s, q, mailer, _, users := newTestService(t, true)
 	s.RegisterWorkers()
 
-	users.user = &data.User{Email: "new-owner@example.com"}
+	users.user = &authstore.User{Email: "new-owner@example.com"}
 	payload, _ := json.Marshal(ownerNewBooking{OwnerID: uuid.New().String(), ComplexName: "Vibe"})
 
 	if err := q.handlers[TaskEmailOwnerNewBooking](t.Context(), payload); err != nil {

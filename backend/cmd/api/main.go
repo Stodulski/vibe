@@ -43,6 +43,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/reporting"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 	"github.com/stodulski/vibe-server/internal/storage"
+	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
@@ -120,9 +121,15 @@ type config struct {
 		bucketName string
 		publicURL  string
 	}
-	frontendURL  string
-	backendURL   string
-	cookieDomain string
+	frontendURL string
+	// passwordHashCost is the bcrypt cost the auth module hashes at. Zero
+	// means authstore.DefaultHashCost, the production value; the test harness
+	// lowers it so a suite that registers hundreds of users does not spend a
+	// quarter of a second on each one. It carries no flag: nothing about a
+	// real deployment should ever set it.
+	passwordHashCost int
+	backendURL       string
+	cookieDomain     string
 	// trustedProxies is the "is there a proxy in front of us at all" answer the
 	// audit-log call sites still take. trustedProxySet is the real setting: the
 	// address ranges allowed to rewrite the client address. The bool is derived
@@ -199,7 +206,7 @@ type application struct {
 	middleware *middleware.Middleware
 	db         *pgxpool.Pool
 	rdb        *redis.Client
-	models     data.Models
+	models     stores.Stores
 	mp         *mp.MPClient
 	// mpOAuth is the same provider on its own circuit breaker, used only by the
 	// bulk token-refresh cron. See newApplication for why it is separate.
@@ -708,7 +715,7 @@ func main() {
 
 	app, err := newApplication(cfg, deps{
 		logger: logger,
-		models: data.NewModels(db, data.Config{
+		models: stores.New(db, stores.Config{
 			PaymentExpiry:   cfg.booking.paymentExpiry,
 			Logger:          logger,
 			Keys:            mpKeyring,

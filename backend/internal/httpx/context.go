@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -16,14 +17,14 @@ type (
 )
 
 // ContextSetUser returns a copy of r carrying the authenticated user.
-func ContextSetUser(r *http.Request, user *data.User) *http.Request {
+func ContextSetUser(r *http.Request, user *authstore.User) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), userContextKey{}, user))
 }
 
 // ContextGetAuthenticatedUser returns the user set by the authentication
 // middleware. The boolean is false on unauthenticated requests.
-func ContextGetAuthenticatedUser(r *http.Request) (*data.User, bool) {
-	user, ok := r.Context().Value(userContextKey{}).(*data.User)
+func ContextGetAuthenticatedUser(r *http.Request) (*authstore.User, bool) {
+	user, ok := r.Context().Value(userContextKey{}).(*authstore.User)
 	if !ok {
 		return nil, false
 	}

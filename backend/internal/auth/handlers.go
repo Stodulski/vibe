@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -114,7 +115,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := &data.User{
+	user := &authstore.User{
 		Email:     input.Email,
 		FirstName: input.FirstName,
 		LastName:  input.LastName,
@@ -122,7 +123,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Role:      "owner",
 	}
 
-	err = user.SetPassword(input.Password)
+	err = user.SetPassword(input.Password, h.cfg.PasswordHashCost)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
@@ -131,7 +132,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	err = h.users.Insert(r.Context(), user)
 	if err != nil {
 		switch {
-		case errors.Is(err, data.ErrDuplicateEmail):
+		case errors.Is(err, authstore.ErrDuplicateEmail):
 			// Return same response as success to prevent email enumeration.
 			h.logger.Info("register: duplicate email attempt")
 
@@ -226,7 +227,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.users.GetByEmail(r.Context(), input.Email)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			_ = data.ComparePassword(data.DummyPasswordHash(), input.Password)
+			_ = authstore.ComparePassword(authstore.DummyPasswordHash(h.cfg.PasswordHashCost), input.Password)
 			h.loginFailed(w, r, input.Email)
 			return
 		}
@@ -313,7 +314,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // Sign in with Google (Handler.GoogleSignIn, Handler.GoogleComplete), both of
 // which reuse this exactly rather than duplicating Login's session-issuing
 // steps.
-func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, user *data.User, method string) {
+func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, user *authstore.User, method string) {
 	h.cache.InvalidateUser(r.Context(), user.ID)
 
 	accessToken, err := h.tokenService.GenerateAccessToken(user.ID, user.Role)
@@ -924,7 +925,7 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 	err = h.users.Update(r.Context(), user)
 	if err != nil {
 		switch {
-		case errors.Is(err, data.ErrDuplicateEmail):
+		case errors.Is(err, authstore.ErrDuplicateEmail):
 			v.AddError("email", "a user with this email address already exists")
 			h.respond.FailedValidation(w, r, v.Errors)
 		case errors.Is(err, data.ErrRecordNotFound):
@@ -963,7 +964,7 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if passwordChange {
-		err = user.SetPassword(*input.NewPassword)
+		err = user.SetPassword(*input.NewPassword, h.cfg.PasswordHashCost)
 		if err != nil {
 			h.respond.ServerError(w, r, err)
 			return
@@ -1004,7 +1005,7 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"user": user})
 }
 
-func (h *Handler) autoResendVerification(user *data.User) {
+func (h *Handler) autoResendVerification(user *authstore.User) {
 	plaintext := uuid.New().String()
 	hash := hashRefreshToken(plaintext)
 
@@ -1163,7 +1164,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = user.SetPassword(input.Password)
+	err = user.SetPassword(input.Password, h.cfg.PasswordHashCost)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return

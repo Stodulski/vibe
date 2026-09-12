@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -30,22 +32,22 @@ import (
 // still ErrDuplicateEmail. Tests that need a specific failure keep overriding
 // the matching Fn field.
 type mockUserStore struct {
-	InsertFn         func(ctx context.Context, user *data.User) error
-	GetByEmailFn     func(ctx context.Context, email string) (*data.User, error)
-	GetByIDFn        func(ctx context.Context, id uuid.UUID) (*data.User, error)
-	UpdateFn         func(ctx context.Context, user *data.User) error
+	InsertFn         func(ctx context.Context, user *authstore.User) error
+	GetByEmailFn     func(ctx context.Context, email string) (*authstore.User, error)
+	GetByIDFn        func(ctx context.Context, id uuid.UUID) (*authstore.User, error)
+	UpdateFn         func(ctx context.Context, user *authstore.User) error
 	UpdatePasswordFn func(ctx context.Context, userID uuid.UUID, newHash []byte) error
 
 	// mu guards the rows below. Handlers touch the store from app.background
 	// goroutines as well as from the request goroutine, so the map is shared
 	// even in a single-request test.
 	mu   sync.Mutex
-	rows map[uuid.UUID]data.User
+	rows map[uuid.UUID]authstore.User
 }
 
 // seed writes user into the store, bypassing the Fn overrides, and returns a
 // copy. Test fixtures use it to establish an account that already exists.
-func (m *mockUserStore) seed(user data.User) *data.User {
+func (m *mockUserStore) seed(user authstore.User) *authstore.User {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.put(user)
@@ -54,14 +56,14 @@ func (m *mockUserStore) seed(user data.User) *data.User {
 }
 
 // put stores user. The caller holds mu.
-func (m *mockUserStore) put(user data.User) {
+func (m *mockUserStore) put(user authstore.User) {
 	if m.rows == nil {
-		m.rows = make(map[uuid.UUID]data.User)
+		m.rows = make(map[uuid.UUID]authstore.User)
 	}
 	m.rows[user.ID] = user
 }
 
-func (m *mockUserStore) Insert(ctx context.Context, user *data.User) error {
+func (m *mockUserStore) Insert(ctx context.Context, user *authstore.User) error {
 	if m.InsertFn != nil {
 		return m.InsertFn(ctx, user)
 	}
@@ -71,7 +73,7 @@ func (m *mockUserStore) Insert(ctx context.Context, user *data.User) error {
 
 	for _, existing := range m.rows {
 		if strings.EqualFold(existing.Email, user.Email) {
-			return data.ErrDuplicateEmail
+			return authstore.ErrDuplicateEmail
 		}
 	}
 
@@ -92,7 +94,7 @@ func (m *mockUserStore) Insert(ctx context.Context, user *data.User) error {
 	return nil
 }
 
-func (m *mockUserStore) GetByEmail(ctx context.Context, email string) (*data.User, error) {
+func (m *mockUserStore) GetByEmail(ctx context.Context, email string) (*authstore.User, error) {
 	if m.GetByEmailFn != nil {
 		return m.GetByEmailFn(ctx, email)
 	}
@@ -109,7 +111,7 @@ func (m *mockUserStore) GetByEmail(ctx context.Context, email string) (*data.Use
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockUserStore) GetByID(ctx context.Context, id uuid.UUID) (*data.User, error) {
+func (m *mockUserStore) GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error) {
 	if m.GetByIDFn != nil {
 		return m.GetByIDFn(ctx, id)
 	}
@@ -124,7 +126,7 @@ func (m *mockUserStore) GetByID(ctx context.Context, id uuid.UUID) (*data.User, 
 	return &user, nil
 }
 
-func (m *mockUserStore) Update(ctx context.Context, user *data.User) error {
+func (m *mockUserStore) Update(ctx context.Context, user *authstore.User) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, user)
 	}
@@ -226,15 +228,15 @@ func (m *mockUserStore) Delete(ctx context.Context, userID uuid.UUID) error {
 // reach it.
 type mockUserIdentityStore struct{}
 
-func (m *mockUserIdentityStore) Insert(ctx context.Context, identity *data.UserIdentity) error {
+func (m *mockUserIdentityStore) Insert(ctx context.Context, identity *authstore.UserIdentity) error {
 	return nil
 }
 
-func (m *mockUserIdentityStore) GetByProviderSubject(ctx context.Context, provider, subject string) (*data.UserIdentity, error) {
+func (m *mockUserIdentityStore) GetByProviderSubject(ctx context.Context, provider, subject string) (*authstore.UserIdentity, error) {
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockUserIdentityStore) GetByUser(ctx context.Context, userID uuid.UUID) ([]*data.UserIdentity, error) {
+func (m *mockUserIdentityStore) GetByUser(ctx context.Context, userID uuid.UUID) ([]*authstore.UserIdentity, error) {
 	return nil, nil
 }
 
@@ -248,7 +250,7 @@ func (m *mockEmailVerificationStore) InsertWithCooldown(ctx context.Context, use
 	return nil
 }
 
-func (m *mockEmailVerificationStore) GetByHash(ctx context.Context, tokenHash []byte) (*data.EmailVerificationToken, error) {
+func (m *mockEmailVerificationStore) GetByHash(ctx context.Context, tokenHash []byte) (*authstore.EmailVerificationToken, error) {
 	return nil, data.ErrRecordNotFound
 }
 
@@ -266,9 +268,9 @@ func (m *mockEmailVerificationStore) DeleteExpired(ctx context.Context) error {
 
 type mockTokenStore struct {
 	InsertRefreshTokenFn   func(ctx context.Context, userID uuid.UUID, tokenHash []byte, ttl time.Duration) error
-	GetRefreshTokenFn      func(ctx context.Context, tokenHash []byte) (*data.RefreshToken, error)
+	GetRefreshTokenFn      func(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error)
 	MarkRefreshTokenUsedFn func(ctx context.Context, tokenHash []byte) error
-	GetUsedRefreshTokenFn  func(ctx context.Context, tokenHash []byte) (*data.RefreshToken, error)
+	GetUsedRefreshTokenFn  func(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error)
 	DeleteRefreshTokenFn   func(ctx context.Context, tokenHash []byte) error
 	DeleteAllForUserFn     func(ctx context.Context, userID uuid.UUID) error
 	DeleteExpiredFn        func(ctx context.Context) error
@@ -281,7 +283,7 @@ func (m *mockTokenStore) InsertRefreshToken(ctx context.Context, userID uuid.UUI
 	return nil
 }
 
-func (m *mockTokenStore) GetRefreshToken(ctx context.Context, tokenHash []byte) (*data.RefreshToken, error) {
+func (m *mockTokenStore) GetRefreshToken(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error) {
 	if m.GetRefreshTokenFn != nil {
 		return m.GetRefreshTokenFn(ctx, tokenHash)
 	}
@@ -295,7 +297,7 @@ func (m *mockTokenStore) MarkRefreshTokenUsed(ctx context.Context, tokenHash []b
 	return nil
 }
 
-func (m *mockTokenStore) GetUsedRefreshToken(ctx context.Context, tokenHash []byte) (*data.RefreshToken, error) {
+func (m *mockTokenStore) GetUsedRefreshToken(ctx context.Context, tokenHash []byte) (*authstore.RefreshToken, error) {
 	if m.GetUsedRefreshTokenFn != nil {
 		return m.GetUsedRefreshTokenFn(ctx, tokenHash)
 	}
@@ -1160,43 +1162,43 @@ func (m *mockWebhookEventStore) DeleteProcessed(ctx context.Context, olderThan t
 // ---------------------------------------------------------------------------
 
 type mockAdminStore struct {
-	GetPlatformStatsFn func(ctx context.Context) (*data.PlatformStats, error)
-	ListUsersFn        func(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*data.AdminUserRow, data.Metadata, error)
-	GetUserDetailFn    func(ctx context.Context, userID uuid.UUID) (*data.AdminUserDetail, error)
-	ListComplexesFn    func(ctx context.Context, search string, filters data.Filters) ([]*data.AdminComplexRow, data.Metadata, error)
-	GetComplexDetailFn func(ctx context.Context, complexID uuid.UUID) (*data.AdminComplexDetail, error)
+	GetPlatformStatsFn func(ctx context.Context) (*adminstore.PlatformStats, error)
+	ListUsersFn        func(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*adminstore.AdminUserRow, data.Metadata, error)
+	GetUserDetailFn    func(ctx context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error)
+	ListComplexesFn    func(ctx context.Context, search string, filters data.Filters) ([]*adminstore.AdminComplexRow, data.Metadata, error)
+	GetComplexDetailFn func(ctx context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error)
 	ToggleUserActiveFn func(ctx context.Context, userID uuid.UUID, isActive bool) error
 }
 
-func (m *mockAdminStore) GetPlatformStats(ctx context.Context) (*data.PlatformStats, error) {
+func (m *mockAdminStore) GetPlatformStats(ctx context.Context) (*adminstore.PlatformStats, error) {
 	if m.GetPlatformStatsFn != nil {
 		return m.GetPlatformStatsFn(ctx)
 	}
-	return &data.PlatformStats{}, nil
+	return &adminstore.PlatformStats{}, nil
 }
 
-func (m *mockAdminStore) ListUsers(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*data.AdminUserRow, data.Metadata, error) {
+func (m *mockAdminStore) ListUsers(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*adminstore.AdminUserRow, data.Metadata, error) {
 	if m.ListUsersFn != nil {
 		return m.ListUsersFn(ctx, search, roleFilter, filters)
 	}
 	return nil, data.Metadata{}, nil
 }
 
-func (m *mockAdminStore) GetUserDetail(ctx context.Context, userID uuid.UUID) (*data.AdminUserDetail, error) {
+func (m *mockAdminStore) GetUserDetail(ctx context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error) {
 	if m.GetUserDetailFn != nil {
 		return m.GetUserDetailFn(ctx, userID)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockAdminStore) ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*data.AdminComplexRow, data.Metadata, error) {
+func (m *mockAdminStore) ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*adminstore.AdminComplexRow, data.Metadata, error) {
 	if m.ListComplexesFn != nil {
 		return m.ListComplexesFn(ctx, search, filters)
 	}
 	return nil, data.Metadata{}, nil
 }
 
-func (m *mockAdminStore) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*data.AdminComplexDetail, error) {
+func (m *mockAdminStore) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error) {
 	if m.GetComplexDetailFn != nil {
 		return m.GetComplexDetailFn(ctx, complexID)
 	}
@@ -1210,7 +1212,7 @@ func (m *mockAdminStore) ToggleUserActive(ctx context.Context, userID uuid.UUID,
 	return nil
 }
 
-func (m *mockAdminStore) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*data.AuditLogRow, data.Metadata, error) {
+func (m *mockAdminStore) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*adminstore.AuditLogRow, data.Metadata, error) {
 	return nil, data.Metadata{}, nil
 }
 
@@ -1290,7 +1292,7 @@ func (m *mockReportStore) PaymentDetails(ctx context.Context, complexID uuid.UUI
 // because that list covered services, not the stores a service is built from.
 type mockPasswordResetStore struct {
 	InsertWithCooldownFn func(ctx context.Context, userID uuid.UUID, tokenHash []byte) error
-	GetByHashFn          func(ctx context.Context, tokenHash []byte) (*data.PasswordResetToken, error)
+	GetByHashFn          func(ctx context.Context, tokenHash []byte) (*authstore.PasswordResetToken, error)
 	DeleteByUserFn       func(ctx context.Context, userID uuid.UUID) error
 	DeleteExpiredFn      func(ctx context.Context) error
 }
@@ -1302,7 +1304,7 @@ func (m *mockPasswordResetStore) InsertWithCooldown(ctx context.Context, userID 
 	return nil
 }
 
-func (m *mockPasswordResetStore) GetByHash(ctx context.Context, tokenHash []byte) (*data.PasswordResetToken, error) {
+func (m *mockPasswordResetStore) GetByHash(ctx context.Context, tokenHash []byte) (*authstore.PasswordResetToken, error) {
 	if m.GetByHashFn != nil {
 		return m.GetByHashFn(ctx, tokenHash)
 	}

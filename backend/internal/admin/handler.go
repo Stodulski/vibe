@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -22,12 +23,12 @@ const defaultPageLimit = 50
 
 // Store is the platform-wide data this module reads.
 type Store interface {
-	GetPlatformStats(ctx context.Context) (*data.PlatformStats, error)
-	ListUsers(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*data.AdminUserRow, data.Metadata, error)
-	GetUserDetail(ctx context.Context, userID uuid.UUID) (*data.AdminUserDetail, error)
-	ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*data.AdminComplexRow, data.Metadata, error)
-	GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*data.AdminComplexDetail, error)
-	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*data.AuditLogRow, data.Metadata, error)
+	GetPlatformStats(ctx context.Context) (*adminstore.PlatformStats, error)
+	ListUsers(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*adminstore.AdminUserRow, data.Metadata, error)
+	GetUserDetail(ctx context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error)
+	ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*adminstore.AdminComplexRow, data.Metadata, error)
+	GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error)
+	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*adminstore.AuditLogRow, data.Metadata, error)
 	ToggleUserActive(ctx context.Context, userID uuid.UUID, isActive bool) error
 }
 

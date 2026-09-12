@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -33,7 +34,7 @@ const randomPasswordBytes = 32
 // the reset flow. Both a Google-only account at creation (GoogleComplete) and
 // a never-verified local account being claimed through Google
 // (claimUnverifiedAccount) get one.
-func setUnusablePassword(user *data.User) error {
+func setUnusablePassword(user *authstore.User, cost int) error {
 	randomPassword := make([]byte, randomPasswordBytes)
 	if _, err := rand.Read(randomPassword); err != nil {
 		return err
@@ -42,7 +43,7 @@ func setUnusablePassword(user *data.User) error {
 	// whatever it is given, and encoding them first would spend some of the
 	// 72 bytes bcrypt reads on encoding overhead instead of entropy for no
 	// benefit — nobody ever types this password.
-	return user.SetPassword(string(randomPassword))
+	return user.SetPassword(string(randomPassword), cost)
 }
 
 // GoogleSignIn handles POST /api/v1/auth/google: verifies a Google Identity
@@ -204,7 +205,7 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := &data.User{
+	user := &authstore.User{
 		Email:     claims.Email,
 		FirstName: firstName,
 		LastName:  lastName,
@@ -212,13 +213,13 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 		Role:      "owner",
 	}
 
-	if err := setUnusablePassword(user); err != nil {
+	if err := setUnusablePassword(user, h.cfg.PasswordHashCost); err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
 
 	if err := h.users.Insert(r.Context(), user); err != nil {
-		if errors.Is(err, data.ErrDuplicateEmail) {
+		if errors.Is(err, authstore.ErrDuplicateEmail) {
 			h.respond.Error(w, r, http.StatusConflict, "account already exists")
 			return
 		}
@@ -248,8 +249,8 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 // verified. It reports false, after answering the request, when the reset
 // itself could not be persisted — a session must not start on top of a
 // password somebody else chose.
-func (h *Handler) claimUnverifiedAccount(w http.ResponseWriter, r *http.Request, user *data.User) bool {
-	if err := setUnusablePassword(user); err != nil {
+func (h *Handler) claimUnverifiedAccount(w http.ResponseWriter, r *http.Request, user *authstore.User) bool {
+	if err := setUnusablePassword(user, h.cfg.PasswordHashCost); err != nil {
 		h.respond.ServerError(w, r, err)
 		return false
 	}
@@ -321,7 +322,7 @@ func (h *Handler) respondNeedsProfile(w http.ResponseWriter, r *http.Request, cl
 // tries again (Insert is idempotent — see data.UserIdentityStore.Insert).
 func (h *Handler) linkGoogleIdentity(r *http.Request, userID uuid.UUID, claims *googleid.Claims) {
 	email := claims.Email
-	err := h.identities.Insert(r.Context(), &data.UserIdentity{
+	err := h.identities.Insert(r.Context(), &authstore.UserIdentity{
 		UserID:   userID,
 		Provider: googleIdentityProvider,
 		Subject:  claims.Subject,

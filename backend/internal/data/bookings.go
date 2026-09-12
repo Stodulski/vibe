@@ -137,6 +137,25 @@ const (
 	SQLStateExclusionViolation = "23P01"
 )
 
+// MaxBookingHorizonDays bounds how far into the future a booking or a court's
+// blocked slot may be dated.
+//
+// H-08: internal/courts.BlockSlot and internal/bookings.PublicBook — the two
+// write paths an anonymous visitor can reach with no account — validated a
+// date's lower bound (not in the past) but never its upper one. A booking
+// dated "9999-12-31" was accepted with a real MercadoPago preference: it
+// holds a slot forever and is never reaped, since cron's completeBookings
+// only completes a booking whose end time has already passed. A block that
+// far out is merely inert, but the booking half is a standing way for an
+// anonymous caller to leave permanent rows behind, one request at a time.
+//
+// A year is generous for a real booking. It lives here, next to
+// defaultPaymentExpiry below, rather than as a literal duplicated in two
+// handlers in two different packages — so the two validators agree by
+// construction, and raising it later is a one-line change rather than an
+// audit of every date check in the codebase.
+const MaxBookingHorizonDays = 365
+
 // isSlotAlreadySold reports whether err is the database refusing to sell the
 // same court hours twice.
 //

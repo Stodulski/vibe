@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/stores"
 )
 
 // The tests here are about the one hole the advisory lock did not cover. A public
@@ -155,7 +156,7 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	// Stores configured to hold a slot for a full hour, against the fixture's
 	// default fifteen minutes.
-	longHold := data.NewModels(f.Pool, data.Config{PaymentExpiry: time.Hour})
+	longHold := stores.New(f.Pool, stores.Config{PaymentExpiry: time.Hour})
 
 	newStaleBooking(t, f)
 
@@ -195,7 +196,7 @@ func TestAvailabilityFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	// Under a 30-minute configured expiry the same 20-minute-old booking has not
 	// expired yet: the grid must show the slot taken.
-	longHold := data.NewModels(f.Pool, data.Config{PaymentExpiry: 30 * time.Minute})
+	longHold := stores.New(f.Pool, stores.Config{PaymentExpiry: 30 * time.Minute})
 	takenSlots, err := longHold.Bookings.GetBookedSlotsByCourtIDs(ctx, []uuid.UUID{f.CourtID}, stale.Date)
 	if err != nil {
 		t.Fatalf("reading booked slots under a 30m expiry: %v", err)

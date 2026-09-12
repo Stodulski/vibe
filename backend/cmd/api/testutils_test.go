@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/stores"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const testJWTSecret = "test-secret-key-for-testing-only-32b"
@@ -59,6 +60,10 @@ func newTestApplicationWithNotifications(t *testing.T) (*application, *memoryQue
 			burst:   10_000,
 		},
 		frontendURL: "http://localhost:5173",
+		// bcrypt.MinCost for the same reason internal/auth's own harness uses
+		// it: the routes this suite drives register and sign in users, and a
+		// cost-12 hash under the race detector takes seconds each.
+		passwordHashCost: bcrypt.MinCost,
 		booking: struct {
 			gracePeriod        time.Duration
 			paymentExpiry      time.Duration
@@ -80,7 +85,7 @@ func newTestApplicationWithNotifications(t *testing.T) (*application, *memoryQue
 
 	app, err := newApplication(cfg, deps{
 		logger: testLogger,
-		models: data.Models{
+		models: stores.Stores{
 			Users:             &mockUserStore{},
 			UserIdentities:    &mockUserIdentityStore{},
 			Tokens:            &mockTokenStore{},

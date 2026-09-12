@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -50,8 +50,8 @@ func TestEmailVerificationToken_ExpiryDuration(t *testing.T) {
 	}
 }
 
-// TestEmailVerificationModel_RequiresDB documents that all EmailVerificationModel methods
+// TestEmailVerificationModel_RequiresDB documents that all EmailVerifications methods
 // require a database connection and cannot be unit tested without one.
 func TestEmailVerificationModel_RequiresDB(t *testing.T) {
-	t.Skip("EmailVerificationModel methods (Insert, InsertWithCooldown, GetByHash, DeleteByUser, DeleteExpired) all require *pgxpool.Pool and *db.Queries")
+	t.Skip("EmailVerifications methods (Insert, InsertWithCooldown, GetByHash, DeleteByUser, DeleteExpired) all require *pgxpool.Pool and *db.Queries")
 }

@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/audit"
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // Every route in this module reads across tenants, and none of them used to
@@ -21,12 +21,12 @@ import (
 // success path.
 func seededStore() *stubStore {
 	return &stubStore{
-		stats:      &data.PlatformStats{TotalUsers: 10},
-		users:      []*data.AdminUserRow{{ID: uuid.New()}, {ID: uuid.New()}},
-		userDetail: &data.AdminUserDetail{},
-		complexes:  []*data.AdminComplexRow{{ID: uuid.New()}},
-		cxDetail:   &data.AdminComplexDetail{},
-		logs:       []*data.AuditLogRow{{ID: uuid.New()}},
+		stats:      &adminstore.PlatformStats{TotalUsers: 10},
+		users:      []*adminstore.AdminUserRow{{ID: uuid.New()}, {ID: uuid.New()}},
+		userDetail: &adminstore.AdminUserDetail{},
+		complexes:  []*adminstore.AdminComplexRow{{ID: uuid.New()}},
+		cxDetail:   &adminstore.AdminComplexDetail{},
+		logs:       []*adminstore.AuditLogRow{{ID: uuid.New()}},
 	}
 }
 

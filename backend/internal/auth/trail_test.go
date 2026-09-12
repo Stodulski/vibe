@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -32,7 +34,7 @@ func encodedValue(t *testing.T, v any) string {
 }
 
 // storedUser returns the account signIn put in the fixture.
-func storedUser(t *testing.T, f *fixture) *data.User {
+func storedUser(t *testing.T, f *fixture) *authstore.User {
 	t.Helper()
 	u, ok := f.users.byEmail["ana@example.com"]
 	if !ok {
@@ -102,7 +104,7 @@ func TestAFailedSignInRecordsNoAccountEvenWhenTheAccountExists(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		account *data.User
+		account *authstore.User
 		body    string
 	}{
 		{"no such account", nil, `{"email":"ana@example.com","password":"correct-horse-battery"}`},
@@ -517,7 +519,7 @@ func TestNewHandlerRefusesAHandlerWithNoRecorder(t *testing.T) {
 	NewHandler(Dependencies{
 		Users:  newStubUsers(),
 		Tokens: newStubTokens(),
-	}, Config{JWTSecret: testJWTSecret})
+	}, Config{JWTSecret: testJWTSecret, PasswordHashCost: bcrypt.MinCost})
 }
 
 // auditRun is every entry this module writes, alongside every secret that passed

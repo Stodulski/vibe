@@ -17,6 +17,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/stores"
 )
 
 // setupIntegrationDB opens a pool against DATABASE_URL, skipping the test
@@ -65,7 +66,7 @@ func setupIntegrationDB(t *testing.T) *pgxpool.Pool {
 // came from the sweep rather than a request.
 type integrationFixture struct {
 	pool      *pgxpool.Pool
-	models    data.Models
+	models    stores.Stores
 	handler   *Handler
 	complexID uuid.UUID
 	courtID   uuid.UUID
@@ -79,7 +80,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 	ctx := context.Background()
 	suffix := uuid.NewString()
 
-	f := &integrationFixture{pool: pool, models: data.NewModels(pool, data.Config{PaymentExpiry: 15 * time.Minute})}
+	f := &integrationFixture{pool: pool, models: stores.New(pool, stores.Config{PaymentExpiry: 15 * time.Minute})}
 
 	var ownerID uuid.UUID
 	if err := pool.QueryRow(ctx, `

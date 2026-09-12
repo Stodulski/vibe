@@ -2,12 +2,13 @@ package courts
 
 import (
 	"errors"
-	"github.com/stodulski/vibe-server/internal/slots"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stodulski/vibe-server/internal/slots"
 
 	"github.com/google/uuid"
 

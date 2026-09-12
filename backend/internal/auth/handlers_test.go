@@ -13,17 +13,18 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // verifiedUser builds an account that can sign in.
-func verifiedUser(t *testing.T, email, password string) *data.User {
+func verifiedUser(t *testing.T, email, password string) *authstore.User {
 	t.Helper()
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &data.User{
+	return &authstore.User{
 		ID: uuid.New(), Email: email, FirstName: "Ana", LastName: "Perez",
 		PasswordHash: hash, EmailVerified: true, IsActive: true, Role: "owner",
 	}
@@ -662,7 +663,7 @@ func observable(t *testing.T, w *httptest.ResponseRecorder) string {
 }
 
 // lockedUser builds an account that is currently locked out.
-func lockedUser(t *testing.T, email, password string) *data.User {
+func lockedUser(t *testing.T, email, password string) *authstore.User {
 	t.Helper()
 	u := verifiedUser(t, email, password)
 	until := time.Now().Add(15 * time.Minute)
@@ -689,26 +690,26 @@ func TestLoginDoesNotRevealThatAnAccountIsLocked(t *testing.T) {
 
 	tests := []struct {
 		name string
-		user func(t *testing.T) *data.User
+		user func(t *testing.T) *authstore.User
 		body string
 	}{
 		{
 			// The sharpest case: the account exists and is locked, so today's
 			// 429 names it outright.
 			name: "a locked account, guessed at again",
-			user: func(t *testing.T) *data.User { return lockedUser(t, "ana@example.com", "correct-horse-battery") },
+			user: func(t *testing.T) *authstore.User { return lockedUser(t, "ana@example.com", "correct-horse-battery") },
 			body: `{"email":"ana@example.com","password":"wrong-password-here"}`,
 		},
 		{
 			// Even the real password must not distinguish a locked account:
 			// otherwise the lockout confirms the address to anyone who reaches it.
 			name: "a locked account, with the correct password",
-			user: func(t *testing.T) *data.User { return lockedUser(t, "ana@example.com", "correct-horse-battery") },
+			user: func(t *testing.T) *authstore.User { return lockedUser(t, "ana@example.com", "correct-horse-battery") },
 			body: `{"email":"ana@example.com","password":"correct-horse-battery"}`,
 		},
 		{
 			name: "an unlocked account, wrong password",
-			user: func(t *testing.T) *data.User { return verifiedUser(t, "ana@example.com", "correct-horse-battery") },
+			user: func(t *testing.T) *authstore.User { return verifiedUser(t, "ana@example.com", "correct-horse-battery") },
 			body: `{"email":"ana@example.com","password":"wrong-password-here"}`,
 		},
 	}

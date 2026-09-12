@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
@@ -23,7 +24,7 @@ const defaultPageSize = 50
 // store happens to expose.
 type Reader interface {
 	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string,
-		filters data.Filters) ([]*data.AuditLogRow, data.Metadata, error)
+		filters data.Filters) ([]*adminstore.AuditLogRow, data.Metadata, error)
 }
 
 // Handler serves a tenant's own audit trail.

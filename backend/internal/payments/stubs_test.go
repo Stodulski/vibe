@@ -767,15 +767,15 @@ func paidBooking(complexID uuid.UUID) (*data.Booking, *data.Payment) {
 	bookingID := uuid.New()
 	mpID := "mp-123"
 	return &data.Booking{
-			ID: bookingID, ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
-			Status: "confirmed", CollectionStatus: data.CollectionStatusDepositPaid,
-			RefundStatus: data.RefundStatusNone, Price: 500_000,
-			Date: time.Now().AddDate(0, 0, 7), StartTime: "18:00", DurationMinutes: 90,
-			CreatedAt: time.Now(),
-		}, &data.Payment{
-			ID: uuid.New(), BookingID: bookingID, ComplexID: complexID, Amount: 150_000,
-			Status: "deposit_paid", MPPaymentID: &mpID,
-		}
+		ID: bookingID, ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
+		Status: "confirmed", CollectionStatus: data.CollectionStatusDepositPaid,
+		RefundStatus: data.RefundStatusNone, Price: 500_000,
+		Date: time.Now().AddDate(0, 0, 7), StartTime: "18:00", DurationMinutes: 90,
+		CreatedAt: time.Now(),
+	}, &data.Payment{
+		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID, Amount: 150_000,
+		Status: "deposit_paid", MPPaymentID: &mpID,
+	}
 }
 
 // sellerTestToken is the placeholder seller access token every fixture below

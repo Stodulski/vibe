@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/stodulski/vibe-server/internal/timezone"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,10 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stodulski/vibe-server/internal/timezone"
+
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -258,7 +260,7 @@ func ownerRequest(t *testing.T, method, target string, complexID uuid.UUID, para
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
 	}
 
-	r = httpx.ContextSetUser(r, &data.User{ID: uuid.New(), Role: "owner"})
+	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
 	r = httpx.ContextSetComplex(r, &data.Complex{ID: complexID})
 
 	if len(params) > 0 {

@@ -1,10 +1,12 @@
-package data
+package store
 
 import (
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 func TestPlatformStats_StructFields(t *testing.T) {
@@ -69,12 +71,12 @@ func TestAdminUserRow_StructFields(t *testing.T) {
 }
 
 func TestAdminUserDetail_StructFields(t *testing.T) {
-	user := &User{
+	user := &authstore.User{
 		ID:    uuid.New(),
 		Email: "owner@example.com",
 		Role:  "owner",
 	}
-	complexes := []*Complex{
+	complexes := []*data.Complex{
 		{ID: uuid.New(), Name: "Complex A"},
 		{ID: uuid.New(), Name: "Complex B"},
 	}
@@ -120,7 +122,7 @@ func TestAdminComplexRow_StructFields(t *testing.T) {
 
 func TestAdminComplexDetail_StructFields(t *testing.T) {
 	detail := AdminComplexDetail{
-		Complex:       &Complex{ID: uuid.New(), Name: "Test Complex"},
+		Complex:       &data.Complex{ID: uuid.New(), Name: "Test Complex"},
 		OwnerName:     "Jane Smith",
 		OwnerEmail:    "jane@example.com",
 		CourtsCount:   6,
@@ -146,8 +148,8 @@ func TestAdminComplexDetail_StructFields(t *testing.T) {
 	}
 }
 
-// TestAdminModel_RequiresDB documents that all AdminModel methods
+// TestAdminModel_RequiresDB documents that all Store methods
 // require a database connection.
 func TestAdminModel_RequiresDB(t *testing.T) {
-	t.Skip("AdminModel methods all require *pgxpool.Pool")
+	t.Skip("Store methods all require *pgxpool.Pool")
 }
