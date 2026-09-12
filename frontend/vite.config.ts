@@ -41,6 +41,16 @@ const sentryPlugin = hasSentryToken
   : [];
 
 // Third-party packages that get their own bundle, keyed by package name.
+//
+// leaflet and react-leaflet are deliberately absent. Naming a chunk here
+// creates it eagerly, and because react-leaflet pulls in the React runtime
+// the resulting `vendor-leaflet` chunk became a static import of
+// `vendor-react` — so index.html modulepreloaded 48 kB gzip of map code, and
+// link-tagged leaflet's 6 kB gzip stylesheet as render-blocking CSS, on
+// /login and every other route (MAP-01/MAP-02/PERF-02). Without the entries
+// the only boundary left is `React.lazy(() => import('./ComplexMap'))` in
+// ComplexHeader.tsx, so Rollup emits the map and its CSS as an async chunk
+// that loads when a complex page actually renders a map.
 const VENDOR_CHUNKS: Record<string, string> = {
   react: 'vendor-react',
   'react-dom': 'vendor-react',
@@ -49,8 +59,6 @@ const VENDOR_CHUNKS: Record<string, string> = {
   'radix-ui': 'vendor-ui',
   sonner: 'vendor-ui',
   'lucide-react': 'vendor-ui',
-  leaflet: 'vendor-leaflet',
-  'react-leaflet': 'vendor-leaflet',
 };
 
 // Defaults to the dev API (:8080) so `pnpm dev` is unchanged. `make e2e` in
