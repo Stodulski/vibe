@@ -269,18 +269,18 @@ func (m *Store) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
+	return m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		return softDeleteCourt(ctx, tx, id)
+	})
+}
 
+// softDeleteCourt is SoftDelete's body, inside the transaction.
+func softDeleteCourt(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	// Take the court row first. Any booking transaction holding it under
 	// FOR SHARE has to commit or roll back before this returns, so the
 	// question below is asked of a settled world rather than a racing one.
 	var deletedAt pgtype.Timestamptz
-	err = tx.QueryRow(ctx,
+	err := tx.QueryRow(ctx,
 		`SELECT deleted_at FROM courts WHERE id = $1 FOR UPDATE`, data.UUIDToPg(id)).Scan(&deletedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -319,10 +319,6 @@ func (m *Store) SoftDelete(ctx context.Context, id uuid.UUID) error {
 		`UPDATE courts SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
 		data.UUIDToPg(id)); err != nil {
 		return fmt.Errorf("soft-delete court: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
 	}
 	return nil
 }
@@ -445,53 +441,50 @@ func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return -1, fmt.Errorf("begin tx: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// First, because it is the precondition: if the version has moved, nothing
-	// below should run at all, and inside one transaction the delete would
-	// otherwise be rolled back rather than never attempted.
-	qtx := m.Q.WithTx(tx)
-	if _, err := qtx.BumpCourtVersion(ctx, db.BumpCourtVersionParams{
-		ID:              data.UUIDToPg(courtID),
-		ExpectedVersion: data.Int4PtrToPg(expectedVersion),
-	}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return -1, data.ErrRecordNotFound
+	failedIndex = -1
+	err = m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+		// First, because it is the precondition: if the version has moved,
+		// nothing below should run at all, and inside one transaction the
+		// delete would otherwise be rolled back rather than never attempted.
+		if _, err := qtx.BumpCourtVersion(ctx, db.BumpCourtVersionParams{
+			ID:              data.UUIDToPg(courtID),
+			ExpectedVersion: data.Int4PtrToPg(expectedVersion),
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return err
 		}
-		return -1, err
-	}
 
-	if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, data.UUIDToPg(courtID)); err != nil {
-		return -1, err
-	}
-
-	// qtx reuses InsertCourtPrice's own sqlc-generated encoding for the
-	// day_of_week enum rather than hand-rolling a raw INSERT for it — the same
-	// reason InsertPrice below calls it directly.
-	for i, p := range prices {
-		dbPrice, err := qtx.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
-			CourtID: data.UUIDToPg(p.CourtID),
-			//nolint:gosec // G115: see InsertPrice's note above.
-			Price:    int32(p.Price),
-			DayType:  db.DayOfWeek(p.DayType),
-			TimeFrom: data.TimeStrToPg(p.TimeFrom),
-			TimeTo:   data.TimeStrToPg(p.TimeTo),
-		})
-		if err != nil {
-			return i, translateCourtWrite(err)
+		if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, data.UUIDToPg(courtID)); err != nil {
+			return err
 		}
-		p.ID = data.PgToUUID(dbPrice.ID)
-	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return -1, fmt.Errorf("commit: %w", err)
-	}
-	return -1, nil
+		// qtx reuses InsertCourtPrice's own sqlc-generated encoding for the
+		// day_of_week enum rather than hand-rolling a raw INSERT for it — the
+		// same reason InsertPrice below calls it directly.
+		for i, p := range prices {
+			dbPrice, err := qtx.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
+				CourtID: data.UUIDToPg(p.CourtID),
+				//nolint:gosec // G115: see InsertPrice's note above.
+				Price:    int32(p.Price),
+				DayType:  db.DayOfWeek(p.DayType),
+				TimeFrom: data.TimeStrToPg(p.TimeFrom),
+				TimeTo:   data.TimeStrToPg(p.TimeTo),
+			})
+			if err != nil {
+				// The index of the band that was refused is part of the
+				// answer, not only the error: the handler names it back to the
+				// client. It is set here rather than returned because the
+				// transaction wrapper carries only an error.
+				failedIndex = i
+				return translateCourtWrite(err)
+			}
+			p.ID = data.PgToUUID(dbPrice.ID)
+		}
+		return nil
+	})
+	return failedIndex, err
 }
 
 // InsertBlockedSlot creates a new blocked slot inside a transaction, returning
@@ -530,13 +523,26 @@ func (m *Store) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
+	var id pgtype.UUID
+	var createdAt pgtype.Timestamptz
+	if err := m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		return m.insertBlockedSlot(ctx, tx, s, &id, &createdAt)
+	}); err != nil {
+		return err
 	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
 
+	s.ID = data.PgToUUID(id)
+	s.CreatedAt = data.PgToTime(createdAt)
+	return nil
+}
+
+// insertBlockedSlot is InsertBlockedSlot's body, inside the transaction. The
+// generated id and timestamp are written back through the pointers rather than
+// returned, because the row must not reach s until the transaction has actually
+// committed.
+func (m *Store) insertBlockedSlot(
+	ctx context.Context, tx pgx.Tx, s *BlockedSlot, id *pgtype.UUID, createdAt *pgtype.Timestamptz,
+) error {
 	// Every local day these hours touch, ascending, exactly as InsertSafe locks
 	// a booking's. blocked_slots_check keeps a block inside one day today, so
 	// this is one lock in practice; asking for the range anyway is what keeps
@@ -547,17 +553,15 @@ func (m *Store) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) error {
 		return err
 	}
 
-	var id pgtype.UUID
-	var createdAt pgtype.Timestamptz
 	var span pgtype.Range[pgtype.Timestamptz]
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		INSERT INTO blocked_slots (court_id, date, start_time, end_time, reason, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, span`,
 		data.UUIDToPg(s.CourtID), data.DateToPg(s.Date),
 		data.TimeStrToPg(s.StartTime), data.TimeStrToPg(s.EndTime),
 		data.TextToPg(s.Reason), data.UUIDPtrToPg(s.CreatedBy),
-	).Scan(&id, &createdAt, &span)
+	).Scan(id, createdAt, &span)
 	if err != nil {
 		// The block-versus-block overlap is refused by
 		// blocked_slots_no_overlapping_span rather than by a
@@ -586,13 +590,6 @@ func (m *Store) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) error {
 	if booked {
 		return ErrSlotHasBooking
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-
-	s.ID = data.PgToUUID(id)
-	s.CreatedAt = data.PgToTime(createdAt)
 	return nil
 }
 

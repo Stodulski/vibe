@@ -257,13 +257,15 @@ func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
+	return m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		return m.insertSafe(ctx, tx, b)
+	})
+}
 
+// insertSafe is InsertSafe's body, inside the transaction.
+//
+//nolint:funlen // single cohesive SQL-building-and-execution flow for one store operation
+func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
 	// Acquire the advisory lock for every local day these hours touch, to
 	// serialize concurrent writers on the court. The payment confirmation path
 	// and the blocked-slot write take the same lock (see slot_guard.go), so an
@@ -419,8 +421,7 @@ func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
 		return fmt.Errorf("mint booking link token: %w", err)
 	}
 	b.LinkToken = linkToken
-
-	return tx.Commit(ctx)
+	return nil
 }
 
 // GetByID returns the booking with the given ID, or ErrRecordNotFound if none exists.

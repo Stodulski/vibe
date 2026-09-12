@@ -38,20 +38,14 @@ func (m *Store) Mint(ctx context.Context, bookingID uuid.UUID, expiresAt time.Ti
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
+	var plaintext string
+	err := m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		var err error
+		plaintext, err = bookingstore.MintLinkToken(ctx, tx, bookingID, expiresAt)
+		return err
+	})
 	if err != nil {
-		return "", fmt.Errorf("begin tx: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	plaintext, err := bookingstore.MintLinkToken(ctx, tx, bookingID, expiresAt)
-	if err != nil {
-		return "", err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("commit booking link token: %w", err)
+		return "", fmt.Errorf("mint booking link token: %w", err)
 	}
 	return plaintext, nil
 }

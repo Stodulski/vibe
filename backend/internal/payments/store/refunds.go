@@ -68,65 +68,59 @@ func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*Refun
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("begin claim transaction: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	qtx := m.Q.WithTx(tx)
-
-	locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(paymentID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, data.ErrRecordNotFound
+	var claim *RefundClaim
+	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+		locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(paymentID))
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("lock payment: %w", err)
 		}
-		return nil, fmt.Errorf("lock payment: %w", err)
-	}
 
-	mpPaymentID, remaining, err := claimable(locked)
-	if err != nil {
-		return nil, err
-	}
+		mpPaymentID, remaining, err := claimable(locked)
+		if err != nil {
+			return err
+		}
 
-	dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
-		Status:         db.PaymentStatus("refund_pending"),
-		MpPaymentID:    locked.MpPaymentID,
-		MpPreferenceID: locked.MpPreferenceID,
-		// Written back unchanged: the money has not moved yet, so the amount
-		// already refunded must not be touched by the claim.
-		RefundAmount: locked.RefundAmount,
-		ID:           locked.ID,
+		dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
+			Status:         db.PaymentStatus("refund_pending"),
+			MpPaymentID:    locked.MpPaymentID,
+			MpPreferenceID: locked.MpPreferenceID,
+			// Written back unchanged: the money has not moved yet, so the amount
+			// already refunded must not be touched by the claim.
+			RefundAmount: locked.RefundAmount,
+			ID:           locked.ID,
+		})
+		if err != nil {
+			return fmt.Errorf("claim payment: %w", err)
+		}
+
+		claim = &RefundClaim{
+			PaymentID:      data.PgToUUID(dbPayment.ID),
+			BookingID:      data.PgToUUID(dbPayment.BookingID),
+			ComplexID:      data.PgToUUID(dbPayment.ComplexID),
+			MPPaymentID:    mpPaymentID,
+			RefundCentavos: remaining,
+		}
+		if err := recordRefundAttempt(ctx, tx, claim); err != nil {
+			return err
+		}
+
+		// The claim just committed a durable attempt row, so the intent marker
+		// (refund-intent-durability spec) has done its job for this booking: from
+		// here the attempt row is the durable record, not the marker. Clearing it
+		// inside this same transaction — rather than through ClearRefundIntent,
+		// a separate round trip — is what keeps the crash window closed: a crash
+		// between this commit and a later clear would reopen exactly the gap the
+		// marker exists to cover.
+		if err := clearRefundIntent(ctx, tx, claim.BookingID); err != nil {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("claim payment: %w", err)
-	}
-
-	claim := &RefundClaim{
-		PaymentID:      data.PgToUUID(dbPayment.ID),
-		BookingID:      data.PgToUUID(dbPayment.BookingID),
-		ComplexID:      data.PgToUUID(dbPayment.ComplexID),
-		MPPaymentID:    mpPaymentID,
-		RefundCentavos: remaining,
-	}
-	if err := recordRefundAttempt(ctx, tx, claim); err != nil {
 		return nil, err
-	}
-
-	// The claim just committed a durable attempt row, so the intent marker
-	// (refund-intent-durability spec) has done its job for this booking: from
-	// here the attempt row is the durable record, not the marker. Clearing it
-	// inside this same transaction — rather than through ClearRefundIntent,
-	// a separate round trip — is what keeps the crash window closed: a crash
-	// between this commit and a later clear would reopen exactly the gap the
-	// marker exists to cover.
-	if err := clearRefundIntent(ctx, tx, claim.BookingID); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit claim transaction: %w", err)
 	}
 	return claim, nil
 }
@@ -234,67 +228,61 @@ func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, m
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
+	var refundTotal int
+	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+		locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(claim.PaymentID))
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("lock payment: %w", err)
+		}
+
+		totalPaid := int(locked.Amount) + int(locked.ServiceFee)
+		// refund_amount is NOT NULL: sqlc's plain int32 for it reads
+		// correctly with a direct conversion.
+		refundTotal = min(int(locked.RefundAmount)+claim.RefundCentavos, totalPaid)
+		isFullRefund := refundTotal >= totalPaid
+
+		// A payment left in 'refund_pending' after the money came back would read as
+		// still owing a refund forever, so the claim's marker is always cleared here.
+		newStatus := "deposit_paid"
+		if isFullRefund {
+			newStatus = "refunded"
+		}
+
+		if _, err = qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
+			Status:         db.PaymentStatus(newStatus),
+			MpPaymentID:    locked.MpPaymentID,
+			MpPreferenceID: locked.MpPreferenceID,
+			//nolint:gosec // G115: currency amount (cents), capped at totalPaid above; far below int32 range.
+			// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
+			RefundAmount: int32(refundTotal),
+			ID:           locked.ID,
+		}); err != nil {
+			return fmt.Errorf("record refunded payment: %w", err)
+		}
+
+		if isFullRefund {
+			if err := cancelRefundedBooking(ctx, qtx, claim.BookingID, manualOwedCentavos > 0); err != nil {
+				return err
+			}
+		}
+
+		// Resolved last: the attempt is the record that this refund still needs
+		// working, and it may only be closed once the money state above is written.
+		if claim.AttemptID != uuid.Nil {
+			if _, err = tx.Exec(ctx,
+				`UPDATE failed_refunds SET status = 'resolved', resolved_at = NOW() WHERE id = $1`,
+				claim.AttemptID,
+			); err != nil {
+				return fmt.Errorf("resolve refund attempt: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("begin record transaction: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	qtx := m.Q.WithTx(tx)
-
-	locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(claim.PaymentID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, data.ErrRecordNotFound
-		}
-		return 0, fmt.Errorf("lock payment: %w", err)
-	}
-
-	totalPaid := int(locked.Amount) + int(locked.ServiceFee)
-	// refund_amount is NOT NULL: sqlc's plain int32 for it reads
-	// correctly with a direct conversion.
-	refundTotal := min(int(locked.RefundAmount)+claim.RefundCentavos, totalPaid)
-	isFullRefund := refundTotal >= totalPaid
-
-	// A payment left in 'refund_pending' after the money came back would read as
-	// still owing a refund forever, so the claim's marker is always cleared here.
-	newStatus := "deposit_paid"
-	if isFullRefund {
-		newStatus = "refunded"
-	}
-
-	if _, err = qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
-		Status:         db.PaymentStatus(newStatus),
-		MpPaymentID:    locked.MpPaymentID,
-		MpPreferenceID: locked.MpPreferenceID,
-		//nolint:gosec // G115: currency amount (cents), capped at totalPaid above; far below int32 range.
-		// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
-		RefundAmount: int32(refundTotal),
-		ID:           locked.ID,
-	}); err != nil {
-		return 0, fmt.Errorf("record refunded payment: %w", err)
-	}
-
-	if isFullRefund {
-		if err := cancelRefundedBooking(ctx, qtx, claim.BookingID, manualOwedCentavos > 0); err != nil {
-			return 0, err
-		}
-	}
-
-	// Resolved last: the attempt is the record that this refund still needs
-	// working, and it may only be closed once the money state above is written.
-	if claim.AttemptID != uuid.Nil {
-		if _, err = tx.Exec(ctx,
-			`UPDATE failed_refunds SET status = 'resolved', resolved_at = NOW() WHERE id = $1`,
-			claim.AttemptID,
-		); err != nil {
-			return 0, fmt.Errorf("resolve refund attempt: %w", err)
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit record transaction: %w", err)
+		return 0, err
 	}
 	return refundTotal, nil
 }
@@ -377,76 +365,72 @@ func (m *Payments) RecordRefundFailure(ctx context.Context, claim RefundClaim, c
 	ctx, cancel := data.TxContext(context.WithoutCancel(ctx))
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin requeue transaction: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// Read under lock rather than from the claim: the retry budget belongs to the
-	// attempt row, and two workers reclaiming the same abandoned attempt must not
-	// both compute the same "next" retry count from the same stale copy.
-	var retryCount, maxRetries int
-	err = tx.QueryRow(ctx,
-		`SELECT retry_count, max_retries FROM failed_refunds WHERE id = $1 FOR UPDATE`,
-		claim.AttemptID,
-	).Scan(&retryCount, &maxRetries)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, data.ErrRecordNotFound
+	var exhausted bool
+	err := m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		// Read under lock rather than from the claim: the retry budget belongs to the
+		// attempt row, and two workers reclaiming the same abandoned attempt must not
+		// both compute the same "next" retry count from the same stale copy.
+		var retryCount, maxRetries int
+		err := tx.QueryRow(ctx,
+			`SELECT retry_count, max_retries FROM failed_refunds WHERE id = $1 FOR UPDATE`,
+			claim.AttemptID,
+		).Scan(&retryCount, &maxRetries)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("lock refund attempt: %w", err)
 		}
-		return false, fmt.Errorf("lock refund attempt: %w", err)
-	}
 
-	newRetryCount := retryCount + 1
-	delay := retryBackoff(newRetryCount)
+		newRetryCount := retryCount + 1
+		delay := retryBackoff(newRetryCount)
 
-	// A failure that was the provider being unreachable does not spend a retry.
-	// The budget bounds how many times we ask a provider that is answering us; an
-	// attempt that never got an answer is not evidence about this refund, and
-	// charging it is what turned a single MercadoPago outage of an afternoon into
-	// the permanent abandonment of every queued refund at once — five attempts at
-	// 1m/5m/15m/1h/4h elapse in five hours and twenty minutes whatever the reason
-	// for them. The row comes back on the flat outage probe instead. See
-	// transientProviderFailure, and FailedRefunds.IncrementRetry, which is the
-	// same policy on the other recorder of this table.
-	if transientProviderFailure(cause) {
-		newRetryCount = retryCount
-		delay = providerOutageDelay()
-	}
+		// A failure that was the provider being unreachable does not spend a retry.
+		// The budget bounds how many times we ask a provider that is answering us; an
+		// attempt that never got an answer is not evidence about this refund, and
+		// charging it is what turned a single MercadoPago outage of an afternoon into
+		// the permanent abandonment of every queued refund at once — five attempts at
+		// 1m/5m/15m/1h/4h elapse in five hours and twenty minutes whatever the reason
+		// for them. The row comes back on the flat outage probe instead. See
+		// transientProviderFailure, and FailedRefunds.IncrementRetry, which is the
+		// same policy on the other recorder of this table.
+		if transientProviderFailure(cause) {
+			newRetryCount = retryCount
+			delay = providerOutageDelay()
+		}
 
-	exhausted := newRetryCount >= maxRetries
+		exhausted = newRetryCount >= maxRetries
 
-	// The status is still derived from the budget, and that settles the one case
-	// the sibling never had to face: this row may already be 'exhausted', because
-	// both queues now re-select exhausted rows once next_retry_at elapses, so an
-	// exhausted attempt is retried and can fail again on an outage.
-	//
-	// It stays 'exhausted'. Flipping it back to 'pending' would be the shorter
-	// code and it would be wrong: nothing was earned back — the count is still at
-	// the limit — and 'exhausted' is the only signal an operator gets that a
-	// refund needs a person, since cronReportQueueDepth alerts on exactly that
-	// count. Downgrading it during an outage would silence that alarm for as long
-	// as the outage lasts, which is when money owed piles up fastest. The row is
-	// retried either way; the status decides only whether anybody is told.
-	status := "pending"
-	if exhausted {
-		status = "exhausted"
-	}
+		// The status is still derived from the budget, and that settles the one case
+		// the sibling never had to face: this row may already be 'exhausted', because
+		// both queues now re-select exhausted rows once next_retry_at elapses, so an
+		// exhausted attempt is retried and can fail again on an outage.
+		//
+		// It stays 'exhausted'. Flipping it back to 'pending' would be the shorter
+		// code and it would be wrong: nothing was earned back — the count is still at
+		// the limit — and 'exhausted' is the only signal an operator gets that a
+		// refund needs a person, since cronReportQueueDepth alerts on exactly that
+		// count. Downgrading it during an outage would silence that alarm for as long
+		// as the outage lasts, which is when money owed piles up fastest. The row is
+		// retried either way; the status decides only whether anybody is told.
+		status := "pending"
+		if exhausted {
+			status = "exhausted"
+		}
 
-	if _, err = tx.Exec(ctx, `
+		if _, err = tx.Exec(ctx, `
 		UPDATE failed_refunds
 		SET retry_count = $2, error_message = $3, next_retry_at = $4, status = $5
 		WHERE id = $1`,
-		claim.AttemptID, newRetryCount, cause,
-		time.Now().Add(delay), status,
-	); err != nil {
-		return false, fmt.Errorf("requeue refund attempt: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit requeue transaction: %w", err)
+			claim.AttemptID, newRetryCount, cause,
+			time.Now().Add(delay), status,
+		); err != nil {
+			return fmt.Errorf("requeue refund attempt: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
 	}
 	return exhausted, nil
 }
@@ -474,51 +458,45 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("begin manual refund transaction: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	qtx := m.Q.WithTx(tx)
-
-	locked, err := qtx.GetBookingByIDForUpdate(ctx, data.UUIDToPg(bookingID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, data.ErrRecordNotFound
+	var returned int
+	err := m.DB.WithTx(ctx, func(_ pgx.Tx, qtx *db.Queries) error {
+		locked, err := qtx.GetBookingByIDForUpdate(ctx, data.UUIDToPg(bookingID))
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("lock booking: %w", err)
 		}
-		return 0, fmt.Errorf("lock booking: %w", err)
-	}
-	if locked.RefundStatus != bookingstore.RefundStatusPartial {
-		return 0, ErrNoManualRefundOwed
-	}
+		if locked.RefundStatus != bookingstore.RefundStatusPartial {
+			return ErrNoManualRefundOwed
+		}
 
-	rows, err := qtx.ListPaymentsByBookingID(ctx, data.UUIDToPg(bookingID))
-	if err != nil {
-		return 0, fmt.Errorf("list payments for manual refund: %w", err)
-	}
+		rows, err := qtx.ListPaymentsByBookingID(ctx, data.UUIDToPg(bookingID))
+		if err != nil {
+			return fmt.Errorf("list payments for manual refund: %w", err)
+		}
 
-	returned, err := applyManualRefundRows(ctx, qtx, rows)
+		returned, err = applyManualRefundRows(ctx, qtx, rows)
+		if err != nil {
+			return err
+		}
+
+		if _, err = qtx.UpdateBooking(ctx, db.UpdateBookingParams{
+			Status:           locked.Status,
+			CollectionStatus: locked.CollectionStatus,
+			RefundStatus:     bookingstore.RefundStatusFull,
+			Notes:            locked.Notes,
+			DepositAmount:    locked.DepositAmount,
+			ID:               locked.ID,
+			// Written back unchanged: locked is read fresh under FOR UPDATE.
+			RefundIntentAt: locked.RefundIntentAt,
+		}); err != nil {
+			return fmt.Errorf("mark booking refunded after manual refund: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return 0, err
-	}
-
-	if _, err = qtx.UpdateBooking(ctx, db.UpdateBookingParams{
-		Status:           locked.Status,
-		CollectionStatus: locked.CollectionStatus,
-		RefundStatus:     bookingstore.RefundStatusFull,
-		Notes:            locked.Notes,
-		DepositAmount:    locked.DepositAmount,
-		ID:               locked.ID,
-		// Written back unchanged: locked is read fresh under FOR UPDATE.
-		RefundIntentAt: locked.RefundIntentAt,
-	}); err != nil {
-		return 0, fmt.Errorf("mark booking refunded after manual refund: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit manual refund transaction: %w", err)
 	}
 	return returned, nil
 }

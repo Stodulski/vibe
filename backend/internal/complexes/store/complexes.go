@@ -275,33 +275,39 @@ func (m *Store) SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
+	var deactivated int
+	err := m.DB.WithTx(ctx, func(tx pgx.Tx, q *db.Queries) error {
+		return m.softDeleteCascade(ctx, tx, q, id, &deactivated)
+	})
 	if err != nil {
-		return 0, fmt.Errorf("begin tx: %w", err)
+		return 0, err
 	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
+	return deactivated, nil
+}
 
+// softDeleteCascade is SoftDeleteCascade's body, inside the transaction.
+func (m *Store) softDeleteCascade(
+	ctx context.Context, tx pgx.Tx, q *db.Queries, id uuid.UUID, deactivated *int,
+) error {
 	// Counted before the UPDATE, because after it there are none left to count.
 	// FOR UPDATE on nothing: the count is taken inside the same transaction as
 	// the write, and the trigger's own UPDATE takes the row locks, so a court
 	// created concurrently is either already visible here (and closed) or
 	// refused outright by courts_forbid_live_under_deleted_complex once this
 	// transaction commits.
-	var deactivated int
-	err = tx.QueryRow(ctx,
+	err := tx.QueryRow(ctx,
 		`SELECT COUNT(*)::int FROM courts WHERE complex_id = $1 AND deleted_at IS NULL`,
-		id).Scan(&deactivated)
+		id).Scan(deactivated)
 	if err != nil {
-		return 0, fmt.Errorf("count live courts: %w", err)
+		return fmt.Errorf("count live courts: %w", err)
 	}
 
-	rows, err := m.Q.WithTx(tx).SoftDeleteComplex(ctx, data.UUIDToPg(id))
+	rows, err := q.SoftDeleteComplex(ctx, data.UUIDToPg(id))
 	if err != nil {
-		return 0, fmt.Errorf("soft-delete complex: %w", err)
+		return fmt.Errorf("soft-delete complex: %w", err)
 	}
 	if rows == 0 {
-		return 0, data.ErrRecordNotFound
+		return data.ErrRecordNotFound
 	}
 
 	// The verification the trigger exists to make unnecessary, asserted anyway:
@@ -313,16 +319,12 @@ func (m *Store) SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error
 		`SELECT COUNT(*)::int FROM courts WHERE complex_id = $1 AND deleted_at IS NULL`,
 		id).Scan(&stillLive)
 	if err != nil {
-		return 0, fmt.Errorf("verify court cascade: %w", err)
+		return fmt.Errorf("verify court cascade: %w", err)
 	}
 	if stillLive != 0 {
-		return 0, fmt.Errorf("soft-deleting complex %s left %d live court(s): the cascade trigger did not run", id, stillLive)
+		return fmt.Errorf("soft-deleting complex %s left %d live court(s): the cascade trigger did not run", id, stillLive)
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit: %w", err)
-	}
-	return deactivated, nil
+	return nil
 }
 
 // UpsertSchedule creates or replaces the opening hours for one day of a complex's schedule.
