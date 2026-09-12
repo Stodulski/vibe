@@ -6,7 +6,6 @@ import (
 	"net/http/pprof"
 	"strings"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/middleware"
@@ -15,10 +14,10 @@ import (
 // routes builds the full HTTP handler: the route table wrapped in the
 // middleware chain, outermost first.
 func (app *application) routes() http.Handler {
-	router := httprouter.New()
-
-	router.NotFound = http.HandlerFunc(app.respond.NotFound)
-	router.MethodNotAllowed = http.HandlerFunc(app.respond.MethodNotAllowed)
+	router := httpx.NewServeMux(
+		http.HandlerFunc(app.respond.NotFound),
+		http.HandlerFunc(app.respond.MethodNotAllowed),
+	)
 
 	app.registerRoutes(router)
 
@@ -27,7 +26,7 @@ func (app *application) routes() http.Handler {
 	// each route's own handler chain: an unauthenticated or unauthorized
 	// request is still checked against the document before those guards ever
 	// see it.
-	var handler http.Handler = router
+	handler := router.Build()
 	if app.specValidator != nil {
 		handler = app.specValidator.ValidateRequests(handler)
 	}

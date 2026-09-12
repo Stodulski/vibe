@@ -17,7 +17,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// GetMonthlyReport handles GET /api/v1/complexes/:id/reports/monthly, totalling
+// GetMonthlyReport handles GET /api/v1/complexes/{id}/reports/monthly, totalling
 // the period's payments per method.
 //
 // It is one cohesive request lifecycle — parse the input, validate the period,
@@ -114,7 +114,7 @@ const exportRowCheckInterval = 512
 // definition; see spreadsheet.EscapeFormulaCell for the whole argument,
 // including why the fix is escaping here rather than validating at the input.
 
-// ExportPaymentsExcel handles GET /api/v1/complexes/:id/reports/export, building
+// ExportPaymentsExcel handles GET /api/v1/complexes/{id}/reports/export, building
 // a two-sheet workbook: every payment in the period, and the same totals the
 // JSON report returns.
 //

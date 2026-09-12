@@ -28,7 +28,7 @@ func slugify(s string) string {
 const maxSlugLength = 60
 
 // reservedSlugs is every first-path-segment route frontend's router
-// declares statically, ahead of its own catch-all `/:slug` page — see
+// declares statically, ahead of its own catch-all `/{slug}` page — see
 // frontend/src/app/router.tsx, which lists authRoutes, ownerStandaloneRoutes,
 // ownerDashboardRoutes and adminRoutes all before publicRoutes, and
 // react-router matches in declaration order. A complex created with any of

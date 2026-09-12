@@ -26,7 +26,7 @@ const prerenderRetryAfterSeconds = "60"
 // this header says so — any other 404 becomes a 503 on its side.
 const prerenderResultHeader = "X-Prerender-Result"
 
-// Prerender handles GET /api/v1/public/prerender/:slug.
+// Prerender handles GET /api/v1/public/prerender/{slug}.
 //
 // It fetches the frontend's index.html and substitutes the complex's own title,
 // description, image and structured data, so a crawler that runs no JavaScript

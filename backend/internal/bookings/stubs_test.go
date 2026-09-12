@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
@@ -771,12 +770,8 @@ func ownerRequest(t *testing.T, method, target string, complexID uuid.UUID, para
 	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
 	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID, CancellationHours: 24})
 
-	if len(params) > 0 {
-		p := make(httprouter.Params, 0, len(params))
-		for k, v := range params {
-			p = append(p, httprouter.Param{Key: k, Value: v})
-		}
-		r = r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, p))
+	for k, v := range params {
+		r.SetPathValue(k, v)
 	}
 	return r
 }

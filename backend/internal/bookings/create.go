@@ -12,7 +12,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
-// Create handles POST /api/v1/complexes/:id/bookings, the owner booking from
+// Create handles POST /api/v1/complexes/{id}/bookings, the owner booking from
 // the dashboard. Unlike the public flow there is no payment step: the owner
 // is trusted, so the booking is confirmed immediately.
 //

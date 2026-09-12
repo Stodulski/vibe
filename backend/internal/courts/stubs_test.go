@@ -14,7 +14,6 @@ import (
 	"github.com/stodulski/vibe-server/internal/timezone"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
@@ -269,12 +268,8 @@ func ownerRequest(t *testing.T, method, target string, complexID uuid.UUID, para
 	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
 	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID})
 
-	if len(params) > 0 {
-		p := make(httprouter.Params, 0, len(params))
-		for k, v := range params {
-			p = append(p, httprouter.Param{Key: k, Value: v})
-		}
-		r = r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, p))
+	for k, v := range params {
+		r.SetPathValue(k, v)
 	}
 	return r
 }
@@ -293,11 +288,11 @@ func futureDate() string {
 	return time.Now().AddDate(0, 1, 0).Format("2006-01-02")
 }
 
-// withSlug binds the :slug path parameter, as the router does for the public
+// withSlug binds the {slug} path parameter, as the router does for the public
 // availability route.
 func withSlug(r *http.Request, slug string) *http.Request {
-	params := httprouter.Params{{Key: "slug", Value: slug}}
-	return r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
+	r.SetPathValue("slug", slug)
+	return r
 }
 
 // openEveryDay returns a schedule with the complex open 08:00-22:00 all week,

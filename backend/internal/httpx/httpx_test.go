@@ -2,7 +2,6 @@ package httpx
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -13,19 +12,21 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
-// requestWithParams builds a request whose context carries the given router
-// path parameters, the way httprouter does when it dispatches a route.
-func requestWithParams(t *testing.T, params httprouter.Params) *http.Request {
+// requestWithParams builds a request carrying the given router path
+// parameters, the way net/http's ServeMux binds them on a matched route.
+func requestWithParams(t *testing.T, params map[string]string) *http.Request {
 	t.Helper()
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-	return r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
+	for k, v := range params {
+		r.SetPathValue(k, v)
+	}
+	return r
 }
 
 func TestWriteJSON(t *testing.T) {
@@ -336,7 +337,7 @@ func TestReadUUIDParam(t *testing.T) {
 
 	for _, name := range []string{"id", "courtID", "slotID", "bookingID", "clientID"} {
 		t.Run(name+" valid", func(t *testing.T) {
-			r := requestWithParams(t, httprouter.Params{{Key: name, Value: id.String()}})
+			r := requestWithParams(t, map[string]string{name: id.String()})
 
 			got, err := ReadUUIDParam(r, name)
 			if err != nil {
@@ -348,7 +349,7 @@ func TestReadUUIDParam(t *testing.T) {
 		})
 
 		t.Run(name+" malformed", func(t *testing.T) {
-			r := requestWithParams(t, httprouter.Params{{Key: name, Value: "not-a-uuid"}})
+			r := requestWithParams(t, map[string]string{name: "not-a-uuid"})
 
 			got, err := ReadUUIDParam(r, name)
 			if err == nil {
@@ -366,7 +367,7 @@ func TestReadUUIDParam(t *testing.T) {
 	}
 
 	t.Run("absent parameter", func(t *testing.T) {
-		r := requestWithParams(t, httprouter.Params{})
+		r := requestWithParams(t, nil)
 
 		if _, err := ReadUUIDParam(r, "id"); err == nil {
 			t.Fatal("want an error when the route never bound the parameter; got nil")
@@ -375,7 +376,7 @@ func TestReadUUIDParam(t *testing.T) {
 }
 
 func TestReadStringParam(t *testing.T) {
-	r := requestWithParams(t, httprouter.Params{{Key: "slug", Value: "vibe-palermo"}})
+	r := requestWithParams(t, map[string]string{"slug": "vibe-palermo"})
 
 	if got := ReadStringParam(r, "slug"); got != "vibe-palermo" {
 		t.Errorf("want vibe-palermo; got %q", got)

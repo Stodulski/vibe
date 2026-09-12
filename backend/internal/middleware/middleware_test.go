@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/stodulski/vibe-server/internal/auth"
@@ -468,8 +467,8 @@ func TestCSRFIgnoresSafeMethods(t *testing.T) {
 	}
 }
 
-// withComplexParam binds the :id route parameter, as the router does.
+// withComplexParam binds the {id} route parameter, as the router does.
 func withComplexParam(r *http.Request, id uuid.UUID) *http.Request {
-	params := httprouter.Params{{Key: "id", Value: id.String()}}
-	return r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
+	r.SetPathValue("id", id.String())
+	return r
 }

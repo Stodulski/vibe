@@ -62,7 +62,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetUser handles GET /api/v1/admin/users/:id, returning one account with the
+// GetUser handles GET /api/v1/admin/users/{id}, returning one account with the
 // complexes and activity attached to it.
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	id, err := httpx.ReadUUIDParam(r, "id")
@@ -124,7 +124,7 @@ func (h *Handler) ListComplexes(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetComplex handles GET /api/v1/admin/complexes/:id, returning one complex
+// GetComplex handles GET /api/v1/admin/complexes/{id}, returning one complex
 // with its owner and usage.
 func (h *Handler) GetComplex(w http.ResponseWriter, r *http.Request) {
 	id, err := httpx.ReadUUIDParam(r, "id")
@@ -200,7 +200,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ToggleUserActive handles PATCH /api/v1/admin/users/:id/toggle-active, the
+// ToggleUserActive handles PATCH /api/v1/admin/users/{id}/toggle-active, the
 // only write this module allows.
 func (h *Handler) ToggleUserActive(w http.ResponseWriter, r *http.Request) {
 	id, err := httpx.ReadUUIDParam(r, "id")

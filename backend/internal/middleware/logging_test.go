@@ -197,7 +197,7 @@ func TestTheLoggedRouteCollapsesEntityIdentifiers(t *testing.T) {
 	serve(t, handler, http.MethodGet, path)
 
 	line := f.onlyLine(t)
-	if got, want := str(t, line, "route"), "/api/v1/complexes/:id/bookings/:id"; got != want {
+	if got, want := str(t, line, "route"), "/api/v1/complexes/{id}/bookings/{id}"; got != want {
 		t.Errorf("want the route template %q; got %q", want, got)
 	}
 	// The raw path is kept as well: the template groups, the path is what you
@@ -432,7 +432,7 @@ func TestRequestsInFlightIsVisibleWhileTheRequestIsStillRunning(t *testing.T) {
 	}))
 
 	var wg sync.WaitGroup
-	wg.Go(func() { serve(t, handler, http.MethodGet, "/api/v1/complexes/:id/events") })
+	wg.Go(func() { serve(t, handler, http.MethodGet, "/api/v1/complexes/{id}/events") })
 
 	<-entered
 	if got := f.mw.Metrics()["requests_in_flight"]; got != int64(1) {
@@ -488,8 +488,8 @@ func TestStreamedResponsesAreCountedButKeptOutOfTheLatencyHistogram(t *testing.T
 func TestRouteOf(t *testing.T) {
 	for _, tc := range []struct{ path, want string }{
 		{"/api/v1/healthcheck", "/api/v1/healthcheck"},
-		{"/api/v1/complexes/6ba7b810-9dad-11d1-80b4-00c04fd430c8", "/api/v1/complexes/:id"},
-		{"/api/v1/complexes/6ba7b810-9dad-11d1-80b4-00c04fd430c8/courts/7", "/api/v1/complexes/:id/courts/:id"},
+		{"/api/v1/complexes/6ba7b810-9dad-11d1-80b4-00c04fd430c8", "/api/v1/complexes/{id}"},
+		{"/api/v1/complexes/6ba7b810-9dad-11d1-80b4-00c04fd430c8/courts/7", "/api/v1/complexes/{id}/courts/{id}"},
 		// Not an identifier: a fixed segment that merely looks unusual must be
 		// left alone, or two different endpoints merge into one route.
 		{"/api/v1/auth/reset-password", "/api/v1/auth/reset-password"},

@@ -8,7 +8,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
-// Cancel handles POST /api/v1/complexes/:id/bookings/:bookingID/cancel.
+// Cancel handles POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel.
 //
 // Cancelling an already-cancelled booking answers 200 without doing anything,
 // so a retried request cannot refund twice. Completed and no-show bookings
@@ -63,7 +63,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 // send back (H-23), not for this path, which has cash in a till.
 const confirmPaymentRaceMessage = "this booking's status changed before the payment could be confirmed, refresh and check it"
 
-// ConfirmPayment handles POST /api/v1/complexes/:id/bookings/:bookingID/confirm-payment,
+// ConfirmPayment handles POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment,
 // recording a payment the owner took in cash or by transfer.
 func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
@@ -116,7 +116,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 }
 
 // ManualRefund handles POST
-// /api/v1/complexes/:id/bookings/:bookingID/manual-refund, closing out a
+// /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund, closing out a
 // partially refunded booking once the owner confirms they returned the
 // cash/transfer balance to the client by hand.
 func (h *Handler) ManualRefund(w http.ResponseWriter, r *http.Request) {

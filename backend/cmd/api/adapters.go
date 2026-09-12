@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
-
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -462,14 +460,14 @@ func (a streamAuthorizer) Authorize(ctx context.Context, r *http.Request, comple
 		probeCtx, cancel = context.WithDeadline(probeCtx, deadline)
 		defer cancel()
 	}
-	params := httprouter.Params{{Key: "id", Value: complexID.String()}}
-	probeCtx = context.WithValue(probeCtx, httprouter.ParamsKey, params)
-
 	//nolint:contextcheck // intentionally detached from ctx/r.Context(): see
 	// the func comment above (H-11) — probeCtx starting from
 	// context.Background() rather than an inherited context is the fix, not
 	// an oversight.
 	probe := r.Clone(probeCtx)
+	// The guard reads the complex id the way a routed request carries it, so
+	// the synthetic probe has to bind it the same way the mux would.
+	probe.SetPathValue("id", complexID.String())
 	probe = httpx.ContextSetRequestID(probe, httpx.ContextGetRequestID(r))
 
 	var (

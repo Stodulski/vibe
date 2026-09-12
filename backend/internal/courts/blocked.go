@@ -13,7 +13,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
-// ListBlockedSlots handles GET /api/v1/complexes/:id/blocked-slots over a date
+// ListBlockedSlots handles GET /api/v1/complexes/{id}/blocked-slots over a date
 // range.
 //
 // H-09: with 500 blocked slots seeded, this used to answer 366 rows in one
@@ -149,7 +149,7 @@ func trimBlockedSlotsPage(slots []*courtstore.BlockedSlot, filters data.Filters)
 	return page, metadata, nil
 }
 
-// DeleteBlockedSlot handles DELETE /api/v1/complexes/:id/blocked-slots/:slotID,
+// DeleteBlockedSlot handles DELETE /api/v1/complexes/{id}/blocked-slots/{slotID},
 // putting the slot back on sale.
 func (h *Handler) DeleteBlockedSlot(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)

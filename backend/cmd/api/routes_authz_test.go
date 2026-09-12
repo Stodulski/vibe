@@ -203,52 +203,52 @@ var routePolicies = map[string]policy{
 
 	// Tenant data. Every one of these names a complex in the path and must be
 	// readable only by that complex's owner.
-	"GET /api/v1/complexes/:id":                                      complexOwner,
-	"PUT /api/v1/complexes/:id":                                      complexOwner,
-	"DELETE /api/v1/complexes/:id":                                   complexOwner,
-	"PUT /api/v1/complexes/:id/schedules":                            complexOwner,
-	"POST /api/v1/complexes/:id/uploads/presign":                     complexOwner,
-	"DELETE /api/v1/complexes/:id/uploads":                           complexOwner,
-	"POST /api/v1/complexes/:id/mp/connect":                          complexOwner,
-	"DELETE /api/v1/complexes/:id/mp/connect":                        complexOwner,
-	"GET /api/v1/complexes/:id/mp/status":                            complexOwner,
-	"GET /api/v1/complexes/:id/courts":                               complexOwner,
-	"POST /api/v1/complexes/:id/courts":                              complexOwner,
-	"PUT /api/v1/complexes/:id/courts/:courtID":                      complexOwner,
-	"DELETE /api/v1/complexes/:id/courts/:courtID":                   complexOwner,
-	"PUT /api/v1/complexes/:id/courts/:courtID/prices":               complexOwner,
-	"POST /api/v1/complexes/:id/courts/:courtID/block":               complexOwner,
-	"GET /api/v1/complexes/:id/audit-log":                            complexOwner,
-	"GET /api/v1/complexes/:id/blocked-slots":                        complexOwner,
-	"DELETE /api/v1/complexes/:id/blocked-slots/:slotID":             complexOwner,
-	"GET /api/v1/complexes/:id/bookings":                             complexOwner,
-	"POST /api/v1/complexes/:id/bookings":                            complexOwner,
-	"GET /api/v1/complexes/:id/bookings/:bookingID":                  complexOwner,
-	"PUT /api/v1/complexes/:id/bookings/:bookingID":                  complexOwner,
-	"POST /api/v1/complexes/:id/bookings/:bookingID/cancel":          complexOwner,
-	"POST /api/v1/complexes/:id/bookings/:bookingID/confirm-payment": complexOwner,
-	"POST /api/v1/complexes/:id/bookings/:bookingID/manual-refund":   complexOwner,
-	"GET /api/v1/complexes/:id/clients":                              complexOwner,
-	"GET /api/v1/complexes/:id/clients/:clientID":                    complexOwner,
-	"PUT /api/v1/complexes/:id/clients/:clientID":                    complexOwner,
-	"GET /api/v1/complexes/:id/events":                               complexOwner,
-	"GET /api/v1/complexes/:id/stats":                                complexOwner,
-	"GET /api/v1/complexes/:id/stats/revenue":                        complexOwner,
-	"GET /api/v1/complexes/:id/stats/occupancy":                      complexOwner,
-	"GET /api/v1/complexes/:id/stats/clients":                        complexOwner,
-	"GET /api/v1/complexes/:id/reports/monthly":                      complexOwner,
-	"GET /api/v1/complexes/:id/reports/export":                       complexOwner,
+	"GET /api/v1/complexes/{id}":                                       complexOwner,
+	"PUT /api/v1/complexes/{id}":                                       complexOwner,
+	"DELETE /api/v1/complexes/{id}":                                    complexOwner,
+	"PUT /api/v1/complexes/{id}/schedules":                             complexOwner,
+	"POST /api/v1/complexes/{id}/uploads/presign":                      complexOwner,
+	"DELETE /api/v1/complexes/{id}/uploads":                            complexOwner,
+	"POST /api/v1/complexes/{id}/mp/connect":                           complexOwner,
+	"DELETE /api/v1/complexes/{id}/mp/connect":                         complexOwner,
+	"GET /api/v1/complexes/{id}/mp/status":                             complexOwner,
+	"GET /api/v1/complexes/{id}/courts":                                complexOwner,
+	"POST /api/v1/complexes/{id}/courts":                               complexOwner,
+	"PUT /api/v1/complexes/{id}/courts/{courtID}":                      complexOwner,
+	"DELETE /api/v1/complexes/{id}/courts/{courtID}":                   complexOwner,
+	"PUT /api/v1/complexes/{id}/courts/{courtID}/prices":               complexOwner,
+	"POST /api/v1/complexes/{id}/courts/{courtID}/block":               complexOwner,
+	"GET /api/v1/complexes/{id}/audit-log":                             complexOwner,
+	"GET /api/v1/complexes/{id}/blocked-slots":                         complexOwner,
+	"DELETE /api/v1/complexes/{id}/blocked-slots/{slotID}":             complexOwner,
+	"GET /api/v1/complexes/{id}/bookings":                              complexOwner,
+	"POST /api/v1/complexes/{id}/bookings":                             complexOwner,
+	"GET /api/v1/complexes/{id}/bookings/{bookingID}":                  complexOwner,
+	"PUT /api/v1/complexes/{id}/bookings/{bookingID}":                  complexOwner,
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel":          complexOwner,
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment": complexOwner,
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund":   complexOwner,
+	"GET /api/v1/complexes/{id}/clients":                               complexOwner,
+	"GET /api/v1/complexes/{id}/clients/{clientID}":                    complexOwner,
+	"PUT /api/v1/complexes/{id}/clients/{clientID}":                    complexOwner,
+	"GET /api/v1/complexes/{id}/events":                                complexOwner,
+	"GET /api/v1/complexes/{id}/stats":                                 complexOwner,
+	"GET /api/v1/complexes/{id}/stats/revenue":                         complexOwner,
+	"GET /api/v1/complexes/{id}/stats/occupancy":                       complexOwner,
+	"GET /api/v1/complexes/{id}/stats/clients":                         complexOwner,
+	"GET /api/v1/complexes/{id}/reports/monthly":                       complexOwner,
+	"GET /api/v1/complexes/{id}/reports/export":                        complexOwner,
 
 	// Platform-wide: every tenant's data, plus the audit log that records who
 	// did what, from which address, to which entity.
-	"GET /api/v1/admin/stats":                     superAdmin,
-	"GET /api/v1/admin/users":                     superAdmin,
-	"GET /api/v1/admin/users/:id":                 superAdmin,
-	"PATCH /api/v1/admin/users/:id/toggle-active": superAdmin,
-	"GET /api/v1/admin/complexes":                 superAdmin,
-	"GET /api/v1/admin/complexes/:id":             superAdmin,
-	"GET /api/v1/admin/audit-log":                 superAdmin,
-	"GET /api/v1/admin/healthcheck":               superAdmin,
+	"GET /api/v1/admin/stats":                      superAdmin,
+	"GET /api/v1/admin/users":                      superAdmin,
+	"GET /api/v1/admin/users/{id}":                 superAdmin,
+	"PATCH /api/v1/admin/users/{id}/toggle-active": superAdmin,
+	"GET /api/v1/admin/complexes":                  superAdmin,
+	"GET /api/v1/admin/complexes/{id}":             superAdmin,
+	"GET /api/v1/admin/audit-log":                  superAdmin,
+	"GET /api/v1/admin/healthcheck":                superAdmin,
 }
 
 // ---------------------------------------------------------------------------
@@ -610,7 +610,7 @@ func (fx *authzFixture) call(t *testing.T, rt recordedRoute, class callerClass) 
 	if err != nil {
 		t.Fatalf("%s %s as %s: %v", rt.method, rt.path, class, err)
 	}
-	// GET /complexes/:id/events is an open event stream; closing the body
+	// GET /complexes/{id}/events is an open event stream; closing the body
 	// cancels the request context, which is how its handler is told to stop.
 	defer func() { _ = resp.Body.Close() }()
 
@@ -625,15 +625,15 @@ func (fx *authzFixture) concretePath(path string) string {
 	adminUsers := strings.HasPrefix(path, "/api/v1/admin/users/")
 
 	for i, s := range segments {
-		if !strings.HasPrefix(s, ":") {
+		if !strings.HasPrefix(s, "{") || !strings.HasSuffix(s, "}") {
 			continue
 		}
 		switch {
-		case s == ":slug":
+		case s == "{slug}":
 			segments[i] = "complejo-propio"
-		case s == ":id" && adminUsers:
+		case s == "{id}" && adminUsers:
 			segments[i] = fx.adminUserID.String()
-		case s == ":id":
+		case s == "{id}":
 			segments[i] = fx.complexID.String()
 		default:
 			segments[i] = fx.subResourceID.String()

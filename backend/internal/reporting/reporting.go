@@ -74,10 +74,10 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 		return guards.RequireAuth(guards.RequireComplexOwner(next))
 	}
 
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/stats", owner(h.GetDashboardStats))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/stats/revenue", owner(h.GetRevenueChart))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/stats/occupancy", owner(h.GetOccupancyChart))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/stats/clients", owner(h.GetClientInsights))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/reports/monthly", owner(h.GetMonthlyReport))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/reports/export", owner(h.ExportPaymentsExcel))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats", owner(h.GetDashboardStats))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats/revenue", owner(h.GetRevenueChart))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats/occupancy", owner(h.GetOccupancyChart))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats/clients", owner(h.GetClientInsights))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/reports/monthly", owner(h.GetMonthlyReport))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/reports/export", owner(h.ExportPaymentsExcel))
 }

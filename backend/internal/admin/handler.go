@@ -85,10 +85,10 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 
 	router.HandlerFunc(http.MethodGet, "/api/v1/admin/stats", superAdmin(h.Stats))
 	router.HandlerFunc(http.MethodGet, "/api/v1/admin/users", superAdmin(h.ListUsers))
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/users/:id", superAdmin(h.GetUser))
-	router.HandlerFunc(http.MethodPatch, "/api/v1/admin/users/:id/toggle-active", superAdmin(h.ToggleUserActive))
+	router.HandlerFunc(http.MethodGet, "/api/v1/admin/users/{id}", superAdmin(h.GetUser))
+	router.HandlerFunc(http.MethodPatch, "/api/v1/admin/users/{id}/toggle-active", superAdmin(h.ToggleUserActive))
 	router.HandlerFunc(http.MethodGet, "/api/v1/admin/complexes", superAdmin(h.ListComplexes))
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/complexes/:id", superAdmin(h.GetComplex))
+	router.HandlerFunc(http.MethodGet, "/api/v1/admin/complexes/{id}", superAdmin(h.GetComplex))
 	router.HandlerFunc(http.MethodGet, "/api/v1/admin/audit-log", superAdmin(h.ListAuditLogs))
 }
 

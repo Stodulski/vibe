@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/audit"
@@ -114,8 +113,7 @@ func operatorRequest(t *testing.T, method, target string, operator uuid.UUID, pa
 
 	r = httpx.ContextSetUser(r, &authstore.User{ID: operator, Role: "superadmin"})
 	if pathID != nil {
-		params := httprouter.Params{{Key: "id", Value: pathID.String()}}
-		r = r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
+		r.SetPathValue("id", pathID.String())
 	}
 	return r
 }

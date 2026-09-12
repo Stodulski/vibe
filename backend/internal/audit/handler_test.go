@@ -320,7 +320,7 @@ func TestTrailRegistersTheOwnerGuardedRoute(t *testing.T) {
 		RequireSuperAdmin:   mark("RequireSuperAdmin"),
 	})
 
-	want := "GET /api/v1/complexes/:id/audit-log"
+	want := "GET /api/v1/complexes/{id}/audit-log"
 	if len(rec.routes) != 1 || rec.routes[0] != want {
 		t.Fatalf("want %q registered; got %v", want, rec.routes)
 	}

@@ -363,12 +363,14 @@ const maxRouteLength = 160
 // The chain runs outside the router, so the matched template is not available
 // here. Recognising the variable segments by shape gets the same answer for
 // this API's routes, which name their entities by UUID, and it fails safe: an
-// unrecognised segment is left alone rather than guessed at.
+// unrecognised segment is left alone rather than guessed at. The placeholder is
+// spelled the way the route patterns and the OpenAPI document spell it —
+// "{id}" — so a log line can be grepped for with the route it came from.
 func routeOf(path string) string {
 	segments := strings.Split(path, "/")
 	for i, segment := range segments {
 		if isVariableSegment(segment) {
-			segments[i] = ":id"
+			segments[i] = "{id}"
 		}
 	}
 	return sanitize(strings.Join(segments, "/"))
