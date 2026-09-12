@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/db"
 )
 
 // staleWebhookProcessing is how long a webhook event may sit in 'processing'
@@ -195,61 +196,57 @@ func (m *WebhookEvents) MarkFailed(ctx context.Context, id uuid.UUID, cause stri
 	ctx, cancel := data.TxContext(context.WithoutCancel(ctx))
 	defer cancel()
 
-	tx, err := m.DB.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin webhook failure transaction: %w", err)
-	}
-	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var retryCount, maxRetries int
-	err = tx.QueryRow(ctx,
-		`SELECT retry_count, max_retries FROM webhook_events WHERE id = $1 FOR UPDATE`, id,
-	).Scan(&retryCount, &maxRetries)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, data.ErrRecordNotFound
+	var exhausted bool
+	err := m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		var retryCount, maxRetries int
+		err := tx.QueryRow(ctx,
+			`SELECT retry_count, max_retries FROM webhook_events WHERE id = $1 FOR UPDATE`, id,
+		).Scan(&retryCount, &maxRetries)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("lock webhook event: %w", err)
 		}
-		return false, fmt.Errorf("lock webhook event: %w", err)
-	}
 
-	newRetryCount := retryCount + 1
-	delay := retryBackoff(newRetryCount)
+		newRetryCount := retryCount + 1
+		delay := retryBackoff(newRetryCount)
 
-	// A failure that was the provider being unreachable does not spend a retry.
-	// The budget bounds how many times we ask a provider that is answering; an
-	// attempt that never got an answer is not evidence about this event, and
-	// charging it was what let a MercadoPago outage of a single afternoon exhaust
-	// every queued payment at once. See transientProviderFailure.
-	if transientProviderFailure(cause) {
-		newRetryCount = retryCount
-		delay = providerOutageDelay()
-	}
+		// A failure that was the provider being unreachable does not spend a retry.
+		// The budget bounds how many times we ask a provider that is answering; an
+		// attempt that never got an answer is not evidence about this event, and
+		// charging it was what let a MercadoPago outage of a single afternoon exhaust
+		// every queued payment at once. See transientProviderFailure.
+		if transientProviderFailure(cause) {
+			newRetryCount = retryCount
+			delay = providerOutageDelay()
+		}
 
-	exhausted := newRetryCount >= maxRetries
+		exhausted = newRetryCount >= maxRetries
 
-	// 'exhausted' is never deleted by the retention sweep: it means a payment
-	// event this system could not act on, which is a person's money waiting for
-	// someone to look at it. It is no longer the end of the line, though — the
-	// sweeper picks such a row up again once next_retry_at comes round, so the
-	// true blocked reports itself every few hours instead of once, and the one
-	// that was only blocked by an outage finishes by itself.
-	status := "pending"
-	if exhausted {
-		status = "exhausted"
-	}
+		// 'exhausted' is never deleted by the retention sweep: it means a payment
+		// event this system could not act on, which is a person's money waiting for
+		// someone to look at it. It is no longer the end of the line, though — the
+		// sweeper picks such a row up again once next_retry_at comes round, so the
+		// true blocked reports itself every few hours instead of once, and the one
+		// that was only blocked by an outage finishes by itself.
+		status := "pending"
+		if exhausted {
+			status = "exhausted"
+		}
 
-	if _, err = tx.Exec(ctx, `
+		if _, err = tx.Exec(ctx, `
 		UPDATE webhook_events
 		SET retry_count = $2, last_error = $3, next_retry_at = $4, status = $5
 		WHERE id = $1`,
-		id, newRetryCount, cause, time.Now().Add(delay), status,
-	); err != nil {
-		return false, fmt.Errorf("requeue webhook event: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit webhook failure transaction: %w", err)
+			id, newRetryCount, cause, time.Now().Add(delay), status,
+		); err != nil {
+			return fmt.Errorf("requeue webhook event: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
 	}
 	return exhausted, nil
 }
