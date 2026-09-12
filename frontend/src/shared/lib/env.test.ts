@@ -22,9 +22,14 @@ describe('parseEnv', () => {
     expect(result.VITE_APP_URL).toBe(APP_URL);
   });
 
-  // BLD-04: VITE_APP_URL is required so a deploy missing it fails the build
-  // instead of silently falling back to window.location.origin.
-  it('rejects a missing VITE_APP_URL', () => {
-    expect(() => parseEnv({} as never)).toThrow(/VITE_APP_URL/);
+  // BLD-04: a production bundle without VITE_APP_URL is rejected by
+  // assertBuildEnv at build time; at runtime (dev, e2e) the value falls back
+  // to the page origin instead of blanking the app at module load.
+  it('falls back to the page origin when VITE_APP_URL is missing', () => {
+    expect(parseEnv({} as never).VITE_APP_URL).toBe(window.location.origin);
+  });
+
+  it('rejects a VITE_APP_URL that is not a URL', () => {
+    expect(() => parseEnv({ VITE_APP_URL: 'not a url' } as never)).toThrow(/VITE_APP_URL/);
   });
 });

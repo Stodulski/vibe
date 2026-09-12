@@ -1,8 +1,10 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
+
+import { assertBuildEnv } from './src/shared/lib/assertBuildEnv';
 import path from 'path';
 
 // Uploads hidden-sourcemap release artifacts to Sentry so production stack
@@ -61,7 +63,7 @@ const apiProxy = {
   },
 };
 
-export default defineConfig({
+const config: UserConfig = {
   // Read once here (not per-request) and inlined as a string literal at
   // build time, so `src/shared/lib/sentry.ts` can tag every event with the
   // exact commit that produced the running bundle. Vercel sets this env var
@@ -168,4 +170,11 @@ export default defineConfig({
   preview: {
     proxy: apiProxy,
   },
+};
+
+export default defineConfig(({ command, mode }) => {
+  // A production bundle without VITE_APP_URL would build fine and fail in the
+  // browser (env.ts only runs there), so the build is gated here (BLD-04).
+  if (command === 'build') assertBuildEnv(loadEnv(mode, import.meta.dirname, 'VITE_'));
+  return config;
 });
