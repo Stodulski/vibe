@@ -1,6 +1,7 @@
 import { Search, AlertCircle } from 'lucide-react';
 import { IconInput } from '@/shared/components/common/IconInput';
 import { EmptyState } from '@/shared/components/common/EmptyState';
+import { ResultCountAnnouncer } from '@/shared/components/common/ResultCountAnnouncer';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { ComplexesTableSkeleton } from './complexes-table/ComplexesTableSkeleton';
 import { ComplexesTableResults } from './complexes-table/ComplexesTableResults';
@@ -34,6 +35,12 @@ export function ComplexesTable() {
           }}
         />
       </div>
+
+      {/* Beside the whole conditional, not inside the branch that draws the
+          rows: the region has to exist before the count changes, and the
+          empty branch is exactly the one a person filtering needs to hear
+          (A11Y-07). */}
+      <ResultCountAnnouncer count={isError || isLoading ? null : complexes.length} />
 
       {isError ? (
         <EmptyState
