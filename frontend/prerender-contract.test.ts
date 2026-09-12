@@ -32,4 +32,14 @@ describe('prerender placeholders', () => {
   it.each(Object.entries(BACKEND_PLACEHOLDERS))('index.html still contains the %s placeholder', (_name, literal) => {
     expect(indexHtml).toContain(literal);
   });
+
+  it('ships no canonical of its own, so the prerender leaves exactly one', () => {
+    // The prerender injects `<link rel="canonical">` for the complex's own URL
+    // before </head> without touching what is already there. A canonical
+    // hardcoded in the shell survived alongside it, so every prerendered page
+    // went out with two — one of them pointing at the landing, which is not
+    // this page. The shell ships none; `useCanonical` creates the right one in
+    // the SPA, on public and private routes alike.
+    expect(indexHtml).not.toContain('rel="canonical"');
+  });
 });
