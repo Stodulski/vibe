@@ -4,7 +4,7 @@ Backend API for Vibe, a booking platform for sports complexes: court availabilit
 
 ## Stack
 
-- Go 1.27, `net/http` + [httprouter](https://github.com/julienschmidt/httprouter) (planned move to `net/http`'s own `ServeMux` + [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) — see [ADR 0001](docs/adr/0001-httprouter-and-the-move-to-net-http.md))
+- Go 1.27, `net/http`'s own `ServeMux` + [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) generating the server interface and models from the OpenAPI document (see [ADR 0001](docs/adr/0001-httprouter-and-the-move-to-net-http.md))
 - PostgreSQL via [pgx/v5](https://github.com/jackc/pgx) and [sqlc](https://sqlc.dev)
 - Redis (required at runtime, see below)
 - [MercadoPago](https://www.mercadopago.com) for payments
@@ -70,7 +70,9 @@ The API listens on port `8080` (`http://localhost:8080`). Health check: `GET /ap
 
 ## API reference
 
-The full HTTP API is documented as an OpenAPI 3.1 document, served by the API itself:
+This API is spec-first: `internal/openapi/openapi.yaml` is the single source of truth for the
+whole HTTP surface, not something scraped off the handlers. The full document is also served by
+the API itself:
 
 - `GET /api/v1/docs` — an interactive reference (Scalar), the easiest place to start.
 - `GET /api/v1/openapi.json` — the same document as JSON.
@@ -78,10 +80,58 @@ The full HTTP API is documented as an OpenAPI 3.1 document, served by the API it
 
 All three are public and answer at the general rate-limit tier.
 
-The YAML committed at `internal/openapi/openapi.yaml` is the single source of truth. It is not
-generated from the handlers, so `cmd/api/openapi_sync_test.go` (`TestOpenAPISyncWithRouter`)
-fails whenever a route is registered without a matching entry there, or the document names a
-route that no longer exists, so the two cannot drift apart silently.
+`cmd/api/openapi_sync_test.go` (`TestOpenAPISyncWithRouter`) fails whenever a route is registered
+without a matching entry in the document, or the document names a route that no longer exists, so
+the two cannot drift apart silently.
+
+### Generated code
+
+`make generate/api` runs [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) — the
+version pinned by the `tool` directive in `go.mod`, never one from `$PATH` — over the document,
+regenerating `internal/openapi/gen` (request/response models, `ServerInterface`,
+`HandlerWithOptions`). `cmd/api/apiserver.go` implements `ServerInterface` and registers it through
+`HandlerWithOptions`, so every route, parameter and body type in the generated package comes
+straight from the document: a route the document declares with no implementation fails to
+compile, and a handler with no matching operation cannot be registered.
+
+Run `make generate/api` after any edit to `internal/openapi/openapi.yaml` and commit the result —
+`internal/openapi/gen` is checked in. CI's lint job re-runs `make generate/api` and fails the
+build on a diff, so the generated package and the document cannot drift apart.
+
+Handlers decode requests into, and encode responses through, the generated types, mapping from
+store/service types explicitly (no store or sqlc struct is ever serialized directly). A few
+request bodies and responses keep a small local type instead, where the generated model's stricter
+decoding (a UUID or date that fails to unmarshal instead of failing this API's own field
+validation) or encoding (a schema-nullable field oapi-codegen still emits as `omitempty`, dropping
+the key instead of sending JSON `null`) would silently change the wire — each is documented in
+place as a comment where the local type is defined.
+
+### Errors
+
+Every 4xx/5xx response is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem detail,
+`Content-Type: application/problem+json`:
+
+```json
+{
+  "type": "https://vibe.com.ar/problems/validation",
+  "title": "Validation Failed",
+  "status": 422,
+  "detail": "the request failed validation",
+  "instance": "/api/v1/auth/register",
+  "request_id": "8f14e45f-ceea-467e-bd42-ce8c74d5f870",
+  "errors": [
+    {"field": "email", "message": "must be provided"},
+    {"field": "password", "message": "must be provided"}
+  ]
+}
+```
+
+`type` is a stable URI per failure kind (`https://vibe.com.ar/problems/<kind>` — `validation`,
+`invalid-json`, `not-found`, `route-not-found`, `conflict`, `unauthorized`, `forbidden`,
+`rate-limited`, `too-large`, `unavailable`, `gone`, `internal`, `method-not-allowed`) and is the
+field a client should switch on; `title`/`detail` are for humans and may change wording between
+releases. `errors` is present only on a validation problem. `internal/httpx/problem.go` is the one
+place that builds this body — see its `Kind` constants for the full, exact list.
 
 ## Environment variables
 

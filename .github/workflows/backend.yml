@@ -45,6 +45,17 @@ jobs:
           cache: true
           cache-dependency-path: backend/go.sum
 
+      # internal/openapi/openapi.yaml is the source of truth and
+      # internal/openapi/gen is committed; this regenerates it with the same
+      # pinned oapi-codegen `make generate/api` always uses and refuses a
+      # diff, so a document edit that never got `make generate/api` run
+      # after it — or a hand-edit of the generated package itself — fails
+      # here instead of shipping a mismatch between the two.
+      - name: Generated API code matches the document
+        run: |
+          make generate/api
+          git diff --exit-code internal/openapi/gen
+
       # The action installs golangci-lint and runs it, reporting findings as
       # inline annotations on the pull request. Config lives in .golangci.yml.
       - uses: golangci/golangci-lint-action@v9
