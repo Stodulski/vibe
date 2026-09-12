@@ -238,18 +238,23 @@ export class ApiHelper {
 }
 
 /**
- * Creates an ApiHelper by logging in with the test owner credentials.
- * Uses a standalone API request context with cookies from a fresh login.
+ * Creates an ApiHelper by logging in with the given credentials (TEST_OWNER
+ * by default). Uses a standalone API request context with cookies from a
+ * fresh login — pass a distinct `credentials` (e.g. TEST_OWNER_B) to act as
+ * a different tenant, as tenant-isolation.spec.ts does.
  */
-export async function createApiHelper(existingRequest?: APIRequestContext): Promise<ApiHelper> {
+export async function createApiHelper(
+  existingRequest?: APIRequestContext,
+  credentials: { email: string; password: string } = TEST_OWNER,
+): Promise<ApiHelper> {
   // Create a fresh API context that persists cookies
   const ctx = existingRequest ?? (await apiRequest.newContext());
 
   // Login to get CSRF token and cookies
   const loginRes = await ctx.post(`${API}/auth/login`, {
     data: {
-      email: TEST_OWNER.email,
-      password: TEST_OWNER.password,
+      email: credentials.email,
+      password: credentials.password,
       turnstile_token: TURNSTILE_TEST_TOKEN,
     },
   });

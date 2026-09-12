@@ -13,6 +13,48 @@ export const TEST_OWNER = {
   phone: '+5491112345678',
 };
 
+/**
+ * A second, distinct owner — used only by tenant-isolation.spec.ts to prove
+ * TEST_OWNER cannot read or act on this owner's complex. Never shared with
+ * TEST_OWNER's storageState pool (auth.setup.ts), so a refresh either owner
+ * triggers can never collide with the other's session.
+ */
+export const TEST_OWNER_B = {
+  email: 'e2e-owner-b@test.com',
+  password: 'TestPassword123!',
+  firstName: 'Beatriz',
+  lastName: 'Fernández',
+  phone: '+5491112345679',
+};
+
+/**
+ * A platform admin (`role: superadmin`) for e2e specs that exercise
+ * `/admin/*`. The public register endpoint always creates `owner` accounts
+ * (internal/auth/handlers.go), so `auth.setup.ts` registers this one the
+ * same way and then promotes it directly in the E2E database — the same
+ * "seed via psql" pattern `ApiHelper.setupFullComplex` already uses to fake
+ * a MercadoPago connection.
+ */
+export const TEST_ADMIN = {
+  email: 'e2e-admin@test.com',
+  password: 'TestPassword123!',
+  firstName: 'Admin',
+  lastName: 'Plataforma',
+  phone: '+5491112345680',
+};
+
+/**
+ * How many independent TEST_OWNER login sessions `auth.setup.ts` writes to
+ * `e2e/.auth/owner-<n>.json`. `authenticatedPage` (auth.fixture.ts) picks one
+ * by `testInfo.parallelIndex % OWNER_SESSION_POOL_SIZE`, so tests running in
+ * different workers never share a refresh token — the backend revokes every
+ * session for a user the moment a refresh token is presented twice (see
+ * REFRESH_RETRY_DELAY_MS in src/shared/lib/ky.ts), which a single storageState
+ * file reused by concurrent workers would eventually trigger. 4 covers the
+ * default local worker count comfortably; `make e2e` pins 2.
+ */
+export const OWNER_SESSION_POOL_SIZE = 4;
+
 export const TEST_COMPLEX = {
   name: 'Complejo E2E Test',
   slug: 'complejo-e2e-test',

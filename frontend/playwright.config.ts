@@ -42,6 +42,10 @@ export default defineConfig({
       dependencies: ['setup'],
       testMatch: [
         'owner-booking.spec.ts',
+        'owner-booking-create.spec.ts',
+        'cancel-booking.spec.ts',
+        'authorization.spec.ts',
+        'tenant-isolation.spec.ts',
         'court-management.spec.ts',
         'dashboard.spec.ts',
         'clients.spec.ts',
@@ -54,6 +58,21 @@ export default defineConfig({
       ],
     },
     {
+      // Platform-admin (superadmin) specs, using the TEST_ADMIN session
+      // auth.setup.ts saves to e2e/.auth/admin.json (loaded by the
+      // `adminPage` fixture in auth.fixture.ts — a single shared session is
+      // fine here: low test volume, and a wholly different account/session
+      // from the `authenticated` project's owner pool, so it can never race
+      // that pool's refresh token.
+      name: 'admin',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/admin.json',
+      },
+      dependencies: ['setup'],
+      testMatch: ['admin-users.spec.ts'],
+    },
+    {
       name: 'public',
       use: { ...devices['Desktop Chrome'] },
       testMatch: [
@@ -62,6 +81,12 @@ export default defineConfig({
         'public-booking.spec.ts',
         'public-cancel.spec.ts',
         'onboarding.spec.ts',
+        // Registers and logs in its own dedicated, disposable owner account
+        // rather than depending on `setup` — deliberately forces a token
+        // refresh, which rotates that account's refresh token, so it must
+        // never share a session with any other spec (see the spec's own
+        // top-of-file comment).
+        'token-refresh.spec.ts',
       ],
     },
   ],
