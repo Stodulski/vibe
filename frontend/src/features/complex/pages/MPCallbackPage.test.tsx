@@ -8,6 +8,7 @@ vi.mock('@/shared/stores', () => ({
 }));
 vi.mock('@/shared/lib/ky', () => ({
   default: { post: vi.fn().mockReturnValue({ json: vi.fn() }) },
+  withSignal: (signal?: AbortSignal) => (signal ? { signal } : {}),
 }));
 vi.mock('@/shared/components/layout/AppHeader', () => ({
   AppHeader: () => <header data-testid="app-header">Header</header>,

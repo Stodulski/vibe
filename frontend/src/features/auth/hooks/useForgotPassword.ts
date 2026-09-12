@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { HTTPError } from 'ky';
-import { authApi } from '@/features/auth';
+import { authApi } from '../api/auth.api';
 import { getHttpStatus } from '@/shared/lib/utils';
 import { getTurnstileError } from '@/shared/lib/serverErrors';
 import { ES_AR } from '@/shared/i18n/es_AR';

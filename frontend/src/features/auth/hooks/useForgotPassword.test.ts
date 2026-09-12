@@ -4,7 +4,7 @@ import { createWrapper } from '@/test/test-utils';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
-vi.mock('@/features/auth', () => ({
+vi.mock('@/features/auth/api/auth.api', () => ({
   authApi: {
     forgotPassword: vi.fn(),
   },
@@ -14,7 +14,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 /** Mutates once with a rejected `authApi.forgotPassword` and waits for the error state. */
 async function triggerForgotPasswordError(backendError: unknown, options?: { resetTurnstile?: () => void }) {
-  const { authApi } = await import('@/features/auth');
+  const { authApi } = await import('@/features/auth/api/auth.api');
   vi.mocked(authApi.forgotPassword).mockRejectedValueOnce(backendError);
 
   const { useForgotPassword } = await import('./useForgotPassword');
@@ -74,7 +74,7 @@ describe('useForgotPassword — Turnstile 422 handling', () => {
   });
 
   afterEach(async () => {
-    const { authApi } = await import('@/features/auth');
+    const { authApi } = await import('@/features/auth/api/auth.api');
     vi.mocked(authApi.forgotPassword).mockReset();
   });
 });

@@ -6,6 +6,8 @@ import type {
   UpdateComplexRequest,
   UpdateSchedulesRequest,
   PublicComplexResponse,
+  MPConnectRequest,
+  MPConnectResponse,
 } from '@/shared/types/api.types';
 import { parseWith } from '@/shared/lib/apiParse';
 import {
@@ -15,7 +17,7 @@ import {
   schedulesEnvelopeSchema,
   slugAvailableResponseSchema,
 } from '@/shared/schemas/complex.schema';
-import { publicComplexResponseSchema } from '@/shared/schemas/publicBooking.schema';
+import { publicComplexResponseSchema, mpConnectResponseSchema } from '@/shared/schemas/publicBooking.schema';
 
 export const complexApi = {
   list: (signal?: AbortSignal): Promise<{ complexes: Complex[] }> =>
@@ -52,6 +54,20 @@ export const complexApi = {
       .get(`public/complexes/${slug}`, withSignal(signal))
       .json()
       .then(parseWith(publicComplexResponseSchema, 'complexApi.getPublicComplex')),
+
+  /**
+   * Exchanges the MercadoPago OAuth `code` for a linked seller account.
+   *
+   * Called once from the `/settings/mp/callback` page. `code_verifier` is the
+   * PKCE half the authorize step stored in `sessionStorage`; it is absent when
+   * the authorize step ran without PKCE, which is why it is not on
+   * `MPConnectRequest` — the wire contract the server documents.
+   */
+  connectMP: (complexId: string, body: MPConnectRequest & { code_verifier?: string }): Promise<MPConnectResponse> =>
+    api
+      .post(`complexes/${complexId}/mp/connect`, { json: body })
+      .json()
+      .then(parseWith(mpConnectResponseSchema, 'complexApi.connectMP')),
 
   /**
    * Is this public URL free, and if not, what is.

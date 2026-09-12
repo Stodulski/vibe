@@ -6,7 +6,7 @@ import { useTurnstileChallenge } from '@/shared/hooks/useTurnstileChallenge';
 import type { TurnstileFieldHandle } from '@/shared/components/common/TurnstileField';
 import { ForgotPasswordForm } from './forgot-password/ForgotPasswordForm';
 import { ForgotPasswordSuccess } from './forgot-password/ForgotPasswordSuccess';
-import { useForgotPassword } from './forgot-password/useForgotPassword';
+import { useForgotPassword } from '@/features/auth/hooks/useForgotPassword';
 
 const t = ES_AR;
 

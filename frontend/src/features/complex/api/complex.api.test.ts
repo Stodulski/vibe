@@ -52,4 +52,40 @@ describe('complexApi response validation', () => {
     mockDelete.mockReturnValue(jsonOf({ message: 'ok' }));
     await expectApiResponseError(complexApi.delete('c1'), 'complexApi.delete');
   });
+
+  it('connectMP posts the OAuth exchange to the complex MP endpoint and resolves with a valid response', async () => {
+    mockPost.mockReturnValue(jsonOf({ connected: true, mp_user_id: 'mp1' }));
+    const result = await complexApi.connectMP('c1', {
+      code: 'oauth-code',
+      redirect_uri: 'https://app.vibe.com.ar/settings/mp/callback',
+      code_verifier: 'pkce-verifier',
+    });
+    expect(mockPost).toHaveBeenCalledWith('complexes/c1/mp/connect', {
+      json: {
+        code: 'oauth-code',
+        redirect_uri: 'https://app.vibe.com.ar/settings/mp/callback',
+        code_verifier: 'pkce-verifier',
+      },
+    });
+    expect(result.connected).toBe(true);
+  });
+
+  it('connectMP omits code_verifier when the authorize step ran without PKCE', async () => {
+    mockPost.mockReturnValue(jsonOf({ connected: true }));
+    await complexApi.connectMP('c1', {
+      code: 'oauth-code',
+      redirect_uri: 'https://app.vibe.com.ar/settings/mp/callback',
+    });
+    expect(mockPost).toHaveBeenCalledWith('complexes/c1/mp/connect', {
+      json: { code: 'oauth-code', redirect_uri: 'https://app.vibe.com.ar/settings/mp/callback' },
+    });
+  });
+
+  it('connectMP rejects with ApiResponseError carrying its context when connected is not a boolean', async () => {
+    mockPost.mockReturnValue(jsonOf({ connected: 'yes' }));
+    await expectApiResponseError(
+      complexApi.connectMP('c1', { code: 'oauth-code', redirect_uri: 'https://app.vibe.com.ar/settings/mp/callback' }),
+      'complexApi.connectMP',
+    );
+  });
 });

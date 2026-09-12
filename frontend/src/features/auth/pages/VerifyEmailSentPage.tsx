@@ -5,7 +5,7 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { verifyEmailSentStateSchema } from '@/features/auth';
 import { ResendVerificationButton } from './verify-email-sent/ResendVerificationButton';
-import { useResendVerification } from './verify-email-sent/useResendVerification';
+import { useResendVerification } from '@/features/auth/hooks/useResendVerification';
 
 const t = ES_AR;
 

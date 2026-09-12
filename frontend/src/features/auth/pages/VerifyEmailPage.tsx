@@ -1,7 +1,7 @@
 import { AuthSplitLayout } from '@/shared/components/layout/AuthSplitLayout';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { VerifyEmailStatus } from './verify-email/VerifyEmailStatus';
-import { useVerifyEmail } from './verify-email/useVerifyEmail';
+import { useVerifyEmail } from '@/features/auth/hooks/useVerifyEmail';
 
 export default function VerifyEmailPage() {
   usePageTitle('Verificar email');

@@ -9,16 +9,26 @@ export const ownerStandaloneRoutes: RouteObject[] = [
   {
     path: '/complexes',
     element: (
-      <ProtectedRoute>{lazyPage(() => import('@/features/complex/pages/ComplexSelectorPage'), <PageLoader />)}</ProtectedRoute>
+      <ProtectedRoute>
+        {lazyPage(() => import('@/features/complex/pages/ComplexSelectorPage'), <PageLoader />)}
+      </ProtectedRoute>
     ),
   },
   {
     path: '/onboarding',
-    element: <ProtectedRoute>{lazyPage(() => import('@/features/onboarding/pages/OnboardingPage'), <PageLoader />)}</ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        {lazyPage(() => import('@/features/onboarding/pages/OnboardingPage'), <PageLoader />)}
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/settings/mp/callback',
-    element: <ProtectedRoute>{lazyPage(() => import('@/features/complex/pages/MPCallbackPage'), <PageLoader />)}</ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        {lazyPage(() => import('@/features/complex/pages/MPCallbackPage'), <PageLoader />)}
+      </ProtectedRoute>
+    ),
   },
 ];
 

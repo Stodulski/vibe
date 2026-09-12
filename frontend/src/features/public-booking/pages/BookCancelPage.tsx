@@ -8,7 +8,7 @@ import { CancelInfoErrorState } from './book-cancel-page/CancelInfoErrorState';
 import { CancelledResultState } from './book-cancel-page/CancelledResultState';
 import { AlreadyProcessedState } from './book-cancel-page/AlreadyProcessedState';
 import { CancelForm } from './book-cancel-page/CancelForm';
-import { useCancelBookingFlow } from './book-cancel-page/useCancelBookingFlow';
+import { useCancelBookingFlow } from '@/features/public-booking/hooks/useCancelBookingFlow';
 
 const t = ES_AR;
 
