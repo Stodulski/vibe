@@ -21,15 +21,15 @@ import (
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 type stubReports struct {
-	summaries      []data.PaymentMethodSummary
-	courtSummaries []data.PaymentCourtSummary
-	details        []data.PaymentDetail
+	summaries      []reportstore.PaymentMethodSummary
+	courtSummaries []reportstore.PaymentCourtSummary
+	details        []reportstore.PaymentDetail
 	err            error
 
 	// lastFrom and lastTo record the FIRST period the handler asked for,
@@ -45,7 +45,7 @@ type stubReports struct {
 	lastCourtFrom, lastCourtTo time.Time
 }
 
-func (s *stubReports) PaymentSummaryByMethod(_ context.Context, _ uuid.UUID, from, to time.Time) ([]data.PaymentMethodSummary, error) {
+func (s *stubReports) PaymentSummaryByMethod(_ context.Context, _ uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
 	if len(s.periods) == 0 {
 		s.lastFrom, s.lastTo = from, to
 	}
@@ -55,12 +55,12 @@ func (s *stubReports) PaymentSummaryByMethod(_ context.Context, _ uuid.UUID, fro
 
 // PaymentSummaryByCourt records the range the same way, so a test asserting
 // which month was read gets the same answer whichever breakdown it inspects.
-func (s *stubReports) PaymentSummaryByCourt(_ context.Context, _ uuid.UUID, from, to time.Time) ([]data.PaymentCourtSummary, error) {
+func (s *stubReports) PaymentSummaryByCourt(_ context.Context, _ uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error) {
 	s.lastCourtFrom, s.lastCourtTo = from, to
 	return s.courtSummaries, s.err
 }
 
-func (s *stubReports) PaymentDetails(_ context.Context, _ uuid.UUID, from, to time.Time) ([]data.PaymentDetail, error) {
+func (s *stubReports) PaymentDetails(_ context.Context, _ uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error) {
 	s.lastFrom, s.lastTo = from, to
 	return s.details, s.err
 }
@@ -122,7 +122,7 @@ func reportRequest(t *testing.T, query string) *http.Request {
 }
 
 func TestMonthlyReportTotalsEachMethodAndTheWhole(t *testing.T) {
-	reports := &stubReports{summaries: []data.PaymentMethodSummary{
+	reports := &stubReports{summaries: []reportstore.PaymentMethodSummary{
 		{Method: "mercadopago", Count: 3, Amount: 300_000, ServiceFee: 21_000, Refunded: 100_000},
 		{Method: "cash", Count: 1, Amount: 100_000, ServiceFee: 0, Refunded: 0},
 	}}
@@ -273,7 +273,7 @@ func TestMonthlyReportRejectsANonNumericPeriodInsteadOfDefaulting(t *testing.T) 
 
 // Same defect, same fix, on the export path.
 func TestExportRejectsANonNumericPeriodInsteadOfDefaulting(t *testing.T) {
-	reports := &stubReports{details: []data.PaymentDetail{{ClientName: "Cliente 0"}}}
+	reports := &stubReports{details: []reportstore.PaymentDetail{{ClientName: "Cliente 0"}}}
 	h := newTestHandler(reports)
 	w := httptest.NewRecorder()
 	h.ExportPaymentsExcel(w, reportRequest(t, "?month=abc&year=2026"))
@@ -356,7 +356,7 @@ func TestRevenueChartPeriod(t *testing.T) {
 
 func TestExportProducesAWorkbook(t *testing.T) {
 	reports := &stubReports{
-		details: []data.PaymentDetail{{
+		details: []reportstore.PaymentDetail{{
 			CreatedAt: time.Date(2026, 3, 4, 18, 30, 0, 0, timezone.Argentina),
 			StartsAt:  time.Date(2026, 3, 4, 18, 0, 0, 0, timezone.Argentina),
 			EndsAt:    time.Date(2026, 3, 4, 19, 30, 0, 0, timezone.Argentina),
@@ -364,7 +364,7 @@ func TestExportProducesAWorkbook(t *testing.T) {
 			BookingPrice: 500_000, Amount: 150_000, ServiceFee: 100_000, RefundAmount: 0,
 			Method: "mercadopago", PaymentStatus: "deposit_paid", BookingStatus: "confirmed",
 		}},
-		summaries: []data.PaymentMethodSummary{
+		summaries: []reportstore.PaymentMethodSummary{
 			{Method: "mercadopago", Count: 1, Amount: 150_000, ServiceFee: 100_000},
 		},
 	}
@@ -401,7 +401,7 @@ func TestExportNeutralizesAFormulaPayloadInTheClientName(t *testing.T) {
 		t.Run(trigger, func(t *testing.T) {
 			payload := trigger + `cmd|' /C calc'!A0`
 			reports := &stubReports{
-				details: []data.PaymentDetail{{
+				details: []reportstore.PaymentDetail{{
 					CreatedAt: time.Date(2026, 3, 4, 18, 30, 0, 0, timezone.Argentina),
 					StartsAt:  time.Date(2026, 3, 4, 18, 0, 0, 0, timezone.Argentina),
 					EndsAt:    time.Date(2026, 3, 4, 19, 30, 0, 0, timezone.Argentina),
@@ -489,10 +489,10 @@ func TestKnownLabelsAreTranslated(t *testing.T) {
 // --- Export robustness -------------------------------------------------------
 
 // exportDetails builds n distinct payment rows.
-func exportDetails(n int) []data.PaymentDetail {
-	details := make([]data.PaymentDetail, n)
+func exportDetails(n int) []reportstore.PaymentDetail {
+	details := make([]reportstore.PaymentDetail, n)
 	for i := range details {
-		details[i] = data.PaymentDetail{
+		details[i] = reportstore.PaymentDetail{
 			CreatedAt:     time.Date(2026, 3, 1, 9, 0, 0, 0, timezone.Argentina).Add(time.Duration(i) * time.Minute),
 			StartsAt:      time.Date(2026, 3, 1, 18, 0, 0, 0, timezone.Argentina),
 			EndsAt:        time.Date(2026, 3, 1, 19, 30, 0, 0, timezone.Argentina),
@@ -531,7 +531,7 @@ func TestExportWorkbookCarriesEveryPaymentAndTheTotals(t *testing.T) {
 	const payments = 600
 	reports := &stubReports{
 		details: exportDetails(payments),
-		summaries: []data.PaymentMethodSummary{
+		summaries: []reportstore.PaymentMethodSummary{
 			{Method: "mercadopago", Count: 200, Amount: 200_000, ServiceFee: 5_000, Refunded: 1_000},
 			{Method: "cash", Count: 50, Amount: 50_000, ServiceFee: 0, Refunded: 0},
 		},
@@ -708,18 +708,18 @@ func TestAFailureAfterTheDetailSheetIsNotAnsweredAsADownload(t *testing.T) {
 
 // failAfterDetails answers the payment query and then fails the summary one.
 type failAfterDetails struct {
-	details []data.PaymentDetail
+	details []reportstore.PaymentDetail
 }
 
-func (f *failAfterDetails) PaymentDetails(context.Context, uuid.UUID, time.Time, time.Time) ([]data.PaymentDetail, error) {
+func (f *failAfterDetails) PaymentDetails(context.Context, uuid.UUID, time.Time, time.Time) ([]reportstore.PaymentDetail, error) {
 	return f.details, nil
 }
 
-func (f *failAfterDetails) PaymentSummaryByMethod(context.Context, uuid.UUID, time.Time, time.Time) ([]data.PaymentMethodSummary, error) {
+func (f *failAfterDetails) PaymentSummaryByMethod(context.Context, uuid.UUID, time.Time, time.Time) ([]reportstore.PaymentMethodSummary, error) {
 	return nil, errors.New("the summary query failed")
 }
 
-func (f *failAfterDetails) PaymentSummaryByCourt(context.Context, uuid.UUID, time.Time, time.Time) ([]data.PaymentCourtSummary, error) {
+func (f *failAfterDetails) PaymentSummaryByCourt(context.Context, uuid.UUID, time.Time, time.Time) ([]reportstore.PaymentCourtSummary, error) {
 	return nil, errors.New("the summary query failed")
 }
 
@@ -766,14 +766,14 @@ func TestABudgetExpiryDuringTheQueryIsNotAnInternalError(t *testing.T) {
 // queries, and this is what would notice if one of them stopped being.
 func TestTheExportCarriesTheCourtBreakdownAndThePreviousMonth(t *testing.T) {
 	reports := &stubReports{
-		summaries: []data.PaymentMethodSummary{
+		summaries: []reportstore.PaymentMethodSummary{
 			{Method: "cash", Count: 2, Amount: 100_000, ServiceFee: 0, Refunded: 0},
 		},
-		courtSummaries: []data.PaymentCourtSummary{
+		courtSummaries: []reportstore.PaymentCourtSummary{
 			{CourtID: "c1", CourtName: "Cancha 1", Count: 2, Amount: 100_000},
 			{CourtID: "c2", CourtName: "", Count: 1, Amount: 40_000},
 		},
-		details: []data.PaymentDetail{{ClientName: "Cliente 0"}},
+		details: []reportstore.PaymentDetail{{ClientName: "Cliente 0"}},
 	}
 	h := newTestHandler(reports)
 

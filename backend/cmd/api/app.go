@@ -44,7 +44,7 @@ import (
 // else the application needs is built inside the constructor from cfg alone.
 type deps struct {
 	logger *slog.Logger
-	// models is the full set of stores. All 16 are required — see
+	// models is the full set of stores. All 18 are required — see
 	// validateDeps.
 	models stores.Stores
 	// db backs the database health probe only; it MAY be nil (health then
@@ -57,7 +57,7 @@ type deps struct {
 	storage storage.ObjectStorage
 }
 
-// validateDeps checks that every store data.Models composes is present,
+// validateDeps checks that every store stores.Stores composes is present,
 // naming the ones that are not.
 //
 // This runs before any constructor below is called — the gap the checklist
@@ -86,6 +86,7 @@ func validateDeps(d deps) error {
 		{"models.WebhookEvents", d.models.WebhookEvents != nil},
 		{"models.SlotLocks", d.models.SlotLocks != nil},
 		{"models.Admin", d.models.Admin != nil},
+		{"models.Audit", d.models.Audit != nil},
 		{"models.Reports", d.models.Reports != nil},
 		{"models.Locks", d.models.Locks != nil},
 	}
@@ -266,8 +267,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 		queue = &memoryQueue{}
 	}
 
-	auditor := audit.NewRecorder(d.models.Admin, d.logger, app.background)
-	auditTrailHandler := audit.NewHandler(d.models.Admin, auditor, respond, cfg.trustedProxies)
+	auditor := audit.NewRecorder(d.models.Audit, d.logger, app.background)
+	auditTrailHandler := audit.NewHandler(d.models.Audit, auditor, respond, cfg.trustedProxies)
 
 	tokens := auth.NewTokenService(auth.TokenServiceConfig{
 		JWTSecret:    cfg.jwt.secret,
@@ -305,7 +306,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	})
 	reportingHandler := reporting.NewHandler(d.models.Bookings, d.models.Clients, d.models.Courts,
 		d.models.Complexes, d.models.Reports, respond)
-	adminHandler := admin.NewHandler(d.models.Admin, cache, auditor, respond, cfg.trustedProxies)
+	adminHandler := admin.NewHandler(d.models.Admin, d.models.Audit, cache, auditor, respond, cfg.trustedProxies)
 
 	var queues health.QueueReporter
 	if d.db != nil {

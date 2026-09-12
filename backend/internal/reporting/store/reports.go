@@ -1,10 +1,11 @@
-package data
+package store
 
 import (
 	"context"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // argentinaTZ is the zone the reporting period is anchored to. Payments are
@@ -58,15 +59,15 @@ type ReportStore interface {
 	ReportReader
 }
 
-// ReportModel implements ReportStore against PostgreSQL.
+// Store implements ReportStore against PostgreSQL.
 //
 // These two queries are aggregates spanning payments, bookings, courts and
 // clients. They live here rather than in a handler because handlers depend on
 // store interfaces, never on the connection pool — the export and the summary
 // endpoint previously issued this SQL themselves, and the summary query was
 // written out twice.
-type ReportModel struct {
-	DB *DB
+type Store struct {
+	DB *data.DB
 }
 
 // countedPaymentStatuses are the payment states that belong in a revenue
@@ -75,8 +76,8 @@ type ReportModel struct {
 const countedPaymentStatuses = `('deposit_paid', 'fully_paid', 'refunded', 'refund_pending')`
 
 // PaymentSummaryByMethod totals the period's payments per method.
-func (m *ReportModel) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -135,8 +136,8 @@ type PaymentCourtSummary struct {
 // money question — a court played in July and paid for in August earned that
 // money in August, and reading it any other way would put the per-court rows
 // at odds with every other figure on the report.
-func (m *ReportModel) PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentCourtSummary, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentCourtSummary, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -178,8 +179,8 @@ func (m *ReportModel) PaymentSummaryByCourt(ctx context.Context, complexID uuid.
 //
 // Unlike the summary it counts every status, because the export is a ledger:
 // an owner reconciling their month needs to see the failed attempts too.
-func (m *ReportModel) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentDetail, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentDetail, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `

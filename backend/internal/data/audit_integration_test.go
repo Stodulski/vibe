@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
+	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -52,7 +52,7 @@ func execModePool(t *testing.T) *pgxpool.Pool {
 // caller produces — a payload and no payload at all.
 func TestInsertAuditLogPersistsUnderQueryExecModeExec(t *testing.T) {
 	pool := execModePool(t)
-	model := &adminstore.Store{DB: data.NewDB(pool)}
+	model := &auditstore.Store{DB: data.NewDB(pool)}
 	ctx := context.Background()
 
 	action := "integration-audit-" + uuid.NewString()

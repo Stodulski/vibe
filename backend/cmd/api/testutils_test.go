@@ -102,6 +102,7 @@ func newTestApplicationWithNotifications(t *testing.T) (*application, *memoryQue
 			SlotLocks:         &mockSlotLockStore{},
 			Reports:           &mockReportStore{},
 			Admin:             &mockAdminStore{},
+			Audit:             &mockAuditStore{},
 			Locks:             &mockLockStore{},
 		},
 		// db and rdb stay nil: no database, in-memory blacklist/hub/limiter,

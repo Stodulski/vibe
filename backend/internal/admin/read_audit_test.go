@@ -10,6 +10,7 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/audit"
+	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 )
 
 // Every route in this module reads across tenants, and none of them used to
@@ -26,7 +27,7 @@ func seededStore() *stubStore {
 		userDetail: &adminstore.AdminUserDetail{},
 		complexes:  []*adminstore.AdminComplexRow{{ID: uuid.New()}},
 		cxDetail:   &adminstore.AdminComplexDetail{},
-		logs:       []*adminstore.AuditLogRow{{ID: uuid.New()}},
+		logs:       []*auditstore.AuditLogRow{{ID: uuid.New()}},
 	}
 }
 

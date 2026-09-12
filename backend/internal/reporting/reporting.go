@@ -16,8 +16,8 @@ import (
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 )
 
 // BookingReader is the booking side of the dashboard and charts.
@@ -49,9 +49,9 @@ type ScheduleReader interface {
 // PaymentReportReader supplies the monthly aggregates behind the report and
 // its export.
 type PaymentReportReader interface {
-	PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentMethodSummary, error)
-	PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentCourtSummary, error)
-	PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentDetail, error)
+	PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
+	PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
+	PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
 }
 
 // Handler serves the reporting routes.
