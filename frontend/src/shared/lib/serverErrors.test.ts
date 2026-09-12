@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getFieldErrors, translateServerError } from '@/shared/lib/serverErrors';
 import { getApiError } from '@/shared/lib/utils';

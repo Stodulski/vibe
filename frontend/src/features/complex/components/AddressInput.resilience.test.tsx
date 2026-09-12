@@ -1,5 +1,5 @@
 import { screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mockAutocompleteJson, mockDetailsJson, setup } from './address-input-test-helpers';
 
 // Finding M2: every autocomplete/details failure was swallowed by an empty

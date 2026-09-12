@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { buildTimeOptions, groupTimeOptions } from './timeOptions';
 import { needsCourtChoice } from './courtChoice';
 import type { AvailabilitySlot, CourtAvailability } from '@/shared/types/api.types';

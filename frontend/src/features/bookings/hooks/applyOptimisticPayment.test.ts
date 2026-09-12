@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { applyOptimisticPayment } from './applyOptimisticPayment';
 import { makeBooking } from '@/test/factories';
 import type { Booking } from '@/shared/types/api.types';

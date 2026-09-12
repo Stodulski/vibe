@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { OfflineBanner } from './OfflineBanner';
 

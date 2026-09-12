@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 // @vitest-environment node
 import { z } from 'zod';
 import {

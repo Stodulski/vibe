@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ComplexInfoRow } from './ComplexInfoRow';
 import type { PublicComplex } from '@/shared/types/api.types';

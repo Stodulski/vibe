@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 // @vitest-environment node
 import { availabilityDataSchema, availabilityEnvelopeSchema } from './availability.schema';
 

@@ -2,7 +2,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-
 /**
  * The security headers are a deploy-time contract, not application code: they
  * live in `vercel.json` and nothing in the bundle can observe them. This suite

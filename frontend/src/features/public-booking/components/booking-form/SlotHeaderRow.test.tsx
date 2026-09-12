@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SlotHeaderRow } from './SlotHeaderRow';
 import type { BookingSlotInfo } from './types';

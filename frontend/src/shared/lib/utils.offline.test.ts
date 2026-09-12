@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from 'vitest';
 // Default environment (happy-dom, see vitest.config.ts) — `utils.test.ts`
 // runs under `@vitest-environment node` and has no `navigator` to read, so
 // the `!navigator.onLine` branch of getHttpErrorMessage lives here instead.

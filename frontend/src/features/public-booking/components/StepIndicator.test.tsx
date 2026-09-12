@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { StepIndicator } from './StepIndicator';
 import { ES_AR } from '@/shared/i18n/es_AR';

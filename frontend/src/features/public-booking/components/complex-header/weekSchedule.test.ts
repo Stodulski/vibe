@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { buildWeekSchedule } from './weekSchedule';
 import type { Schedule } from '@/shared/types/api.types';
 

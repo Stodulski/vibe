@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { rateAt, findTotalPrice } from './pricing';
 import { makeCourt, makePrice } from '@/test/factories';
 import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';

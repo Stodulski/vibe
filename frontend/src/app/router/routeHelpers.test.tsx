@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 import { Suspense } from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { lazyRetry } from './routeHelpers';

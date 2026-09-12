@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { isValidElement } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import { router } from './router';

@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { cleanBookingPayload } from './cleanBookingPayload';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
 

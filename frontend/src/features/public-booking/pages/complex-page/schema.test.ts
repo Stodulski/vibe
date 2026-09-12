@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { buildComplexSchema, parseDateParam } from './schema';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
 

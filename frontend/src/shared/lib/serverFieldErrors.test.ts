@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 // @vitest-environment node
 import { HTTPError } from 'ky';
 import type { NormalizedOptions } from 'ky';

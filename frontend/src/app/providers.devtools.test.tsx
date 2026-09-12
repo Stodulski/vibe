@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@sentry/react', () => ({ captureException: vi.fn(), setUser: vi.fn() }));

@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Default environment (happy-dom, see vitest.config.ts) — unlike
 // sentry.test.ts, these tags need `window`/`navigator` to exist.
 const mockSetTag = vi.fn<(key: string, value: string) => void>();

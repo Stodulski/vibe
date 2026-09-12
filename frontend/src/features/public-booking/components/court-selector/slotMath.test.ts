@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { computeTotalPrice, getEndTime, getTimeGroup } from './slotMath';
 import type { CourtAvailability } from '@/shared/types/api.types';
 

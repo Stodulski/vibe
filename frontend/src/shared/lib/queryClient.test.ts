@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 // @vitest-environment node
 import { HTTPError, NetworkError, TimeoutError } from 'ky';
 import type { NormalizedOptions } from 'ky';

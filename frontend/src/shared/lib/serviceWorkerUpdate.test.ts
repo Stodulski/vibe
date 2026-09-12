@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { toast } from 'sonner';
 import type { registerSW } from 'virtual:pwa-register';
 import { ES_AR } from '@/shared/i18n/es_AR';

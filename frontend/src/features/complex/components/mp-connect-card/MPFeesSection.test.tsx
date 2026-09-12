@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
 import { MPFeesSection } from './MPFeesSection';
 

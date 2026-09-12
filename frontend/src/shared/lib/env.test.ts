@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { parseEnv } from './env';
 
 const APP_URL = 'https://app.example.com';

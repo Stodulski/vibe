@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // @vitest-environment node
 import { scrubEvent, scrubBreadcrumb } from './sentry';
 

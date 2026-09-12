@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ConnectAction } from './ConnectAction';
 import { ES_AR } from '@/shared/i18n/es_AR';
