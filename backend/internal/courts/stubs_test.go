@@ -162,6 +162,10 @@ func (s *stubStore) GetBlockedSlotsByCourtIDs(context.Context, []uuid.UUID, time
 	return s.blockedSlots, nil
 }
 
+func (s *stubStore) GetBlockedSlots(context.Context, uuid.UUID, time.Time) ([]*courtstore.BlockedSlot, error) {
+	return s.blockedSlots, nil
+}
+
 func (s *stubStore) DeleteBlockedSlot(_ context.Context, id uuid.UUID) error {
 	s.deletedBlocked = &id
 	return nil
@@ -236,7 +240,7 @@ func newTestHandlerWithAuditTrail(store *stubStore, bookings *stubBookings, comp
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	rec := audit.NewRecorder(table, logger, deferRun)
 
-	h := NewHandler(store, bookings, complexes, rec, httpx.NewResponder(logger), false)
+	h := NewHandler(NewService(store, bookings, complexes, rec), httpx.NewResponder(logger), false)
 	return h, table, func() {
 		for _, fn := range scheduled {
 			fn()
@@ -247,7 +251,7 @@ func newTestHandlerWithAuditTrail(store *stubStore, bookings *stubBookings, comp
 func newTestHandler(store *stubStore, bookings *stubBookings, complexes *stubComplexes) (*Handler, *stubRecorder) {
 	rec := &stubRecorder{}
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	return NewHandler(store, bookings, complexes, rec, responder, false), rec
+	return NewHandler(NewService(store, bookings, complexes, rec), responder, false), rec
 }
 
 // ownerRequest builds a request from the complex's authenticated owner, with

@@ -39,6 +39,9 @@ type Store interface {
 
 	InsertBlockedSlot(ctx context.Context, s *courtstore.BlockedSlot) error
 	GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*courtstore.BlockedSlot, error)
+	// GetBlockedSlots serves Service.GetBlockedSlots, which the booking domain
+	// reads this module through.
+	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
 	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error)
 	GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
 	DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error
@@ -63,23 +66,18 @@ type Recorder interface {
 	Record(e audit.Entry)
 }
 
-// Handler serves the court routes.
+// Handler serves the court routes. It decodes, validates, and maps the
+// service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
-	store        Store
-	bookings     BookingReader
-	complexes    ComplexReader
-	audit        Recorder
+	svc          *Service
 	respond      *httpx.Responder
 	trustProxies bool
 }
 
-// NewHandler returns a Handler backed by the given stores.
-func NewHandler(store Store, bookings BookingReader, complexes ComplexReader, recorder Recorder, respond *httpx.Responder, trustProxies bool) *Handler {
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Handler {
 	return &Handler{
-		store:        store,
-		bookings:     bookings,
-		complexes:    complexes,
-		audit:        recorder,
+		svc:          svc,
 		respond:      respond,
 		trustProxies: trustProxies,
 	}
@@ -107,21 +105,12 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/:id/blocked-slots/:slotID", owner(h.DeleteBlockedSlot))
 }
 
-// record writes an audit entry for a change to this complex's configuration.
-func (h *Handler) record(r *http.Request, complexID uuid.UUID, action, entityType string, entityID *uuid.UUID, oldVal, newVal any) {
+// actor reads who is making the change, and from where, off the request. It is
+// the only thing the audit trail needs that lives on the HTTP side.
+func (h *Handler) actor(r *http.Request) Actor {
 	var userID *uuid.UUID
 	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
 		userID = &user.ID
 	}
-
-	h.audit.Record(audit.Entry{
-		UserID:     userID,
-		ComplexID:  &complexID,
-		Action:     action,
-		EntityType: entityType,
-		EntityID:   entityID,
-		OldValue:   oldVal,
-		NewValue:   newVal,
-		IPAddress:  httpx.ClientIP(r, h.trustProxies),
-	})
+	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.trustProxies)}
 }

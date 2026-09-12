@@ -335,8 +335,13 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Respond: respond,
 	}, health.Config{Environment: cfg.env, Version: appVersion})
 
-	courtsHandler := courts.NewHandler(d.models.Courts, d.models.Bookings, d.models.Complexes,
-		auditor, respond, cfg.trustedProxies)
+	// Domain services hold the rules; the handlers below only decode, validate
+	// and map errors. A service is passed wherever another domain reads this
+	// one, so the entry point into a domain is its service rather than its
+	// store. The bookings and payments modules are the exception until their
+	// own services land: they still receive stores.
+	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, d.models.Complexes, auditor)
+	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.
