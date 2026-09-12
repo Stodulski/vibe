@@ -62,6 +62,13 @@ const apiProxy = {
 };
 
 export default defineConfig({
+  // Read once here (not per-request) and inlined as a string literal at
+  // build time, so `src/shared/lib/sentry.ts` can tag every event with the
+  // exact commit that produced the running bundle. Vercel sets this env var
+  // on every build; local dev and any other host fall back to `'dev'`.
+  define: {
+    APP_RELEASE: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'),
+  },
   plugins: [
     react(),
     tailwindcss(),

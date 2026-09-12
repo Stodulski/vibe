@@ -4,6 +4,13 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  // Mirrors vite.config.ts's own `define` for `APP_RELEASE`: that file
+  // isn't loaded here, so without this every test importing
+  // `src/shared/lib/sentry.ts` would hit a ReferenceError on the bare
+  // identifier.
+  define: {
+    APP_RELEASE: JSON.stringify('test'),
+  },
   test: {
     globals: true,
     environment: 'happy-dom',
