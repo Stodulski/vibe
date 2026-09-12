@@ -152,14 +152,17 @@ func Isolated(t *testing.T) *Fixture {
 	f := &Fixture{DB: handle, Stores: stores.NewOver(handle, stores.Config{Keys: CredentialKeyring(t)})}
 	f.seed(t)
 
+	// Re-wired over tenantPinnedTx now ComplexID is known: a store's own
+	// transaction (DB.Begin) that stamps a foreign tenant and commits would
+	// otherwise leave it in force for the rest of this transaction — see
+	// tx.go's restampingTx.
+	pinned := data.NewDBOverTx(savepointRunner{tx: tx}, tenantPinnedTx{Tx: tx, complexID: f.ComplexID.String()})
+	f.DB = pinned
+	f.Stores = stores.NewOver(pinned, stores.Config{Keys: CredentialKeyring(t)})
+
 	// The tenant scope the pool's checkout hook stamps in production, stamped
-	// once on this transaction instead: there is no checkout here, and a store
-	// that opens its own transaction re-stamps it as SET LOCAL inside a
-	// savepoint, which reverts to this when the savepoint ends.
-	if _, err := f.DB.Exec(f.Scoped(ctx),
-		`SELECT set_config('app.complex_id', $1, true), set_config('app.bypass_tenant', 'off', true)`,
-		f.ComplexID.String(),
-	); err != nil {
+	// once on this transaction instead: there is no checkout here.
+	if _, err := f.DB.Exec(f.Scoped(ctx), tenantStampSQL, f.ComplexID.String()); err != nil {
 		t.Fatalf("stamping the tenant scope on the fixture transaction: %v", err)
 	}
 

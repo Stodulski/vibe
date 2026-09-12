@@ -148,3 +148,42 @@ func (row savepointRow) Scan(dest ...any) error {
 func isNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
 }
+
+// tenantStampSQL is Isolated's initial stamp and restampingTx.Commit's
+// restamp: the same statement, on this fixture's tenant.
+const tenantStampSQL = `SELECT set_config('app.complex_id', $1, true), set_config('app.bypass_tenant', 'off', true)`
+
+// tenantPinnedTx wraps the fixture's outer transaction so DB.Begin's
+// savepoint (a store's own transaction) comes back as a restampingTx.
+type tenantPinnedTx struct {
+	pgx.Tx
+	complexID string
+}
+
+func (t tenantPinnedTx) Begin(ctx context.Context) (pgx.Tx, error) {
+	sp, err := t.Tx.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return restampingTx{Tx: sp, complexID: t.complexID}, nil
+}
+
+// restampingTx is a store's own transaction (data.DB.Begin SET LOCALs its
+// ctx's tenant here). RELEASE SAVEPOINT does not undo that — PostgreSQL keeps
+// it until the enclosing transaction ends (tx_integration_test.go confirms
+// this) — so a foreign-tenant store call would otherwise leak its tenant for
+// the rest of the fixture. Commit restamps the fixture's own tenant right
+// after; a rollback needs no fix, since PostgreSQL reverts the SET LOCAL with
+// it. Nested Begins are untouched: their SET LOCAL must outlive this savepoint.
+type restampingTx struct {
+	pgx.Tx
+	complexID string
+}
+
+func (t restampingTx) Commit(ctx context.Context) error {
+	if err := t.Tx.Commit(ctx); err != nil {
+		return err
+	}
+	_, err := t.Tx.Conn().Exec(ctx, tenantStampSQL, t.complexID)
+	return err
+}
