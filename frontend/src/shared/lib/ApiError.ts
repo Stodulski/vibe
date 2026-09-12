@@ -159,7 +159,16 @@ export class ApiError extends HTTPError {
   }
 }
 
-/** The `Problem` behind a failed request, or `undefined` if it isn't an `ApiError`. */
+/**
+ * The `Problem` behind a failed request, or `undefined` if there is none.
+ *
+ * An `ApiError` already carries one. A bare `HTTPError` is normalized on the
+ * spot: the calls that bypass the shared client (`auth/me`, `auth/refresh`)
+ * still throw one, and so does any caller that built its own — reading them
+ * too is what keeps every existing `HTTPError` path working.
+ */
 export function getProblem(error: unknown): Problem | undefined {
-  return error instanceof ApiError ? error.problem : undefined;
+  if (error instanceof ApiError) return error.problem;
+  if (error instanceof HTTPError) return normalizeProblem(error.data, error.response.status);
+  return undefined;
 }

@@ -155,8 +155,15 @@ describe('getProblem', () => {
     expect(getProblem(new ApiError(httpError(404, { error: 'not_found' })))?.title).toBe('not_found');
   });
 
-  it('answers undefined for anything else — a bare HTTPError, a timeout, a string', () => {
-    expect(getProblem(httpError(404, { error: 'not_found' }))).toBeUndefined();
+  // The calls that bypass the shared client (`auth/me`, `auth/refresh`) still
+  // throw a bare HTTPError, and so does any caller that built its own —
+  // reading those too is what keeps every pre-existing `HTTPError` path
+  // working after the `beforeError` hook was added.
+  it('normalizes a bare HTTPError on the spot', () => {
+    expect(getProblem(httpError(404, { error: 'not_found' }))?.title).toBe('not_found');
+  });
+
+  it('answers undefined for a failure that never carried a response', () => {
     expect(getProblem(new Error('boom'))).toBeUndefined();
     expect(getProblem('boom')).toBeUndefined();
   });
