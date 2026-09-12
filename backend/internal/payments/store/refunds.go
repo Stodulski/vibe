@@ -68,8 +68,16 @@ func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*Refun
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
+	// RetryTx rather than WithTx across the four money transactions in this
+	// file: each of them takes a payment or booking row under FOR UPDATE, and
+	// the booking write paths take the same rows in a different order, so 40P01
+	// is reachable and used to surface as a 500 on a refund. An aborted
+	// transaction left nothing behind and none of these four does anything
+	// outside its own transaction — the provider call happens between
+	// ClaimRefund and RecordRefundSuccess, not inside either — so replaying the
+	// unit cannot move money twice.
 	var claim *RefundClaim
-	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
 		locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(paymentID))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -229,7 +237,7 @@ func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, m
 	defer cancel()
 
 	var refundTotal int
-	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
 		locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(claim.PaymentID))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -366,7 +374,7 @@ func (m *Payments) RecordRefundFailure(ctx context.Context, claim RefundClaim, c
 	defer cancel()
 
 	var exhausted bool
-	err := m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, _ *db.Queries) error {
 		// Read under lock rather than from the claim: the retry budget belongs to the
 		// attempt row, and two workers reclaiming the same abandoned attempt must not
 		// both compute the same "next" retry count from the same stale copy.
@@ -459,7 +467,7 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 	defer cancel()
 
 	var returned int
-	err := m.DB.WithTx(ctx, func(_ pgx.Tx, qtx *db.Queries) error {
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(_ pgx.Tx, qtx *db.Queries) error {
 		locked, err := qtx.GetBookingByIDForUpdate(ctx, data.UUIDToPg(bookingID))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

@@ -257,7 +257,16 @@ func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	return m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+	// RetryTx rather than WithTx: this transaction takes the court-day advisory
+	// lock and then row locks (ReleaseStalePendingOverlaps, LockCourtLive), and
+	// the confirmation path reaches the same two objects. The lock ORDER is what
+	// keeps them from deadlocking and it stays the first line of defence — but
+	// when PostgreSQL does break a cycle it aborts one side with 40P01, and
+	// until now that side became a 500 for whoever was booking. Replaying the
+	// whole transaction is what PostgreSQL's own answer to a deadlock assumes
+	// the client will do. Nothing outside the transaction happens here, so a
+	// second run duplicates nothing.
+	return m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, _ *db.Queries) error {
 		return m.insertSafe(ctx, tx, b)
 	})
 }
