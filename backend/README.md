@@ -92,6 +92,7 @@ route that no longer exists, so the two cannot drift apart silently.
 | Variable | Purpose | Required | Default |
 |---|---|---|---|
 | `ENV` | Runtime environment: `development`, `staging`, or `production`. Production enforces stricter checks on `JWT_SECRET` and `BACKEND_URL`. | Optional | `development` |
+| `PORT` | HTTP port the API listens on. | Optional | `8080` |
 | `REDIS_URL` | Redis connection URL. | **Required**: the notification queue (email/WhatsApp) has no fallback; boot refuses to start without a reachable Redis. | none |
 
 ### Database
@@ -101,7 +102,11 @@ route that no longer exists, so the two cannot drift apart silently.
 | `DATABASE_URL` | PostgreSQL DSN. | **Required**: boot fails to open/ping the pool without it. | none |
 | `DB_AUTO_MIGRATE` | Apply pending migrations at startup, before serving. Prefer Railway's pre-deploy command over this when running more than one replica. | Optional | `false` |
 | `DB_MIGRATOR_URL` | DSN migrations run as, when different from `DATABASE_URL` (the schema-owner role). | Optional | falls back to `DATABASE_URL` |
+| `DB_MAX_OPEN_CONNS` | Maximum open PostgreSQL connections in the pool. | Optional | `25` |
+| `DB_MAX_IDLE_CONNS` | Maximum idle PostgreSQL connections kept in the pool. | Optional | `10` |
+| `DB_MAX_IDLE_TIME` | Maximum time a pooled connection may sit idle before it is closed (Go duration, e.g. `15m`). | Optional | `15m` |
 | `DB_STATEMENT_TIMEOUT` | Server-side `statement_timeout` (Go duration, e.g. `15s`). | Optional | `15s` |
+| `DB_SLOW_QUERY_THRESHOLD` | Log a warn line for any single query slower than this (Go duration); `0` disables it. | Optional | `500ms` |
 
 ### Auth
 
@@ -143,6 +148,7 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `BREVO_API_KEY` | Brevo transactional email API key. | Optional: SMTP is used as a fallback when empty. | `""` |
 | `BREVO_SENDER` | From address. | Optional | `Vibe <no-reply@vibe.com.ar>` |
 | `SMTP_HOST` | SMTP host, used only when `BREVO_API_KEY` is empty. | Optional | `""` |
+| `SMTP_PORT` | SMTP port, used only when `BREVO_API_KEY` is empty. | Optional | `587` |
 | `SMTP_USERNAME` | SMTP username. | Optional | `""` |
 | `SMTP_PASSWORD` | SMTP password. | Optional | `""` |
 
@@ -156,12 +162,20 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `R2_BUCKET_NAME` | R2 bucket name. | Optional | `vibe` |
 | `R2_PUBLIC_URL` | Public base URL for serving stored images. | Optional | `""` |
 
+### Limiter
+
+| Variable | Purpose | Required | Default |
+|---|---|---|---|
+| `LIMITER_ENABLED` | Enable the HTTP rate limiter. | Optional | `true` |
+| `LIMITER_RPS` | Rate limiter requests per second allowed. | Optional | `10` |
+| `LIMITER_BURST` | Rate limiter maximum burst size. | Optional | `20` |
+
 ### Observability
 
 | Variable | Purpose | Required | Default |
 |---|---|---|---|
 | `SENTRY_DSN` | Sentry DSN. | Optional: enables error tracking when set. | `""` |
-| `SENTRY_RELEASE` | Sentry release tag. | Optional | `vibe@1.0.0` |
+| `SENTRY_RELEASE` | Sentry release tag. | Optional | `""` (falls back to `vibe@<build version>` stamped by the Dockerfile) |
 | `PPROF_ENABLED` | Enable `pprof` profiling endpoints. | Optional | `false` |
 | `REQUEST_LOG_SAMPLE` | Log one successful request in N (failures and slow requests are never sampled away). | Optional | `1` |
 
@@ -178,6 +192,9 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `BOOKING_CANCELLATION_WINDOW` | Default cancellation window before game start. | Optional | `24h` |
 | `BOOKING_SLOT_LOCK_TTL` | TTL for slot locks during payment. Must be `>= BOOKING_PAYMENT_EXPIRY`, checked at boot. | Optional | `15m` |
 | `BOOKING_LINK_TOKEN_BUFFER` | Extra time past a booking's end during which its access link stays valid. | Optional | `24h` |
+| `FEATURE_FLAGS` | Comma-separated product feature flags: a bare name turns it on, `name=false` turns it off explicitly. | Optional | `""` (all flags off) |
+
+An environment variable that cannot be parsed — a number, a duration, a boolean — fails the boot, and every such error is reported together instead of one per restart.
 
 ## Folder structure
 
