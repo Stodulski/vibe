@@ -237,7 +237,7 @@ jobs:
       # job) already cover the Go source and its module graph; this covers
       # the OS packages actually shipped in the final image.
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: vibe-api:ci
           format: table
