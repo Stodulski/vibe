@@ -507,16 +507,16 @@ func TestTheForwardedAddressIsRecordedOnlyWhenProxiesAreTrusted(t *testing.T) {
 	}
 }
 
-// A handler built without a recorder is refused at construction rather than left
-// to fail at the first sign-in, in production, for everyone.
-func TestNewHandlerRefusesAHandlerWithNoRecorder(t *testing.T) {
+// A service built without a recorder is refused at construction rather than
+// left to fail at the first sign-in, in production, for everyone.
+func TestNewServiceRefusesAServiceWithNoRecorder(t *testing.T) {
 	defer func() {
 		if recover() == nil {
-			t.Fatal("a handler with no audit recorder was accepted; the first sign-in would panic instead of the deploy failing")
+			t.Fatal("a service with no audit recorder was accepted; the first sign-in would panic instead of the deploy failing")
 		}
 	}()
 
-	NewHandler(Dependencies{
+	NewService(Dependencies{
 		Users:  newStubUsers(),
 		Tokens: newStubTokens(),
 	}, Config{JWTSecret: testJWTSecret, PasswordHashCost: bcrypt.MinCost})

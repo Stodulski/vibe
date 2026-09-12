@@ -177,30 +177,19 @@ type Config struct {
 	TrustProxies bool
 }
 
-// Handler serves the auth routes.
+// Handler serves the auth routes. It decodes, validates, sets and clears the
+// session cookies, and maps the service's domain errors onto HTTP; every rule
+// lives in the Service.
 type Handler struct {
-	users         UserStore
-	tokens        TokenStore
-	tokenService  *TokenService
-	verifications VerificationStore
-	resets        PasswordResetStore
-	complexes     OwnershipReader
-	bookings      BookingReader
-	blacklist     Blacklist
-	notify        Notifier
-	cache         UserCache
-	audit         Recorder
-	turnstile     TurnstileVerifier
-	google        GoogleVerifier
-	identities    IdentityStore
-	respond       *httpx.Responder
-	logger        *slog.Logger
-	cfg           Config
+	svc     *Service
+	respond *httpx.Responder
+	logger  *slog.Logger
+	cfg     Config
 }
 
-// Dependencies groups what NewHandler needs. It is a struct because the list
-// is twelve long, and a positional call at that width is unreadable and easy
-// to mis-order between two values of the same type.
+// Dependencies groups what NewService needs. It is a struct because the list is
+// thirteen long, and a positional call at that width is unreadable and easy to
+// mis-order between two values of the same type.
 type Dependencies struct {
 	Users         UserStore
 	Tokens        TokenStore
@@ -225,57 +214,13 @@ type Dependencies struct {
 	Logger     *slog.Logger
 }
 
-// NewHandler returns a Handler.
-//
-// A nil recorder is refused here, as internal/payments refuses one, and for a
-// sharper version of the same reason. Every route in this module is reachable
-// by a stranger, so the first thing a nil recorder would break is sign-in — in
-// production, for everyone, and only once traffic arrived. Failing at
-// construction moves that discovery to the deploy that caused it.
-//
-// It is refused rather than made nil-safe. A trail that quietly drops entries
-// is the one kind of broken this table cannot survive: it still answers every
-// question and every answer is short, and "there is no record of a sign-in from
-// that address" then means nothing at all.
-func NewHandler(d Dependencies, cfg Config) *Handler {
-	if d.Audit == nil {
-		panic("auth: NewHandler needs an audit recorder; a session and credential trail is not optional")
-	}
-	turnstileVerifier := d.Turnstile
-	if turnstileVerifier == nil {
-		// A nil interface value cannot be asked Enabled() without a type
-		// check at every call site; disabledTurnstile makes "no verifier
-		// configured" and "verifier configured but reports disabled" the same
-		// code path everywhere below.
-		turnstileVerifier = disabledTurnstile{}
-	}
-	googleVerifier := d.Google
-	if googleVerifier == nil {
-		// Same reasoning as disabledTurnstile above.
-		googleVerifier = disabledGoogle{}
-	}
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, respond *httpx.Responder, logger *slog.Logger, cfg Config) *Handler {
 	return &Handler{
-		users:  d.Users,
-		tokens: d.Tokens,
-		tokenService: NewTokenService(TokenServiceConfig{
-			JWTSecret:    cfg.JWTSecret,
-			CookieDomain: cfg.CookieDomain,
-			Environment:  cfg.Environment,
-		}),
-		verifications: d.Verifications,
-		resets:        d.Resets,
-		complexes:     d.Complexes,
-		bookings:      d.Bookings,
-		blacklist:     d.Blacklist,
-		notify:        d.Notify,
-		cache:         d.Cache,
-		audit:         d.Audit,
-		turnstile:     turnstileVerifier,
-		google:        googleVerifier,
-		identities:    d.Identities,
-		respond:       d.Respond,
-		logger:        d.Logger,
-		cfg:           cfg,
+		svc:     svc,
+		respond: respond,
+		logger:  logger,
+		cfg:     cfg,
 	}
 }
 
