@@ -1,5 +1,22 @@
 // @vitest-environment node
-import { queryClient } from './queryClient';
+import { HTTPError, NetworkError, TimeoutError } from 'ky';
+import type { NormalizedOptions } from 'ky';
+
+const mockCaptureException = vi.fn<(...args: unknown[]) => void>();
+
+vi.mock('@sentry/react', () => ({
+  captureException: (...args: unknown[]) => {
+    mockCaptureException(...args);
+  },
+}));
+
+const { queryClient } = await import('./queryClient');
+
+function makeHttpError(status: number, url = 'https://api.vibe.com.ar/v1/bookings', headers?: HeadersInit) {
+  const response = new Response(null, { status, ...(headers ? { headers } : {}) });
+  const request = new Request(url);
+  return new HTTPError(response, request, {} as NormalizedOptions);
+}
 
 describe('queryClient', () => {
   it('is an instance of QueryClient', () => {
@@ -30,5 +47,53 @@ describe('queryClient', () => {
   it('has retry set to 0 for mutations', () => {
     const defaults = queryClient.getDefaultOptions();
     expect(defaults.mutations?.retry).toBe(0);
+  });
+});
+
+describe('queryClient error reporting', () => {
+  beforeEach(() => {
+    mockCaptureException.mockClear();
+  });
+
+  it('does not report an expected 401/403/404/422 HTTPError', () => {
+    for (const status of [401, 403, 404, 422]) {
+      queryClient.getQueryCache().config.onError?.(makeHttpError(status), {} as never);
+    }
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it('reports a 500 HTTPError with status, pathname and request_id tags', () => {
+    const error = makeHttpError(500, 'https://api.vibe.com.ar/v1/bookings?date=2026-03-18', {
+      'X-Request-Id': 'req-123',
+    });
+    queryClient.getQueryCache().config.onError?.(error, {} as never);
+    expect(mockCaptureException).toHaveBeenCalledWith(error, {
+      tags: { status: 500, pathname: '/v1/bookings', request_id: 'req-123' },
+    });
+  });
+
+  it('reports a 500 HTTPError without a request_id tag when the header is absent', () => {
+    const error = makeHttpError(500);
+    queryClient.getQueryCache().config.onError?.(error, {} as never);
+    expect(mockCaptureException).toHaveBeenCalledWith(error, {
+      tags: { status: 500, pathname: '/v1/bookings' },
+    });
+  });
+
+  it('reports a TimeoutError', () => {
+    const error = new TimeoutError(new Request('https://api.vibe.com.ar/v1/bookings'));
+    queryClient.getMutationCache().config.onError?.(error, {}, {}, {} as never, {} as never);
+    expect(mockCaptureException).toHaveBeenCalledWith(error);
+  });
+
+  it('reports a NetworkError', () => {
+    const error = new NetworkError(new Request('https://api.vibe.com.ar/v1/bookings'));
+    queryClient.getMutationCache().config.onError?.(error, {}, {}, {} as never, {} as never);
+    expect(mockCaptureException).toHaveBeenCalledWith(error);
+  });
+
+  it('does not report a schema mismatch or other plain error', () => {
+    queryClient.getQueryCache().config.onError?.(new Error('Invalid API response shape'), {} as never);
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 });
