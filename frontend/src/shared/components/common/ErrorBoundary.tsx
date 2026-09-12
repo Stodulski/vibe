@@ -26,7 +26,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo) {
-    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
+    Sentry.captureException(error, {
+      tags: { route: window.location.pathname },
+      extra: { componentStack: info.componentStack },
+    });
   }
 
   handleRetry = () => {
