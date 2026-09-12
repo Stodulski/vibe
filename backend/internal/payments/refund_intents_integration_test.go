@@ -5,56 +5,20 @@ package payments
 import (
 	"context"
 	"log/slog"
-	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
-	"github.com/stodulski/vibe-server/internal/stores"
 )
 
-// setupIntegrationDB opens a pool against DATABASE_URL, skipping the test
-// when it is unset — the same convention every integration suite in this
-// repository follows.
-func setupIntegrationDB(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		t.Skip("DATABASE_URL not set, skipping integration test")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	config, err := pgxpool.ParseConfig(dsn)
-	if err != nil {
-		t.Fatalf("parsing DSN: %v", err)
-	}
-	// Same exec mode as the production pool (cmd/api/main.go); see
-	// internal/data.setupTestDB for why the tests must not use the default.
-	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatalf("connecting to database: %v", err)
-	}
-	if err := pool.Ping(ctx); err != nil {
-		t.Fatalf("pinging database: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
-}
-
-// integrationFixture wires a payments.Handler whose Bookings, Payments,
+// integrationFixture wires a payments.Service whose Bookings, Payments,
 // RefundIntents and Complexes dependencies are the real, data-backed stores —
 // what SweepOrphanedRefundIntents and AutoRefundIfPaid actually read and
 // write. Everything else (Clients, Courts, FailedRefunds, WebhookEvents,
@@ -65,84 +29,43 @@ func setupIntegrationDB(t *testing.T) *pgxpool.Pool {
 // exactly the same "committed attempt, refused before the provider" shape
 // Phase 5's tests already exercise, here proven to also hold when the claim
 // came from the sweep rather than a request.
+//
+// It embeds datatest.Fixture: Isolated by default, since every test but the
+// concurrency one below drives the sweep sequentially and fits inside one
+// rolled-back transaction; Shared only for the test that races two real
+// goroutines against the database at once, which one transaction cannot do.
 type integrationFixture struct {
-	pool      *pgxpool.Pool
-	models    stores.Stores
-	service   *Service
-	complexID uuid.UUID
-	courtID   uuid.UUID
-	clientID  uuid.UUID
-}
-
-// Scoped returns ctx scoped to this fixture's tenant, which every store write
-// now requires — see data.AssertTenant.
-func (f *integrationFixture) Scoped(ctx context.Context) context.Context {
-	return data.ContextWithTenant(ctx, f.complexID)
+	*datatest.Fixture
+	service *Service
 }
 
 func newIntegrationFixture(t *testing.T) *integrationFixture {
 	t.Helper()
+	return buildIntegrationFixture(t, datatest.Isolated(t))
+}
 
-	pool := setupIntegrationDB(t)
-	ctx := context.Background()
-	suffix := uuid.NewString()
+// newSharedIntegrationFixture is for TestTwoConcurrentSweepsClaimTheOrphanExactlyOnce,
+// the one test that needs two genuinely concurrent database sessions.
+func newSharedIntegrationFixture(t *testing.T) *integrationFixture {
+	t.Helper()
+	return buildIntegrationFixture(t, datatest.Shared(t))
+}
 
-	f := &integrationFixture{pool: pool, models: stores.New(pool, stores.Config{PaymentExpiry: 15 * time.Minute})}
+func buildIntegrationFixture(t *testing.T, base *datatest.Fixture) *integrationFixture {
+	t.Helper()
 
-	var ownerID uuid.UUID
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
-		VALUES ($1, $2, 'Owner', 'Test', '+5491100000000', 'owner', true)
-		RETURNING id`,
-		"owner-"+suffix+"@example.test", []byte("not-a-real-hash"),
-	).Scan(&ownerID); err != nil {
-		t.Fatalf("creating owner: %v", err)
-	}
-
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO complexes (owner_id, name, slug, address, city, province, phone)
-		VALUES ($1, 'Test Complex', $2, 'Av. Siempreviva 742', 'Rosario', 'Santa Fe', '+5491100000001')
-		RETURNING id`,
-		ownerID, "test-complex-"+suffix,
-	).Scan(&f.complexID); err != nil {
-		t.Fatalf("creating complex: %v", err)
-	}
-
-	t.Cleanup(func() {
-		ctx := context.Background()
-		_, _ = pool.Exec(ctx, `DELETE FROM failed_refunds WHERE complex_id = $1`, f.complexID)
-		_, _ = pool.Exec(ctx, `DELETE FROM payments WHERE complex_id = $1`, f.complexID)
-		_, _ = pool.Exec(ctx, `DELETE FROM bookings WHERE complex_id = $1`, f.complexID)
-		_, _ = pool.Exec(ctx, `DELETE FROM clients WHERE complex_id = $1`, f.complexID)
-		_, _ = pool.Exec(ctx, `DELETE FROM courts WHERE complex_id = $1`, f.complexID)
-		_, _ = pool.Exec(ctx, `DELETE FROM complexes WHERE id = $1`, f.complexID)
-		_, _ = pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, ownerID)
-	})
-
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1') RETURNING id`,
-		f.complexID,
-	).Scan(&f.courtID); err != nil {
-		t.Fatalf("creating court: %v", err)
-	}
-
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO clients (complex_id, first_name, last_name, phone) VALUES ($1, 'Ana', 'Diaz', $2) RETURNING id`,
-		f.complexID, "+54911"+suffix[:8],
-	).Scan(&f.clientID); err != nil {
-		t.Fatalf("creating client: %v", err)
-	}
+	f := &integrationFixture{Fixture: base}
 
 	logger := slog.New(slog.NewTextHandler(&discard{}, nil))
 	f.service = NewService(Dependencies{
-		Payments:      f.models.Payments,
-		Bookings:      f.models.Bookings,
+		Payments:      f.Stores.Payments,
+		Bookings:      f.Stores.Bookings,
 		Clients:       &stubClients{},
-		Complexes:     f.models.Complexes,
+		Complexes:     f.Stores.Complexes,
 		Courts:        &stubCourts{},
 		FailedRefunds: &stubFailedRefunds{},
 		WebhookEvents: &stubWebhookEvents{},
-		RefundIntents: f.models.Bookings,
+		RefundIntents: f.Stores.Bookings,
 		Audit:         &stubRecorder{},
 		Locks:         &stubLocks{},
 		Provider:      &stubProvider{},
@@ -167,27 +90,27 @@ func (f *integrationFixture) createOrphan(t *testing.T) (*bookingstore.Booking, 
 	ctx := context.Background()
 
 	b := &bookingstore.Booking{
-		ComplexID: f.complexID, CourtID: f.courtID, ClientID: f.clientID,
+		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
 		Date:            time.Now().AddDate(0, 0, 7),
 		StartTime:       "18:00",
 		DurationMinutes: 90, Price: 500_000, DepositAmount: 150_000,
 		Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
 		RefundStatus: bookingstore.RefundStatusNone,
 	}
-	if err := f.models.Bookings.Insert(f.Scoped(ctx), b); err != nil {
+	if err := f.Stores.Bookings.Insert(f.Scoped(ctx), b); err != nil {
 		t.Fatalf("creating booking: %v", err)
 	}
 
 	mpPaymentID := "mp-" + uuid.NewString()
 	payment := &paymentstore.Payment{
-		BookingID: b.ID, ComplexID: f.complexID, Amount: 150_000, ServiceFee: 7_500,
+		BookingID: b.ID, ComplexID: f.ComplexID, Amount: 150_000, ServiceFee: 7_500,
 		Method: "mercadopago", Status: "deposit_paid", MPPaymentID: &mpPaymentID,
 	}
-	if err := f.models.Payments.Insert(f.Scoped(ctx), payment); err != nil {
+	if err := f.Stores.Payments.Insert(f.Scoped(ctx), payment); err != nil {
 		t.Fatalf("creating payment: %v", err)
 	}
 
-	if _, err := f.pool.Exec(ctx,
+	if _, err := f.DB.Exec(ctx,
 		`UPDATE bookings SET refund_intent_at = NOW() - INTERVAL '10 minutes' WHERE id = $1`, b.ID,
 	); err != nil {
 		t.Fatalf("backdating refund_intent_at: %v", err)
@@ -203,7 +126,7 @@ func (f *integrationFixture) createOrphan(t *testing.T) (*bookingstore.Booking, 
 // refunded twice). internal/data's TestTwoConcurrentSweepersOnlyOneClaimsAnOrphan
 // proves the compare-and-swap directly; this proves what depends on it.
 func TestTwoConcurrentSweepsClaimTheOrphanExactlyOnce(t *testing.T) {
-	f := newIntegrationFixture(t)
+	f := newSharedIntegrationFixture(t)
 	_, payment := f.createOrphan(t)
 
 	var start sync.WaitGroup
@@ -222,7 +145,7 @@ func TestTwoConcurrentSweepsClaimTheOrphanExactlyOnce(t *testing.T) {
 	done.Wait()
 
 	var attempts int
-	if err := f.pool.QueryRow(context.Background(),
+	if err := f.DB.QueryRow(context.Background(),
 		`SELECT COUNT(*) FROM failed_refunds WHERE payment_id = $1`, payment.ID,
 	).Scan(&attempts); err != nil {
 		t.Fatalf("counting queued attempts: %v", err)
@@ -270,19 +193,19 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 	// A booking cancelled while its payment was still in flight: the expiry
 	// cron got there first, and MercadoPago's approval is about to arrive.
 	booking := &bookingstore.Booking{
-		ComplexID: f.complexID, CourtID: f.courtID, ClientID: f.clientID,
+		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
 		Date:            time.Now().AddDate(0, 0, 7),
 		StartTime:       "20:00",
 		DurationMinutes: 90, Price: 500_000, DepositAmount: 150_000,
 		Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusUnpaid,
 		RefundStatus: bookingstore.RefundStatusNone,
 	}
-	if err := f.models.Bookings.Insert(f.Scoped(ctx), booking); err != nil {
+	if err := f.Stores.Bookings.Insert(f.Scoped(ctx), booking); err != nil {
 		t.Fatalf("creating the cancelled booking: %v", err)
 	}
 	// Read back rather than reusing the struct Insert filled: this is the shape
 	// the webhook has anyway — it always works from a booking it fetched.
-	booking, err := f.models.Bookings.GetByID(ctx, booking.ID)
+	booking, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
 	if err != nil {
 		t.Fatalf("reading the cancelled booking back: %v", err)
 	}
@@ -304,7 +227,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 	// what survives the process, not what the flow left on the heap.
 	var refundStatus string
 	var refundIntentAt *time.Time
-	if err := f.pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT refund_status, refund_intent_at FROM bookings WHERE id = $1`, booking.ID,
 	).Scan(&refundStatus, &refundIntentAt); err != nil {
 		t.Fatalf("reading the booking back: %v", err)
@@ -321,7 +244,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 
 	// Age the marker past the grace period, exactly as a real crash would have,
 	// and let the sweep do what it exists for.
-	if _, err := f.pool.Exec(ctx,
+	if _, err := f.DB.Exec(ctx,
 		`UPDATE bookings SET refund_intent_at = NOW() - INTERVAL '10 minutes' WHERE id = $1`, booking.ID,
 	); err != nil {
 		t.Fatalf("backdating the marker: %v", err)
@@ -333,7 +256,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 	// its attempt row and then refuses at sellerCredential — the attempt is the
 	// proof the orphan was found and claimed.
 	var attempts int
-	if err := f.pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM failed_refunds WHERE booking_id = $1`, booking.ID,
 	).Scan(&attempts); err != nil {
 		t.Fatalf("counting queued attempts: %v", err)

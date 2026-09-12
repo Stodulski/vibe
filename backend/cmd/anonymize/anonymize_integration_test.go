@@ -4,46 +4,25 @@ package main
 
 import (
 	"context"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // This is the one test that proves the two halves of the promise the runbook
 // makes to a person who asks to be removed: their identity is gone, and the
 // venue's books are not.
 
+// fixture embeds datatest.Fixture for its complex and court, adding only the
+// client, booking and payment this suite needs with fields (notes, email)
+// the generic fixture does not set.
 type fixture struct {
-	pool      *pgxpool.Pool
-	complexID uuid.UUID
+	*datatest.Fixture
 	clientID  uuid.UUID
 	bookingID uuid.UUID
 	paymentID uuid.UUID
-}
-
-func openPool(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		t.Skip("DATABASE_URL is not set, skipping")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	if err := pool.Ping(ctx); err != nil {
-		t.Fatalf("pinging: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
 }
 
 // newFixture seeds one venue with one client who has a booking carrying notes
@@ -51,87 +30,51 @@ func openPool(t *testing.T) *pgxpool.Pool {
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 
-	f := &fixture{pool: openPool(t)}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	f := &fixture{Fixture: datatest.Isolated(t)}
+	ctx := context.Background()
 
-	if _, err := f.pool.Exec(ctx, `SET app.bypass_tenant = 'on'`); err != nil {
+	if _, err := f.DB.Exec(ctx, `SET app.bypass_tenant = 'on'`); err != nil {
 		t.Fatalf("declaring the cross-tenant scope: %v", err)
 	}
 
 	suffix := uuid.NewString()
-	var ownerID uuid.UUID
 	mustScan := func(dst *uuid.UUID, query string, args ...any) {
 		t.Helper()
-		if err := f.pool.QueryRow(ctx, query, args...).Scan(dst); err != nil {
+		if err := f.DB.QueryRow(ctx, query, args...).Scan(dst); err != nil {
 			t.Fatalf("seeding: %v", err)
 		}
 	}
 
-	mustScan(&ownerID, `
-		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
-		VALUES ($1, $2, 'Owner', 'Anon', '+5491100000000', 'owner', true)
-		RETURNING id`, "anon-"+suffix+"@example.test", []byte("not-a-real-hash"))
-
-	mustScan(&f.complexID, `
-		INSERT INTO complexes (owner_id, name, slug, address, city, province, phone)
-		VALUES ($1, 'Anon Padel', $2, 'Av. Siempreviva 742', 'Rosario', 'Santa Fe', '+5491100000001')
-		RETURNING id`, ownerID, "anon-"+suffix)
-
-	var courtID uuid.UUID
-	mustScan(&courtID, `INSERT INTO courts (complex_id, name) VALUES ($1, 'Cancha 1') RETURNING id`, f.complexID)
-
 	mustScan(&f.clientID, `
 		INSERT INTO clients (complex_id, first_name, last_name, phone, email, notes)
 		VALUES ($1, 'Ana', 'Diaz', $2, $3, 'prefiere la cancha 2')
-		RETURNING id`, f.complexID, "+54911"+suffix[:8], "ana-"+suffix+"@example.test")
+		RETURNING id`, f.ComplexID, "+54911"+suffix[:8], "ana-"+suffix+"@example.test")
 
 	mustScan(&f.bookingID, `
 		INSERT INTO bookings (complex_id, court_id, client_id, date, start_time, duration_minutes, price, notes)
 		VALUES ($1, $2, $3, CURRENT_DATE + 120, '18:00', 90, 500000, 'Ana Diaz, llamar al +5491112345678')
-		RETURNING id`, f.complexID, courtID, f.clientID)
+		RETURNING id`, f.ComplexID, f.CourtID, f.clientID)
 
 	mustScan(&f.paymentID, `
 		INSERT INTO payments (booking_id, complex_id, amount, method, status)
 		VALUES ($1, $2, 150000, 'mercadopago', 'deposit_paid')
-		RETURNING id`, f.bookingID, f.complexID)
-
-	t.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
-		defer cleanupCancel()
-		if _, err := f.pool.Exec(cleanupCtx, `SET app.bypass_tenant = 'on'`); err != nil {
-			t.Errorf("cleaning up: %v", err)
-			return
-		}
-		for _, stmt := range []string{
-			`DELETE FROM payments WHERE complex_id = $1`,
-			`DELETE FROM booking_link_tokens WHERE complex_id = $1`,
-			`DELETE FROM bookings WHERE complex_id = $1`,
-			`DELETE FROM clients WHERE complex_id = $1`,
-			`DELETE FROM courts WHERE complex_id = $1`,
-			`DELETE FROM audit_log WHERE complex_id = $1`,
-			`DELETE FROM complexes WHERE id = $1`,
-		} {
-			if _, err := f.pool.Exec(cleanupCtx, stmt, f.complexID); err != nil {
-				t.Errorf("cleaning up (%s): %v", stmt, err)
-			}
-		}
-		if _, err := f.pool.Exec(cleanupCtx, `DELETE FROM users WHERE id = $1`, ownerID); err != nil {
-			t.Errorf("cleaning up the owner: %v", err)
-		}
-	})
+		RETURNING id`, f.bookingID, f.ComplexID)
 
 	return f
 }
 
 // inTx runs fn in its own transaction and commits, which is what -apply does.
+//
+// Backed by f.DB, this is a savepoint on the fixture's own outer transaction
+// rather than a second real one — see datatest.NewDBOverTx — so "commits"
+// here means only that the savepoint is released; the fixture's rollback at
+// the end of the test still undoes everything.
 func (f *fixture) inTx(t *testing.T, fn func(tx pgx.Tx) error) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	ctx := context.Background()
 
-	tx, err := f.pool.Begin(ctx)
+	tx, err := f.DB.Begin(ctx)
 	if err != nil {
 		t.Fatalf("opening the transaction: %v", err)
 	}
@@ -147,8 +90,7 @@ func (f *fixture) inTx(t *testing.T, fn func(tx pgx.Tx) error) {
 
 func TestAnonymizeErasesThePersonAndKeepsTheMoney(t *testing.T) {
 	f := newFixture(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	ctx := context.Background()
 
 	var result Result
 	f.inTx(t, func(tx pgx.Tx) error {
@@ -160,21 +102,21 @@ func TestAnonymizeErasesThePersonAndKeepsTheMoney(t *testing.T) {
 	if !result.ClientFound {
 		t.Fatal("the seeded client must be found")
 	}
-	if result.Complex != f.complexID {
-		t.Errorf("want complex %s; got %s", f.complexID, result.Complex)
+	if result.Complex != f.ComplexID {
+		t.Errorf("want complex %s; got %s", f.ComplexID, result.Complex)
 	}
 	if result.BookingNotesCleared != 1 {
 		t.Errorf("want one booking's notes cleared; got %d", result.BookingNotesCleared)
 	}
 
-	if _, err := f.pool.Exec(ctx, `SET app.bypass_tenant = 'on'`); err != nil {
+	if _, err := f.DB.Exec(ctx, `SET app.bypass_tenant = 'on'`); err != nil {
 		t.Fatalf("declaring the cross-tenant scope: %v", err)
 	}
 
 	// The identity is gone.
 	var firstName, lastName, phone string
 	var email, notes *string
-	err := f.pool.QueryRow(ctx,
+	err := f.DB.QueryRow(ctx,
 		`SELECT first_name, last_name, phone, email::text, notes FROM clients WHERE id = $1`, f.clientID,
 	).Scan(&firstName, &lastName, &phone, &email, &notes)
 	if err != nil {
@@ -195,7 +137,7 @@ func TestAnonymizeErasesThePersonAndKeepsTheMoney(t *testing.T) {
 
 	// So is the name and the number somebody typed onto the booking.
 	var bookingNotes *string
-	if err := f.pool.QueryRow(ctx, `SELECT notes FROM bookings WHERE id = $1`, f.bookingID).Scan(&bookingNotes); err != nil {
+	if err := f.DB.QueryRow(ctx, `SELECT notes FROM bookings WHERE id = $1`, f.bookingID).Scan(&bookingNotes); err != nil {
 		t.Fatalf("reading the booking back: %v", err)
 	}
 	if bookingNotes != nil {
@@ -207,7 +149,7 @@ func TestAnonymizeErasesThePersonAndKeepsTheMoney(t *testing.T) {
 	// row they point at now names nobody.
 	var bookingClient uuid.UUID
 	var price int
-	if err := f.pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT client_id, price FROM bookings WHERE id = $1`, f.bookingID).Scan(&bookingClient, &price); err != nil {
 		t.Fatalf("the booking must survive: %v", err)
 	}
@@ -217,7 +159,7 @@ func TestAnonymizeErasesThePersonAndKeepsTheMoney(t *testing.T) {
 
 	var amount int
 	var status string
-	if err := f.pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT amount, status::text FROM payments WHERE id = $1`, f.paymentID).Scan(&amount, &status); err != nil {
 		t.Fatalf("the payment must survive: %v", err)
 	}
@@ -231,8 +173,7 @@ func TestAnonymizeErasesThePersonAndKeepsTheMoney(t *testing.T) {
 // rather than a unique-constraint error on the placeholder phone.
 func TestAnonymizeIsIdempotent(t *testing.T) {
 	f := newFixture(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	ctx := context.Background()
 
 	for attempt := range 2 {
 		var result Result
@@ -255,8 +196,7 @@ func TestAnonymizeIsIdempotent(t *testing.T) {
 // asked" must not look the same in the record of the request.
 func TestAnonymizeReportsAnUnknownClient(t *testing.T) {
 	f := newFixture(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	ctx := context.Background()
 
 	var result Result
 	f.inTx(t, func(tx pgx.Tx) error {
