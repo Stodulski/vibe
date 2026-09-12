@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Label } from '@/shared/components/ui/label';
@@ -30,8 +30,59 @@ interface FormFieldProps {
   helpText?: ReactNode;
   /** Overrides the wrapper's vertical spacing (defaults to `space-y-1.5`). */
   className?: string;
-  /** The actual input/select/textarea element(s) — this component only owns label+error chrome. */
+  /**
+   * The actual form control. A single element gets `id`, `aria-invalid` and
+   * `aria-describedby` wired to this field automatically (see `wireControl`);
+   * anything else — several elements, a fragment, bare text — is rendered
+   * untouched and keeps whatever it declares itself.
+   */
   children: ReactNode;
+}
+
+/** The three attributes this component wires onto its control. */
+interface ControlA11yProps {
+  id?: string | undefined;
+  'aria-invalid'?: boolean | 'true' | 'false' | undefined;
+  'aria-describedby'?: string | undefined;
+  children?: ReactNode;
+}
+
+/**
+ * Connects the control to its label and its error message.
+ *
+ * These three attributes are what turn a red border into something a screen
+ * reader can report: `id` pairs the control with the `<label htmlFor>`,
+ * `aria-invalid` says it is rejected, and `aria-describedby` points at the
+ * message saying why. `FormField` computed the message's id and then left all
+ * three to the caller — so 14 of its 33 consumers simply never wrote them, and
+ * their errors were visible but not announced.
+ *
+ * Only a leaf is wired. Several fields hand this component a positioning
+ * wrapper — `<div className="relative">` around an icon and the real input —
+ * and giving the wrapper the `id` was actively harmful: the input inside
+ * already carried it, so two elements claimed one id, and HTML resolves
+ * `<label for>` to the FIRST element with that id and then labels nothing at
+ * all because a `<div>` is not labelable. The field became invisible to
+ * `getByLabel` and to a screen reader, which is what broke the settings E2E.
+ * An element with children of its own is therefore left alone: the control is
+ * somewhere inside it, and this component cannot tell which descendant it is.
+ *
+ * The child's own props still win. Every call site that already spells these
+ * out keeps behaving exactly as it did, and a control that manages its own
+ * `aria-describedby` (a field with help text as well as an error) is not
+ * overwritten. A component that forwards nothing to the DOM — a Radix `Select`
+ * root, whose attributes belong on its trigger — quietly ignores them, which
+ * is why those fields still wire their trigger themselves.
+ */
+function wireControl(children: ReactNode, htmlFor: string, errorId: string, hasError: boolean): ReactNode {
+  if (Children.count(children) !== 1 || !isValidElement<ControlA11yProps>(children)) return children;
+  // A wrapper, not the control — see above.
+  if (Children.count(children.props.children) > 0) return children;
+  return cloneElement(children, {
+    id: children.props.id ?? htmlFor,
+    'aria-invalid': children.props['aria-invalid'] ?? (hasError ? true : undefined),
+    'aria-describedby': children.props['aria-describedby'] ?? (hasError ? errorId : undefined),
+  });
 }
 
 /**
@@ -59,6 +110,7 @@ export function FormField({
   children,
 }: FormFieldProps) {
   const errorId = `${htmlFor}-error`;
+  const control = wireControl(children, htmlFor, errorId, !!error);
 
   return (
     <div className={className}>
@@ -83,10 +135,10 @@ export function FormField({
       )}
       {Icon ? (
         <IconInput icon={Icon} wrapperClassName="relative">
-          {children}
+          {control}
         </IconInput>
       ) : (
-        children
+        control
       )}
     </div>
   );
