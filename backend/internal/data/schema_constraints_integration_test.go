@@ -365,7 +365,7 @@ func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
 
 	// Through the real store, so the domain error the handler will see is proven
 	// too rather than only the constraint underneath it.
-	err := f.Stores.Courts.Insert(ctx, &courtstore.Court{
+	err := f.Stores.Courts.Insert(f.Scoped(ctx), &courtstore.Court{
 		ComplexID: f.ComplexID, Name: "Court 1", Sport: "padel", CourtType: "indoor",
 	})
 	if !errors.Is(err, courtstore.ErrDuplicateCourtName) {
@@ -624,7 +624,7 @@ func TestTheTransitionsTheMoneyPathsPerformStillGoThrough(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := f.CreateBooking(t, datatest.BookingOptions{
 				StartTime: "08:00", EndTime: "09:30",
-				Status: tt.from, CollectionStatus: tt.fromCollection, RefundStatus: tt.fromRefund,
+				Status: bookingstore.BookingStatus(tt.from), CollectionStatus: bookingstore.CollectionStatus(tt.fromCollection), RefundStatus: bookingstore.RefundStatus(tt.fromRefund),
 			})
 
 			err := exec(f, `

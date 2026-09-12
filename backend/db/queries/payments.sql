@@ -37,6 +37,10 @@ WHERE id = $6
 RETURNING *;
 
 -- name: GetPaymentByIDForUpdate :one
+-- Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+-- predicate is optional.
 SELECT * FROM payments
 WHERE id = $1
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid)
 FOR UPDATE;

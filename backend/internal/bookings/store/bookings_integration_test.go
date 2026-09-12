@@ -36,7 +36,7 @@ func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
 			booking := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
 			<-start
-			results[i] = f.Stores.Bookings.InsertSafe(context.Background(), booking)
+			results[i] = f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), booking)
 		}()
 	}
 
@@ -86,18 +86,18 @@ func TestInsertSafeRejectsAnOverlappingBooking(t *testing.T) {
 	ctx := context.Background()
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Stores.Bookings.InsertSafe(ctx, first); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
 
 	overlapping := f.NewBooking(datatest.BookingOptions{StartTime: "18:30", EndTime: "20:00"})
-	err := f.Stores.Bookings.InsertSafe(ctx, overlapping)
+	err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), overlapping)
 	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("a booking overlapping a live one must be refused with ErrSlotUnavailable; got %v", err)
 	}
 
 	adjacent := f.NewBooking(datatest.BookingOptions{StartTime: "19:30", EndTime: "21:00"})
-	if err := f.Stores.Bookings.InsertSafe(ctx, adjacent); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), adjacent); err != nil {
 		t.Errorf("a booking starting exactly when the previous one ends must be accepted: %v", err)
 	}
 }

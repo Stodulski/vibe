@@ -93,7 +93,7 @@ route that no longer exists, so the two cannot drift apart silently.
 |---|---|---|---|
 | `ENV` | Runtime environment: `development`, `staging`, or `production`. Production enforces stricter checks on `JWT_SECRET` and `BACKEND_URL`. | Optional | `development` |
 | `PORT` | HTTP port the API listens on. | Optional | `8080` |
-| `REDIS_URL` | Redis connection URL. | **Required**: the notification queue (email/WhatsApp) has no fallback; boot refuses to start without a reachable Redis. | none |
+| `REDIS_URL` | Redis connection URL. On Railway it must be the private-network host (`*.railway.internal`) — see the note under `DATABASE_URL`. | **Required**: the notification queue (email/WhatsApp) has no fallback; boot refuses to start without a reachable Redis. | none |
 
 ### HTTP server
 
@@ -110,20 +110,24 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 
 | Variable | Purpose | Required | Default |
 |---|---|---|---|
-| `DATABASE_URL` | PostgreSQL DSN. | **Required**: boot fails to open/ping the pool without it. | none |
+| `DATABASE_URL` | PostgreSQL DSN. On Railway both must resolve over the **project's private network** — a host ending in `.railway.internal`. A public host (`*.railway.app`, or anything else) sends every query, every session token and every queued notification across the internet, is billed as egress, and leaves the datastore reachable from outside the project. Boot warns once, to the log and to Sentry, when `ENV=production` and either host is not on the private network; it names the host and never the URL, because both carry a password. It is a warning and not a refusal because a self-hosted deployment has no `.railway.internal` to point at. | **Required**: boot fails to open/ping the pool without it. | none |
 | `DB_AUTO_MIGRATE` | Apply pending migrations at startup, before serving. Prefer Railway's pre-deploy command over this when running more than one replica. | Optional | `false` |
 | `DB_MIGRATOR_URL` | DSN migrations run as, when different from `DATABASE_URL` (the schema-owner role). | Optional | falls back to `DATABASE_URL` |
 | `DB_MAX_OPEN_CONNS` | Maximum open PostgreSQL connections in the pool. | Optional | `25` |
 | `DB_MAX_IDLE_CONNS` | Maximum idle PostgreSQL connections kept in the pool. | Optional | `10` |
 | `DB_MAX_IDLE_TIME` | Maximum time a pooled connection may sit idle before it is closed (Go duration, e.g. `15m`). | Optional | `15m` |
 | `DB_STATEMENT_TIMEOUT` | Server-side `statement_timeout` (Go duration, e.g. `15s`). | Optional | `15s` |
+| `DB_IDLE_IN_TX_TIMEOUT` | Server-side `idle_in_transaction_session_timeout` (Go duration). The case `statement_timeout` cannot see: a transaction that is open but running nothing holds its row locks, its pool connection and the vacuum horizon for as long as the client stays silent. `0` leaves the server's own setting alone. | Optional | `30s` |
 | `DB_SLOW_QUERY_THRESHOLD` | Log a warn line for any single query slower than this (Go duration); `0` disables it. | Optional | `500ms` |
 
 ### Auth
 
 | Variable | Purpose | Required | Default |
 |---|---|---|---|
-| `JWT_SECRET` | Secret used to sign JWTs. | **Required**: boot refuses to start if empty; in production must be at least 32 bytes and not look like a placeholder. | none |
+| `JWT_SECRET` | Secret used to sign JWTs: the **active** key. Every token this API mints names its key in the `kid` header, and a token that names no key is refused. | **Required**: boot refuses to start if empty; in production must be at least 32 bytes and not look like a placeholder. | none |
+| `JWT_KEY_ID` | Name the active key answers to in the `kid` header. Leave it empty and the name is a short digest of the secret, which is already unique per secret — set it only if you would rather read `k2` than a digest. | Optional | derived from `JWT_SECRET` |
+| `JWT_SECRET_PREVIOUS` | The key that was active before the last rotation. It **verifies and never signs**, so replacing `JWT_SECRET` does not end every live session. Rotating is two deploys: first move the current secret here and put the new one in `JWT_SECRET`, then remove this one once the longest-lived token minted under it has expired (30 days, the refresh-token window). Leaving it set indefinitely keeps a retired — possibly leaked — secret valid, which is what the rotation was for. | Optional | `""` (no rotation in flight) |
+| `JWT_KEY_ID_PREVIOUS` | Name the retired key answers to. Set it to whatever `JWT_KEY_ID` held while that key was active; leave it empty whenever `JWT_KEY_ID` was empty. Get this wrong and the tokens naming the old key stop verifying, which is exactly the outage `JWT_SECRET_PREVIOUS` exists to prevent. | Optional | derived from `JWT_SECRET_PREVIOUS` |
 | `MP_CREDENTIAL_KEYS` | AES-256 keyring encrypting stored MercadoPago credentials, format `kid:base64key[,kid:base64key...]` (each key decodes to 32 bytes). | **Required unconditionally**, even if MercadoPago is unused. | none |
 | `COOKIE_DOMAIN` | Domain scope for auth cookies (e.g. `.example.com`). | Optional | `""` (host-only cookie) |
 | `FRONTEND_URL` | Frontend origin, used for CORS and links in emails. | Optional | `http://localhost:5173` |
@@ -180,6 +184,8 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `LIMITER_ENABLED` | Enable the HTTP rate limiter. | Optional | `true` |
 | `LIMITER_RPS` | Rate limiter requests per second allowed. | Optional | `10` |
 | `LIMITER_BURST` | Rate limiter maximum burst size. | Optional | `20` |
+| `LIMITER_USER_RPS` | Requests per second allowed **per authenticated account**, counted on top of the per-address limits. It is what bounds one account driven from many addresses, which no address bucket can see; keep it looser than `LIMITER_RPS` so it does not become the binding limit for an ordinary signed-in user behind a NAT. | Optional | `20` |
+| `LIMITER_USER_BURST` | Maximum burst per authenticated account. | Optional | `40` |
 
 ### Observability
 
@@ -217,7 +223,7 @@ internal/db/       sqlc-generated code: do not edit manually
 internal/          Cross-cutting services: mailer, jobs, storage, whatsapp, mp, circuitbreaker...
 db/migrations/     Goose migrations (PostgreSQL)
 db/queries/        SQL consumed by sqlc, one file per entity
-docs/              Reference docs (WhatsApp templates, backup runbook, ADRs in docs/adr/)
+docs/              Reference docs (WhatsApp templates, backup and data-deletion runbooks, ADRs in docs/adr/)
 scripts/           Operational scripts (backup, e2e runner)
 tests/load/        Artillery load test scenarios
 ```
@@ -287,6 +293,7 @@ The client's Playwright suite runs from `.github/workflows/e2e.yml` via `make e2
 ## Operations
 
 - **Backups and restore**: [`docs/runbook-backups.md`](docs/runbook-backups.md) — what runs, where backups land, retention, and the step-by-step restore procedure.
+- **Somebody asks to be removed**: [`docs/runbook-data-deletion.md`](docs/runbook-data-deletion.md) — how to verify the request, what is anonymized versus kept and why, and `go run ./cmd/anonymize`. The venue owner can delete their own account (`DELETE /api/v1/auth/me`, which cascades); the final client who booked without one cannot, and this is their path.
 - **Log retention**: this service does not manage its own log storage — stdout/stderr go to whatever Railway's plan retains and shows under the service's **Observability**/**Logs** tab. Check the current plan's retention window there (or in Railway's pricing page) rather than assuming a number; it can change with the plan. Sampling on top of that (independent of Railway's retention) is `REQUEST_LOG_SAMPLE`, implemented in `internal/middleware/logging.go` — it logs one successful request in N, never sampling away failures or slow requests.
 - **R2 bucket policy** (`R2_PUBLIC_URL`, client-uploaded images): the bucket is public **by object key only** — anyone with a specific object's URL can read it, but the bucket does not expose listing, so an object's key has to already be known (it is not guessable: see `internal/storage`). Writes never go through the backend directly; the client uploads via a **presigned PUT** the backend issues, scoped to one object key. There is no presigned GET: reads are the plain public URL. This is a deliberate tradeoff (simplicity over per-read expiry), not an oversight — revisit if these images should ever need to stop being permanently public once linked.
 - **Timezone**: the process runs at `TZ=UTC`; the product's own wall-clock is a single hardcoded `America/Argentina/Buenos_Aires`. See [ADR 0005](docs/adr/0005-single-timezone.md).

@@ -69,7 +69,21 @@ type Querier interface {
 	// pending booking between the two configured values shows as free here and
 	// taken there (or the reverse). Both now read Config.PaymentExpiry once.
 	GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) ([]GetBookedSlotsRow, error)
-	GetBookingByID(ctx context.Context, id pgtype.UUID) (Booking, error)
+	//
+	// The tenant predicate is the explicit half of the isolation the row-level
+	// security policies enforce (db/migrations/001_init.sql). RLS is the guarantee;
+	// this is the statement saying out loud which tenant the row is supposed to
+	// belong to, so a lookup by id cannot reach across tenants even if a policy is
+	// ever relaxed, dropped, or bypassed for a path that did not need the bypass.
+	//
+	// It is optional, and the NULL branch is not a loophole: it is exactly the set
+	// of callers that legitimately have no tenant on the context — the cron sweeps,
+	// the superadmin console, the MercadoPago webhook resolving its payment, the
+	// public link resolving its booking. Those run under app.bypass_tenant, so RLS
+	// lets them through anyway and a mandatory predicate here would only break
+	// them. The store passes data.TenantFromContext's answer; a scoped caller gets
+	// the filter, a bypassed one is exactly where it was.
+	GetBookingByID(ctx context.Context, arg GetBookingByIDParams) (Booking, error)
 	// Locks the booking row for the duration of the enclosing transaction.
 	// The refund recorder reads status, notes and deposit_amount back under this
 	// lock and writes them straight through, so a concurrent booking update cannot
@@ -77,7 +91,9 @@ type Querier interface {
 	// serialization on this table now that the `version` counter is gone: it is
 	// held by the database for the whole transaction, which is what the counter
 	// only pretended to be.
-	GetBookingByIDForUpdate(ctx context.Context, id pgtype.UUID) (Booking, error)
+	//
+	// Tenant-scoped like GetBookingByID above, and optional for the same reason.
+	GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByIDForUpdateParams) (Booking, error)
 	GetBookingsByComplex(ctx context.Context, arg GetBookingsByComplexParams) ([]Booking, error)
 	GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourtParams) ([]Booking, error)
 	// GetBookingsForReminder2h returns the confirmed bookings whose game starts
@@ -96,7 +112,9 @@ type Querier interface {
 	// A window keyed to whenever the test suite happened to run is a window nobody
 	// can test at 23:00.
 	GetBookingsForReminder2h(ctx context.Context, now pgtype.Timestamptz) ([]Booking, error)
-	GetClientByID(ctx context.Context, id pgtype.UUID) (GetClientByIDRow, error)
+	// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+	// predicate is optional.
+	GetClientByID(ctx context.Context, arg GetClientByIDParams) (GetClientByIDRow, error)
 	GetClientByPhone(ctx context.Context, arg GetClientByPhoneParams) (GetClientByPhoneRow, error)
 	GetClientsByComplex(ctx context.Context, arg GetClientsByComplexParams) ([]Client, error)
 	// Reads active_complexes, not the table: this is the lookup behind the owner
@@ -132,7 +150,9 @@ type Querier interface {
 	// Reads active_courts: a court whose complex was soft-deleted is not a court
 	// anyone may book, edit or price, and filtering only on the court's own
 	// deleted_at missed exactly that case. See the soft-delete cascade in db/migrations/001_init.sql.
-	GetCourtByID(ctx context.Context, id pgtype.UUID) (ActiveCourt, error)
+	// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+	// predicate is optional.
+	GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (ActiveCourt, error)
 	GetCourtPrices(ctx context.Context, courtID pgtype.UUID) ([]CourtPrice, error)
 	// Ordered naturally rather than lexically: courts are almost always named
 	// "Cancha 1", "Cancha 2", ... "Cancha 10", and a plain ORDER BY name sorts
@@ -150,7 +170,9 @@ type Querier interface {
 	// without an explicit order the driver returns an arbitrary row. Prefer the MercadoPago
 	// row: it is the one carrying mp_payment_id, which the refund path needs.
 	GetPaymentByBookingID(ctx context.Context, bookingID pgtype.UUID) (Payment, error)
-	GetPaymentByIDForUpdate(ctx context.Context, id pgtype.UUID) (Payment, error)
+	// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+	// predicate is optional.
+	GetPaymentByIDForUpdate(ctx context.Context, arg GetPaymentByIDForUpdateParams) (Payment, error)
 	GetPaymentByMPID(ctx context.Context, mpPaymentID pgtype.Text) (Payment, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
 	GetSchedulesByComplex(ctx context.Context, complexID pgtype.UUID) ([]ComplexSchedule, error)
@@ -203,6 +225,7 @@ type Querier interface {
 	// writer rather than for the one query that remembered to check a counter —
 	// see the bookings section of db/migrations/001_init.sql for why the counter was removed.
 	UpdateBooking(ctx context.Context, arg UpdateBookingParams) (Booking, error)
+	// Tenant-scoped: see the note on GetClientByID for why the predicate is optional.
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	// H-14: an unconditional UPDATE let two concurrent edits race — each loads the
 	// row, applies its own fields, and writes every column back, so whichever

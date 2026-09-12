@@ -276,6 +276,19 @@ func main() {
 		}
 		logger.Warn("JWT_SECRET appears to be a placeholder, rotate it before going to production")
 	}
+	// A rotation in flight is worth one line at boot: it is the only way an
+	// operator can see, without decoding a token, that this instance is still
+	// accepting the old key — and forgetting to remove JWT_SECRET_PREVIOUS
+	// leaves a leaked secret valid indefinitely, which is the whole reason the
+	// rotation was started.
+	if cfg.JWT.SecretPrevious != "" {
+		if cfg.JWT.SecretPrevious == cfg.JWT.Secret {
+			logger.Warn("JWT_SECRET_PREVIOUS is the same secret as JWT_SECRET; no rotation is in flight")
+		} else {
+			logger.Info("a JWT key rotation is in flight: tokens signed with the previous key are still " +
+				"accepted; remove JWT_SECRET_PREVIOUS once the longest-lived token minted under it has expired")
+		}
+	}
 
 	// Required unconditionally, matching JWT_SECRET's unconditional
 	// requirement above — design.md's open question resolved against
@@ -290,6 +303,18 @@ func main() {
 		logger.Error("mp-credential-keys flag or MP_CREDENTIAL_KEYS env var is invalid", "error", err)
 		sentry.Flush(2 * time.Second)
 		os.Exit(1)
+	}
+
+	// Production only: outside it, a localhost database is the point.
+	if cfg.Env == "production" {
+		for _, warning := range publicNetworkWarnings(cfg) {
+			logger.Warn(warning)
+			// Also to Sentry, because a boot warning scrolls past in the deploy
+			// log exactly once and this one describes a standing condition
+			// rather than a moment. The message carries the host and nothing
+			// else — see publicNetworkWarnings.
+			sentry.CaptureMessage(warning)
+		}
 	}
 
 	if err := validateBootConfig(cfg, logger); err != nil {
@@ -313,14 +338,15 @@ func main() {
 	}
 
 	db, err := platformdb.Open(context.Background(), platformdb.Config{
-		DSN:                cfg.DB.DSN,
-		MaxOpenConns:       cfg.DB.MaxOpenConns,
-		MaxIdleConns:       cfg.DB.MaxIdleConns,
-		MaxIdleTime:        cfg.DB.MaxIdleTime,
-		StatementTimeout:   cfg.DB.StatementTimeout,
-		SlowQueryThreshold: cfg.DB.SlowQueryThreshold,
-		PrepareConn:        data.StampTenantScope,
-		Logger:             logger,
+		DSN:                      cfg.DB.DSN,
+		MaxOpenConns:             cfg.DB.MaxOpenConns,
+		MaxIdleConns:             cfg.DB.MaxIdleConns,
+		MaxIdleTime:              cfg.DB.MaxIdleTime,
+		StatementTimeout:         cfg.DB.StatementTimeout,
+		IdleInTransactionTimeout: cfg.DB.IdleInTxTimeout,
+		SlowQueryThreshold:       cfg.DB.SlowQueryThreshold,
+		PrepareConn:              data.StampTenantScope,
+		Logger:                   logger,
 	})
 	if err != nil {
 		logger.Error("failed to open database connection", "error", err)

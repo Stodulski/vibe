@@ -77,7 +77,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 			CollectionStatus: bookingstore.CollectionStatusUnpaid,
 			RefundStatus:     bookingstore.RefundStatusNone,
 		}
-		return b, f.Stores.Bookings.InsertSafe(ctx, b)
+		return b, f.Stores.Bookings.InsertSafe(f.Scoped(ctx), b)
 	}
 
 	// Control: an ordinary daytime booking that does not cross midnight. Its

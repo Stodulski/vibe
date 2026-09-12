@@ -110,6 +110,9 @@ func (m *Store) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityT
 // handed over: encoding moved to the caller's goroutine (internal/audit.Record)
 // so the snapshot is taken before anything can be scheduled against it.
 func (m *Store) InsertAuditLog(ctx context.Context, userID, complexID *uuid.UUID, action, entityType string, entityID *uuid.UUID, oldJSON, newJSON []byte, ipAddr string) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	var ip *netip.Addr
 	if ipAddr != "" {
 		if parsed, parseErr := netip.ParseAddr(ipAddr); parseErr == nil {

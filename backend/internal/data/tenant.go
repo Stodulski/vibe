@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // This file is how the tenant a request is acting for reaches the SQL session,
@@ -150,6 +151,63 @@ func TenantFromContext(ctx context.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return id, true
+}
+
+// AssertTenant refuses a write whose row does not belong to the tenant the
+// context is acting for.
+//
+// It exists because authorization in this application is decided entirely
+// outside the store: RequireComplexOwner compares the caller's account against
+// the complex in the URL, RequireRole checks a role, and the row-level security
+// policies enforce the result at the database. Every one of those is part of
+// the HTTP chain or downstream of it, so a caller that does not arrive through
+// that chain — a cron job, a queue worker, a new internal service, a handler
+// somebody wired without the guard — is authorized by nothing except the
+// policies. The policies are a good last line, but they answer with an empty
+// result rather than with a refusal, and a write they reject surfaces as a
+// silent no-op or as a constraint error nobody can read.
+//
+// So the store says it itself, in the one place every writer passes:
+//
+//   - a context carrying the bypass is allowed through. The bypass is not an
+//     absence of authorization; it is a declared list of routes with a reason
+//     each (internal/middleware.CrossTenantRoutes), and the sweeps and the
+//     webhook genuinely span tenants.
+//   - a context carrying a tenant must carry THIS row's tenant.
+//   - a context carrying neither is refused. That is the case this function is
+//     for: nobody scoped the caller, so nobody authorized it.
+//
+// ErrRecordNotFound rather than a permission error, matching what the handlers
+// already answer for a complex the caller does not own: a 403 would confirm
+// the row exists.
+func AssertTenant(ctx context.Context, complexID uuid.UUID) error {
+	if TenantBypassed(ctx) {
+		return nil
+	}
+	if tenant, ok := TenantFromContext(ctx); ok && tenant == complexID {
+		return nil
+	}
+	return ErrRecordNotFound
+}
+
+// TenantParam is the tenant on this context as a query parameter: the complex
+// id when there is one, and NULL when there is not.
+//
+// It is what the by-id queries take for their optional `complex_id = $2`
+// predicate (db/queries/bookings.sql and its three siblings). NULL is not a
+// hole in that filter: a context with no tenant is a cron sweep, the superadmin
+// console, the MercadoPago webhook or a public link — every one of them running
+// under the bypass, which the policies let through regardless — so a mandatory
+// predicate would break exactly those and protect nothing. What it adds is the
+// explicit half of the isolation for every caller that DOES have a tenant,
+// written where a human reading the query can see it rather than only in a
+// policy.
+func TenantParam(ctx context.Context) pgtype.UUID {
+	id, ok := TenantFromContext(ctx)
+	if !ok {
+		return pgtype.UUID{}
+	}
+	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
 // TenantBypassed reports whether this context is allowed to cross tenants.

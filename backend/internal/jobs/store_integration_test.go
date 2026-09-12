@@ -91,7 +91,7 @@ func TestOnlyOneWorkerClaimsAJob(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			claims[i], errs[i] = s.Claim(bypass(t), "worker-"+string(rune('a'+i)), 10)
+			claims[i], errs[i] = s.ClaimType(bypass(t), "worker-"+string(rune('a'+i)), jobType, 10)
 		}()
 	}
 	close(start)
@@ -137,7 +137,7 @@ func TestAClaimTakesOnlyDueJobs(t *testing.T) {
 	due := enqueue(t, s, ctx, jobType, map[string]int{"n": 1}, time.Time{}, 5, "")
 	later := enqueue(t, s, ctx, jobType, map[string]int{"n": 2}, time.Now().Add(time.Hour), 5, "")
 
-	claimed, err := s.Claim(ctx, "worker", 10)
+	claimed, err := s.ClaimType(ctx, "worker", jobType, 10)
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestAFailedAttemptComesBackOnItsBackoff(t *testing.T) {
 	ctx := bypass(t)
 	id := enqueue(t, s, ctx, jobType, map[string]string{"to": "ana@example.com"}, time.Time{}, 5, "")
 
-	if _, err := s.Claim(ctx, "worker", 10); err != nil {
+	if _, err := s.ClaimType(ctx, "worker", jobType, 10); err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
 	dead, err := s.Fail(ctx, id, "brevo: 502 bad gateway")
@@ -193,7 +193,7 @@ func TestAFailedAttemptComesBackOnItsBackoff(t *testing.T) {
 
 	// A second claim on the same tick must find nothing: the backoff is what
 	// stops a failing provider being hammered.
-	claimed, err := s.Claim(ctx, "worker", 10)
+	claimed, err := s.ClaimType(ctx, "worker", jobType, 10)
 	if err != nil {
 		t.Fatalf("Claim after the failure: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestAJobDeadLettersWhenItsBudgetIsSpent(t *testing.T) {
 	id := enqueue(t, s, ctx, jobType, map[string]string{"to": "ana@example.com"}, time.Time{}, 2, "")
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if _, err := s.Claim(ctx, "worker", 10); err != nil {
+		if _, err := s.ClaimType(ctx, "worker", jobType, 10); err != nil {
 			t.Fatalf("attempt %d: Claim: %v", attempt, err)
 		}
 		dead, err := s.Fail(ctx, id, "brevo: 502 bad gateway")
@@ -234,7 +234,7 @@ func TestAJobDeadLettersWhenItsBudgetIsSpent(t *testing.T) {
 		t.Fatalf("status after the budget was spent = %q, want %q", got.Status, jobs.StatusFailed)
 	}
 
-	claimed, err := s.Claim(ctx, "worker", 10)
+	claimed, err := s.ClaimType(ctx, "worker", jobType, 10)
 	if err != nil {
 		t.Fatalf("Claim after the dead letter: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestARefusedAttemptCostsNoAttempt(t *testing.T) {
 	ctx := bypass(t)
 	id := enqueue(t, s, ctx, jobType, map[string]string{"to": "ana@example.com"}, time.Time{}, 5, "")
 
-	if _, err := s.Claim(ctx, "worker", 10); err != nil {
+	if _, err := s.ClaimType(ctx, "worker", jobType, 10); err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
 	if err := s.Release(ctx, id, time.Now().Add(-time.Minute), "mp: circuit breaker is open"); err != nil {
@@ -300,7 +300,7 @@ func TestADedupKeyMakesASecondEnqueueANoOp(t *testing.T) {
 		t.Fatal("the second Enqueue under the same key recorded another job; the client gets two emails")
 	}
 
-	claimed, err := s.Claim(ctx, "worker", 10)
+	claimed, err := s.ClaimType(ctx, "worker", jobType, 10)
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestKeylessJobsDoNotDeduplicateEachOther(t *testing.T) {
 	enqueue(t, s, ctx, jobType, map[string]int{"n": 1}, time.Time{}, 5, "")
 	enqueue(t, s, ctx, jobType, map[string]int{"n": 2}, time.Time{}, 5, "")
 
-	claimed, err := s.Claim(ctx, "worker", 10)
+	claimed, err := s.ClaimType(ctx, "worker", jobType, 10)
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestAnAbandonedClaimIsReclaimed(t *testing.T) {
 	ctx := bypass(t)
 	id := enqueue(t, s, ctx, jobType, map[string]string{"to": "ana@example.com"}, time.Time{}, 5, "")
 
-	if _, err := s.Claim(ctx, "worker-that-died", 10); err != nil {
+	if _, err := s.ClaimType(ctx, "worker-that-died", jobType, 10); err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
 
@@ -416,7 +416,7 @@ func TestRetentionDeletesFinishedJobsAndNothingElse(t *testing.T) {
 	done := enqueue(t, s, ctx, jobType, map[string]int{"n": 1}, time.Time{}, 5, "")
 	pending := enqueue(t, s, ctx, jobType, map[string]int{"n": 2}, time.Now().Add(time.Hour), 5, "")
 
-	if _, err := s.Claim(ctx, "worker", 10); err != nil {
+	if _, err := s.ClaimType(ctx, "worker", jobType, 10); err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
 	if err := s.Complete(ctx, done); err != nil {

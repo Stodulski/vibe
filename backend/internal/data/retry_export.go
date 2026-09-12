@@ -31,3 +31,24 @@ type StatementRunner interface {
 func NewDBOver(r StatementRunner, sleep func(ctx context.Context, d time.Duration) error) *DB {
 	return &DB{r: retrier{db: r, sleep: sleep}}
 }
+
+// RetryTxLoop is RetryTx's retry policy over an opaque unit of work: which
+// errors earn another attempt, how many attempts there are, and how long the
+// waits between them last.
+//
+// Exported for the package's own external tests, which prove the policy against
+// a stand-in that fails on demand. Provoking a real 40001 or 40P01 out of
+// PostgreSQL takes two coordinated connections and a lock cycle, and a test
+// that has to build one to check "three attempts, then give up" is testing the
+// wrong thing.
+func RetryTxLoop(
+	ctx context.Context,
+	attempts int,
+	sleep func(ctx context.Context, d time.Duration) error,
+	run func(ctx context.Context) error,
+) error {
+	return retryTx(ctx, attempts, sleep, run)
+}
+
+// TxBackoffForTest is the wait retryTx takes before the attempt after this one.
+func TxBackoffForTest(attempt int) time.Duration { return txBackoff(attempt) }

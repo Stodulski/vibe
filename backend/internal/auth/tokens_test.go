@@ -377,3 +377,144 @@ func TestValidateAccessTokenVerifiesTheIssuer(t *testing.T) {
 		}
 	})
 }
+
+// signWith mints a token with the given claims and signing method, bypassing
+// the service's own minting so a test can produce what the service never
+// would: a token signed with the wrong algorithm, or one without an expiry.
+func signWith(t *testing.T, method jwt.SigningMethod, key any, claims jwt.Claims) string {
+	t.Helper()
+	signed, err := jwt.NewWithClaims(method, claims).SignedString(key)
+	if err != nil {
+		t.Fatalf("signing the fixture token: %v", err)
+	}
+	return signed
+}
+
+func TestValidateAccessTokenRefusesUnacceptableTokens(t *testing.T) {
+	svc := NewTokenService(TokenServiceConfig{JWTSecret: testJWTSecret, Environment: "test"})
+	now := time.Now()
+
+	base := func() jwt.RegisteredClaims {
+		return jwt.RegisteredClaims{
+			Subject:   uuid.New().String(),
+			Issuer:    jwtIssuer,
+			Audience:  jwt.ClaimStrings{jwtAudience},
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		}
+	}
+
+	t.Run("wrong signing method", func(t *testing.T) {
+		// "none" is the classic downgrade: a parser that reads the algorithm
+		// out of the header verifies nothing at all.
+		registered := base()
+		token := signWith(t, jwt.SigningMethodNone, jwt.UnsafeAllowNoneSignatureType,
+			Claims{RegisteredClaims: registered, Role: "owner"})
+
+		if _, err := svc.ValidateAccessToken(token); err == nil {
+			t.Fatal("expected an unsigned token to be refused")
+		}
+	})
+
+	t.Run("HS512 instead of HS256", func(t *testing.T) {
+		registered := base()
+		token := signWith(t, jwt.SigningMethodHS512, []byte(testJWTSecret),
+			Claims{RegisteredClaims: registered, Role: "owner"})
+
+		if _, err := svc.ValidateAccessToken(token); err == nil {
+			t.Fatal("expected a token signed with an algorithm outside the allowlist to be refused")
+		}
+	})
+
+	t.Run("missing expiry", func(t *testing.T) {
+		registered := base()
+		registered.ExpiresAt = nil
+		token := signWith(t, jwt.SigningMethodHS256, []byte(testJWTSecret),
+			Claims{RegisteredClaims: registered, Role: "owner"})
+
+		if _, err := svc.ValidateAccessToken(token); err == nil {
+			t.Fatal("expected a token without an expiry to be refused")
+		}
+	})
+
+	t.Run("wrong audience", func(t *testing.T) {
+		registered := base()
+		registered.Audience = jwt.ClaimStrings{"somebody-else"}
+		token := signWith(t, jwt.SigningMethodHS256, []byte(testJWTSecret),
+			Claims{RegisteredClaims: registered, Role: "owner"})
+
+		if _, err := svc.ValidateAccessToken(token); err == nil {
+			t.Fatal("expected a token minted for another audience to be refused")
+		}
+	})
+
+	t.Run("missing audience", func(t *testing.T) {
+		registered := base()
+		registered.Audience = nil
+		token := signWith(t, jwt.SigningMethodHS256, []byte(testJWTSecret),
+			Claims{RegisteredClaims: registered, Role: "owner"})
+
+		if _, err := svc.ValidateAccessToken(token); err == nil {
+			t.Fatal("expected a token without an audience to be refused")
+		}
+	})
+
+	t.Run("wrong issuer", func(t *testing.T) {
+		registered := base()
+		registered.Issuer = "somebody-else"
+		token := signWith(t, jwt.SigningMethodHS256, []byte(testJWTSecret),
+			Claims{RegisteredClaims: registered, Role: "owner"})
+
+		if _, err := svc.ValidateAccessToken(token); err == nil {
+			t.Fatal("expected a token from another issuer to be refused")
+		}
+	})
+}
+
+func TestGeneratedTokensCarryTheAudience(t *testing.T) {
+	svc := NewTokenService(TokenServiceConfig{JWTSecret: testJWTSecret, Environment: "test"})
+
+	access, err := svc.GenerateAccessToken(uuid.New(), "owner")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	claims, err := svc.ValidateAccessToken(access)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := []string(claims.Audience); len(got) != 1 || got[0] != jwtAudience {
+		t.Errorf("want access-token audience [%s]; got %v", jwtAudience, got)
+	}
+
+	profile, err := svc.GenerateProfileToken("google-sub", "a@example.com", "A", "B")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	profileClaims, err := svc.ValidateProfileToken(profile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := []string(profileClaims.Audience); len(got) != 1 || got[0] != jwtAudience {
+		t.Errorf("want profile-token audience [%s]; got %v", jwtAudience, got)
+	}
+}
+
+func TestValidateProfileTokenRefusesWrongAudience(t *testing.T) {
+	svc := NewTokenService(TokenServiceConfig{JWTSecret: testJWTSecret, Environment: "test"})
+	now := time.Now()
+
+	token := signWith(t, jwt.SigningMethodHS256, []byte(testJWTSecret), GoogleProfileClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   "google-sub",
+			Issuer:    jwtIssuer,
+			Audience:  jwt.ClaimStrings{"somebody-else"},
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)),
+		},
+		Purpose: googleProfilePurpose,
+	})
+
+	if _, err := svc.ValidateProfileToken(token); err == nil {
+		t.Fatal("expected a profile token minted for another audience to be refused")
+	}
+}

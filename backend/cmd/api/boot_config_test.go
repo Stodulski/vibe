@@ -194,3 +194,78 @@ func TestExportBudgetFor(t *testing.T) {
 		})
 	}
 }
+
+func TestPublicNetworkWarnings(t *testing.T) {
+	tests := []struct {
+		name  string
+		db    string
+		redis string
+		want  []string // substrings each warning must contain, in order
+	}{
+		{
+			name:  "both on the private network",
+			db:    "postgres://vibe:secret@postgres.railway.internal:5432/railway",
+			redis: "redis://default:secret@redis.railway.internal:6379",
+		},
+		{
+			name:  "the database is public",
+			db:    "postgres://vibe:secret@containers-us-west-1.railway.app:7432/railway",
+			redis: "redis://default:secret@redis.railway.internal:6379",
+			want:  []string{"DATABASE_URL"},
+		},
+		{
+			name:  "both are public",
+			db:    "postgres://vibe:secret@db.example.com:5432/vibe",
+			redis: "redis://cache.example.com:6379",
+			want:  []string{"DATABASE_URL", "REDIS_URL"},
+		},
+		{
+			name: "an unset URL is not a warning",
+			db:   "postgres://vibe:secret@postgres.railway.internal:5432/railway",
+		},
+		{
+			name: "an unparseable URL says so rather than passing",
+			db:   "://nonsense",
+			want: []string{"could not be parsed"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testConfig()
+			cfg.DB.DSN = tt.db
+			cfg.Redis.URL = tt.redis
+
+			got := publicNetworkWarnings(cfg)
+			if len(got) != len(tt.want) {
+				t.Fatalf("want %d warnings %v; got %d: %v", len(tt.want), tt.want, len(got), got)
+			}
+			for i, substr := range tt.want {
+				if !strings.Contains(got[i], substr) {
+					t.Errorf("warning %d should mention %q; got %q", i, substr, got[i])
+				}
+			}
+		})
+	}
+}
+
+// The two URLs carry a password each. A warning that quoted either of them
+// would put a production credential in the deploy log and in Sentry, which is
+// a worse outcome than the misconfiguration it is reporting.
+func TestPublicNetworkWarningsNeverQuoteTheURL(t *testing.T) {
+	cfg := testConfig()
+	cfg.DB.DSN = "postgres://vibe:hunter2@db.example.com:5432/vibe"
+	cfg.Redis.URL = "redis://default:swordfish@cache.example.com:6379"
+
+	warnings := publicNetworkWarnings(cfg)
+	if len(warnings) != 2 {
+		t.Fatalf("want 2 warnings; got %v", warnings)
+	}
+	for _, w := range warnings {
+		for _, leak := range []string{"hunter2", "swordfish", cfg.DB.DSN, cfg.Redis.URL} {
+			if strings.Contains(w, leak) {
+				t.Errorf("warning leaks %q: %s", leak, w)
+			}
+		}
+	}
+}

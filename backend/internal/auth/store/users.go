@@ -126,6 +126,9 @@ type Users struct {
 
 // Insert creates a new user, returning ErrDuplicateEmail if the email is already registered.
 func (m *Users) Insert(ctx context.Context, user *User) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbUser, err := m.Q.InsertUser(ctx, db.InsertUserParams{
 		Email:        user.Email,
 		PasswordHash: user.PasswordHash,
@@ -175,6 +178,9 @@ func (m *Users) GetByEmail(ctx context.Context, email string) (*User, error) {
 
 // GetByID returns the user with the given ID, or ErrRecordNotFound if none exists.
 func (m *Users) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbUser, err := m.Q.GetUserByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -188,6 +194,9 @@ func (m *Users) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 // Update persists changes to an existing user, returning ErrRecordNotFound if it no longer
 // exists or ErrDuplicateEmail if the new email is already registered to another user.
 func (m *Users) Update(ctx context.Context, user *User) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbUser, err := m.Q.UpdateUser(ctx, db.UpdateUserParams{
 		Email:     user.Email,
 		FirstName: user.FirstName,
@@ -232,16 +241,25 @@ func (m *Users) UpdatePassword(ctx context.Context, userID uuid.UUID, newHash []
 
 // SetEmailVerified marks the user's email address as verified.
 func (m *Users) SetEmailVerified(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.SetEmailVerified(ctx, data.UUIDToPg(userID))
 }
 
 // Delete permanently removes the user account.
 func (m *Users) Delete(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.DeleteUser(ctx, data.UUIDToPg(userID))
 }
 
 // DeleteUnverifiedStale deletes accounts that never verified their email within the retention window.
 func (m *Users) DeleteUnverifiedStale(ctx context.Context) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.DeleteUnverifiedStaleUsers(ctx)
 }
 

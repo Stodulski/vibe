@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -12,6 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/stodulski/vibe-server/internal/db"
 )
 
 // maxAttempts is how many times one statement is sent before the failure is
@@ -79,6 +82,43 @@ func (d *DB) Begin(ctx context.Context) (pgx.Tx, error) {
 		return nil, err
 	}
 	return tx, nil
+}
+
+// WithTx runs fn inside one transaction and commits it, or rolls it back.
+//
+// It is the only thing this package offers that Begin does not, and the reason
+// is that the three lines around every Begin — the wrapped error, the deferred
+// Rollback, the trailing Commit — were written out by hand at thirteen call
+// sites. Every one of them was correct, which is precisely the problem: the
+// invariant "no transaction is left open, on any path, including a panic" held
+// by thirteen people having remembered it rather than by construction, and the
+// fourteenth call site is the one that forgets.
+//
+// fn gets both handles it could want: the raw pgx.Tx, for the advisory locks
+// and the hand-written SQL, and a *db.Queries bound to that same transaction,
+// which is what the generated queries need. They are the same transaction —
+// db.New(tx) is exactly what q.WithTx(tx) produces.
+//
+// The deferred Rollback after a successful Commit is a no-op: pgx answers
+// ErrTxClosed, which is expected and discarded. On an error return it undoes
+// the work, and on a panic unwinding through here it undoes the work and lets
+// the panic continue — the connection goes back to the pool with no
+// transaction on it either way.
+//
+// fn's error is returned unwrapped. A store method's caller compares against
+// that package's sentinels, and a wrapper here would make every one of those
+// comparisons go through errors.Is for no benefit.
+func (d *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx, q *db.Queries) error) error {
+	tx, err := d.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := fn(tx, db.New(tx)); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // Exec runs a statement that returns no rows.

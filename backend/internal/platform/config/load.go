@@ -90,6 +90,9 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.DurationVar(&cfg.DB.StatementTimeout, "db-statement-timeout", 15*time.Second,
 		"PostgreSQL statement_timeout: the server-side backstop for a query no context managed to cancel "+
 			"(DB_STATEMENT_TIMEOUT)")
+	fs.DurationVar(&cfg.DB.IdleInTxTimeout, "db-idle-in-tx-timeout", 30*time.Second,
+		"PostgreSQL idle_in_transaction_session_timeout: the backstop for a transaction left open and idle; "+
+			"0 leaves the server's own setting alone (DB_IDLE_IN_TX_TIMEOUT)")
 	fs.DurationVar(&cfg.DB.SlowQueryThreshold, "db-slow-query-threshold", 500*time.Millisecond,
 		"Log a warn line for any single query slower than this; 0 disables it (DB_SLOW_QUERY_THRESHOLD)")
 	fs.BoolVar(&cfg.DB.AutoMigrate, "db-auto-migrate", false,
@@ -99,7 +102,15 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.BoolVar(&cfg.MigrateOnly, "migrate-only", false,
 		"Apply the embedded migration chain, print the status, and exit without starting the server")
 
-	fs.StringVar(&cfg.JWT.Secret, "jwt-secret", "", "JWT secret (JWT_SECRET)")
+	fs.StringVar(&cfg.JWT.Secret, "jwt-secret", "", "JWT signing secret, the active key (JWT_SECRET)")
+	fs.StringVar(&cfg.JWT.KeyID, "jwt-key-id", "",
+		"Name the active JWT key answers to in the token header; empty derives it from the secret (JWT_KEY_ID)")
+	fs.StringVar(&cfg.JWT.SecretPrevious, "jwt-secret-previous", "",
+		"Retired JWT signing secret, kept for verification only while a rotation is in flight "+
+			"(JWT_SECRET_PREVIOUS)")
+	fs.StringVar(&cfg.JWT.KeyIDPrevious, "jwt-key-id-previous", "",
+		"Name the retired JWT key answers to; repeat whatever JWT_KEY_ID held while it was active "+
+			"(JWT_KEY_ID_PREVIOUS)")
 
 	fs.StringVar(&cfg.MP.AccessToken, "mp-access-token", "", "MercadoPago access token (MP_ACCESS_TOKEN)")
 	fs.StringVar(&cfg.MP.WebhookSecret, "mp-webhook-secret", "", "MercadoPago webhook secret (MP_WEBHOOK_SECRET)")
@@ -144,6 +155,11 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.BoolVar(&cfg.Limiter.Enabled, "limiter-enabled", true, "Enable rate limiter (LIMITER_ENABLED)")
 	fs.Float64Var(&cfg.Limiter.RPS, "limiter-rps", 10, "Rate limiter requests per second (LIMITER_RPS)")
 	fs.IntVar(&cfg.Limiter.Burst, "limiter-burst", 20, "Rate limiter maximum burst (LIMITER_BURST)")
+	fs.Float64Var(&cfg.Limiter.UserRPS, "limiter-user-rps", 20,
+		"Rate limiter requests per second per authenticated account, on top of the per-address limit "+
+			"(LIMITER_USER_RPS)")
+	fs.IntVar(&cfg.Limiter.UserBurst, "limiter-user-burst", 40,
+		"Rate limiter maximum burst per authenticated account (LIMITER_USER_BURST)")
 
 	fs.DurationVar(&cfg.Booking.GracePeriod, "booking-grace-period", 15*time.Minute,
 		"Grace period for refund after booking creation (BOOKING_GRACE_PERIOD)")
@@ -195,10 +211,14 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.intVal("DB_MAX_IDLE_CONNS", &cfg.DB.MaxIdleConns, nonNegative)
 	env.durVal("DB_MAX_IDLE_TIME", &cfg.DB.MaxIdleTime, nonNegativeDur)
 	env.durVal("DB_STATEMENT_TIMEOUT", &cfg.DB.StatementTimeout, nonNegativeDur)
+	env.durVal("DB_IDLE_IN_TX_TIMEOUT", &cfg.DB.IdleInTxTimeout, nonNegativeDur)
 	env.durVal("DB_SLOW_QUERY_THRESHOLD", &cfg.DB.SlowQueryThreshold, nonNegativeDur)
 	env.boolVal("DB_AUTO_MIGRATE", &cfg.DB.AutoMigrate)
 
 	env.strVal("JWT_SECRET", &cfg.JWT.Secret)
+	env.strVal("JWT_KEY_ID", &cfg.JWT.KeyID)
+	env.strVal("JWT_SECRET_PREVIOUS", &cfg.JWT.SecretPrevious)
+	env.strVal("JWT_KEY_ID_PREVIOUS", &cfg.JWT.KeyIDPrevious)
 
 	env.strVal("MP_ACCESS_TOKEN", &cfg.MP.AccessToken)
 	env.strVal("MP_WEBHOOK_SECRET", &cfg.MP.WebhookSecret)
@@ -236,6 +256,8 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.boolVal("LIMITER_ENABLED", &cfg.Limiter.Enabled)
 	env.floatVal("LIMITER_RPS", &cfg.Limiter.RPS)
 	env.intVal("LIMITER_BURST", &cfg.Limiter.Burst, nonNegative)
+	env.floatVal("LIMITER_USER_RPS", &cfg.Limiter.UserRPS)
+	env.intVal("LIMITER_USER_BURST", &cfg.Limiter.UserBurst, nonNegative)
 	env.intVal("REQUEST_LOG_SAMPLE", &cfg.RequestLogSample, nonNegative)
 
 	env.durVal("BOOKING_GRACE_PERIOD", &cfg.Booking.GracePeriod, nonNegativeDur)

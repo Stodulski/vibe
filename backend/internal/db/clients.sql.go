@@ -21,7 +21,14 @@ SELECT
   ), 0)::int AS total_bookings
 FROM clients c
 WHERE c.id = $1
+  AND ($2::uuid IS NULL
+       OR c.complex_id = $2::uuid)
 `
+
+type GetClientByIDParams struct {
+	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
 
 type GetClientByIDRow struct {
 	ID            pgtype.UUID        `json:"id"`
@@ -38,8 +45,10 @@ type GetClientByIDRow struct {
 	TotalBookings int32              `json:"total_bookings"`
 }
 
-func (q *Queries) GetClientByID(ctx context.Context, id pgtype.UUID) (GetClientByIDRow, error) {
-	row := q.db.QueryRow(ctx, getClientByID, id)
+// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+// predicate is optional.
+func (q *Queries) GetClientByID(ctx context.Context, arg GetClientByIDParams) (GetClientByIDRow, error) {
+	row := q.db.QueryRow(ctx, getClientByID, arg.ID, arg.ComplexID)
 	var i GetClientByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -226,6 +235,8 @@ SET first_name = $1,
     notes = $5,
     is_blocked = $6
 WHERE id = $7
+  AND ($8::uuid IS NULL
+       OR complex_id = $8::uuid)
 RETURNING id, complex_id, first_name, last_name, phone, email, notes, is_blocked, total_bookings, no_shows, created_at, updated_at
 `
 
@@ -237,8 +248,10 @@ type UpdateClientParams struct {
 	Notes     pgtype.Text `json:"notes"`
 	IsBlocked bool        `json:"is_blocked"`
 	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
 }
 
+// Tenant-scoped: see the note on GetClientByID for why the predicate is optional.
 func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error) {
 	row := q.db.QueryRow(ctx, updateClient,
 		arg.FirstName,
@@ -248,6 +261,7 @@ func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (Cli
 		arg.Notes,
 		arg.IsBlocked,
 		arg.ID,
+		arg.ComplexID,
 	)
 	var i Client
 	err := row.Scan(

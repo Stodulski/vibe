@@ -249,9 +249,12 @@ const insertBookingAtAFreeHourSQL = `
 	RETURNING id`
 
 // TestABookingOfAnotherTenantIsInvisible is the finding this whole change
-// exists for. GetBookingByID is `WHERE id = $1`, with no tenant predicate, and
-// twelve handlers compare the row's complex_id by hand afterwards. This asks
-// what happens when the query runs anyway.
+// exists for. The by-id read used to be `WHERE id = $1` with no tenant
+// predicate at all, and twelve handlers compared the row's complex_id by hand
+// afterwards; it carries one now (005_tenant_columns.sql, TEN-01), and this
+// asks what the policies do when the query runs anyway. The predicate's own
+// half is proved with the policies switched off, in
+// tenant_columns_integration_test.go.
 func TestABookingOfAnotherTenantIsInvisible(t *testing.T) {
 	f := newRLSFixture(t)
 

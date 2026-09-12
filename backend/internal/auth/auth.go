@@ -185,8 +185,14 @@ type Recorder interface {
 
 // Config is what this module needs from application configuration.
 type Config struct {
-	// JWTSecret signs and verifies access tokens.
+	// JWTSecret signs and verifies access tokens: the active key.
 	JWTSecret string
+	// JWTKeyID, JWTSecretPrevious and JWTKeyIDPrevious are the rest of the
+	// signing keyring, passed straight through to TokenServiceConfig — see
+	// internal/auth/keyring.go for what a rotation looks like.
+	JWTKeyID          string
+	JWTSecretPrevious string
+	JWTKeyIDPrevious  string
 	// CookieDomain scopes the session cookies. Empty means host-only.
 	CookieDomain string
 	// Environment decides whether cookies are marked Secure; local development

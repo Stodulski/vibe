@@ -7,8 +7,12 @@ RETURNING *;
 -- Reads active_courts: a court whose complex was soft-deleted is not a court
 -- anyone may book, edit or price, and filtering only on the court's own
 -- deleted_at missed exactly that case. See the soft-delete cascade in db/migrations/001_init.sql.
+-- Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+-- predicate is optional.
 SELECT * FROM active_courts
-WHERE id = $1;
+WHERE id = $1
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid);
 
 -- name: GetCourtsByComplex :many
 -- Ordered naturally rather than lexically: courts are almost always named

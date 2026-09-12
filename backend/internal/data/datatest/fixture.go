@@ -16,6 +16,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/crypto"
+	"github.com/stodulski/vibe-server/internal/data"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
@@ -200,9 +201,9 @@ type BookingOptions struct {
 	// "19:30" reads as ninety minutes and "23:00" to "01:00" as two hours
 	// crossing midnight.
 	EndTime          string
-	Status           string
-	CollectionStatus string
-	RefundStatus     string
+	Status           bookingstore.BookingStatus
+	CollectionStatus bookingstore.CollectionStatus
+	RefundStatus     bookingstore.RefundStatus
 	Price            int
 	DepositAmount    int
 	// Public marks the booking as created by an anonymous visitor (created_by NULL).
@@ -284,12 +285,25 @@ func (f *Fixture) NewBooking(opts BookingOptions) *bookingstore.Booking {
 	return b
 }
 
+// Scoped returns ctx scoped to this fixture's tenant.
+//
+// Every write through a store now asserts that the context is acting for the
+// row's own complex (data.AssertTenant), which is the guarantee that stops a
+// caller outside the HTTP chain from writing another tenant's rows. A test is
+// exactly such a caller, so it has to say which tenant it is — and saying so is
+// not a concession to the check: a fixture that writes with no tenant declared
+// is a fixture the production configuration would refuse, because the policies
+// refuse it too (the suite only gets away with it by connecting as a superuser).
+func (f *Fixture) Scoped(ctx context.Context) context.Context {
+	return data.ContextWithTenant(ctx, f.ComplexID)
+}
+
 // CreateBooking inserts a booking through the real store and returns it.
 func (f *Fixture) CreateBooking(t *testing.T, opts BookingOptions) *bookingstore.Booking {
 	t.Helper()
 
 	b := f.NewBooking(opts)
-	if err := f.Stores.Bookings.Insert(context.Background(), b); err != nil {
+	if err := f.Stores.Bookings.Insert(f.Scoped(context.Background()), b); err != nil {
 		t.Fatalf("creating booking: %v", err)
 	}
 	return b
@@ -314,7 +328,7 @@ func (f *Fixture) CreatePayment(t *testing.T, bookingID uuid.UUID, amount, servi
 		Status:      "deposit_paid",
 		MPPaymentID: mpPaymentID,
 	}
-	if err := f.Stores.Payments.Insert(context.Background(), p); err != nil {
+	if err := f.Stores.Payments.Insert(f.Scoped(context.Background()), p); err != nil {
 		t.Fatalf("creating payment: %v", err)
 	}
 	return p
@@ -382,7 +396,7 @@ func (f *Fixture) ConfirmBooking(models stores.Stores, b *bookingstore.Booking) 
 		Method:     "mercadopago",
 		Status:     "deposit_paid",
 	}
-	return models.Payments.InsertAndConfirmBooking(context.Background(), payment, b)
+	return models.Payments.InsertAndConfirmBooking(f.Scoped(context.Background()), payment, b)
 }
 
 // CountBookings counts this fixture's bookings on its court in the given status.

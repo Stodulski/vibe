@@ -46,11 +46,20 @@ func (q *Queries) GetPaymentByBookingID(ctx context.Context, bookingID pgtype.UU
 const getPaymentByIDForUpdate = `-- name: GetPaymentByIDForUpdate :one
 SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail FROM payments
 WHERE id = $1
+  AND ($2::uuid IS NULL
+       OR complex_id = $2::uuid)
 FOR UPDATE
 `
 
-func (q *Queries) GetPaymentByIDForUpdate(ctx context.Context, id pgtype.UUID) (Payment, error) {
-	row := q.db.QueryRow(ctx, getPaymentByIDForUpdate, id)
+type GetPaymentByIDForUpdateParams struct {
+	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+// predicate is optional.
+func (q *Queries) GetPaymentByIDForUpdate(ctx context.Context, arg GetPaymentByIDForUpdateParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, getPaymentByIDForUpdate, arg.ID, arg.ComplexID)
 	var i Payment
 	err := row.Scan(
 		&i.ID,

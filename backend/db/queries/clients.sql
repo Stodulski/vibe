@@ -24,7 +24,11 @@ SELECT
     WHERE b.client_id = c.id AND b.status IN ('confirmed', 'completed', 'no_show')
   ), 0)::int AS total_bookings
 FROM clients c
-WHERE c.id = $1;
+-- Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+-- predicate is optional.
+WHERE c.id = $1
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR c.complex_id = sqlc.narg('complex_id')::uuid);
 
 -- name: GetClientsByComplex :many
 SELECT * FROM clients
@@ -34,6 +38,7 @@ ORDER BY created_at ASC, id ASC
 LIMIT $4;
 
 -- name: UpdateClient :one
+-- Tenant-scoped: see the note on GetClientByID for why the predicate is optional.
 UPDATE clients
 SET first_name = $1,
     last_name = $2,
@@ -42,6 +47,8 @@ SET first_name = $1,
     notes = $5,
     is_blocked = $6
 WHERE id = $7
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid)
 RETURNING *;
 
 -- name: IncrementNoShowCount :exec

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/stores"
@@ -71,6 +72,12 @@ type integrationFixture struct {
 	complexID uuid.UUID
 	courtID   uuid.UUID
 	clientID  uuid.UUID
+}
+
+// Scoped returns ctx scoped to this fixture's tenant, which every store write
+// now requires — see data.AssertTenant.
+func (f *integrationFixture) Scoped(ctx context.Context) context.Context {
+	return data.ContextWithTenant(ctx, f.complexID)
 }
 
 func newIntegrationFixture(t *testing.T) *integrationFixture {
@@ -167,7 +174,7 @@ func (f *integrationFixture) createOrphan(t *testing.T) (*bookingstore.Booking, 
 		Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
 		RefundStatus: bookingstore.RefundStatusNone,
 	}
-	if err := f.models.Bookings.Insert(ctx, b); err != nil {
+	if err := f.models.Bookings.Insert(f.Scoped(ctx), b); err != nil {
 		t.Fatalf("creating booking: %v", err)
 	}
 
@@ -176,7 +183,7 @@ func (f *integrationFixture) createOrphan(t *testing.T) (*bookingstore.Booking, 
 		BookingID: b.ID, ComplexID: f.complexID, Amount: 150_000, ServiceFee: 7_500,
 		Method: "mercadopago", Status: "deposit_paid", MPPaymentID: &mpPaymentID,
 	}
-	if err := f.models.Payments.Insert(ctx, payment); err != nil {
+	if err := f.models.Payments.Insert(f.Scoped(ctx), payment); err != nil {
 		t.Fatalf("creating payment: %v", err)
 	}
 
@@ -270,7 +277,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 		Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusUnpaid,
 		RefundStatus: bookingstore.RefundStatusNone,
 	}
-	if err := f.models.Bookings.Insert(ctx, booking); err != nil {
+	if err := f.models.Bookings.Insert(f.Scoped(ctx), booking); err != nil {
 		t.Fatalf("creating the cancelled booking: %v", err)
 	}
 	// Read back rather than reusing the struct Insert filled: this is the shape
@@ -283,7 +290,13 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 	mpPaymentID := "mp-" + uuid.NewString()
 	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_575.00}
 
-	if _, err := f.service.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID); err != nil {
+	// Under the tenant bypass, because that is what the MercadoPago webhook
+	// runs under: it is in middleware.CrossTenantRoutes by design, since it has
+	// to resolve which tenant a payment belongs to before it can be scoped to
+	// one. Calling the flow directly skips the middleware, so the test declares
+	// the same scope the route would have.
+	webhookCtx := data.ContextWithTenantBypass(ctx)
+	if _, err := f.service.recordPaymentOwedARefund(webhookCtx, booking, mpPayment, mpPaymentID); err != nil {
 		t.Fatalf("recording the payment owed a refund: %v", err)
 	}
 

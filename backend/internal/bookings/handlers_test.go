@@ -31,7 +31,7 @@ func TestCancelRefusesASettledBooking(t *testing.T) {
 			f := newFixture(t)
 			complexID := uuid.New()
 			booking := futureBooking(complexID)
-			booking.Status = status
+			booking.Status = bookingstore.BookingStatus(status)
 			f.store.booking = booking
 			f.linkResolver.booking = booking
 
@@ -298,7 +298,7 @@ func TestUpdateGuardsThePartialRefundTransition(t *testing.T) {
 				if w.Code != http.StatusOK {
 					t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
 				}
-				if len(f.store.updated) != 1 || f.store.updated[0].RefundStatus != tt.target {
+				if len(f.store.updated) != 1 || f.store.updated[0].RefundStatus != bookingstore.RefundStatus(tt.target) {
 					t.Errorf("want the booking written with refund_status %q; got %+v", tt.target, f.store.updated)
 				}
 			} else {
@@ -378,9 +378,9 @@ func TestManualRefundRefusesWhenNothingIsOwed(t *testing.T) {
 			f := newFixture(t)
 			complexID := uuid.New()
 			booking := futureBooking(complexID)
-			booking.Status = tt.status
-			booking.CollectionStatus = tt.collectionStatus
-			booking.RefundStatus = tt.refundStatus
+			booking.Status = bookingstore.BookingStatus(tt.status)
+			booking.CollectionStatus = bookingstore.CollectionStatus(tt.collectionStatus)
+			booking.RefundStatus = bookingstore.RefundStatus(tt.refundStatus)
 			f.store.booking = booking
 			f.linkResolver.booking = booking
 
@@ -1293,7 +1293,7 @@ func TestPublicCancelRefusesASettledBooking(t *testing.T) {
 			f := newFixture(t)
 			complexID := uuid.New()
 			booking := futureBooking(complexID)
-			booking.Status = status
+			booking.Status = bookingstore.BookingStatus(status)
 			f.store.booking = booking
 			f.linkResolver.booking = booking
 			f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}

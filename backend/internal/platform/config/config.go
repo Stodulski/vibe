@@ -126,6 +126,12 @@ type DB struct {
 	// pool connection for as long as it likes. With 25 connections, a handful
 	// of those is the whole instance.
 	StatementTimeout time.Duration
+	// IdleInTxTimeout is idle_in_transaction_session_timeout: the backstop for
+	// a transaction that is open but not running anything. statement_timeout
+	// above cannot see that case — there is no statement — so a client that
+	// opened a transaction and then stopped talking holds its row locks, its
+	// pool connection and the vacuum horizon indefinitely.
+	IdleInTxTimeout time.Duration
 	// SlowQueryThreshold is the duration past which a single query earns a
 	// warn line of its own. Without it a slow query is only visible
 	// indirectly, as a request that crossed the HTTP logger's own threshold.
@@ -142,8 +148,24 @@ type DB struct {
 }
 
 // JWT is the access-token signing configuration.
+//
+// Two secrets rather than one, so the signing key can be rotated without
+// ending every live session: Secret signs and verifies, SecretPrevious only
+// verifies. Every token names the key that signed it, so a deployment carrying
+// both accepts tokens from either. See internal/auth/keyring.go for the
+// rotation procedure.
 type JWT struct {
 	Secret string
+	// KeyID names the active key in the token header. Empty derives a short
+	// digest of the secret, which is what a deployment that never sets this
+	// gets and is already enough to tell two secrets apart.
+	KeyID string
+	// SecretPrevious is the retired key, kept until the longest-lived token
+	// minted under it has expired. Empty means no rotation is in flight.
+	SecretPrevious string
+	// KeyIDPrevious names the retired key. Set it to whatever KeyID held while
+	// that key was active; leave it empty whenever KeyID was empty.
+	KeyIDPrevious string
 }
 
 // MP is the MercadoPago platform account's configuration.
@@ -211,6 +233,14 @@ type Limiter struct {
 	// valid, if severe, setting: it rejects every request under that ceiling
 	// instead of relaxing the limit.
 	Burst int
+	// UserRPS and UserBurst shape the ceiling keyed on the authenticated
+	// account rather than on the address. It is deliberately looser than the
+	// general one: a signed-in owner behind a corporate NAT already shares the
+	// address bucket with everyone else there, so this must not become the
+	// binding limit for ordinary use. What it bounds is the case the address
+	// bucket cannot see at all — one account driven from many addresses.
+	UserRPS   float64
+	UserBurst int
 }
 
 // Booking holds the booking domain's time windows.

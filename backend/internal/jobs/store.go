@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/db"
 )
 
 // jobColumns is the projection every read below shares, so a column added to
@@ -116,6 +117,41 @@ func (s *Store) Claim(ctx context.Context, worker string, limit int) ([]*Job, er
 	return scanJobs(rows)
 }
 
+// ClaimType is Claim narrowed to one job type.
+//
+// Claim's own contract is deliberately type-blind — every production worker
+// drains the whole table, and an unregistered type simply drops back out
+// through Pool's Release path (pool.go). This exists for a caller that must
+// not depend on that: the integration suite shares one database across every
+// package and test that touches this table, so a fixed-limit Claim can be
+// filled entirely by another test's backlog before it ever reaches the rows
+// this caller enqueued. Nothing in production calls this; Claim keeps its
+// contract unchanged.
+func (s *Store) ClaimType(ctx context.Context, worker, jobType string, limit int) ([]*Job, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := s.DB.Query(ctx, `
+		UPDATE jobs SET
+			status = 'processing',
+			locked_at = NOW(),
+			locked_by = $1,
+			attempts = attempts + 1
+		WHERE id IN (
+			SELECT id FROM jobs
+			WHERE status = 'pending' AND run_at <= NOW() AND type = $3
+			ORDER BY run_at
+			FOR UPDATE SKIP LOCKED
+			LIMIT $2
+		)
+		RETURNING `+jobColumns, worker, limit, jobType)
+	if err != nil {
+		return nil, fmt.Errorf("claim jobs of type %s: %w", jobType, err)
+	}
+	defer rows.Close()
+	return scanJobs(rows)
+}
+
 // Complete acknowledges a job. It is detached from the caller's cancellation
 // for the reason every closing write in this repository is: the moment it
 // matters most is the moment the caller's budget is spent, and a skipped
@@ -149,40 +185,37 @@ func (s *Store) Fail(ctx context.Context, id uuid.UUID, cause string) (bool, err
 	ctx, cancel := data.TxContext(context.WithoutCancel(ctx))
 	defer cancel()
 
-	tx, err := s.DB.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin job failure: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var attempts, maxAttempts int
-	err = tx.QueryRow(ctx,
-		`SELECT attempts, max_attempts FROM jobs WHERE id = $1 FOR UPDATE`, id,
-	).Scan(&attempts, &maxAttempts)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, data.ErrRecordNotFound
+	var dead bool
+	err := s.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		var attempts, maxAttempts int
+		err := tx.QueryRow(ctx,
+			`SELECT attempts, max_attempts FROM jobs WHERE id = $1 FOR UPDATE`, id,
+		).Scan(&attempts, &maxAttempts)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("lock job: %w", err)
 		}
-		return false, fmt.Errorf("lock job: %w", err)
-	}
 
-	dead := attempts >= maxAttempts
-	status := StatusPending
-	if dead {
-		status = StatusFailed
-	}
+		dead = attempts >= maxAttempts
+		status := StatusPending
+		if dead {
+			status = StatusFailed
+		}
 
-	if _, err = tx.Exec(ctx, `
+		if _, err = tx.Exec(ctx, `
 		UPDATE jobs
 		SET status = $2, last_error = $3, run_at = $4, locked_at = NULL, locked_by = NULL
 		WHERE id = $1`,
-		id, status, cause, time.Now().Add(Backoff(s.Backoff, attempts)),
-	); err != nil {
-		return false, fmt.Errorf("requeue job: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit job failure: %w", err)
+			id, status, cause, time.Now().Add(Backoff(s.Backoff, attempts)),
+		); err != nil {
+			return fmt.Errorf("requeue job: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
 	}
 	return dead, nil
 }

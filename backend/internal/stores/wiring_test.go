@@ -106,3 +106,103 @@ func TestAHandWrittenWriteIsNotRepeated(t *testing.T) {
 		t.Fatalf("Locks.TryAdvisory was sent %d times; the lease may already be taken", r.calls)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Every statement carries a deadline
+// ---------------------------------------------------------------------------
+
+// deadlineRunner answers every statement with the same retryable failure the
+// counting one does, and records whether the context that reached it had a
+// deadline.
+//
+// The question matters because nothing else bounds these queries end to end. No
+// http.TimeoutHandler puts a deadline on a request, so a store method that
+// passes the caller's context straight to the query runs with whatever budget
+// the caller happened to have — usually none — and the only remaining limit is
+// the server's statement_timeout, which is fifteen seconds and is the backstop
+// rather than the budget.
+type deadlineRunner struct {
+	statements   int
+	withDeadline int
+}
+
+func (r *deadlineRunner) record(ctx context.Context) error {
+	r.statements++
+	if _, ok := ctx.Deadline(); ok {
+		r.withDeadline++
+	}
+	return &pgconn.PgError{Code: "08006", Message: "connection failure"}
+}
+
+func (r *deadlineRunner) Exec(ctx context.Context, _ string, _ ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, r.record(ctx)
+}
+
+func (r *deadlineRunner) Query(ctx context.Context, _ string, _ ...any) (pgx.Rows, error) {
+	return nil, r.record(ctx)
+}
+
+func (r *deadlineRunner) QueryRow(ctx context.Context, _ string, _ ...any) pgx.Row {
+	return deadlineRow{r: r, ctx: ctx}
+}
+
+type deadlineRow struct {
+	r   *deadlineRunner
+	ctx context.Context //nolint:containedctx // pgx.Row.Scan takes no context; the query is deferred to it
+}
+
+func (row deadlineRow) Scan(...any) error { return row.r.record(row.ctx) }
+
+// The store methods that used to hand the caller's context to the query
+// untouched, one per package that had them. A deadline-less context in must
+// still produce a bounded statement out.
+func TestEveryStoreMethodBoundsItsOwnStatement(t *testing.T) {
+	id := uuid.New()
+
+	calls := map[string]func(s Stores) error{
+		"Users.GetByID": func(s Stores) error {
+			_, err := s.Users.GetByID(context.Background(), id) //nolint:usetesting // a context with no deadline is the point
+			return err
+		},
+		"EmailVerification.GetByHash": func(s Stores) error {
+			_, err := s.EmailVerification.GetByHash(context.Background(), []byte("hash")) //nolint:usetesting // as above
+			return err
+		},
+		"Tokens.GetRefreshToken": func(s Stores) error {
+			_, err := s.Tokens.GetRefreshToken(context.Background(), []byte("hash")) //nolint:usetesting // as above
+			return err
+		},
+		"Clients.GetByID": func(s Stores) error {
+			_, err := s.Clients.GetByID(context.Background(), id) //nolint:usetesting // as above
+			return err
+		},
+		"Courts.GetByID": func(s Stores) error {
+			_, err := s.Courts.GetByID(context.Background(), id) //nolint:usetesting // as above
+			return err
+		},
+		"Complexes.GetByID": func(s Stores) error {
+			_, err := s.Complexes.GetByID(context.Background(), id) //nolint:usetesting // as above
+			return err
+		},
+		"Payments.GetByBookingID": func(s Stores) error {
+			_, err := s.Payments.GetByBookingID(context.Background(), id) //nolint:usetesting // as above
+			return err
+		},
+	}
+
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			r := &deadlineRunner{}
+			if err := call(newStores(data.NewDBOver(r, noWait), Config{})); err == nil {
+				t.Fatal("want the connection failure to surface")
+			}
+			if r.statements == 0 {
+				t.Fatal("no statement reached the runner")
+			}
+			if r.withDeadline != r.statements {
+				t.Errorf("%d of %d statements ran with no deadline; the method passes the caller's "+
+					"context straight to the query", r.statements-r.withDeadline, r.statements)
+			}
+		})
+	}
+}

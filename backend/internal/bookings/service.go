@@ -111,7 +111,7 @@ func (s *Service) List(ctx context.Context, complexID uuid.UUID, in ListInput) (
 	searchLower := strings.ToLower(in.Search)
 	filtered := make([]*bookingstore.Booking, 0, len(bookings))
 	for _, b := range bookings {
-		if in.Status != "" && b.Status != in.Status {
+		if in.Status != "" && b.Status != bookingstore.BookingStatus(in.Status) {
 			continue
 		}
 		if in.Search != "" &&
@@ -224,28 +224,38 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	v := validator.New()
 
 	if in.Status != nil {
-		validStatuses := map[string]bool{"pending": true, "confirmed": true, "cancelled": true, "completed": true, "no_show": true}
-		v.Check(validStatuses[*in.Status], "status", "must be pending, confirmed, cancelled, completed, or no_show")
+		// The requested value as the type the column speaks, once, so the
+		// matrix and the labels below are indexed by the same thing the booking
+		// carries rather than by a bare string that happens to spell it.
+		wantStatus := bookingstore.BookingStatus(*in.Status)
+		v.Check(wantStatus.Valid(), "status", "must be pending, confirmed, cancelled, completed, or no_show")
 
 		// Validate state transitions.
-		allowedTransitions := map[string]map[string]bool{
-			"pending":   {"confirmed": true, "cancelled": true},
-			"confirmed": {"cancelled": true, "completed": true, "no_show": true},
-			"cancelled": {},
-			"completed": {"no_show": true},
-			"no_show":   {},
+		allowedTransitions := map[bookingstore.BookingStatus]map[bookingstore.BookingStatus]bool{
+			bookingstore.BookingStatusPending: {
+				bookingstore.BookingStatusConfirmed: true,
+				bookingstore.BookingStatusCancelled: true,
+			},
+			bookingstore.BookingStatusConfirmed: {
+				bookingstore.BookingStatusCancelled: true,
+				bookingstore.BookingStatusCompleted: true,
+				bookingstore.BookingStatusNoShow:    true,
+			},
+			bookingstore.BookingStatusCancelled: {},
+			bookingstore.BookingStatusCompleted: {bookingstore.BookingStatusNoShow: true},
+			bookingstore.BookingStatusNoShow:    {},
 		}
-		statusLabels := map[string]string{
-			"pending":   "pendiente",
-			"confirmed": "confirmada",
-			"cancelled": "cancelada",
-			"completed": "completada",
-			"no_show":   "ausente",
+		statusLabels := map[bookingstore.BookingStatus]string{
+			bookingstore.BookingStatusPending:   "pendiente",
+			bookingstore.BookingStatusConfirmed: "confirmada",
+			bookingstore.BookingStatusCancelled: "cancelada",
+			bookingstore.BookingStatusCompleted: "completada",
+			bookingstore.BookingStatusNoShow:    "ausente",
 		}
 		if allowed, ok := allowedTransitions[booking.Status]; ok {
-			if !allowed[*in.Status] && *in.Status != booking.Status {
+			if !allowed[wantStatus] && wantStatus != booking.Status {
 				fromLabel := statusLabels[booking.Status]
-				toLabel := statusLabels[*in.Status]
+				toLabel := statusLabels[wantStatus]
 				v.AddError("status", fmt.Sprintf("cannot change from '%s' to '%s'", fromLabel, toLabel))
 			}
 		}
@@ -258,21 +268,17 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		// post-refund was cancellable here before the payment_status split and still is,
 		// because the refund pipeline has already decided what happens to that
 		// money.
-		if *in.Status == "cancelled" &&
+		if wantStatus == bookingstore.BookingStatusCancelled &&
 			booking.CollectionStatus != bookingstore.CollectionStatusUnpaid &&
 			booking.RefundStatus == bookingstore.RefundStatusNone {
 			return nil, &StateError{Message: cancelPaidViaUpdateMessage}
 		}
 
-		booking.Status = *in.Status
+		booking.Status = wantStatus
 	}
 	if in.CollectionStatus != nil {
-		validCollectionStatuses := map[string]bool{
-			bookingstore.CollectionStatusUnpaid:      true,
-			bookingstore.CollectionStatusDepositPaid: true,
-			bookingstore.CollectionStatusFullyPaid:   true,
-		}
-		v.Check(validCollectionStatuses[*in.CollectionStatus], "collection_status",
+		wantCollection := bookingstore.CollectionStatus(*in.CollectionStatus)
+		v.Check(wantCollection.Valid(), "collection_status",
 			"must be unpaid, deposit_paid or fully_paid")
 
 		// Collection only moves upward. This is the half of the old
@@ -283,25 +289,28 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		// policy above that floor, and it also refuses fully_paid ->
 		// deposit_paid, which the floor deliberately does not (see the bookings
 		// section of db/migrations/001_init.sql for why the floor stops short).
-		validCollectionTransitions := map[string]map[string]bool{
-			bookingstore.CollectionStatusUnpaid:      {bookingstore.CollectionStatusDepositPaid: true, bookingstore.CollectionStatusFullyPaid: true},
+		validCollectionTransitions := map[bookingstore.CollectionStatus]map[bookingstore.CollectionStatus]bool{
+			bookingstore.CollectionStatusUnpaid: {
+				bookingstore.CollectionStatusDepositPaid: true,
+				bookingstore.CollectionStatusFullyPaid:   true,
+			},
 			bookingstore.CollectionStatusDepositPaid: {bookingstore.CollectionStatusFullyPaid: true},
 			bookingstore.CollectionStatusFullyPaid:   {},
 		}
-		collectionLabels := map[string]string{
+		collectionLabels := map[bookingstore.CollectionStatus]string{
 			bookingstore.CollectionStatusUnpaid:      "sin pago",
 			bookingstore.CollectionStatusDepositPaid: "seña pagada",
 			bookingstore.CollectionStatusFullyPaid:   "pago completo",
 		}
 		if allowed, ok := validCollectionTransitions[booking.CollectionStatus]; ok {
-			if !allowed[*in.CollectionStatus] && *in.CollectionStatus != booking.CollectionStatus {
+			if !allowed[wantCollection] && wantCollection != booking.CollectionStatus {
 				return nil, &ConflictError{Message: fmt.Sprintf(
 					"cannot change payment status from '%s' to '%s'",
-					collectionLabels[booking.CollectionStatus], collectionLabels[*in.CollectionStatus])}
+					collectionLabels[booking.CollectionStatus], collectionLabels[wantCollection])}
 			}
 		}
 
-		booking.CollectionStatus = *in.CollectionStatus
+		booking.CollectionStatus = wantCollection
 	}
 	if in.RefundStatus != nil {
 		// 'partial' is deliberately absent from validRefundStatuses: it names a
@@ -317,35 +326,39 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		// unpaid. The only transition a staff edit may make from 'partial' is
 		// the one the manual-refund endpoint makes, to 'full', once the owner
 		// confirms the cash portion was actually returned.
-		validRefundStatuses := map[string]bool{
+		wantRefund := bookingstore.RefundStatus(*in.RefundStatus)
+		// Not RefundStatus.Valid(): that answers "could this be in the column",
+		// which includes 'partial', and this answers the narrower "may a staff
+		// edit ask for it", which does not. See the note above and Valid's own.
+		settableRefundStatuses := map[bookingstore.RefundStatus]bool{
 			bookingstore.RefundStatusNone:    true,
 			bookingstore.RefundStatusPending: true,
 			bookingstore.RefundStatusFull:    true,
 		}
-		v.Check(validRefundStatuses[*in.RefundStatus], "refund_status",
+		v.Check(settableRefundStatuses[wantRefund], "refund_status",
 			"must be none, pending or full")
 
-		validRefundTransitions := map[string]map[string]bool{
+		validRefundTransitions := map[bookingstore.RefundStatus]map[bookingstore.RefundStatus]bool{
 			bookingstore.RefundStatusNone:    {bookingstore.RefundStatusPending: true},
 			bookingstore.RefundStatusPending: {bookingstore.RefundStatusFull: true},
 			bookingstore.RefundStatusPartial: {bookingstore.RefundStatusFull: true},
 			bookingstore.RefundStatusFull:    {},
 		}
-		refundLabels := map[string]string{
+		refundLabels := map[bookingstore.RefundStatus]string{
 			bookingstore.RefundStatusNone:    "sin reembolso",
 			bookingstore.RefundStatusPending: "reembolso pendiente",
 			bookingstore.RefundStatusPartial: "reembolso parcial",
 			bookingstore.RefundStatusFull:    "reembolsado",
 		}
 		if allowed, ok := validRefundTransitions[booking.RefundStatus]; ok {
-			if !allowed[*in.RefundStatus] && *in.RefundStatus != booking.RefundStatus {
+			if !allowed[wantRefund] && wantRefund != booking.RefundStatus {
 				return nil, &ConflictError{Message: fmt.Sprintf(
 					"cannot change payment status from '%s' to '%s'",
-					refundLabels[booking.RefundStatus], refundLabels[*in.RefundStatus])}
+					refundLabels[booking.RefundStatus], refundLabels[wantRefund])}
 			}
 		}
 
-		booking.RefundStatus = *in.RefundStatus
+		booking.RefundStatus = wantRefund
 	}
 	if in.Notes != nil {
 		booking.Notes = in.Notes
@@ -541,7 +554,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	// Determine collection status based on payment_option. A booking created
 	// here has nothing to give back yet, so the refund axis stays at its column
 	// default of 'none' and is not named.
-	collectionStatus := bookingstore.CollectionStatusUnpaid
+	collectionStatus := bookingstore.CollectionStatus(bookingstore.CollectionStatusUnpaid)
 	switch in.PaymentOption {
 	case "deposit":
 		collectionStatus = bookingstore.CollectionStatusDepositPaid
@@ -612,7 +625,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 			// payments.status still carries the shared payment_status enum
 			// (the payment_status split took only bookings off it), and these two values
 			// are legal in it.
-			Status: collectionStatus,
+			Status: collectionStatus.String(),
 		}
 		if err := s.payments.Insert(ctx, payment); err != nil {
 			s.logger.Error("create booking: failed to insert payment", "error", err, "booking_id", booking.ID)
@@ -636,7 +649,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	// Read off the booking that was just written, so a staff booking entered
 	// with nothing collected reports a $0 deposit rather than quoting one
 	// nobody paid.
-	confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus)
+	confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
 	s.notify.BookingConfirmed(notifications.BookingConfirmation{
 		// SourceStaffCreate, and not a free-text label: this constant is what
 		// suppresses the owner's "Nueva reserva" email, since the owner is the

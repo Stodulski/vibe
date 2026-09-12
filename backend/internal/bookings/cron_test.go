@@ -15,7 +15,7 @@ import (
 )
 
 // cronCandidate builds the enriched booking either sweep would be handed.
-func cronCandidate(status string) *bookingstore.CronBooking {
+func cronCandidate(status bookingstore.BookingStatus) *bookingstore.CronBooking {
 	b := &bookingstore.CronBooking{
 		ClientEmail: "ana@example.com",
 		ClientPhone: "+5491100000000",

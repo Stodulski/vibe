@@ -14,6 +14,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
+
+	"github.com/stodulski/vibe-server/internal/httpx"
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 )
 
 // ---------------------------------------------------------------------------
@@ -94,6 +97,21 @@ func (m *Middleware) generalCeiling() ceiling {
 	return ceiling{name: "gen", rps: m.cfg.RateLimitRPS, burst: m.cfg.RateLimitBurst}
 }
 
+// userCeiling is the operator-configured limit keyed on the authenticated
+// account rather than on the address.
+//
+// Every other ceiling here counts by client address, which is the wrong unit
+// for the thing an account can do. One signed-in owner script running from a
+// dozen addresses — a cloud function, a rotating proxy, a phone moving between
+// networks — stays under every address bucket while costing the database a
+// dozen times what one client should, and the audit trail shows one account
+// doing it. Conversely a NAT collapses a whole office into one address bucket
+// and throttles them all together. The two keys answer different questions and
+// this repository only had one of them.
+func (m *Middleware) userCeiling() ceiling {
+	return ceiling{name: "user", rps: m.cfg.RateLimitUserRPS, burst: m.cfg.RateLimitUserBurst}
+}
+
 // ceilingsFor returns the limits that apply to a request, cheapest first. The
 // slices are package-level so the hot path allocates nothing.
 var (
@@ -106,6 +124,12 @@ const (
 	indexGeneral = iota
 	indexAuth
 	indexBooking
+	// indexUser is not in any ceilingsFor slice: it is enforced by
+	// RateLimitUser, which runs further in than the others because the account
+	// it keys on is not known until Authenticate has resolved it.
+	indexUser
+
+	ceilingCount
 )
 
 func ceilingsFor(r *http.Request) []int {
@@ -173,9 +197,9 @@ func (m *Middleware) RateLimit(next http.Handler) http.Handler {
 	return m.rateLimitLocal(next, buckets)
 }
 
-// ceilings returns the three limits in index order.
-func (m *Middleware) ceilings() [3]ceiling {
-	return [3]ceiling{m.generalCeiling(), authCeiling, bookingCeiling}
+// ceilings returns the limits in index order.
+func (m *Middleware) ceilings() [ceilingCount]ceiling {
+	return [ceilingCount]ceiling{m.generalCeiling(), authCeiling, bookingCeiling, m.userCeiling()}
 }
 
 // ---------------------------------------------------------------------------
@@ -275,12 +299,13 @@ func (m *Middleware) rateLimitRedis(next http.Handler, fallback *localBuckets) h
 	})
 }
 
-// allowRedis spends one token from the shared bucket for ip.
-func (m *Middleware) allowRedis(ctx context.Context, ip string, c ceiling) (bool, error) {
+// allowRedis spends one token from the shared bucket for subject — a client
+// address for the address-keyed ceilings, an account id for the per-user one.
+func (m *Middleware) allowRedis(ctx context.Context, subject string, c ceiling) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, redisLimiterTimeout)
 	defer cancel()
 
-	key := "rl:" + c.name + ":" + ip
+	key := m.rateLimitKey(c.name, subject)
 
 	allowed, err := redisTokenBucket.Run(ctx, m.rdb, []string{key},
 		strconv.FormatFloat(c.rps/1000, 'f', -1, 64), // tokens per millisecond
@@ -292,6 +317,16 @@ func (m *Middleware) allowRedis(ctx context.Context, ip string, c ceiling) (bool
 		return false, err
 	}
 	return allowed == 1, nil
+}
+
+// rateLimitKey is the Redis key one bucket lives under.
+//
+// The environment is in the key for the same reason it is in the idempotency
+// keys (see idempotency.go): a staging deployment pointed at a production
+// Redis would otherwise spend production's tokens, and the first sign of it is
+// real customers getting 429s for traffic they never sent.
+func (m *Middleware) rateLimitKey(name, key string) string {
+	return platformredis.KeyPrefix(m.cfg.Env) + "rl:" + name + ":" + key
 }
 
 // ---------------------------------------------------------------------------
@@ -321,9 +356,9 @@ const clientTTL = 3 * time.Minute
 // seen while Redis was failing.
 const maxTrackedClients = 20_000
 
-// clientBuckets is one address's three token buckets.
+// clientBuckets is one key's token buckets, one per ceiling.
 type clientBuckets struct {
-	limiters [3]*rate.Limiter
+	limiters [ceilingCount]*rate.Limiter
 	// lastSeen is Unix nanoseconds behind an atomic rather than a time.Time,
 	// because it is the one field here that is genuinely shared: every request
 	// from an address writes it, on the same clientBuckets, while the eviction
@@ -346,13 +381,13 @@ type localBuckets struct {
 	// max is maxTrackedClients, as a field so a test can reach the shedding
 	// behaviour without allocating twenty thousand entries to get there.
 	max      int
-	ceilings [3]ceiling
+	ceilings [ceilingCount]ceiling
 	logger   *slog.Logger
 	// warnedFull reports the capacity shed once rather than per request.
 	warnedFull sync.Once
 }
 
-func newLocalBuckets(ceilings [3]ceiling, logger *slog.Logger) *localBuckets {
+func newLocalBuckets(ceilings [ceilingCount]ceiling, logger *slog.Logger) *localBuckets {
 	return &localBuckets{max: maxTrackedClients, ceilings: ceilings, logger: logger}
 }
 
@@ -446,6 +481,72 @@ func (m *Middleware) rateLimitLocal(next http.Handler, buckets *localBuckets) ht
 			}
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Per-account ceiling
+// ---------------------------------------------------------------------------
+
+// RateLimitUser applies the per-account ceiling to a request that carries an
+// authenticated user, and does nothing to one that does not.
+//
+// It is a separate middleware from RateLimit because it has to sit inside
+// Authenticate — see Wrap. An anonymous request is not exempt from throttling;
+// it is throttled by address, further out, before it cost anything.
+//
+// The account id is the key, so the same account is counted together however
+// many addresses it arrives from, and two accounts behind one NAT are counted
+// apart.
+func (m *Middleware) RateLimitUser(next http.Handler) http.Handler {
+	if !m.cfg.RateLimitEnabled {
+		return next
+	}
+
+	c := m.userCeiling()
+	// A non-positive rate is "not configured", not "refuse everything". The
+	// environment loader accepts LIMITER_USER_RPS <= 0 — 0 is how an operator
+	// turns the per-account ceiling off on purpose — so this can also be
+	// reached with an explicit -limiter-user-rps=0 or a Config built in code;
+	// the general ceiling's zero-burst reading ("refuse everything") would
+	// turn any of those into a total outage for signed-in callers, which is
+	// not a failure a new knob should be able to cause.
+	if c.rps <= 0 || c.burst <= 0 {
+		m.logger.Warn("rate limit: the per-account ceiling is not configured and is off; " +
+			"set LIMITER_USER_RPS and LIMITER_USER_BURST to bound one account across many addresses")
+		return next
+	}
+
+	buckets := newLocalBuckets(m.ceilings(), m.logger)
+	go buckets.evict(m.shutdown)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, ok := httpx.ContextGetAuthenticatedUser(r)
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		key := user.ID.String()
+
+		allowed := buckets.allow(key, indexUser)
+		if m.rdb != nil {
+			shared, err := m.allowRedis(r.Context(), key, c)
+			if err != nil {
+				// Same degradation as the address-keyed limiter: a Redis blip
+				// must not leave an account with no ceiling, so the answer
+				// already computed from the in-process buckets stands.
+				m.logger.Error("rate limit: redis unavailable, falling back to the in-process limiter",
+					"error", err, "ceiling", c.name)
+			} else {
+				allowed = shared
+			}
+		}
+
+		if !allowed {
+			m.respond.RateLimitExceededAfter(w, r, c.retryAfter())
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

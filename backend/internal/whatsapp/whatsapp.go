@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -174,7 +175,14 @@ func (c *WAClient) VerifyWebhook(r *http.Request) (string, error) {
 		return "", fmt.Errorf("wa: invalid hub.mode: %s", mode)
 	}
 
-	if token != c.verifyToken {
+	// Constant time, like the X-Hub-Signature-256 check below. `!=` on two
+	// strings stops at the first differing byte, so how long the comparison
+	// takes says how many leading bytes were right — and this endpoint is
+	// unauthenticated, exempt from rate limiting (it is Meta's handshake), and
+	// answers the challenge back on success, which is as clean an oracle as a
+	// remote attacker gets. The token is short and guessing it byte by byte is
+	// cheap once the comparison leaks where the guess went wrong.
+	if subtle.ConstantTimeCompare([]byte(token), []byte(c.verifyToken)) != 1 {
 		return "", fmt.Errorf("wa: verify token mismatch")
 	}
 

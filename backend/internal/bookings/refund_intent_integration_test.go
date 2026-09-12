@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -63,6 +64,12 @@ type integrationFixture struct {
 	complexID uuid.UUID
 	courtID   uuid.UUID
 	clientID  uuid.UUID
+}
+
+// Scoped returns ctx scoped to this fixture's tenant, which every store write
+// now requires — see data.AssertTenant.
+func (f *integrationFixture) Scoped(ctx context.Context) context.Context {
+	return data.ContextWithTenant(ctx, f.complexID)
 }
 
 func newIntegrationFixture(t *testing.T) *integrationFixture {
@@ -195,7 +202,7 @@ func (f *integrationFixture) createOutOfWindowBooking(t *testing.T) *bookingstor
 		Status: "confirmed", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
 		RefundStatus: bookingstore.RefundStatusNone,
 	}
-	if err := f.models.Bookings.Insert(ctx, b); err != nil {
+	if err := f.models.Bookings.Insert(f.Scoped(ctx), b); err != nil {
 		t.Fatalf("creating booking: %v", err)
 	}
 
@@ -253,7 +260,11 @@ func TestAnOutOfWindowPublicCancelIsNeverFoundByTheSweep(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/",
+	// The tenant bypass, because the public cancel route runs under it: it is in
+	// middleware.CrossTenantRoutes by design, resolving its booking from a token
+	// hash before any tenant is known. Calling the handler directly skips the
+	// middleware, so the test declares the same scope the route would have.
+	req := httptest.NewRequestWithContext(data.ContextWithTenantBypass(t.Context()), http.MethodPost, "/",
 		strings.NewReader(`{"token":"`+plaintext+`"}`))
 	f.handler.PublicCancel(w, req)
 

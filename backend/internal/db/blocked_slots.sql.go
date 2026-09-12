@@ -22,7 +22,7 @@ func (q *Queries) DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getBlockedSlotByID = `-- name: GetBlockedSlotByID :one
-SELECT id, court_id, date, start_time, end_time, reason, created_by, created_at, updated_at, span FROM blocked_slots
+SELECT id, court_id, date, start_time, end_time, reason, created_by, created_at, updated_at, span, complex_id FROM blocked_slots
 WHERE id = $1
 `
 
@@ -40,12 +40,13 @@ func (q *Queries) GetBlockedSlotByID(ctx context.Context, id pgtype.UUID) (Block
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Span,
+		&i.ComplexID,
 	)
 	return i, err
 }
 
 const getBlockedSlots = `-- name: GetBlockedSlots :many
-SELECT id, court_id, date, start_time, end_time, reason, created_by, created_at, updated_at, span FROM blocked_slots
+SELECT id, court_id, date, start_time, end_time, reason, created_by, created_at, updated_at, span, complex_id FROM blocked_slots
 WHERE court_id = $1
   AND date BETWEEN $2 AND $3
 ORDER BY date, start_time
@@ -77,6 +78,7 @@ func (q *Queries) GetBlockedSlots(ctx context.Context, arg GetBlockedSlotsParams
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Span,
+			&i.ComplexID,
 		); err != nil {
 			return nil, err
 		}

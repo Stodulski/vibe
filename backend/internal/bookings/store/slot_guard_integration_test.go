@@ -48,7 +48,7 @@ func newStaleBooking(t *testing.T, f *datatest.Fixture) *bookingstore.Booking {
 	t.Helper()
 
 	stale := f.NewBooking(staleBookingOptions())
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), stale); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), stale); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
 	f.BackdateBookingCreatedAt(t, stale.ID, staleAge)
@@ -64,7 +64,7 @@ func TestAStalePendingBookingStopsHoldingItsSlot(t *testing.T) {
 	newStaleBooking(t, f)
 
 	newcomer := f.NewBooking(overlappingBookingOptions())
-	if err := f.Stores.Bookings.InsertSafe(context.Background(), newcomer); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), newcomer); err != nil {
 		t.Errorf("a booking overlapping only a stale pending one must be accepted: %v", err)
 	}
 }
@@ -83,7 +83,7 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 	stale := newStaleBooking(t, f)
 
 	taken := f.NewBooking(overlappingBookingOptions())
-	if err := f.Stores.Bookings.InsertSafe(ctx, taken); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), taken); err != nil {
 		t.Fatalf("the overlapping booking must be accepted while the first one is stale: %v", err)
 	}
 
@@ -162,14 +162,14 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 	newStaleBooking(t, f)
 
 	newcomer := f.NewBooking(overlappingBookingOptions())
-	err := longHold.Bookings.InsertSafe(ctx, newcomer)
+	err := longHold.Bookings.InsertSafe(f.Scoped(ctx), newcomer)
 	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Fatalf("under an hour-long payment expiry a %v-old booking still holds its slot; got %v", staleAge, err)
 	}
 
 	// Same booking, same age, stores configured with the fifteen-minute default:
 	// now it is stale and the slot is free. Only the configured value differs.
-	if err := f.Stores.Bookings.InsertSafe(ctx, newcomer); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(f.Scoped(ctx), newcomer); err != nil {
 		t.Errorf("under the default expiry the same slot must be free: %v", err)
 	}
 }
@@ -249,7 +249,7 @@ func TestAnInsertAndAConfirmationRacingForTheSameSlotLeaveOneWinner(t *testing.T
 			newcomer := f.NewBooking(overlappingBookingOptions())
 
 			insert := func() error {
-				return f.Stores.Bookings.InsertSafe(context.Background(), newcomer)
+				return f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), newcomer)
 			}
 			confirm := func() error {
 				return f.ConfirmBooking(f.Stores, stale)

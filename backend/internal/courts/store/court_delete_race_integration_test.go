@@ -165,7 +165,7 @@ func TestBookingOnACourtDeletedMidTransactionIsRefused(t *testing.T) {
 	release := f.BlockCourtDay(t, date)
 
 	result := make(chan error, 1)
-	go func() { result <- f.Stores.Bookings.InsertSafe(ctx, pendingBooking(f, date)) }()
+	go func() { result <- f.Stores.Bookings.InsertSafe(f.Scoped(ctx), pendingBooking(f, date)) }()
 
 	// The booking must be inside its transaction, queued on the court-day
 	// lock, before the court is deleted. Without the lock it is already done.
