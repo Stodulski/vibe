@@ -1,7 +1,7 @@
-import type { ReactElement } from 'react';
+import { createContext, useContext, type ReactElement, type ReactNode } from 'react';
 import { render, type RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
 /**
  * `gcTime: 0` drops a query's cache entry the instant it has no observers,
@@ -26,12 +26,38 @@ interface WrapperProps {
   children: React.ReactNode;
 }
 
+/**
+ * How the component under test reaches the router's only route.
+ *
+ * `createMemoryRouter` takes its routes once, at construction, so the element
+ * cannot simply be `children` — every rerender would build a new router and
+ * remount the tree, losing whatever state the test had just typed into it.
+ * The router is built once per wrapper and reads the current children from
+ * here instead.
+ */
+const TestChildrenContext = createContext<ReactNode>(null);
+
+/**
+ * A data router, not `<MemoryRouter>`: `useBlocker` (and every other data-router
+ * hook) throws "must be used within a data router" under the declarative one,
+ * and the app itself runs on `createBrowserRouter` — so a test rendering a form
+ * that guards its unsaved changes was testing a router the app does not use.
+ */
 export function createWrapper(initialEntries?: string[]) {
   const queryClient = createTestQueryClient();
+  // Declared here rather than at module scope: a top-level component in a file
+  // of helpers trips react-refresh/only-export-components, and this one exists
+  // only to be this router's single route element.
+  const RouteSlot = () => <>{useContext(TestChildrenContext)}</>;
+  const router = createMemoryRouter([{ path: '*', element: <RouteSlot /> }], {
+    initialEntries: initialEntries ?? ['/'],
+  });
   return function Wrapper({ children }: WrapperProps) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={initialEntries ?? ['/']}>{children}</MemoryRouter>
+        <TestChildrenContext.Provider value={children}>
+          <RouterProvider router={router} />
+        </TestChildrenContext.Provider>
       </QueryClientProvider>
     );
   };

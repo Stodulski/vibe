@@ -2,6 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { createCourtSchema, type CreateCourtDto } from '../schemas/courts.schema';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/common/AppDialog';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
+import { UnsavedChangesDialog } from '@/shared/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesBlocker } from '@/shared/hooks/useUnsavedChangesBlocker';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { NameField } from './court-form/NameField';
@@ -69,11 +71,12 @@ function CourtFormBody({
     register,
     handleSubmit,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useAppForm<CreateCourtDto>({
     resolver: zodResolver(createCourtSchema),
     defaultValues: courtDefaultValues(court),
   });
+  const blocker = useUnsavedChangesBlocker(isDirty);
 
   const { isEdit, mutation, onSubmit } = useCourtFormSubmit(complexId, court, onClose, onCreated);
 
@@ -95,6 +98,7 @@ function CourtFormBody({
           submitLabel={isEdit ? t.common.save : t.common.create}
           pending={mutation.isPending}
         />
+        <UnsavedChangesDialog blocker={blocker} />
       </form>
     </>
   );
