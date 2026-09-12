@@ -248,6 +248,7 @@ go run ./cmd/mpcredkey seal|rekey ...        # convert MercadoPago OAuth credent
 ## Testing
 
 - **Flags**: `test`, `test/cover` and `test/integration` all run with `-race` (data-race detector) and `-shuffle=on` (each run reorders tests and subtests with a fresh seed, so a test that only passes for a particular execution order fails instead of hiding). `test/integration` also forces `-p 1` because every package shares the one E2E database. On a failure, `go test` prints the seed it used (`-shuffle=on -shuffle-seed=<n>`); reruns with that seed reproduce the same order for debugging an order-dependent failure.
+- **Coverage**: `make test/cover` runs the same suite as `make test` (same flags) plus `-coverprofile=coverage.out -covermode=atomic`, then prints the per-function breakdown and a `total: (statements) NN.N%` line. CI runs this in the `test` job, appends that last line to the job's step summary, and uploads `coverage.out` as a build artifact (retained 14 days) — download it and run `go tool cover -html=coverage.out` locally to see line-by-line coverage in a browser. There is no minimum-coverage gate; this is visibility, not enforcement.
 - **Integration Redis**: `test/integration` also exports `REDIS_URL` (`E2E_REDIS_URL` in the Makefile) pointing at `docker-compose.e2e.yml`'s `redis` service on `localhost:6380`, for any integration test that needs a real Redis instead of the nil client `newIntegrationApp` otherwise builds.
 
 ## Deploy
@@ -264,7 +265,7 @@ CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository roo
 |---|---|
 | `lint` | golangci-lint (config in `.golangci.yml`) |
 | `format` | `gofmt -l .`, `goimports -l .`, `go vet ./...` |
-| `test` | `make test` (unit tests, race detector + `-shuffle=on`) |
+| `test` | `make test/cover` (unit tests, race detector + `-shuffle=on`), then prints the total coverage line to the job summary and uploads `coverage.out` as a 14-day artifact |
 | `build` | `make build` |
 | `audit` | `make audit` (`go mod verify` + `govulncheck`) |
 | `sqlc` | `make vet/sqlc` against a disposable, migrated Postgres — catches a query that no longer matches the schema |
