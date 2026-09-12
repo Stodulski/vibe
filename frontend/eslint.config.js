@@ -137,6 +137,7 @@ export default defineConfig([
                 '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/clients'), not its internals.",
@@ -162,6 +163,7 @@ export default defineConfig([
                 '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/bookings'), not its internals.",
@@ -187,6 +189,7 @@ export default defineConfig([
                 '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/courts'), not its internals.",
@@ -212,6 +215,7 @@ export default defineConfig([
                 '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/complex'), not its internals.",
@@ -237,6 +241,7 @@ export default defineConfig([
                 '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/bookings'), not its internals.",
@@ -262,6 +267,7 @@ export default defineConfig([
                 '@/features/dashboard/**',
                 '@/features/auth/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/complex'), not its internals.",
@@ -287,6 +293,7 @@ export default defineConfig([
                 '@/features/dashboard/**',
                 '@/features/public-booking/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message: "Import another feature's public API from its barrel, not its internals.",
             },
@@ -311,6 +318,32 @@ export default defineConfig([
                 '@/features/dashboard/**',
                 '@/features/public-booking/**',
                 '@/features/auth/**',
+                '@/features/onboarding/**',
+              ],
+              message: "Import another feature's public API from its barrel, not its internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/onboarding/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@/features/bookings/**',
+                '@/features/clients/**',
+                '@/features/complex/**',
+                '@/features/courts/**',
+                '@/features/dashboard/**',
+                '@/features/public-booking/**',
+                '@/features/auth/**',
+                '@/features/admin/**',
               ],
               message: "Import another feature's public API from its barrel, not its internals.",
             },
@@ -340,6 +373,7 @@ export default defineConfig([
                 '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/admin/**',
+                '@/features/onboarding/**',
               ],
               message: "Import a feature's public API from its barrel (e.g. '@/features/bookings'), not its internals.",
             },

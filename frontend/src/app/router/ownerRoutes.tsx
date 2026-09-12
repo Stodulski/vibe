@@ -14,7 +14,7 @@ export const ownerStandaloneRoutes: RouteObject[] = [
   },
   {
     path: '/onboarding',
-    element: <ProtectedRoute>{lazyPage(() => import('@/pages/owner/OnboardingPage'), <PageLoader />)}</ProtectedRoute>,
+    element: <ProtectedRoute>{lazyPage(() => import('@/features/onboarding/pages/OnboardingPage'), <PageLoader />)}</ProtectedRoute>,
   },
   {
     path: '/settings/mp/callback',
