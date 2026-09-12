@@ -183,6 +183,8 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `LIMITER_ENABLED` | Enable the HTTP rate limiter. | Optional | `true` |
 | `LIMITER_RPS` | Rate limiter requests per second allowed. | Optional | `10` |
 | `LIMITER_BURST` | Rate limiter maximum burst size. | Optional | `20` |
+| `LIMITER_USER_RPS` | Requests per second allowed **per authenticated account**, counted on top of the per-address limits. It is what bounds one account driven from many addresses, which no address bucket can see; keep it looser than `LIMITER_RPS` so it does not become the binding limit for an ordinary signed-in user behind a NAT. | Optional | `20` |
+| `LIMITER_USER_BURST` | Maximum burst per authenticated account. | Optional | `40` |
 
 ### Observability
 

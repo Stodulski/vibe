@@ -444,10 +444,11 @@ func assertBounded(t *testing.T, got time.Duration) {
 // every real client out and hands each of them a fresh full bucket.
 func TestTheInProcessClientTableIsBounded(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	buckets := newLocalBuckets([3]ceiling{
+	buckets := newLocalBuckets([ceilingCount]ceiling{
 		{name: "gen", rps: 1000, burst: 1000},
 		authCeiling,
 		bookingCeiling,
+		{name: "user", rps: 1000, burst: 1000},
 	}, logger)
 	buckets.max = 2
 

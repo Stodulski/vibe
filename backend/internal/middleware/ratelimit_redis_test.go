@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -291,5 +293,137 @@ func TestTwoClientsBehindATrustedProxyGetSeparateBuckets(t *testing.T) {
 	}
 	if got := fromClient("198.51.100.4"); got != http.StatusOK {
 		t.Errorf("a different client behind the same proxy has its own bucket; got %d", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The per-account ceiling
+// ---------------------------------------------------------------------------
+
+// asUser drives one request that already carries an authenticated account,
+// which is the state Authenticate leaves the request in before RateLimitUser
+// sees it.
+func asUser(t *testing.T, handler http.Handler, id uuid.UUID) int {
+	t.Helper()
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/complexes", nil)
+	handler.ServeHTTP(w, httpx.ContextSetUser(r, &authstore.User{ID: id, IsActive: true}))
+	return w.Code
+}
+
+func allowedAsUser(t *testing.T, handler http.Handler, id uuid.UUID, n int) int {
+	t.Helper()
+	allowed := 0
+	for range n {
+		if asUser(t, handler, id) == http.StatusOK {
+			allowed++
+		}
+	}
+	return allowed
+}
+
+// Every other ceiling counts by address, so one account arriving from many
+// addresses was never limited at all. The account id is the key here, which is
+// what makes those requests one bucket.
+func TestThePerAccountCeilingCountsOneAccountAcrossAddresses(t *testing.T) {
+	f, _, clock := newRedisLimiterFixture(t, Config{
+		RateLimitEnabled: true, RateLimitRPS: 10_000, RateLimitBurst: 10_000,
+		RateLimitUserRPS: 1, RateLimitUserBurst: 3,
+	})
+	handler := f.mw.RateLimitUser(okHandler())
+	user := uuid.New()
+
+	// The address changes on every request as far as any address-keyed bucket
+	// is concerned — httptest gives them all the same RemoteAddr, and it makes
+	// no difference, because this ceiling never reads it.
+	if got := allowedAsUser(t, handler, user, 10); got != 3 {
+		t.Errorf("a burst of 3 must admit exactly 3 of 10 immediate requests; got %d", got)
+	}
+
+	*clock = clock.Add(time.Second)
+	if got := allowedAsUser(t, handler, user, 5); got != 1 {
+		t.Errorf("one second at 1 rps must buy exactly one more request; got %d", got)
+	}
+}
+
+// Two accounts behind one address are two buckets, which is the half of this
+// the address-keyed limiter gets wrong in the other direction.
+func TestThePerAccountCeilingKeepsAccountsApart(t *testing.T) {
+	f, _, _ := newRedisLimiterFixture(t, Config{
+		RateLimitEnabled: true, RateLimitUserRPS: 1, RateLimitUserBurst: 2,
+	})
+	handler := f.mw.RateLimitUser(okHandler())
+
+	first, second := uuid.New(), uuid.New()
+	if got := allowedAsUser(t, handler, first, 5); got != 2 {
+		t.Fatalf("the first account must spend its own burst of 2; got %d", got)
+	}
+	if got := allowedAsUser(t, handler, second, 5); got != 2 {
+		t.Errorf("the second account must have a full burst of its own; got %d", got)
+	}
+}
+
+// An anonymous request is not exempt from throttling — it is throttled by
+// address, further out in the chain — so this middleware must not refuse it.
+func TestThePerAccountCeilingIgnoresAnonymousRequests(t *testing.T) {
+	f, _, _ := newRedisLimiterFixture(t, Config{
+		RateLimitEnabled: true, RateLimitUserRPS: 1, RateLimitUserBurst: 1,
+	})
+	handler := f.mw.RateLimitUser(okHandler())
+
+	for range 20 {
+		if got := send(t, handler, http.MethodGet, "/api/v1/complexes"); got != http.StatusOK {
+			t.Fatalf("an anonymous request must pass this ceiling untouched; got %d", got)
+		}
+	}
+}
+
+// Redis is where the shared count lives, so the key has to carry the
+// environment: a staging deployment pointed at a production Redis would
+// otherwise spend production's tokens and 429 real customers.
+func TestRateLimitKeysAreNamespacedByEnvironment(t *testing.T) {
+	f, mr, _ := newRedisLimiterFixture(t, Config{
+		RateLimitEnabled: true, Env: "staging",
+		RateLimitUserRPS: 1, RateLimitUserBurst: 1,
+	})
+	handler := f.mw.RateLimitUser(okHandler())
+	user := uuid.New()
+
+	if got := asUser(t, handler, user); got != http.StatusOK {
+		t.Fatalf("the first request must be admitted; got %d", got)
+	}
+
+	want := "vibe:staging:rl:user:" + user.String()
+	if !mr.Exists(want) {
+		t.Errorf("want the bucket at %q; got keys %v", want, mr.Keys())
+	}
+}
+
+// The fallback matters more here than anywhere: with Redis unreachable the
+// per-account ceiling still has to exist, or an account that can make Redis
+// slow is an account with no ceiling at all.
+func TestThePerAccountCeilingFallsBackToTheInProcessBuckets(t *testing.T) {
+	// The in-process buckets read the wall clock rather than the fixture's,
+	// and each refused request spends the 150ms Redis budget first, so the
+	// refill rate is set low enough that no bucket refills while the test runs.
+	f, mr, _ := newRedisLimiterFixture(t, Config{
+		RateLimitEnabled: true, RateLimitUserRPS: 0.001, RateLimitUserBurst: 2,
+	})
+	mr.Close()
+
+	handler := f.mw.RateLimitUser(okHandler())
+	if got := allowedAsUser(t, handler, uuid.New(), 6); got != 2 {
+		t.Errorf("the in-process fallback must still enforce the burst of 2; got %d", got)
+	}
+}
+
+// A Config that never set the knob gets no ceiling rather than a ceiling of
+// zero, which would refuse every signed-in request.
+func TestThePerAccountCeilingIsOffWhenUnconfigured(t *testing.T) {
+	f, _, _ := newRedisLimiterFixture(t, Config{RateLimitEnabled: true})
+	handler := f.mw.RateLimitUser(okHandler())
+
+	if got := allowedAsUser(t, handler, uuid.New(), 20); got != 20 {
+		t.Errorf("an unconfigured per-account ceiling must admit everything; got %d of 20", got)
 	}
 }

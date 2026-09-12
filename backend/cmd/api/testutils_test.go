@@ -80,9 +80,11 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize fun
 		// is correct: a test that trips one has found a genuine limit on
 		// the endpoint it is hammering.
 		Limiter: config.Limiter{
-			Enabled: true,
-			RPS:     10_000,
-			Burst:   10_000,
+			Enabled:   true,
+			RPS:       10_000,
+			Burst:     10_000,
+			UserRPS:   10_000,
+			UserBurst: 10_000,
 		},
 		FrontendURL: "http://localhost:5173",
 		// bcrypt.MinCost for the same reason internal/auth's own harness uses

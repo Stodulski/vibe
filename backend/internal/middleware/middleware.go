@@ -62,6 +62,11 @@ type Config struct {
 	// exactly these — see ratelimit.go.
 	RateLimitRPS   float64
 	RateLimitBurst int
+	// RateLimitUserRPS and RateLimitUserBurst shape the ceiling keyed on the
+	// authenticated account. See userCeiling in ratelimit.go for why a
+	// per-address limit alone is not one.
+	RateLimitUserRPS   float64
+	RateLimitUserBurst int
 	// RequestLogSample thins the request log: 0 or 1 logs every request, N
 	// logs one successful request in N. Failures and slow requests are never
 	// sampled away — see shouldLog. The counters behind Metrics are never
@@ -186,6 +191,13 @@ func (m *Middleware) Guards() httpx.Guards {
 //
 // Authenticate is innermost of the checks, so a request rejected by rate
 // limiting or CSRF never costs a database read.
+//
+// RateLimitUser is the one thing inside Authenticate, and it has to be: the
+// account it keys on does not exist in the context until Authenticate has put
+// it there. That ordering is the cost of the per-account ceiling — a request
+// that only that ceiling refuses has already paid for the identity lookup —
+// and it is why the per-address limits stay outside, where they still reject
+// a flood before it reaches the database.
 func (m *Middleware) Wrap(router http.Handler, cors func(http.Handler) http.Handler) http.Handler {
 	return m.RequestID(
 		m.LogRequests(
@@ -194,5 +206,6 @@ func (m *Middleware) Wrap(router http.Handler, cors func(http.Handler) http.Hand
 					cors(
 						m.RateLimit(
 							m.CSRFProtect(
-								m.Authenticate(router))))))))
+								m.Authenticate(
+									m.RateLimitUser(router)))))))))
 }

@@ -227,6 +227,14 @@ type Limiter struct {
 	// valid, if severe, setting: it rejects every request under that ceiling
 	// instead of relaxing the limit.
 	Burst int
+	// UserRPS and UserBurst shape the ceiling keyed on the authenticated
+	// account rather than on the address. It is deliberately looser than the
+	// general one: a signed-in owner behind a corporate NAT already shares the
+	// address bucket with everyone else there, so this must not become the
+	// binding limit for ordinary use. What it bounds is the case the address
+	// bucket cannot see at all — one account driven from many addresses.
+	UserRPS   float64
+	UserBurst int
 }
 
 // Booking holds the booking domain's time windows.

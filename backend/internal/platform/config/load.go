@@ -152,6 +152,11 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.BoolVar(&cfg.Limiter.Enabled, "limiter-enabled", true, "Enable rate limiter (LIMITER_ENABLED)")
 	fs.Float64Var(&cfg.Limiter.RPS, "limiter-rps", 10, "Rate limiter requests per second (LIMITER_RPS)")
 	fs.IntVar(&cfg.Limiter.Burst, "limiter-burst", 20, "Rate limiter maximum burst (LIMITER_BURST)")
+	fs.Float64Var(&cfg.Limiter.UserRPS, "limiter-user-rps", 20,
+		"Rate limiter requests per second per authenticated account, on top of the per-address limit "+
+			"(LIMITER_USER_RPS)")
+	fs.IntVar(&cfg.Limiter.UserBurst, "limiter-user-burst", 40,
+		"Rate limiter maximum burst per authenticated account (LIMITER_USER_BURST)")
 
 	fs.DurationVar(&cfg.Booking.GracePeriod, "booking-grace-period", 15*time.Minute,
 		"Grace period for refund after booking creation (BOOKING_GRACE_PERIOD)")
@@ -247,6 +252,8 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.boolVal("LIMITER_ENABLED", &cfg.Limiter.Enabled)
 	env.floatVal("LIMITER_RPS", &cfg.Limiter.RPS)
 	env.intVal("LIMITER_BURST", &cfg.Limiter.Burst, nonNegative)
+	env.floatVal("LIMITER_USER_RPS", &cfg.Limiter.UserRPS)
+	env.intVal("LIMITER_USER_BURST", &cfg.Limiter.UserBurst, nonNegative)
 	env.intVal("REQUEST_LOG_SAMPLE", &cfg.RequestLogSample, nonNegative)
 
 	env.durVal("BOOKING_GRACE_PERIOD", &cfg.Booking.GracePeriod, nonNegativeDur)
