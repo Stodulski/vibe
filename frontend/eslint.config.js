@@ -99,9 +99,11 @@ export default defineConfig([
     files: ['src/**/*.tsx'],
     extends: [jsxA11y.flatConfigs.recommended],
   },
-  // Dependencies flow one way: pages -> features -> shared. A feature never
-  // imports from pages — see 06-auth-shared-tooling.md A2 and
-  // 02-bookings-clients.md M4.
+  // Dependencies flow one way: app -> features -> shared. Pages live inside
+  // the feature that owns them (there is no top-level `src/pages` any more —
+  // see ARQ-01), so the boundary a feature must not cross is `src/app`: the
+  // router, the layouts and the providers compose features, never the other
+  // way round — see 06-auth-shared-tooling.md A2 and 02-bookings-clients.md M4.
   {
     files: ['src/features/**/*.{ts,tsx}'],
     rules: {
@@ -110,8 +112,26 @@ export default defineConfig([
         {
           patterns: [
             {
-              group: ['@/pages/**'],
-              message: 'A feature must not import from pages. Dependencies flow pages -> features -> shared.',
+              group: ['@/app/**'],
+              message: 'A feature must not import from app. Dependencies flow app -> features -> shared.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // The other end of the same arrow: `src/shared` is domain-agnostic. It must
+  // not reach into a feature or into app — see ARQ-02.
+  {
+    files: ['src/shared/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/features/**', '@/app/**'],
+              message: 'shared is domain-agnostic: it must not import from features or app.',
             },
           ],
         },
@@ -346,36 +366,6 @@ export default defineConfig([
                 '@/features/admin/**',
               ],
               message: "Import another feature's public API from its barrel, not its internals.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  // Pages reach a feature only through its public API (the barrel) too —
-  // see V-barrels-pages.md. Deep-importing `@/features/<X>/...` from a page
-  // reintroduces exactly the coupling the per-feature blocks above prevent
-  // between features.
-  {
-    files: ['src/pages/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: [
-                '@/features/bookings/**',
-                '@/features/clients/**',
-                '@/features/complex/**',
-                '@/features/courts/**',
-                '@/features/dashboard/**',
-                '@/features/public-booking/**',
-                '@/features/auth/**',
-                '@/features/admin/**',
-                '@/features/onboarding/**',
-              ],
-              message: "Import a feature's public API from its barrel (e.g. '@/features/bookings'), not its internals.",
             },
           ],
         },
