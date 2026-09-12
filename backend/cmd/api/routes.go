@@ -2,6 +2,7 @@ package main
 
 import (
 	"expvar"
+	"fmt"
 	"net/http"
 	"net/http/pprof"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/middleware"
+	gen "github.com/stodulski/vibe-server/internal/openapi/gen"
 )
 
 // routes builds the full HTTP handler: the route table wrapped in the
@@ -89,10 +91,6 @@ func normalizeCORSPreflightHeaders(next http.Handler) http.Handler {
 // that the table can be walked without standing up the middleware chain — see
 // TestEveryRouteIsGuarded, which enumerates it to prove no endpoint ships
 // unprotected by accident.
-//
-// linear wiring sequence into arbitrarily-named helpers without clarifying it.
-//
-//nolint:funlen // flat sequential route-registration table; splitting would fragment a single
 func (app *application) registerRoutes(router httpx.Router) {
 	// Every route gets the tenant posture its entry in
 	// middleware.CrossTenantRoutes declares, or none — which is the
@@ -119,23 +117,66 @@ func (app *application) registerRoutes(router httpx.Router) {
 		router.Handler(http.MethodGet, "/debug/pprof/mutex", pprof.Handler("mutex"))
 	}
 
-	// Webhook routes (public, verified via signature).
+	// Every operation in internal/openapi/openapi.yaml is registered here,
+	// through the generated ServerInterface: the document's own paths and
+	// methods become the mux patterns, so a documented operation apiServer
+	// does not implement fails the build, and a route this application does
+	// not serve is simply absent from ServerInterface. apiserver_guards.go
+	// carries the guard chain (auth, ownership, role, idempotency) each
+	// domain's former Routes() method applied inline; openapi_sync_test.go
+	// and routes_surface_test.go are the runtime guard that the registered
+	// surface still matches the document and the inventory exactly.
+	//
+	// The returned http.Handler is discarded: HandleFunc registers directly
+	// onto router (through muxAdapter), which is the same tenant-aware
+	// httpx.Router the debug routes above use, so the handler this
+	// application actually serves is router.Build() in routes(), once every
+	// route — generated and hand-written — has registered.
+	gen.HandlerWithOptions(newAPIServer(app), gen.StdHTTPServerOptions{
+		BaseRouter:       muxAdapter{router: router, guards: app.middleware.Guards()},
+		ErrorHandlerFunc: app.apiServerParamError,
+	})
+}
 
-	// Extracted domain modules register their own routes.
-	app.places.Routes(router, app.middleware.Guards())
-	app.clients.Routes(router, app.middleware.Guards())
-	app.realtime.Routes(router, app.middleware.Guards())
-	app.publicsite.Routes(router, app.middleware.Guards())
-	app.leads.Routes(router, app.middleware.Guards())
-	app.reporting.Routes(router, app.middleware.Guards())
-	app.admin.Routes(router, app.middleware.Guards())
-	app.health.Routes(router, app.middleware.Guards())
-	app.courts.Routes(router, app.middleware.Guards())
-	app.complexes.Routes(router, app.middleware.Guards())
-	app.auth.Routes(router, app.middleware.Guards())
-	app.payments.Routes(router, app.middleware.Guards())
-	app.bookings.Routes(router, app.middleware.Guards())
-	app.auditTrail.Routes(router, app.middleware.Guards())
-	app.openapi.Routes(router, app.middleware.Guards())
+// muxAdapter satisfies gen.ServeMux (HandleFunc(pattern, handler) plus
+// http.Handler) by delegating registration to the httpx.Router already in
+// use — the same tenant-aware wrapper and the same httpx.ServeMux whose
+// Build() assembles the JSON 404/405 fallbacks — and by applying that
+// route's entry in routeGuards around the WHOLE generated per-route dispatch
+// function (parameter binding included) before registering it.
+//
+// That ordering is the reason the guard is applied here rather than inside
+// apiServer's own methods: oapi-codegen's std-http-server binds a route's
+// path and required query parameters before ever calling into
+// ServerInterface, so an unauthenticated or cross-tenant caller must be
+// rejected before that binding runs — exactly where the guard ran when the
+// domain handler still did both jobs itself. Wrapping inside apiServer would
+// let a missing required query parameter answer 400 before the guard had a
+// chance to answer 401/403, which is what routes_authz_test.go and
+// routes_audit_test.go exist to catch.
+type muxAdapter struct {
+	router httpx.Router
+	guards httpx.Guards
+}
 
+func (a muxAdapter) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+	method, path, ok := strings.Cut(pattern, " ")
+	if !ok {
+		panic(fmt.Sprintf("apiserver: generated pattern %q is missing its method", pattern))
+	}
+	g, ok := routeGuards[pattern]
+	if !ok {
+		panic(fmt.Sprintf("apiserver: %q has no entry in routeGuards", pattern))
+	}
+	a.router.HandlerFunc(method, path, guard(a.guards, g, handler))
+}
+
+// ServeHTTP is never invoked: HandlerWithOptions returns its BaseRouter as an
+// http.Handler, but routes() discards that return value — registration
+// already happened as HandleFunc's side effect, and the handler this
+// application actually serves is httpx.ServeMux.Build(), run once every
+// route (generated and hand-written) has registered. ServeMux only requires
+// the method to exist.
+func (a muxAdapter) ServeHTTP(http.ResponseWriter, *http.Request) {
+	panic("apiserver: muxAdapter.ServeHTTP is never invoked; see the comment on ServeHTTP")
 }

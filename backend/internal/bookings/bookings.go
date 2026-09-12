@@ -298,36 +298,6 @@ func (h *Handler) actor(r *http.Request) Actor {
 	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.trustProxies)}
 }
 
-// Routes registers this module's endpoints.
-//
-// The /book group is public because clients book without an account; each of
-// those endpoints resolves the booking by an opaque, expiring access token
-// (specs/booking-link-credential) — never by the booking's primary key, which
-// is not a session and not a credential.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	owner := func(next http.HandlerFunc) http.HandlerFunc {
-		return guards.RequireAuth(guards.RequireComplexOwner(next))
-	}
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/webhooks/whatsapp", h.WhatsAppVerify)
-	router.HandlerFunc(http.MethodPost, "/api/v1/webhooks/whatsapp", h.WhatsAppWebhook)
-
-	router.HandlerFunc(http.MethodPost, "/api/v1/book", guards.Idempotent("public-book")(h.PublicBook))
-	router.HandlerFunc(http.MethodGet, "/api/v1/book/status", h.PublicStatus)
-	router.HandlerFunc(http.MethodGet, "/api/v1/book/cancel-info", h.PublicCancelInfo)
-	router.HandlerFunc(http.MethodPost, "/api/v1/book/cancel", h.PublicCancel)
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/bookings", owner(h.List))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings", owner(guards.Idempotent("owner-book")(h.Create)))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/bookings/{bookingID}", owner(h.Get))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}/bookings/{bookingID}", owner(h.Update))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings/{bookingID}/cancel", owner(h.Cancel))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment",
-		owner(guards.Idempotent("confirm-payment")(h.ConfirmPayment)))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings/{bookingID}/manual-refund",
-		owner(guards.Idempotent("manual-refund")(h.ManualRefund)))
-}
-
 // ErrEditConflict reports that a booking moved out from under a read: the row
 // the update aimed at was gone by the time it ran. It is distinct from
 // data.ErrRecordNotFound, which means the booking was never this complex's to

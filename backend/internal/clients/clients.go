@@ -66,18 +66,6 @@ func NewHandler(svc *Service, respond *httpx.Responder) *Handler {
 	return &Handler{svc: svc, respond: respond}
 }
 
-// Routes registers this module's endpoints. All three are scoped to a complex
-// and readable only by its owner.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	protected := func(next http.HandlerFunc) http.HandlerFunc {
-		return guards.RequireAuth(guards.RequireComplexOwner(next))
-	}
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/clients", protected(h.List))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/clients/{clientID}", protected(h.Get))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}/clients/{clientID}", protected(h.Update))
-}
-
 // route reads the complex the guard put in context and the client id the
 // router matched.
 //

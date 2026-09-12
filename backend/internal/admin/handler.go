@@ -76,22 +76,6 @@ func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Hand
 	return &Handler{svc: svc, respond: respond.WithRefusals(refusals), trustProxies: trustProxies}
 }
 
-// Routes registers this module's endpoints. Every one exposes data across all
-// tenants, so every one is behind the superadmin role as well as authentication.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	superAdmin := func(next http.HandlerFunc) http.HandlerFunc {
-		return guards.RequireAuth(guards.RequireSuperAdmin(next))
-	}
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/stats", superAdmin(h.Stats))
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/users", superAdmin(h.ListUsers))
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/users/{id}", superAdmin(h.GetUser))
-	router.HandlerFunc(http.MethodPatch, "/api/v1/admin/users/{id}/toggle-active", superAdmin(h.ToggleUserActive))
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/complexes", superAdmin(h.ListComplexes))
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/complexes/{id}", superAdmin(h.GetComplex))
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/audit-log", superAdmin(h.ListAuditLogs))
-}
-
 // actor reads the operator behind a request, and the address it came from, off
 // the request. It is the only thing the audit trail needs that lives on the
 // HTTP side.

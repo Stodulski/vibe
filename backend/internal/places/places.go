@@ -88,13 +88,6 @@ func NewHandler(cfg Config, respond *httpx.Responder) *Handler {
 	}
 }
 
-// Routes registers this module's endpoints. Both require a signed-in user:
-// the proxy spends the platform's Google quota, so it is not public.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	router.HandlerFunc(http.MethodGet, "/api/v1/places/autocomplete", guards.RequireAuth(h.Autocomplete))
-	router.HandlerFunc(http.MethodGet, "/api/v1/places/details", guards.RequireAuth(h.Details))
-}
-
 // send executes req against the upstream, decoding the response into dst on
 // success or into an *upstreamError on failure.
 //

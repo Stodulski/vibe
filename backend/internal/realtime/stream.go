@@ -130,13 +130,6 @@ func NewHandler(hub *Hub, auth Authorizer, respond *httpx.Responder, logger *slo
 	return &Handler{hub: hub, auth: auth, respond: respond, logger: logger, shutdown: shutdown, cfg: cfg}
 }
 
-// Routes registers the stream endpoint. It is scoped to a complex and readable
-// only by its owner, like the dashboard it feeds.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/events",
-		guards.RequireAuth(guards.RequireComplexOwner(h.Stream)))
-}
-
 // Stream handles GET /api/v1/complexes/{id}/events, holding the connection open
 // and writing events as they arrive.
 //

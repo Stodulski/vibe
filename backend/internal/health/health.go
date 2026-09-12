@@ -191,15 +191,6 @@ func NewHandler(d Dependencies, cfg Config) *Handler {
 	}
 }
 
-// Routes registers the three endpoints. The two public ones have to stay
-// reachable without credentials — a load balancer has none.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	router.HandlerFunc(http.MethodGet, "/api/v1/livez", h.Live)
-	router.HandlerFunc(http.MethodGet, "/api/v1/healthcheck", h.Check)
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/healthcheck",
-		guards.RequireAuth(guards.RequireSuperAdmin(h.Detailed)))
-}
-
 // ping probes a dependency under its own bounded timeout.
 func ping(ctx context.Context, p Pinger) string {
 	if p == nil {

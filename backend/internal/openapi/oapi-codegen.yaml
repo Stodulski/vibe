@@ -14,6 +14,12 @@ generate:
   # schema, as Go types. This is the half the handlers decode into and encode
   # from.
   models: true
+  # ServerInterface plus HandlerWithOptions/StdHTTPServerOptions, in the plain
+  # (non-strict) shape: handlers keep http.ResponseWriter/*http.Request, so the
+  # existing middleware, guards, Responder and tests survive the cutover.
+  # cmd/api/apiserver.go implements ServerInterface and registers it through
+  # HandlerWithOptions, so the mux patterns come from this document.
+  std-http-server: true
 
 output-options:
   # The document's own components are the contract; pruning them to whatever
