@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -52,8 +54,8 @@ func TestPublicStatusCarriesAnEndOnTheNextLocalDay(t *testing.T) {
 	complexID := uuid.New()
 	booking := overnightBooking(complexID)
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Cancha 1", Sport: "padel", CourtType: "indoor"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1", Sport: "padel", CourtType: "indoor"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=overnight", ""))

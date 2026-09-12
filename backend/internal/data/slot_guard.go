@@ -232,43 +232,6 @@ func ReleaseStalePendingOverlaps(ctx context.Context, tx pgx.Tx, b *Booking, hol
 	return nil
 }
 
-// SpanTaken reports whether a live booking already covers an arbitrary stretch
-// of a court's calendar. The caller must hold lockCourtDays for the local days
-// that stretch touches.
-//
-// It is SlotTaken's question asked from the other side of the fence: the
-// blocked-slot write has a span in hand — the one blocked_slots generated for
-// the row it just inserted — rather than a booking to build one from, and it
-// wants to know whether taking those hours off sale would strand a client who
-// already holds them.
-//
-// The predicate is the canonical one, spelled the same way SlotTaken and
-// GetBookedSlots (db/queries/bookings.sql) spell it, carve-out included: an
-// owner must not be refused a block by hours the storefront is already
-// offering as free, and the storefront's definition of free is this one.
-func SpanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz], hold time.Duration) (bool, error) {
-	var taken bool
-	err := tx.QueryRow(ctx, `
-		SELECT EXISTS(
-			SELECT 1 FROM bookings
-			WHERE court_id = $1
-			  AND span && $2::tstzrange
-			  AND status NOT IN `+releasedBookingStatuses+`
-			  AND NOT (
-			    status = 'pending'
-			    AND collection_status = 'unpaid'
-			    AND created_by IS NULL
-			    AND created_at < NOW() - make_interval(secs => $3)
-			  )
-		)`,
-		UUIDToPg(courtID), span, hold.Seconds(),
-	).Scan(&taken)
-	if err != nil {
-		return false, fmt.Errorf("check bookings: %w", err)
-	}
-	return taken, nil
-}
-
 // SlotTaken reports whether a live booking already covers the hours b wants on
 // its court and date. The caller must hold lockCourtDay for that court and date.
 //

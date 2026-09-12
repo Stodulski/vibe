@@ -4,7 +4,7 @@ import (
 	"errors"
 	"math"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 )
 
 // What a slot costs used to be answered twice, differently.
@@ -47,7 +47,7 @@ var ErrNoPriceRule = errors.New("pricing: no price rule covers this slot")
 // constraint is what makes the first match here the only match: at most one
 // rule may cover any given minute for one court and weekday, so this loop is
 // correct rather than merely repeatable.
-func SlotPrice(rules []*data.CourtPrice, day string, min int) (int, error) {
+func SlotPrice(rules []*courtstore.CourtPrice, day string, min int) (int, error) {
 	for _, p := range rules {
 		if p == nil {
 			continue
@@ -99,7 +99,7 @@ const bookingBlockMinutes = 30
 // refused with ErrNoPriceRule — the same failure mode SlotPrice already has,
 // so a booking that runs off the end of the priced window is refused exactly
 // where the storefront would have stopped offering it.
-func BookingPrice(rules []*data.CourtPrice, day string, startMin, durationMinutes int) (int, error) {
+func BookingPrice(rules []*courtstore.CourtPrice, day string, startMin, durationMinutes int) (int, error) {
 	if durationMinutes <= 0 {
 		return 0, ErrNoPriceRule
 	}

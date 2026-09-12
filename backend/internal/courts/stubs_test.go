@@ -18,26 +18,28 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
 
 type stubStore struct {
-	courts       []*data.Court
-	court        *data.Court
-	prices       []*data.CourtPrice
-	blockedSlot  *data.BlockedSlot
-	blockedSlots []*data.BlockedSlot
+	courts       []*courtstore.Court
+	court        *courtstore.Court
+	prices       []*courtstore.CourtPrice
+	blockedSlot  *courtstore.BlockedSlot
+	blockedSlots []*courtstore.BlockedSlot
 
 	getErr    error
 	insertErr error
 	blockErr  error
 
-	inserted       *data.Court
-	updated        *data.Court
+	inserted       *courtstore.Court
+	updated        *courtstore.Court
 	softDeleted    *uuid.UUID
-	insertedPrices []*data.CourtPrice
+	insertedPrices []*courtstore.CourtPrice
 	pricesCleared  *uuid.UUID
 	// Drive ReplacePrices' failure path: the error the store returns, and the
 	// index of the price the database refused (-1 when no single one is at
@@ -55,22 +57,22 @@ type stubStore struct {
 	// success covers "already deleted" just as well as "freshly deleted", so
 	// tests for that case simply leave this unset).
 	softDeleteErr   error
-	insertedBlocked *data.BlockedSlot
+	insertedBlocked *courtstore.BlockedSlot
 	deletedBlocked  *uuid.UUID
 }
 
-func (s *stubStore) GetByComplex(context.Context, uuid.UUID) ([]*data.Court, error) {
+func (s *stubStore) GetByComplex(context.Context, uuid.UUID) ([]*courtstore.Court, error) {
 	return s.courts, s.getErr
 }
 
-func (s *stubStore) GetByID(context.Context, uuid.UUID) (*data.Court, error) {
+func (s *stubStore) GetByID(context.Context, uuid.UUID) (*courtstore.Court, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
 	return s.court, nil
 }
 
-func (s *stubStore) Insert(_ context.Context, c *data.Court) error {
+func (s *stubStore) Insert(_ context.Context, c *courtstore.Court) error {
 	if s.insertErr != nil {
 		return s.insertErr
 	}
@@ -79,7 +81,7 @@ func (s *stubStore) Insert(_ context.Context, c *data.Court) error {
 	return nil
 }
 
-func (s *stubStore) Update(_ context.Context, c *data.Court) error {
+func (s *stubStore) Update(_ context.Context, c *courtstore.Court) error {
 	s.updated = c
 	return nil
 }
@@ -92,7 +94,7 @@ func (s *stubStore) Update(_ context.Context, c *data.Court) error {
 // does, leave softDeleted unset when it refuses.
 func (s *stubStore) SoftDelete(_ context.Context, id uuid.UUID) error {
 	if s.hasActiveBookings {
-		return data.ErrCourtHasActiveBookings
+		return courtstore.ErrCourtHasActiveBookings
 	}
 	if s.softDeleteErr != nil {
 		return s.softDeleteErr
@@ -101,15 +103,15 @@ func (s *stubStore) SoftDelete(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *stubStore) GetPrices(context.Context, uuid.UUID) ([]*data.CourtPrice, error) {
+func (s *stubStore) GetPrices(context.Context, uuid.UUID) ([]*courtstore.CourtPrice, error) {
 	return s.prices, nil
 }
 
-func (s *stubStore) GetPricesByCourtIDs(context.Context, []uuid.UUID) ([]*data.CourtPrice, error) {
+func (s *stubStore) GetPricesByCourtIDs(context.Context, []uuid.UUID) ([]*courtstore.CourtPrice, error) {
 	return s.prices, nil
 }
 
-func (s *stubStore) InsertPrice(_ context.Context, p *data.CourtPrice) error {
+func (s *stubStore) InsertPrice(_ context.Context, p *courtstore.CourtPrice) error {
 	s.insertedPrices = append(s.insertedPrices, p)
 	return nil
 }
@@ -127,7 +129,7 @@ func (s *stubStore) DeletePricesByCourtID(_ context.Context, courtID uuid.UUID) 
 // replacePricesErr and replaceFailedIndex let a test drive the failure path:
 // the real store returns the index of the price the database refused, which is
 // what the handler turns into a per-field validation error rather than a 500.
-func (s *stubStore) ReplacePrices(_ context.Context, courtID uuid.UUID, prices []*data.CourtPrice) (int, error) {
+func (s *stubStore) ReplacePrices(_ context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (int, error) {
 	if s.replacePricesErr != nil {
 		return s.replaceFailedIndex, s.replacePricesErr
 	}
@@ -136,7 +138,7 @@ func (s *stubStore) ReplacePrices(_ context.Context, courtID uuid.UUID, prices [
 	return -1, nil
 }
 
-func (s *stubStore) InsertBlockedSlot(_ context.Context, slot *data.BlockedSlot) error {
+func (s *stubStore) InsertBlockedSlot(_ context.Context, slot *courtstore.BlockedSlot) error {
 	if s.blockErr != nil {
 		return s.blockErr
 	}
@@ -145,18 +147,18 @@ func (s *stubStore) InsertBlockedSlot(_ context.Context, slot *data.BlockedSlot)
 	return nil
 }
 
-func (s *stubStore) GetBlockedSlotByID(context.Context, uuid.UUID) (*data.BlockedSlot, error) {
+func (s *stubStore) GetBlockedSlotByID(context.Context, uuid.UUID) (*courtstore.BlockedSlot, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
 	return s.blockedSlot, nil
 }
 
-func (s *stubStore) GetBlockedSlotsByComplex(context.Context, uuid.UUID, time.Time, time.Time) ([]*data.BlockedSlot, error) {
+func (s *stubStore) GetBlockedSlotsByComplex(context.Context, uuid.UUID, time.Time, time.Time) ([]*courtstore.BlockedSlot, error) {
 	return s.blockedSlots, s.getErr
 }
 
-func (s *stubStore) GetBlockedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]*data.BlockedSlot, error) {
+func (s *stubStore) GetBlockedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]*courtstore.BlockedSlot, error) {
 	return s.blockedSlots, nil
 }
 
@@ -180,19 +182,19 @@ func (b *stubBookings) HasActiveBookingsByCourt(context.Context, uuid.UUID) (boo
 }
 
 type stubComplexes struct {
-	complex   *data.Complex
-	schedules []*data.Schedule
+	complex   *complexstore.Complex
+	schedules []*complexstore.Schedule
 	err       error
 }
 
-func (c *stubComplexes) GetBySlug(context.Context, string) (*data.Complex, error) {
+func (c *stubComplexes) GetBySlug(context.Context, string) (*complexstore.Complex, error) {
 	if c.err != nil {
 		return nil, c.err
 	}
 	return c.complex, nil
 }
 
-func (c *stubComplexes) GetSchedules(context.Context, uuid.UUID) ([]*data.Schedule, error) {
+func (c *stubComplexes) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.Schedule, error) {
 	return c.schedules, nil
 }
 
@@ -261,7 +263,7 @@ func ownerRequest(t *testing.T, method, target string, complexID uuid.UUID, para
 	}
 
 	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
-	r = httpx.ContextSetComplex(r, &data.Complex{ID: complexID})
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID})
 
 	if len(params) > 0 {
 		p := make(httprouter.Params, 0, len(params))
@@ -296,18 +298,18 @@ func withSlug(r *http.Request, slug string) *http.Request {
 
 // openEveryDay returns a schedule with the complex open 08:00-22:00 all week,
 // so a test does not have to care which weekday its date lands on.
-func openEveryDay() []*data.Schedule {
+func openEveryDay() []*complexstore.Schedule {
 	days := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
-	out := make([]*data.Schedule, 0, len(days))
+	out := make([]*complexstore.Schedule, 0, len(days))
 	for _, d := range days {
-		out = append(out, &data.Schedule{Day: d, OpenTime: "08:00", CloseTime: "22:00"})
+		out = append(out, &complexstore.Schedule{Day: d, OpenTime: "08:00", CloseTime: "22:00"})
 	}
 	return out
 }
 
 // pricedEveryDay returns a full-week price band for one court, for the same
 // reason.
-func pricedEveryDay(courtID uuid.UUID) []*data.CourtPrice {
+func pricedEveryDay(courtID uuid.UUID) []*courtstore.CourtPrice {
 	return everyDayBand(courtID, "08:00", "22:00", 500000)
 }
 
@@ -316,20 +318,20 @@ var weekdays = []string{"monday", "tuesday", "wednesday", "thursday", "friday", 
 
 // everyDaySchedule opens the complex between the same two times all week, so a
 // test does not have to care which weekday its date lands on.
-func everyDaySchedule(open, closes string) []*data.Schedule {
-	out := make([]*data.Schedule, 0, len(weekdays))
+func everyDaySchedule(open, closes string) []*complexstore.Schedule {
+	out := make([]*complexstore.Schedule, 0, len(weekdays))
 	for _, d := range weekdays {
-		out = append(out, &data.Schedule{Day: d, OpenTime: open, CloseTime: closes})
+		out = append(out, &complexstore.Schedule{Day: d, OpenTime: open, CloseTime: closes})
 	}
 	return out
 }
 
 // everyDayBand prices one court identically all week, so that what a test is
 // actually about — which slots are covered — is the only thing that varies.
-func everyDayBand(courtID uuid.UUID, from, to string, price int) []*data.CourtPrice {
-	out := make([]*data.CourtPrice, 0, len(weekdays))
+func everyDayBand(courtID uuid.UUID, from, to string, price int) []*courtstore.CourtPrice {
+	out := make([]*courtstore.CourtPrice, 0, len(weekdays))
 	for _, d := range weekdays {
-		out = append(out, data.NewCourtPriceForTest(courtID, d, from, to, price))
+		out = append(out, courtstore.NewCourtPriceForTest(courtID, d, from, to, price))
 	}
 	return out
 }

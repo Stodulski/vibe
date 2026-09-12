@@ -17,6 +17,9 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -92,15 +95,15 @@ func (s *stubStore) Update(_ context.Context, b *data.Booking) error {
 }
 
 type stubClients struct {
-	client               *data.Client
+	client               *clientstore.Client
 	err                  error
 	created              []string
 	noShows              []uuid.UUID
-	updated              []*data.Client
+	updated              []*clientstore.Client
 	allowNameUpdateCalls []bool
 }
 
-func (s *stubClients) GetByID(context.Context, uuid.UUID) (*data.Client, error) {
+func (s *stubClients) GetByID(context.Context, uuid.UUID) (*clientstore.Client, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -116,7 +119,7 @@ func (s *stubClients) GetByID(context.Context, uuid.UUID) (*data.Client, error) 
 // lives in. Recording it here is what lets a test confirm which value its
 // caller passed — the whole point of the fix is that create.go and public.go
 // must not pass the same one.
-func (s *stubClients) GetOrCreate(_ context.Context, _ uuid.UUID, firstName, _, phone, _ string, allowNameUpdate bool) (*data.Client, error) {
+func (s *stubClients) GetOrCreate(_ context.Context, _ uuid.UUID, firstName, _, phone, _ string, allowNameUpdate bool) (*clientstore.Client, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -125,10 +128,10 @@ func (s *stubClients) GetOrCreate(_ context.Context, _ uuid.UUID, firstName, _, 
 	if s.client != nil {
 		return s.client, nil
 	}
-	return &data.Client{ID: uuid.New(), FirstName: firstName, Phone: phone}, nil
+	return &clientstore.Client{ID: uuid.New(), FirstName: firstName, Phone: phone}, nil
 }
 
-func (s *stubClients) Update(_ context.Context, c *data.Client) error {
+func (s *stubClients) Update(_ context.Context, c *clientstore.Client) error {
 	s.updated = append(s.updated, c)
 	return nil
 }
@@ -139,8 +142,8 @@ func (s *stubClients) IncrementNoShows(_ context.Context, id uuid.UUID) error {
 }
 
 type stubComplexes struct {
-	complex   *data.Complex
-	schedules []*data.Schedule
+	complex   *complexstore.Complex
+	schedules []*complexstore.Schedule
 	err       error
 	// credentialsErr fails UpdateMPCredentials, standing in for the database
 	// refusing the write that stores a freshly refreshed MercadoPago token.
@@ -163,7 +166,7 @@ type mpCredentialUpdate struct {
 	expiresIn    int
 }
 
-func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*data.Complex, error) {
+func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*complexstore.Complex, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -173,7 +176,7 @@ func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*data.Complex, erro
 	return s.complex, nil
 }
 
-func (s *stubComplexes) GetSchedules(context.Context, uuid.UUID) ([]*data.Schedule, error) {
+func (s *stubComplexes) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.Schedule, error) {
 	return s.schedules, nil
 }
 
@@ -192,12 +195,12 @@ func (s *stubComplexes) UpdateMPCredentials(_ context.Context, complexID uuid.UU
 }
 
 type stubCourts struct {
-	court  *data.Court
-	prices []*data.CourtPrice
+	court  *courtstore.Court
+	prices []*courtstore.CourtPrice
 	// blocked is what the owner has taken off sale, keyed by date so a stub
 	// that returns the same list for every day cannot make a test pass on a
 	// date the block does not cover.
-	blocked map[string][]*data.BlockedSlot
+	blocked map[string][]*courtstore.BlockedSlot
 	// blockedErr fails the read, standing in for the database being
 	// unavailable while a write path is deciding whether the hours are on
 	// sale. A read that cannot fail cannot prove the caller refuses rather
@@ -216,21 +219,21 @@ type blockedQuery struct {
 	date    string
 }
 
-func (s *stubCourts) GetByID(context.Context, uuid.UUID) (*data.Court, error) {
+func (s *stubCourts) GetByID(context.Context, uuid.UUID) (*courtstore.Court, error) {
 	if s.court == nil {
 		return nil, data.ErrRecordNotFound
 	}
 	return s.court, nil
 }
 
-func (s *stubCourts) GetPrices(context.Context, uuid.UUID) ([]*data.CourtPrice, error) {
+func (s *stubCourts) GetPrices(context.Context, uuid.UUID) ([]*courtstore.CourtPrice, error) {
 	return s.prices, nil
 }
 
 // GetBlockedSlots honours ctx for the same reason stubLocks.ReleaseLock does:
 // CourtModel hands it to queryContext and then to pgx, so a finished caller
 // context fails the read rather than answering "nothing is blocked".
-func (s *stubCourts) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*data.BlockedSlot, error) {
+func (s *stubCourts) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error) {
 	s.blockedQueries = append(s.blockedQueries, blockedQuery{courtID: courtID, date: date.Format("2006-01-02")})
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -245,10 +248,10 @@ func (s *stubCourts) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, dat
 // blocked-slot write would.
 func (s *stubCourts) block(courtID uuid.UUID, date time.Time, start, end string) {
 	if s.blocked == nil {
-		s.blocked = map[string][]*data.BlockedSlot{}
+		s.blocked = map[string][]*courtstore.BlockedSlot{}
 	}
 	key := date.Format("2006-01-02")
-	s.blocked[key] = append(s.blocked[key], &data.BlockedSlot{
+	s.blocked[key] = append(s.blocked[key], &courtstore.BlockedSlot{
 		ID: uuid.New(), CourtID: courtID, Date: date, StartTime: start, EndTime: end,
 	})
 }
@@ -624,7 +627,7 @@ func ownerRequest(t *testing.T, method, target string, complexID uuid.UUID, para
 	}
 
 	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
-	r = httpx.ContextSetComplex(r, &data.Complex{ID: complexID, CancellationHours: 24})
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID, CancellationHours: 24})
 
 	if len(params) > 0 {
 		p := make(httprouter.Params, 0, len(params))

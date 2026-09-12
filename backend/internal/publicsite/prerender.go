@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -73,7 +74,7 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 //
 // Every interpolated value is HTML-escaped: complex names, descriptions and
 // logo URLs are owner-supplied, and they are being written into markup.
-func (h *Handler) render(tmpl string, complex *data.Complex, schedules []*data.Schedule, slug string) string {
+func (h *Handler) render(tmpl string, complex *complexstore.Complex, schedules []*complexstore.Schedule, slug string) string {
 	baseURL := strings.TrimRight(h.frontendURL, "/")
 	canonicalURL := baseURL + "/" + slug
 
@@ -115,7 +116,7 @@ var schemaDays = map[string]string{
 // structuredData builds the schema.org SportsActivityLocation document that
 // lets search engines show the complex's address and opening hours directly in
 // results.
-func structuredData(complex *data.Complex, schedules []*data.Schedule, url string) string {
+func structuredData(complex *complexstore.Complex, schedules []*complexstore.Schedule, url string) string {
 	schema := map[string]any{
 		"@context":  "https://schema.org",
 		"@type":     "SportsActivityLocation",

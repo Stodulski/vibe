@@ -15,6 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -204,16 +206,16 @@ func TestOpenAPIConformance_AuthenticatedPaginatedList(t *testing.T) {
 		ID: uuid.New(), Email: "owner@example.com", FirstName: "Owner", LastName: "Account",
 		Phone: "+5491112345678", Role: "owner", IsActive: true, EmailVerified: true,
 	})
-	complex := complexes.seed(data.Complex{
+	complex := complexes.seed(complexstore.Complex{
 		ID: uuid.New(), OwnerID: owner.ID, Name: "Complejo", Slug: "complejo",
 		IsActive: true, CountryCode: "AR", Currency: "ARS",
 	})
-	seededClient := &data.Client{
+	seededClient := &clientstore.Client{
 		ID: uuid.New(), ComplexID: complex.ID, FirstName: "Juan", LastName: "Perez",
 		Phone: "+5491100000000", TotalBookings: 3, NoShows: 0,
 	}
-	clients.GetByComplexFn = func(_ context.Context, _ uuid.UUID, _ string, _ data.Filters) ([]*data.Client, data.Metadata, error) {
-		return []*data.Client{seededClient}, data.Metadata{HasMore: false}, nil
+	clients.GetByComplexFn = func(_ context.Context, _ uuid.UUID, _ string, _ data.Filters) ([]*clientstore.Client, data.Metadata, error) {
+		return []*clientstore.Client{seededClient}, data.Metadata{HasMore: false}, nil
 	}
 
 	token, err := app.tokens.GenerateAccessToken(owner.ID, owner.Role)

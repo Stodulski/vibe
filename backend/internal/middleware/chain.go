@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -268,7 +269,7 @@ func (m *Middleware) loadUser(ctx context.Context, id uuid.UUID) (*authstore.Use
 }
 
 // loadComplex reads a complex under its own deadline, for the same reason.
-func (m *Middleware) loadComplex(ctx context.Context, id uuid.UUID) (*data.Complex, error) {
+func (m *Middleware) loadComplex(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error) {
 	ctx, cancel := context.WithTimeout(ctx, identityQueryTimeout)
 	defer cancel()
 	return m.complexes.GetByID(ctx, id)

@@ -10,6 +10,9 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
@@ -137,11 +140,11 @@ type TokenStore interface {
 
 // ComplexCRUD defines create, read, update and soft-delete operations for padel complexes.
 type ComplexCRUD interface {
-	Insert(ctx context.Context, complex *data.Complex) error
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Complex, error)
-	GetBySlug(ctx context.Context, slug string) (*data.Complex, error)
-	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*data.Complex, error)
-	Update(ctx context.Context, complex *data.Complex) error
+	Insert(ctx context.Context, complex *complexstore.Complex) error
+	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
+	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
+	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
+	Update(ctx context.Context, complex *complexstore.Complex) error
 	// SoftDeleteCascade soft-deletes the complex and returns how many of its
 	// courts went down with it. There is no plain SoftDelete: stamping a
 	// complex without closing its courts is the state the soft-delete cascade exists to
@@ -149,24 +152,24 @@ type ComplexCRUD interface {
 	SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SlugsWithPrefix(ctx context.Context, base string) ([]string, error)
-	GetAllSlugs(ctx context.Context) ([]data.ComplexSlug, error)
+	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
 }
 
 // ComplexScheduleManager manages a complex's weekly opening schedule.
 type ComplexScheduleManager interface {
-	UpsertSchedule(ctx context.Context, schedule *data.Schedule) error
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error)
+	UpsertSchedule(ctx context.Context, schedule *complexstore.Schedule) error
+	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 }
 
 // ComplexMPManager manages a complex's MercadoPago OAuth credentials.
 type ComplexMPManager interface {
 	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
 	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
-	GetWithMPConnected(ctx context.Context) ([]*data.Complex, error)
+	GetWithMPConnected(ctx context.Context) ([]*complexstore.Complex, error)
 	// ListComplexesNeedingMPRefresh narrows GetWithMPConnected to complexes
 	// whose token has no known expiry or expires within 30 days — what
 	// cronRefreshMPTokens actually needs to refresh.
-	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*data.Complex, error)
+	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error)
 }
 
 // ComplexStore composes every complex-related store capability.
@@ -182,21 +185,21 @@ type ComplexStore interface {
 
 // CourtCRUD defines create, read, update and soft-delete operations for courts.
 type CourtCRUD interface {
-	Insert(ctx context.Context, court *data.Court) error
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Court, error)
-	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*data.Court, error)
-	Update(ctx context.Context, court *data.Court) error
+	Insert(ctx context.Context, court *courtstore.Court) error
+	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
+	Update(ctx context.Context, court *courtstore.Court) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 }
 
 // CourtPricingManager manages per-court, time-based price rules.
 type CourtPricingManager interface {
-	InsertPrice(ctx context.Context, price *data.CourtPrice) error
-	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*data.CourtPrice, error)
-	UpdatePrice(ctx context.Context, price *data.CourtPrice) error
+	InsertPrice(ctx context.Context, price *courtstore.CourtPrice) error
+	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
+	UpdatePrice(ctx context.Context, price *courtstore.CourtPrice) error
 	DeletePrice(ctx context.Context, id uuid.UUID) error
 	DeletePricesByCourtID(ctx context.Context, courtID uuid.UUID) error
-	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*data.CourtPrice, error)
+	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*courtstore.CourtPrice, error)
 	// ReplacePrices atomically replaces a court's whole price table — see its
 	// comment in courts.go (H-07). Declared here, alongside the two calls it
 	// replaces in internal/courts.Handler.UpdatePrices, because this interface
@@ -204,16 +207,16 @@ type CourtPricingManager interface {
 	// (courts.NewHandler(d.models.Courts, ...) in cmd/api/app.go): a mock
 	// implementing CourtStore there needs an additive stub for this method to
 	// keep compiling, and cmd/api/mock_stores_test.go carries one.
-	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*data.CourtPrice) (failedIndex int, err error)
+	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (failedIndex int, err error)
 }
 
 // CourtBlockedSlotManager manages manually blocked (unbookable) court slots.
 type CourtBlockedSlotManager interface {
-	InsertBlockedSlot(ctx context.Context, slot *data.BlockedSlot) error
-	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*data.BlockedSlot, error)
-	GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*data.BlockedSlot, error)
-	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*data.BlockedSlot, error)
-	GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*data.BlockedSlot, error)
+	InsertBlockedSlot(ctx context.Context, slot *courtstore.BlockedSlot) error
+	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
+	GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*courtstore.BlockedSlot, error)
+	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error)
+	GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
 	DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error
 }
 
@@ -304,10 +307,10 @@ type BookingStore interface {
 
 // ClientCRUD defines create, read and update operations for clients.
 type ClientCRUD interface {
-	Insert(ctx context.Context, client *data.Client) error
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Client, error)
-	GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*data.Client, data.Metadata, error)
-	Update(ctx context.Context, client *data.Client) error
+	Insert(ctx context.Context, client *clientstore.Client) error
+	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*clientstore.Client, data.Metadata, error)
+	Update(ctx context.Context, client *clientstore.Client) error
 }
 
 // ClientLookup resolves clients by phone, creating one when none exists.
@@ -316,15 +319,15 @@ type ClientLookup interface {
 	// apart from the public, unauthenticated one on a phone match — see
 	// ClientModel.GetOrCreate's own comment for why the two must not share
 	// one answer.
-	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*data.Client, error)
-	GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*data.Client, error)
+	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
+	GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*clientstore.Client, error)
 }
 
 // ClientMetrics computes client-related counters and insights for a complex.
 type ClientMetrics interface {
 	IncrementNoShows(ctx context.Context, clientID uuid.UUID) error
 	CountByComplex(ctx context.Context, complexID uuid.UUID) (int, error)
-	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.ClientInsights, error)
+	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*clientstore.ClientInsights, error)
 }
 
 // ClientStore composes every client-related store capability.
@@ -560,12 +563,12 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 	return Stores{
 		Users:             &authstore.Users{DB: pooled, Q: q, HashCost: cfg.PasswordHashCost},
 		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
-		Complexes:         &data.ComplexModel{DB: pooled, Q: q, Keys: cfg.Keys},
-		Courts:            &data.CourtModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
+		Complexes:         &complexstore.Store{DB: pooled, Q: q, Keys: cfg.Keys},
+		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		Bookings:          &data.BookingModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
 		BookingLinkTokens: &data.BookingLinkTokenModel{DB: pooled},
 		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
-		Clients:           &data.ClientModel{DB: pooled, Q: q},
+		Clients:           &clientstore.Store{DB: pooled, Q: q},
 		Payments:          &data.PaymentModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		EmailVerification: &authstore.EmailVerifications{DB: pooled, Q: q},
 		PasswordReset:     &authstore.PasswordResets{DB: pooled},

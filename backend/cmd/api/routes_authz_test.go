@@ -14,6 +14,9 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/middleware"
 )
@@ -456,8 +459,8 @@ func newAuthzFixture(t *testing.T) *authzFixture {
 	other := account("other-owner@example.com", "owner")
 	admin := account("super@example.com", "superadmin")
 
-	complexOf := func(o *authstore.User, slug string) *data.Complex {
-		return complexes.seed(data.Complex{
+	complexOf := func(o *authstore.User, slug string) *complexstore.Complex {
+		return complexes.seed(complexstore.Complex{
 			ID:                uuid.New(),
 			OwnerID:           o.ID,
 			Name:              "Complejo " + slug,
@@ -513,7 +516,7 @@ func newAuthzFixture(t *testing.T) *authzFixture {
 // Without them an entitled caller gets a 404 from the handler, which is
 // indistinguishable from the ownership guard rejecting them — see
 // assertOutcome. Every record here belongs to the target complex.
-func (fx *authzFixture) seedSubResources(t *testing.T, target *data.Complex) {
+func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Complex) {
 	t.Helper()
 
 	courts, ok := fx.app.models.Courts.(*mockCourtStore)
@@ -536,15 +539,15 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *data.Complex) {
 	id := fx.subResourceID
 	tomorrow := time.Now().AddDate(0, 0, 1)
 
-	court := &data.Court{
+	court := &courtstore.Court{
 		ID:        id,
 		ComplexID: target.ID,
 		Name:      "Cancha 1",
 		IsActive:  true,
 	}
-	courts.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*data.Court, error) { return court, nil }
-	courts.GetBlockedSlotByIDFn = func(_ context.Context, _ uuid.UUID) (*data.BlockedSlot, error) {
-		return &data.BlockedSlot{ID: id, CourtID: court.ID, Date: tomorrow, StartTime: "10:00", EndTime: "11:00"}, nil
+	courts.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*courtstore.Court, error) { return court, nil }
+	courts.GetBlockedSlotByIDFn = func(_ context.Context, _ uuid.UUID) (*courtstore.BlockedSlot, error) {
+		return &courtstore.BlockedSlot{ID: id, CourtID: court.ID, Date: tomorrow, StartTime: "10:00", EndTime: "11:00"}, nil
 	}
 
 	booking := &data.Booking{
@@ -558,14 +561,14 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *data.Complex) {
 	}
 	bookings.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*data.Booking, error) { return booking, nil }
 
-	client := &data.Client{
+	client := &clientstore.Client{
 		ID:        id,
 		ComplexID: target.ID,
 		FirstName: "Cliente",
 		LastName:  "Uno",
 		Phone:     "+5492211234567",
 	}
-	clients.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*data.Client, error) { return client, nil }
+	clients.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*clientstore.Client, error) { return client, nil }
 
 	// The admin detail routes read the platform store rather than the tenant
 	// stores, so they need their own records.
@@ -573,7 +576,7 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *data.Complex) {
 		return &adminstore.AdminUserDetail{User: &authstore.User{ID: userID, Email: "detail@example.com"}}, nil
 	}
 	admin.GetComplexDetailFn = func(_ context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error) {
-		return &adminstore.AdminComplexDetail{Complex: &data.Complex{ID: complexID}}, nil
+		return &adminstore.AdminComplexDetail{Complex: &complexstore.Complex{ID: complexID}}, nil
 	}
 }
 

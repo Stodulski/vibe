@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -48,12 +48,12 @@ func midnightCourt(f *fixture) (complexID, courtID uuid.UUID) {
 	// assigning TimeTo on an existing struct changes the label and leaves the
 	// span describing the old hours — a fixture that reads correctly and prices
 	// something else.
-	rebuilt := make([]*data.CourtPrice, 0, len(f.courts.prices))
+	rebuilt := make([]*courtstore.CourtPrice, 0, len(f.courts.prices))
 	for _, p := range f.courts.prices {
-		rebuilt = append(rebuilt, data.NewCourtPriceForTest(p.CourtID, p.DayType, p.TimeFrom, "00:00", p.Price))
+		rebuilt = append(rebuilt, courtstore.NewCourtPriceForTest(p.CourtID, p.DayType, p.TimeFrom, "00:00", p.Price))
 	}
 	f.courts.prices = rebuilt
-	f.courts.court = &data.Court{
+	f.courts.court = &courtstore.Court{
 		ID: courtID, ComplexID: complexID, Name: "Court 1",
 		IsActive: true,
 	}
@@ -136,7 +136,7 @@ func TestPublicBookRefusesAnOvernightBookingOverABlockedHour(t *testing.T) {
 	complexID, courtID := midnightCourt(f)
 
 	date := time.Now().In(timezone.Argentina).AddDate(0, 0, 7).Format("2006-01-02")
-	f.courts.blocked = map[string][]*data.BlockedSlot{
+	f.courts.blocked = map[string][]*courtstore.BlockedSlot{
 		date: {{ID: uuid.New(), CourtID: courtID, StartTime: "23:00", EndTime: "23:59"}},
 	}
 
@@ -164,7 +164,7 @@ func TestPublicBookAcceptsAnOvernightBookingWhenTheBlockIsElsewhere(t *testing.T
 	complexID, courtID := midnightCourt(f)
 
 	date := time.Now().In(timezone.Argentina).AddDate(0, 0, 7).Format("2006-01-02")
-	f.courts.blocked = map[string][]*data.BlockedSlot{
+	f.courts.blocked = map[string][]*courtstore.BlockedSlot{
 		date: {{ID: uuid.New(), CourtID: courtID, StartTime: "10:00", EndTime: "11:00"}},
 	}
 

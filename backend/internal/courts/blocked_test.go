@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -19,18 +20,18 @@ import (
 // caller opts in, and the envelope the opt-in path returns.
 
 type blockedSlotsResponse struct {
-	BlockedSlots []*data.BlockedSlot `json:"blocked_slots"`
-	Metadata     data.Metadata       `json:"metadata"`
+	BlockedSlots []*courtstore.BlockedSlot `json:"blocked_slots"`
+	Metadata     data.Metadata             `json:"metadata"`
 }
 
 // threeBlockedSlots returns three slots already in the (date, start_time, id)
 // order GetBlockedSlotsByComplex's real ORDER BY produces, which is what the
 // handler's cursor-trim logic assumes of whatever the store hands it.
-func threeBlockedSlots(courtID uuid.UUID) []*data.BlockedSlot {
+func threeBlockedSlots(courtID uuid.UUID) []*courtstore.BlockedSlot {
 	base := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
-	out := make([]*data.BlockedSlot, 3)
+	out := make([]*courtstore.BlockedSlot, 3)
 	for i := range out {
-		out[i] = &data.BlockedSlot{
+		out[i] = &courtstore.BlockedSlot{
 			ID:        uuid.New(),
 			CourtID:   courtID,
 			Date:      base.AddDate(0, 0, i),

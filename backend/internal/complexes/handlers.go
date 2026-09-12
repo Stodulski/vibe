@@ -8,6 +8,8 @@ import (
 	"regexp"
 
 	"github.com/google/uuid"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -124,7 +126,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	complex := &data.Complex{
+	complex := &complexstore.Complex{
 		OwnerID:           user.ID,
 		Name:              input.Name,
 		Slug:              input.Slug,
@@ -149,7 +151,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	err = h.store.Insert(r.Context(), complex)
 	if err != nil {
 		switch {
-		case errors.Is(err, data.ErrDuplicateSlug):
+		case errors.Is(err, complexstore.ErrDuplicateSlug):
 			// The check above said the slug was free and the constraint
 			// disagreed: either another request took it in between, or the
 			// two are answering different questions. Either way the owner is
@@ -166,7 +168,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	// Create default schedules (Mon-Sun, 08:00-23:00).
 	days := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
 	for _, day := range days {
-		schedule := &data.Schedule{
+		schedule := &complexstore.Schedule{
 			ComplexID: complex.ID,
 			Day:       day,
 			OpenTime:  "08:00",
@@ -556,7 +558,7 @@ type publicComplex struct {
 	PaymentsEnabled bool `json:"payments_enabled"`
 }
 
-func newPublicComplex(c *data.Complex) publicComplex {
+func newPublicComplex(c *complexstore.Complex) publicComplex {
 	return publicComplex{
 		ID:                c.ID,
 		Name:              c.Name,
@@ -581,8 +583,8 @@ func newPublicComplex(c *data.Complex) publicComplex {
 
 // courtWithPrices is one bookable court and the bands it is priced by.
 type courtWithPrices struct {
-	*data.Court
-	Prices []*data.CourtPrice `json:"prices"`
+	*courtstore.Court
+	Prices []*courtstore.CourtPrice `json:"prices"`
 }
 
 // publicCourts returns the complex's bookable courts with their price bands.
@@ -596,7 +598,7 @@ func (h *Handler) publicCourts(r *http.Request, complexID uuid.UUID) ([]courtWit
 		return nil, err
 	}
 
-	active := make([]*data.Court, 0, len(courts))
+	active := make([]*courtstore.Court, 0, len(courts))
 	for _, c := range courts {
 		if c.IsActive {
 			active = append(active, c)
@@ -612,7 +614,7 @@ func (h *Handler) publicCourts(r *http.Request, complexID uuid.UUID) ([]courtWit
 	if err != nil {
 		return nil, err
 	}
-	pricesByCourtID := make(map[uuid.UUID][]*data.CourtPrice, len(active))
+	pricesByCourtID := make(map[uuid.UUID][]*courtstore.CourtPrice, len(active))
 	for _, p := range allPrices {
 		pricesByCourtID[p.CourtID] = append(pricesByCourtID[p.CourtID], p)
 	}
@@ -737,9 +739,9 @@ func (h *Handler) UpdateSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var schedules []*data.Schedule
+	var schedules []*complexstore.Schedule
 	for _, s := range input.Schedules {
-		schedule := &data.Schedule{
+		schedule := &complexstore.Schedule{
 			ComplexID: complex.ID,
 			Day:       s.Day,
 			OpenTime:  s.OpenTime,

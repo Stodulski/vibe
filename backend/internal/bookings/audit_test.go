@@ -10,6 +10,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -204,9 +207,9 @@ func TestPublicCancelRecordsTheRefundWindowDecision(t *testing.T) {
 			booking.CollectionStatus = tt.collectionStatus
 			f.store.booking = booking
 			f.linkResolver.booking = booking
-			f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-			f.clients.client = &data.Client{ID: booking.ClientID}
-			f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+			f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+			f.clients.client = &clientstore.Client{ID: booking.ClientID}
+			f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 			w := httptest.NewRecorder()
 			f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))

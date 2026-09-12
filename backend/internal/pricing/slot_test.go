@@ -7,15 +7,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 )
 
-func rule(day, from, to string, price int) *data.CourtPrice {
-	return data.NewCourtPriceForTest(uuid.Nil, day, from, to, price)
+func rule(day, from, to string, price int) *courtstore.CourtPrice {
+	return courtstore.NewCourtPriceForTest(uuid.Nil, day, from, to, price)
 }
 
 func TestSlotPriceReturnsTheRuleCoveringTheSlot(t *testing.T) {
-	rules := []*data.CourtPrice{
+	rules := []*courtstore.CourtPrice{
 		rule("monday", "08:00", "18:00", 10_000),
 		rule("monday", "18:00", "23:00", 15_000),
 		rule("tuesday", "08:00", "23:00", 12_000),
@@ -34,7 +34,7 @@ func TestSlotPriceReturnsTheRuleCoveringTheSlot(t *testing.T) {
 // adjacent rules 08:00-18:00 and 18:00-23:00 are the normal way to price a peak
 // window, and 18:00 belongs to the second.
 func TestSlotPriceTreatsRuleBoundsAsHalfOpen(t *testing.T) {
-	rules := []*data.CourtPrice{
+	rules := []*courtstore.CourtPrice{
 		rule("monday", "08:00", "18:00", 10_000),
 		rule("monday", "18:00", "23:00", 15_000),
 	}
@@ -52,7 +52,7 @@ func TestSlotPriceTreatsRuleBoundsAsHalfOpen(t *testing.T) {
 // slot's price, or another weekday's, while the storefront showed it at 0.
 // There is no fallback: an uncovered slot has no price.
 func TestSlotPriceHasNoFallbackToAnotherBand(t *testing.T) {
-	rules := []*data.CourtPrice{rule("monday", "08:00", "18:00", 10_000)}
+	rules := []*courtstore.CourtPrice{rule("monday", "08:00", "18:00", 10_000)}
 
 	if _, err := SlotPrice(rules, "monday", at("20:00")); !errors.Is(err, ErrNoPriceRule) {
 		t.Errorf("20:00 is outside every Monday band and must have no price; got %v", err)
@@ -60,7 +60,7 @@ func TestSlotPriceHasNoFallbackToAnotherBand(t *testing.T) {
 }
 
 func TestSlotPriceHasNoFallbackToAnotherWeekday(t *testing.T) {
-	rules := []*data.CourtPrice{rule("monday", "08:00", "23:00", 10_000)}
+	rules := []*courtstore.CourtPrice{rule("monday", "08:00", "23:00", 10_000)}
 
 	if _, err := SlotPrice(rules, "sunday", at("10:00")); !errors.Is(err, ErrNoPriceRule) {
 		t.Errorf("a Monday band must not price a Sunday slot; got %v", err)
@@ -91,7 +91,7 @@ func TestSlotPriceReturnsZeroWithItsError(t *testing.T) {
 // charged each at its own band. Two 30-minute blocks price at the 400/hour
 // off-peak rate, two more at the 800/hour peak rate.
 func TestBookingPriceChargesEachBlockAtItsOwnBand(t *testing.T) {
-	rules := []*data.CourtPrice{
+	rules := []*courtstore.CourtPrice{
 		rule("monday", "08:00", "18:00", 400_00),
 		rule("monday", "18:00", "23:00", 800_00),
 	}
@@ -113,7 +113,7 @@ func TestBookingPriceChargesEachBlockAtItsOwnBand(t *testing.T) {
 // An odd hourly rate makes the two orders disagree if either block is rounded
 // independently.
 func TestBookingPriceRoundsOnceOverTheWholeBooking(t *testing.T) {
-	rules := []*data.CourtPrice{rule("monday", "08:00", "23:00", 100_001)}
+	rules := []*courtstore.CourtPrice{rule("monday", "08:00", "23:00", 100_001)}
 
 	// Two half-hour blocks at the same odd rate: summing first gives
 	// round(200_002 / 2) = 100_001 exactly, with no rounding error at all.
@@ -131,7 +131,7 @@ func TestBookingPriceRoundsOnceOverTheWholeBooking(t *testing.T) {
 // that runs off the end of the priced window is not offered by the
 // storefront, and the write path must not sell it either.
 func TestBookingPriceRefusesWhenAnyBlockIsUnpriced(t *testing.T) {
-	rules := []*data.CourtPrice{rule("monday", "08:00", "19:00", 500_00)}
+	rules := []*courtstore.CourtPrice{rule("monday", "08:00", "19:00", 500_00)}
 
 	if _, err := BookingPrice(rules, "monday", at("18:00"), 120); !errors.Is(err, ErrNoPriceRule) {
 		t.Errorf("18:00-20:00 runs past the 19:00 band boundary and must be refused; got %v", err)
@@ -148,7 +148,7 @@ func TestBookingPriceRefusesWhenAnyBlockIsUnpriced(t *testing.T) {
 // two at Saturday's rate. Correct by the calendar and wrong by the counter:
 // nobody at the club calls 00:30 on a Friday night "Saturday".
 func TestBookingPricePricesTheWholeNightAtTheWindowsDay(t *testing.T) {
-	rules := []*data.CourtPrice{
+	rules := []*courtstore.CourtPrice{
 		rule("friday", "18:00", "02:00", 400_00),
 		rule("saturday", "08:00", "23:00", 800_00),
 	}
@@ -168,7 +168,7 @@ func TestBookingPricePricesTheWholeNightAtTheWindowsDay(t *testing.T) {
 // booking is refused rather than billed from whatever rule happens to be near.
 // This is the owner's signal that the window and the band disagree.
 func TestBookingPriceRefusesWhenTheBandStopsShortOfTheWindow(t *testing.T) {
-	rules := []*data.CourtPrice{
+	rules := []*courtstore.CourtPrice{
 		rule("friday", "18:00", "23:59", 400_00),
 	}
 
@@ -180,7 +180,7 @@ func TestBookingPriceRefusesWhenTheBandStopsShortOfTheWindow(t *testing.T) {
 // The minutes past midnight are the same band, so the rate does not change
 // halfway through the night.
 func TestSlotPriceCoversTheHoursPastMidnightOfAWrappingBand(t *testing.T) {
-	rules := []*data.CourtPrice{rule("friday", "18:00", "02:00", 400_00)}
+	rules := []*courtstore.CourtPrice{rule("friday", "18:00", "02:00", 400_00)}
 
 	for _, min := range []int{at("18:00"), at("23:30"), at("00:30") + 24*60, at("01:30") + 24*60} {
 		if _, err := SlotPrice(rules, "friday", min); err != nil {

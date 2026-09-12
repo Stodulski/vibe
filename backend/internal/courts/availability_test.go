@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -61,8 +63,8 @@ func gridForDuration(t *testing.T, store *stubStore, bookings *stubBookings, com
 
 // activeComplex is the fixture every public read now needs: a venue that has
 // not switched itself off.
-func activeComplex(id uuid.UUID) *data.Complex {
-	return &data.Complex{ID: id, Name: "Vibe", Slug: "vibe", IsActive: true}
+func activeComplex(id uuid.UUID) *complexstore.Complex {
+	return &complexstore.Complex{ID: id, Name: "Vibe", Slug: "vibe", IsActive: true}
 }
 
 // FINDING 1. The grid used to price a slot no band covered at 0 and publish it
@@ -73,7 +75,7 @@ func TestAvailabilityOmitsSlotsNoPriceRuleCovers(t *testing.T) {
 
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		// Open 08:00-22:00, but priced only until 12:00.
 		prices: everyDayBand(courtID, "08:00", "12:00", 500_000),
 	}
@@ -104,8 +106,8 @@ func TestAvailabilityPublishesNoSlotsForAnUnpricedDay(t *testing.T) {
 
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
-		prices: []*data.CourtPrice{{CourtID: courtID, DayType: "monday", TimeFrom: "08:00", TimeTo: "22:00", Price: 500_000}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		prices: []*courtstore.CourtPrice{{CourtID: courtID, DayType: "monday", TimeFrom: "08:00", TimeTo: "22:00", Price: 500_000}},
 	}
 
 	// A Tuesday, so the only configured band is the wrong weekday.
@@ -127,7 +129,7 @@ func TestAvailabilityShowsThePriceTheBookingPathWouldCharge(t *testing.T) {
 	)
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: rules,
 	}
 
@@ -168,7 +170,7 @@ func TestAvailabilityPublishesTheHoursPastMidnightTheVenueTrades(t *testing.T) {
 
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: everyDaySchedule("20:00", "02:00")}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		// The band covers the window, wrapping the same way it does. A
 		// 00:00-23:59 band would not: its minutes stop at 1439 and the hours
 		// after the rollover are 1440 and up, so every slot past midnight would
@@ -212,7 +214,7 @@ func TestAvailabilityRendersPastMidnightEndsAsTheNextDaysClock(t *testing.T) {
 
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: everyDaySchedule("22:00", "02:00")}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: everyDayBand(courtID, "22:00", "02:00", 500_000),
 	}
 
@@ -237,10 +239,10 @@ func TestAvailabilityRendersPastMidnightEndsAsTheNextDaysClock(t *testing.T) {
 func TestAvailabilityIsClosedForADeactivatedComplex(t *testing.T) {
 	complexID := uuid.New()
 	complexes := &stubComplexes{
-		complex:   &data.Complex{ID: complexID, Slug: "vibe", IsActive: false},
+		complex:   &complexstore.Complex{ID: complexID, Slug: "vibe", IsActive: false},
 		schedules: openEveryDay(),
 	}
-	store := &stubStore{courts: []*data.Court{
+	store := &stubStore{courts: []*courtstore.Court{
 		{ID: uuid.New(), ComplexID: complexID, Name: "Court 1", IsActive: true},
 	}}
 
@@ -266,7 +268,7 @@ func TestAvailabilityMarksBookedSlotsUnavailable(t *testing.T) {
 
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: pricedEveryDay(courtID),
 	}
 	bookings := &stubBookings{booked: []data.BookedSpan{
@@ -292,7 +294,7 @@ func TestAvailabilityRejectsAnUnpermittedDuration(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: pricedEveryDay(courtID),
 	}
 
@@ -316,7 +318,7 @@ func TestAvailabilityRejectsADateBeforeToday(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: pricedEveryDay(courtID),
 	}
 
@@ -346,7 +348,7 @@ func TestAvailabilityAcceptsToday(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: pricedEveryDay(courtID),
 	}
 
@@ -371,7 +373,7 @@ func TestAvailabilityOmitsADurationThatRunsPastClosing(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: pricedEveryDay(courtID),
 	}
 
@@ -406,7 +408,7 @@ func TestAvailabilityMarksSlotsTakenByLastNightsBooking(t *testing.T) {
 
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: everyDaySchedule("00:00", "22:00")}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: everyDayBand(courtID, "00:00", "22:00", 500_000),
 	}
 	// 23:00 yesterday through 01:00 today.

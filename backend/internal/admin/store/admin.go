@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -44,8 +45,8 @@ func (u *AdminUserRow) CursorKey() (time.Time, uuid.UUID) { return u.CreatedAt, 
 
 // AdminUserDetail contains a user along with their owned complexes.
 type AdminUserDetail struct {
-	User      *authstore.User `json:"user"`
-	Complexes []*data.Complex `json:"complexes"`
+	User      *authstore.User         `json:"user"`
+	Complexes []*complexstore.Complex `json:"complexes"`
 }
 
 // AdminComplexRow represents a complex with owner info for admin listing.
@@ -68,13 +69,13 @@ func (c *AdminComplexRow) CursorKey() (time.Time, uuid.UUID) { return c.CreatedA
 
 // AdminComplexDetail contains a complex with aggregated statistics.
 type AdminComplexDetail struct {
-	Complex       *data.Complex `json:"complex"`
-	OwnerName     string        `json:"owner_name"`
-	OwnerEmail    string        `json:"owner_email"`
-	CourtsCount   int           `json:"courts_count"`
-	ClientsCount  int           `json:"clients_count"`
-	BookingsCount int           `json:"bookings_count"`
-	TotalRevenue  int           `json:"total_revenue"`
+	Complex       *complexstore.Complex `json:"complex"`
+	OwnerName     string                `json:"owner_name"`
+	OwnerEmail    string                `json:"owner_email"`
+	CourtsCount   int                   `json:"courts_count"`
+	ClientsCount  int                   `json:"clients_count"`
+	BookingsCount int                   `json:"bookings_count"`
+	TotalRevenue  int                   `json:"total_revenue"`
 }
 
 // AuditLogRow represents an audit log entry for admin listing.
@@ -252,9 +253,9 @@ func (m *Store) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUser
 	}
 	defer rows.Close()
 
-	complexes := make([]*data.Complex, 0, 4)
+	complexes := make([]*complexstore.Complex, 0, 4)
 	for rows.Next() {
-		var c data.Complex
+		var c complexstore.Complex
 		var email, logoURL, coverURL, mpUserID *string
 		var lat, lng *float64
 		err := rows.Scan(
@@ -345,7 +346,7 @@ func (m *Store) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*Adm
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	var c data.Complex
+	var c complexstore.Complex
 	var email, logoURL, coverURL, mpUserID *string
 	var lat, lng *float64
 	var ownerName, ownerEmail string

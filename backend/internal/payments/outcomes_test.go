@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
@@ -123,7 +125,7 @@ func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 			f.payments.byBooking = payment
 			f.complexes.complex = linkedComplex(complexID, "")
 			f.complexes.complex.Name = "Vibe"
-			f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 			tt.prepare(f, booking, payment)
 
 			got := f.handler.AutoRefundIfPaid(t.Context(), booking)
@@ -148,7 +150,7 @@ func TestARefundThatCannotBeIssuedIsReportedRatherThanDropped(t *testing.T) {
 	payment.MPPaymentID = nil
 	payment.Method = "cash"
 	f.payments.byBooking = payment
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
 
 	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
 
@@ -182,8 +184,8 @@ func TestARefundWeIssuedIsNotAnnouncedTwice(t *testing.T) {
 	// The state a claim of ours leaves behind while the provider call is in flight.
 	payment.Status = "refund_pending"
 	f.bookings.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmountRefunded: 2500,
@@ -205,8 +207,8 @@ func TestAPartialRefundStillTellsTheClient(t *testing.T) {
 	booking, payment := paidBooking(complexID)
 	payment.ServiceFee = 100_000 // total paid: 250_000
 	f.bookings.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	// MercadoPago refunded 1000.00 of the 2500.00 the client paid.
 	err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
@@ -231,8 +233,8 @@ func TestARefundWithNoPaymentRecordStillTellsTheClient(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking, _ := paidBooking(complexID)
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	err := f.handler.processRefundedPaymentFromBooking(t.Context(), booking, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmountRefunded: 2500,
@@ -265,7 +267,7 @@ func TestACancelledBookingRefundsWhatTheClientActuallyPaid(t *testing.T) {
 	booking.Status = "cancelled"
 	booking.DepositAmount = 150_000 // what the booking says today
 	sellerID := "111111111"
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 
 	// What MercadoPago says the client was charged: 3000.00, not the 2500.00 the
 	// booking's current deposit plus service fee would imply.
@@ -301,8 +303,8 @@ func TestAMissingSellerTokenRefusesBeforeMercadoPagoIsCalled(t *testing.T) {
 	// Connected once — a public booking cannot exist otherwise — but the
 	// credentials are gone now: no mpAccessToken, so SellerAccessToken()
 	// answers ErrMPNotConnected exactly as a disconnected venue would.
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 
 	sentryEvents := withCapturedSentryEvents(t)
 
@@ -350,8 +352,8 @@ func TestTheWebhookLeavesTheRecordToTheClaimThatHoldsIt(t *testing.T) {
 	payment.Status = "refund_pending"
 	f.bookings.booking = booking
 	f.payments.byBooking = payment
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmount: 2500, TransactionAmountRefunded: 1000,
@@ -398,8 +400,8 @@ func TestAPartialRefundIsNotCountedTwiceWhenTheWebhookRacesTheRecorder(t *testin
 	payment.Status = "refund_pending"
 	f.bookings.booking = booking
 	f.payments.byBooking = payment
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	const moved = 100_000 // 1000.00, what MercadoPago actually returned
 

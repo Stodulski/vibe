@@ -17,6 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -84,17 +87,19 @@ func (stubBookings) GetOccupancyByHourDay(context.Context, uuid.UUID, time.Time,
 type stubClients struct{}
 
 func (stubClients) CountByComplex(context.Context, uuid.UUID) (int, error) { return 0, nil }
-func (stubClients) GetInsights(context.Context, uuid.UUID, time.Time) (*data.ClientInsights, error) {
-	return &data.ClientInsights{}, nil
+func (stubClients) GetInsights(context.Context, uuid.UUID, time.Time) (*clientstore.ClientInsights, error) {
+	return &clientstore.ClientInsights{}, nil
 }
 
 type stubCourts struct{}
 
-func (stubCourts) GetByComplex(context.Context, uuid.UUID) ([]*data.Court, error) { return nil, nil }
+func (stubCourts) GetByComplex(context.Context, uuid.UUID) ([]*courtstore.Court, error) {
+	return nil, nil
+}
 
 type stubSchedules struct{}
 
-func (stubSchedules) GetSchedules(context.Context, uuid.UUID) ([]*data.Schedule, error) {
+func (stubSchedules) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.Schedule, error) {
 	return nil, nil
 }
 
@@ -108,7 +113,7 @@ func newTestHandler(reports PaymentReportReader) *Handler {
 func reportRequest(t *testing.T, query string) *http.Request {
 	t.Helper()
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/"+query, nil)
-	return httpx.ContextSetComplex(r, &data.Complex{
+	return httpx.ContextSetComplex(r, &complexstore.Complex{
 		ID:        uuid.New(),
 		Name:      "Vibe Palermo",
 		CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, timezone.Argentina),

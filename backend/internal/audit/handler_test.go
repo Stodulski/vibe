@@ -16,6 +16,7 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -57,7 +58,7 @@ type trailFixture struct {
 	handler *Handler
 	reader  *stubReader
 	store   *stubStore
-	complex *data.Complex
+	complex *complexstore.Complex
 	caller  *authstore.User
 }
 
@@ -68,7 +69,7 @@ func newTrailFixture(t *testing.T) *trailFixture {
 	f := &trailFixture{
 		reader:  &stubReader{},
 		store:   &stubStore{},
-		complex: &data.Complex{ID: uuid.New(), Name: "Vibe Palermo"},
+		complex: &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"},
 		caller:  &authstore.User{ID: uuid.New(), Role: "owner"},
 	}
 	// The real Recorder, over a store that captures what was written: the

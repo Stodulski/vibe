@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/stodulski/vibe-server/internal/data"
+	slotguard "github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -84,12 +86,12 @@ type BlockedSlot struct {
 // caller paging through this list with the cursor this produces sees every
 // row exactly once regardless of how many slots share one date.
 func (s *BlockedSlot) CursorKey() (time.Time, uuid.UUID) {
-	return localInstant(s.Date, s.StartTime), s.ID
+	return slotguard.LocalInstant(s.Date, s.StartTime), s.ID
 }
 
-// CourtModel implements CourtStore against PostgreSQL.
-type CourtModel struct {
-	DB *DB
+// Store implements CourtStore against PostgreSQL.
+type Store struct {
+	DB *data.DB
 	Q  *db.Queries
 	// PaymentExpiry is how long an unpaid public booking holds its slot, taken
 	// from configuration by NewModels. InsertBlockedSlot needs it to ask the
@@ -129,31 +131,31 @@ func translateCourtWrite(err error) error {
 }
 
 // Insert creates a new court and populates c with its generated ID and defaults.
-func (m *CourtModel) Insert(ctx context.Context, c *Court) error {
+func (m *Store) Insert(ctx context.Context, c *Court) error {
 	dbCourt, err := m.Q.InsertCourt(ctx, db.InsertCourtParams{
-		ComplexID:   UUIDToPg(c.ComplexID),
+		ComplexID:   data.UUIDToPg(c.ComplexID),
 		Name:        c.Name,
 		Sport:       db.SportType(c.Sport),
 		CourtType:   db.CourtType(c.CourtType),
-		Description: TextToPg(c.Description),
+		Description: data.TextToPg(c.Description),
 	})
 	if err != nil {
 		return translateCourtWrite(err)
 	}
 
-	c.ID = PgToUUID(dbCourt.ID)
+	c.ID = data.PgToUUID(dbCourt.ID)
 	c.IsActive = dbCourt.IsActive
-	c.CreatedAt = PgToTime(dbCourt.CreatedAt)
-	c.UpdatedAt = PgToTime(dbCourt.UpdatedAt)
+	c.CreatedAt = data.PgToTime(dbCourt.CreatedAt)
+	c.UpdatedAt = data.PgToTime(dbCourt.UpdatedAt)
 	return nil
 }
 
 // GetByID returns the court with the given ID, or ErrRecordNotFound if none exists.
-func (m *CourtModel) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) {
-	dbCourt, err := m.Q.GetCourtByID(ctx, UUIDToPg(id))
+func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) {
+	dbCourt, err := m.Q.GetCourtByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -161,8 +163,8 @@ func (m *CourtModel) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) 
 }
 
 // GetByComplex returns every court belonging to the complex.
-func (m *CourtModel) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court, error) {
-	dbCourts, err := m.Q.GetCourtsByComplex(ctx, UUIDToPg(complexID))
+func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court, error) {
+	dbCourts, err := m.Q.GetCourtsByComplex(ctx, data.UUIDToPg(complexID))
 	if err != nil {
 		return nil, err
 	}
@@ -175,23 +177,23 @@ func (m *CourtModel) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*
 }
 
 // Update persists changes to an existing court, returning ErrRecordNotFound if it no longer exists.
-func (m *CourtModel) Update(ctx context.Context, c *Court) error {
+func (m *Store) Update(ctx context.Context, c *Court) error {
 	dbCourt, err := m.Q.UpdateCourt(ctx, db.UpdateCourtParams{
 		Name:        c.Name,
 		Sport:       db.SportType(c.Sport),
 		CourtType:   db.CourtType(c.CourtType),
 		IsActive:    c.IsActive,
-		Description: TextToPg(c.Description),
-		ID:          UUIDToPg(c.ID),
+		Description: data.TextToPg(c.Description),
+		ID:          data.UUIDToPg(c.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+			return data.ErrRecordNotFound
 		}
 		return translateCourtWrite(err)
 	}
 
-	c.UpdatedAt = PgToTime(dbCourt.UpdatedAt)
+	c.UpdatedAt = data.PgToTime(dbCourt.UpdatedAt)
 	return nil
 }
 
@@ -208,11 +210,11 @@ func (m *CourtModel) Update(ctx context.Context, c *Court) error {
 // check, so there is no gap between asking and acting for a booking to land
 // in.
 //
-// The predicate mirrors BookingModel.HasActiveBookingsByCourt's exactly
-// (upper(span) > NOW() AND status NOT IN releasedBookingStatuses — see
-// slot_guard.go), so a court this deletes is exactly a court that check would
-// have answered "no" for, and it lives in the same package as that constant
-// rather than duplicating it.
+// The predicate mirrors the bookings store's HasActiveBookingsByCourt exactly
+// (upper(span) > NOW() AND status NOT IN slotguard.ReleasedBookingStatuses), so
+// a court this deletes is exactly a court that check would have answered "no"
+// for, and both spell the predicate with that one shared constant rather than
+// duplicating it.
 //
 // H-22: one statement was not enough either, and the reason is worth writing
 // down because it is invisible from the SQL. Folding the booking question into
@@ -225,7 +227,7 @@ func (m *CourtModel) Update(ctx context.Context, c *Court) error {
 //
 // So the two writers are made to contend on the court row, which is the only
 // object both of them can hold. This takes it FOR UPDATE; the booking path
-// takes it FOR SHARE (see lockCourtLive in slot_guard.go).
+// takes it FOR SHARE (see slotguard.LockCourtLive).
 //
 // The booking question then has to be asked by a SEPARATE statement, after the
 // lock is held, and that is the part a row lock alone does not give you. When
@@ -244,8 +246,8 @@ func (m *CourtModel) Update(ctx context.Context, c *Court) error {
 // used to succeed silently, into a 409 claiming bookings that do not exist,
 // and cost the delete its idempotence on retry. The lock read below tells the
 // first two apart before the booking question is even asked.
-func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := TxContext(ctx)
+func (m *Store) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -260,10 +262,10 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	// question below is asked of a settled world rather than a racing one.
 	var deletedAt pgtype.Timestamptz
 	err = tx.QueryRow(ctx,
-		`SELECT deleted_at FROM courts WHERE id = $1 FOR UPDATE`, UUIDToPg(id)).Scan(&deletedAt)
+		`SELECT deleted_at FROM courts WHERE id = $1 FOR UPDATE`, data.UUIDToPg(id)).Scan(&deletedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+			return data.ErrRecordNotFound
 		}
 		return fmt.Errorf("lock court: %w", err)
 	}
@@ -285,8 +287,8 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 		  SELECT 1 FROM bookings
 		  WHERE court_id = $1
 		    AND upper(span) > NOW()
-		    AND status NOT IN `+releasedBookingStatuses+`
-		)`, UUIDToPg(id)).Scan(&hasBookings)
+		    AND status NOT IN `+slotguard.ReleasedBookingStatuses+`
+		)`, data.UUIDToPg(id)).Scan(&hasBookings)
 	if err != nil {
 		return fmt.Errorf("check active bookings: %w", err)
 	}
@@ -296,7 +298,7 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE courts SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
-		UUIDToPg(id)); err != nil {
+		data.UUIDToPg(id)); err != nil {
 		return fmt.Errorf("soft-delete court: %w", err)
 	}
 
@@ -307,27 +309,27 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 }
 
 // InsertPrice creates a new price rule for a court and populates p with its generated ID.
-func (m *CourtModel) InsertPrice(ctx context.Context, p *CourtPrice) error {
+func (m *Store) InsertPrice(ctx context.Context, p *CourtPrice) error {
 	dbPrice, err := m.Q.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
-		CourtID: UUIDToPg(p.CourtID),
+		CourtID: data.UUIDToPg(p.CourtID),
 		//nolint:gosec // G115: Price is validated > 0 at the courts.go handler; it is a currency amount realistically
 		// far below int32 range, matching the same bound rationale as booking Price.
 		Price:    int32(p.Price),
 		DayType:  db.DayOfWeek(p.DayType),
-		TimeFrom: TimeStrToPg(p.TimeFrom),
-		TimeTo:   TimeStrToPg(p.TimeTo),
+		TimeFrom: data.TimeStrToPg(p.TimeFrom),
+		TimeTo:   data.TimeStrToPg(p.TimeTo),
 	})
 	if err != nil {
 		return translateCourtWrite(err)
 	}
 
-	p.ID = PgToUUID(dbPrice.ID)
+	p.ID = data.PgToUUID(dbPrice.ID)
 	return nil
 }
 
 // GetPrices returns every price rule defined for the court.
-func (m *CourtModel) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*CourtPrice, error) {
-	dbPrices, err := m.Q.GetCourtPrices(ctx, UUIDToPg(courtID))
+func (m *Store) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*CourtPrice, error) {
+	dbPrices, err := m.Q.GetCourtPrices(ctx, data.UUIDToPg(courtID))
 	if err != nil {
 		return nil, err
 	}
@@ -335,12 +337,12 @@ func (m *CourtModel) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*Court
 	result := make([]*CourtPrice, len(dbPrices))
 	for i, p := range dbPrices {
 		result[i] = &CourtPrice{
-			ID:       PgToUUID(p.ID),
-			CourtID:  PgToUUID(p.CourtID),
+			ID:       data.PgToUUID(p.ID),
+			CourtID:  data.PgToUUID(p.CourtID),
 			Price:    int(p.Price),
 			DayType:  string(p.DayType),
-			TimeFrom: PgToTimeStr(p.TimeFrom),
-			TimeTo:   PgToTimeStr(p.TimeTo),
+			TimeFrom: data.PgToTimeStr(p.TimeFrom),
+			TimeTo:   data.PgToTimeStr(p.TimeTo),
 			FromMin:  int(p.SpanMin.Lower.Int32),
 			ToMin:    int(p.SpanMin.Upper.Int32),
 		}
@@ -349,30 +351,30 @@ func (m *CourtModel) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*Court
 }
 
 // UpdatePrice persists changes to an existing price rule, returning ErrRecordNotFound if it no longer exists.
-func (m *CourtModel) UpdatePrice(ctx context.Context, p *CourtPrice) error {
+func (m *Store) UpdatePrice(ctx context.Context, p *CourtPrice) error {
 	dbPrice, err := m.Q.UpdateCourtPrice(ctx, db.UpdateCourtPriceParams{
 		//nolint:gosec // G115: Price is validated > 0 at the courts.go handler; it is a currency amount realistically
 		// far below int32 range, matching the same bound rationale as booking Price.
 		Price:    int32(p.Price),
 		DayType:  db.DayOfWeek(p.DayType),
-		TimeFrom: TimeStrToPg(p.TimeFrom),
-		TimeTo:   TimeStrToPg(p.TimeTo),
-		ID:       UUIDToPg(p.ID),
+		TimeFrom: data.TimeStrToPg(p.TimeFrom),
+		TimeTo:   data.TimeStrToPg(p.TimeTo),
+		ID:       data.UUIDToPg(p.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+			return data.ErrRecordNotFound
 		}
 		return translateCourtWrite(err)
 	}
 
-	p.CourtID = PgToUUID(dbPrice.CourtID)
+	p.CourtID = data.PgToUUID(dbPrice.CourtID)
 	return nil
 }
 
 // DeletePrice removes a single price rule by ID.
-func (m *CourtModel) DeletePrice(ctx context.Context, id uuid.UUID) error {
-	return m.Q.DeleteCourtPrice(ctx, UUIDToPg(id))
+func (m *Store) DeletePrice(ctx context.Context, id uuid.UUID) error {
+	return m.Q.DeleteCourtPrice(ctx, data.UUIDToPg(id))
 }
 
 // DeletePricesByCourtID removes every price rule belonging to the court.
@@ -382,11 +384,11 @@ func (m *CourtModel) DeletePrice(ctx context.Context, id uuid.UUID) error {
 // also the interface cmd/api's own store wiring is built against, so this
 // method's shape stays exactly what it always was for whatever else depends
 // on it existing on its own.
-func (m *CourtModel) DeletePricesByCourtID(ctx context.Context, courtID uuid.UUID) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) DeletePricesByCourtID(ctx context.Context, courtID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	_, err := m.DB.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, UUIDToPg(courtID))
+	_, err := m.DB.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, data.UUIDToPg(courtID))
 	return err
 }
 
@@ -411,8 +413,8 @@ func (m *CourtModel) DeletePricesByCourtID(ctx context.Context, courtID uuid.UUI
 // field-scoped validation error ("prices[i].time_from: ...") the old
 // per-row loop built; it is -1 when the failure is not attributable to one
 // row (the delete itself, or the transaction machinery).
-func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*CourtPrice) (failedIndex int, err error) {
-	ctx, cancel := TxContext(ctx)
+func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*CourtPrice) (failedIndex int, err error) {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -422,7 +424,7 @@ func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, price
 	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, UUIDToPg(courtID)); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, data.UUIDToPg(courtID)); err != nil {
 		return -1, err
 	}
 
@@ -432,17 +434,17 @@ func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, price
 	qtx := m.Q.WithTx(tx)
 	for i, p := range prices {
 		dbPrice, err := qtx.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
-			CourtID: UUIDToPg(p.CourtID),
+			CourtID: data.UUIDToPg(p.CourtID),
 			//nolint:gosec // G115: see InsertPrice's note above.
 			Price:    int32(p.Price),
 			DayType:  db.DayOfWeek(p.DayType),
-			TimeFrom: TimeStrToPg(p.TimeFrom),
-			TimeTo:   TimeStrToPg(p.TimeTo),
+			TimeFrom: data.TimeStrToPg(p.TimeFrom),
+			TimeTo:   data.TimeStrToPg(p.TimeTo),
 		})
 		if err != nil {
 			return i, translateCourtWrite(err)
 		}
-		p.ID = PgToUUID(dbPrice.ID)
+		p.ID = data.PgToUUID(dbPrice.ID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -483,8 +485,8 @@ func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, price
 // and cannot read `span` back to ask the booking question against the same
 // value the exclusion constraint uses. The generated one that used to sit there
 // had no caller at all.
-func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) error {
-	ctx, cancel := TxContext(ctx)
+func (m *Store) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) error {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -498,9 +500,9 @@ func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) erro
 	// a booking's. blocked_slots_check keeps a block inside one day today, so
 	// this is one lock in practice; asking for the range anyway is what keeps
 	// the two sides speaking one language if that check is ever lifted.
-	blockStart := localInstant(s.Date, s.StartTime)
-	blockEnd := localInstant(s.Date, s.EndTime)
-	if err := lockCourtDays(ctx, tx, s.CourtID, blockStart, blockEnd); err != nil {
+	blockStart := slotguard.LocalInstant(s.Date, s.StartTime)
+	blockEnd := slotguard.LocalInstant(s.Date, s.EndTime)
+	if err := slotguard.LockCourtDays(ctx, tx, s.CourtID, blockStart, blockEnd); err != nil {
 		return err
 	}
 
@@ -511,9 +513,9 @@ func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) erro
 		INSERT INTO blocked_slots (court_id, date, start_time, end_time, reason, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, span`,
-		UUIDToPg(s.CourtID), DateToPg(s.Date),
-		TimeStrToPg(s.StartTime), TimeStrToPg(s.EndTime),
-		TextToPg(s.Reason), UUIDPtrToPg(s.CreatedBy),
+		data.UUIDToPg(s.CourtID), data.DateToPg(s.Date),
+		data.TimeStrToPg(s.StartTime), data.TimeStrToPg(s.EndTime),
+		data.TextToPg(s.Reason), data.UUIDPtrToPg(s.CreatedBy),
 	).Scan(&id, &createdAt, &span)
 	if err != nil {
 		// The block-versus-block overlap is refused by
@@ -536,7 +538,7 @@ func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) erro
 	// defect blocked_slots.span exists to unwind. The insert happens first so the
 	// comparison is against the value the database stored; nothing commits
 	// unless the answer is no.
-	booked, err := SpanTaken(ctx, tx, s.CourtID, span, m.PaymentExpiry)
+	booked, err := slotguard.SpanTaken(ctx, tx, s.CourtID, span, m.PaymentExpiry)
 	if err != nil {
 		return err
 	}
@@ -548,8 +550,8 @@ func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) erro
 		return fmt.Errorf("commit: %w", err)
 	}
 
-	s.ID = PgToUUID(id)
-	s.CreatedAt = PgToTime(createdAt)
+	s.ID = data.PgToUUID(id)
+	s.CreatedAt = data.PgToTime(createdAt)
 	return nil
 }
 
@@ -566,14 +568,14 @@ func isOverlapRefusal(err error) bool {
 	if !errors.As(err, &pgErr) {
 		return false
 	}
-	return pgErr.Code == SQLStateExclusionViolation
+	return pgErr.Code == data.SQLStateExclusionViolation
 }
 
 // GetBlockedSlots returns the blocked slots for a court on the given date.
-func (m *CourtModel) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*BlockedSlot, error) {
-	pgDate := DateToPg(date)
+func (m *Store) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*BlockedSlot, error) {
+	pgDate := data.DateToPg(date)
 	dbSlots, err := m.Q.GetBlockedSlots(ctx, db.GetBlockedSlotsParams{
-		CourtID: UUIDToPg(courtID),
+		CourtID: data.UUIDToPg(courtID),
 		Date:    pgDate,
 		Date_2:  pgDate,
 	})
@@ -584,26 +586,26 @@ func (m *CourtModel) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, dat
 	result := make([]*BlockedSlot, len(dbSlots))
 	for i, s := range dbSlots {
 		result[i] = &BlockedSlot{
-			ID:        PgToUUID(s.ID),
-			CourtID:   PgToUUID(s.CourtID),
-			Date:      PgToDate(s.Date),
-			StartTime: PgToTimeStr(s.StartTime),
-			EndTime:   PgToTimeStr(s.EndTime),
-			Reason:    PgToTextPtr(s.Reason),
-			CreatedBy: PgToUUIDPtr(s.CreatedBy),
-			CreatedAt: PgToTime(s.CreatedAt),
+			ID:        data.PgToUUID(s.ID),
+			CourtID:   data.PgToUUID(s.CourtID),
+			Date:      data.PgToDate(s.Date),
+			StartTime: data.PgToTimeStr(s.StartTime),
+			EndTime:   data.PgToTimeStr(s.EndTime),
+			Reason:    data.PgToTextPtr(s.Reason),
+			CreatedBy: data.PgToUUIDPtr(s.CreatedBy),
+			CreatedAt: data.PgToTime(s.CreatedAt),
 		}
 	}
 	return result, nil
 }
 
 // GetPricesByCourtIDs returns the price rules for multiple courts in one query, ordered by court, day type and start time.
-func (m *CourtModel) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*CourtPrice, error) {
+func (m *Store) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*CourtPrice, error) {
 	rows, err := m.DB.Query(ctx,
 		`SELECT id, court_id, price, day_type, time_from, time_to, span_min
 		 FROM court_prices
 		 WHERE court_id = ANY($1)
-		 ORDER BY court_id, day_type, time_from`, UUIDSliceToPg(courtIDs))
+		 ORDER BY court_id, day_type, time_from`, data.UUIDSliceToPg(courtIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -631,12 +633,12 @@ func (m *CourtModel) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UU
 }
 
 // GetBlockedSlotsByCourtIDs returns the blocked slots across multiple courts on the given date.
-func (m *CourtModel) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*BlockedSlot, error) {
+func (m *Store) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*BlockedSlot, error) {
 	rows, err := m.DB.Query(ctx,
 		`SELECT id, court_id, date, start_time, end_time, reason, created_by, created_at
 		 FROM blocked_slots
 		 WHERE court_id = ANY($1) AND date = $2
-		 ORDER BY court_id, start_time`, UUIDSliceToPg(courtIDs), date)
+		 ORDER BY court_id, start_time`, data.UUIDSliceToPg(courtIDs), date)
 	if err != nil {
 		return nil, err
 	}
@@ -653,31 +655,31 @@ func (m *CourtModel) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []u
 		}
 		s.StartTime = st.Format("15:04")
 		s.EndTime = et.Format("15:04")
-		s.CreatedBy = PgToUUIDPtr(createdBy)
-		s.CreatedAt = PgToTime(createdAt)
+		s.CreatedBy = data.PgToUUIDPtr(createdBy)
+		s.CreatedAt = data.PgToTime(createdAt)
 		result = append(result, &s)
 	}
 	return result, rows.Err()
 }
 
 // GetBlockedSlotByID returns the blocked slot with the given ID, or ErrRecordNotFound if none exists.
-func (m *CourtModel) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*BlockedSlot, error) {
-	dbSlot, err := m.Q.GetBlockedSlotByID(ctx, UUIDToPg(id))
+func (m *Store) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*BlockedSlot, error) {
+	dbSlot, err := m.Q.GetBlockedSlotByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
 	return &BlockedSlot{
-		ID:        PgToUUID(dbSlot.ID),
-		CourtID:   PgToUUID(dbSlot.CourtID),
-		Date:      PgToDate(dbSlot.Date),
-		StartTime: PgToTimeStr(dbSlot.StartTime),
-		EndTime:   PgToTimeStr(dbSlot.EndTime),
-		Reason:    PgToTextPtr(dbSlot.Reason),
-		CreatedBy: PgToUUIDPtr(dbSlot.CreatedBy),
-		CreatedAt: PgToTime(dbSlot.CreatedAt),
+		ID:        data.PgToUUID(dbSlot.ID),
+		CourtID:   data.PgToUUID(dbSlot.CourtID),
+		Date:      data.PgToDate(dbSlot.Date),
+		StartTime: data.PgToTimeStr(dbSlot.StartTime),
+		EndTime:   data.PgToTimeStr(dbSlot.EndTime),
+		Reason:    data.PgToTextPtr(dbSlot.Reason),
+		CreatedBy: data.PgToUUIDPtr(dbSlot.CreatedBy),
+		CreatedAt: data.PgToTime(dbSlot.CreatedAt),
 	}, nil
 }
 
@@ -694,7 +696,7 @@ func (m *CourtModel) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*Blo
 // CourtBlockedSlotManager (models.go), and that interface is also what
 // cmd/api's own store wiring is built against. See the comment on
 // ListBlockedSlots for the rest of that trade-off.
-func (m *CourtModel) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*BlockedSlot, error) {
+func (m *Store) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*BlockedSlot, error) {
 	rows, err := m.DB.Query(ctx,
 		`SELECT bs.id, bs.court_id, bs.date, bs.start_time, bs.end_time, bs.reason, bs.created_by, bs.created_at, c.name
 		 FROM blocked_slots bs
@@ -717,8 +719,8 @@ func (m *CourtModel) GetBlockedSlotsByComplex(ctx context.Context, complexID uui
 		}
 		s.StartTime = st.Format("15:04")
 		s.EndTime = et.Format("15:04")
-		s.CreatedBy = PgToUUIDPtr(createdBy)
-		s.CreatedAt = PgToTime(createdAt)
+		s.CreatedBy = data.PgToUUIDPtr(createdBy)
+		s.CreatedAt = data.PgToTime(createdAt)
 		result = append(result, &s)
 	}
 	return result, rows.Err()
@@ -737,16 +739,16 @@ func (m *CourtModel) GetBlockedSlotsByComplex(ctx context.Context, complexID uui
 // anything" from that response. Checking the affected row count is what
 // makes that answerable, matching how a plain fetch-then-delete already
 // answers 404 when the row is simply missing outright.
-func (m *CourtModel) DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	tag, err := m.DB.Exec(ctx, `DELETE FROM blocked_slots WHERE id = $1`, UUIDToPg(id))
+	tag, err := m.DB.Exec(ctx, `DELETE FROM blocked_slots WHERE id = $1`, data.UUIDToPg(id))
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return ErrRecordNotFound
+		return data.ErrRecordNotFound
 	}
 	return nil
 }
@@ -762,15 +764,15 @@ func courtRowFromActive(c db.ActiveCourt) db.Court {
 
 func courtFromDB(c db.Court) *Court {
 	return &Court{
-		ID:          PgToUUID(c.ID),
-		ComplexID:   PgToUUID(c.ComplexID),
+		ID:          data.PgToUUID(c.ID),
+		ComplexID:   data.PgToUUID(c.ComplexID),
 		Name:        c.Name,
 		Sport:       string(c.Sport),
 		CourtType:   string(c.CourtType),
 		IsActive:    c.IsActive,
-		Description: PgToTextPtr(c.Description),
-		CreatedAt:   PgToTime(c.CreatedAt),
-		UpdatedAt:   PgToTime(c.UpdatedAt),
+		Description: data.PgToTextPtr(c.Description),
+		CreatedAt:   data.PgToTime(c.CreatedAt),
+		UpdatedAt:   data.PgToTime(c.UpdatedAt),
 	}
 }
 

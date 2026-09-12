@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 )
 
 // 2026-08-27 is a Thursday and 2026-08-28 a Friday.
@@ -13,16 +13,16 @@ var (
 	friday   = time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
 )
 
-func week(rows map[string][2]string) []*data.Schedule {
+func week(rows map[string][2]string) []*complexstore.Schedule {
 	all := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
-	out := make([]*data.Schedule, 0, len(all))
+	out := make([]*complexstore.Schedule, 0, len(all))
 	for _, d := range all {
 		hours, ok := rows[d]
 		if !ok {
-			out = append(out, &data.Schedule{Day: d, IsClosed: true})
+			out = append(out, &complexstore.Schedule{Day: d, IsClosed: true})
 			continue
 		}
-		out = append(out, &data.Schedule{Day: d, OpenTime: hours[0], CloseTime: hours[1]})
+		out = append(out, &complexstore.Schedule{Day: d, OpenTime: hours[0], CloseTime: hours[1]})
 	}
 	return out
 }

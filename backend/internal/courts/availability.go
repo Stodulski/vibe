@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/pricing"
@@ -161,7 +163,7 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var schedule *data.Schedule
+	var schedule *complexstore.Schedule
 	for _, s := range schedules {
 		if s.Day == dayName {
 			schedule = s
@@ -188,7 +190,7 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Filter only active courts.
-	activeCourts := make([]*data.Court, 0, len(courts))
+	activeCourts := make([]*courtstore.Court, 0, len(courts))
 	for _, c := range courts {
 		if c.IsActive {
 			activeCourts = append(activeCourts, c)
@@ -237,7 +239,7 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Index data by court ID for O(1) lookups.
-	pricesByCourtID := make(map[uuid.UUID][]*data.CourtPrice, len(courtIDs))
+	pricesByCourtID := make(map[uuid.UUID][]*courtstore.CourtPrice, len(courtIDs))
 	for _, p := range allPrices {
 		pricesByCourtID[p.CourtID] = append(pricesByCourtID[p.CourtID], p)
 	}
@@ -245,7 +247,7 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 	for _, s := range allBookedSlots {
 		bookedByCourtID[s.CourtID] = append(bookedByCourtID[s.CourtID], s)
 	}
-	blockedByCourtID := make(map[uuid.UUID][]*data.BlockedSlot, len(courtIDs))
+	blockedByCourtID := make(map[uuid.UUID][]*courtstore.BlockedSlot, len(courtIDs))
 	for _, s := range allBlockedSlots {
 		blockedByCourtID[s.CourtID] = append(blockedByCourtID[s.CourtID], s)
 	}

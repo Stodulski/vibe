@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
@@ -40,7 +41,7 @@ func TestARefundRecordsWhatMercadoPagoMovedNotWhatWasClaimed(t *testing.T) {
 	f.payments.byBooking = payment
 	f.payments.claimAmount = 150_000
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	// MercadoPago accepted the refund, for less than it was asked for.
 	f.provider.refundAmount = 1_000.00
 
@@ -103,7 +104,7 @@ func TestAnAcceptedRefundWithNoAmountKeepsTheClaimedFigure(t *testing.T) {
 	f.payments.byBooking = payment
 	f.payments.claimAmount = 150_000
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	// Accepted, with no amount on the response.
 	f.provider.refundAmount = 0
 
@@ -136,7 +137,7 @@ func TestARejectedRefundWithFundsAlreadyAtProviderResolvesAsSuccess(t *testing.T
 	f.payments.byBooking = payment
 	f.payments.claimAmount = 150_000
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 
 	// The refund POST is rejected with a 4xx...
 	f.provider.refundErr = &mp.APIError{StatusCode: 400, Body: `{"message":"payment already refunded"}`}
@@ -188,7 +189,7 @@ func TestAPartialRefundIsNotReadAsFullBecauseTheRowUnderstatesWhatWasPaid(t *tes
 	// can tell that from the row alone.
 	payment.Amount, payment.ServiceFee = 50_000, 0
 	f.bookings.booking = booking
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	f.complexes.complex = linkedComplex(complexID, "")
 
 	mpPayment := &mp.Payment{
@@ -308,7 +309,7 @@ func TestAClaimedRefundLeavesNoMarkerBehind(t *testing.T) {
 	booking.CollectionStatus = data.CollectionStatusUnpaid
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	f.provider.refundAmount = 1_500.00
 	f.payments.claimAmount = 150_000
 

@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
@@ -115,7 +117,7 @@ func TestCreateRejectsASlugThatCollidesWithAClientRoute(t *testing.T) {
 
 func TestCreateEnforcesThePerAccountLimit(t *testing.T) {
 	f := newFixture(t)
-	f.store.owned = make([]*data.Complex, 4) // the configured maximum
+	f.store.owned = make([]*complexstore.Complex, 4) // the configured maximum
 
 	w := httptest.NewRecorder()
 	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, validComplex))
@@ -231,7 +233,7 @@ func TestCreateAcceptsTheSmallestLegalCancellationWindow(t *testing.T) {
 // other.
 func TestUpdateRejectsAZeroCancellationWindow(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New(), CancellationHours: 24}
+	complex := &complexstore.Complex{ID: uuid.New(), CancellationHours: 24}
 
 	w := httptest.NewRecorder()
 	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
@@ -254,7 +256,7 @@ func TestUpdateRejectsAZeroCancellationWindow(t *testing.T) {
 // And the floor from above, on Update. 1 is legal; 0 is not.
 func TestUpdateAcceptsAOneHourCancellationWindow(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New(), CancellationHours: 24}
+	complex := &complexstore.Complex{ID: uuid.New(), CancellationHours: 24}
 
 	w := httptest.NewRecorder()
 	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
@@ -275,7 +277,7 @@ func TestUpdateAcceptsAOneHourCancellationWindow(t *testing.T) {
 // than either a 500 or a false 200.
 func TestUpdateReportsAnEditConflictOnALostUpdate(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
 	f.store.updateErr = data.ErrRecordNotFound
 
 	w := httptest.NewRecorder()
@@ -299,7 +301,7 @@ func TestUpdateReportsAnEditConflictOnALostUpdate(t *testing.T) {
 // new one, and the fix direction only asked for Create originally.
 func TestUpdateRejectsASlugThatCollidesWithAClientRoute(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
+	complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
 
 	w := httptest.NewRecorder()
 	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
@@ -315,7 +317,7 @@ func TestUpdateRejectsASlugThatCollidesWithAClientRoute(t *testing.T) {
 
 func TestUpdateRejectsASlugOverTheLengthBound(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
+	complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
 
 	w := httptest.NewRecorder()
 	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
@@ -372,7 +374,7 @@ func TestSlugAvailableReportsAFreeSlugAsAvailable(t *testing.T) {
 func TestDeleteIsRefusedWhileBookingsAreLive(t *testing.T) {
 	f := newFixture(t)
 	f.bookings.hasActive = true
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.Delete(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil, ""))
@@ -388,7 +390,7 @@ func TestDeleteIsRefusedWhileBookingsAreLive(t *testing.T) {
 func TestDeleteCascadesToCourtsAndFutureBookings(t *testing.T) {
 	f := newFixture(t)
 	f.store.courtsDeactivated = 3
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.Delete(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil, ""))
@@ -434,9 +436,9 @@ func TestDeleteCascadesToCourtsAndFutureBookings(t *testing.T) {
 func TestGetPublicReturnsTheVenueWithItsCourts(t *testing.T) {
 	f := newFixture(t)
 	complexID, courtID := uuid.New(), uuid.New()
-	f.store.complex = &data.Complex{ID: complexID, Slug: "vibe", Name: "Vibe", IsActive: true}
-	f.store.schedules = []*data.Schedule{{Day: "monday", OpenTime: "08:00", CloseTime: "22:00"}}
-	f.courts.courts = []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}}
+	f.store.complex = &complexstore.Complex{ID: complexID, Slug: "vibe", Name: "Vibe", IsActive: true}
+	f.store.schedules = []*complexstore.Schedule{{Day: "monday", OpenTime: "08:00", CloseTime: "22:00"}}
+	f.courts.courts = []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	r = withSlug(r, "vibe")
@@ -470,7 +472,7 @@ func TestGetPublicReportsAnUnknownSlugAsNotFound(t *testing.T) {
 func TestConnectMercadoPagoStoresTheOwnersCredentials(t *testing.T) {
 	f := newFixture(t)
 	f.payments.tokens = &mp.OAuthTokens{AccessToken: "AT", RefreshToken: "RT", UserID: 12345}
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil,
@@ -491,7 +493,7 @@ func TestConnectMercadoPagoStoresTheOwnersCredentials(t *testing.T) {
 func TestConnectMercadoPagoStoresNothingOnAFailedExchange(t *testing.T) {
 	f := newFixture(t)
 	f.payments.err = errors.New("invalid_grant")
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil,
@@ -507,7 +509,7 @@ func TestConnectMercadoPagoStoresNothingOnAFailedExchange(t *testing.T) {
 
 func TestDisconnectMercadoPagoClearsTheCredentials(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.DisconnectMercadoPago(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil, ""))
@@ -524,7 +526,7 @@ func TestDisconnectMercadoPagoClearsTheCredentials(t *testing.T) {
 // namespaced to the complex so one owner cannot overwrite another's images.
 func TestPresignUploadNamespacesTheKeyToTheComplex(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.PresignUpload(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil,
@@ -557,7 +559,7 @@ func TestPresignUploadSignsTheTypeItValidated(t *testing.T) {
 	} {
 		t.Run(c.contentType, func(t *testing.T) {
 			f := newFixture(t)
-			complex := &data.Complex{ID: uuid.New()}
+			complex := &complexstore.Complex{ID: uuid.New()}
 
 			w := httptest.NewRecorder()
 			f.handler.PresignUpload(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil,
@@ -580,7 +582,7 @@ func TestPresignUploadSignsTheTypeItValidated(t *testing.T) {
 
 func TestPresignUploadRejectsANonImage(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.PresignUpload(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil,
@@ -595,7 +597,7 @@ func TestPresignUploadRejectsANonImage(t *testing.T) {
 // namespace by passing an arbitrary URL.
 func TestDeleteUploadRejectsAForeignURL(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 
 	w := httptest.NewRecorder()
 	f.handler.DeleteUpload(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil,
@@ -638,7 +640,7 @@ func TestHandlersRequireTheComplexInContext(t *testing.T) {
 // URLs — so the attacker needs nothing this API has not already given them.
 func TestDeleteUploadRejectsAnotherComplexsKey(t *testing.T) {
 	f := newFixture(t)
-	mine := &data.Complex{ID: uuid.New()}
+	mine := &complexstore.Complex{ID: uuid.New()}
 	theirs := uuid.New()
 
 	w := httptest.NewRecorder()
@@ -667,7 +669,7 @@ func TestDeleteUploadRejectsAnotherComplexsKey(t *testing.T) {
 // before it is ever compared against a prefix.
 func TestDeleteUploadRejectsATraversalKey(t *testing.T) {
 	f := newFixture(t)
-	mine := &data.Complex{ID: uuid.New()}
+	mine := &complexstore.Complex{ID: uuid.New()}
 	theirs := uuid.New()
 
 	w := httptest.NewRecorder()
@@ -687,7 +689,7 @@ func TestDeleteUploadRejectsATraversalKey(t *testing.T) {
 // presign step hands out has to survive the delete guard unchanged.
 func TestDeleteUploadAcceptsTheComplexsOwnKey(t *testing.T) {
 	f := newFixture(t)
-	complex := &data.Complex{ID: uuid.New()}
+	complex := &complexstore.Complex{ID: uuid.New()}
 	key := fmt.Sprintf("complexes/%s/logo/%s.webp", complex.ID, uuid.New())
 
 	w := httptest.NewRecorder()
@@ -708,8 +710,8 @@ func TestDeleteUploadAcceptsTheComplexsOwnKey(t *testing.T) {
 func TestGetPublicIsClosedForADeactivatedComplex(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
-	f.store.complex = &data.Complex{ID: complexID, Slug: "vibe", Name: "Vibe", IsActive: false}
-	f.courts.courts = []*data.Court{{ID: uuid.New(), ComplexID: complexID, Name: "Court 1", IsActive: true}}
+	f.store.complex = &complexstore.Complex{ID: complexID, Slug: "vibe", Name: "Vibe", IsActive: false}
+	f.courts.courts = []*courtstore.Court{{ID: uuid.New(), ComplexID: complexID, Name: "Court 1", IsActive: true}}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	r = withSlug(r, "vibe")
@@ -731,8 +733,8 @@ func TestGetPublicIsClosedForADeactivatedComplex(t *testing.T) {
 func TestGetPublicOmitsInactiveCourts(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
-	f.store.complex = &data.Complex{ID: complexID, Slug: "vibe", Name: "Vibe", IsActive: true}
-	f.courts.courts = []*data.Court{
+	f.store.complex = &complexstore.Complex{ID: complexID, Slug: "vibe", Name: "Vibe", IsActive: true}
+	f.courts.courts = []*courtstore.Court{
 		{ID: uuid.New(), ComplexID: complexID, Name: "Court 1", IsActive: true},
 		{ID: uuid.New(), ComplexID: complexID, Name: "Retired Court", IsActive: false},
 	}
@@ -762,7 +764,7 @@ func TestGetPublicOmitsInactiveCourts(t *testing.T) {
 func TestGetPublicWithholdsTheOwnerAndCollectorIdentifiers(t *testing.T) {
 	f := newFixture(t)
 	ownerID, mpUserID, token := uuid.New(), "1234567890", "APP_USR-secret"
-	complex := data.NewComplexForTest(uuid.New(), &token, nil)
+	complex := complexstore.NewComplexForTest(uuid.New(), &token, nil)
 	complex.OwnerID = ownerID
 	complex.Slug = "vibe"
 	complex.Name = "Vibe"
@@ -801,7 +803,7 @@ func TestGetPublicWithholdsTheOwnerAndCollectorIdentifiers(t *testing.T) {
 func TestCreateReportsADuplicateSlugAsAFieldErrorNotACrash(t *testing.T) {
 	f := newFixture(t)
 	f.store.slugTaken = false // the availability check says the slug is free
-	f.store.insertErr = data.ErrDuplicateSlug
+	f.store.insertErr = complexstore.ErrDuplicateSlug
 
 	w := httptest.NewRecorder()
 	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, validComplex))
@@ -862,7 +864,7 @@ func TestCreateChecksAvailabilityOfTheNormalisedSlug(t *testing.T) {
 func TestMercadoPagoStatusServesTheAppID(t *testing.T) {
 	f := newFixture(t)
 	owner := uuid.New()
-	complex := &data.Complex{ID: uuid.New(), OwnerID: owner}
+	complex := &complexstore.Complex{ID: uuid.New(), OwnerID: owner}
 
 	w := httptest.NewRecorder()
 	f.handler.MercadoPagoStatus(w, ownerRequest(t, http.MethodGet, "/", owner, complex, nil, ""))

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mpcred"
@@ -85,7 +86,7 @@ func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
 		t.Fatalf("GetWithMPConnected: %v", err)
 	}
 
-	byID := make(map[string]*data.Complex, len(complexes))
+	byID := make(map[string]*complexstore.Complex, len(complexes))
 	for _, c := range complexes {
 		byID[c.ID.String()] = c
 	}
@@ -321,7 +322,7 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 	// wrong error. That is not an inconvenience of the constraint; it is the
 	// constraint catching the same shape of omission that put two
 	// cancellation_hours = 0 rows in the development database.
-	err = f.Models.Complexes.Insert(ctx, &data.Complex{
+	err = f.Models.Complexes.Insert(ctx, &complexstore.Complex{
 		OwnerID:           f.UserID,
 		Name:              "Reuses the deleted slug",
 		Slug:              slug,
@@ -333,7 +334,7 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 		Phone:             "+5491100000002",
 		CancellationHours: 24,
 	})
-	if !errors.Is(err, data.ErrDuplicateSlug) {
+	if !errors.Is(err, complexstore.ErrDuplicateSlug) {
 		t.Errorf("Insert on a taken slug returned %v; want ErrDuplicateSlug", err)
 	}
 }

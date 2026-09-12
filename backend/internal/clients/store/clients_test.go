@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -145,8 +145,8 @@ func TestClientInsights_NoShowRateCalculation(t *testing.T) {
 	}
 }
 
-// TestClientModel_RequiresDB documents that all ClientModel methods
+// TestClientModel_RequiresDB documents that all Store methods
 // require a database connection.
 func TestClientModel_RequiresDB(t *testing.T) {
-	t.Skip("ClientModel methods all require *pgxpool.Pool and *db.Queries")
+	t.Skip("Store methods all require *pgxpool.Pool and *db.Queries")
 }

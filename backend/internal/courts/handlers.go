@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -32,8 +33,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type courtWithPrices struct {
-		*data.Court
-		Prices []*data.CourtPrice `json:"prices"`
+		*courtstore.Court
+		Prices []*courtstore.CourtPrice `json:"prices"`
 	}
 
 	result := make([]courtWithPrices, len(courts))
@@ -116,7 +117,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	court := &data.Court{
+	court := &courtstore.Court{
 		ComplexID:   complex.ID,
 		Name:        input.Name,
 		Sport:       input.Sport,
@@ -273,7 +274,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.store.SoftDelete(r.Context(), courtID)
 	if err != nil {
 		switch {
-		case errors.Is(err, data.ErrCourtHasActiveBookings):
+		case errors.Is(err, courtstore.ErrCourtHasActiveBookings):
 			h.respond.Error(w, r, http.StatusConflict, "cannot delete court while it has active bookings, cancel them first")
 		// SoftDelete's WHERE clause can also match nothing because the row
 		// disappeared between the GetByID above and this call, or because a
@@ -415,9 +416,9 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 	// price table already gone. ReplacePrices wraps both halves in one
 	// transaction, so a refused write costs nothing: see its comment in
 	// internal/data/courts.go.
-	prices := make([]*data.CourtPrice, len(input.Prices))
+	prices := make([]*courtstore.CourtPrice, len(input.Prices))
 	for i, p := range input.Prices {
-		prices[i] = &data.CourtPrice{
+		prices[i] = &courtstore.CourtPrice{
 			CourtID:  courtID,
 			Price:    p.Price,
 			DayType:  p.DayType,
@@ -433,7 +434,7 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		// (concurrent writers, or a rule this handler's grouping missed) —
 		// translate it to the same 422 shape rather than falling through to a
 		// 500.
-		if errors.Is(err, data.ErrOverlappingPriceRule) && failedIndex >= 0 {
+		if errors.Is(err, courtstore.ErrOverlappingPriceRule) && failedIndex >= 0 {
 			h.respond.FailedValidation(w, r, map[string]string{
 				keyIdx("prices", failedIndex, "time_from"): "overlaps another price rule for this day",
 			})
@@ -567,7 +568,7 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	slot := &data.BlockedSlot{
+	slot := &courtstore.BlockedSlot{
 		CourtID:   courtID,
 		Date:      date,
 		StartTime: input.StartTime,
@@ -579,9 +580,9 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 	err = h.store.InsertBlockedSlot(r.Context(), slot)
 	if err != nil {
 		switch {
-		case errors.Is(err, data.ErrSlotAlreadyBlocked):
+		case errors.Is(err, courtstore.ErrSlotAlreadyBlocked):
 			h.respond.Error(w, r, http.StatusConflict, "this time range already has a blocked slot")
-		case errors.Is(err, data.ErrSlotHasBooking):
+		case errors.Is(err, courtstore.ErrSlotHasBooking):
 			// The same sentence the pre-check answers with. A client cannot be
 			// told two different things about one collision depending on which
 			// of the two checks happened to see it — the only difference

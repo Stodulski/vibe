@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/realtime"
 )
@@ -113,7 +113,7 @@ func TestShutdownDoesNotWaitOnItsOwnEventStreams(t *testing.T) {
 	srv, addr := serveOn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// The complex is what the stream endpoint is scoped to; the ownership
 		// checks that normally put it there are not what is being tested.
-		stream.Stream(w, httpx.ContextSetComplex(r, &data.Complex{ID: uuid.New()}))
+		stream.Stream(w, httpx.ContextSetComplex(r, &complexstore.Complex{ID: uuid.New()}))
 	}))
 
 	// The request context stays live for the whole test on purpose. If it were

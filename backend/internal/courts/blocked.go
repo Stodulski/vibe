@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
@@ -78,7 +79,7 @@ func (h *Handler) ListBlockedSlots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if slots == nil {
-		slots = []*data.BlockedSlot{}
+		slots = []*courtstore.BlockedSlot{}
 	}
 
 	if !paginate {
@@ -140,7 +141,7 @@ func parseBlockedSlotsDateRange(qs url.Values) (dateFrom, dateTo time.Time, err 
 // already-fetched, already-ordered slice of slots. Split out of
 // ListBlockedSlots so the opt-in-pagination branch above it stays short
 // enough to read as one decision.
-func trimBlockedSlotsPage(slots []*data.BlockedSlot, filters data.Filters) ([]*data.BlockedSlot, data.Metadata, error) {
+func trimBlockedSlotsPage(slots []*courtstore.BlockedSlot, filters data.Filters) ([]*courtstore.BlockedSlot, data.Metadata, error) {
 	cursorTime, cursorID, err := filters.ParseCursor()
 	if err != nil {
 		return nil, data.Metadata{}, err
@@ -162,7 +163,7 @@ func trimBlockedSlotsPage(slots []*data.BlockedSlot, filters data.Filters) ([]*d
 
 	page, metadata := data.TrimPage(slots, filters.Limit, data.BuildTimestampCursor)
 	if page == nil {
-		page = []*data.BlockedSlot{}
+		page = []*courtstore.BlockedSlot{}
 	}
 	return page, metadata, nil
 }

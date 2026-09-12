@@ -17,6 +17,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -288,9 +289,9 @@ func (s *stubResets) DeleteByUser(_ context.Context, userID uuid.UUID) error {
 	return nil
 }
 
-type stubComplexes struct{ owned []*data.Complex }
+type stubComplexes struct{ owned []*complexstore.Complex }
 
-func (s *stubComplexes) GetByOwner(context.Context, uuid.UUID) ([]*data.Complex, error) {
+func (s *stubComplexes) GetByOwner(context.Context, uuid.UUID) ([]*complexstore.Complex, error) {
 	return s.owned, nil
 }
 

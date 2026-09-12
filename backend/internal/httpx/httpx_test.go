@@ -16,6 +16,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -236,7 +237,7 @@ func TestContextComplexRoundTrip(t *testing.T) {
 		t.Error("an untouched request must report no complex")
 	}
 
-	complex := &data.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
 	r = ContextSetComplex(r, complex)
 
 	got, ok := ContextGetComplex(r)
@@ -531,7 +532,7 @@ func TestContextSetComplexScopesTheTenant(t *testing.T) {
 		t.Error("an untouched request must carry no tenant")
 	}
 
-	complex := &data.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
 	r = ContextSetComplex(r, complex)
 
 	got, ok := data.TenantFromContext(r.Context())

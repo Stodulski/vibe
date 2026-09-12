@@ -12,6 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/pricing"
@@ -97,9 +100,9 @@ func TestCancelRefundsNotifiesAndAudits(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.Cancel(w, ownerRequest(t, http.MethodPost, "/", complexID,
@@ -463,10 +466,10 @@ func publicBookBody(complexID, courtID uuid.UUID, durationMinutes int) string {
 // of them, so a test that is not about the schedule or the price bands does not
 // have to state either.
 func openAllWeek(f *fixture, courtID uuid.UUID, opensAt, closesAt string) {
-	f.complexes.schedules = []*data.Schedule{}
+	f.complexes.schedules = []*complexstore.Schedule{}
 	for _, d := range []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"} {
-		f.complexes.schedules = append(f.complexes.schedules, &data.Schedule{Day: d, OpenTime: opensAt, CloseTime: closesAt})
-		f.courts.prices = append(f.courts.prices, data.NewCourtPriceForTest(courtID, d, opensAt, closesAt, 500_000))
+		f.complexes.schedules = append(f.complexes.schedules, &complexstore.Schedule{Day: d, OpenTime: opensAt, CloseTime: closesAt})
+		f.courts.prices = append(f.courts.prices, courtstore.NewCourtPriceForTest(courtID, d, opensAt, closesAt, 500_000))
 	}
 }
 
@@ -474,7 +477,7 @@ func openAllWeek(f *fixture, courtID uuid.UUID, opensAt, closesAt string) {
 func preparePublicBooking(f *fixture) (complexID, courtID uuid.UUID) {
 	complexID, courtID = uuid.New(), uuid.New()
 	token := "seller-token"
-	complex := data.NewComplexForTest(complexID, &token, nil)
+	complex := complexstore.NewComplexForTest(complexID, &token, nil)
 	complex.Name = "Vibe"
 	complex.Slug = "vibe"
 	complex.IsActive = true
@@ -490,7 +493,7 @@ func preparePublicBooking(f *fixture) (complexID, courtID uuid.UUID) {
 	// 21:00, so 18:00 is a real slot and these tests are about what they say
 	// they are about rather than about the grid.
 	openAllWeek(f, courtID, "09:00", "23:00")
-	f.courts.court = &data.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
+	f.courts.court = &courtstore.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
 	return complexID, courtID
 }
 
@@ -515,7 +518,7 @@ func TestPublicBookRefusesWhenTheComplexHasNoSellerCredential(t *testing.T) {
 	complexID, courtID := preparePublicBooking(f)
 	// Override the complex prepared above with one that has never connected
 	// MercadoPago.
-	disconnected := data.NewComplexForTest(complexID, nil, nil)
+	disconnected := complexstore.NewComplexForTest(complexID, nil, nil)
 	disconnected.Name = "Vibe"
 	disconnected.Slug = "vibe"
 	disconnected.IsActive = true
@@ -563,7 +566,7 @@ func TestCheckoutRetryReportsAFailedCredentialPersist(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	accessToken, refreshToken := "expired-seller-token", "seller-refresh-token"
-	complex := data.NewComplexForTest(complexID, &accessToken, &refreshToken)
+	complex := complexstore.NewComplexForTest(complexID, &accessToken, &refreshToken)
 	complex.Name = "Vibe"
 
 	// MercadoPago rejects the stored access token, which is what sends the
@@ -610,7 +613,7 @@ func TestPublicBookRefusesWhenTheComplexCredentialIsUnreadable(t *testing.T) {
 	f := newFixture(t)
 	complexID, courtID := preparePublicBooking(f)
 
-	unreadable := data.NewComplexWithUnreadableCredentialForTest(complexID)
+	unreadable := complexstore.NewComplexWithUnreadableCredentialForTest(complexID)
 	unreadable.Name = "Vibe"
 	unreadable.Slug = "vibe"
 	unreadable.IsActive = true
@@ -955,7 +958,7 @@ func TestAnExpiredTokenGetsA410(t *testing.T) {
 	booking := outOfWindowBooking(complexID)
 	f.linkResolver.booking = booking
 	f.linkResolver.expiresAt = time.Now().Add(-time.Hour)
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=expired-token", ""))
@@ -980,8 +983,8 @@ func TestAnExpiredTokenOnARefundEligibleBookingIsNot410(t *testing.T) {
 	f.linkResolver.expiresAt = time.Now().Add(-time.Hour)
 	// cancellation_hours = 0 means CanRefund is unconditionally true — the
 	// exact configuration design.md's falsified-invariant finding is about.
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 0}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 0}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=expired-but-refundable", ""))
@@ -1005,8 +1008,8 @@ func TestACancelledBookingsTokenStillAnswersStatus(t *testing.T) {
 	booking.CollectionStatus = data.CollectionStatusFullyPaid
 	booking.RefundStatus = data.RefundStatusFull
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=still-valid", ""))
@@ -1036,11 +1039,11 @@ func TestPublicStatusFullPayloadForAConfirmedBooking(t *testing.T) {
 	booking.DurationMinutes = 60
 	booking.CreatedAt = time.Now().In(timezone.Argentina)
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{
+	f.complexes.complex = &complexstore.Complex{
 		ID: complexID, Name: "Vibe Padel", Address: "Av. Siempre Viva 742", Phone: "+5491112345678",
 		CancellationHours: 24,
 	}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Cancha 1", Sport: "padel", CourtType: "indoor"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1", Sport: "padel", CourtType: "indoor"}
 	f.payments.payment = &data.Payment{BookingID: booking.ID, ServiceFee: 1000}
 
 	w := httptest.NewRecorder()
@@ -1132,7 +1135,7 @@ func TestPublicStatusAnswersVenueGoneWhenTheCourtWasDeleted(t *testing.T) {
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe Padel", CancellationHours: 24}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe Padel", CancellationHours: 24}
 	// f.courts.court is left nil on purpose — the court no longer exists.
 
 	w := httptest.NewRecorder()
@@ -1151,7 +1154,7 @@ func TestPublicCancelInfoAnswersVenueGoneWhenTheCourtWasDeleted(t *testing.T) {
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe Padel", CancellationHours: 24}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe Padel", CancellationHours: 24}
 	// f.courts.court is left nil on purpose — the court no longer exists.
 
 	w := httptest.NewRecorder()
@@ -1170,8 +1173,8 @@ func TestPublicStatusZeroCancellationHoursDeadlineIsBookingStart(t *testing.T) {
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 0}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 0}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=zero-hours", ""))
@@ -1208,8 +1211,8 @@ func TestPublicStatusGraceStillOpenAfterWindowClosed(t *testing.T) {
 	booking.StartTime = now.Add(2 * time.Minute).Format("15:04")
 	booking.CreatedAt = now.Add(-time.Minute)
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=grace-window", ""))
@@ -1240,8 +1243,8 @@ func TestPublicStatusCancelledBookingCannotCancelAgain(t *testing.T) {
 	booking.CollectionStatus = data.CollectionStatusFullyPaid
 	booking.RefundStatus = data.RefundStatusFull
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=cancelled-booking", ""))
@@ -1272,7 +1275,7 @@ func TestPublicCancelOnATerminalBookingKeepsItsExisting400(t *testing.T) {
 	booking := futureBooking(complexID)
 	booking.Status = "completed"
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))
@@ -1291,7 +1294,7 @@ func TestPublicCancelRefusesASettledBooking(t *testing.T) {
 			booking.Status = status
 			f.store.booking = booking
 			f.linkResolver.booking = booking
-			f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+			f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 
 			w := httptest.NewRecorder()
 			f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -1310,9 +1313,9 @@ func TestPublicCancelRefundsWithinTheWindow(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -1339,9 +1342,9 @@ func TestPublicCancelOutsideTheWindowDoesNotRefund(t *testing.T) {
 	booking.CreatedAt = time.Now().Add(-24 * time.Hour)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",

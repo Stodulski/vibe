@@ -4,9 +4,10 @@ package data_test
 
 import (
 	"context"
-	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"strings"
 	"testing"
+
+	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 )
 
 // int32Max is the ceiling an ::int cast silently imposes on a SUM(). Postgres does

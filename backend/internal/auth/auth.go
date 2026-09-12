@@ -18,7 +18,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -65,7 +65,7 @@ type PasswordResetStore interface {
 // OwnershipReader is what account deletion needs: an account with a complex
 // still trading cannot simply vanish.
 type OwnershipReader interface {
-	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*data.Complex, error)
+	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
 }
 
 // IdentityStore links a local account to an external identity provider's

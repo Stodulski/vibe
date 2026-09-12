@@ -9,6 +9,7 @@ import (
 	"github.com/getsentry/sentry-go"
 
 	"github.com/stodulski/vibe-server/internal/booklink"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
@@ -452,7 +453,7 @@ const (
 // refreshOneMPToken refreshes a single complex's MercadoPago OAuth token and
 // persists the result. Every failure branch alerts Sentry itself, so the
 // caller only has to count.
-func (app *application) refreshOneMPToken(ctx context.Context, c *data.Complex) mpRefreshResult {
+func (app *application) refreshOneMPToken(ctx context.Context, c *complexstore.Complex) mpRefreshResult {
 	refreshTok, refreshErr := c.SellerRefreshToken()
 	if refreshErr != nil {
 		if errors.Is(refreshErr, mpcred.ErrMPCredentialUnreadable) {

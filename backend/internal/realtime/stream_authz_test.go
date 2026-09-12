@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -107,7 +107,7 @@ func startStream(t *testing.T, auth Authorizer, cfg Config) *streamFixture {
 	h := NewHandler(hub, auth, httpx.NewResponder(logger), logger, make(chan struct{}), cfg)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.Stream(w, httpx.ContextSetComplex(r, &data.Complex{ID: f.complexID}))
+		h.Stream(w, httpx.ContextSetComplex(r, &complexstore.Complex{ID: f.complexID}))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -309,7 +309,7 @@ func TestStreamRefusesAConnectionOverTheCap(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httpx.ContextSetComplex(
 		httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil),
-		&data.Complex{ID: complexID})
+		&complexstore.Complex{ID: complexID})
 	h.Stream(w, r)
 
 	if w.Code != http.StatusTooManyRequests {

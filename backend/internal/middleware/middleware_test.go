@@ -18,6 +18,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/auth"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -54,12 +55,12 @@ func (s *stubUsers) GetByID(ctx context.Context, _ uuid.UUID) (*authstore.User, 
 }
 
 type stubComplexes struct {
-	complex  *data.Complex
+	complex  *complexstore.Complex
 	err      error
 	deadline time.Duration
 }
 
-func (s *stubComplexes) GetByID(ctx context.Context, _ uuid.UUID) (*data.Complex, error) {
+func (s *stubComplexes) GetByID(ctx context.Context, _ uuid.UUID) (*complexstore.Complex, error) {
 	s.deadline = budget(ctx)
 	if s.err != nil {
 		return nil, s.err
@@ -386,7 +387,7 @@ func TestRequireRoleRejectsTheWrongRole(t *testing.T) {
 func TestRequireComplexOwnerRefusesAnotherOwnersComplex(t *testing.T) {
 	f := newFixture(t, Config{})
 	complexID := uuid.New()
-	f.complexes.complex = &data.Complex{ID: complexID, OwnerID: uuid.New()}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, OwnerID: uuid.New()}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
@@ -407,13 +408,13 @@ func TestRequireComplexOwnerRefusesAnotherOwnersComplex(t *testing.T) {
 func TestRequireComplexOwnerPutsTheComplexInContext(t *testing.T) {
 	f := newFixture(t, Config{})
 	ownerID, complexID := uuid.New(), uuid.New()
-	f.complexes.complex = &data.Complex{ID: complexID, OwnerID: ownerID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, OwnerID: ownerID}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	r = httpx.ContextSetUser(r, &authstore.User{ID: ownerID, Role: "owner"})
 	r = withComplexParam(r, complexID)
 
-	var got *data.Complex
+	var got *complexstore.Complex
 	w := httptest.NewRecorder()
 	f.mw.RequireComplexOwner(func(_ http.ResponseWriter, req *http.Request) {
 		got, _ = httpx.ContextGetComplex(req)
@@ -431,7 +432,7 @@ func TestRequireComplexOwnerPutsTheComplexInContext(t *testing.T) {
 func TestRequireComplexOwnerDoesNotExemptASuperadmin(t *testing.T) {
 	f := newFixture(t, Config{})
 	complexID := uuid.New()
-	f.complexes.complex = &data.Complex{ID: complexID, OwnerID: uuid.New()}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, OwnerID: uuid.New()}
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "superadmin"})

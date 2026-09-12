@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -159,8 +159,8 @@ func TestComplexSlug_StructFields(t *testing.T) {
 	}
 }
 
-// TestComplexModel_RequiresDB documents that all ComplexModel methods
+// TestComplexModel_RequiresDB documents that all Store methods
 // require a database connection.
 func TestComplexModel_RequiresDB(t *testing.T) {
-	t.Skip("ComplexModel methods all require *pgxpool.Pool and *db.Queries")
+	t.Skip("Store methods all require *pgxpool.Pool and *db.Queries")
 }

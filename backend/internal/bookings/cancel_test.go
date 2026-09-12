@@ -11,6 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -30,9 +33,9 @@ func TestPublicCancelReportsTheRefundThatActuallyHappened(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	f.refunds.outcome = data.RefundOutcome{Result: data.RefundIssued, AmountCentavos: 250_000}
 
 	w := httptest.NewRecorder()
@@ -75,9 +78,9 @@ func TestPublicCancelReportsPartialRefundWhenCashIsStillOwed(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	f.refunds.outcome = data.RefundOutcome{
 		Result: data.RefundIssued, AmountCentavos: 150_000, ManualAmountCentavos: 350_000,
 	}
@@ -147,9 +150,9 @@ func TestPublicCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID, Phone: "+5491155551234"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Cancha 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
 	f.refunds.outcome = data.RefundOutcome{Result: data.RefundIssued, AmountCentavos: 500_000}
 
 	w := httptest.NewRecorder()
@@ -261,9 +264,9 @@ func TestAnOutOfWindowCancelStillExpiresTheCheckoutLink(t *testing.T) {
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -289,9 +292,9 @@ func TestAnOutOfWindowCancelSaysTheDepositIsKept(t *testing.T) {
 	booking.DepositAmount = 150_000
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -319,9 +322,9 @@ func TestCancellingReleasesTheSlotsItWasHolding(t *testing.T) {
 	booking.DurationMinutes = 120 // crosses a 30-minute grid boundary, unlike the usual 90-minute booking
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -347,9 +350,9 @@ func TestAFailedSlotReleaseDoesNotFailTheCancellation(t *testing.T) {
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.locks.releaseErr = errDatabase
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -445,8 +448,8 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 			f.payments.payment = tt.payment
 			f.payments.ledger = tt.ledger
 			f.payments.getErr = tt.paymentErr
-			f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-			f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+			f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+			f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 			w := httptest.NewRecorder()
 			f.handler.PublicCancelInfo(w, publicRequest(t, http.MethodGet,
@@ -483,8 +486,8 @@ func TestCancelInfoReportsTheRefundAndPaidAmountInsideTheWindow(t *testing.T) {
 	f.payments.payment = &data.Payment{
 		Status: "deposit_paid", MPPaymentID: &mpID, Amount: 150_000, ServiceFee: 12_000,
 	}
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "indoor"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "indoor"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancelInfo(w, publicRequest(t, http.MethodGet,
@@ -519,8 +522,8 @@ func TestCancelInfoReportsNoRefundButPaidAmountOutsideTheWindow(t *testing.T) {
 	f.payments.payment = &data.Payment{
 		Status: "deposit_paid", MPPaymentID: &mpID, Amount: 150_000, ServiceFee: 12_000,
 	}
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "indoor"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "indoor"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancelInfo(w, publicRequest(t, http.MethodGet,
@@ -550,8 +553,8 @@ func TestCancelInfoReportsZeroAmountsForAnUnpaidBooking(t *testing.T) {
 	booking.CollectionStatus = data.CollectionStatusUnpaid
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "indoor"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "indoor"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancelInfo(w, publicRequest(t, http.MethodGet,
@@ -579,10 +582,10 @@ func TestCancelInfoCarriesTheSameCourtDetailAsTheSuccessPage(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{
+	f.complexes.complex = &complexstore.Complex{
 		ID: complexID, Name: "Vibe", Address: "Av. Siempre Viva 742", CancellationHours: 24,
 	}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "outdoor"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "outdoor"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancelInfo(w, publicRequest(t, http.MethodGet,
@@ -621,9 +624,9 @@ func TestStaffCancelReportsARefundOnlyAPersonCanMake(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	f.refunds.outcome = data.RefundOutcome{
 		Result: data.RefundManual, AmountCentavos: 150_000, Reason: "paid in cash",
 	}
@@ -655,15 +658,15 @@ func TestStaffCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
 	f.store.booking = booking
-	f.clients.client = &data.Client{ID: booking.ClientID, Phone: "+5491155551234"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Cancha 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
 	f.refunds.outcome = data.RefundOutcome{Result: data.RefundIssued, AmountCentavos: 500_000}
 
 	// RequireComplexOwner puts the complex on the request, so that is the one
 	// Cancel reads — not the store's.
 	r := ownerRequest(t, http.MethodPost, "/", complexID,
 		map[string]string{"bookingID": booking.ID.String()}, `{}`)
-	r = httpx.ContextSetComplex(r, &data.Complex{
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{
 		ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24,
 	})
 
@@ -703,9 +706,9 @@ func TestAnOutOfWindowPublicCancelNeverSetsTheRefundIntentMarker(t *testing.T) {
 	booking := outOfWindowBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/",
@@ -732,9 +735,9 @@ func TestStaffCancelAlwaysSetsTheRefundIntentMarkerWhenPaid(t *testing.T) {
 	booking := futureBooking(complexID)
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.Cancel(w, ownerRequest(t, http.MethodPost, "/", complexID,
@@ -783,12 +786,12 @@ func TestAnUnreadableCredentialNeverExpiresThePreferenceAsThePlatform(t *testing
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
-	unreadable := data.NewComplexWithUnreadableCredentialForTest(complexID)
+	unreadable := complexstore.NewComplexWithUnreadableCredentialForTest(complexID)
 	unreadable.Name = "Vibe"
 	unreadable.CancellationHours = 24
 	f.complexes.complex = unreadable
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	tr := withCapturedSentryEvents(t)
 
 	w := httptest.NewRecorder()
@@ -831,12 +834,12 @@ func TestAFailedPreferenceExpiryIsRetried(t *testing.T) {
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
-	complex := data.NewComplexForTest(complexID, &sellerToken, nil)
+	complex := complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 	complex.Name = "Vibe"
 	complex.CancellationHours = 24
 	f.complexes.complex = complex
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	f.checkout.expireFailFirst = true
 
 	w := httptest.NewRecorder()
@@ -871,12 +874,12 @@ func TestAPreferenceThatCannotBeExpiredAlerts(t *testing.T) {
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
-	complex := data.NewComplexForTest(complexID, &sellerToken, nil)
+	complex := complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 	complex.Name = "Vibe"
 	complex.CancellationHours = 24
 	f.complexes.complex = complex
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	f.checkout.expireErr = errPreferenceExpiryUnavailable
 	tr := withCapturedSentryEvents(t)
 
@@ -953,9 +956,9 @@ func TestCancellingReleasesTheSlotsEvenWhenTheClientDisconnected(t *testing.T) {
 	booking.DurationMinutes = 120 // crosses a 30-minute grid boundary, unlike the usual 90-minute booking
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	ctx, disconnect := context.WithCancel(t.Context())
 	f.refunds.onRefund = disconnect
@@ -998,12 +1001,12 @@ func TestTheCheckoutLinkIsClosedEvenWhenTheClientDisconnected(t *testing.T) {
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.payment = &data.Payment{BookingID: booking.ID, MPPreferenceID: &preferenceID}
-	complex := data.NewComplexForTest(complexID, &sellerToken, nil)
+	complex := complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 	complex.Name = "Vibe"
 	complex.CancellationHours = 24
 	f.complexes.complex = complex
-	f.clients.client = &data.Client{ID: booking.ClientID}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	// The tab closes as soon as the booking's cancellation is written, which is
 	// the step immediately before the checkout link is closed.
@@ -1036,7 +1039,7 @@ func TestStaffConfirmationSaysWhatIsOwedAndDoesNotEmailTheOwnerAboutTheirOwnEntr
 	r := ownerRequest(t, http.MethodPost, "/", complexID,
 		map[string]string{"id": complexID.String()},
 		staffBookBodyWithPrice(courtID, "18:00", 90, 2_000_000))
-	r = httpx.ContextSetComplex(r, &data.Complex{
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{
 		ID: complexID, Name: "Vibe", Slug: "vibe",
 		Address: "Av. Santa Fe 1200", City: "Buenos Aires", CancellationHours: 24,
 	})
