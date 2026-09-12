@@ -110,3 +110,134 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # A broken build was previously discovered only by Vercel, after merge
+  # (CI-06). VITE_APP_URL is a placeholder — the real value is a Vercel
+  # project env var — and SENTRY_AUTH_TOKEN is deliberately left unset so
+  # the Sentry plugin stays a no-op and this job never needs Sentry
+  # credentials.
+  build:
+    name: Build (vite build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        env:
+          VITE_APP_URL: https://app.vibe.com.ar
+        run: pnpm build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 1
+
+  audit:
+    name: Audit (pnpm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # CI-08/SEC-09: a high or critical npm advisory blocks the PR instead
+      # of only ever surfacing through Dependabot after merge. The verdict
+      # comes from the registry advisory feed, so the call is retried to ride
+      # out a transient registry outage; an advisory with no fixed version is
+      # waived by adding `auditConfig.ignoreCves` to frontend/pnpm-workspace.yaml
+      # (with the reason in the PR that adds it), never by disabling this job.
+      - name: Audit
+        run: |
+          for attempt in 1 2 3; do
+            pnpm audit --audit-level high --prod && exit 0
+            [ "$attempt" -lt 3 ] && sleep 20
+          done
+          exit 1
+
+  lighthouse:
+    name: Lighthouse (lhci autorun)
+    runs-on: ubuntu-latest
+    needs: build
+    # Non-blocking until MAP-01/PERF-01 (leaflet out of the initial bundle graph) lands on main and brings the measured LCP under this budget — then flip this to blocking.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      # lighthouserc.cjs points at :5173 (the same port the dev server and
+      # `make e2e` use), so `vite preview` is pinned there instead of its
+      # own default port. Backgrounded and left running for the job's
+      # lifetime; the runner tears it down when the job ends.
+      - name: Start preview server
+        run: |
+          pnpm exec vite preview --port 5173 --strictPort &
+          timeout 60 bash -c 'until curl -sf http://localhost:5173 -o /dev/null; do sleep 1; done'
+
+      - name: Lighthouse
+        run: pnpm test:lighthouse
+
+  knip:
+    name: Knip (unused exports/deps)
+    runs-on: ubuntu-latest
+    # Non-blocking until the 126 pre-existing findings (CI-09) are cleaned up — then flip this to blocking.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Knip
+        run: pnpm knip

@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-patch:
+        patterns:
+          - "*"
+        # React, its router, TanStack Query and Vite are foundational
+        # dependencies the owner wants to review one at a time — excluded
+        # from the group entirely (not just from majors) so a minor bump of
+        # any of these never rides in on the same PR as everything else's
+        # patches (CI-07).
+        exclude-patterns:
+          - "react"
+          - "react-dom"
+          - "react-router-dom"
+          - "@tanstack/react-query"
+          - "vite"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

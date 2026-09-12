@@ -1,5 +1,6 @@
 allowBuilds:
   '@playwright/browser-chromium': true
+  '@sentry/cli': true
   esbuild: true
   msw: true
   protobufjs: true
