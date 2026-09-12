@@ -36,10 +36,10 @@ import (
 // disturbing this domain's tested control flow.
 //
 //nolint:funlen // see the cohesion note above
-func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	// Skip if booking is already confirmed, completed, or no_show (duplicate/late webhook).
 	if booking.Status == "confirmed" || booking.Status == "completed" || booking.Status == "no_show" {
-		h.logger.Info("mp webhook: booking already confirmed/completed, skipping",
+		s.logger.Info("mp webhook: booking already confirmed/completed, skipping",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 			"booking_status", booking.Status,
@@ -63,7 +63,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	// a booking's payment_status — including the already-cancelled branch immediately
 	// below — so no branch of this function can ever act on a payment whose collector
 	// is unproven.
-	matches, err := h.collectorMatchesComplex(ctx, booking, mpPayment, mpPaymentID)
+	matches, err := s.collectorMatchesComplex(ctx, booking, mpPayment, mpPaymentID)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	// If the booking was already cancelled (e.g. cron expired it, or owner cancelled it),
 	// issue an automatic refund instead of re-confirming.
 	if booking.Status == "cancelled" {
-		h.logger.Info("mp webhook: booking already cancelled, issuing automatic refund",
+		s.logger.Info("mp webhook: booking already cancelled, issuing automatic refund",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 		)
@@ -88,7 +88,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 		// If that write fails the provider is deliberately never called. Money must
 		// not move on behalf of a refund nothing durable knows about — which is the
 		// exact failure this whole flow was rewritten to remove.
-		return h.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 	}
 
 	// Verify amount: MP sends pesos (float), our DB stores centavos (int).
@@ -108,7 +108,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	expectedCentavos := booking.DepositAmount + serviceFee
 
 	if actualCentavos != expectedCentavos {
-		h.logger.Error("mp webhook: FRAUD ALERT - amount mismatch",
+		s.logger.Error("mp webhook: FRAUD ALERT - amount mismatch",
 			"mp_payment_id", mpPaymentID,
 			"expected_centavos", expectedCentavos,
 			"actual_centavos", actualCentavos,
@@ -119,7 +119,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	}
 
 	// Re-fetch booking to catch concurrent cancellation (e.g. cron cancelled it while we validated the payment).
-	booking, err = h.bookings.GetByID(ctx, booking.ID)
+	booking, err = s.bookings.GetByID(ctx, booking.ID)
 	if err != nil {
 		return fmt.Errorf("re-fetch booking %s: %w", booking.ID, err)
 	}
@@ -128,7 +128,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	revalidatedServiceFee := pricing.ServiceFee(booking.DepositAmount)
 	revalidatedExpected := booking.DepositAmount + revalidatedServiceFee
 	if revalidatedExpected != expectedCentavos {
-		h.logger.Warn("mp webhook: price changed between validation and confirmation",
+		s.logger.Warn("mp webhook: price changed between validation and confirmation",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 			"original_expected", expectedCentavos,
@@ -138,7 +138,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	}
 
 	if booking.Status == "cancelled" {
-		h.logger.Info("mp webhook: booking was cancelled concurrently, issuing auto-refund",
+		s.logger.Info("mp webhook: booking was cancelled concurrently, issuing auto-refund",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 		)
@@ -148,10 +148,10 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 		// the re-fetch), and recursing would re-enter the top of this function and
 		// run that check a second time for no reason, plus risk a duplicate FRAUD
 		// ALERT log line.
-		return h.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 	}
 	if booking.Status == "confirmed" || booking.Status == "completed" {
-		h.logger.Info("mp webhook: booking was confirmed/completed concurrently, skipping",
+		s.logger.Info("mp webhook: booking was confirmed/completed concurrently, skipping",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 		)
@@ -159,7 +159,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	}
 
 	// Look up existing payment created during public booking flow.
-	existingPayment, err := h.payments.GetByBookingID(ctx, booking.ID)
+	existingPayment, err := s.payments.GetByBookingID(ctx, booking.ID)
 	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
 		return fmt.Errorf("look up the existing payment for booking %s: %w", booking.ID, err)
 	}
@@ -178,7 +178,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 		existingPayment.MPPaymentID = &mpPaymentID
 		existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
 
-		if err := h.payments.ConfirmWebhookPayment(ctx, existingPayment, booking); err != nil {
+		if err := s.payments.ConfirmWebhookPayment(ctx, existingPayment, booking); err != nil {
 			// H-23: ErrBookingCancelled refunds for the same reason
 			// ErrSlotUnavailable does. The booking this money was for no longer
 			// exists — cancelled when its payment expired and its hours went
@@ -186,7 +186,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 			// leaves possible on purpose. Requeuing instead retries a write
 			// that can never succeed and never sends the money back.
 			if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
-				return h.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
+				return s.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
 			}
 			// The money is captured and the booking is still pending. Left as an
 			// error, the event is requeued and this write is attempted again.
@@ -206,11 +206,11 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 			StatusDetail: statusDetailPtr(mpPayment.StatusDetail),
 		}
 
-		if err := h.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
+		if err := s.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
 			// H-23, same as above: a cancelled booking's late payment is
 			// refunded, not retried.
 			if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
-				return h.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
+				return s.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
 			}
 			// Same as above: captured money against an unconfirmed booking is
 			// exactly what has to survive a transient database failure.
@@ -222,21 +222,21 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	// GetByID's error path already returns a nil client, so a lookup failure
 	// here degrades to skipping the confirmation notification below rather
 	// than failing the webhook — the payment is already recorded.
-	client, _ := h.clients.GetByID(ctx, booking.ClientID)
+	client, _ := s.clients.GetByID(ctx, booking.ClientID)
 
-	h.logger.Info("mp webhook: payment approved and booking confirmed",
+	s.logger.Info("mp webhook: payment approved and booking confirmed",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 		"amount", booking.DepositAmount,
 	)
 
-	h.realtime.PublishBookingChanged(booking.ComplexID)
+	s.realtime.PublishBookingChanged(booking.ComplexID)
 
 	// Money arriving is the first half of the money path, and it had no entry
 	// either. It is recorded after the write commits, so a confirmation the
 	// database refused — which returns above and is retried — is never
 	// recorded as one that happened.
-	h.record(booking.ComplexID, booking.ID, "payment_confirmed", moneyEvent{
+	s.record(booking.ComplexID, booking.ID, "payment_confirmed", moneyEvent{
 		Actor:          actorProvider,
 		PaymentID:      &settled.ID,
 		MPPaymentID:    mpPaymentID,
@@ -246,8 +246,8 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 
 	// Send booking confirmation notification (email + optionally WhatsApp).
 	if client != nil {
-		complex, cerr := h.complexes.GetByID(ctx, booking.ComplexID)
-		court, courterr := h.courts.GetByID(ctx, booking.CourtID)
+		complex, cerr := s.complexes.GetByID(ctx, booking.ComplexID)
+		court, courterr := s.courts.GetByID(ctx, booking.CourtID)
 		if cerr == nil && courterr == nil {
 			// Mint before building any link. InsertSafe already minted a token
 			// for this booking at checkout, but that mint happened in a
@@ -260,11 +260,11 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 			// deliberately not revoked here: MercadoPago redirects the
 			// browser to the success back_url at roughly the moment this
 			// webhook fires, and revoking it would break that redirect.
-			confirmationToken, mintErr := h.linkTokens.Mint(ctx, booking.ID, booking.EndsAt.Add(h.cfg.LinkTokenBuffer))
+			confirmationToken, mintErr := s.linkTokens.Mint(ctx, booking.ID, booking.EndsAt.Add(s.cfg.LinkTokenBuffer))
 			if mintErr != nil {
 				return fmt.Errorf("mint booking link token for confirmation email %s: %w", booking.ID, mintErr)
 			}
-			cancelURL := booklink.Cancel(h.cfg.FrontendURL, complex.Slug, confirmationToken)
+			cancelURL := booklink.Cancel(s.cfg.FrontendURL, complex.Slug, confirmationToken)
 			cancelPath := booklink.CancelPath(complex.Slug, confirmationToken)
 			mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
@@ -274,7 +274,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 				clientEmail = *client.Email
 			}
 			confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus)
-			h.notify.BookingConfirmed(notifications.BookingConfirmation{
+			s.notify.BookingConfirmed(notifications.BookingConfirmation{
 				// The online route: this is a sale the owner did not enter, so
 				// the owner's "Nueva reserva" email goes out.
 				Source:        notifications.SourceOnlineCheckout,
@@ -292,7 +292,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 				MapsURL:       mapsURL,
 				DepositAmount: confirmDepositAmount,
 				BalanceAmount: confirmBalanceAmount,
-				CancellationLine: notifications.CancellationLine(complex.CancellationHours, h.cfg.CancellationGracePeriod,
+				CancellationLine: notifications.CancellationLine(complex.CancellationHours, s.cfg.CancellationGracePeriod,
 					pricing.WithinStandardWindow(booking, complex.CancellationHours)),
 				OwnerID: complex.OwnerID.String(),
 			})
@@ -313,8 +313,8 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 // It is reported to Sentry rather than only logged. A stale pending booking being
 // overtaken is expected; a client paying for hours that were given away is a real
 // conflict, and somebody has to know it happened.
-func (h *Handler) refundBookingWhoseSlotIsGone(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
-	h.logger.Error("mp webhook: the slot was taken while the payment was in flight, refusing to confirm and refunding",
+func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+	s.logger.Error("mp webhook: the slot was taken while the payment was in flight, refusing to confirm and refunding",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 		"court_id", booking.CourtID,
@@ -334,7 +334,7 @@ func (h *Handler) refundBookingWhoseSlotIsGone(ctx context.Context, booking *boo
 	// the money captured with no refund ever claimed.
 	booking.Status = "cancelled"
 
-	return h.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+	return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 }
 
 // refundCancelledBookingPayment records a payment that landed for an
@@ -355,10 +355,10 @@ func (h *Handler) refundBookingWhoseSlotIsGone(ctx context.Context, booking *boo
 // paid. And it reuses the checkout payment row when there is one, because
 // inserting a second left the first orphaned with the preference id on it while
 // GetByBookingID's ordering handed everything after it the new row.
-func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
-	payment, err := h.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID)
+func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+	payment, err := s.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID)
 	if err != nil {
-		h.logger.Error("mp webhook: failed to record the payment owed a refund, provider not called",
+		s.logger.Error("mp webhook: failed to record the payment owed a refund, provider not called",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -373,11 +373,11 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	// way this returns without a committed claim, it is cleared — and the window
 	// in between is the sweep's, not a hole.
 	committed := false
-	defer h.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
+	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
 
-	claim, err := h.payments.ClaimRefund(ctx, payment.ID)
+	claim, err := s.payments.ClaimRefund(ctx, payment.ID)
 	if err != nil {
-		h.logger.Error("mp webhook: failed to claim the refund for a cancelled booking",
+		s.logger.Error("mp webhook: failed to claim the refund for a cancelled booking",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -396,45 +396,45 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	// token or the provider was asked for, so the refund queue owns this from
 	// here regardless of which one refuses. Retrying the webhook event as well
 	// would give the same money two owners.
-	settled, outcome := h.issueRefund(ctx, *claim)
+	settled, outcome := s.issueRefund(ctx, *claim)
 	if outcome != nil {
 		// Queued for the retry job, or owed by hand. Either way it is the end
 		// of this path's involvement, and the entry says which — the exhausted
 		// and credential-refused arms of this are exactly what somebody comes
 		// looking for afterwards.
-		h.record(booking.ComplexID, booking.ID, "refund",
+		s.record(booking.ComplexID, booking.ID, "refund",
 			claimEvent(*claim, outcome.AmountCentavos, outcome.Result, outcome.Reason))
 		return nil
 	}
 
-	manualOwed := h.manualOwedForBooking(ctx, booking.ID)
-	if _, err := h.payments.RecordRefundSuccess(ctx, settled, manualOwed); err != nil {
+	manualOwed := s.manualOwedForBooking(ctx, booking.ID)
+	if _, err := s.payments.RecordRefundSuccess(ctx, settled, manualOwed); err != nil {
 		// See AutoRefundIfPaid: the attempt stays queued and the retry job replays
 		// the call, which MercadoPago deduplicates on its idempotency key.
-		h.logger.Error("mp webhook: auto-refund issued but not recorded, left queued for retry",
+		s.logger.Error("mp webhook: auto-refund issued but not recorded, left queued for retry",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
 			"attempt_id", claim.AttemptID,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND RECORD FAILED (money refunded, queued for retry): mp_payment_id=%s booking_id=%s attempt_id=%s", mpPaymentID, booking.ID, claim.AttemptID))
-		h.record(booking.ComplexID, booking.ID, "refund", claimEvent(*claim, settled.RefundCentavos,
+		s.record(booking.ComplexID, booking.ID, "refund", claimEvent(*claim, settled.RefundCentavos,
 			paymentstore.RefundQueued, "the refund was issued but could not be recorded, and stays queued"))
 		return nil
 	}
 
-	h.logger.Info("mp webhook: auto-refund issued for cancelled booking",
+	s.logger.Info("mp webhook: auto-refund issued for cancelled booking",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 		"refund_amount", centavosToPesos(settled.RefundCentavos),
 	)
-	h.record(booking.ComplexID, booking.ID, "refund",
+	s.record(booking.ComplexID, booking.ID, "refund",
 		claimEvent(*claim, settled.RefundCentavos, paymentstore.RefundIssued, ""))
 
 	// A shortfall gets its own second entry rather than replacing the one
 	// above: the part that moved is genuinely refunded and the client has been
 	// told so, and the remainder is owed with nothing queued behind it.
 	// Collapsing the two would lose whichever half the reader needed.
-	h.reportShortfall("mp webhook", "refund", booking.ComplexID, booking.ID, *claim, settled)
+	s.reportShortfall("mp webhook", "refund", booking.ComplexID, booking.ID, *claim, settled)
 	return nil
 }
 
@@ -462,8 +462,8 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *bo
 // expressing as 'refund_pending' for precisely this reason. The two cancel
 // paths already write it the same way (internal/bookings), so the shape
 // SweepOrphanedRefundIntents recovers is identical whichever path produced it.
-func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
-	existing, err := h.payments.GetByBookingID(ctx, booking.ID)
+func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
+	existing, err := s.payments.GetByBookingID(ctx, booking.ID)
 	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
 		return nil, fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
 	}
@@ -481,7 +481,7 @@ func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *booking
 	if existing != nil {
 		existing.Status = "deposit_paid"
 		existing.MPPaymentID = &mpPaymentID
-		if err := h.payments.ConfirmWebhookPayment(ctx, existing, booking); err != nil {
+		if err := s.payments.ConfirmWebhookPayment(ctx, existing, booking); err != nil {
 			return nil, err
 		}
 		return existing, nil
@@ -507,7 +507,7 @@ func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *booking
 		Status:      "deposit_paid",
 		MPPaymentID: &mpPaymentID,
 	}
-	if err := h.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
+	if err := s.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
 		return nil, err
 	}
 	return payment, nil
@@ -524,10 +524,10 @@ func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *booking
 // verdict and false forever; a complex that would not load is the database being
 // unavailable, which is returned as an error so the recorded event is retried
 // rather than a genuine payment being thrown away for an outage.
-func (h *Handler) collectorMatchesComplex(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
-	complex, err := h.complexes.GetByID(ctx, booking.ComplexID)
+func (s *Service) collectorMatchesComplex(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
+	complex, err := s.complexes.GetByID(ctx, booking.ComplexID)
 	if err != nil {
-		h.logger.Error("mp webhook: cannot verify collector - failed to fetch complex",
+		s.logger.Error("mp webhook: cannot verify collector - failed to fetch complex",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -538,7 +538,7 @@ func (h *Handler) collectorMatchesComplex(ctx context.Context, booking *bookings
 	}
 
 	if complex.MPUserID == nil || *complex.MPUserID == "" || mpPayment.CollectorID == 0 {
-		h.logger.Error("mp webhook: cannot verify collector - missing MercadoPago identity",
+		s.logger.Error("mp webhook: cannot verify collector - missing MercadoPago identity",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 			"complex_id", booking.ComplexID,
@@ -551,7 +551,7 @@ func (h *Handler) collectorMatchesComplex(ctx context.Context, booking *bookings
 
 	collectorID := strconv.FormatInt(mpPayment.CollectorID, 10)
 	if collectorID != *complex.MPUserID {
-		h.logger.Error("mp webhook: FRAUD ALERT - collector mismatch",
+		s.logger.Error("mp webhook: FRAUD ALERT - collector mismatch",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 			"complex_id", booking.ComplexID,
@@ -567,11 +567,11 @@ func (h *Handler) collectorMatchesComplex(ctx context.Context, booking *bookings
 
 // processRejectedPayment cancels the booking a rejected payment failed to pay
 // for, and reports whether the webhook event behind it should be tried again.
-func (h *Handler) processRejectedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (s *Service) processRejectedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	// Only cancel if the booking is still pending. If it was already confirmed
 	// (e.g. a different payment attempt succeeded), do NOT cancel it.
 	if booking.Status != "pending" {
-		h.logger.Info("mp webhook: payment rejected but booking is not pending, skipping cancellation",
+		s.logger.Info("mp webhook: payment rejected but booking is not pending, skipping cancellation",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 			"booking_status", booking.Status,
@@ -580,15 +580,15 @@ func (h *Handler) processRejectedPayment(ctx context.Context, booking *bookingst
 	}
 
 	booking.Status = "cancelled"
-	if err := h.bookings.Update(ctx, booking); err != nil {
+	if err := s.bookings.Update(ctx, booking); err != nil {
 		return fmt.Errorf("cancel booking %s after a rejected payment: %w", booking.ID, err)
 	}
 
-	h.recordRejectedPaymentDetail(ctx, booking.ID, mpPayment, mpPaymentID)
+	s.recordRejectedPaymentDetail(ctx, booking.ID, mpPayment, mpPaymentID)
 
-	h.realtime.PublishBookingChanged(booking.ComplexID)
+	s.realtime.PublishBookingChanged(booking.ComplexID)
 
-	h.logger.Info("mp webhook: payment rejected/cancelled, booking cancelled",
+	s.logger.Info("mp webhook: payment rejected/cancelled, booking cancelled",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 		"status", mpPayment.Status,
@@ -603,11 +603,11 @@ func (h *Handler) processRejectedPayment(ctx context.Context, booking *bookingst
 // past this log line. A read/write failure here is logged and swallowed: the
 // booking is already cancelled by the time this runs, and losing the detail
 // column is not worth requeuing the whole webhook event for.
-func (h *Handler) recordRejectedPaymentDetail(ctx context.Context, bookingID uuid.UUID, mpPayment *mp.Payment, mpPaymentID string) {
-	existingPayment, err := h.payments.GetByBookingID(ctx, bookingID)
+func (s *Service) recordRejectedPaymentDetail(ctx context.Context, bookingID uuid.UUID, mpPayment *mp.Payment, mpPaymentID string) {
+	existingPayment, err := s.payments.GetByBookingID(ctx, bookingID)
 	if err != nil {
 		if !errors.Is(err, data.ErrRecordNotFound) {
-			h.logger.Error("mp webhook: failed to look up the payment row for a rejected payment",
+			s.logger.Error("mp webhook: failed to look up the payment row for a rejected payment",
 				"error", err, "booking_id", bookingID, "mp_payment_id", mpPaymentID)
 		}
 		return
@@ -621,8 +621,8 @@ func (h *Handler) recordRejectedPaymentDetail(ctx context.Context, bookingID uui
 	// its own vocabulary is the other half of F11 and a separate change.
 	existingPayment.MPPaymentID = &mpPaymentID
 	existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
-	if err := h.payments.Update(ctx, existingPayment); err != nil {
-		h.logger.Error("mp webhook: failed to record the rejection detail on the payment row",
+	if err := s.payments.Update(ctx, existingPayment); err != nil {
+		s.logger.Error("mp webhook: failed to record the rejection detail on the payment row",
 			"error", err, "booking_id", bookingID, "mp_payment_id", mpPaymentID)
 	}
 }

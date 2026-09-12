@@ -167,8 +167,14 @@ type Config struct {
 	LinkTokenBuffer time.Duration
 }
 
-// Handler serves the payment webhook and owns the refund flows.
-type Handler struct {
+// Service holds this module's rules: how a provider notification becomes a
+// confirmed booking, how a cancellation gives captured money back, and what a
+// refund the provider refused is owed to the client. Every store call, every
+// provider call and every audit entry of the payment domain goes through it.
+//
+// It is also where the background entrypoints live — the schedulers in cmd/api
+// call them directly, because none of them is an HTTP concern.
+type Service struct {
 	payments      PaymentStore
 	bookings      BookingStore
 	clients       ClientStore
@@ -183,14 +189,13 @@ type Handler struct {
 	notify        Notifier
 	realtime      Broadcaster
 	audit         Recorder
-	respond       *httpx.Responder
 	logger        *slog.Logger
 	cfg           Config
 	// run schedules background work on the application's tracked goroutines.
 	run func(func())
 }
 
-// Dependencies groups what NewHandler needs, because the list is long enough
+// Dependencies groups what NewService needs, because the list is long enough
 // that a positional call would be unreadable and easy to mis-order.
 type Dependencies struct {
 	Payments      PaymentStore
@@ -207,22 +212,21 @@ type Dependencies struct {
 	Notify        Notifier
 	Realtime      Broadcaster
 	Audit         Recorder
-	Respond       *httpx.Responder
 	Logger        *slog.Logger
 	Run           func(func())
 }
 
-// NewHandler returns a Handler.
-func NewHandler(d Dependencies, cfg Config) *Handler {
+// NewService returns a Service backed by the given dependencies.
+func NewService(d Dependencies, cfg Config) *Service {
 	// A nil recorder is refused here rather than left to panic at the first
 	// refund — or, worse, made nil-safe. An audit trail that silently drops
 	// entries is the one kind of broken this table cannot survive: it still
 	// answers every query, and every answer is short. Failing at construction
 	// is what makes "there is no entry" mean "it did not happen".
 	if d.Audit == nil {
-		panic("payments: NewHandler needs an audit recorder; the money path's entries are not optional")
+		panic("payments: NewService needs an audit recorder; the money path's entries are not optional")
 	}
-	return &Handler{
+	return &Service{
 		payments:      d.Payments,
 		bookings:      d.Bookings,
 		clients:       d.Clients,
@@ -237,10 +241,32 @@ func NewHandler(d Dependencies, cfg Config) *Handler {
 		notify:        d.Notify,
 		realtime:      d.Realtime,
 		audit:         d.Audit,
-		respond:       d.Respond,
 		logger:        d.Logger,
 		cfg:           cfg,
 		run:           d.Run,
+	}
+}
+
+// Handler serves the payment webhook. It caps the body, verifies MercadoPago's
+// signature and decides what the provider is told; the delivery itself and
+// everything that follows from it belong to the Service.
+type Handler struct {
+	svc *Service
+	// provider is held for VerifyWebhookSignature alone: the signature is an
+	// HTTP concern — it is computed over the request — so it is checked here,
+	// before a single byte reaches the service.
+	provider Provider
+	respond  *httpx.Responder
+	logger   *slog.Logger
+}
+
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, provider Provider, respond *httpx.Responder, logger *slog.Logger) *Handler {
+	return &Handler{
+		svc:      svc,
+		provider: provider,
+		respond:  respond,
+		logger:   logger,
 	}
 }
 

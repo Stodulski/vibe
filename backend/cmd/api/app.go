@@ -341,8 +341,9 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// which is what lets a rule added later (authorization, caching) land in
 	// one place. Two exceptions:
 	//
-	//   - bookings and payments still receive stores, because their own
-	//     services do not exist yet.
+	//   - bookings still receives stores, because its own service does not
+	//     exist yet; the payments service reads the other domains through
+	//     stores for the same reason.
 	//   - complexes receives the court store, because courts and complexes read
 	//     each other and the two services cannot both be constructed second.
 	//     Courts takes the complexes service; complexes keeps the court store.
@@ -416,7 +417,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
-	paymentsHandler := payments.NewHandler(payments.Dependencies{
+	paymentsService := payments.NewService(payments.Dependencies{
 		Payments:      d.models.Payments,
 		Bookings:      d.models.Bookings,
 		Clients:       d.models.Clients,
@@ -437,7 +438,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Notify:     notify,
 		Realtime:   events,
 		Audit:      auditor,
-		Respond:    respond,
 		Logger:     d.logger,
 		Run:        app.background,
 	}, payments.Config{
@@ -445,10 +445,14 @@ func newApplication(cfg config, d deps) (*application, error) {
 		CancellationGracePeriod: cfg.booking.gracePeriod,
 		LinkTokenBuffer:         cfg.booking.linkTokenBuffer,
 	})
+	// The webhook handler verifies MercadoPago's signature itself, so it takes
+	// the provider alongside the service: the signature is computed over the
+	// request, which never reaches the service.
+	paymentsHandler := payments.NewHandler(paymentsService, mpClient, respond, d.logger)
 
-	// bookings.Dependencies.Refunds takes paymentsHandler, the local above —
-	// not app.payments. Move this block above paymentsHandler's and
-	// `undefined: paymentsHandler` fails the build, before any test runs.
+	// bookings.Dependencies.Refunds takes paymentsService, the local above —
+	// not app.payments. Move this block above paymentsService's and
+	// `undefined: paymentsService` fails the build, before any test runs.
 	bookingsHandler := bookings.NewHandler(bookings.Dependencies{
 		Store:     d.models.Bookings,
 		Clients:   d.models.Clients,
@@ -458,7 +462,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Locks:     d.models.SlotLocks,
 		Checkout:  mpClient,
 		WhatsApp:  waClient,
-		Refunds:   paymentsHandler,
+		Refunds:   paymentsService,
 		// d.models.BookingLinkTokens is typed stores.BookingLinkTokenStore, which
 		// already structurally satisfies bookings.LinkResolver's one method —
 		// no new store instance is constructed.
@@ -506,6 +510,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	app.notify = notify
 	app.auth = authHandler
 	app.payments = paymentsHandler
+	app.paymentsService = paymentsService
 	app.bookings = bookingsHandler
 	app.complexes = complexesHandler
 	app.complexesService = complexesService

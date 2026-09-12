@@ -95,13 +95,13 @@ const shortfallReason = "mercadopago refunded less than was claimed, and the rem
 // person's job, and the only two places it can be seen are the alert and this
 // entry. Both webhook and retry paths report it identically, which is why they
 // share this rather than each keeping their own copy.
-func (h *Handler) reportShortfall(source, action string, complexID, bookingID uuid.UUID, claimed, settled paymentstore.RefundClaim) {
+func (s *Service) reportShortfall(source, action string, complexID, bookingID uuid.UUID, claimed, settled paymentstore.RefundClaim) {
 	short := refundShortfall(claimed, settled)
 	if short <= 0 {
 		return
 	}
 
-	h.logger.Error(source+": mercadopago refunded less than was claimed, the remainder is owed by hand",
+	s.logger.Error(source+": mercadopago refunded less than was claimed, the remainder is owed by hand",
 		"booking_id", bookingID,
 		"mp_payment_id", claimed.MPPaymentID,
 		"attempt_id", claimed.AttemptID,
@@ -111,7 +111,7 @@ func (h *Handler) reportShortfall(source, action string, complexID, bookingID uu
 	)
 	sentry.CaptureMessage(fmt.Sprintf("MANUAL REFUND OWED: booking_id=%s mp_payment_id=%s amount=%d — %s",
 		bookingID, claimed.MPPaymentID, short, shortfallReason))
-	h.record(complexID, bookingID, action, claimEvent(claimed, short, paymentstore.RefundManual, shortfallReason))
+	s.record(complexID, bookingID, action, claimEvent(claimed, short, paymentstore.RefundManual, shortfallReason))
 }
 
 // record writes one entry to the audit trail.
@@ -129,8 +129,8 @@ func (h *Handler) reportShortfall(source, action string, complexID, bookingID uu
 // these on "booking" puts a venue's create, cancel and refund entries in one
 // list in the order they happened. The payment row's own id travels in the
 // value.
-func (h *Handler) record(complexID, bookingID uuid.UUID, action string, value moneyEvent) {
-	h.audit.Record(audit.Entry{
+func (s *Service) record(complexID, bookingID uuid.UUID, action string, value moneyEvent) {
+	s.audit.Record(audit.Entry{
 		ComplexID:  &complexID,
 		Action:     action,
 		EntityType: "booking",

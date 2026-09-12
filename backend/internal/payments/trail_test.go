@@ -80,7 +80,7 @@ func TestAConfirmedPaymentIsRecorded(t *testing.T) {
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
-	if err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+	if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("confirming an approved payment must not fail: %v", err)
 	}
 
@@ -126,7 +126,7 @@ func TestAConfirmationTheDatabaseRefusedIsNotRecorded(t *testing.T) {
 	f.bookings.booking = booking
 	f.payments.insertErr = errDatabase
 
-	if err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err == nil {
+	if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err == nil {
 		t.Fatal("a refused write must come back as an error so the event is retried")
 	}
 
@@ -209,7 +209,7 @@ func TestEveryRefundOutcomeReachesTheTrail(t *testing.T) {
 			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 			tt.prepare(f, booking, payment)
 
-			outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+			outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 			entry := only(t, f, "refund")
 			assertScope(t, entry, complexID, booking.ID)
@@ -289,7 +289,7 @@ func TestTheRetryQueueRecordsHowEachAttemptEnded(t *testing.T) {
 			f.complexes.complex = linkedComplex(complexID, "")
 			tt.prepare(f)
 
-			f.handler.RetryFailedRefunds(t.Context())
+			f.service.RetryFailedRefunds(t.Context())
 
 			entry := only(t, f, "refund_retry")
 			assertScope(t, entry, complexID, booking.ID)
@@ -341,7 +341,7 @@ func TestMoneyMercadoPagoTookBackIsRecordedAsItsOwnDoing(t *testing.T) {
 			f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
 			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
-			err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
+			err := f.service.processRefundedPayment(t.Context(), payment, &mp.Payment{
 				ID: 123, Status: tt.mpStatus, TransactionAmount: 2500, TransactionAmountRefunded: 2500,
 			}, "mp-123")
 			if err != nil {
@@ -379,7 +379,7 @@ func TestARefundWithNoPaymentRowIsRecordedWithoutInventingOne(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
-	err := f.handler.processRefundedPaymentFromBooking(t.Context(), booking, &mp.Payment{
+	err := f.service.processRefundedPaymentFromBooking(t.Context(), booking, &mp.Payment{
 		ID: 123, Status: "charged_back", TransactionAmount: 2500,
 	}, "mp-123")
 	if err != nil {
@@ -421,7 +421,7 @@ func TestARefundForAnAlreadyCancelledBookingIsRecorded(t *testing.T) {
 	f.bookings.booking = booking
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
-	if err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+	if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("refunding a cancelled booking's payment must not fail: %v", err)
 	}
 
@@ -447,7 +447,7 @@ func TestARefundForAnAlreadyCancelledBookingIsRecorded(t *testing.T) {
 	}
 }
 
-// TestAHandlerWithNoRecorderIsRefusedAtConstruction pins where a missing audit
+// TestAServiceWithNoRecorderIsRefusedAtConstruction pins where a missing audit
 // recorder is caught.
 //
 // It used to be caught at the first refund, as a nil dereference deep inside
@@ -456,13 +456,13 @@ func TestARefundForAnAlreadyCancelledBookingIsRecorded(t *testing.T) {
 // trail that silently drops entries still answers every query, and every answer
 // is short. Refusing at construction is what makes "there is no entry" mean "it
 // did not happen".
-func TestAHandlerWithNoRecorderIsRefusedAtConstruction(t *testing.T) {
+func TestAServiceWithNoRecorderIsRefusedAtConstruction(t *testing.T) {
 	defer func() {
 		if recover() == nil {
-			t.Error("a handler built with no audit recorder must be refused, not left to " +
+			t.Error("a service built with no audit recorder must be refused, not left to " +
 				"drop the money path's entries or panic on the first refund")
 		}
 	}()
 
-	NewHandler(Dependencies{}, Config{})
+	NewService(Dependencies{}, Config{})
 }

@@ -205,13 +205,18 @@ type application struct {
 	complexesService *complexes.Service
 	auth             *auth.Handler
 	payments         *payments.Handler
-	bookings         *bookings.Handler
-	scheduler        *scheduler.Scheduler
-	middleware       *middleware.Middleware
-	db               *pgxpool.Pool
-	rdb              *redis.Client
-	models           stores.Stores
-	mp               *mp.MPClient
+	// paymentsService is held separately from the handler because the scheduler
+	// calls it directly: retrying refunds, sweeping the webhook inbox and
+	// reconciling refund intents are the money domain's own background work,
+	// not HTTP routes.
+	paymentsService *payments.Service
+	bookings        *bookings.Handler
+	scheduler       *scheduler.Scheduler
+	middleware      *middleware.Middleware
+	db              *pgxpool.Pool
+	rdb             *redis.Client
+	models          stores.Stores
+	mp              *mp.MPClient
 	// mpOAuth is the same provider on its own circuit breaker, used only by the
 	// bulk token-refresh cron. See newApplication for why it is separate.
 	mpOAuth  *mp.MPClient

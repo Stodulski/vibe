@@ -34,10 +34,10 @@ import (
 // disturbing this domain's tested control flow.
 //
 //nolint:funlen // see the cohesion note above
-func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
+func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
 	// Skip if our record is already refunded.
 	if payment.Status == "refunded" {
-		h.logger.Info("mp webhook: payment already marked as refunded, skipping",
+		s.logger.Info("mp webhook: payment already marked as refunded, skipping",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", payment.BookingID,
 		)
@@ -65,7 +65,7 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 	//
 	// So this path stands down entirely. One refund, one owner.
 	if payment.Status == "refund_pending" {
-		h.logger.Info("mp webhook: a claim of ours already holds this refund, leaving the record to it",
+		s.logger.Info("mp webhook: a claim of ours already holds this refund, leaving the record to it",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", payment.BookingID,
 			"mp_status", mpPayment.Status,
@@ -74,10 +74,10 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 	}
 
 	// Fetch the booking.
-	booking, err := h.bookings.GetByID(ctx, payment.BookingID)
+	booking, err := s.bookings.GetByID(ctx, payment.BookingID)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			h.logger.Error("mp webhook: refund — the payment names a booking that does not exist",
+			s.logger.Error("mp webhook: refund — the payment names a booking that does not exist",
 				"booking_id", payment.BookingID, "mp_payment_id", mpPaymentID)
 			return nil
 		}
@@ -98,7 +98,7 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 	recordedTotal := payment.Amount + payment.ServiceFee
 	totalPaid := recordedTotal
 	if charged := int(math.Round(mpPayment.TransactionAmount * 100)); charged > 0 && charged != recordedTotal {
-		h.logger.Error("mp webhook: the payment row disagrees with MercadoPago about what was charged",
+		s.logger.Error("mp webhook: the payment row disagrees with MercadoPago about what was charged",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", payment.BookingID,
 			"recorded_centavos", recordedTotal,
@@ -145,27 +145,27 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 		// Full refund: update payment + cancel booking atomically.
 		// Do NOT cancel completed/no_show bookings — service was already rendered.
 		booking.Status = "cancelled"
-		booking.RefundStatus = bookingRefundStatusAfterRefund(h.manualOwedForBooking(ctx, booking.ID))
-		if err := h.payments.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+		booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
+		if err := s.payments.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
 			return fmt.Errorf("record the refund of payment %s and cancel its booking: %w", mpPaymentID, err)
 		}
 	} else {
 		// Partial refund, or full refund on completed/no_show: only update payment.
 		if isFullRefund {
-			booking.RefundStatus = bookingRefundStatusAfterRefund(h.manualOwedForBooking(ctx, booking.ID))
-			if err := h.payments.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+			booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
+			if err := s.payments.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
 				return fmt.Errorf("record the refund of payment %s on a played booking: %w", mpPaymentID, err)
 			}
 		} else {
-			if err := h.payments.Update(ctx, payment); err != nil {
+			if err := s.payments.Update(ctx, payment); err != nil {
 				return fmt.Errorf("record the partial refund of payment %s: %w", mpPaymentID, err)
 			}
 		}
 	}
 
-	h.realtime.PublishBookingChanged(booking.ComplexID)
+	s.realtime.PublishBookingChanged(booking.ComplexID)
 
-	h.logger.Info("mp webhook: refund/chargeback processed",
+	s.logger.Info("mp webhook: refund/chargeback processed",
 		"mp_payment_id", mpPaymentID,
 		"mp_status", mpPayment.Status,
 		"mp_status_detail", mpPayment.StatusDetail,
@@ -183,13 +183,13 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 	// It is unconditional now because reaching this line already means no claim of
 	// ours holds this refund — the guard at the top of the function returned on
 	// that case rather than only muting the message.
-	h.sendRefundNotification(ctx, booking, payment.RefundAmount)
+	s.sendRefundNotification(ctx, booking, payment.RefundAmount)
 
 	// Money left this venue's account and nobody here decided it. The amount
 	// recorded is MercadoPago's own figure for what moved on this event, not
 	// the running total written to the row, because the question this entry
 	// answers is what happened — the row already says where it ended up.
-	h.record(booking.ComplexID, booking.ID, providerRefundAction(mpPayment.Status), moneyEvent{
+	s.record(booking.ComplexID, booking.ID, providerRefundAction(mpPayment.Status), moneyEvent{
 		Actor:          actorProvider,
 		PaymentID:      &payment.ID,
 		MPPaymentID:    mpPaymentID,
@@ -203,9 +203,9 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 // processRefundedPaymentFromBooking handles a refund/chargeback when we don't have a payment record yet.
 // This is an edge case (e.g. payment was refunded before our webhook processed the original approval).
 // It reports whether the webhook event behind it should be tried again.
-func (h *Handler) processRefundedPaymentFromBooking(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	if booking.Status == "cancelled" && booking.RefundStatus == bookingstore.RefundStatusFull {
-		h.logger.Info("mp webhook: booking already cancelled+refunded, skipping",
+		s.logger.Info("mp webhook: booking already cancelled+refunded, skipping",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 		)
@@ -217,14 +217,14 @@ func (h *Handler) processRefundedPaymentFromBooking(ctx context.Context, booking
 	if booking.Status != "completed" && booking.Status != "no_show" {
 		booking.Status = "cancelled"
 	}
-	booking.RefundStatus = bookingRefundStatusAfterRefund(h.manualOwedForBooking(ctx, booking.ID))
-	if err := h.bookings.Update(ctx, booking); err != nil {
+	booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
+	if err := s.bookings.Update(ctx, booking); err != nil {
 		return fmt.Errorf("cancel booking %s after an unrecorded refund: %w", booking.ID, err)
 	}
 
-	h.realtime.PublishBookingChanged(booking.ComplexID)
+	s.realtime.PublishBookingChanged(booking.ComplexID)
 
-	h.logger.Info("mp webhook: refund/chargeback (no payment record) — booking cancelled",
+	s.logger.Info("mp webhook: refund/chargeback (no payment record) — booking cancelled",
 		"mp_payment_id", mpPaymentID,
 		"mp_status", mpPayment.Status,
 		"booking_id", booking.ID,
@@ -238,12 +238,12 @@ func (h *Handler) processRefundedPaymentFromBooking(ctx context.Context, booking
 	if refunded <= 0 {
 		refunded = int(math.Round(mpPayment.TransactionAmount * 100))
 	}
-	h.sendRefundNotification(ctx, booking, refunded)
+	s.sendRefundNotification(ctx, booking, refunded)
 
 	// Same event as above, from the path that has no payment row to name: the
 	// refund arrived before this system ever recorded the payment it reverses.
 	// PaymentID is left absent rather than invented.
-	h.record(booking.ComplexID, booking.ID, providerRefundAction(mpPayment.Status), moneyEvent{
+	s.record(booking.ComplexID, booking.ID, providerRefundAction(mpPayment.Status), moneyEvent{
 		Actor:          actorProvider,
 		MPPaymentID:    mpPaymentID,
 		AmountCentavos: refunded,
@@ -260,19 +260,19 @@ func (h *Handler) processRefundedPaymentFromBooking(ctx context.Context, booking
 // and a refund that arrives for a booking with no payment record at all only has
 // MercadoPago's own figure. Passing the struct is how a notification that
 // announced whatever the stale in-memory copy happened to hold used to happen.
-func (h *Handler) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int) {
-	client, err := h.clients.GetByID(ctx, booking.ClientID)
+func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int) {
+	client, err := s.clients.GetByID(ctx, booking.ClientID)
 	if err != nil {
-		h.logger.Error("refund notification: failed to fetch client",
+		s.logger.Error("refund notification: failed to fetch client",
 			"error", err,
 			"booking_id", booking.ID,
 		)
 		return
 	}
 
-	complex, err := h.complexes.GetByID(ctx, booking.ComplexID)
+	complex, err := s.complexes.GetByID(ctx, booking.ComplexID)
 	if err != nil {
-		h.logger.Error("refund notification: failed to fetch complex",
+		s.logger.Error("refund notification: failed to fetch complex",
 			"error", err,
 			"booking_id", booking.ID,
 		)
@@ -284,13 +284,13 @@ func (h *Handler) sendRefundNotification(ctx context.Context, booking *bookingst
 		clientEmail = *client.Email
 	}
 	amount := formatARS(refundCentavos)
-	h.notify.DepositRefunded(notifications.Refund{
+	s.notify.DepositRefunded(notifications.Refund{
 		Email:       clientEmail,
 		Phone:       client.Phone,
 		ComplexName: complex.Name,
 		Amount:      amount,
 		BookPath:    booklink.BookPath(complex.Slug),
-		BookURL:     booklink.Book(h.cfg.FrontendURL, complex.Slug),
+		BookURL:     booklink.Book(s.cfg.FrontendURL, complex.Slug),
 	})
 }
 
@@ -318,8 +318,8 @@ func (h *Handler) sendRefundNotification(ctx context.Context, booking *bookingst
 // It never returns RefundNotEligible: whether a cancellation deserves its money
 // back is the caller's policy — it differs between the staff and public paths on
 // purpose — and this function only ever answers what it can actually do.
-func (h *Handler) AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
-	outcome := h.autoRefundIfPaid(ctx, booking)
+func (s *Service) AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
+	outcome := s.autoRefundIfPaid(ctx, booking)
 
 	// One entry per call, written around the body rather than at each of its
 	// exits. There are more than a dozen of those, spread across four
@@ -335,7 +335,7 @@ func (h *Handler) AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 	// Who asked for the cancellation is not recorded here and does not need to
 	// be: internal/bookings writes that against the same booking id, from the
 	// request that had the actor.
-	h.record(booking.ComplexID, booking.ID, "refund", refundEvent(actorSystem, outcome))
+	s.record(booking.ComplexID, booking.ID, "refund", refundEvent(actorSystem, outcome))
 	return outcome
 }
 
@@ -353,13 +353,13 @@ func (h *Handler) AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 // once, through owedManually, so the "MANUAL REFUND OWED" alert fires for the
 // whole of it rather than being lost behind whichever row GetByBookingID
 // used to prefer.
-func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
+func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
 	// A return not reached through a committed ClaimRefund leaves the
 	// refund-intent marker set; see clearRefundIntentUnlessClaimed.
 	committed := false
-	defer h.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
+	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
 
-	auto, manualOwed, manualReason, stop := h.refundable(ctx, booking)
+	auto, manualOwed, manualReason, stop := s.refundable(ctx, booking)
 	if stop != nil {
 		return *stop
 	}
@@ -368,7 +368,7 @@ func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 		// Every unrefunded row is cash or a transfer: there is nothing to send
 		// to MercadoPago, and the whole remainder is owed by hand. This is
 		// exactly today's single-row cash behavior when there is only one row.
-		return h.owedManually(booking, manualOwed, manualReason)
+		return s.owedManually(booking, manualOwed, manualReason)
 	}
 
 	// A client closing the tab must not abandon a refund midway. The claim below is
@@ -379,7 +379,7 @@ func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 	var outcome paymentstore.RefundOutcome
 	autoTotal := 0
 	for _, payment := range auto {
-		outcome = h.autoRefundOnePayment(ctx, booking, payment, manualOwed, &committed)
+		outcome = s.autoRefundOnePayment(ctx, booking, payment, manualOwed, &committed)
 		autoTotal += outcome.AmountCentavos
 	}
 	outcome.AmountCentavos = autoTotal
@@ -389,9 +389,9 @@ func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 		// remainder gets its own alert and its own second trail entry — the same
 		// "two entries rather than one merged" precedent process.go's
 		// refundCancelledBookingPayment uses for a shortfall (see reportShortfall).
-		manual := h.owedManually(booking, manualOwed, manualReason)
+		manual := s.owedManually(booking, manualOwed, manualReason)
 		outcome.ManualAmountCentavos = manual.AmountCentavos
-		h.record(booking.ComplexID, booking.ID, "refund", refundEvent(actorSystem, manual))
+		s.record(booking.ComplexID, booking.ID, "refund", refundEvent(actorSystem, manual))
 	}
 
 	return outcome
@@ -408,10 +408,10 @@ func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 // whole booking, passed through so RecordRefundSuccess can write
 // 'partial_refund' instead of clobbering it to 'refunded' when this row's
 // full refund still leaves money owed by hand.
-func (h *Handler) autoRefundOnePayment(ctx context.Context, booking *bookingstore.Booking, payment *paymentstore.Payment, manualOwed int, committed *bool) paymentstore.RefundOutcome {
+func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstore.Booking, payment *paymentstore.Payment, manualOwed int, committed *bool) paymentstore.RefundOutcome {
 	owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
 
-	claim, err := h.payments.ClaimRefund(ctx, payment.ID)
+	claim, err := s.payments.ClaimRefund(ctx, payment.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, paymentstore.ErrAlreadyRefunded):
@@ -422,7 +422,7 @@ func (h *Handler) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 				Reason:         "the payment was already refunded",
 			}
 		case errors.Is(err, paymentstore.ErrRefundInFlight):
-			h.logger.Info("auto-refund: another claim already holds this refund",
+			s.logger.Info("auto-refund: another claim already holds this refund",
 				"booking_id", booking.ID, "payment_id", payment.ID)
 			return paymentstore.RefundOutcome{
 				Result:         paymentstore.RefundQueued,
@@ -432,26 +432,26 @@ func (h *Handler) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 		default:
 			// Nothing was reserved and nothing was queued, so no retry job will
 			// ever come back to this. It is owed by hand.
-			h.logger.Error("auto-refund: failed to claim the refund", "error", err, "booking_id", booking.ID, "payment_id", payment.ID)
-			return h.owedManually(booking, owed, "the refund could not be claimed, so nothing was queued")
+			s.logger.Error("auto-refund: failed to claim the refund", "error", err, "booking_id", booking.ID, "payment_id", payment.ID)
+			return s.owedManually(booking, owed, "the refund could not be claimed, so nothing was queued")
 		}
 	}
 	// The claim committed and already cleared the marker in its own transaction.
 	*committed = true
 
-	settled, outcome := h.issueRefund(ctx, *claim)
+	settled, outcome := s.issueRefund(ctx, *claim)
 	if outcome != nil {
 		return *outcome
 	}
 
-	refundTotal, err := h.payments.RecordRefundSuccess(ctx, settled, manualOwed)
+	refundTotal, err := s.payments.RecordRefundSuccess(ctx, settled, manualOwed)
 	if err != nil {
 		// The money has left the account. The claim's attempt row is still queued
 		// with its backoff, so the retry job will replay this refund; MercadoPago's
 		// idempotency key for it is derived from the payment id and the amount (see
 		// internal/mp/mp.go), so the replay returns the original refund rather than
 		// sending the money twice, and the record is written on that pass.
-		h.logger.Error("auto-refund: refund issued but not recorded, left queued for retry",
+		s.logger.Error("auto-refund: refund issued but not recorded, left queued for retry",
 			"error", err, "booking_id", booking.ID, "mp_payment_id", claim.MPPaymentID, "attempt_id", claim.AttemptID)
 		sentry.CaptureMessage(fmt.Sprintf("auto-refund RECORD FAILED (money refunded, queued for retry): booking_id=%s mp_payment_id=%s attempt_id=%s", booking.ID, claim.MPPaymentID, claim.AttemptID))
 		return paymentstore.RefundOutcome{
@@ -461,17 +461,17 @@ func (h *Handler) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 		}
 	}
 
-	h.logger.Info("auto-refund: refund issued successfully",
+	s.logger.Info("auto-refund: refund issued successfully",
 		"booking_id", booking.ID, "mp_payment_id", settled.MPPaymentID, "amount", centavosToPesos(settled.RefundCentavos))
 	// The client is only told once the refund is recorded, and told the amount that
 	// was actually written rather than whatever the in-memory struct still holds.
-	h.sendRefundNotification(ctx, booking, refundTotal)
+	s.sendRefundNotification(ctx, booking, refundTotal)
 
 	// MercadoPago moved less than was claimed. The part that did move is back and
 	// the client has been told about it; the rest is owed with the attempt row
 	// already resolved behind it, which is exactly what owedManually is for.
 	if short := refundShortfall(*claim, settled); short > 0 {
-		return h.owedManually(booking, short,
+		return s.owedManually(booking, short,
 			"mercadopago refunded less than was claimed, and the remainder has no queued attempt behind it")
 	}
 	return paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: refundTotal}
@@ -484,12 +484,12 @@ func (h *Handler) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 // the instant the handler answers must not silently leave the marker behind.
 // It only logs on failure; clearing the marker is bookkeeping for the sweep,
 // never the reason a refund call fails.
-func (h *Handler) clearRefundIntentUnlessClaimed(ctx context.Context, bookingID uuid.UUID, committed *bool) {
+func (s *Service) clearRefundIntentUnlessClaimed(ctx context.Context, bookingID uuid.UUID, committed *bool) {
 	if *committed {
 		return
 	}
-	if err := h.refundIntents.ClearRefundIntent(context.WithoutCancel(ctx), bookingID); err != nil {
-		h.logger.Error("auto-refund: failed to clear the refund intent marker",
+	if err := s.refundIntents.ClearRefundIntent(context.WithoutCancel(ctx), bookingID); err != nil {
+		s.logger.Error("auto-refund: failed to clear the refund intent marker",
 			"error", err, "booking_id", bookingID)
 	}
 }
@@ -510,17 +510,17 @@ func (h *Handler) clearRefundIntentUnlessClaimed(ctx context.Context, bookingID 
 // actually moved. See reconcileRefundedAmount — the response used to be
 // discarded, so every recorder wrote the amount this codebase had asked for
 // rather than the amount the provider answered with.
-func (h *Handler) issueRefund(ctx context.Context, claim paymentstore.RefundClaim) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
-	seller, err := h.sellerCredential(ctx, claim.ComplexID)
+func (s *Service) issueRefund(ctx context.Context, claim paymentstore.RefundClaim) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+	seller, err := s.sellerCredential(ctx, claim.ComplexID)
 	if err != nil {
-		outcome := h.refuseForCredential(ctx, claim, err)
+		outcome := s.refuseForCredential(ctx, claim, err)
 		return claim, &outcome
 	}
-	refund, err := h.provider.RefundPayment(ctx, claim.MPPaymentID, centavosToPesos(claim.RefundCentavos), seller)
+	refund, err := s.provider.RefundPayment(ctx, claim.MPPaymentID, centavosToPesos(claim.RefundCentavos), seller)
 	if err != nil {
-		return h.handleRefundRequestError(ctx, claim, seller, err)
+		return s.handleRefundRequestError(ctx, claim, seller, err)
 	}
-	return h.handleRefundResponse(ctx, claim, refund)
+	return s.handleRefundResponse(ctx, claim, refund)
 }
 
 // handleRefundResponse decides success or failure from the refund MercadoPago
@@ -534,24 +534,24 @@ func (h *Handler) issueRefund(ctx context.Context, claim paymentstore.RefundClai
 // 'cancelled' are MercadoPago explicitly declining to move the money despite
 // the 2xx, and recording those as success would tell a client their money is
 // coming back when it never left.
-func (h *Handler) handleRefundResponse(ctx context.Context, claim paymentstore.RefundClaim, refund *mp.Refund) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+func (s *Service) handleRefundResponse(ctx context.Context, claim paymentstore.RefundClaim, refund *mp.Refund) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
 	switch refund.Status {
 	case "", "approved":
-		claim.RefundCentavos = h.reconcileRefundedAmount(claim, refund)
+		claim.RefundCentavos = s.reconcileRefundedAmount(claim, refund)
 		return claim, nil
 	case "in_process":
-		h.logger.Info("refund: accepted by MercadoPago, settles asynchronously",
+		s.logger.Info("refund: accepted by MercadoPago, settles asynchronously",
 			"booking_id", claim.BookingID,
 			"mp_payment_id", claim.MPPaymentID,
 			"status", refund.Status,
 		)
-		claim.RefundCentavos = h.reconcileRefundedAmount(claim, refund)
+		claim.RefundCentavos = s.reconcileRefundedAmount(claim, refund)
 		return claim, nil
 	default:
 		// "rejected", "cancelled", or any status MP might add later that is not
 		// one of the two success states above.
 		cause := fmt.Errorf("mp: refund returned status %q", refund.Status)
-		outcome := h.recordRefundFailure(ctx, claim, cause)
+		outcome := s.recordRefundFailure(ctx, claim, cause)
 		return claim, &outcome
 	}
 }
@@ -569,28 +569,28 @@ func (h *Handler) handleRefundResponse(ctx context.Context, claim paymentstore.R
 // this claim asked for, the refund is done and this resolves it as a
 // success instead of burning an attempt and alerting on a refund that
 // already happened.
-func (h *Handler) handleRefundRequestError(ctx context.Context, claim paymentstore.RefundClaim, seller mp.Caller, cause error) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+func (s *Service) handleRefundRequestError(ctx context.Context, claim paymentstore.RefundClaim, seller mp.Caller, cause error) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
 	var apiErr *mp.APIError
 	if !errors.As(cause, &apiErr) || apiErr.StatusCode < 400 || apiErr.StatusCode >= 500 {
-		outcome := h.recordRefundFailure(ctx, claim, cause)
+		outcome := s.recordRefundFailure(ctx, claim, cause)
 		return claim, &outcome
 	}
 
-	payment, err := h.provider.GetPayment(ctx, claim.MPPaymentID, seller)
+	payment, err := s.provider.GetPayment(ctx, claim.MPPaymentID, seller)
 	if err != nil {
-		h.logger.Error("refund: could not fetch the payment after a 4xx refund rejection",
+		s.logger.Error("refund: could not fetch the payment after a 4xx refund rejection",
 			"error", err, "booking_id", claim.BookingID, "mp_payment_id", claim.MPPaymentID)
-		outcome := h.recordRefundFailure(ctx, claim, cause)
+		outcome := s.recordRefundFailure(ctx, claim, cause)
 		return claim, &outcome
 	}
 
 	refundedCentavos := int(math.Round(payment.TransactionAmountRefunded * 100))
 	if refundedCentavos < claim.RefundCentavos {
-		outcome := h.recordRefundFailure(ctx, claim, cause)
+		outcome := s.recordRefundFailure(ctx, claim, cause)
 		return claim, &outcome
 	}
 
-	h.logger.Info("refund already present at provider, resolving without spending a retry",
+	s.logger.Info("refund already present at provider, resolving without spending a retry",
 		"booking_id", claim.BookingID,
 		"mp_payment_id", claim.MPPaymentID,
 		"claimed_centavos", claim.RefundCentavos,
@@ -623,7 +623,7 @@ func (h *Handler) handleRefundRequestError(ctx context.Context, claim paymentsto
 // A disagreement is never silent. It means the payment row and MercadoPago
 // disagree about this payment, and whichever of the two is wrong, a person has
 // to look at it.
-func (h *Handler) reconcileRefundedAmount(claim paymentstore.RefundClaim, refund *mp.Refund) int {
+func (s *Service) reconcileRefundedAmount(claim paymentstore.RefundClaim, refund *mp.Refund) int {
 	if refund == nil || refund.Amount <= 0 {
 		return claim.RefundCentavos
 	}
@@ -633,7 +633,7 @@ func (h *Handler) reconcileRefundedAmount(claim paymentstore.RefundClaim, refund
 		return moved
 	}
 
-	h.logger.Error("refund: MercadoPago moved a different amount than was claimed",
+	s.logger.Error("refund: MercadoPago moved a different amount than was claimed",
 		"booking_id", claim.BookingID,
 		"mp_payment_id", claim.MPPaymentID,
 		"attempt_id", claim.AttemptID,
@@ -680,7 +680,7 @@ func refundShortfall(claimed, settled paymentstore.RefundClaim) int {
 // raise never fired. ListByBookingID reads every row instead, and the ones
 // that carry no MercadoPago id are summed into manualOwed rather than
 // dropped.
-func (h *Handler) refundable(ctx context.Context, booking *bookingstore.Booking) (auto []*paymentstore.Payment, manualOwed int, manualReason string, stop *paymentstore.RefundOutcome) {
+func (s *Service) refundable(ctx context.Context, booking *bookingstore.Booking) (auto []*paymentstore.Payment, manualOwed int, manualReason string, stop *paymentstore.RefundOutcome) {
 	// Read off the two axes payment_status was split into. The refund axis answers
 	// first because it is the one that can stop this call; the collection axis
 	// then says whether there is anything to send back at all. The order is not
@@ -704,16 +704,16 @@ func (h *Handler) refundable(ctx context.Context, booking *bookingstore.Booking)
 		return nil, 0, "", &paymentstore.RefundOutcome{Result: paymentstore.RefundNone, Reason: "the booking was never paid"}
 	}
 
-	payments, err := h.payments.ListByBookingID(ctx, booking.ID)
+	payments, err := s.payments.ListByBookingID(ctx, booking.ID)
 	if err != nil {
-		h.logger.Error("auto-refund: failed to fetch payments", "error", err, "booking_id", booking.ID)
-		manual := h.owedManually(booking, booking.DepositAmount, "the payment records could not be read")
+		s.logger.Error("auto-refund: failed to fetch payments", "error", err, "booking_id", booking.ID)
+		manual := s.owedManually(booking, booking.DepositAmount, "the payment records could not be read")
 		return nil, 0, "", &manual
 	}
 	if len(payments) == 0 {
 		// The booking reads as paid and there is no payment row to refund
 		// against. Somebody's money is here and only a person can find it.
-		manual := h.owedManually(booking, booking.DepositAmount, "the booking reads as paid but carries no payment record")
+		manual := s.owedManually(booking, booking.DepositAmount, "the booking reads as paid but carries no payment record")
 		return nil, 0, "", &manual
 	}
 
@@ -792,10 +792,10 @@ func manualBalance(payments []*paymentstore.Payment) (owedCentavos int, methods 
 // booking still reads 'refunded' in that case, exactly as before this
 // change; a booking with a genuine manual balance and an unreadable ledger
 // gets a second chance to be caught the next time anything re-derives it.
-func (h *Handler) manualOwedForBooking(ctx context.Context, bookingID uuid.UUID) int {
-	payments, err := h.payments.ListByBookingID(ctx, bookingID)
+func (s *Service) manualOwedForBooking(ctx context.Context, bookingID uuid.UUID) int {
+	payments, err := s.payments.ListByBookingID(ctx, bookingID)
 	if err != nil {
-		h.logger.Error("refund: failed to read the payment ledger while checking for a manual balance",
+		s.logger.Error("refund: failed to read the payment ledger while checking for a manual balance",
 			"error", err, "booking_id", bookingID)
 		return 0
 	}
@@ -843,8 +843,8 @@ func uniqueOrdered(values []string) []string {
 // A booking paid in cash produced no log line at all: the client was told they
 // qualified for a refund, the booking was cancelled, and the only record that
 // money was owed was the client's memory.
-func (h *Handler) owedManually(booking *bookingstore.Booking, centavos int, reason string) paymentstore.RefundOutcome {
-	h.logger.Error("auto-refund: a refund is owed that this system cannot issue",
+func (s *Service) owedManually(booking *bookingstore.Booking, centavos int, reason string) paymentstore.RefundOutcome {
+	s.logger.Error("auto-refund: a refund is owed that this system cannot issue",
 		"booking_id", booking.ID,
 		"complex_id", booking.ComplexID,
 		"amount", centavos,
@@ -856,17 +856,17 @@ func (h *Handler) owedManually(booking *bookingstore.Booking, centavos int, reas
 
 // recordRefundFailure requeues a claimed refund the provider rejected, alerts
 // when its retry budget is spent, and reports which of the two happened.
-func (h *Handler) recordRefundFailure(ctx context.Context, claim paymentstore.RefundClaim, cause error) paymentstore.RefundOutcome {
-	h.logger.Error("auto-refund: MercadoPago rejected the refund, queued for retry",
+func (s *Service) recordRefundFailure(ctx context.Context, claim paymentstore.RefundClaim, cause error) paymentstore.RefundOutcome {
+	s.logger.Error("auto-refund: MercadoPago rejected the refund, queued for retry",
 		"error", cause,
 		"booking_id", claim.BookingID,
 		"mp_payment_id", claim.MPPaymentID,
 		"attempt_id", claim.AttemptID,
 	)
 
-	exhausted, err := h.payments.RecordRefundFailure(ctx, claim, cause.Error())
+	exhausted, err := s.payments.RecordRefundFailure(ctx, claim, cause.Error())
 	if err != nil {
-		h.logger.Error("auto-refund: failed to requeue the refund attempt",
+		s.logger.Error("auto-refund: failed to requeue the refund attempt",
 			"error", err, "attempt_id", claim.AttemptID, "booking_id", claim.BookingID)
 		// The attempt row is still 'pending' from the claim, so the retry job picks
 		// it up regardless; only its backoff and error message are missing.
@@ -877,7 +877,7 @@ func (h *Handler) recordRefundFailure(ctx context.Context, claim paymentstore.Re
 		}
 	}
 	if exhausted {
-		h.logger.Error("auto-refund: EXHAUSTED all retries, manual intervention required",
+		s.logger.Error("auto-refund: EXHAUSTED all retries, manual intervention required",
 			"attempt_id", claim.AttemptID,
 			"booking_id", claim.BookingID,
 			"mp_payment_id", claim.MPPaymentID,
@@ -933,8 +933,8 @@ func formatARS(centavos int) string {
 // retry-budget treatment instead. mp.AsSeller is a second floor under that
 // rule: there is no token this can hand back that reaches MercadoPago as the
 // platform.
-func (h *Handler) sellerCredential(ctx context.Context, complexID uuid.UUID) (mp.Caller, error) {
-	complex, err := h.complexes.GetByID(ctx, complexID)
+func (s *Service) sellerCredential(ctx context.Context, complexID uuid.UUID) (mp.Caller, error) {
+	complex, err := s.complexes.GetByID(ctx, complexID)
 	if err != nil {
 		return mp.Caller{}, fmt.Errorf("fetch complex %s for its seller credential: %w", complexID, err)
 	}
@@ -961,7 +961,7 @@ func (h *Handler) sellerCredential(ctx context.Context, complexID uuid.UUID) (mp
 // marker, so each attempt both alerts and spends the budget — deliberately:
 // the operator was told at t=0 either way, and a credential re-linked inside
 // the retry window finishes the refund by itself.
-func (h *Handler) refuseForCredential(ctx context.Context, claim paymentstore.RefundClaim, err error) paymentstore.RefundOutcome {
+func (s *Service) refuseForCredential(ctx context.Context, claim paymentstore.RefundClaim, err error) paymentstore.RefundOutcome {
 	reason, cause := "UNAVAILABLE", fmt.Sprintf("seller credential unavailable: %v", err)
 	switch {
 	case errors.Is(err, mpcred.ErrMPCredentialUnreadable):
@@ -970,7 +970,7 @@ func (h *Handler) refuseForCredential(ctx context.Context, claim paymentstore.Re
 		reason, cause = "MISSING", fmt.Sprintf("seller credential missing for complex %s: %v", claim.ComplexID, err)
 	}
 
-	h.logger.Error("auto-refund: seller credential refusal, MercadoPago was never called",
+	s.logger.Error("auto-refund: seller credential refusal, MercadoPago was never called",
 		"reason", reason,
 		"error", err,
 		"booking_id", claim.BookingID,
@@ -979,7 +979,7 @@ func (h *Handler) refuseForCredential(ctx context.Context, claim paymentstore.Re
 	)
 	sentry.CaptureMessage(fmt.Sprintf("SELLER CREDENTIAL %s: booking_id=%s complex_id=%s attempt_id=%s error=%v", reason, claim.BookingID, claim.ComplexID, claim.AttemptID, err))
 
-	return h.recordRefundFailure(ctx, claim, errors.New(cause))
+	return s.recordRefundFailure(ctx, claim, errors.New(cause))
 }
 
 // RetryFailedRefunds works the queue of refunds still owed to a client.
@@ -1000,10 +1000,10 @@ func (h *Handler) refuseForCredential(ctx context.Context, claim paymentstore.Re
 // sequential steps into helpers without reducing what a reader holds at once.
 //
 //nolint:funlen // one cohesive queue-worker loop; splitting it would relocate
-func (h *Handler) RetryFailedRefunds(ctx context.Context) {
-	pending, err := h.failedRefunds.GetPendingDue(ctx)
+func (s *Service) RetryFailedRefunds(ctx context.Context) {
+	pending, err := s.failedRefunds.GetPendingDue(ctx)
 	if err != nil {
-		h.logger.Error("refund-retry: failed to fetch pending refunds", "error", err)
+		s.logger.Error("refund-retry: failed to fetch pending refunds", "error", err)
 		return
 	}
 	if len(pending) == 0 {
@@ -1014,8 +1014,8 @@ func (h *Handler) RetryFailedRefunds(ctx context.Context) {
 	for _, fr := range pending {
 		// The in-flight marker: it stops a second worker picking up the same row on
 		// the next tick, and GetPendingDue reclaims it if this process dies here.
-		if err := h.failedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
-			h.logger.Error("refund-retry: failed to mark as processing", "error", err, "id", fr.ID)
+		if err := s.failedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
+			s.logger.Error("refund-retry: failed to mark as processing", "error", err, "id", fr.ID)
 			continue
 		}
 
@@ -1031,35 +1031,35 @@ func (h *Handler) RetryFailedRefunds(ctx context.Context) {
 		// Replaying a refund is safe: the idempotency key MercadoPago sees is derived
 		// from the payment id and the amount (see internal/mp/mp.go), so a refund this
 		// job already made returns the original rather than moving the money again.
-		settled, outcome := h.issueRefund(ctx, claim)
+		settled, outcome := s.issueRefund(ctx, claim)
 		if outcome != nil {
 			// The provider refused again, or the seller credential did. The
 			// row is either requeued with a longer backoff or exhausted, and
 			// an exhausted refund is money owed with nothing automatic left
 			// behind it — the entry is how an owner finds that without
 			// reading the platform's alerts.
-			h.record(fr.ComplexID, fr.BookingID, "refund_retry",
+			s.record(fr.ComplexID, fr.BookingID, "refund_retry",
 				claimEvent(claim, outcome.AmountCentavos, outcome.Result, outcome.Reason))
 			continue
 		}
 
-		manualOwed := h.manualOwedForBooking(ctx, fr.BookingID)
-		refundTotal, err := h.payments.RecordRefundSuccess(ctx, settled, manualOwed)
+		manualOwed := s.manualOwedForBooking(ctx, fr.BookingID)
+		refundTotal, err := s.payments.RecordRefundSuccess(ctx, settled, manualOwed)
 		if err != nil {
-			h.logger.Error("refund-retry: refund issued but not recorded, left queued for retry",
+			s.logger.Error("refund-retry: refund issued but not recorded, left queued for retry",
 				"error", err, "id", fr.ID, "payment_id", fr.PaymentID)
 			sentry.CaptureMessage(fmt.Sprintf("refund-retry RECORD FAILED (money refunded, queued for retry): booking_id=%s mp_payment_id=%s attempt_id=%s", fr.BookingID, fr.MPPaymentID, fr.ID))
-			h.record(fr.ComplexID, fr.BookingID, "refund_retry", claimEvent(claim, settled.RefundCentavos,
+			s.record(fr.ComplexID, fr.BookingID, "refund_retry", claimEvent(claim, settled.RefundCentavos,
 				paymentstore.RefundQueued, "the refund was issued but could not be recorded, and stays queued"))
 			continue
 		}
 
-		h.record(fr.ComplexID, fr.BookingID, "refund_retry",
+		s.record(fr.ComplexID, fr.BookingID, "refund_retry",
 			claimEvent(claim, refundTotal, paymentstore.RefundIssued, ""))
 
-		h.notifyRetriedRefund(ctx, fr, refundTotal)
+		s.notifyRetriedRefund(ctx, fr, refundTotal)
 
-		h.logger.Info("refund-retry: successfully refunded",
+		s.logger.Info("refund-retry: successfully refunded",
 			"id", fr.ID,
 			"booking_id", fr.BookingID,
 			"mp_payment_id", fr.MPPaymentID,
@@ -1069,25 +1069,25 @@ func (h *Handler) RetryFailedRefunds(ctx context.Context) {
 		// so a shortfall leaves the remainder with nothing queued behind it. Same
 		// reasoning as AutoRefundIfPaid's own shortfall exit; this job has no
 		// outcome to return, so the alert and the entry are the whole report.
-		h.reportShortfall("refund-retry", "refund_retry", fr.ComplexID, fr.BookingID, claim, settled)
+		s.reportShortfall("refund-retry", "refund_retry", fr.ComplexID, fr.BookingID, claim, settled)
 		processed++
 	}
 
 	if processed > 0 {
-		h.logger.Info("refund-retry: completed", "processed", processed, "total", len(pending))
+		s.logger.Info("refund-retry: completed", "processed", processed, "total", len(pending))
 	}
 }
 
 // notifyRetriedRefund tells the client about a refund the retry job completed.
 // The amount is the total RecordRefundSuccess actually wrote, so the message
 // cannot disagree with the row.
-func (h *Handler) notifyRetriedRefund(ctx context.Context, fr *paymentstore.FailedRefund, refundTotal int) {
-	booking, bErr := h.bookings.GetByID(ctx, fr.BookingID)
+func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.FailedRefund, refundTotal int) {
+	booking, bErr := s.bookings.GetByID(ctx, fr.BookingID)
 	if bErr != nil {
-		h.logger.Error("refund-retry: failed to fetch booking", "error", bErr, "booking_id", fr.BookingID)
+		s.logger.Error("refund-retry: failed to fetch booking", "error", bErr, "booking_id", fr.BookingID)
 		return
 	}
-	h.sendRefundNotification(ctx, booking, refundTotal)
+	s.sendRefundNotification(ctx, booking, refundTotal)
 }
 
 // refundIntentGrace is how long a booking's refund-intent marker
@@ -1114,10 +1114,10 @@ const refundIntentBatch = 12
 // ClaimRefund's committed transaction (internal/payments/store/refunds.go) own every
 // clearing path, so the marker's lifecycle is identical whether the call
 // originated from a request or from here.
-func (h *Handler) SweepOrphanedRefundIntents(ctx context.Context) {
-	orphans, err := h.refundIntents.GetRefundIntentOrphans(ctx, refundIntentGrace, refundIntentBatch)
+func (s *Service) SweepOrphanedRefundIntents(ctx context.Context) {
+	orphans, err := s.refundIntents.GetRefundIntentOrphans(ctx, refundIntentGrace, refundIntentBatch)
 	if err != nil {
-		h.logger.Error("refund-intent-sweep: failed to fetch orphans", "error", err)
+		s.logger.Error("refund-intent-sweep: failed to fetch orphans", "error", err)
 		return
 	}
 	if len(orphans) == 0 {
@@ -1128,28 +1128,28 @@ func (h *Handler) SweepOrphanedRefundIntents(ctx context.Context) {
 	for _, b := range orphans {
 		// b.RefundIntentAt is guaranteed non-nil: GetRefundIntentOrphans'
 		// predicate is refund_intent_at IS NOT NULL.
-		if err := h.refundIntents.ClaimRefundIntent(ctx, b.ID, *b.RefundIntentAt); err != nil {
+		if err := s.refundIntents.ClaimRefundIntent(ctx, b.ID, *b.RefundIntentAt); err != nil {
 			if errors.Is(err, data.ErrRecordNotFound) {
 				// Another instance already took this row on this tick.
-				h.logger.Info("refund-intent-sweep: lost the claim race", "booking_id", b.ID)
+				s.logger.Info("refund-intent-sweep: lost the claim race", "booking_id", b.ID)
 				continue
 			}
-			h.logger.Error("refund-intent-sweep: failed to claim orphan", "error", err, "booking_id", b.ID)
+			s.logger.Error("refund-intent-sweep: failed to claim orphan", "error", err, "booking_id", b.ID)
 			continue
 		}
 		claimed++
 
-		outcome := h.AutoRefundIfPaid(ctx, b)
-		h.logger.Info("refund-intent-sweep: processed orphan",
+		outcome := s.AutoRefundIfPaid(ctx, b)
+		s.logger.Info("refund-intent-sweep: processed orphan",
 			"booking_id", b.ID,
 			"result", outcome.Result,
 			"amount", outcome.AmountCentavos,
 		)
 		if outcome.NeedsAHuman() {
-			h.logger.Error("refund-intent-sweep: a refund is owed that must be returned by hand",
+			s.logger.Error("refund-intent-sweep: a refund is owed that must be returned by hand",
 				"booking_id", b.ID, "amount", outcome.AmountCentavos, "reason", outcome.Reason)
 		}
 	}
 
-	h.logger.Info("refund-intent-sweep: completed", "candidates", len(orphans), "claimed", claimed)
+	s.logger.Info("refund-intent-sweep: completed", "candidates", len(orphans), "claimed", claimed)
 }

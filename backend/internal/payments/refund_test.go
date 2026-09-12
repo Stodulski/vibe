@@ -111,7 +111,7 @@ func TestAnUnreadableSellerTokenRefusesBeforeMercadoPagoIsCalled(t *testing.T) {
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	f.handler.AutoRefundIfPaid(t.Context(), booking)
+	f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.provider.refunds) != 0 || len(f.provider.callers) != 0 {
 		t.Fatalf("an unreadable credential must refuse before MercadoPago is called; got refunds=%v tokens=%v",
@@ -171,7 +171,7 @@ func TestAnUnfetchableComplexIsTreatedAsATransientOutage(t *testing.T) {
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	f.handler.AutoRefundIfPaid(t.Context(), booking)
+	f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.provider.refunds) != 0 || len(f.provider.callers) != 0 {
 		t.Fatalf("an unfetchable complex must refuse before MercadoPago is called; got refunds=%v tokens=%v",

@@ -703,6 +703,7 @@ func (s *stubBroadcaster) PublishBookingChanged(complexID uuid.UUID) {
 
 type fixture struct {
 	handler       *Handler
+	service       *Service
 	payments      *stubPayments
 	bookings      *stubBookings
 	clients       *stubClients
@@ -745,7 +746,7 @@ func newFixture(t *testing.T) *fixture {
 		logs:          logs,
 	}
 	logger := slog.New(slog.NewTextHandler(logs, nil))
-	f.handler = NewHandler(Dependencies{
+	f.service = NewService(Dependencies{
 		Payments:      f.payments,
 		Bookings:      f.bookings,
 		Clients:       f.clients,
@@ -760,10 +761,10 @@ func newFixture(t *testing.T) *fixture {
 		Notify:        f.notify,
 		Realtime:      f.realtime,
 		Audit:         f.audit,
-		Respond:       httpx.NewResponder(logger),
 		Logger:        logger,
 		Run:           func(fn func()) { fn() }, // inline, so tests observe the work
 	}, Config{FrontendURL: "https://vibe.test", CancellationGracePeriod: 15 * time.Minute, LinkTokenBuffer: 24 * time.Hour})
+	f.handler = NewHandler(f.service, f.provider, httpx.NewResponder(logger), logger)
 	return f
 }
 

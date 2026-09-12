@@ -170,7 +170,7 @@ func (h *Handler) MercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// The event is recorded and committed while MercadoPago is still waiting for
 	// its answer. If this fails we must not claim to have it.
-	if err := h.webhookEvents.Insert(r.Context(), event); err != nil {
+	if err := h.svc.RecordWebhookEvent(r.Context(), event); err != nil {
 		h.logger.Error("mp webhook: failed to record the event, refusing delivery so MercadoPago retries",
 			"error", err,
 			"type", webhook.Type,
@@ -185,12 +185,31 @@ func (h *Handler) MercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 	// from the row above rather than lost.
 	w.WriteHeader(http.StatusOK)
 
-	//nolint:contextcheck // intentionally detached. The response is already written,
-	// so r.Context() is about to be cancelled; the work below owns its own bounded
-	// webhookWorkTimeout context and must outlive the request. Unlike before, nothing is at
-	// stake in this goroutine: it works a committed row, and the cron sweeper finishes the job
-	// if this process dies first.
-	h.run(func() {
+	//nolint:contextcheck // intentionally detached. The response is already
+	// written, so r.Context() is about to be cancelled; the service's dispatch
+	// owns its own bounded webhookWorkTimeout context and must outlive the
+	// request.
+	h.svc.DispatchRecordedEvent(event)
+}
+
+// RecordWebhookEvent commits one delivery to the durable inbox.
+//
+// It is deliberately nothing more than the write: the acknowledgement the
+// handler sends next means "this row is committed", so anything else happening
+// here would either widen what the 200 promises or delay it.
+func (s *Service) RecordWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent) error {
+	return s.webhookEvents.Insert(ctx, event)
+}
+
+// DispatchRecordedEvent works a committed event on the application's tracked
+// goroutines, after its delivery has already been acknowledged.
+func (s *Service) DispatchRecordedEvent(event *paymentstore.WebhookEvent) {
+	// The request's context is about to be cancelled — the response is already
+	// written — so the work below owns its own bounded webhookWorkTimeout
+	// context and must outlive the request. Nothing is at stake in this
+	// goroutine: it works a committed row, and the cron sweeper finishes the
+	// job if this process dies first.
+	s.run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), webhookWorkTimeout)
 		defer cancel()
 		// Detached means it also carries none of the request's tenant scope,
@@ -207,7 +226,7 @@ func (h *Handler) MercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 		// with the bypass its own wrapper sets. A two-minute delay on every
 		// payment confirmation is not a defect worth having.
 		ctx = data.ContextWithTenantBypass(ctx)
-		h.workWebhookEvent(ctx, event)
+		s.workWebhookEvent(ctx, event)
 	})
 }
 
@@ -220,10 +239,10 @@ func (h *Handler) MercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 // runs in this process; a deploy, an OOM kill or a panic in between leaves the row
 // behind, and without a sweeper "durably recorded" would only mean "durably
 // recorded and then forgotten".
-func (h *Handler) ProcessPendingWebhookEvents(ctx context.Context) {
-	due, err := h.webhookEvents.GetPendingDue(ctx)
+func (s *Service) ProcessPendingWebhookEvents(ctx context.Context) {
+	due, err := s.webhookEvents.GetPendingDue(ctx)
 	if err != nil {
-		h.logger.Error("webhook-sweep: failed to fetch due events", "error", err)
+		s.logger.Error("webhook-sweep: failed to fetch due events", "error", err)
 		return
 	}
 	if len(due) == 0 {
@@ -231,10 +250,10 @@ func (h *Handler) ProcessPendingWebhookEvents(ctx context.Context) {
 	}
 
 	for _, event := range due {
-		h.workWebhookEvent(ctx, event)
+		s.workWebhookEvent(ctx, event)
 	}
 
-	h.logger.Info("webhook-sweep: completed", "events", len(due))
+	s.logger.Info("webhook-sweep: completed", "events", len(due))
 }
 
 // workWebhookEvent drives one recorded event to a terminal state.
@@ -243,54 +262,54 @@ func (h *Handler) ProcessPendingWebhookEvents(ctx context.Context) {
 // when the work is done, 'pending' with a backoff when it failed, 'exhausted'
 // when the budget is spent and a human is needed, and 'processing' only for as
 // long as this attempt lives — the sweeper reclaims that after the stale window.
-func (h *Handler) workWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent) {
-	claimed, err := h.webhookEvents.Claim(ctx, event.ID)
+func (s *Service) workWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent) {
+	claimed, err := s.webhookEvents.Claim(ctx, event.ID)
 	if err != nil {
 		// The row is untouched, so it is still due and the next sweep retries it.
-		h.logger.Error("mp webhook: failed to claim the recorded event",
+		s.logger.Error("mp webhook: failed to claim the recorded event",
 			"error", err, "event_id", event.ID, "data_id", event.ExternalID)
 		return
 	}
 	if !claimed {
-		h.logger.Info("mp webhook: event is already being worked elsewhere, skipping",
+		s.logger.Info("mp webhook: event is already being worked elsewhere, skipping",
 			"event_id", event.ID, "data_id", event.ExternalID)
 		return
 	}
 
-	if err := h.dispatchWebhookEvent(ctx, event); err != nil {
-		h.requeueWebhookEvent(ctx, event, err)
+	if err := s.dispatchWebhookEvent(ctx, event); err != nil {
+		s.requeueWebhookEvent(ctx, event, err)
 		return
 	}
 
-	if err := h.webhookEvents.MarkProcessed(ctx, event.ID); err != nil {
+	if err := s.webhookEvents.MarkProcessed(ctx, event.ID); err != nil {
 		// The work itself succeeded; only the bookkeeping failed. The row stays in
 		// 'processing' and the sweeper reclaims it once the attempt goes stale,
 		// which replays a dispatch that is already idempotent — the advisory lock
 		// and the GetByMPPaymentID check see to that.
-		h.logger.Error("mp webhook: processed the event but failed to record that",
+		s.logger.Error("mp webhook: processed the event but failed to record that",
 			"error", err, "event_id", event.ID, "data_id", event.ExternalID)
 	}
 }
 
 // requeueWebhookEvent records a failed attempt and alerts when the budget is spent.
-func (h *Handler) requeueWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent, cause error) {
-	h.logger.Error("mp webhook: processing failed, event queued for retry",
+func (s *Service) requeueWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent, cause error) {
+	s.logger.Error("mp webhook: processing failed, event queued for retry",
 		"error", cause,
 		"event_id", event.ID,
 		"type", event.EventType,
 		"data_id", event.ExternalID,
 	)
 
-	exhausted, err := h.webhookEvents.MarkFailed(ctx, event.ID, cause.Error())
+	exhausted, err := s.webhookEvents.MarkFailed(ctx, event.ID, cause.Error())
 	if err != nil {
 		// Left in 'processing'; the sweeper reclaims it after the stale window, so
 		// only the backoff and the recorded reason are missing.
-		h.logger.Error("mp webhook: failed to requeue the event",
+		s.logger.Error("mp webhook: failed to requeue the event",
 			"error", err, "event_id", event.ID, "data_id", event.ExternalID)
 		return
 	}
 	if exhausted {
-		h.logger.Error("mp webhook: EXHAUSTED all retries, manual intervention required",
+		s.logger.Error("mp webhook: EXHAUSTED all retries, manual intervention required",
 			"event_id", event.ID,
 			"type", event.EventType,
 			"data_id", event.ExternalID,
@@ -307,33 +326,33 @@ func (h *Handler) requeueWebhookEvent(ctx context.Context, event *paymentstore.W
 // decisions that refuse to act — an unknown event type, or a payment whose
 // booking cannot be identified. Retrying those would only burn the budget and end
 // in a false alert.
-func (h *Handler) dispatchWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent) error {
+func (s *Service) dispatchWebhookEvent(ctx context.Context, event *paymentstore.WebhookEvent) error {
 	switch event.EventType {
 	case "payment":
-		return h.processPaymentWebhook(ctx, event.ExternalID)
+		return s.processPaymentWebhook(ctx, event.ExternalID)
 	case "chargebacks":
 		// Chargebacks are handled through payment status changes (charged_back).
 		// Alert via Sentry so the team is notified immediately.
-		h.logger.Error("mp webhook: CHARGEBACK received — review required",
+		s.logger.Error("mp webhook: CHARGEBACK received — review required",
 			"action", webhookAction(event.Payload),
 			"data_id", event.ExternalID,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("MercadoPago CHARGEBACK: action=%s data_id=%s", webhookAction(event.Payload), event.ExternalID))
 	case "topic_claims_integration_wh":
 		// Claims/disputes — alert via Sentry for immediate attention.
-		h.logger.Error("mp webhook: CLAIM/DISPUTE received — review required",
+		s.logger.Error("mp webhook: CLAIM/DISPUTE received — review required",
 			"action", webhookAction(event.Payload),
 			"data_id", event.ExternalID,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("MercadoPago CLAIM/DISPUTE: action=%s data_id=%s", webhookAction(event.Payload), event.ExternalID))
 	case "mp-connect":
 		// OAuth connection/disconnection events.
-		h.logger.Info("mp webhook: mp-connect event received",
+		s.logger.Info("mp webhook: mp-connect event received",
 			"action", webhookAction(event.Payload),
 			"data_id", event.ExternalID,
 		)
 	default:
-		h.logger.Info("mp webhook: ignoring unhandled event type", "type", event.EventType)
+		s.logger.Info("mp webhook: ignoring unhandled event type", "type", event.EventType)
 	}
 	return nil
 }
@@ -364,13 +383,13 @@ func webhookAction(payload json.RawMessage) string {
 // control flow.
 //
 //nolint:funlen // see the cohesion note above
-func (h *Handler) processPaymentWebhook(ctx context.Context, mpPaymentID string) error {
+func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string) error {
 	// MercadoPago delivers the same webhook more than once. The advisory lock
 	// makes handling it idempotent across every instance: whoever takes it
 	// processes the payment, and everyone else returns. This is unchanged by the
 	// durable inbox — each delivery is its own row, and deduplication still
 	// happens here.
-	acquired, release, err := h.locks.TryAdvisory(ctx, "mp_webhook:"+mpPaymentID)
+	acquired, release, err := s.locks.TryAdvisory(ctx, "mp_webhook:"+mpPaymentID)
 	if err != nil {
 		return fmt.Errorf("take the idempotency lock for %s: %w", mpPaymentID, err)
 	}
@@ -379,12 +398,12 @@ func (h *Handler) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 	if !acquired {
 		// Another worker holds this payment. Its own event row is durable and gets
 		// retried if it dies, so this delivery has nothing left to do.
-		h.logger.Info("mp webhook: another instance is handling this payment, skipping", "mp_payment_id", mpPaymentID)
+		s.logger.Info("mp webhook: another instance is handling this payment, skipping", "mp_payment_id", mpPaymentID)
 		return nil
 	}
 
 	// Check if we already have a record of this payment.
-	existingPayment, err := h.payments.GetByMPPaymentID(ctx, mpPaymentID)
+	existingPayment, err := s.payments.GetByMPPaymentID(ctx, mpPaymentID)
 	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
 		return fmt.Errorf("check whether payment %s is already recorded: %w", mpPaymentID, err)
 	}
@@ -393,12 +412,12 @@ func (h *Handler) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 	// As the platform, deliberately: the seller who collected this money is
 	// not known until the payment itself says so, and MercadoPago answers the
 	// app owner for anything created under its own app_id.
-	mpPayment, err := h.provider.GetPayment(ctx, mpPaymentID, mp.AsPlatform())
+	mpPayment, err := s.provider.GetPayment(ctx, mpPaymentID, mp.AsPlatform())
 	if err != nil {
 		return fmt.Errorf("fetch payment %s from mercadopago: %w", mpPaymentID, err)
 	}
 
-	h.logger.Info("mp webhook: fetched payment from MP",
+	s.logger.Info("mp webhook: fetched payment from MP",
 		"mp_payment_id", mpPaymentID,
 		"status", mpPayment.Status,
 		"status_detail", mpPayment.StatusDetail,
@@ -412,9 +431,9 @@ func (h *Handler) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 	// that require action (refund/chargeback). Skip everything else.
 	if existingPayment != nil {
 		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" {
-			return h.processRefundedPayment(ctx, existingPayment, mpPayment, mpPaymentID)
+			return s.processRefundedPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
-		h.logger.Info("mp webhook: payment already processed, skipping",
+		s.logger.Info("mp webhook: payment already processed, skipping",
 			"mp_payment_id", mpPaymentID,
 			"mp_status", mpPayment.Status,
 		)
@@ -432,21 +451,21 @@ func (h *Handler) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 	if bookingIDStr == "" {
 		// Not retryable: MercadoPago's own copy of the payment carries no booking,
 		// and it will not grow one. The event stands as the record that it arrived.
-		h.logger.Error("mp webhook: no booking_id found in payment", "mp_payment_id", mpPaymentID)
+		s.logger.Error("mp webhook: no booking_id found in payment", "mp_payment_id", mpPaymentID)
 		return nil
 	}
 
 	bookingID, err := uuid.Parse(bookingIDStr)
 	if err != nil {
-		h.logger.Error("mp webhook: invalid booking_id", "booking_id", bookingIDStr, "error", err)
+		s.logger.Error("mp webhook: invalid booking_id", "booking_id", bookingIDStr, "error", err)
 		return nil
 	}
 
 	// Fetch the booking.
-	booking, err := h.bookings.GetByID(ctx, bookingID)
+	booking, err := s.bookings.GetByID(ctx, bookingID)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			h.logger.Error("mp webhook: payment names a booking that does not exist",
+			s.logger.Error("mp webhook: payment names a booking that does not exist",
 				"booking_id", bookingID, "mp_payment_id", mpPaymentID)
 			return nil
 		}
@@ -455,23 +474,23 @@ func (h *Handler) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 
 	switch mpPayment.Status {
 	case "approved":
-		return h.processApprovedPayment(ctx, booking, mpPayment, mpPaymentID)
+		return s.processApprovedPayment(ctx, booking, mpPayment, mpPaymentID)
 	case "rejected", "cancelled":
-		return h.processRejectedPayment(ctx, booking, mpPayment, mpPaymentID)
+		return s.processRejectedPayment(ctx, booking, mpPayment, mpPaymentID)
 	case "refunded", "charged_back":
 		// Refund/chargeback on a payment we haven't recorded yet — cancel the booking.
-		return h.processRefundedPaymentFromBooking(ctx, booking, mpPayment, mpPaymentID)
+		return s.processRefundedPaymentFromBooking(ctx, booking, mpPayment, mpPaymentID)
 	case "in_process", "pending":
 		// Payment is being reviewed or waiting for offline payment.
 		// MP will send another webhook when the status changes.
-		h.logger.Info("mp webhook: payment pending/in_process, awaiting resolution",
+		s.logger.Info("mp webhook: payment pending/in_process, awaiting resolution",
 			"status", mpPayment.Status,
 			"status_detail", mpPayment.StatusDetail,
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 		)
 	default:
-		h.logger.Info("mp webhook: unhandled payment status",
+		s.logger.Info("mp webhook: unhandled payment status",
 			"status", mpPayment.Status,
 			"mp_payment_id", mpPaymentID,
 		)

@@ -64,7 +64,7 @@ func TestDuplicateWebhookDeliveryIsSkipped(t *testing.T) {
 	f := newFixture(t)
 	f.locks.taken = true // another instance already holds it
 
-	_ = f.handler.processPaymentWebhook(t.Context(), "mp-123")
+	_ = f.service.processPaymentWebhook(t.Context(), "mp-123")
 
 	if f.payments.confirmed != nil || f.payments.inserted != nil {
 		t.Error("a duplicate delivery must not process the payment again")
@@ -78,7 +78,7 @@ func TestTheIdempotencyLockIsAlwaysReleased(t *testing.T) {
 	f := newFixture(t)
 	f.payments.mpIDErr = errProvider // fail immediately after taking the lock
 
-	_ = f.handler.processPaymentWebhook(t.Context(), "mp-123")
+	_ = f.service.processPaymentWebhook(t.Context(), "mp-123")
 
 	if f.locks.released != 1 {
 		t.Errorf("the lock must be released even when handling fails; released %d times", f.locks.released)
@@ -94,7 +94,7 @@ func TestApprovedPaymentSkipsABookingThatIsAlreadySettled(t *testing.T) {
 			booking, _ := paidBooking(uuid.New())
 			booking.Status = status
 
-			_ = f.handler.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123}, "mp-123")
+			_ = f.service.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123}, "mp-123")
 
 			if f.payments.inserted != nil || f.payments.confirmed != nil {
 				t.Error("the payment must not be recorded again")
@@ -116,7 +116,7 @@ func TestApprovedPaymentForACancelledBookingIsRefunded(t *testing.T) {
 	booking.Status = "cancelled"
 	f.complexes.complex = linkedComplex(complexID, "111111111")
 
-	_ = f.handler.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123, TransactionAmount: 1500, CollectorID: 111111111}, "mp-123")
+	_ = f.service.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123, TransactionAmount: 1500, CollectorID: 111111111}, "mp-123")
 
 	if len(f.provider.refunds) == 0 {
 		t.Error("payment for a cancelled booking must be refunded to the client")
@@ -142,7 +142,7 @@ func TestApprovedPaymentForACancelledBookingWithAForeignCollectorWritesNothing(t
 	ownSellerID := "111111111"
 	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &ownSellerID}
 
-	_ = f.handler.processApprovedPayment(t.Context(), booking,
+	_ = f.service.processApprovedPayment(t.Context(), booking,
 		&mp.Payment{ID: 123, TransactionAmount: 1500, CollectorID: 999999999, ExternalReference: booking.ID.String()}, "mp-123")
 
 	if f.payments.inserted != nil || f.payments.confirmed != nil {
@@ -188,7 +188,7 @@ func TestConcurrentCancellationRunsTheCollectorCheckOnce(t *testing.T) {
 	cancelledBooking.Status = "cancelled"
 	f.bookings.booking = &cancelledBooking
 
-	_ = f.handler.processApprovedPayment(t.Context(), initialBooking, mpPayment, "mp-123")
+	_ = f.service.processApprovedPayment(t.Context(), initialBooking, mpPayment, "mp-123")
 
 	if f.complexes.calls != 1 {
 		t.Errorf("the collector check must run exactly once across the concurrent-cancellation re-entry; complexes.GetByID called %d times", f.complexes.calls)
@@ -203,7 +203,7 @@ func TestRejectedPaymentLeavesASettledBookingAlone(t *testing.T) {
 	booking, _ := paidBooking(uuid.New())
 	booking.Status = "confirmed"
 
-	_ = f.handler.processRejectedPayment(t.Context(), booking, &mp.Payment{ID: 123}, "mp-123")
+	_ = f.service.processRejectedPayment(t.Context(), booking, &mp.Payment{ID: 123}, "mp-123")
 
 	if f.bookings.updated != nil {
 		t.Error("a confirmed booking must not be cancelled by a rejected payment attempt")
@@ -250,7 +250,7 @@ func TestAutoRefundSkipsWhatCannotBeRefunded(t *testing.T) {
 			f.payments.byBooking = payment
 			tt.prepare(f, booking, payment)
 
-			f.handler.AutoRefundIfPaid(t.Context(), booking)
+			f.service.AutoRefundIfPaid(t.Context(), booking)
 
 			if len(f.provider.refunds) != 0 {
 				t.Errorf("no refund should have been attempted; got %v", f.provider.refunds)
@@ -269,7 +269,7 @@ func TestAutoRefundIssuesTheRefundAndTellsTheClient(t *testing.T) {
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", Phone: "+5491155551234"}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
-	f.handler.AutoRefundIfPaid(t.Context(), booking)
+	f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.provider.refunds) != 1 {
 		t.Fatalf("want one refund; got %v", f.provider.refunds)
@@ -317,7 +317,7 @@ func TestAFailedRefundStaysQueuedAndIsNotRecordedAsDone(t *testing.T) {
 	f.complexes.complex = linkedComplex(complexID, "")
 	f.provider.refundErr = errProvider
 
-	f.handler.AutoRefundIfPaid(t.Context(), booking)
+	f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.payments.claimed) != 1 {
 		t.Fatalf("the refund must have been claimed before the provider was called; got %v", f.payments.claimed)
@@ -360,7 +360,7 @@ func TestAConcurrentRefundIsNotIssuedTwice(t *testing.T) {
 			f.payments.byBooking = payment
 			f.payments.claimErr = tt.refusal
 
-			f.handler.AutoRefundIfPaid(t.Context(), booking)
+			f.service.AutoRefundIfPaid(t.Context(), booking)
 
 			if len(f.provider.refunds) != 0 {
 				t.Error("a refund already claimed elsewhere must not be issued twice")
@@ -385,7 +385,7 @@ func TestRefundsUseTheComplexOwnSellerToken(t *testing.T) {
 	f.payments.byBooking = payment
 	f.complexes.complex = complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 
-	f.handler.AutoRefundIfPaid(t.Context(), booking)
+	f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	wantCaller := mustSeller(t, sellerToken)
 	found := false
@@ -414,7 +414,7 @@ func TestRetryQueueResolvesASucceedingRefund(t *testing.T) {
 	f.bookings.booking = booking
 	f.complexes.complex = linkedComplex(complexID, "")
 
-	f.handler.RetryFailedRefunds(t.Context())
+	f.service.RetryFailedRefunds(t.Context())
 
 	if len(f.provider.refunds) != 1 {
 		t.Fatalf("the queued refund must be retried; got %v", f.provider.refunds)
@@ -448,7 +448,7 @@ func TestRetryQueueKeepsRetryingAFailingRefund(t *testing.T) {
 	f.complexes.complex = linkedComplex(complexID, "")
 	f.provider.refundErr = errProvider
 
-	f.handler.RetryFailedRefunds(t.Context())
+	f.service.RetryFailedRefunds(t.Context())
 
 	if len(f.payments.recordedSuccess) != 0 {
 		t.Error("a refund the provider rejected must not be recorded as done")
@@ -474,7 +474,7 @@ func TestApprovedPaymentIsRefusedWhenAnotherSellerCollectedTheMoney(t *testing.T
 	f.bookings.booking = booking
 	mpPayment.CollectorID = 999999999 // the attacker's own seller account
 
-	_ = f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
+	_ = f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
 
 	if f.payments.inserted != nil || f.payments.confirmed != nil {
 		t.Error("a booking must not be paid for by money that landed in another seller's account")
@@ -541,7 +541,7 @@ func TestApprovedPaymentIsRefusedWhenTheCollectorCannotBeVerified(t *testing.T) 
 			f.bookings.booking = booking
 			tt.prepare(f, mpPayment, complexID)
 
-			err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
+			err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
 
 			if f.payments.inserted != nil || f.payments.confirmed != nil {
 				t.Error("an unverifiable collector must not confirm the booking")
@@ -573,7 +573,7 @@ func TestApprovedPaymentIsConfirmedWhenTheComplexCollectedTheMoney(t *testing.T)
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
-	_ = f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
+	_ = f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
 
 	if f.payments.inserted == nil {
 		t.Fatal("a payment collected by the complex itself must be recorded")
@@ -671,7 +671,7 @@ func runRefundedRefusal(
 	f.payments.slotErr = guardErr
 	prepare(f, booking)
 
-	err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
+	err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
 
 	// A slot lost to somebody else is a decision, not an outage: retrying the
 	// event cannot change who owns the court, and it would spend the budget
@@ -718,7 +718,7 @@ func TestAConfirmationThatFailsOnTheDatabaseIsRetriedRatherThanRefunded(t *testi
 	f.payments.byBooking = &paymentstore.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount}
 	f.payments.confirmErr = errDatabase
 
-	err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
+	err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
 
 	if err == nil {
 		t.Error("a confirmation lost to the database must be reported as retryable")
@@ -745,7 +745,7 @@ func TestAnAutoRefundThatCannotBeRecordedIsNotAnnouncedToTheClient(t *testing.T)
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 	f.payments.successErr = errRecord
 
-	f.handler.AutoRefundIfPaid(t.Context(), booking)
+	f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.provider.refunds) != 1 {
 		t.Fatalf("the provider refund must still have been attempted; got %v", f.provider.refunds)
@@ -783,7 +783,7 @@ func TestAnAutoRefundIsNotIssuedWhenThePaymentCannotBeRecorded(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 	f.payments.insertErr = errDatabase
 
-	_ = f.handler.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123, TransactionAmount: 2500, CollectorID: 111111111}, "mp-123")
+	_ = f.service.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123, TransactionAmount: 2500, CollectorID: 111111111}, "mp-123")
 
 	if len(f.provider.refunds) != 0 {
 		t.Errorf("money must not move for a refund nothing durable recorded; got %v", f.provider.refunds)
@@ -803,7 +803,7 @@ func TestAnAutoRefundForACancelledBookingIsClaimedBeforeItIsIssued(t *testing.T)
 	booking.DepositAmount = 150_000
 	f.complexes.complex = linkedComplex(complexID, "111111111")
 
-	_ = f.handler.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123, TransactionAmount: 2500, CollectorID: 111111111}, "mp-123")
+	_ = f.service.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123, TransactionAmount: 2500, CollectorID: 111111111}, "mp-123")
 
 	if f.payments.inserted == nil {
 		t.Fatal("the payment that arrived must be recorded before it is refunded")
@@ -844,7 +844,7 @@ func TestACancelledBookingIsRefundedEvenWhenItsDepositMoved(t *testing.T) {
 	booking.DepositAmount = 900_00
 	f.complexes.complex = linkedComplex(complexID, "111111111")
 
-	_ = f.handler.processApprovedPayment(t.Context(), booking,
+	_ = f.service.processApprovedPayment(t.Context(), booking,
 		&mp.Payment{ID: 123, TransactionAmount: 1500, CollectorID: 111111111}, "mp-123")
 
 	if len(f.provider.refunds) == 0 {
@@ -876,7 +876,7 @@ func TestTheOnlineConfirmationSaysWhatWasPaidAndWhatIsOwed(t *testing.T) {
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", Phone: "+5491155551234"}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
 
-	if err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+	if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("processApprovedPayment = %v", err)
 	}
 	if len(f.notify.confirmations) != 1 {
