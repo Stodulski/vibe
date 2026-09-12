@@ -15,6 +15,12 @@ interface AppShellProps {
   renderMobileSidebar: (onNavigate: () => void) => ReactNode;
   /** Renders the mobile header, given the callback that opens the mobile sheet. */
   header: (onMenuClick: () => void) => ReactNode;
+  /**
+   * Shows the masthead's search/command-palette trigger button. Only pass
+   * this where a `<CommandPalette />` is actually mounted (in `children`) —
+   * the button just dispatches the event that opens it (UI-11).
+   */
+  showSearchTrigger?: boolean;
   /** Extra siblings rendered alongside the shell (e.g. CommandPalette, dialogs) — dashboard-only bits live here. */
   children?: ReactNode;
 }
@@ -24,7 +30,7 @@ interface AppShellProps {
  * skip-link, desktop masthead, desktop sidebar slot, mobile sheet slot, header slot, and the main
  * content wrapper.
  */
-export function AppShell({ brand, sidebar, renderMobileSidebar, header, children }: AppShellProps) {
+export function AppShell({ brand, sidebar, renderMobileSidebar, header, showSearchTrigger, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const handleCloseMobile = useCallback(() => {
     setMobileOpen(false);
@@ -50,7 +56,7 @@ export function AppShell({ brand, sidebar, renderMobileSidebar, header, children
           mobile header below it, so exactly one is ever `CHROME_HEIGHT` tall
           and the offset below is the same at every width. */}
       <div className="fixed inset-x-0 top-0 z-30">
-        <AppMasthead brand={brand} />
+        <AppMasthead brand={brand} showSearchTrigger={showSearchTrigger} />
         {header(handleOpenMobile)}
       </div>
 
