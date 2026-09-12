@@ -49,6 +49,9 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * empty shell it can render itself.
  */
 const PRERENDER_TIMEOUT_MS = 3000;
+const RETRY_AFTER_SECONDS = 60;
+const PRERENDER_RESULT_HEADER = 'x-prerender-result';
+const VENUE_NOT_FOUND = 'venue-not-found';
 
 /**
  * The slug this path is asking for, or null if the SPA should serve it.
@@ -77,18 +80,26 @@ export default async function middleware(request: Request): Promise<Response> {
   const userAgent = request.headers.get('user-agent') ?? '';
   if (!BOT_PATTERN.test(userAgent)) return next();
 
-  // Fetched rather than rewritten so the answer can be inspected. A rewrite
-  // hands the crawler whatever the backend says, including the 500s it still
-  // returns when the complex lookup or the template fetch fails — and a 500 on
-  // a public page is a URL a crawler drops. The shell is always a valid answer:
-  // slower to index, never an error.
+  // Fetched rather than rewritten so the answer can be inspected. Only
+  // crawlers reach this point, and a crawler indexes whatever it gets with a
+  // 200: handing it the generic SPA shell when the prerender fails would
+  // replace the venue's metadata in the index with Vibe's. So a failure is
+  // answered with the status a crawler knows how to handle instead: 404 for a
+  // slug that does not exist, 503 with Retry-After for anything transient
+  // (backend 5xx, timeout, DNS, TLS, refused). Never a 500, never the shell.
   const apiUrl = process.env.BACKEND_URL ?? 'https://api.vibe.com.ar';
   try {
     const response = await fetch(`${apiUrl}/api/v1/public/prerender/${slug}`, {
       headers: { accept: 'text/html' },
       signal: AbortSignal.timeout(PRERENDER_TIMEOUT_MS),
     });
-    if (!response.ok) return next();
+    // Only a 404 the backend explicitly marks as "this venue does not exist"
+    // becomes a permanent 404. A bare 404 can be route-level (stale
+    // BACKEND_URL, gateway, renamed path) and would de-index every venue.
+    if (response.status === 404 && response.headers.get(PRERENDER_RESULT_HEADER) === VENUE_NOT_FOUND) {
+      return notFound();
+    }
+    if (!response.ok) return retryLater();
 
     return new Response(response.body, {
       status: 200,
@@ -98,9 +109,20 @@ export default async function middleware(request: Request): Promise<Response> {
       },
     });
   } catch {
-    // Timed out, DNS, TLS, connection refused. The crawler gets the shell.
-    return next();
+    return retryLater();
   }
+}
+
+function notFound(): Response {
+  return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
+}
+
+/** 503 is the one failure a crawler retries instead of indexing or dropping the URL. */
+function retryLater(): Response {
+  return new Response(null, {
+    status: 503,
+    headers: { 'retry-after': String(RETRY_AFTER_SECONDS), 'cache-control': 'no-store' },
+  });
 }
 
 export const config = {
