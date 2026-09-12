@@ -185,9 +185,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [is_active]
               properties:
-                is_active: {type: boolean}
+                is_active:
+                  type: boolean
+                  default: false
+                  description: Omitting it deactivates the account, same as sending false.
       responses:
         "200":
           description: The user was updated.
@@ -735,9 +737,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email]
               properties:
-                email: {type: string}
+                email:
+                  type: string
+                  description: Omitting it, or an unknown address, still answers the same 200 message.
 
   /api/v1/auth/forgot-password:
     post:
@@ -768,9 +771,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email]
               properties:
-                email: {type: string, format: email}
+                email:
+                  type: string
+                  format: email
+                  description: Omitting it, or an unknown address, still answers the same 200 message.
                 turnstile_token: {type: string}
 
   /api/v1/auth/reset-password:
@@ -1669,7 +1674,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, slug, address, city, province, phone, deposit_percentage, cancellation_hours]
+              required: [name, slug, address, city, province, phone, cancellation_hours]
               properties:
                 name: {type: string, maxLength: 200}
                 slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
@@ -1678,7 +1683,12 @@ paths:
                 province: {type: string}
                 phone: {type: string}
                 email: {type: string, format: email}
-                deposit_percentage: {type: integer, minimum: 0, maximum: 100}
+                deposit_percentage:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  default: 0
+                  description: Defaults to 0 (no deposit required) when omitted.
                 cancellation_hours: {type: integer, minimum: 1, maximum: 168}
                 latitude: {type: number}
                 longitude: {type: number}
@@ -1850,12 +1860,15 @@ paths:
                   maxItems: 7
                   items:
                     type: object
-                    required: [day, is_closed]
+                    required: [day]
                     properties:
                       day: {$ref: "#/components/schemas/Weekday"}
                       open_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
                       close_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
-                      is_closed: {type: boolean}
+                      is_closed:
+                        type: boolean
+                        default: false
+                        description: Omitting it means open, same as sending false.
 
   /api/v1/complexes/{id}/uploads/presign:
     post:

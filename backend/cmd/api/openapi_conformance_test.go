@@ -360,6 +360,81 @@ func TestOpenAPIConformance_TheDocumentRefusesAnInvalidRequestBody(t *testing.T)
 	}
 }
 
+// TestOpenAPIConformance_OptionalFieldsMayBeOmitted is the regression guard
+// for the openapi/code required-field audit (fix(openapi): describe optional
+// request fields as optional so validation matches the code): every field
+// below is optional in its handler (either a pointer never checked with "must
+// be provided", or a value type whose zero value passes every validator.Check
+// it is subject to), so a minimal body omitting it must still conform to
+// internal/openapi/openapi.yaml. Before that fix each of these bodies made
+// the document refuse a request the handler accepts, exactly as
+// deposit_percentage did on POST /api/v1/complexes (the shape the E2E
+// helper's createComplex sends, and the failure CI caught).
+func TestOpenAPIConformance_OptionalFieldsMayBeOmitted(t *testing.T) {
+	app := newTestApplication(t)
+	ts := newTestServer(t, app)
+	router := conformanceRouter(t, app)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+	}{
+		{
+			name:   "create complex without deposit_percentage",
+			method: http.MethodPost,
+			path:   "/api/v1/complexes",
+			body: `{"name":"Complejo E2E Test","slug":"complejo-e2e-test","address":"Av. Libertador 1234",` +
+				`"city":"Buenos Aires","province":"Buenos Aires","phone":"+5491198765432","cancellation_hours":24}`,
+		},
+		{
+			name:   "toggle user active without is_active",
+			method: http.MethodPatch,
+			path:   "/api/v1/admin/users/" + uuid.New().String() + "/toggle-active",
+			body:   `{}`,
+		},
+		{
+			name:   "update schedules without is_closed",
+			method: http.MethodPut,
+			path:   "/api/v1/complexes/" + uuid.New().String() + "/schedules",
+			body: `{"schedules":[` +
+				`{"day":"monday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"tuesday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"wednesday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"thursday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"friday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"saturday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"sunday","open_time":"08:00","close_time":"23:00"}]}`,
+		},
+		{
+			name:   "resend verification without email",
+			method: http.MethodPost,
+			path:   "/api/v1/auth/resend-verification",
+			body:   `{}`,
+		},
+		{
+			name:   "forgot password without email",
+			method: http.MethodPost,
+			path:   "/api/v1/auth/forgot-password",
+			body:   `{}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequestWithContext(t.Context(), tc.method, ts.URL+tc.path,
+				bytes.NewReader([]byte(tc.body)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			assertRequestConformsToSpec(t, router, req)
+		})
+	}
+}
+
 func TestOpenAPIConformance_RateLimited(t *testing.T) {
 	app := newTestApplication(t)
 	ts := newTestServer(t, app)
