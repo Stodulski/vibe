@@ -38,7 +38,7 @@ import (
 // involved, because a guard that lives only in handlers is one new insert path
 // away from being bypassed.
 func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	overnight := f.NewBooking(datatest.BookingOptions{StartTime: "23:00", EndTime: "01:00"})
@@ -75,11 +75,11 @@ func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
 // no longer a CHECK on the times but the generated `span` itself — a range whose
 // end does not follow its start cannot be constructed.
 func TestTheDatabaseAcceptsAnOvernightBookingAndNothingBackwards(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	insert := func(t *testing.T, startTime string, durationMinutes int) error {
 		t.Helper()
-		_, err := f.Pool.Exec(context.Background(), `
+		_, err := f.DB.Exec(context.Background(), `
 			INSERT INTO bookings
 				(complex_id, court_id, client_id, date, start_time,
 				 duration_minutes, price, deposit_amount, status, collection_status)
@@ -202,7 +202,7 @@ func TestTheTwoHourReminderSpansMidnight(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := datatest.NewFixture(t)
+			f := datatest.Isolated(t)
 			ctx := context.Background()
 
 			id := seedReminderCandidate(f, t, tt.date, tt.startTime, tt.now.Add(-tt.bookedAgo))
@@ -246,7 +246,7 @@ func seedReminderCandidate(f *datatest.Fixture, t *testing.T, date time.Time, st
 	t.Helper()
 
 	var id uuid.UUID
-	err := f.Pool.QueryRow(context.Background(), `
+	err := f.DB.QueryRow(context.Background(), `
 		INSERT INTO bookings
 			(complex_id, court_id, client_id, date, start_time,
 			 duration_minutes, price, deposit_amount, status, collection_status,

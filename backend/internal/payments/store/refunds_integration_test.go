@@ -34,7 +34,7 @@ import (
 // the store used. An uncommitted write is invisible to it by definition, so the
 // row reading 'refund_pending' here is proof the claim is durable.
 func TestClaimRefundIsCommittedBeforeTheProviderIsCalled(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -93,7 +93,7 @@ func TestClaimRefundIsCommittedBeforeTheProviderIsCalled(t *testing.T) {
 // Under the old design the same statement would have failed while the caller sat
 // inside the provider call, which is precisely the window that mattered.
 func TestClaimRefundHoldsNoLockOnceItReturns(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -145,7 +145,7 @@ func TestClaimRefundHoldsNoLockOnceItReturns(t *testing.T) {
 // Nothing is done here after the claim, which is exactly what a crash looks like
 // from the database's side.
 func TestAnAbandonedClaimIsPickedUpByTheRetryQueue(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -204,7 +204,7 @@ func TestAnAbandonedClaimIsPickedUpByTheRetryQueue(t *testing.T) {
 // the only version of this test that exercises the row lock; running them one
 // after the other would pass on any implementation that merely re-reads the row.
 func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -254,7 +254,7 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 	// One winner means one attempt row: a second queued attempt would be a second
 	// refund waiting to be sent by the retry job.
 	var attempts int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM failed_refunds WHERE payment_id = $1`, payment.ID,
 	).Scan(&attempts); err != nil {
 		t.Fatalf("counting queued attempts: %v", err)
@@ -270,7 +270,7 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 // so a crash in between left a refunded client, a court that still read as sold,
 // and an attempt already marked done.
 func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -315,7 +315,7 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 	// UpdateBooking always writes deposit_amount, so any path that omits it stores
 	// 0. Refunding must not erase the record of what the client originally paid.
 	var storedDeposit int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT deposit_amount FROM bookings WHERE id = $1`, booking.ID,
 	).Scan(&storedDeposit); err != nil {
 		t.Fatalf("reading the booking deposit back: %v", err)
@@ -343,7 +343,7 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 // manualOwedCentavos is what tells RecordRefundSuccess to write refund_status
 // 'partial' instead.
 func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -401,7 +401,7 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 // payment ledger or the booking disagreeing about whether this money is
 // still owed.
 func TestRecordManualRefund(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -460,7 +460,7 @@ func TestRecordManualRefund(t *testing.T) {
 // read as refunded. There is no rollback to perform — the claim never claimed the
 // refund had happened, only that one was owed.
 func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -555,7 +555,7 @@ func readRefundAttempt(f *datatest.Fixture, t *testing.T, id uuid.UUID) refundAt
 	t.Helper()
 
 	var state refundAttemptState
-	err := f.Pool.QueryRow(context.Background(), `
+	err := f.DB.QueryRow(context.Background(), `
 		SELECT status, retry_count, next_retry_at, COALESCE(error_message, ''), resolved_at
 		FROM failed_refunds WHERE id = $1`, id,
 	).Scan(&state.status, &state.retryCount, &state.nextRetryAt, &state.errorMessage, &state.resolvedAt)
@@ -571,7 +571,7 @@ func readRefundAttempt(f *datatest.Fixture, t *testing.T, id uuid.UUID) refundAt
 func expireRefundAttempt(f *datatest.Fixture, t *testing.T, id uuid.UUID) {
 	t.Helper()
 
-	tag, err := f.Pool.Exec(context.Background(),
+	tag, err := f.DB.Exec(context.Background(),
 		`UPDATE failed_refunds SET next_retry_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, id)
 	if err != nil {
 		t.Fatalf("expiring refund attempt %s: %v", id, err)
@@ -594,7 +594,7 @@ func expireRefundAttempt(f *datatest.Fixture, t *testing.T, id uuid.UUID) {
 // paymentstore.FailedRefunds.IncrementRetry already had this; the recorder on the money
 // path did not, and it is the one the refund handler calls.
 func TestAProviderOutageDoesNotSpendAClaimedRefundsRetryBudget(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	claim := claimRefund(f, t, "08:00", "09:30")
@@ -630,7 +630,7 @@ func TestAProviderOutageDoesNotSpendAClaimedRefundsRetryBudget(t *testing.T) {
 // budget and still escalates. The outage branch must not swallow the ordinary
 // case it was added beside.
 func TestARefusedRefundStillSpendsTheBudget(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	claim := claimRefund(f, t, "08:00", "09:30")
@@ -662,7 +662,7 @@ func TestARefusedRefundStillSpendsTheBudget(t *testing.T) {
 // is piling up fastest. The row is retried either way; the status only decides
 // whether anybody is told.
 func TestAnExhaustedRefundStaysExhaustedThroughAProviderOutage(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	claim := claimRefund(f, t, "08:00", "09:30")
@@ -694,7 +694,7 @@ func TestAnExhaustedRefundStaysExhaustedThroughAProviderOutage(t *testing.T) {
 // no backoff and no recorded reason — it reads as abandoned rather than failed,
 // and is invisible to every instance until it goes stale.
 func TestARefundFailureIsRecordedEvenWhenTheCallerIsAlreadyDone(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	claim := claimRefund(f, t, "08:00", "09:30")
 	before := readRefundAttempt(f, t, claim.AttemptID)
@@ -743,7 +743,7 @@ func claimRefund(f *datatest.Fixture, t *testing.T, startTime, endTime string) *
 func setRefundRetryCount(f *datatest.Fixture, t *testing.T, id uuid.UUID, count int) {
 	t.Helper()
 
-	tag, err := f.Pool.Exec(context.Background(),
+	tag, err := f.DB.Exec(context.Background(),
 		`UPDATE failed_refunds SET retry_count = $2 WHERE id = $1`, id, count)
 	if err != nil {
 		t.Fatalf("setting retry_count on %s: %v", id, err)

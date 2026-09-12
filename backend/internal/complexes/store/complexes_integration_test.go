@@ -24,7 +24,7 @@ import (
 // bypassing the credential accessor entirely — must never yield the value a
 // caller stored, only the v1 envelope.
 func TestIntegration_RawMPAccessTokenColumnIsNeverAUsableToken(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	const plainAccess = "seller-access-token-raw-check"
@@ -35,7 +35,7 @@ func TestIntegration_RawMPAccessTokenColumnIsNeverAUsableToken(t *testing.T) {
 	}
 
 	var rawAccess, rawRefresh string
-	err := f.Pool.QueryRow(ctx,
+	err := f.DB.QueryRow(ctx,
 		`SELECT mp_access_token, mp_refresh_token FROM complexes WHERE id = $1`, f.ComplexID,
 	).Scan(&rawAccess, &rawRefresh)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestIntegration_RawMPAccessTokenColumnIsNeverAUsableToken(t *testing.T) {
 // row and a row sealed under a key this process's keyring does not hold,
 // and the Go-side accessor — not the SQL query — is what tells them apart.
 func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, f.ComplexID, "readable-access", "readable-refresh", "mp-user-readable", 0); err != nil {
@@ -117,7 +117,7 @@ func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
 // recorded expiry, or expires within 30 days, is due for a refresh; one
 // whose token still has 100 days left is not.
 func TestIntegration_ListComplexesNeedingMPRefresh(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// The fixture's own complex: connected, but UpdateMPCredentials was
@@ -169,7 +169,7 @@ func TestIntegration_ListComplexesNeedingMPRefresh(t *testing.T) {
 // each edits a different field, and the second save must not overwrite the
 // first's — which is exactly the failure CPX-17 observed before this fix.
 func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 
 	firstTab, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
@@ -220,7 +220,7 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 func insertSecondComplex(f *datatest.Fixture, t *testing.T, slugSuffix string) (id uuid.UUID) {
 	t.Helper()
 
-	err := f.Pool.QueryRow(context.Background(), `
+	err := f.DB.QueryRow(context.Background(), `
 		INSERT INTO complexes (owner_id, name, slug, address, city, province, phone)
 		VALUES ($1, 'Second Complex', $2, 'Av. Siempreviva 743', 'Rosario', 'Santa Fe', '+5491100000002')
 		RETURNING id`,
@@ -231,7 +231,7 @@ func insertSecondComplex(f *datatest.Fixture, t *testing.T, slugSuffix string) (
 	}
 
 	t.Cleanup(func() {
-		if _, err := f.Pool.Exec(context.Background(), `DELETE FROM complexes WHERE id = $1`, id); err != nil {
+		if _, err := f.DB.Exec(context.Background(), `DELETE FROM complexes WHERE id = $1`, id); err != nil {
 			t.Errorf("deleting second complex: %v", err)
 		}
 	})
@@ -263,7 +263,7 @@ func sealUnderForeignKey(f *datatest.Fixture, t *testing.T, complexID uuid.UUID)
 		t.Fatalf("sealing under foreign key: %v", err)
 	}
 
-	_, err = f.Pool.Exec(context.Background(),
+	_, err = f.DB.Exec(context.Background(),
 		`UPDATE complexes SET mp_access_token = $1, mp_refresh_token = $2, mp_user_id = $3 WHERE id = $4`,
 		sealedAccess, sealedRefresh, "mp-user-unreadable", complexID)
 	if err != nil {
@@ -282,11 +282,11 @@ func sealUnderForeignKey(f *datatest.Fixture, t *testing.T, complexID uuid.UUID)
 // Both halves are asserted here, because fixing only the check would leave the
 // race (another request taking the slug in between) landing as a 500 again.
 func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	var slug string
-	err := f.Pool.QueryRow(ctx, `SELECT slug FROM complexes WHERE id = $1`, f.ComplexID).Scan(&slug)
+	err := f.DB.QueryRow(ctx, `SELECT slug FROM complexes WHERE id = $1`, f.ComplexID).Scan(&slug)
 	if err != nil {
 		t.Fatalf("reading the fixture's slug: %v", err)
 	}

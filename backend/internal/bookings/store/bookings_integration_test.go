@@ -20,7 +20,7 @@ import (
 // The bookings here are freshly created and owner-attributed, so the stale-pending
 // exclusion inside InsertSafe plays no part — this is the plain collision.
 func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 
 	const attempts = 2
 
@@ -64,7 +64,7 @@ func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
 	}
 
 	var stored int
-	err := f.Pool.QueryRow(context.Background(), `
+	err := f.DB.QueryRow(context.Background(), `
 		SELECT COUNT(*) FROM bookings
 		WHERE court_id = $1 AND status NOT IN ('cancelled', 'no_show')`,
 		f.CourtID,
@@ -82,7 +82,7 @@ func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
 // unique index on (court_id, date, start_time) does not see it. Running these
 // sequentially isolates the query from the locking above.
 func TestInsertSafeRejectsAnOverlappingBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})

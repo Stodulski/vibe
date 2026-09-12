@@ -93,7 +93,7 @@ func accepted(t *testing.T, err error, what string) {
 
 // exec runs one statement against the fixture's pool and returns the error.
 func exec(f *datatest.Fixture, query string, args ...any) error {
-	_, err := f.Pool.Exec(context.Background(), query, args...)
+	_, err := f.DB.Exec(context.Background(), query, args...)
 	return err
 }
 
@@ -115,7 +115,7 @@ func insertBookingRow(f *datatest.Fixture, complexID, courtID, clientID uuid.UUI
 // CHECK (refund_amount >= 0), so the column knew how to be non-negative and
 // nothing at all about the payment it belonged to.
 func TestARefundCannotExceedWhatThePaymentCollected(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	b := f.CreateBooking(t, datatest.BookingOptions{})
 	p := f.CreatePayment(t, b.ID, 1000, 70, nil)
 
@@ -140,7 +140,7 @@ func TestARefundCannotExceedWhatThePaymentCollected(t *testing.T) {
 // the cash it receives and calls the booking fully_paid when the sum clears the
 // price, so an inflated deposit settles a booking nobody paid for.
 func TestADepositCannotExceedTheBookingPrice(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	b := f.CreateBooking(t, datatest.BookingOptions{Price: 1000, DepositAmount: 300})
 
 	err := exec(f, `UPDATE bookings SET deposit_amount = 999999 WHERE id = $1`, b.ID)
@@ -159,7 +159,7 @@ func TestADepositCannotExceedTheBookingPrice(t *testing.T) {
 // to 0, while PaymentDetails scans it into a Go int and fails the whole monthly
 // export. Same row, two answers, one of them a 500.
 func TestRefundAmountCannotBeNull(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	b := f.CreateBooking(t, datatest.BookingOptions{})
 	p := f.CreatePayment(t, b.ID, 1000, 70, nil)
 
@@ -180,7 +180,7 @@ func TestRefundAmountCannotBeNull(t *testing.T) {
 	// Every payment ever inserted must now read as a number rather than a NULL,
 	// which is the property PaymentDetails depends on.
 	var nulls int
-	if scanErr := f.Pool.QueryRow(context.Background(),
+	if scanErr := f.DB.QueryRow(context.Background(),
 		`SELECT count(*) FROM payments WHERE refund_amount IS NULL`).Scan(&nulls); scanErr != nil {
 		t.Fatalf("counting null refunds: %v", scanErr)
 	}
@@ -201,7 +201,7 @@ func TestRefundAmountCannotBeNull(t *testing.T) {
 // test is about: a constraint an operator cannot see enforced anywhere would
 // not be worth adding.
 func TestABookingsDurationMustBeOneTheGridSells(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	b := f.CreateBooking(t, datatest.BookingOptions{})
 
 	// 0 is excluded here: it is refused by the pre-existing
@@ -233,7 +233,7 @@ func TestABookingsDurationMustBeOneTheGridSells(t *testing.T) {
 // This test is here because zero must be unreachable through every other one:
 // a direct UPDATE, a raw INSERT, a future endpoint, a fixture.
 func TestACancellationWindowMustBeAWindow(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	for _, hours := range []int{-500, -1, 0, 169} {
 		t.Run(fmt.Sprintf("update/hours=%d", hours), func(t *testing.T) {
@@ -292,7 +292,7 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 // ran against the wrong row — and it silently inverts the no-show history an
 // owner uses to decide who to refuse.
 func TestClientCountersCannotGoNegative(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	err := exec(f, `UPDATE clients SET total_bookings = -10 WHERE id = $1`, f.ClientID)
 	refusedByConstraint(t, err, checkViolation, clientsCountersNonNegative)
@@ -312,7 +312,7 @@ func TestClientCountersCannotGoNegative(t *testing.T) {
 // "closes after midnight". What is genuinely wrong is a zero-length window on an
 // open day, because the same wrap turns it into a 24-hour one.
 func TestAnOpenDayCannotHaveAZeroLengthWindow(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	err := exec(f, `
 		INSERT INTO complex_schedules (complex_id, day, open_time, close_time, is_closed)
@@ -338,7 +338,7 @@ func TestAnOpenDayCannotHaveAZeroLengthWindow(t *testing.T) {
 // first — two users, one hash, arbitrary identity. Both sibling token tables
 // have carried UNIQUE since the initial schema; this one carried a plain index.
 func TestARefreshTokenHashIsUnique(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	hash := []byte("hash-" + uuid.NewString())
 
 	accepted(t, exec(f, `
@@ -360,7 +360,7 @@ func TestARefreshTokenHashIsUnique(t *testing.T) {
 // identifies a court by its name, so the ambiguity ends up in a year of records
 // rather than in one table.
 func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// Through the real store, so the domain error the handler will see is proven
@@ -378,7 +378,7 @@ func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
 
 	// The uniqueness is per complex. Another tenant's "Court 1" is a different
 	// court, and the constraint must not reach across the tenant boundary.
-	other := datatest.NewFixture(t)
+	other := datatest.Isolated(t)
 	accepted(t, exec(other, `INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1 bis')`, other.ComplexID),
 		"a court name in a different complex")
 
@@ -399,7 +399,7 @@ func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
 // overlapping rules, so the price the availability grid shows and the price the
 // booking handler charges come from two different sorts of the same ambiguity.
 func TestTwoPriceRulesCannotCoverTheSameMinute(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	base := &courtstore.CourtPrice{CourtID: f.CourtID, Price: 10_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
@@ -432,7 +432,7 @@ func TestTwoPriceRulesCannotCoverTheSameMinute(t *testing.T) {
 		VALUES ($1, 12000, 'saturday', '08:00', '23:00')`, f.CourtID),
 		"the same window on a different weekday")
 
-	other := datatest.NewFixture(t)
+	other := datatest.Isolated(t)
 	accepted(t, exec(other, `
 		INSERT INTO court_prices (court_id, price, day_type, time_from, time_to)
 		VALUES ($1, 12000, 'monday', '08:00', '23:00')`, other.CourtID),
@@ -446,8 +446,8 @@ func TestTwoPriceRulesCannotCoverTheSameMinute(t *testing.T) {
 // own booking's complex_id lands in one owner's monthly total while its booking
 // sits in another's — and neither report looks wrong.
 func TestAPaymentCannotBelongToADifferentComplexThanItsBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
-	other := datatest.NewFixture(t)
+	f := datatest.Shared(t)
+	other := datatest.Shared(t)
 
 	b := f.CreateBooking(t, datatest.BookingOptions{})
 	p := f.CreatePayment(t, b.ID, 1000, 70, nil)
@@ -463,7 +463,7 @@ func TestAPaymentCannotBelongToADifferentComplexThanItsBooking(t *testing.T) {
 	// The revenue query the misrouted row would have polluted still sees nothing
 	// belonging to the other tenant.
 	var stolen int
-	if scanErr := f.Pool.QueryRow(context.Background(),
+	if scanErr := f.DB.QueryRow(context.Background(),
 		`SELECT count(*) FROM payments WHERE complex_id = $1`, other.ComplexID).Scan(&stolen); scanErr != nil {
 		t.Fatalf("counting the other tenant's payments: %v", scanErr)
 	}
@@ -477,8 +477,8 @@ func TestAPaymentCannotBelongToADifferentComplexThanItsBooking(t *testing.T) {
 // complex and another tenant's court was not a bug to be found in a handler — it
 // was a shape the schema endorsed.
 func TestABookingCannotMixTenants(t *testing.T) {
-	f := datatest.NewFixture(t)
-	other := datatest.NewFixture(t)
+	f := datatest.Shared(t)
+	other := datatest.Shared(t)
 
 	b := f.CreateBooking(t, datatest.BookingOptions{})
 
@@ -505,7 +505,7 @@ func TestABookingCannotMixTenants(t *testing.T) {
 // booking now claims nobody paid and the court is theirs; idx_bookings_no_double
 // catches it only if somebody else already bought that exact minute.
 func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	b := f.CreateBooking(t, datatest.BookingOptions{})
 
 	accepted(t, exec(f,
@@ -548,7 +548,7 @@ func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
 // (unpaid, none), which the old enum refused as refunded -> unpaid and a rule
 // on the collection axis alone would wave through.
 func TestARefundCannotExistWithoutMoneyHavingBeenCollected(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	b := f.CreateBooking(t, datatest.BookingOptions{CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
 	for _, refund := range []string{bookingstore.RefundStatusPending, bookingstore.RefundStatusPartial, bookingstore.RefundStatusFull} {
@@ -566,7 +566,7 @@ func TestARefundCannotExistWithoutMoneyHavingBeenCollected(t *testing.T) {
 // the expired-pending sweep (GetExpiredPendingEnriched), which cancels pending
 // bookings on a timer.
 func TestAFinishedBookingCannotBeResurrected(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	for _, terminal := range []string{"cancelled", "completed", "no_show"} {
 		for _, live := range []string{"pending", "confirmed"} {
@@ -592,7 +592,7 @@ func TestAFinishedBookingCannotBeResurrected(t *testing.T) {
 // is a line in internal/payments or internal/bookings, and a trigger that
 // refused any of them would break the product to protect it.
 func TestTheTransitionsTheMoneyPathsPerformStillGoThrough(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	tests := []struct {
 		name                       string
@@ -642,7 +642,7 @@ func TestTheTransitionsTheMoneyPathsPerformStillGoThrough(t *testing.T) {
 // at all: the WHEN clause keeps it out of the way of every notes edit, reminder
 // flag and deposit adjustment the application performs.
 func TestTheTriggerIgnoresWritesThatDoNotChangeStatus(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	b := f.CreateBooking(t, datatest.BookingOptions{})
 
 	accepted(t, exec(f, `UPDATE bookings SET status = 'cancelled' WHERE id = $1`, b.ID),

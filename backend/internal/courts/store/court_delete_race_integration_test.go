@@ -52,7 +52,7 @@ func holdCourtRow(t *testing.T, f *datatest.Fixture) (release func()) {
 	t.Helper()
 
 	ctx := context.Background()
-	conn, err := f.Pool.Acquire(ctx)
+	conn, err := f.SharedPool(t, "holdCourtRow").Acquire(ctx)
 	if err != nil {
 		t.Fatalf("acquiring the gate connection: %v", err)
 	}
@@ -84,7 +84,7 @@ func countBookingsOnCourt(t *testing.T, f *datatest.Fixture) int {
 	t.Helper()
 
 	var n int
-	if err := f.Pool.QueryRow(context.Background(),
+	if err := f.DB.QueryRow(context.Background(),
 		`SELECT COUNT(*) FROM bookings WHERE court_id = $1`, f.CourtID).Scan(&n); err != nil {
 		t.Fatalf("counting bookings: %v", err)
 	}
@@ -95,7 +95,7 @@ func courtIsDeleted(t *testing.T, f *datatest.Fixture) bool {
 	t.Helper()
 
 	var deleted bool
-	if err := f.Pool.QueryRow(context.Background(),
+	if err := f.DB.QueryRow(context.Background(),
 		`SELECT deleted_at IS NOT NULL FROM courts WHERE id = $1`, f.CourtID).Scan(&deleted); err != nil {
 		t.Fatalf("reading the court: %v", err)
 	}
@@ -126,7 +126,7 @@ func waitForRowLockWaiters(t *testing.T, f *datatest.Fixture, want int) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var waiting int
-		err := f.Pool.QueryRow(context.Background(), `
+		err := f.DB.QueryRow(context.Background(), `
 			SELECT COUNT(*) FROM pg_locks
 			WHERE NOT granted
 			  AND locktype IN ('tuple', 'transactionid')
@@ -158,7 +158,7 @@ func waitForRowLockWaiters(t *testing.T, f *datatest.Fixture, want int) {
 // A booking that never reads the court under a lock resumes, sees the snapshot
 // it took before the delete committed, and inserts onto a court that is gone.
 func TestBookingOnACourtDeletedMidTransactionIsRefused(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 	date := bookedDay(20)
 
@@ -198,7 +198,7 @@ func TestBookingOnACourtDeletedMidTransactionIsRefused(t *testing.T) {
 // snapshot, does not see the booking that just committed, and deletes the
 // court anyway.
 func TestDeletingACourtWhileABookingCommitsIsRefused(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 	date := bookedDay(21)
 

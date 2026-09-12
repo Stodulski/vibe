@@ -53,7 +53,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 	// the t.Run closures do not pass down as the defect it is named for.
 	t.Run("through GetBookedSlots", func(t *testing.T) {
 		t.Run("an unpaid pending stops blocking once it is stale", func(t *testing.T) {
-			f := datatest.NewFixture(t)
+			f := datatest.Isolated(t)
 			stale := newStaleBooking(t, f)
 
 			if booked := bookedStarts(t, f, stale.Date); contains(booked, stale.StartTime) {
@@ -62,7 +62,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 		})
 
 		t.Run("a deposit-paid pending of the same age still blocks", func(t *testing.T) {
-			f := datatest.NewFixture(t)
+			f := datatest.Isolated(t)
 
 			paid := f.NewBooking(depositPaidStaleBookingOptions())
 			if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), paid); err != nil {
@@ -81,7 +81,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 
 	t.Run("through InsertSafe", func(t *testing.T) {
 		t.Run("an unpaid pending lets a newcomer overlap it", func(t *testing.T) {
-			f := datatest.NewFixture(t)
+			f := datatest.Isolated(t)
 			newStaleBooking(t, f)
 
 			newcomer := f.NewBooking(overlappingBookingOptions())
@@ -91,7 +91,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 		})
 
 		t.Run("a deposit-paid pending refuses the same newcomer", func(t *testing.T) {
-			f := datatest.NewFixture(t)
+			f := datatest.Isolated(t)
 
 			paid := f.NewBooking(depositPaidStaleBookingOptions())
 			if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), paid); err != nil {

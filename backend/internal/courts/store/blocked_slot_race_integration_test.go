@@ -44,7 +44,7 @@ func bookedDay(d int) time.Time {
 func insertLiveBooking(t *testing.T, f *datatest.Fixture, date time.Time, start string, durationMinutes int) {
 	t.Helper()
 
-	_, err := f.Pool.Exec(context.Background(), `
+	_, err := f.DB.Exec(context.Background(), `
 		INSERT INTO bookings (
 			complex_id, court_id, client_id, date,
 			start_time, duration_minutes,
@@ -62,7 +62,7 @@ func countBlocks(t *testing.T, f *datatest.Fixture) int {
 	t.Helper()
 
 	var n int
-	err := f.Pool.QueryRow(context.Background(),
+	err := f.DB.QueryRow(context.Background(),
 		`SELECT COUNT(*) FROM blocked_slots WHERE court_id = $1`, f.CourtID).Scan(&n)
 	if err != nil {
 		t.Fatalf("counting blocked slots: %v", err)
@@ -77,7 +77,7 @@ func countBlocks(t *testing.T, f *datatest.Fixture) int {
 // the handler, outside any transaction, which is what made the race below
 // possible in the first place.
 func TestBlockOverALiveBookingIsRefused(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 	date := bookedDay(1)
 
@@ -108,7 +108,7 @@ func TestBlockOverALiveBookingIsRefused(t *testing.T) {
 // that takes no lock does not queue (waitForLockWaiters says so), runs its
 // checks before the booking exists, and commits on top of it.
 func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 	date := bookedDay(2)
 
@@ -152,7 +152,7 @@ func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
 // there; one that locks only D sails past, checks blocked_slots before the
 // block is committed, and sells the court.
 func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 	date := bookedDay(10)
 	nextDay := date.AddDate(0, 0, 1)
@@ -173,7 +173,7 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 
 	// 00:00-01:00 on the following day: the hours the booking runs into, and a
 	// row the booking's own date filter never had anything to do with.
-	_, err := f.Pool.Exec(ctx, `
+	_, err := f.DB.Exec(ctx, `
 		INSERT INTO blocked_slots (court_id, date, start_time, end_time, reason)
 		VALUES ($1, $2, '00:00'::time, '01:00'::time, 'maintenance')`,
 		f.CourtID, nextDay)
@@ -189,7 +189,7 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 	}
 
 	var booked int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM bookings WHERE court_id = $1`, f.CourtID).Scan(&booked); err != nil {
 		t.Fatalf("counting bookings: %v", err)
 	}

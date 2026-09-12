@@ -25,7 +25,7 @@ import (
 // under test is specifically what the database does when two UPDATEs
 // contend for the same row at once.
 func TestTwoConcurrentSweepersOnlyOneClaimsAnOrphan(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
@@ -73,7 +73,7 @@ func TestTwoConcurrentSweepersOnlyOneClaimsAnOrphan(t *testing.T) {
 // so it is worth proving against a real query planner and a real column
 // value rather than only the Go struct this file otherwise exercises.
 func TestGetRefundIntentOrphansFindsAnAgedMarkerAndNothingElse(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	aged := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: "08:00", EndTime: "09:30"})
@@ -108,7 +108,7 @@ func TestGetRefundIntentOrphansFindsAnAgedMarkerAndNothingElse(t *testing.T) {
 // 12.5), so a booking that reaches the ordinary claim-first refund path
 // never lingers as a false orphan behind it.
 func TestClaimRefundLeavesTheRefundIntentMarkerCleared(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
@@ -130,12 +130,12 @@ func TestClaimRefundLeavesTheRefundIntentMarkerCleared(t *testing.T) {
 // design's own caveat), but this proves it refuses the value directly rather
 // than only by inspection of the migration.
 func TestARefundIntentMarkerIsRefusedOnAConfirmedBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "confirmed"})
 
-	_, err := f.Pool.Exec(ctx,
+	_, err := f.DB.Exec(ctx,
 		`UPDATE bookings SET refund_intent_at = NOW() WHERE id = $1`, booking.ID)
 	if err == nil {
 		t.Fatal("the bookings_refund_intent_only_when_cancelled CHECK must refuse a marker on a non-cancelled row")
@@ -148,7 +148,7 @@ func TestARefundIntentMarkerIsRefusedOnAConfirmedBooking(t *testing.T) {
 func setRefundIntentAt(f *datatest.Fixture, t *testing.T, id uuid.UUID, at time.Time) time.Time {
 	t.Helper()
 
-	tag, err := f.Pool.Exec(context.Background(),
+	tag, err := f.DB.Exec(context.Background(),
 		`UPDATE bookings SET refund_intent_at = $2 WHERE id = $1`, id, at)
 	if err != nil {
 		t.Fatalf("setting refund_intent_at for booking %s: %v", id, err)
@@ -158,7 +158,7 @@ func setRefundIntentAt(f *datatest.Fixture, t *testing.T, id uuid.UUID, at time.
 	}
 
 	var stored time.Time
-	if err := f.Pool.QueryRow(context.Background(),
+	if err := f.DB.QueryRow(context.Background(),
 		`SELECT refund_intent_at FROM bookings WHERE id = $1`, id,
 	).Scan(&stored); err != nil {
 		t.Fatalf("reading back refund_intent_at for booking %s: %v", id, err)
@@ -172,7 +172,7 @@ func readRefundIntentAt(f *datatest.Fixture, t *testing.T, id uuid.UUID) *time.T
 	t.Helper()
 
 	var result *time.Time
-	err := f.Pool.QueryRow(context.Background(),
+	err := f.DB.QueryRow(context.Background(),
 		`SELECT refund_intent_at FROM bookings WHERE id = $1`, id,
 	).Scan(&result)
 	if err != nil {

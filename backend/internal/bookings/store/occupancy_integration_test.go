@@ -63,7 +63,7 @@ func contains(haystack []string, needle string) bool {
 // A live booking occupies its hours in all three places. This is the half of
 // the predicate that must not be lost while fixing the other half.
 func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), first); err != nil {
@@ -84,7 +84,7 @@ func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
 // A cancelled booking releases its hours in all three places — the one status
 // every site already agreed on.
 func TestACancelledBookingReleasesItsSlotEverywhere(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), first); err != nil {
@@ -106,7 +106,7 @@ func TestACancelledBookingReleasesItsSlotEverywhere(t *testing.T) {
 // and the assertions run in the order a client hits them: what the grid shows,
 // what the overlap check decides, and what the index permits.
 func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	if err := f.Stores.Bookings.InsertSafe(f.Scoped(context.Background()), first); err != nil {
@@ -182,7 +182,7 @@ func noShowThenResale(t *testing.T, f *datatest.Fixture, first *bookingstore.Boo
 // The dashboard's headline counters. One court-hour was sold twice, and it is
 // still one court-hour: two rows, ninety minutes, one booking on the board.
 func TestTheDashboardCountsAResoldNoShowHourOnce(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	noShowThenResale(t, f, first, datatest.BookingOptions{})
@@ -228,7 +228,7 @@ func TestTheDashboardCountsAResoldNoShowHourOnce(t *testing.T) {
 // weeks), clamped at 100 — so the double-count shows up as a hot cell rather
 // than as an impossible number.
 func TestTheOccupancyHeatmapCountsAResoldNoShowHourOnce(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	noShowThenResale(t, f, first, datatest.BookingOptions{})
@@ -260,7 +260,7 @@ func TestTheOccupancyHeatmapCountsAResoldNoShowHourOnce(t *testing.T) {
 // The "next up" list. A booking nobody is coming to must not sit above the one
 // that replaced it.
 func TestTheUpcomingListShowsTheResaleAndNotTheNoShow(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 	resale := noShowThenResale(t, f, first, datatest.BookingOptions{})
@@ -293,7 +293,7 @@ func TestTheUpcomingListShowsTheResaleAndNotTheNoShow(t *testing.T) {
 // told to do something the product refuses, until the date falls behind
 // CURRENT_DATE on its own.
 func TestANoShowStopsBlockingTheDeletionOfTheCourtItReleased(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	b := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 
@@ -333,7 +333,7 @@ func TestANoShowStopsBlockingTheDeletionOfTheCourtItReleased(t *testing.T) {
 // takings are both, and aligning this query to the occupancy predicate would
 // erase the forfeit from the owner's cash view.
 func TestTheDailyPaymentSummaryStillCountsWhatTheAbsentClientPaid(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	first := f.CreateBooking(t, datatest.BookingOptions{
 		StartTime: "18:00", EndTime: "19:30",

@@ -11,8 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stodulski/vibe-server/internal/data"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
@@ -24,33 +22,51 @@ import (
 // with a backoff, and an attempt that died has to become visible again.
 
 // webhookFixture is one test's worth of webhook events, scoped by an external id
-// nothing else uses so cleanup deletes exactly this test's rows.
+// nothing else uses.
+//
+// It wraps a datatest.Fixture rather than opening its own pool: webhook_events
+// carries no complex_id, so the seeded owner/complex/court/client this table
+// never touches ride along unused, and every store call goes through the same
+// handle whether that fixture is Isolated or Shared.
 type webhookFixture struct {
-	Pool       *pgxpool.Pool
+	*datatest.Fixture
 	Store      *paymentstore.WebhookEvents
 	ExternalID string
 }
 
+// newWebhookFixture is the default: every statement runs inside one
+// transaction the harness rolls back, so there is nothing here for a delete to
+// scope by external id.
 func newWebhookFixture(t *testing.T) *webhookFixture {
 	t.Helper()
+	return wrapWebhookFixture(datatest.Isolated(t))
+}
 
-	pool := datatest.SetupTestDB(t)
-	f := &webhookFixture{
-		Pool:       pool,
-		Store:      &paymentstore.WebhookEvents{DB: data.NewDB(pool)},
-		ExternalID: "mp-" + uuid.NewString(),
-	}
+// newSharedWebhookFixture is for the one test that must read a row back
+// through a genuinely separate connection to prove it was committed; see
+// datatest.Fixture. Its rows are real, so cleanup deletes them by external id
+// the way the pre-transactional fixture always did.
+func newSharedWebhookFixture(t *testing.T) *webhookFixture {
+	t.Helper()
 
+	f := wrapWebhookFixture(datatest.Shared(t))
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if _, err := pool.Exec(ctx,
+		if _, err := f.DB.Exec(ctx,
 			`DELETE FROM webhook_events WHERE external_id = $1`, f.ExternalID); err != nil {
 			t.Errorf("deleting webhook events: %v", err)
 		}
 	})
-
 	return f
+}
+
+func wrapWebhookFixture(f *datatest.Fixture) *webhookFixture {
+	return &webhookFixture{
+		Fixture:    f,
+		Store:      &paymentstore.WebhookEvents{DB: f.DB},
+		ExternalID: "mp-" + uuid.NewString(),
+	}
 }
 
 // record inserts one event through the real store.
@@ -85,7 +101,7 @@ func (f *webhookFixture) readEvent(t *testing.T, id uuid.UUID) webhookEventState
 	t.Helper()
 
 	var s webhookEventState
-	err := f.Pool.QueryRow(context.Background(), `
+	err := f.DB.QueryRow(context.Background(), `
 		SELECT status, retry_count, max_retries, next_retry_at,
 		       COALESCE(last_error, ''), processed_at, updated_at
 		FROM webhook_events WHERE id = $1`, id,
@@ -110,7 +126,7 @@ func (f *webhookFixture) backdateWebhookEvent(t *testing.T, id uuid.UUID, age ti
 
 	ctx := context.Background()
 
-	tx, err := f.Pool.Begin(ctx)
+	tx, err := f.DB.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin backdate tx: %v", err)
 	}
@@ -176,7 +192,7 @@ func dueContains(events []*paymentstore.WebhookEvent, id uuid.UUID) bool {
 // connection of its own, outside the pool the store used, so an uncommitted write
 // would be invisible to it by definition.
 func TestRecordingAWebhookEventCommitsBeforeItIsAcknowledged(t *testing.T) {
-	f := newWebhookFixture(t)
+	f := newSharedWebhookFixture(t)
 	ctx := context.Background()
 
 	event := f.record(t, "payment")
@@ -225,7 +241,7 @@ func TestTwoDeliveriesForOnePaymentAreBothRecorded(t *testing.T) {
 	}
 
 	var count int
-	if err := f.Pool.QueryRow(context.Background(),
+	if err := f.DB.QueryRow(context.Background(),
 		`SELECT COUNT(*) FROM webhook_events WHERE provider = 'mercadopago' AND external_id = $1`, f.ExternalID,
 	).Scan(&count); err != nil {
 		t.Fatalf("counting deliveries: %v", err)
@@ -462,7 +478,7 @@ func TestRetentionDeletesOldProcessedEventsAndNothingElse(t *testing.T) {
 	if err := f.Store.MarkProcessed(ctx, old.ID); err != nil {
 		t.Fatalf("MarkProcessed: %v", err)
 	}
-	if _, err := f.Pool.Exec(ctx,
+	if _, err := f.DB.Exec(ctx,
 		`UPDATE webhook_events SET processed_at = NOW() - INTERVAL '200 days' WHERE id = $1`, old.ID); err != nil {
 		t.Fatalf("ageing the processed event: %v", err)
 	}
@@ -480,7 +496,7 @@ func TestRetentionDeletesOldProcessedEventsAndNothingElse(t *testing.T) {
 			t.Fatalf("MarkFailed: %v", err)
 		}
 	}
-	if _, err := f.Pool.Exec(ctx,
+	if _, err := f.DB.Exec(ctx,
 		`UPDATE webhook_events SET processed_at = NOW() - INTERVAL '200 days' WHERE id = $1`, stuck.ID); err != nil {
 		t.Fatalf("ageing the exhausted event: %v", err)
 	}
@@ -494,7 +510,7 @@ func TestRetentionDeletesOldProcessedEventsAndNothingElse(t *testing.T) {
 	}
 
 	var survives bool
-	if err := f.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM webhook_events WHERE id = $1)`, old.ID).Scan(&survives); err != nil {
+	if err := f.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM webhook_events WHERE id = $1)`, old.ID).Scan(&survives); err != nil {
 		t.Fatalf("checking the aged event: %v", err)
 	}
 	if survives {
@@ -510,7 +526,7 @@ func TestRetentionDeletesOldProcessedEventsAndNothingElse(t *testing.T) {
 		{"an exhausted event nobody has resolved", stuck.ID},
 	} {
 		var exists bool
-		if err := f.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM webhook_events WHERE id = $1)`, kept.id).Scan(&exists); err != nil {
+		if err := f.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM webhook_events WHERE id = $1)`, kept.id).Scan(&exists); err != nil {
 			t.Fatalf("checking %s: %v", kept.name, err)
 		}
 		if !exists {
@@ -597,7 +613,7 @@ func TestAnExhaustedEventComesBackWhenItsBackoffElapses(t *testing.T) {
 	ctx := context.Background()
 
 	event := f.record(t, "payment")
-	if _, err := f.Pool.Exec(ctx, `
+	if _, err := f.DB.Exec(ctx, `
 		UPDATE webhook_events
 		SET status = 'exhausted', retry_count = max_retries, next_retry_at = NOW() - INTERVAL '1 minute'
 		WHERE id = $1`, event.ID); err != nil {
