@@ -97,7 +97,7 @@ func (r *stubRecorder) Record(e audit.Entry) { r.entries = append(r.entries, e) 
 func newTestHandler(store *stubStore) (*Handler, *stubCache, *stubRecorder) {
 	cache, recorder := &stubCache{}, &stubRecorder{}
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	return NewHandler(store, store, cache, recorder, responder, false), cache, recorder
+	return NewHandler(NewService(store, store, cache, recorder), responder, false), cache, recorder
 }
 
 // operatorRequest builds a request from an authenticated superadmin, with the
