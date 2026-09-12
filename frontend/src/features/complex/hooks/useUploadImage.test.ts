@@ -73,6 +73,47 @@ describe('useUploadImage', () => {
     expect(toast.error).toHaveBeenCalledWith(t.complex.imageUploadError);
     expect(toast.error).not.toHaveBeenCalledWith('Upload failed');
   });
+
+  // ERR-02: a raw, untranslated error from outside the app's own validation
+  // (here standing in for `compressImage`'s `createImageBitmap` throwing a
+  // browser-internal DOMException) must not reach the toast verbatim.
+  it('reports the generic i18n upload error, not a raw technical message, for an unexpected failure', async () => {
+    const { compressImage } = await import('../utils/compressImage');
+    vi.mocked(compressImage).mockRejectedValueOnce(new Error('The source image could not be decoded'));
+    const { toast } = await import('sonner');
+
+    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createWrapper() });
+    result.current.mutate({
+      file: new File(['x'], 'logo.png', { type: 'image/png' }),
+      type: 'logo',
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(t.complex.imageUploadError);
+    expect(toast.error).not.toHaveBeenCalledWith('The source image could not be decoded');
+  });
+
+  // Its own validation message stays specific and in Spanish, unlike the
+  // generic fallback above — this is the one case where showing `error.message`
+  // as-is is correct, since the app itself wrote it.
+  it('reports the specific "invalid type" message for a rejected file type', async () => {
+    const { toast } = await import('sonner');
+
+    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createWrapper() });
+    result.current.mutate({
+      file: new File(['x'], 'logo.gif', { type: 'image/gif' }),
+      type: 'logo',
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(t.complex.imageInvalidType);
+  });
 });
 
 describe('useDeleteImage', () => {

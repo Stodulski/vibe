@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 import { format } from 'date-fns/format';
 import { es } from 'date-fns/locale/es';
-import { HTTPError } from 'ky';
+import { HTTPError, NetworkError, TimeoutError } from 'ky';
 import { getFieldErrors, translateServerError } from '@/shared/lib/serverErrors';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { VENUE_TIME_ZONE } from '@/shared/lib/instants';
@@ -229,6 +229,18 @@ export function getApiError(body: unknown, fallback: string): string {
  * "body stream already read" — silently swallowing the real backend
  * message and always falling back to the generic i18n text.
  */
+// Browsers reject a `fetch()` that never reached the server with a bare
+// `TypeError` whose message is runtime-specific: "Failed to fetch" (Chromium),
+// "NetworkError when attempting to fetch resource." (Firefox), "Load failed"
+// (WebKit). Every other `TypeError` is a programming defect ("x is not a
+// function", reading a property of `undefined`) and must keep the caller's
+// fallback, so only these transport messages count as connectivity failures.
+const FETCH_FAILURE_MESSAGES = ['Failed to fetch', 'NetworkError when attempting to fetch resource', 'Load failed'];
+
+function isFetchFailure(error: unknown): error is TypeError {
+  return error instanceof TypeError && FETCH_FAILURE_MESSAGES.some((m) => error.message.startsWith(m));
+}
+
 export function getHttpErrorMessage(error: unknown, fallback: string): string {
   // The request succeeded but the body didn't match the schema — a
   // caller-specific `fallback` ("no pudimos cancelar la reserva") would
@@ -236,8 +248,27 @@ export function getHttpErrorMessage(error: unknown, fallback: string): string {
   // answers with the generic "invalid response" copy instead, regardless of
   // what the caller passed.
   if (error instanceof ApiResponseError) return t.common.invalidResponse;
-  if (!(error instanceof HTTPError)) return fallback;
-  return getApiError(error.data, fallback);
+  if (error instanceof HTTPError) return getApiError(error.data, fallback);
+
+  // No response ever came back — a request that timed out (`TimeoutError`),
+  // a dropped/refused connection (`NetworkError`, or the fetch-shaped
+  // `TypeError` browsers throw for the same thing, see `isFetchFailure`), or
+  // the browser already knowing it's offline. None of these are the caller's fault the way a 4xx/5xx is,
+  // so they get the same "check your connection" copy regardless of which
+  // caller-specific `fallback` was passed — the same reasoning as
+  // `ApiResponseError` above.
+  if (error instanceof TimeoutError || error instanceof NetworkError || isFetchFailure(error)) {
+    return t.common.networkError;
+  }
+  // `typeof navigator.onLine === 'boolean'` (not just `typeof navigator !==
+  // 'undefined'`): Node itself defines a global `navigator` without an
+  // `onLine` property, which would otherwise read as `undefined` and make
+  // every non-HTTP error look "offline".
+  if (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean' && !navigator.onLine) {
+    return t.common.networkError;
+  }
+
+  return fallback;
 }
 
 /**
