@@ -26,9 +26,13 @@ export const publicBookingApi = {
       .json()
       .then(parseWith(availabilityEnvelopeSchema, 'publicBookingApi.getAvailability')),
 
-  createBooking: (data: PublicBookingRequest) =>
+  /**
+   * `idempotencyKey` makes a retried submit replay the first answer instead
+   * of creating a second booking — see `useIdempotencyKey`.
+   */
+  createBooking: (data: PublicBookingRequest, idempotencyKey: string) =>
     api
-      .post('book', { json: data })
+      .post('book', { json: data, headers: { 'Idempotency-Key': idempotencyKey } })
       .json()
       .then(parseWith(publicBookingResponseSchema, 'publicBookingApi.createBooking')),
 

@@ -4,14 +4,18 @@ import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
+import { useIdempotencyKey } from '@/shared/lib/idempotency';
 import type { Booking, BookingsListResponse } from '@/shared/types/api.types';
 
 export function useMarkManualRefund(complexId: string, date: string) {
   const queryClient = useQueryClient();
+  const attempt = useIdempotencyKey();
 
   return useMutation({
-    mutationFn: ({ bookingId }: { bookingId: string }) => bookingsApi.markManualRefund(complexId, bookingId),
+    mutationFn: ({ bookingId }: { bookingId: string }) =>
+      bookingsApi.markManualRefund(complexId, bookingId, attempt.current()),
     onMutate: async ({ bookingId }) => {
+      attempt.begin();
       await queryClient.cancelQueries({
         queryKey: queryKeys.bookings.byDate(complexId, date),
       });

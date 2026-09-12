@@ -4,14 +4,19 @@ import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
+import { useIdempotencyKey } from '@/shared/lib/idempotency';
 import type { CreateBookingRequest } from '@/shared/types/api.types';
 
 export function useCreateBooking(complexId: string) {
   const t = ES_AR;
   const queryClient = useQueryClient();
+  const attempt = useIdempotencyKey();
 
   return useMutation({
-    mutationFn: (data: CreateBookingRequest) => bookingsApi.create(complexId, data),
+    mutationFn: (data: CreateBookingRequest) => bookingsApi.create(complexId, data, attempt.current()),
+    onMutate: () => {
+      attempt.begin();
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.byComplex(complexId),

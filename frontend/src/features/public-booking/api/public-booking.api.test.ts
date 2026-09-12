@@ -118,11 +118,13 @@ describe('publicBookingApi', () => {
     expect(receivedDuration).toBe('90');
   });
 
-  it('createBooking calls POST book with the request body', async () => {
+  it('createBooking calls POST book with the request body and the attempt Idempotency-Key', async () => {
     let receivedBody: unknown;
+    let receivedKey: string | null = null;
     server.use(
       http.post('*/book', async ({ request }) => {
         receivedBody = await request.json();
+        receivedKey = request.headers.get('Idempotency-Key');
         return HttpResponse.json(CREATE_BOOKING_RESPONSE);
       }),
     );
@@ -138,8 +140,12 @@ describe('publicBookingApi', () => {
       client_phone: '1155550000',
       client_email: 'juan@test.com',
     };
-    await publicBookingApi.createBooking(data);
+    await publicBookingApi.createBooking(data, 'attempt-key-1');
+
     expect(receivedBody).toEqual(data);
+    // The server deduplicates a retried booking on this header, so it has to
+    // be on the wire, not merely accepted as an argument.
+    expect(receivedKey).toBe('attempt-key-1');
   });
 });
 

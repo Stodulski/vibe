@@ -44,9 +44,10 @@ export const bookingsApi = {
       .json()
       .then(parseWith(bookingDetailResponseSchema, 'bookingsApi.getById')),
 
-  create: (complexId: string, data: CreateBookingRequest): Promise<{ booking: Booking }> =>
+  /** `idempotencyKey`: see `useIdempotencyKey` — a retry must not book the slot twice. */
+  create: (complexId: string, data: CreateBookingRequest, idempotencyKey: string): Promise<{ booking: Booking }> =>
     api
-      .post(`complexes/${complexId}/bookings`, { json: data })
+      .post(`complexes/${complexId}/bookings`, { json: data, headers: { 'Idempotency-Key': idempotencyKey } })
       .json()
       .then(parseWith(bookingEnvelopeSchema, 'bookingsApi.create')),
 
@@ -58,14 +59,17 @@ export const bookingsApi = {
       .json()
       .then(parseWith(cancelBookingResponseSchema, 'bookingsApi.cancel')),
 
+  /** `idempotencyKey`: see `useIdempotencyKey` — a retry must not record the payment twice. */
   confirmPayment: (
     complexId: string,
     bookingId: string,
     data: ConfirmPaymentRequest,
+    idempotencyKey: string,
   ): Promise<ConfirmPaymentResponse> =>
     api
       .post(`complexes/${complexId}/bookings/${bookingId}/confirm-payment`, {
         json: data,
+        headers: { 'Idempotency-Key': idempotencyKey },
       })
       .json()
       .then(parseWith(confirmPaymentResponseSchema, 'bookingsApi.confirmPayment')),
@@ -76,9 +80,13 @@ export const bookingsApi = {
       .json()
       .then(parseWith(bookingEnvelopeSchema, 'bookingsApi.update')),
 
-  markManualRefund: (complexId: string, bookingId: string): Promise<ManualRefundResponse> =>
+  /** `idempotencyKey`: see `useIdempotencyKey` — a retry must not refund twice. */
+  markManualRefund: (complexId: string, bookingId: string, idempotencyKey: string): Promise<ManualRefundResponse> =>
     api
-      .post(`complexes/${complexId}/bookings/${bookingId}/manual-refund`, { json: {} })
+      .post(`complexes/${complexId}/bookings/${bookingId}/manual-refund`, {
+        json: {},
+        headers: { 'Idempotency-Key': idempotencyKey },
+      })
       .json()
       .then(parseWith(manualRefundResponseSchema, 'bookingsApi.markManualRefund')),
 };

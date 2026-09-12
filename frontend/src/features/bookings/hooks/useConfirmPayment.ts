@@ -4,16 +4,19 @@ import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
+import { useIdempotencyKey } from '@/shared/lib/idempotency';
 import { applyOptimisticPayment } from './applyOptimisticPayment';
 import type { Booking, BookingsListResponse, ConfirmPaymentRequest } from '@/shared/types/api.types';
 
 export function useConfirmPayment(complexId: string, date: string) {
   const queryClient = useQueryClient();
+  const attempt = useIdempotencyKey();
 
   return useMutation({
     mutationFn: ({ bookingId, data }: { bookingId: string; data: ConfirmPaymentRequest }) =>
-      bookingsApi.confirmPayment(complexId, bookingId, data),
+      bookingsApi.confirmPayment(complexId, bookingId, data, attempt.current()),
     onMutate: async ({ bookingId, data }) => {
+      attempt.begin();
       await queryClient.cancelQueries({
         queryKey: queryKeys.bookings.byDate(complexId, date),
       });
