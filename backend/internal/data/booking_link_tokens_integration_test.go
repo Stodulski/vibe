@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -35,7 +36,7 @@ func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: data.CollectionStatusUnpaid, Public: true})
+	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
 	if err := f.Models.Bookings.InsertSafe(ctx, b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
@@ -229,7 +230,7 @@ func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: data.CollectionStatusUnpaid, Public: true})
+	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
 	if err := f.Models.Bookings.InsertSafe(ctx, b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}

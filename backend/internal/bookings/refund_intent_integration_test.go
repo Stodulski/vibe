@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -159,7 +159,7 @@ func (*discard) Write(p []byte) (int, error) { return len(p), nil }
 // start time is two hours out against the complex's 24-hour window, created
 // long enough ago that both the window and the grace period have passed —
 // the real-database twin of cancel_test.go's outOfWindowBooking.
-func (f *integrationFixture) createOutOfWindowBooking(t *testing.T) *data.Booking {
+func (f *integrationFixture) createOutOfWindowBooking(t *testing.T) *bookingstore.Booking {
 	t.Helper()
 	ctx := context.Background()
 
@@ -186,13 +186,13 @@ func (f *integrationFixture) createOutOfWindowBooking(t *testing.T) *data.Bookin
 		start = time.Date(now.Year(), now.Month(), now.Day(), 8, 0, 0, 0, timezone.Argentina).AddDate(0, 0, 1)
 	}
 
-	b := &data.Booking{
+	b := &bookingstore.Booking{
 		ComplexID: f.complexID, CourtID: f.courtID, ClientID: f.clientID,
 		Date:            start,
 		StartTime:       start.Format("15:04"),
 		DurationMinutes: 90, Price: 500_000, DepositAmount: 150_000,
-		Status: "confirmed", CollectionStatus: data.CollectionStatusDepositPaid,
-		RefundStatus: data.RefundStatusNone,
+		Status: "confirmed", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
+		RefundStatus: bookingstore.RefundStatusNone,
 	}
 	if err := f.models.Bookings.Insert(ctx, b); err != nil {
 		t.Fatalf("creating booking: %v", err)
@@ -261,8 +261,8 @@ func TestAnOutOfWindowPublicCancelIsNeverFoundByTheSweep(t *testing.T) {
 	}
 
 	status, collectionStatus, refundStatus := f.readBookingState(t, booking.ID)
-	if status != "cancelled" || collectionStatus != data.CollectionStatusDepositPaid ||
-		refundStatus != data.RefundStatusNone {
+	if status != "cancelled" || collectionStatus != bookingstore.CollectionStatusDepositPaid ||
+		refundStatus != bookingstore.RefundStatusNone {
 		t.Fatalf("want the orphan's exact row shape (cancelled/deposit_paid/none); got %s/%s/%s",
 			status, collectionStatus, refundStatus)
 	}

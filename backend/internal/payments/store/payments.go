@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	slotguard "github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/db"
@@ -72,7 +73,7 @@ type Payments struct {
 // committed, so the SELECT that follows sees the real, current status instead
 // of a value that could still change out from under it. See H-15's comment on
 // InsertAndConfirmBooking's call site.
-func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *data.Booking) error {
+func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *bookingstore.Booking) error {
 	if b.Status != "confirmed" {
 		return nil
 	}
@@ -90,10 +91,10 @@ func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *da
 	// into ErrBookingNotConfirmable is what routed a paid-but-cancelled booking
 	// past the webhook's refund branch. See ErrBookingCancelled.
 	if status == "cancelled" {
-		return data.ErrBookingCancelled
+		return bookingstore.ErrBookingCancelled
 	}
 	if status == "completed" || status == "no_show" {
-		return data.ErrBookingNotConfirmable
+		return bookingstore.ErrBookingNotConfirmable
 	}
 	return nil
 }
@@ -118,7 +119,7 @@ func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *da
 // no_show does not claim the slot, so it is none of this function's business —
 // which is what keeps the auto-refund path (a cancelled booking whose payment is
 // being recorded so it can be sent back) working.
-func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *data.Booking) error {
+func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *bookingstore.Booking) error {
 	if b.Status != "confirmed" {
 		return nil
 	}
@@ -129,12 +130,12 @@ func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *data.Bo
 
 	// The booking being confirmed overlaps itself, so it is the one row the
 	// overlap query has to ignore.
-	taken, err := data.SlotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
+	taken, err := bookingstore.SlotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
 	if err != nil {
 		return err
 	}
 	if taken {
-		return data.ErrSlotUnavailable
+		return bookingstore.ErrSlotUnavailable
 	}
 	return nil
 }
@@ -242,7 +243,7 @@ func (m *Payments) Update(ctx context.Context, p *Payment) error {
 // When the booking is being confirmed, the transaction opens with
 // guardSlotStillFree: it takes the court/day advisory lock and refuses with
 // ErrSlotUnavailable if another live booking now covers these hours.
-func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *data.Booking) error {
+func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *bookingstore.Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -357,7 +358,7 @@ func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *d
 //
 // Like InsertAndConfirmBooking, a confirmation runs under guardSlotStillFree and
 // is refused with ErrSlotUnavailable when the slot was taken meanwhile.
-func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *data.Booking) error {
+func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *bookingstore.Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 

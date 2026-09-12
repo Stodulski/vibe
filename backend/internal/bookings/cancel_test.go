@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -61,7 +61,7 @@ func TestPublicCancelReportsTheRefundThatActuallyHappened(t *testing.T) {
 		t.Errorf("want the refunded amount; got %v", refund["amount"])
 	}
 	bookingBody, _ := body["booking"].(map[string]any)
-	if bookingBody["refund_status"] != data.RefundStatusFull {
+	if bookingBody["refund_status"] != bookingstore.RefundStatusFull {
 		t.Errorf("the refund status must reflect the row the refund wrote; got %v", bookingBody["refund_status"])
 	}
 }
@@ -99,7 +99,7 @@ func TestPublicCancelReportsPartialRefundWhenCashIsStillOwed(t *testing.T) {
 		t.Errorf(`the automatic half came back, so "refunded" must stay true; got %v`, body["refunded"])
 	}
 	bookingBody, _ := body["booking"].(map[string]any)
-	if bookingBody["refund_status"] != data.RefundStatusPartial {
+	if bookingBody["refund_status"] != bookingstore.RefundStatusPartial {
 		t.Errorf("the refund status must reflect the row the refund pipeline wrote; got %v", bookingBody["refund_status"])
 	}
 	refund, ok := body["refund"].(map[string]any)
@@ -260,7 +260,7 @@ func TestAnOutOfWindowCancelStillExpiresTheCheckoutLink(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := outOfWindowBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	preferenceID := "pref-1"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
@@ -380,24 +380,24 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 	}{
 		{
 			name:             "paid through MercadoPago",
-			collectionStatus: data.CollectionStatusDepositPaid,
-			refundStatus:     data.RefundStatusNone,
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
+			refundStatus:     bookingstore.RefundStatusNone,
 			payment:          &paymentstore.Payment{Status: "deposit_paid", MPPaymentID: &mpID},
 			wantRefund:       true,
 			wantMethod:       refundByMercadoPago,
 		},
 		{
 			name:             "paid in cash",
-			collectionStatus: data.CollectionStatusDepositPaid,
-			refundStatus:     data.RefundStatusNone,
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
+			refundStatus:     bookingstore.RefundStatusNone,
 			payment:          &paymentstore.Payment{Status: "deposit_paid", Method: "cash"},
 			wantRefund:       true,
 			wantMethod:       refundByHand,
 		},
 		{
 			name:             "never paid",
-			collectionStatus: data.CollectionStatusUnpaid,
-			refundStatus:     data.RefundStatusNone,
+			collectionStatus: bookingstore.CollectionStatusUnpaid,
+			refundStatus:     bookingstore.RefundStatusNone,
 			wantRefund:       false,
 			wantMethod:       refundNotApplicable,
 		},
@@ -405,15 +405,15 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 			// The automatic half already came back; what remains is exactly
 			// the cash/transfer balance only a person can return.
 			name:             "already partially refunded, cash still owed",
-			collectionStatus: data.CollectionStatusFullyPaid,
-			refundStatus:     data.RefundStatusPartial,
+			collectionStatus: bookingstore.CollectionStatusFullyPaid,
+			refundStatus:     bookingstore.RefundStatusPartial,
 			wantRefund:       true,
 			wantMethod:       refundByHand,
 		},
 		{
 			name:             "paid, and the payment cannot be read",
-			collectionStatus: data.CollectionStatusDepositPaid,
-			refundStatus:     data.RefundStatusNone,
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
+			refundStatus:     bookingstore.RefundStatusNone,
 			paymentErr:       errDatabase,
 			wantRefund:       true,
 			wantMethod:       refundByHand,
@@ -426,8 +426,8 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 			// promising an automatic refund here is exactly the failure this
 			// endpoint used to have.
 			name:             "paid through MercadoPago and in cash",
-			collectionStatus: data.CollectionStatusFullyPaid,
-			refundStatus:     data.RefundStatusNone,
+			collectionStatus: bookingstore.CollectionStatusFullyPaid,
+			refundStatus:     bookingstore.RefundStatusNone,
 			ledger: []*paymentstore.Payment{
 				{Status: "deposit_paid", MPPaymentID: &mpID},
 				{Status: "deposit_paid", Method: "cash"},
@@ -481,7 +481,7 @@ func TestCancelInfoReportsTheRefundAndPaidAmountInsideTheWindow(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusDepositPaid
+	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.payment = &paymentstore.Payment{
@@ -517,7 +517,7 @@ func TestCancelInfoReportsNoRefundButPaidAmountOutsideTheWindow(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := outOfWindowBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusDepositPaid
+	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.payment = &paymentstore.Payment{
@@ -551,7 +551,7 @@ func TestCancelInfoReportsZeroAmountsForAnUnpaidBooking(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
@@ -757,7 +757,7 @@ func TestStaffCancelAlwaysSetsTheRefundIntentMarkerWhenPaid(t *testing.T) {
 
 // outOfWindowBooking returns a booking two hours away against a 24-hour window,
 // created long enough ago that the grace period has passed.
-func outOfWindowBooking(complexID uuid.UUID) *data.Booking {
+func outOfWindowBooking(complexID uuid.UUID) *bookingstore.Booking {
 	b := futureBooking(complexID)
 	now := time.Now().In(timezone.Argentina)
 	b.Date = now
@@ -782,7 +782,7 @@ func TestAnUnreadableCredentialNeverExpiresThePreferenceAsThePlatform(t *testing
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := outOfWindowBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	preferenceID := "pref-1"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
@@ -829,7 +829,7 @@ func TestAFailedPreferenceExpiryIsRetried(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := outOfWindowBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	preferenceID := "pref-1"
 	sellerToken := "seller-token"
 	f.store.booking = booking
@@ -869,7 +869,7 @@ func TestAPreferenceThatCannotBeExpiredAlerts(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := outOfWindowBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	preferenceID := "pref-1"
 	sellerToken := "seller-token"
 	f.store.booking = booking
@@ -996,7 +996,7 @@ func TestTheCheckoutLinkIsClosedEvenWhenTheClientDisconnected(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	preferenceID := "pref-1"
 	sellerToken := "seller-token"
 	f.store.booking = booking

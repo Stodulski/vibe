@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -243,7 +244,7 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 	for _, p := range allPrices {
 		pricesByCourtID[p.CourtID] = append(pricesByCourtID[p.CourtID], p)
 	}
-	bookedByCourtID := make(map[uuid.UUID][]data.BookedSpan, len(courtIDs))
+	bookedByCourtID := make(map[uuid.UUID][]bookingstore.BookedSpan, len(courtIDs))
 	for _, s := range allBookedSlots {
 		bookedByCourtID[s.CourtID] = append(bookedByCourtID[s.CourtID], s)
 	}

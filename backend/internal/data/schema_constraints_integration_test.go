@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // SQLSTATEs the constraints in db/migrations/001_init.sql raise. checkViolation ("23514")
@@ -525,13 +525,13 @@ func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
 	refusedByConstraint(t, err, checkViolation, collectionStatusNoReturnToUnpaid)
 
 	status, collectionStatus, refundStatus := f.readBookingState(t, b.ID)
-	if status != "cancelled" || refundStatus != data.RefundStatusFull {
+	if status != "cancelled" || refundStatus != bookingstore.RefundStatusFull {
 		t.Errorf("a refused reversal must leave the booking cancelled+fully refunded; it reads %s+%s",
 			status, refundStatus)
 	}
 	// And the deposit the fixture collected is still on the row: the payment_status split
 	// put the refund on its own axis so it stops overwriting this one.
-	if collectionStatus != data.CollectionStatusDepositPaid {
+	if collectionStatus != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("the refund must not have erased what was collected; it reads %s", collectionStatus)
 	}
 }
@@ -545,16 +545,16 @@ func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
 // on the collection axis alone would wave through.
 func TestARefundCannotExistWithoutMoneyHavingBeenCollected(t *testing.T) {
 	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{CollectionStatus: data.CollectionStatusUnpaid})
+	b := f.createBooking(t, bookingOptions{CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
-	for _, refund := range []string{data.RefundStatusPending, data.RefundStatusPartial, data.RefundStatusFull} {
+	for _, refund := range []string{bookingstore.RefundStatusPending, bookingstore.RefundStatusPartial, bookingstore.RefundStatusFull} {
 		err := f.exec(`UPDATE bookings SET refund_status = $2 WHERE id = $1`, b.ID, refund)
 		refusedByConstraint(t, err, checkViolation, refundNeedsCollectedMoney)
 	}
 
-	if _, collectionStatus, refundStatus := f.readBookingState(t, b.ID); refundStatus != data.RefundStatusNone {
+	if _, collectionStatus, refundStatus := f.readBookingState(t, b.ID); refundStatus != bookingstore.RefundStatusNone {
 		t.Errorf("the booking must still read (%s, none); it reads (%s, %s)",
-			data.CollectionStatusUnpaid, collectionStatus, refundStatus)
+			bookingstore.CollectionStatusUnpaid, collectionStatus, refundStatus)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -251,7 +252,7 @@ func TestConfirmPaymentAnswersConflictWhenTheStoreCatchesAConcurrentCancellation
 	booking.Status = "pending"
 	f.store.booking = booking
 	f.linkResolver.booking = booking
-	f.payments.insertAndConfirmErr = data.ErrBookingNotConfirmable
+	f.payments.insertAndConfirmErr = bookingstore.ErrBookingNotConfirmable
 
 	w := httptest.NewRecorder()
 	f.handler.ConfirmPayment(w, ownerRequest(t, http.MethodPost, "/", complexID,
@@ -275,8 +276,8 @@ func TestUpdateGuardsThePartialRefundTransition(t *testing.T) {
 		target string
 		wantOK bool
 	}{
-		{"to a full refund is the one allowed move", data.RefundStatusFull, true},
-		{"back to no refund at all is refused", data.RefundStatusNone, false},
+		{"to a full refund is the one allowed move", bookingstore.RefundStatusFull, true},
+		{"back to no refund at all is refused", bookingstore.RefundStatusNone, false},
 	}
 
 	for _, tt := range tests {
@@ -285,7 +286,7 @@ func TestUpdateGuardsThePartialRefundTransition(t *testing.T) {
 			complexID := uuid.New()
 			booking := futureBooking(complexID)
 			booking.Status = "cancelled"
-			booking.RefundStatus = data.RefundStatusPartial
+			booking.RefundStatus = bookingstore.RefundStatusPartial
 			f.store.booking = booking
 
 			w := httptest.NewRecorder()
@@ -320,7 +321,7 @@ func TestManualRefundClosesOutTheCashBalance(t *testing.T) {
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
 	booking.Status = "cancelled"
-	booking.RefundStatus = data.RefundStatusPartial
+	booking.RefundStatus = bookingstore.RefundStatusPartial
 	f.store.booking = booking
 	f.linkResolver.booking = booking
 	f.payments.manualRefundAmount = 350_000
@@ -350,7 +351,7 @@ func TestManualRefundClosesOutTheCashBalance(t *testing.T) {
 		t.Error("the response must carry the ledger after the write")
 	}
 	bookingBody, _ := body["booking"].(map[string]any)
-	if bookingBody["refund_status"] != data.RefundStatusFull {
+	if bookingBody["refund_status"] != bookingstore.RefundStatusFull {
 		t.Errorf("the response booking must read a full refund; got %v", bookingBody["refund_status"])
 	}
 }
@@ -367,9 +368,9 @@ func TestManualRefundRefusesWhenNothingIsOwed(t *testing.T) {
 		collectionStatus string
 		refundStatus     string
 	}{
-		{"never cancelled", "confirmed", data.CollectionStatusFullyPaid, data.RefundStatusPartial},
-		{"fully refunded already", "cancelled", data.CollectionStatusFullyPaid, data.RefundStatusFull},
-		{"never paid", "cancelled", data.CollectionStatusUnpaid, data.RefundStatusNone},
+		{"never cancelled", "confirmed", bookingstore.CollectionStatusFullyPaid, bookingstore.RefundStatusPartial},
+		{"fully refunded already", "cancelled", bookingstore.CollectionStatusFullyPaid, bookingstore.RefundStatusFull},
+		{"never paid", "cancelled", bookingstore.CollectionStatusUnpaid, bookingstore.RefundStatusNone},
 	}
 
 	for _, tt := range tests {
@@ -417,7 +418,7 @@ func TestListRequiresADate(t *testing.T) {
 func TestListReturnsTheComplexBookings(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
-	f.store.list = []*data.Booking{futureBooking(complexID), futureBooking(complexID)}
+	f.store.list = []*bookingstore.Booking{futureBooking(complexID), futureBooking(complexID)}
 
 	w := httptest.NewRecorder()
 	f.handler.List(w, ownerRequest(t, http.MethodGet, "/?date="+time.Now().Format("2006-01-02"), complexID, nil, ""))
@@ -694,7 +695,7 @@ func TestStaffCreateRefusesADurationThatIsNotPermitted(t *testing.T) {
 func TestPublicBookStopsWhenTheSlotIsAlreadyHeld(t *testing.T) {
 	f := newFixture(t)
 	complexID, courtID := preparePublicBooking(f)
-	f.locks.acquireErr = data.ErrSlotLocked
+	f.locks.acquireErr = bookingstore.ErrSlotLocked
 
 	w := httptest.NewRecorder()
 	f.handler.PublicBook(w, publicRequest(t, http.MethodPost, "/", publicBookBody(complexID, courtID, 90)))
@@ -715,7 +716,7 @@ func TestPublicBookStopsWhenTheSlotIsAlreadyHeld(t *testing.T) {
 func TestPublicBookReleasesTheSlotsWhenTheInsertLoses(t *testing.T) {
 	f := newFixture(t)
 	complexID, courtID := preparePublicBooking(f)
-	f.store.insertErr = data.ErrSlotUnavailable
+	f.store.insertErr = bookingstore.ErrSlotUnavailable
 
 	w := httptest.NewRecorder()
 	f.handler.PublicBook(w, publicRequest(t, http.MethodPost, "/", publicBookBody(complexID, courtID, 120)))
@@ -1006,8 +1007,8 @@ func TestACancelledBookingsTokenStillAnswersStatus(t *testing.T) {
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
 	booking.Status = "cancelled"
-	booking.CollectionStatus = data.CollectionStatusFullyPaid
-	booking.RefundStatus = data.RefundStatusFull
+	booking.CollectionStatus = bookingstore.CollectionStatusFullyPaid
+	booking.RefundStatus = bookingstore.RefundStatusFull
 	f.linkResolver.booking = booking
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
@@ -1021,8 +1022,8 @@ func TestACancelledBookingsTokenStillAnswersStatus(t *testing.T) {
 	body := decode(t, w)
 	bookingBody, _ := body["booking"].(map[string]any)
 	if bookingBody["status"] != "cancelled" ||
-		bookingBody["collection_status"] != data.CollectionStatusFullyPaid ||
-		bookingBody["refund_status"] != data.RefundStatusFull {
+		bookingBody["collection_status"] != bookingstore.CollectionStatusFullyPaid ||
+		bookingBody["refund_status"] != bookingstore.RefundStatusFull {
 		t.Errorf("want the current cancelled/fully-refunded state; got %v", bookingBody)
 	}
 }
@@ -1241,8 +1242,8 @@ func TestPublicStatusCancelledBookingCannotCancelAgain(t *testing.T) {
 	complexID := uuid.New()
 	booking := futureBooking(complexID)
 	booking.Status = "cancelled"
-	booking.CollectionStatus = data.CollectionStatusFullyPaid
-	booking.RefundStatus = data.RefundStatusFull
+	booking.CollectionStatus = bookingstore.CollectionStatusFullyPaid
+	booking.RefundStatus = bookingstore.RefundStatusFull
 	f.linkResolver.booking = booking
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
@@ -1438,9 +1439,9 @@ func TestPublicBookRefusesADateBeyondTheBookingHorizon(t *testing.T) {
 		daysAhead  int
 		wantStatus int
 	}{
-		{"the last day inside the horizon is accepted", data.MaxBookingHorizonDays, http.StatusCreated},
-		{"one day past the horizon is refused", data.MaxBookingHorizonDays + 1, http.StatusConflict},
-		{"far past the horizon is refused", data.MaxBookingHorizonDays + 5000, http.StatusConflict},
+		{"the last day inside the horizon is accepted", bookingstore.MaxBookingHorizonDays, http.StatusCreated},
+		{"one day past the horizon is refused", bookingstore.MaxBookingHorizonDays + 1, http.StatusConflict},
+		{"far past the horizon is refused", bookingstore.MaxBookingHorizonDays + 5000, http.StatusConflict},
 	}
 
 	for _, tt := range tests {

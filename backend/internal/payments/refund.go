@@ -11,6 +11,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -202,8 +203,8 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 // processRefundedPaymentFromBooking handles a refund/chargeback when we don't have a payment record yet.
 // This is an edge case (e.g. payment was refunded before our webhook processed the original approval).
 // It reports whether the webhook event behind it should be tried again.
-func (h *Handler) processRefundedPaymentFromBooking(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
-	if booking.Status == "cancelled" && booking.RefundStatus == data.RefundStatusFull {
+func (h *Handler) processRefundedPaymentFromBooking(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+	if booking.Status == "cancelled" && booking.RefundStatus == bookingstore.RefundStatusFull {
 		h.logger.Info("mp webhook: booking already cancelled+refunded, skipping",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -259,7 +260,7 @@ func (h *Handler) processRefundedPaymentFromBooking(ctx context.Context, booking
 // and a refund that arrives for a booking with no payment record at all only has
 // MercadoPago's own figure. Passing the struct is how a notification that
 // announced whatever the stale in-memory copy happened to hold used to happen.
-func (h *Handler) sendRefundNotification(ctx context.Context, booking *data.Booking, refundCentavos int) {
+func (h *Handler) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int) {
 	client, err := h.clients.GetByID(ctx, booking.ClientID)
 	if err != nil {
 		h.logger.Error("refund notification: failed to fetch client",
@@ -317,7 +318,7 @@ func (h *Handler) sendRefundNotification(ctx context.Context, booking *data.Book
 // It never returns RefundNotEligible: whether a cancellation deserves its money
 // back is the caller's policy — it differs between the staff and public paths on
 // purpose — and this function only ever answers what it can actually do.
-func (h *Handler) AutoRefundIfPaid(ctx context.Context, booking *data.Booking) paymentstore.RefundOutcome {
+func (h *Handler) AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
 	outcome := h.autoRefundIfPaid(ctx, booking)
 
 	// One entry per call, written around the body rather than at each of its
@@ -352,7 +353,7 @@ func (h *Handler) AutoRefundIfPaid(ctx context.Context, booking *data.Booking) p
 // once, through owedManually, so the "MANUAL REFUND OWED" alert fires for the
 // whole of it rather than being lost behind whichever row GetByBookingID
 // used to prefer.
-func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *data.Booking) paymentstore.RefundOutcome {
+func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
 	// A return not reached through a committed ClaimRefund leaves the
 	// refund-intent marker set; see clearRefundIntentUnlessClaimed.
 	committed := false
@@ -407,7 +408,7 @@ func (h *Handler) autoRefundIfPaid(ctx context.Context, booking *data.Booking) p
 // whole booking, passed through so RecordRefundSuccess can write
 // 'partial_refund' instead of clobbering it to 'refunded' when this row's
 // full refund still leaves money owed by hand.
-func (h *Handler) autoRefundOnePayment(ctx context.Context, booking *data.Booking, payment *paymentstore.Payment, manualOwed int, committed *bool) paymentstore.RefundOutcome {
+func (h *Handler) autoRefundOnePayment(ctx context.Context, booking *bookingstore.Booking, payment *paymentstore.Payment, manualOwed int, committed *bool) paymentstore.RefundOutcome {
 	owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
 
 	claim, err := h.payments.ClaimRefund(ctx, payment.ID)
@@ -679,7 +680,7 @@ func refundShortfall(claimed, settled paymentstore.RefundClaim) int {
 // raise never fired. ListByBookingID reads every row instead, and the ones
 // that carry no MercadoPago id are summed into manualOwed rather than
 // dropped.
-func (h *Handler) refundable(ctx context.Context, booking *data.Booking) (auto []*paymentstore.Payment, manualOwed int, manualReason string, stop *paymentstore.RefundOutcome) {
+func (h *Handler) refundable(ctx context.Context, booking *bookingstore.Booking) (auto []*paymentstore.Payment, manualOwed int, manualReason string, stop *paymentstore.RefundOutcome) {
 	// Read off the two axes payment_status was split into. The refund axis answers
 	// first because it is the one that can stop this call; the collection axis
 	// then says whether there is anything to send back at all. The order is not
@@ -687,13 +688,13 @@ func (h *Handler) refundable(ctx context.Context, booking *data.Booking) (auto [
 	// refund_status <> 'none' imply collection_status <> 'unpaid', so no row can
 	// satisfy both a refund case and the never-paid default.
 	switch {
-	case booking.RefundStatus == data.RefundStatusFull:
+	case booking.RefundStatus == bookingstore.RefundStatusFull:
 		return nil, 0, "", &paymentstore.RefundOutcome{Result: paymentstore.RefundAlreadyIssued, Reason: "the booking was already refunded"}
-	case booking.RefundStatus == data.RefundStatusPending:
+	case booking.RefundStatus == bookingstore.RefundStatusPending:
 		// A claim is already committed against this booking's payment, so the
 		// money is on its way and this call must not start a second one.
 		return nil, 0, "", &paymentstore.RefundOutcome{Result: paymentstore.RefundQueued, Reason: "a refund for this booking is already in flight"}
-	case booking.CollectionStatus != data.CollectionStatusUnpaid:
+	case booking.CollectionStatus != bookingstore.CollectionStatusUnpaid:
 		// Refundable — fall through. A partially refunded booking already has
 		// its MercadoPago-backed rows refunded; a re-sweep here re-derives the
 		// still-outstanding manual balance and re-alerts on it. The already
@@ -814,9 +815,9 @@ func (h *Handler) manualOwedForBooking(ctx context.Context, bookingID uuid.UUID)
 // single payment_status enum read 'refunded' and lost the deposit half.
 func bookingRefundStatusAfterRefund(manualOwedCentavos int) string {
 	if manualOwedCentavos > 0 {
-		return data.RefundStatusPartial
+		return bookingstore.RefundStatusPartial
 	}
-	return data.RefundStatusFull
+	return bookingstore.RefundStatusFull
 }
 
 // uniqueOrdered returns values with duplicates removed, keeping the order of
@@ -842,7 +843,7 @@ func uniqueOrdered(values []string) []string {
 // A booking paid in cash produced no log line at all: the client was told they
 // qualified for a refund, the booking was cancelled, and the only record that
 // money was owed was the client's memory.
-func (h *Handler) owedManually(booking *data.Booking, centavos int, reason string) paymentstore.RefundOutcome {
+func (h *Handler) owedManually(booking *bookingstore.Booking, centavos int, reason string) paymentstore.RefundOutcome {
 	h.logger.Error("auto-refund: a refund is owed that this system cannot issue",
 		"booking_id", booking.ID,
 		"complex_id", booking.ComplexID,

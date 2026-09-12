@@ -8,6 +8,7 @@ import (
 
 	"github.com/getsentry/sentry-go"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -506,6 +507,6 @@ func refreshTokenWasRejected(err error) bool {
 // stray comma, and internal/mailer and the WhatsApp reminder both leave the
 // line out when it is empty. It delegates to booklink.Address, which the
 // confirmation email now needs the same join from.
-func complexAddress(b *data.CronBooking) string {
+func complexAddress(b *bookingstore.CronBooking) string {
 	return booklink.Address(b.ComplexAddress, b.ComplexCity)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -35,7 +36,7 @@ import (
 // disturbing this domain's tested control flow.
 //
 //nolint:funlen // see the cohesion note above
-func (h *Handler) processApprovedPayment(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	// Skip if booking is already confirmed, completed, or no_show (duplicate/late webhook).
 	if booking.Status == "confirmed" || booking.Status == "completed" || booking.Status == "no_show" {
 		h.logger.Info("mp webhook: booking already confirmed/completed, skipping",
@@ -164,7 +165,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *data.Book
 	}
 
 	booking.Status = "confirmed"
-	booking.CollectionStatus = data.CollectionStatusDepositPaid
+	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 
 	// settled is whichever row now holds this money, so the audit entry below
 	// can name the payment it confirmed without either branch repeating it.
@@ -184,7 +185,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *data.Book
 			// back on sale — and the client paid anyway, which the cancel path
 			// leaves possible on purpose. Requeuing instead retries a write
 			// that can never succeed and never sends the money back.
-			if errors.Is(err, data.ErrSlotUnavailable) || errors.Is(err, data.ErrBookingCancelled) {
+			if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
 				return h.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
 			}
 			// The money is captured and the booking is still pending. Left as an
@@ -208,7 +209,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *data.Book
 		if err := h.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
 			// H-23, same as above: a cancelled booking's late payment is
 			// refunded, not retried.
-			if errors.Is(err, data.ErrSlotUnavailable) || errors.Is(err, data.ErrBookingCancelled) {
+			if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
 				return h.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
 			}
 			// Same as above: captured money against an unconfirmed booking is
@@ -312,7 +313,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *data.Book
 // It is reported to Sentry rather than only logged. A stale pending booking being
 // overtaken is expected; a client paying for hours that were given away is a real
 // conflict, and somebody has to know it happened.
-func (h *Handler) refundBookingWhoseSlotIsGone(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (h *Handler) refundBookingWhoseSlotIsGone(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	h.logger.Error("mp webhook: the slot was taken while the payment was in flight, refusing to confirm and refunding",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
@@ -354,7 +355,7 @@ func (h *Handler) refundBookingWhoseSlotIsGone(ctx context.Context, booking *dat
 // paid. And it reuses the checkout payment row when there is one, because
 // inserting a second left the first orphaned with the preference id on it while
 // GetByBookingID's ordering handed everything after it the new row.
-func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	payment, err := h.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID)
 	if err != nil {
 		h.logger.Error("mp webhook: failed to record the payment owed a refund, provider not called",
@@ -461,7 +462,7 @@ func (h *Handler) refundCancelledBookingPayment(ctx context.Context, booking *da
 // expressing as 'refund_pending' for precisely this reason. The two cancel
 // paths already write it the same way (internal/bookings), so the shape
 // SweepOrphanedRefundIntents recovers is identical whichever path produced it.
-func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
+func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
 	existing, err := h.payments.GetByBookingID(ctx, booking.ID)
 	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
 		return nil, fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
@@ -473,7 +474,7 @@ func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *data.Bo
 	// records that money arrived, and the refund it owes is carried by
 	// refund_intent_at below, not by pre-declaring a refund that has not
 	// started.
-	booking.CollectionStatus = data.CollectionStatusDepositPaid
+	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	now := time.Now()
 	booking.RefundIntentAt = &now
 
@@ -523,7 +524,7 @@ func (h *Handler) recordPaymentOwedARefund(ctx context.Context, booking *data.Bo
 // verdict and false forever; a complex that would not load is the database being
 // unavailable, which is returned as an error so the recorded event is retried
 // rather than a genuine payment being thrown away for an outage.
-func (h *Handler) collectorMatchesComplex(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
+func (h *Handler) collectorMatchesComplex(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
 	complex, err := h.complexes.GetByID(ctx, booking.ComplexID)
 	if err != nil {
 		h.logger.Error("mp webhook: cannot verify collector - failed to fetch complex",
@@ -566,7 +567,7 @@ func (h *Handler) collectorMatchesComplex(ctx context.Context, booking *data.Boo
 
 // processRejectedPayment cancels the booking a rejected payment failed to pay
 // for, and reports whether the webhook event behind it should be tried again.
-func (h *Handler) processRejectedPayment(ctx context.Context, booking *data.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (h *Handler) processRejectedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	// Only cancel if the booking is still pending. If it was already confirmed
 	// (e.g. a different payment attempt succeeded), do NOT cancel it.
 	if booking.Status != "pending" {

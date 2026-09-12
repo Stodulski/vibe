@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"errors"
@@ -180,9 +180,9 @@ func TestPaymentSummary_StructFields(t *testing.T) {
 	}
 }
 
-// TestBookingModel_RequiresDB documents that BookingModel methods all require a database.
+// TestBookingModel_RequiresDB documents that Store methods all require a database.
 func TestBookingModel_RequiresDB(t *testing.T) {
-	t.Skip("BookingModel methods all require *pgxpool.Pool and *db.Queries")
+	t.Skip("Store methods all require *pgxpool.Pool and *db.Queries")
 }
 
 // The refusal a client can act on depends on this mapping, and the code that

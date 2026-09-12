@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -73,7 +74,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	// Filter by status and/or client name/phone in handler (volumes per day are small).
 	if statusFilter != "" || searchFilter != "" {
 		searchLower := strings.ToLower(searchFilter)
-		filtered := make([]*data.Booking, 0, len(bookings))
+		filtered := make([]*bookingstore.Booking, 0, len(bookings))
 		for _, b := range bookings {
 			if statusFilter != "" && b.Status != statusFilter {
 				continue
@@ -253,8 +254,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		// because the refund pipeline has already decided what happens to that
 		// money.
 		if *input.Status == "cancelled" &&
-			booking.CollectionStatus != data.CollectionStatusUnpaid &&
-			booking.RefundStatus == data.RefundStatusNone {
+			booking.CollectionStatus != bookingstore.CollectionStatusUnpaid &&
+			booking.RefundStatus == bookingstore.RefundStatusNone {
 			h.respond.BadRequest(w, r, fmt.Errorf("cannot cancel a paid booking via update, use the /cancel endpoint"))
 			return
 		}
@@ -263,9 +264,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if input.CollectionStatus != nil {
 		validCollectionStatuses := map[string]bool{
-			data.CollectionStatusUnpaid:      true,
-			data.CollectionStatusDepositPaid: true,
-			data.CollectionStatusFullyPaid:   true,
+			bookingstore.CollectionStatusUnpaid:      true,
+			bookingstore.CollectionStatusDepositPaid: true,
+			bookingstore.CollectionStatusFullyPaid:   true,
 		}
 		v.Check(validCollectionStatuses[*input.CollectionStatus], "collection_status",
 			"must be unpaid, deposit_paid or fully_paid")
@@ -279,14 +280,14 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		// deposit_paid, which the floor deliberately does not (see the bookings
 		// section of db/migrations/001_init.sql for why the floor stops short).
 		validCollectionTransitions := map[string]map[string]bool{
-			data.CollectionStatusUnpaid:      {data.CollectionStatusDepositPaid: true, data.CollectionStatusFullyPaid: true},
-			data.CollectionStatusDepositPaid: {data.CollectionStatusFullyPaid: true},
-			data.CollectionStatusFullyPaid:   {},
+			bookingstore.CollectionStatusUnpaid:      {bookingstore.CollectionStatusDepositPaid: true, bookingstore.CollectionStatusFullyPaid: true},
+			bookingstore.CollectionStatusDepositPaid: {bookingstore.CollectionStatusFullyPaid: true},
+			bookingstore.CollectionStatusFullyPaid:   {},
 		}
 		collectionLabels := map[string]string{
-			data.CollectionStatusUnpaid:      "sin pago",
-			data.CollectionStatusDepositPaid: "seña pagada",
-			data.CollectionStatusFullyPaid:   "pago completo",
+			bookingstore.CollectionStatusUnpaid:      "sin pago",
+			bookingstore.CollectionStatusDepositPaid: "seña pagada",
+			bookingstore.CollectionStatusFullyPaid:   "pago completo",
 		}
 		if allowed, ok := validCollectionTransitions[booking.CollectionStatus]; ok {
 			if !allowed[*input.CollectionStatus] && *input.CollectionStatus != booking.CollectionStatus {
@@ -314,24 +315,24 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		// the one the manual-refund endpoint makes, to 'full', once the owner
 		// confirms the cash portion was actually returned.
 		validRefundStatuses := map[string]bool{
-			data.RefundStatusNone:    true,
-			data.RefundStatusPending: true,
-			data.RefundStatusFull:    true,
+			bookingstore.RefundStatusNone:    true,
+			bookingstore.RefundStatusPending: true,
+			bookingstore.RefundStatusFull:    true,
 		}
 		v.Check(validRefundStatuses[*input.RefundStatus], "refund_status",
 			"must be none, pending or full")
 
 		validRefundTransitions := map[string]map[string]bool{
-			data.RefundStatusNone:    {data.RefundStatusPending: true},
-			data.RefundStatusPending: {data.RefundStatusFull: true},
-			data.RefundStatusPartial: {data.RefundStatusFull: true},
-			data.RefundStatusFull:    {},
+			bookingstore.RefundStatusNone:    {bookingstore.RefundStatusPending: true},
+			bookingstore.RefundStatusPending: {bookingstore.RefundStatusFull: true},
+			bookingstore.RefundStatusPartial: {bookingstore.RefundStatusFull: true},
+			bookingstore.RefundStatusFull:    {},
 		}
 		refundLabels := map[string]string{
-			data.RefundStatusNone:    "sin reembolso",
-			data.RefundStatusPending: "reembolso pendiente",
-			data.RefundStatusPartial: "reembolso parcial",
-			data.RefundStatusFull:    "reembolsado",
+			bookingstore.RefundStatusNone:    "sin reembolso",
+			bookingstore.RefundStatusPending: "reembolso pendiente",
+			bookingstore.RefundStatusPartial: "reembolso parcial",
+			bookingstore.RefundStatusFull:    "reembolsado",
 		}
 		if allowed, ok := validRefundTransitions[booking.RefundStatus]; ok {
 			if !allowed[*input.RefundStatus] && *input.RefundStatus != booking.RefundStatus {

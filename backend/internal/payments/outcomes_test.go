@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -20,34 +21,38 @@ import (
 func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 	tests := []struct {
 		name    string
-		prepare func(*fixture, *data.Booking, *paymentstore.Payment)
+		prepare func(*fixture, *bookingstore.Booking, *paymentstore.Payment)
 		want    paymentstore.RefundResult
 	}{
 		{
 			name:    "MercadoPago accepted the refund",
-			prepare: func(*fixture, *data.Booking, *paymentstore.Payment) {},
+			prepare: func(*fixture, *bookingstore.Booking, *paymentstore.Payment) {},
 			want:    paymentstore.RefundIssued,
 		},
 		{
 			name: "the booking was never paid",
-			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) {
-				b.CollectionStatus = data.CollectionStatusUnpaid
+			prepare: func(_ *fixture, b *bookingstore.Booking, _ *paymentstore.Payment) {
+				b.CollectionStatus = bookingstore.CollectionStatusUnpaid
 			},
 			want: paymentstore.RefundNone,
 		},
 		{
-			name:    "the booking is already refunded",
-			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) { b.RefundStatus = data.RefundStatusFull },
-			want:    paymentstore.RefundAlreadyIssued,
+			name: "the booking is already refunded",
+			prepare: func(_ *fixture, b *bookingstore.Booking, _ *paymentstore.Payment) {
+				b.RefundStatus = bookingstore.RefundStatusFull
+			},
+			want: paymentstore.RefundAlreadyIssued,
 		},
 		{
-			name:    "a refund for this booking is already in flight",
-			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) { b.RefundStatus = data.RefundStatusPending },
-			want:    paymentstore.RefundQueued,
+			name: "a refund for this booking is already in flight",
+			prepare: func(_ *fixture, b *bookingstore.Booking, _ *paymentstore.Payment) {
+				b.RefundStatus = bookingstore.RefundStatusPending
+			},
+			want: paymentstore.RefundQueued,
 		},
 		{
 			name: "the payment row is already refunded",
-			prepare: func(_ *fixture, _ *data.Booking, p *paymentstore.Payment) {
+			prepare: func(_ *fixture, _ *bookingstore.Booking, p *paymentstore.Payment) {
 				p.Status = "refunded"
 				p.RefundAmount = p.Amount
 			},
@@ -55,7 +60,7 @@ func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 		},
 		{
 			name: "the booking was paid in cash",
-			prepare: func(_ *fixture, _ *data.Booking, p *paymentstore.Payment) {
+			prepare: func(_ *fixture, _ *bookingstore.Booking, p *paymentstore.Payment) {
 				p.MPPaymentID = nil
 				p.Method = "cash"
 			},
@@ -63,49 +68,49 @@ func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 		},
 		{
 			name: "the booking reads as paid with no payment record",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.bookingErr = data.ErrRecordNotFound
 			},
 			want: paymentstore.RefundManual,
 		},
 		{
 			name: "the payment could not be read at all",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.bookingErr = errDatabase
 			},
 			want: paymentstore.RefundManual,
 		},
 		{
 			name: "the claim was refused by the database, so nothing is queued",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.claimErr = errDatabase
 			},
 			want: paymentstore.RefundManual,
 		},
 		{
 			name: "another claim already holds the refund",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.claimErr = paymentstore.ErrRefundInFlight
 			},
 			want: paymentstore.RefundQueued,
 		},
 		{
 			name: "the claim found the payment already refunded",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.claimErr = paymentstore.ErrAlreadyRefunded
 			},
 			want: paymentstore.RefundAlreadyIssued,
 		},
 		{
 			name: "MercadoPago rejected the refund",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 			},
 			want: paymentstore.RefundQueued,
 		},
 		{
 			name: "the retry budget is spent",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 				f.payments.exhausted = true
 			},
@@ -113,7 +118,7 @@ func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 		},
 		{
 			name: "the refund was issued but could not be recorded",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.successErr = errRecord
 			},
 			want: paymentstore.RefundQueued,

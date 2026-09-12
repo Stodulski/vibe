@@ -3,7 +3,7 @@ package pricing
 import (
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -13,7 +13,7 @@ import (
 
 // WithinStandardWindow checks if the booking is within the standard cancellation window
 // (e.g. more than 24h before the game). Does NOT consider the grace period.
-func WithinStandardWindow(booking *data.Booking, cancellationHours int) bool {
+func WithinStandardWindow(booking *bookingstore.Booking, cancellationHours int) bool {
 	if cancellationHours <= 0 {
 		return true
 	}
@@ -39,7 +39,7 @@ func WithinStandardWindow(booking *data.Booking, cancellationHours int) bool {
 //
 // CanRefund calls this rather than recomputing the same two moments, so the
 // two can never disagree about where the window sits.
-func RefundDeadline(booking *data.Booking, cancellationHours int, gracePeriod time.Duration) time.Time {
+func RefundDeadline(booking *bookingstore.Booking, cancellationHours int, gracePeriod time.Duration) time.Time {
 	argTZ := timezone.Argentina
 	startTimeObj, _ := time.Parse("15:04", booking.StartTime)
 	bookingStart := time.Date(
@@ -64,7 +64,7 @@ func RefundDeadline(booking *data.Booking, cancellationHours int, gracePeriod ti
 // It is true within the complex's own cancellation window, and also within a
 // grace period after the booking was made — so a client who books a slot less
 // than the window away can still change their mind immediately.
-func CanRefund(booking *data.Booking, cancellationHours int, gracePeriod time.Duration) bool {
+func CanRefund(booking *bookingstore.Booking, cancellationHours int, gracePeriod time.Duration) bool {
 	if cancellationHours <= 0 {
 		return true
 	}
@@ -86,6 +86,6 @@ func CanRefund(booking *data.Booking, cancellationHours int, gracePeriod time.Du
 // (both CanRefund deadlines fall strictly before booking end) false for a
 // cancellationHours == 0 complex, where CanRefund is unconditionally true and
 // no deadline exists at all.
-func LinkLive(b *data.Booking, expiresAt time.Time, cancellationHours int, grace time.Duration, now time.Time) bool {
+func LinkLive(b *bookingstore.Booking, expiresAt time.Time, cancellationHours int, grace time.Duration, now time.Time) bool {
 	return now.Before(expiresAt) || CanRefund(b, cancellationHours, grace)
 }

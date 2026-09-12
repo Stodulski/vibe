@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
@@ -261,7 +261,7 @@ func TestAnUnclaimedRefundLeavesTheSweepAMarkerRatherThanAFalseRefundPending(t *
 	complexID := uuid.New()
 	booking, payment := paidBooking(complexID)
 	booking.Status = "cancelled"
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	f.payments.byBooking = payment
 	// The claim is what fails: the database refused it, or this process is about
 	// to die. Either way the payment row is already committed.
@@ -279,7 +279,7 @@ func TestAnUnclaimedRefundLeavesTheSweepAMarkerRatherThanAFalseRefundPending(t *
 		t.Fatalf("the payment behind the refund must be recorded against its booking before any claim")
 	}
 
-	if committed.RefundStatus == data.RefundStatusPending {
+	if committed.RefundStatus == bookingstore.RefundStatusPending {
 		t.Errorf("no claim exists yet, so committing refund_status 'pending' asserts a refund is in flight when none is — " +
 			"refundable() reads it that way and declines the refund this write was meant to guarantee")
 	}
@@ -307,7 +307,7 @@ func TestAClaimedRefundLeavesNoMarkerBehind(t *testing.T) {
 	complexID := uuid.New()
 	booking, payment := paidBooking(complexID)
 	booking.Status = "cancelled"
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
 	f.clients.client = &clientstore.Client{ID: booking.ClientID}

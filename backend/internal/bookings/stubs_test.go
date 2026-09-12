@@ -17,6 +17,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -30,8 +31,8 @@ import (
 )
 
 type stubStore struct {
-	booking   *data.Booking
-	list      []*data.Booking
+	booking   *bookingstore.Booking
+	list      []*bookingstore.Booking
 	getErr    error
 	listErr   error
 	insertErr error
@@ -40,15 +41,15 @@ type stubStore struct {
 	// disconnecting, in particular — between two steps of a handler.
 	onUpdate func()
 
-	inserted []*data.Booking
-	updated  []*data.Booking
+	inserted []*bookingstore.Booking
+	updated  []*bookingstore.Booking
 }
 
-func (s *stubStore) GetByComplex(context.Context, uuid.UUID, time.Time, time.Time, data.Filters) ([]*data.Booking, data.Metadata, error) {
+func (s *stubStore) GetByComplex(context.Context, uuid.UUID, time.Time, time.Time, data.Filters) ([]*bookingstore.Booking, data.Metadata, error) {
 	return s.list, data.Metadata{}, s.listErr
 }
 
-func (s *stubStore) GetByID(context.Context, uuid.UUID) (*data.Booking, error) {
+func (s *stubStore) GetByID(context.Context, uuid.UUID) (*bookingstore.Booking, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
@@ -58,7 +59,7 @@ func (s *stubStore) GetByID(context.Context, uuid.UUID) (*data.Booking, error) {
 	return s.booking, nil
 }
 
-func (s *stubStore) InsertSafe(_ context.Context, b *data.Booking) error {
+func (s *stubStore) InsertSafe(_ context.Context, b *bookingstore.Booking) error {
 	if s.insertErr != nil {
 		return s.insertErr
 	}
@@ -79,7 +80,7 @@ func (s *stubStore) InsertSafe(_ context.Context, b *data.Booking) error {
 	return nil
 }
 
-func (s *stubStore) Update(_ context.Context, b *data.Booking) error {
+func (s *stubStore) Update(_ context.Context, b *bookingstore.Booking) error {
 	if s.onUpdate != nil {
 		s.onUpdate()
 	}
@@ -307,7 +308,7 @@ func (s *stubPayments) GetByBookingID(ctx context.Context, _ uuid.UUID) (*paymen
 	return s.payment, nil
 }
 
-func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *paymentstore.Payment, _ *data.Booking) error {
+func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *paymentstore.Payment, _ *bookingstore.Booking) error {
 	if s.insertAndConfirmErr != nil {
 		return s.insertAndConfirmErr
 	}
@@ -505,7 +506,7 @@ type stubRefunder struct {
 	refunded []uuid.UUID
 }
 
-func (s *stubRefunder) AutoRefundIfPaid(_ context.Context, b *data.Booking) paymentstore.RefundOutcome {
+func (s *stubRefunder) AutoRefundIfPaid(_ context.Context, b *bookingstore.Booking) paymentstore.RefundOutcome {
 	s.refunded = append(s.refunded, b.ID)
 	if s.onRefund != nil {
 		s.onRefund()
@@ -548,14 +549,14 @@ func (s *stubRecorder) Record(e audit.Entry) { s.entries = append(s.entries, e) 
 // GetByID-based stub gave every public-route test before this credential
 // swap.
 type stubLinkResolver struct {
-	booking    *data.Booking
+	booking    *bookingstore.Booking
 	expiresAt  time.Time
 	err        error
 	validToken string
 	resolved   []string
 }
 
-func (s *stubLinkResolver) ResolveBooking(_ context.Context, token string) (*data.Booking, time.Time, error) {
+func (s *stubLinkResolver) ResolveBooking(_ context.Context, token string) (*bookingstore.Booking, time.Time, error) {
 	s.resolved = append(s.resolved, token)
 	if s.err != nil {
 		return nil, time.Time{}, s.err
@@ -658,13 +659,13 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 }
 
 // futureBooking returns a confirmed booking a week out.
-func futureBooking(complexID uuid.UUID) *data.Booking {
+func futureBooking(complexID uuid.UUID) *bookingstore.Booking {
 	date := timezone.Day(time.Now().In(timezone.Argentina).AddDate(0, 0, 7))
 	startsAt := slots.At(date, "18:00")
-	return &data.Booking{
+	return &bookingstore.Booking{
 		ID: uuid.New(), ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
-		Status: "confirmed", CollectionStatus: data.CollectionStatusDepositPaid,
-		RefundStatus: data.RefundStatusNone, Price: 500_000,
+		Status: "confirmed", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
+		RefundStatus: bookingstore.RefundStatusNone, Price: 500_000,
 		Date:      date,
 		StartTime: "18:00", DurationMinutes: 90, CreatedAt: time.Now(),
 		// The span the store reads off bookings.span. Every payload's

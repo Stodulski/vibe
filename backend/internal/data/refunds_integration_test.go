@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -301,13 +301,13 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 	if bookingStatus != "cancelled" {
 		t.Errorf("a fully refunded booking must be cancelled, or the court stays sold; got %q", bookingStatus)
 	}
-	if bookingRefund != data.RefundStatusFull {
+	if bookingRefund != bookingstore.RefundStatusFull {
 		t.Errorf("the stored booking refund status must be full; got %q", bookingRefund)
 	}
 	// The payment_status split's whole point: the refund records itself on its own axis
 	// and does not overwrite what the booking collected. This fixture took a
 	// deposit, so the row must still say so after the money went back.
-	if bookingCollection != data.CollectionStatusDepositPaid {
+	if bookingCollection != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("refunding must not erase what was collected; want deposit_paid, got %q", bookingCollection)
 	}
 
@@ -385,10 +385,10 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 	if bookingStatus != "cancelled" {
 		t.Errorf("a refunded booking must be cancelled; got %q", bookingStatus)
 	}
-	if bookingRefund != data.RefundStatusPartial {
+	if bookingRefund != bookingstore.RefundStatusPartial {
 		t.Errorf("a booking with cash still owed must read refund_status 'partial', not 'full'; got %q", bookingRefund)
 	}
-	if bookingCollection != data.CollectionStatusDepositPaid {
+	if bookingCollection != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("a partial refund must not erase what was collected; want deposit_paid, got %q", bookingCollection)
 	}
 }
@@ -417,7 +417,7 @@ func TestRecordManualRefund(t *testing.T) {
 		t.Fatalf("RecordRefundSuccess: %v", err)
 	}
 
-	if _, _, refundStatus := f.readBookingState(t, booking.ID); refundStatus != data.RefundStatusPartial {
+	if _, _, refundStatus := f.readBookingState(t, booking.ID); refundStatus != bookingstore.RefundStatusPartial {
 		t.Fatalf("setup: booking must read refund_status 'partial' before RecordManualRefund runs; got %q", refundStatus)
 	}
 
@@ -441,10 +441,10 @@ func TestRecordManualRefund(t *testing.T) {
 	if bookingStatus != "cancelled" {
 		t.Errorf("the booking must stay cancelled; got %q", bookingStatus)
 	}
-	if bookingRefund != data.RefundStatusFull {
+	if bookingRefund != bookingstore.RefundStatusFull {
 		t.Errorf("the booking must now read a full refund; got %q", bookingRefund)
 	}
-	if bookingCollection != data.CollectionStatusDepositPaid {
+	if bookingCollection != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("closing out the manual balance must not erase what was collected; want deposit_paid, got %q", bookingCollection)
 	}
 
@@ -511,7 +511,7 @@ func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
 	}
 
 	bookingStatus, _, bookingRefund := f.readBookingState(t, booking.ID)
-	if bookingRefund == data.RefundStatusFull || bookingStatus == "cancelled" {
+	if bookingRefund == bookingstore.RefundStatusFull || bookingStatus == "cancelled" {
 		t.Errorf("the booking must not be settled by a refund that never happened; got status=%q refund_status=%q",
 			bookingStatus, bookingRefund)
 	}

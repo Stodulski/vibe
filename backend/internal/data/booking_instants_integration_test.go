@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -41,12 +42,12 @@ func TestTheOwnerListCarriesTheSpansOwnInstants(t *testing.T) {
 		t.Fatalf("listing the complex's bookings: %v", err)
 	}
 
-	byID := map[string]*data.Booking{}
+	byID := map[string]*bookingstore.Booking{}
 	for _, b := range listed {
 		byID[b.ID.String()] = b
 	}
 
-	for _, want := range []*data.Booking{overnight, ordinary} {
+	for _, want := range []*bookingstore.Booking{overnight, ordinary} {
 		got, ok := byID[want.ID.String()]
 		if !ok {
 			t.Fatalf("booking %s starting at %s is missing from the owner list", want.ID, want.StartTime)

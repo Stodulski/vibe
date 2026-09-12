@@ -14,10 +14,10 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/middleware"
 )
 
@@ -550,7 +550,7 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 		return &courtstore.BlockedSlot{ID: id, CourtID: court.ID, Date: tomorrow, StartTime: "10:00", EndTime: "11:00"}, nil
 	}
 
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		ID:              id,
 		ComplexID:       target.ID,
 		CourtID:         court.ID,
@@ -559,7 +559,7 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 		DurationMinutes: 60,
 		Status:          "confirmed",
 	}
-	bookings.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*data.Booking, error) { return booking, nil }
+	bookings.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*bookingstore.Booking, error) { return booking, nil }
 
 	client := &clientstore.Client{
 		ID:        id,

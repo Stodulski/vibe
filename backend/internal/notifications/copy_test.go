@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 )
 
 func TestFormatARS(t *testing.T) {
@@ -38,22 +38,22 @@ func TestPaymentAmounts(t *testing.T) {
 	}{
 		{
 			name: "deposit paid online", price: 2000000, deposit: 500000,
-			collectionStatus: data.CollectionStatusDepositPaid,
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
 			wantDeposit:      "$5.000", wantBalance: "$15.000",
 		},
 		{
 			name: "nothing collected", price: 2000000, deposit: 500000,
-			collectionStatus: data.CollectionStatusUnpaid,
+			collectionStatus: bookingstore.CollectionStatusUnpaid,
 			wantDeposit:      "$0", wantBalance: "$20.000",
 		},
 		{
 			name: "paid in full", price: 2000000, deposit: 2000000,
-			collectionStatus: data.CollectionStatusFullyPaid,
+			collectionStatus: bookingstore.CollectionStatusFullyPaid,
 			wantDeposit:      "$20.000", wantBalance: "$0",
 		},
 		{
 			name: "a deposit covering the whole price leaves nothing owed", price: 2000000, deposit: 2000000,
-			collectionStatus: data.CollectionStatusDepositPaid,
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
 			wantDeposit:      "$20.000", wantBalance: "$0",
 		},
 	} {
@@ -73,9 +73,9 @@ func TestBalanceAmount(t *testing.T) {
 		collectionStatus string
 		want             string
 	}{
-		{"deposit paid", 2000000, 500000, data.CollectionStatusDepositPaid, "$15.000"},
-		{"nothing collected", 2000000, 0, data.CollectionStatusUnpaid, "$20.000"},
-		{"paid in full", 2000000, 2000000, data.CollectionStatusFullyPaid, "$0"},
+		{"deposit paid", 2000000, 500000, bookingstore.CollectionStatusDepositPaid, "$15.000"},
+		{"nothing collected", 2000000, 0, bookingstore.CollectionStatusUnpaid, "$20.000"},
+		{"paid in full", 2000000, 2000000, bookingstore.CollectionStatusFullyPaid, "$0"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if got := BalanceAmount(c.price, c.deposit, c.collectionStatus); got != c.want {
@@ -138,16 +138,16 @@ func TestCancellationLineQuotesTheConfiguredValues(t *testing.T) {
 // product's vocabulary: "devolución" not "reembolso", "complejo" not "club",
 // "link" not "enlace".
 func TestCopyObeysTheProductVocabulary(t *testing.T) {
-	depositA, balanceA := PaymentAmounts(2000000, 500000, data.CollectionStatusDepositPaid)
-	depositB, balanceB := PaymentAmounts(2000000, 0, data.CollectionStatusUnpaid)
-	depositC, balanceC := PaymentAmounts(2000000, 2000000, data.CollectionStatusFullyPaid)
+	depositA, balanceA := PaymentAmounts(2000000, 500000, bookingstore.CollectionStatusDepositPaid)
+	depositB, balanceB := PaymentAmounts(2000000, 0, bookingstore.CollectionStatusUnpaid)
+	depositC, balanceC := PaymentAmounts(2000000, 2000000, bookingstore.CollectionStatusFullyPaid)
 	lines := []string{
 		depositA, balanceA,
 		depositB, balanceB,
 		depositC, balanceC,
-		BalanceAmount(2000000, 500000, data.CollectionStatusDepositPaid),
-		BalanceAmount(2000000, 0, data.CollectionStatusUnpaid),
-		BalanceAmount(2000000, 2000000, data.CollectionStatusFullyPaid),
+		BalanceAmount(2000000, 500000, bookingstore.CollectionStatusDepositPaid),
+		BalanceAmount(2000000, 0, bookingstore.CollectionStatusUnpaid),
+		BalanceAmount(2000000, 2000000, bookingstore.CollectionStatusFullyPaid),
 		CancellationLine(24, 15*time.Minute, true),
 		CancellationLine(0, 15*time.Minute, true),
 		CancellationLine(24, 15*time.Minute, false),

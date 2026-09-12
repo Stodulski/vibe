@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -64,8 +64,8 @@ func TestSlotLock_NilBookingID(t *testing.T) {
 	}
 }
 
-// TestSlotLockModel_RequiresDB documents that all SlotLockModel methods
+// TestSlotLockModel_RequiresDB documents that all SlotLocks methods
 // require a database connection. There is no pure logic to test.
 func TestSlotLockModel_RequiresDB(t *testing.T) {
-	t.Skip("SlotLockModel methods (AcquireLock, ReleaseLock, ReleaseByBooking, CleanExpired) all require *pgxpool.Pool")
+	t.Skip("SlotLocks methods (AcquireLock, ReleaseLock, ReleaseByBooking, CleanExpired) all require *pgxpool.Pool")
 }

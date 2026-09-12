@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -534,7 +535,7 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		// horizon so an owner and a client hit the same wall for the same
 		// reason.
 		v.Check(!date.After(maxBookableDate(time.Now())), "date",
-			fmt.Sprintf("must not be more than %d days in the future", data.MaxBookingHorizonDays))
+			fmt.Sprintf("must not be more than %d days in the future", bookingstore.MaxBookingHorizonDays))
 	}
 
 	if !v.Valid() {
@@ -633,7 +634,7 @@ func onOrAfterToday(date, now time.Time) bool {
 func maxBookableDate(now time.Time) time.Time {
 	today := now.In(timezone.Argentina)
 	midnight := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
-	return midnight.AddDate(0, 0, data.MaxBookingHorizonDays)
+	return midnight.AddDate(0, 0, bookingstore.MaxBookingHorizonDays)
 }
 
 // minutesPerDay is used to project a time-of-day past midnight, mirroring

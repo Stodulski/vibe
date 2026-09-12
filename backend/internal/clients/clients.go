@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -42,7 +43,7 @@ type Store interface {
 // bookings shown on a client's detail view. Declaring it here keeps clients
 // from depending on the booking domain.
 type BookingReader interface {
-	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*data.Booking, error)
+	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 }
 
 // Handler serves the client routes.

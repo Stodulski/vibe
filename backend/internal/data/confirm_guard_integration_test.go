@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -32,7 +32,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	b := f.createBooking(t, bookingOptions{Status: "pending", CollectionStatus: data.CollectionStatusUnpaid})
+	b := f.createBooking(t, bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
 	// The cancellation committing in the gap between ConfirmPayment's read and
 	// this transaction — markStatus is the same raw UPDATE the sibling
@@ -63,7 +63,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	// it did: refused, nothing written, and answered as a 409 by
 	// internal/bookings/actions.go, which names both sentinels.
 	err := f.Models.Payments.InsertAndConfirmBooking(ctx, payment, b)
-	if !errors.Is(err, data.ErrBookingCancelled) {
+	if !errors.Is(err, bookingstore.ErrBookingCancelled) {
 		t.Errorf("confirming a concurrently cancelled booking must be refused with ErrBookingCancelled; got %v", err)
 	}
 

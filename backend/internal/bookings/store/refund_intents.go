@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -32,8 +33,8 @@ import (
 // than merely unlikely. See design.md, "the sweep selects on the marker and
 // nothing else", and refund-intent-durability's "the sweep never refunds a
 // deliberately declined refund".
-func (m *BookingModel) GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*Booking, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*Booking, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -88,8 +89,8 @@ func (m *BookingModel) GetRefundIntentOrphans(ctx context.Context, olderThan tim
 // ErrRecordNotFound means another instance already took this row — the
 // caller's move is to leave it alone and take the next one, same as
 // MarkProcessing's callers do.
-func (m *BookingModel) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx, `
@@ -97,13 +98,13 @@ func (m *BookingModel) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen
 		SET refund_intent_at = NOW()
 		WHERE id = $1
 		  AND refund_intent_at = $2`,
-		UUIDToPg(id), TimeToPg(seen),
+		data.UUIDToPg(id), data.TimeToPg(seen),
 	)
 	if err != nil {
 		return fmt.Errorf("claim refund intent: %w", err)
 	}
 	if tag.RowsAffected() != 1 {
-		return ErrRecordNotFound
+		return data.ErrRecordNotFound
 	}
 	return nil
 }
@@ -116,13 +117,13 @@ func (m *BookingModel) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen
 // sweep itself clears nothing — it only claims and then calls
 // AutoRefundIfPaid, so the marker's lifecycle is identical whether the call
 // originated from a request or from the sweep.
-func (m *BookingModel) ClearRefundIntent(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) ClearRefundIntent(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
 		`UPDATE bookings SET refund_intent_at = NULL WHERE id = $1`,
-		UUIDToPg(id),
+		data.UUIDToPg(id),
 	)
 	if err != nil {
 		return fmt.Errorf("clear refund intent: %w", err)

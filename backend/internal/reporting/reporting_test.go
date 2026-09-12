@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -68,19 +69,19 @@ func (s *stubReports) PaymentDetails(_ context.Context, _ uuid.UUID, from, to ti
 // return zero values so a Handler can be constructed.
 type stubBookings struct{}
 
-func (stubBookings) GetDashboardStats(context.Context, uuid.UUID, time.Time) (*data.DashboardStats, error) {
-	return &data.DashboardStats{}, nil
+func (stubBookings) GetDashboardStats(context.Context, uuid.UUID, time.Time) (*bookingstore.DashboardStats, error) {
+	return &bookingstore.DashboardStats{}, nil
 }
-func (stubBookings) GetUpcomingToday(context.Context, uuid.UUID, time.Time, string, int) ([]*data.Booking, error) {
+func (stubBookings) GetUpcomingToday(context.Context, uuid.UUID, time.Time, string, int) ([]*bookingstore.Booking, error) {
 	return nil, nil
 }
-func (stubBookings) GetPaymentSummary(context.Context, uuid.UUID, time.Time) (*data.PaymentSummary, error) {
-	return &data.PaymentSummary{}, nil
+func (stubBookings) GetPaymentSummary(context.Context, uuid.UUID, time.Time) (*bookingstore.PaymentSummary, error) {
+	return &bookingstore.PaymentSummary{}, nil
 }
-func (stubBookings) GetRevenueByDay(context.Context, uuid.UUID, time.Time, time.Time) ([]data.RevenueDataPoint, error) {
+func (stubBookings) GetRevenueByDay(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.RevenueDataPoint, error) {
 	return nil, nil
 }
-func (stubBookings) GetOccupancyByHourDay(context.Context, uuid.UUID, time.Time, time.Time) ([]data.OccupancyDataPoint, error) {
+func (stubBookings) GetOccupancyByHourDay(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.OccupancyDataPoint, error) {
 	return nil, nil
 }
 

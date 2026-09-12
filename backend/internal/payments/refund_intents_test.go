@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // The sweep never calls MercadoPago for a payment with no MercadoPago id — a
@@ -27,7 +27,7 @@ func TestSweepNeverCallsMercadoPagoForACashBooking(t *testing.T) {
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
-	f.refundIntents.orphans = []*data.Booking{booking}
+	f.refundIntents.orphans = []*bookingstore.Booking{booking}
 
 	f.handler.SweepOrphanedRefundIntents(t.Context())
 
@@ -52,7 +52,7 @@ func TestSweepLeavesAnAlreadyClaimedOrphanAlone(t *testing.T) {
 	booking.RefundIntentAt = &now
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.refundIntents.orphans = []*data.Booking{booking}
+	f.refundIntents.orphans = []*bookingstore.Booking{booking}
 	f.refundIntents.notFoundFor = map[uuid.UUID]bool{booking.ID: true}
 
 	f.handler.SweepOrphanedRefundIntents(t.Context())

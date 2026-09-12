@@ -10,6 +10,7 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -708,33 +709,33 @@ func (m *mockCourtStore) DeleteBlockedSlot(ctx context.Context, id uuid.UUID) er
 // ---------------------------------------------------------------------------
 
 type mockBookingStore struct {
-	InsertFn                    func(ctx context.Context, booking *data.Booking) error
-	InsertSafeFn                func(ctx context.Context, booking *data.Booking) error
-	GetByIDFn                   func(ctx context.Context, id uuid.UUID) (*data.Booking, error)
-	GetByComplexFn              func(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*data.Booking, data.Metadata, error)
-	UpdateFn                    func(ctx context.Context, booking *data.Booking) error
-	GetForReminder2hFn          func(ctx context.Context, now time.Time) ([]*data.Booking, error)
+	InsertFn                    func(ctx context.Context, booking *bookingstore.Booking) error
+	InsertSafeFn                func(ctx context.Context, booking *bookingstore.Booking) error
+	GetByIDFn                   func(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
+	GetByComplexFn              func(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
+	UpdateFn                    func(ctx context.Context, booking *bookingstore.Booking) error
+	GetForReminder2hFn          func(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error)
 	MarkReminderSent2hFn        func(ctx context.Context, id uuid.UUID) error
-	GetDashboardStatsFn         func(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.DashboardStats, error)
-	GetUpcomingTodayFn          func(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*data.Booking, error)
-	GetRevenueByDayFn           func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.RevenueDataPoint, error)
-	GetOccupancyByHourDayFn     func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.OccupancyDataPoint, error)
-	GetByClientFn               func(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*data.Booking, error)
+	GetDashboardStatsFn         func(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
+	GetUpcomingTodayFn          func(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
+	GetRevenueByDayFn           func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
+	GetOccupancyByHourDayFn     func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
+	GetByClientFn               func(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 	HasActiveBookingsFn         func(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourtFn  func(ctx context.Context, courtID uuid.UUID) (bool, error)
 	CompletePastBookingsFn      func(ctx context.Context) (int64, error)
-	GetForReminder2hEnrichedFn  func(ctx context.Context, now time.Time) ([]*data.CronBooking, error)
-	GetExpiredPendingEnrichedFn func(ctx context.Context, expiry time.Duration) ([]*data.CronBooking, error)
+	GetForReminder2hEnrichedFn  func(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
+	GetExpiredPendingEnrichedFn func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
 }
 
-func (m *mockBookingStore) Insert(ctx context.Context, booking *data.Booking) error {
+func (m *mockBookingStore) Insert(ctx context.Context, booking *bookingstore.Booking) error {
 	if m.InsertFn != nil {
 		return m.InsertFn(ctx, booking)
 	}
 	return nil
 }
 
-func (m *mockBookingStore) InsertSafe(ctx context.Context, booking *data.Booking) error {
+func (m *mockBookingStore) InsertSafe(ctx context.Context, booking *bookingstore.Booking) error {
 	if m.InsertSafeFn != nil {
 		return m.InsertSafeFn(ctx, booking)
 	}
@@ -745,32 +746,32 @@ func (m *mockBookingStore) InsertSafe(ctx context.Context, booking *data.Booking
 	return nil
 }
 
-func (m *mockBookingStore) GetByID(ctx context.Context, id uuid.UUID) (*data.Booking, error) {
+func (m *mockBookingStore) GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error) {
 	if m.GetByIDFn != nil {
 		return m.GetByIDFn(ctx, id)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockBookingStore) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*data.Booking, data.Metadata, error) {
+func (m *mockBookingStore) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error) {
 	if m.GetByComplexFn != nil {
 		return m.GetByComplexFn(ctx, complexID, dateFrom, dateTo, filters)
 	}
 	return nil, data.Metadata{}, nil
 }
 
-func (m *mockBookingStore) Update(ctx context.Context, booking *data.Booking) error {
+func (m *mockBookingStore) Update(ctx context.Context, booking *bookingstore.Booking) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, booking)
 	}
 	return nil
 }
 
-func (m *mockBookingStore) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]data.BookedSpan, error) {
+func (m *mockBookingStore) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error) {
 	return nil, nil
 }
 
-func (m *mockBookingStore) GetForReminder2h(ctx context.Context, now time.Time) ([]*data.Booking, error) {
+func (m *mockBookingStore) GetForReminder2h(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error) {
 	if m.GetForReminder2hFn != nil {
 		return m.GetForReminder2hFn(ctx, now)
 	}
@@ -784,49 +785,49 @@ func (m *mockBookingStore) MarkReminderSent2h(ctx context.Context, id uuid.UUID)
 	return nil
 }
 
-func (m *mockBookingStore) GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*data.CronBooking, error) {
+func (m *mockBookingStore) GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error) {
 	if m.GetForReminder2hEnrichedFn != nil {
 		return m.GetForReminder2hEnrichedFn(ctx, now)
 	}
 	return nil, nil
 }
 
-func (m *mockBookingStore) GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*data.CronBooking, error) {
+func (m *mockBookingStore) GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error) {
 	if m.GetExpiredPendingEnrichedFn != nil {
 		return m.GetExpiredPendingEnrichedFn(ctx, expiry)
 	}
 	return nil, nil
 }
 
-func (m *mockBookingStore) GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.DashboardStats, error) {
+func (m *mockBookingStore) GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error) {
 	if m.GetDashboardStatsFn != nil {
 		return m.GetDashboardStatsFn(ctx, complexID, today)
 	}
-	return &data.DashboardStats{}, nil
+	return &bookingstore.DashboardStats{}, nil
 }
 
-func (m *mockBookingStore) GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*data.Booking, error) {
+func (m *mockBookingStore) GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error) {
 	if m.GetUpcomingTodayFn != nil {
 		return m.GetUpcomingTodayFn(ctx, complexID, today, nowTime, limit)
 	}
 	return nil, nil
 }
 
-func (m *mockBookingStore) GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.RevenueDataPoint, error) {
+func (m *mockBookingStore) GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error) {
 	if m.GetRevenueByDayFn != nil {
 		return m.GetRevenueByDayFn(ctx, complexID, from, to)
 	}
 	return nil, nil
 }
 
-func (m *mockBookingStore) GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.OccupancyDataPoint, error) {
+func (m *mockBookingStore) GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error) {
 	if m.GetOccupancyByHourDayFn != nil {
 		return m.GetOccupancyByHourDayFn(ctx, complexID, from, to)
 	}
 	return nil, nil
 }
 
-func (m *mockBookingStore) GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*data.Booking, error) {
+func (m *mockBookingStore) GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error) {
 	if m.GetByClientFn != nil {
 		return m.GetByClientFn(ctx, complexID, clientID, limit)
 	}
@@ -847,8 +848,8 @@ func (m *mockBookingStore) CompletePastBookings(ctx context.Context) (int64, err
 	return 0, nil
 }
 
-func (m *mockBookingStore) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.PaymentSummary, error) {
-	return &data.PaymentSummary{}, nil
+func (m *mockBookingStore) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error) {
+	return &bookingstore.PaymentSummary{}, nil
 }
 
 func (m *mockBookingStore) HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error) {
@@ -868,7 +869,7 @@ func (m *mockBookingStore) CancelFutureByComplex(ctx context.Context, complexID 
 // sweep — that behavior is covered in internal/data and internal/payments,
 // against the real store — so these only exist to keep mockBookingStore
 // satisfying data.BookingStore.
-func (m *mockBookingStore) GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*data.Booking, error) {
+func (m *mockBookingStore) GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error) {
 	return nil, nil
 }
 
@@ -886,7 +887,7 @@ func (m *mockBookingStore) ClearRefundIntent(ctx context.Context, id uuid.UUID) 
 
 type mockBookingLinkTokenStore struct {
 	MintFn                  func(ctx context.Context, bookingID uuid.UUID, expiresAt time.Time) (string, error)
-	ResolveBookingFn        func(ctx context.Context, plaintext string) (*data.Booking, time.Time, error)
+	ResolveBookingFn        func(ctx context.Context, plaintext string) (*bookingstore.Booking, time.Time, error)
 	DeleteExpiredTerminalFn func(ctx context.Context, retention time.Duration) error
 }
 
@@ -897,7 +898,7 @@ func (m *mockBookingLinkTokenStore) Mint(ctx context.Context, bookingID uuid.UUI
 	return "mock-link-token-" + bookingID.String(), nil
 }
 
-func (m *mockBookingLinkTokenStore) ResolveBooking(ctx context.Context, plaintext string) (*data.Booking, time.Time, error) {
+func (m *mockBookingLinkTokenStore) ResolveBooking(ctx context.Context, plaintext string) (*bookingstore.Booking, time.Time, error) {
 	if m.ResolveBookingFn != nil {
 		return m.ResolveBookingFn(ctx, plaintext)
 	}
@@ -998,8 +999,8 @@ func (m *mockClientStore) GetInsights(ctx context.Context, complexID uuid.UUID, 
 
 type mockPaymentStore struct {
 	InsertFn                  func(ctx context.Context, payment *paymentstore.Payment) error
-	InsertAndConfirmBookingFn func(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
-	ConfirmWebhookPaymentFn   func(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	InsertAndConfirmBookingFn func(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
+	ConfirmWebhookPaymentFn   func(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	GetByBookingIDFn          func(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
 	ListByBookingIDFn         func(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
 	GetByMPPaymentFn          func(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
@@ -1017,14 +1018,14 @@ func (m *mockPaymentStore) Insert(ctx context.Context, payment *paymentstore.Pay
 	return nil
 }
 
-func (m *mockPaymentStore) InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error {
+func (m *mockPaymentStore) InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error {
 	if m.InsertAndConfirmBookingFn != nil {
 		return m.InsertAndConfirmBookingFn(ctx, payment, booking)
 	}
 	return nil
 }
 
-func (m *mockPaymentStore) ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error {
+func (m *mockPaymentStore) ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error {
 	if m.ConfirmWebhookPaymentFn != nil {
 		return m.ConfirmWebhookPaymentFn(ctx, payment, booking)
 	}

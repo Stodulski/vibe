@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mpcred"
@@ -143,7 +144,7 @@ func TestCronReminder2h_PayloadCarriesWhereToGoAndWhatToPay(t *testing.T) {
 	app, queue := newTestApplicationWithNotifications(t)
 
 	lat, lng := -34.603722, -58.381592
-	candidate := &data.CronBooking{
+	candidate := &bookingstore.CronBooking{
 		ClientEmail:      "ana@example.com",
 		ClientPhone:      "+5491100000000",
 		ComplexName:      "Vibe Palermo",
@@ -162,11 +163,11 @@ func TestCronReminder2h_PayloadCarriesWhereToGoAndWhatToPay(t *testing.T) {
 	candidate.DurationMinutes = 60
 	candidate.Price = 2000000
 	candidate.DepositAmount = 500000
-	candidate.CollectionStatus = data.CollectionStatusDepositPaid
+	candidate.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 
 	app.models.Bookings = &mockBookingStore{
-		GetForReminder2hEnrichedFn: func(context.Context, time.Time) ([]*data.CronBooking, error) {
-			return []*data.CronBooking{candidate}, nil
+		GetForReminder2hEnrichedFn: func(context.Context, time.Time) ([]*bookingstore.CronBooking, error) {
+			return []*bookingstore.CronBooking{candidate}, nil
 		},
 		MarkReminderSent2hFn: func(context.Context, uuid.UUID) error { return nil },
 	}
@@ -210,7 +211,7 @@ func TestCronReminder2h_PayloadCarriesWhereToGoAndWhatToPay(t *testing.T) {
 func TestCronReminder2h_StillRemindsWhenTheCancelLinkCannotBeMinted(t *testing.T) {
 	app, queue := newTestApplicationWithNotifications(t)
 
-	candidate := &data.CronBooking{ClientEmail: "ana@example.com", ComplexName: "Vibe", ComplexSlug: "vibe"}
+	candidate := &bookingstore.CronBooking{ClientEmail: "ana@example.com", ComplexName: "Vibe", ComplexSlug: "vibe"}
 	candidate.ID = uuid.New()
 	candidate.Date = time.Now()
 	candidate.StartTime = "18:00"
@@ -218,8 +219,8 @@ func TestCronReminder2h_StillRemindsWhenTheCancelLinkCannotBeMinted(t *testing.T
 	candidate.EndsAt = candidate.StartsAt.Add(60 * time.Minute)
 
 	app.models.Bookings = &mockBookingStore{
-		GetForReminder2hEnrichedFn: func(context.Context, time.Time) ([]*data.CronBooking, error) {
-			return []*data.CronBooking{candidate}, nil
+		GetForReminder2hEnrichedFn: func(context.Context, time.Time) ([]*bookingstore.CronBooking, error) {
+			return []*bookingstore.CronBooking{candidate}, nil
 		},
 		MarkReminderSent2hFn: func(context.Context, uuid.UUID) error { return nil },
 	}
@@ -241,7 +242,7 @@ func TestCronReminder2h_StillRemindsWhenTheCancelLinkCannotBeMinted(t *testing.T
 func TestCronReleaseExpiredPayments_SaysWhyTheBookingWentAway(t *testing.T) {
 	app, queue := newTestApplicationWithNotifications(t)
 
-	candidate := &data.CronBooking{
+	candidate := &bookingstore.CronBooking{
 		ClientEmail: "ana@example.com",
 		ClientPhone: "+5491100000000",
 		ComplexName: "Vibe Palermo",
@@ -254,13 +255,13 @@ func TestCronReleaseExpiredPayments_SaysWhyTheBookingWentAway(t *testing.T) {
 	candidate.StartsAt = slots.At(timezone.Day(candidate.Date), "18:00")
 	candidate.EndsAt = candidate.StartsAt.Add(60 * time.Minute)
 	candidate.Status = "pending"
-	candidate.CollectionStatus = data.CollectionStatusUnpaid
+	candidate.CollectionStatus = bookingstore.CollectionStatusUnpaid
 
 	app.models.Bookings = &mockBookingStore{
-		GetExpiredPendingEnrichedFn: func(context.Context, time.Duration) ([]*data.CronBooking, error) {
-			return []*data.CronBooking{candidate}, nil
+		GetExpiredPendingEnrichedFn: func(context.Context, time.Duration) ([]*bookingstore.CronBooking, error) {
+			return []*bookingstore.CronBooking{candidate}, nil
 		},
-		UpdateFn: func(context.Context, *data.Booking) error { return nil },
+		UpdateFn: func(context.Context, *bookingstore.Booking) error { return nil },
 	}
 
 	app.cronReleaseExpiredPayments(context.Background())
@@ -310,7 +311,7 @@ func TestCronReminder2h_EnqueuesExactlyOnceAndMarksSent(t *testing.T) {
 	app, queue := newTestApplicationWithNotifications(t)
 
 	bookingID := uuid.New()
-	candidate := &data.CronBooking{
+	candidate := &bookingstore.CronBooking{
 		ClientEmail: "ana@example.com",
 		ClientPhone: "+5491100000000",
 		ComplexName: "Vibe",
@@ -325,8 +326,8 @@ func TestCronReminder2h_EnqueuesExactlyOnceAndMarksSent(t *testing.T) {
 
 	var marked []uuid.UUID
 	app.models.Bookings = &mockBookingStore{
-		GetForReminder2hEnrichedFn: func(ctx context.Context, now time.Time) ([]*data.CronBooking, error) {
-			return []*data.CronBooking{candidate}, nil
+		GetForReminder2hEnrichedFn: func(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error) {
+			return []*bookingstore.CronBooking{candidate}, nil
 		},
 		MarkReminderSent2hFn: func(ctx context.Context, id uuid.UUID) error {
 			marked = append(marked, id)
@@ -351,7 +352,7 @@ func TestCronReminder2h_EnqueuesExactlyOnceAndMarksSent(t *testing.T) {
 	// `AND reminder_sent_2h = false` clause would once the first tick's
 	// MarkReminderSent2h has landed.
 	app.models.Bookings = &mockBookingStore{
-		GetForReminder2hEnrichedFn: func(ctx context.Context, now time.Time) ([]*data.CronBooking, error) {
+		GetForReminder2hEnrichedFn: func(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error) {
 			return nil, nil
 		},
 	}
@@ -373,13 +374,13 @@ func TestCronReleaseExpiredPayments_NoExpiredBookings(t *testing.T) {
 
 // newExpiredCronBooking builds a minimal CronBooking in "pending payment"
 // state, the shape GetExpiredPendingEnriched would hand the job.
-func newExpiredCronBooking(id uuid.UUID) *data.CronBooking {
-	cb := &data.CronBooking{}
+func newExpiredCronBooking(id uuid.UUID) *bookingstore.CronBooking {
+	cb := &bookingstore.CronBooking{}
 	cb.ID = id
 	cb.ComplexID = uuid.New()
 	cb.Status = "pending"
-	cb.CollectionStatus = data.CollectionStatusUnpaid
-	cb.RefundStatus = data.RefundStatusNone
+	cb.CollectionStatus = bookingstore.CollectionStatusUnpaid
+	cb.RefundStatus = bookingstore.RefundStatusNone
 	cb.Date = time.Now()
 	cb.StartTime = "10:00"
 	cb.StartsAt = slots.At(timezone.Day(cb.Date), "10:00")
@@ -400,12 +401,12 @@ func TestCronReleaseExpiredPayments_CancelsBooking(t *testing.T) {
 
 	booking := newExpiredCronBooking(uuid.New())
 
-	var updated *data.Booking
+	var updated *bookingstore.Booking
 	app.models.Bookings = &mockBookingStore{
-		GetExpiredPendingEnrichedFn: func(ctx context.Context, expiry time.Duration) ([]*data.CronBooking, error) {
-			return []*data.CronBooking{booking}, nil
+		GetExpiredPendingEnrichedFn: func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error) {
+			return []*bookingstore.CronBooking{booking}, nil
 		},
-		UpdateFn: func(ctx context.Context, b *data.Booking) error {
+		UpdateFn: func(ctx context.Context, b *bookingstore.Booking) error {
 			updated = b
 			return nil
 		},
@@ -445,10 +446,10 @@ func TestCronReleaseExpiredPayments_OneFailureDoesNotStopOthers(t *testing.T) {
 	var okUpdated bool
 	var updateCalls int
 	app.models.Bookings = &mockBookingStore{
-		GetExpiredPendingEnrichedFn: func(ctx context.Context, expiry time.Duration) ([]*data.CronBooking, error) {
-			return []*data.CronBooking{failing, ok}, nil
+		GetExpiredPendingEnrichedFn: func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error) {
+			return []*bookingstore.CronBooking{failing, ok}, nil
 		},
-		UpdateFn: func(ctx context.Context, b *data.Booking) error {
+		UpdateFn: func(ctx context.Context, b *bookingstore.Booking) error {
 			updateCalls++
 			if b.ID == failing.ID {
 				return errors.New("simulated db failure")
@@ -487,15 +488,15 @@ func TestCronReleaseExpiredPayments_Idempotent(t *testing.T) {
 	updateCalls := 0
 
 	app.models.Bookings = &mockBookingStore{
-		GetExpiredPendingEnrichedFn: func(ctx context.Context, expiry time.Duration) ([]*data.CronBooking, error) {
+		GetExpiredPendingEnrichedFn: func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error) {
 			if status != "pending" {
 				return nil, nil
 			}
 			cb := *booking
 			cb.Status = status
-			return []*data.CronBooking{&cb}, nil
+			return []*bookingstore.CronBooking{&cb}, nil
 		},
-		UpdateFn: func(ctx context.Context, b *data.Booking) error {
+		UpdateFn: func(ctx context.Context, b *bookingstore.Booking) error {
 			updateCalls++
 			status = b.Status
 			return nil

@@ -1,10 +1,11 @@
-package data
+package store
 
 import (
 	"context"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // SlotLock represents a short-lived reservation on a court slot held during checkout.
@@ -20,9 +21,9 @@ type SlotLock struct {
 	ExpiresAt time.Time  `json:"expires_at"`
 }
 
-// SlotLockModel implements SlotLockStore against PostgreSQL.
-type SlotLockModel struct {
-	DB *DB
+// SlotLocks implements SlotLockStore against PostgreSQL.
+type SlotLocks struct {
+	DB *data.DB
 }
 
 // AcquireLock attempts to lock a slot atomically. Returns ErrSlotLocked if the
@@ -40,8 +41,8 @@ type SlotLockModel struct {
 // DO UPDATE makes PostgreSQL refuse the update — reporting zero rows affected —
 // when the existing lock is still live, and two callers racing for an expired
 // lock serialise on the same row, so exactly one of them wins it.
-func (m *SlotLockModel) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *SlotLocks) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	expiresAt := time.Now().Add(ttl)
@@ -65,8 +66,8 @@ func (m *SlotLockModel) AcquireLock(ctx context.Context, courtID uuid.UUID, date
 }
 
 // ReleaseLock removes a specific slot lock.
-func (m *SlotLockModel) ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *SlotLocks) ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -76,8 +77,8 @@ func (m *SlotLockModel) ReleaseLock(ctx context.Context, courtID uuid.UUID, date
 }
 
 // ReleaseByBooking removes all slot locks for a given booking.
-func (m *SlotLockModel) ReleaseByBooking(ctx context.Context, bookingID uuid.UUID) error {
-	ctx, cancel := QueryContext(ctx)
+func (m *SlotLocks) ReleaseByBooking(ctx context.Context, bookingID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -86,8 +87,8 @@ func (m *SlotLockModel) ReleaseByBooking(ctx context.Context, bookingID uuid.UUI
 }
 
 // CleanExpired removes all expired slot locks. Returns the count of removed locks.
-func (m *SlotLockModel) CleanExpired(ctx context.Context) (int64, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *SlotLocks) CleanExpired(ctx context.Context) (int64, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	result, err := m.DB.Exec(ctx,

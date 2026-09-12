@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 )
 
 // This file replaces version_bypass_integration_test.go.
@@ -58,7 +58,7 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 
 	// The stale writer commits its decision.
 	inFlight.Status = "confirmed"
-	inFlight.CollectionStatus = data.CollectionStatusFullyPaid
+	inFlight.CollectionStatus = bookingstore.CollectionStatusFullyPaid
 	err = f.Models.Bookings.Update(ctx, inFlight)
 
 	var pgErr *pgconn.PgError
@@ -81,11 +81,11 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 	if final.Status != "cancelled" {
 		t.Errorf("final status = %q, want cancelled", final.Status)
 	}
-	if final.CollectionStatus != data.CollectionStatusUnpaid {
+	if final.CollectionStatus != bookingstore.CollectionStatusUnpaid {
 		t.Errorf("final collection_status = %q, want unpaid — the refused write must "+
 			"have left nothing behind", final.CollectionStatus)
 	}
-	if final.RefundStatus != data.RefundStatusNone {
+	if final.RefundStatus != bookingstore.RefundStatusNone {
 		t.Errorf("final refund_status = %q, want none", final.RefundStatus)
 	}
 }
@@ -114,19 +114,19 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	paid.CollectionStatus = data.CollectionStatusDepositPaid
+	paid.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	paid.DepositAmount = 100_000
 	if err := f.Models.Bookings.Update(ctx, paid); err != nil {
 		t.Fatalf("taking the deposit: %v", err)
 	}
 	// A refund claim goes out on that deposit. The row now carries something on
 	// both axes, which is the state the single enum could not hold at all.
-	paid.RefundStatus = data.RefundStatusPending
+	paid.RefundStatus = bookingstore.RefundStatusPending
 	if err := f.Models.Bookings.Update(ctx, paid); err != nil {
 		t.Fatalf("claiming the refund: %v", err)
 	}
 
-	paid.CollectionStatus = data.CollectionStatusUnpaid
+	paid.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	err = f.Models.Bookings.Update(ctx, paid)
 
 	var pgErr *pgconn.PgError
@@ -145,10 +145,10 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("final read: %v", err)
 	}
-	if final.CollectionStatus != data.CollectionStatusDepositPaid {
+	if final.CollectionStatus != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("final collection_status = %q, want deposit_paid", final.CollectionStatus)
 	}
-	if final.RefundStatus != data.RefundStatusPending {
+	if final.RefundStatus != bookingstore.RefundStatusPending {
 		t.Errorf("final refund_status = %q, want pending — the refused write must have "+
 			"left the refund axis exactly where it was", final.RefundStatus)
 	}
@@ -158,13 +158,13 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 // what CancelFutureByComplex's `date >= CURRENT_DATE` predicate selects. The
 // date is built in UTC and pinned to midnight so the row lands on exactly one
 // local day whatever hour the suite runs at.
-func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) *data.Booking {
+func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) *bookingstore.Booking {
 	t.Helper()
 
 	d := time.Now().In(time.UTC).AddDate(0, 0, 7)
 	date := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
 
-	b := &data.Booking{
+	b := &bookingstore.Booking{
 		ComplexID:        f.ComplexID,
 		CourtID:          f.CourtID,
 		ClientID:         f.ClientID,
@@ -174,8 +174,8 @@ func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) 
 		Price:            400_000,
 		DepositAmount:    0,
 		Status:           "pending",
-		CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus:     data.RefundStatusNone,
+		CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus:     bookingstore.RefundStatusNone,
 	}
 	if err := f.Models.Bookings.InsertSafe(context.Background(), b); err != nil {
 		t.Fatalf("seeding the booking: %v", err)

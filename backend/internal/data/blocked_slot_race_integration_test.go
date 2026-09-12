@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // These tests cover the other direction of the blocked-slot guard: the write
@@ -158,12 +158,12 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 
 	release := blockCourtDay(t, f, nextDay)
 
-	b := &data.Booking{
+	b := &bookingstore.Booking{
 		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
 		Date: date, StartTime: "23:00", DurationMinutes: 120,
 		Price: 500_000, DepositAmount: 150_000,
-		Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus: data.RefundStatusNone,
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus: bookingstore.RefundStatusNone,
 	}
 	result := make(chan error, 1)
 	go func() { result <- f.Models.Bookings.InsertSafe(ctx, b) }()
@@ -181,7 +181,7 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 	}
 	release()
 
-	if err := <-result; !errors.Is(err, data.ErrSlotUnavailable) {
+	if err := <-result; !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Fatalf("a 23:00 +120m booking against a 00:00-01:00 block committed on the following day: "+
 			"got err = %v, want ErrSlotUnavailable. The booking locked only its own date, so the block "+
 			"landed between its check and its COMMIT.", err)

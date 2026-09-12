@@ -16,10 +16,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -31,8 +31,8 @@ type PaymentStore interface {
 	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
 	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
 	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
-	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
-	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
+	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	Update(ctx context.Context, payment *paymentstore.Payment) error
 
 	// The refund lifecycle, in the order it runs. ClaimRefund commits a durable
@@ -49,8 +49,8 @@ type PaymentStore interface {
 
 // BookingStore is the booking side of confirming and cancelling.
 type BookingStore interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Booking, error)
-	Update(ctx context.Context, booking *data.Booking) error
+	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
+	Update(ctx context.Context, booking *bookingstore.Booking) error
 }
 
 // RefundIntentStore is the reconciliation sweep's store layer
@@ -61,7 +61,7 @@ type BookingStore interface {
 // different responsibility from confirming and cancelling, the same
 // separation FailedRefundStore already draws from PaymentStore.
 type RefundIntentStore interface {
-	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*data.Booking, error)
+	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error)
 	ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error
 	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
 }

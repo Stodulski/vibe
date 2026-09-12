@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -157,17 +157,17 @@ func (*discard) Write(p []byte) (int, error) { return len(p), nil }
 // row and a refund-intent marker aged past the sweep's grace period — the
 // row a genuine crash between the cancel commit and ClaimRefund leaves
 // behind.
-func (f *integrationFixture) createOrphan(t *testing.T) (*data.Booking, *paymentstore.Payment) {
+func (f *integrationFixture) createOrphan(t *testing.T) (*bookingstore.Booking, *paymentstore.Payment) {
 	t.Helper()
 	ctx := context.Background()
 
-	b := &data.Booking{
+	b := &bookingstore.Booking{
 		ComplexID: f.complexID, CourtID: f.courtID, ClientID: f.clientID,
 		Date:            time.Now().AddDate(0, 0, 7),
 		StartTime:       "18:00",
 		DurationMinutes: 90, Price: 500_000, DepositAmount: 150_000,
-		Status: "cancelled", CollectionStatus: data.CollectionStatusDepositPaid,
-		RefundStatus: data.RefundStatusNone,
+		Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
+		RefundStatus: bookingstore.RefundStatusNone,
 	}
 	if err := f.models.Bookings.Insert(ctx, b); err != nil {
 		t.Fatalf("creating booking: %v", err)
@@ -264,13 +264,13 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 
 	// A booking cancelled while its payment was still in flight: the expiry
 	// cron got there first, and MercadoPago's approval is about to arrive.
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		ComplexID: f.complexID, CourtID: f.courtID, ClientID: f.clientID,
 		Date:            time.Now().AddDate(0, 0, 7),
 		StartTime:       "20:00",
 		DurationMinutes: 90, Price: 500_000, DepositAmount: 150_000,
-		Status: "cancelled", CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus: data.RefundStatusNone,
+		Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus: bookingstore.RefundStatusNone,
 	}
 	if err := f.models.Bookings.Insert(ctx, booking); err != nil {
 		t.Fatalf("creating the cancelled booking: %v", err)
@@ -299,7 +299,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 		t.Fatalf("reading the booking back: %v", err)
 	}
 
-	if refundStatus == data.RefundStatusPending {
+	if refundStatus == bookingstore.RefundStatusPending {
 		t.Errorf("no claim exists yet, so the committed row must not assert one is in flight — " +
 			"refundable() declines on exactly this value")
 	}

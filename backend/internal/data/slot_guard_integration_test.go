@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
 
@@ -32,8 +32,8 @@ const staleAge = 20 * time.Minute
 func staleBookingOptions() bookingOptions {
 	return bookingOptions{
 		StartTime: "09:00", EndTime: "11:00",
-		Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus: data.RefundStatusNone, Public: true,
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus: bookingstore.RefundStatusNone, Public: true,
 	}
 }
 
@@ -43,7 +43,7 @@ func overlappingBookingOptions() bookingOptions {
 
 // newStaleBooking inserts a public unpaid booking through the real insert path and
 // ages it past the fixture's payment expiry.
-func newStaleBooking(t *testing.T, f *testFixture) *data.Booking {
+func newStaleBooking(t *testing.T, f *testFixture) *bookingstore.Booking {
 	t.Helper()
 
 	stale := f.newBooking(staleBookingOptions())
@@ -97,7 +97,7 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 	// made without the refund branch following it: the money stopped going
 	// back and nothing here said so, because this file was not being run.
 	err := f.confirmBooking(f.Models, stale)
-	if !errors.Is(err, data.ErrBookingCancelled) && !errors.Is(err, data.ErrSlotUnavailable) {
+	if !errors.Is(err, bookingstore.ErrBookingCancelled) && !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("confirming a stale booking whose slot was taken must be refused with an error the "+
 			"webhook refunds on (ErrBookingCancelled or ErrSlotUnavailable); got %v", err)
 	}
@@ -106,7 +106,7 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 	// so it is cancelled by the time its payment arrives; what the refusal must
 	// not do is turn it back into a confirmed one or record its payment.
 	status, collectionStatus, _ := f.readBookingState(t, stale.ID)
-	if status != "cancelled" || collectionStatus != data.CollectionStatusUnpaid {
+	if status != "cancelled" || collectionStatus != bookingstore.CollectionStatusUnpaid {
 		t.Errorf("a refused confirmation must leave the released booking as it was; got status=%q collection_status=%q", status, collectionStatus)
 	}
 	if confirmed := f.countBookings(t, "confirmed"); confirmed != 1 {
@@ -139,7 +139,7 @@ func TestConfirmingAStalePendingBookingWhoseSlotIsFreeSucceeds(t *testing.T) {
 	}
 
 	status, collectionStatus, _ := f.readBookingState(t, stale.ID)
-	if status != "confirmed" || collectionStatus != data.CollectionStatusDepositPaid {
+	if status != "confirmed" || collectionStatus != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("the booking must be confirmed and paid; got status=%q collection_status=%q", status, collectionStatus)
 	}
 }
@@ -162,7 +162,7 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	newcomer := f.newBooking(overlappingBookingOptions())
 	err := longHold.Bookings.InsertSafe(ctx, newcomer)
-	if !errors.Is(err, data.ErrSlotUnavailable) {
+	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Fatalf("under an hour-long payment expiry a %v-old booking still holds its slot; got %v", staleAge, err)
 	}
 
@@ -290,7 +290,7 @@ func TestAnInsertAndAConfirmationRacingForTheSameSlotLeaveOneWinner(t *testing.T
 				// TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken
 				// for why the confirmation's loser can now answer with the
 				// cancelled one.
-				case errors.Is(err, data.ErrSlotUnavailable), errors.Is(err, data.ErrBookingCancelled):
+				case errors.Is(err, bookingstore.ErrSlotUnavailable), errors.Is(err, bookingstore.ErrBookingCancelled):
 					rejected++
 				default:
 					t.Errorf("attempt %d failed for an unexpected reason: %v", i, err)

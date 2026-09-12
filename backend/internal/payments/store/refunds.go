@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
 )
@@ -327,9 +328,9 @@ func cancelRefundedBooking(ctx context.Context, qtx *db.Queries, bookingID uuid.
 		return fmt.Errorf("lock booking: %w", err)
 	}
 
-	newRefundStatus := data.RefundStatusFull
+	newRefundStatus := bookingstore.RefundStatusFull
 	if manualBalanceRemains {
-		newRefundStatus = data.RefundStatusPartial
+		newRefundStatus = bookingstore.RefundStatusPartial
 	}
 
 	if _, err = qtx.UpdateBooking(ctx, db.UpdateBookingParams{
@@ -489,7 +490,7 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 		}
 		return 0, fmt.Errorf("lock booking: %w", err)
 	}
-	if locked.RefundStatus != data.RefundStatusPartial {
+	if locked.RefundStatus != bookingstore.RefundStatusPartial {
 		return 0, ErrNoManualRefundOwed
 	}
 
@@ -506,7 +507,7 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 	if _, err = qtx.UpdateBooking(ctx, db.UpdateBookingParams{
 		Status:           locked.Status,
 		CollectionStatus: locked.CollectionStatus,
-		RefundStatus:     data.RefundStatusFull,
+		RefundStatus:     bookingstore.RefundStatusFull,
 		Notes:            locked.Notes,
 		DepositAmount:    locked.DepositAmount,
 		ID:               locked.ID,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -21,11 +22,11 @@ import (
 
 // BookingReader is the booking side of the dashboard and charts.
 type BookingReader interface {
-	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.DashboardStats, error)
-	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*data.Booking, error)
-	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.PaymentSummary, error)
-	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.RevenueDataPoint, error)
-	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.OccupancyDataPoint, error)
+	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
+	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
+	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error)
+	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
+	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
 }
 
 // ClientReader is the client side: headline counts and the insights panel.

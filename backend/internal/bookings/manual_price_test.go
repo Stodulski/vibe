@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -118,7 +118,7 @@ func TestTheOwnersDashboardRefusesAnOffBoundaryTimeEvenOffHours(t *testing.T) {
 // still surfaces its refusal rather than skipping it for off-hours requests.
 func TestAnOffHoursOwnerBookingIsStillRefusedWhenItOverlapsAnExistingBooking(t *testing.T) {
 	f, complexID, courtID := staffFixture(t)
-	f.store.insertErr = data.ErrSlotUnavailable
+	f.store.insertErr = bookingstore.ErrSlotUnavailable
 
 	w := httptest.NewRecorder()
 	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", complexID,
