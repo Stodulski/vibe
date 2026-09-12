@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/main.tsx", "e2e/**/*.spec.ts", "middleware.ts"],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignoreDependencies": [
+    // Referenced only from src/styles/globals.css (`@import`), which knip
+    // doesn't parse — not unused, just invisible to a project scope of
+    // .ts/.tsx files.
+    "tailwindcss",
+    "tw-animate-css",
+    // CLI-only: `pnpm dlx shadcn add ...` at the terminal, never imported.
+    "shadcn"
+  ],
+  "ignoreBinaries": [
+    // A system Postgres client e2e/setup/global.setup.ts shells out to, not
+    // an npm-installed binary.
+    "psql"
+  ]
+}
