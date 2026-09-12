@@ -127,6 +127,9 @@ const config: UserConfig = {
             urlPattern: /\/api\/v1\/public\//,
             handler: 'NetworkFirst',
             options: {
+              // Must match API_CACHE_NAME in src/shared/lib/apiCache.ts, which purges
+              // this cache on logout; that module cannot be imported here (it uses
+              // the browser Cache API), so apiCache.test.ts pins the two in lockstep.
               cacheName: 'api-cache',
               expiration: { maxEntries: 50, maxAgeSeconds: 300 },
             },
