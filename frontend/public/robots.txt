@@ -22,5 +22,10 @@ Allow: /
 # it lists, which is what Search Console requires without a cross-domain
 # verification.
 #
+# The backend is moving that endpoint to /api/v1/sitemap.xml and will keep a 301
+# on the old path, so the rewrite in vercel.json survives the move and this URL
+# never changes. Repoint the rewrite once the move lands rather than leaning on
+# the redirect forever.
+#
 # The landing (vibe.com.ar) keeps its own sitemap for its own pages.
 Sitemap: https://app.vibe.com.ar/sitemap.xml
