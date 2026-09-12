@@ -18,10 +18,19 @@ test.describe('Owner cancels a booking', () => {
   let complexId: string;
   let courtId: string;
 
+  // Its own court, not the shared one every other authenticated spec books
+  // against: this spec booked a fixed date+time (getFutureDate(2), 09:00) on
+  // the shared court, which another spec running concurrently in a
+  // different worker could book first — a real 409 seen against main after
+  // this spec merged (POST .../bookings, ErrDuplicateBooking/
+  // ErrSlotUnavailable, both reported as the same generic 409 edit-conflict
+  // body). A dedicated court makes that collision structurally impossible.
   test.beforeAll(async () => {
     const setup = await getSharedSetup();
     complexId = setup.complexId;
-    courtId = setup.courtId;
+    const court = await setup.api.createCourt(complexId, { name: 'Cancha E2E Cancel' });
+    await setup.api.setCourtPrices(complexId, court.id);
+    courtId = court.id;
   });
 
   test('cancels from the detail sheet and the calendar reflects it', async ({ authenticatedPage: page }) => {
@@ -59,12 +68,19 @@ test.describe('Owner cancels a booking', () => {
     await expect(page.getByText('Reserva cancelada')).toBeVisible({ timeout: 10_000 });
     await expect(cancelDialog).not.toBeVisible();
 
-    // The booking's own status badge, not just the toast: reopening the
-    // detail sheet should read "Cancelada" instead of leaving the calendar
-    // cell showing the previous confirmed/pending state.
-    await page.getByText(`Cancelar ${clientLastName}`).first().click();
-    await expect(page.getByRole('dialog').filter({ hasText: 'Reserva' }).getByText('Cancelada')).toBeVisible({
-      timeout: 10_000,
-    });
+    // Not by reopening the detail sheet to check a "Cancelada" badge:
+    // CourtTimeGrid filters cancelled bookings out of the day view entirely
+    // (`bookings.filter((b) => b.status !== 'cancelled')`), so that row
+    // never comes back — the previous assertion here re-clicked the same
+    // text and hung for the full test timeout waiting for an element that
+    // was never going to reappear. Its disappearance from the calendar *is*
+    // the observable proof the cancellation took, so assert that instead,
+    // and confirm the status directly against the API for the actual value.
+    await expect(page.getByText(`Cancelar ${clientLastName}`)).toHaveCount(0);
+
+    const cancelled = await apiHelper.get<{ booking: { status: string } }>(
+      `/complexes/${complexId}/bookings/${booking.id}`,
+    );
+    expect(cancelled.booking.status).toBe('cancelled');
   });
 });
