@@ -90,6 +90,9 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.DurationVar(&cfg.DB.StatementTimeout, "db-statement-timeout", 15*time.Second,
 		"PostgreSQL statement_timeout: the server-side backstop for a query no context managed to cancel "+
 			"(DB_STATEMENT_TIMEOUT)")
+	fs.DurationVar(&cfg.DB.IdleInTxTimeout, "db-idle-in-tx-timeout", 30*time.Second,
+		"PostgreSQL idle_in_transaction_session_timeout: the backstop for a transaction left open and idle; "+
+			"0 leaves the server's own setting alone (DB_IDLE_IN_TX_TIMEOUT)")
 	fs.DurationVar(&cfg.DB.SlowQueryThreshold, "db-slow-query-threshold", 500*time.Millisecond,
 		"Log a warn line for any single query slower than this; 0 disables it (DB_SLOW_QUERY_THRESHOLD)")
 	fs.BoolVar(&cfg.DB.AutoMigrate, "db-auto-migrate", false,
@@ -208,6 +211,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.intVal("DB_MAX_IDLE_CONNS", &cfg.DB.MaxIdleConns, nonNegative)
 	env.durVal("DB_MAX_IDLE_TIME", &cfg.DB.MaxIdleTime, nonNegativeDur)
 	env.durVal("DB_STATEMENT_TIMEOUT", &cfg.DB.StatementTimeout, nonNegativeDur)
+	env.durVal("DB_IDLE_IN_TX_TIMEOUT", &cfg.DB.IdleInTxTimeout, nonNegativeDur)
 	env.durVal("DB_SLOW_QUERY_THRESHOLD", &cfg.DB.SlowQueryThreshold, nonNegativeDur)
 	env.boolVal("DB_AUTO_MIGRATE", &cfg.DB.AutoMigrate)
 

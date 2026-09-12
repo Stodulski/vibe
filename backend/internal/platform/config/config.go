@@ -126,6 +126,12 @@ type DB struct {
 	// pool connection for as long as it likes. With 25 connections, a handful
 	// of those is the whole instance.
 	StatementTimeout time.Duration
+	// IdleInTxTimeout is idle_in_transaction_session_timeout: the backstop for
+	// a transaction that is open but not running anything. statement_timeout
+	// above cannot see that case — there is no statement — so a client that
+	// opened a transaction and then stopped talking holds its row locks, its
+	// pool connection and the vacuum horizon indefinitely.
+	IdleInTxTimeout time.Duration
 	// SlowQueryThreshold is the duration past which a single query earns a
 	// warn line of its own. Without it a slow query is only visible
 	// indirectly, as a request that crossed the HTTP logger's own threshold.

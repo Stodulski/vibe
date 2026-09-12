@@ -117,6 +117,7 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 | `DB_MAX_IDLE_CONNS` | Maximum idle PostgreSQL connections kept in the pool. | Optional | `10` |
 | `DB_MAX_IDLE_TIME` | Maximum time a pooled connection may sit idle before it is closed (Go duration, e.g. `15m`). | Optional | `15m` |
 | `DB_STATEMENT_TIMEOUT` | Server-side `statement_timeout` (Go duration, e.g. `15s`). | Optional | `15s` |
+| `DB_IDLE_IN_TX_TIMEOUT` | Server-side `idle_in_transaction_session_timeout` (Go duration). The case `statement_timeout` cannot see: a transaction that is open but running nothing holds its row locks, its pool connection and the vacuum horizon for as long as the client stays silent. `0` leaves the server's own setting alone. | Optional | `30s` |
 | `DB_SLOW_QUERY_THRESHOLD` | Log a warn line for any single query slower than this (Go duration); `0` disables it. | Optional | `500ms` |
 
 ### Auth

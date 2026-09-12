@@ -326,14 +326,15 @@ func main() {
 	}
 
 	db, err := platformdb.Open(context.Background(), platformdb.Config{
-		DSN:                cfg.DB.DSN,
-		MaxOpenConns:       cfg.DB.MaxOpenConns,
-		MaxIdleConns:       cfg.DB.MaxIdleConns,
-		MaxIdleTime:        cfg.DB.MaxIdleTime,
-		StatementTimeout:   cfg.DB.StatementTimeout,
-		SlowQueryThreshold: cfg.DB.SlowQueryThreshold,
-		PrepareConn:        data.StampTenantScope,
-		Logger:             logger,
+		DSN:                      cfg.DB.DSN,
+		MaxOpenConns:             cfg.DB.MaxOpenConns,
+		MaxIdleConns:             cfg.DB.MaxIdleConns,
+		MaxIdleTime:              cfg.DB.MaxIdleTime,
+		StatementTimeout:         cfg.DB.StatementTimeout,
+		IdleInTransactionTimeout: cfg.DB.IdleInTxTimeout,
+		SlowQueryThreshold:       cfg.DB.SlowQueryThreshold,
+		PrepareConn:              data.StampTenantScope,
+		Logger:                   logger,
 	})
 	if err != nil {
 		logger.Error("failed to open database connection", "error", err)
