@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/db"
 )
 
 // jobColumns is the projection every read below shares, so a column added to
@@ -149,40 +150,37 @@ func (s *Store) Fail(ctx context.Context, id uuid.UUID, cause string) (bool, err
 	ctx, cancel := data.TxContext(context.WithoutCancel(ctx))
 	defer cancel()
 
-	tx, err := s.DB.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin job failure: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var attempts, maxAttempts int
-	err = tx.QueryRow(ctx,
-		`SELECT attempts, max_attempts FROM jobs WHERE id = $1 FOR UPDATE`, id,
-	).Scan(&attempts, &maxAttempts)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, data.ErrRecordNotFound
+	var dead bool
+	err := s.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		var attempts, maxAttempts int
+		err := tx.QueryRow(ctx,
+			`SELECT attempts, max_attempts FROM jobs WHERE id = $1 FOR UPDATE`, id,
+		).Scan(&attempts, &maxAttempts)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("lock job: %w", err)
 		}
-		return false, fmt.Errorf("lock job: %w", err)
-	}
 
-	dead := attempts >= maxAttempts
-	status := StatusPending
-	if dead {
-		status = StatusFailed
-	}
+		dead = attempts >= maxAttempts
+		status := StatusPending
+		if dead {
+			status = StatusFailed
+		}
 
-	if _, err = tx.Exec(ctx, `
+		if _, err = tx.Exec(ctx, `
 		UPDATE jobs
 		SET status = $2, last_error = $3, run_at = $4, locked_at = NULL, locked_by = NULL
 		WHERE id = $1`,
-		id, status, cause, time.Now().Add(Backoff(s.Backoff, attempts)),
-	); err != nil {
-		return false, fmt.Errorf("requeue job: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit job failure: %w", err)
+			id, status, cause, time.Now().Add(Backoff(s.Backoff, attempts)),
+		); err != nil {
+			return fmt.Errorf("requeue job: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
 	}
 	return dead, nil
 }
