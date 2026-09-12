@@ -9,6 +9,17 @@ const t = ES_AR;
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /**
+   * Run just before the boundary shows its children again.
+   *
+   * Clearing `hasError` re-renders the subtree, but a query that failed is
+   * still sitting in the cache holding the same error — so without this the
+   * retry button re-threw the instant the child mounted, and the only way out
+   * was reloading the page. `QueryErrorResetBoundary` passes its `reset` here
+   * (see `routeHelpers.tsx`), which is what makes the failed queries inside
+   * this boundary run again.
+   */
+  onReset?: (() => void) | undefined;
 }
 
 interface State {
@@ -33,6 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
+    this.props.onReset?.();
     this.setState({ hasError: false });
   };
 

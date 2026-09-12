@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { QueryErrorResetBoundary } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/shared/components/common/ErrorBoundary';
 import { safeSessionStorage } from '@/shared/lib/safeStorage';
 import { PageLoader, PublicPageLoader } from './loaders';
@@ -22,32 +23,45 @@ export function lazyRetry(factory: () => Promise<{ default: React.ComponentType 
   );
 }
 
+/**
+ * One route's subtree: its own error boundary, its own Suspense fallback, and
+ * its own query-error reset scope.
+ *
+ * The reset scope is per section on purpose. `QueryErrorResetBoundary` clears
+ * the failed queries *inside* it, so "Reintentar" on the bookings page retries
+ * the bookings page's queries and nothing else — a single app-wide scope would
+ * have that button also re-run whatever failed on a screen the person left ten
+ * minutes ago. Before this the boundary's retry only cleared `hasError`: the
+ * cached error was re-thrown on the next render, so the only recovery the app
+ * actually offered was `window.location.reload()` in `RouteErrorPage`.
+ */
+function routePage(factory: () => Promise<{ default: React.ComponentType }>, loader: React.ReactNode) {
+  const Component = lazyRetry(factory);
+  return (
+    <QueryErrorResetBoundary>
+      {({ reset }) => (
+        <ErrorBoundary onReset={reset}>
+          <Suspense fallback={loader}>
+            <Component />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+    </QueryErrorResetBoundary>
+  );
+}
+
 export function lazyPage(
   factory: () => Promise<{ default: React.ComponentType }>,
   loader: React.ReactNode = <PublicPageLoader />,
 ) {
-  const Component = lazyRetry(factory);
-  return (
-    <ErrorBoundary>
-      <Suspense fallback={loader}>
-        <Component />
-      </Suspense>
-    </ErrorBoundary>
-  );
+  return routePage(factory, loader);
 }
 
 export function ownerPage(
   factory: () => Promise<{ default: React.ComponentType }>,
   loader: React.ReactNode = <PageLoader />,
 ) {
-  const Component = lazyRetry(factory);
-  return (
-    <ErrorBoundary>
-      <Suspense fallback={loader}>
-        <Component />
-      </Suspense>
-    </ErrorBoundary>
-  );
+  return routePage(factory, loader);
 }
 
 /**
