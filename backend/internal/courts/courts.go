@@ -33,7 +33,7 @@ type CourtStore interface {
 	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
 	Insert(ctx context.Context, c *courtstore.Court) error
-	Update(ctx context.Context, c *courtstore.Court) error
+	Update(ctx context.Context, c *courtstore.Court, expectedVersion *int) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -45,7 +45,8 @@ type PriceStore interface {
 	// transaction (H-07) — see its comment in internal/courts/store/courts.go. It
 	// replaces the old DeletePricesByCourtID-then-InsertPrice-loop shape
 	// UpdatePrices used to call directly.
-	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (failedIndex int, err error)
+	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice,
+		expectedVersion *int) (failedIndex int, err error)
 }
 
 // BlockedSlotStore is the hours an owner has withdrawn from sale.
@@ -91,15 +92,30 @@ type Recorder interface {
 // service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
 	svc          *Service
-	respond      *httpx.Responder
+	respond      *httpx.Refuser
 	trustProxies bool
+}
+
+// refusals is this module's whole error-to-status table: every domain error of
+// its own that is a refusal rather than a fault, and the status and message it
+// earns. Everything absent from it — data.ErrRecordNotFound, the edit conflict
+// ErrEditConflict wraps — is answered by internal/httpx.
+var refusals = httpx.Refusals{
+	courtstore.ErrCourtHasActiveBookings: httpx.Conflict(
+		"cannot delete court while it has active bookings, cancel them first"),
+	courtstore.ErrSlotAlreadyBlocked: httpx.Conflict("this time range already has a blocked slot"),
+	// One sentence for one collision. A client cannot be told two different
+	// things about it depending on which of the service's two checks happened
+	// to see it — the only difference between them is that one ran inside the
+	// transaction, which is not something the owner can act on.
+	courtstore.ErrSlotHasBooking: httpx.Conflict(blockedSlotHasBookingMessage),
 }
 
 // NewHandler returns a Handler backed by the given service.
 func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Handler {
 	return &Handler{
 		svc:          svc,
-		respond:      respond,
+		respond:      respond.WithRefusals(refusals),
 		trustProxies: trustProxies,
 	}
 }

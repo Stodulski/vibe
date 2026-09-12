@@ -72,6 +72,16 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.IntVar(&cfg.Port, "port", 8080, "API server port (PORT)")
 	fs.StringVar(&cfg.Env, "env", "development", "Environment (development|staging|production) (ENV)")
 
+	fs.DurationVar(&cfg.HTTP.ReadHeaderTimeout, "http-read-header-timeout", 5*time.Second,
+		"Deadline for reading the request line and headers; 0 disables it (HTTP_READ_HEADER_TIMEOUT)")
+	fs.DurationVar(&cfg.HTTP.ReadTimeout, "http-read-timeout", 5*time.Second,
+		"Deadline for reading the whole request, headers and body; 0 disables it (HTTP_READ_TIMEOUT)")
+	fs.DurationVar(&cfg.HTTP.WriteTimeout, "http-write-timeout", 60*time.Second,
+		"Deadline for writing the response; must stay above the spreadsheet export budget; "+
+			"0 disables it (HTTP_WRITE_TIMEOUT)")
+	fs.DurationVar(&cfg.HTTP.IdleTimeout, "http-idle-timeout", 60*time.Second,
+		"How long a keep-alive connection may sit idle between requests; 0 disables it (HTTP_IDLE_TIMEOUT)")
+
 	fs.StringVar(&cfg.DB.DSN, "db-dsn", "", "PostgreSQL DSN (DATABASE_URL)")
 	fs.IntVar(&cfg.DB.MaxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections (DB_MAX_OPEN_CONNS)")
 	fs.IntVar(&cfg.DB.MaxIdleConns, "db-max-idle-conns", 10, "PostgreSQL max idle connections (DB_MAX_IDLE_CONNS)")
@@ -151,6 +161,9 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.StringVar(&cfg.Google.PlacesAPIKey, "google-places-api-key", "", "Google Places API key (GOOGLE_MAPS_API)")
 	fs.StringVar(&cfg.Google.OAuthClientID, "google-oauth-client-id", "",
 		"Google OAuth client id; enables Sign in with Google (GOOGLE_OAUTH_CLIENT_ID)")
+	fs.BoolVar(&cfg.OpenAPIValidateRequests, "openapi-validate-requests", true,
+		"Validate every request against the embedded OpenAPI document; ignored in production "+
+			"(OPENAPI_VALIDATE_REQUESTS)")
 	fs.BoolVar(&cfg.PProf, "pprof", false, "Enable pprof profiling endpoints (PPROF_ENABLED)")
 	fs.IntVar(&cfg.RequestLogSample, "request-log-sample", 1,
 		"Log one successful request in N (1 logs every request; failures and slow requests are never "+
@@ -170,6 +183,11 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 func (cfg *Config) applyEnv(env *reader) {
 	env.intVal("PORT", &cfg.Port, positive)
 	env.strVal("ENV", &cfg.Env)
+
+	env.durVal("HTTP_READ_HEADER_TIMEOUT", &cfg.HTTP.ReadHeaderTimeout, nonNegativeDur)
+	env.durVal("HTTP_READ_TIMEOUT", &cfg.HTTP.ReadTimeout, nonNegativeDur)
+	env.durVal("HTTP_WRITE_TIMEOUT", &cfg.HTTP.WriteTimeout, nonNegativeDur)
+	env.durVal("HTTP_IDLE_TIMEOUT", &cfg.HTTP.IdleTimeout, nonNegativeDur)
 
 	env.strVal("DATABASE_URL", &cfg.DB.DSN)
 	env.strVal("DB_MIGRATOR_URL", &cfg.DB.MigratorDSN)
@@ -232,6 +250,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("SENTRY_RELEASE", &cfg.Sentry.Release)
 	env.strVal("GOOGLE_MAPS_API", &cfg.Google.PlacesAPIKey)
 	env.strVal("GOOGLE_OAUTH_CLIENT_ID", &cfg.Google.OAuthClientID)
+	env.boolVal("OPENAPI_VALIDATE_REQUESTS", &cfg.OpenAPIValidateRequests)
 	env.boolVal("PPROF_ENABLED", &cfg.PProf)
 
 	cfg.Features = env.features("FEATURE_FLAGS")

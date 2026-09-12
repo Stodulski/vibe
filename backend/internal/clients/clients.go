@@ -147,14 +147,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		IsBlocked: input.IsBlocked,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		case errors.Is(err, ErrEditConflict):
-			h.respond.EditConflict(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 

@@ -25,6 +25,10 @@ issues:
 linters:
   default: standard
   enable:
+    # errcheck is in the standard set already; it is named here because the
+    # settings below are the point — an unchecked error is only allowed where
+    # this file says so, rather than wherever someone typed `_ =`.
+    - errcheck
     - gosec
     - errorlint
     - bodyclose
@@ -44,6 +48,34 @@ linters:
     - revive
 
   settings:
+    errcheck:
+      # check-blank is what makes `_ = f()` an error rather than a way to
+      # silence errcheck. The audit (ERR-02) found forty-eight of them and no
+      # way to tell a deliberate discard from a forgotten check, because both
+      # are spelled the same. With this on, a discard is deliberate only if it
+      # is one of the functions named below, or it is annotated in place.
+      check-blank: true
+      exclude-functions:
+        # Closing something already read to the end, or rolling back a
+        # transaction that either committed (no-op) or is being abandoned on a
+        # path that already has the real error in hand. Neither can tell the
+        # caller anything it can act on.
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (net.Conn).Close
+        - (*database/sql.DB).Close
+        - (github.com/redis/go-redis/v9.UniversalClient).Close
+        - (github.com/xuri/excelize/v2.File).Close
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (github.com/jackc/pgx/v5/pgxpool.Tx).Rollback
+        # A write to a response whose status is already committed: the bytes
+        # are gone, the client either got them or did not, and there is no
+        # second answer to send.
+        - (net/http.ResponseWriter).Write
+        - (net/http.Flusher).Flush
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
     funlen:
       lines: 60
       statements: 40
@@ -61,3 +93,10 @@ linters:
           - gosec
           - unparam
           - funlen
+          # errcheck's check-blank is on for production code, where a `_ =`
+          # has to be a decision somebody made and wrote down. In a test a
+          # discarded error is already reported by the assertion that follows
+          # it, so the rule would buy nothing and cost eighty annotations.
+          # Nothing is lost against the previous setting: every discard here
+          # is a blank one, which errcheck did not look at before either.
+          - errcheck

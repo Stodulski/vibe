@@ -49,6 +49,27 @@ func conformanceRouter(t *testing.T, app *application) routers.Router {
 func assertResponseConformsToSpec(t *testing.T, router routers.Router, req *http.Request, resp *http.Response, body []byte) {
 	t.Helper()
 
+	matchReq, route, pathParams := matchRoute(t, router, req)
+
+	reqInput := specInput(t, matchReq, pathParams, route)
+	respInput := &openapi3filter.ResponseValidationInput{
+		RequestValidationInput: reqInput,
+		Status:                 resp.StatusCode,
+		Header:                 resp.Header,
+	}
+	respInput.SetBodyBytes(body)
+
+	if err := openapi3filter.ValidateResponse(req.Context(), respInput); err != nil {
+		t.Errorf("response for %s %s (status %d) does not conform to internal/openapi/openapi.yaml: %v\nbody: %s",
+			req.Method, req.URL.Path, resp.StatusCode, err, body)
+	}
+}
+
+// matchRoute rehosts a request onto a declared server and finds the operation
+// the document declares for it.
+func matchRoute(t *testing.T, router routers.Router, req *http.Request) (*http.Request, *routers.Route, map[string]string) {
+	t.Helper()
+
 	matchReq := req.Clone(req.Context())
 	rehosted, err := url.Parse(conformanceServerHost + req.URL.Path)
 	if err != nil {
@@ -62,22 +83,59 @@ func assertResponseConformsToSpec(t *testing.T, router routers.Router, req *http
 	if err != nil {
 		t.Fatalf("the document has no route for %s %s: %v", req.Method, req.URL.Path, err)
 	}
+	return matchReq, route, pathParams
+}
 
-	reqInput := &openapi3filter.RequestValidationInput{
+// specInput is the validation input both halves of the contract are checked
+// against. Authentication is the application's own middleware chain, not the
+// document's to enforce here.
+func specInput(t *testing.T, matchReq *http.Request, pathParams map[string]string,
+	route *routers.Route) *openapi3filter.RequestValidationInput {
+	t.Helper()
+
+	return &openapi3filter.RequestValidationInput{
 		Request:    matchReq,
 		PathParams: pathParams,
 		Route:      route,
+		Options: &openapi3filter.Options{
+			AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error { return nil },
+		},
 	}
-	respInput := &openapi3filter.ResponseValidationInput{
-		RequestValidationInput: reqInput,
-		Status:                 resp.StatusCode,
-		Header:                 resp.Header,
-	}
-	respInput.SetBodyBytes(body)
+}
 
-	if err := openapi3filter.ValidateResponse(req.Context(), respInput); err != nil {
-		t.Errorf("response for %s %s (status %d) does not conform to internal/openapi/openapi.yaml: %v\nbody: %s",
-			req.Method, req.URL.Path, resp.StatusCode, err, body)
+// validateRequestAgainstSpec runs the request half of the contract (API-03).
+//
+// Until this existed the suite only checked what the API answers, so a document
+// that described a body the handler would never accept — or accepted one it
+// forbids — passed. The same validation runs as middleware outside production
+// (internal/middleware/openapi.go); here it costs a test instead of a request.
+//
+// The body is refilled from GetBody, because the client already read it to put
+// it on the wire. A request built without one (a GET) has nothing to refill.
+func validateRequestAgainstSpec(t *testing.T, router routers.Router, req *http.Request) error {
+	t.Helper()
+
+	matchReq, route, pathParams := matchRoute(t, router, req)
+	input := specInput(t, matchReq, pathParams, route)
+
+	if req.GetBody != nil {
+		body, err := req.GetBody()
+		if err != nil {
+			t.Fatalf("rewinding the request body to validate it: %v", err)
+		}
+		input.Request.Body = body
+	}
+	return openapi3filter.ValidateRequest(req.Context(), input)
+}
+
+// assertRequestConformsToSpec fails when the document forbids a request the
+// suite considers valid.
+func assertRequestConformsToSpec(t *testing.T, router routers.Router, req *http.Request) {
+	t.Helper()
+
+	if err := validateRequestAgainstSpec(t, router, req); err != nil {
+		t.Errorf("request %s %s does not conform to internal/openapi/openapi.yaml: %v",
+			req.Method, req.URL.Path, err)
 	}
 }
 
@@ -103,6 +161,7 @@ func TestOpenAPIConformance_Healthcheck(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", resp.StatusCode, body)
 	}
+	assertRequestConformsToSpec(t, router, req)
 	assertResponseConformsToSpec(t, router, req, resp, body)
 }
 
@@ -177,6 +236,7 @@ func TestOpenAPIConformance_LoginSuccess(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", resp.StatusCode, body)
 	}
+	assertRequestConformsToSpec(t, router, req)
 	assertResponseConformsToSpec(t, router, req, resp, body)
 }
 
@@ -243,6 +303,7 @@ func TestOpenAPIConformance_AuthenticatedPaginatedList(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", resp.StatusCode, body)
 	}
+	assertRequestConformsToSpec(t, router, req)
 	assertResponseConformsToSpec(t, router, req, resp, body)
 }
 
@@ -269,6 +330,7 @@ func TestOpenAPIConformance_NotFound(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404: %s", resp.StatusCode, body)
 	}
+	assertRequestConformsToSpec(t, router, req)
 	assertResponseConformsToSpec(t, router, req, resp, body)
 }
 
@@ -276,6 +338,103 @@ func TestOpenAPIConformance_NotFound(t *testing.T) {
 // (1/6 rps, burst 10), which the test harness's general limiter override
 // does not touch, by sending more requests than the burst allows in a tight
 // loop.
+// The document is only worth validating against if it actually refuses
+// something. This is the other half of TestOpenAPIConformance_LoginInvalidBody:
+// the handler answers 422 for an empty login body, and the document — which is
+// what the middleware in internal/middleware/openapi.go enforces outside
+// production — refuses the same body before a handler sees it.
+func TestOpenAPIConformance_TheDocumentRefusesAnInvalidRequestBody(t *testing.T) {
+	app := newTestApplication(t)
+	ts := newTestServer(t, app)
+	router := conformanceRouter(t, app)
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL+"/api/v1/auth/login",
+		bytes.NewReader([]byte(`{}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	if err := validateRequestAgainstSpec(t, router, req); err == nil {
+		t.Error("a login body with neither email nor password was accepted by the document")
+	}
+}
+
+// TestOpenAPIConformance_OptionalFieldsMayBeOmitted is the regression guard
+// for the openapi/code required-field audit (fix(openapi): describe optional
+// request fields as optional so validation matches the code): every field
+// below is optional in its handler (either a pointer never checked with "must
+// be provided", or a value type whose zero value passes every validator.Check
+// it is subject to), so a minimal body omitting it must still conform to
+// internal/openapi/openapi.yaml. Before that fix each of these bodies made
+// the document refuse a request the handler accepts, exactly as
+// deposit_percentage did on POST /api/v1/complexes (the shape the E2E
+// helper's createComplex sends, and the failure CI caught).
+func TestOpenAPIConformance_OptionalFieldsMayBeOmitted(t *testing.T) {
+	app := newTestApplication(t)
+	ts := newTestServer(t, app)
+	router := conformanceRouter(t, app)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+	}{
+		{
+			name:   "create complex without deposit_percentage",
+			method: http.MethodPost,
+			path:   "/api/v1/complexes",
+			body: `{"name":"Complejo E2E Test","slug":"complejo-e2e-test","address":"Av. Libertador 1234",` +
+				`"city":"Buenos Aires","province":"Buenos Aires","phone":"+5491198765432","cancellation_hours":24}`,
+		},
+		{
+			name:   "toggle user active without is_active",
+			method: http.MethodPatch,
+			path:   "/api/v1/admin/users/" + uuid.New().String() + "/toggle-active",
+			body:   `{}`,
+		},
+		{
+			name:   "update schedules without is_closed",
+			method: http.MethodPut,
+			path:   "/api/v1/complexes/" + uuid.New().String() + "/schedules",
+			body: `{"schedules":[` +
+				`{"day":"monday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"tuesday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"wednesday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"thursday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"friday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"saturday","open_time":"08:00","close_time":"23:00"},` +
+				`{"day":"sunday","open_time":"08:00","close_time":"23:00"}]}`,
+		},
+		{
+			name:   "resend verification without email",
+			method: http.MethodPost,
+			path:   "/api/v1/auth/resend-verification",
+			body:   `{}`,
+		},
+		{
+			name:   "forgot password without email",
+			method: http.MethodPost,
+			path:   "/api/v1/auth/forgot-password",
+			body:   `{}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequestWithContext(t.Context(), tc.method, ts.URL+tc.path,
+				bytes.NewReader([]byte(tc.body)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			assertRequestConformsToSpec(t, router, req)
+		})
+	}
+}
+
 func TestOpenAPIConformance_RateLimited(t *testing.T) {
 	app := newTestApplication(t)
 	ts := newTestServer(t, app)

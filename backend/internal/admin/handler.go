@@ -57,15 +57,23 @@ type Recorder interface {
 // service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
 	svc          *Service
-	respond      *httpx.Responder
+	respond      *httpx.Refuser
 	trustProxies bool
+}
+
+// refusals is this module's whole error-to-status table: every domain error of
+// its own that is a refusal rather than a fault, and the status and message it
+// earns. Everything absent from it — including the sentinels every module
+// shares — is answered by internal/httpx.
+var refusals = httpx.Refusals{
+	ErrSelfToggle: httpx.Conflict("cannot modify your own account status"),
 }
 
 // NewHandler returns a Handler. trustProxies must match the deployment: it
 // decides whether the audit trail records the forwarded client address or the
 // immediate peer.
 func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Handler {
-	return &Handler{svc: svc, respond: respond, trustProxies: trustProxies}
+	return &Handler{svc: svc, respond: respond.WithRefusals(refusals), trustProxies: trustProxies}
 }
 
 // Routes registers this module's endpoints. Every one exposes data across all

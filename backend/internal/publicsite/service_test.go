@@ -13,8 +13,10 @@ import (
 )
 
 // TestServiceSitemap covers what the crawler-facing sitemap is allowed to list:
-// the homepage always, and one entry per published complex, each dated by the
-// row's own last change.
+// one entry per published complex, each dated by the row's own last change, and
+// nothing else. The app's own root is not in it — the host serves that with
+// X-Robots-Tag: noindex, so listing it asks a crawler to fetch a URL it is then
+// told to discard.
 func TestServiceSitemap(t *testing.T) {
 	updated := time.Date(2026, 3, 12, 9, 30, 0, 0, time.UTC)
 
@@ -24,25 +26,26 @@ func TestServiceSitemap(t *testing.T) {
 		frontendURL string
 		err         error
 		wantLocs    []string
+		unwantedLoc string
 	}{
 		{
-			name:        "the homepage is listed even with no complexes",
+			name:        "with no complexes the sitemap lists nothing at all",
 			frontendURL: "https://vibe.example",
-			wantLocs:    []string{"<loc>https://vibe.example/</loc>"},
+			unwantedLoc: "<loc>https://vibe.example/</loc>",
 		},
 		{
-			name:        "every complex is listed under the frontend origin",
+			name:        "every complex is listed under the frontend origin, and only those",
 			frontendURL: "https://vibe.example/",
 			slugs: []complexstore.ComplexSlug{
 				{Slug: "club-norte", UpdatedAt: updated},
 				{Slug: "club-sur", UpdatedAt: updated},
 			},
 			wantLocs: []string{
-				"<loc>https://vibe.example/</loc>",
 				"<loc>https://vibe.example/club-norte</loc>",
 				"<loc>https://vibe.example/club-sur</loc>",
 				"<lastmod>2026-03-12</lastmod>",
 			},
+			unwantedLoc: "<loc>https://vibe.example/</loc>",
 		},
 		{
 			name:        "a store failure is passed through, not published as an empty sitemap",
@@ -74,6 +77,9 @@ func TestServiceSitemap(t *testing.T) {
 				if !strings.Contains(doc, want) {
 					t.Errorf("sitemap is missing %q:\n%s", want, doc)
 				}
+			}
+			if tt.unwantedLoc != "" && strings.Contains(doc, tt.unwantedLoc) {
+				t.Errorf("sitemap still lists the noindex root %q:\n%s", tt.unwantedLoc, doc)
 			}
 		})
 	}

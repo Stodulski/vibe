@@ -77,7 +77,7 @@ func slugRequest(t *testing.T, slug string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
 }
 
-func TestSitemapListsHomepageAndEveryComplex(t *testing.T) {
+func TestSitemapListsEveryComplexAndNotTheNoindexRoot(t *testing.T) {
 	store := &stubStore{slugs: []complexstore.ComplexSlug{
 		{Slug: "vibe-palermo", UpdatedAt: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
 		{Slug: "vibe-pilar", UpdatedAt: time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)},
@@ -96,7 +96,6 @@ func TestSitemapListsHomepageAndEveryComplex(t *testing.T) {
 
 	body := w.Body.String()
 	for _, want := range []string{
-		"<loc>https://vibe.example/</loc>",
 		"<loc>https://vibe.example/vibe-palermo</loc>",
 		"<lastmod>2026-03-01</lastmod>",
 		"<loc>https://vibe.example/vibe-pilar</loc>",
@@ -107,9 +106,31 @@ func TestSitemapListsHomepageAndEveryComplex(t *testing.T) {
 		}
 	}
 
+	// The app's own root is served with X-Robots-Tag: noindex, so listing it
+	// asks a crawler to fetch a URL it is then told to throw away.
+	if strings.Contains(body, "<loc>https://vibe.example/</loc>") {
+		t.Errorf("sitemap still lists the noindex root\n%s", body)
+	}
+
 	// The trailing slash on the configured frontend URL must not double up.
 	if strings.Contains(body, "//vibe-palermo") {
 		t.Error("the base URL's trailing slash produced a doubled separator")
+	}
+}
+
+// The pre-versioning path is still in search engines' indexes. A 404 there
+// makes a crawler drop the pages the sitemap lists rather than look for a new
+// address, so it has to be a permanent redirect for as long as it is fetched.
+func TestTheOldSitemapPathRedirectsPermanently(t *testing.T) {
+	h := NewHandler(NewService(&stubStore{}, "https://vibe.example"), testResponder())
+	w := httptest.NewRecorder()
+	h.SitemapMoved(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/sitemap.xml", nil))
+
+	if w.Code != http.StatusMovedPermanently {
+		t.Fatalf("want 301; got %d", w.Code)
+	}
+	if got := w.Header().Get("Location"); got != SitemapPath {
+		t.Errorf("Location = %q, want %q", got, SitemapPath)
 	}
 }
 
@@ -151,7 +172,7 @@ func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 	body := w.Body.String()
 	for _, want := range []string{
 		"<title>Vibe Palermo - Reserva tu cancha | Vibe</title>",
-		`content="Reserva canchas en Vibe Palermo. Rapido y seguro."`,
+		`content="Reserva canchas en Vibe Palermo. Rápido y seguro."`,
 		`content="https://cdn.example/logo.png"`,
 		`<link rel="canonical"`,
 		`<script type="application/ld+json">`,
@@ -409,4 +430,169 @@ func TestAnErrorPageIsNotCachedAsTheTemplate(t *testing.T) {
 			t.Errorf("the 503 page replaced the cached template; got %q", second)
 		}
 	})
+}
+
+// frontendIndexHead is a literal copy of the tags frontend/index.html ships,
+// taken from that file rather than built from this package's constants.
+//
+// That is the whole point of it. baseTemplate above is assembled FROM the
+// constants, so every substitution test passes whether or not the constants
+// match reality — which is exactly how three of the five came to be missing
+// their accents and the og:image came to be relative while the frontend's was
+// absolute, with the prerenderer silently substituting nothing and every venue
+// page going out carrying Vibe's generic description.
+//
+// When the frontend edits one of these tags, this constant is what has to be
+// updated, and the test below is what says so.
+const frontendIndexHead = `` +
+	`<meta name="description" content="Vibe - Gestión de complejos deportivos, reservas y canchas" />` + "\n" +
+	`<meta property="og:title" content="Vibe - Reserva tu cancha" />` + "\n" +
+	`<meta property="og:description" content="Reserva canchas de pádel, tenis y fútbol de forma rápida y segura." />` + "\n" +
+	`<meta property="og:image" content="https://app.vibe.com.ar/logo.png" />` + "\n" +
+	`<title>Vibe</title>`
+
+func TestEveryPlaceholderIsFoundInTheFrontendsRealIndexHTML(t *testing.T) {
+	for name, placeholder := range map[string]string{
+		"title tag":      placeholderTitleTag,
+		"description":    placeholderDescription,
+		"og:title":       placeholderOGTitle,
+		"og:description": placeholderOGDesc,
+		"og:image":       placeholderImage,
+	} {
+		if !strings.Contains(frontendIndexHead, placeholder) {
+			t.Errorf("the %s placeholder %q is not in frontend/index.html; prerendering substitutes nothing "+
+				"and the page goes out with Vibe's generic copy", name, placeholder)
+		}
+	}
+}
+
+// The substitution has to work against the frontend's real markup, not only
+// against a template this package assembled from its own constants.
+func TestPrerenderSubstitutesIntoTheFrontendsRealMarkup(t *testing.T) {
+	store := &stubStore{
+		complex: &complexstore.Complex{
+			ID: uuid.New(), Name: "Vibe Palermo", Phone: "+541100000000",
+			Address: "Av. Santa Fe 1234", City: "CABA", Province: "Buenos Aires",
+			CountryCode: "AR", IsActive: true,
+		},
+	}
+	index := `<!doctype html><html><head>` + frontendIndexHead + `</head><body></body></html>`
+
+	h := NewHandler(NewService(store, frontendServing(t, index)), testResponder())
+	w := httptest.NewRecorder()
+	h.Prerender(w, slugRequest(t, "vibe-palermo"))
+
+	body := w.Body.String()
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, body)
+	}
+	for _, want := range []string{
+		"<title>Vibe Palermo - Reserva tu cancha | Vibe</title>",
+		`content="Reserva canchas en Vibe Palermo. Rápido y seguro."`,
+		`content="https://app.vibe.com.ar/logo.png"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the frontend's real markup was not substituted: missing %q\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "Gestión de complejos deportivos") {
+		t.Error("the generic description survived; the placeholder did not match")
+	}
+}
+
+// A crawler treats a 5xx as transient and retries it later, but reads a 2xx
+// as final and indexes whatever page came back. A store failure used to
+// answer 200 with the generic shell for exactly that reason — but the shell
+// then got indexed in this venue's own place, which a crawler never revisits
+// on its own; a 503 it retries once the read works again costs nothing.
+func TestAStoreFailureAnswers503WithRetryAfter(t *testing.T) {
+	store := &stubStore{complexErr: errors.New("db down")}
+
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	w := httptest.NewRecorder()
+	h.Prerender(w, slugRequest(t, "vibe-palermo"))
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("want 503; got %d (%s)", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("Retry-After"); got != "60" {
+		t.Errorf("Retry-After = %q, want 60", got)
+	}
+}
+
+// An unknown slug is still a 404: there is no page, and telling a crawler
+// otherwise would have it index a URL that means nothing.
+func TestAnUnknownSlugIsStillNotFound(t *testing.T) {
+	store := &stubStore{complexErr: data.ErrRecordNotFound}
+
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	w := httptest.NewRecorder()
+	h.Prerender(w, slugRequest(t, "nobody"))
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("want 404; got %d (%s)", w.Code, w.Body.String())
+	}
+	// The frontend's edge only passes a 404 through to a crawler when this
+	// header says so; any other 404 becomes a 503 on its side.
+	if got := w.Header().Get("X-Prerender-Result"); got != "venue-not-found" {
+		t.Errorf("X-Prerender-Result = %q, want venue-not-found", got)
+	}
+}
+
+// The schedules are one block of the JSON-LD. Losing them costs the opening
+// hours; the title, description, image and canonical URL all come off the
+// complex this already holds.
+func TestAScheduleFailureStillRendersTheComplexsOwnPage(t *testing.T) {
+	store := &stubStore{
+		complex: &complexstore.Complex{
+			ID: uuid.New(), Name: "Vibe Palermo", Phone: "+541100000000",
+			Address: "Av. Santa Fe 1234", City: "CABA", Province: "Buenos Aires",
+			CountryCode: "AR", IsActive: true,
+		},
+		schedulesErr: errors.New("db down"),
+	}
+
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	w := httptest.NewRecorder()
+	h.Prerender(w, slugRequest(t, "vibe-palermo"))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "<title>Vibe Palermo - Reserva tu cancha | Vibe</title>") {
+		t.Error("the complex's own title was lost along with its schedules")
+	}
+	if strings.Contains(body, "openingHoursSpecification") {
+		t.Error("opening hours were published from a failed read")
+	}
+}
+
+// The template has never been fetched successfully and there is no stale copy:
+// the frontend was down when this process started. The built-in shell carries
+// the same placeholders, so the venue's own tags still land.
+func TestAnUnreachableFrontendStillProducesAPage(t *testing.T) {
+	store := &stubStore{
+		complex: &complexstore.Complex{
+			ID: uuid.New(), Name: "Vibe Palermo", Phone: "+541100000000",
+			Address: "Av. Santa Fe 1234", City: "CABA", Province: "Buenos Aires",
+			CountryCode: "AR", IsActive: true,
+		},
+	}
+
+	// A frontend origin nothing answers on.
+	h := NewHandler(NewService(store, "http://127.0.0.1:1"), testResponder())
+	w := httptest.NewRecorder()
+	h.Prerender(w, slugRequest(t, "vibe-palermo"))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 from the built-in shell; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "<title>Vibe Palermo - Reserva tu cancha | Vibe</title>") {
+		t.Errorf("the built-in shell did not take this complex's tags\n%s", body)
+	}
+	if !strings.Contains(body, `<link rel="canonical"`) {
+		t.Error("the built-in shell was served without a canonical URL")
+	}
 }

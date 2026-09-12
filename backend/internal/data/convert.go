@@ -147,6 +147,16 @@ func Int4ToPg(n int) pgtype.Int4 {
 	return pgtype.Int4{Int32: int32(n), Valid: true}
 }
 
+// Int4PtrToPg wraps an optional int as a pgtype.Int4; a nil becomes SQL NULL.
+// It is what an optional precondition looks like in a query — see
+// `sqlc.narg('expected_version')` in db/queries/complexes.sql.
+func Int4PtrToPg(n *int) pgtype.Int4 {
+	if n == nil {
+		return pgtype.Int4{}
+	}
+	return Int4ToPg(*n)
+}
+
 // PgToInt unwraps a pgtype.Int4; a NULL becomes zero.
 func PgToInt(n pgtype.Int4) int {
 	if !n.Valid {
@@ -185,7 +195,7 @@ func PgToFloat8Ptr(f pgtype.Float8) *float64 {
 // unparseable string becomes SQL NULL.
 func TimeStrToPg(s string) pgtype.Time {
 	var h, m int
-	if n, _ := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 {
+	if n, _ := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 { //nolint:errcheck // n is the check: fewer than two fields is the NULL below
 		return pgtype.Time{}
 	}
 	return pgtype.Time{

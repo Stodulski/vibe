@@ -17,8 +17,9 @@ import (
 	"sync"
 )
 
-// maxRequestBodyBytes caps decoded request bodies at 1 MiB.
-const maxRequestBodyBytes = 1_048_576
+// MaxJSONBody caps decoded request bodies at 1 MiB. A guard reading the body
+// ahead of ReadJSON caps its own read at this same limit.
+const MaxJSONBody = 1_048_576
 
 // BodyTooLargeError marks a ReadJSON failure caused by an oversized request
 // body. The Responder checks for it so this one case answers 413 Request
@@ -65,10 +66,10 @@ func WriteJSON(w http.ResponseWriter, status int, data Envelope, headers http.He
 }
 
 // ReadJSON decodes a single JSON value from the request body into dst. Unknown
-// fields are rejected, the body is capped at maxRequestBodyBytes, and every
-// decoding failure is translated into a message safe to return to the client.
+// fields are rejected, the body is capped at MaxJSONBody, and every decoding
+// failure is translated into a message safe to return to the client.
 func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, MaxJSONBody)
 
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()

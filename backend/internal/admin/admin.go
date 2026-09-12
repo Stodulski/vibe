@@ -226,14 +226,7 @@ func (h *Handler) ToggleUserActive(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.ToggleUserActive(r.Context(), h.actor(r), id, input.IsActive)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrSelfToggle):
-			h.respond.Error(w, r, http.StatusConflict, "cannot modify your own account status")
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 

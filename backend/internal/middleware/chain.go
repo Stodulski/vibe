@@ -446,7 +446,7 @@ func (m *Middleware) CSRFProtect(next http.Handler) http.Handler {
 
 		csrfHeader := r.Header.Get("X-CSRF-Token")
 		if csrfHeader == "" || !m.tokens.ValidateCSRFToken(cookie.Value, csrfHeader) {
-			m.respond.Error(w, r, http.StatusForbidden, "invalid or missing CSRF token")
+			m.respond.Refuse(w, r, httpx.Forbidden("invalid or missing CSRF token"))
 			return
 		}
 

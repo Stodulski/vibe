@@ -81,7 +81,7 @@ func (s *stubStore) Insert(_ context.Context, c *courtstore.Court) error {
 	return nil
 }
 
-func (s *stubStore) Update(_ context.Context, c *courtstore.Court) error {
+func (s *stubStore) Update(_ context.Context, c *courtstore.Court, _ *int) error {
 	s.updated = c
 	return nil
 }
@@ -129,7 +129,7 @@ func (s *stubStore) DeletePricesByCourtID(_ context.Context, courtID uuid.UUID) 
 // replacePricesErr and replaceFailedIndex let a test drive the failure path:
 // the real store returns the index of the price the database refused, which is
 // what the handler turns into a per-field validation error rather than a 500.
-func (s *stubStore) ReplacePrices(_ context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (int, error) {
+func (s *stubStore) ReplacePrices(_ context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice, _ *int) (int, error) {
 	if s.replacePricesErr != nil {
 		return s.replaceFailedIndex, s.replacePricesErr
 	}

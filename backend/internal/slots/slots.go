@@ -97,7 +97,7 @@ func ValidFormat(s string) bool {
 // database stored through that same validated path.
 func ToMinutes(s string) int {
 	var h, m int
-	_, _ = fmt.Sscanf(s, "%d:%d", &h, &m)
+	_, _ = fmt.Sscanf(s, "%d:%d", &h, &m) //nolint:errcheck // see above: every caller passes a ValidFormat-gated string; a malformed one yields 0
 	return h*60 + m
 }
 
@@ -147,7 +147,7 @@ func DayName(wd time.Weekday) string {
 // gated by ValidFormat.
 func ToHours(s string) float64 {
 	var h, m int
-	if n, _ := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 {
+	if n, _ := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 { //nolint:errcheck // n is the check: fewer than two fields is the 0 below
 		return 0
 	}
 	return float64(h) + float64(m)/60.0

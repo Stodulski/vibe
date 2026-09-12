@@ -170,6 +170,19 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		return nil, fmt.Errorf("newApplication: %w", err)
 	}
 
+	// Request validation against that same document, for the environments
+	// where a mismatch should stop in front of the person who can fix it.
+	// Production is deliberately excluded: the conformance suite in CI runs
+	// the same check at no runtime cost (API-03).
+	var specValidator *middleware.SpecValidator
+	if cfg.Env != "production" && cfg.OpenAPIValidateRequests {
+		specValidator, err = middleware.NewSpecValidator(openapiHandler.Document(), respond, d.logger)
+		if err != nil {
+			return nil, fmt.Errorf("newApplication: %w", err)
+		}
+		d.logger.Info("openapi: validating every request against the embedded document", "env", cfg.Env)
+	}
+
 	cbStateChange := func(name string, from, to circuitbreaker.State) {
 		d.logger.Warn("circuit breaker state change", "service", name, "from", from.String(), "to", to.String())
 	}
@@ -296,6 +309,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		RateLimitRPS:     cfg.Limiter.RPS,
 		RateLimitBurst:   cfg.Limiter.Burst,
 		RequestLogSample: cfg.RequestLogSample,
+		Env:              cfg.Env,
 	})
 	cache := userCache{mw: mw}
 
@@ -439,7 +453,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	adminHandler := admin.NewHandler(adminService, respond, d.trustedProxies.Any())
 
 	reportingService := reporting.NewService(bookingsFacade, clientsService, courtsService,
-		complexesService, d.models.Reports)
+		complexesService, d.models.Reports, exportBudgetFor(cfg.HTTP.WriteTimeout))
 	reportingHandler := reporting.NewHandler(reportingService, respond)
 
 	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL)
@@ -543,6 +557,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.queues = queues
 	app.health = healthHandler
 	app.openapi = openapiHandler
+	app.specValidator = specValidator
 	app.courts = courtsHandler
 	app.tokens = tokens
 	app.middleware = mw

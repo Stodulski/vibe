@@ -22,12 +22,19 @@ const shutdownTimeout = 30 * time.Second
 //nolint:funlen // flat sequential server-lifecycle wiring (configure http.Server, start listener,
 func (app *application) serve() error {
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", app.config.Port),
-		Handler:      app.routes(),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
-		ErrorLog:     nil,
+		Addr:    fmt.Sprintf(":%d", app.config.Port),
+		Handler: app.routes(),
+		// ReadHeaderTimeout is the Slowloris bound: ReadTimeout does not
+		// cover a peer that opens a connection and then sends its headers a
+		// byte at a time, because the read deadline it sets is only useful
+		// once there is a request to read. All four come from configuration
+		// (internal/platform/config.HTTP), so a deployment whose proxy caps
+		// requests lower can match it without a rebuild.
+		ReadHeaderTimeout: app.config.HTTP.ReadHeaderTimeout,
+		ReadTimeout:       app.config.HTTP.ReadTimeout,
+		WriteTimeout:      app.config.HTTP.WriteTimeout,
+		IdleTimeout:       app.config.HTTP.IdleTimeout,
+		ErrorLog:          nil,
 	}
 
 	shutdownError := make(chan error)

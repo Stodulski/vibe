@@ -17,6 +17,15 @@ import (
 // serving a stale copy for another minute while it refreshes.
 const prerenderCacheHeader = "public, max-age=300, stale-while-revalidate=60"
 
+// prerenderRetryAfterSeconds tells a crawler, in RFC 9110 §10.2.3's
+// whole-seconds form, when to retry a venue this request could not read.
+const prerenderRetryAfterSeconds = "60"
+
+// prerenderResultHeader tells the frontend's edge middleware what this
+// endpoint decided, because it only passes a 404 through to a crawler when
+// this header says so — any other 404 becomes a 503 on its side.
+const prerenderResultHeader = "X-Prerender-Result"
+
 // Prerender handles GET /api/v1/public/prerender/:slug.
 //
 // It fetches the frontend's index.html and substitutes the complex's own title,
@@ -29,25 +38,45 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, err := h.svc.Prerender(r.Context(), slug)
+	rendered, err := h.svc.Prerender(r.Context(), slug)
 	if err != nil {
-		if errors.Is(err, data.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			w.Header().Set(prerenderResultHeader, "venue-not-found")
 			h.respond.NotFound(w, r)
-		} else {
+		case errors.Is(err, ErrComplexUnavailable):
+			// A crawler retries a transient 5xx; a 200 here would get the old
+			// generic shell indexed in this venue's own place instead.
+			h.respond.LogError(r, err)
+			w.Header().Set("Retry-After", prerenderRetryAfterSeconds)
+			h.respond.Refuse(w, r, httpx.Unavailable(nil))
+		default:
 			h.respond.ServerError(w, r, err)
 		}
 		return
 	}
 
+	// A degraded page is still a page, and for this endpoint's readers that is
+	// the difference that matters: a crawler reads a 500 as "this URL is
+	// broken" and drops the entry, where a shell is merely a page it will see
+	// again on its next pass. The failure is logged through the Responder, so
+	// the line carries the request id the client was handed.
+	result := "ok"
+	if rendered.Degraded != nil {
+		result = "degraded"
+		h.respond.LogError(r, fmt.Errorf("prerender %q degraded to a plainer page: %w", slug, rendered.Degraded))
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", prerenderCacheHeader)
+	w.Header().Set(prerenderResultHeader, result)
 	w.WriteHeader(http.StatusOK)
 	// The response is committed; a write failure can no longer be reported.
 	//
 	//nolint:gosec // G705: the page is the frontend's own index.html with this
 	// complex's meta tags substituted in, and every owner-supplied value in
 	// them is HTML-escaped where it is interpolated (Service.render below).
-	_, _ = w.Write([]byte(page))
+	_, _ = w.Write([]byte(rendered.Page))
 }
 
 // render substitutes the frontend's default meta tags with this complex's, and
@@ -86,6 +115,22 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 
 	return strings.Replace(page, "</head>", extraHead+"</head>", 1)
 }
+
+// fallbackTemplate is the last resort: the frontend's index.html has never been
+// fetched successfully in this process and there is no stale copy to reuse.
+//
+// It carries the same placeholders the real one does, so a complex's own tags
+// still substitute into it, and it redirects a human to the real app. It is
+// deliberately tiny — it exists so that a crawler is answered with a page
+// rather than a 500, not so that anyone reads it.
+const fallbackTemplate = `<!doctype html><html lang="es"><head><meta charset="utf-8" />` +
+	`<title>Vibe</title>` +
+	`<meta name="description" content="Vibe - Gestión de complejos deportivos, reservas y canchas" />` +
+	`<meta property="og:type" content="website" />` +
+	`<meta property="og:title" content="Vibe - Reserva tu cancha" />` +
+	`<meta property="og:description" content="Reserva canchas de pádel, tenis y fútbol de forma rápida y segura." />` +
+	`<meta property="og:image" content="https://app.vibe.com.ar/logo.png" />` +
+	`</head><body></body></html>`
 
 // schemaDays maps the stored day names to the capitalised forms schema.org
 // requires.
@@ -147,6 +192,6 @@ func structuredData(complex *complexstore.Complex, schedules []*complexstore.Sch
 
 	// The schema is built from values that always marshal, so an error here
 	// would be a programming fault rather than a runtime condition.
-	b, _ := json.Marshal(schema)
+	b, _ := json.Marshal(schema) //nolint:errcheck // see above: an error here would be a programming fault, not a runtime condition
 	return string(b)
 }

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ var (
 	// unknown, expired or spent.
 	ErrInvalidToken = errors.New("invalid or expired token")
 	// ErrEditConflict reports that the account row moved out from under a read.
-	ErrEditConflict = errors.New("account changed before the update")
+	ErrEditConflict = fmt.Errorf("account changed before the update: %w", data.ErrEditConflict)
 	// ErrActiveBookings reports that an account cannot be deleted because a
 	// venue it owns still has live bookings.
 	ErrActiveBookings = errors.New("account still has active bookings")
@@ -254,7 +255,8 @@ func (s *Service) Login(ctx context.Context, actor Actor, email, password string
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			_ = authstore.ComparePassword(authstore.DummyPasswordHash(s.cfg.PasswordHashCost), password)
+			// Run for its cost, not its answer: this compare must always fail.
+			_ = authstore.ComparePassword(authstore.DummyPasswordHash(s.cfg.PasswordHashCost), password) //nolint:errcheck // see above
 			return nil, s.loginFailed(actor, email)
 		}
 		return nil, err

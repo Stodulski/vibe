@@ -292,6 +292,25 @@ func TestUpdateReportsAnEditConflictOnALostUpdate(t *testing.T) {
 	}
 }
 
+// A stale If-Match/version returns data.ErrEditConflict directly; before this
+// it fell through to ServerError and answered 500 instead of 409.
+func TestUpdateReportsAnEditConflictOnAStaleVersion(t *testing.T) {
+	f := newFixture(t)
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
+	f.store.updateErr = data.ErrEditConflict
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"name":"Renamed Under Someone Else","version":3}`))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated != nil {
+		t.Errorf("a refused update must not be recorded as applied; got %+v", f.store.updated)
+	}
+}
+
 // Deleting a complex cancels every future booking on it, so it is refused
 // while any is still live rather than silently taking clients' reservations
 // with it.

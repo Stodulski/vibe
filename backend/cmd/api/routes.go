@@ -22,9 +22,19 @@ func (app *application) routes() http.Handler {
 
 	app.registerRoutes(router)
 
+	// Spec validation wraps the router, so it runs before the per-route auth
+	// guards (requireAuth, requireComplexOwner, requireRole) that live inside
+	// each route's own handler chain: an unauthenticated or unauthorized
+	// request is still checked against the document before those guards ever
+	// see it.
+	var handler http.Handler = router
+	if app.specValidator != nil {
+		handler = app.specValidator.ValidateRequests(handler)
+	}
+
 	c := cors.New(corsOptions(app.config.FrontendURL))
 
-	return app.middleware.Wrap(router, func(next http.Handler) http.Handler {
+	return app.middleware.Wrap(handler, func(next http.Handler) http.Handler {
 		return normalizeCORSPreflightHeaders(c.Handler(next))
 	})
 }

@@ -140,6 +140,8 @@ var optionalApplicationFields = map[string]string{
 	"blacklist": "token revocation is Redis-backed; nil without it",
 	"wa":        "nil unless WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID are both set",
 	"storage":   "nil unless object storage is configured; uploads answer 503",
+	"specValidator": "nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off; " +
+		"the conformance suite is the same check without the runtime cost",
 }
 
 // TestNewApplicationWiresEveryField is the check unwiredDependencies() was

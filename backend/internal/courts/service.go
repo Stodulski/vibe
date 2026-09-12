@@ -3,6 +3,7 @@ package courts
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,7 +22,7 @@ import (
 // the update aimed at was gone by the time it ran. It is distinct from
 // data.ErrRecordNotFound, which means the court was never this complex's to
 // begin with, because the two answer the caller differently.
-var ErrEditConflict = errors.New("court changed before the update")
+var ErrEditConflict = fmt.Errorf("court changed before the update: %w", data.ErrEditConflict)
 
 // Actor is who a change is attributed to, as the handler read it off the
 // request. The service needs it for the audit trail and for nothing else.
@@ -150,6 +151,10 @@ type UpdateInput struct {
 	CourtType   *string
 	IsActive    *bool
 	Description *string
+	// ExpectedVersion is the version the client read before it filled in the
+	// form, from If-Match or the body. Nil means it sent none, and the write
+	// stays the last-write-wins it always was (API-08).
+	ExpectedVersion *int
 }
 
 // Update applies a partial change to a court of this complex and records it.
@@ -180,9 +185,14 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		court.Description = emptyToNil(in.Description)
 	}
 
-	err = s.courts.Update(ctx, court)
+	err = s.courts.Update(ctx, court, in.ExpectedVersion)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
+			// Zero rows is either "the court is gone" or "somebody wrote it
+			// first". ErrEditConflict already covers both for this endpoint —
+			// it wraps data.ErrEditConflict, so both answer 409 — and the
+			// distinction the caller acts on is the same either way: re-read
+			// and try again.
 			return nil, ErrEditConflict
 		}
 		return nil, err
@@ -236,7 +246,12 @@ type PriceInput struct {
 //
 // The returned index names the price the database refused, and is meaningful
 // only alongside courtstore.ErrOverlappingPriceRule.
-func (s *Service) UpdatePrices(ctx context.Context, complexID uuid.UUID, actor Actor, courtID uuid.UUID, in []PriceInput) (prices []*courtstore.CourtPrice, failedIndex int, err error) {
+//
+// expectedVersion is the COURT's version, not a band's: the bands are replaced
+// wholesale, so the court is the only thing a client can have read and still
+// hold. Nil means the client sent none (API-08).
+func (s *Service) UpdatePrices(ctx context.Context, complexID uuid.UUID, actor Actor, courtID uuid.UUID,
+	in []PriceInput, expectedVersion *int) (prices []*courtstore.CourtPrice, failedIndex int, err error) {
 	if _, err = s.ownedCourt(ctx, complexID, courtID); err != nil {
 		return nil, -1, err
 	}
@@ -252,8 +267,13 @@ func (s *Service) UpdatePrices(ctx context.Context, complexID uuid.UUID, actor A
 		}
 	}
 
-	failedIndex, err = s.prices.ReplacePrices(ctx, courtID, prices)
+	failedIndex, err = s.prices.ReplacePrices(ctx, courtID, prices, expectedVersion)
 	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) && expectedVersion != nil {
+			// ownedCourt found the court a moment ago, so zero rows here means
+			// the version moved rather than the court disappearing.
+			return nil, -1, ErrEditConflict
+		}
 		return nil, failedIndex, err
 	}
 

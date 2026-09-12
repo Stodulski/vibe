@@ -60,6 +60,7 @@ func TestServiceOccupancyChart(t *testing.T) {
 				occupancyCourts{active: tt.courts},
 				stubSchedules{},
 				&stubReports{},
+				50*time.Second,
 			)
 
 			got, err := svc.OccupancyChart(t.Context(), uuid.New(), time.Now(), tt.weeks)
@@ -89,6 +90,7 @@ func TestServiceDashboardStatsUsesTheProductsCalendar(t *testing.T) {
 		occupancyCourts{active: 1},
 		stubSchedules{},
 		&stubReports{},
+		50*time.Second,
 	)
 
 	// 00:30 in Buenos Aires is already the next day in UTC.

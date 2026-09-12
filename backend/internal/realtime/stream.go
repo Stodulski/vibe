@@ -237,7 +237,7 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 			if !open {
 				return
 			}
-			data, _ := json.Marshal(event.Data)
+			data, _ := json.Marshal(event.Data) //nolint:errcheck // an unmarshalable event becomes the empty frame below rather than killing the stream
 			_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Type, data)
 			flusher.Flush()
 		}

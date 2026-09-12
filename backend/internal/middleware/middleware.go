@@ -67,6 +67,10 @@ type Config struct {
 	// sampled away — see shouldLog. The counters behind Metrics are never
 	// sampled at all, so raising this costs detail, never accuracy.
 	RequestLogSample int
+	// Env namespaces the Redis keys the idempotency records live under, so a
+	// staging deployment sharing a Redis with production cannot replay
+	// production's answers.
+	Env string
 }
 
 // Middleware builds the chain.
@@ -90,6 +94,9 @@ type Middleware struct {
 	// warnedUntrustedForward makes the "forwarded header from an untrusted
 	// peer" warning fire once per process rather than once per request.
 	warnedUntrustedForward sync.Once
+	// idempotency backs the Idempotent guard. It is always non-nil; a nil
+	// Redis client inside it is what turns the guard into a pass-through.
+	idempotency *Idempotency
 	// metrics is the request surface LogRequests fills in and Metrics reads.
 	// It is a pointer so that Middleware itself stays copyable-by-mistake-safe
 	// in the same way as before: the atomics live behind it, not in it.
@@ -126,6 +133,8 @@ func New(d Dependencies, cfg Config) *Middleware {
 		now:       time.Now,
 		metrics:   &metrics{},
 
+		idempotency: NewIdempotency(d.Redis, cfg.Env, d.Respond),
+
 		cacheReports: newCacheReports(),
 	}
 }
@@ -156,6 +165,7 @@ func (m *Middleware) Guards() httpx.Guards {
 		RequireAuth:         m.RequireAuth,
 		RequireComplexOwner: m.RequireComplexOwner,
 		RequireSuperAdmin:   m.RequireRole("superadmin"),
+		Idempotent:          m.idempotency.Guard,
 	}
 }
 

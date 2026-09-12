@@ -76,7 +76,7 @@ func Open(ctx context.Context, cfg Config) (*Client, error) {
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
 	defer cancel()
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		_ = rdb.Close()
+		_ = rdb.Close() //nolint:errcheck // the ping already failed; this only releases the socket
 		return nil, fmt.Errorf("redis: connecting to %s: %w", opt.Addr, err)
 	}
 

@@ -79,7 +79,7 @@ func (s *stubStore) Insert(_ context.Context, c *complexstore.Complex) error {
 	return nil
 }
 
-func (s *stubStore) Update(_ context.Context, c *complexstore.Complex) error {
+func (s *stubStore) Update(_ context.Context, c *complexstore.Complex, _ *int) error {
 	if s.updateErr != nil {
 		return s.updateErr
 	}

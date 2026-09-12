@@ -76,7 +76,7 @@ func redactedQuery(u *url.URL) string {
 		return ""
 	}
 
-	values, _ := url.ParseQuery(u.RawQuery)
+	values, _ := url.ParseQuery(u.RawQuery) //nolint:errcheck // whatever keys it recovered before giving up is exactly what this wants; see above
 	if len(values) == 0 {
 		return "(unparseable)"
 	}

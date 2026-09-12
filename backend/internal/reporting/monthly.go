@@ -86,7 +86,7 @@ func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 // what the export actually consumes: the payment slice, the cells excelize
 // holds, and the compressed archive all grow linearly with them, and memory is
 // the resource that takes the whole instance down rather than one request. A
-// time budget alone would let a large export get most of the way through 8s of
+// time budget alone would let a large export get most of the way through its
 // allocation before being cut off, having already done the damage.
 //
 // Fifty thousand is roughly five times the pathological ceiling for one venue
@@ -101,16 +101,6 @@ func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 // compresses in around a second, so the ceiling is not itself a way to occupy
 // the process.
 const defaultMaxExportRows = 50_000
-
-// exportBudget bounds the whole export — the query, the build and the
-// serialisation.
-//
-// The request context carries no deadline of its own: http.Server's 10s
-// WriteTimeout closes the connection but does not cancel the handler, so
-// without this an export keeps allocating for a client that hung up minutes
-// ago. Eight seconds sits under that WriteTimeout, leaving room to flush what
-// was built, and a full-cap export measures around a second.
-const exportBudget = 8 * time.Second
 
 // exportRowCheckInterval is how often the row loop looks at the budget.
 // Checking every row would cost more than it saves; checking never would make
@@ -162,7 +152,7 @@ func (h *Handler) ExportPaymentsExcel(w http.ResponseWriter, r *http.Request) {
 			// support needs the number behind it.
 			h.respond.LogError(r, fmt.Errorf("export for complex %s %d/%d has %d rows, over the %d cap",
 				complex.ID, month, year, rowCount, h.svc.ExportRowCap()))
-			h.respond.Error(w, r, http.StatusUnprocessableEntity, httpx.CodeExportTooLarge)
+			h.respond.Refuse(w, r, httpx.Unprocessable(httpx.CodeExportTooLarge))
 			return
 		}
 		h.failExport(w, r, err)
@@ -224,7 +214,7 @@ func buildExportWorkbook(
 	// In-memory workbook cleanup; a close error here (e.g. stale sheet references) cannot
 	// occur for a freshly created *excelize.File and there is nothing actionable to do with
 	// it in a defer.
-	defer func() { _ = f.Close() }()
+	defer func() { _ = f.Close() }() //nolint:errcheck // see above: an in-memory workbook's close has nothing actionable to report
 
 	if err := writePaymentSheet(ctx, f, details); err != nil {
 		return nil, err
@@ -272,7 +262,7 @@ func (h *Handler) sendExport(w http.ResponseWriter, r *http.Request, filename st
 func (h *Handler) failExport(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, context.DeadlineExceeded) {
 		h.respond.LogError(r, err)
-		h.respond.Error(w, r, http.StatusServiceUnavailable, httpx.CodeExportTimedOut)
+		h.respond.Refuse(w, r, httpx.Unavailable(httpx.CodeExportTimedOut))
 		return
 	}
 	if errors.Is(err, context.Canceled) {

@@ -22,6 +22,7 @@ func testConfig() config.Config {
 	cfg.BackendURL = "https://api.example.com"
 	cfg.Booking.PaymentExpiry = 15 * time.Minute
 	cfg.Booking.SlotLockTTL = 15 * time.Minute
+	cfg.HTTP.WriteTimeout = 60 * time.Second
 	return cfg
 }
 
@@ -168,6 +169,27 @@ func TestValidateBootConfig(t *testing.T) {
 			}
 			if tt.wantErr && tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
 				t.Errorf("expected error to contain %q; got %q", tt.errSubstr, err.Error())
+			}
+		})
+	}
+}
+
+func TestExportBudgetFor(t *testing.T) {
+	tests := []struct {
+		name         string
+		writeTimeout time.Duration
+		want         time.Duration
+	}{
+		{"60s write timeout leaves three quarters for the export", 60 * time.Second, 45 * time.Second},
+		{"30s write timeout leaves three quarters for the export", 30 * time.Second, 22*time.Second + 500*time.Millisecond},
+		{"unbounded write timeout falls back to the default budget", 0, 50 * time.Second},
+		{"a tiny write timeout is floored rather than starved further", 4 * time.Second, 5 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := exportBudgetFor(tt.writeTimeout); got != tt.want {
+				t.Errorf("exportBudgetFor(%s) = %s, want %s", tt.writeTimeout, got, tt.want)
 			}
 		})
 	}

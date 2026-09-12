@@ -239,7 +239,7 @@ func (h *Hub) consume() {
 		<-h.shutdown
 		// Nothing can observe a close error during shutdown; closing only
 		// unblocks the range below, which then returns.
-		_ = sub.Close()
+		_ = sub.Close() //nolint:errcheck // see above: nothing can observe a close error during shutdown
 	}()
 
 	for msg := range sub.Channel() {

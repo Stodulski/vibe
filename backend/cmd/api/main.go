@@ -61,6 +61,10 @@ type application struct {
 	admin      *admin.Handler
 	health     *health.Handler
 	openapi    *openapi.Handler
+	// specValidator refuses requests the OpenAPI document does not allow. It
+	// is nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off,
+	// which is the only thing routes() checks.
+	specValidator *middleware.SpecValidator
 	// queues reports the durable work queues' backlog. It is a field so the
 	// cron heartbeat and the health endpoint read the same source, and so a
 	// test can supply one without a database.
@@ -352,7 +356,7 @@ func main() {
 		//nolint:gocritic // exitAfterDefer: the deferred sentry.Flush is replicated on the line above.
 		os.Exit(1)
 	}
-	defer func() { _ = rdb.Close() }()
+	defer func() { _ = rdb.Close() }() //nolint:errcheck // the process is exiting; a failed close reaches nobody
 	logger.Info("redis connected")
 
 	var objectStorage storage.ObjectStorage

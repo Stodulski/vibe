@@ -12,7 +12,7 @@ import (
 )
 
 const getComplexByID = `-- name: GetComplexByID :one
-SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at FROM active_complexes
+SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version FROM active_complexes
 WHERE id = $1
 `
 
@@ -49,12 +49,13 @@ func (q *Queries) GetComplexByID(ctx context.Context, id pgtype.UUID) (ActiveCom
 		&i.UpdatedAt,
 		&i.Amenities,
 		&i.MpTokenExpiresAt,
+		&i.Version,
 	)
 	return i, err
 }
 
 const getComplexBySlug = `-- name: GetComplexBySlug :one
-SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at FROM active_complexes
+SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version FROM active_complexes
 WHERE slug = $1
 `
 
@@ -91,12 +92,13 @@ func (q *Queries) GetComplexBySlug(ctx context.Context, slug string) (ActiveComp
 		&i.UpdatedAt,
 		&i.Amenities,
 		&i.MpTokenExpiresAt,
+		&i.Version,
 	)
 	return i, err
 }
 
 const getComplexesByOwner = `-- name: GetComplexesByOwner :many
-SELECT c.id, c.owner_id, c.name, c.slug, c.address, c.city, c.province, c.country_code, c.currency, c.phone, c.email, c.logo_url, c.cover_url, c.deposit_percentage, c.cancellation_hours, c.latitude, c.longitude, c.is_active, c.mp_access_token, c.mp_refresh_token, c.mp_user_id, c.deleted_at, c.created_at, c.updated_at, c.amenities, c.mp_token_expires_at, (
+SELECT c.id, c.owner_id, c.name, c.slug, c.address, c.city, c.province, c.country_code, c.currency, c.phone, c.email, c.logo_url, c.cover_url, c.deposit_percentage, c.cancellation_hours, c.latitude, c.longitude, c.is_active, c.mp_access_token, c.mp_refresh_token, c.mp_user_id, c.deleted_at, c.created_at, c.updated_at, c.amenities, c.mp_token_expires_at, c.version, (
     SELECT COUNT(*) FROM active_courts ct WHERE ct.complex_id = c.id
 ) AS court_count
 FROM active_complexes c
@@ -131,6 +133,7 @@ type GetComplexesByOwnerRow struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	Amenities         []string           `json:"amenities"`
 	MpTokenExpiresAt  pgtype.Timestamptz `json:"mp_token_expires_at"`
+	Version           int32              `json:"version"`
 	CourtCount        int64              `json:"court_count"`
 }
 
@@ -190,6 +193,7 @@ func (q *Queries) GetComplexesByOwner(ctx context.Context, ownerID pgtype.UUID) 
 			&i.UpdatedAt,
 			&i.Amenities,
 			&i.MpTokenExpiresAt,
+			&i.Version,
 			&i.CourtCount,
 		); err != nil {
 			return nil, err
@@ -211,7 +215,7 @@ INSERT INTO complexes (
     latitude, longitude, amenities
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at
+RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version
 `
 
 type InsertComplexParams struct {
@@ -282,12 +286,13 @@ func (q *Queries) InsertComplex(ctx context.Context, arg InsertComplexParams) (C
 		&i.UpdatedAt,
 		&i.Amenities,
 		&i.MpTokenExpiresAt,
+		&i.Version,
 	)
 	return i, err
 }
 
 const listComplexesNeedingMPRefresh = `-- name: ListComplexesNeedingMPRefresh :many
-SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at FROM active_complexes
+SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version FROM active_complexes
 WHERE mp_refresh_token IS NOT NULL
   AND is_active = true
   AND (mp_token_expires_at IS NULL OR mp_token_expires_at < now() + interval '30 days')
@@ -334,6 +339,7 @@ func (q *Queries) ListComplexesNeedingMPRefresh(ctx context.Context) ([]ActiveCo
 			&i.UpdatedAt,
 			&i.Amenities,
 			&i.MpTokenExpiresAt,
+			&i.Version,
 		); err != nil {
 			return nil, err
 		}
@@ -385,7 +391,9 @@ SET name = $1,
 WHERE id = $16
   AND deleted_at IS NULL
   AND updated_at = $17
-RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at
+  AND ($18::int IS NULL
+       OR version = $18::int)
+RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version
 `
 
 type UpdateComplexParams struct {
@@ -406,6 +414,7 @@ type UpdateComplexParams struct {
 	Amenities         []string           `json:"amenities"`
 	ID                pgtype.UUID        `json:"id"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ExpectedVersion   pgtype.Int4        `json:"expected_version"`
 }
 
 // H-14: an unconditional UPDATE let two concurrent edits race — each loads the
@@ -422,6 +431,12 @@ type UpdateComplexParams struct {
 // handler already maps to a 409 edit-conflict response (it previously existed
 // only to cover a row deleted out from under the request) — so a refused
 // update now reaches the caller as a conflict to retry, not as data loss.
+//
+// `expected_version` is the CALLER's precondition, and it is optional (API-08).
+// NULL means "whatever it is now", which is the last-write-wins this endpoint
+// had before versions existed and is what a client that sends no If-Match
+// still gets. A client that does send one and finds the row has moved matches
+// zero rows, the same conflict the timestamp above produces.
 func (q *Queries) UpdateComplex(ctx context.Context, arg UpdateComplexParams) (Complex, error) {
 	row := q.db.QueryRow(ctx, updateComplex,
 		arg.Name,
@@ -441,6 +456,7 @@ func (q *Queries) UpdateComplex(ctx context.Context, arg UpdateComplexParams) (C
 		arg.Amenities,
 		arg.ID,
 		arg.UpdatedAt,
+		arg.ExpectedVersion,
 	)
 	var i Complex
 	err := row.Scan(
@@ -470,6 +486,7 @@ func (q *Queries) UpdateComplex(ctx context.Context, arg UpdateComplexParams) (C
 		&i.UpdatedAt,
 		&i.Amenities,
 		&i.MpTokenExpiresAt,
+		&i.Version,
 	)
 	return i, err
 }

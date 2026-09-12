@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -50,7 +49,7 @@ func setUnusablePassword(user *authstore.User, cost int) error {
 // account.
 func (h *Handler) GoogleSignIn(w http.ResponseWriter, r *http.Request) {
 	if !h.svc.GoogleEnabled() {
-		h.respond.Error(w, r, http.StatusServiceUnavailable, "google sign-in is not configured")
+		h.respond.Refuse(w, r, googleNotConfigured)
 		return
 	}
 
@@ -72,15 +71,13 @@ func (h *Handler) GoogleSignIn(w http.ResponseWriter, r *http.Request) {
 	result, err := h.svc.GoogleSignIn(r.Context(), h.actor(r), input.Credential)
 	if err != nil {
 		switch {
-		case errors.Is(err, googleid.ErrUnavailable):
-			h.respond.Error(w, r, http.StatusServiceUnavailable, "google sign-in is temporarily unavailable")
 		case errors.Is(err, ErrGoogleRejected):
 			v.AddError("credential", "invalid")
 			h.respond.FailedValidation(w, r, v.Errors)
 		case errors.Is(err, ErrInvalidCredentials):
 			h.respond.InvalidCredentials(w, r)
 		default:
-			h.respond.ServerError(w, r, err)
+			h.respond.DomainError(w, r, err)
 		}
 		return
 	}
@@ -104,7 +101,7 @@ func (h *Handler) GoogleSignIn(w http.ResponseWriter, r *http.Request) {
 //nolint:funlen // see the cohesion note above
 func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 	if !h.svc.GoogleEnabled() {
-		h.respond.Error(w, r, http.StatusServiceUnavailable, "google sign-in is not configured")
+		h.respond.Refuse(w, r, googleNotConfigured)
 		return
 	}
 
@@ -162,12 +159,7 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 		Phone:     input.Phone,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrAccountExists):
-			h.respond.Error(w, r, http.StatusConflict, "account already exists")
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 

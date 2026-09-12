@@ -18,6 +18,7 @@ func WithinStandardWindow(booking *bookingstore.Booking, cancellationHours int) 
 		return true
 	}
 	argTZ := timezone.Argentina
+	//nolint:errcheck // StartTime is a validated "HH:MM" column; an unparseable one yields midnight, which only narrows the window
 	startTimeObj, _ := time.Parse("15:04", booking.StartTime)
 	bookingStart := time.Date(
 		booking.Date.Year(), booking.Date.Month(), booking.Date.Day(),
@@ -41,6 +42,7 @@ func WithinStandardWindow(booking *bookingstore.Booking, cancellationHours int) 
 // two can never disagree about where the window sits.
 func RefundDeadline(booking *bookingstore.Booking, cancellationHours int, gracePeriod time.Duration) time.Time {
 	argTZ := timezone.Argentina
+	//nolint:errcheck // StartTime is a validated "HH:MM" column; an unparseable one yields midnight, which only narrows the window
 	startTimeObj, _ := time.Parse("15:04", booking.StartTime)
 	bookingStart := time.Date(
 		booking.Date.Year(), booking.Date.Month(), booking.Date.Day(),

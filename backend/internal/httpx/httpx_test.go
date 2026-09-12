@@ -106,7 +106,7 @@ func TestReadJSON(t *testing.T) {
 
 func TestReadJSONBodyTooLarge(t *testing.T) {
 	w := httptest.NewRecorder()
-	oversized := `{"name":"` + strings.Repeat("x", maxRequestBodyBytes) + `"}`
+	oversized := `{"name":"` + strings.Repeat("x", MaxJSONBody) + `"}`
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(oversized))
 
 	var dst struct {
@@ -389,7 +389,12 @@ func TestGuardsValidate(t *testing.T) {
 	noop := func(h http.HandlerFunc) http.HandlerFunc { return h }
 
 	t.Run("complete set passes", func(t *testing.T) {
-		g := Guards{RequireAuth: noop, RequireComplexOwner: noop, RequireSuperAdmin: noop}
+		g := Guards{
+			RequireAuth:         noop,
+			RequireComplexOwner: noop,
+			RequireSuperAdmin:   noop,
+			Idempotent:          func(string) Guard { return noop },
+		}
 		if err := g.Validate(); err != nil {
 			t.Errorf("want no error for a fully wired set; got %v", err)
 		}

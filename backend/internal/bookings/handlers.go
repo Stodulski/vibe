@@ -168,32 +168,18 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &stateErr):
 		h.respond.BadRequest(w, r, stateErr)
 	case errors.As(err, &conflictErr):
-		h.respond.Error(w, r, http.StatusConflict, conflictErr.Message)
-	case errors.Is(err, ErrEditConflict),
-		errors.Is(err, bookingstore.ErrDuplicateBooking),
+		// A ConflictError carries its own sentence, built from the booking it
+		// collided with, so it cannot live in a table keyed on identity.
+		h.respond.Refuse(w, r, httpx.Conflict(conflictErr.Message))
+	case errors.Is(err, bookingstore.ErrDuplicateBooking),
 		errors.Is(err, bookingstore.ErrSlotUnavailable):
-		// The row moved between the read and the write: either it was deleted,
-		// or somebody else now holds those hours. Both are a business answer,
-		// not a fault.
+		// Somebody else now holds those hours. A business answer, not a fault,
+		// and the same one the shared edit conflict gets.
 		h.respond.EditConflict(w, r)
 	case errors.Is(err, ErrNoActor):
 		h.respond.InvalidAuthenticationToken(w, r)
-	case errors.Is(err, ErrSlotTaken):
-		h.respond.Error(w, r, http.StatusConflict, slotTakenMessage)
-	case errors.Is(err, ErrClientBlocked):
-		h.respond.Error(w, r, http.StatusForbidden, "your account is blocked, contact the complex for more information")
-	case errors.Is(err, ErrMercadoPagoNotConnected):
-		h.respond.Error(w, r, http.StatusBadRequest, "the complex does not have MercadoPago connected, contact the complex")
-	case errors.Is(err, ErrCheckoutUnavailable):
-		h.respond.Error(w, r, http.StatusServiceUnavailable, "no se pudo crear el enlace de pago, intente nuevamente")
-	case errors.Is(err, ErrVenueGone):
-		h.respond.Error(w, r, http.StatusGone, venueGoneMessage)
-	case errors.Is(err, ErrLinkExpired):
-		h.respond.Error(w, r, http.StatusGone, linkExpiredMessage)
-	case errors.Is(err, data.ErrRecordNotFound):
-		h.respond.NotFound(w, r)
 	default:
-		h.respond.ServerError(w, r, err)
+		h.respond.DomainError(w, r, err)
 	}
 }
 

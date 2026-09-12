@@ -8,6 +8,7 @@ package complexes
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -40,7 +41,7 @@ type VenueReader interface {
 // VenueWriter creates, edits and closes a venue.
 type VenueWriter interface {
 	Insert(ctx context.Context, c *complexstore.Complex) error
-	Update(ctx context.Context, c *complexstore.Complex) error
+	Update(ctx context.Context, c *complexstore.Complex, expectedVersion *int) error
 	// SoftDeleteCascade deletes the venue and its courts in one transaction,
 	// returning how many courts it closed. See the soft-delete cascade in db/migrations/001_init.sql.
 	SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error)
@@ -124,15 +125,38 @@ type Config struct {
 // service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
 	svc     *Service
-	respond *httpx.Responder
+	respond *httpx.Refuser
 	cfg     Config
+}
+
+// refusals is this module's whole error-to-status table: every domain error of
+// its own that is a refusal rather than a fault, and the status and message it
+// earns. Everything absent from it — data.ErrRecordNotFound above all — is
+// answered by internal/httpx.
+//
+// It is a function rather than a variable because the ceiling in the
+// ErrMaxComplexes message is a configured number, not a constant.
+//
+// ErrActiveBookings is the one entry whose message is not the whole story: the
+// MercadoPago disconnect refuses on the same sentinel and has to say so in its
+// own words, so that handler overrides the message through DomainErrorWith and
+// keeps this status.
+func refusals(cfg Config) httpx.Refusals {
+	return httpx.Refusals{
+		ErrMaxComplexes: httpx.Forbidden(
+			fmt.Sprintf("maximum of %d complexes per account reached", cfg.MaxComplexes)),
+		ErrActiveBookings: httpx.Conflict(
+			"cannot delete complex while it has active bookings, cancel them first"),
+		ErrUploadsNotConfigured: httpx.NotImplemented("image uploads are not configured"),
+		ErrForeignObject:        httpx.BadRequest("URL does not belong to this storage"),
+	}
 }
 
 // NewHandler returns a Handler backed by the given service.
 func NewHandler(svc *Service, respond *httpx.Responder, cfg Config) *Handler {
 	return &Handler{
 		svc:     svc,
-		respond: respond,
+		respond: respond.WithRefusals(refusals(cfg)),
 		cfg:     cfg,
 	}
 }

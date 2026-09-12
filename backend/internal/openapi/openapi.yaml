@@ -185,9 +185,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [is_active]
               properties:
-                is_active: {type: boolean}
+                is_active:
+                  type: boolean
+                  default: false
+                  description: Omitting it deactivates the account, same as sending false.
       responses:
         "200":
           description: The user was updated.
@@ -735,9 +737,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email]
               properties:
-                email: {type: string}
+                email:
+                  type: string
+                  description: Omitting it, or an unknown address, still answers the same 200 message.
 
   /api/v1/auth/forgot-password:
     post:
@@ -768,9 +771,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email]
               properties:
-                email: {type: string, format: email}
+                email:
+                  type: string
+                  format: email
+                  description: Omitting it, or an unknown address, still answers the same 200 message.
                 turnstile_token: {type: string}
 
   /api/v1/auth/reset-password:
@@ -972,6 +977,8 @@ paths:
         booking's primary key is deliberately never included in the response, only the opaque
         `token` used by the status/cancel endpoints below.
       security: []
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "201":
           description: Booking created, awaiting payment confirmation.
@@ -1179,6 +1186,7 @@ paths:
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "201":
           description: Booking created and confirmed.
@@ -1349,6 +1357,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/BookingID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "200":
           description: The booking and the payment row created for it.
@@ -1400,6 +1409,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/BookingID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "200":
           description: The booking, its payments, and how much was returned.
@@ -1422,6 +1432,13 @@ paths:
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: >-
+            The `Idempotency-Key` was already used for a different request, or a request
+            using it is still running.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -1657,7 +1674,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, slug, address, city, province, phone, deposit_percentage, cancellation_hours]
+              required: [name, slug, address, city, province, phone, cancellation_hours]
               properties:
                 name: {type: string, maxLength: 200}
                 slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
@@ -1666,7 +1683,12 @@ paths:
                 province: {type: string}
                 phone: {type: string}
                 email: {type: string, format: email}
-                deposit_percentage: {type: integer, minimum: 0, maximum: 100}
+                deposit_percentage:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  default: 0
+                  description: Defaults to 0 (no deposit required) when omitted.
                 cancellation_hours: {type: integer, minimum: 1, maximum: 168}
                 latitude: {type: number}
                 longitude: {type: number}
@@ -1704,6 +1726,7 @@ paths:
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IfMatchVersion"}
       responses:
         "200":
           description: The updated complex.
@@ -1727,6 +1750,12 @@ paths:
             schema:
               type: object
               properties:
+                version:
+                  type: integer
+                  minimum: 1
+                  description: >-
+                    The row version the client read before it edited. Same meaning as `If-Match`,
+                    which wins where both are sent; omitting both is last-write-wins.
                 name: {type: string}
                 slug: {type: string}
                 address: {type: string}
@@ -1831,12 +1860,15 @@ paths:
                   maxItems: 7
                   items:
                     type: object
-                    required: [day, is_closed]
+                    required: [day]
                     properties:
                       day: {$ref: "#/components/schemas/Weekday"}
                       open_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
                       close_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
-                      is_closed: {type: boolean}
+                      is_closed:
+                        type: boolean
+                        default: false
+                        description: Omitting it means open, same as sending false.
 
   /api/v1/complexes/{id}/uploads/presign:
     post:
@@ -2143,6 +2175,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/CourtID"}
+        - {$ref: "#/components/parameters/IfMatchVersion"}
       responses:
         "200":
           description: The updated court.
@@ -2166,6 +2199,12 @@ paths:
             schema:
               type: object
               properties:
+                version:
+                  type: integer
+                  minimum: 1
+                  description: >-
+                    The row version the client read before it edited. Same meaning as `If-Match`,
+                    which wins where both are sent; omitting both is last-write-wins.
                 name: {type: string, maxLength: 100}
                 sport: {type: string, enum: [padel, tennis, soccer, basketball]}
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
@@ -2212,6 +2251,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/CourtID"}
+        - {$ref: "#/components/parameters/IfMatchVersion"}
       responses:
         "200":
           description: The updated price bands.
@@ -2227,6 +2267,7 @@ paths:
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/EditConflict"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -2238,6 +2279,12 @@ paths:
               type: object
               required: [prices]
               properties:
+                version:
+                  type: integer
+                  minimum: 1
+                  description: >-
+                    The row version the client read before it edited. Same meaning as `If-Match`,
+                    which wins where both are sent; omitting both is last-write-wins.
                 prices:
                   type: array
                   minItems: 1
@@ -2609,14 +2656,14 @@ paths:
   # ---------------------------------------------------------------------
   # publicsite
   # ---------------------------------------------------------------------
-  /api/sitemap.xml:
+  /api/v1/sitemap.xml:
     get:
       tags: [publicsite]
       operationId: publicsiteSitemap
       summary: Platform sitemap
       description: >-
-        Public. Note this path has no `/api/v1` prefix. Cross-tenant bypass reason `platform`
-        (every active slug on the platform, by definition). One `<url>` per active complex slug.
+        Public. Cross-tenant bypass reason `platform` (every active slug on the platform,
+        by definition). One `<url>` per active complex slug.
       security: []
       responses:
         "200":
@@ -2629,6 +2676,24 @@ paths:
               schema: {type: string}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/sitemap.xml:
+    get:
+      tags: [publicsite]
+      operationId: publicsiteSitemapMoved
+      summary: Platform sitemap (moved)
+      description: >-
+        Public. The pre-versioning address of the sitemap, kept as a permanent redirect
+        because search engines hold it in their index and answer a 404 by dropping the
+        pages it lists. Use `/api/v1/sitemap.xml`.
+      security: []
+      responses:
+        "301":
+          description: Moved permanently to `/api/v1/sitemap.xml`.
+          headers:
+            Location:
+              schema: {type: string, example: "/api/v1/sitemap.xml"}
+        "429": {$ref: "#/components/responses/RateLimited"}
 
   /api/v1/public/prerender/{slug}:
     get:
@@ -3012,6 +3077,29 @@ components:
       required: true
       description: The opaque booking-link token, never the booking's primary key.
       schema: {type: string}
+    IfMatchVersion:
+      name: If-Match
+      in: header
+      required: false
+      description: >-
+        The row version the client read before it edited, as an entity tag — `If-Match: "3"`.
+        The write is refused with 409 if the row moved since. A `version` field in the body means
+        the same thing, and this header wins where both are sent. `*`, or neither, is
+        last-write-wins: unchanged behaviour for a client that has not adopted this.
+      schema: {type: string, example: "\"3\""}
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >-
+        A key the caller chooses to identify this attempt. Send the same key when retrying and
+        the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of
+        the request running twice — which is what a retried booking needs, because the database
+        would otherwise refuse the retry as somebody else's slot. The same key with a different
+        body, path or caller answers 409, as does a repeat arriving while the first is still
+        running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+      schema: {type: string, maxLength: 64, pattern: "^[!-~]+$", example: "9d1d1f4e-0a0a-4a4a-8b8b-000000000001"}
 
   responses:
     Unauthorized:
@@ -3188,6 +3276,13 @@ components:
           type: array
           items: {type: string}
         payments_enabled: {type: boolean}
+        version:
+          type: integer
+          minimum: 1
+          description: >-
+            Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as
+            `If-Match: "<version>"` or as a `version` body field — and the write is refused with
+            409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 
     Schedule:
       type: object
@@ -3213,6 +3308,13 @@ components:
         description: {type: [string, "null"]}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
+        version:
+          type: integer
+          minimum: 1
+          description: >-
+            Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as
+            `If-Match: "<version>"` or as a `version` body field — and the write is refused with
+            409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 
     CourtWithPrices:
       allOf:
@@ -3239,6 +3341,13 @@ components:
           description: "At or before time_from means the band runs past midnight."
         from_min: {type: integer, description: Minutes from weekday midnight.}
         to_min: {type: integer, description: "Minutes from weekday midnight, may exceed 1440."}
+        version:
+          type: integer
+          minimum: 1
+          description: >-
+            This band's own counter. The PUT that saves a court's price table is guarded by the
+            COURT's version instead: these rows are replaced wholesale, so a band's counter does
+            not survive the save.
 
     BlockedSlot:
       type: object

@@ -149,7 +149,7 @@ type ComplexCRUD interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
 	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
-	Update(ctx context.Context, complex *complexstore.Complex) error
+	Update(ctx context.Context, complex *complexstore.Complex, expectedVersion *int) error
 	// SoftDeleteCascade soft-deletes the complex and returns how many of its
 	// courts went down with it. There is no plain SoftDelete: stamping a
 	// complex without closing its courts is the state the soft-delete cascade exists to
@@ -193,7 +193,7 @@ type CourtCRUD interface {
 	Insert(ctx context.Context, court *courtstore.Court) error
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
 	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
-	Update(ctx context.Context, court *courtstore.Court) error
+	Update(ctx context.Context, court *courtstore.Court, expectedVersion *int) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -212,7 +212,8 @@ type CourtPricingManager interface {
 	// (courts.NewHandler(d.models.Courts, ...) in cmd/api/app.go): a mock
 	// implementing CourtStore there needs an additive stub for this method to
 	// keep compiling, and cmd/api/mock_stores_test.go carries one.
-	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (failedIndex int, err error)
+	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice,
+		expectedVersion *int) (failedIndex int, err error)
 }
 
 // CourtBlockedSlotManager manages manually blocked (unbookable) court slots.
