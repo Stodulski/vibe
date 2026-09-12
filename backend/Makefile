@@ -39,13 +39,13 @@ build:
 ## test: run all tests
 .PHONY: test
 test:
-	go test -race -v -count=1 ./...
+	go test -race -shuffle=on -v -count=1 ./...
 
 ## test/cover: Run tests with coverage report and open in browser
 .PHONY: test/cover
 test/cover:
 	@echo "Running tests with coverage..."
-	go test -race -coverprofile=coverage.out -covermode=atomic ./...
+	go test -race -shuffle=on -coverprofile=coverage.out -covermode=atomic ./...
 	go tool cover -func=coverage.out
 	@echo "\nCoverage report generated: coverage.out"
 	@echo "Run 'go tool cover -html=coverage.out' to view in browser"
@@ -163,6 +163,10 @@ docker-down:
 
 E2E_DSN = postgres://vibe:vibe_e2e@localhost:5433/vibe_e2e?sslmode=disable
 
+# docker-compose.e2e.yml's redis service, host port 6380 (never the dev
+# instance's 6379). No password: the compose service sets none.
+E2E_REDIS_URL = redis://localhost:6380/0
+
 ## e2e-db-up: start E2E test database and run migrations
 .PHONY: e2e-db-up
 e2e-db-up:
@@ -222,8 +226,9 @@ test/integration:
 	DATABASE_URL="$(E2E_DSN)" \
 	DATABASE_ADMIN_URL="$(E2E_ADMIN_DSN)" \
 	DATABASE_APP_URL="$(E2E_APP_DSN)" \
+	REDIS_URL="$(E2E_REDIS_URL)" \
 	JWT_SECRET="e2e-test-secret-key-32-bytes-long!" \
-	go test -tags integration -v -count=1 -p 1 $(INTEGRATION_PKGS)
+	go test -tags integration -race -shuffle=on -v -count=1 -p 1 $(INTEGRATION_PKGS)
 
 ## test/security: run security tests against real database
 .PHONY: test/security
