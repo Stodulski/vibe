@@ -244,7 +244,7 @@ func TestTheTokenRefreshJobReportsAnEmptyRun(t *testing.T) {
 // Retention: the resolved-refund sweep
 // ---------------------------------------------------------------------------
 
-// FailedRefundModel.DeleteResolved was written and covered by an integration
+// paymentstore.FailedRefunds.DeleteResolved was written and covered by an integration
 // test, but no cron job called it, so in production nothing ever deleted a
 // resolved refund attempt. Since refunds became claim-first the table takes a
 // row per refund rather than per failure, so it grew for the life of the

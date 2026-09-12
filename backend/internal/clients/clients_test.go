@@ -22,8 +22,8 @@ import (
 
 // The doubles below implement Store and BookingReader — four methods between
 // them. The shared mocks in cmd/api carry 32 methods across the same two
-// entities, because they satisfy the full data.ClientStore and
-// data.BookingStore whether a test needs them or not. This is what declaring
+// entities, because they satisfy the full stores.ClientStore and
+// stores.BookingStore whether a test needs them or not. This is what declaring
 // the interface at the consumer buys.
 
 type stubStore struct {

@@ -49,7 +49,7 @@ func (h *Handler) processRefundedPayment(ctx context.Context, payment *paymentst
 	// 'refund_pending' means a claim of ours is in flight: AutoRefundIfPaid or the
 	// retry job called MercadoPago, and MercadoPago is now telling us about the
 	// refund we just asked for. ClaimRefund commits the status and a durable
-	// failed_refunds attempt row in one transaction (internal/data/refunds.go), so
+	// failed_refunds attempt row in one transaction (internal/payments/store/refunds.go), so
 	// that status is never on a row nothing is coming back to: whoever holds the
 	// claim records it, and if that process died the retry job finishes the job.
 	//
@@ -917,7 +917,7 @@ func formatARS(centavos int) string {
 }
 
 // sellerCredential names the complex as the MercadoPago caller a refund is
-// issued as, or returns the arm of failure internal/data/mpcred.go already
+// issued as, or returns the arm of failure internal/mpcred already
 // distinguishes as a typed sentinel: a wrapped GetByID failure (the complex
 // could not be fetched — a transient database read), mpcred.ErrMPNotConnected
 // (the venue never connected MercadoPago, or disconnected it), or
@@ -1111,7 +1111,7 @@ const refundIntentBatch = 12
 // uses.
 //
 // The sweep clears nothing itself: AutoRefundIfPaid's own exits and
-// ClaimRefund's committed transaction (internal/data/refunds.go) own every
+// ClaimRefund's committed transaction (internal/payments/store/refunds.go) own every
 // clearing path, so the marker's lifecycle is identical whether the call
 // originated from a request or from here.
 func (h *Handler) SweepOrphanedRefundIntents(ctx context.Context) {

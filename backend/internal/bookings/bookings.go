@@ -43,7 +43,7 @@ type ClientStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
 	// allowNameUpdate must be true only from the authenticated owner path
 	// (create.go) and false from the public one (public.go) — see
-	// data.ClientModel.GetOrCreate's comment for why an unauthenticated
+	// clientstore.Store.GetOrCreate's comment for why an unauthenticated
 	// caller must never be able to overwrite an existing client's name.
 	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
 	Update(ctx context.Context, c *clientstore.Client) error

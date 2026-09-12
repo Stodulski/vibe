@@ -1,10 +1,12 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
 	"testing"
+
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // Users.Update used to leave email_verified out of its SET list, so clearing the
@@ -14,10 +16,10 @@ import (
 // it there. Only a re-read can tell the difference — the in-memory struct says false
 // either way.
 func TestUserUpdatePersistsEmailVerified(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	user, err := f.Models.Users.GetByID(ctx, f.UserID)
+	user, err := f.Stores.Users.GetByID(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("loading the owner: %v", err)
 	}
@@ -27,11 +29,11 @@ func TestUserUpdatePersistsEmailVerified(t *testing.T) {
 
 	user.EmailVerified = false
 	user.FirstName = "Renamed"
-	if err := f.Models.Users.Update(ctx, user); err != nil {
+	if err := f.Stores.Users.Update(ctx, user); err != nil {
 		t.Fatalf("Update: %v", err)
 	}
 
-	stored, err := f.Models.Users.GetByID(ctx, f.UserID)
+	stored, err := f.Stores.Users.GetByID(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("re-reading the owner: %v", err)
 	}
@@ -46,14 +48,14 @@ func TestUserUpdatePersistsEmailVerified(t *testing.T) {
 // The same column in the other direction, so the test cannot pass by an Update that
 // simply hardcodes false.
 func TestUserUpdateCanRestoreEmailVerified(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	if _, err := f.Pool.Exec(ctx, `UPDATE users SET email_verified = false WHERE id = $1`, f.UserID); err != nil {
 		t.Fatalf("un-verifying the owner: %v", err)
 	}
 
-	user, err := f.Models.Users.GetByID(ctx, f.UserID)
+	user, err := f.Stores.Users.GetByID(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("loading the owner: %v", err)
 	}
@@ -62,11 +64,11 @@ func TestUserUpdateCanRestoreEmailVerified(t *testing.T) {
 	}
 
 	user.EmailVerified = true
-	if err := f.Models.Users.Update(ctx, user); err != nil {
+	if err := f.Stores.Users.Update(ctx, user); err != nil {
 		t.Fatalf("Update: %v", err)
 	}
 
-	stored, err := f.Models.Users.GetByID(ctx, f.UserID)
+	stored, err := f.Stores.Users.GetByID(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("re-reading the owner: %v", err)
 	}
@@ -86,10 +88,10 @@ func TestUserUpdateCanRestoreEmailVerified(t *testing.T) {
 // and asserts the lock is visible there. A mapper can be correct while the query
 // feeding it selects the wrong columns, and only a round trip can tell.
 func TestGetByIDSeesTheLockoutState(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	unlocked, err := f.Models.Users.GetByID(ctx, f.UserID)
+	unlocked, err := f.Stores.Users.GetByID(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("loading the owner: %v", err)
 	}
@@ -105,12 +107,12 @@ func TestGetByIDSeesTheLockoutState(t *testing.T) {
 	// tier of the progressive lockout, so this produces a genuinely locked
 	// account rather than a hand-written locked_until.
 	for range 5 {
-		if err := f.Models.Users.IncrementFailedAttempts(ctx, f.UserID); err != nil {
+		if err := f.Stores.Users.IncrementFailedAttempts(ctx, f.UserID); err != nil {
 			t.Fatalf("incrementing failed attempts: %v", err)
 		}
 	}
 
-	locked, err := f.Models.Users.GetByID(ctx, f.UserID)
+	locked, err := f.Stores.Users.GetByID(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("re-loading the owner: %v", err)
 	}
@@ -130,7 +132,7 @@ func TestGetByIDSeesTheLockoutState(t *testing.T) {
 
 	// The two readers must agree. They used to be two hand-written field lists,
 	// and the whole defect was that only one of them was complete.
-	byEmail, err := f.Models.Users.GetByEmail(ctx, locked.Email)
+	byEmail, err := f.Stores.Users.GetByEmail(ctx, locked.Email)
 	if err != nil {
 		t.Fatalf("loading the owner by email: %v", err)
 	}
@@ -151,11 +153,11 @@ func TestGetByIDSeesTheLockoutState(t *testing.T) {
 	// hardcodes a lock. ResetFailedAttempts writes NULL to both timestamps, which
 	// must arrive as nil rather than as a zero time — time.Time{} is in the past,
 	// so a zero would read as "unlocked" by luck rather than by mapping.
-	if err := f.Models.Users.ResetFailedAttempts(ctx, f.UserID); err != nil {
+	if err := f.Stores.Users.ResetFailedAttempts(ctx, f.UserID); err != nil {
 		t.Fatalf("resetting failed attempts: %v", err)
 	}
 
-	cleared, err := f.Models.Users.GetByID(ctx, f.UserID)
+	cleared, err := f.Stores.Users.GetByID(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("re-loading the owner after reset: %v", err)
 	}

@@ -1,12 +1,13 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/google/uuid"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // TestIntegration_DeletingAnAccountKeepsItsTrailAndDoesNotFail pins what
@@ -14,7 +15,7 @@ import (
 //
 // audit_log.user_id was declared with no ON DELETE clause, which is NO ACTION:
 // the users row could not be deleted while any entry pointed at it. Since
-// UserModel.Delete is a plain DELETE FROM users, DELETE /api/v1/auth/me
+// authstore.Users.Delete is a plain DELETE FROM users, DELETE /api/v1/auth/me
 // answered 500 for every account that had ever been named in the trail — which,
 // once internal/auth records sign-outs and password changes, is every account
 // that has used the product. The audit trail was blocking the one act it is
@@ -30,7 +31,7 @@ import (
 //     by destroying the record of everything the account ever did. A test that
 //     checked only the first would pass against exactly the wrong fix.
 func TestIntegration_DeletingAnAccountKeepsItsTrailAndDoesNotFail(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// A user of this test's own, so the shared fixture's account is not the one
@@ -61,7 +62,7 @@ func TestIntegration_DeletingAnAccountKeepsItsTrailAndDoesNotFail(t *testing.T) 
 		}
 	})
 
-	if err := f.Models.Users.Delete(ctx, userID); err != nil {
+	if err := f.Stores.Users.Delete(ctx, userID); err != nil {
 		t.Fatalf("deleting an account that has an audit entry: %v\n"+
 			"audit_log.user_id must be ON DELETE SET NULL; a NO ACTION reference makes "+
 			"the trail refuse the deletion of any account it has ever named", err)

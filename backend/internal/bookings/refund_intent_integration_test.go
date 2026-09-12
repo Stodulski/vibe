@@ -28,7 +28,7 @@ import (
 
 // setupIntegrationDB opens a pool against DATABASE_URL, skipping the test
 // when it is unset — the same convention every integration suite in this
-// repository follows (see internal/data/testutils_integration_test.go).
+// repository follows (see internal/data/datatest).
 func setupIntegrationDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 

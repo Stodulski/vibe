@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // These tests exercise the reconciliation sweep's store layer
@@ -24,11 +25,11 @@ import (
 // under test is specifically what the database does when two UPDATEs
 // contend for the same row at once.
 func TestTwoConcurrentSweepersOnlyOneClaimsAnOrphan(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{Status: "cancelled"})
-	seen := f.setRefundIntentAt(t, booking.ID, time.Now().Add(-10*time.Minute))
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
+	seen := setRefundIntentAt(f, t, booking.ID, time.Now().Add(-10*time.Minute))
 
 	type result struct{ err error }
 	results := make([]result, 2)
@@ -42,7 +43,7 @@ func TestTwoConcurrentSweepersOnlyOneClaimsAnOrphan(t *testing.T) {
 		go func() {
 			defer done.Done()
 			start.Wait() // release both goroutines as close to together as possible
-			err := f.Models.Bookings.ClaimRefundIntent(ctx, booking.ID, seen)
+			err := f.Stores.Bookings.ClaimRefundIntent(ctx, booking.ID, seen)
 			results[i] = result{err: err}
 		}()
 	}
@@ -72,18 +73,18 @@ func TestTwoConcurrentSweepersOnlyOneClaimsAnOrphan(t *testing.T) {
 // so it is worth proving against a real query planner and a real column
 // value rather than only the Go struct this file otherwise exercises.
 func TestGetRefundIntentOrphansFindsAnAgedMarkerAndNothingElse(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	aged := f.createBooking(t, bookingOptions{Status: "cancelled", StartTime: "08:00", EndTime: "09:30"})
-	f.setRefundIntentAt(t, aged.ID, time.Now().Add(-10*time.Minute))
+	aged := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: "08:00", EndTime: "09:30"})
+	setRefundIntentAt(f, t, aged.ID, time.Now().Add(-10*time.Minute))
 
-	fresh := f.createBooking(t, bookingOptions{Status: "cancelled", StartTime: "10:00", EndTime: "11:30"})
-	f.setRefundIntentAt(t, fresh.ID, time.Now())
+	fresh := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: "10:00", EndTime: "11:30"})
+	setRefundIntentAt(f, t, fresh.ID, time.Now())
 
-	unmarked := f.createBooking(t, bookingOptions{Status: "cancelled", StartTime: "12:00", EndTime: "13:30"})
+	unmarked := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: "12:00", EndTime: "13:30"})
 
-	orphans, err := f.Models.Bookings.GetRefundIntentOrphans(ctx, 5*time.Minute, 50)
+	orphans, err := f.Stores.Bookings.GetRefundIntentOrphans(ctx, 5*time.Minute, 50)
 	if err != nil {
 		t.Fatalf("GetRefundIntentOrphans: %v", err)
 	}
@@ -107,19 +108,19 @@ func TestGetRefundIntentOrphansFindsAnAgedMarkerAndNothingElse(t *testing.T) {
 // 12.5), so a booking that reaches the ordinary claim-first refund path
 // never lingers as a false orphan behind it.
 func TestClaimRefundLeavesTheRefundIntentMarkerCleared(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{Status: "cancelled"})
-	f.setRefundIntentAt(t, booking.ID, time.Now().Add(-10*time.Minute))
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
+	setRefundIntentAt(f, t, booking.ID, time.Now().Add(-10*time.Minute))
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	if _, err := f.Models.Payments.ClaimRefund(ctx, payment.ID); err != nil {
+	if _, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID); err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 
-	if got := f.readRefundIntentAt(t, booking.ID); got != nil {
+	if got := readRefundIntentAt(f, t, booking.ID); got != nil {
 		t.Errorf("ClaimRefund must clear the refund-intent marker inside its own transaction; got %v", *got)
 	}
 }
@@ -129,10 +130,10 @@ func TestClaimRefundLeavesTheRefundIntentMarkerCleared(t *testing.T) {
 // design's own caveat), but this proves it refuses the value directly rather
 // than only by inspection of the migration.
 func TestARefundIntentMarkerIsRefusedOnAConfirmedBooking(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{Status: "confirmed"})
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "confirmed"})
 
 	_, err := f.Pool.Exec(ctx,
 		`UPDATE bookings SET refund_intent_at = NOW() WHERE id = $1`, booking.ID)
@@ -142,9 +143,9 @@ func TestARefundIntentMarkerIsRefusedOnAConfirmedBooking(t *testing.T) {
 }
 
 // setRefundIntentAt writes a specific refund_intent_at value directly, bypassing
-// BookingModel.Update so tests can pin the exact "seen" value ClaimRefundIntent's
+// bookingstore.Store.Update so tests can pin the exact "seen" value ClaimRefundIntent's
 // compare-and-swap needs, and returns it for the caller to pass straight through.
-func (f *testFixture) setRefundIntentAt(t *testing.T, id uuid.UUID, at time.Time) time.Time {
+func setRefundIntentAt(f *datatest.Fixture, t *testing.T, id uuid.UUID, at time.Time) time.Time {
 	t.Helper()
 
 	tag, err := f.Pool.Exec(context.Background(),
@@ -167,7 +168,7 @@ func (f *testFixture) setRefundIntentAt(t *testing.T, id uuid.UUID, at time.Time
 
 // readRefundIntentAt re-reads a booking's marker straight from the database,
 // bypassing any struct a store method may have mutated in memory.
-func (f *testFixture) readRefundIntentAt(t *testing.T, id uuid.UUID) *time.Time {
+func readRefundIntentAt(f *datatest.Fixture, t *testing.T, id uuid.UUID) *time.Time {
 	t.Helper()
 
 	var result *time.Time

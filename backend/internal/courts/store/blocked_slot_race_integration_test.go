@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // These tests cover the other direction of the blocked-slot guard: the write
@@ -40,7 +41,7 @@ func bookedDay(d int) time.Time {
 // insertLiveBooking commits a confirmed booking straight through the pool,
 // without the court-day lock. That is the point: it stands for the writer that
 // is not participating in the blocked-slot transaction's serialization.
-func insertLiveBooking(t *testing.T, f *testFixture, date time.Time, start string, durationMinutes int) {
+func insertLiveBooking(t *testing.T, f *datatest.Fixture, date time.Time, start string, durationMinutes int) {
 	t.Helper()
 
 	_, err := f.Pool.Exec(context.Background(), `
@@ -57,7 +58,7 @@ func insertLiveBooking(t *testing.T, f *testFixture, date time.Time, start strin
 	}
 }
 
-func countBlocks(t *testing.T, f *testFixture) int {
+func countBlocks(t *testing.T, f *datatest.Fixture) int {
 	t.Helper()
 
 	var n int
@@ -76,7 +77,7 @@ func countBlocks(t *testing.T, f *testFixture) int {
 // the handler, outside any transaction, which is what made the race below
 // possible in the first place.
 func TestBlockOverALiveBookingIsRefused(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 	date := bookedDay(1)
 
@@ -87,7 +88,7 @@ func TestBlockOverALiveBookingIsRefused(t *testing.T) {
 		CourtID: f.CourtID, Date: date,
 		StartTime: "20:30", EndTime: "21:30", Reason: &reason,
 	}
-	err := f.Models.Courts.InsertBlockedSlot(ctx, block)
+	err := f.Stores.Courts.InsertBlockedSlot(ctx, block)
 	if !errors.Is(err, courtstore.ErrSlotHasBooking) {
 		t.Fatalf("blocking 20:30-21:30 over a confirmed 20:00-21:00 booking: got err = %v, want ErrSlotHasBooking", err)
 	}
@@ -107,11 +108,11 @@ func TestBlockOverALiveBookingIsRefused(t *testing.T) {
 // that takes no lock does not queue (waitForLockWaiters says so), runs its
 // checks before the booking exists, and commits on top of it.
 func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 	date := bookedDay(2)
 
-	release := blockCourtDay(t, f, date)
+	release := f.BlockCourtDay(t, date)
 
 	reason := "maintenance"
 	block := &courtstore.BlockedSlot{
@@ -119,11 +120,11 @@ func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
 		StartTime: "19:00", EndTime: "20:00", Reason: &reason,
 	}
 	result := make(chan error, 1)
-	go func() { result <- f.Models.Courts.InsertBlockedSlot(ctx, block) }()
+	go func() { result <- f.Stores.Courts.InsertBlockedSlot(ctx, block) }()
 
 	// The block must be inside a transaction, queued on the court-day lock,
 	// before the booking commits. Without the lock it is already finished here.
-	waitForLockWaiters(t, f, 1)
+	f.WaitForLockWaiters(t, 1)
 
 	insertLiveBooking(t, f, date, "19:00", 60)
 	release()
@@ -151,12 +152,12 @@ func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
 // there; one that locks only D sails past, checks blocked_slots before the
 // block is committed, and sells the court.
 func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 	date := bookedDay(10)
 	nextDay := date.AddDate(0, 0, 1)
 
-	release := blockCourtDay(t, f, nextDay)
+	release := f.BlockCourtDay(t, nextDay)
 
 	b := &bookingstore.Booking{
 		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
@@ -166,9 +167,9 @@ func TestBookingCrossingMidnightWaitsForTheNextDaysLock(t *testing.T) {
 		RefundStatus: bookingstore.RefundStatusNone,
 	}
 	result := make(chan error, 1)
-	go func() { result <- f.Models.Bookings.InsertSafe(ctx, b) }()
+	go func() { result <- f.Stores.Bookings.InsertSafe(ctx, b) }()
 
-	waitForLockWaiters(t, f, 1)
+	f.WaitForLockWaiters(t, 1)
 
 	// 00:00-01:00 on the following day: the hours the booking runs into, and a
 	// row the booking's own date filter never had anything to do with.

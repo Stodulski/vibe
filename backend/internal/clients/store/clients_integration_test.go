@@ -1,10 +1,12 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
 	"testing"
+
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // TestIntegration_ClientTotalBookingsCountsBookingsCreatedOutsideTheMPWebhook
@@ -21,7 +23,7 @@ import (
 // asserts that count directly: confirmed/completed/no_show bookings count,
 // pending and cancelled ones don't, regardless of how they were inserted.
 func TestIntegration_ClientTotalBookingsCountsBookingsCreatedOutsideTheMPWebhook(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	insertBooking := func(t *testing.T, status string, startTime string, durationMinutes int) {
@@ -46,7 +48,7 @@ func TestIntegration_ClientTotalBookingsCountsBookingsCreatedOutsideTheMPWebhook
 	insertBooking(t, "pending", "14:00", 90)
 	insertBooking(t, "cancelled", "16:00", 90)
 
-	client, err := f.Models.Clients.GetByID(ctx, f.ClientID)
+	client, err := f.Stores.Clients.GetByID(ctx, f.ClientID)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}

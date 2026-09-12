@@ -94,7 +94,7 @@ type Store struct {
 	DB *data.DB
 	Q  *db.Queries
 	// PaymentExpiry is how long an unpaid public booking holds its slot, taken
-	// from configuration by NewModels. InsertBlockedSlot needs it to ask the
+	// from configuration by stores.New. InsertBlockedSlot needs it to ask the
 	// same "is this hour taken" question the storefront and the booking guard
 	// ask; a block refused by a booking the storefront already shows as free
 	// would be a refusal the owner cannot act on. See Config.PaymentExpiry.
@@ -280,7 +280,7 @@ func (m *Store) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	// A statement of its own, and that is the whole point: it runs on a
 	// snapshot taken after the lock was granted, so a booking that committed
 	// while this transaction waited is visible here. The predicate mirrors
-	// BookingModel.HasActiveBookingsByCourt's exactly.
+	// bookingstore.Store.HasActiveBookingsByCourt's exactly.
 	var hasBookings bool
 	err = tx.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -380,7 +380,7 @@ func (m *Store) DeletePrice(ctx context.Context, id uuid.UUID) error {
 // DeletePricesByCourtID removes every price rule belonging to the court.
 //
 // Deliberately left as its own unconditional statement, rather than folded
-// into ReplacePrices below: CourtPricingManager (internal/data/models.go) is
+// into ReplacePrices below: CourtPricingManager (internal/stores) is
 // also the interface cmd/api's own store wiring is built against, so this
 // method's shape stays exactly what it always was for whatever else depends
 // on it existing on its own.
@@ -458,7 +458,7 @@ func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*
 // court, and ErrSlotHasBooking if a live booking already holds those hours.
 //
 // Both refusals are decided inside the transaction, under the same court-day
-// advisory lock BookingModel.InsertSafe takes. Only the first of them could
+// advisory lock bookingstore.Store.InsertSafe takes. Only the first of them could
 // have been left to the database: blocked_slots_no_overlapping_span
 // refuses an overlapping block with no lock at all, but EXCLUDE is
 // single-table and cannot see bookings, so the booking half is a query — and a
@@ -474,7 +474,7 @@ func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*
 // wrong together.
 //
 // What it does NOT close, and is left where it was: the confirmation path
-// (PaymentModel.guardSlotStillFree) still asks only about bookings, so a stale
+// (paymentstore.Payments.guardSlotStillFree) still asks only about bookings, so a stale
 // pending booking — one this check ignores because it no longer holds its slot
 // — can be confirmed onto hours blocked in the meantime, caught only by the
 // handler pre-check in internal/bookings/actions.go.

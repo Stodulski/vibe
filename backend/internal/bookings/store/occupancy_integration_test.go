@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -30,23 +31,11 @@ import (
 // what the grid reads, what the overlap check decides, and what the index
 // permits. A fix to any one of them alone leaves one of these red.
 
-// markStatus moves a booking to a terminal status the way the owner-facing
-// update does, through a plain UPDATE that the status-reversal trigger sees.
-func markStatus(t *testing.T, f *testFixture, id uuid.UUID, status string) {
-	t.Helper()
-
-	_, err := f.Pool.Exec(context.Background(),
-		`UPDATE bookings SET status = $1 WHERE id = $2`, status, id)
-	if err != nil {
-		t.Fatalf("marking booking %s: %v", status, err)
-	}
-}
-
 // bookedStarts is what the availability grid reads to draw a slot as taken.
-func bookedStarts(t *testing.T, f *testFixture, date time.Time) []string {
+func bookedStarts(t *testing.T, f *datatest.Fixture, date time.Time) []string {
 	t.Helper()
 
-	slots, err := f.Models.Bookings.GetBookedSlotsByCourtIDs(
+	slots, err := f.Stores.Bookings.GetBookedSlotsByCourtIDs(
 		context.Background(), []uuid.UUID{f.CourtID}, date)
 	if err != nil {
 		t.Fatalf("reading booked slots: %v", err)
@@ -74,10 +63,10 @@ func contains(haystack []string, needle string) bool {
 // A live booking occupies its hours in all three places. This is the half of
 // the predicate that must not be lost while fixing the other half.
 func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	first := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Models.Bookings.InsertSafe(context.Background(), first); err != nil {
+	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
 
@@ -85,8 +74,8 @@ func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
 		t.Errorf("the grid must draw 18:00 as taken; it read %v", got)
 	}
 
-	second := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	err := f.Models.Bookings.InsertSafe(context.Background(), second)
+	second := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	err := f.Stores.Bookings.InsertSafe(context.Background(), second)
 	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("the overlap check must refuse a second booking on those hours; got %v", err)
 	}
@@ -95,20 +84,20 @@ func TestAConfirmedBookingOccupiesItsSlotEverywhere(t *testing.T) {
 // A cancelled booking releases its hours in all three places — the one status
 // every site already agreed on.
 func TestACancelledBookingReleasesItsSlotEverywhere(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	first := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Models.Bookings.InsertSafe(context.Background(), first); err != nil {
+	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
-	markStatus(t, f, first.ID, "cancelled")
+	f.MarkStatus(t, first.ID, "cancelled")
 
 	if got := bookedStarts(t, f, first.Date); contains(got, "18:00") {
 		t.Errorf("a cancelled booking must not draw its hours as taken; the grid read %v", got)
 	}
 
-	second := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Models.Bookings.InsertSafe(context.Background(), second); err != nil {
+	second := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), second); err != nil {
 		t.Errorf("the hours of a cancelled booking must be resellable: %v", err)
 	}
 }
@@ -117,13 +106,13 @@ func TestACancelledBookingReleasesItsSlotEverywhere(t *testing.T) {
 // and the assertions run in the order a client hits them: what the grid shows,
 // what the overlap check decides, and what the index permits.
 func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	first := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Models.Bookings.InsertSafe(context.Background(), first); err != nil {
+	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
-	markStatus(t, f, first.ID, "no_show")
+	f.MarkStatus(t, first.ID, "no_show")
 
 	// 1. The grid. GetBookedSlots excluded only 'cancelled', so these hours were
 	//    still drawn as unavailable.
@@ -134,8 +123,8 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 	// 2 and 3. The overlap check already let this through; the unique index did
 	//    not, and answered with a duplicate error the grid contradicted. Both
 	//    have to agree for the resale to land.
-	second := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	err := f.Models.Bookings.InsertSafe(context.Background(), second)
+	second := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	err := f.Stores.Bookings.InsertSafe(context.Background(), second)
 	if errors.Is(err, bookingstore.ErrDuplicateBooking) {
 		t.Fatalf("idx_bookings_no_double still counts a no_show as live: the slot is shown free and cannot be sold (%v)", err)
 	}
@@ -148,8 +137,8 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 	if got := bookedStarts(t, f, first.Date); !contains(got, "18:00") {
 		t.Errorf("the resold booking must draw 18:00 as taken; the grid read %v", got)
 	}
-	third := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Models.Bookings.InsertSafe(context.Background(), third); !errors.Is(err, bookingstore.ErrSlotUnavailable) {
+	third := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), third); !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("only one live booking may hold those hours; got %v", err)
 	}
 }
@@ -173,17 +162,17 @@ func TestANoShowBookingReleasesItsSlotEverywhere(t *testing.T) {
 // noShowThenResale marks the first booking absent and sells its hours again,
 // returning the resale. The order matters: idx_bookings_no_double only tolerates
 // the pair once the first row has left the live set.
-func noShowThenResale(t *testing.T, f *testFixture, first *bookingstore.Booking, opts bookingOptions) *bookingstore.Booking {
+func noShowThenResale(t *testing.T, f *datatest.Fixture, first *bookingstore.Booking, opts datatest.BookingOptions) *bookingstore.Booking {
 	t.Helper()
 
-	markStatus(t, f, first.ID, "no_show")
+	f.MarkStatus(t, first.ID, "no_show")
 
 	opts.StartTime = first.StartTime
 	// The fixture spells a length as an end time; the resale must cover exactly
 	// the same hours, so it is rebuilt from the duration the first booking
 	// actually holds rather than from a column that no longer exists.
 	opts.EndTime = slots.Add(first.StartTime, first.DurationMinutes)
-	resale := f.createBooking(t, opts)
+	resale := f.CreateBooking(t, opts)
 	if !resale.Date.Equal(first.Date) {
 		t.Fatalf("the resale must land on the same day as the no_show: %v vs %v", resale.Date, first.Date)
 	}
@@ -193,18 +182,18 @@ func noShowThenResale(t *testing.T, f *testFixture, first *bookingstore.Booking,
 // The dashboard's headline counters. One court-hour was sold twice, and it is
 // still one court-hour: two rows, ninety minutes, one booking on the board.
 func TestTheDashboardCountsAResoldNoShowHourOnce(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	first := f.createBooking(t, bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	noShowThenResale(t, f, first, bookingOptions{})
+	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	noShowThenResale(t, f, first, datatest.BookingOptions{})
 
 	// A game that was played is court time too. It is here so that a predicate
 	// widened past no_show — the obvious over-correction — cannot pass by making
 	// the counters agree at the cost of forgetting every finished booking.
-	played := f.createBooking(t, bookingOptions{StartTime: "20:00", EndTime: "21:30"})
-	markStatus(t, f, played.ID, "completed")
+	played := f.CreateBooking(t, datatest.BookingOptions{StartTime: "20:00", EndTime: "21:30"})
+	f.MarkStatus(t, played.ID, "completed")
 
-	stats, err := f.Models.Bookings.GetDashboardStats(context.Background(), f.ComplexID, first.Date)
+	stats, err := f.Stores.Bookings.GetDashboardStats(context.Background(), f.ComplexID, first.Date)
 	if err != nil {
 		t.Fatalf("reading dashboard stats: %v", err)
 	}
@@ -226,7 +215,7 @@ func TestTheDashboardCountsAResoldNoShowHourOnce(t *testing.T) {
 	// same day from tomorrow's vantage point exercises it on the same fixture,
 	// rather than trusting that one fix reached all three.
 	dayAfter := first.Date.AddDate(0, 0, 1)
-	fromTomorrow, err := f.Models.Bookings.GetDashboardStats(context.Background(), f.ComplexID, dayAfter)
+	fromTomorrow, err := f.Stores.Bookings.GetDashboardStats(context.Background(), f.ComplexID, dayAfter)
 	if err != nil {
 		t.Fatalf("reading dashboard stats a day on: %v", err)
 	}
@@ -239,17 +228,17 @@ func TestTheDashboardCountsAResoldNoShowHourOnce(t *testing.T) {
 // weeks), clamped at 100 — so the double-count shows up as a hot cell rather
 // than as an impossible number.
 func TestTheOccupancyHeatmapCountsAResoldNoShowHourOnce(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	first := f.createBooking(t, bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	noShowThenResale(t, f, first, bookingOptions{})
+	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	noShowThenResale(t, f, first, datatest.BookingOptions{})
 
 	// The 20:00 cell holds a played game, so a predicate widened past no_show
 	// cannot pass here either — it would empty this cell instead.
-	played := f.createBooking(t, bookingOptions{StartTime: "20:00", EndTime: "21:30"})
-	markStatus(t, f, played.ID, "completed")
+	played := f.CreateBooking(t, datatest.BookingOptions{StartTime: "20:00", EndTime: "21:30"})
+	f.MarkStatus(t, played.ID, "completed")
 
-	points, err := f.Models.Bookings.GetOccupancyByHourDay(
+	points, err := f.Stores.Bookings.GetOccupancyByHourDay(
 		context.Background(), f.ComplexID, first.Date, first.Date)
 	if err != nil {
 		t.Fatalf("reading the occupancy heatmap: %v", err)
@@ -271,12 +260,12 @@ func TestTheOccupancyHeatmapCountsAResoldNoShowHourOnce(t *testing.T) {
 // The "next up" list. A booking nobody is coming to must not sit above the one
 // that replaced it.
 func TestTheUpcomingListShowsTheResaleAndNotTheNoShow(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	first := f.createBooking(t, bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	resale := noShowThenResale(t, f, first, bookingOptions{})
+	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	resale := noShowThenResale(t, f, first, datatest.BookingOptions{})
 
-	upcoming, err := f.Models.Bookings.GetUpcomingToday(
+	upcoming, err := f.Stores.Bookings.GetUpcomingToday(
 		context.Background(), f.ComplexID, first.Date, "00:00", 10)
 	if err != nil {
 		t.Fatalf("reading the upcoming list: %v", err)
@@ -304,14 +293,14 @@ func TestTheUpcomingListShowsTheResaleAndNotTheNoShow(t *testing.T) {
 // told to do something the product refuses, until the date falls behind
 // CURRENT_DATE on its own.
 func TestANoShowStopsBlockingTheDeletionOfTheCourtItReleased(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	b := f.createBooking(t, bookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	b := f.CreateBooking(t, datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
 
 	assertBlocks := func(want bool, why string) {
 		t.Helper()
 
-		byCourt, err := f.Models.Bookings.HasActiveBookingsByCourt(context.Background(), f.CourtID)
+		byCourt, err := f.Stores.Bookings.HasActiveBookingsByCourt(context.Background(), f.CourtID)
 		if err != nil {
 			t.Fatalf("asking whether the court is busy: %v", err)
 		}
@@ -319,7 +308,7 @@ func TestANoShowStopsBlockingTheDeletionOfTheCourtItReleased(t *testing.T) {
 			t.Errorf("HasActiveBookingsByCourt = %v, want %v — %s", byCourt, want, why)
 		}
 
-		byComplex, err := f.Models.Bookings.HasActiveBookings(context.Background(), f.ComplexID)
+		byComplex, err := f.Stores.Bookings.HasActiveBookings(context.Background(), f.ComplexID)
 		if err != nil {
 			t.Fatalf("asking whether the complex is busy: %v", err)
 		}
@@ -330,10 +319,10 @@ func TestANoShowStopsBlockingTheDeletionOfTheCourtItReleased(t *testing.T) {
 
 	assertBlocks(true, "a confirmed booking holds the court and someone is coming to it")
 
-	markStatus(t, f, b.ID, "completed")
+	f.MarkStatus(t, b.ID, "completed")
 	assertBlocks(true, "a completed booking still took the court's hours; this half must not be lost")
 
-	markStatus(t, f, b.ID, "no_show")
+	f.MarkStatus(t, b.ID, "no_show")
 	assertBlocks(false, "a no_show gave the hours back, and it cannot be cancelled to satisfy the guard")
 }
 
@@ -344,9 +333,9 @@ func TestANoShowStopsBlockingTheDeletionOfTheCourtItReleased(t *testing.T) {
 // takings are both, and aligning this query to the occupancy predicate would
 // erase the forfeit from the owner's cash view.
 func TestTheDailyPaymentSummaryStillCountsWhatTheAbsentClientPaid(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	first := f.createBooking(t, bookingOptions{
+	first := f.CreateBooking(t, datatest.BookingOptions{
 		StartTime: "18:00", EndTime: "19:30",
 		CollectionStatus: bookingstore.CollectionStatusDepositPaid, RefundStatus: bookingstore.RefundStatusNone,
 		Price: 500_000, DepositAmount: 150_000,
@@ -354,18 +343,18 @@ func TestTheDailyPaymentSummaryStillCountsWhatTheAbsentClientPaid(t *testing.T) 
 	// createBooking only writes the bookings row; GetPaymentSummary INNER JOINs
 	// payments, so the deposit itself has to be recorded through the payments
 	// store the same way the real deposit flow would.
-	f.createPayment(t, first.ID, 150_000, 0, nil)
+	f.CreatePayment(t, first.ID, 150_000, 0, nil)
 
-	resale := noShowThenResale(t, f, first, bookingOptions{
+	resale := noShowThenResale(t, f, first, datatest.BookingOptions{
 		CollectionStatus: bookingstore.CollectionStatusFullyPaid, RefundStatus: bookingstore.RefundStatusNone,
 		Price: 500_000, DepositAmount: 150_000,
 	})
-	f.createPayment(t, resale.ID, 500_000, 0, nil)
+	f.CreatePayment(t, resale.ID, 500_000, 0, nil)
 
 	// GetPaymentSummary is keyed by payment date, not booking date (see its doc
 	// comment in bookings.go) — the dashboard always passes today. first.Date is
 	// a week out, so passing it here would ask for a day nothing was paid on.
-	summary, err := f.Models.Bookings.GetPaymentSummary(context.Background(), f.ComplexID, timezone.Today())
+	summary, err := f.Stores.Bookings.GetPaymentSummary(context.Background(), f.ComplexID, timezone.Today())
 	if err != nil {
 		t.Fatalf("reading the payment summary: %v", err)
 	}

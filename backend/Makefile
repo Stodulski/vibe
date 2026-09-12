@@ -197,7 +197,12 @@ e2e-db-down:
 # compile again, so `./...` re-ran the whole unit suite a second time, serially
 # (`-p 1` keeps the packages that share the database from stepping on each
 # other) and under the race detector, which the unit target already applies.
-INTEGRATION_PKGS := $(shell go list -tags integration -f '{{.ImportPath}}{{range .TestGoFiles}} {{.}}{{end}}' ./... | grep _integration_test.go | cut -d' ' -f1)
+# TestGoFiles AND XTestGoFiles: an integration file next to a store now says
+# `package <x>store_test` rather than `package <x>store`, because it imports
+# internal/data/datatest, which imports the store it is testing — an in-package
+# test cannot. Those files are XTestGoFiles, and listing only TestGoFiles found
+# three packages out of thirteen while reporting success for the rest.
+INTEGRATION_PKGS := $(shell go list -tags integration -f '{{.ImportPath}}{{range .TestGoFiles}} {{.}}{{end}}{{range .XTestGoFiles}} {{.}}{{end}}' ./... | grep _integration_test.go | cut -d' ' -f1)
 
 test/integration:
 	DATABASE_URL="$(E2E_DSN)" \

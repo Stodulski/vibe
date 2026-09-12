@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -13,11 +13,12 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
 
 // TestBlockedSlotMidnight tests the in-transaction blocked-slot guard in
-// BookingModel.InsertSafe (internal/data/bookings.go:251-266), not the handler
+// bookingstore.Store.InsertSafe (internal/bookings/store/bookings.go:251-266), not the handler
 // pre-check slotIsBlocked (internal/bookings/grid.go:93-110).
 //
 // The distinction is the whole point. The handler pre-check compares instants
@@ -39,7 +40,7 @@ import (
 // handler would exercise the midnight-safe pre-check and prove nothing about
 // the guard under test.
 func TestBlockedSlotMidnight(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// A plain calendar date. pgx encodes a pgtype.Date from the value's own
@@ -76,7 +77,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 			CollectionStatus: bookingstore.CollectionStatusUnpaid,
 			RefundStatus:     bookingstore.RefundStatusNone,
 		}
-		return b, f.Models.Bookings.InsertSafe(ctx, b)
+		return b, f.Stores.Bookings.InsertSafe(ctx, b)
 	}
 
 	// Control: an ordinary daytime booking that does not cross midnight. Its
@@ -139,7 +140,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 // pins the database refusing the overlap rather than the application noticing
 // it. That is the difference the migration is for.
 func TestBlockedSlotsCannotOverlap(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 	date := time.Date(2026, time.November, 20, 0, 0, 0, 0, time.UTC)
 
@@ -193,7 +194,7 @@ func TestBlockedSlotsCannotOverlap(t *testing.T) {
 			CourtID: f.CourtID, Date: date,
 			StartTime: "18:00", EndTime: "19:00", Reason: &reason,
 		}
-		if err := f.Models.Courts.InsertBlockedSlot(ctx, first); err != nil {
+		if err := f.Stores.Courts.InsertBlockedSlot(ctx, first); err != nil {
 			t.Fatalf("first store insert: %v", err)
 		}
 
@@ -201,7 +202,7 @@ func TestBlockedSlotsCannotOverlap(t *testing.T) {
 			CourtID: f.CourtID, Date: date,
 			StartTime: "18:30", EndTime: "19:30", Reason: &reason,
 		}
-		err := f.Models.Courts.InsertBlockedSlot(ctx, second)
+		err := f.Stores.Courts.InsertBlockedSlot(ctx, second)
 		if !errors.Is(err, courtstore.ErrSlotAlreadyBlocked) {
 			t.Fatalf("overlapping store insert: got err = %v, want ErrSlotAlreadyBlocked", err)
 		}

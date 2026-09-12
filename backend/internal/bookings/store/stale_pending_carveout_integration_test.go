@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // The stale-pending carve-out reads the collection axis, and this is the test
@@ -36,7 +37,7 @@ import (
 // depositPaidStaleBookingOptions is staleBookingOptions with the deposit taken.
 // Everything else is identical — same hours, same public origin, same age once
 // backdated — so the only thing that can change the answer is the money.
-func depositPaidStaleBookingOptions() bookingOptions {
+func depositPaidStaleBookingOptions() datatest.BookingOptions {
 	opts := staleBookingOptions()
 	opts.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	return opts
@@ -52,7 +53,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 	// the t.Run closures do not pass down as the defect it is named for.
 	t.Run("through GetBookedSlots", func(t *testing.T) {
 		t.Run("an unpaid pending stops blocking once it is stale", func(t *testing.T) {
-			f := newTestFixture(t)
+			f := datatest.NewFixture(t)
 			stale := newStaleBooking(t, f)
 
 			if booked := bookedStarts(t, f, stale.Date); contains(booked, stale.StartTime) {
@@ -61,13 +62,13 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 		})
 
 		t.Run("a deposit-paid pending of the same age still blocks", func(t *testing.T) {
-			f := newTestFixture(t)
+			f := datatest.NewFixture(t)
 
-			paid := f.newBooking(depositPaidStaleBookingOptions())
-			if err := f.Models.Bookings.InsertSafe(context.Background(), paid); err != nil {
+			paid := f.NewBooking(depositPaidStaleBookingOptions())
+			if err := f.Stores.Bookings.InsertSafe(context.Background(), paid); err != nil {
 				t.Fatalf("inserting the deposit-paid booking: %v", err)
 			}
-			f.backdateBookingCreatedAt(t, paid.ID, staleAge)
+			f.BackdateBookingCreatedAt(t, paid.ID, staleAge)
 
 			booked := bookedStarts(t, f, paid.Date)
 			if !contains(booked, paid.StartTime) {
@@ -80,26 +81,26 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 
 	t.Run("through InsertSafe", func(t *testing.T) {
 		t.Run("an unpaid pending lets a newcomer overlap it", func(t *testing.T) {
-			f := newTestFixture(t)
+			f := datatest.NewFixture(t)
 			newStaleBooking(t, f)
 
-			newcomer := f.newBooking(overlappingBookingOptions())
-			if err := f.Models.Bookings.InsertSafe(context.Background(), newcomer); err != nil {
+			newcomer := f.NewBooking(overlappingBookingOptions())
+			if err := f.Stores.Bookings.InsertSafe(context.Background(), newcomer); err != nil {
 				t.Errorf("a booking overlapping only a stale unpaid pending one must be accepted: %v", err)
 			}
 		})
 
 		t.Run("a deposit-paid pending refuses the same newcomer", func(t *testing.T) {
-			f := newTestFixture(t)
+			f := datatest.NewFixture(t)
 
-			paid := f.newBooking(depositPaidStaleBookingOptions())
-			if err := f.Models.Bookings.InsertSafe(context.Background(), paid); err != nil {
+			paid := f.NewBooking(depositPaidStaleBookingOptions())
+			if err := f.Stores.Bookings.InsertSafe(context.Background(), paid); err != nil {
 				t.Fatalf("inserting the deposit-paid booking: %v", err)
 			}
-			f.backdateBookingCreatedAt(t, paid.ID, staleAge)
+			f.BackdateBookingCreatedAt(t, paid.ID, staleAge)
 
-			newcomer := f.newBooking(overlappingBookingOptions())
-			err := f.Models.Bookings.InsertSafe(context.Background(), newcomer)
+			newcomer := f.NewBooking(overlappingBookingOptions())
+			err := f.Stores.Bookings.InsertSafe(context.Background(), newcomer)
 			if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 				t.Errorf("selling hours a paid pending booking already holds must be refused with "+
 					"ErrSlotUnavailable; got %v", err)

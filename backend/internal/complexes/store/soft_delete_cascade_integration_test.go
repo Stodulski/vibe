@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // The invariant the soft-delete cascade installs: no live court under a soft-deleted
@@ -22,7 +23,7 @@ import (
 // complex closes every one of its courts, in the same transaction, and the
 // store reports how many.
 func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// The fixture ships one court; a second one makes the count meaningful —
@@ -36,7 +37,7 @@ func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
 		t.Fatalf("creating the second court: %v", err)
 	}
 
-	deactivated, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID)
+	deactivated, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
@@ -89,14 +90,14 @@ func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
 // `AND deleted_at IS NULL`, so a repeat delete affects no row, and reporting
 // that as a success would let a caller log a cascade that never happened.
 func TestSoftDeleteCascadeOnAnAlreadyDeletedComplexIsNotFound(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	if _, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
+	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
 		t.Fatalf("first SoftDeleteCascade: %v", err)
 	}
 
-	_, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID)
+	_, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID)
 	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("deleting an already-deleted complex returned %v, want ErrRecordNotFound", err)
 	}
@@ -112,10 +113,10 @@ func TestSoftDeleteCascadeOnAnAlreadyDeletedComplexIsNotFound(t *testing.T) {
 // same shape as bookings_forbid_status_reversal, so the test
 // can assert *which* rule fired rather than settle for "something refused it".
 func TestRevivingACourtUnderADeletedComplexIsRefused(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	if _, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
+	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
 
@@ -151,10 +152,10 @@ func TestRevivingACourtUnderADeletedComplexIsRefused(t *testing.T) {
 // cascade misses: the parent was already deleted when the write arrived, so
 // there is no transition to fire on.
 func TestCreatingACourtUnderADeletedComplexIsRefused(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	if _, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
+	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
 
@@ -175,7 +176,7 @@ func TestCreatingACourtUnderADeletedComplexIsRefused(t *testing.T) {
 // every write to a complex would walk its courts, and a test that only ever
 // deletes cannot tell the difference.
 func TestTheCascadeDoesNotFireOnAnOrdinaryEdit(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	if _, err := f.Pool.Exec(ctx,
@@ -203,7 +204,7 @@ func TestTheCascadeDoesNotFireOnAnOrdinaryEdit(t *testing.T) {
 // used to filter on the court's own deleted_at alone, which was true of every
 // court whose complex had been deleted before this migration.
 func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	var slug string
@@ -214,22 +215,22 @@ func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
 
 	// Before: everything is visible. Without this half the test would pass
 	// against a fixture that never had a court in the first place.
-	if courts, err := f.Models.Courts.GetByComplex(ctx, f.ComplexID); err != nil || len(courts) == 0 {
+	if courts, err := f.Stores.Courts.GetByComplex(ctx, f.ComplexID); err != nil || len(courts) == 0 {
 		t.Fatalf("the fixture must start with a visible court; got %d courts, err %v", len(courts), err)
 	}
 
-	if _, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
+	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
 
-	if _, err := f.Models.Complexes.GetBySlug(ctx, slug); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := f.Stores.Complexes.GetBySlug(ctx, slug); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("the public page still resolves a deleted venue by slug: %v", err)
 	}
-	if _, err := f.Models.Complexes.GetByID(ctx, f.ComplexID); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("GetByID still resolves a deleted venue: %v", err)
 	}
 
-	courts, err := f.Models.Courts.GetByComplex(ctx, f.ComplexID)
+	courts, err := f.Stores.Courts.GetByComplex(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("GetByComplex: %v", err)
 	}
@@ -237,11 +238,11 @@ func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
 		t.Errorf("the court listing returned %d court(s) of a deleted venue", len(courts))
 	}
 
-	if _, err := f.Models.Courts.GetByID(ctx, f.CourtID); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := f.Stores.Courts.GetByID(ctx, f.CourtID); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("GetByID still resolves a court of a deleted venue: %v", err)
 	}
 
-	owned, err := f.Models.Complexes.GetByOwner(ctx, f.UserID)
+	owned, err := f.Stores.Complexes.GetByOwner(ctx, f.UserID)
 	if err != nil {
 		t.Fatalf("GetByOwner: %v", err)
 	}
@@ -251,7 +252,7 @@ func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
 		}
 	}
 
-	slugs, err := f.Models.Complexes.GetAllSlugs(ctx)
+	slugs, err := f.Stores.Complexes.GetAllSlugs(ctx)
 	if err != nil {
 		t.Fatalf("GetAllSlugs: %v", err)
 	}
@@ -270,7 +271,7 @@ func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
 // the state every row created before the cascade existed was in — and requires the
 // view to be right anyway.
 func TestTheViewsHoldEvenWithTheCascadeUndone(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	if _, err := f.Pool.Exec(ctx,
@@ -300,7 +301,7 @@ func TestTheViewsHoldEvenWithTheCascadeUndone(t *testing.T) {
 		t.Fatal("the cascade still ran with its trigger disabled, so this test proves nothing")
 	}
 
-	courts, err := f.Models.Courts.GetByComplex(ctx, f.ComplexID)
+	courts, err := f.Stores.Courts.GetByComplex(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("GetByComplex: %v", err)
 	}

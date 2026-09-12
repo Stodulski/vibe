@@ -11,7 +11,7 @@ var (
 	// ErrSlotLocked is returned when the requested slot is held by another transaction.
 	ErrSlotLocked = errors.New("slot is locked")
 
-	// ErrBookingNotConfirmable is returned by PaymentModel.InsertAndConfirmBooking
+	// ErrBookingNotConfirmable is returned by paymentstore.Payments.InsertAndConfirmBooking
 	// when the booking it re-reads, inside the same transaction the payment is
 	// about to be inserted in, is no longer one a payment can be recorded
 	// against (cancelled, completed, or a no-show).

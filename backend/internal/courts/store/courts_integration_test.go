@@ -1,10 +1,12 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
 	"testing"
+
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // FINDING 2. Court names are almost always "Cancha N", and a plain
@@ -13,7 +15,7 @@ import (
 // this is the one query every public-facing court list (complex profile,
 // availability grid, owner court list) shares.
 func TestIntegration_CourtsByComplexSortNaturallyNotLexically(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// The fixture already created "Court 1" for f.CourtID; add courts whose
@@ -27,7 +29,7 @@ func TestIntegration_CourtsByComplexSortNaturallyNotLexically(t *testing.T) {
 		}
 	}
 
-	courts, err := f.Models.Courts.GetByComplex(ctx, f.ComplexID)
+	courts, err := f.Stores.Courts.GetByComplex(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("GetByComplex: %v", err)
 	}

@@ -375,11 +375,11 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Courts:        d.models.Courts,
 		FailedRefunds: d.models.FailedRefunds,
 		WebhookEvents: d.models.WebhookEvents,
-		// d.models.Bookings is typed data.BookingStore, which composes
+		// d.models.Bookings is typed stores.BookingStore, which composes
 		// BookingRefundIntentManager, so it already structurally satisfies
 		// payments.RefundIntentStore — no new store instance is constructed.
 		RefundIntents: d.models.Bookings,
-		// d.models.BookingLinkTokens is typed data.BookingLinkTokenStore, which
+		// d.models.BookingLinkTokens is typed stores.BookingLinkTokenStore, which
 		// already structurally satisfies payments.LinkMinter's one method — no
 		// new store instance is constructed.
 		LinkTokens: d.models.BookingLinkTokens,
@@ -410,7 +410,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Checkout:  mpClient,
 		WhatsApp:  waClient,
 		Refunds:   paymentsHandler,
-		// d.models.BookingLinkTokens is typed data.BookingLinkTokenStore, which
+		// d.models.BookingLinkTokens is typed stores.BookingLinkTokenStore, which
 		// already structurally satisfies bookings.LinkResolver's one method —
 		// no new store instance is constructed.
 		LinkResolver: d.models.BookingLinkTokens,

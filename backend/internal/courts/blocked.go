@@ -21,7 +21,7 @@ import (
 // this one had been left out. Pagination is applied here, over the full
 // range GetBlockedSlotsByComplex still fetches in one query, rather than by
 // pushing limit/cursor into that store method's own SQL: that method's
-// signature is also what internal/data.CourtBlockedSlotManager declares, and
+// signature is also what internal/stores.CourtBlockedSlotManager declares, and
 // that interface is what cmd/api's own store wiring is built against
 // (courts.NewHandler(d.models.Courts, ...) in cmd/api/app.go) — widening it
 // would need a matching stub added to cmd/api's test mocks, which is outside

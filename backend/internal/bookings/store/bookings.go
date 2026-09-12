@@ -24,7 +24,7 @@ import (
 // bookings section of db/migrations/001_init.sql for why — so nothing but these
 // the column. Use them.
 // They are spelled *Status* rather than the shorter CollectionUnpaid /
-// RefundNone because RefundResult (internal/data/refunds.go) already owns the
+// RefundNone because RefundResult (internal/payments/store/refunds.go) already owns the
 // short names, and its "none" answers a different question — "what did this
 // cancellation do about the money" rather than "where does this booking's
 // give-back stand".
@@ -187,7 +187,7 @@ type Store struct {
 	DB *data.DB
 	Q  *db.Queries
 	// PaymentExpiry is how long an unpaid public booking holds its slot, taken
-	// from configuration by NewModels. See Config.PaymentExpiry.
+	// from configuration by stores.New. See Config.PaymentExpiry.
 	PaymentExpiry time.Duration
 	// Keys opens the mp_access_token/mp_refresh_token columns enriched onto
 	// CronBooking by scanCronBookings. See Config.Keys and crypto.Keyring —
@@ -283,7 +283,7 @@ func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
 	// locks so the acquisition order here is always advisory-then-row.
 	//
 	// The court-day lock serializes this against the other writers that take
-	// it — the confirmation path and the blocked-slot write — and CourtModel.
+	// it — the confirmation path and the blocked-slot write — and courtstore.Store.
 	// SoftDelete is not one of them. It has no day to key a lock on, so the
 	// only object the two writers can both hold is the court row itself.
 	// Without this read they contended on nothing: under READ COMMITTED each
@@ -561,7 +561,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 //
 // Zero rows now means one thing only: no booking with that id. It comes back as
 // ErrRecordNotFound rather than the removed ErrEditConflict, which is the same
-// answer ComplexModel.Update, CourtModel.Update and ClientModel.Update give for
+// answer complexstore.Store.Update, courtstore.Store.Update and clientstore.Store.Update give for
 // a row that vanished under an edit.
 func (m *Store) Update(ctx context.Context, b *Booking) error {
 	dbBooking, err := m.Q.UpdateBooking(ctx, db.UpdateBookingParams{

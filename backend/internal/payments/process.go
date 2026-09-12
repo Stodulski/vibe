@@ -59,7 +59,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 	// the database being unavailable, and dropping the payment for it is the exact
 	// failure this event's retry budget exists to prevent.
 	//
-	// This runs ahead of every branch below that writes a data.Payment row or moves
+	// This runs ahead of every branch below that writes a paymentstore.Payment row or moves
 	// a booking's payment_status — including the already-cancelled branch immediately
 	// below — so no branch of this function can ever act on a payment whose collector
 	// is unproven.
@@ -305,7 +305,7 @@ func (h *Handler) processApprovedPayment(ctx context.Context, booking *bookingst
 // payment was in flight, and sends the money back.
 //
 // The store refuses a confirmation only when another live booking genuinely
-// covers these hours (see PaymentModel.guardSlotStillFree), so reaching here
+// covers these hours (see paymentstore.Payments.guardSlotStillFree), so reaching here
 // means the court is sold to somebody else and this booking can never be
 // honoured. That is a decision rather than a failure: nil is returned so the
 // webhook event is not retried, because retrying cannot change who owns the slot.

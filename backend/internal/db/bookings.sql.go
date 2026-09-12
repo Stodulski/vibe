@@ -41,7 +41,7 @@ type GetBookedSlotsRow struct {
 // GetBookedSlots returns the hours already taken on the given courts and date.
 //
 // Its status predicate must stay identical to releasedBookingStatuses in
-// internal/data/slot_guard.go and to the WHERE clause on
+// internal/data/slotguard and to the WHERE clause on
 // bookings_no_overlapping_span (db/migrations/001_init.sql). Those three are one
 // predicate written three times, because a constraint inside Postgres cannot
 // read a Go constant and a file compiled by sqlc cannot concatenate one.
@@ -65,9 +65,9 @@ type GetBookedSlotsRow struct {
 // local_day() in db/migrations/001_init.sql for why "occupies day X" beat "started on day X".
 //
 // payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
-// default 15 minutes — see internal/data/models.go), passed as a parameter
+// default 15 minutes — see internal/stores), passed as a parameter
 // rather than baked in as INTERVAL '15 minutes' for the same reason slotTaken
-// in internal/data/slot_guard.go takes hold as an argument: this carve-out and
+// in internal/data/slotguard takes hold as an argument: this carve-out and
 // the insert-time collision guard have to agree on the same number, or a
 // pending booking between the two configured values shows as free here and
 // taken there (or the reverse). Both now read Config.PaymentExpiry once.
@@ -301,7 +301,7 @@ WHERE booking_starts_at(date, start_time) > $1::timestamptz
 // values have no midnight between them.
 //
 // `now` is a parameter rather than NOW() so the caller owns the clock — the
-// same reason GetForReminder2hEnriched in internal/data/bookings.go takes one.
+// same reason GetForReminder2hEnriched in internal/bookings/store/bookings.go takes one.
 // A window keyed to whenever the test suite happened to run is a window nobody
 // can test at 23:00.
 func (q *Queries) GetBookingsForReminder2h(ctx context.Context, now pgtype.Timestamptz) ([]Booking, error) {

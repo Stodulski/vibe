@@ -43,9 +43,9 @@ const publicActor = "client"
 // than a hand-picked subset: the point of an audit value is that a reader can
 // see what the record looked like, and a subset drifts from the struct the
 // moment a field is added. The booking's own tags decide what is safe to
-// encode — LinkToken is `json:"-"` (internal/data/bookings.go), which is what
+// encode — LinkToken is `json:"-"` (internal/bookings/store/bookings.go), which is what
 // keeps the access token that authorizes the three public routes out of the
-// trail, the same way data.Complex's tags keep MercadoPago credentials out of
+// trail, the same way complexstore.Complex's tags keep MercadoPago credentials out of
 // it. TestPublicBookAuditEntryCarriesNoLinkToken pins that.
 type publicBooking struct {
 	Actor    string                `json:"actor"`
@@ -229,7 +229,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 	// Get or create client. This endpoint needs no account (R1-client-name-
 	// overwrite), so a phone match here must never overwrite an existing
 	// client's stored name — only the authenticated owner path (create.go)
-	// is trusted with that — see ClientModel.GetOrCreate's comment on
+	// is trusted with that — see clientstore.Store.GetOrCreate's comment on
 	// allowNameUpdate.
 	client, err := h.clients.GetOrCreate(r.Context(), complex.ID, input.ClientFirstName, input.ClientLastName, input.ClientPhone, input.ClientEmail, false)
 	if err != nil {

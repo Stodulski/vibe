@@ -1,11 +1,12 @@
 //go:build integration
 
-package data_test
+package datatest
 
 import (
 	"context"
 	"encoding/base64"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,13 +20,13 @@ import (
 	"github.com/stodulski/vibe-server/internal/stores"
 )
 
-// testCredentialKeyring is the MercadoPago credential keyring every
-// integration test's Models is built with. It exists so a test that seeds a
+// CredentialKeyring is the MercadoPago credential keyring every
+// integration test's Stores is built with. It exists so a test that seeds a
 // real (sealed) credential — Phase 22's raw-column and GetWithMPConnected
 // coverage — can exercise the actual encrypt/decrypt path rather than
 // hitting ErrNilKeyring on every touch, matching how cmd/api wires a real
 // keyring at boot (main.go).
-func testCredentialKeyring(t *testing.T) *crypto.Keyring {
+func CredentialKeyring(t *testing.T) *crypto.Keyring {
 	t.Helper()
 	key := make([]byte, 32)
 	for i := range key {
@@ -38,10 +39,10 @@ func testCredentialKeyring(t *testing.T) *crypto.Keyring {
 	return kr
 }
 
-// setupTestDB opens a pool against the database named by DATABASE_URL, skipping the
+// SetupTestDB opens a pool against the database named by DATABASE_URL, skipping the
 // test when the variable is unset. Same shape as cmd/api/testutils_integration_test.go
 // so both suites behave identically when the E2E database is not running.
-func setupTestDB(t *testing.T) *pgxpool.Pool {
+func SetupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 
 	dsn := os.Getenv("DATABASE_URL")
@@ -63,7 +64,7 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	// infers parameter types from the Go values rather than from the prepared
 	// statement, so a []byte bound to a jsonb column is sent as bytea and
 	// rejected. The default statement-cache mode knows the column types and
-	// hid exactly that defect in WebhookEventModel.Insert until MercadoPago's
+	// hid exactly that defect in paymentstore.WebhookEvents.Insert until MercadoPago's
 	// webhook simulator hit the running API.
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 
@@ -81,30 +82,32 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// testFixture is one complex's worth of real rows — owner, complex, court and client —
+// Fixture is one complex's worth of real rows — owner, complex, court and client —
 // on which a test can hang the bookings and payments it actually cares about.
 //
 // Everything it creates is reachable from ComplexID or UserID, so cleanup deletes
 // exactly this test's rows instead of truncating shared tables. That keeps a failing
 // test's neighbours intact and keeps the database usable for the next test without a
 // global reset between every case.
-type testFixture struct {
+type Fixture struct {
 	Pool      *pgxpool.Pool
-	Models    stores.Stores
+	Stores    stores.Stores
 	UserID    uuid.UUID
 	ComplexID uuid.UUID
 	CourtID   uuid.UUID
 	ClientID  uuid.UUID
 }
 
-func newTestFixture(t *testing.T) *testFixture {
+// NewFixture creates the owner, complex, court and client a test hangs its
+// own rows on, and registers the cleanup that removes them again.
+func NewFixture(t *testing.T) *Fixture {
 	t.Helper()
 
-	pool := setupTestDB(t)
+	pool := SetupTestDB(t)
 	ctx := context.Background()
 	suffix := uuid.NewString()
 
-	f := &testFixture{Pool: pool, Models: stores.New(pool, stores.Config{Keys: testCredentialKeyring(t)})}
+	f := &Fixture{Pool: pool, Stores: stores.New(pool, stores.Config{Keys: CredentialKeyring(t)})}
 
 	err := pool.QueryRow(ctx, `
 		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
@@ -161,7 +164,7 @@ func newTestFixture(t *testing.T) *testFixture {
 // is not a tree: payments.booking_id and bookings.court_id have no ON DELETE action, so
 // a cascade from complexes would have to unlink them in exactly the right order to
 // avoid a foreign-key violation. Naming the order here is both safer and readable.
-func (f *testFixture) deleteComplexData(t *testing.T) {
+func (f *Fixture) deleteComplexData(t *testing.T) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -187,9 +190,9 @@ func (f *testFixture) deleteComplexData(t *testing.T) {
 	}
 }
 
-// bookingOptions describes the booking a test wants; the zero value is a confirmed,
+// BookingOptions describes the booking a test wants; the zero value is a confirmed,
 // deposit-paid booking a week out, which is what the refund tests need.
-type bookingOptions struct {
+type BookingOptions struct {
 	StartTime string
 	// EndTime is how a fixture spells the length it wants, not a column: there
 	// is no bookings.end_time column. It is turned into
@@ -231,7 +234,7 @@ func minutesBetween(start, end string) int {
 	return int(e.Sub(s).Minutes())
 }
 
-func (o bookingOptions) withDefaults() bookingOptions {
+func (o BookingOptions) withDefaults() BookingOptions {
 	if o.StartTime == "" {
 		o.StartTime = "18:00"
 	}
@@ -256,9 +259,9 @@ func (o bookingOptions) withDefaults() bookingOptions {
 	return o
 }
 
-// newBooking builds an unsaved Booking wired to this fixture's complex, court and
+// NewBooking builds an unsaved Booking wired to this fixture's complex, court and
 // client. Tests that exercise an insert path use this and insert it themselves.
-func (f *testFixture) newBooking(opts bookingOptions) *bookingstore.Booking {
+func (f *Fixture) NewBooking(opts BookingOptions) *bookingstore.Booking {
 	opts = opts.withDefaults()
 
 	b := &bookingstore.Booking{
@@ -281,20 +284,20 @@ func (f *testFixture) newBooking(opts bookingOptions) *bookingstore.Booking {
 	return b
 }
 
-// createBooking inserts a booking through the real store and returns it.
-func (f *testFixture) createBooking(t *testing.T, opts bookingOptions) *bookingstore.Booking {
+// CreateBooking inserts a booking through the real store and returns it.
+func (f *Fixture) CreateBooking(t *testing.T, opts BookingOptions) *bookingstore.Booking {
 	t.Helper()
 
-	b := f.newBooking(opts)
-	if err := f.Models.Bookings.Insert(context.Background(), b); err != nil {
+	b := f.NewBooking(opts)
+	if err := f.Stores.Bookings.Insert(context.Background(), b); err != nil {
 		t.Fatalf("creating booking: %v", err)
 	}
 	return b
 }
 
-// createPayment inserts a payment through the real store and returns it. A nil
+// CreatePayment inserts a payment through the real store and returns it. A nil
 // mpPaymentID produces the cash-style row that carries no MercadoPago identifier.
-func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, serviceFee int, mpPaymentID *string) *paymentstore.Payment {
+func (f *Fixture) CreatePayment(t *testing.T, bookingID uuid.UUID, amount, serviceFee int, mpPaymentID *string) *paymentstore.Payment {
 	t.Helper()
 
 	method := "cash"
@@ -311,15 +314,15 @@ func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, s
 		Status:      "deposit_paid",
 		MPPaymentID: mpPaymentID,
 	}
-	if err := f.Models.Payments.Insert(context.Background(), p); err != nil {
+	if err := f.Stores.Payments.Insert(context.Background(), p); err != nil {
 		t.Fatalf("creating payment: %v", err)
 	}
 	return p
 }
 
-// readPaymentState re-reads a payment's money-carrying columns straight from the
+// ReadPaymentState re-reads a payment's money-carrying columns straight from the
 // database, bypassing any struct a store method may have mutated in memory.
-func (f *testFixture) readPaymentState(t *testing.T, paymentID uuid.UUID) (status string, refundAmount int) {
+func (f *Fixture) ReadPaymentState(t *testing.T, paymentID uuid.UUID) (status string, refundAmount int) {
 	t.Helper()
 
 	err := f.Pool.QueryRow(context.Background(),
@@ -331,8 +334,8 @@ func (f *testFixture) readPaymentState(t *testing.T, paymentID uuid.UUID) (statu
 	return status, refundAmount
 }
 
-// readBookingState re-reads a booking's status columns straight from the database.
-func (f *testFixture) readBookingState(t *testing.T, bookingID uuid.UUID) (status, collectionStatus, refundStatus string) {
+// ReadBookingState re-reads a booking's status columns straight from the database.
+func (f *Fixture) ReadBookingState(t *testing.T, bookingID uuid.UUID) (status, collectionStatus, refundStatus string) {
 	t.Helper()
 
 	err := f.Pool.QueryRow(context.Background(),
@@ -344,12 +347,12 @@ func (f *testFixture) readBookingState(t *testing.T, bookingID uuid.UUID) (statu
 	return status, collectionStatus, refundStatus
 }
 
-// backdateBookingCreatedAt moves a booking's created_at into the past.
+// BackdateBookingCreatedAt moves a booking's created_at into the past.
 //
 // It is how a test produces the stale pending booking the carve-out is about
 // without waiting out a real payment expiry. Only updated_at carries a trigger on
 // this table, so created_at can simply be written.
-func (f *testFixture) backdateBookingCreatedAt(t *testing.T, id uuid.UUID, age time.Duration) {
+func (f *Fixture) BackdateBookingCreatedAt(t *testing.T, id uuid.UUID, age time.Duration) {
 	t.Helper()
 
 	tag, err := f.Pool.Exec(context.Background(),
@@ -363,11 +366,11 @@ func (f *testFixture) backdateBookingCreatedAt(t *testing.T, id uuid.UUID, age t
 	}
 }
 
-// confirmBooking runs a booking through the real payment-confirmation path — the
+// ConfirmBooking runs a booking through the real payment-confirmation path — the
 // one a MercadoPago webhook takes when it confirms a paid booking — and returns
 // whatever the store decided. models is passed in so a test can confirm through a
 // differently configured set of stores.
-func (f *testFixture) confirmBooking(models stores.Stores, b *bookingstore.Booking) error {
+func (f *Fixture) ConfirmBooking(models stores.Stores, b *bookingstore.Booking) error {
 	b.Status = "confirmed"
 	b.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 
@@ -382,8 +385,8 @@ func (f *testFixture) confirmBooking(models stores.Stores, b *bookingstore.Booki
 	return models.Payments.InsertAndConfirmBooking(context.Background(), payment, b)
 }
 
-// countBookings counts this fixture's bookings on its court in the given status.
-func (f *testFixture) countBookings(t *testing.T, status string) int {
+// CountBookings counts this fixture's bookings on its court in the given status.
+func (f *Fixture) CountBookings(t *testing.T, status string) int {
 	t.Helper()
 
 	var n int
@@ -397,13 +400,13 @@ func (f *testFixture) countBookings(t *testing.T, status string) int {
 	return n
 }
 
-// backdateFailedRefundUpdatedAt moves a failed refund's updated_at into the past.
+// BackdateFailedRefundUpdatedAt moves a failed refund's updated_at into the past.
 //
 // failed_refunds carries a BEFORE UPDATE trigger that overwrites updated_at with NOW()
 // on every write, so an ordinary UPDATE cannot age a row. The trigger is disabled for
 // the duration of this single statement — inside a transaction, so it is restored even
 // if the UPDATE fails.
-func (f *testFixture) backdateFailedRefundUpdatedAt(t *testing.T, id uuid.UUID, age time.Duration) {
+func (f *Fixture) BackdateFailedRefundUpdatedAt(t *testing.T, id uuid.UUID, age time.Duration) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -434,5 +437,92 @@ func (f *testFixture) backdateFailedRefundUpdatedAt(t *testing.T, id uuid.UUID, 
 
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit backdate tx: %v", err)
+	}
+}
+
+// BlockCourtDay takes the very lock InsertSafe and the confirmation guard take,
+// on its own connection, and holds it until the returned function is called.
+//
+// It is the starting gate: transactions queue behind it in the order they ask,
+// so a test can replay a chosen interleaving of two genuinely concurrent
+// writers instead of hoping the scheduler produces the interesting one. It
+// lives here because the bookings store's race tests and the courts store's
+// blocked-slot race tests queue behind the same lock.
+func (f *Fixture) BlockCourtDay(t *testing.T, date time.Time) (release func()) {
+	t.Helper()
+
+	ctx := context.Background()
+	conn, err := f.Pool.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("acquiring the gate connection: %v", err)
+	}
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		conn.Release()
+		t.Fatalf("beginning the gate transaction: %v", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`SELECT pg_advisory_xact_lock(hashtext($1 || $2))`,
+		f.CourtID.String(), date.Format("2006-01-02"),
+	); err != nil {
+		_ = tx.Rollback(ctx)
+		conn.Release()
+		t.Fatalf("taking the gate lock: %v", err)
+	}
+
+	var once sync.Once
+	release = func() {
+		once.Do(func() {
+			_ = tx.Rollback(ctx)
+			conn.Release()
+		})
+	}
+	t.Cleanup(release)
+	return release
+}
+
+// WaitForLockWaiters blocks until exactly want transactions are queued on an
+// advisory lock in this database, so the test knows a goroutine has really
+// reached the gate rather than merely been started.
+//
+// A writer that never appears in that queue is itself the failure — it is not
+// serialized against anything — so the timeout is reported and the caller
+// carries on to its own assertions rather than stopping here.
+func (f *Fixture) WaitForLockWaiters(t *testing.T, want int) {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		var waiting int
+		err := f.Pool.QueryRow(context.Background(), `
+			SELECT COUNT(*) FROM pg_locks
+			WHERE locktype = 'advisory' AND NOT granted
+			  AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`,
+		).Scan(&waiting)
+		if err != nil {
+			t.Fatalf("reading lock waiters: %v", err)
+		}
+		if waiting == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("both the insert and the confirmation must queue on the court lock; want %d waiting, got %d — a writer that never takes the lock is serialized against nothing", want, waiting)
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// MarkStatus moves a booking to a terminal status the way the owner-facing
+// update does, through a plain UPDATE that the status-reversal trigger sees.
+func (f *Fixture) MarkStatus(t *testing.T, id uuid.UUID, status string) {
+	t.Helper()
+
+	_, err := f.Pool.Exec(context.Background(),
+		`UPDATE bookings SET status = $1 WHERE id = $2`, status, id)
+	if err != nil {
+		t.Fatalf("marking booking %s: %v", status, err)
 	}
 }

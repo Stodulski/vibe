@@ -161,8 +161,8 @@ type Config struct {
 	CancellationGracePeriod time.Duration
 	// LinkTokenBuffer is added to a booking's end time to compute the
 	// expires_at of the token this module mints on webhook confirmation.
-	// Same value BookingModel.InsertSafe uses for its own mint
-	// (data.Config.LinkTokenBuffer) — both come from the one
+	// Same value bookingstore.Store.InsertSafe uses for its own mint
+	// (stores.Config.LinkTokenBuffer) — both come from the one
 	// -booking-link-token-buffer flag.
 	LinkTokenBuffer time.Duration
 }

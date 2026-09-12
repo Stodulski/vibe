@@ -236,7 +236,7 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*pay
 		RefundCentavos: amount,
 	}
 	// The real ClaimRefund reads BookingID and ComplexID off the locked payment
-	// row (internal/data/refunds.go). Mirror that here so a caller building an
+	// row (internal/payments/store/refunds.go). Mirror that here so a caller building an
 	// alert from claim.BookingID/ComplexID — the seller-credential refusal path
 	// — sees the fixture's values, not the zero UUID.
 	if p := s.paymentFor(paymentID); p != nil {
@@ -264,7 +264,7 @@ func (s *stubPayments) paymentFor(id uuid.UUID) *paymentstore.Payment {
 }
 
 // RecordRefundSuccess mirrors the real recorder's arithmetic, which is the
-// whole point of it: internal/data/refunds.go does not assign refund_amount, it
+// whole point of it: internal/payments/store/refunds.go does not assign refund_amount, it
 // *adds* the claim's figure to whatever the locked row already holds and caps
 // the sum at amount + service_fee.
 //
@@ -793,8 +793,8 @@ const sellerTestToken = "seller-access-token"
 // both set — the ordinary state of a complex that has connected MercadoPago.
 // mpUserID may be "" for a test that does not exercise the collector check.
 //
-// Building this through data.NewComplexForTest is required: the credential
-// fields are unexported, so a bare &data.Complex{} literal outside
+// Building this through complexstore.NewComplexForTest is required: the credential
+// fields are unexported, so a bare &complexstore.Complex{} literal outside
 // internal/data can never carry a seller token, and sellerCredential would
 // then always refuse with ErrMPNotConnected regardless of what the test is
 // actually about.

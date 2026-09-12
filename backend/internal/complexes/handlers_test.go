@@ -272,7 +272,7 @@ func TestUpdateAcceptsAOneHourCancellationWindow(t *testing.T) {
 
 // H-14: a lost update must be refused, not silently applied. The store maps
 // two concurrent edits to ErrRecordNotFound (the row's updated_at moved
-// between this request's read and its write — see ComplexModel.Update); this
+// between this request's read and its write — see complexstore.Store.Update); this
 // pins that the handler in turn tells the caller "conflict, retry" rather
 // than either a 500 or a false 200.
 func TestUpdateReportsAnEditConflictOnALostUpdate(t *testing.T) {
