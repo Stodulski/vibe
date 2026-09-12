@@ -307,7 +307,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 	})
 	reportingHandler := reporting.NewHandler(d.models.Bookings, d.models.Clients, d.models.Courts,
 		d.models.Complexes, d.models.Reports, respond)
-	adminHandler := admin.NewHandler(d.models.Admin, d.models.Audit, cache, auditor, respond, cfg.trustedProxies)
+	adminService := admin.NewService(d.models.Admin, d.models.Audit, cache, auditor)
+	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
 
 	var queues health.QueueReporter
 	if d.db != nil {
