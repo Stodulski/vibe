@@ -1,10 +1,9 @@
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { AlertDialog, AlertDialogContent } from '@/shared/components/common/AppAlertDialog';
 import {
-  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,

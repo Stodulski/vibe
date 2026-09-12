@@ -6,6 +6,7 @@ import { SearchIcon } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { useFocusRestoreOnClose } from '@/shared/hooks/useFocusRestoreOnClose';
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
@@ -21,6 +22,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 }
 
 function CommandDialog({
+  open,
   title,
   description,
   children,
@@ -33,9 +35,22 @@ function CommandDialog({
   className?: string;
   showCloseButton?: boolean;
 }) {
+  // `CommandDialog` opens via an `open`/`onOpenChange` prop pair (the Cmd/Ctrl+K
+  // shortcut and the `open-command-palette` event), never `<DialogTrigger>`, so
+  // Radix's own trigger-focus-return never fires — see `useFocusRestoreOnClose`.
+  const lastFocused = useFocusRestoreOnClose(open);
   return (
-    <Dialog {...props}>
-      <DialogContent className={cn('overflow-hidden p-0', className)} showCloseButton={showCloseButton}>
+    <Dialog {...(open !== undefined ? { open } : {})} {...props}>
+      <DialogContent
+        className={cn('overflow-hidden p-0', className)}
+        showCloseButton={showCloseButton}
+        onCloseAutoFocus={(event) => {
+          if (!event.defaultPrevented && lastFocused) {
+            event.preventDefault();
+            lastFocused.focus();
+          }
+        }}
+      >
         {/*
           DialogHeader lives inside DialogContent (not as a sibling) so Radix
           only mounts the title/description while the dialog is actually

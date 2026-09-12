@@ -1,4 +1,4 @@
-import { AlertDialog, AlertDialogContent } from '@/shared/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogContent } from '@/shared/components/common/AppAlertDialog';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { ConfirmDialogHeader } from './confirm-dialog/ConfirmDialogHeader';
