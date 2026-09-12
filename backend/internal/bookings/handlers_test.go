@@ -17,6 +17,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -136,10 +137,10 @@ func TestGetIncludesTheWholePaymentLedger(t *testing.T) {
 	f.store.booking = booking
 
 	depositID := "mp-" + uuid.New().String()
-	deposit := &data.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: 150_000, MPPaymentID: &depositID}
-	balance := &data.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: 350_000}
+	deposit := &paymentstore.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: 150_000, MPPaymentID: &depositID}
+	balance := &paymentstore.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: 350_000}
 	f.payments.payment = deposit
-	f.payments.ledger = []*data.Payment{deposit, balance}
+	f.payments.ledger = []*paymentstore.Payment{deposit, balance}
 
 	w := httptest.NewRecorder()
 	f.handler.Get(w, ownerRequest(t, http.MethodGet, "/", complexID,
@@ -150,7 +151,7 @@ func TestGetIncludesTheWholePaymentLedger(t *testing.T) {
 	}
 
 	var response struct {
-		Payments []data.Payment `json:"payments"`
+		Payments []paymentstore.Payment `json:"payments"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -1044,7 +1045,7 @@ func TestPublicStatusFullPayloadForAConfirmedBooking(t *testing.T) {
 		CancellationHours: 24,
 	}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1", Sport: "padel", CourtType: "indoor"}
-	f.payments.payment = &data.Payment{BookingID: booking.ID, ServiceFee: 1000}
+	f.payments.payment = &paymentstore.Payment{BookingID: booking.ID, ServiceFee: 1000}
 
 	w := httptest.NewRecorder()
 	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=full-payload", ""))

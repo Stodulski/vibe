@@ -24,6 +24,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // Refund methods reported by cancel-info. They answer "how would the money come
@@ -65,32 +66,32 @@ const (
 //
 // The vocabulary is the product's: "devolución", never "reembolso", which is
 // what the not-eligible line used to say.
-func refundMessage(result data.RefundResult, amountCentavos int) string {
+func refundMessage(result paymentstore.RefundResult, amountCentavos int) string {
 	amount := notifications.FormatARS(amountCentavos)
 	switch result {
-	case data.RefundNone:
+	case paymentstore.RefundNone:
 		return "no hay pagos a devolver."
-	case data.RefundNotEligible:
+	case paymentstore.RefundNotEligible:
 		if amountCentavos > 0 {
 			return fmt.Sprintf("fuera de plazo, la seña de %s no se devuelve.", amount)
 		}
 		return "fuera de plazo, la seña no se devuelve."
-	case data.RefundIssued:
+	case paymentstore.RefundIssued:
 		if amountCentavos > 0 {
 			return fmt.Sprintf("%s enviados, se acreditan en los próximos días hábiles.", amount)
 		}
 		return "enviada, se acredita en los próximos días hábiles."
-	case data.RefundAlreadyIssued:
+	case paymentstore.RefundAlreadyIssued:
 		if amountCentavos > 0 {
 			return fmt.Sprintf("%s, ya enviada.", amount)
 		}
 		return "ya enviada."
-	case data.RefundQueued:
+	case paymentstore.RefundQueued:
 		if amountCentavos > 0 {
 			return fmt.Sprintf("%s en proceso, se notificará al completarse.", amount)
 		}
 		return "en proceso, se notificará al completarse."
-	case data.RefundManual:
+	case paymentstore.RefundManual:
 		if amountCentavos > 0 {
 			return fmt.Sprintf("%s, a cargo del complejo de forma manual.", amount)
 		}
@@ -110,10 +111,10 @@ func refundMessage(result data.RefundResult, amountCentavos int) string {
 //
 // It returns the formatted amount alongside, which is what the email's preview
 // line quotes; it is empty when no money is coming back at all.
-func refundNotice(outcome data.RefundOutcome) (line, amount string) {
+func refundNotice(outcome paymentstore.RefundOutcome) (line, amount string) {
 	line = refundMessage(outcome.Result, outcome.AmountCentavos)
 	if outcome.ManualAmountCentavos > 0 {
-		manual := refundMessage(data.RefundManual, outcome.ManualAmountCentavos)
+		manual := refundMessage(paymentstore.RefundManual, outcome.ManualAmountCentavos)
 		if line == "" {
 			line = manual
 		} else {
@@ -122,7 +123,7 @@ func refundNotice(outcome data.RefundOutcome) (line, amount string) {
 	}
 
 	switch {
-	case outcome.Result == data.RefundNotEligible:
+	case outcome.Result == paymentstore.RefundNotEligible:
 		// Money exists, but it is staying where it is. Naming an amount in the
 		// preview line of an email about not getting it back reads as a
 		// promise.
@@ -135,7 +136,7 @@ func refundNotice(outcome data.RefundOutcome) (line, amount string) {
 }
 
 // refundEnvelope renders an outcome for a cancellation response.
-func refundEnvelope(outcome data.RefundOutcome) httpx.Envelope {
+func refundEnvelope(outcome paymentstore.RefundOutcome) httpx.Envelope {
 	e := httpx.Envelope{
 		"status":  string(outcome.Result),
 		"message": refundMessage(outcome.Result, outcome.AmountCentavos),
@@ -149,7 +150,7 @@ func refundEnvelope(outcome data.RefundOutcome) httpx.Envelope {
 	// this is the only place the manual half would otherwise go unseen.
 	if outcome.ManualAmountCentavos > 0 {
 		e["manual_amount"] = outcome.ManualAmountCentavos
-		e["manual_message"] = refundMessage(data.RefundManual, outcome.ManualAmountCentavos)
+		e["manual_message"] = refundMessage(paymentstore.RefundManual, outcome.ManualAmountCentavos)
 	}
 	return e
 }
@@ -166,7 +167,7 @@ func refundEnvelope(outcome data.RefundOutcome) httpx.Envelope {
 // It answers on the refund axis only. Since the payment_status split a refund no longer
 // overwrites what the booking collected, so the collection status on the
 // in-memory struct is still correct and is left alone.
-func refundStatusAfter(booking *data.Booking, outcome data.RefundOutcome) string {
+func refundStatusAfter(booking *data.Booking, outcome paymentstore.RefundOutcome) string {
 	switch {
 	case outcome.ManualAmountCentavos > 0:
 		// The automatic half came back — MoneyReturned() would also be true
@@ -177,7 +178,7 @@ func refundStatusAfter(booking *data.Booking, outcome data.RefundOutcome) string
 		return data.RefundStatusPartial
 	case outcome.MoneyReturned():
 		return data.RefundStatusFull
-	case outcome.Result == data.RefundQueued:
+	case outcome.Result == paymentstore.RefundQueued:
 		return data.RefundStatusPending
 	default:
 		return booking.RefundStatus

@@ -18,6 +18,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -503,7 +504,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 		h.respond.Error(w, r, http.StatusServiceUnavailable, "no se pudo crear el enlace de pago, intente nuevamente")
 		return
 	} else {
-		payment := &data.Payment{
+		payment := &paymentstore.Payment{
 			BookingID:      booking.ID,
 			ComplexID:      booking.ComplexID,
 			Amount:         mpAmount,
@@ -690,7 +691,7 @@ func (h *Handler) PublicStatus(w http.ResponseWriter, r *http.Request) {
 // publicStatusResponse builds PublicStatus's payload. payment is nil when the
 // booking carries no payment row yet (data.ErrRecordNotFound), in which case
 // service_fee reads 0 rather than failing the request.
-func (h *Handler) publicStatusResponse(booking *data.Booking, complex *complexstore.Complex, court *courtstore.Court, payment *data.Payment) httpx.Envelope {
+func (h *Handler) publicStatusResponse(booking *data.Booking, complex *complexstore.Complex, court *courtstore.Court, payment *paymentstore.Payment) httpx.Envelope {
 	serviceFee := 0
 	if payment != nil {
 		serviceFee = payment.ServiceFee
@@ -954,16 +955,16 @@ func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
 	// penalty the window exists to collect.
 	//
 	// The staff path deliberately has no window at all. That difference stays.
-	var outcome data.RefundOutcome
+	var outcome paymentstore.RefundOutcome
 	switch {
 	case booking.CollectionStatus == data.CollectionStatusUnpaid:
 		h.expireCheckoutPreference(r.Context(), booking, complex)
-		outcome = data.RefundOutcome{Result: data.RefundNone, Reason: "the booking was never paid"}
+		outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundNone, Reason: "the booking was never paid"}
 	case owesRefund:
 		outcome = h.refunds.AutoRefundIfPaid(r.Context(), booking)
 	default:
-		outcome = data.RefundOutcome{
-			Result:         data.RefundNotEligible,
+		outcome = paymentstore.RefundOutcome{
+			Result:         paymentstore.RefundNotEligible,
 			AmountCentavos: booking.DepositAmount,
 			Reason:         "cancelled outside the complex's refund window",
 		}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // MarkProcessing flips a queued refund to 'processing' before the provider call and
@@ -81,14 +82,14 @@ func TestGetPendingDueStillRespectsTheRetrySchedule(t *testing.T) {
 // payment and booking so the foreign keys hold. The slot times are explicit because
 // several refunds in one test share a court and date, and
 // bookings(court_id, date, start_time) is uniquely indexed.
-func (f *testFixture) createFailedRefund(t *testing.T, startTime, endTime string) *data.FailedRefund {
+func (f *testFixture) createFailedRefund(t *testing.T, startTime, endTime string) *paymentstore.FailedRefund {
 	t.Helper()
 
 	booking := f.createBooking(t, bookingOptions{StartTime: startTime, EndTime: endTime})
 	mpPaymentID := "mp-" + uuid.NewString()
 	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	fr := &data.FailedRefund{
+	fr := &paymentstore.FailedRefund{
 		PaymentID:    payment.ID,
 		BookingID:    booking.ID,
 		ComplexID:    f.ComplexID,
@@ -105,7 +106,7 @@ func (f *testFixture) createFailedRefund(t *testing.T, startTime, endTime string
 
 // idsOf indexes a result set by ID. GetPendingDue is global rather than scoped to one
 // complex, so the assertions above look for specific rows instead of counting.
-func idsOf(refunds []*data.FailedRefund) map[uuid.UUID]bool {
+func idsOf(refunds []*paymentstore.FailedRefund) map[uuid.UUID]bool {
 	found := make(map[uuid.UUID]bool, len(refunds))
 	for _, fr := range refunds {
 		found[fr.ID] = true
@@ -219,7 +220,7 @@ func TestTheRefundSweepReadsNoMoreThanARunCanWork(t *testing.T) {
 
 	// One-hour bookings, back to back: the fixture derives duration_minutes
 	// from these hours, and the schema permits only 60, 90 or 120.
-	for i := range data.RefundSweepBatchForTest + 3 {
+	for i := range paymentstore.RefundSweepBatchForTest + 3 {
 		start := fmt.Sprintf("%02d:00", 6+i)
 		end := fmt.Sprintf("%02d:00", 7+i)
 		f.createFailedRefund(t, start, end)
@@ -229,9 +230,9 @@ func TestTheRefundSweepReadsNoMoreThanARunCanWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
-	if len(due) > data.RefundSweepBatchForTest {
+	if len(due) > paymentstore.RefundSweepBatchForTest {
 		t.Errorf("the sweep read %d rows; a run can only work %d of them, and the rest are fetched and dropped",
-			len(due), data.RefundSweepBatchForTest)
+			len(due), paymentstore.RefundSweepBatchForTest)
 	}
 }
 
@@ -263,7 +264,7 @@ func TestResolvedRefundAttemptsAreDeletedAndNothingElse(t *testing.T) {
 	// The concrete model rather than f.Models.FailedRefunds: retention is not on
 	// the FailedRefundStore interface yet, because adding it there means editing
 	// models.go and the mock beside it. See the note in DeleteResolved.
-	store := &data.FailedRefundModel{DB: data.NewDB(f.Pool)}
+	store := &paymentstore.FailedRefunds{DB: data.NewDB(f.Pool)}
 	if _, err := store.DeleteResolved(ctx, retention); err != nil {
 		t.Fatalf("DeleteResolved: %v", err)
 	}
@@ -308,7 +309,7 @@ func TestTheRefundSweepQueryIsAnsweredByItsIndex(t *testing.T) {
 		  AND (status IN ('pending', 'exhausted')
 		       OR (status = 'processing' AND updated_at < NOW() - $1::interval))
 		ORDER BY next_retry_at ASC
-		LIMIT $2`, data.StaleRefundProcessingForTest.String(), data.RefundSweepBatchForTest)
+		LIMIT $2`, paymentstore.StaleRefundProcessingForTest.String(), paymentstore.RefundSweepBatchForTest)
 	if err != nil {
 		t.Fatalf("EXPLAIN: %v", err)
 	}

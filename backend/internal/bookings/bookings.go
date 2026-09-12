@@ -25,6 +25,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // Store is the booking persistence this module uses.
@@ -70,11 +71,11 @@ type CourtReader interface {
 
 // PaymentStore records the payment a public booking is waiting on.
 type PaymentStore interface {
-	Insert(ctx context.Context, p *data.Payment) error
-	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error)
-	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*data.Payment, error)
-	InsertAndConfirmBooking(ctx context.Context, payment *data.Payment, booking *data.Booking) error
-	Update(ctx context.Context, p *data.Payment) error
+	Insert(ctx context.Context, p *paymentstore.Payment) error
+	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
+	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
+	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	Update(ctx context.Context, p *paymentstore.Payment) error
 	// RecordManualRefund closes out a partial_refund booking's remaining
 	// cash/transfer rows, in one transaction with the booking's move to
 	// 'refunded'. See ManualRefund in actions.go.
@@ -122,7 +123,7 @@ type WhatsAppVerifier interface {
 // It used to return nothing at all, and every caller had to infer the answer from
 // a struct the refund path never writes to.
 type Refunder interface {
-	AutoRefundIfPaid(ctx context.Context, booking *data.Booking) data.RefundOutcome
+	AutoRefundIfPaid(ctx context.Context, booking *data.Booking) paymentstore.RefundOutcome
 }
 
 // LinkResolver resolves the plaintext access token presented to the three

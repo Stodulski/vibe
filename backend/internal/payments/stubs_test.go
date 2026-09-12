@@ -20,6 +20,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 )
 
@@ -27,14 +28,14 @@ import (
 // lifecycle can be made to fail: the old stub hardcoded a successful commit, which
 // is precisely why a flow that lost refunds on a failed commit shipped green.
 type stubPayments struct {
-	byMPID    *data.Payment
-	byBooking *data.Payment
+	byMPID    *paymentstore.Payment
+	byBooking *paymentstore.Payment
 	// byBookingAll is the whole ledger a test has seeded, in insertion order —
 	// what ListByBookingID answers with. Existing tests only ever set
 	// byBooking directly (bypassing remember), so ListByBookingID falls back to
 	// treating that single row as the whole ledger when byBookingAll is empty,
 	// which keeps every single-row fixture correct without having to touch it.
-	byBookingAll []*data.Payment
+	byBookingAll []*paymentstore.Payment
 	// listErr fails ListByBookingID, standing in for the database being
 	// unavailable while the refund path is summing every payment row.
 	listErr error
@@ -68,9 +69,9 @@ type stubPayments struct {
 	// claimAmount is what a claim reserves; a zero value means the usual deposit.
 	claimAmount int
 
-	updated   *data.Payment
-	inserted  *data.Payment
-	confirmed *data.Payment
+	updated   *paymentstore.Payment
+	inserted  *paymentstore.Payment
+	confirmed *paymentstore.Payment
 
 	// insertedBooking and confirmedBooking are the booking as the store was
 	// handed it, copied rather than aliased. The callers mutate the booking they
@@ -84,10 +85,10 @@ type stubPayments struct {
 	// insertedRows is every row this store was asked to create. `inserted` only
 	// remembers the last one, so it cannot tell one insert from two — which is
 	// exactly the question a redelivery has to answer.
-	insertedRows []*data.Payment
+	insertedRows []*paymentstore.Payment
 
 	claimed         []uuid.UUID
-	recordedSuccess []data.RefundClaim
+	recordedSuccess []paymentstore.RefundClaim
 	// recordedSuccessManualOwed is the manualOwedCentavos each RecordRefundSuccess
 	// call carried, index-aligned with recordedSuccess — so a test can assert the
 	// caller actually threaded the booking's manual balance through rather than
@@ -98,11 +99,11 @@ type stubPayments struct {
 
 // recordedFailure is one requeued attempt and the reason given for it.
 type recordedFailure struct {
-	claim data.RefundClaim
+	claim paymentstore.RefundClaim
 	cause string
 }
 
-func (s *stubPayments) GetByMPPaymentID(context.Context, string) (*data.Payment, error) {
+func (s *stubPayments) GetByMPPaymentID(context.Context, string) (*paymentstore.Payment, error) {
 	if s.mpIDErr != nil {
 		return nil, s.mpIDErr
 	}
@@ -112,7 +113,7 @@ func (s *stubPayments) GetByMPPaymentID(context.Context, string) (*data.Payment,
 	return s.byMPID, nil
 }
 
-func (s *stubPayments) GetByBookingID(context.Context, uuid.UUID) (*data.Payment, error) {
+func (s *stubPayments) GetByBookingID(context.Context, uuid.UUID) (*paymentstore.Payment, error) {
 	if s.bookingErr != nil {
 		return nil, s.bookingErr
 	}
@@ -132,7 +133,7 @@ func (s *stubPayments) GetByBookingID(context.Context, uuid.UUID) (*data.Payment
 // which of the two lookups a caller now makes, and the real ListByBookingID
 // never returns ErrRecordNotFound for an empty ledger (nil, nil instead), so
 // that one sentinel is translated rather than propagated.
-func (s *stubPayments) ListByBookingID(_ context.Context, _ uuid.UUID) ([]*data.Payment, error) {
+func (s *stubPayments) ListByBookingID(_ context.Context, _ uuid.UUID) ([]*paymentstore.Payment, error) {
 	if s.listErr != nil {
 		return nil, s.listErr
 	}
@@ -146,12 +147,12 @@ func (s *stubPayments) ListByBookingID(_ context.Context, _ uuid.UUID) ([]*data.
 		return s.byBookingAll, nil
 	}
 	if s.byBooking != nil {
-		return []*data.Payment{s.byBooking}, nil
+		return []*paymentstore.Payment{s.byBooking}, nil
 	}
 	return nil, nil
 }
 
-func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *data.Payment, b *data.Booking) error {
+func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *paymentstore.Payment, b *data.Booking) error {
 	if s.slotErr != nil && b.Status == "confirmed" {
 		return s.slotErr
 	}
@@ -170,7 +171,7 @@ func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *data.Paymen
 	return nil
 }
 
-func (s *stubPayments) ConfirmWebhookPayment(_ context.Context, p *data.Payment, b *data.Booking) error {
+func (s *stubPayments) ConfirmWebhookPayment(_ context.Context, p *paymentstore.Payment, b *data.Booking) error {
 	if s.slotErr != nil && b.Status == "confirmed" {
 		return s.slotErr
 	}
@@ -196,7 +197,7 @@ func (s *stubPayments) ConfirmWebhookPayment(_ context.Context, p *data.Payment,
 // Without both, every redelivery looks like a first delivery and a confirmation
 // that is not idempotent — one that writes a second payment row for money that
 // was captured once — ships green.
-func (s *stubPayments) remember(p *data.Payment) {
+func (s *stubPayments) remember(p *paymentstore.Payment) {
 	if p.MPPaymentID != nil && *p.MPPaymentID != "" {
 		s.byMPID = p
 	}
@@ -204,12 +205,12 @@ func (s *stubPayments) remember(p *data.Payment) {
 	s.byBookingAll = append(s.byBookingAll, p)
 }
 
-func (s *stubPayments) Update(_ context.Context, p *data.Payment) error {
+func (s *stubPayments) Update(_ context.Context, p *paymentstore.Payment) error {
 	s.updated = p
 	return nil
 }
 
-func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*data.RefundClaim, error) {
+func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error) {
 	if s.claimErr != nil {
 		return nil, s.claimErr
 	}
@@ -218,7 +219,7 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*dat
 	// a caller that double-claims looks correct in tests.
 	for _, claimed := range s.claimed {
 		if claimed == paymentID {
-			return nil, data.ErrRefundInFlight
+			return nil, paymentstore.ErrRefundInFlight
 		}
 	}
 	s.claimed = append(s.claimed, paymentID)
@@ -227,7 +228,7 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*dat
 	if amount == 0 {
 		amount = 150_000
 	}
-	claim := &data.RefundClaim{
+	claim := &paymentstore.RefundClaim{
 		AttemptID:      uuid.New(),
 		PaymentID:      paymentID,
 		MPPaymentID:    "mp-123",
@@ -246,7 +247,7 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*dat
 
 // paymentFor returns whichever fixture payment matches id, mirroring how the
 // real store would locate the row a claim is being made against.
-func (s *stubPayments) paymentFor(id uuid.UUID) *data.Payment {
+func (s *stubPayments) paymentFor(id uuid.UUID) *paymentstore.Payment {
 	if s.byBooking != nil && s.byBooking.ID == id {
 		return s.byBooking
 	}
@@ -271,7 +272,7 @@ func (s *stubPayments) paymentFor(id uuid.UUID) *data.Payment {
 // path's own assignment. The collision is exactly the defect: two writers, two
 // arithmetics, one column. A stub that cannot add cannot show a sum being
 // counted twice.
-func (s *stubPayments) RecordRefundSuccess(_ context.Context, claim data.RefundClaim, manualOwedCentavos int) (int, error) {
+func (s *stubPayments) RecordRefundSuccess(_ context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (int, error) {
 	if s.successErr != nil {
 		return 0, s.successErr
 	}
@@ -294,7 +295,7 @@ func (s *stubPayments) RecordRefundSuccess(_ context.Context, claim data.RefundC
 	return refundTotal, nil
 }
 
-func (s *stubPayments) RecordRefundFailure(_ context.Context, claim data.RefundClaim, cause string) (bool, error) {
+func (s *stubPayments) RecordRefundFailure(_ context.Context, claim paymentstore.RefundClaim, cause string) (bool, error) {
 	if s.failureErr != nil {
 		return false, s.failureErr
 	}
@@ -394,7 +395,7 @@ func (s *stubCourts) GetByID(context.Context, uuid.UUID) (*courtstore.Court, err
 // payment store's refund lifecycle, so this stub reads and claims, and both of
 // those can fail.
 type stubFailedRefunds struct {
-	pending []*data.FailedRefund
+	pending []*paymentstore.FailedRefund
 
 	pendingErr    error
 	processingErr error
@@ -402,7 +403,7 @@ type stubFailedRefunds struct {
 	processing []uuid.UUID
 }
 
-func (s *stubFailedRefunds) GetPendingDue(context.Context) ([]*data.FailedRefund, error) {
+func (s *stubFailedRefunds) GetPendingDue(context.Context) ([]*paymentstore.FailedRefund, error) {
 	if s.pendingErr != nil {
 		return nil, s.pendingErr
 	}
@@ -461,16 +462,16 @@ type stubWebhookEvents struct {
 	// exhausted makes MarkFailed report the retry budget spent.
 	exhausted bool
 
-	pending    []*data.WebhookEvent
+	pending    []*paymentstore.WebhookEvent
 	pendingErr error
 
-	inserted  []*data.WebhookEvent
+	inserted  []*paymentstore.WebhookEvent
 	claimed   []uuid.UUID
 	processed []uuid.UUID
 	failed    []recordedWebhookFailure
 }
 
-func (s *stubWebhookEvents) Insert(_ context.Context, e *data.WebhookEvent) error {
+func (s *stubWebhookEvents) Insert(_ context.Context, e *paymentstore.WebhookEvent) error {
 	s.trace.add("record")
 	if s.insertErr != nil {
 		return s.insertErr
@@ -485,7 +486,7 @@ func (s *stubWebhookEvents) Insert(_ context.Context, e *data.WebhookEvent) erro
 	return nil
 }
 
-func (s *stubWebhookEvents) GetPendingDue(context.Context) ([]*data.WebhookEvent, error) {
+func (s *stubWebhookEvents) GetPendingDue(context.Context) ([]*paymentstore.WebhookEvent, error) {
 	if s.pendingErr != nil {
 		return nil, s.pendingErr
 	}
@@ -766,7 +767,7 @@ func newFixture(t *testing.T) *fixture {
 }
 
 // paidBooking returns a confirmed, deposit-paid booking and its payment.
-func paidBooking(complexID uuid.UUID) (*data.Booking, *data.Payment) {
+func paidBooking(complexID uuid.UUID) (*data.Booking, *paymentstore.Payment) {
 	bookingID := uuid.New()
 	mpID := "mp-123"
 	return &data.Booking{
@@ -775,7 +776,7 @@ func paidBooking(complexID uuid.UUID) (*data.Booking, *data.Payment) {
 		RefundStatus: data.RefundStatusNone, Price: 500_000,
 		Date: time.Now().AddDate(0, 0, 7), StartTime: "18:00", DurationMinutes: 90,
 		CreatedAt: time.Now(),
-	}, &data.Payment{
+	}, &paymentstore.Payment{
 		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID, Amount: 150_000,
 		Status: "deposit_paid", MPPaymentID: &mpID,
 	}

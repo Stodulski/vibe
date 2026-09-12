@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/stodulski/vibe-server/internal/data"
+	slotguard "github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -34,9 +36,9 @@ type Payment struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
-// PaymentModel implements PaymentStore against PostgreSQL.
-type PaymentModel struct {
-	DB *DB
+// Payments implements PaymentStore against PostgreSQL.
+type Payments struct {
+	DB *data.DB
 	Q  *db.Queries
 	// PaymentExpiry is how long an unpaid public booking holds its slot, taken
 	// from configuration by NewModels. The confirmation-time slot guard needs it
@@ -70,16 +72,16 @@ type PaymentModel struct {
 // committed, so the SELECT that follows sees the real, current status instead
 // of a value that could still change out from under it. See H-15's comment on
 // InsertAndConfirmBooking's call site.
-func (m *PaymentModel) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *Booking) error {
+func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *data.Booking) error {
 	if b.Status != "confirmed" {
 		return nil
 	}
 
 	var status string
-	err := tx.QueryRow(ctx, `SELECT status FROM bookings WHERE id = $1 FOR UPDATE`, UUIDToPg(b.ID)).Scan(&status)
+	err := tx.QueryRow(ctx, `SELECT status FROM bookings WHERE id = $1 FOR UPDATE`, data.UUIDToPg(b.ID)).Scan(&status)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+			return data.ErrRecordNotFound
 		}
 		return err
 	}
@@ -88,10 +90,10 @@ func (m *PaymentModel) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b
 	// into ErrBookingNotConfirmable is what routed a paid-but-cancelled booking
 	// past the webhook's refund branch. See ErrBookingCancelled.
 	if status == "cancelled" {
-		return ErrBookingCancelled
+		return data.ErrBookingCancelled
 	}
 	if status == "completed" || status == "no_show" {
-		return ErrBookingNotConfirmable
+		return data.ErrBookingNotConfirmable
 	}
 	return nil
 }
@@ -116,32 +118,32 @@ func (m *PaymentModel) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b
 // no_show does not claim the slot, so it is none of this function's business —
 // which is what keeps the auto-refund path (a cancelled booking whose payment is
 // being recorded so it can be sent back) working.
-func (m *PaymentModel) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *Booking) error {
+func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *data.Booking) error {
 	if b.Status != "confirmed" {
 		return nil
 	}
 
-	if err := lockCourtDay(ctx, tx, b.CourtID, b.Date); err != nil {
+	if err := slotguard.LockCourtDay(ctx, tx, b.CourtID, b.Date); err != nil {
 		return err
 	}
 
 	// The booking being confirmed overlaps itself, so it is the one row the
 	// overlap query has to ignore.
-	taken, err := SlotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
+	taken, err := data.SlotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
 	if err != nil {
 		return err
 	}
 	if taken {
-		return ErrSlotUnavailable
+		return data.ErrSlotUnavailable
 	}
 	return nil
 }
 
 // Insert creates a new payment and populates p with its generated ID and timestamps.
-func (m *PaymentModel) Insert(ctx context.Context, p *Payment) error {
+func (m *Payments) Insert(ctx context.Context, p *Payment) error {
 	dbPayment, err := m.Q.InsertPayment(ctx, db.InsertPaymentParams{
-		BookingID: UUIDToPg(p.BookingID),
-		ComplexID: UUIDToPg(p.ComplexID),
+		BookingID: data.UUIDToPg(p.BookingID),
+		ComplexID: data.UUIDToPg(p.ComplexID),
 		//nolint:gosec // G115: currency amount (cents) derived from booking.DepositAmount (validated <= Price) or
 		// MercadoPago's own payment amount; realistically far below int32 range.
 		Amount: int32(p.Amount),
@@ -149,26 +151,26 @@ func (m *PaymentModel) Insert(ctx context.Context, p *Payment) error {
 		Status: db.PaymentStatus(p.Status),
 		//nolint:gosec // G115: currency amount (cents) derived from a bounded calculation; far below int32 range.
 		ServiceFee:     int32(p.ServiceFee),
-		MpPaymentID:    TextToPg(p.MPPaymentID),
-		MpPreferenceID: TextToPg(p.MPPreferenceID),
-		StatusDetail:   TextToPg(p.StatusDetail),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
+		StatusDetail:   data.TextToPg(p.StatusDetail),
 	})
 	if err != nil {
 		return err
 	}
 
-	p.ID = PgToUUID(dbPayment.ID)
-	p.CreatedAt = PgToTime(dbPayment.CreatedAt)
-	p.UpdatedAt = PgToTime(dbPayment.UpdatedAt)
+	p.ID = data.PgToUUID(dbPayment.ID)
+	p.CreatedAt = data.PgToTime(dbPayment.CreatedAt)
+	p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
 	return nil
 }
 
 // GetByBookingID returns the payment for the given booking, or ErrRecordNotFound if none exists.
-func (m *PaymentModel) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*Payment, error) {
-	dbPayment, err := m.Q.GetPaymentByBookingID(ctx, UUIDToPg(bookingID))
+func (m *Payments) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*Payment, error) {
+	dbPayment, err := m.Q.GetPaymentByBookingID(ctx, data.UUIDToPg(bookingID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -183,8 +185,8 @@ func (m *PaymentModel) GetByBookingID(ctx context.Context, bookingID uuid.UUID) 
 // booking detail — must see all of them, not the MercadoPago-preferred single
 // row GetByBookingID returns. An empty ledger is not an error: it returns a
 // nil slice and a nil error, never ErrRecordNotFound.
-func (m *PaymentModel) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*Payment, error) {
-	dbPayments, err := m.Q.ListPaymentsByBookingID(ctx, UUIDToPg(bookingID))
+func (m *Payments) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*Payment, error) {
+	dbPayments, err := m.Q.ListPaymentsByBookingID(ctx, data.UUIDToPg(bookingID))
 	if err != nil {
 		return nil, fmt.Errorf("list payments: %w", err)
 	}
@@ -201,11 +203,11 @@ func (m *PaymentModel) ListByBookingID(ctx context.Context, bookingID uuid.UUID)
 }
 
 // GetByMPPaymentID returns the payment matching the given MercadoPago payment ID, or ErrRecordNotFound if none exists.
-func (m *PaymentModel) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*Payment, error) {
+func (m *Payments) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*Payment, error) {
 	dbPayment, err := m.Q.GetPaymentByMPID(ctx, pgtype.Text{String: mpPaymentID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -213,25 +215,25 @@ func (m *PaymentModel) GetByMPPaymentID(ctx context.Context, mpPaymentID string)
 }
 
 // Update persists changes to an existing payment, returning ErrRecordNotFound if it no longer exists.
-func (m *PaymentModel) Update(ctx context.Context, p *Payment) error {
+func (m *Payments) Update(ctx context.Context, p *Payment) error {
 	dbPayment, err := m.Q.UpdatePayment(ctx, db.UpdatePaymentParams{
 		Status:         db.PaymentStatus(p.Status),
-		MpPaymentID:    TextToPg(p.MPPaymentID),
-		MpPreferenceID: TextToPg(p.MPPreferenceID),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
 		//nolint:gosec // G115: currency amount (cents), bounded by the original payment amount; far below int32 range.
 		// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
 		RefundAmount: int32(p.RefundAmount),
-		StatusDetail: TextToPg(p.StatusDetail),
-		ID:           UUIDToPg(p.ID),
+		StatusDetail: data.TextToPg(p.StatusDetail),
+		ID:           data.UUIDToPg(p.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+			return data.ErrRecordNotFound
 		}
 		return err
 	}
 
-	p.UpdatedAt = PgToTime(dbPayment.UpdatedAt)
+	p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
 	return nil
 }
 
@@ -240,8 +242,8 @@ func (m *PaymentModel) Update(ctx context.Context, p *Payment) error {
 // When the booking is being confirmed, the transaction opens with
 // guardSlotStillFree: it takes the court/day advisory lock and refuses with
 // ErrSlotUnavailable if another live booking now covers these hours.
-func (m *PaymentModel) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *Booking) error {
-	ctx, cancel := TxContext(ctx)
+func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *data.Booking) error {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -285,7 +287,7 @@ func (m *PaymentModel) InsertAndConfirmBooking(ctx context.Context, p *Payment, 
 	// booking and must not be serialized against the court's day at all —
 	// still takes no lock.
 	if b.Status == "confirmed" {
-		if err := lockCourtDay(ctx, tx, b.CourtID, b.Date); err != nil {
+		if err := slotguard.LockCourtDay(ctx, tx, b.CourtID, b.Date); err != nil {
 			return err
 		}
 	}
@@ -306,8 +308,8 @@ func (m *PaymentModel) InsertAndConfirmBooking(ctx context.Context, p *Payment, 
 
 	// INSERT payment.
 	dbPayment, err := qtx.InsertPayment(ctx, db.InsertPaymentParams{
-		BookingID: UUIDToPg(p.BookingID),
-		ComplexID: UUIDToPg(p.ComplexID),
+		BookingID: data.UUIDToPg(p.BookingID),
+		ComplexID: data.UUIDToPg(p.ComplexID),
 		//nolint:gosec // G115: currency amount (cents) derived from booking.DepositAmount (validated <= Price) or
 		// MercadoPago's own payment amount; realistically far below int32 range.
 		Amount: int32(p.Amount),
@@ -315,37 +317,37 @@ func (m *PaymentModel) InsertAndConfirmBooking(ctx context.Context, p *Payment, 
 		Status: db.PaymentStatus(p.Status),
 		//nolint:gosec // G115: currency amount (cents) derived from a bounded calculation; far below int32 range.
 		ServiceFee:     int32(p.ServiceFee),
-		MpPaymentID:    TextToPg(p.MPPaymentID),
-		MpPreferenceID: TextToPg(p.MPPreferenceID),
-		StatusDetail:   TextToPg(p.StatusDetail),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
+		StatusDetail:   data.TextToPg(p.StatusDetail),
 	})
 	if err != nil {
 		return fmt.Errorf("insert payment: %w", err)
 	}
 
-	p.ID = PgToUUID(dbPayment.ID)
-	p.CreatedAt = PgToTime(dbPayment.CreatedAt)
-	p.UpdatedAt = PgToTime(dbPayment.UpdatedAt)
+	p.ID = data.PgToUUID(dbPayment.ID)
+	p.CreatedAt = data.PgToTime(dbPayment.CreatedAt)
+	p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
 
 	// UPDATE booking status.
 	dbBooking, err := qtx.UpdateBooking(ctx, db.UpdateBookingParams{
 		Status:           db.BookingStatus(b.Status),
 		CollectionStatus: b.CollectionStatus,
 		RefundStatus:     b.RefundStatus,
-		Notes:            TextToPg(b.Notes),
+		Notes:            data.TextToPg(b.Notes),
 		//nolint:gosec // G115: DepositAmount bounded to Price (bookings_create.go validation); far below int32 range.
 		DepositAmount: int32(b.DepositAmount),
-		ID:            UUIDToPg(b.ID),
+		ID:            data.UUIDToPg(b.ID),
 		// Neither InsertAndConfirmBooking nor ConfirmWebhookPayment sets the
 		// marker; both carry through whatever the in-memory Booking already
 		// holds (nil, for every booking reaching these two confirm paths).
-		RefundIntentAt: TimePtrToPg(b.RefundIntentAt),
+		RefundIntentAt: data.TimePtrToPg(b.RefundIntentAt),
 	})
 	if err != nil {
 		return fmt.Errorf("update booking: %w", err)
 	}
 
-	b.UpdatedAt = PgToTime(dbBooking.UpdatedAt)
+	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
 
 	return tx.Commit(ctx)
 }
@@ -355,8 +357,8 @@ func (m *PaymentModel) InsertAndConfirmBooking(ctx context.Context, p *Payment, 
 //
 // Like InsertAndConfirmBooking, a confirmation runs under guardSlotStillFree and
 // is refused with ErrSlotUnavailable when the slot was taken meanwhile.
-func (m *PaymentModel) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *Booking) error {
-	ctx, cancel := TxContext(ctx)
+func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *data.Booking) error {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -377,60 +379,60 @@ func (m *PaymentModel) ConfirmWebhookPayment(ctx context.Context, p *Payment, b 
 	// UPDATE existing payment.
 	dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
 		Status:         db.PaymentStatus(p.Status),
-		MpPaymentID:    TextToPg(p.MPPaymentID),
-		MpPreferenceID: TextToPg(p.MPPreferenceID),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
 		//nolint:gosec // G115: currency amount (cents), bounded by the original payment amount; far below int32 range.
 		// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
 		RefundAmount: int32(p.RefundAmount),
-		StatusDetail: TextToPg(p.StatusDetail),
-		ID:           UUIDToPg(p.ID),
+		StatusDetail: data.TextToPg(p.StatusDetail),
+		ID:           data.UUIDToPg(p.ID),
 	})
 	if err != nil {
 		return fmt.Errorf("update payment: %w", err)
 	}
 
-	p.UpdatedAt = PgToTime(dbPayment.UpdatedAt)
+	p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
 
 	// UPDATE booking status.
 	dbBooking, err := qtx.UpdateBooking(ctx, db.UpdateBookingParams{
 		Status:           db.BookingStatus(b.Status),
 		CollectionStatus: b.CollectionStatus,
 		RefundStatus:     b.RefundStatus,
-		Notes:            TextToPg(b.Notes),
+		Notes:            data.TextToPg(b.Notes),
 		//nolint:gosec // G115: DepositAmount bounded to Price (bookings_create.go validation); far below int32 range.
 		DepositAmount: int32(b.DepositAmount),
-		ID:            UUIDToPg(b.ID),
+		ID:            data.UUIDToPg(b.ID),
 		// Neither InsertAndConfirmBooking nor ConfirmWebhookPayment sets the
 		// marker; both carry through whatever the in-memory Booking already
 		// holds (nil, for every booking reaching these two confirm paths).
-		RefundIntentAt: TimePtrToPg(b.RefundIntentAt),
+		RefundIntentAt: data.TimePtrToPg(b.RefundIntentAt),
 	})
 	if err != nil {
 		return fmt.Errorf("update booking: %w", err)
 	}
 
-	b.UpdatedAt = PgToTime(dbBooking.UpdatedAt)
+	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
 
 	return tx.Commit(ctx)
 }
 
 func paymentFromDB(p db.Payment) *Payment {
 	return &Payment{
-		ID:             PgToUUID(p.ID),
-		BookingID:      PgToUUID(p.BookingID),
-		ComplexID:      PgToUUID(p.ComplexID),
+		ID:             data.PgToUUID(p.ID),
+		BookingID:      data.PgToUUID(p.BookingID),
+		ComplexID:      data.PgToUUID(p.ComplexID),
 		Amount:         int(p.Amount),
 		ServiceFee:     int(p.ServiceFee),
 		Method:         string(p.Method),
 		Status:         string(p.Status),
-		MPPaymentID:    PgToTextPtr(p.MpPaymentID),
-		MPPreferenceID: PgToTextPtr(p.MpPreferenceID),
+		MPPaymentID:    data.PgToTextPtr(p.MpPaymentID),
+		MPPreferenceID: data.PgToTextPtr(p.MpPreferenceID),
 		// refund_amount is NOT NULL: sqlc's plain int32 for it
 		// reads correctly with a direct conversion; PgToInt's zero-for-invalid
 		// branch no longer applies to this column.
 		RefundAmount: int(p.RefundAmount),
-		StatusDetail: PgToTextPtr(p.StatusDetail),
-		CreatedAt:    PgToTime(p.CreatedAt),
-		UpdatedAt:    PgToTime(p.UpdatedAt),
+		StatusDetail: data.PgToTextPtr(p.StatusDetail),
+		CreatedAt:    data.PgToTime(p.CreatedAt),
+		UpdatedAt:    data.PgToTime(p.UpdatedAt),
 	}
 }

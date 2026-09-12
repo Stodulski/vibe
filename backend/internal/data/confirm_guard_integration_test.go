@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // R1-cancelled-payment-blocked / R3-confirm-guard-blocks-autorefund /
@@ -43,7 +44,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	// still says "confirmed" — exactly what it would say in production at the
 	// moment the cancellation lands.
 	b.Status = "confirmed"
-	payment := &data.Payment{
+	payment := &paymentstore.Payment{
 		BookingID:  b.ID,
 		ComplexID:  f.ComplexID,
 		Amount:     b.DepositAmount,
@@ -98,7 +99,7 @@ func TestGuardBookingConfirmableAllowsRecordingAPaymentForAnAlreadyCancelledBook
 	// calling InsertAndConfirmBooking, precisely so the guard has nothing to
 	// object to on this path.
 	b.Status = "cancelled"
-	payment := &data.Payment{
+	payment := &paymentstore.Payment{
 		BookingID:  b.ID,
 		ComplexID:  f.ComplexID,
 		Amount:     b.DepositAmount,

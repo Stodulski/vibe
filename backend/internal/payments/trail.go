@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
-	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // Actors this module records. Nothing here runs on an authenticated session,
@@ -56,7 +56,7 @@ type moneyEvent struct {
 }
 
 // refundEvent builds the value for a refund whose outcome is already decided.
-func refundEvent(actor string, outcome data.RefundOutcome) moneyEvent {
+func refundEvent(actor string, outcome paymentstore.RefundOutcome) moneyEvent {
 	return moneyEvent{
 		Actor:          actor,
 		AmountCentavos: outcome.AmountCentavos,
@@ -70,7 +70,7 @@ func refundEvent(actor string, outcome data.RefundOutcome) moneyEvent {
 // The claim carries the payment row, MercadoPago's reference and the sum, so
 // no call site restates them — which is how the three refund paths came to
 // disagree about which figure they were recording in the first place.
-func claimEvent(claim data.RefundClaim, amount int, result data.RefundResult, reason string) moneyEvent {
+func claimEvent(claim paymentstore.RefundClaim, amount int, result paymentstore.RefundResult, reason string) moneyEvent {
 	paymentID := claim.PaymentID
 	return moneyEvent{
 		Actor:          actorSystem,
@@ -95,7 +95,7 @@ const shortfallReason = "mercadopago refunded less than was claimed, and the rem
 // person's job, and the only two places it can be seen are the alert and this
 // entry. Both webhook and retry paths report it identically, which is why they
 // share this rather than each keeping their own copy.
-func (h *Handler) reportShortfall(source, action string, complexID, bookingID uuid.UUID, claimed, settled data.RefundClaim) {
+func (h *Handler) reportShortfall(source, action string, complexID, bookingID uuid.UUID, claimed, settled paymentstore.RefundClaim) {
 	short := refundShortfall(claimed, settled)
 	if short <= 0 {
 		return
@@ -111,7 +111,7 @@ func (h *Handler) reportShortfall(source, action string, complexID, bookingID uu
 	)
 	sentry.CaptureMessage(fmt.Sprintf("MANUAL REFUND OWED: booking_id=%s mp_payment_id=%s amount=%d — %s",
 		bookingID, claimed.MPPaymentID, short, shortfallReason))
-	h.record(complexID, bookingID, action, claimEvent(claimed, short, data.RefundManual, shortfallReason))
+	h.record(complexID, bookingID, action, claimEvent(claimed, short, paymentstore.RefundManual, shortfallReason))
 }
 
 // record writes one entry to the audit trail.

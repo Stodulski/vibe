@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // A booking can legitimately carry more than one payment row — the MercadoPago checkout
@@ -33,7 +33,7 @@ func TestGetPaymentByBookingIDPrefersTheMercadoPagoRow(t *testing.T) {
 			booking := f.createBooking(t, bookingOptions{})
 			mpPaymentID := "mp-" + uuid.NewString()
 
-			var mpPayment, cashPayment *data.Payment
+			var mpPayment, cashPayment *paymentstore.Payment
 			if tt.cashFirst {
 				cashPayment = f.createPayment(t, booking.ID, 150_000, 0, nil)
 				mpPayment = f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
@@ -119,7 +119,7 @@ func TestOneMercadoPagoPaymentIDCannotBeOnTwoPaymentRows(t *testing.T) {
 	// payments(booking_id) does not stop this. The second row is what a redelivery
 	// that re-inserted instead of reusing the first would produce, and only the
 	// unique index on mp_payment_id refuses it.
-	duplicate := &data.Payment{
+	duplicate := &paymentstore.Payment{
 		BookingID:   booking.ID,
 		ComplexID:   f.ComplexID,
 		Amount:      150_000,

@@ -15,6 +15,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
 
@@ -293,7 +294,7 @@ func (f *testFixture) createBooking(t *testing.T, opts bookingOptions) *data.Boo
 
 // createPayment inserts a payment through the real store and returns it. A nil
 // mpPaymentID produces the cash-style row that carries no MercadoPago identifier.
-func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, serviceFee int, mpPaymentID *string) *data.Payment {
+func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, serviceFee int, mpPaymentID *string) *paymentstore.Payment {
 	t.Helper()
 
 	method := "cash"
@@ -301,7 +302,7 @@ func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, s
 		method = "mercadopago"
 	}
 
-	p := &data.Payment{
+	p := &paymentstore.Payment{
 		BookingID:   bookingID,
 		ComplexID:   f.ComplexID,
 		Amount:      amount,
@@ -370,7 +371,7 @@ func (f *testFixture) confirmBooking(models stores.Stores, b *data.Booking) erro
 	b.Status = "confirmed"
 	b.CollectionStatus = data.CollectionStatusDepositPaid
 
-	payment := &data.Payment{
+	payment := &paymentstore.Payment{
 		BookingID:  b.ID,
 		ComplexID:  f.ComplexID,
 		Amount:     b.DepositAmount,

@@ -17,6 +17,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
 
@@ -156,7 +157,7 @@ func (*discard) Write(p []byte) (int, error) { return len(p), nil }
 // row and a refund-intent marker aged past the sweep's grace period — the
 // row a genuine crash between the cancel commit and ClaimRefund leaves
 // behind.
-func (f *integrationFixture) createOrphan(t *testing.T) (*data.Booking, *data.Payment) {
+func (f *integrationFixture) createOrphan(t *testing.T) (*data.Booking, *paymentstore.Payment) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -173,7 +174,7 @@ func (f *integrationFixture) createOrphan(t *testing.T) (*data.Booking, *data.Pa
 	}
 
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := &data.Payment{
+	payment := &paymentstore.Payment{
 		BookingID: b.ID, ComplexID: f.complexID, Amount: 150_000, ServiceFee: 7_500,
 		Method: "mercadopago", Status: "deposit_paid", MPPaymentID: &mpPaymentID,
 	}

@@ -9,6 +9,7 @@ import (
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // TestARefundRecordsWhatMercadoPagoMovedNotWhatWasClaimed is the whole of
@@ -117,7 +118,7 @@ func TestAnAcceptedRefundWithNoAmountKeepsTheClaimedFigure(t *testing.T) {
 		t.Errorf("a response carrying no amount is an absent answer, not a refund of zero — the claimed figure "+
 			"is the only other number in play; want 150000, got %d", got)
 	}
-	if outcome.Result != data.RefundIssued {
+	if outcome.Result != paymentstore.RefundIssued {
 		t.Errorf("nothing here is short, so this is an ordinary issued refund; got result=%q reason=%q", outcome.Result, outcome.Reason)
 	}
 }
@@ -156,8 +157,8 @@ func TestARejectedRefundWithFundsAlreadyAtProviderResolvesAsSuccess(t *testing.T
 	if got := f.payments.recordedSuccess[0].RefundCentavos; got != 150_000 {
 		t.Errorf("want the claimed amount (fully covered by the provider) recorded; got %d", got)
 	}
-	if outcome.Result != data.RefundIssued {
-		t.Errorf("want result=%q; got result=%q reason=%q", data.RefundIssued, outcome.Result, outcome.Reason)
+	if outcome.Result != paymentstore.RefundIssued {
+		t.Errorf("want result=%q; got result=%q reason=%q", paymentstore.RefundIssued, outcome.Result, outcome.Reason)
 	}
 }
 

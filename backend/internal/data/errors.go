@@ -12,25 +12,10 @@ var (
 	ErrSlotUnavailable = errors.New("slot unavailable")
 	// ErrInvalidCursor is returned when a pagination cursor cannot be parsed.
 	ErrInvalidCursor = errors.New("invalid cursor")
-	// ErrAlreadyRefunded is returned when a refund is attempted on an already-refunded payment.
-	ErrAlreadyRefunded = errors.New("payment already refunded")
-	// ErrRefundInFlight is returned when a refund is attempted on a payment another
-	// claim has already reserved.
-	//
-	// It is deliberately not ErrAlreadyRefunded: that one means the money is back and
-	// there is nothing left to do, while this one means the money has not necessarily
-	// moved yet but a durable attempt already exists and will be worked exactly once.
-	// A caller must not queue a second attempt for either, but only the first may tell
-	// a client their refund is done.
-	ErrRefundInFlight = errors.New("refund already in flight")
 	// ErrCooldownActive is returned when a token resend is attempted before its cooldown expires.
 	ErrCooldownActive = errors.New("cooldown active")
 	// ErrSlotLocked is returned when the requested slot is held by another transaction.
 	ErrSlotLocked = errors.New("slot is locked")
-	// ErrNoManualRefundOwed is returned by RecordManualRefund when the booking
-	// it locks does not read 'partial_refund' at write time — either it never
-	// did, or another request already closed it out.
-	ErrNoManualRefundOwed = errors.New("no manual refund owed")
 	// ErrBookingNotConfirmable is returned by PaymentModel.InsertAndConfirmBooking
 	// when the booking it re-reads, inside the same transaction the payment is
 	// about to be inserted in, is no longer one a payment can be recorded

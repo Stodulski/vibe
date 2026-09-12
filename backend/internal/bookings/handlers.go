@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -145,7 +146,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if payments == nil {
-		payments = []*data.Payment{}
+		payments = []*paymentstore.Payment{}
 	}
 
 	response := httpx.Envelope{"booking": booking, "payments": payments}

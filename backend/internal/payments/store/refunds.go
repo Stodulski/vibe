@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -62,8 +63,8 @@ type RefundClaim struct {
 // MercadoPago's own webhook and are recorded by ConfirmWebhookPayment; nothing in
 // this codebase initiates one, so a requested-amount parameter would only be an
 // untested path through the money code.
-func (m *PaymentModel) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*RefundClaim, error) {
-	ctx, cancel := TxContext(ctx)
+func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*RefundClaim, error) {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -75,10 +76,10 @@ func (m *PaymentModel) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*R
 
 	qtx := m.Q.WithTx(tx)
 
-	locked, err := qtx.GetPaymentByIDForUpdate(ctx, UUIDToPg(paymentID))
+	locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(paymentID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("lock payment: %w", err)
 	}
@@ -102,9 +103,9 @@ func (m *PaymentModel) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*R
 	}
 
 	claim := &RefundClaim{
-		PaymentID:      PgToUUID(dbPayment.ID),
-		BookingID:      PgToUUID(dbPayment.BookingID),
-		ComplexID:      PgToUUID(dbPayment.ComplexID),
+		PaymentID:      data.PgToUUID(dbPayment.ID),
+		BookingID:      data.PgToUUID(dbPayment.BookingID),
+		ComplexID:      data.PgToUUID(dbPayment.ComplexID),
 		MPPaymentID:    mpPaymentID,
 		RefundCentavos: remaining,
 	}
@@ -167,7 +168,7 @@ func claimable(locked db.Payment) (mpPaymentID string, remaining int, err error)
 	if !locked.MpPaymentID.Valid || locked.MpPaymentID.String == "" {
 		// Recording an attempt nobody can execute would put a permanently
 		// unworkable row in the retry queue.
-		return "", 0, fmt.Errorf("payment %s carries no mercadopago id to refund against", PgToUUID(locked.ID))
+		return "", 0, fmt.Errorf("payment %s carries no mercadopago id to refund against", data.PgToUUID(locked.ID))
 	}
 	return locked.MpPaymentID.String, remaining, nil
 }
@@ -184,7 +185,7 @@ func claimable(locked db.Payment) (mpPaymentID string, remaining int, err error)
 // 'processing', so the reaper leaves a healthy in-flight refund alone and picks up
 // an abandoned one on its own schedule (see GetPendingDue).
 //
-// It is written as SQL here rather than through FailedRefundModel because the
+// It is written as SQL here rather than through FailedRefunds because the
 // claim and the attempt have to commit together or not at all: a payment moved to
 // 'refund_pending' with no queued attempt is money nothing will ever retry.
 func recordRefundAttempt(ctx context.Context, tx pgx.Tx, claim *RefundClaim) error {
@@ -228,8 +229,8 @@ func recordRefundAttempt(ctx context.Context, tx pgx.Tx, claim *RefundClaim) err
 // same booking — so a split refund read 'refunded' in the database while
 // cash was still owed. A non-zero manualOwedCentavos here is what tells it to
 // write 'partial_refund' instead.
-func (m *PaymentModel) RecordRefundSuccess(ctx context.Context, claim RefundClaim, manualOwedCentavos int) (int, error) {
-	ctx, cancel := TxContext(ctx)
+func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, manualOwedCentavos int) (int, error) {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -241,10 +242,10 @@ func (m *PaymentModel) RecordRefundSuccess(ctx context.Context, claim RefundClai
 
 	qtx := m.Q.WithTx(tx)
 
-	locked, err := qtx.GetPaymentByIDForUpdate(ctx, UUIDToPg(claim.PaymentID))
+	locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(claim.PaymentID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, ErrRecordNotFound
+			return 0, data.ErrRecordNotFound
 		}
 		return 0, fmt.Errorf("lock payment: %w", err)
 	}
@@ -318,17 +319,17 @@ func (m *PaymentModel) RecordRefundSuccess(ctx context.Context, claim RefundClai
 // stands are two facts, and refunding a booking that only ever took a deposit
 // used to overwrite the first with the second.
 func cancelRefundedBooking(ctx context.Context, qtx *db.Queries, bookingID uuid.UUID, manualBalanceRemains bool) error {
-	locked, err := qtx.GetBookingByIDForUpdate(ctx, UUIDToPg(bookingID))
+	locked, err := qtx.GetBookingByIDForUpdate(ctx, data.UUIDToPg(bookingID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+			return data.ErrRecordNotFound
 		}
 		return fmt.Errorf("lock booking: %w", err)
 	}
 
-	newRefundStatus := RefundStatusFull
+	newRefundStatus := data.RefundStatusFull
 	if manualBalanceRemains {
-		newRefundStatus = RefundStatusPartial
+		newRefundStatus = data.RefundStatusPartial
 	}
 
 	if _, err = qtx.UpdateBooking(ctx, db.UpdateBookingParams{
@@ -359,7 +360,7 @@ func cancelRefundedBooking(ctx context.Context, qtx *db.Queries, bookingID uuid.
 // It runs on a context detached from the caller's cancellation, bounded by the
 // ordinary transaction budget — the same shape as DetachedQueryContext, one size
 // up because this is a transaction, and the same treatment
-// WebhookEventModel.MarkFailed already has. The reason is that the moment this
+// WebhookEvents.MarkFailed already has. The reason is that the moment this
 // write matters most is the moment the caller has nothing left: the MercadoPago
 // call itself just timed out, or the sweep hit its two-minute budget with this
 // attempt claimed. Riding the spent context there records nothing at all, so the
@@ -371,8 +372,8 @@ func cancelRefundedBooking(ctx context.Context, qtx *db.Queries, bookingID uuid.
 // statement_timeout is set anywhere — so the TxContext wrapper is what keeps a
 // wedged PostgreSQL from holding this goroutine and its pooled connection
 // forever. See DetachedQueryContext, where this codebase hit that trap once.
-func (m *PaymentModel) RecordRefundFailure(ctx context.Context, claim RefundClaim, cause string) (bool, error) {
-	ctx, cancel := TxContext(context.WithoutCancel(ctx))
+func (m *Payments) RecordRefundFailure(ctx context.Context, claim RefundClaim, cause string) (bool, error) {
+	ctx, cancel := data.TxContext(context.WithoutCancel(ctx))
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -392,7 +393,7 @@ func (m *PaymentModel) RecordRefundFailure(ctx context.Context, claim RefundClai
 	).Scan(&retryCount, &maxRetries)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, ErrRecordNotFound
+			return false, data.ErrRecordNotFound
 		}
 		return false, fmt.Errorf("lock refund attempt: %w", err)
 	}
@@ -407,7 +408,7 @@ func (m *PaymentModel) RecordRefundFailure(ctx context.Context, claim RefundClai
 	// the permanent abandonment of every queued refund at once — five attempts at
 	// 1m/5m/15m/1h/4h elapse in five hours and twenty minutes whatever the reason
 	// for them. The row comes back on the flat outage probe instead. See
-	// transientProviderFailure, and FailedRefundModel.IncrementRetry, which is the
+	// transientProviderFailure, and FailedRefunds.IncrementRetry, which is the
 	// same policy on the other recorder of this table.
 	if transientProviderFailure(cause) {
 		newRetryCount = retryCount
@@ -468,8 +469,8 @@ func (m *PaymentModel) RecordRefundFailure(ctx context.Context, claim RefundClai
 // does not read 'partial' under that lock — never did, or another request
 // already closed it out — is refused with ErrNoManualRefundOwed rather than
 // silently doing nothing.
-func (m *PaymentModel) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (int, error) {
-	ctx, cancel := TxContext(ctx)
+func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (int, error) {
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -481,18 +482,18 @@ func (m *PaymentModel) RecordManualRefund(ctx context.Context, bookingID uuid.UU
 
 	qtx := m.Q.WithTx(tx)
 
-	locked, err := qtx.GetBookingByIDForUpdate(ctx, UUIDToPg(bookingID))
+	locked, err := qtx.GetBookingByIDForUpdate(ctx, data.UUIDToPg(bookingID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, ErrRecordNotFound
+			return 0, data.ErrRecordNotFound
 		}
 		return 0, fmt.Errorf("lock booking: %w", err)
 	}
-	if locked.RefundStatus != RefundStatusPartial {
+	if locked.RefundStatus != data.RefundStatusPartial {
 		return 0, ErrNoManualRefundOwed
 	}
 
-	rows, err := qtx.ListPaymentsByBookingID(ctx, UUIDToPg(bookingID))
+	rows, err := qtx.ListPaymentsByBookingID(ctx, data.UUIDToPg(bookingID))
 	if err != nil {
 		return 0, fmt.Errorf("list payments for manual refund: %w", err)
 	}
@@ -505,7 +506,7 @@ func (m *PaymentModel) RecordManualRefund(ctx context.Context, bookingID uuid.UU
 	if _, err = qtx.UpdateBooking(ctx, db.UpdateBookingParams{
 		Status:           locked.Status,
 		CollectionStatus: locked.CollectionStatus,
-		RefundStatus:     RefundStatusFull,
+		RefundStatus:     data.RefundStatusFull,
 		Notes:            locked.Notes,
 		DepositAmount:    locked.DepositAmount,
 		ID:               locked.ID,
@@ -546,7 +547,7 @@ func applyManualRefundRows(ctx context.Context, qtx *db.Queries, rows []db.Payme
 			RefundAmount: row.Amount + row.ServiceFee,
 			ID:           row.ID,
 		}); err != nil {
-			return 0, fmt.Errorf("record manual refund of payment %s: %w", PgToUUID(row.ID), err)
+			return 0, fmt.Errorf("record manual refund of payment %s: %w", data.PgToUUID(row.ID), err)
 		}
 		returned += owed
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -287,7 +288,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		if collectionStatus == data.CollectionStatusDepositPaid {
 			paymentAmount = depositAmount
 		}
-		payment := &data.Payment{
+		payment := &paymentstore.Payment{
 			BookingID: booking.ID,
 			ComplexID: booking.ComplexID,
 			Amount:    paymentAmount,

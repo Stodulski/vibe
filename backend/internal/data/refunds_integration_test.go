@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stodulski/vibe-server/internal/data"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // The refund flow is claim → call MercadoPago → record. These tests exercise the
@@ -210,7 +211,7 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
 	type result struct {
-		claim *data.RefundClaim
+		claim *paymentstore.RefundClaim
 		err   error
 	}
 	results := make([]result, 2)
@@ -236,7 +237,7 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 		switch {
 		case r.err == nil:
 			won++
-		case errors.Is(r.err, data.ErrRefundInFlight):
+		case errors.Is(r.err, paymentstore.ErrRefundInFlight):
 			refused++
 		default:
 			t.Errorf("a losing claim must be refused with ErrRefundInFlight; got %v", r.err)
@@ -448,7 +449,7 @@ func TestRecordManualRefund(t *testing.T) {
 	}
 
 	// A second call finds nothing left to close out.
-	if _, err := f.Models.Payments.RecordManualRefund(ctx, booking.ID); !errors.Is(err, data.ErrNoManualRefundOwed) {
+	if _, err := f.Models.Payments.RecordManualRefund(ctx, booking.ID); !errors.Is(err, paymentstore.ErrNoManualRefundOwed) {
 		t.Errorf("a booking that no longer reads refund_status 'partial' must be refused; got %v", err)
 	}
 }
@@ -618,9 +619,9 @@ func TestAProviderOutageDoesNotSpendAClaimedRefundsRetryBudget(t *testing.T) {
 	if after.status != "pending" {
 		t.Errorf("want the attempt left queued; got %q", after.status)
 	}
-	if wait := time.Until(after.nextRetryAt); wait > data.ProviderOutageRetryDelayForTest+time.Minute {
+	if wait := time.Until(after.nextRetryAt); wait > paymentstore.ProviderOutageRetryDelayForTest+time.Minute {
 		t.Errorf("want the flat %v outage probe; the attempt waits %v, which is the escalating backoff for "+
-			"an answer it never got", data.ProviderOutageRetryDelayForTest, wait)
+			"an answer it never got", paymentstore.ProviderOutageRetryDelayForTest, wait)
 	}
 }
 
@@ -643,7 +644,7 @@ func TestARefusedRefundStillSpendsTheBudget(t *testing.T) {
 	if after.retryCount != 3 {
 		t.Errorf("a refusal is an answer about this refund and must spend a retry; want 3, got %d", after.retryCount)
 	}
-	if wait := time.Until(after.nextRetryAt); wait <= data.ProviderOutageRetryDelayForTest+time.Minute {
+	if wait := time.Until(after.nextRetryAt); wait <= paymentstore.ProviderOutageRetryDelayForTest+time.Minute {
 		t.Errorf("want the escalating backoff for an answered attempt; the attempt waits only %v", wait)
 	}
 }
@@ -722,7 +723,7 @@ func TestARefundFailureIsRecordedEvenWhenTheCallerIsAlreadyDone(t *testing.T) {
 // which is the state every RecordRefundFailure case starts from. The slot times
 // are explicit because several claims in one test share a court and date, and
 // bookings(court_id, date, start_time) is uniquely indexed.
-func (f *testFixture) claimRefund(t *testing.T, startTime, endTime string) *data.RefundClaim {
+func (f *testFixture) claimRefund(t *testing.T, startTime, endTime string) *paymentstore.RefundClaim {
 	t.Helper()
 
 	booking := f.createBooking(t, bookingOptions{StartTime: startTime, EndTime: endTime})

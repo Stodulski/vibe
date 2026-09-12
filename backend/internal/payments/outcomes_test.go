@@ -10,6 +10,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // AutoRefundIfPaid used to return nothing, so every caller had to guess. These
@@ -19,101 +20,103 @@ import (
 func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 	tests := []struct {
 		name    string
-		prepare func(*fixture, *data.Booking, *data.Payment)
-		want    data.RefundResult
+		prepare func(*fixture, *data.Booking, *paymentstore.Payment)
+		want    paymentstore.RefundResult
 	}{
 		{
 			name:    "MercadoPago accepted the refund",
-			prepare: func(*fixture, *data.Booking, *data.Payment) {},
-			want:    data.RefundIssued,
+			prepare: func(*fixture, *data.Booking, *paymentstore.Payment) {},
+			want:    paymentstore.RefundIssued,
 		},
 		{
-			name:    "the booking was never paid",
-			prepare: func(_ *fixture, b *data.Booking, _ *data.Payment) { b.CollectionStatus = data.CollectionStatusUnpaid },
-			want:    data.RefundNone,
+			name: "the booking was never paid",
+			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) {
+				b.CollectionStatus = data.CollectionStatusUnpaid
+			},
+			want: paymentstore.RefundNone,
 		},
 		{
 			name:    "the booking is already refunded",
-			prepare: func(_ *fixture, b *data.Booking, _ *data.Payment) { b.RefundStatus = data.RefundStatusFull },
-			want:    data.RefundAlreadyIssued,
+			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) { b.RefundStatus = data.RefundStatusFull },
+			want:    paymentstore.RefundAlreadyIssued,
 		},
 		{
 			name:    "a refund for this booking is already in flight",
-			prepare: func(_ *fixture, b *data.Booking, _ *data.Payment) { b.RefundStatus = data.RefundStatusPending },
-			want:    data.RefundQueued,
+			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) { b.RefundStatus = data.RefundStatusPending },
+			want:    paymentstore.RefundQueued,
 		},
 		{
 			name: "the payment row is already refunded",
-			prepare: func(_ *fixture, _ *data.Booking, p *data.Payment) {
+			prepare: func(_ *fixture, _ *data.Booking, p *paymentstore.Payment) {
 				p.Status = "refunded"
 				p.RefundAmount = p.Amount
 			},
-			want: data.RefundAlreadyIssued,
+			want: paymentstore.RefundAlreadyIssued,
 		},
 		{
 			name: "the booking was paid in cash",
-			prepare: func(_ *fixture, _ *data.Booking, p *data.Payment) {
+			prepare: func(_ *fixture, _ *data.Booking, p *paymentstore.Payment) {
 				p.MPPaymentID = nil
 				p.Method = "cash"
 			},
-			want: data.RefundManual,
+			want: paymentstore.RefundManual,
 		},
 		{
 			name: "the booking reads as paid with no payment record",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.payments.bookingErr = data.ErrRecordNotFound
 			},
-			want: data.RefundManual,
+			want: paymentstore.RefundManual,
 		},
 		{
 			name: "the payment could not be read at all",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.payments.bookingErr = errDatabase
 			},
-			want: data.RefundManual,
+			want: paymentstore.RefundManual,
 		},
 		{
 			name: "the claim was refused by the database, so nothing is queued",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.payments.claimErr = errDatabase
 			},
-			want: data.RefundManual,
+			want: paymentstore.RefundManual,
 		},
 		{
 			name: "another claim already holds the refund",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
-				f.payments.claimErr = data.ErrRefundInFlight
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+				f.payments.claimErr = paymentstore.ErrRefundInFlight
 			},
-			want: data.RefundQueued,
+			want: paymentstore.RefundQueued,
 		},
 		{
 			name: "the claim found the payment already refunded",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
-				f.payments.claimErr = data.ErrAlreadyRefunded
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+				f.payments.claimErr = paymentstore.ErrAlreadyRefunded
 			},
-			want: data.RefundAlreadyIssued,
+			want: paymentstore.RefundAlreadyIssued,
 		},
 		{
 			name: "MercadoPago rejected the refund",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 			},
-			want: data.RefundQueued,
+			want: paymentstore.RefundQueued,
 		},
 		{
 			name: "the retry budget is spent",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 				f.payments.exhausted = true
 			},
-			want: data.RefundManual,
+			want: paymentstore.RefundManual,
 		},
 		{
 			name: "the refund was issued but could not be recorded",
-			prepare: func(f *fixture, _ *data.Booking, _ *data.Payment) {
+			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
 				f.payments.successErr = errRecord
 			},
-			want: data.RefundQueued,
+			want: paymentstore.RefundQueued,
 		},
 	}
 
@@ -133,7 +136,7 @@ func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 			if got.Result != tt.want {
 				t.Errorf("want outcome %q; got %q (reason %q)", tt.want, got.Result, got.Reason)
 			}
-			if got.Result != data.RefundIssued && got.Result != data.RefundNone && got.Reason == "" {
+			if got.Result != paymentstore.RefundIssued && got.Result != paymentstore.RefundNone && got.Reason == "" {
 				t.Error("an outcome that is not the happy path must say why")
 			}
 		})
@@ -154,7 +157,7 @@ func TestARefundThatCannotBeIssuedIsReportedRatherThanDropped(t *testing.T) {
 
 	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
 
-	if outcome.Result != data.RefundManual {
+	if outcome.Result != paymentstore.RefundManual {
 		t.Fatalf("cash owed back is a manual refund; got %q", outcome.Result)
 	}
 	if !outcome.NeedsAHuman() {
@@ -320,7 +323,7 @@ func TestAMissingSellerTokenRefusesBeforeMercadoPagoIsCalled(t *testing.T) {
 	if cause := f.payments.recordedFailure[0].cause; !strings.Contains(cause, "seller credential missing") {
 		t.Errorf("the cause must name the credential as missing, not confuse it with unreadable or unavailable; got %q", cause)
 	}
-	if outcome.Result != data.RefundQueued {
+	if outcome.Result != paymentstore.RefundQueued {
 		t.Errorf("a first-attempt refusal is queued, not exhausted; got %q", outcome.Result)
 	}
 
@@ -414,7 +417,7 @@ func TestAPartialRefundIsNotCountedTwiceWhenTheWebhookRacesTheRecorder(t *testin
 
 	// Then the claim's own recorder closes the attempt out, adding its figure to
 	// whatever the row holds — exactly as internal/data/refunds.go does.
-	refundTotal, err := f.payments.RecordRefundSuccess(t.Context(), data.RefundClaim{
+	refundTotal, err := f.payments.RecordRefundSuccess(t.Context(), paymentstore.RefundClaim{
 		PaymentID: payment.ID, BookingID: booking.ID, ComplexID: complexID,
 		MPPaymentID: "mp-123", RefundCentavos: moved,
 	}, 0)

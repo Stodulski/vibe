@@ -24,6 +24,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -257,18 +258,18 @@ func (s *stubCourts) block(courtID uuid.UUID, date time.Time, start, end string)
 }
 
 type stubPayments struct {
-	payment *data.Payment
+	payment *paymentstore.Payment
 	// ledger overrides ListByBookingID with the booking's full payment history,
 	// for a test that needs more than the single row `payment` can represent
 	// (e.g. an MP deposit plus a cash balance). Nil falls back to `payment`.
-	ledger []*data.Payment
+	ledger []*paymentstore.Payment
 	// getErr fails GetByBookingID with something other than "no such row",
 	// standing in for the database being unavailable while a cancellation is
 	// deciding what can be refunded.
 	getErr    error
-	inserted  []*data.Payment
-	confirmed []*data.Payment
-	updated   []*data.Payment
+	inserted  []*paymentstore.Payment
+	confirmed []*paymentstore.Payment
+	updated   []*paymentstore.Payment
 	// insertAndConfirmErr drives InsertAndConfirmBooking's failure path — the
 	// H-15 race and its ErrBookingNotConfirmable sentinel in particular, which
 	// a handler test cannot otherwise reach since the real guard lives behind
@@ -282,7 +283,7 @@ type stubPayments struct {
 	manualRefundCalls  int
 }
 
-func (s *stubPayments) Insert(_ context.Context, p *data.Payment) error {
+func (s *stubPayments) Insert(_ context.Context, p *paymentstore.Payment) error {
 	p.ID = uuid.New()
 	s.inserted = append(s.inserted, p)
 	return nil
@@ -293,7 +294,7 @@ func (s *stubPayments) Insert(_ context.Context, p *data.Payment) error {
 // context fails the read. expireCheckoutPreference starts with this call, and
 // whether it survives a disconnected client is exactly what a test has to be
 // able to see.
-func (s *stubPayments) GetByBookingID(ctx context.Context, _ uuid.UUID) (*data.Payment, error) {
+func (s *stubPayments) GetByBookingID(ctx context.Context, _ uuid.UUID) (*paymentstore.Payment, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -306,7 +307,7 @@ func (s *stubPayments) GetByBookingID(ctx context.Context, _ uuid.UUID) (*data.P
 	return s.payment, nil
 }
 
-func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *data.Payment, _ *data.Booking) error {
+func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *paymentstore.Payment, _ *data.Booking) error {
 	if s.insertAndConfirmErr != nil {
 		return s.insertAndConfirmErr
 	}
@@ -320,7 +321,7 @@ func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *data.Paymen
 // ListByBookingID does for a booking with no payments. getErr fails this the
 // same way it fails GetByBookingID, so a test simulating "the database would
 // not answer" reaches whichever of the two lookups a caller now makes.
-func (s *stubPayments) ListByBookingID(ctx context.Context, _ uuid.UUID) ([]*data.Payment, error) {
+func (s *stubPayments) ListByBookingID(ctx context.Context, _ uuid.UUID) ([]*paymentstore.Payment, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -333,10 +334,10 @@ func (s *stubPayments) ListByBookingID(ctx context.Context, _ uuid.UUID) ([]*dat
 	if s.payment == nil {
 		return nil, nil
 	}
-	return []*data.Payment{s.payment}, nil
+	return []*paymentstore.Payment{s.payment}, nil
 }
 
-func (s *stubPayments) Update(_ context.Context, p *data.Payment) error {
+func (s *stubPayments) Update(_ context.Context, p *paymentstore.Payment) error {
 	s.updated = append(s.updated, p)
 	return nil
 }
@@ -496,7 +497,7 @@ func (s *stubWhatsApp) VerifySignature(*http.Request, []byte) error { return s.s
 // stub that only ever recorded the call is how an endpoint that reported "no
 // refund" after every successful one shipped green.
 type stubRefunder struct {
-	outcome data.RefundOutcome
+	outcome paymentstore.RefundOutcome
 	// onRefund runs inside AutoRefundIfPaid, standing in for what happens while
 	// the MercadoPago refund call is in flight — the client closing the tab, for
 	// one.
@@ -504,13 +505,13 @@ type stubRefunder struct {
 	refunded []uuid.UUID
 }
 
-func (s *stubRefunder) AutoRefundIfPaid(_ context.Context, b *data.Booking) data.RefundOutcome {
+func (s *stubRefunder) AutoRefundIfPaid(_ context.Context, b *data.Booking) paymentstore.RefundOutcome {
 	s.refunded = append(s.refunded, b.ID)
 	if s.onRefund != nil {
 		s.onRefund()
 	}
 	if s.outcome.Result == "" {
-		return data.RefundOutcome{Result: data.RefundIssued, AmountCentavos: 150_000}
+		return paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 150_000}
 	}
 	return s.outcome
 }

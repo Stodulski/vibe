@@ -13,6 +13,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -410,7 +411,7 @@ func TestCronReleaseExpiredPayments_CancelsBooking(t *testing.T) {
 		},
 	}
 	app.models.Payments = &mockPaymentStore{
-		GetByBookingIDFn: func(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error) {
+		GetByBookingIDFn: func(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error) {
 			return nil, data.ErrRecordNotFound
 		},
 	}
@@ -459,7 +460,7 @@ func TestCronReleaseExpiredPayments_OneFailureDoesNotStopOthers(t *testing.T) {
 		},
 	}
 	app.models.Payments = &mockPaymentStore{
-		GetByBookingIDFn: func(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error) {
+		GetByBookingIDFn: func(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error) {
 			return nil, data.ErrRecordNotFound
 		},
 	}
@@ -501,7 +502,7 @@ func TestCronReleaseExpiredPayments_Idempotent(t *testing.T) {
 		},
 	}
 	app.models.Payments = &mockPaymentStore{
-		GetByBookingIDFn: func(ctx context.Context, bookingID uuid.UUID) (*data.Payment, error) {
+		GetByBookingIDFn: func(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error) {
 			return nil, data.ErrRecordNotFound
 		},
 	}
