@@ -7,7 +7,12 @@ import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `api.generated.ts` is written byte-for-byte by `pnpm gen:api` from the
+  // backend's OpenAPI document. Linting it would only ever ask for edits that
+  // the next generation undoes — and that `pnpm gen:api:check` would then
+  // report as drift. `format:check` skips `src/shared/types/**` for the same
+  // reason.
+  globalIgnores(['dist', 'src/shared/types/api.generated.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
