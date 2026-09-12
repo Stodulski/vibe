@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { HTTPError } from 'ky';
-import { bootstrapSession, refreshAccessToken, REFRESH_RETRY_DELAY_MS } from './ky';
+import { bootstrapSession, loginUrlPreserving, refreshAccessToken, REFRESH_RETRY_DELAY_MS } from './ky';
 import { makeUser } from '@/test/factories';
 
 vi.mock('@sentry/react', () => ({
@@ -236,5 +236,36 @@ describe('bootstrapSession', () => {
 
     await expect(bootstrapSession()).rejects.toThrow('HTTP 503');
     expect(ky.default.post).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A 401 that no refresh can recover ends the session with a hard navigation —
+ * the store is gone, so React never renders a `<Navigate>` and router state
+ * cannot carry the destination. `ProtectedRoute` has always sent `from` along
+ * for the redirects it owns; this path used to drop it, so an access token
+ * expiring mid-session cost the person the page they were reading on top of
+ * making them log in again.
+ */
+describe('loginUrlPreserving', () => {
+  it('keeps the path the person was on', () => {
+    expect(loginUrlPreserving({ pathname: '/bookings', search: '' })).toBe('/login?from=%2Fbookings');
+  });
+
+  it('keeps the query string too — a booking list is a date, not just a route', () => {
+    expect(loginUrlPreserving({ pathname: '/bookings', search: '?date=2026-03-18' })).toBe(
+      '/login?from=%2Fbookings%3Fdate%3D2026-03-18',
+    );
+  });
+
+  it('encodes the destination so it cannot break out of the query parameter', () => {
+    const url = loginUrlPreserving({ pathname: '/admin/users', search: '?q=a&b=c' });
+    expect(url).toBe('/login?from=%2Fadmin%2Fusers%3Fq%3Da%26b%3Dc');
+    expect(new URLSearchParams(url?.split('?')[1]).get('from')).toBe('/admin/users?q=a&b=c');
+  });
+
+  it('does nothing on /login or /register, where a redirect would only wipe a half-typed form', () => {
+    expect(loginUrlPreserving({ pathname: '/login', search: '' })).toBeNull();
+    expect(loginUrlPreserving({ pathname: '/register', search: '?ref=x' })).toBeNull();
   });
 });

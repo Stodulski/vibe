@@ -18,7 +18,12 @@ const SAFE_PREFIXES = [
 
 function isSafeRedirect(path: string | undefined): path is string {
   if (!path) return false;
-  return SAFE_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + '/'));
+  // Only the path segment decides. A `?from=` carries the query string the
+  // person was on (`/bookings?date=...`), and matching the raw value against
+  // the prefixes would reject exactly those — while `/bookings?x` must still
+  // not be able to slip past as something other than /bookings.
+  const pathname = path.split('?')[0] ?? '';
+  return SAFE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
 }
 
 /**
@@ -57,7 +62,14 @@ export function useAuthSuccessHandler() {
     // "invalid credentials" toast — on top of a login that had actually just
     // succeeded.
     const parsedState = loginRedirectStateSchema.safeParse(location.state);
-    const from = parsedState.success ? parsedState.data.from.pathname : undefined;
+    // `?from=` is the same intent arriving the only way it can survive the
+    // hard navigation `ky.ts` does when a session cannot be refreshed:
+    // `window.location.href` discards router state, so an expired token used
+    // to cost the person the page they were on. Both paths are filtered by
+    // `isSafeRedirect` below, so neither can be turned into an open redirect.
+    const from = parsedState.success
+      ? parsedState.data.from.pathname
+      : (new URLSearchParams(location.search).get('from') ?? undefined);
     const defaultRoute = data.user.role === 'superadmin' ? '/admin' : '/complexes';
     void navigate(isSafeRedirect(from) ? from : defaultRoute, { replace: true });
   };

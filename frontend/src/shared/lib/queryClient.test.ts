@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { HTTPError, NetworkError, TimeoutError } from 'ky';
 import type { NormalizedOptions } from 'ky';
+import { ApiError } from './ApiError';
 
 const mockCaptureException = vi.fn<(...args: unknown[]) => void>();
 
@@ -78,6 +79,24 @@ describe('queryClient error reporting', () => {
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
       tags: { status: 500, pathname: '/v1/bookings' },
     });
+  });
+
+  // Every failure from the shared ky client is an `ApiError`, which read
+  // `X-Request-ID` once when it was built. The tag has to come from there,
+  // not from a second read of the headers, or the two could disagree.
+  it('reports an ApiError with the request_id it already carries', () => {
+    const error = new ApiError(
+      makeHttpError(500, 'https://api.vibe.com.ar/v1/bookings', { 'X-Request-ID': 'req-from-api-error' }),
+    );
+    queryClient.getQueryCache().config.onError?.(error, {} as never);
+    expect(mockCaptureException).toHaveBeenCalledWith(error, {
+      tags: { status: 500, pathname: '/v1/bookings', request_id: 'req-from-api-error' },
+    });
+  });
+
+  it('still skips an expected status when it arrives as an ApiError', () => {
+    queryClient.getQueryCache().config.onError?.(new ApiError(makeHttpError(422)), {} as never);
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
   it('reports a TimeoutError', () => {

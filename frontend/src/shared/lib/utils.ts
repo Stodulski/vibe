@@ -7,6 +7,7 @@ import { getFieldErrors, translateServerError } from '@/shared/lib/serverErrors'
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { VENUE_TIME_ZONE } from '@/shared/lib/instants';
 import { ApiResponseError } from '@/shared/lib/apiParse';
+import { ApiError, type Problem } from '@/shared/lib/ApiError';
 
 const t = ES_AR;
 
@@ -241,6 +242,18 @@ function isFetchFailure(error: unknown): error is TypeError {
   return error instanceof TypeError && FETCH_FAILURE_MESSAGES.some((m) => error.message.startsWith(m));
 }
 
+/**
+ * The sentence a {@link Problem} should show.
+ *
+ * Field errors first and joined: a 422 that named three fields is more use
+ * than the generic title above it. Then `detail` (specific to this
+ * occurrence) over `title` (generic to the error type), per RFC 9457.
+ */
+function problemMessage(problem: Problem, fallback: string): string {
+  if (problem.errors.length > 0) return problem.errors.map((e) => e.message).join('. ');
+  return problem.detail ?? (problem.title || fallback);
+}
+
 export function getHttpErrorMessage(error: unknown, fallback: string): string {
   // The request succeeded but the body didn't match the schema — a
   // caller-specific `fallback` ("no pudimos cancelar la reserva") would
@@ -248,6 +261,12 @@ export function getHttpErrorMessage(error: unknown, fallback: string): string {
   // answers with the generic "invalid response" copy instead, regardless of
   // what the caller passed.
   if (error instanceof ApiResponseError) return t.common.invalidResponse;
+  // `ApiError` (every failure out of `src/shared/lib/ky.ts`) has already read
+  // the body into one shape, whichever envelope the backend sent — including
+  // RFC 9457 problem+json, which `getApiError` below cannot read at all.
+  if (error instanceof ApiError) return problemMessage(error.problem, fallback);
+  // A bare `HTTPError` still reaches here from the calls that bypass the
+  // shared client (`auth/me`, `auth/refresh`) and from tests that build one.
   if (error instanceof HTTPError) return getApiError(error.data, fallback);
 
   // No response ever came back — a request that timed out (`TimeoutError`),
