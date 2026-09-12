@@ -40,7 +40,7 @@ export const ownerDashboardRoutes: RouteObject[] = [
       },
       {
         path: '/courts',
-        element: ownerPage(() => import('@/pages/owner/CourtsPage')),
+        element: ownerPage(() => import('@/features/courts/pages/CourtsPage')),
       },
       {
         path: '/clients',
