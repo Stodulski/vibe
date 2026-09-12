@@ -31,6 +31,18 @@ type BodyTooLargeError struct {
 
 func (e *BodyTooLargeError) Error() string { return e.msg }
 
+// InvalidJSONError marks a ReadJSON failure caused by the body not being
+// decodable JSON — bad syntax, the wrong type for a field, an unknown key,
+// more than one value, or an empty body. The Responder checks for it so this
+// is the one BadRequest cause that keeps the dedicated invalid-json Problem
+// kind; every other 400 answers the generic bad-request kind.
+type InvalidJSONError struct {
+	err error
+}
+
+func (e *InvalidJSONError) Error() string { return e.err.Error() }
+func (e *InvalidJSONError) Unwrap() error { return e.err }
+
 var bufPool = sync.Pool{
 	New: func() any {
 		return new(bytes.Buffer)
@@ -106,23 +118,23 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 
 		switch {
 		case errors.As(err, &syntaxError):
-			return fmt.Errorf("body contains badly-formed JSON (at character %d)", syntaxError.Offset)
+			return &InvalidJSONError{fmt.Errorf("body contains badly-formed JSON (at character %d)", syntaxError.Offset)}
 
 		case errors.Is(err, io.ErrUnexpectedEOF):
-			return errors.New("body contains badly-formed JSON")
+			return &InvalidJSONError{errors.New("body contains badly-formed JSON")}
 
 		case errors.As(err, &unmarshalTypeError):
 			if unmarshalTypeError.Field != "" {
-				return fmt.Errorf("body contains incorrect JSON type for field %q", unmarshalTypeError.Field)
+				return &InvalidJSONError{fmt.Errorf("body contains incorrect JSON type for field %q", unmarshalTypeError.Field)}
 			}
-			return fmt.Errorf("body contains incorrect JSON type (at character %d)", unmarshalTypeError.Offset)
+			return &InvalidJSONError{fmt.Errorf("body contains incorrect JSON type (at character %d)", unmarshalTypeError.Offset)}
 
 		case errors.Is(err, io.EOF):
-			return errors.New("body must not be empty")
+			return &InvalidJSONError{errors.New("body must not be empty")}
 
 		case strings.HasPrefix(err.Error(), "json: unknown field "):
 			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
-			return fmt.Errorf("body contains unknown key %s", fieldName)
+			return &InvalidJSONError{fmt.Errorf("body contains unknown key %s", fieldName)}
 
 		case errors.As(err, &maxBytesError):
 			return &BodyTooLargeError{msg: fmt.Sprintf("body must not be larger than %d bytes", maxBytesError.Limit)}
@@ -131,13 +143,13 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 			panic(err)
 
 		default:
-			return err
+			return &InvalidJSONError{err}
 		}
 	}
 
 	err = dec.Decode(&struct{}{})
 	if !errors.Is(err, io.EOF) {
-		return errors.New("body must only contain a single JSON value")
+		return &InvalidJSONError{errors.New("body must only contain a single JSON value")}
 	}
 
 	return nil

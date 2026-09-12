@@ -261,7 +261,7 @@ type Handler struct {
 // refuse still has to match on their type rather than their identity — is
 // answered by internal/httpx or by refuse itself.
 var refusals = httpx.Refusals{
-	ErrSlotTaken:               httpx.Conflict(slotTakenMessage),
+	ErrSlotTaken:               httpx.SlotUnavailable(slotTakenMessage),
 	ErrClientBlocked:           httpx.Forbidden("your account is blocked, contact the complex for more information"),
 	ErrMercadoPagoNotConnected: httpx.BadRequest("the complex does not have MercadoPago connected, contact the complex"),
 	ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),

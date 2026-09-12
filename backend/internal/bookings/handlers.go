@@ -169,11 +169,12 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 		// A ConflictError carries its own sentence, built from the booking it
 		// collided with, so it cannot live in a table keyed on identity.
 		h.respond.Refuse(w, r, httpx.Conflict(conflictErr.Message))
-	case errors.Is(err, bookingstore.ErrDuplicateBooking),
-		errors.Is(err, bookingstore.ErrSlotUnavailable):
-		// Somebody else now holds those hours. A business answer, not a fault,
-		// and the same one the shared edit conflict gets.
-		h.respond.EditConflict(w, r)
+	case errors.Is(err, bookingstore.ErrDuplicateBooking):
+		// Somebody else's booking already covers those hours: a business
+		// answer, not a fault, in its own Problem kind.
+		h.respond.Refuse(w, r, httpx.DuplicateBooking(slotTakenMessage))
+	case errors.Is(err, bookingstore.ErrSlotUnavailable):
+		h.respond.Refuse(w, r, httpx.SlotUnavailable(slotTakenMessage))
 	case errors.Is(err, ErrNoActor):
 		h.respond.InvalidAuthenticationToken(w, r)
 	default:

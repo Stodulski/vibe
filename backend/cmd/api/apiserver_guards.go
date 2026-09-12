@@ -6,9 +6,11 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
+	gen "github.com/stodulski/vibe-server/internal/openapi/gen"
 )
 
 // guardKind is the base protection a route needs, before any idempotency
@@ -158,11 +160,33 @@ func guard(guards httpx.Guards, g routeGuard, next http.HandlerFunc) http.Handle
 // apiServerParamError is gen.StdHTTPServerOptions.ErrorHandlerFunc. The
 // generated wrapper's own path/query-parameter binding can reject a request
 // (a malformed "id" that is not a UUID, a missing required query parameter)
-// before any guard or handler runs. Answering through app.respond.BadRequest
-// keeps the status (400) and envelope (`{"error": ...}`) identical to every
-// other bad-request response in this API; only the message text can differ
-// from what the handler's own parsing would have said, and no test pins
-// that text.
+// before any guard or handler runs.
+//
+// A required or malformed parameter is answered exactly like a handler's own
+// field validation would: 422 with the field name, so a caller such as the
+// public availability endpoint's "date" or blocked-slots' "date_from" gets
+// the same {field, message} shape whichever layer caught it. Everything else
+// oapi-codegen's binding can raise — too many values for a header, an
+// unescaped cookie — is not attributable to one field, and answers the
+// generic bad-request kind instead.
 func (app *application) apiServerParamError(w http.ResponseWriter, r *http.Request, err error) {
+	var required *gen.RequiredParamError
+	if errors.As(err, &required) {
+		app.respond.FailedValidation(w, r, map[string]string{required.ParamName: "must be provided"})
+		return
+	}
+
+	var invalidFormat *gen.InvalidParamFormatError
+	if errors.As(err, &invalidFormat) {
+		app.respond.FailedValidation(w, r, map[string]string{invalidFormat.ParamName: invalidFormat.Err.Error()})
+		return
+	}
+
+	var unmarshaling *gen.UnmarshalingParamError
+	if errors.As(err, &unmarshaling) {
+		app.respond.FailedValidation(w, r, map[string]string{unmarshaling.ParamName: unmarshaling.Err.Error()})
+		return
+	}
+
 	app.respond.BadRequest(w, r, err)
 }

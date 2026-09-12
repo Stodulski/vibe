@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
 	"sort"
 	"testing"
 )
@@ -36,5 +38,45 @@ func TestRouteGuardsMatchesInventory(t *testing.T) {
 	for _, route := range unexpected {
 		t.Errorf("routeGuards has %q, which is not in apiSurface — "+
 			"the route was renamed or removed and this entry is stale", route)
+	}
+}
+
+// TestApiServerParamErrorAnswersAMalformedQueryParamAs422 pins
+// apiServerParamError's mapping of oapi-codegen's own parameter binding: a
+// malformed "date" never reaches courtsPublicAvailability at all, so this is
+// the generated wrapper's *InvalidParamFormatError, not the handler's own
+// field validation. Before this change every one of these answered 400
+// (bad-request); the fix maps it to 422 validation with the field name, the
+// same shape a handler's own validator produces.
+func TestApiServerParamErrorAnswersAMalformedQueryParamAs422(t *testing.T) {
+	app := newTestApplication(t)
+	ts := newTestServer(t, app)
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		ts.URL+"/api/v1/public/complexes/some-slug/availability?date=not-a-date", nil)
+	if err != nil {
+		t.Fatalf("building the request: %v", err)
+	}
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("GET availability: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 for a malformed date query parameter; got %d", resp.StatusCode)
+	}
+
+	var body struct {
+		Errors []struct {
+			Field   string `json:"field"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decoding the response body: %v", err)
+	}
+	if len(body.Errors) != 1 || body.Errors[0].Field != "date" {
+		t.Fatalf("want one field error naming \"date\"; got %+v", body.Errors)
 	}
 }

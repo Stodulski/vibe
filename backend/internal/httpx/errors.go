@@ -124,16 +124,23 @@ func (rs *Responder) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 }
 
 // BadRequest reports 400 with err's message, which callers construct to be
-// safe for the client to read. An oversized request body (BodyTooLargeError,
-// from ReadJSON) is the one exception: it reports 413 Request Entity Too
-// Large instead, with the same message.
+// safe for the client to read. Two causes get their own Problem kind instead
+// of the generic bad-request: an oversized request body (BodyTooLargeError,
+// from ReadJSON) reports 413 Request Entity Too Large, and a ReadJSON body-
+// decode failure (InvalidJSONError) keeps the invalid-json kind rather than
+// the generic one every other cause of a 400 answers as.
 func (rs *Responder) BadRequest(w http.ResponseWriter, r *http.Request, err error) {
 	var tooLarge *BodyTooLargeError
 	if errors.As(err, &tooLarge) {
 		rs.writeProblem(w, r, http.StatusRequestEntityTooLarge, KindTooLarge, err.Error(), nil)
 		return
 	}
-	rs.writeProblem(w, r, http.StatusBadRequest, KindInvalidJSON, err.Error(), nil)
+	var invalidJSON *InvalidJSONError
+	if errors.As(err, &invalidJSON) {
+		rs.writeProblem(w, r, http.StatusBadRequest, KindInvalidJSON, err.Error(), nil)
+		return
+	}
+	rs.writeProblem(w, r, http.StatusBadRequest, KindBadRequest, err.Error(), nil)
 }
 
 // FailedValidation reports 422 with the per-field validation errors, sorted

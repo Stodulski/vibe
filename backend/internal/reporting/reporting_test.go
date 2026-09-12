@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -170,6 +171,55 @@ func TestMonthlyReportTotalsEachMethodAndTheWhole(t *testing.T) {
 	}
 	if body.Report.ByMethod["cash"].Net != 100_000 {
 		t.Errorf("cash net is wrong: %+v", body.Report.ByMethod["cash"])
+	}
+}
+
+// TestMonthlyReportSerializesTotalsAndByCourtWithServiceFees pins the exact
+// JSON shape toGenMonthlyReport produces now that Service.MonthlyReport
+// returns a typed MonthlyReport instead of a map[string]any round-tripped
+// through JSON: the same body the old map-based implementation produced for
+// this fixture, service_fees included only on totals/previous_totals.
+func TestMonthlyReportSerializesTotalsAndByCourtWithServiceFees(t *testing.T) {
+	reports := &stubReports{
+		summaries: []reportstore.PaymentMethodSummary{
+			{Method: "mercadopago", Count: 3, Amount: 300_000, ServiceFee: 21_000, Refunded: 100_000},
+			{Method: "cash", Count: 1, Amount: 100_000, ServiceFee: 0, Refunded: 0},
+		},
+		courtSummaries: []reportstore.PaymentCourtSummary{
+			{CourtID: "court-1", CourtName: "Court 1", Count: 2, Amount: 150_000, ServiceFee: 5_000, Refunded: 0},
+		},
+	}
+
+	h := newTestHandler(reports)
+	w := httptest.NewRecorder()
+	h.GetMonthlyReport(w, reportRequest(t, "?month=3&year=2026"))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	// The stub answers the same summaries for both periods, so totals and
+	// previous_totals come out numerically identical here.
+	const want = `{"report":{` +
+		`"by_court":[{"court_id":"court-1","court_name":"Court 1","count":2,"total":150000,"refunded":0,"net":155000}],` +
+		`"by_method":{` +
+		`"cash":{"count":1,"total":100000,"refunded":0,"net":100000},` +
+		`"mercadopago":{"count":3,"total":300000,"refunded":100000,"net":221000}},` +
+		`"month":3,"year":2026,` +
+		`"totals":{"count":4,"total":400000,"refunded":100000,"net":321000,"service_fees":21000},` +
+		`"previous_totals":{"count":4,"total":400000,"refunded":100000,"net":321000,"service_fees":21000}` +
+		`}}`
+
+	var got, wantParsed any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not valid JSON: %v\n%s", err, w.Body.String())
+	}
+	if err := json.Unmarshal([]byte(want), &wantParsed); err != nil {
+		t.Fatalf("bad fixture: %v", err)
+	}
+	if !reflect.DeepEqual(got, wantParsed) {
+		gotJSON, _ := json.Marshal(got)
+		t.Errorf("report JSON changed shape or values.\nwant %s\ngot  %s", want, gotJSON)
 	}
 }
 

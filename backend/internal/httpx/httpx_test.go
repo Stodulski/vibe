@@ -101,6 +101,16 @@ func TestReadJSON(t *testing.T) {
 			case tt.wantErr != "" && err.Error() != tt.wantErr:
 				t.Errorf("want error %q; got %q", tt.wantErr, err.Error())
 			}
+
+			// Every body-decode failure must be an *InvalidJSONError, which
+			// is what lets Responder.BadRequest keep the dedicated
+			// invalid-json kind for this cause alone.
+			if tt.wantErr != "" {
+				var invalidJSON *InvalidJSONError
+				if !errors.As(err, &invalidJSON) {
+					t.Errorf("want a *InvalidJSONError so BadRequest answers invalid-json; got %T", err)
+				}
+			}
 		})
 	}
 }
@@ -149,10 +159,32 @@ func TestBadRequestReportsOversizedBodyAs413(t *testing.T) {
 		t.Errorf("want the original message preserved; got %q", body.Detail)
 	}
 
+	// A ReadJSON body-decode failure keeps its own dedicated kind.
 	w = httptest.NewRecorder()
-	rs.BadRequest(w, r, errors.New("body contains badly-formed JSON"))
+	rs.BadRequest(w, r, &InvalidJSONError{errors.New("body contains badly-formed JSON")})
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("an ordinary decoding error must still report 400; got %d", w.Code)
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Type != KindInvalidJSON.URI() {
+		t.Errorf("a ReadJSON decode failure must keep the invalid-json kind; got %q", body.Type)
+	}
+
+	// Every other BadRequest cause — a malformed query parameter, an invalid
+	// cursor — is not itself malformed JSON, so it answers the generic
+	// bad-request kind instead of invalid-json.
+	w = httptest.NewRecorder()
+	rs.BadRequest(w, r, errors.New("invalid cursor value"))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("want 400; got %d", w.Code)
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Type != KindBadRequest.URI() {
+		t.Errorf("a cause other than a JSON decode failure must answer the generic bad-request kind; got %q", body.Type)
 	}
 }
 

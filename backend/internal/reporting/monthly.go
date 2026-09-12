@@ -3,7 +3,6 @@ package reporting
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -57,41 +56,61 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	genReport, err := toGenMonthlyReport(report)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"report": genReport})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"report": toGenMonthlyReport(report)})
 }
 
-// toGenMonthlyReport maps the service's report onto the generated wire type.
+// toGenMonthlyReport maps the service's typed MonthlyReport onto the
+// generated wire type field by field.
 //
-// Service.MonthlyReport (service.go) builds its result as map[string]any,
-// keyed exactly the way the OpenAPI document's MonthlyReport/
-// MonthlyReportSummary/MonthlyReportCourtSummary schemas expect — down to
-// by_method rows omitting service_fees while totals/previous_totals carry it,
-// which is what gen.MonthlyReportSummary.ServiceFees being a nil-omitted
-// pointer requires. The by_method values are typed with a struct local to
-// that function, so it cannot be named here to copy field-by-field without
-// widening Service.MonthlyReport's signature — out of scope for this
-// package's handlers-only change. Round-tripping through JSON instead
-// decodes the map into the generated struct using the same field
-// correspondence a hand-written copy would use (the json tags on each side),
-// so the wire body is always the generated type and never the ad-hoc map
-// serialized directly (HTTP-08).
-func toGenMonthlyReport(report map[string]any) (gen.MonthlyReport, error) {
-	raw, err := json.Marshal(report)
-	if err != nil {
-		return gen.MonthlyReport{}, fmt.Errorf("encoding the monthly report: %w", err)
+// It replaces a map[string]any built by hand and round-tripped through
+// json.Marshal/Unmarshal into gen.MonthlyReport: that path let an unknown key
+// or a type mismatch fail silently — a dropped field, or a decode error
+// surfacing as a 500 with nothing pointing at which field caused it. An
+// explicit mapping fails to compile instead, the moment either shape changes.
+func toGenMonthlyReport(report MonthlyReport) gen.MonthlyReport {
+	byMethod := make(map[string]gen.MonthlyReportSummary, len(report.ByMethod))
+	for method, sum := range report.ByMethod {
+		byMethod[method] = gen.MonthlyReportSummary{
+			Count:    sum.Count,
+			Total:    sum.Total,
+			Refunded: sum.Refunded,
+			Net:      sum.Net,
+		}
 	}
 
-	var out gen.MonthlyReport
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return gen.MonthlyReport{}, fmt.Errorf("decoding the monthly report into the generated shape: %w", err)
+	byCourt := make([]gen.MonthlyReportCourtSummary, len(report.ByCourt))
+	for i, c := range report.ByCourt {
+		byCourt[i] = gen.MonthlyReportCourtSummary{
+			CourtId:   c.CourtID,
+			CourtName: c.CourtName,
+			Count:     c.Count,
+			Total:     c.Total,
+			Refunded:  c.Refunded,
+			Net:       c.Net,
+		}
 	}
-	return out, nil
+
+	return gen.MonthlyReport{
+		Month:          report.Month,
+		Year:           report.Year,
+		ByMethod:       byMethod,
+		ByCourt:        byCourt,
+		Totals:         toGenMonthlyReportSummaryTotals(report.Totals),
+		PreviousTotals: toGenMonthlyReportSummaryTotals(report.PreviousTotals),
+	}
+}
+
+// toGenMonthlyReportSummaryTotals maps a Totals/PreviousTotals row, which —
+// unlike a by-method row — carries ServiceFees.
+func toGenMonthlyReportSummaryTotals(sum MonthlySummary) gen.MonthlyReportSummary {
+	serviceFees := sum.ServiceFees
+	return gen.MonthlyReportSummary{
+		Count:       sum.Count,
+		Total:       sum.Total,
+		Refunded:    sum.Refunded,
+		Net:         sum.Net,
+		ServiceFees: &serviceFees,
+	}
 }
 
 // periodTotals adds up one period's payments the same way the selected month
@@ -99,7 +118,7 @@ func toGenMonthlyReport(report map[string]any) (gen.MonthlyReport, error) {
 //
 // Net is what the owner keeps: the amount plus the service fee the client paid
 // on top, minus anything refunded.
-func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
+func periodTotals(summaries []reportstore.PaymentMethodSummary) MonthlySummary {
 	var count, amount, serviceFees, refunded int
 	for _, s := range summaries {
 		count += s.Count
@@ -107,12 +126,12 @@ func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 		serviceFees += s.ServiceFee
 		refunded += s.Refunded
 	}
-	return map[string]any{
-		"count":        count,
-		"total":        amount,
-		"service_fees": serviceFees,
-		"refunded":     refunded,
-		"net":          amount + serviceFees - refunded,
+	return MonthlySummary{
+		Count:       count,
+		Total:       amount,
+		ServiceFees: serviceFees,
+		Refunded:    refunded,
+		Net:         amount + serviceFees - refunded,
 	}
 }
 

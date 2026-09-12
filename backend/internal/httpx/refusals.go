@@ -47,8 +47,10 @@ type Refusal struct {
 // side, "this deployment cannot do that right now", so both answer
 // KindUnavailable.
 
-// BadRequest refuses a request the caller can fix: 400.
-func BadRequest(message any) Refusal { return Refusal{http.StatusBadRequest, KindInvalidJSON, message} }
+// BadRequest refuses a request the caller can fix: 400. It answers the
+// generic bad-request kind; the dedicated invalid-json kind is reserved for
+// ReadJSON's own body-decode failures (see Responder.BadRequest).
+func BadRequest(message any) Refusal { return Refusal{http.StatusBadRequest, KindBadRequest, message} }
 
 // Unauthorized refuses a request with no usable credential: 401.
 func Unauthorized(message any) Refusal {
@@ -63,6 +65,20 @@ func NotFound(message any) Refusal { return Refusal{http.StatusNotFound, KindNot
 
 // Conflict refuses a write that collides with the state it found: 409.
 func Conflict(message any) Refusal { return Refusal{http.StatusConflict, KindConflict, message} }
+
+// DuplicateBooking refuses a write that overlaps an existing booking: 409,
+// its own kind rather than the generic KindConflict so the frontend can
+// switch on it without parsing Detail.
+func DuplicateBooking(message any) Refusal {
+	return Refusal{http.StatusConflict, KindDuplicateBooking, message}
+}
+
+// SlotUnavailable refuses a write against a court slot that cannot be booked
+// right now — taken, or held by another transaction's lock: 409, its own
+// kind for the same reason as DuplicateBooking.
+func SlotUnavailable(message any) Refusal {
+	return Refusal{http.StatusConflict, KindSlotUnavailable, message}
+}
 
 // Gone refuses a resource that existed and deliberately does not any more: 410.
 func Gone(message any) Refusal { return Refusal{http.StatusGone, KindGone, message} }

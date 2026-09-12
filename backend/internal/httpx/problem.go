@@ -23,12 +23,24 @@ type Kind string
 // The kinds every Refusal constructor and Responder helper answers as. Their
 // string values are the exact path segment appended to problemBaseURI.
 const (
-	KindInvalidJSON      Kind = "invalid-json"
-	KindValidation       Kind = "validation"
-	KindUnauthorized     Kind = "unauthorized"
-	KindForbidden        Kind = "forbidden"
-	KindNotFound         Kind = "not-found"
-	KindConflict         Kind = "conflict"
+	// KindBadRequest is the generic 400: a request the caller can fix, whose
+	// cause is not itself malformed JSON. Responder.BadRequest and the
+	// httpx.BadRequest refusal both answer as this kind; KindInvalidJSON is
+	// reserved for the one cause with its own dedicated refusal, ReadJSON's
+	// body-decode failures.
+	KindBadRequest   Kind = "bad-request"
+	KindInvalidJSON  Kind = "invalid-json"
+	KindValidation   Kind = "validation"
+	KindUnauthorized Kind = "unauthorized"
+	KindForbidden    Kind = "forbidden"
+	KindNotFound     Kind = "not-found"
+	KindConflict     Kind = "conflict"
+	// KindDuplicateBooking and KindSlotUnavailable are 409s distinct from the
+	// generic KindConflict: bookingstore.ErrDuplicateBooking and
+	// ErrSlotUnavailable/ErrSlotLocked each get a kind the frontend can switch
+	// on without parsing Detail.
+	KindDuplicateBooking Kind = "duplicate-booking"
+	KindSlotUnavailable  Kind = "slot-unavailable"
 	KindGone             Kind = "gone"
 	KindTooLarge         Kind = "too-large"
 	KindRateLimited      Kind = "rate-limited"
@@ -75,19 +87,28 @@ type Problem struct {
 	// Errors is present on a validation problem: one entry per invalid
 	// field.
 	Errors []FieldError `json:"errors,omitempty"`
+	// Error mirrors Detail/Errors under the pre-RFC-9457 key an
+	// already-deployed frontend still reads: the detail string for most
+	// problems, or a field->message object for a validation problem.
+	// legacy: remove once the frontend's ApiError is deployed everywhere
+	Error any `json:"error,omitempty"`
 }
 
 // titles gives every kind a short, stable summary. It intentionally mirrors
-// http.StatusText for most kinds; the two kinds that share a status with
-// another (RouteNotFound alongside NotFound) get a title of their own so a
-// reader can tell them apart without decoding the type URI.
+// http.StatusText for most kinds; the kinds that share a status with another
+// (RouteNotFound alongside NotFound, InvalidJSON/DuplicateBooking/
+// SlotUnavailable alongside BadRequest/Conflict) get a title of their own so
+// a reader can tell them apart without decoding the type URI.
 var titles = map[Kind]string{
-	KindInvalidJSON:      "Bad Request",
+	KindBadRequest:       "Bad Request",
+	KindInvalidJSON:      "Malformed JSON",
 	KindValidation:       "Validation Failed",
 	KindUnauthorized:     "Unauthorized",
 	KindForbidden:        "Forbidden",
 	KindNotFound:         "Not Found",
 	KindConflict:         "Conflict",
+	KindDuplicateBooking: "Duplicate Booking",
+	KindSlotUnavailable:  "Slot Unavailable",
 	KindGone:             "Gone",
 	KindTooLarge:         "Payload Too Large",
 	KindRateLimited:      "Too Many Requests",
@@ -110,6 +131,8 @@ func (rs *Responder) writeProblem(w http.ResponseWriter, r *http.Request, status
 		Instance:  r.URL.Path,
 		RequestID: ContextGetRequestID(r),
 		Errors:    fieldErrors,
+		// legacy: remove once the frontend's ApiError is deployed everywhere
+		Error: legacyError(detail, fieldErrors),
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
@@ -117,6 +140,21 @@ func (rs *Responder) writeProblem(w http.ResponseWriter, r *http.Request, status
 		rs.LogError(r, err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+// legacyError renders a Problem's pre-RFC-9457 "error" key: the per-field
+// object a validation problem answered with, or the detail string every
+// other problem answered with, before this API moved to RFC 9457 bodies.
+// legacy: remove once the frontend's ApiError is deployed everywhere
+func legacyError(detail string, fieldErrors []FieldError) any {
+	if len(fieldErrors) == 0 {
+		return detail
+	}
+	out := make(map[string]string, len(fieldErrors))
+	for _, fe := range fieldErrors {
+		out[fe.Field] = fe.Message
+	}
+	return out
 }
 
 // sortedFieldErrors turns a validator's field->message map into a
