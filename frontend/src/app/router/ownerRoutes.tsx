@@ -1,33 +1,33 @@
-import type { RouteObject } from 'react-router-dom';
+import { Outlet, type RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { SkeletonDashboard, SkeletonSettings, SkeletonBookings } from '@/shared/components/common/Skeletons';
 import { lazyPage, lazyShell, ownerPage } from './routeHelpers';
 import { PageLoader } from './loaders';
 
+// One pathless guard instead of a `<ProtectedRoute>` per element: the three
+// pages below share exactly the same guard, and repeating it remounted the
+// auth check on every navigation between them.
 export const ownerStandaloneRoutes: RouteObject[] = [
   {
-    path: '/complexes',
     element: (
       <ProtectedRoute>
-        {lazyPage(() => import('@/features/complex/pages/ComplexSelectorPage'), <PageLoader />)}
+        <Outlet />
       </ProtectedRoute>
     ),
-  },
-  {
-    path: '/onboarding',
-    element: (
-      <ProtectedRoute>
-        {lazyPage(() => import('@/features/onboarding/pages/OnboardingPage'), <PageLoader />)}
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/settings/mp/callback',
-    element: (
-      <ProtectedRoute>
-        {lazyPage(() => import('@/features/complex/pages/MPCallbackPage'), <PageLoader />)}
-      </ProtectedRoute>
-    ),
+    children: [
+      {
+        path: '/complexes',
+        element: lazyPage(() => import('@/features/complex/pages/ComplexSelectorPage'), <PageLoader />),
+      },
+      {
+        path: '/onboarding',
+        element: lazyPage(() => import('@/features/onboarding/pages/OnboardingPage'), <PageLoader />),
+      },
+      {
+        path: '/settings/mp/callback',
+        element: lazyPage(() => import('@/features/complex/pages/MPCallbackPage'), <PageLoader />),
+      },
+    ],
   },
 ];
 
