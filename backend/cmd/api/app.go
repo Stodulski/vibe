@@ -305,9 +305,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 		WebhookURL: cfg.leads.abandonedWebhookURL,
 		Token:      cfg.leads.abandonedWebhookToken,
 	})
-	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
-	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
-
 	var queues health.QueueReporter
 	if d.db != nil {
 		queues = queueProbe{pool: d.db}
@@ -339,18 +336,23 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// map errors. A service is passed wherever another domain reads this one,
 	// so the entry point into a domain is its service rather than its store —
 	// which is what lets a rule added later (authorization, caching) land in
-	// one place. Two exceptions:
+	// one place.
 	//
-	//   - bookings still receives stores, because its own service does not
-	//     exist yet; the payments service reads the other domains through
-	//     stores for the same reason.
-	//   - complexes receives the court store, because courts and complexes read
-	//     each other and the two services cannot both be constructed second.
-	//     Courts takes the complexes service; complexes keeps the court store.
+	// The order below follows the dependency edges, and the locals-then-publish
+	// rule above makes a wrong order a compile error rather than a runtime
+	// surprise. Two domains read each other, so the edges cannot all be
+	// construction arguments:
 	//
-	// The rest of the ordering follows the dependency edges, and the
-	// locals-then-publish rule above makes a wrong order a compile error rather
-	// than a runtime surprise.
+	//   - courts and complexes: complexes is built with no court port, courts
+	//     takes the complexes service, and SetCourts closes the loop below —
+	//     once, here, before the router exists.
+	//   - bookings and payments: bookings takes the payments service, and
+	//     payments keeps the booking store. Closing that one needs a second
+	//     setter, which is not this change.
+	//
+	// Everything upstream of bookings (clients, complexes, courts, auth,
+	// reporting) still reads bookings through the store for the same reason:
+	// the booking service is built last, because it depends on all of them.
 	complexesConfig := complexes.Config{
 		MaxComplexes: cfg.limits.maxComplexes,
 		FrontendURL:  cfg.frontendURL,
@@ -358,13 +360,13 @@ func newApplication(cfg config, d deps) (*application, error) {
 		MPAppID:      cfg.mp.appID,
 	}
 	// complexesService is built before courtsService because the court domain
-	// reads venues and their opening hours through it. The reverse edge — the
-	// public venue page reading that venue's courts — is the one place a store
-	// is still passed between two converted domains: the two services cannot
-	// both be constructed second.
+	// reads venues and their opening hours through it, and with no court port
+	// at all: the reverse edge — the public venue page reading that venue's
+	// courts — is closed by SetCourts a few lines below, which is the only way
+	// two mutually reading services can both end up holding the other.
 	complexesService := complexes.NewService(complexes.Dependencies{
 		Store:    d.models.Complexes,
-		Courts:   d.models.Courts,
+		Courts:   nil,
 		Bookings: d.models.Bookings,
 		Payments: mpClient,
 		OAuth:    mpOAuthClient,
@@ -378,12 +380,13 @@ func newApplication(cfg config, d deps) (*application, error) {
 	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, complexesService, auditor)
 	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
 
-	reportingService := reporting.NewService(d.models.Bookings, clientsService, courtsService,
-		complexesService, d.models.Reports)
-	reportingHandler := reporting.NewHandler(reportingService, respond)
-
-	publicsiteService := publicsite.NewService(complexesService, cfg.frontendURL)
-	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
+	// The one edge that cannot be a constructor argument, closed the moment the
+	// other side exists: before any handler is built, before the router is
+	// built, and therefore before a request can reach the public venue page
+	// that reads it. complexes.Service.publicCourts panics on a nil port rather
+	// than answering a venue page with no courts on it, so moving this line
+	// below the router fails loudly instead of shipping an empty list.
+	complexesService.SetCourts(courtsService)
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.
@@ -417,12 +420,25 @@ func newApplication(cfg config, d deps) (*application, error) {
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
+	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
+	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
+
+	reportingService := reporting.NewService(d.models.Bookings, clientsService, courtsService,
+		complexesService, d.models.Reports)
+	reportingHandler := reporting.NewHandler(reportingService, respond)
+
+	publicsiteService := publicsite.NewService(complexesService, cfg.frontendURL)
+	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
+
 	paymentsService := payments.NewService(payments.Dependencies{
-		Payments:      d.models.Payments,
+		Payments:  d.models.Payments,
+		Clients:   clientsService,
+		Complexes: complexesService,
+		Courts:    courtsService,
+		// Bookings and RefundIntents stay on the store: the booking service
+		// takes this one (AutoRefundIfPaid), so it cannot exist yet. See the
+		// note on the two mutually reading domains above.
 		Bookings:      d.models.Bookings,
-		Clients:       d.models.Clients,
-		Complexes:     d.models.Complexes,
-		Courts:        d.models.Courts,
 		FailedRefunds: d.models.FailedRefunds,
 		WebhookEvents: d.models.WebhookEvents,
 		// d.models.Bookings is typed stores.BookingStore, which composes
@@ -455,10 +471,10 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// `undefined: paymentsService` fails the build, before any test runs.
 	bookingsService := bookings.NewService(bookings.Dependencies{
 		Store:     d.models.Bookings,
-		Clients:   d.models.Clients,
-		Complexes: d.models.Complexes,
-		Courts:    d.models.Courts,
-		Payments:  d.models.Payments,
+		Clients:   clientsService,
+		Complexes: complexesService,
+		Courts:    courtsService,
+		Payments:  paymentsService,
 		Locks:     d.models.SlotLocks,
 		Checkout:  mpClient,
 		Refunds:   paymentsService,

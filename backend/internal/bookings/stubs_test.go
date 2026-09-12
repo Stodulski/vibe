@@ -40,6 +40,9 @@ type stubStore struct {
 	// onUpdate runs inside Update, so a test can put an event — a client
 	// disconnecting, in particular — between two steps of a handler.
 	onUpdate func()
+	// updateErrFor decides Update's answer per booking, which is how a batch
+	// sweep can be shown surviving one row the database refuses.
+	updateErrFor func(*bookingstore.Booking) error
 
 	inserted []*bookingstore.Booking
 	updated  []*bookingstore.Booking
@@ -96,6 +99,11 @@ func (s *stubStore) InsertSafe(_ context.Context, b *bookingstore.Booking) error
 func (s *stubStore) Update(_ context.Context, b *bookingstore.Booking) error {
 	if s.onUpdate != nil {
 		s.onUpdate()
+	}
+	if s.updateErrFor != nil {
+		if err := s.updateErrFor(b); err != nil {
+			return err
+		}
 	}
 	// A shallow copy, not the caller's own pointer: the real store writes
 	// whatever the caller held at the moment of the call, and every handler

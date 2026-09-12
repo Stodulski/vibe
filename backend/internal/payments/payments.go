@@ -29,6 +29,12 @@ import (
 // PaymentStore is the payment persistence this module uses.
 type PaymentStore interface {
 	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
+	// Insert and RecordManualRefund are used by no rule in this module: they
+	// are here because the booking domain reaches the payment ledger through
+	// Service rather than through the payment store, and a service cannot
+	// proxy a method its own store interface does not declare.
+	Insert(ctx context.Context, p *paymentstore.Payment) error
+	RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (returnedCentavos int, err error)
 	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
 	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
 	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
@@ -77,10 +83,10 @@ type LinkMinter interface {
 	Mint(ctx context.Context, bookingID uuid.UUID, expiresAt time.Time) (plaintext string, err error)
 }
 
-// ClientStore is the client side: a confirmed booking updates their counters.
+// ClientStore is the client side: a confirmed booking names them in its
+// notification.
 type ClientStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
-	Update(ctx context.Context, c *clientstore.Client) error
 }
 
 // ComplexReader supplies the complex, including the seller credentials a
@@ -277,4 +283,44 @@ func NewHandler(svc *Service, provider Provider, respond *httpx.Responder, logge
 // anything else out of the body.
 func (h *Handler) Routes(router httpx.Router, _ httpx.Guards) {
 	router.HandlerFunc(http.MethodPost, "/api/v1/webhooks/mercadopago", h.MercadoPagoWebhook)
+}
+
+// ---------------------------------------------------------------------------
+// The payment ledger, as the booking domain reads and writes it
+// ---------------------------------------------------------------------------
+//
+// Each carries the store's own signature, so *Service satisfies the
+// bookings.PaymentStore interface that domain declares for itself. A method
+// that only proxies the store is deliberate: the point is that the entry point
+// into this domain is the service, so a rule added later lands in one place.
+
+// Insert records a payment. Exported for bookings, which creates the pending
+// MercadoPago row and the owner's cash/transfer rows.
+func (s *Service) Insert(ctx context.Context, p *paymentstore.Payment) error {
+	return s.payments.Insert(ctx, p)
+}
+
+// GetByBookingID returns a booking's MercadoPago-preferred payment row.
+// Exported for bookings.
+func (s *Service) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error) {
+	return s.payments.GetByBookingID(ctx, bookingID)
+}
+
+// ListByBookingID returns a booking's whole payment ledger. Exported for
+// bookings, whose detail view and cancellation preview both read every row.
+func (s *Service) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error) {
+	return s.payments.ListByBookingID(ctx, bookingID)
+}
+
+// InsertAndConfirmBooking records a payment and confirms its booking in one
+// transaction. Exported for bookings, whose counter-payment path uses it.
+func (s *Service) InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error {
+	return s.payments.InsertAndConfirmBooking(ctx, payment, booking)
+}
+
+// RecordManualRefund closes out a partial refund's remaining cash/transfer
+// rows. Exported for bookings, which is where the owner confirms they handed
+// the money back.
+func (s *Service) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (int, error) {
+	return s.payments.RecordManualRefund(ctx, bookingID)
 }

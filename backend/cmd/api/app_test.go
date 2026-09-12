@@ -156,8 +156,8 @@ var optionalApplicationFields = map[string]string{
 //
 // It also covers a regression the compile-time ordering cannot catch. Wrong
 // ORDER is a build error now, because handlers take locals. Wrong SOURCE is
-// not: changing bookings.Dependencies.Refunds from the local paymentsHandler
-// back to app.payments still compiles, reads the field before the publish
+// not: changing bookings.Dependencies.Refunds from the local paymentsService
+// back to app.paymentsService still compiles, reads the field before the publish
 // block sets it, and hands bookings a nil — which is exactly the defect this
 // change exists to remove.
 func TestNewApplicationWiresEveryField(t *testing.T) {

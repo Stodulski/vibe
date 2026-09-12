@@ -74,7 +74,6 @@ type ClientStore interface {
 	// clientstore.Store.GetOrCreate's comment for why an unauthenticated
 	// caller must never be able to overwrite an existing client's name.
 	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
-	Update(ctx context.Context, c *clientstore.Client) error
 	IncrementNoShows(ctx context.Context, clientID uuid.UUID) error
 }
 
@@ -104,7 +103,6 @@ type PaymentStore interface {
 	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
 	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
 	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
-	Update(ctx context.Context, p *paymentstore.Payment) error
 	// RecordManualRefund closes out a partial_refund booking's remaining
 	// cash/transfer rows, in one transaction with the booking's move to
 	// 'refunded'. See ManualRefund in actions.go.

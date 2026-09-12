@@ -72,9 +72,9 @@ type publicCancellation struct {
 
 // PublicBookInput is a validated request to book a court from the public page.
 type PublicBookInput struct {
-	ComplexID       uuid.UUID
-	CourtID         uuid.UUID
-	Date            time.Time
+	ComplexID uuid.UUID
+	CourtID   uuid.UUID
+	Date      time.Time
 	// RawDate is the date exactly as the client sent it, which is what the
 	// MercadoPago preference quotes back to them.
 	RawDate         string
