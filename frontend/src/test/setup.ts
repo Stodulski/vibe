@@ -1,3 +1,26 @@
+import { server } from './msw/server';
+
+// Starts the MSW server that stands in for the backend across the whole
+// suite (see `./msw/handlers` and `./msw/server`). Runs for both the
+// `happy-dom` and the `node` vitest environments (unlike the block below),
+// since plenty of `@vitest-environment node` API-layer tests hit the real
+// `ky` client too.
+//
+// `onUnhandledRequest: 'error'` fails a test the moment it fires a request
+// no handler covers, rather than letting it hang or fall through to a real
+// network call — the same intent TST-03 asks MSW to satisfy.
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+});
+
+afterEach(() => {
+  server.resetHandlers();
+});
+
+afterAll(() => {
+  server.close();
+});
+
 // Global test setup.
 //
 // See installStorage below for why the DOM environment cannot be relied on to
