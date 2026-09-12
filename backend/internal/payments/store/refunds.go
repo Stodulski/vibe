@@ -413,7 +413,7 @@ func (m *Payments) RecordRefundFailure(ctx context.Context, claim RefundClaim, c
 	// same policy on the other recorder of this table.
 	if transientProviderFailure(cause) {
 		newRetryCount = retryCount
-		delay = providerOutageRetryDelay
+		delay = providerOutageDelay()
 	}
 
 	exhausted := newRetryCount >= maxRetries

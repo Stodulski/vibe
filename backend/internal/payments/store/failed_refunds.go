@@ -9,10 +9,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/jobs"
 )
 
-// Exponential backoff durations for retry attempts.
+// Exponential backoff durations for retry attempts. Every value read out of
+// this table is spread by retryBackoff below; see there for why.
 var refundRetryBackoff = []time.Duration{
 	1 * time.Minute,
 	5 * time.Minute,
@@ -49,8 +52,9 @@ const staleRefundProcessing = 5 * time.Minute
 // used to be left claimed when the deadline landed mid-batch.
 const refundSweepBatch = 12
 
-// providerOutageRetryDelay is how long an attempt waits after a failure that was
-// the provider being unreachable rather than the refund being refused.
+// providerOutageRetryDelay is the base wait after a failure that was the
+// provider being unreachable rather than the refund being refused. The value
+// actually written is providerOutageDelay(), which spreads it.
 //
 // It is flat rather than exponential on purpose. The escalating table exists to
 // protect a provider that is answering us — each rejection is evidence about
@@ -254,11 +258,34 @@ func (m *FailedRefunds) MarkExhausted(ctx context.Context, id uuid.UUID) error {
 
 // retryBackoff returns how long an attempt waits before its retryCount-th try.
 // Past the end of the table every further attempt waits the longest interval.
+//
+// The value is spread by ±20% (OUT-02). A fixed table is a scheduled
+// thundering herd: every row that failed against one MercadoPago outage
+// carries the same next_retry_at to the second, so the provider's first moment
+// back up is met by the whole backlog at once — which is the load most likely
+// to knock it over again, and which then lines every row up on the next entry
+// of the same table. The spread costs nothing (the table is in minutes and
+// hours) and it is what turns a backlog into a queue.
+//
+// The width of the spread is jobs.Jitter's rather than this package's, because
+// two answers to "how wide" would be two retry schedules nobody chose.
 func retryBackoff(retryCount int) time.Duration {
 	if retryCount < len(refundRetryBackoff) {
-		return refundRetryBackoff[retryCount]
+		return jobs.Jitter(refundRetryBackoff[retryCount])
 	}
-	return refundRetryBackoff[len(refundRetryBackoff)-1]
+	return jobs.Jitter(refundRetryBackoff[len(refundRetryBackoff)-1])
+}
+
+// providerOutageDelay is how long an attempt waits after a failure that never
+// reached the provider.
+//
+// It is flat rather than exponential for the reason given on
+// providerOutageRetryDelay, and spread for the reason given on retryBackoff —
+// which bites hardest here. Every row in the queue fails on the same outage
+// within one sweep of each other, so without the spread they all come back
+// within one sweep of each other, forever, for as long as the outage lasts.
+func providerOutageDelay() time.Duration {
+	return jobs.Jitter(providerOutageRetryDelay)
 }
 
 // IncrementRetry records a failed retry attempt, storing errMsg and scheduling the
@@ -288,7 +315,7 @@ func (m *FailedRefunds) IncrementRetry(ctx context.Context, id uuid.UUID, retryC
 			    status = CASE WHEN retry_count >= max_retries THEN 'exhausted' ELSE 'pending' END,
 			    updated_at = NOW()
 			WHERE id = $1`,
-			id, errMsg, time.Now().Add(providerOutageRetryDelay))
+			id, errMsg, time.Now().Add(providerOutageDelay()))
 		return err
 	}
 

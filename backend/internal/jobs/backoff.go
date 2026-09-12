@@ -38,7 +38,18 @@ const JitterFraction = 0.2
 // == 1) waits the first entry. A non-positive count is treated as one rather
 // than indexing off the front of the table.
 func Backoff(table []time.Duration, attempts int) time.Duration {
-	return jittered(base(table, attempts), rand.Float64) //nolint:gosec // G404: this spreads a retry, it is not a secret.
+	return Jitter(base(table, attempts))
+}
+
+// Jitter spreads one delay by ±JitterFraction.
+//
+// It is exported because this package is not the only place with a retry
+// ladder: the payments queues have their own, keyed on their own columns, and
+// the thing that must not be duplicated is the rule about how wide the spread
+// is — two different answers to that would be two different schedules nobody
+// chose. The ladder stays where it belongs; the spread is decided once, here.
+func Jitter(d time.Duration) time.Duration {
+	return jittered(d, rand.Float64) //nolint:gosec // G404: this spreads a retry, it is not a secret.
 }
 
 // base picks the table entry for an attempt, with no jitter. It is separate so

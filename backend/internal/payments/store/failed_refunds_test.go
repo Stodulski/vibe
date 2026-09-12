@@ -139,3 +139,43 @@ func TestTransientProviderFailure(t *testing.T) {
 		}
 	}
 }
+
+// TestEveryRetryDelayIsSpread is OUT-02 for the payment queues. The tables are
+// fixed, so without the spread every row that failed against one MercadoPago
+// outage carries the same next_retry_at to the second: the provider's first
+// moment back up is met by the whole backlog at once, and the rows that fail
+// again line up on the next entry of the same table.
+//
+// The assertion is a band rather than a value, which is the point — a delay
+// that is always the same number is the defect.
+func TestEveryRetryDelayIsSpread(t *testing.T) {
+	tests := []struct {
+		name string
+		base time.Duration
+		next func() time.Duration
+	}{
+		{"the first entry of the ladder", time.Minute, func() time.Duration { return retryBackoff(0) }},
+		{"the last entry of the ladder", 4 * time.Hour, func() time.Duration { return retryBackoff(4) }},
+		{"past the end of the ladder", 4 * time.Hour, func() time.Duration { return retryBackoff(99) }},
+		{"the flat provider-outage probe", providerOutageRetryDelay, providerOutageDelay},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			low := time.Duration(float64(tt.base) * 0.8)
+			high := time.Duration(float64(tt.base) * 1.2)
+
+			seen := make(map[time.Duration]struct{})
+			for range 200 {
+				got := tt.next()
+				if got < low || got > high {
+					t.Fatalf("delay %v is outside [%v, %v]; the spread is not ±20%% of %v", got, low, high, tt.base)
+				}
+				seen[got] = struct{}{}
+			}
+			if len(seen) < 2 {
+				t.Errorf("200 draws produced %d distinct delays; the table is still fixed and a backlog still stampedes", len(seen))
+			}
+		})
+	}
+}
