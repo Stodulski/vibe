@@ -83,7 +83,7 @@ func TestSitemapListsHomepageAndEveryComplex(t *testing.T) {
 		{Slug: "vibe-pilar", UpdatedAt: time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)},
 	}}
 
-	h := NewHandler(store, testResponder(), "https://vibe.example/")
+	h := NewHandler(NewService(store, "https://vibe.example/"), testResponder())
 	w := httptest.NewRecorder()
 	h.Sitemap(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
@@ -114,7 +114,7 @@ func TestSitemapListsHomepageAndEveryComplex(t *testing.T) {
 }
 
 func TestSitemapReportsStoreFailure(t *testing.T) {
-	h := NewHandler(&stubStore{slugsErr: errors.New("db down")}, testResponder(), "https://vibe.example")
+	h := NewHandler(NewService(&stubStore{slugsErr: errors.New("db down")}, "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Sitemap(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
@@ -137,7 +137,7 @@ func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(store, testResponder(), frontendServing(t, baseTemplate))
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 
@@ -179,7 +179,7 @@ func TestPrerenderEscapesOwnerSuppliedText(t *testing.T) {
 		complex: &complexstore.Complex{ID: uuid.New(), Name: `Vibe <script>alert(1)</script>`, IsActive: true},
 	}
 
-	h := NewHandler(store, testResponder(), frontendServing(t, baseTemplate))
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "x"))
 
@@ -245,7 +245,7 @@ func TestStructuredDataOmitsAbsentFieldsAndClosedDays(t *testing.T) {
 }
 
 func TestPrerenderReportsUnknownSlugAsNotFound(t *testing.T) {
-	h := NewHandler(&stubStore{complexErr: data.ErrRecordNotFound}, testResponder(), "https://vibe.example")
+	h := NewHandler(NewService(&stubStore{complexErr: data.ErrRecordNotFound}, "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "missing"))
 
@@ -255,7 +255,7 @@ func TestPrerenderReportsUnknownSlugAsNotFound(t *testing.T) {
 }
 
 func TestPrerenderRejectsAnEmptySlug(t *testing.T) {
-	h := NewHandler(&stubStore{}, testResponder(), "https://vibe.example")
+	h := NewHandler(NewService(&stubStore{}, "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
@@ -338,7 +338,7 @@ func TestPrerenderIsClosedForADeactivatedComplex(t *testing.T) {
 		schedules: []*complexstore.Schedule{{Day: "monday", OpenTime: "08:00", CloseTime: "23:00"}},
 	}
 
-	h := NewHandler(store, testResponder(), frontendServing(t, baseTemplate))
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe"))
 
