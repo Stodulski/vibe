@@ -59,6 +59,25 @@ describe('useAbandonedGoogleSignupLead', () => {
     });
   });
 
+  it('reads the email current at capture time when the effect re-runs with a new one', () => {
+    // `email` is the only render-scoped value the hook closes over, so this
+    // is the case that separates the effect event from the closure it
+    // replaced: when the effect re-runs for a new email, the cleanup of the
+    // previous run captures. A plain closure would capture the previous
+    // render's email there; the effect event reads the one current now.
+    const { getValues } = makeGetValues({ first_name: 'Juan' });
+    const { rerender, unmount } = renderHook(
+      ({ email }: { email: string }) => useAbandonedGoogleSignupLead(email, getValues),
+      { initialProps: { email: 'juan@test.com' } },
+    );
+
+    rerender({ email: 'ana@test.com' });
+    unmount();
+
+    expect(mockCapture).toHaveBeenCalledTimes(1);
+    expect(mockCapture).toHaveBeenCalledWith(expect.objectContaining({ email: 'ana@test.com' }));
+  });
+
   it('does not capture on unmount once markAccountCreated was called', () => {
     const { getValues } = makeGetValues({});
     const { result, unmount } = renderHook(
