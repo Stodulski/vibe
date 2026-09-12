@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"expvar"
+	"io"
 	"log/slog"
 	"os"
 	"runtime"
@@ -120,16 +121,19 @@ func sentryRelease(cfg config.Config) string {
 	return "vibe@" + version
 }
 
-// baseLogger is the logger every line in the process descends from. The three
-// attributes on it are the ones a log aggregator groups by and that no
-// individual call site knows: which service wrote the line, which deployment
-// it was, and which build.
-func baseLogger(cfg config.Config) *slog.Logger {
+// baseLogger is the logger every line in the process descends from.
+//
+// The three attributes on it are the ones a log aggregator groups by and that
+// no individual call site knows: which service wrote the line, which
+// deployment it was, and which build. Without them a line in a shared log
+// stream says what happened and nothing about where — and "which build" is
+// the first question asked of an error that started this afternoon.
+func baseLogger(cfg config.Config, w io.Writer) *slog.Logger {
 	var handler slog.Handler
 	if cfg.Env == "production" {
-		handler = slog.NewJSONHandler(os.Stdout, nil)
+		handler = slog.NewJSONHandler(w, nil)
 	} else {
-		handler = slog.NewTextHandler(os.Stdout, nil)
+		handler = slog.NewTextHandler(w, nil)
 	}
 	return slog.New(handler).With(
 		"service", serviceName,
@@ -160,7 +164,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := baseLogger(cfg)
+	logger := baseLogger(cfg, os.Stdout)
 
 	if cfg.Sentry.DSN != "" {
 		err := sentry.Init(sentry.ClientOptions{
