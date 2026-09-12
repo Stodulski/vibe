@@ -66,6 +66,22 @@ func TestVerifyWebhook(t *testing.T) {
 			t.Error("expected error for wrong verify token")
 		}
 	})
+
+	// The three cases a byte-at-a-time comparison would answer differently
+	// from each other: a token sharing every byte but the last, a prefix of
+	// the real one, and one that is longer. All three must be refused, and
+	// refused by the same comparison that cannot say which was closer.
+	for _, token := range []string{"my-verify-toke!", "my-verify", "my-verify-token-and-more", ""} {
+		t.Run("near miss "+token, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+				"/webhook?hub.mode=subscribe&hub.verify_token="+token+"&hub.challenge=abc", nil)
+
+			challenge, err := client.VerifyWebhook(req)
+			if err == nil {
+				t.Errorf("expected %q to be refused; got challenge %q", token, challenge)
+			}
+		})
+	}
 }
 
 func TestVerifySignature(t *testing.T) {
