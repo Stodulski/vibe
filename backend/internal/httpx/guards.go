@@ -25,6 +25,14 @@ type Guards struct {
 	RequireComplexOwner Guard
 	// RequireSuperAdmin rejects requests from users without the superadmin role.
 	RequireSuperAdmin Guard
+	// Idempotent makes a route replay its first answer to a repeat of the same
+	// request under the same Idempotency-Key, rather than running it twice.
+	// The scope separates one endpoint's keys from another's, so a caller
+	// reusing "1" on two endpoints is not replayed the wrong answer.
+	//
+	// A request without the header is unaffected, which is what lets a caller
+	// adopt it one endpoint at a time.
+	Idempotent func(scope string) Guard
 }
 
 // Validate reports which guards are missing.
@@ -43,6 +51,9 @@ func (g Guards) Validate() error {
 	}
 	if g.RequireSuperAdmin == nil {
 		missing = append(missing, "RequireSuperAdmin")
+	}
+	if g.Idempotent == nil {
+		missing = append(missing, "Idempotent")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("httpx: unwired guards: %s", strings.Join(missing, ", "))

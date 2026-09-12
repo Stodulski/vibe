@@ -972,6 +972,8 @@ paths:
         booking's primary key is deliberately never included in the response, only the opaque
         `token` used by the status/cancel endpoints below.
       security: []
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "201":
           description: Booking created, awaiting payment confirmation.
@@ -1179,6 +1181,7 @@ paths:
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "201":
           description: Booking created and confirmed.
@@ -1349,6 +1352,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/BookingID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "200":
           description: The booking and the payment row created for it.
@@ -1400,6 +1404,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/BookingID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "200":
           description: The booking, its payments, and how much was returned.
@@ -1422,6 +1427,13 @@ paths:
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: >-
+            The `Idempotency-Key` was already used for a different request, or a request
+            using it is still running.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -3030,6 +3042,18 @@ components:
       required: true
       description: The opaque booking-link token, never the booking's primary key.
       schema: {type: string}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >-
+        A key the caller chooses to identify this attempt. Send the same key when retrying and
+        the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of
+        the request running twice — which is what a retried booking needs, because the database
+        would otherwise refuse the retry as somebody else's slot. The same key with a different
+        body, path or caller answers 409, as does a repeat arriving while the first is still
+        running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+      schema: {type: string, maxLength: 64, pattern: "^[!-~]+$", example: "9d1d1f4e-0a0a-4a4a-8b8b-000000000001"}
 
   responses:
     Unauthorized:
