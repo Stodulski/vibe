@@ -8,7 +8,7 @@ import { queryKeys } from '@/shared/lib/queryKeys';
 export function useVerifyEmail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { logout } = useStore();
+  const logout = useStore((s) => s.logout);
   const token = searchParams.get('token');
   const [countdown, setCountdown] = useState(3);
 

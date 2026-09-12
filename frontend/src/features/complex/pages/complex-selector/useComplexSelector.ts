@@ -8,7 +8,7 @@ export function useComplexSelector() {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: complexes, isLoading, isError, refetch } = useComplexes();
-  const { setSelectedComplexId } = useStore();
+  const setSelectedComplexId = useStore((s) => s.setSelectedComplexId);
 
   // Where to go after selecting a complex
   const fromPage = (location.state as { from?: string } | null)?.from;

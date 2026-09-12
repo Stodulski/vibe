@@ -11,7 +11,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
 });
 
 vi.mock('@/shared/stores', () => ({
-  useStore: () => ({ setSelectedComplexId: setSelectedComplexIdMock }),
+  useStore: (selector: (s: { setSelectedComplexId: typeof setSelectedComplexIdMock }) => unknown) =>
+    selector({ setSelectedComplexId: setSelectedComplexIdMock }),
 }));
 
 const complex = { id: 'c1', mp_user_id: null } as unknown as Complex;

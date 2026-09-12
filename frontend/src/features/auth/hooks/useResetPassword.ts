@@ -13,7 +13,7 @@ const t = ES_AR;
 export function useResetPassword() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { logout } = useStore();
+  const logout = useStore((s) => s.logout);
   const token = searchParams.get('token');
   const [countdown, setCountdown] = useState(3);
   const clearedSession = useRef(false);

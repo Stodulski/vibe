@@ -414,6 +414,19 @@ export default defineConfig([
           selector: 'ImportNamespaceSpecifier[parent.source.value=/^(lucide-react|date-fns)$/]',
           message: "Import only the named icons/functions you use, not the whole module with 'import * as'.",
         },
+        // STORE-02: `useStore()` with no selector subscribes the component to
+        // the WHOLE store, so picking `logout` out of it re-renders that
+        // component every time an unrelated slice changes (a complex being
+        // selected, a sidebar collapsing). One atomic selector per value —
+        // `useStore((s) => s.logout)` — subscribes to exactly that value.
+        // Zustand's own docs call the no-argument form the thing to avoid;
+        // this is what stops it coming back one convenient destructure at a
+        // time. `useStore.getState()` is untouched: it reads once, outside
+        // React, and subscribes to nothing.
+        {
+          selector: "CallExpression[callee.name='useStore'][arguments.length=0]",
+          message: 'Subscribe to one value: useStore((s) => s.thing). A bare useStore() re-renders on any change.',
+        },
       ],
     },
   },
