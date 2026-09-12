@@ -108,8 +108,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # TST-12: coverage is collected on every run and made visible without a
+      # hard threshold: the text summary lands in the job summary and the lcov
+      # report is kept as an artifact for a week.
       - name: Test
-        run: pnpm test
+        run: NODE_OPTIONS=--max-old-space-size=3072 pnpm test:coverage 2>&1 | tee test-output.log
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo '## Coverage'
+            echo '```'
+            sed -n '/Coverage summary/,/^=*$/p' test-output.log | sed '1d;$d'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+          retention-days: 7
 
   # A broken build was previously discovered only by Vercel, after merge
   # (CI-06). VITE_APP_URL is a placeholder — the real value is a Vercel
