@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { AlertDialog, AlertDialogContent } from '@/shared/components/common/AppAlertDialog';
 import {
-  AlertDialog,
-  AlertDialogContent,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogDescription,

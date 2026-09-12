@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Dialog, DialogContent, DialogTitle } from './dialog';
+import { Dialog, DialogContent, DialogTitle } from './AppDialog';
 
 /**
  * Regression test for M9: `document.activeElement as HTMLElement` used to

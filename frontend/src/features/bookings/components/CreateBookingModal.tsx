@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/common/AppDialog';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { CreateBookingSteps } from './create-booking-modal/CreateBookingSteps';
 import { useCreateBookingForm } from './create-booking-modal/useCreateBookingForm';

@@ -4,31 +4,12 @@ import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
 
-// Same rationale as `Dialog` in `./dialog.tsx`: most alert dialogs here are
-// opened via an `open`/`onClose` prop pair, not `<AlertDialogTrigger>`, so
-// Radix's own trigger-focus-return never fires. Remember what was focused
-// right before opening and restore it ourselves on close.
-const AlertDialogFocusReturnContext = React.createContext<HTMLElement | null>(null);
-
-function AlertDialog({ open, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  // See the matching comment in `./dialog.tsx` — "adjusting state during
-  // render" is the sanctioned way to snapshot something (here,
-  // `document.activeElement`) at the exact instant a prop transitions,
-  // since a `useEffect` would run after Radix's own focus-trap effect.
-  const [wasOpen, setWasOpen] = React.useState(false);
-  const [lastFocused, setLastFocused] = React.useState<HTMLElement | null>(null);
-  if (open && !wasOpen) {
-    setWasOpen(true);
-    const activeElement = document.activeElement;
-    setLastFocused(activeElement instanceof HTMLElement ? activeElement : null);
-  } else if (!open && wasOpen) {
-    setWasOpen(false);
-  }
-  return (
-    <AlertDialogFocusReturnContext.Provider value={lastFocused}>
-      <AlertDialogPrimitive.Root data-slot="alert-dialog" {...(open !== undefined ? { open } : {})} {...props} />
-    </AlertDialogFocusReturnContext.Provider>
-  );
+// This app's own focus-restore behavior for an alert dialog opened via an
+// `open`/`onClose` prop pair (instead of `<AlertDialogTrigger>`) lives in
+// `AppAlertDialog` (`@/shared/components/common/AppAlertDialog`), which wraps
+// this primitive — see UI-04 in the frontend audit.
+function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
+  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
 }
 
 function AlertDialogTrigger({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {
@@ -55,12 +36,10 @@ function AlertDialogOverlay({ className, ...props }: React.ComponentProps<typeof
 function AlertDialogContent({
   className,
   size = 'default',
-  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: 'default' | 'sm';
 }) {
-  const lastFocused = React.useContext(AlertDialogFocusReturnContext);
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
@@ -71,13 +50,6 @@ function AlertDialogContent({
           'group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-3rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 max-h-[calc(100dvh-3rem)] overflow-y-auto data-[size=sm]:max-w-xs data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[size=default]:sm:max-w-lg',
           className,
         )}
-        onCloseAutoFocus={(event) => {
-          onCloseAutoFocus?.(event);
-          if (!event.defaultPrevented && lastFocused) {
-            event.preventDefault();
-            lastFocused.focus();
-          }
-        }}
         {...props}
       />
     </AlertDialogPortal>
@@ -136,19 +108,6 @@ function AlertDialogDescription({
   );
 }
 
-function AlertDialogMedia({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="alert-dialog-media"
-      className={cn(
-        "mb-2 inline-flex size-16 items-center justify-center rounded-md bg-muted sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
 function AlertDialogAction({
   className,
   variant = 'default',
@@ -185,7 +144,6 @@ export {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogMedia,
   AlertDialogOverlay,
   AlertDialogPortal,
   AlertDialogTitle,

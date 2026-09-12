@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogAction } from './alert-dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogAction } from './AppAlertDialog';
 
 /**
  * Regression test for M9, mirroring `dialog.test.tsx`: a focused

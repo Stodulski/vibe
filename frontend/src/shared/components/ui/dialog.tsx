@@ -10,36 +10,13 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
 
-// Most of this app's dialogs are opened via an `open`/`onClose` prop pair
-// from an ancestor page, not via `<DialogTrigger>` — so Radix's own
-// `context.triggerRef` (populated only by `DialogTrigger`) stays null and its
-// built-in "focus returns to the trigger on close" behavior silently does
-// nothing. This context/ref remembers whatever was focused right before the
-// dialog opened (almost always the button that opened it) so `DialogContent`
-// can restore focus there itself on close, matching Radix's documented
-// default instead of leaving focus on `<body>`.
-const DialogFocusReturnContext = React.createContext<HTMLElement | null>(null);
-
-function Dialog({ open, ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  // "Adjusting state during render" — React's own escape hatch for state that
-  // depends on the exact instant a prop changed, not just its current value.
-  // A `useEffect` would run too late here: Radix's own focus-trap effect
-  // (which moves focus into the dialog) fires before ours, so by the time we
-  // read it focus has already left the trigger.
-  const [wasOpen, setWasOpen] = React.useState(false);
-  const [lastFocused, setLastFocused] = React.useState<HTMLElement | null>(null);
-  if (open && !wasOpen) {
-    setWasOpen(true);
-    const activeElement = document.activeElement;
-    setLastFocused(activeElement instanceof HTMLElement ? activeElement : null);
-  } else if (!open && wasOpen) {
-    setWasOpen(false);
-  }
-  return (
-    <DialogFocusReturnContext.Provider value={lastFocused}>
-      <DialogPrimitive.Root data-slot="dialog" {...(open !== undefined ? { open } : {})} {...props} />
-    </DialogFocusReturnContext.Provider>
-  );
+// This app's own focus-restore behavior for a dialog opened via an
+// `open`/`onClose` prop pair (instead of `<DialogTrigger>`) lives in
+// `AppDialog` (`@/shared/components/common/AppDialog`), which wraps this
+// primitive. Keeping it out of here means this file stays the shadcn
+// primitive plus tokens — see UI-04 in the frontend audit.
+function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 
 function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
@@ -71,12 +48,10 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
-  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
-  const lastFocused = React.useContext(DialogFocusReturnContext);
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -89,13 +64,6 @@ function DialogContent({
           'inset-0 rounded-none pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] [&>form]:flex [&>form]:flex-1 [&>form]:flex-col [&>form>:last-child]:mt-auto sm:inset-auto sm:top-[50%] sm:left-[50%] sm:max-w-lg sm:max-h-[calc(100dvh-3rem)] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:p-6 sm:[&>form]:flex-none sm:[&>form>:last-child]:mt-0 data-[state=closed]:sm:zoom-out-95 data-[state=open]:sm:zoom-in-95',
           className,
         )}
-        onCloseAutoFocus={(event) => {
-          onCloseAutoFocus?.(event);
-          if (!event.defaultPrevented && lastFocused) {
-            event.preventDefault();
-            lastFocused.focus();
-          }
-        }}
         {...props}
       >
         {children}
