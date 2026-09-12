@@ -78,11 +78,12 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  it('redirects when user role is not in allowedRoles', () => {
+  it('shows the forbidden page in place, instead of redirecting, when user role is not in allowedRoles', () => {
     setAuth({ ...mockUser, role: 'client' });
     renderProtected(['superadmin']);
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(screen.getByText('Home Page')).toBeInTheDocument();
+    expect(screen.queryByText('Home Page')).not.toBeInTheDocument();
+    expect(screen.getByText('403')).toBeInTheDocument();
   });
 
   it('renders children when no role restriction is set', () => {
