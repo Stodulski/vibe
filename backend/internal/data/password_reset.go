@@ -28,7 +28,7 @@ type PasswordResetModel struct {
 // InsertWithCooldown creates a new password reset token, atomically clearing tokens older
 // than 3 minutes, unless a fresh token was already issued, returning ErrCooldownActive then.
 func (m *PasswordResetModel) InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	expiresAt := time.Now().Add(passwordResetTokenExpiry)
@@ -64,7 +64,7 @@ func (m *PasswordResetModel) InsertWithCooldown(ctx context.Context, userID uuid
 // query, preventing race conditions and ensuring single-use. Returns
 // ErrRecordNotFound if no matching, unexpired token exists.
 func (m *PasswordResetModel) GetByHash(ctx context.Context, tokenHash []byte) (*PasswordResetToken, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	query := `
@@ -86,7 +86,7 @@ func (m *PasswordResetModel) GetByHash(ctx context.Context, tokenHash []byte) (*
 
 // DeleteByUser removes every password reset token belonging to the user.
 func (m *PasswordResetModel) DeleteByUser(ctx context.Context, userID uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1", userID)
@@ -95,7 +95,7 @@ func (m *PasswordResetModel) DeleteByUser(ctx context.Context, userID uuid.UUID)
 
 // DeleteExpired removes every password reset token past its expiry, used by a periodic cleanup job.
 func (m *PasswordResetModel) DeleteExpired(ctx context.Context) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx, "DELETE FROM password_reset_tokens WHERE expires_at <= NOW()")

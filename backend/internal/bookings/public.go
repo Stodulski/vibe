@@ -9,10 +9,12 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
+
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -333,7 +335,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 		seller, sellerErr = mp.AsSeller(sellerToken)
 	}
 	if sellerErr != nil {
-		if errors.Is(sellerErr, data.ErrMPCredentialUnreadable) {
+		if errors.Is(sellerErr, mpcred.ErrMPCredentialUnreadable) {
 			sentry.CaptureMessage(fmt.Sprintf("SELLER TOKEN UNREADABLE (refusing checkout): complex_id=%s error=%v", complex.ID, sellerErr))
 		}
 		h.respond.Error(w, r, http.StatusBadRequest, "the complex does not have MercadoPago connected, contact the complex")

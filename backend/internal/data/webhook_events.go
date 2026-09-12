@@ -71,7 +71,7 @@ type WebhookEventModel struct {
 // response is written, so a caller that gets an error here must refuse the
 // delivery rather than acknowledge it.
 func (m *WebhookEventModel) Insert(ctx context.Context, e *WebhookEvent) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	provider := e.Provider
@@ -111,7 +111,7 @@ func (m *WebhookEventModel) Insert(ctx context.Context, e *WebhookEvent) error {
 // outage that outlasted five attempts. Nothing ever moved a row out of that
 // status. It comes back here on the tail of its own backoff instead.
 func (m *WebhookEventModel) GetPendingDue(ctx context.Context) ([]*WebhookEvent, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -139,7 +139,7 @@ func (m *WebhookEventModel) GetPendingDue(ctx context.Context) ([]*WebhookEvent,
 // same predicate GetPendingDue selects on, so a row another worker is honestly
 // still working is refused until its attempt has gone stale.
 func (m *WebhookEventModel) Claim(ctx context.Context, id uuid.UUID) (bool, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx, `
@@ -163,7 +163,7 @@ func (m *WebhookEventModel) Claim(ctx context.Context, id uuid.UUID) (bool, erro
 // and a closing write that is skipped leaves that row in 'processing' to be
 // worked all over again.
 func (m *WebhookEventModel) MarkProcessed(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := detachedQueryContext(ctx)
+	ctx, cancel := DetachedQueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -183,7 +183,7 @@ func (m *WebhookEventModel) MarkProcessed(ctx context.Context, id uuid.UUID) err
 // the same stale struct and between them burn a single retry.
 //
 // It runs on a context detached from the caller's cancellation, bounded by the
-// ordinary transaction budget — the same shape as detachedQueryContext, one size
+// ordinary transaction budget — the same shape as DetachedQueryContext, one size
 // up because this is a transaction. The reason is that the case this write
 // matters most in is exactly the case where the caller has no context left: a
 // sweep that hit its two-minute budget with this event claimed. Skipping the
@@ -191,7 +191,7 @@ func (m *WebhookEventModel) MarkProcessed(ctx context.Context, id uuid.UUID) err
 // reason, invisible to every instance until it goes stale — which for this table
 // is a captured payment whose booking is still unconfirmed.
 func (m *WebhookEventModel) MarkFailed(ctx context.Context, id uuid.UUID, cause string) (bool, error) {
-	ctx, cancel := txContext(context.WithoutCancel(ctx))
+	ctx, cancel := TxContext(context.WithoutCancel(ctx))
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -259,7 +259,7 @@ func (m *WebhookEventModel) MarkFailed(ctx context.Context, id uuid.UUID, cause 
 // Only 'processed' rows are eligible. Anything still pending, in flight or
 // exhausted describes unfinished money and stays until it is resolved.
 func (m *WebhookEventModel) DeleteProcessed(ctx context.Context, olderThan time.Duration) (int64, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx,

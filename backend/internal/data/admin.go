@@ -122,7 +122,7 @@ type AdminModel struct {
 
 // GetPlatformStats computes platform-wide user, complex, court, booking and revenue counters.
 func (m *AdminModel) GetPlatformStats(ctx context.Context) (*PlatformStats, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	var stats PlatformStats
@@ -155,7 +155,7 @@ func (m *AdminModel) GetPlatformStats(ctx context.Context) (*PlatformStats, erro
 
 // ListUsers returns a paginated, optionally search- and role-filtered list of platform users.
 func (m *AdminModel) ListUsers(ctx context.Context, search, roleFilter string, filters Filters) ([]*AdminUserRow, Metadata, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	cursorTime, cursorID, err := filters.ParseCursor()
@@ -167,10 +167,10 @@ func (m *AdminModel) ListUsers(ctx context.Context, search, roleFilter string, f
 	fetchLimit := filters.Limit + 1
 
 	// H-04: escaped so a literal '%' or '_' in the search box matches only
-	// itself instead of widening the search — see escapeLikeTerm's comment.
+	// itself instead of widening the search — see EscapeLikeTerm's comment.
 	// The `$1 = ''` "no search" guard above stays correct against the escaped
 	// value: escaping an empty string still yields an empty string.
-	escapedSearch := escapeLikeTerm(search)
+	escapedSearch := EscapeLikeTerm(search)
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.role,
@@ -216,7 +216,7 @@ func (m *AdminModel) ListUsers(ctx context.Context, search, roleFilter string, f
 //
 //nolint:funlen // single cohesive fetch-user-then-fetch-owned-complexes flow for one admin query
 func (m *AdminModel) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUserDetail, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	var user User
@@ -280,7 +280,7 @@ func (m *AdminModel) GetUserDetail(ctx context.Context, userID uuid.UUID) (*Admi
 
 // ListComplexes returns a paginated, optionally search-filtered list of complexes with owner info.
 func (m *AdminModel) ListComplexes(ctx context.Context, search string, filters Filters) ([]*AdminComplexRow, Metadata, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	cursorTime, cursorID, err := filters.ParseCursor()
@@ -292,8 +292,8 @@ func (m *AdminModel) ListComplexes(ctx context.Context, search string, filters F
 	fetchLimit := filters.Limit + 1
 
 	// H-04: same escaping as ListUsers above, and for the same reason — see
-	// escapeLikeTerm's comment.
-	escapedSearch := escapeLikeTerm(search)
+	// EscapeLikeTerm's comment.
+	escapedSearch := EscapeLikeTerm(search)
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT c.id, c.owner_id,
@@ -339,7 +339,7 @@ func (m *AdminModel) ListComplexes(ctx context.Context, search string, filters F
 
 // GetComplexDetail returns the complex with owner info and aggregate statistics, or ErrRecordNotFound if it does not exist.
 func (m *AdminModel) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*AdminComplexDetail, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	var c Complex
@@ -396,7 +396,7 @@ func (m *AdminModel) GetComplexDetail(ctx context.Context, complexID uuid.UUID) 
 
 // ToggleUserActive sets a user's active status, returning ErrRecordNotFound if the user does not exist.
 func (m *AdminModel) ToggleUserActive(ctx context.Context, userID uuid.UUID, isActive bool) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	result, err := m.DB.Exec(ctx, `UPDATE users SET is_active = $1 WHERE id = $2`, isActive, userID)
@@ -415,7 +415,7 @@ func (m *AdminModel) ToggleUserActive(ctx context.Context, userID uuid.UUID, isA
 // in admin_integration_test.go can EXPLAIN the exact statement this store issues.
 // Its unscoped form — complex_id NULL, the default superadmin view — is served by
 // idx_audit_log_created_at; before that index existed it seq-scanned
-// the whole table and blew past the queryContext budget at roughly 372,000 rows.
+// the whole table and blew past the QueryContext budget at roughly 372,000 rows.
 const listAuditLogsSQL = `
 	SELECT a.id, a.user_id, u.email, a.complex_id, a.action, a.entity_type,
 	       a.entity_id, a.ip_address::text, a.created_at
@@ -430,7 +430,7 @@ const listAuditLogsSQL = `
 
 // ListAuditLogs returns a paginated, optionally complex- and entity-type-filtered list of audit log entries.
 func (m *AdminModel) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters Filters) ([]*AuditLogRow, Metadata, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	cursorTime, cursorID, err := filters.ParseCursor()

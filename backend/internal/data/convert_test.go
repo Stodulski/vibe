@@ -10,10 +10,10 @@ import (
 
 func TestUuidToPg(t *testing.T) {
 	id := uuid.New()
-	pg := uuidToPg(id)
+	pg := UUIDToPg(id)
 
 	if !pg.Valid {
-		t.Fatal("uuidToPg returned invalid UUID")
+		t.Fatal("UUIDToPg returned invalid UUID")
 	}
 	if pg.Bytes != id {
 		t.Errorf("Bytes = %v, want %v", pg.Bytes, id)
@@ -24,23 +24,23 @@ func TestPgToUUID(t *testing.T) {
 	id := uuid.New()
 	pg := pgtype.UUID{Bytes: id, Valid: true}
 
-	got := pgToUUID(pg)
+	got := PgToUUID(pg)
 	if got != id {
-		t.Errorf("pgToUUID = %v, want %v", got, id)
+		t.Errorf("PgToUUID = %v, want %v", got, id)
 	}
 }
 
 func TestPgToUUID_Invalid(t *testing.T) {
 	pg := pgtype.UUID{Valid: false}
-	got := pgToUUID(pg)
+	got := PgToUUID(pg)
 	if got != uuid.Nil {
-		t.Errorf("pgToUUID(invalid) = %v, want Nil", got)
+		t.Errorf("PgToUUID(invalid) = %v, want Nil", got)
 	}
 }
 
 func TestUuidToPg_RoundTrip(t *testing.T) {
 	id := uuid.New()
-	got := pgToUUID(uuidToPg(id))
+	got := PgToUUID(UUIDToPg(id))
 	if got != id {
 		t.Errorf("round-trip UUID = %v, want %v", got, id)
 	}
@@ -48,10 +48,10 @@ func TestUuidToPg_RoundTrip(t *testing.T) {
 
 func TestUuidPtrToPg_NonNil(t *testing.T) {
 	id := uuid.New()
-	pg := uuidPtrToPg(&id)
+	pg := UUIDPtrToPg(&id)
 
 	if !pg.Valid {
-		t.Fatal("uuidPtrToPg returned invalid UUID for non-nil ptr")
+		t.Fatal("UUIDPtrToPg returned invalid UUID for non-nil ptr")
 	}
 	if pg.Bytes != id {
 		t.Errorf("Bytes = %v, want %v", pg.Bytes, id)
@@ -59,9 +59,9 @@ func TestUuidPtrToPg_NonNil(t *testing.T) {
 }
 
 func TestUuidPtrToPg_Nil(t *testing.T) {
-	pg := uuidPtrToPg(nil)
+	pg := UUIDPtrToPg(nil)
 	if pg.Valid {
-		t.Error("uuidPtrToPg(nil) should return invalid UUID")
+		t.Error("UUIDPtrToPg(nil) should return invalid UUID")
 	}
 }
 
@@ -69,29 +69,29 @@ func TestPgToUUIDPtr_Valid(t *testing.T) {
 	id := uuid.New()
 	pg := pgtype.UUID{Bytes: id, Valid: true}
 
-	got := pgToUUIDPtr(pg)
+	got := PgToUUIDPtr(pg)
 	if got == nil {
-		t.Fatal("pgToUUIDPtr returned nil for valid UUID")
+		t.Fatal("PgToUUIDPtr returned nil for valid UUID")
 	}
 	if *got != id {
-		t.Errorf("pgToUUIDPtr = %v, want %v", *got, id)
+		t.Errorf("PgToUUIDPtr = %v, want %v", *got, id)
 	}
 }
 
 func TestPgToUUIDPtr_Invalid(t *testing.T) {
 	pg := pgtype.UUID{Valid: false}
-	got := pgToUUIDPtr(pg)
+	got := PgToUUIDPtr(pg)
 	if got != nil {
-		t.Errorf("pgToUUIDPtr(invalid) = %v, want nil", got)
+		t.Errorf("PgToUUIDPtr(invalid) = %v, want nil", got)
 	}
 }
 
 func TestTimeToPg(t *testing.T) {
 	now := time.Now().Truncate(time.Microsecond)
-	pg := timeToPg(now)
+	pg := TimeToPg(now)
 
 	if !pg.Valid {
-		t.Fatal("timeToPg returned invalid for non-zero time")
+		t.Fatal("TimeToPg returned invalid for non-zero time")
 	}
 	if !pg.Time.Equal(now) {
 		t.Errorf("Time = %v, want %v", pg.Time, now)
@@ -99,9 +99,9 @@ func TestTimeToPg(t *testing.T) {
 }
 
 func TestTimeToPg_Zero(t *testing.T) {
-	pg := timeToPg(time.Time{})
+	pg := TimeToPg(time.Time{})
 	if pg.Valid {
-		t.Error("timeToPg(zero) should return invalid")
+		t.Error("TimeToPg(zero) should return invalid")
 	}
 }
 
@@ -109,23 +109,23 @@ func TestPgToTime_Valid(t *testing.T) {
 	now := time.Now().Truncate(time.Microsecond)
 	pg := pgtype.Timestamptz{Time: now, Valid: true}
 
-	got := pgToTime(pg)
+	got := PgToTime(pg)
 	if !got.Equal(now) {
-		t.Errorf("pgToTime = %v, want %v", got, now)
+		t.Errorf("PgToTime = %v, want %v", got, now)
 	}
 }
 
 func TestPgToTime_Invalid(t *testing.T) {
 	pg := pgtype.Timestamptz{Valid: false}
-	got := pgToTime(pg)
+	got := PgToTime(pg)
 	if !got.IsZero() {
-		t.Errorf("pgToTime(invalid) = %v, want zero", got)
+		t.Errorf("PgToTime(invalid) = %v, want zero", got)
 	}
 }
 
 func TestTimeToPg_RoundTrip(t *testing.T) {
 	now := time.Now().Truncate(time.Microsecond)
-	got := pgToTime(timeToPg(now))
+	got := PgToTime(TimeToPg(now))
 	if !got.Equal(now) {
 		t.Errorf("round-trip time = %v, want %v", got, now)
 	}
@@ -133,10 +133,10 @@ func TestTimeToPg_RoundTrip(t *testing.T) {
 
 func TestDateToPg(t *testing.T) {
 	d := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
-	pg := dateToPg(d)
+	pg := DateToPg(d)
 
 	if !pg.Valid {
-		t.Fatal("dateToPg returned invalid for non-zero date")
+		t.Fatal("DateToPg returned invalid for non-zero date")
 	}
 	if !pg.Time.Equal(d) {
 		t.Errorf("Time = %v, want %v", pg.Time, d)
@@ -144,9 +144,9 @@ func TestDateToPg(t *testing.T) {
 }
 
 func TestDateToPg_Zero(t *testing.T) {
-	pg := dateToPg(time.Time{})
+	pg := DateToPg(time.Time{})
 	if pg.Valid {
-		t.Error("dateToPg(zero) should return invalid")
+		t.Error("DateToPg(zero) should return invalid")
 	}
 }
 
@@ -154,23 +154,23 @@ func TestPgToDate_Valid(t *testing.T) {
 	d := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
 	pg := pgtype.Date{Time: d, Valid: true}
 
-	got := pgToDate(pg)
+	got := PgToDate(pg)
 	if !got.Equal(d) {
-		t.Errorf("pgToDate = %v, want %v", got, d)
+		t.Errorf("PgToDate = %v, want %v", got, d)
 	}
 }
 
 func TestPgToDate_Invalid(t *testing.T) {
 	pg := pgtype.Date{Valid: false}
-	got := pgToDate(pg)
+	got := PgToDate(pg)
 	if !got.IsZero() {
-		t.Errorf("pgToDate(invalid) = %v, want zero", got)
+		t.Errorf("PgToDate(invalid) = %v, want zero", got)
 	}
 }
 
 func TestDateToPg_RoundTrip(t *testing.T) {
 	d := time.Date(2025, 12, 25, 0, 0, 0, 0, time.UTC)
-	got := pgToDate(dateToPg(d))
+	got := PgToDate(DateToPg(d))
 	if !got.Equal(d) {
 		t.Errorf("round-trip date = %v, want %v", got, d)
 	}
@@ -178,10 +178,10 @@ func TestDateToPg_RoundTrip(t *testing.T) {
 
 func TestTextToPg_NonNil(t *testing.T) {
 	s := "hello"
-	pg := textToPg(&s)
+	pg := TextToPg(&s)
 
 	if !pg.Valid {
-		t.Fatal("textToPg returned invalid for non-nil string")
+		t.Fatal("TextToPg returned invalid for non-nil string")
 	}
 	if pg.String != "hello" {
 		t.Errorf("String = %q, want %q", pg.String, "hello")
@@ -189,43 +189,43 @@ func TestTextToPg_NonNil(t *testing.T) {
 }
 
 func TestTextToPg_Nil(t *testing.T) {
-	pg := textToPg(nil)
+	pg := TextToPg(nil)
 	if pg.Valid {
-		t.Error("textToPg(nil) should return invalid")
+		t.Error("TextToPg(nil) should return invalid")
 	}
 }
 
 func TestPgToTextPtr_Valid(t *testing.T) {
 	pg := pgtype.Text{String: "world", Valid: true}
-	got := pgToTextPtr(pg)
+	got := PgToTextPtr(pg)
 	if got == nil {
-		t.Fatal("pgToTextPtr returned nil for valid text")
+		t.Fatal("PgToTextPtr returned nil for valid text")
 	}
 	if *got != "world" {
-		t.Errorf("pgToTextPtr = %q, want %q", *got, "world")
+		t.Errorf("PgToTextPtr = %q, want %q", *got, "world")
 	}
 }
 
 func TestPgToTextPtr_Invalid(t *testing.T) {
 	pg := pgtype.Text{Valid: false}
-	got := pgToTextPtr(pg)
+	got := PgToTextPtr(pg)
 	if got != nil {
-		t.Errorf("pgToTextPtr(invalid) = %v, want nil", got)
+		t.Errorf("PgToTextPtr(invalid) = %v, want nil", got)
 	}
 }
 
 func TestTextToPg_RoundTrip(t *testing.T) {
 	s := "test string"
-	got := pgToTextPtr(textToPg(&s))
+	got := PgToTextPtr(TextToPg(&s))
 	if got == nil || *got != s {
 		t.Errorf("round-trip text = %v, want %q", got, s)
 	}
 }
 
 func TestInt4ToPg(t *testing.T) {
-	pg := int4ToPg(42)
+	pg := Int4ToPg(42)
 	if !pg.Valid {
-		t.Fatal("int4ToPg returned invalid")
+		t.Fatal("Int4ToPg returned invalid")
 	}
 	if pg.Int32 != 42 {
 		t.Errorf("Int32 = %d, want %d", pg.Int32, 42)
@@ -234,22 +234,22 @@ func TestInt4ToPg(t *testing.T) {
 
 func TestPgToInt_Valid(t *testing.T) {
 	pg := pgtype.Int4{Int32: 99, Valid: true}
-	got := pgToInt(pg)
+	got := PgToInt(pg)
 	if got != 99 {
-		t.Errorf("pgToInt = %d, want %d", got, 99)
+		t.Errorf("PgToInt = %d, want %d", got, 99)
 	}
 }
 
 func TestPgToInt_Invalid(t *testing.T) {
 	pg := pgtype.Int4{Valid: false}
-	got := pgToInt(pg)
+	got := PgToInt(pg)
 	if got != 0 {
-		t.Errorf("pgToInt(invalid) = %d, want 0", got)
+		t.Errorf("PgToInt(invalid) = %d, want 0", got)
 	}
 }
 
 func TestInt4ToPg_RoundTrip(t *testing.T) {
-	got := pgToInt(int4ToPg(123))
+	got := PgToInt(Int4ToPg(123))
 	if got != 123 {
 		t.Errorf("round-trip int = %d, want %d", got, 123)
 	}
@@ -296,9 +296,9 @@ func TestPgToTimeStr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pg := pgtype.Time{Microseconds: tt.microseconds, Valid: tt.valid}
-			got := pgToTimeStr(pg)
+			got := PgToTimeStr(pg)
 			if got != tt.want {
-				t.Errorf("pgToTimeStr = %q, want %q", got, tt.want)
+				t.Errorf("PgToTimeStr = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -306,10 +306,10 @@ func TestPgToTimeStr(t *testing.T) {
 
 func TestFloat8ToPg_NonNil(t *testing.T) {
 	f := 3.14
-	pg := float8ToPg(&f)
+	pg := Float8ToPg(&f)
 
 	if !pg.Valid {
-		t.Fatal("float8ToPg returned invalid for non-nil pointer")
+		t.Fatal("Float8ToPg returned invalid for non-nil pointer")
 	}
 	if pg.Float64 != 3.14 {
 		t.Errorf("Float64 = %f, want %f", pg.Float64, 3.14)
@@ -317,34 +317,34 @@ func TestFloat8ToPg_NonNil(t *testing.T) {
 }
 
 func TestFloat8ToPg_Nil(t *testing.T) {
-	pg := float8ToPg(nil)
+	pg := Float8ToPg(nil)
 	if pg.Valid {
-		t.Error("float8ToPg(nil) should return invalid")
+		t.Error("Float8ToPg(nil) should return invalid")
 	}
 }
 
 func TestPgToFloat8Ptr_Valid(t *testing.T) {
 	pg := pgtype.Float8{Float64: 2.718, Valid: true}
-	got := pgToFloat8Ptr(pg)
+	got := PgToFloat8Ptr(pg)
 	if got == nil {
-		t.Fatal("pgToFloat8Ptr returned nil for valid float")
+		t.Fatal("PgToFloat8Ptr returned nil for valid float")
 	}
 	if *got != 2.718 {
-		t.Errorf("pgToFloat8Ptr = %f, want %f", *got, 2.718)
+		t.Errorf("PgToFloat8Ptr = %f, want %f", *got, 2.718)
 	}
 }
 
 func TestPgToFloat8Ptr_Invalid(t *testing.T) {
 	pg := pgtype.Float8{Valid: false}
-	got := pgToFloat8Ptr(pg)
+	got := PgToFloat8Ptr(pg)
 	if got != nil {
-		t.Errorf("pgToFloat8Ptr(invalid) = %v, want nil", got)
+		t.Errorf("PgToFloat8Ptr(invalid) = %v, want nil", got)
 	}
 }
 
 func TestFloat8ToPg_RoundTrip(t *testing.T) {
 	f := 99.99
-	got := pgToFloat8Ptr(float8ToPg(&f))
+	got := PgToFloat8Ptr(Float8ToPg(&f))
 	if got == nil || *got != f {
 		t.Errorf("round-trip float = %v, want %f", got, f)
 	}
@@ -405,7 +405,7 @@ func TestTimeStrToPg(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pg := timeStrToPg(tt.input)
+			pg := TimeStrToPg(tt.input)
 			if pg.Valid != tt.wantValid {
 				t.Errorf("Valid = %v, want %v", pg.Valid, tt.wantValid)
 			}
@@ -418,7 +418,7 @@ func TestTimeStrToPg(t *testing.T) {
 
 func TestTimeStrToPg_RoundTrip(t *testing.T) {
 	input := "15:45"
-	got := pgToTimeStr(timeStrToPg(input))
+	got := PgToTimeStr(TimeStrToPg(input))
 	if got != input {
 		t.Errorf("round-trip timeStr = %q, want %q", got, input)
 	}
@@ -426,7 +426,7 @@ func TestTimeStrToPg_RoundTrip(t *testing.T) {
 
 func TestUuidSliceToPg(t *testing.T) {
 	ids := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
-	pgs := uuidSliceToPg(ids)
+	pgs := UUIDSliceToPg(ids)
 
 	if len(pgs) != len(ids) {
 		t.Fatalf("len(result) = %d, want %d", len(pgs), len(ids))
@@ -442,14 +442,14 @@ func TestUuidSliceToPg(t *testing.T) {
 }
 
 func TestUuidSliceToPg_Empty(t *testing.T) {
-	pgs := uuidSliceToPg([]uuid.UUID{})
+	pgs := UUIDSliceToPg([]uuid.UUID{})
 	if len(pgs) != 0 {
 		t.Errorf("len(result) = %d, want 0", len(pgs))
 	}
 }
 
 func TestUuidSliceToPg_Nil(t *testing.T) {
-	pgs := uuidSliceToPg(nil)
+	pgs := UUIDSliceToPg(nil)
 	if len(pgs) != 0 {
 		t.Errorf("len(result) = %d, want 0", len(pgs))
 	}

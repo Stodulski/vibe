@@ -76,7 +76,7 @@ const countedPaymentStatuses = `('deposit_paid', 'fully_paid', 'refunded', 'refu
 
 // PaymentSummaryByMethod totals the period's payments per method.
 func (m *ReportModel) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -136,7 +136,7 @@ type PaymentCourtSummary struct {
 // money in August, and reading it any other way would put the per-court rows
 // at odds with every other figure on the report.
 func (m *ReportModel) PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentCourtSummary, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -179,7 +179,7 @@ func (m *ReportModel) PaymentSummaryByCourt(ctx context.Context, complexID uuid.
 // Unlike the summary it counts every status, because the export is a ledger:
 // an owner reconciling their month needs to see the failed attempts too.
 func (m *ReportModel) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentDetail, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `

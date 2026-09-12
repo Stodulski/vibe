@@ -96,7 +96,7 @@ func findMessage(messages []string, needle string) (string, bool) {
 // UNREADABLE without naming the venue tells the operator nothing actionable.
 //
 // Mutation: collapse refuseForCredential's reason to a constant "MISSING"
-// (delete the errors.Is(err, data.ErrMPCredentialUnreadable) branch) and
+// (delete the errors.Is(err, mpcred.ErrMPCredentialUnreadable) branch) and
 // re-run — this test must fail.
 func TestAnUnreadableSellerTokenRefusesBeforeMercadoPagoIsCalled(t *testing.T) {
 	f := newFixture(t)

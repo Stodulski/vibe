@@ -31,9 +31,9 @@ type EmailVerificationModel struct {
 // Insert creates a new email verification token for the user, expiring after 24 hours.
 func (m *EmailVerificationModel) Insert(ctx context.Context, userID uuid.UUID, tokenHash []byte) error {
 	_, err := m.Q.InsertEmailVerificationToken(ctx, db.InsertEmailVerificationTokenParams{
-		UserID:    uuidToPg(userID),
+		UserID:    UUIDToPg(userID),
 		TokenHash: tokenHash,
-		ExpiresAt: timeToPg(time.Now().Add(emailVerificationTokenExpiry)),
+		ExpiresAt: TimeToPg(time.Now().Add(emailVerificationTokenExpiry)),
 	})
 	return err
 }
@@ -48,17 +48,17 @@ func (m *EmailVerificationModel) GetByHash(ctx context.Context, tokenHash []byte
 		return nil, err
 	}
 	return &EmailVerificationToken{
-		ID:        pgToUUID(t.ID),
-		UserID:    pgToUUID(t.UserID),
+		ID:        PgToUUID(t.ID),
+		UserID:    PgToUUID(t.UserID),
 		TokenHash: t.TokenHash,
-		ExpiresAt: pgToTime(t.ExpiresAt),
-		CreatedAt: pgToTime(t.CreatedAt),
+		ExpiresAt: PgToTime(t.ExpiresAt),
+		CreatedAt: PgToTime(t.CreatedAt),
 	}, nil
 }
 
 // GetLatestByUser returns the user's most recently issued email verification token, or ErrRecordNotFound if none exists.
 func (m *EmailVerificationModel) GetLatestByUser(ctx context.Context, userID uuid.UUID) (*EmailVerificationToken, error) {
-	t, err := m.Q.GetLatestEmailVerificationTokenByUser(ctx, uuidToPg(userID))
+	t, err := m.Q.GetLatestEmailVerificationTokenByUser(ctx, UUIDToPg(userID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrRecordNotFound
@@ -66,11 +66,11 @@ func (m *EmailVerificationModel) GetLatestByUser(ctx context.Context, userID uui
 		return nil, err
 	}
 	return &EmailVerificationToken{
-		ID:        pgToUUID(t.ID),
-		UserID:    pgToUUID(t.UserID),
+		ID:        PgToUUID(t.ID),
+		UserID:    PgToUUID(t.UserID),
 		TokenHash: t.TokenHash,
-		ExpiresAt: pgToTime(t.ExpiresAt),
-		CreatedAt: pgToTime(t.CreatedAt),
+		ExpiresAt: PgToTime(t.ExpiresAt),
+		CreatedAt: PgToTime(t.CreatedAt),
 	}, nil
 }
 
@@ -78,9 +78,9 @@ func (m *EmailVerificationModel) GetLatestByUser(ctx context.Context, userID uui
 // within the resend cooldown window, returning ErrCooldownActive in that case.
 func (m *EmailVerificationModel) InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error {
 	_, err := m.Q.InsertVerificationTokenWithCooldown(ctx, db.InsertVerificationTokenWithCooldownParams{
-		UserID:    uuidToPg(userID),
+		UserID:    UUIDToPg(userID),
 		TokenHash: tokenHash,
-		ExpiresAt: timeToPg(time.Now().Add(emailVerificationTokenExpiry)),
+		ExpiresAt: TimeToPg(time.Now().Add(emailVerificationTokenExpiry)),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -93,7 +93,7 @@ func (m *EmailVerificationModel) InsertWithCooldown(ctx context.Context, userID 
 
 // DeleteByUser removes every email verification token belonging to the user.
 func (m *EmailVerificationModel) DeleteByUser(ctx context.Context, userID uuid.UUID) error {
-	return m.Q.DeleteEmailVerificationTokensByUser(ctx, uuidToPg(userID))
+	return m.Q.DeleteEmailVerificationTokensByUser(ctx, UUIDToPg(userID))
 }
 
 // DeleteExpired removes every email verification token past its expiry, used by a periodic cleanup job.

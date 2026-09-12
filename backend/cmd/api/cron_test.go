@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -102,7 +103,7 @@ func TestCronRefreshMPTokens_NoComplexes(t *testing.T) {
 
 // TestCronRefreshMPTokens_SkipsEmptyRefreshToken documents the accessor
 // contract this loop actually depends on: an empty refresh token makes
-// SellerRefreshToken() return data.ErrMPNotConnected, and the loop skips
+// SellerRefreshToken() return mpcred.ErrMPNotConnected, and the loop skips
 // silently on that error — it does not assert on the raw field it happens to
 // still be able to set directly (the field itself is unexported once Phase
 // 11 lands).
@@ -113,7 +114,7 @@ func TestCronRefreshMPTokens_SkipsEmptyRefreshToken(t *testing.T) {
 	complex := data.NewComplexForTest(uuid.New(), nil, &emptyToken)
 	complex.Name = "Test Complex"
 
-	if _, err := complex.SellerRefreshToken(); !errors.Is(err, data.ErrMPNotConnected) {
+	if _, err := complex.SellerRefreshToken(); !errors.Is(err, mpcred.ErrMPNotConnected) {
 		t.Fatalf("want ErrMPNotConnected for an empty refresh token; got %v", err)
 	}
 

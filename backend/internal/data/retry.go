@@ -20,7 +20,7 @@ import (
 // Three, not more: the failures this retries are a connection that died and a
 // server that is coming back from a failover, and both are decided within a
 // couple of round trips. A longer ladder would spend the caller's whole
-// deadline — every statement here runs under queryContext's three seconds —
+// deadline — every statement here runs under QueryContext's three seconds —
 // waiting on something that has already answered.
 const maxAttempts = 3
 

@@ -58,7 +58,7 @@ func mintLinkToken(ctx context.Context, tx pgx.Tx, bookingID uuid.UUID, expiresA
 	_, err := tx.Exec(ctx, `
 		INSERT INTO booking_link_tokens (booking_id, token_hash, expires_at)
 		VALUES ($1, $2, $3)`,
-		uuidToPg(bookingID), hashLinkToken(plaintext), timeToPg(expiresAt),
+		UUIDToPg(bookingID), hashLinkToken(plaintext), TimeToPg(expiresAt),
 	)
 	if err != nil {
 		return "", fmt.Errorf("insert booking link token: %w", err)
@@ -76,7 +76,7 @@ func mintLinkToken(ctx context.Context, tx pgx.Tx, bookingID uuid.UUID, expiresA
 // back — this deliberately does not revoke or affect any token minted
 // elsewhere for the same booking.
 func (m *BookingLinkTokenModel) Mint(ctx context.Context, bookingID uuid.UUID, expiresAt time.Time) (string, error) {
-	ctx, cancel := txContext(ctx)
+	ctx, cancel := TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -110,7 +110,7 @@ func (m *BookingLinkTokenModel) Mint(ctx context.Context, bookingID uuid.UUID, e
 // that it expired; the caller (pricing.LinkLive, added in slice 2) is what
 // decides expiry.
 func (m *BookingLinkTokenModel) ResolveBooking(ctx context.Context, plaintext string) (*Booking, time.Time, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	hash := hashLinkToken(plaintext)
@@ -165,7 +165,7 @@ func (m *BookingLinkTokenModel) ResolveBooking(ctx context.Context, plaintext st
 // what keeps this sweep from ever turning a live link into a 404 — a pending
 // or confirmed booking's token is never touched here, however old its expiry.
 func (m *BookingLinkTokenModel) DeleteExpiredTerminal(ctx context.Context, retention time.Duration) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx, `

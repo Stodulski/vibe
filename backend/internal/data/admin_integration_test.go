@@ -111,7 +111,7 @@ const auditPlanSeedRows = 20_000
 // audit_log shipped with (complex_id, created_at DESC) and (entity_type, entity_id).
 // Neither leads with created_at, so with no complex_id filter nothing served the
 // query: Postgres seq-scanned the table, hash-joined all of users and top-N sorted,
-// measured at 4.03s over 500,000 rows against the 3s queryContext budget. It crossed
+// measured at 4.03s over 500,000 rows against the 3s QueryContext budget. It crossed
 // that budget at roughly 372,000 rows and 500'd from then on.
 //
 // The assertion is on the plan rather than on a wall-clock figure, because a timing

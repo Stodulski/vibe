@@ -3,6 +3,8 @@ package data
 import (
 	"errors"
 	"testing"
+
+	"github.com/stodulski/vibe-server/internal/mpcred"
 )
 
 func TestComplex_SellerAccessToken(t *testing.T) {
@@ -15,8 +17,8 @@ func TestComplex_SellerAccessToken(t *testing.T) {
 		wantVal string
 		wantErr error
 	}{
-		{name: "nil pointer", token: nil, wantErr: ErrMPNotConnected},
-		{name: "pointer to empty string", token: &empty, wantErr: ErrMPNotConnected},
+		{name: "nil pointer", token: nil, wantErr: mpcred.ErrMPNotConnected},
+		{name: "pointer to empty string", token: &empty, wantErr: mpcred.ErrMPNotConnected},
 		{name: "pointer to value", token: &value, wantVal: "seller-access-token"},
 	}
 
@@ -54,8 +56,8 @@ func TestComplex_SellerRefreshToken(t *testing.T) {
 		wantVal string
 		wantErr error
 	}{
-		{name: "nil pointer", token: nil, wantErr: ErrMPNotConnected},
-		{name: "pointer to empty string", token: &empty, wantErr: ErrMPNotConnected},
+		{name: "nil pointer", token: nil, wantErr: mpcred.ErrMPNotConnected},
+		{name: "pointer to empty string", token: &empty, wantErr: mpcred.ErrMPNotConnected},
 		{name: "pointer to value", token: &value, wantVal: "seller-refresh-token"},
 	}
 
@@ -116,8 +118,8 @@ func TestCronBooking_SellerAccessToken(t *testing.T) {
 		wantVal string
 		wantErr error
 	}{
-		{name: "nil pointer", token: nil, wantErr: ErrMPNotConnected},
-		{name: "pointer to empty string", token: &empty, wantErr: ErrMPNotConnected},
+		{name: "nil pointer", token: nil, wantErr: mpcred.ErrMPNotConnected},
+		{name: "pointer to empty string", token: &empty, wantErr: mpcred.ErrMPNotConnected},
 		{name: "pointer to value", token: &value, wantVal: "seller-access-token"},
 	}
 

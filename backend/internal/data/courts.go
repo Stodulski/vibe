@@ -131,26 +131,26 @@ func translateCourtWrite(err error) error {
 // Insert creates a new court and populates c with its generated ID and defaults.
 func (m *CourtModel) Insert(ctx context.Context, c *Court) error {
 	dbCourt, err := m.Q.InsertCourt(ctx, db.InsertCourtParams{
-		ComplexID:   uuidToPg(c.ComplexID),
+		ComplexID:   UUIDToPg(c.ComplexID),
 		Name:        c.Name,
 		Sport:       db.SportType(c.Sport),
 		CourtType:   db.CourtType(c.CourtType),
-		Description: textToPg(c.Description),
+		Description: TextToPg(c.Description),
 	})
 	if err != nil {
 		return translateCourtWrite(err)
 	}
 
-	c.ID = pgToUUID(dbCourt.ID)
+	c.ID = PgToUUID(dbCourt.ID)
 	c.IsActive = dbCourt.IsActive
-	c.CreatedAt = pgToTime(dbCourt.CreatedAt)
-	c.UpdatedAt = pgToTime(dbCourt.UpdatedAt)
+	c.CreatedAt = PgToTime(dbCourt.CreatedAt)
+	c.UpdatedAt = PgToTime(dbCourt.UpdatedAt)
 	return nil
 }
 
 // GetByID returns the court with the given ID, or ErrRecordNotFound if none exists.
 func (m *CourtModel) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) {
-	dbCourt, err := m.Q.GetCourtByID(ctx, uuidToPg(id))
+	dbCourt, err := m.Q.GetCourtByID(ctx, UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrRecordNotFound
@@ -162,7 +162,7 @@ func (m *CourtModel) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) 
 
 // GetByComplex returns every court belonging to the complex.
 func (m *CourtModel) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court, error) {
-	dbCourts, err := m.Q.GetCourtsByComplex(ctx, uuidToPg(complexID))
+	dbCourts, err := m.Q.GetCourtsByComplex(ctx, UUIDToPg(complexID))
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +181,8 @@ func (m *CourtModel) Update(ctx context.Context, c *Court) error {
 		Sport:       db.SportType(c.Sport),
 		CourtType:   db.CourtType(c.CourtType),
 		IsActive:    c.IsActive,
-		Description: textToPg(c.Description),
-		ID:          uuidToPg(c.ID),
+		Description: TextToPg(c.Description),
+		ID:          UUIDToPg(c.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -191,7 +191,7 @@ func (m *CourtModel) Update(ctx context.Context, c *Court) error {
 		return translateCourtWrite(err)
 	}
 
-	c.UpdatedAt = pgToTime(dbCourt.UpdatedAt)
+	c.UpdatedAt = PgToTime(dbCourt.UpdatedAt)
 	return nil
 }
 
@@ -245,7 +245,7 @@ func (m *CourtModel) Update(ctx context.Context, c *Court) error {
 // and cost the delete its idempotence on retry. The lock read below tells the
 // first two apart before the booking question is even asked.
 func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := txContext(ctx)
+	ctx, cancel := TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -260,7 +260,7 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	// question below is asked of a settled world rather than a racing one.
 	var deletedAt pgtype.Timestamptz
 	err = tx.QueryRow(ctx,
-		`SELECT deleted_at FROM courts WHERE id = $1 FOR UPDATE`, uuidToPg(id)).Scan(&deletedAt)
+		`SELECT deleted_at FROM courts WHERE id = $1 FOR UPDATE`, UUIDToPg(id)).Scan(&deletedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrRecordNotFound
@@ -286,7 +286,7 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 		  WHERE court_id = $1
 		    AND upper(span) > NOW()
 		    AND status NOT IN `+releasedBookingStatuses+`
-		)`, uuidToPg(id)).Scan(&hasBookings)
+		)`, UUIDToPg(id)).Scan(&hasBookings)
 	if err != nil {
 		return fmt.Errorf("check active bookings: %w", err)
 	}
@@ -296,7 +296,7 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE courts SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
-		uuidToPg(id)); err != nil {
+		UUIDToPg(id)); err != nil {
 		return fmt.Errorf("soft-delete court: %w", err)
 	}
 
@@ -309,25 +309,25 @@ func (m *CourtModel) SoftDelete(ctx context.Context, id uuid.UUID) error {
 // InsertPrice creates a new price rule for a court and populates p with its generated ID.
 func (m *CourtModel) InsertPrice(ctx context.Context, p *CourtPrice) error {
 	dbPrice, err := m.Q.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
-		CourtID: uuidToPg(p.CourtID),
+		CourtID: UUIDToPg(p.CourtID),
 		//nolint:gosec // G115: Price is validated > 0 at the courts.go handler; it is a currency amount realistically
 		// far below int32 range, matching the same bound rationale as booking Price.
 		Price:    int32(p.Price),
 		DayType:  db.DayOfWeek(p.DayType),
-		TimeFrom: timeStrToPg(p.TimeFrom),
-		TimeTo:   timeStrToPg(p.TimeTo),
+		TimeFrom: TimeStrToPg(p.TimeFrom),
+		TimeTo:   TimeStrToPg(p.TimeTo),
 	})
 	if err != nil {
 		return translateCourtWrite(err)
 	}
 
-	p.ID = pgToUUID(dbPrice.ID)
+	p.ID = PgToUUID(dbPrice.ID)
 	return nil
 }
 
 // GetPrices returns every price rule defined for the court.
 func (m *CourtModel) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*CourtPrice, error) {
-	dbPrices, err := m.Q.GetCourtPrices(ctx, uuidToPg(courtID))
+	dbPrices, err := m.Q.GetCourtPrices(ctx, UUIDToPg(courtID))
 	if err != nil {
 		return nil, err
 	}
@@ -335,12 +335,12 @@ func (m *CourtModel) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*Court
 	result := make([]*CourtPrice, len(dbPrices))
 	for i, p := range dbPrices {
 		result[i] = &CourtPrice{
-			ID:       pgToUUID(p.ID),
-			CourtID:  pgToUUID(p.CourtID),
+			ID:       PgToUUID(p.ID),
+			CourtID:  PgToUUID(p.CourtID),
 			Price:    int(p.Price),
 			DayType:  string(p.DayType),
-			TimeFrom: pgToTimeStr(p.TimeFrom),
-			TimeTo:   pgToTimeStr(p.TimeTo),
+			TimeFrom: PgToTimeStr(p.TimeFrom),
+			TimeTo:   PgToTimeStr(p.TimeTo),
 			FromMin:  int(p.SpanMin.Lower.Int32),
 			ToMin:    int(p.SpanMin.Upper.Int32),
 		}
@@ -355,9 +355,9 @@ func (m *CourtModel) UpdatePrice(ctx context.Context, p *CourtPrice) error {
 		// far below int32 range, matching the same bound rationale as booking Price.
 		Price:    int32(p.Price),
 		DayType:  db.DayOfWeek(p.DayType),
-		TimeFrom: timeStrToPg(p.TimeFrom),
-		TimeTo:   timeStrToPg(p.TimeTo),
-		ID:       uuidToPg(p.ID),
+		TimeFrom: TimeStrToPg(p.TimeFrom),
+		TimeTo:   TimeStrToPg(p.TimeTo),
+		ID:       UUIDToPg(p.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -366,13 +366,13 @@ func (m *CourtModel) UpdatePrice(ctx context.Context, p *CourtPrice) error {
 		return translateCourtWrite(err)
 	}
 
-	p.CourtID = pgToUUID(dbPrice.CourtID)
+	p.CourtID = PgToUUID(dbPrice.CourtID)
 	return nil
 }
 
 // DeletePrice removes a single price rule by ID.
 func (m *CourtModel) DeletePrice(ctx context.Context, id uuid.UUID) error {
-	return m.Q.DeleteCourtPrice(ctx, uuidToPg(id))
+	return m.Q.DeleteCourtPrice(ctx, UUIDToPg(id))
 }
 
 // DeletePricesByCourtID removes every price rule belonging to the court.
@@ -383,10 +383,10 @@ func (m *CourtModel) DeletePrice(ctx context.Context, id uuid.UUID) error {
 // method's shape stays exactly what it always was for whatever else depends
 // on it existing on its own.
 func (m *CourtModel) DeletePricesByCourtID(ctx context.Context, courtID uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
-	_, err := m.DB.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, uuidToPg(courtID))
+	_, err := m.DB.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, UUIDToPg(courtID))
 	return err
 }
 
@@ -412,7 +412,7 @@ func (m *CourtModel) DeletePricesByCourtID(ctx context.Context, courtID uuid.UUI
 // per-row loop built; it is -1 when the failure is not attributable to one
 // row (the delete itself, or the transaction machinery).
 func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*CourtPrice) (failedIndex int, err error) {
-	ctx, cancel := txContext(ctx)
+	ctx, cancel := TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -422,7 +422,7 @@ func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, price
 	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, uuidToPg(courtID)); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, UUIDToPg(courtID)); err != nil {
 		return -1, err
 	}
 
@@ -432,17 +432,17 @@ func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, price
 	qtx := m.Q.WithTx(tx)
 	for i, p := range prices {
 		dbPrice, err := qtx.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
-			CourtID: uuidToPg(p.CourtID),
+			CourtID: UUIDToPg(p.CourtID),
 			//nolint:gosec // G115: see InsertPrice's note above.
 			Price:    int32(p.Price),
 			DayType:  db.DayOfWeek(p.DayType),
-			TimeFrom: timeStrToPg(p.TimeFrom),
-			TimeTo:   timeStrToPg(p.TimeTo),
+			TimeFrom: TimeStrToPg(p.TimeFrom),
+			TimeTo:   TimeStrToPg(p.TimeTo),
 		})
 		if err != nil {
 			return i, translateCourtWrite(err)
 		}
-		p.ID = pgToUUID(dbPrice.ID)
+		p.ID = PgToUUID(dbPrice.ID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -484,7 +484,7 @@ func (m *CourtModel) ReplacePrices(ctx context.Context, courtID uuid.UUID, price
 // value the exclusion constraint uses. The generated one that used to sit there
 // had no caller at all.
 func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) error {
-	ctx, cancel := txContext(ctx)
+	ctx, cancel := TxContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -511,9 +511,9 @@ func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) erro
 		INSERT INTO blocked_slots (court_id, date, start_time, end_time, reason, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, span`,
-		uuidToPg(s.CourtID), dateToPg(s.Date),
-		timeStrToPg(s.StartTime), timeStrToPg(s.EndTime),
-		textToPg(s.Reason), uuidPtrToPg(s.CreatedBy),
+		UUIDToPg(s.CourtID), DateToPg(s.Date),
+		TimeStrToPg(s.StartTime), TimeStrToPg(s.EndTime),
+		TextToPg(s.Reason), UUIDPtrToPg(s.CreatedBy),
 	).Scan(&id, &createdAt, &span)
 	if err != nil {
 		// The block-versus-block overlap is refused by
@@ -548,8 +548,8 @@ func (m *CourtModel) InsertBlockedSlot(ctx context.Context, s *BlockedSlot) erro
 		return fmt.Errorf("commit: %w", err)
 	}
 
-	s.ID = pgToUUID(id)
-	s.CreatedAt = pgToTime(createdAt)
+	s.ID = PgToUUID(id)
+	s.CreatedAt = PgToTime(createdAt)
 	return nil
 }
 
@@ -571,9 +571,9 @@ func isOverlapRefusal(err error) bool {
 
 // GetBlockedSlots returns the blocked slots for a court on the given date.
 func (m *CourtModel) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*BlockedSlot, error) {
-	pgDate := dateToPg(date)
+	pgDate := DateToPg(date)
 	dbSlots, err := m.Q.GetBlockedSlots(ctx, db.GetBlockedSlotsParams{
-		CourtID: uuidToPg(courtID),
+		CourtID: UUIDToPg(courtID),
 		Date:    pgDate,
 		Date_2:  pgDate,
 	})
@@ -584,14 +584,14 @@ func (m *CourtModel) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, dat
 	result := make([]*BlockedSlot, len(dbSlots))
 	for i, s := range dbSlots {
 		result[i] = &BlockedSlot{
-			ID:        pgToUUID(s.ID),
-			CourtID:   pgToUUID(s.CourtID),
-			Date:      pgToDate(s.Date),
-			StartTime: pgToTimeStr(s.StartTime),
-			EndTime:   pgToTimeStr(s.EndTime),
-			Reason:    pgToTextPtr(s.Reason),
-			CreatedBy: pgToUUIDPtr(s.CreatedBy),
-			CreatedAt: pgToTime(s.CreatedAt),
+			ID:        PgToUUID(s.ID),
+			CourtID:   PgToUUID(s.CourtID),
+			Date:      PgToDate(s.Date),
+			StartTime: PgToTimeStr(s.StartTime),
+			EndTime:   PgToTimeStr(s.EndTime),
+			Reason:    PgToTextPtr(s.Reason),
+			CreatedBy: PgToUUIDPtr(s.CreatedBy),
+			CreatedAt: PgToTime(s.CreatedAt),
 		}
 	}
 	return result, nil
@@ -603,7 +603,7 @@ func (m *CourtModel) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UU
 		`SELECT id, court_id, price, day_type, time_from, time_to, span_min
 		 FROM court_prices
 		 WHERE court_id = ANY($1)
-		 ORDER BY court_id, day_type, time_from`, uuidSliceToPg(courtIDs))
+		 ORDER BY court_id, day_type, time_from`, UUIDSliceToPg(courtIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -636,7 +636,7 @@ func (m *CourtModel) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []u
 		`SELECT id, court_id, date, start_time, end_time, reason, created_by, created_at
 		 FROM blocked_slots
 		 WHERE court_id = ANY($1) AND date = $2
-		 ORDER BY court_id, start_time`, uuidSliceToPg(courtIDs), date)
+		 ORDER BY court_id, start_time`, UUIDSliceToPg(courtIDs), date)
 	if err != nil {
 		return nil, err
 	}
@@ -653,8 +653,8 @@ func (m *CourtModel) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []u
 		}
 		s.StartTime = st.Format("15:04")
 		s.EndTime = et.Format("15:04")
-		s.CreatedBy = pgToUUIDPtr(createdBy)
-		s.CreatedAt = pgToTime(createdAt)
+		s.CreatedBy = PgToUUIDPtr(createdBy)
+		s.CreatedAt = PgToTime(createdAt)
 		result = append(result, &s)
 	}
 	return result, rows.Err()
@@ -662,7 +662,7 @@ func (m *CourtModel) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []u
 
 // GetBlockedSlotByID returns the blocked slot with the given ID, or ErrRecordNotFound if none exists.
 func (m *CourtModel) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*BlockedSlot, error) {
-	dbSlot, err := m.Q.GetBlockedSlotByID(ctx, uuidToPg(id))
+	dbSlot, err := m.Q.GetBlockedSlotByID(ctx, UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrRecordNotFound
@@ -670,14 +670,14 @@ func (m *CourtModel) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*Blo
 		return nil, err
 	}
 	return &BlockedSlot{
-		ID:        pgToUUID(dbSlot.ID),
-		CourtID:   pgToUUID(dbSlot.CourtID),
-		Date:      pgToDate(dbSlot.Date),
-		StartTime: pgToTimeStr(dbSlot.StartTime),
-		EndTime:   pgToTimeStr(dbSlot.EndTime),
-		Reason:    pgToTextPtr(dbSlot.Reason),
-		CreatedBy: pgToUUIDPtr(dbSlot.CreatedBy),
-		CreatedAt: pgToTime(dbSlot.CreatedAt),
+		ID:        PgToUUID(dbSlot.ID),
+		CourtID:   PgToUUID(dbSlot.CourtID),
+		Date:      PgToDate(dbSlot.Date),
+		StartTime: PgToTimeStr(dbSlot.StartTime),
+		EndTime:   PgToTimeStr(dbSlot.EndTime),
+		Reason:    PgToTextPtr(dbSlot.Reason),
+		CreatedBy: PgToUUIDPtr(dbSlot.CreatedBy),
+		CreatedAt: PgToTime(dbSlot.CreatedAt),
 	}, nil
 }
 
@@ -717,8 +717,8 @@ func (m *CourtModel) GetBlockedSlotsByComplex(ctx context.Context, complexID uui
 		}
 		s.StartTime = st.Format("15:04")
 		s.EndTime = et.Format("15:04")
-		s.CreatedBy = pgToUUIDPtr(createdBy)
-		s.CreatedAt = pgToTime(createdAt)
+		s.CreatedBy = PgToUUIDPtr(createdBy)
+		s.CreatedAt = PgToTime(createdAt)
 		result = append(result, &s)
 	}
 	return result, rows.Err()
@@ -738,10 +738,10 @@ func (m *CourtModel) GetBlockedSlotsByComplex(ctx context.Context, complexID uui
 // makes that answerable, matching how a plain fetch-then-delete already
 // answers 404 when the row is simply missing outright.
 func (m *CourtModel) DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
-	tag, err := m.DB.Exec(ctx, `DELETE FROM blocked_slots WHERE id = $1`, uuidToPg(id))
+	tag, err := m.DB.Exec(ctx, `DELETE FROM blocked_slots WHERE id = $1`, UUIDToPg(id))
 	if err != nil {
 		return err
 	}
@@ -762,15 +762,15 @@ func courtRowFromActive(c db.ActiveCourt) db.Court {
 
 func courtFromDB(c db.Court) *Court {
 	return &Court{
-		ID:          pgToUUID(c.ID),
-		ComplexID:   pgToUUID(c.ComplexID),
+		ID:          PgToUUID(c.ID),
+		ComplexID:   PgToUUID(c.ComplexID),
 		Name:        c.Name,
 		Sport:       string(c.Sport),
 		CourtType:   string(c.CourtType),
 		IsActive:    c.IsActive,
-		Description: pgToTextPtr(c.Description),
-		CreatedAt:   pgToTime(c.CreatedAt),
-		UpdatedAt:   pgToTime(c.UpdatedAt),
+		Description: PgToTextPtr(c.Description),
+		CreatedAt:   PgToTime(c.CreatedAt),
+		UpdatedAt:   PgToTime(c.UpdatedAt),
 	}
 }
 

@@ -10,9 +10,11 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
+
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 )
 
@@ -915,9 +917,9 @@ func formatARS(centavos int) string {
 // sellerCredential names the complex as the MercadoPago caller a refund is
 // issued as, or returns the arm of failure internal/data/mpcred.go already
 // distinguishes as a typed sentinel: a wrapped GetByID failure (the complex
-// could not be fetched — a transient database read), data.ErrMPNotConnected
+// could not be fetched — a transient database read), mpcred.ErrMPNotConnected
 // (the venue never connected MercadoPago, or disconnected it), or
-// data.ErrMPCredentialUnreadable (a stored credential exists but will not
+// mpcred.ErrMPCredentialUnreadable (a stored credential exists but will not
 // decrypt).
 //
 // It used to collapse all three into "", and callers fell back to the
@@ -960,9 +962,9 @@ func (h *Handler) sellerCredential(ctx context.Context, complexID uuid.UUID) (mp
 func (h *Handler) refuseForCredential(ctx context.Context, claim data.RefundClaim, err error) data.RefundOutcome {
 	reason, cause := "UNAVAILABLE", fmt.Sprintf("seller credential unavailable: %v", err)
 	switch {
-	case errors.Is(err, data.ErrMPCredentialUnreadable):
+	case errors.Is(err, mpcred.ErrMPCredentialUnreadable):
 		reason, cause = "UNREADABLE", fmt.Sprintf("seller credential unreadable for complex %s: %v", claim.ComplexID, err)
-	case errors.Is(err, data.ErrMPNotConnected):
+	case errors.Is(err, mpcred.ErrMPNotConnected):
 		reason, cause = "MISSING", fmt.Sprintf("seller credential missing for complex %s: %v", claim.ComplexID, err)
 	}
 

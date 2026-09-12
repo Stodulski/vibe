@@ -33,7 +33,7 @@ import (
 // nothing else", and refund-intent-durability's "the sweep never refunds a
 // deliberately declined refund".
 func (m *BookingModel) GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*Booking, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
@@ -89,7 +89,7 @@ func (m *BookingModel) GetRefundIntentOrphans(ctx context.Context, olderThan tim
 // caller's move is to leave it alone and take the next one, same as
 // MarkProcessing's callers do.
 func (m *BookingModel) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	tag, err := m.DB.Exec(ctx, `
@@ -97,7 +97,7 @@ func (m *BookingModel) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen
 		SET refund_intent_at = NOW()
 		WHERE id = $1
 		  AND refund_intent_at = $2`,
-		uuidToPg(id), timeToPg(seen),
+		UUIDToPg(id), TimeToPg(seen),
 	)
 	if err != nil {
 		return fmt.Errorf("claim refund intent: %w", err)
@@ -117,12 +117,12 @@ func (m *BookingModel) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen
 // AutoRefundIfPaid, so the marker's lifecycle is identical whether the call
 // originated from a request or from the sweep.
 func (m *BookingModel) ClearRefundIntent(ctx context.Context, id uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
 		`UPDATE bookings SET refund_intent_at = NULL WHERE id = $1`,
-		uuidToPg(id),
+		UUIDToPg(id),
 	)
 	if err != nil {
 		return fmt.Errorf("clear refund intent: %w", err)

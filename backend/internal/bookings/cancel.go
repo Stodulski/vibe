@@ -21,6 +21,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 )
 
@@ -281,7 +282,7 @@ func expiryCaller(complex *data.Complex) (mp.Caller, error) {
 	switch {
 	case err == nil:
 		return mp.AsSeller(token)
-	case errors.Is(err, data.ErrMPCredentialUnreadable):
+	case errors.Is(err, mpcred.ErrMPCredentialUnreadable):
 		return mp.Caller{}, err
 	default:
 		return mp.AsPlatform(), nil

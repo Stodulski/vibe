@@ -22,12 +22,12 @@ func TestQueryContext_SetsDeadline(t *testing.T) {
 	parent := context.Background()
 	before := time.Now()
 
-	ctx, cancel := queryContext(parent)
+	ctx, cancel := QueryContext(parent)
 	defer cancel()
 
 	deadline, ok := ctx.Deadline()
 	if !ok {
-		t.Fatal("queryContext should set a deadline")
+		t.Fatal("QueryContext should set a deadline")
 	}
 
 	expectedMin := before.Add(defaultTimeout - 10*time.Millisecond)
@@ -41,12 +41,12 @@ func TestTxContext_SetsDeadline(t *testing.T) {
 	parent := context.Background()
 	before := time.Now()
 
-	ctx, cancel := txContext(parent)
+	ctx, cancel := TxContext(parent)
 	defer cancel()
 
 	deadline, ok := ctx.Deadline()
 	if !ok {
-		t.Fatal("txContext should set a deadline")
+		t.Fatal("TxContext should set a deadline")
 	}
 
 	expectedMin := before.Add(txTimeout - 10*time.Millisecond)
@@ -60,14 +60,14 @@ func TestQueryContext_RespectsParentCancellation(t *testing.T) {
 	parent, parentCancel := context.WithCancel(context.Background())
 	parentCancel() // Cancel parent immediately.
 
-	ctx, cancel := queryContext(parent)
+	ctx, cancel := QueryContext(parent)
 	defer cancel()
 
 	select {
 	case <-ctx.Done():
 		// Expected: child context should be done because parent is cancelled.
 	default:
-		t.Error("queryContext child should be done when parent is cancelled")
+		t.Error("QueryContext child should be done when parent is cancelled")
 	}
 }
 
@@ -75,30 +75,30 @@ func TestTxContext_RespectsParentCancellation(t *testing.T) {
 	parent, parentCancel := context.WithCancel(context.Background())
 	parentCancel()
 
-	ctx, cancel := txContext(parent)
+	ctx, cancel := TxContext(parent)
 	defer cancel()
 
 	select {
 	case <-ctx.Done():
 		// Expected.
 	default:
-		t.Error("txContext child should be done when parent is cancelled")
+		t.Error("TxContext child should be done when parent is cancelled")
 	}
 }
 
 func TestQueryContext_RespectsParentShorterDeadline(t *testing.T) {
-	// If parent has a shorter deadline, queryContext should inherit it.
+	// If parent has a shorter deadline, QueryContext should inherit it.
 	shortTimeout := 1 * time.Millisecond
 	parent, parentCancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer parentCancel()
 
-	ctx, cancel := queryContext(parent)
+	ctx, cancel := QueryContext(parent)
 	defer cancel()
 
 	// The child deadline should be at most the parent's deadline.
 	deadline, ok := ctx.Deadline()
 	if !ok {
-		t.Fatal("queryContext should have a deadline")
+		t.Fatal("QueryContext should have a deadline")
 	}
 
 	// Since parent timeout (1ms) < defaultTimeout (3s), deadline should be close to now.
@@ -125,7 +125,7 @@ func TestDetachedQueryContext_IsBoundedButNotCancelledByItsParent(t *testing.T) 
 	parentCancel()
 
 	before := time.Now()
-	ctx, cancel := detachedQueryContext(parent)
+	ctx, cancel := DetachedQueryContext(parent)
 	defer cancel()
 
 	if err := ctx.Err(); err != nil {
@@ -134,7 +134,7 @@ func TestDetachedQueryContext_IsBoundedButNotCancelledByItsParent(t *testing.T) 
 
 	deadline, ok := ctx.Deadline()
 	if !ok {
-		t.Fatal("detachedQueryContext must carry a deadline: nothing else bounds the query it is handed to, " +
+		t.Fatal("DetachedQueryContext must carry a deadline: nothing else bounds the query it is handed to, " +
 			"so without one a wedged database blocks the caller forever")
 	}
 	if latest := before.Add(defaultTimeout + 100*time.Millisecond); deadline.After(latest) {

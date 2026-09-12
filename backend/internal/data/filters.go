@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 

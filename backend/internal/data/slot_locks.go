@@ -41,7 +41,7 @@ type SlotLockModel struct {
 // when the existing lock is still live, and two callers racing for an expired
 // lock serialise on the same row, so exactly one of them wins it.
 func (m *SlotLockModel) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	expiresAt := time.Now().Add(ttl)
@@ -66,7 +66,7 @@ func (m *SlotLockModel) AcquireLock(ctx context.Context, courtID uuid.UUID, date
 
 // ReleaseLock removes a specific slot lock.
 func (m *SlotLockModel) ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -77,7 +77,7 @@ func (m *SlotLockModel) ReleaseLock(ctx context.Context, courtID uuid.UUID, date
 
 // ReleaseByBooking removes all slot locks for a given booking.
 func (m *SlotLockModel) ReleaseByBooking(ctx context.Context, bookingID uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
@@ -87,7 +87,7 @@ func (m *SlotLockModel) ReleaseByBooking(ctx context.Context, bookingID uuid.UUI
 
 // CleanExpired removes all expired slot locks. Returns the count of removed locks.
 func (m *SlotLockModel) CleanExpired(ctx context.Context) (int64, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	result, err := m.DB.Exec(ctx,
