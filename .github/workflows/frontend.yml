@@ -29,7 +29,7 @@ jobs:
     name: Typecheck (tsc -b --force)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -51,7 +51,7 @@ jobs:
     name: Lint (eslint .)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -73,7 +73,7 @@ jobs:
     name: Format check (prettier --check)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -95,7 +95,7 @@ jobs:
     name: Unit tests (vitest)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -142,7 +142,7 @@ jobs:
     name: Build (vite build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -172,7 +172,7 @@ jobs:
     name: Audit (pnpm audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -208,7 +208,7 @@ jobs:
     # Non-blocking until MAP-01/PERF-01 (leaflet out of the initial bundle graph) lands on main and brings the measured LCP under this budget — then flip this to blocking.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -246,7 +246,7 @@ jobs:
     # Non-blocking until the 126 pre-existing findings (CI-09) are cleaned up — then flip this to blocking.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
