@@ -93,6 +93,22 @@ const config: UserConfig = {
       injectRegister: null,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp}'],
+        // Declared instead of left to the plugin default, and paired with a
+        // denylist: without it every navigation — including one to the API,
+        // to /.well-known or to a hashed asset — was answered with the SPA
+        // shell (PWA-02/PWA-04). Those three prefixes are served by the host
+        // (Vercel rewrites /api to the Railway API), never by the router.
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/assets\//],
+        // index.html stays in the precache, so the navigation route above
+        // serves it cache-first rather than network-first. That is deliberate
+        // under registerType 'prompt' (PWA-05): a tab keeps the build it
+        // loaded until the person accepts the update toast, and the old
+        // worker keeps serving that build's chunks. A network-first
+        // index.html would hand a reloaded tab the *new* HTML — referencing
+        // hashed chunks the still-active old worker does not have — which is
+        // exactly the torn state prompt mode exists to avoid. The 5 minute
+        // update check plus the toast is what makes a new build visible.
         // Declared rather than inherited from the plugin default, so the
         // precache purge is part of this config's contract (PWA-08). It only
         // drops stale *precaches*; the runtime cache below is purged from the
