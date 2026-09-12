@@ -12,6 +12,9 @@ export function useComplexBySlug(slug: string | undefined) {
     queryKey: queryKeys.publicComplex.bySlug(safeSlug),
     queryFn: ({ signal }) => publicBookingApi.getComplex(safeSlug, signal),
     enabled: !!slug,
+    // Renders its own failure: `ComplexLoadError` on the public page, with a
+    // retry. A 5xx must not take the whole booking page to the boundary.
+    throwOnError: false,
     staleTime: 10 * 60 * 1000,
     retry: (failureCount, error) => {
       if (error instanceof HTTPError && error.response.status === 404) return false;

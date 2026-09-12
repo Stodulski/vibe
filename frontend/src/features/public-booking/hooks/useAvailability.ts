@@ -17,6 +17,9 @@ export function useAvailability(slug: string | undefined, date: string, duration
     queryFn: ({ signal }) => publicBookingApi.getAvailability(safeSlug, date, duration, signal),
     select: (data) => data.availability,
     enabled: !!slug && !!date,
+    // `AvailabilitySection` draws its own error state for a failed slot
+    // lookup — the rest of the complex page stays usable around it.
+    throwOnError: false,
     staleTime: 30 * 1000,
     // Duration and date each own a cache entry, so moving between them used to
     // empty the grid and redraw it from a skeleton. That is the wrong feeling

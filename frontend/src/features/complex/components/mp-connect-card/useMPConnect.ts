@@ -65,6 +65,8 @@ export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
     // of which invalidates this key itself; callers polling for the moment the
     // OAuth callback lands pass their own `refetchInterval`.
     staleTime: 60 * 1000,
+    // The card renders `isError` with its own retry button.
+    throwOnError: false,
     // TanStack Query's `enabled`/`refetchInterval` options aren't typed with
     // an explicit `| undefined`; under `exactOptionalPropertyTypes`, passing
     // them through as `options?.enabled` (present-but-possibly-`undefined`)

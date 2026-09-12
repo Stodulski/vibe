@@ -67,6 +67,9 @@ export function useSlugAvailability(slug: string | undefined, currentSlug?: stri
     },
     enabled: !skip && !!debouncedSlug && settled,
     retry: false,
+    // A background check on a field most owners never open. It stays silent on
+    // failure (see below) — it must not be able to unmount the form around it.
+    throwOnError: false,
     staleTime: 60 * 1000,
   });
 
