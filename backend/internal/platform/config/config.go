@@ -142,8 +142,24 @@ type DB struct {
 }
 
 // JWT is the access-token signing configuration.
+//
+// Two secrets rather than one, so the signing key can be rotated without
+// ending every live session: Secret signs and verifies, SecretPrevious only
+// verifies. Every token names the key that signed it, so a deployment carrying
+// both accepts tokens from either. See internal/auth/keyring.go for the
+// rotation procedure.
 type JWT struct {
 	Secret string
+	// KeyID names the active key in the token header. Empty derives a short
+	// digest of the secret, which is what a deployment that never sets this
+	// gets and is already enough to tell two secrets apart.
+	KeyID string
+	// SecretPrevious is the retired key, kept until the longest-lived token
+	// minted under it has expired. Empty means no rotation is in flight.
+	SecretPrevious string
+	// KeyIDPrevious names the retired key. Set it to whatever KeyID held while
+	// that key was active; leave it empty whenever KeyID was empty.
+	KeyIDPrevious string
 }
 
 // MP is the MercadoPago platform account's configuration.

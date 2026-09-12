@@ -276,6 +276,19 @@ func main() {
 		}
 		logger.Warn("JWT_SECRET appears to be a placeholder, rotate it before going to production")
 	}
+	// A rotation in flight is worth one line at boot: it is the only way an
+	// operator can see, without decoding a token, that this instance is still
+	// accepting the old key — and forgetting to remove JWT_SECRET_PREVIOUS
+	// leaves a leaked secret valid indefinitely, which is the whole reason the
+	// rotation was started.
+	if cfg.JWT.SecretPrevious != "" {
+		if cfg.JWT.SecretPrevious == cfg.JWT.Secret {
+			logger.Warn("JWT_SECRET_PREVIOUS is the same secret as JWT_SECRET; no rotation is in flight")
+		} else {
+			logger.Info("a JWT key rotation is in flight: tokens signed with the previous key are still " +
+				"accepted; remove JWT_SECRET_PREVIOUS once the longest-lived token minted under it has expired")
+		}
+	}
 
 	// Required unconditionally, matching JWT_SECRET's unconditional
 	// requirement above — design.md's open question resolved against

@@ -123,7 +123,10 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 
 | Variable | Purpose | Required | Default |
 |---|---|---|---|
-| `JWT_SECRET` | Secret used to sign JWTs. | **Required**: boot refuses to start if empty; in production must be at least 32 bytes and not look like a placeholder. | none |
+| `JWT_SECRET` | Secret used to sign JWTs: the **active** key. Every token this API mints names its key in the `kid` header, and a token that names no key is refused. | **Required**: boot refuses to start if empty; in production must be at least 32 bytes and not look like a placeholder. | none |
+| `JWT_KEY_ID` | Name the active key answers to in the `kid` header. Leave it empty and the name is a short digest of the secret, which is already unique per secret — set it only if you would rather read `k2` than a digest. | Optional | derived from `JWT_SECRET` |
+| `JWT_SECRET_PREVIOUS` | The key that was active before the last rotation. It **verifies and never signs**, so replacing `JWT_SECRET` does not end every live session. Rotating is two deploys: first move the current secret here and put the new one in `JWT_SECRET`, then remove this one once the longest-lived token minted under it has expired (30 days, the refresh-token window). Leaving it set indefinitely keeps a retired — possibly leaked — secret valid, which is what the rotation was for. | Optional | `""` (no rotation in flight) |
+| `JWT_KEY_ID_PREVIOUS` | Name the retired key answers to. Set it to whatever `JWT_KEY_ID` held while that key was active; leave it empty whenever `JWT_KEY_ID` was empty. Get this wrong and the tokens naming the old key stop verifying, which is exactly the outage `JWT_SECRET_PREVIOUS` exists to prevent. | Optional | derived from `JWT_SECRET_PREVIOUS` |
 | `MP_CREDENTIAL_KEYS` | AES-256 keyring encrypting stored MercadoPago credentials, format `kid:base64key[,kid:base64key...]` (each key decodes to 32 bytes). | **Required unconditionally**, even if MercadoPago is unused. | none |
 | `COOKIE_DOMAIN` | Domain scope for auth cookies (e.g. `.example.com`). | Optional | `""` (host-only cookie) |
 | `FRONTEND_URL` | Frontend origin, used for CORS and links in emails. | Optional | `http://localhost:5173` |

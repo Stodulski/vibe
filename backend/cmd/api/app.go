@@ -309,9 +309,12 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	auditTrailHandler := audit.NewHandler(auditService, respond, d.trustedProxies.Any())
 
 	tokens := auth.NewTokenService(auth.TokenServiceConfig{
-		JWTSecret:    cfg.JWT.Secret,
-		CookieDomain: cfg.CookieDomain,
-		Environment:  cfg.Env,
+		JWTSecret:         cfg.JWT.Secret,
+		JWTKeyID:          cfg.JWT.KeyID,
+		JWTSecretPrevious: cfg.JWT.SecretPrevious,
+		JWTKeyIDPrevious:  cfg.JWT.KeyIDPrevious,
+		CookieDomain:      cfg.CookieDomain,
+		Environment:       cfg.Env,
 	})
 	mw := middleware.New(middleware.Dependencies{
 		Users:     d.models.Users,
@@ -441,12 +444,15 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	notify := notifications.NewService(queue, mailerClient, waClient, d.models.Users, d.logger, whatsappEnabled)
 
 	authConfig := auth.Config{
-		JWTSecret:        cfg.JWT.Secret,
-		CookieDomain:     cfg.CookieDomain,
-		Environment:      cfg.Env,
-		FrontendURL:      cfg.FrontendURL,
-		TrustProxies:     d.trustedProxies.Any(),
-		PasswordHashCost: cfg.PasswordHashCost,
+		JWTSecret:         cfg.JWT.Secret,
+		JWTKeyID:          cfg.JWT.KeyID,
+		JWTSecretPrevious: cfg.JWT.SecretPrevious,
+		JWTKeyIDPrevious:  cfg.JWT.KeyIDPrevious,
+		CookieDomain:      cfg.CookieDomain,
+		Environment:       cfg.Env,
+		FrontendURL:       cfg.FrontendURL,
+		TrustProxies:      d.trustedProxies.Any(),
+		PasswordHashCost:  cfg.PasswordHashCost,
 	}
 
 	authService := auth.NewService(auth.Dependencies{

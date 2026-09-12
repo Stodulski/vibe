@@ -99,7 +99,15 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.BoolVar(&cfg.MigrateOnly, "migrate-only", false,
 		"Apply the embedded migration chain, print the status, and exit without starting the server")
 
-	fs.StringVar(&cfg.JWT.Secret, "jwt-secret", "", "JWT secret (JWT_SECRET)")
+	fs.StringVar(&cfg.JWT.Secret, "jwt-secret", "", "JWT signing secret, the active key (JWT_SECRET)")
+	fs.StringVar(&cfg.JWT.KeyID, "jwt-key-id", "",
+		"Name the active JWT key answers to in the token header; empty derives it from the secret (JWT_KEY_ID)")
+	fs.StringVar(&cfg.JWT.SecretPrevious, "jwt-secret-previous", "",
+		"Retired JWT signing secret, kept for verification only while a rotation is in flight "+
+			"(JWT_SECRET_PREVIOUS)")
+	fs.StringVar(&cfg.JWT.KeyIDPrevious, "jwt-key-id-previous", "",
+		"Name the retired JWT key answers to; repeat whatever JWT_KEY_ID held while it was active "+
+			"(JWT_KEY_ID_PREVIOUS)")
 
 	fs.StringVar(&cfg.MP.AccessToken, "mp-access-token", "", "MercadoPago access token (MP_ACCESS_TOKEN)")
 	fs.StringVar(&cfg.MP.WebhookSecret, "mp-webhook-secret", "", "MercadoPago webhook secret (MP_WEBHOOK_SECRET)")
@@ -199,6 +207,9 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.boolVal("DB_AUTO_MIGRATE", &cfg.DB.AutoMigrate)
 
 	env.strVal("JWT_SECRET", &cfg.JWT.Secret)
+	env.strVal("JWT_KEY_ID", &cfg.JWT.KeyID)
+	env.strVal("JWT_SECRET_PREVIOUS", &cfg.JWT.SecretPrevious)
+	env.strVal("JWT_KEY_ID_PREVIOUS", &cfg.JWT.KeyIDPrevious)
 
 	env.strVal("MP_ACCESS_TOKEN", &cfg.MP.AccessToken)
 	env.strVal("MP_WEBHOOK_SECRET", &cfg.MP.WebhookSecret)

@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,8 +15,22 @@ import (
 
 // TokenServiceConfig is what token minting needs.
 type TokenServiceConfig struct {
-	// JWTSecret signs and verifies access tokens.
+	// JWTSecret signs and verifies access tokens. It is the active key: every
+	// token this service mints is signed with it and names it in the `kid`
+	// header.
 	JWTSecret string
+	// JWTKeyID names the active key in that header. Empty derives the name
+	// from the secret — see keyID.
+	JWTKeyID string
+	// JWTSecretPrevious is the retired key: it verifies and never signs, so
+	// that rotating JWTSecret does not invalidate the sessions minted under
+	// the old one. Empty means there is no retired key.
+	JWTSecretPrevious string
+	// JWTKeyIDPrevious names the retired key. It has to repeat whatever
+	// JWTKeyID held while that key was active, or the tokens naming it stop
+	// resolving; empty derives it from the secret, which is right whenever
+	// JWTKeyID was empty too.
+	JWTKeyIDPrevious string
 	// CookieDomain scopes the session cookies. Empty means host-only.
 	CookieDomain string
 	// Environment decides whether cookies are marked Secure; local development
@@ -25,7 +40,7 @@ type TokenServiceConfig struct {
 
 // NewTokenService returns a TokenService.
 func NewTokenService(cfg TokenServiceConfig) *TokenService {
-	return &TokenService{cfg: cfg}
+	return &TokenService{cfg: cfg, keys: newJWTKeyring(cfg)}
 }
 
 // TokenService mints and verifies the three tokens a session is made of: the
@@ -36,6 +51,44 @@ func NewTokenService(cfg TokenServiceConfig) *TokenService {
 // tokens on every request and must not depend on the auth handlers to do it.
 type TokenService struct {
 	cfg TokenServiceConfig
+	// keys is the signing keyring built from cfg at construction: the active
+	// key and, while a rotation is in flight, the retired one. See keyring.go.
+	keys jwtKeyring
+}
+
+// ActiveKeyID is the name the tokens this service mints carry in their `kid`
+// header. It is exported for the boot log line, so an operator can see which
+// key a running instance is signing with without decoding a token.
+func (s *TokenService) ActiveKeyID() string { return s.keys.active.id }
+
+// sign mints and signs a token with the active key, naming it in the header so
+// the verifier can resolve it after a rotation.
+func (s *TokenService) sign(claims jwt.Claims) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["kid"] = s.keys.active.id
+	return token.SignedString(s.keys.active.secret)
+}
+
+// errUnnamedKey is what a token with no `kid` header is refused with. It is a
+// distinct error because "this token predates key rotation" and "this token
+// names a key we retired" are different operator situations.
+var errUnnamedKey = errors.New("token does not name a signing key")
+
+// keyFor resolves the secret a token names. It is the key function every
+// verification in this package passes to jwt.ParseWithClaims.
+//
+// It never falls back to the active key: see keyring.go for why a kid-less
+// token is refused rather than accommodated.
+func (s *TokenService) keyFor(token *jwt.Token) (any, error) {
+	kid, _ := token.Header["kid"].(string)
+	if kid == "" {
+		return nil, errUnnamedKey
+	}
+	secret, ok := s.keys.lookup(kid)
+	if !ok {
+		return nil, fmt.Errorf("unknown signing key %q", kid)
+	}
+	return secret, nil
 }
 
 const (
@@ -122,8 +175,7 @@ func (s *TokenService) GenerateAccessToken(userID uuid.UUID, role string) (strin
 		Role: role,
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	signed, err := s.sign(claims)
 	if err != nil {
 		return "", fmt.Errorf("signing JWT: %w", err)
 	}
@@ -142,9 +194,7 @@ func (s *TokenService) GenerateAccessToken(userID uuid.UUID, role string) (strin
 // was not asked to accept, and the guarantee stated above needs to already be
 // true when they do, rather than be discovered missing afterwards.
 func (s *TokenService) ValidateAccessToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(_ *jwt.Token) (any, error) {
-		return []byte(s.cfg.JWTSecret), nil
-	}, parseOptions()...)
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, s.keyFor, parseOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -189,8 +239,7 @@ func (s *TokenService) GenerateProfileToken(sub, email, givenName, familyName st
 		Purpose:    googleProfilePurpose,
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	signed, err := s.sign(claims)
 	if err != nil {
 		return "", fmt.Errorf("signing profile JWT: %w", err)
 	}
@@ -202,9 +251,7 @@ func (s *TokenService) GenerateProfileToken(sub, email, givenName, familyName st
 // verification or reset token, all signed with the same secret, cannot be
 // replayed here.
 func (s *TokenService) ValidateProfileToken(tokenString string) (*GoogleProfileClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &GoogleProfileClaims{}, func(_ *jwt.Token) (any, error) {
-		return []byte(s.cfg.JWTSecret), nil
-	}, parseOptions()...)
+	token, err := jwt.ParseWithClaims(tokenString, &GoogleProfileClaims{}, s.keyFor, parseOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -234,18 +281,37 @@ func hashRefreshToken(plaintext string) []byte {
 }
 
 // GenerateCSRFToken derives a token from the access token with an HMAC, so it
-// needs no server-side storage and is bound to exactly that session.
+// needs no server-side storage and is bound to exactly that session. It always
+// uses the active key.
 func (s *TokenService) GenerateCSRFToken(accessToken string) string {
-	mac := hmac.New(sha256.New, []byte(s.cfg.JWTSecret))
+	return csrfWith(s.keys.active.secret, accessToken)
+}
+
+func csrfWith(secret []byte, accessToken string) string {
+	mac := hmac.New(sha256.New, secret)
 	mac.Write([]byte("csrf:" + accessToken))
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // ValidateCSRFToken checks the submitted CSRF token against the one derived
 // from this session's access token, in constant time.
+//
+// Every key in the ring is tried, not only the active one. A CSRF token
+// carries no header naming its key, and the one a browser is holding was
+// derived under whichever secret was active when the session started — so
+// checking only the active key would make a rotation reject every in-flight
+// form submission, which is the outage the keyring exists to avoid. Each
+// comparison is constant-time and the loop is at most two long.
 func (s *TokenService) ValidateCSRFToken(accessToken, csrfToken string) bool {
-	expected := s.GenerateCSRFToken(accessToken)
-	return hmac.Equal([]byte(expected), []byte(csrfToken))
+	valid := false
+	for _, secret := range s.keys.all() {
+		// No early return: the loop is a fixed two iterations either way, so a
+		// caller cannot learn which key matched from how long this took.
+		if hmac.Equal([]byte(csrfWith(secret, accessToken)), []byte(csrfToken)) {
+			valid = true
+		}
+	}
+	return valid
 }
 
 // SetTokenCookies writes the two session cookies and returns the CSRF token.
