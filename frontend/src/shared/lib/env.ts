@@ -2,15 +2,14 @@ import { z } from 'zod';
 
 /**
  * Schema for every `VITE_*` variable actually read anywhere in `src/`
- * (`rg -n 'import.meta.env' src`). Some are consumed outside this module's
- * allowed paths (`src/shared/lib/mpAuth.ts`, `src/shared/lib/sentry.ts`,
- * `src/features/auth/api/leads.api.ts`, `src/pages/**`) — they stay optional
- * here so a missing value never throws, but their read sites keep their own
- * fallback until that code is migrated to import `env` too.
+ * (`rg -n 'import.meta.env' src`). Every read site imports `env` from this
+ * module (enforced by the `no-restricted-syntax` rule in eslint.config.js);
+ * `VITE_APP_URL` is required so a deploy missing it fails the build instead
+ * of silently falling back to `window.location.origin` in production.
  */
 export const envSchema = z.object({
   VITE_API_URL: z.string().min(1).default('/api/v1'),
-  VITE_APP_URL: z.url().optional(),
+  VITE_APP_URL: z.url(),
   // Defaults to production so local dev needs no `.env` entry; only a
   // preview of the landing's MP-fees JSON contract needs to override it.
   VITE_LANDING_URL: z.url().default('https://vibe.com.ar'),

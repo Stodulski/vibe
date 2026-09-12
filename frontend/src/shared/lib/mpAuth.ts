@@ -1,7 +1,8 @@
 import { generateCodeVerifier, generateCodeChallenge } from './pkce';
 import { safeSessionStorage } from './safeStorage';
+import { env } from './env';
 
-const ENV_MP_APP_ID = import.meta.env.VITE_MP_APP_ID ?? '';
+const ENV_MP_APP_ID = env.VITE_MP_APP_ID ?? '';
 
 /**
  * Build the MercadoPago OAuth authorization URL synchronously
