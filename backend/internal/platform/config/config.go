@@ -164,15 +164,24 @@ type R2 struct {
 type Limiter struct {
 	Enabled bool
 	RPS     float64
-	Burst   int
+	// Burst is the bucket size a ceiling is allowed to fill to. Zero is a
+	// valid, if severe, setting: it rejects every request under that ceiling
+	// instead of relaxing the limit.
+	Burst int
 }
 
 // Booking holds the booking domain's time windows.
 type Booking struct {
-	GracePeriod        time.Duration
+	GracePeriod time.Duration
+	// PaymentExpiry of zero (or negative) is not "no hold at all": stores.Config
+	// falls back to a 15-minute default (see internal/stores.defaultPaymentExpiry)
+	// so a zero value never leaves an unpaid booking without a slot hold.
 	PaymentExpiry      time.Duration
 	CancellationWindow time.Duration
-	SlotLockTTL        time.Duration
+	// SlotLockTTL of zero is accepted here; a TTL shorter than PaymentExpiry
+	// is rejected separately, as a boot invariant (see validateBootConfig),
+	// not as a parsing error.
+	SlotLockTTL time.Duration
 	// LinkTokenBuffer is added to a booking's end time to compute a booking
 	// link token's expires_at (specs/booking-link-credential).
 	LinkTokenBuffer time.Duration

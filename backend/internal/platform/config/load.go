@@ -217,13 +217,13 @@ func (cfg *Config) applyEnv(env *reader) {
 
 	env.boolVal("LIMITER_ENABLED", &cfg.Limiter.Enabled)
 	env.floatVal("LIMITER_RPS", &cfg.Limiter.RPS)
-	env.intVal("LIMITER_BURST", &cfg.Limiter.Burst, positive)
-	env.intVal("REQUEST_LOG_SAMPLE", &cfg.RequestLogSample, positive)
+	env.intVal("LIMITER_BURST", &cfg.Limiter.Burst, nonNegative)
+	env.intVal("REQUEST_LOG_SAMPLE", &cfg.RequestLogSample, nonNegative)
 
 	env.durVal("BOOKING_GRACE_PERIOD", &cfg.Booking.GracePeriod, nonNegativeDur)
-	env.durVal("BOOKING_PAYMENT_EXPIRY", &cfg.Booking.PaymentExpiry, positiveDur)
+	env.durVal("BOOKING_PAYMENT_EXPIRY", &cfg.Booking.PaymentExpiry, nonNegativeDur)
 	env.durVal("BOOKING_CANCELLATION_WINDOW", &cfg.Booking.CancellationWindow, nonNegativeDur)
-	env.durVal("BOOKING_SLOT_LOCK_TTL", &cfg.Booking.SlotLockTTL, positiveDur)
+	env.durVal("BOOKING_SLOT_LOCK_TTL", &cfg.Booking.SlotLockTTL, nonNegativeDur)
 	env.durVal("BOOKING_LINK_TOKEN_BUFFER", &cfg.Booking.LinkTokenBuffer, nonNegativeDur)
 	env.intVal("LIMITS_MAX_COMPLEXES", &cfg.Limits.MaxComplexes, positive)
 
@@ -381,13 +381,6 @@ func positive(n int) error {
 func nonNegative(n int) error {
 	if n < 0 {
 		return errors.New("zero or greater")
-	}
-	return nil
-}
-
-func positiveDur(d time.Duration) error {
-	if d <= 0 {
-		return errors.New("a duration greater than zero")
 	}
 	return nil
 }

@@ -163,10 +163,10 @@ func TestAnUnparseableValueIsAnErrorNotADefault(t *testing.T) {
 		{"SMTP_PORT", "-1"},
 		{"LIMITER_ENABLED", "sometimes"},
 		{"LIMITER_RPS", "fast"},
-		{"LIMITER_BURST", "0"},
-		{"REQUEST_LOG_SAMPLE", "0"},
+		{"LIMITER_BURST", "many"},
+		{"REQUEST_LOG_SAMPLE", "abc"},
 		{"BOOKING_GRACE_PERIOD", "fifteen"},
-		{"BOOKING_PAYMENT_EXPIRY", "0"},
+		{"BOOKING_PAYMENT_EXPIRY", "soon"},
 		{"BOOKING_CANCELLATION_WINDOW", "1 day"},
 		{"BOOKING_SLOT_LOCK_TTL", "-5m"},
 		{"BOOKING_LINK_TOKEN_BUFFER", "24"},
@@ -185,6 +185,47 @@ func TestAnUnparseableValueIsAnErrorNotADefault(t *testing.T) {
 				t.Errorf("error %q does not name %s", err, tc.key)
 			}
 		})
+	}
+}
+
+// TestZeroIsAcceptedWhereItWasBeforeTheRegression guards a CRITICAL fix:
+// requiring these values to be strictly positive rejected a zero that each
+// field's own consumer already treats as meaningful, not unparseable — see
+// Config.RequestLogSample and middleware's sampler (0 logs everything, same
+// as 1), Limiter.Burst (0 is a valid, if severe, ceiling), and
+// stores.defaultPaymentExpiry / validateBootConfig for the two booking
+// windows. Fail-fast belongs to values nobody could parse, not to values a
+// downstream consumer already handles.
+func TestZeroIsAcceptedWhereItWasBeforeTheRegression(t *testing.T) {
+	tests := []struct {
+		key   string
+		value string
+	}{
+		{"REQUEST_LOG_SAMPLE", "0"},
+		{"LIMITER_BURST", "0"},
+		{"BOOKING_PAYMENT_EXPIRY", "0"},
+		{"BOOKING_SLOT_LOCK_TTL", "0"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.key, func(t *testing.T) {
+			if _, err := config.Load(nil, env(map[string]string{tc.key: tc.value})); err != nil {
+				t.Fatalf("Load(%s=%q): %v, want no error", tc.key, tc.value, err)
+			}
+		})
+	}
+}
+
+// TestRequestLogSampleZeroLoadsAsZero pins the specific regression: Config.RequestLogSample
+// documents that 0 and 1 both mean "log every request" (middleware's sampler treats <= 1 the
+// same way), so 0 must come through as 0 rather than being rejected or coerced to the flag's
+// default of 1.
+func TestRequestLogSampleZeroLoadsAsZero(t *testing.T) {
+	cfg, err := config.Load(nil, env(map[string]string{"REQUEST_LOG_SAMPLE": "0"}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RequestLogSample != 0 {
+		t.Errorf("RequestLogSample = %d, want 0 (same effective sampling as before)", cfg.RequestLogSample)
 	}
 }
 
