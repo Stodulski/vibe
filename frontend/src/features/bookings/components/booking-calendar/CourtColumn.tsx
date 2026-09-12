@@ -124,7 +124,7 @@ function CourtColumnImpl({
 
   return (
     <div
-      className={cn('relative shrink-0', !isFirst && 'border-l border-border-subtle')}
+      className={cn('relative shrink-0', !isFirst && 'border-border-subtle border-l')}
       // `h-full`, not a fixed 1344: the grid's own height already includes its
       // top and bottom borders, so a column pinned to the full pixel figure
       // stuck 2px out the bottom — and a horizontally scrollable box is never

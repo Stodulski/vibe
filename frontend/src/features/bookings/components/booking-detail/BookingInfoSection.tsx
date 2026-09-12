@@ -42,9 +42,9 @@ function PaymentExtraRows({ payment, prefix }: { payment: Payment; prefix?: stri
       )}
       {payment.refund_amount > 0 && (
         <InfoRow label={refundLabel}>
-          <span className="score-text font-medium text-warning-text">{formatPrice(payment.refund_amount)}</span>
+          <span className="score-text text-warning-text font-medium">{formatPrice(payment.refund_amount)}</span>
           {payment.service_fee > 0 && (
-            <p className="mt-0.5 text-xs text-text-tertiary">
+            <p className="text-text-tertiary mt-0.5 text-xs">
               {formatPrice(payment.refund_amount - payment.service_fee)} + {formatPrice(payment.service_fee)}{' '}
               {t.bookings.serviceFeeSuffix}
             </p>

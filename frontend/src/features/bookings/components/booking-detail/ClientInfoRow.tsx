@@ -19,13 +19,13 @@ interface ClientInfoRowProps {
 export function ClientInfoRow({ booking, client, onOpenClient }: ClientInfoRowProps) {
   const name = client ? `${client.first_name} ${client.last_name}` : booking.client_name;
 
-  const label = <p className="whitespace-nowrap text-xs font-medium text-text-tertiary">{t.bookings.client}</p>;
+  const label = <p className="text-text-tertiary text-xs font-medium whitespace-nowrap">{t.bookings.client}</p>;
 
   if (!client || !onOpenClient) {
     return (
       <div>
         {label}
-        <p className="mt-0.5 text-sm font-medium text-text-primary">{name}</p>
+        <p className="text-text-primary mt-0.5 text-sm font-medium">{name}</p>
       </div>
     );
   }
@@ -40,10 +40,10 @@ export function ClientInfoRow({ booking, client, onOpenClient }: ClientInfoRowPr
         }}
         // Hugs its content so the chevron sits right after the name instead of
         // drifting to the far edge of the sheet.
-        className="-mx-2 mt-0.5 flex max-w-full items-center gap-1 rounded-lg px-2 py-1 text-left transition-colors hover:bg-bg-base/40"
+        className="hover:bg-bg-base/40 -mx-2 mt-0.5 flex max-w-full items-center gap-1 rounded-lg px-2 py-1 text-left transition-colors"
       >
-        <span className="truncate text-sm font-medium text-text-primary">{name}</span>
-        <ChevronRight className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
+        <span className="text-text-primary truncate text-sm font-medium">{name}</span>
+        <ChevronRight className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
       </button>
     </div>
   );

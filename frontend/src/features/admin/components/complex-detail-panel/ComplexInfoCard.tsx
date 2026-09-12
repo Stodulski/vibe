@@ -18,13 +18,13 @@ export function ComplexInfoCard({ complex }: ComplexInfoCardProps) {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Building2 className="size-5 text-primary-500" />
-            <h2 className="text-xl font-bold text-text-primary">{complex.name}</h2>
+            <Building2 className="text-primary-500 size-5" />
+            <h2 className="text-text-primary text-xl font-bold">{complex.name}</h2>
           </div>
-          <p className="mt-1 text-sm text-text-tertiary">
+          <p className="text-text-tertiary mt-1 text-sm">
             {complex.city}, {complex.province}
           </p>
-          <p className="text-xs text-text-tertiary">/{complex.slug}</p>
+          <p className="text-text-tertiary text-xs">/{complex.slug}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <ActiveStatusBadge isActive={complex.is_active} className="text-xs" />
@@ -32,7 +32,7 @@ export function ComplexInfoCard({ complex }: ComplexInfoCardProps) {
             href={`/${complex.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex shrink-0 items-center gap-1 text-xs text-primary-400 hover:underline"
+            className="text-primary-400 flex shrink-0 items-center gap-1 text-xs hover:underline"
           >
             <span className="hidden sm:inline">{t.admin.detail.viewPublicPage}</span>
             <ExternalLink className="size-3.5" />
@@ -44,7 +44,7 @@ export function ComplexInfoCard({ complex }: ComplexInfoCardProps) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex items-center gap-2 text-sm">
-          <Mail className="size-4 text-text-tertiary" />
+          <Mail className="text-text-tertiary size-4" />
           <span className="text-text-secondary">{complex.email ?? complex.phone}</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -52,7 +52,7 @@ export function ComplexInfoCard({ complex }: ComplexInfoCardProps) {
           <span className="text-text-secondary">{formatDateLong(complex.created_at)}</span>
         </div>
         {complex.address && (
-          <div className="break-words sm:col-span-2 text-sm text-text-secondary">{complex.address}</div>
+          <div className="text-text-secondary text-sm break-words sm:col-span-2">{complex.address}</div>
         )}
       </div>
     </Panel>

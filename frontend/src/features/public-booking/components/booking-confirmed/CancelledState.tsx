@@ -46,7 +46,7 @@ export function CancelledState({ bookingInfo, collectionStatus, onRetry }: Cance
       {bookingInfo?.complexPhone && (
         <a
           href={`tel:${bookingInfo.complexPhone}`}
-          className="mt-1 flex min-h-12 items-center gap-1.5 text-sm text-primary-400 transition-colors hover:text-primary-300"
+          className="text-primary-400 hover:text-primary-300 mt-1 flex min-h-12 items-center gap-1.5 text-sm transition-colors"
         >
           <Phone className="size-3.5" />
           {bookingInfo.complexPhone}

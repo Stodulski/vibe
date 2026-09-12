@@ -32,12 +32,12 @@ export function IconInput({
   return (
     <div
       className={cn(
-        'group rounded-lg transition-colors focus-within:ring-1 focus-within:ring-primary-500/30',
+        'group focus-within:ring-primary-500/30 rounded-lg transition-colors focus-within:ring-1',
         wrapperClassName,
       )}
     >
       <Icon
-        className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-tertiary transition-colors group-focus-within:text-primary-500/70"
+        className="text-text-tertiary group-focus-within:text-primary-500/70 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 transition-colors"
         aria-hidden="true"
       />
       {children ?? <Input className={cn('pl-9', className)} {...props} />}

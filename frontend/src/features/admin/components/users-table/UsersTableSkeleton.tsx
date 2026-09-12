@@ -29,10 +29,10 @@ export function UsersTableSkeleton() {
                   <Skeleton className="h-5 w-20" />
                 </TableCell>
                 <TableCell className="text-center">
-                  <Skeleton className="h-4 w-8 mx-auto" />
+                  <Skeleton className="mx-auto h-4 w-8" />
                 </TableCell>
                 <TableCell className="text-center">
-                  <Skeleton className="h-5 w-16 mx-auto" />
+                  <Skeleton className="mx-auto h-5 w-16" />
                 </TableCell>
                 <TableCell>
                   <Skeleton className="h-4 w-24" />

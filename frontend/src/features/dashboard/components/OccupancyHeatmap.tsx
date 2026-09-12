@@ -31,8 +31,8 @@ export function OccupancyHeatmap({ complexId }: OccupancyHeatmapProps) {
         className="flex flex-col items-center justify-center gap-2 text-center sm:p-5"
         aria-label={t.dashboard.occupancy}
       >
-        <AlertTriangle className="size-5 text-error-icon" aria-hidden="true" />
-        <p className="text-sm text-text-tertiary">{t.common.loadError}</p>
+        <AlertTriangle className="text-error-icon size-5" aria-hidden="true" />
+        <p className="text-text-tertiary text-sm">{t.common.loadError}</p>
         <Button
           variant="outline"
           size="sm"
@@ -61,7 +61,7 @@ export function OccupancyHeatmap({ complexId }: OccupancyHeatmapProps) {
 
       {/* Full heatmap — expandable */}
       {expanded && (
-        <div id="occupancy-heatmap-panel" className="mt-5 animate-fade-in">
+        <div id="occupancy-heatmap-panel" className="animate-fade-in mt-5">
           {isLoading ? (
             <Skeleton className="h-[300px] w-full rounded-xl" />
           ) : (

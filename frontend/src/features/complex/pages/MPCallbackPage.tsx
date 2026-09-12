@@ -8,7 +8,7 @@ export default function MPCallbackPage() {
   const { status, returnPath } = useMPCallback();
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg-base">
+    <div className="bg-bg-base flex min-h-dvh flex-col">
       <AppHeader />
       <div className="flex flex-1 items-center justify-center">
         <MPCallbackStatus status={status} returnPath={returnPath} />

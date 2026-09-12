@@ -15,7 +15,7 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="truncate text-base font-semibold text-text-primary">{court.name}</h3>
+          <h3 className="text-text-primary truncate text-base font-semibold">{court.name}</h3>
           {/* The switch alone. The word beside it said what the knob's own
               position already says, twelve times over on a full grid — and the
               accessible name still spells the state out for anyone reading the
@@ -46,10 +46,10 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
           "Descubierta" repeated the word next to it — texture, not
           information, on a card read a dozen at a time.
         */}
-        <p className="mt-1 truncate text-xs text-text-tertiary">
-          <span className="font-medium text-primary-400">{t.courts.sportTypes[court.sport]}</span>
+        <p className="text-text-tertiary mt-1 truncate text-xs">
+          <span className="text-primary-400 font-medium">{t.courts.sportTypes[court.sport]}</span>
           {' · '}
-          <span className="font-medium text-primary-400">{t.courts.courtTypes[court.court_type]}</span>
+          <span className="text-primary-400 font-medium">{t.courts.courtTypes[court.court_type]}</span>
         </p>
         {/* One line, always — including for a court that has none, which says
             so instead of collapsing. A card that grows or shrinks with the
@@ -60,9 +60,9 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
             owner wrote it for a player, and here it is only a reminder of what
             is on the storefront. */}
         {!court.description ? (
-          <p className="mt-1.5 truncate text-xs text-text-tertiary">{t.courts.noDescription}</p>
+          <p className="text-text-tertiary mt-1.5 truncate text-xs">{t.courts.noDescription}</p>
         ) : (
-          <p className="mt-1.5 truncate text-xs text-text-secondary" title={court.description}>
+          <p className="text-text-secondary mt-1.5 truncate text-xs" title={court.description}>
             {court.description}
           </p>
         )}

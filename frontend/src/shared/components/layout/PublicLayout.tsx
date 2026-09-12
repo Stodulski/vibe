@@ -7,7 +7,7 @@ const t = ES_AR;
 
 export function PublicLayout() {
   return (
-    <div className="relative flex min-h-dvh flex-col bg-bg-base">
+    <div className="bg-bg-base relative flex min-h-dvh flex-col">
       <MeshBackdrop />
 
       {/* Skip navigation link */}
@@ -23,7 +23,7 @@ export function PublicLayout() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border-default py-8 text-center text-xs leading-4 text-text-tertiary">
+      <footer className="border-border-default text-text-tertiary border-t py-8 text-center text-xs leading-4">
         {t.layout.poweredBy}
       </footer>
     </div>

@@ -23,10 +23,10 @@ export function UserDetailPanel({ user, complexes }: UserDetailPanelProps) {
   const isSelf = currentUser?.id === user.id;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <Link
         to="/admin/users"
-        className="flex items-center gap-1.5 text-sm text-text-tertiary hover:text-text-secondary transition-colors"
+        className="text-text-tertiary hover:text-text-secondary flex items-center gap-1.5 text-sm transition-colors"
       >
         <ArrowLeft className="size-4" />
         {t.admin.detail.backToUsers}

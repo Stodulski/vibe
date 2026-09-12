@@ -19,19 +19,19 @@ function UserDetailGrid({ user, complexesCount }: UserDetailGridProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="flex items-center gap-2 text-sm">
-        <Mail className="size-4 text-text-tertiary" />
+        <Mail className="text-text-tertiary size-4" />
         <span className="text-text-secondary">{user.email}</span>
       </div>
       <div className="flex items-center gap-2 text-sm">
-        <Phone className="size-4 text-text-tertiary" />
+        <Phone className="text-text-tertiary size-4" />
         <span className="text-text-secondary">{user.phone}</span>
       </div>
       <div className="flex items-center gap-2 text-sm">
-        <Calendar className="size-4 text-text-tertiary" />
+        <Calendar className="text-text-tertiary size-4" />
         <span className="text-text-secondary">{formatDateLong(user.created_at)}</span>
       </div>
       <div className="flex items-center gap-2 text-sm">
-        <Shield className="size-4 text-text-tertiary" />
+        <Shield className="text-text-tertiary size-4" />
         <span className="text-text-secondary">{user.is_active ? t.admin.users.active : t.admin.users.inactive}</span>
         {user.is_active ? (
           <CheckCircle className="size-3.5 text-green-400" />
@@ -45,7 +45,7 @@ function UserDetailGrid({ user, complexesCount }: UserDetailGridProps) {
         </Badge>
       </div>
       <div className="flex items-center gap-2 text-sm">
-        <Building2 className="size-4 text-text-tertiary" />
+        <Building2 className="text-text-tertiary size-4" />
         <span className="text-text-secondary">
           {complexesCount} {complexesCount === 1 ? 'complejo' : 'complejos'}
         </span>
@@ -67,7 +67,7 @@ export function UserInfoCard({ user, complexesCount, isSelf, isTogglePending, on
     <Panel size="md">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-bold text-text-primary">
+          <h2 className="text-text-primary text-xl font-bold">
             {user.first_name} {user.last_name}
           </h2>
           <Badge variant="secondary" className="mt-1 text-xs">
@@ -78,7 +78,7 @@ export function UserInfoCard({ user, complexesCount, isSelf, isTogglePending, on
           <Button
             variant={user.is_active ? 'destructive' : 'default'}
             size="sm"
-            className="shrink-0 text-xs px-2.5"
+            className="shrink-0 px-2.5 text-xs"
             onClick={onToggleClick}
             disabled={isTogglePending}
           >

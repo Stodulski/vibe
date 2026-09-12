@@ -21,7 +21,7 @@ export function BookingDetailSheetHeader({
   return (
     <DetailSheetHeader
       title={t.publicBooking.bookingRef}
-      subtitle={<span className="text-xs font-semibold uppercase tracking-wider">{t.bookings.bookingDetail}</span>}
+      subtitle={<span className="text-xs font-semibold tracking-wider uppercase">{t.bookings.bookingDetail}</span>}
       menu={
         (canMarkNoShow || canCancel) && (
           <BookingDetailMenu

@@ -142,7 +142,7 @@ function BookingDetailBody({
 
       {/* Only the body scrolls: the header and the action footer stay put, and
           the bottom padding keeps the last row off the edge. */}
-      <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-4 pb-8 pt-4 sm:px-6">
+      <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
         <BookingInfoSection
           booking={booking}
           payments={payments}

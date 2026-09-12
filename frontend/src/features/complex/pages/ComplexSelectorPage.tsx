@@ -17,7 +17,7 @@ const t = ES_AR;
 // centered content column as the loaded page, just with a different body.
 function ComplexSelectorShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-x-hidden bg-bg-base">
+    <div className="bg-bg-base relative flex min-h-dvh flex-col overflow-x-hidden">
       <MeshBackdrop />
       <AppHeader />
       <div className="flex flex-1 flex-col items-center px-4 pt-6 pb-12 sm:pt-16 sm:pb-20">{children}</div>
@@ -43,13 +43,13 @@ function ComplexSelectorLoaded({
   const hasComplexes = complexes.length > 0;
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-x-hidden bg-bg-base">
+    <div className="bg-bg-base relative flex min-h-dvh flex-col overflow-x-hidden">
       <MeshBackdrop />
       <AppHeader>
         <button
           onClick={onLogout}
           disabled={isLoggingOut}
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-text-tertiary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          className="text-text-tertiary hover:bg-bg-elevated hover:text-text-primary flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors"
         >
           <LogOut className="size-4" aria-hidden="true" />
           <span className="hidden sm:inline">{t.auth.logout}</span>
@@ -66,7 +66,7 @@ function ComplexSelectorLoaded({
               directly above NoComplexesState, which says the same thing and
               carries the button. */}
           <div className="mb-6 text-center sm:mb-8">
-            <h1 className="font-display text-xl font-bold text-text-primary sm:text-3xl">
+            <h1 className="font-display text-text-primary text-xl font-bold sm:text-3xl">
               {t.complex.selectComplexTitle}
             </h1>
           </div>

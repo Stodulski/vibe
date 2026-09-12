@@ -49,7 +49,7 @@ export function StepChoice({ question, choices, selected, onChoose }: StepChoice
 
   return (
     <section>
-      <h2 className="text-base font-semibold text-text-primary sm:text-lg">{question}</h2>
+      <h2 className="text-text-primary text-base font-semibold sm:text-lg">{question}</h2>
       <div className={cn('mt-3 grid gap-2', columns)}>
         {choices.map((choice) => (
           <button
@@ -62,7 +62,7 @@ export function StepChoice({ question, choices, selected, onChoose }: StepChoice
               // h-12 rather than h-14: still comfortably past the 48px floor,
               // and a four-answer question in two rows is now a third shorter
               // than it was in one row plus an orphan.
-              'flex h-12 cursor-pointer items-center justify-center rounded-xl border px-4 text-base font-semibold transition-colors duration-200 press-scale',
+              'press-scale flex h-12 cursor-pointer items-center justify-center rounded-xl border px-4 text-base font-semibold transition-colors duration-200',
               choice.value === selected
                 ? 'border-primary-500 bg-primary-500/10 text-primary-400'
                 : 'border-border-subtle bg-bg-subtle text-text-primary hover:border-border-default hover:bg-bg-overlay',

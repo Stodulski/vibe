@@ -27,7 +27,7 @@ export function ConnectAction({
         <Button
           variant="outline"
           size="sm"
-          className="w-full border-error-border/30 text-error-text hover:bg-error-bg sm:w-auto"
+          className="border-error-border/30 text-error-text hover:bg-error-bg w-full sm:w-auto"
           onClick={onDisconnectClick}
         >
           <Unplug className="size-3.5" />

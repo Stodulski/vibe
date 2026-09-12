@@ -31,7 +31,7 @@ export function DetailSheetHeader({ title, subtitle, menu, children }: DetailShe
           <SheetTitle className="truncate text-lg font-bold">{title}</SheetTitle>
           {/* Callers style the subtitle's own content — a phone number reads
               as a figure, a section name as a label. */}
-          {subtitle && <p className="mt-0.5 truncate text-sm text-text-tertiary">{subtitle}</p>}
+          {subtitle && <p className="text-text-tertiary mt-0.5 truncate text-sm">{subtitle}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {menu}

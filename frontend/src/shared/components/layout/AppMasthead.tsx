@@ -30,14 +30,14 @@ export function AppMasthead({ brand, showSearchTrigger = false }: AppMastheadPro
   const clock = useLiveClock();
 
   return (
-    <div className="hidden h-16 shrink-0 items-stretch border-b border-border-subtle bg-bg-base md:flex">
+    <div className="border-border-subtle bg-bg-base hidden h-16 shrink-0 items-stretch border-b md:flex">
       <div className="flex w-[68px] shrink-0 items-center justify-center">{brand}</div>
 
-      <div className="flex min-w-0 flex-1 items-center justify-between gap-3 border-l border-border-subtle px-3 sm:px-6 lg:px-10 xl:px-14">
+      <div className="border-border-subtle flex min-w-0 flex-1 items-center justify-between gap-3 border-l px-3 sm:px-6 lg:px-10 xl:px-14">
         {heading ? (
           <PageContentWidth className="flex min-w-0 flex-col justify-center gap-0.5">
-            <h1 className="truncate text-sm font-semibold text-text-primary sm:text-base">{heading.title}</h1>
-            <p className="truncate text-xs text-text-tertiary first-letter:uppercase">{clock}</p>
+            <h1 className="text-text-primary truncate text-sm font-semibold sm:text-base">{heading.title}</h1>
+            <p className="text-text-tertiary truncate text-xs first-letter:uppercase">{clock}</p>
           </PageContentWidth>
         ) : (
           <span />
@@ -60,11 +60,11 @@ function CommandPaletteButton() {
       onClick={() => {
         window.dispatchEvent(new Event('open-command-palette'));
       }}
-      className="flex shrink-0 items-center gap-2 rounded-lg border border-border-subtle bg-bg-subtle px-3 py-1.5 text-xs text-text-tertiary transition-colors hover:bg-bg-highlight hover:text-text-secondary"
+      className="border-border-subtle bg-bg-subtle text-text-tertiary hover:bg-bg-highlight hover:text-text-secondary flex shrink-0 items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors"
     >
       <Search className="size-3.5" aria-hidden="true" />
       <span className="hidden lg:inline">{t.commandPalette.title}</span>
-      <kbd className="rounded border border-border-subtle bg-bg-base px-1.5 py-0.5 font-mono text-[10px] text-text-tertiary">
+      <kbd className="border-border-subtle bg-bg-base text-text-tertiary rounded border px-1.5 py-0.5 font-mono text-[10px]">
         {SHORTCUT_HINT}
       </kbd>
     </button>

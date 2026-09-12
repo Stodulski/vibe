@@ -23,7 +23,7 @@ export function LoadingSpinner({ size = 'md', className, label }: LoadingSpinner
       role="status"
       aria-label={label ?? t.common.loading}
     >
-      <Loader2 className={cn('animate-spin text-primary-400', sizes[size])} aria-hidden="true" />
+      <Loader2 className={cn('text-primary-400 animate-spin', sizes[size])} aria-hidden="true" />
     </div>
   );
 }

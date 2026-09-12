@@ -26,7 +26,7 @@ export function Tag({ tone = 'neutral', className, children, ...props }: TagProp
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-2 py-0.5 text-sm font-medium',
+        'inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-sm font-medium whitespace-nowrap',
         TAG_TONES[tone],
         className,
       )}

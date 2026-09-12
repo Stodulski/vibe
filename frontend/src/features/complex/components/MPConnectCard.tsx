@@ -22,8 +22,8 @@ interface MPConnectCardProps {
 function MPConnectCardError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-8">
-      <AlertCircle className="size-8 text-text-tertiary" />
-      <p className="text-sm text-text-tertiary">{t.common.error}</p>
+      <AlertCircle className="text-text-tertiary size-8" />
+      <p className="text-text-tertiary text-sm">{t.common.error}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         {t.common.refresh}
       </Button>
@@ -52,7 +52,7 @@ function MPConnectCardStatus({ complexId }: { complexId: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-5 animate-spin text-primary-400" />
+        <Loader2 className="text-primary-400 size-5 animate-spin" />
       </div>
     );
   }

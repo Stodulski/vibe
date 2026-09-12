@@ -24,15 +24,15 @@ export function ComplexGrid({ complexes, onSelect, onAddComplex }: ComplexGridPr
         <button
           onClick={onAddComplex}
           className={cn(
-            'group flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-subtle p-4 transition-colors duration-150 sm:p-5',
+            'group border-border-subtle flex flex-col items-center justify-center rounded-2xl border border-dashed p-4 transition-colors duration-150 sm:p-5',
             'hover:border-primary-500/30 hover:bg-bg-elevated/50',
             'press-scale min-h-[100px]',
           )}
         >
-          <div className="flex size-10 items-center justify-center rounded-xl bg-bg-elevated">
-            <Plus className="size-5 text-text-tertiary transition-colors group-hover:text-primary-500" />
+          <div className="bg-bg-elevated flex size-10 items-center justify-center rounded-xl">
+            <Plus className="text-text-tertiary group-hover:text-primary-500 size-5 transition-colors" />
           </div>
-          <span className="mt-2 text-sm font-medium text-text-tertiary transition-colors group-hover:text-text-secondary">
+          <span className="text-text-tertiary group-hover:text-text-secondary mt-2 text-sm font-medium transition-colors">
             {t.complex.addComplex}
           </span>
         </button>

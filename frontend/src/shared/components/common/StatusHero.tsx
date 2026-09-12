@@ -99,14 +99,14 @@ export function StatusHero({
       className={cn(
         'mx-auto flex w-full max-w-md flex-col',
         align === 'center' ? 'items-center text-center' : 'items-start text-left',
-        animated ? cn(STACK_GAP[size], 'px-2 py-10 animate-fade-in sm:px-0 sm:py-16') : 'gap-4 px-4 py-16',
+        animated ? cn(STACK_GAP[size], 'animate-fade-in px-2 py-10 sm:px-0 sm:py-16') : 'gap-4 px-4 py-16',
       )}
     >
       {animated ? <div className="animate-spring-scale">{badge}</div> : badge}
-      <h2 className={cn('font-bold text-text-primary', titleClassName ?? (size === 'large' ? 'text-2xl' : 'text-xl'))}>
+      <h2 className={cn('text-text-primary font-bold', titleClassName ?? (size === 'large' ? 'text-2xl' : 'text-xl'))}>
         {title}
       </h2>
-      {description && <p className={cn('text-sm text-text-secondary', descriptionClassName)}>{description}</p>}
+      {description && <p className={cn('text-text-secondary text-sm', descriptionClassName)}>{description}</p>}
       {children && (
         <div className={cn('mt-4 flex w-full flex-col', align === 'center' ? 'items-center' : 'items-start')}>
           {children}

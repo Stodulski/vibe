@@ -30,10 +30,10 @@ export function SuccessState({ bookingInfo, bookingDetails, token, status, slug 
   return (
     <StatusHero icon={CheckCircle2} tone="success" size="large" title={t.publicBooking.bookingSuccess} align="center">
       {info && (
-        <div className="w-full max-w-sm animate-fade-in" style={{ animationDelay: '200ms' }}>
+        <div className="animate-fade-in w-full max-w-sm" style={{ animationDelay: '200ms' }}>
           <BookingSummary bookingInfo={info} />
 
-          {cancellationText && <p className="mt-6 text-center text-sm text-text-secondary">{cancellationText}</p>}
+          {cancellationText && <p className="text-text-secondary mt-6 text-center text-sm">{cancellationText}</p>}
         </div>
       )}
 

@@ -10,11 +10,11 @@ interface NoComplexesStateProps {
 
 export function NoComplexesState({ onAddComplex }: NoComplexesStateProps) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-border-subtle bg-bg-elevated p-6 sm:p-12">
-      <div className="flex size-14 items-center justify-center rounded-2xl bg-primary-500/10">
-        <Building2 className="size-7 text-primary-500" />
+    <div className="border-border-subtle bg-bg-elevated flex flex-col items-center rounded-2xl border p-6 sm:p-12">
+      <div className="bg-primary-500/10 flex size-14 items-center justify-center rounded-2xl">
+        <Building2 className="text-primary-500 size-7" />
       </div>
-      <p className="mt-4 text-center text-sm font-medium text-text-secondary">{t.complex.noComplexes}</p>
+      <p className="text-text-secondary mt-4 text-center text-sm font-medium">{t.complex.noComplexes}</p>
       <Button onClick={onAddComplex} className="mt-6">
         <Plus className="size-4" />
         {t.complex.addComplex}

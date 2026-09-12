@@ -49,7 +49,7 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
           // the app sits on; this one had no background at all and was reading
           // as an outline drawn on the page. The price chips are `bg-elevated`,
           // one step up, so they still read as sitting on the card.
-          'group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-bg-subtle transition-colors',
+          'group bg-bg-subtle relative flex h-full flex-col overflow-hidden rounded-2xl border transition-colors',
           court.is_active ? 'border-border-subtle hover-lift glow-hover' : 'border-border-subtle/50 opacity-60',
         )}
       >

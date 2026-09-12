@@ -27,18 +27,18 @@ export function ComplexCard({ complex, onSelect }: ComplexCardProps) {
         onSelect(complex);
       }}
       className={cn(
-        'group flex flex-col rounded-2xl border border-border-subtle bg-bg-elevated p-4 text-left transition-colors duration-150 sm:p-5',
+        'group border-border-subtle bg-bg-elevated flex flex-col rounded-2xl border p-4 text-left transition-colors duration-150 sm:p-5',
         'hover:border-primary-500/30 hover:bg-bg-elevated/80 hover:shadow-sm',
         'press-scale',
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-500/10">
-          <Building2 className="size-5 text-primary-500" />
+        <div className="bg-primary-500/10 flex size-10 shrink-0 items-center justify-center rounded-xl">
+          <Building2 className="text-primary-500 size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-text-primary">{complex.name}</p>
-          <p className="mt-0.5 truncate text-xs text-text-tertiary">
+          <p className="text-text-primary truncate text-sm font-semibold">{complex.name}</p>
+          <p className="text-text-tertiary mt-0.5 truncate text-xs">
             {complex.city}, {complex.province}
           </p>
           {/* A state, not an alarm. The chip this replaces used an alert icon
@@ -49,8 +49,8 @@ export function ComplexCard({ complex, onSelect }: ComplexCardProps) {
               Only rendered when the server counted — `court_count` is absent
               wherever it did not, and a missing count must not read as zero. */}
           {complex.court_count === 0 && (
-            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-text-secondary">
-              <LayoutGrid className="size-3.5 shrink-0 text-text-tertiary" />
+            <p className="text-text-secondary mt-1.5 flex items-center gap-1.5 text-xs">
+              <LayoutGrid className="text-text-tertiary size-3.5 shrink-0" />
               {t.complex.needsCourts}
             </p>
           )}

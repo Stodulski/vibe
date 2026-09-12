@@ -26,7 +26,7 @@ export default function ProfilePage() {
           {/* A card from lg, bare below it — the same treatment settings has.
               On a phone the border sat just inside the screen's own edge around
               content that fills the width anyway. */}
-          <div className="min-w-0 flex-1 lg:max-w-[39rem] lg:rounded-2xl lg:border lg:border-border-subtle lg:bg-bg-subtle lg:p-6">
+          <div className="lg:border-border-subtle lg:bg-bg-subtle min-w-0 flex-1 lg:max-w-[39rem] lg:rounded-2xl lg:border lg:p-6">
             {activeTab === 'personal' && <PersonalInfoForm />}
             {activeTab === 'security' && <SecurityForm />}
           </div>

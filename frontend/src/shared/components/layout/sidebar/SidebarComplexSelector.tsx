@@ -23,9 +23,9 @@ export function SidebarComplexSelector({ complex, collapsed, isMobile, onSelect 
               type="button"
               onClick={onSelect}
               aria-label={`${t.complex.changeComplex}: ${complex.name}`}
-              className="flex w-full items-center justify-center rounded-lg border border-border-subtle bg-bg-elevated/40 p-2.5 transition-colors hover:bg-bg-elevated/70"
+              className="border-border-subtle bg-bg-elevated/40 hover:bg-bg-elevated/70 flex w-full items-center justify-center rounded-lg border p-2.5 transition-colors"
             >
-              <Building2 className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
+              <Building2 className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>
@@ -37,13 +37,13 @@ export function SidebarComplexSelector({ complex, collapsed, isMobile, onSelect 
           type="button"
           onClick={onSelect}
           aria-label={`${t.complex.changeComplex}: ${complex.name}`}
-          className="group flex w-full items-center gap-2.5 rounded-lg border border-border-subtle bg-bg-elevated/40 px-3 py-2.5 transition-colors hover:bg-bg-elevated/70 hover:border-border-default"
+          className="group border-border-subtle bg-bg-elevated/40 hover:bg-bg-elevated/70 hover:border-border-default flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors"
         >
-          <Building2 className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-left text-sm font-medium text-text-primary">
+          <Building2 className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
+          <span className="text-text-primary min-w-0 flex-1 truncate text-left text-sm font-medium">
             {complex.name}
           </span>
-          <ChevronsUpDown className="size-3.5 shrink-0 text-text-tertiary" aria-hidden="true" />
+          <ChevronsUpDown className="text-text-tertiary size-3.5 shrink-0" aria-hidden="true" />
         </button>
       )}
     </div>

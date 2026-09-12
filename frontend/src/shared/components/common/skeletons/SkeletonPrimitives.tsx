@@ -5,7 +5,7 @@ const t = ES_AR;
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-6 sm:p-8" aria-hidden="true">
+    <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-6 sm:p-8" aria-hidden="true">
       <Skeleton className="mb-4 h-4 w-1/3 rounded-lg" />
       <Skeleton className="mb-4 h-4 w-full rounded-lg" />
       <Skeleton className="mb-4 h-4 w-5/6 rounded-lg" />
@@ -16,7 +16,7 @@ export function SkeletonCard() {
 
 export function SkeletonCourtCard() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border-subtle" aria-hidden="true">
+    <div className="border-border-subtle overflow-hidden rounded-2xl border" aria-hidden="true">
       <Skeleton className="h-1 w-full rounded-none" />
       <div className="p-4 sm:p-6">
         <div className="flex items-start justify-between gap-3">
@@ -30,7 +30,7 @@ export function SkeletonCourtCard() {
           </div>
           <Skeleton className="h-5 w-10 rounded-full" />
         </div>
-        <div className="mt-4 rounded-xl bg-bg-base/60 px-3 py-2.5">
+        <div className="bg-bg-base/60 mt-4 rounded-xl px-3 py-2.5">
           <Skeleton className="h-5 w-28 rounded-lg" />
         </div>
         <div className="mt-4 flex gap-2">
@@ -52,19 +52,19 @@ interface SkeletonTableProps {
 export function SkeletonTable({ rows = 5, live = true }: SkeletonTableProps) {
   return (
     <div
-      className="rounded-2xl border border-border-subtle bg-bg-subtle"
+      className="border-border-subtle bg-bg-subtle rounded-2xl border"
       role={live ? 'status' : undefined}
       aria-label={live ? t.common.loading : undefined}
       aria-hidden={live ? undefined : true}
     >
-      <div className="flex gap-4 border-b border-border-subtle p-4">
+      <div className="border-border-subtle flex gap-4 border-b p-4">
         <Skeleton className="h-4 w-1/4 rounded-lg" />
         <Skeleton className="h-4 w-1/4 rounded-lg" />
         <Skeleton className="h-4 w-1/4 rounded-lg" />
         <Skeleton className="h-4 w-1/4 rounded-lg" />
       </div>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex gap-4 border-b border-border-subtle p-4 last:border-b-0">
+        <div key={i} className="border-border-subtle flex gap-4 border-b p-4 last:border-b-0">
           <Skeleton className="h-4 w-1/4 rounded-lg" />
           <Skeleton className="h-4 w-1/4 rounded-lg" />
           <Skeleton className="h-4 w-1/4 rounded-lg" />
@@ -77,7 +77,7 @@ export function SkeletonTable({ rows = 5, live = true }: SkeletonTableProps) {
 
 export function SkeletonStat() {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-6 sm:p-8" aria-hidden="true">
+    <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-6 sm:p-8" aria-hidden="true">
       <div className="flex items-center justify-between">
         <Skeleton className="h-3 w-20 rounded-lg" />
         <Skeleton className="size-9 rounded-lg" />
@@ -90,7 +90,7 @@ export function SkeletonStat() {
 export function SkeletonCalendar() {
   return (
     <div
-      className="rounded-2xl border border-border-subtle bg-bg-subtle p-6 sm:p-8"
+      className="border-border-subtle bg-bg-subtle rounded-2xl border p-6 sm:p-8"
       role="status"
       aria-label={t.common.loading}
     >

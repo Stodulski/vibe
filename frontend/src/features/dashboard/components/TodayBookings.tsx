@@ -40,7 +40,7 @@ export const TodayBookings = memo(function TodayBookings({ bookings, complexId }
     <Panel as="section" size="sm" className="flex h-full flex-col p-4" aria-label={t.dashboard.upcomingBookings}>
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-baseline gap-2">
-          <h3 className="whitespace-nowrap text-sm font-semibold text-text-primary">{t.dashboard.upcomingBookings}</h3>
+          <h3 className="text-text-primary text-sm font-semibold whitespace-nowrap">{t.dashboard.upcomingBookings}</h3>
           {confirmedBookings.length > 0 && (
             <Tag tone="primary" className="px-1.5 text-sm">
               {confirmedBookings.length}

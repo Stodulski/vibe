@@ -36,15 +36,15 @@ export function CancelledResultState({ refund, onBack }: CancelledResultStatePro
       descriptionClassName="max-w-sm"
     >
       {refund.amount !== undefined && (
-        <p className="text-base font-semibold text-text-primary">{formatPrice(refund.amount)}</p>
+        <p className="text-text-primary text-base font-semibold">{formatPrice(refund.amount)}</p>
       )}
       {refund.manual_amount !== undefined && (
         <div className="mt-2 max-w-sm text-left">
-          <p className="text-sm text-text-secondary">{refund.manual_message}</p>
-          <p className="text-base font-semibold text-text-primary">{formatPrice(refund.manual_amount)}</p>
+          <p className="text-text-secondary text-sm">{refund.manual_message}</p>
+          <p className="text-text-primary text-base font-semibold">{formatPrice(refund.manual_amount)}</p>
         </div>
       )}
-      <Button variant="outline" className="min-h-12 mt-4 rounded-xl" onClick={onBack}>
+      <Button variant="outline" className="mt-4 min-h-12 rounded-xl" onClick={onBack}>
         {t.publicBooking.makeAnother}
       </Button>
     </StatusHero>

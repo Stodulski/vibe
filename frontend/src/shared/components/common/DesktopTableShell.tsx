@@ -8,7 +8,7 @@ import { cn } from '@/shared/lib/utils';
  */
 export function DesktopTableShell({ className, children, ...props }: ComponentProps<'div'>) {
   return (
-    <div className={cn('hidden rounded-2xl border border-border-subtle bg-bg-subtle md:block', className)} {...props}>
+    <div className={cn('border-border-subtle bg-bg-subtle hidden rounded-2xl border md:block', className)} {...props}>
       {children}
     </div>
   );

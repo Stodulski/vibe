@@ -7,14 +7,14 @@ const t = ES_AR;
 export function SkeletonCancelInfo() {
   return (
     <div
-      className="mx-auto flex w-full max-w-md flex-col items-center gap-4 px-4 py-16 animate-fade-in"
+      className="animate-fade-in mx-auto flex w-full max-w-md flex-col items-center gap-4 px-4 py-16"
       role="status"
       aria-label={t.common.loading}
     >
       <Skeleton className="size-16 rounded-full" />
       <Skeleton className="h-6 w-48 rounded-lg" />
       <Skeleton className="h-4 w-64 rounded-lg" />
-      <div className="w-full rounded-2xl border border-border-subtle bg-bg-subtle p-4">
+      <div className="border-border-subtle bg-bg-subtle w-full rounded-2xl border p-4">
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="flex justify-between">
@@ -32,7 +32,7 @@ export function SkeletonCancelInfo() {
 /** Public booking confirm page skeleton */
 export function SkeletonBookConfirm() {
   return (
-    <div className="w-full space-y-6 animate-fade-in sm:space-y-8" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in w-full space-y-6 sm:space-y-8" role="status" aria-label={t.common.loading}>
       {/* Step indicator */}
       <div className="flex items-center justify-center gap-3">
         {Array.from({ length: 3 }, (_, i) => (
@@ -45,7 +45,7 @@ export function SkeletonBookConfirm() {
       {/* Back button */}
       <Skeleton className="h-5 w-36 rounded-lg" />
       {/* Booking summary card */}
-      <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+      <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
         <Skeleton className="mb-4 h-5 w-36 rounded-lg" />
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
@@ -74,11 +74,11 @@ export function SkeletonBookConfirm() {
 /** Public booking success page skeleton */
 export function SkeletonBookSuccess() {
   return (
-    <div className="flex flex-col items-center gap-5 py-16 animate-fade-in" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in flex flex-col items-center gap-5 py-16" role="status" aria-label={t.common.loading}>
       <Skeleton className="size-20 rounded-full sm:size-24" />
       <Skeleton className="h-7 w-52 rounded-lg" />
       <Skeleton className="h-4 w-36 rounded-lg" />
-      <div className="w-full max-w-sm rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+      <div className="border-border-subtle bg-bg-subtle w-full max-w-sm rounded-2xl border p-4 sm:p-6">
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="flex justify-between">

@@ -24,7 +24,7 @@ export function DesktopUsersTable({ users }: DesktopUsersTableProps) {
               <TableCell>
                 <Link
                   to={`/admin/users/${user.id}`}
-                  className="font-medium text-text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                  className="text-text-primary focus-visible:ring-primary-500/50 font-medium hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:outline-none"
                 >
                   {user.first_name} {user.last_name}
                 </Link>
@@ -36,7 +36,7 @@ export function DesktopUsersTable({ users }: DesktopUsersTableProps) {
                 </Badge>
               </TableCell>
               <TableCell className="text-center">
-                <div className="flex items-center justify-center gap-1 text-text-secondary">
+                <div className="text-text-secondary flex items-center justify-center gap-1">
                   <Building2 className="size-3.5" aria-hidden="true" />
                   <span className="text-sm">{user.complex_count}</span>
                 </div>

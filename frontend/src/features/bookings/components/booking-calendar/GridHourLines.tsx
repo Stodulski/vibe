@@ -18,7 +18,7 @@ export function GridHourLines() {
       {HOUR_TOPS.map((top) => (
         <div
           key={`hour-${String(top)}`}
-          className="absolute inset-x-0 h-px bg-border-subtle"
+          className="bg-border-subtle absolute inset-x-0 h-px"
           style={{ top: `${String(top)}px` }}
         />
       ))}

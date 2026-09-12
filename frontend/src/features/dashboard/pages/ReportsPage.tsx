@@ -51,7 +51,7 @@ function ReportsPageContent({ complexId, createdAt }: { complexId: string; creat
       />
 
       {exportError && (
-        <div className="mb-4 rounded-lg border border-error-border bg-error-bg px-4 py-3 text-sm text-error-text">
+        <div className="border-error-border bg-error-bg text-error-text mb-4 rounded-lg border px-4 py-3 text-sm">
           {exportError}
         </div>
       )}

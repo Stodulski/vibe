@@ -33,7 +33,7 @@ export function ContinueAction({ onContinue }: { onContinue: () => void }) {
         onClick={() => {
           onContinue();
         }}
-        className="h-12 w-full rounded-xl shadow-brand sm:w-auto sm:px-8"
+        className="shadow-brand h-12 w-full rounded-xl sm:w-auto sm:px-8"
       >
         {t.publicBooking.continue}
       </Button>

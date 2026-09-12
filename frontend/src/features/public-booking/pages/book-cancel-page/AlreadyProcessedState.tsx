@@ -21,7 +21,7 @@ export function AlreadyProcessedState({ cancelInfo, onBack }: AlreadyProcessedSt
         cancelInfo.booking.status === 'cancelled' ? t.publicBooking.alreadyCancelled : t.publicBooking.alreadyCompleted
       }
     >
-      <Button variant="outline" className="min-h-12 mt-4 rounded-xl" onClick={onBack}>
+      <Button variant="outline" className="mt-4 min-h-12 rounded-xl" onClick={onBack}>
         {t.publicBooking.makeAnother}
       </Button>
     </StatusHero>

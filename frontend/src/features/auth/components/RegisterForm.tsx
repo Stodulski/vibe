@@ -34,8 +34,8 @@ const EMPTY_REGISTER_VALUES: RegisterDto = {
 
 function RegisterFormHeader({ step }: { step: Step }) {
   return (
-    <div className="flex flex-col items-center gap-4 px-0 pb-1 pt-2 md:pt-6">
-      <h1 className="font-display text-xl font-bold tracking-tight text-text-primary sm:text-2xl">{t.auth.register}</h1>
+    <div className="flex flex-col items-center gap-4 px-0 pt-2 pb-1 md:pt-6">
+      <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">{t.auth.register}</h1>
       <StepIndicator
         currentStep={step}
         totalSteps={3}
@@ -80,7 +80,7 @@ export function RegisterForm() {
       <RegisterFormHeader step={step} />
 
       {/* Form */}
-      <div className="px-0 pb-6 pt-4">
+      <div className="px-0 pt-4 pb-6">
         <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-3 sm:space-y-3.5" noValidate>
           <RegisterFormSteps
             step={step}

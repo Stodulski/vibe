@@ -13,11 +13,11 @@ interface MPConnectStatusProps {
 export function MPConnectStatus({ mpConnected, mpAuthUrl, onConnectClick }: MPConnectStatusProps) {
   if (mpConnected) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-primary-500/20 bg-primary-500/5 p-4">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-500/20">
-          <CheckCircle2 className="size-5 text-primary-400" />
+      <div className="border-primary-500/20 bg-primary-500/5 flex items-center gap-3 rounded-xl border p-4">
+        <div className="bg-primary-500/20 flex size-8 shrink-0 items-center justify-center rounded-full">
+          <CheckCircle2 className="text-primary-400 size-5" />
         </div>
-        <span className="font-medium text-text-primary">{t.mp.connected}</span>
+        <span className="text-text-primary font-medium">{t.mp.connected}</span>
       </div>
     );
   }
@@ -35,7 +35,7 @@ export function MPConnectStatus({ mpConnected, mpAuthUrl, onConnectClick }: MPCo
 
   return (
     <div className="flex items-center justify-center py-4">
-      <Loader2 className="size-5 animate-spin text-text-tertiary" />
+      <Loader2 className="text-text-tertiary size-5 animate-spin" />
     </div>
   );
 }

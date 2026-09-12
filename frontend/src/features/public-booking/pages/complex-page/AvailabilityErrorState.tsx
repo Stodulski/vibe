@@ -19,14 +19,14 @@ export function AvailabilityErrorState({ onRetry }: AvailabilityErrorStateProps)
     <div
       key="availability-error"
       role="alert"
-      className="flex flex-col items-center gap-3 rounded-xl border border-error-border/30 bg-error-bg px-4 py-8 text-center text-sm text-error-text animate-fade-in"
+      className="border-error-border/30 bg-error-bg text-error-text animate-fade-in flex flex-col items-center gap-3 rounded-xl border px-4 py-8 text-center text-sm"
     >
       <AlertCircle className="size-5" aria-hidden="true" />
       <p>{t.publicBooking.availabilityLoadError}</p>
       <Button
         variant="outline"
         size="sm"
-        className="rounded-xl border-error-border/30 text-error-text hover:bg-error-bg/50"
+        className="border-error-border/30 text-error-text hover:bg-error-bg/50 rounded-xl"
         onClick={onRetry}
       >
         {t.publicBooking.tryAgain}

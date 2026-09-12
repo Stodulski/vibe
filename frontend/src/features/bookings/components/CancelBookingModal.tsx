@@ -89,7 +89,7 @@ export function CancelBookingModal({ open, onClose, onConfirm, isLoading, bookin
               onConfirm(reason || undefined);
             }}
             disabled={isLoading}
-            className="bg-destructive text-white hover:bg-destructive/90"
+            className="bg-destructive hover:bg-destructive/90 text-white"
           >
             {isLoading && <Loader2 className="size-4 animate-spin" />}
             {t.bookings.confirmCancel}

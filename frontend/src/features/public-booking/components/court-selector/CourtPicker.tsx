@@ -42,11 +42,11 @@ function CourtCard({ entry, isSelected, onSelect }: CourtCardProps) {
       <span className={cn('w-full truncate text-sm font-semibold', emphasis)} title={court.court_name}>
         {court.court_name}
       </span>
-      <span className="text-xs text-text-tertiary">
+      <span className="text-text-tertiary text-xs">
         {SPORT_LABELS[court.sport] ?? court.sport} · {COURT_TYPE_LABELS[court.court_type] ?? court.court_type}
       </span>
       <span className={cn('text-base font-semibold tabular-nums', emphasis)}>{formatPrice(slot.price)}</span>
-      <span className={cn('text-xs', court.description ? 'text-text-secondary' : 'italic text-text-tertiary')}>
+      <span className={cn('text-xs', court.description ? 'text-text-secondary' : 'text-text-tertiary italic')}>
         {court.description ?? t.courts.noDescription}
       </span>
     </button>
@@ -80,7 +80,7 @@ export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerPr
     <div className="mt-3">
       {/* The hour is already on the answered chip above; repeating it here
           would say the same thing twice on one screen. */}
-      <p className="text-xs font-semibold text-text-secondary">{t.publicBooking.selectCourt}</p>
+      <p className="text-text-secondary text-xs font-semibold">{t.publicBooking.selectCourt}</p>
       {/* One card per row on a phone, so the name and the sport line never
           fight for width; three across from sm, four on a desktop. */}
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-4">

@@ -42,7 +42,7 @@ export function AmenitiesFieldset({ control }: { control: Control<CreateComplexD
                 `text-text-secondary`, at the `text-xs` this form overrides to.
                 A legend a shade brighter than every label around it reads as a
                 heading for the rest of the form, not as this group's name. */}
-            <legend className="text-xs font-medium leading-none text-text-secondary">
+            <legend className="text-text-secondary text-xs leading-none font-medium">
               {t.complex.amenitiesSection}
             </legend>
             {/* Two columns once the container can seat them, one below.
@@ -90,7 +90,7 @@ function AmenityCheckbox({
   onToggle: (value: Amenity, checked: boolean) => void;
 }) {
   return (
-    <label className="flex h-11 cursor-pointer items-center gap-3 rounded-lg px-2 transition-colors hover:bg-bg-elevated/60">
+    <label className="hover:bg-bg-elevated/60 flex h-11 cursor-pointer items-center gap-3 rounded-lg px-2 transition-colors">
       <Checkbox
         checked={checked}
         onCheckedChange={(value) => {

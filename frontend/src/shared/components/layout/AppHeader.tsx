@@ -14,7 +14,7 @@ export function AppHeader({ children, className }: AppHeaderProps) {
   return (
     <header
       className={cn(
-        'flex h-16 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-base px-4 sm:px-6 safe-area-inset',
+        'border-border-subtle bg-bg-base safe-area-inset flex h-16 shrink-0 items-center justify-between border-b px-4 sm:px-6',
         className,
       )}
     >

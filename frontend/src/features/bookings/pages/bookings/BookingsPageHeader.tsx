@@ -23,7 +23,7 @@ export function BookingsPageHeader({ isPast, hasCourts, onBlockSlot, onCreateBoo
 
   return (
     <div className="mb-3 flex flex-col gap-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
-      <h1 className="font-display truncate text-xl font-semibold leading-tight tracking-tight text-text-primary sm:text-2xl md:hidden">
+      <h1 className="font-display text-text-primary truncate text-xl leading-tight font-semibold tracking-tight sm:text-2xl md:hidden">
         {t.bookings.title}
       </h1>
       {/* Most important action first, so it's what the eye reaches first

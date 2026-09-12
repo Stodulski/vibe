@@ -43,7 +43,7 @@ function StatTileProgressBar({ label, progressBar }: { label: string; progressBa
   const pct = Math.min(Math.max(progressBar, 0), 100);
   return (
     <div
-      className="mt-2 h-1 w-full overflow-hidden rounded-full bg-bg-base sm:mt-3"
+      className="bg-bg-base mt-2 h-1 w-full overflow-hidden rounded-full sm:mt-3"
       role="progressbar"
       aria-valuenow={pct}
       aria-valuemin={0}
@@ -51,7 +51,7 @@ function StatTileProgressBar({ label, progressBar }: { label: string; progressBa
       aria-label={`${label}: ${String(pct)}%`}
     >
       <div
-        className="h-1 rounded-full bg-primary-500 transition-[width] duration-700 ease-out"
+        className="bg-primary-500 h-1 rounded-full transition-[width] duration-700 ease-out"
         style={{ width: `${String(pct)}%` }}
       />
     </div>
@@ -80,7 +80,7 @@ export function StatTile({
     <Panel as="article" className={cn('hover-lift', className)}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="text-sm font-medium text-text-tertiary">{label}</span>
+          <span className="text-text-tertiary text-sm font-medium">{label}</span>
           {comparison}
         </div>
         {Icon && (
@@ -92,14 +92,14 @@ export function StatTile({
       <div className="mt-2 flex items-baseline gap-2 sm:mt-3">
         <p
           className={cn(
-            'animate-count-in whitespace-nowrap text-lg font-bold tracking-tight text-text-primary sm:text-xl',
+            'animate-count-in text-text-primary text-lg font-bold tracking-tight whitespace-nowrap sm:text-xl',
             valueClassName,
           )}
         >
           {value}
         </p>
       </div>
-      {subtitle && <p className="mt-1 whitespace-nowrap text-sm text-text-tertiary">{subtitle}</p>}
+      {subtitle && <p className="text-text-tertiary mt-1 text-sm whitespace-nowrap">{subtitle}</p>}
       {progressBar != null && <StatTileProgressBar label={label} progressBar={progressBar} />}
     </Panel>
   );

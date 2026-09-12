@@ -23,12 +23,12 @@ export function TodayBookingRow({ booking, onSelect, hiddenOnMobile }: TodayBook
         onClick={() => {
           onSelect(booking);
         }}
-        className="flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-bg-base/40"
+        className="hover:bg-bg-base/40 flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left transition-colors"
       >
         <div className="min-w-0 flex-1">
           {/* Mobile: name on its own line, time/court below. */}
-          <p className="truncate text-sm font-medium text-text-primary md:hidden">{booking.client_name}</p>
-          <p className="mt-0.5 truncate text-sm text-text-tertiary md:hidden">
+          <p className="text-text-primary truncate text-sm font-medium md:hidden">{booking.client_name}</p>
+          <p className="text-text-tertiary mt-0.5 truncate text-sm md:hidden">
             <span className="score-text">{formatTime(booking.start_time)}</span> · {booking.court_name}
           </p>
 
@@ -36,12 +36,12 @@ export function TodayBookingRow({ booking, onSelect, hiddenOnMobile }: TodayBook
           <p className="hidden truncate text-sm md:block">
             <span className="score-text text-text-tertiary">{formatTime(booking.start_time)}</span>
             {' · '}
-            <span className="font-medium text-text-primary">{booking.client_name}</span>
+            <span className="text-text-primary font-medium">{booking.client_name}</span>
             {' · '}
             <span className="text-text-tertiary">{booking.court_name}</span>
           </p>
         </div>
-        <ChevronRight className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
+        <ChevronRight className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
       </button>
     </li>
   );

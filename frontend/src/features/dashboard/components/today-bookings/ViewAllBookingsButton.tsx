@@ -19,7 +19,7 @@ export function ViewAllBookingsButton({ desktopOnly }: ViewAllBookingsButtonProp
       variant="ghost"
       size="sm"
       className={cn(
-        'mt-3 w-full gap-1.5 text-sm text-primary-400 hover:text-primary-300',
+        'text-primary-400 hover:text-primary-300 mt-3 w-full gap-1.5 text-sm',
         desktopOnly ? 'hidden md:flex' : 'md:hidden',
       )}
       onClick={() => {

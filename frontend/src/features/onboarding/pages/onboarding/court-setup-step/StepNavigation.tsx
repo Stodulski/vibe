@@ -22,7 +22,7 @@ export function StepNavigation({
     // No surface of its own, at any width — the steps above it have none
     // either, and a bordered bar under borderless content reads as a footer
     // for something that never opened. The rule above it does the separating.
-    <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-5">
+    <div className="border-border-subtle flex items-center justify-between gap-3 border-t pt-5">
       <Button variant="ghost" size="sm" onClick={onBack} className="text-text-tertiary">
         <ArrowLeft className="size-4" />
         {t.common.back}
@@ -50,7 +50,7 @@ export function StepNavigation({
           <ArrowRight className="size-4" />
         </Button>
         {blocked && nextDisabled && (
-          <p role="alert" className="text-xs text-error-text">
+          <p role="alert" className="text-error-text text-xs">
             {t.complex.onboardingNeedsCourt}
           </p>
         )}

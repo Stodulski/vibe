@@ -45,7 +45,7 @@ export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeade
     // The bordered card arrives at `lg`. Below that a panel spanning the whole
     // screen frames the page and then indents its contents inside the page's
     // own gutter — two nested paddings for one column of content.
-    <div className="relative lg:rounded-2xl lg:border lg:border-border-subtle lg:bg-bg-subtle lg:p-7">
+    <div className="lg:border-border-subtle lg:bg-bg-subtle relative lg:rounded-2xl lg:border lg:p-7">
       {/* Identity: cover, logo, name, contact — one block, one order. */}
       <div>
         <CoverBanner coverUrl={coverUrl} />
@@ -53,7 +53,7 @@ export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeade
         <div className="relative pb-5 sm:pb-7">
           <ComplexLogo logoUrl={complex.logo_url ?? null} name={complex.name} />
 
-          <h1 className="font-display text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
+          <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">
             {complex.name}
           </h1>
 
@@ -75,7 +75,7 @@ export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeade
             */}
             <ErrorBoundary
               fallback={
-                <div className="flex h-[200px] w-full items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-center text-sm text-text-secondary">
+                <div className="border-border-subtle bg-bg-subtle text-text-secondary flex h-[200px] w-full items-center justify-center rounded-xl border text-center text-sm">
                   {t.publicBooking.mapUnavailable}
                 </div>
               }

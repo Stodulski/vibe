@@ -48,7 +48,7 @@ export function GridBody({
     // to the columns so the gridlines span all of them, not just the visible
     // slice of the scroller.
     <div
-      className="relative flex border-y border-border-subtle bg-bg-base"
+      className="border-border-subtle bg-bg-base relative flex border-y"
       style={{
         height: `${String(GRID_HEIGHT_PX)}px`,
         width: `${String(columns.length * COLUMN_WIDTH_PX)}px`,

@@ -24,7 +24,7 @@ export function ComplexErrorState({ onRetry }: ComplexErrorStateProps) {
       title={t.publicBooking.complexLoadError}
       description={t.publicBooking.complexLoadErrorDescription}
     >
-      <Button size="lg" className="min-h-12 mt-4 rounded-xl" onClick={onRetry}>
+      <Button size="lg" className="mt-4 min-h-12 rounded-xl" onClick={onRetry}>
         {t.publicBooking.tryAgain}
       </Button>
     </StatusHero>

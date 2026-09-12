@@ -57,23 +57,23 @@ function BookConfirmPageContent({ slug, slotInfo, onBack }: BookConfirmPageConte
 
   if (redirecting) {
     return (
-      <div className="flex w-full flex-1 flex-col items-center justify-center gap-5 py-16 animate-fade-in">
+      <div className="animate-fade-in flex w-full flex-1 flex-col items-center justify-center gap-5 py-16">
         <StepIndicator currentStep={3} />
         <LoadingSpinner size="lg" />
-        <p className="text-sm text-text-secondary">{t.publicBooking.redirectingToMP}</p>
+        <p className="text-text-secondary text-sm">{t.publicBooking.redirectingToMP}</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-6 animate-fade-in sm:space-y-8">
+    <div className="animate-fade-in w-full space-y-6 sm:space-y-8">
       <StepIndicator currentStep={2} />
 
       {/* Back to slot selection */}
       <button
         type="button"
         onClick={onBack}
-        className="flex min-h-12 items-center gap-1.5 text-sm text-text-tertiary transition-colors hover:text-text-secondary sm:min-h-0"
+        className="text-text-tertiary hover:text-text-secondary flex min-h-12 items-center gap-1.5 text-sm transition-colors sm:min-h-0"
       >
         <ArrowLeft className="size-3.5" />
         {t.publicBooking.changeTimeSlot}
@@ -87,7 +87,7 @@ function BookConfirmPageContent({ slug, slotInfo, onBack }: BookConfirmPageConte
       {paymentLinkError && (
         <div
           role="alert"
-          className="flex flex-col items-start gap-3 rounded-xl border border-error-border/30 bg-error-bg p-4 text-sm text-error-text sm:flex-row sm:items-center sm:justify-between"
+          className="border-error-border/30 bg-error-bg text-error-text flex flex-col items-start gap-3 rounded-xl border p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
         >
           <span className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -97,7 +97,7 @@ function BookConfirmPageContent({ slug, slotInfo, onBack }: BookConfirmPageConte
             type="button"
             variant="outline"
             size="sm"
-            className="min-h-12 w-full shrink-0 rounded-xl border-error-border/30 text-error-text hover:bg-error-bg/50 sm:min-h-0 sm:w-auto"
+            className="border-error-border/30 text-error-text hover:bg-error-bg/50 min-h-12 w-full shrink-0 rounded-xl sm:min-h-0 sm:w-auto"
             onClick={retry}
           >
             {t.publicBooking.retryPaymentLink}
