@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/google/uuid"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -27,25 +26,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	courts, err := h.store.GetByComplex(r.Context(), complex.ID)
+	result, err := h.svc.List(r.Context(), complex.ID)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
-	}
-
-	type courtWithPrices struct {
-		*courtstore.Court
-		Prices []*courtstore.CourtPrice `json:"prices"`
-	}
-
-	result := make([]courtWithPrices, len(courts))
-	for i, c := range courts {
-		prices, err := h.store.GetPrices(r.Context(), c.ID)
-		if err != nil {
-			h.respond.ServerError(w, r, err)
-			return
-		}
-		result[i] = courtWithPrices{Court: c, Prices: prices}
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"courts": result})
@@ -67,8 +51,8 @@ const maxPriceValue = math.MaxInt32
 const maxPriceMessage = "must not exceed the maximum price this column can store (2147483647)"
 
 // blockedSlotHasBookingMessage is what a blocked-slot write answers with when
-// the hours are already sold. Two checks can produce it — the pre-check below,
-// which names the collision while the request is still in hand, and
+// the hours are already sold. Two checks can produce it — the service's
+// pre-check, which names the collision while the request is still in hand, and
 // InsertBlockedSlot's own check under the court-day lock — and they answer with
 // one sentence because they are answering one question.
 const blockedSlotHasBookingMessage = "this time range overlaps with an existing booking"
@@ -118,21 +102,16 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	court := &courtstore.Court{
-		ComplexID:   complex.ID,
+	court, err := h.svc.Create(r.Context(), complex.ID, h.actor(r), CreateInput{
 		Name:        input.Name,
 		Sport:       input.Sport,
 		CourtType:   input.CourtType,
-		Description: emptyToNil(input.Description),
-	}
-
-	err = h.store.Insert(r.Context(), court)
+		Description: input.Description,
+	})
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
-
-	h.record(r, complex.ID, "create", "court", &court.ID, nil, court)
 
 	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"court": court})
 }
@@ -158,22 +137,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	court, err := h.store.GetByID(r.Context(), courtID)
-	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
-		return
-	}
-
-	if court.ComplexID != complex.ID {
-		h.respond.NotFound(w, r)
-		return
-	}
-
 	var input struct {
 		Name        *string `json:"name"`
 		Sport       *string `json:"sport"`
@@ -189,47 +152,42 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-
 	if input.Name != nil {
 		v.Check(*input.Name != "", "name", "must not be empty")
 		v.Check(len(*input.Name) <= 100, "name", "must not be more than 100 characters")
-		court.Name = *input.Name
 	}
 	if input.Sport != nil {
 		v.Check(validator.PermittedValue(*input.Sport, "padel", "tennis", "soccer", "basketball"), "sport", "must be one of: padel, tennis, soccer, basketball")
-		court.Sport = *input.Sport
 	}
 	if input.CourtType != nil {
 		v.Check(validator.PermittedValue(*input.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
-		court.CourtType = *input.CourtType
-	}
-	if input.IsActive != nil {
-		court.IsActive = *input.IsActive
 	}
 	if input.Description != nil {
 		v.Check(len(*input.Description) <= descriptionMaxLen, "description", descriptionMessage)
-		// An empty string is how a client clears a description, so it lands as
-		// NULL rather than as a row holding "". Same fact, one representation.
-		court.Description = emptyToNil(input.Description)
 	}
-
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
-	err = h.store.Update(r.Context(), court)
+	court, err := h.svc.Update(r.Context(), complex.ID, h.actor(r), courtID, UpdateInput{
+		Name:        input.Name,
+		Sport:       input.Sport,
+		CourtType:   input.CourtType,
+		IsActive:    input.IsActive,
+		Description: input.Description,
+	})
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
+			h.respond.NotFound(w, r)
+		case errors.Is(err, ErrEditConflict):
 			h.respond.EditConflict(w, r)
 		default:
 			h.respond.ServerError(w, r, err)
 		}
 		return
 	}
-
-	h.record(r, complex.ID, "update", "court", &court.ID, nil, court)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"court": court})
 }
@@ -249,40 +207,17 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	court, err := h.store.GetByID(r.Context(), courtID)
-	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
-		return
-	}
-
-	if court.ComplexID != complex.ID {
-		h.respond.NotFound(w, r)
-		return
-	}
-
-	// H-02: the existence test and the delete used to be two calls — this
-	// handler's own HasActiveBookingsByCourt check, then SoftDelete — with
-	// nothing serializing them. A booking committing in the gap between the
-	// two survived on a court the owner had just watched disappear from their
-	// own dashboard. SoftDelete now asks and acts in one statement, so there
-	// is no gap left for that booking to land in; ErrCourtHasActiveBookings is
-	// the database's answer to the same question this used to ask separately.
-	err = h.store.SoftDelete(r.Context(), courtID)
+	err = h.svc.Delete(r.Context(), complex.ID, h.actor(r), courtID)
 	if err != nil {
 		switch {
 		case errors.Is(err, courtstore.ErrCourtHasActiveBookings):
 			h.respond.Error(w, r, http.StatusConflict, "cannot delete court while it has active bookings, cancel them first")
 		// SoftDelete's WHERE clause can also match nothing because the row
-		// disappeared between the GetByID above and this call, or because a
-		// concurrent delete already soft-deleted it — the ordinary GetByID
-		// race, not the has-bookings conflict. See SoftDelete's own comment
-		// (internal/courts/store/courts.go) for why the three zero-row causes are no
-		// longer conflated into one sentinel.
+		// disappeared between the service's own lookup and the delete, or
+		// because a concurrent delete already soft-deleted it — the ordinary
+		// lookup race, not the has-bookings conflict. See SoftDelete's own
+		// comment (internal/courts/store/courts.go) for why the three zero-row
+		// causes are no longer conflated into one sentinel.
 		case errors.Is(err, data.ErrRecordNotFound):
 			h.respond.NotFound(w, r)
 		default:
@@ -290,8 +225,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	h.record(r, complex.ID, "delete", "court", &courtID, nil, nil)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"message": "court deleted"})
 }
@@ -316,22 +249,6 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 
 	courtID, err := httpx.ReadUUIDParam(r, "courtID")
 	if err != nil {
-		h.respond.NotFound(w, r)
-		return
-	}
-
-	court, err := h.store.GetByID(r.Context(), courtID)
-	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
-		return
-	}
-
-	if court.ComplexID != complex.ID {
 		h.respond.NotFound(w, r)
 		return
 	}
@@ -363,7 +280,10 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 	// exactly the schedules the product is meant to support.
 	bandsByDay := make(map[string][]priceBand)
 
+	prices := make([]PriceInput, len(input.Prices))
 	for i, p := range input.Prices {
+		prices[i] = PriceInput{Price: p.Price, DayType: p.DayType, TimeFrom: p.TimeFrom, TimeTo: p.TimeTo}
+
 		v.Check(p.Price > 0, keyIdx("prices", i, "price"), "must be greater than 0")
 		// H-17: court_prices.price is INTEGER (db/migrations/001_init.sql), and
 		// the sign check above is the only bound this validator applied before
@@ -372,9 +292,9 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		// had already committed (H-07). Bounding it here, in the same block
 		// that already checks it is positive, is what makes a too-large price
 		// answer an ordinary 422 naming the field rather than reaching the
-		// database at all. The ReplacePrices transaction below is still needed
-		// regardless — it closes the same window for everything else the
-		// database can refuse that this one bound does not cover.
+		// database at all. The ReplacePrices transaction behind the service is
+		// still needed regardless — it closes the same window for everything
+		// else the database can refuse that this one bound does not cover.
 		v.Check(p.Price <= maxPriceValue, keyIdx("prices", i, "price"), maxPriceMessage)
 		v.Check(validator.PermittedValue(p.DayType, "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"), keyIdx("prices", i, "day_type"), "must be a valid day")
 
@@ -407,47 +327,27 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete existing prices and insert new ones, atomically.
-	//
-	// H-07: these used to be a DeletePricesByCourtID call followed by one
-	// InsertPrice per row, with no transaction around either — the delete
-	// committed on its own, and any insert failure after it (a price out of
-	// the column's range, an overlap the in-memory check above missed, a
-	// concurrent writer) answered a 4xx to the owner with the court's whole
-	// price table already gone. ReplacePrices wraps both halves in one
-	// transaction, so a refused write costs nothing: see its comment in
-	// internal/courts/store/courts.go.
-	prices := make([]*courtstore.CourtPrice, len(input.Prices))
-	for i, p := range input.Prices {
-		prices[i] = &courtstore.CourtPrice{
-			CourtID:  courtID,
-			Price:    p.Price,
-			DayType:  p.DayType,
-			TimeFrom: p.TimeFrom,
-			TimeTo:   p.TimeTo,
-		}
-	}
-
-	failedIndex, err := h.store.ReplacePrices(r.Context(), courtID, prices)
+	written, failedIndex, err := h.svc.UpdatePrices(r.Context(), complex.ID, h.actor(r), courtID, prices)
 	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			h.respond.NotFound(w, r)
 		// The in-memory overlap check above should already have caught this,
 		// but the DB's exclusion constraint is the real source of truth
 		// (concurrent writers, or a rule this handler's grouping missed) —
 		// translate it to the same 422 shape rather than falling through to a
 		// 500.
-		if errors.Is(err, courtstore.ErrOverlappingPriceRule) && failedIndex >= 0 {
+		case errors.Is(err, courtstore.ErrOverlappingPriceRule) && failedIndex >= 0:
 			h.respond.FailedValidation(w, r, map[string]string{
 				keyIdx("prices", failedIndex, "time_from"): "overlaps another price rule for this day",
 			})
-			return
+		default:
+			h.respond.ServerError(w, r, err)
 		}
-		h.respond.ServerError(w, r, err)
 		return
 	}
 
-	h.record(r, complex.ID, "update_prices", "court", &courtID, nil, prices)
-
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"prices": prices})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"prices": written})
 }
 
 // BlockSlot handles POST /api/v1/complexes/:id/courts/:courtID/block, taking a
@@ -472,22 +372,6 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 
 	courtID, err := httpx.ReadUUIDParam(r, "courtID")
 	if err != nil {
-		h.respond.NotFound(w, r)
-		return
-	}
-
-	court, err := h.store.GetByID(r.Context(), courtID)
-	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
-		return
-	}
-
-	if court.ComplexID != complex.ID {
 		h.respond.NotFound(w, r)
 		return
 	}
@@ -543,66 +427,31 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for overlapping bookings on this court/date/time range.
-	//
-	// This is the pre-check, and it is here for the message rather than for the
-	// invariant: it names the collision while the request still knows what the
-	// owner asked for. It runs outside any transaction, so a booking committing
-	// after it passes is not its business — InsertBlockedSlot asks the same
-	// question again under the court-day lock and answers ErrSlotHasBooking,
-	// which reaches the same 409 below.
-	bookedSlots, err := h.bookings.GetBookedSlotsByCourtIDs(r.Context(), []uuid.UUID{courtID}, date)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-	// Compared as instants, not as times of day. A booking may end after
-	// midnight, and "01:00" sorts below "23:00" — so the string comparison this
-	// replaced reported no overlap for every candidate against such a booking,
-	// which would let an owner block hours a client had already paid for.
-	blockStart := slots.At(date, input.StartTime)
-	blockEnd := slots.At(date, input.EndTime)
-	for _, s := range bookedSlots {
-		if slots.OverlapAt(blockStart, blockEnd, s.StartsAt, s.EndsAt) {
-			h.respond.Error(w, r, http.StatusConflict, blockedSlotHasBookingMessage)
-			return
-		}
-	}
-
-	slot := &courtstore.BlockedSlot{
-		CourtID:   courtID,
+	slot, err := h.svc.BlockSlot(r.Context(), complex.ID, h.actor(r), courtID, BlockSlotInput{
 		Date:      date,
 		StartTime: input.StartTime,
 		EndTime:   input.EndTime,
 		Reason:    input.Reason,
-		CreatedBy: &user.ID,
-	}
-
-	err = h.store.InsertBlockedSlot(r.Context(), slot)
+		CreatedBy: user.ID,
+	})
 	if err != nil {
 		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			h.respond.NotFound(w, r)
 		case errors.Is(err, courtstore.ErrSlotAlreadyBlocked):
 			h.respond.Error(w, r, http.StatusConflict, "this time range already has a blocked slot")
 		case errors.Is(err, courtstore.ErrSlotHasBooking):
-			// The same sentence the pre-check answers with. A client cannot be
-			// told two different things about one collision depending on which
-			// of the two checks happened to see it — the only difference
-			// between them is that this one ran inside the transaction, which
-			// is not something the owner can act on.
+			// One sentence for one collision. A client cannot be told two
+			// different things about it depending on which of the service's
+			// two checks happened to see it — the only difference between them
+			// is that one ran inside the transaction, which is not something
+			// the owner can act on.
 			h.respond.Error(w, r, http.StatusConflict, blockedSlotHasBookingMessage)
 		default:
 			h.respond.ServerError(w, r, err)
 		}
 		return
 	}
-
-	// The court name is filled in before the entry is recorded, not after. It used
-	// to be set on the next line, which left every audit row for a block naming a
-	// court only by an id the row does not carry either — the reader of the trail
-	// could not tell which court had been taken off sale without a second query.
-	slot.CourtName = court.Name
-
-	h.record(r, complex.ID, "create", "blocked_slot", &slot.ID, nil, slot)
 
 	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"blocked_slot": slot})
 }

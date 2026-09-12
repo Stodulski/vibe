@@ -18,12 +18,10 @@ import (
 //
 // H-09: with 500 blocked slots seeded, this used to answer 366 rows in one
 // response — every other list endpoint on this API takes limit/cursor, and
-// this one had been left out. Pagination is applied here, over the full
-// range GetBlockedSlotsByComplex still fetches in one query, rather than by
-// pushing limit/cursor into that store method's own SQL: that method's
-// signature is also what internal/stores.CourtBlockedSlotManager declares, and
-// that interface is what cmd/api's own store wiring is built against
-// (courts.NewHandler(d.models.Courts, ...) in cmd/api/app.go) — widening it
+// this one had been left out. Pagination is applied over the full range
+// GetBlockedSlotsByComplex still fetches in one query, rather than by pushing
+// limit/cursor into that store method's own SQL: that method's signature is
+// also what internal/stores.CourtBlockedSlotManager declares, and widening it
 // would need a matching stub added to cmd/api's test mocks, which is outside
 // this fix's tree.
 //
@@ -73,26 +71,14 @@ func (h *Handler) ListBlockedSlots(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	slots, err := h.store.GetBlockedSlotsByComplex(r.Context(), complex.ID, dateFrom, dateTo)
+	page, metadata, err := h.svc.ListBlockedSlots(r.Context(), complex.ID, dateFrom, dateTo, filters, paginate)
 	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-	if slots == nil {
-		slots = []*courtstore.BlockedSlot{}
-	}
-
-	if !paginate {
-		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-			"blocked_slots": slots,
-			"metadata":      data.Metadata{},
-		})
-		return
-	}
-
-	page, metadata, err := trimBlockedSlotsPage(slots, filters)
-	if err != nil {
-		h.respond.BadRequest(w, r, fmt.Errorf("invalid cursor value"))
+		switch {
+		case errors.Is(err, data.ErrInvalidCursor):
+			h.respond.BadRequest(w, r, fmt.Errorf("invalid cursor value"))
+		default:
+			h.respond.ServerError(w, r, err)
+		}
 		return
 	}
 
@@ -104,10 +90,7 @@ func (h *Handler) ListBlockedSlots(w http.ResponseWriter, r *http.Request) {
 
 // parseBlockedSlotsDateRange reads and validates the required date_from/
 // date_to query parameters, capping the range at 366 days to bound
-// GetBlockedSlotsByComplex's own query cost. Split out of ListBlockedSlots
-// for the same reason trimBlockedSlotsPage below is: this handler grew a
-// second, independent concern (pagination) alongside its original one, and
-// keeping both inline pushed the function past funlen's statement budget.
+// GetBlockedSlotsByComplex's own query cost.
 func parseBlockedSlotsDateRange(qs url.Values) (dateFrom, dateTo time.Time, err error) {
 	dateFromStr := httpx.ReadString(qs, "date_from", "")
 	dateToStr := httpx.ReadString(qs, "date_to", "")
@@ -138,9 +121,7 @@ func parseBlockedSlotsDateRange(qs url.Values) (dateFrom, dateTo time.Time, err 
 }
 
 // trimBlockedSlotsPage applies the cursor skip and the limit trim to an
-// already-fetched, already-ordered slice of slots. Split out of
-// ListBlockedSlots so the opt-in-pagination branch above it stays short
-// enough to read as one decision.
+// already-fetched, already-ordered slice of slots.
 func trimBlockedSlotsPage(slots []*courtstore.BlockedSlot, filters data.Filters) ([]*courtstore.BlockedSlot, data.Metadata, error) {
 	cursorTime, cursorID, err := filters.ParseCursor()
 	if err != nil {
@@ -183,7 +164,7 @@ func (h *Handler) DeleteBlockedSlot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slot, err := h.store.GetBlockedSlotByID(r.Context(), slotID)
+	err = h.svc.DeleteBlockedSlot(r.Context(), complex.ID, h.actor(r), slotID)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
@@ -193,41 +174,6 @@ func (h *Handler) DeleteBlockedSlot(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	// Verify the blocked slot belongs to a court of this complex.
-	court, err := h.store.GetByID(r.Context(), slot.CourtID)
-	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
-		return
-	}
-
-	if court.ComplexID != complex.ID {
-		h.respond.NotFound(w, r)
-		return
-	}
-
-	// H-10: DeleteBlockedSlot now reports ErrRecordNotFound when it removed no
-	// row — a concurrent delete of the same slot, in particular, since the
-	// existence check above already ran. Answering 404 rather than the same
-	// 200 the winner gets is what lets a caller tell whether their own request
-	// was the one that actually deleted something.
-	err = h.store.DeleteBlockedSlot(r.Context(), slotID)
-	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
-		return
-	}
-
-	h.record(r, complex.ID, "delete", "blocked_slot", &slotID, slot, nil)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"message": "blocked slot deleted"})
 }
