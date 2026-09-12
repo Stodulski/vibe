@@ -55,6 +55,7 @@ var apiSurface = map[string]struct{}{
 	"GET /api/v1/complexes/:id/stats/revenue":                        {},
 	"GET /api/v1/docs":                                               {},
 	"GET /api/v1/healthcheck":                                        {},
+	"GET /api/v1/livez":                                              {},
 	"GET /api/v1/openapi.json":                                       {},
 	"GET /api/v1/openapi.yaml":                                       {},
 	"GET /api/v1/places/autocomplete":                                {},

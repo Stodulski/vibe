@@ -2363,11 +2363,30 @@ paths:
   # ---------------------------------------------------------------------
   # health
   # ---------------------------------------------------------------------
+  /api/v1/livez:
+    get:
+      tags: [health]
+      operationId: livenessCheck
+      summary: Liveness probe
+      description: >-
+        Public. Answers `200` for as long as the process is running, and touches no dependency.
+        This is what a restart policy watches: an unreachable database must pull the instance out
+        of rotation (see `/api/v1/healthcheck`), not restart every replica until the database
+        comes back.
+      security: []
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/HealthStatus"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+
   /api/v1/healthcheck:
     get:
       tags: [health]
       operationId: healthCheck
-      summary: Liveness probe
+      summary: Readiness probe
       description: >-
         Public. Polled by the load balancer. `503` pulls the instance from rotation (database
         unreachable). A degraded cache or payments provider still answers `200` with

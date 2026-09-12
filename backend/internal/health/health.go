@@ -191,9 +191,10 @@ func NewHandler(d Dependencies, cfg Config) *Handler {
 	}
 }
 
-// Routes registers both endpoints. The public one has to stay reachable
-// without credentials — a load balancer has none.
+// Routes registers the three endpoints. The two public ones have to stay
+// reachable without credentials — a load balancer has none.
 func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
+	router.HandlerFunc(http.MethodGet, "/api/v1/livez", h.Live)
 	router.HandlerFunc(http.MethodGet, "/api/v1/healthcheck", h.Check)
 	router.HandlerFunc(http.MethodGet, "/api/v1/admin/healthcheck",
 		guards.RequireAuth(guards.RequireSuperAdmin(h.Detailed)))
@@ -295,7 +296,24 @@ func (h *Handler) assess(ctx context.Context) report {
 	return rep
 }
 
-// Check handles GET /api/v1/healthcheck, the load balancer's probe.
+// Live handles GET /api/v1/livez: is this process running.
+//
+// It touches no dependency on purpose, and that is the whole difference
+// between it and Check. Liveness and readiness answer different questions and
+// have different consequences: an unreachable database means this instance
+// cannot serve, so readiness pulls it out of rotation — but it does not mean
+// the process is broken, and restarting every replica while the database is
+// down replaces a partial outage with a restart loop that cannot end until the
+// database comes back. Check stays the readiness probe; this one is what a
+// restart policy should watch.
+func (h *Handler) Live(w http.ResponseWriter, r *http.Request) {
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
+		"status":  statusAvailable,
+		"version": h.version,
+	})
+}
+
+// Check handles GET /api/v1/healthcheck, the load balancer's readiness probe.
 //
 // It names the impaired subsystem even though it is unauthenticated. "payments"
 // tells a reader that our payment provider is unhappy, which is close to
