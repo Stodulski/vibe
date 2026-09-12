@@ -1,5 +1,4 @@
 import { FileSpreadsheet } from 'lucide-react';
-import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { Panel } from '@/shared/components/common/Panel';
 import type { MonthlyReport } from '@/shared/types/api.types';
@@ -8,6 +7,7 @@ import { ReportMobileSummary } from './ReportMobileSummary';
 import { ReportDesktopTable } from './ReportDesktopTable';
 import { ReportHeadline } from './ReportHeadline';
 import { ReportByCourt } from './ReportByCourt';
+import { ReportCardSkeleton } from './ReportCardSkeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -30,9 +30,7 @@ export function ReportCard({ month, year, isLoading, isError, report }: ReportCa
       </p>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <LoadingSpinner size="md" />
-        </div>
+        <ReportCardSkeleton />
       ) : isError ? (
         <EmptyState
           icon={FileSpreadsheet}

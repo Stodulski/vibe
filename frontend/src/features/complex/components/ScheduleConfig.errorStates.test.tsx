@@ -66,4 +66,19 @@ describe('ScheduleConfig failure states', () => {
     renderWithProviders(<ScheduleConfig complexId="c1" slug="padel-club" />);
     expect(screen.queryByRole('button', { name: /guardar/i })).not.toBeInTheDocument();
   });
+
+  // UI-06: this used to collapse to a centered spinner instead of a skeleton
+  // matching the loaded form's height.
+  it('renders a seven-row skeleton instead of a centered spinner while loading', () => {
+    mockUseSchedules.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: mockRefetch,
+    });
+    const { container } = renderWithProviders(<ScheduleConfig complexId="c1" slug="padel-club" />);
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThanOrEqual(7);
+  });
 });

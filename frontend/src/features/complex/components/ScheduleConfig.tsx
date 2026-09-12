@@ -1,7 +1,6 @@
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
-import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
 import { Button } from '@/shared/components/ui/button';
 import { updateSchedulesSchema, type UpdateSchedulesDto } from '../schemas/complex.schema';
 import { useSchedules } from '../hooks/useSchedules';
@@ -11,6 +10,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { submitHandler } from '@/shared/lib/form';
 import { DAYS } from './schedule-config/days';
 import { ScheduleDayRow } from './schedule-config/ScheduleDayRow';
+import { ScheduleConfigSkeleton } from './schedule-config/ScheduleConfigSkeleton';
 import type { Schedule } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -51,7 +51,7 @@ export function ScheduleConfig({ complexId, slug }: ScheduleConfigProps) {
   const { data: schedules, isLoading, isError, refetch } = useSchedules(complexId, slug);
 
   if (!slug || isLoading) {
-    return <LoadingSpinner size="md" className="py-12" />;
+    return <ScheduleConfigSkeleton />;
   }
 
   if (isError || !schedules) {

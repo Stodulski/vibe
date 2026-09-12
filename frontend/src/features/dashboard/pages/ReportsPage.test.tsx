@@ -56,10 +56,13 @@ describe('ReportsPage states', () => {
     mockedUseMonthlyReport.mockReturnValue(mockHookReturn());
   });
 
-  it('shows loading spinner when isLoading is true', () => {
+  it('shows a loading skeleton, not a centered spinner, when isLoading is true', () => {
     mockedUseMonthlyReport.mockReturnValue(mockHookReturn({ isLoading: true }));
-    renderReportsPage(<ReportsPage />);
+    const { container } = renderReportsPage(<ReportsPage />);
     expect(screen.getByRole('status')).toBeInTheDocument();
+    // UI-06: this used to be a centered spinner that collapsed the panel's height.
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
   });
 
   it('shows empty state when report has no data', () => {
