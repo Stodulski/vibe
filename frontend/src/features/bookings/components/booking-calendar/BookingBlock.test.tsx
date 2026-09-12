@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BookingBlock } from './BookingBlock';
 import { GRID_HEIGHT_PX } from './gridLayout';
 import { makeBooking } from '@/test/factories';
@@ -61,6 +62,28 @@ function renderBlock(startsAt: string, endsAt: string, viewDay = DAY) {
  * that pixel is presentation, and these tests are about the percentage.
  */
 const pct = (v: string | null) => Number(/(-?[\d.]+)%/.exec(v ?? '')?.[1] ?? NaN);
+
+describe('BookingBlock semantics', () => {
+  // It used to be a div with role="button", tabIndex and a hand-written
+  // Enter/Space handler. A real button gets all of that from the platform,
+  // including the keyboard activation asserted here (A11Y-02).
+  it('is a real button that activates from the keyboard', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const booking = makeBooking({ date: DAY, start_time: '10:00', duration_minutes: 60 });
+    render(<BookingBlock booking={booking} courtName="Cancha 1" date={DAY} onSelect={onSelect} />);
+
+    const el = screen.getByRole('button');
+    expect(el.tagName).toBe('BUTTON');
+    expect(el).toHaveAttribute('type', 'button');
+
+    el.focus();
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+
+    expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('BookingBlock placement', () => {
   it('places a booking inside the day at its own hours', () => {
