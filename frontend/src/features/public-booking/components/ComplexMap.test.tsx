@@ -4,8 +4,25 @@ import { ComplexMap } from './ComplexMap';
 
 // Mock Leaflet components since they require DOM APIs not available in the test DOM
 vi.mock('react-leaflet', () => ({
-  MapContainer: ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div data-testid="map-container" className={className}>
+  // Hands the component the same thing Leaflet does: an object whose
+  // `getContainer()` is the element actually rendered, so the effect that
+  // names the map has something real to write on.
+  MapContainer: ({
+    children,
+    className,
+    ref,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+    ref?: { current: unknown };
+  }) => (
+    <div
+      data-testid="map-container"
+      className={className}
+      ref={(el) => {
+        if (el && ref) ref.current = { getContainer: () => el, invalidateSize: () => undefined };
+      }}
+    >
       {children}
     </div>
   ),
@@ -50,6 +67,14 @@ describe('ComplexMap', () => {
       expect(typeof url).toBe('string');
       expect(url as string).not.toMatch(/^https?:\/\//);
     }
+  });
+
+  it('gives the map an accessible name instead of an anonymous tile box', () => {
+    render(<ComplexMap {...defaultProps} />);
+
+    const map = screen.getByTestId('map-container');
+    expect(map).toHaveAttribute('role', 'application');
+    expect(map).toHaveAccessibleName('Mapa de Padel Club Norte, Av. Libertador 1234, Buenos Aires');
   });
 
   it('renders map container', () => {

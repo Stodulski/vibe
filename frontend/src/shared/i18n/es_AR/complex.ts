@@ -40,6 +40,9 @@ export const complex = {
   phone: 'Teléfono',
   email: 'Email de contacto',
   description: 'Descripción',
+  // Accessible name of the storefront map, completed with the club's name
+  // and address.
+  mapOf: 'Mapa de',
   viewOnGoogleMaps: 'Ver en Google Maps',
   depositPercentage: 'Porcentaje de seña',
   depositPercentageHelp: 'Parte del turno que se cobra al reservar online',
