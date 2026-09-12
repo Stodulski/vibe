@@ -15,9 +15,12 @@ vi.mock('../hooks/useToggleUserActive', () => ({
   }),
 }));
 
-vi.mock('@/shared/stores', () => ({
-  useStore: () => ({
+// DATA-11: who is signed in comes from `useAuth`'s query cache, not the store.
+vi.mock('@/features/auth', () => ({
+  useAuth: () => ({
     user: { id: 'current-user', role: 'superadmin' },
+    isLoading: false,
+    isAuthenticated: true,
   }),
 }));
 

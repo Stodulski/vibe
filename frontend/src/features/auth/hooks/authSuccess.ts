@@ -1,6 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useStore } from '@/shared/stores';
+import { setSessionUser } from './session';
 import { loginRedirectStateSchema } from '../schemas/auth.schema';
 import type { AuthResponse } from '@/shared/types/api.types';
 
@@ -33,14 +35,16 @@ function isSafeRedirect(path: string | undefined): path is string {
  * or a freshly-completed Google profile is a login in every way that
  * matters here).
  *
- * Sets the store (`user`, `csrf_token`), dismisses any lingering error toast
- * from an earlier failed attempt, and redirects to the safe
- * `location.state.from` path or the role-based default.
+ * Seeds the session cache with the user the response carries (so no screen
+ * waits on a second `GET /auth/me`), puts the CSRF token in the store,
+ * dismisses any lingering error toast from an earlier failed attempt, and
+ * redirects to the safe `location.state.from` path or the role-based default.
  */
 export function useAuthSuccessHandler() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setUser, setCsrfToken } = useStore();
+  const setCsrfToken = useStore((s) => s.setCsrfToken);
+  const queryClient = useQueryClient();
 
   return (data: AuthResponse) => {
     // Sonner's <Toaster> lives above the router (in Providers), so it isn't
@@ -50,7 +54,7 @@ export function useAuthSuccessHandler() {
     toast.dismiss();
 
     setCsrfToken(data.csrf_token);
-    setUser(data.user);
+    setSessionUser(queryClient, data.user);
 
     // `location.state` is null (not undefined) when the visit didn't come
     // through a ProtectedRoute redirect — e.g. navigating to /login directly

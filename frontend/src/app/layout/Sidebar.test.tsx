@@ -4,10 +4,10 @@ import { Sidebar } from './Sidebar';
 
 const mockUser = { first_name: 'Juan', last_name: 'Garcia', email: 'juan@test.com' };
 
-vi.mock('@/shared/stores', () => ({
-  // Selector-aware, like the real zustand store (M1): `Sidebar` calls
-  // `useStore((s) => s.user)` rather than reading the whole state.
-  useStore: (selector: (s: { user: typeof mockUser }) => unknown) => selector({ user: mockUser }),
+// DATA-11: the signed-in user is server state and comes from `useAuth`'s
+// query cache now, not from the zustand store.
+vi.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: mockUser, isLoading: false, isAuthenticated: true }),
 }));
 
 vi.mock('@/features/auth/hooks/useLogout', () => ({

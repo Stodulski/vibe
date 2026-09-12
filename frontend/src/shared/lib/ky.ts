@@ -1,6 +1,7 @@
 import ky, { HTTPError, isHTTPError } from 'ky';
 import type { Options, RetryOptions } from 'ky';
 import { ApiError } from '@/shared/lib/ApiError';
+import { queryClient } from '@/shared/lib/queryClient';
 import { useStore } from '@/shared/stores';
 import { env } from '@/shared/lib/env';
 import { parseWith } from '@/shared/lib/apiParse';
@@ -219,6 +220,13 @@ const api = ky.create({
           return await ky(request, { ...options, hooks: {} } as Options);
         } catch {
           useStore.getState().logout();
+          // The session's user is cached server state now, not store state, so
+          // ending the session has to empty the cache as well. Usually the
+          // redirect below reloads the document and takes the cache with it —
+          // but `loginUrlPreserving` answers `null` on /login and /register,
+          // where nothing reloads and a stale cached user would keep
+          // `GuestRoute` bouncing the person away from the form.
+          queryClient.clear();
           const target = loginUrlPreserving(window.location);
           if (target) {
             window.location.href = target;

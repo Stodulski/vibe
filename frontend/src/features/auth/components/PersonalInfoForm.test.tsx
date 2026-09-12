@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, userEvent } from '@/test/test-utils';
 import { PersonalInfoForm } from './PersonalInfoForm';
 
-vi.mock('@/shared/stores', () => ({
-  useStore: () => ({
+// DATA-11: the form reads the session from `useAuth`'s query cache.
+vi.mock('../hooks/useAuth', () => ({
+  useAuth: () => ({
     user: {
       id: 'u1',
       first_name: 'Juan',
@@ -11,7 +12,8 @@ vi.mock('@/shared/stores', () => ({
       email: 'juan@test.com',
       phone: '1155550000',
     },
-    setUser: vi.fn(),
+    isLoading: false,
+    isAuthenticated: true,
   }),
 }));
 

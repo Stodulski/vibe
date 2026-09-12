@@ -1,30 +1,25 @@
 import type { StateCreator } from 'zustand';
 import * as Sentry from '@sentry/react';
-import type { User } from '@/shared/types/api.types';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
 import { safeLocalStorage, safeSessionStorage } from '@/shared/lib/safeStorage';
 import { purgeApiCache } from '@/shared/lib/apiCache';
 
+/**
+ * What a session is, minus the part that is server state.
+ *
+ * The signed-in `User` used to live here too. It is answered by
+ * `GET /auth/me`, so it belongs in the React Query cache like every other
+ * server answer — see `features/auth/hooks/session.ts`. What is left is the
+ * in-memory CSRF token, which no endpoint can be asked for on its own.
+ */
 export interface AuthSlice {
-  user: User | null;
   csrfToken: string | null;
-  setUser: (user: User | null) => void;
   setCsrfToken: (token: string | null) => void;
   logout: () => void;
 }
 
 export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
-  user: null,
   csrfToken: null,
-  // The one place session identity changes — `useAuthSuccessHandler`
-  // (login), `useAuth` (session bootstrap on reload) and `useUpdateProfile`
-  // all call this instead of touching Sentry themselves, so every event
-  // reported while a session is active carries the same `id`. No email or
-  // name: Sentry only ever gets the id, never PII.
-  setUser: (user) => {
-    Sentry.setUser(user ? { id: user.id } : null);
-    set({ user });
-  },
   setCsrfToken: (token) => {
     set({ csrfToken: token });
   },
@@ -36,6 +31,6 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
     // The service worker's API cache outlives the in-memory store, so
     // clearing state is not enough to end a session on a shared device.
     purgeApiCache();
-    set({ user: null, csrfToken: null });
+    set({ csrfToken: null });
   },
 });

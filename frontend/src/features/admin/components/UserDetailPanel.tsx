@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { useState } from 'react';
-import { useStore } from '@/shared/stores';
+import { useAuth } from '@/features/auth';
 import { useToggleUserActive } from '../hooks/useToggleUserActive';
 import type { User, Complex } from '@/shared/types/api.types';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -17,7 +17,7 @@ interface UserDetailPanelProps {
 }
 
 export function UserDetailPanel({ user, complexes }: UserDetailPanelProps) {
-  const { user: currentUser } = useStore();
+  const { user: currentUser } = useAuth();
   const toggleActive = useToggleUserActive();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const isSelf = currentUser?.id === user.id;

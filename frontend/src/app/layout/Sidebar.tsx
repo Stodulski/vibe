@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useStore } from '@/shared/stores';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { usePrefetch } from './usePrefetch';
@@ -20,7 +20,7 @@ interface SidebarProps {
 /** Desktop is permanently icon-only (no expand/collapse toggle); the mobile sheet stays fully expanded. */
 export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
   const { complex } = useSelectedComplex();
-  const user = useStore((s) => s.user);
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const prefetch = usePrefetch(complex?.id ?? null);

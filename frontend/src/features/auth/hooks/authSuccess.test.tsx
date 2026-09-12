@@ -1,4 +1,5 @@
 import { renderHook } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { makeUser } from '@/test/factories';
 
@@ -11,17 +12,25 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn() } }));
 
+// Selector-aware, like the real store: the handler reads `setCsrfToken` as its
+// own atomic slice (STORE-02); the user goes to the query cache (DATA-11).
 vi.mock('@/shared/stores', () => ({
-  useStore: () => ({ setUser: vi.fn(), setCsrfToken: vi.fn() }),
+  useStore: (selector: (s: { setCsrfToken: () => void }) => unknown) => selector({ setCsrfToken: vi.fn() }),
 }));
 
 const { useAuthSuccessHandler } = await import('./authSuccess');
 
 function login(entry: string, role: 'owner' | 'superadmin' = 'owner') {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const { result } = renderHook(() => useAuthSuccessHandler(), {
-    wrapper: ({ children }) => <MemoryRouter initialEntries={[entry]}>{children}</MemoryRouter>,
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[entry]}>{children}</MemoryRouter>
+      </QueryClientProvider>
+    ),
   });
   result.current({ user: makeUser({ role }), csrf_token: 'csrf' });
+  return queryClient;
 }
 
 /**
