@@ -14,6 +14,7 @@ import {
   getHttpErrorMessage,
   getHttpStatus,
 } from './utils';
+import { NetworkError, TimeoutError } from 'ky';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ApiResponseError } from '@/shared/lib/apiParse';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -199,9 +200,44 @@ describe('getHttpErrorMessage', () => {
     expect(getHttpErrorMessage(error, 'Error generico')).toBe('Error generico');
   });
 
-  it('returns the fallback instead of throwing when the error is not an HTTPError (network failure, timeout)', () => {
+  // ERR-04: before this branch existed, a dropped connection or a timeout
+  // produced whatever caller-specific `fallback` was passed — the exact same
+  // text a 500 from the server would — so a person had no way to tell "we
+  // couldn't reach you" from "the server rejected this". Both now get the
+  // one generic connectivity message instead, regardless of the fallback.
+  it('returns the generic connectivity message for a dropped connection (TypeError), ignoring the caller fallback', () => {
     const networkError = new TypeError('Failed to fetch');
-    expect(getHttpErrorMessage(networkError, 'Error generico')).toBe('Error generico');
+    expect(getHttpErrorMessage(networkError, 'Error generico')).toBe(ES_AR.common.networkError);
+  });
+
+  it.each([
+    ['Firefox', 'NetworkError when attempting to fetch resource.'],
+    ['WebKit', 'Load failed'],
+  ])('returns the generic connectivity message for the %s fetch failure TypeError', (_runtime, message) => {
+    expect(getHttpErrorMessage(new TypeError(message), 'Error generico')).toBe(ES_AR.common.networkError);
+  });
+
+  // A `TypeError` is also the most common JavaScript defect class. Only the
+  // fetch-shaped messages mean "no response came back"; a bug thrown inside a
+  // mutation must keep the caller fallback instead of telling the person to
+  // check a connection that is fine.
+  it('keeps the caller fallback for a bug-shaped TypeError', () => {
+    const bug = new TypeError("Cannot read properties of undefined (reading 'id')");
+    expect(getHttpErrorMessage(bug, 'Error generico')).toBe('Error generico');
+  });
+
+  it('returns the generic connectivity message for a ky NetworkError, ignoring the caller fallback', () => {
+    const networkError = new NetworkError(new Request('https://api.vibe.com.ar/v1/bookings'));
+    expect(getHttpErrorMessage(networkError, 'Error generico')).toBe(ES_AR.common.networkError);
+  });
+
+  it('returns the generic connectivity message for a ky TimeoutError, ignoring the caller fallback', () => {
+    const timeoutError = new TimeoutError(new Request('https://api.vibe.com.ar/v1/bookings'));
+    expect(getHttpErrorMessage(timeoutError, 'Error generico')).toBe(ES_AR.common.networkError);
+  });
+
+  it('still returns the caller fallback for an error that is none of the above', () => {
+    expect(getHttpErrorMessage(new Error('unexpected'), 'Error generico')).toBe('Error generico');
   });
 
   // A schema mismatch is not an HTTPError — the request succeeded, the shape

@@ -39,4 +39,8 @@ export const common = {
   // expects (an ApiResponseError), instead of a mutation-specific fallback
   // that would misattribute a shape mismatch to the action itself.
   invalidResponse: 'La respuesta del servidor no es válida. Probá de nuevo.',
+  // Shown for a timeout, a dropped connection, or the browser knowing it's
+  // offline — never for a server-side error, which keeps its own specific
+  // copy (see getHttpErrorMessage in src/shared/lib/utils.ts).
+  networkError: 'No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.',
 } as const;

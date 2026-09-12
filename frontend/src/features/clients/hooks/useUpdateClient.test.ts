@@ -67,12 +67,15 @@ describe('useUpdateClient — onError toasts the real backend message', () => {
 
   // A dropped connection throws a plain TypeError with no `.response` —
   // getHttpErrorMessage must not crash reading it and must still surface a
-  // toast instead of leaving the mutation in a broken, silent state.
-  it('shows the generic error toast instead of crashing on a network error', async () => {
+  // toast instead of leaving the mutation in a broken, silent state. It's
+  // the generic connectivity message, not this mutation's own fallback
+  // (ERR-04): "we couldn't reach you" beats "we couldn't update this client"
+  // for something that never reached the server at all.
+  it('shows the generic connectivity toast instead of crashing on a network error', async () => {
     await triggerUpdateError(
       new TypeError('Failed to fetch') as unknown as Awaited<ReturnType<typeof makeConsumedHttpError>>,
     );
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.clients.updateError);
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.common.networkError);
   }, 30000);
 });
