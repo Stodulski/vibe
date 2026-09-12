@@ -20,6 +20,13 @@ export default defineConfig({
     // contract they hold with the backend's prerender.
     include: ['src/**/*.test.{ts,tsx}', '*.test.ts'],
     css: true,
+    // `VITE_APP_URL` is required by src/shared/lib/env.ts (BLD-04): every test
+    // file that imports it (directly or transitively) evaluates `parseEnv` at
+    // module load, so the suite needs a value the same way .env.example gives
+    // local dev one.
+    env: {
+      VITE_APP_URL: 'http://localhost:5173',
+    },
     // One environment per file.
     //
     // Sharing one per worker ran the suite in 35s instead of 186s, but made it

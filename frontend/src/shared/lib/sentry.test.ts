@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { initSentry, scrubEvent, scrubBreadcrumb } from './sentry';
+import { scrubEvent, scrubBreadcrumb } from './sentry';
 
 const mockInit = vi.fn<(config: Record<string, unknown>) => void>();
 const mockReactRouterBrowserTracingIntegration = vi
@@ -19,27 +19,48 @@ vi.mock('@sentry/react', () => ({
   },
 }));
 
+/**
+ * `initSentry` reads `env.VITE_SENTRY_DSN`, and `env` is computed once at
+ * module load (`src/shared/lib/env.ts`), not re-read live. So each test stubs
+ * `VITE_SENTRY_DSN` first, then resets the module registry and re-imports
+ * `./sentry` fresh — that re-evaluates `env.ts` against the currently stubbed
+ * value, the same way a real build only ever sees one value.
+ */
+async function importSentryWith(dsn: string | undefined) {
+  vi.resetModules();
+  if (dsn === undefined) {
+    vi.unstubAllEnvs();
+  } else {
+    vi.stubEnv('VITE_SENTRY_DSN', dsn);
+  }
+  return import('./sentry');
+}
+
 describe('initSentry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('does not call Sentry.init when VITE_SENTRY_DSN is not set', () => {
-    const original = import.meta.env.VITE_SENTRY_DSN;
-    import.meta.env.VITE_SENTRY_DSN = '';
-    initSentry();
-    expect(mockInit).not.toHaveBeenCalled();
-    // `VITE_SENTRY_DSN?: string` is absent-or-present, not
-    // present-with-`undefined` — restore by deleting when there was none.
-    if (original === undefined) {
-      delete import.meta.env.VITE_SENTRY_DSN;
-    } else {
-      import.meta.env.VITE_SENTRY_DSN = original;
-    }
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it('calls Sentry.init with correct config when DSN is set', () => {
-    import.meta.env.VITE_SENTRY_DSN = 'https://test@sentry.io/123';
+  it('does not call Sentry.init when VITE_SENTRY_DSN is not set', async () => {
+    const { initSentry } = await importSentryWith(undefined);
+    initSentry();
+    expect(mockInit).not.toHaveBeenCalled();
+  });
+
+  it('calls Sentry.init with correct config when DSN is set', async () => {
+    // `scrubEvent`/`scrubBreadcrumb` must come from this same re-import: the
+    // module-level `import` above resolved to an earlier module-registry
+    // instance, so its functions are reference-unequal to the ones this
+    // fresh `initSentry` actually passes to `Sentry.init`.
+    const {
+      initSentry,
+      scrubEvent: freshScrubEvent,
+      scrubBreadcrumb: freshScrubBreadcrumb,
+    } = await importSentryWith('https://test@sentry.io/123');
     initSentry();
     expect(mockInit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -49,15 +70,14 @@ describe('initSentry', () => {
         sendDefaultPii: false,
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: 1.0,
-        beforeSend: scrubEvent,
-        beforeBreadcrumb: scrubBreadcrumb,
+        beforeSend: freshScrubEvent,
+        beforeBreadcrumb: freshScrubBreadcrumb,
       }),
     );
-    import.meta.env.VITE_SENTRY_DSN = '';
   });
 
-  it('includes the router-aware tracing integration and session replay', () => {
-    import.meta.env.VITE_SENTRY_DSN = 'https://test@sentry.io/123';
+  it('includes the router-aware tracing integration and session replay', async () => {
+    const { initSentry } = await importSentryWith('https://test@sentry.io/123');
     initSentry();
     expect(mockReactRouterBrowserTracingIntegration).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -76,7 +96,6 @@ describe('initSentry', () => {
         ]) as unknown as unknown[],
       }),
     );
-    import.meta.env.VITE_SENTRY_DSN = '';
   });
 });
 
@@ -90,14 +109,17 @@ describe('initSentry without a DOM', () => {
     vi.clearAllMocks();
   });
 
-  it('does not throw, skips the window-only pwa_standalone tag, and tags sw_version "none"', () => {
-    import.meta.env.VITE_SENTRY_DSN = 'https://test@sentry.io/123';
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('does not throw, skips the window-only pwa_standalone tag, and tags sw_version "none"', async () => {
+    const { initSentry } = await importSentryWith('https://test@sentry.io/123');
     expect(() => {
       initSentry();
     }).not.toThrow();
     expect(mockSetTag).not.toHaveBeenCalledWith('pwa_standalone', expect.anything());
     expect(mockSetTag).toHaveBeenCalledWith('sw_version', 'none');
-    import.meta.env.VITE_SENTRY_DSN = '';
   });
 });
 

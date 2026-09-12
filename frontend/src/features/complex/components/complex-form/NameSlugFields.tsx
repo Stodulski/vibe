@@ -5,6 +5,7 @@ import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { RequiredMark } from '@/shared/components/common/RequiredMark';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { env } from '@/shared/lib/env';
 import type { CreateComplexDto } from '../../schemas/complex.schema';
 
 const t = ES_AR;
@@ -174,8 +175,7 @@ export function NameSlugFields({
  * reads as an address, "https://app.vibe.com.ar" reads as a URL bar.
  */
 function publicOrigin(): string {
-  const url = import.meta.env.VITE_APP_URL ?? window.location.origin;
-  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return env.VITE_APP_URL.replace(/^https?:\/\//, '').replace(/\/$/, '');
 }
 
 /**

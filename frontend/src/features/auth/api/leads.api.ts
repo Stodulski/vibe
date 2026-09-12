@@ -1,4 +1,5 @@
 import api from '@/shared/lib/ky';
+import { env } from '@/shared/lib/env';
 
 /**
  * Which form the person left. `register` is the password register form (the
@@ -55,7 +56,7 @@ export function captureAbandonedRegistrationLead(lead: AbandonedLead): void {
  * way — it never looks at Content-Type.
  */
 export function captureAbandonedRegistrationLeadBeacon(lead: AbandonedLead): void {
-  const apiUrl: string = import.meta.env.VITE_API_URL ?? '/api/v1';
+  const apiUrl: string = env.VITE_API_URL;
   const url = `${apiUrl}/public/leads/abandoned-registration`;
   const blob = new Blob([JSON.stringify(leadBody(lead))], { type: 'text/plain' });
   navigator.sendBeacon(url, blob);

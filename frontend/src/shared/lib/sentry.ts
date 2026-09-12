@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react';
 import { useEffect } from 'react';
 import { createRoutesFromChildren, matchRoutes, useLocation, useNavigationType } from 'react-router-dom';
+import { env } from './env';
 
 const REDACTED_EMAIL = '[redacted-email]';
 const REDACTED_PHONE = '[redacted-phone]';
@@ -91,11 +92,13 @@ export function scrubBreadcrumb(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrum
 }
 
 export function initSentry() {
-  const dsn = import.meta.env.VITE_SENTRY_DSN;
+  const dsn = env.VITE_SENTRY_DSN;
   if (!dsn) return;
 
   Sentry.init({
     dsn,
+    // `MODE` is Vite's own built-in env var, not a custom `VITE_*` one, so it
+    // stays outside the `env` module and its no-bare-`import.meta.env` rule.
     environment: import.meta.env.MODE,
     // The exact commit this bundle was built from (see vite.config.ts's
     // `define`), so an event in Sentry can be traced back to a deploy.
