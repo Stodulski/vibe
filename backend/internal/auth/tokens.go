@@ -39,7 +39,14 @@ type TokenService struct {
 }
 
 const (
-	jwtIssuer          = "vibe"
+	jwtIssuer = "vibe"
+	// jwtAudience is the only audience this service mints and the only one it
+	// accepts. It is what stops a token minted for some other consumer of the
+	// same signing key — a signed download link, a service token, whatever is
+	// added next — from being spent here, and vice versa. The issuer check
+	// above answers "who made this"; this one answers "who was it for", and a
+	// key with two uses needs both.
+	jwtAudience        = "vibe-api"
 	accessTokenExpiry  = 15 * time.Minute
 	refreshTokenExpiry = 30 * 24 * time.Hour // 30 days
 	// googleProfileTokenExpiry is how long a needs_profile answer's
@@ -67,6 +74,32 @@ const (
 	refreshReuseGrace = 30 * time.Second
 )
 
+// parseOptions are the validations every token this service verifies has to
+// pass, stated once so the two verifiers cannot drift apart.
+//
+// WithValidMethods is the one that has to be an option rather than a check
+// inside the key function: the "alg":"none" and RS256-verified-as-HMAC attacks
+// both work by making the parser choose the algorithm from the header, and the
+// only fix is an allowlist the parser consults before it asks anybody for a
+// key. A method check inside the key function ran after the parser had already
+// decided.
+//
+// WithExpirationRequired turns a missing exp from "this token never expires"
+// into a refusal. jwt/v5 validates exp when it is present and accepts a token
+// without one, so every token minted here carries one and every token verified
+// here is required to.
+//
+// WithIssuer and WithAudience are the two halves of "this token was made by us,
+// for us" — see jwtAudience.
+func parseOptions() []jwt.ParserOption {
+	return []jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuer(jwtIssuer),
+		jwt.WithAudience(jwtAudience),
+	}
+}
+
 // Claims is what a verified access token carries. The middleware reads it on
 // every authenticated request.
 type Claims struct {
@@ -82,6 +115,7 @@ func (s *TokenService) GenerateAccessToken(userID uuid.UUID, role string) (strin
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			Issuer:    jwtIssuer,
+			Audience:  jwt.ClaimStrings{jwtAudience},
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenExpiry)),
 		},
@@ -108,12 +142,9 @@ func (s *TokenService) GenerateAccessToken(userID uuid.UUID, role string) (strin
 // was not asked to accept, and the guarantee stated above needs to already be
 // true when they do, rather than be discovered missing afterwards.
 func (s *TokenService) ValidateAccessToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(_ *jwt.Token) (any, error) {
 		return []byte(s.cfg.JWTSecret), nil
-	}, jwt.WithIssuer(jwtIssuer))
+	}, parseOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +179,7 @@ func (s *TokenService) GenerateProfileToken(sub, email, givenName, familyName st
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   sub,
 			Issuer:    jwtIssuer,
+			Audience:  jwt.ClaimStrings{jwtAudience},
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(googleProfileTokenExpiry)),
 		},
@@ -170,12 +202,9 @@ func (s *TokenService) GenerateProfileToken(sub, email, givenName, familyName st
 // verification or reset token, all signed with the same secret, cannot be
 // replayed here.
 func (s *TokenService) ValidateProfileToken(tokenString string) (*GoogleProfileClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &GoogleProfileClaims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
+	token, err := jwt.ParseWithClaims(tokenString, &GoogleProfileClaims{}, func(_ *jwt.Token) (any, error) {
 		return []byte(s.cfg.JWTSecret), nil
-	}, jwt.WithIssuer(jwtIssuer))
+	}, parseOptions()...)
 	if err != nil {
 		return nil, err
 	}
