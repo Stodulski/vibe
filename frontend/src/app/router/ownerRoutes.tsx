@@ -9,7 +9,7 @@ export const ownerStandaloneRoutes: RouteObject[] = [
   {
     path: '/complexes',
     element: (
-      <ProtectedRoute>{lazyPage(() => import('@/pages/owner/ComplexSelectorPage'), <PageLoader />)}</ProtectedRoute>
+      <ProtectedRoute>{lazyPage(() => import('@/features/complex/pages/ComplexSelectorPage'), <PageLoader />)}</ProtectedRoute>
     ),
   },
   {
@@ -18,7 +18,7 @@ export const ownerStandaloneRoutes: RouteObject[] = [
   },
   {
     path: '/settings/mp/callback',
-    element: <ProtectedRoute>{lazyPage(() => import('@/pages/owner/MPCallbackPage'), <PageLoader />)}</ProtectedRoute>,
+    element: <ProtectedRoute>{lazyPage(() => import('@/features/complex/pages/MPCallbackPage'), <PageLoader />)}</ProtectedRoute>,
   },
 ];
 
@@ -52,7 +52,7 @@ export const ownerDashboardRoutes: RouteObject[] = [
       },
       {
         path: '/settings',
-        element: ownerPage(() => import('@/pages/owner/SettingsPage'), <SkeletonSettings />),
+        element: ownerPage(() => import('@/features/complex/pages/SettingsPage'), <SkeletonSettings />),
       },
       {
         path: '/profile',
