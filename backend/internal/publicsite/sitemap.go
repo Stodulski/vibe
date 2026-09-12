@@ -12,10 +12,6 @@ const sitemapCacheSeconds = 3600
 // redirect below has to name the same address the route does.
 const SitemapPath = "/api/v1/sitemap.xml"
 
-// legacySitemapPath is where it lived before API-02 moved it under the version
-// prefix every other business route already carried.
-const legacySitemapPath = "/api/sitemap.xml"
-
 // SitemapMoved handles GET /api/sitemap.xml, the pre-versioning address, and
 // sends a crawler to the versioned one.
 func (h *Handler) SitemapMoved(w http.ResponseWriter, r *http.Request) {

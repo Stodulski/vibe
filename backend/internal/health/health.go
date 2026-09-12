@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 )
 
 // pingTimeout bounds each dependency probe. A health check that can hang is
@@ -191,15 +192,6 @@ func NewHandler(d Dependencies, cfg Config) *Handler {
 	}
 }
 
-// Routes registers the three endpoints. The two public ones have to stay
-// reachable without credentials — a load balancer has none.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	router.HandlerFunc(http.MethodGet, "/api/v1/livez", h.Live)
-	router.HandlerFunc(http.MethodGet, "/api/v1/healthcheck", h.Check)
-	router.HandlerFunc(http.MethodGet, "/api/v1/admin/healthcheck",
-		guards.RequireAuth(guards.RequireSuperAdmin(h.Detailed)))
-}
-
 // ping probes a dependency under its own bounded timeout.
 func ping(ctx context.Context, p Pinger) string {
 	if p == nil {
@@ -296,6 +288,113 @@ func (h *Handler) assess(ctx context.Context) report {
 	return rep
 }
 
+// toGenQueueStats maps a queue backlog snapshot, as read from the store, into
+// the generated wire type. The internal type keeps int64 counters because it
+// is also the QueueReporter contract implemented outside this package; the
+// generated schema declares plain "integer" (Go int), so this is the explicit
+// translation HTTP-08 requires rather than a reuse of the store-facing type.
+func toGenQueueStats(stats []QueueStats) []gen.QueueStats {
+	if stats == nil {
+		return nil
+	}
+
+	out := make([]gen.QueueStats, len(stats))
+	for i, s := range stats {
+		out[i] = gen.QueueStats{
+			Name:             s.Name,
+			Pending:          int(s.Pending),
+			Processing:       int(s.Processing),
+			Exhausted:        int(s.Exhausted),
+			OldestDueSeconds: int(s.OldestDueSeconds),
+		}
+	}
+	return out
+}
+
+// toGenBreakers maps breaker states into the generated enum type. It returns
+// nil when no breakers are configured, so the field stays absent from the
+// response rather than serializing as an empty object.
+func toGenBreakers(states map[string]string) *map[string]gen.HealthDetailedBreakers {
+	if states == nil {
+		return nil
+	}
+
+	out := make(map[string]gen.HealthDetailedBreakers, len(states))
+	for name, state := range states {
+		out[name] = gen.HealthDetailedBreakers(state)
+	}
+	return &out
+}
+
+// toHealthStatusImpaired maps the impaired list into the public status type's
+// enum. oapi-codegen declares a distinct (identically valued) enum type per
+// schema, so HealthStatus and HealthDetailed each need their own conversion.
+func toHealthStatusImpaired(impaired []string) *[]gen.HealthStatusImpaired {
+	if len(impaired) == 0 {
+		return nil
+	}
+
+	out := make([]gen.HealthStatusImpaired, len(impaired))
+	for i, name := range impaired {
+		out[i] = gen.HealthStatusImpaired(name)
+	}
+	return &out
+}
+
+// toHealthDetailedImpaired is the same mapping for the detailed type.
+func toHealthDetailedImpaired(impaired []string) *[]gen.HealthDetailedImpaired {
+	if len(impaired) == 0 {
+		return nil
+	}
+
+	out := make([]gen.HealthDetailedImpaired, len(impaired))
+	for i, name := range impaired {
+		out[i] = gen.HealthDetailedImpaired(name)
+	}
+	return &out
+}
+
+// envelopeFromHealthStatus flattens a generated HealthStatus into the
+// envelope httpx.Responder.JSON expects, keeping each field's omitempty
+// behaviour: a nil Impaired stays entirely absent rather than serializing as
+// null or an empty list.
+func envelopeFromHealthStatus(s gen.HealthStatus) httpx.Envelope {
+	body := httpx.Envelope{
+		"status":  s.Status,
+		"version": s.Version,
+	}
+	if s.Impaired != nil {
+		body["impaired"] = *s.Impaired
+	}
+	return body
+}
+
+// envelopeFromHealthDetailed is the same flattening for the detailed type.
+func envelopeFromHealthDetailed(d gen.HealthDetailed) httpx.Envelope {
+	body := httpx.Envelope{
+		"status":       d.Status,
+		"version":      d.Version,
+		"environment":  d.Environment,
+		"dependencies": d.Dependencies,
+	}
+	if d.Impaired != nil {
+		body["impaired"] = *d.Impaired
+	}
+	if d.Breakers != nil {
+		body["breakers"] = *d.Breakers
+	}
+	if d.Metrics != nil {
+		body["metrics"] = *d.Metrics
+	}
+	if d.QueuesError != nil {
+		body["queues_error"] = *d.QueuesError
+	}
+	if d.Queues != nil {
+		body["queues"] = *d.Queues
+	}
+	return body
+}
+
 // Live handles GET /api/v1/livez: is this process running.
 //
 // It touches no dependency on purpose, and that is the whole difference
@@ -307,10 +406,11 @@ func (h *Handler) assess(ctx context.Context) report {
 // database comes back. Check stays the readiness probe; this one is what a
 // restart policy should watch.
 func (h *Handler) Live(w http.ResponseWriter, r *http.Request) {
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"status":  statusAvailable,
-		"version": h.version,
-	})
+	resp := gen.HealthStatus{
+		Status:  gen.HealthStatusStatus(statusAvailable),
+		Version: h.version,
+	}
+	h.respond.JSON(w, r, http.StatusOK, envelopeFromHealthStatus(resp))
 }
 
 // Check handles GET /api/v1/healthcheck, the load balancer's readiness probe.
@@ -322,15 +422,13 @@ func (h *Handler) Live(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	rep := h.assess(r.Context())
 
-	body := httpx.Envelope{
-		"status":  rep.status,
-		"version": h.version,
-	}
-	if len(rep.impaired) > 0 {
-		body["impaired"] = rep.impaired
+	resp := gen.HealthStatus{
+		Status:   gen.HealthStatusStatus(rep.status),
+		Version:  h.version,
+		Impaired: toHealthStatusImpaired(rep.impaired),
 	}
 
-	h.respond.JSON(w, r, rep.code, body)
+	h.respond.JSON(w, r, rep.code, envelopeFromHealthStatus(resp))
 }
 
 // Detailed handles GET /api/v1/admin/healthcheck: everything Check knows, plus
@@ -349,31 +447,30 @@ func (h *Handler) Detailed(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	body := httpx.Envelope{
-		"status":       rep.status,
-		"version":      h.version,
-		"environment":  h.environment,
-		"dependencies": deps,
-	}
-	if len(rep.impaired) > 0 {
-		body["impaired"] = rep.impaired
-	}
-	if rep.breakers != nil {
-		body["breakers"] = rep.breakers
+	resp := gen.HealthDetailed{
+		Status:       gen.HealthDetailedStatus(rep.status),
+		Version:      h.version,
+		Environment:  h.environment,
+		Dependencies: deps,
+		Impaired:     toHealthDetailedImpaired(rep.impaired),
+		Breakers:     toGenBreakers(rep.breakers),
 	}
 	if h.metrics != nil {
-		body["metrics"] = h.metrics.Metrics()
+		metrics := h.metrics.Metrics()
+		resp.Metrics = &metrics
 	}
 	if queues, err := h.queueStats(r.Context()); err != nil {
 		// A failed backlog query must not fail the health check: the endpoint's
 		// first job is to say whether the process is serving, and it still can.
 		// Reported rather than swallowed, so the gap is visible as a gap.
-		body["queues_error"] = err.Error()
+		errMsg := err.Error()
+		resp.QueuesError = &errMsg
 	} else if queues != nil {
-		body["queues"] = queues
+		genQueues := toGenQueueStats(queues)
+		resp.Queues = &genQueues
 	}
 
-	h.respond.JSON(w, r, rep.code, body)
+	h.respond.JSON(w, r, rep.code, envelopeFromHealthDetailed(resp))
 }
 
 // queueStats reads the backlogs under their own deadline.

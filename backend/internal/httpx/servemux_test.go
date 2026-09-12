@@ -50,8 +50,8 @@ func TestServeMuxMiss(t *testing.T) {
 	ts, client := newTestServer(t)
 	t.Run("unknown path answers the JSON 404", func(t *testing.T) {
 		status, header, _ := do(t, ts, client, http.MethodGet, "/nope")
-		if status != http.StatusNotFound || !strings.Contains(header.Get("Content-Type"), "application/json") {
-			t.Errorf("GET /nope = %d %q, want 404 JSON", status, header.Get("Content-Type"))
+		if status != http.StatusNotFound || !strings.Contains(header.Get("Content-Type"), "application/problem+json") {
+			t.Errorf("GET /nope = %d %q, want 404 problem+json", status, header.Get("Content-Type"))
 		}
 	})
 	t.Run("known path, unregistered method answers 405 with exactly the registered methods", func(t *testing.T) {

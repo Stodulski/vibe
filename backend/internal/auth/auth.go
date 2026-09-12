@@ -11,7 +11,6 @@ package auth
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -300,35 +299,4 @@ func (disabledGoogle) Enabled() bool { return false }
 
 func (disabledGoogle) Verify(context.Context, string) (*googleid.Claims, error) {
 	return nil, googleid.ErrUnavailable
-}
-
-// Routes registers this module's endpoints.
-//
-// The public group is public by necessity, not by oversight: registering
-// creates the session, signing in establishes it, refresh runs on an expired
-// access token by design, and the verification and reset flows are reached
-// from an emailed link by someone who cannot sign in. Each is authenticated by
-// something other than a session — a password, a rotating token, or a
-// single-use emailed token.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/register", h.Register)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/login", h.Login)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/refresh", h.Refresh)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/logout", h.Logout)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/verify-email", h.VerifyEmail)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/resend-verification", h.ResendVerification)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/forgot-password", h.ForgotPassword)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/reset-password", h.ResetPassword)
-
-	// Google sign-in is always registered, even when GOOGLE_OAUTH_CLIENT_ID
-	// is unset — GoogleSignIn and GoogleComplete answer 503 in that case
-	// (h.google.Enabled()) rather than 404, so the route table, the OpenAPI
-	// document and the CSRF/rate-limit/tenant exemption tables stay static
-	// regardless of configuration.
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/google", h.GoogleSignIn)
-	router.HandlerFunc(http.MethodPost, "/api/v1/auth/google/complete", h.GoogleComplete)
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/auth/me", guards.RequireAuth(h.CurrentUser))
-	router.HandlerFunc(http.MethodPut, "/api/v1/auth/me", guards.RequireAuth(h.UpdateCurrentUser))
-	router.HandlerFunc(http.MethodDelete, "/api/v1/auth/me", guards.RequireAuth(h.DeleteAccount))
 }

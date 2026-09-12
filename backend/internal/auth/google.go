@@ -8,6 +8,7 @@ import (
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -53,22 +54,20 @@ func (h *Handler) GoogleSignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Credential string `json:"credential"`
-	}
-	if err := httpx.ReadJSON(w, r, &input); err != nil {
+	var body gen.AuthGoogleJSONBody
+	if err := httpx.ReadJSON(w, r, &body); err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
 	v := validator.New()
-	v.Check(input.Credential != "", "credential", "must be provided")
+	v.Check(body.Credential != "", "credential", "must be provided")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
-	result, err := h.svc.GoogleSignIn(r.Context(), h.actor(r), input.Credential)
+	result, err := h.svc.GoogleSignIn(r.Context(), h.actor(r), body.Credential)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrGoogleRejected):
@@ -105,18 +104,13 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		ProfileToken string `json:"profile_token"`
-		Phone        string `json:"phone"`
-		FirstName    string `json:"first_name"`
-		LastName     string `json:"last_name"`
-	}
-	if err := httpx.ReadJSON(w, r, &input); err != nil {
+	var body gen.AuthGoogleCompleteJSONBody
+	if err := httpx.ReadJSON(w, r, &body); err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
-	claims, err := h.svc.tokenService.ValidateProfileToken(input.ProfileToken)
+	claims, err := h.svc.tokenService.ValidateProfileToken(body.ProfileToken)
 	if err != nil {
 		// A missing, expired, forged or wrong-purpose token gets the same
 		// generic refusal invalid credentials do elsewhere in this module —
@@ -125,11 +119,19 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	firstName := strings.TrimSpace(input.FirstName)
+	var firstNameOverride, lastNameOverride string
+	if body.FirstName != nil {
+		firstNameOverride = *body.FirstName
+	}
+	if body.LastName != nil {
+		lastNameOverride = *body.LastName
+	}
+
+	firstName := strings.TrimSpace(firstNameOverride)
 	if firstName == "" {
 		firstName = claims.GivenName
 	}
-	lastName := strings.TrimSpace(input.LastName)
+	lastName := strings.TrimSpace(lastNameOverride)
 	if lastName == "" {
 		lastName = claims.FamilyName
 	}
@@ -139,13 +141,13 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 	v.Check(len(firstName) <= 100, "first_name", "must not be more than 100 characters")
 	v.Check(lastName != "", "last_name", "must be provided")
 	v.Check(len(lastName) <= 100, "last_name", "must not be more than 100 characters")
-	v.Check(input.Phone != "", "phone", "must be provided")
-	if input.Phone != "" {
-		normalized, normErr := validator.NormalizePhone(input.Phone)
+	v.Check(body.Phone != "", "phone", "must be provided")
+	if body.Phone != "" {
+		normalized, normErr := validator.NormalizePhone(body.Phone)
 		if normErr != nil {
 			v.AddError("phone", "must be a valid phone number (E.164 format, e.g. +5491112345678)")
 		} else {
-			input.Phone = normalized
+			body.Phone = normalized
 		}
 	}
 	if !v.Valid() {
@@ -156,7 +158,7 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 	session, err := h.svc.GoogleComplete(r.Context(), h.actor(r), claims, GoogleCompleteInput{
 		FirstName: firstName,
 		LastName:  lastName,
-		Phone:     input.Phone,
+		Phone:     body.Phone,
 	})
 	if err != nil {
 		h.respond.DomainError(w, r, err)

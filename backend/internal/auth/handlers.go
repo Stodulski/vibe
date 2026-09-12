@@ -8,6 +8,7 @@ import (
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -28,7 +29,7 @@ func (h *Handler) respondWithSession(w http.ResponseWriter, r *http.Request, ses
 	csrfToken := h.svc.tokenService.SetTokenCookies(w, session.AccessToken, session.RefreshToken)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"user":       session.User,
+		"user":       toGenUser(session.User),
 		"csrf_token": csrfToken,
 	})
 }
@@ -187,21 +188,19 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // VerifyEmail handles POST /api/v1/auth/verify-email, consuming the token from
 // the emailed link.
 func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Token string `json:"token"`
-	}
-	err := httpx.ReadJSON(w, r, &input)
+	var body gen.AuthVerifyEmailJSONBody
+	err := httpx.ReadJSON(w, r, &body)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
-	if input.Token == "" {
+	if body.Token == "" {
 		h.respond.BadRequest(w, r, fmt.Errorf("token must be provided"))
 		return
 	}
 
-	err = h.svc.VerifyEmail(r.Context(), input.Token)
+	err = h.svc.VerifyEmail(r.Context(), body.Token)
 	if err != nil {
 		h.respond.DomainError(w, r, err)
 		return
@@ -213,16 +212,19 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // ResendVerification handles POST /api/v1/auth/resend-verification. It is
 // rate-limited by the store's cooldown, and answers the same either way.
 func (h *Handler) ResendVerification(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Email string `json:"email"`
-	}
-	err := httpx.ReadJSON(w, r, &input)
+	var body gen.AuthResendVerificationJSONBody
+	err := httpx.ReadJSON(w, r, &body)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
-	if err := h.svc.ResendVerification(r.Context(), input.Email); err != nil {
+	var email string
+	if body.Email != nil {
+		email = *body.Email
+	}
+
+	if err := h.svc.ResendVerification(r.Context(), email); err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
@@ -306,7 +308,7 @@ func (h *Handler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	envelope := httpx.Envelope{"user": user}
+	envelope := httpx.Envelope{"user": toGenUser(user)}
 	if accessToken := rawAccessToken(r); accessToken != "" {
 		envelope["csrf_token"] = h.svc.tokenService.GenerateCSRFToken(accessToken)
 	}
@@ -471,7 +473,7 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"user": updated})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"user": toGenUser(updated)})
 }
 
 // ForgotPassword handles POST /api/v1/auth/forgot-password. It answers the same
@@ -501,27 +503,24 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 // ResetPassword handles POST /api/v1/auth/reset-password. The link is
 // single-use, and using it ends every session the account had open.
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Token    string `json:"token"`
-		Password string `json:"password"`
-	}
-	err := httpx.ReadJSON(w, r, &input)
+	var body gen.AuthResetPasswordJSONBody
+	err := httpx.ReadJSON(w, r, &body)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
 	v := validator.New()
-	v.Check(input.Token != "", "token", "must be provided")
-	v.Check(input.Password != "", "password", "must be provided")
-	v.Check(len(input.Password) >= 8, "password", "must be at least 8 characters")
-	v.Check(len(input.Password) <= 72, "password", "must not be more than 72 characters")
+	v.Check(body.Token != "", "token", "must be provided")
+	v.Check(body.Password != "", "password", "must be provided")
+	v.Check(len(body.Password) >= 8, "password", "must be at least 8 characters")
+	v.Check(len(body.Password) <= 72, "password", "must not be more than 72 characters")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
-	err = h.svc.ResetPassword(r.Context(), h.actor(r), input.Token, input.Password)
+	err = h.svc.ResetPassword(r.Context(), h.actor(r), body.Token, body.Password)
 	if err != nil {
 		h.respond.DomainErrorWith(w, r, err, "invalid or expired reset token")
 		return

@@ -101,6 +101,16 @@ func TestReadJSON(t *testing.T) {
 			case tt.wantErr != "" && err.Error() != tt.wantErr:
 				t.Errorf("want error %q; got %q", tt.wantErr, err.Error())
 			}
+
+			// Every body-decode failure must be an *InvalidJSONError, which
+			// is what lets Responder.BadRequest keep the dedicated
+			// invalid-json kind for this cause alone.
+			if tt.wantErr != "" {
+				var invalidJSON *InvalidJSONError
+				if !errors.As(err, &invalidJSON) {
+					t.Errorf("want a *InvalidJSONError so BadRequest answers invalid-json; got %T", err)
+				}
+			}
 		})
 	}
 }
@@ -141,20 +151,40 @@ func TestBadRequestReportsOversizedBodyAs413(t *testing.T) {
 	if w.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("want %d; got %d", http.StatusRequestEntityTooLarge, w.Code)
 	}
-	var body struct {
-		Error string `json:"error"`
+	var body Problem
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Detail != "body must not be larger than 1048576 bytes" {
+		t.Errorf("want the original message preserved; got %q", body.Detail)
+	}
+
+	// A ReadJSON body-decode failure keeps its own dedicated kind.
+	w = httptest.NewRecorder()
+	rs.BadRequest(w, r, &InvalidJSONError{errors.New("body contains badly-formed JSON")})
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("an ordinary decoding error must still report 400; got %d", w.Code)
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Error != "body must not be larger than 1048576 bytes" {
-		t.Errorf("want the original message preserved; got %q", body.Error)
+	if body.Type != KindInvalidJSON.URI() {
+		t.Errorf("a ReadJSON decode failure must keep the invalid-json kind; got %q", body.Type)
 	}
 
+	// Every other BadRequest cause — a malformed query parameter, an invalid
+	// cursor — is not itself malformed JSON, so it answers the generic
+	// bad-request kind instead of invalid-json.
 	w = httptest.NewRecorder()
-	rs.BadRequest(w, r, errors.New("body contains badly-formed JSON"))
+	rs.BadRequest(w, r, errors.New("invalid cursor value"))
 	if w.Code != http.StatusBadRequest {
-		t.Errorf("an ordinary decoding error must still report 400; got %d", w.Code)
+		t.Errorf("want 400; got %d", w.Code)
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Type != KindBadRequest.URI() {
+		t.Errorf("a cause other than a JSON decode failure must answer the generic bad-request kind; got %q", body.Type)
 	}
 }
 
@@ -270,30 +300,51 @@ func TestResponderErrorShape(t *testing.T) {
 		name     string
 		call     func(w http.ResponseWriter, r *http.Request)
 		wantCode int
+		wantKind Kind
 	}{
-		{"not found", rs.NotFound, http.StatusNotFound},
-		{"method not allowed", rs.MethodNotAllowed, http.StatusMethodNotAllowed},
-		{"edit conflict", rs.EditConflict, http.StatusConflict},
-		{"rate limited", rs.RateLimitExceeded, http.StatusTooManyRequests},
-		{"invalid credentials", rs.InvalidCredentials, http.StatusUnauthorized},
-		{"not permitted", rs.NotPermitted, http.StatusForbidden},
+		{"not found", rs.NotFound, http.StatusNotFound, KindNotFound},
+		{"method not allowed", rs.MethodNotAllowed, http.StatusMethodNotAllowed, KindMethodNotAllowed},
+		{"edit conflict", rs.EditConflict, http.StatusConflict, KindConflict},
+		{"rate limited", rs.RateLimitExceeded, http.StatusTooManyRequests, KindRateLimited},
+		{"invalid credentials", rs.InvalidCredentials, http.StatusUnauthorized, KindUnauthorized},
+		{"not permitted", rs.NotPermitted, http.StatusForbidden, KindForbidden},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			tt.call(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			r = ContextSetRequestID(r, "req-1")
+			tt.call(w, r)
 
 			if w.Code != tt.wantCode {
 				t.Errorf("want status %d; got %d", tt.wantCode, w.Code)
 			}
+			if got := w.Header().Get("Content-Type"); got != "application/problem+json" {
+				t.Errorf("want Content-Type application/problem+json; got %q", got)
+			}
 
-			var body map[string]any
+			var body Problem
 			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 				t.Fatalf("error body is not valid JSON: %v", err)
 			}
-			if _, ok := body["error"]; !ok {
-				t.Errorf(`every error body must be enveloped under "error"; got %s`, w.Body.String())
+			if body.Type != tt.wantKind.URI() {
+				t.Errorf("want type %q; got %q", tt.wantKind.URI(), body.Type)
+			}
+			if body.Status != tt.wantCode {
+				t.Errorf("want status field %d; got %d", tt.wantCode, body.Status)
+			}
+			if body.Title == "" {
+				t.Error("want a non-empty title")
+			}
+			if body.Detail == "" {
+				t.Error("want a non-empty detail")
+			}
+			if body.Instance != "/" {
+				t.Errorf("want instance %q; got %q", "/", body.Instance)
+			}
+			if body.RequestID != "req-1" {
+				t.Errorf("want request_id %q; got %q", "req-1", body.RequestID)
 			}
 		})
 	}

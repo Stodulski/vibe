@@ -31,6 +31,18 @@ type BodyTooLargeError struct {
 
 func (e *BodyTooLargeError) Error() string { return e.msg }
 
+// InvalidJSONError marks a ReadJSON failure caused by the body not being
+// decodable JSON — bad syntax, the wrong type for a field, an unknown key,
+// more than one value, or an empty body. The Responder checks for it so this
+// is the one BadRequest cause that keeps the dedicated invalid-json Problem
+// kind; every other 400 answers the generic bad-request kind.
+type InvalidJSONError struct {
+	err error
+}
+
+func (e *InvalidJSONError) Error() string { return e.err.Error() }
+func (e *InvalidJSONError) Unwrap() error { return e.err }
+
 var bufPool = sync.Pool{
 	New: func() any {
 		return new(bytes.Buffer)
@@ -65,6 +77,29 @@ func WriteJSON(w http.ResponseWriter, status int, data Envelope, headers http.He
 	return nil
 }
 
+// WriteProblemJSON encodes problem as application/problem+json (RFC 9457) and
+// writes it with the given status. It exists apart from WriteJSON because a
+// Problem is a struct with a fixed shape, not a caller-assembled Envelope,
+// and because its content type is never "application/json".
+func WriteProblemJSON(w http.ResponseWriter, status int, problem Problem) error {
+	buf, _ := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(problem); err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(status)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ReadJSON decodes a single JSON value from the request body into dst. Unknown
 // fields are rejected, the body is capped at MaxJSONBody, and every decoding
 // failure is translated into a message safe to return to the client.
@@ -83,23 +118,23 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 
 		switch {
 		case errors.As(err, &syntaxError):
-			return fmt.Errorf("body contains badly-formed JSON (at character %d)", syntaxError.Offset)
+			return &InvalidJSONError{fmt.Errorf("body contains badly-formed JSON (at character %d)", syntaxError.Offset)}
 
 		case errors.Is(err, io.ErrUnexpectedEOF):
-			return errors.New("body contains badly-formed JSON")
+			return &InvalidJSONError{errors.New("body contains badly-formed JSON")}
 
 		case errors.As(err, &unmarshalTypeError):
 			if unmarshalTypeError.Field != "" {
-				return fmt.Errorf("body contains incorrect JSON type for field %q", unmarshalTypeError.Field)
+				return &InvalidJSONError{fmt.Errorf("body contains incorrect JSON type for field %q", unmarshalTypeError.Field)}
 			}
-			return fmt.Errorf("body contains incorrect JSON type (at character %d)", unmarshalTypeError.Offset)
+			return &InvalidJSONError{fmt.Errorf("body contains incorrect JSON type (at character %d)", unmarshalTypeError.Offset)}
 
 		case errors.Is(err, io.EOF):
-			return errors.New("body must not be empty")
+			return &InvalidJSONError{errors.New("body must not be empty")}
 
 		case strings.HasPrefix(err.Error(), "json: unknown field "):
 			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
-			return fmt.Errorf("body contains unknown key %s", fieldName)
+			return &InvalidJSONError{fmt.Errorf("body contains unknown key %s", fieldName)}
 
 		case errors.As(err, &maxBytesError):
 			return &BodyTooLargeError{msg: fmt.Sprintf("body must not be larger than %d bytes", maxBytesError.Limit)}
@@ -108,13 +143,13 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 			panic(err)
 
 		default:
-			return err
+			return &InvalidJSONError{err}
 		}
 	}
 
 	err = dec.Decode(&struct{}{})
 	if !errors.Is(err, io.EOF) {
-		return errors.New("body must only contain a single JSON value")
+		return &InvalidJSONError{errors.New("body must only contain a single JSON value")}
 	}
 
 	return nil

@@ -120,28 +120,6 @@ func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Hand
 	}
 }
 
-// Routes registers this module's endpoints.
-//
-// Availability is the one public route: a client picking a slot has no account.
-// Everything else changes the complex's configuration and needs its owner.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	owner := func(next http.HandlerFunc) http.HandlerFunc {
-		return guards.RequireAuth(guards.RequireComplexOwner(next))
-	}
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/public/complexes/{slug}/availability", h.Availability)
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/courts", owner(h.List))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/courts", owner(h.Create))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}/courts/{courtID}", owner(h.Update))
-	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/{id}/courts/{courtID}", owner(h.Delete))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}/courts/{courtID}/prices", owner(h.UpdatePrices))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/courts/{courtID}/block", owner(h.BlockSlot))
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/blocked-slots", owner(h.ListBlockedSlots))
-	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/{id}/blocked-slots/{slotID}", owner(h.DeleteBlockedSlot))
-}
-
 // actor reads who is making the change, and from where, off the request. It is
 // the only thing the audit trail needs that lives on the HTTP side.
 func (h *Handler) actor(r *http.Request) Actor {

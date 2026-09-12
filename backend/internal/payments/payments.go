@@ -306,15 +306,6 @@ func NewHandler(svc *Service, provider Provider, respond *httpx.Responder, logge
 	}
 }
 
-// Routes registers the webhook.
-//
-// It takes no guard because MercadoPago has no session: the request is
-// authenticated by its signature, which the handler verifies before reading
-// anything else out of the body.
-func (h *Handler) Routes(router httpx.Router, _ httpx.Guards) {
-	router.HandlerFunc(http.MethodPost, "/api/v1/webhooks/mercadopago", h.MercadoPagoWebhook)
-}
-
 // ---------------------------------------------------------------------------
 // The payment ledger, as the booking domain reads and writes it
 // ---------------------------------------------------------------------------

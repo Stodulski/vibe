@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	"github.com/stodulski/vibe-server/internal/spreadsheet"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -55,7 +56,61 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"report": report})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"report": toGenMonthlyReport(report)})
+}
+
+// toGenMonthlyReport maps the service's typed MonthlyReport onto the
+// generated wire type field by field.
+//
+// It replaces a map[string]any built by hand and round-tripped through
+// json.Marshal/Unmarshal into gen.MonthlyReport: that path let an unknown key
+// or a type mismatch fail silently — a dropped field, or a decode error
+// surfacing as a 500 with nothing pointing at which field caused it. An
+// explicit mapping fails to compile instead, the moment either shape changes.
+func toGenMonthlyReport(report MonthlyReport) gen.MonthlyReport {
+	byMethod := make(map[string]gen.MonthlyReportSummary, len(report.ByMethod))
+	for method, sum := range report.ByMethod {
+		byMethod[method] = gen.MonthlyReportSummary{
+			Count:    sum.Count,
+			Total:    sum.Total,
+			Refunded: sum.Refunded,
+			Net:      sum.Net,
+		}
+	}
+
+	byCourt := make([]gen.MonthlyReportCourtSummary, len(report.ByCourt))
+	for i, c := range report.ByCourt {
+		byCourt[i] = gen.MonthlyReportCourtSummary{
+			CourtId:   c.CourtID,
+			CourtName: c.CourtName,
+			Count:     c.Count,
+			Total:     c.Total,
+			Refunded:  c.Refunded,
+			Net:       c.Net,
+		}
+	}
+
+	return gen.MonthlyReport{
+		Month:          report.Month,
+		Year:           report.Year,
+		ByMethod:       byMethod,
+		ByCourt:        byCourt,
+		Totals:         toGenMonthlyReportSummaryTotals(report.Totals),
+		PreviousTotals: toGenMonthlyReportSummaryTotals(report.PreviousTotals),
+	}
+}
+
+// toGenMonthlyReportSummaryTotals maps a Totals/PreviousTotals row, which —
+// unlike a by-method row — carries ServiceFees.
+func toGenMonthlyReportSummaryTotals(sum MonthlySummary) gen.MonthlyReportSummary {
+	serviceFees := sum.ServiceFees
+	return gen.MonthlyReportSummary{
+		Count:       sum.Count,
+		Total:       sum.Total,
+		Refunded:    sum.Refunded,
+		Net:         sum.Net,
+		ServiceFees: &serviceFees,
+	}
 }
 
 // periodTotals adds up one period's payments the same way the selected month
@@ -63,7 +118,7 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 //
 // Net is what the owner keeps: the amount plus the service fee the client paid
 // on top, minus anything refunded.
-func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
+func periodTotals(summaries []reportstore.PaymentMethodSummary) MonthlySummary {
 	var count, amount, serviceFees, refunded int
 	for _, s := range summaries {
 		count += s.Count
@@ -71,12 +126,12 @@ func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 		serviceFees += s.ServiceFee
 		refunded += s.Refunded
 	}
-	return map[string]any{
-		"count":        count,
-		"total":        amount,
-		"service_fees": serviceFees,
-		"refunded":     refunded,
-		"net":          amount + serviceFees - refunded,
+	return MonthlySummary{
+		Count:       count,
+		Total:       amount,
+		ServiceFees: serviceFees,
+		Refunded:    refunded,
+		Net:         amount + serviceFees - refunded,
 	}
 }
 

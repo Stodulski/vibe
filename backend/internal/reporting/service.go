@@ -209,6 +209,43 @@ func (s *Service) ClientInsights(ctx context.Context, complexID uuid.UUID, now t
 	return s.clients.GetInsights(ctx, complexID, startOfDay(now))
 }
 
+// MonthlySummary is one row of a MonthlyReport's payment totals — a single
+// method, the whole period, or the month before — carried as a typed value
+// between Service.MonthlyReport and toGenMonthlyReport rather than through a
+// map[string]any and a JSON round trip, so an unknown key cannot be dropped
+// silently and a type mismatch cannot surface as a 500 instead of a compile
+// error. ServiceFees is only meaningful on Totals/PreviousTotals: a by-method
+// row never carries it, matching gen.MonthlyReportSummary.ServiceFees being
+// a nil-omitted pointer there.
+type MonthlySummary struct {
+	Count       int
+	Total       int
+	Refunded    int
+	Net         int
+	ServiceFees int
+}
+
+// MonthlyCourtSummary is one court's row in a MonthlyReport.
+type MonthlyCourtSummary struct {
+	CourtID   string
+	CourtName string
+	Count     int
+	Total     int
+	Refunded  int
+	Net       int
+}
+
+// MonthlyReport is a period's payment totals: per method, per court, the
+// whole period, and the month before for comparison.
+type MonthlyReport struct {
+	Month          int
+	Year           int
+	ByMethod       map[string]MonthlySummary
+	ByCourt        []MonthlyCourtSummary
+	Totals         MonthlySummary
+	PreviousTotals MonthlySummary
+}
+
 // MonthlyReport totals a period's payments per method and per court, alongside
 // the month before.
 //
@@ -223,40 +260,33 @@ func (s *Service) ClientInsights(ctx context.Context, complexID uuid.UUID, now t
 // helpers without reducing what a reader holds at once.
 //
 //nolint:funlen // see the cohesion note above
-func (s *Service) MonthlyReport(ctx context.Context, complexID uuid.UUID, month, year int) (map[string]any, error) {
+func (s *Service) MonthlyReport(ctx context.Context, complexID uuid.UUID, month, year int) (MonthlyReport, error) {
 	from := periodStart(month, year)
 	to := from.AddDate(0, 1, -1)
 
 	summaries, err := s.reports.PaymentSummaryByMethod(ctx, complexID, from, to)
 	if err != nil {
-		return nil, err
+		return MonthlyReport{}, err
 	}
 
 	courts, err := s.reports.PaymentSummaryByCourt(ctx, complexID, from, to)
 	if err != nil {
-		return nil, err
+		return MonthlyReport{}, err
 	}
 
 	prevFrom := from.AddDate(0, -1, 0)
 	prevSummaries, err := s.reports.PaymentSummaryByMethod(ctx, complexID, prevFrom, prevFrom.AddDate(0, 1, -1))
 	if err != nil {
-		return nil, err
+		return MonthlyReport{}, err
 	}
 
-	type methodSummary struct {
-		Count    int `json:"count"`
-		Total    int `json:"total"`
-		Refunded int `json:"refunded"`
-		Net      int `json:"net"`
-	}
-
-	byMethod := make(map[string]*methodSummary, len(summaries))
+	byMethod := make(map[string]MonthlySummary, len(summaries))
 	var totalCount, totalAmount, totalServiceFees, totalRefunded int
 
 	for _, sm := range summaries {
 		// Net is what the owner keeps: the amount plus the service fee the
 		// client paid on top, minus anything refunded.
-		byMethod[sm.Method] = &methodSummary{
+		byMethod[sm.Method] = MonthlySummary{
 			Count:    sm.Count,
 			Total:    sm.Amount,
 			Refunded: sm.Refunded,
@@ -269,31 +299,31 @@ func (s *Service) MonthlyReport(ctx context.Context, complexID uuid.UUID, month,
 		totalRefunded += sm.Refunded
 	}
 
-	byCourt := make([]map[string]any, 0, len(courts))
+	byCourt := make([]MonthlyCourtSummary, 0, len(courts))
 	for _, c := range courts {
-		byCourt = append(byCourt, map[string]any{
-			"court_id":   c.CourtID,
-			"court_name": c.CourtName,
-			"count":      c.Count,
-			"total":      c.Amount,
-			"refunded":   c.Refunded,
-			"net":        c.Amount + c.ServiceFee - c.Refunded,
+		byCourt = append(byCourt, MonthlyCourtSummary{
+			CourtID:   c.CourtID,
+			CourtName: c.CourtName,
+			Count:     c.Count,
+			Total:     c.Amount,
+			Refunded:  c.Refunded,
+			Net:       c.Amount + c.ServiceFee - c.Refunded,
 		})
 	}
 
-	return map[string]any{
-		"month":     month,
-		"year":      year,
-		"by_method": byMethod,
-		"by_court":  byCourt,
-		"totals": map[string]any{
-			"count":        totalCount,
-			"total":        totalAmount,
-			"service_fees": totalServiceFees,
-			"refunded":     totalRefunded,
-			"net":          totalAmount + totalServiceFees - totalRefunded,
+	return MonthlyReport{
+		Month:    month,
+		Year:     year,
+		ByMethod: byMethod,
+		ByCourt:  byCourt,
+		Totals: MonthlySummary{
+			Count:       totalCount,
+			Total:       totalAmount,
+			ServiceFees: totalServiceFees,
+			Refunded:    totalRefunded,
+			Net:         totalAmount + totalServiceFees - totalRefunded,
 		},
-		"previous_totals": periodTotals(prevSummaries),
+		PreviousTotals: periodTotals(prevSummaries),
 	}, nil
 }
 

@@ -130,8 +130,8 @@ func TestARequestTheDocumentForbidsIsRefusedBeforeTheHandler(t *testing.T) {
 			if reached {
 				t.Error("the handler ran on a request the document forbids")
 			}
-			if !strings.Contains(w.Body.String(), `"error"`) {
-				t.Errorf("the refusal is not in the API's error envelope: %s", w.Body.String())
+			if !strings.Contains(w.Body.String(), `"detail"`) {
+				t.Errorf("the refusal is not in the API's problem envelope: %s", w.Body.String())
 			}
 		})
 	}

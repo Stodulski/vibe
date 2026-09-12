@@ -16,6 +16,12 @@ import (
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
+// captureRequest cannot be replaced by the generated
+// gen.LeadsCaptureAbandonedRegistrationJSONBody: see the WIRE MISMATCH note on
+// CaptureAbandonedRegistration below. Its Source, FirstName, LastName and
+// Phone fields do match the generated type field-for-field (all plain
+// strings there vs. optional pointers here, same names and semantics once
+// nil collapses to ""), but Email does not, and decoding is all-or-nothing.
 type captureRequest struct {
 	Email string `json:"email"`
 	// Source names the form the person left. Empty means the password
@@ -112,6 +118,19 @@ func originFor(source string) string {
 // on the response, so this always accepts a well-formed request immediately
 // and forwards to the spreadsheet webhook best-effort.
 func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request) {
+	// WIRE MISMATCH: leads CaptureAbandonedRegistration email — the generated
+	// gen.LeadsCaptureAbandonedRegistrationJSONBody.Email field is
+	// openapi_types.Email, whose UnmarshalJSON runs net/mail.ParseAddress at
+	// decode time. Decoding straight into that type would (1) turn a
+	// malformed address into a whole-body decode failure -> BadRequest (400),
+	// instead of today's FailedValidation (422) with a field-scoped "email"
+	// error the frontend/tests key off of, and (2) silently rewrite an
+	// accepted value to mail.Address.Address (e.g. drops a
+	// "Display Name <addr>" wrapper down to just "addr") instead of
+	// forwarding the caller's string verbatim to the spreadsheet, which is
+	// load-bearing for H-24's formula-escaping tests. So Email stays a plain
+	// string decoded here and validated below with the existing EmailRX
+	// regex + length bound; the openapi document is unchanged.
 	var req captureRequest
 	if err := httpx.ReadJSON(w, r, &req); err != nil {
 		h.respond.BadRequest(w, r, err)

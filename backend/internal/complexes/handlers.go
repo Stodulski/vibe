@@ -7,10 +7,12 @@ import (
 	"regexp"
 
 	"github.com/google/uuid"
+
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -32,7 +34,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complexes": complexes})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complexes": toComplexResponses(complexes)})
 }
 
 // Create handles POST /api/v1/complexes.
@@ -43,19 +45,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 //
 //nolint:funlen // see the cohesion note above
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Name              string   `json:"name"`
-		Slug              string   `json:"slug"`
-		Address           string   `json:"address"`
-		City              string   `json:"city"`
-		Province          string   `json:"province"`
-		Phone             string   `json:"phone"`
-		Email             *string  `json:"email"`
-		DepositPercentage int      `json:"deposit_percentage"`
-		CancellationHours int      `json:"cancellation_hours"`
-		Latitude          *float64 `json:"latitude"`
-		Longitude         *float64 `json:"longitude"`
-	}
+	var input gen.ComplexesCreateJSONBody
 
 	err := httpx.ReadJSON(w, r, &input)
 	if err != nil {
@@ -64,6 +54,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input.Slug = slugify(input.Slug)
+
+	depositPercentage := 0
+	if input.DepositPercentage != nil {
+		depositPercentage = *input.DepositPercentage
+	}
+	email := input.Email
 
 	v := validator.New()
 	v.Check(input.Name != "", "name", "must be provided")
@@ -79,8 +75,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	v.Check(input.City != "", "city", "must be provided")
 	v.Check(input.Province != "", "province", "must be provided")
 	v.Check(input.Phone != "", "phone", "must be provided")
-	v.Check(input.DepositPercentage >= 0, "deposit_percentage", "must be 0 or greater")
-	v.Check(input.DepositPercentage <= 100, "deposit_percentage", "must not be more than 100")
+	v.Check(depositPercentage >= 0, "deposit_percentage", "must be 0 or greater")
+	v.Check(depositPercentage <= 100, "deposit_percentage", "must not be more than 100")
 	// The floor is 1, not 0. A zero window is read by pricing.CanRefund as
 	// "refund always due" — its cancellationHours <= 0 branch returns true
 	// unconditionally — and pricing.LinkLive ORs that answer in, so a complex
@@ -89,8 +85,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	// that one is the guarantee.
 	v.Check(input.CancellationHours >= 1, "cancellation_hours", "must be at least 1")
 	v.Check(input.CancellationHours <= 168, "cancellation_hours", "must not be more than 168")
-	if input.Email != nil {
-		v.Check(validator.Matches(*input.Email, validator.EmailRX), "email", "must be a valid email address")
+	if email != nil {
+		v.Check(validator.Matches(*email, validator.EmailRX), "email", "must be a valid email address")
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -110,8 +106,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		City:              input.City,
 		Province:          input.Province,
 		Phone:             input.Phone,
-		Email:             input.Email,
-		DepositPercentage: input.DepositPercentage,
+		Email:             email,
+		DepositPercentage: depositPercentage,
 		CancellationHours: input.CancellationHours,
 		Latitude:          input.Latitude,
 		Longitude:         input.Longitude,
@@ -125,7 +121,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"complex": complex})
+	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"complex": toComplexResponse(complex)})
 }
 
 // Get handles GET /api/v1/complexes/{id}, returning one venue with its
@@ -137,7 +133,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complex": complex})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complex": toComplexResponse(complex)})
 }
 
 // SlugAvailable handles GET /api/v1/complexes/slug-available?slug=x.
@@ -162,14 +158,16 @@ func (h *Handler) SlugAvailable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !status.Valid {
-		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"slug": status.Slug, "available": false, "valid": false})
+	result := toGenSlugAvailability(status)
+
+	if !result.Valid {
+		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"slug": result.Slug, "available": false, "valid": false})
 		return
 	}
 
-	body := httpx.Envelope{"slug": status.Slug, "valid": true, "available": status.Available}
-	if !status.Available {
-		body["suggestion"] = status.Suggestion
+	body := httpx.Envelope{"slug": result.Slug, "valid": true, "available": result.Available}
+	if result.Suggestion != nil {
+		body["suggestion"] = *result.Suggestion
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, body)
@@ -208,27 +206,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Name              *string   `json:"name"`
-		Slug              *string   `json:"slug"`
-		Address           *string   `json:"address"`
-		City              *string   `json:"city"`
-		Province          *string   `json:"province"`
-		Phone             *string   `json:"phone"`
-		Email             *string   `json:"email"`
-		LogoURL           *string   `json:"logo_url"`
-		CoverURL          *string   `json:"cover_url"`
-		DepositPercentage *int      `json:"deposit_percentage"`
-		CancellationHours *int      `json:"cancellation_hours"`
-		IsActive          *bool     `json:"is_active"`
-		Latitude          *float64  `json:"latitude"`
-		Longitude         *float64  `json:"longitude"`
-		Amenities         *[]string `json:"amenities"`
-		// Version is the optimistic-concurrency precondition in the body, for a
-		// client that finds that easier than If-Match. Either spelling works
-		// and neither is required — see httpx.ExpectedVersion (API-08).
-		Version *int `json:"version"`
-	}
+	var input gen.ComplexesUpdateJSONBody
 
 	err := httpx.ReadJSON(w, r, &input)
 	if err != nil {
@@ -250,8 +228,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Province:          input.Province,
 		Phone:             input.Phone,
 		Email:             input.Email,
-		LogoURL:           input.LogoURL,
-		CoverURL:          input.CoverURL,
+		LogoURL:           input.LogoUrl,
+		CoverURL:          input.CoverUrl,
 		DepositPercentage: input.DepositPercentage,
 		CancellationHours: input.CancellationHours,
 		IsActive:          input.IsActive,
@@ -292,7 +270,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		v.Check(*input.Province != "", "province", "must not be empty")
 	}
 	if input.Amenities != nil {
-		cleaned, unknown := cleanAmenities(*input.Amenities)
+		amenities := make([]string, len(*input.Amenities))
+		for i, a := range *input.Amenities {
+			amenities[i] = string(a)
+		}
+		cleaned, unknown := cleanAmenities(amenities)
 		v.Check(unknown == "", "amenities", "unknown amenity: "+unknown)
 		in.Amenities = &cleaned
 	}
@@ -302,11 +284,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if input.Email != nil {
 		v.Check(validator.Matches(*input.Email, validator.EmailRX), "email", "must be a valid email address")
 	}
-	if input.LogoURL != nil && *input.LogoURL != "" {
-		v.Check(isValidImageURL(*input.LogoURL), "logo_url", "must be a valid HTTP/HTTPS URL")
+	if input.LogoUrl != nil && *input.LogoUrl != "" {
+		v.Check(isValidImageURL(*input.LogoUrl), "logo_url", "must be a valid HTTP/HTTPS URL")
 	}
-	if input.CoverURL != nil && *input.CoverURL != "" {
-		v.Check(isValidImageURL(*input.CoverURL), "cover_url", "must be a valid HTTP/HTTPS URL")
+	if input.CoverUrl != nil && *input.CoverUrl != "" {
+		v.Check(isValidImageURL(*input.CoverUrl), "cover_url", "must be a valid HTTP/HTTPS URL")
 	}
 	if input.DepositPercentage != nil {
 		v.Check(*input.DepositPercentage >= 0, "deposit_percentage", "must be 0 or greater")
@@ -339,7 +321,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complex": updated})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complex": toComplexResponse(updated)})
 }
 
 // deletionOutcome is what a delete did beyond the venue row itself, recorded in
@@ -453,8 +435,8 @@ func (h *Handler) GetPublic(w http.ResponseWriter, r *http.Request) {
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"complex":   profile.Complex,
-		"courts":    profile.Courts,
-		"schedules": profile.Schedules,
+		"courts":    toGenCourtsWithPrices(profile.Courts),
+		"schedules": toGenSchedules(profile.Schedules),
 	})
 }
 
@@ -473,14 +455,7 @@ func (h *Handler) UpdateSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Schedules []struct {
-			Day       string `json:"day"`
-			OpenTime  string `json:"open_time"`
-			CloseTime string `json:"close_time"`
-			IsClosed  bool   `json:"is_closed"`
-		} `json:"schedules"`
-	}
+	var input gen.ComplexesUpdateSchedulesJSONBody
 
 	err := httpx.ReadJSON(w, r, &input)
 	if err != nil {
@@ -499,24 +474,35 @@ func (h *Handler) UpdateSchedules(w http.ResponseWriter, r *http.Request) {
 
 	days := make([]ScheduleInput, len(input.Schedules))
 	for i, s := range input.Schedules {
-		days[i] = ScheduleInput{Day: s.Day, OpenTime: s.OpenTime, CloseTime: s.CloseTime, IsClosed: s.IsClosed}
+		day := string(s.Day)
+		isClosed := s.IsClosed != nil && *s.IsClosed
+		openTime := ""
+		if s.OpenTime != nil {
+			openTime = *s.OpenTime
+		}
+		closeTime := ""
+		if s.CloseTime != nil {
+			closeTime = *s.CloseTime
+		}
+
+		days[i] = ScheduleInput{Day: day, OpenTime: openTime, CloseTime: closeTime, IsClosed: isClosed}
 
 		key := fmt.Sprintf("schedules[%d].day", i)
-		v.Check(validDays[s.Day], key, "must be a valid day of the week")
-		v.Check(!seenDays[s.Day], key, "duplicate day")
-		seenDays[s.Day] = true
+		v.Check(validDays[day], key, "must be a valid day of the week")
+		v.Check(!seenDays[day], key, "duplicate day")
+		seenDays[day] = true
 
-		if !s.IsClosed {
+		if !isClosed {
 			openKey := fmt.Sprintf("schedules[%d].open_time", i)
 			closeKey := fmt.Sprintf("schedules[%d].close_time", i)
-			v.Check(s.OpenTime != "", openKey, "must be provided when not closed")
-			v.Check(s.CloseTime != "", closeKey, "must be provided when not closed")
-			if s.OpenTime != "" && s.CloseTime != "" {
-				v.Check(slots.ValidFormat(s.OpenTime), openKey, "must be in HH:MM format")
-				v.Check(slots.ValidFormat(s.CloseTime), closeKey, "must be in HH:MM format")
+			v.Check(openTime != "", openKey, "must be provided when not closed")
+			v.Check(closeTime != "", closeKey, "must be provided when not closed")
+			if openTime != "" && closeTime != "" {
+				v.Check(slots.ValidFormat(openTime), openKey, "must be in HH:MM format")
+				v.Check(slots.ValidFormat(closeTime), closeKey, "must be in HH:MM format")
 				// close == open means 0-hour window, not allowed.
 				// close < open is valid: means closing after midnight (e.g. 08:00-02:00).
-				v.Check(s.OpenTime != s.CloseTime, closeKey, "must differ from open_time")
+				v.Check(openTime != closeTime, closeKey, "must differ from open_time")
 			}
 		}
 	}
@@ -532,7 +518,7 @@ func (h *Handler) UpdateSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"schedules": schedules})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"schedules": toGenSchedules(schedules)})
 }
 
 // ConnectMercadoPago handles POST /api/v1/complexes/{id}/mp/connect, exchanging
@@ -545,11 +531,7 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Code         string `json:"code"`
-		RedirectURI  string `json:"redirect_uri"`
-		CodeVerifier string `json:"code_verifier"`
-	}
+	var input gen.ComplexesConnectMercadoPagoJSONBody
 
 	err := httpx.ReadJSON(w, r, &input)
 	if err != nil {
@@ -559,13 +541,18 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 
 	v := validator.New()
 	v.Check(input.Code != "", "code", "must be provided")
-	v.Check(input.RedirectURI != "", "redirect_uri", "must be provided")
+	v.Check(input.RedirectUri != "", "redirect_uri", "must be provided")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
-	mpUserID, err := h.svc.ConnectMercadoPago(r.Context(), complex.ID, h.actor(r), input.Code, input.RedirectURI, input.CodeVerifier)
+	codeVerifier := ""
+	if input.CodeVerifier != nil {
+		codeVerifier = *input.CodeVerifier
+	}
+
+	mpUserID, err := h.svc.ConnectMercadoPago(r.Context(), complex.ID, h.actor(r), input.Code, input.RedirectUri, codeVerifier)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return

@@ -39,8 +39,3 @@ func NewHandler(respond *httpx.Responder, cfg Config) *Handler {
 		token:      cfg.Token,
 	}
 }
-
-// Routes registers the public lead-capture endpoint.
-func (h *Handler) Routes(router httpx.Router, _ httpx.Guards) {
-	router.HandlerFunc(http.MethodPost, "/api/v1/public/leads/abandoned-registration", h.CaptureAbandonedRegistration)
-}

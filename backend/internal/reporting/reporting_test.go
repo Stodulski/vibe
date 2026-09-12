@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -173,6 +174,55 @@ func TestMonthlyReportTotalsEachMethodAndTheWhole(t *testing.T) {
 	}
 }
 
+// TestMonthlyReportSerializesTotalsAndByCourtWithServiceFees pins the exact
+// JSON shape toGenMonthlyReport produces now that Service.MonthlyReport
+// returns a typed MonthlyReport instead of a map[string]any round-tripped
+// through JSON: the same body the old map-based implementation produced for
+// this fixture, service_fees included only on totals/previous_totals.
+func TestMonthlyReportSerializesTotalsAndByCourtWithServiceFees(t *testing.T) {
+	reports := &stubReports{
+		summaries: []reportstore.PaymentMethodSummary{
+			{Method: "mercadopago", Count: 3, Amount: 300_000, ServiceFee: 21_000, Refunded: 100_000},
+			{Method: "cash", Count: 1, Amount: 100_000, ServiceFee: 0, Refunded: 0},
+		},
+		courtSummaries: []reportstore.PaymentCourtSummary{
+			{CourtID: "court-1", CourtName: "Court 1", Count: 2, Amount: 150_000, ServiceFee: 5_000, Refunded: 0},
+		},
+	}
+
+	h := newTestHandler(reports)
+	w := httptest.NewRecorder()
+	h.GetMonthlyReport(w, reportRequest(t, "?month=3&year=2026"))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	// The stub answers the same summaries for both periods, so totals and
+	// previous_totals come out numerically identical here.
+	const want = `{"report":{` +
+		`"by_court":[{"court_id":"court-1","court_name":"Court 1","count":2,"total":150000,"refunded":0,"net":155000}],` +
+		`"by_method":{` +
+		`"cash":{"count":1,"total":100000,"refunded":0,"net":100000},` +
+		`"mercadopago":{"count":3,"total":300000,"refunded":100000,"net":221000}},` +
+		`"month":3,"year":2026,` +
+		`"totals":{"count":4,"total":400000,"refunded":100000,"net":321000,"service_fees":21000},` +
+		`"previous_totals":{"count":4,"total":400000,"refunded":100000,"net":321000,"service_fees":21000}` +
+		`}}`
+
+	var got, wantParsed any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not valid JSON: %v\n%s", err, w.Body.String())
+	}
+	if err := json.Unmarshal([]byte(want), &wantParsed); err != nil {
+		t.Fatalf("bad fixture: %v", err)
+	}
+	if !reflect.DeepEqual(got, wantParsed) {
+		gotJSON, _ := json.Marshal(got)
+		t.Errorf("report JSON changed shape or values.\nwant %s\ngot  %s", want, gotJSON)
+	}
+}
+
 // The period must be resolved in the product's timezone, not UTC, or a report
 // for March starts in February.
 func TestMonthlyReportAsksForTheWholeRequestedMonth(t *testing.T) {
@@ -269,14 +319,12 @@ func TestMonthlyReportRejectsANonNumericPeriodInsteadOfDefaulting(t *testing.T) 
 				t.Errorf("must not query any period for malformed input; queried %v", reports.periods)
 			}
 
-			var body struct {
-				Error string `json:"error"`
-			}
+			var body httpx.Problem
 			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
-			if body.Error != httpx.CodeInvalidReportPeriod {
-				t.Errorf("want %q; got %q", httpx.CodeInvalidReportPeriod, body.Error)
+			if body.Detail != httpx.CodeInvalidReportPeriod {
+				t.Errorf("want %q; got %q", httpx.CodeInvalidReportPeriod, body.Detail)
 			}
 		})
 	}
@@ -351,14 +399,18 @@ func TestRevenueChartPeriod(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusUnprocessableEntity {
-				var body struct {
-					Error map[string]string `json:"error"`
-				}
+				var body httpx.Problem
 				if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 					t.Fatalf("decode response: %v", err)
 				}
-				if _, ok := body.Error["period"]; !ok {
-					t.Errorf("want a validation error on the period field; got %v", body.Error)
+				found := false
+				for _, fe := range body.Errors {
+					if fe.Field == "period" {
+						found = true
+					}
+				}
+				if !found {
+					t.Errorf("want a validation error on the period field; got %v", body.Errors)
 				}
 			}
 		})
@@ -619,16 +671,14 @@ func TestExportRefusesAPeriodOverTheRowCap(t *testing.T) {
 	}
 	assertNotADownload(t, w)
 
-	var body struct {
-		Error string `json:"error"`
-	}
+	var body httpx.Problem
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("body is not valid JSON: %v", err)
 	}
 	// The owner has to be told which limit they hit, or the refusal is
 	// indistinguishable from the export being broken.
-	if body.Error != httpx.CodeExportTooLarge {
-		t.Errorf("want the %q code; got %q", httpx.CodeExportTooLarge, body.Error)
+	if body.Detail != httpx.CodeExportTooLarge {
+		t.Errorf("want the %q code; got %q", httpx.CodeExportTooLarge, body.Detail)
 	}
 }
 

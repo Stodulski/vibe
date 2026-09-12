@@ -11,6 +11,7 @@ import (
 	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -89,9 +90,64 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"audit_logs": logs,
-		"metadata":   metadata,
+		"audit_logs": toGenAuditLogRows(logs),
+		"metadata":   toGenMetadata(metadata),
 	})
+}
+
+// toGenAuditLogRows maps a page of store rows onto the generated wire type,
+// field by field, so the store's sqlc-adjacent struct never reaches encoding
+// directly (HTTP-08). Nil in is nil out: the store returns a non-nil,
+// possibly empty slice for a real query and a nil one from a zero-value
+// stub, and the response preserves that distinction (`[]` vs `null`)
+// exactly as the store type serializing directly used to.
+func toGenAuditLogRows(logs []*auditstore.AuditLogRow) []gen.AuditLogRow {
+	if logs == nil {
+		return nil
+	}
+	rows := make([]gen.AuditLogRow, len(logs))
+	for i, l := range logs {
+		rows[i] = toGenAuditLogRow(l)
+	}
+	return rows
+}
+
+// toGenAuditLogRow maps one store row onto gen.AuditLogRow. Every field lines
+// up one-to-one, UserEmail included: the OpenAPI document declares it a plain
+// string (format: email was dropped — see the doc-fix note in
+// docs/auditoria-backend-2026-09-11, it made oapi-codegen emit
+// openapi_types.Email, which fails to marshal any stored value that is not a
+// valid net/mail address, including empty/legacy data), so it needs no
+// conversion from the store's own *string.
+func toGenAuditLogRow(l *auditstore.AuditLogRow) gen.AuditLogRow {
+	return gen.AuditLogRow{
+		Action:     l.Action,
+		ComplexId:  l.ComplexID,
+		CreatedAt:  l.CreatedAt,
+		EntityId:   l.EntityID,
+		EntityType: l.EntityType,
+		Id:         l.ID,
+		IpAddress:  l.IPAddress,
+		UserEmail:  l.UserEmail,
+		UserId:     l.UserID,
+	}
+}
+
+// toGenMetadata maps data.Metadata's zero-value-means-absent fields onto
+// gen.Metadata's pointer-plus-omitempty fields, reproducing the same
+// wire behaviour: an empty cursor or a zero total count is an absent key on
+// both sides.
+func toGenMetadata(m data.Metadata) gen.Metadata {
+	meta := gen.Metadata{HasMore: m.HasMore}
+	if m.NextCursor != "" {
+		cursor := m.NextCursor
+		meta.NextCursor = &cursor
+	}
+	if m.TotalCount != 0 {
+		total := m.TotalCount
+		meta.TotalCount = &total
+	}
+	return meta
 }
 
 // actor reads who is asking, and from where, off the request. It is the only

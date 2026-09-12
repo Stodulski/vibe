@@ -336,8 +336,14 @@ func TestAvailabilityRejectsADateBeforeToday(t *testing.T) {
 	}
 
 	body := decode(t, w)
-	errs, _ := body["error"].(map[string]any)
-	if _, ok := errs["date"]; !ok {
+	errs, _ := body["errors"].([]any)
+	found := false
+	for _, e := range errs {
+		if entry, ok := e.(map[string]any); ok && entry["field"] == "date" {
+			found = true
+		}
+	}
+	if !found {
 		t.Errorf("want a validation error on the `date` field; got %v", body)
 	}
 }

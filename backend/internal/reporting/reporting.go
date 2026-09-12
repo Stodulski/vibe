@@ -7,7 +7,6 @@ package reporting
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,19 +64,4 @@ type Handler struct {
 // NewHandler returns a Handler backed by the given service.
 func NewHandler(svc *Service, respond *httpx.Responder) *Handler {
 	return &Handler{svc: svc, respond: respond}
-}
-
-// Routes registers this module's endpoints. All of them expose one complex's
-// commercial figures, so all of them require its owner.
-func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	owner := func(next http.HandlerFunc) http.HandlerFunc {
-		return guards.RequireAuth(guards.RequireComplexOwner(next))
-	}
-
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats", owner(h.GetDashboardStats))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats/revenue", owner(h.GetRevenueChart))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats/occupancy", owner(h.GetOccupancyChart))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/stats/clients", owner(h.GetClientInsights))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/reports/monthly", owner(h.GetMonthlyReport))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/reports/export", owner(h.ExportPaymentsExcel))
 }

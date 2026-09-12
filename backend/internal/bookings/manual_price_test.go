@@ -1,6 +1,7 @@
 package bookings
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -129,6 +130,18 @@ func TestAnOffHoursOwnerBookingIsStillRefusedWhenItOverlapsAnExistingBooking(t *
 	}
 	if len(f.store.inserted) != 0 {
 		t.Error("a booking was stored over an overlapping one")
+	}
+
+	// bookingstore.ErrSlotUnavailable gets its own Problem kind, distinct
+	// from the generic "conflict" every other 409 in this API answers as.
+	var problem struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &problem); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if problem.Type != httpx.KindSlotUnavailable.URI() {
+		t.Errorf("want the slot-unavailable Problem kind; got %q", problem.Type)
 	}
 }
 
