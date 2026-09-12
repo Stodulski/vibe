@@ -191,10 +191,70 @@ CREATE POLICY tenant_isolation ON slot_locks
     USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
     WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
 
+ALTER TABLE webhook_events ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE audit_log      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE payments       ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE bookings       ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
 DROP POLICY tenant_isolation ON booking_link_tokens;
 CREATE POLICY tenant_isolation ON booking_link_tokens
     USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
     WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
+
+-- ==================== TIME-ORDERED IDS ON THE TABLES THAT GROW ====================
+--
+-- Every id in the schema is gen_random_uuid(), which is UUID v4: sixteen random
+-- bytes. That is the right default for an identifier nobody should be able to
+-- guess, and the wrong one for the primary key of a table that grows without
+-- limit, because a random key is inserted at a random point of the B-tree.
+--
+-- What that costs, on bookings and payments and audit_log specifically: every
+-- insert dirties a different leaf page, so the write set is the whole index
+-- rather than its tail, the pages that matter never stay in cache, and the
+-- index fragments as it fills. Reading by time — which is what these three are
+-- read by, "this week's bookings", "today's payments", "what happened on the
+-- 9th" — walks a key order that has nothing to do with time.
+--
+-- uuidv7() is the same 128 bits with the first 48 given to a millisecond
+-- timestamp. Inserts land at the right-hand edge of the index, adjacent rows
+-- are adjacent in time, and the remaining 74 random bits are still far more
+-- than enough that an id is not guessable. It is a PostgreSQL 18 built-in, and
+-- this deployment is on 18.6 (docker-compose.yml, docker-compose.e2e.yml), so
+-- there is no extension to install and no function of our own to maintain — the
+-- guard below fails the migration loudly rather than leaving a table with a
+-- default nobody checked.
+--
+-- WHICH TABLES. The four that grow with traffic rather than with the customer
+-- count: bookings, payments, audit_log and webhook_events. complexes, courts,
+-- clients and the rest are bounded by how many venues exist and how many people
+-- book at them; changing their keys would be churn with nothing on the other
+-- side of it.
+--
+-- WHICH TABLES DELIBERATELY NOT, beyond size: nothing whose id is a secret.
+-- There is none here — the tokens in this schema are hashes in their own
+-- columns, never the primary key — but the rule matters for whoever adds the
+-- next table, because a v7 id publishes the millisecond it was created.
+--
+-- Existing rows keep their v4 ids. Both are UUIDs, the column type does not
+-- change, and nothing in the application reads structure out of an id.
+
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF to_regprocedure('pg_catalog.uuidv7()') IS NULL THEN
+        RAISE EXCEPTION
+            'uuidv7() is a PostgreSQL 18 built-in and this server reports %; '
+            'upgrade the server or drop this section of the migration',
+            current_setting('server_version');
+    END IF;
+END;
+$$;
+-- +goose StatementEnd
+
+ALTER TABLE bookings       ALTER COLUMN id SET DEFAULT uuidv7();
+ALTER TABLE payments       ALTER COLUMN id SET DEFAULT uuidv7();
+ALTER TABLE audit_log      ALTER COLUMN id SET DEFAULT uuidv7();
+ALTER TABLE webhook_events ALTER COLUMN id SET DEFAULT uuidv7();
 
 -- +goose Down
 

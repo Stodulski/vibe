@@ -328,3 +328,72 @@ func (f *rlsFixture) seedPayment(ctx context.Context, t *testing.T, tn tenant) u
 	})
 	return id
 }
+
+// ---------------------------------------------------------------------------
+// Time-ordered ids
+// ---------------------------------------------------------------------------
+
+// A v4 id is inserted at a random point of the B-tree, which is the wrong shape
+// for a table that grows without limit and is read by time. The four that do
+// mint v7 now; the rest keep v4 deliberately, and this says which is which so a
+// default flipped by accident is visible.
+func TestTheGrowthTablesMintTimeOrderedIDs(t *testing.T) {
+	f := newRLSFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	want := map[string]string{
+		"bookings":       "uuidv7()",
+		"payments":       "uuidv7()",
+		"audit_log":      "uuidv7()",
+		"webhook_events": "uuidv7()",
+		// Bounded by how many venues exist rather than by traffic: changing
+		// these would be churn with nothing on the other side of it.
+		"complexes": "gen_random_uuid()",
+		"courts":    "gen_random_uuid()",
+		"clients":   "gen_random_uuid()",
+	}
+
+	for table, wantDefault := range want {
+		var got string
+		err := f.Admin.QueryRow(ctx, `
+			SELECT pg_get_expr(d.adbin, d.adrelid)
+			FROM pg_attrdef d
+			JOIN pg_class c ON c.oid = d.adrelid
+			JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = d.adnum
+			WHERE c.relname = $1 AND a.attname = 'id'`, table).Scan(&got)
+		if err != nil {
+			t.Fatalf("reading %s.id's default: %v", table, err)
+		}
+		if got != wantDefault {
+			t.Errorf("%s.id defaults to %s, want %s", table, got, wantDefault)
+		}
+	}
+}
+
+// The property that makes a v7 key worth the change: two rows created in order
+// sort in that order by id, so an index on the primary key is an index on time.
+func TestTwoBookingsMintedInOrderSortByID(t *testing.T) {
+	f := newRLSFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	var first, second uuid.UUID
+	for i, dst := range []*uuid.UUID{&first, &second} {
+		err := f.Admin.QueryRow(ctx, `
+			INSERT INTO bookings (complex_id, court_id, client_id, date, start_time, duration_minutes, price)
+			VALUES ($1, $2, $3, CURRENT_DATE + 90, $4, 60, 500000)
+			RETURNING id`,
+			f.A.ComplexID, f.A.CourtID, f.A.ClientID, []string{"08:00", "09:00"}[i]).Scan(dst)
+		if err != nil {
+			t.Fatalf("inserting booking %d: %v", i, err)
+		}
+	}
+
+	if first.Version() != 7 || second.Version() != 7 {
+		t.Fatalf("want version 7 ids; got %d and %d", first.Version(), second.Version())
+	}
+	if first.String() >= second.String() {
+		t.Errorf("the later booking's id (%s) must sort after the earlier one's (%s)", second, first)
+	}
+}

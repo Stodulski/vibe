@@ -887,7 +887,13 @@ func NewCourtPriceForTest(courtID uuid.UUID, dayType, timeFrom, timeTo string, p
 		toMin += minutesPerDay
 	}
 	return &CourtPrice{
-		ID: uuid.New(), CourtID: courtID, DayType: dayType,
+		// v7, matching what the growth tables' column defaults now mint
+		// (005_tenant_columns.sql). This is the only place in the repository
+		// where Go mints a row id at all — every other id comes from the
+		// column's own DEFAULT — so it is the only place that could disagree.
+		// uuid.Must: NewV7 fails only if the kernel refuses randomness, which
+		// nothing here survives anyway.
+		ID: uuid.Must(uuid.NewV7()), CourtID: courtID, DayType: dayType,
 		TimeFrom: timeFrom, TimeTo: timeTo, Price: price,
 		FromMin: fromMin, ToMin: toMin,
 	}
