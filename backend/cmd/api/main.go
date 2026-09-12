@@ -199,6 +199,10 @@ type application struct {
 	notify     *notifications.Service
 	courts     *courts.Handler
 	complexes  *complexes.Handler
+	// complexesService is held separately from the handler because the
+	// scheduler calls it directly: the MercadoPago OAuth refresh sweep is the
+	// venue domain's own credential lifecycle, not an HTTP route.
+	complexesService *complexes.Service
 	auth       *auth.Handler
 	payments   *payments.Handler
 	bookings   *bookings.Handler

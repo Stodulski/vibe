@@ -48,6 +48,11 @@ type stubStore struct {
 		expiresIn             int
 	}
 	mpCleared *uuid.UUID
+
+	// allSlugs and needingRefresh back the two reads that exist for other
+	// modules and for the OAuth refresh sweep.
+	allSlugs       []complexstore.ComplexSlug
+	needingRefresh []*complexstore.Complex
 }
 
 func (s *stubStore) GetByOwner(context.Context, uuid.UUID) ([]*complexstore.Complex, error) {
@@ -119,6 +124,36 @@ func (s *stubStore) UpdateMPCredentials(_ context.Context, _ uuid.UUID, access, 
 func (s *stubStore) ClearMPCredentials(_ context.Context, id uuid.UUID) error {
 	s.mpCleared = &id
 	return nil
+}
+
+func (s *stubStore) GetByID(context.Context, uuid.UUID) (*complexstore.Complex, error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	return s.complex, nil
+}
+
+func (s *stubStore) GetAllSlugs(context.Context) ([]complexstore.ComplexSlug, error) {
+	return s.allSlugs, s.getErr
+}
+
+func (s *stubStore) ListComplexesNeedingMPRefresh(context.Context) ([]*complexstore.Complex, error) {
+	return s.needingRefresh, s.getErr
+}
+
+// stubOAuth stands in for the MercadoPago OAuth client the refresh sweep uses.
+type stubOAuth struct {
+	tokens *mp.OAuthTokens
+	err    error
+	calls  int
+}
+
+func (o *stubOAuth) RefreshOAuthToken(context.Context, string) (*mp.OAuthTokens, error) {
+	o.calls++
+	if o.err != nil {
+		return nil, o.err
+	}
+	return o.tokens, nil
 }
 
 type stubCourts struct {
@@ -202,12 +237,15 @@ func (r *stubRecorder) Record(e audit.Entry) { r.entries = append(r.entries, e) 
 
 type fixture struct {
 	handler  *Handler
+	service  *Service
 	store    *stubStore
 	courts   *stubCourts
 	bookings *stubBookings
 	payments *stubPayments
+	oauth    *stubOAuth
 	storage  *stubStorage
 	audit    *stubRecorder
+	logs     *bytes.Buffer
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -218,14 +256,26 @@ func newFixture(t *testing.T) *fixture {
 		courts:   &stubCourts{},
 		bookings: &stubBookings{},
 		payments: &stubPayments{},
+		oauth:    &stubOAuth{},
 		storage:  &stubStorage{uploadURL: "https://cdn.example/upload", publicURL: "https://cdn.example/logo.png"},
 		audit:    &stubRecorder{},
+		logs:     &bytes.Buffer{},
 	}
+	logger := slog.New(slog.NewTextHandler(f.logs, nil))
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	f.handler = NewHandler(f.store, f.courts, f.bookings, f.payments, f.storage, f.audit, responder,
-		slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		func(fn func()) { fn() }, // run background work inline so tests can observe it
-		Config{MaxComplexes: 4, FrontendURL: "https://vibe.test", MPAppID: "app-123"})
+	cfg := Config{MaxComplexes: 4, FrontendURL: "https://vibe.test", MPAppID: "app-123"}
+	f.service = NewService(Dependencies{
+		Store:    f.store,
+		Courts:   f.courts,
+		Bookings: f.bookings,
+		Payments: f.payments,
+		OAuth:    f.oauth,
+		Storage:  f.storage,
+		Audit:    f.audit,
+		Logger:   logger,
+		Run:      func(fn func()) { fn() }, // run background work inline so tests can observe it
+	}, cfg)
+	f.handler = NewHandler(f.service, responder, cfg)
 	return f
 }
 

@@ -1,7 +1,6 @@
 package complexes
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +26,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	complexes, err := h.store.GetByOwner(r.Context(), user.ID)
+	complexes, err := h.svc.List(r.Context(), user.ID)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
@@ -98,88 +97,35 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure slug uniqueness.
-	exists, err := h.store.SlugExists(r.Context(), input.Slug)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-	if exists {
-		h.respond.FailedValidation(w, r, map[string]string{"slug": httpx.CodeSlugTaken})
-		return
-	}
-
 	user, ok := httpx.ContextGetAuthenticatedUser(r)
 	if !ok {
 		h.respond.InvalidAuthenticationToken(w, r)
 		return
 	}
 
-	// Check complex limit per account.
-	owned, err := h.store.GetByOwner(r.Context(), user.ID)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-	if len(owned) >= h.cfg.MaxComplexes {
-		h.respond.Error(w, r, http.StatusForbidden, fmt.Sprintf("maximum of %d complexes per account reached", h.cfg.MaxComplexes))
-		return
-	}
-
-	complex := &complexstore.Complex{
-		OwnerID:           user.ID,
+	complex, err := h.svc.Create(r.Context(), user.ID, h.actor(r), CreateInput{
 		Name:              input.Name,
 		Slug:              input.Slug,
 		Address:           input.Address,
 		City:              input.City,
 		Province:          input.Province,
-		CountryCode:       "AR",
-		Currency:          "ARS",
 		Phone:             input.Phone,
 		Email:             input.Email,
 		DepositPercentage: input.DepositPercentage,
 		CancellationHours: input.CancellationHours,
 		Latitude:          input.Latitude,
 		Longitude:         input.Longitude,
-		// A new venue lists nothing yet. This must be an empty list, not nil:
-		// the column is NOT NULL and an explicit NULL parameter does not fall
-		// back to the column default, so a nil slice failed every creation
-		// with a 500.
-		Amenities: []string{},
-	}
-
-	err = h.store.Insert(r.Context(), complex)
+	})
 	if err != nil {
 		switch {
-		case errors.Is(err, complexstore.ErrDuplicateSlug):
-			// The check above said the slug was free and the constraint
-			// disagreed: either another request took it in between, or the
-			// two are answering different questions. Either way the owner is
-			// told which field to change instead of being handed a 500.
+		case errors.Is(err, ErrSlugTaken):
 			h.respond.FailedValidation(w, r, map[string]string{"slug": httpx.CodeSlugTaken})
+		case errors.Is(err, ErrMaxComplexes):
+			h.respond.Error(w, r, http.StatusForbidden, fmt.Sprintf("maximum of %d complexes per account reached", h.cfg.MaxComplexes))
 		default:
 			h.respond.ServerError(w, r, err)
 		}
 		return
-	}
-
-	h.record(r, complex.ID, "create", &complex.ID, nil, complex)
-
-	// Create default schedules (Mon-Sun, 08:00-23:00).
-	days := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
-	for _, day := range days {
-		schedule := &complexstore.Schedule{
-			ComplexID: complex.ID,
-			Day:       day,
-			OpenTime:  "08:00",
-			CloseTime: "23:00",
-			IsClosed:  false,
-		}
-		err = h.store.UpsertSchedule(r.Context(), schedule)
-		if err != nil {
-			h.respond.ServerError(w, r, err)
-			return
-		}
 	}
 
 	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"complex": complex})
@@ -212,40 +158,21 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 // Behind RequireAuth. The answer is public information (the slug either serves
 // a page or it does not), but only a signed-in owner creating or renaming a
 // complex has any use for it, and an open endpoint invites enumeration.
-//
-//nolint:funlen // see the cohesion note above
 func (h *Handler) SlugAvailable(w http.ResponseWriter, r *http.Request) {
-	slug := slugify(r.URL.Query().Get("slug"))
-
-	// An empty or malformed slug is not "taken"; it is not a slug at all. The
-	// form's own validation says so, and answering `available: false` here
-	// would make the field report the wrong reason.
-	if slug == "" || !slugValidRX.MatchString(slug) || len(slug) > maxSlugLength {
-		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"slug": slug, "available": false, "valid": false})
-		return
-	}
-
-	existing, err := h.store.SlugsWithPrefix(r.Context(), slug)
+	status, err := h.svc.SlugAvailable(r.Context(), r.URL.Query().Get("slug"))
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
 
-	taken := make(map[string]bool, len(existing))
-	for _, s := range existing {
-		taken[s] = true
+	if !status.Valid {
+		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"slug": status.Slug, "available": false, "valid": false})
+		return
 	}
-	// H-13: a reserved slug (see reservedSlugs) is unavailable even though no
-	// complex has ever claimed it in the database — this endpoint is the
-	// suggestion path too, and it must not tell an owner "admin" is free just
-	// because nobody has raced them to it. Folding it into `taken` also makes
-	// suggestSlug skip it for free, the same way it already skips a slug
-	// another complex holds.
-	taken[slug] = taken[slug] || reservedSlugs[slug]
 
-	body := httpx.Envelope{"slug": slug, "valid": true, "available": !taken[slug]}
-	if taken[slug] {
-		body["suggestion"] = suggestSlug(slug, taken)
+	body := httpx.Envelope{"slug": status.Slug, "valid": true, "available": status.Available}
+	if !status.Available {
+		body["suggestion"] = status.Suggestion
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, body)
@@ -276,15 +203,13 @@ func suggestSlug(base string, taken map[string]bool) string {
 // this codebase's handler conventions (CLAUDE.md); splitting it would relocate
 // sequential steps into helpers without reducing what a reader holds at once.
 //
-//nolint:funlen // see the cohesion note above
+//nolint:funlen,gocyclo,gocognit // see the cohesion note above
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
 		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
 		return
 	}
-	oldLogoURL := complex.LogoURL
-	oldCoverURL := complex.CoverURL
 
 	var input struct {
 		Name              *string   `json:"name"`
@@ -310,21 +235,33 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	in := UpdateInput{
+		Name:              input.Name,
+		Address:           input.Address,
+		City:              input.City,
+		Province:          input.Province,
+		Phone:             input.Phone,
+		Email:             input.Email,
+		LogoURL:           input.LogoURL,
+		CoverURL:          input.CoverURL,
+		DepositPercentage: input.DepositPercentage,
+		CancellationHours: input.CancellationHours,
+		IsActive:          input.IsActive,
+		Latitude:          input.Latitude,
+		Longitude:         input.Longitude,
+	}
+
 	v := validator.New()
 
 	if input.Name != nil {
 		v.Check(*input.Name != "", "name", "must not be empty")
 		v.Check(len(*input.Name) <= 200, "name", "must not be more than 200 characters")
-		complex.Name = *input.Name
 	}
 
 	// The public URL can be changed. It is the address already living in shared
 	// links, WhatsApp messages and printed QR codes, so the client warns before
 	// letting anyone touch it — but the decision is the owner's, and refusing it
 	// outright left a badly chosen name permanent.
-	//
-	// Uniqueness is checked only when it actually changes: comparing against
-	// itself would report every save of an unrelated field as "slug taken".
 	if input.Slug != nil {
 		slug := slugify(*input.Slug)
 		v.Check(slug != "", "slug", "must be provided")
@@ -334,77 +271,43 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		// rename, and a rename is exactly how an owner could talk themselves
 		// into it — Create already refuses these, but Update never re-checked.
 		v.Check(!reservedSlugs[slug], "slug", "is reserved")
-		if v.Valid() && slug != complex.Slug {
-			taken, err := h.store.SlugExists(r.Context(), slug)
-			if err != nil {
-				h.respond.ServerError(w, r, err)
-				return
-			}
-			if taken {
-				h.respond.FailedValidation(w, r, map[string]string{"slug": httpx.CodeSlugTaken})
-				return
-			}
-		}
-		complex.Slug = slug
+		in.Slug = &slug
 	}
 
 	if input.Address != nil {
 		v.Check(*input.Address != "", "address", "must not be empty")
-		complex.Address = *input.Address
 	}
 	if input.City != nil {
 		v.Check(*input.City != "", "city", "must not be empty")
-		complex.City = *input.City
 	}
 	if input.Province != nil {
 		v.Check(*input.Province != "", "province", "must not be empty")
-		complex.Province = *input.Province
-	}
-	if input.Latitude != nil {
-		complex.Latitude = input.Latitude
 	}
 	if input.Amenities != nil {
 		cleaned, unknown := cleanAmenities(*input.Amenities)
 		v.Check(unknown == "", "amenities", "unknown amenity: "+unknown)
-		complex.Amenities = cleaned
+		in.Amenities = &cleaned
 	}
-	if input.Longitude != nil {
-		complex.Longitude = input.Longitude
-	}
-
 	if input.Phone != nil {
 		v.Check(*input.Phone != "", "phone", "must not be empty")
-		complex.Phone = *input.Phone
 	}
 	if input.Email != nil {
 		v.Check(validator.Matches(*input.Email, validator.EmailRX), "email", "must be a valid email address")
-		complex.Email = input.Email
 	}
-	if input.LogoURL != nil {
-		if *input.LogoURL != "" {
-			v.Check(isValidImageURL(*input.LogoURL), "logo_url", "must be a valid HTTP/HTTPS URL")
-		}
-		complex.LogoURL = input.LogoURL
+	if input.LogoURL != nil && *input.LogoURL != "" {
+		v.Check(isValidImageURL(*input.LogoURL), "logo_url", "must be a valid HTTP/HTTPS URL")
 	}
-	if input.CoverURL != nil {
-		if *input.CoverURL != "" {
-			v.Check(isValidImageURL(*input.CoverURL), "cover_url", "must be a valid HTTP/HTTPS URL")
-		}
-		complex.CoverURL = input.CoverURL
+	if input.CoverURL != nil && *input.CoverURL != "" {
+		v.Check(isValidImageURL(*input.CoverURL), "cover_url", "must be a valid HTTP/HTTPS URL")
 	}
 	if input.DepositPercentage != nil {
 		v.Check(*input.DepositPercentage >= 0, "deposit_percentage", "must be 0 or greater")
 		v.Check(*input.DepositPercentage <= 100, "deposit_percentage", "must not be more than 100")
-		complex.DepositPercentage = *input.DepositPercentage
 	}
 	if input.CancellationHours != nil {
 		// Same floor as Create, and for the same reason: see the note there.
 		v.Check(*input.CancellationHours >= 1, "cancellation_hours", "must be at least 1")
 		v.Check(*input.CancellationHours <= 168, "cancellation_hours", "must not be more than 168")
-		complex.CancellationHours = *input.CancellationHours
-	}
-	if input.IsActive != nil {
-		complex.IsActive = *input.IsActive
 	}
 
 	if !v.Valid() {
@@ -412,9 +315,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.store.Update(r.Context(), complex)
+	updated, err := h.svc.Update(r.Context(), complex, h.actor(r), in)
 	if err != nil {
 		switch {
+		case errors.Is(err, ErrSlugTaken):
+			h.respond.FailedValidation(w, r, map[string]string{"slug": httpx.CodeSlugTaken})
 		case errors.Is(err, data.ErrRecordNotFound):
 			h.respond.EditConflict(w, r)
 		default:
@@ -423,42 +328,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.record(r, complex.ID, "update", &complex.ID, nil, complex)
-
-	// Clean up old images from R2 when URLs change.
-	if h.storage != nil {
-		if input.LogoURL != nil && oldLogoURL != nil && *oldLogoURL != "" {
-			if *input.LogoURL != *oldLogoURL {
-				oldURL := *oldLogoURL
-				//nolint:contextcheck // intentionally detached. R2 cleanup of a
-				// replaced logo must run after the response is written and must not be
-				// cancelled by request abandonment; it has no request-scoped deadline needs.
-				h.run(func() {
-					if key, ok := h.storage.KeyFromPublicURL(oldURL); ok {
-						if err := h.storage.DeleteObject(context.Background(), key); err != nil {
-							h.logger.Error("storage: failed to delete old logo", "error", err, "key", key)
-						}
-					}
-				})
-			}
-		}
-		if input.CoverURL != nil && oldCoverURL != nil && *oldCoverURL != "" {
-			if *input.CoverURL != *oldCoverURL {
-				oldURL := *oldCoverURL
-				//nolint:contextcheck // see the identical justification above (logo cleanup)
-				// in this file.
-				h.run(func() {
-					if key, ok := h.storage.KeyFromPublicURL(oldURL); ok {
-						if err := h.storage.DeleteObject(context.Background(), key); err != nil {
-							h.logger.Error("storage: failed to delete old cover", "error", err, "key", key)
-						}
-					}
-				})
-			}
-		}
-	}
-
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complex": complex})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"complex": updated})
 }
 
 // deletionOutcome is what a delete did beyond the venue row itself, recorded in
@@ -470,17 +340,6 @@ type deletionOutcome struct {
 }
 
 // Delete handles DELETE /api/v1/complexes/:id.
-//
-// This is the one cascading operation in the module: it soft-deletes the
-// venue's courts and cancels its future bookings, so it is refused outright
-// while any booking is still live.
-//
-// The venue and its courts go down in one transaction (SoftDeleteCascade,
-// which leans on the soft-delete cascade trigger and verifies the result), so there is
-// no longer a window in which the venue is deleted and its courts are not.
-// Cancelling future bookings stays outside it: those are a separate table with
-// its own status machine, a cancellation that fails is recoverable by hand, and
-// the delete guard above has already established there are none live.
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
@@ -488,31 +347,17 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hasActive, err := h.bookings.HasActiveBookings(r.Context(), complex.ID)
+	courtsDeactivated, err := h.svc.Delete(r.Context(), complex, h.actor(r))
 	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-	if hasActive {
-		h.respond.Error(w, r, http.StatusConflict, "cannot delete complex while it has active bookings, cancel them first")
-		return
-	}
-
-	courtsDeactivated, err := h.store.SoftDeleteCascade(r.Context(), complex.ID)
-	if err != nil {
-		if errors.Is(err, data.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, ErrActiveBookings):
+			h.respond.Error(w, r, http.StatusConflict, "cannot delete complex while it has active bookings, cancel them first")
+		case errors.Is(err, data.ErrRecordNotFound):
 			h.respond.NotFound(w, r)
-			return
+		default:
+			h.respond.ServerError(w, r, err)
 		}
-		h.respond.ServerError(w, r, err)
 		return
-	}
-
-	outcome := deletionOutcome{CourtsDeactivated: courtsDeactivated}
-	h.record(r, complex.ID, "delete", &complex.ID, complex, outcome)
-
-	if err := h.bookings.CancelFutureByComplex(r.Context(), complex.ID); err != nil {
-		h.logger.Error("failed to cancel future bookings for complex", "error", err, "complex_id", complex.ID)
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
@@ -521,7 +366,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// publicComplex is what a stranger is allowed to know about a venue.
+// PublicComplex is what a stranger is allowed to know about a venue.
 //
 // The public page used to serialise the whole complexstore.Complex, which carries
 // owner_id and mp_user_id. mp_user_id is the MercadoPago collector id the
@@ -533,7 +378,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 // This is an explicit projection rather than json:"-" on the domain struct so
 // that the owner-facing endpoints, which legitimately return both, are
 // unaffected.
-type publicComplex struct {
+type PublicComplex struct {
 	ID                uuid.UUID `json:"id"`
 	Name              string    `json:"name"`
 	Slug              string    `json:"slug"`
@@ -558,8 +403,8 @@ type publicComplex struct {
 	PaymentsEnabled bool `json:"payments_enabled"`
 }
 
-func newPublicComplex(c *complexstore.Complex) publicComplex {
-	return publicComplex{
+func newPublicComplex(c *complexstore.Complex) PublicComplex {
+	return PublicComplex{
 		ID:                c.ID,
 		Name:              c.Name,
 		Slug:              c.Slug,
@@ -581,49 +426,10 @@ func newPublicComplex(c *complexstore.Complex) publicComplex {
 	}
 }
 
-// courtWithPrices is one bookable court and the bands it is priced by.
-type courtWithPrices struct {
+// CourtWithPrices is one bookable court and the bands it is priced by.
+type CourtWithPrices struct {
 	*courtstore.Court
 	Prices []*courtstore.CourtPrice `json:"prices"`
-}
-
-// publicCourts returns the complex's bookable courts with their price bands.
-//
-// Only active courts, matching the availability grid. This endpoint used to
-// return every court the complex has ever had, so a retired court appeared on
-// the page with a price list and no slots to book it in.
-func (h *Handler) publicCourts(r *http.Request, complexID uuid.UUID) ([]courtWithPrices, error) {
-	courts, err := h.courts.GetByComplex(r.Context(), complexID)
-	if err != nil {
-		return nil, err
-	}
-
-	active := make([]*courtstore.Court, 0, len(courts))
-	for _, c := range courts {
-		if c.IsActive {
-			active = append(active, c)
-		}
-	}
-
-	// Batch-fetch all prices in a single query (instead of N queries).
-	courtIDs := make([]uuid.UUID, len(active))
-	for i, c := range active {
-		courtIDs[i] = c.ID
-	}
-	allPrices, err := h.courts.GetPricesByCourtIDs(r.Context(), courtIDs)
-	if err != nil {
-		return nil, err
-	}
-	pricesByCourtID := make(map[uuid.UUID][]*courtstore.CourtPrice, len(active))
-	for _, p := range allPrices {
-		pricesByCourtID[p.CourtID] = append(pricesByCourtID[p.CourtID], p)
-	}
-
-	out := make([]courtWithPrices, len(active))
-	for i, c := range active {
-		out[i] = courtWithPrices{Court: c, Prices: pricesByCourtID[c.ID]}
-	}
-	return out, nil
 }
 
 // GetPublic handles GET /api/v1/public/complexes/:slug, the page a client
@@ -635,7 +441,7 @@ func (h *Handler) GetPublic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	complex, err := h.store.GetBySlug(r.Context(), slug)
+	profile, err := h.svc.GetPublic(r.Context(), slug)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
@@ -646,31 +452,10 @@ func (h *Handler) GetPublic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A deactivated venue is closed to the public. Only the booking write used
-	// to check this, so a venue that switched itself off kept serving its
-	// address, phone, courts and prices, and answered every booking attempt
-	// with a bare 404 the page could not explain.
-	if !complex.IsActive {
-		h.respond.NotFound(w, r)
-		return
-	}
-
-	courtsWithPrices, err := h.publicCourts(r, complex.ID)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
-	schedules, err := h.store.GetSchedules(r.Context(), complex.ID)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"complex":   newPublicComplex(complex),
-		"courts":    courtsWithPrices,
-		"schedules": schedules,
+		"complex":   profile.Complex,
+		"courts":    profile.Courts,
+		"schedules": profile.Schedules,
 	})
 }
 
@@ -713,7 +498,10 @@ func (h *Handler) UpdateSchedules(w http.ResponseWriter, r *http.Request) {
 	}
 	seenDays := make(map[string]bool)
 
+	days := make([]ScheduleInput, len(input.Schedules))
 	for i, s := range input.Schedules {
+		days[i] = ScheduleInput{Day: s.Day, OpenTime: s.OpenTime, CloseTime: s.CloseTime, IsClosed: s.IsClosed}
+
 		key := fmt.Sprintf("schedules[%d].day", i)
 		v.Check(validDays[s.Day], key, "must be a valid day of the week")
 		v.Check(!seenDays[s.Day], key, "duplicate day")
@@ -739,24 +527,11 @@ func (h *Handler) UpdateSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var schedules []*complexstore.Schedule
-	for _, s := range input.Schedules {
-		schedule := &complexstore.Schedule{
-			ComplexID: complex.ID,
-			Day:       s.Day,
-			OpenTime:  s.OpenTime,
-			CloseTime: s.CloseTime,
-			IsClosed:  s.IsClosed,
-		}
-		err = h.store.UpsertSchedule(r.Context(), schedule)
-		if err != nil {
-			h.respond.ServerError(w, r, err)
-			return
-		}
-		schedules = append(schedules, schedule)
+	schedules, err := h.svc.UpdateSchedules(r.Context(), complex.ID, h.actor(r), days)
+	if err != nil {
+		h.respond.ServerError(w, r, err)
+		return
 	}
-
-	h.record(r, complex.ID, "update_schedules", &complex.ID, nil, schedules)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"schedules": schedules})
 }
@@ -791,22 +566,11 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.payments.ExchangeOAuthCode(r.Context(), input.Code, input.RedirectURI, input.CodeVerifier)
-	if err != nil {
-		h.logger.Error("mp connect: oauth exchange failed", "error", err, "complex_id", complex.ID)
-		h.respond.ServerError(w, r, fmt.Errorf("failed to connect MercadoPago: %w", err))
-		return
-	}
-
-	mpUserID := fmt.Sprintf("%d", tokens.UserID)
-
-	err = h.store.UpdateMPCredentials(r.Context(), complex.ID, tokens.AccessToken, tokens.RefreshToken, mpUserID, tokens.ExpiresIn)
+	mpUserID, err := h.svc.ConnectMercadoPago(r.Context(), complex.ID, h.actor(r), input.Code, input.RedirectURI, input.CodeVerifier)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
-
-	h.record(r, complex.ID, "mp_connect", &complex.ID, nil, nil)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"connected":  true,
@@ -822,23 +586,16 @@ func (h *Handler) DisconnectMercadoPago(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	hasActive, err := h.bookings.HasActiveBookings(r.Context(), complex.ID)
+	err := h.svc.DisconnectMercadoPago(r.Context(), complex.ID, h.actor(r))
 	if err != nil {
-		h.respond.ServerError(w, r, err)
+		switch {
+		case errors.Is(err, ErrActiveBookings):
+			h.respond.Error(w, r, http.StatusConflict, "cannot disconnect MercadoPago while you have active bookings, cancel them first")
+		default:
+			h.respond.ServerError(w, r, err)
+		}
 		return
 	}
-	if hasActive {
-		h.respond.Error(w, r, http.StatusConflict, "cannot disconnect MercadoPago while you have active bookings, cancel them first")
-		return
-	}
-
-	err = h.store.ClearMPCredentials(r.Context(), complex.ID)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
-	h.record(r, complex.ID, "mp_disconnect", &complex.ID, nil, nil)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"connected": false})
 }

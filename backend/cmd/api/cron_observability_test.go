@@ -29,10 +29,12 @@ type cronFixture struct {
 func newCronFixture(t *testing.T) *cronFixture {
 	t.Helper()
 
-	f := &cronFixture{app: newTestApplication(t), logs: &bytes.Buffer{}}
-	// The cron jobs log through app.logger directly, so replacing it after
-	// construction is enough and leaves the handlers' own loggers alone.
-	f.app.logger = slog.New(slog.NewJSONHandler(f.logs, nil))
+	f := &cronFixture{logs: &bytes.Buffer{}}
+	// The logger is named before the application is built, not assigned after:
+	// the jobs that delegate to a domain service (the MercadoPago refresh
+	// sweep) log through the logger that service captured at construction.
+	logger := slog.New(slog.NewJSONHandler(f.logs, nil))
+	f.app, _ = newTestApplicationWithLogger(t, logger)
 	return f
 }
 

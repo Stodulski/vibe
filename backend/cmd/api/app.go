@@ -340,7 +340,31 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// one, so the entry point into a domain is its service rather than its
 	// store. The bookings and payments modules are the exception until their
 	// own services land: they still receive stores.
-	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, d.models.Complexes, auditor)
+	complexesConfig := complexes.Config{
+		MaxComplexes: cfg.limits.maxComplexes,
+		FrontendURL:  cfg.frontendURL,
+		TrustProxies: cfg.trustedProxies,
+		MPAppID:      cfg.mp.appID,
+	}
+	// complexesService is built before courtsService because the court domain
+	// reads venues and their opening hours through it. The reverse edge — the
+	// public venue page reading that venue's courts — is the one place a store
+	// is still passed between two converted domains: the two services cannot
+	// both be constructed second.
+	complexesService := complexes.NewService(complexes.Dependencies{
+		Store:    d.models.Complexes,
+		Courts:   d.models.Courts,
+		Bookings: d.models.Bookings,
+		Payments: mpClient,
+		OAuth:    mpOAuthClient,
+		Storage:  d.storage,
+		Audit:    auditor,
+		Logger:   d.logger,
+		Run:      app.background,
+	}, complexesConfig)
+	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
+
+	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, complexesService, auditor)
 	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
 
 	// Built before the handlers that capture it: auth, payments and bookings
@@ -436,15 +460,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 		WhatsAppEnabled: whatsappEnabled,
 	})
 
-	complexesHandler := complexes.NewHandler(d.models.Complexes, d.models.Courts, d.models.Bookings,
-		mpClient, d.storage, auditor, respond, d.logger, app.background,
-		complexes.Config{
-			MaxComplexes: cfg.limits.maxComplexes,
-			FrontendURL:  cfg.frontendURL,
-			TrustProxies: cfg.trustedProxies,
-			MPAppID:      cfg.mp.appID,
-		})
-
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a
 	// multi-instance deployment the instances that skipped were silent.
@@ -473,6 +488,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	app.payments = paymentsHandler
 	app.bookings = bookingsHandler
 	app.complexes = complexesHandler
+	app.complexesService = complexesService
 	app.scheduler = sched
 	app.mp = mpClient
 	app.mpOAuth = mpOAuthClient

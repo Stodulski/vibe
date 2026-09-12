@@ -28,7 +28,16 @@ func newTestApplication(t *testing.T) *application {
 func newTestApplicationWithNotifications(t *testing.T) (*application, *memoryQueue) {
 	t.Helper()
 
-	testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return newTestApplicationWithLogger(t, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// newTestApplicationWithLogger is the same harness with the application's
+// logger chosen by the caller. A component that captures the logger at
+// construction — the domain services do — cannot be redirected by assigning
+// app.logger afterwards, so a test that reads log output has to name the
+// logger up front.
+func newTestApplicationWithLogger(t *testing.T, testLogger *slog.Logger) (*application, *memoryQueue) {
+	t.Helper()
 
 	cfg := config{
 		env: "test",
