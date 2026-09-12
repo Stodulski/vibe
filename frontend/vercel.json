@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/sitemap.xml",
-      "destination": "https://api.vibe.com.ar/api/sitemap.xml"
+      "destination": "https://api.vibe.com.ar/api/v1/sitemap.xml"
     },
     {
       "source": "/(.*)",
