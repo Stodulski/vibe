@@ -115,28 +115,54 @@ describe('middleware, choosing what to prerender', () => {
 });
 
 describe('middleware, when the backend does not answer', () => {
-  it('falls back to the SPA on a timeout', async () => {
+  // A crawler indexes a 200 and drops a URL on a 500, but retries a 503, so
+  // a transient failure must never become the generic shell (which would
+  // replace the venue's metadata in the index) nor a 500.
+  it('answers 503 with Retry-After on a timeout', async () => {
     fetchMock.mockRejectedValue(new DOMException('The operation was aborted', 'TimeoutError'));
 
     const response = await middleware(request('/los-alamos', GOOGLEBOT));
 
-    expect(servedBySpa(response)).toBe(true);
+    expect(servedBySpa(response)).toBe(false);
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('60');
+    expect(response.headers.get('cache-control')).toBe('no-store');
   });
 
-  it('falls back to the SPA on a 500 instead of passing it to the crawler', async () => {
+  it('turns a backend 5xx into a 503 instead of passing a 500 to the crawler', async () => {
     fetchMock.mockResolvedValue(new Response('boom', { status: 500 }));
 
     const response = await middleware(request('/los-alamos', GOOGLEBOT));
 
-    expect(servedBySpa(response)).toBe(true);
-    expect(response.status).not.toBe(500);
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('60');
   });
 
-  it('falls back to the SPA on an unknown slug rather than the backend 404', async () => {
-    fetchMock.mockResolvedValue(new Response('not found', { status: 404 }));
+  it('keeps the backend 503 as a 503 for the crawler', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 503, headers: { 'retry-after': '60' } }));
+
+    const response = await middleware(request('/los-alamos', GOOGLEBOT));
+
+    expect(response.status).toBe(503);
+  });
+
+  it('passes a venue-not-found 404 through as a 404 rather than a 200 shell', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('not found', { status: 404, headers: { 'x-prerender-result': 'venue-not-found' } }),
+    );
 
     const response = await middleware(request('/nope', GOOGLEBOT));
 
-    expect(servedBySpa(response)).toBe(true);
+    expect(servedBySpa(response)).toBe(false);
+    expect(response.status).toBe(404);
+  });
+
+  it('treats a bare 404 (stale BACKEND_URL, gateway) as transient, not as a missing venue', async () => {
+    fetchMock.mockResolvedValue(new Response('not found', { status: 404 }));
+
+    const response = await middleware(request('/los-alamos', GOOGLEBOT));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('60');
   });
 });
