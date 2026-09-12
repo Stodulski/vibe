@@ -51,7 +51,7 @@ func TestAutoRefundIssuesTheMercadoPagoRowAndAlertsOnTheCashRemainder(t *testing
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.payments.claimed) != 1 || f.payments.claimed[0] != deposit.ID {
 		t.Fatalf("only the MercadoPago row may be claimed; got claimed=%v", f.payments.claimed)
@@ -114,7 +114,7 @@ func TestAutoRefundSumsMultipleCashRowsIntoOneManualOutcome(t *testing.T) {
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.payments.claimed) != 0 {
 		t.Fatalf("neither row carries a mercadopago id, so nothing may be claimed; got claimed=%v", f.payments.claimed)

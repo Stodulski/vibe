@@ -40,9 +40,25 @@ type stubStore struct {
 	// onUpdate runs inside Update, so a test can put an event — a client
 	// disconnecting, in particular — between two steps of a handler.
 	onUpdate func()
+	// updateErrFor decides Update's answer per booking, which is how a batch
+	// sweep can be shown surviving one row the database refuses.
+	updateErrFor func(*bookingstore.Booking) error
 
 	inserted []*bookingstore.Booking
 	updated  []*bookingstore.Booking
+
+	// The scheduled sweeps' inputs and what they were called with.
+	dueForReminder []*bookingstore.CronBooking
+	reminderErr    error
+	reminderClocks []time.Time
+	markSentErr    error
+	markedSent     []uuid.UUID
+	expiredPending []*bookingstore.CronBooking
+	expiredErr     error
+	expiryWindows  []time.Duration
+	completed      int64
+	completeErr    error
+	completeCalls  int
 }
 
 func (s *stubStore) GetByComplex(context.Context, uuid.UUID, time.Time, time.Time, data.Filters) ([]*bookingstore.Booking, data.Metadata, error) {
@@ -84,6 +100,11 @@ func (s *stubStore) Update(_ context.Context, b *bookingstore.Booking) error {
 	if s.onUpdate != nil {
 		s.onUpdate()
 	}
+	if s.updateErrFor != nil {
+		if err := s.updateErrFor(b); err != nil {
+			return err
+		}
+	}
 	// A shallow copy, not the caller's own pointer: the real store writes
 	// whatever the caller held at the moment of the call, and every handler
 	// under test keeps mutating its own *bookingstore.Booking afterward (clearing
@@ -94,6 +115,92 @@ func (s *stubStore) Update(_ context.Context, b *bookingstore.Booking) error {
 	snapshot := *b
 	s.updated = append(s.updated, &snapshot)
 	return nil
+}
+
+// The rest of Store is what other domains read this one through and what the
+// scheduled sweeps drive. The handler suite does not exercise them, so they
+// answer the zero value — except the four the sweeps use, which a test seeds
+// through the fields above them.
+//
+// They are stubbed rather than left off the interface because Store is what
+// cmd/api hands the service, and a stub that cannot stand in for the real
+// store would only prove the fixture compiles.
+
+func (s *stubStore) GetByClient(context.Context, uuid.UUID, uuid.UUID, int) ([]*bookingstore.Booking, error) {
+	return nil, nil
+}
+
+func (s *stubStore) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {
+	return nil, nil
+}
+
+func (s *stubStore) HasActiveBookings(context.Context, uuid.UUID) (bool, error) { return false, nil }
+
+func (s *stubStore) HasActiveBookingsByCourt(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (s *stubStore) CancelFutureByComplex(context.Context, uuid.UUID) error { return nil }
+
+func (s *stubStore) GetDashboardStats(context.Context, uuid.UUID, time.Time) (*bookingstore.DashboardStats, error) {
+	return nil, nil
+}
+
+func (s *stubStore) GetUpcomingToday(context.Context, uuid.UUID, time.Time, string, int) ([]*bookingstore.Booking, error) {
+	return nil, nil
+}
+
+func (s *stubStore) GetPaymentSummary(context.Context, uuid.UUID, time.Time) (*bookingstore.PaymentSummary, error) {
+	return nil, nil
+}
+
+func (s *stubStore) GetRevenueByDay(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.RevenueDataPoint, error) {
+	return nil, nil
+}
+
+func (s *stubStore) GetOccupancyByHourDay(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.OccupancyDataPoint, error) {
+	return nil, nil
+}
+
+func (s *stubStore) GetRefundIntentOrphans(context.Context, time.Duration, int) ([]*bookingstore.Booking, error) {
+	return nil, nil
+}
+
+func (s *stubStore) ClaimRefundIntent(context.Context, uuid.UUID, time.Time) error { return nil }
+
+func (s *stubStore) ClearRefundIntent(context.Context, uuid.UUID) error { return nil }
+
+// GetForReminder2hEnriched and GetExpiredPendingEnriched answer with whatever
+// the test seeded, so the two sweeps can be driven end to end; reminderErr and
+// expiredErr stand in for the database being unavailable, the arm each sweep
+// gives up on.
+func (s *stubStore) GetForReminder2hEnriched(_ context.Context, now time.Time) ([]*bookingstore.CronBooking, error) {
+	s.reminderClocks = append(s.reminderClocks, now)
+	if s.reminderErr != nil {
+		return nil, s.reminderErr
+	}
+	return s.dueForReminder, nil
+}
+
+func (s *stubStore) MarkReminderSent2h(_ context.Context, id uuid.UUID) error {
+	if s.markSentErr != nil {
+		return s.markSentErr
+	}
+	s.markedSent = append(s.markedSent, id)
+	return nil
+}
+
+func (s *stubStore) GetExpiredPendingEnriched(_ context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error) {
+	s.expiryWindows = append(s.expiryWindows, expiry)
+	if s.expiredErr != nil {
+		return nil, s.expiredErr
+	}
+	return s.expiredPending, nil
+}
+
+func (s *stubStore) CompletePastBookings(context.Context) (int64, error) {
+	s.completeCalls++
+	return s.completed, s.completeErr
 }
 
 type stubClients struct {
@@ -520,7 +627,10 @@ func (s *stubRefunder) AutoRefundIfPaid(_ context.Context, b *bookingstore.Booki
 type stubNotifier struct {
 	confirmed []notifications.BookingConfirmation
 	cancelled []notifications.Cancellation
+	reminders []notifications.Reminder
 }
+
+func (s *stubNotifier) ReminderDue(r notifications.Reminder) { s.reminders = append(s.reminders, r) }
 
 func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
 	s.confirmed = append(s.confirmed, c)
@@ -574,8 +684,34 @@ func (s *stubLinkResolver) ResolveBooking(_ context.Context, token string) (*boo
 	return s.booking, expiresAt, nil
 }
 
+// stubLinkTokens stands in for the scheduled half of the booking-link tokens:
+// the reminder's own mint and the terminal-token sweep. A mint that cannot fail
+// is how a reminder that silently stopped carrying a cancel link would ship
+// green.
+type stubLinkTokens struct {
+	mintErr   error
+	deleteErr error
+
+	minted    []uuid.UUID
+	retention []time.Duration
+}
+
+func (s *stubLinkTokens) Mint(_ context.Context, bookingID uuid.UUID, _ time.Time) (string, error) {
+	if s.mintErr != nil {
+		return "", s.mintErr
+	}
+	s.minted = append(s.minted, bookingID)
+	return "stub-reminder-token-" + bookingID.String(), nil
+}
+
+func (s *stubLinkTokens) DeleteExpiredTerminal(_ context.Context, retention time.Duration) error {
+	s.retention = append(s.retention, retention)
+	return s.deleteErr
+}
+
 type fixture struct {
 	handler      *Handler
+	service      *Service
 	store        *stubStore
 	clients      *stubClients
 	complexes    *stubComplexes
@@ -586,6 +722,7 @@ type fixture struct {
 	whatsapp     *stubWhatsApp
 	refunds      *stubRefunder
 	linkResolver *stubLinkResolver
+	linkTokens   *stubLinkTokens
 	notify       *stubNotifier
 	realtime     *stubBroadcaster
 	audit        *stubRecorder
@@ -598,22 +735,25 @@ func newFixture(t *testing.T) *fixture {
 		store: &stubStore{}, clients: &stubClients{}, complexes: &stubComplexes{},
 		courts: &stubCourts{}, payments: &stubPayments{}, locks: &stubLocks{},
 		checkout: &stubCheckout{}, whatsapp: &stubWhatsApp{}, refunds: &stubRefunder{},
-		linkResolver: &stubLinkResolver{},
-		notify:       &stubNotifier{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
+		linkResolver: &stubLinkResolver{}, linkTokens: &stubLinkTokens{},
+		notify: &stubNotifier{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
 	}
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	f.handler = NewHandler(Dependencies{
-		Store: f.store, Clients: f.clients, Complexes: f.complexes, Courts: f.courts,
-		Payments: f.payments, Locks: f.locks, Checkout: f.checkout, WhatsApp: f.whatsapp,
-		Refunds: f.refunds, LinkResolver: f.linkResolver, Notify: f.notify, Realtime: f.realtime, Audit: f.audit,
-		Respond: httpx.NewResponder(logger), Logger: logger,
-		Run: func(fn func()) { fn() },
+	f.service = NewService(Dependencies{
+		Facade: NewFacade(f.store),
+		Store:  f.store, Clients: f.clients, Complexes: f.complexes, Courts: f.courts,
+		Payments: f.payments, Locks: f.locks, Checkout: f.checkout,
+		Refunds: f.refunds, LinkResolver: f.linkResolver, LinkTokens: f.linkTokens,
+		Notify: f.notify, Realtime: f.realtime, Audit: f.audit,
+		Logger: logger,
+		Run:    func(fn func()) { fn() },
 	}, Config{
 		FrontendURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
 		Environment: "test", GracePeriod: 15 * time.Minute,
 		PaymentExpiry: 15 * time.Minute, SlotLockTTL: 15 * time.Minute,
-		WhatsAppEnabled: true,
+		WhatsAppEnabled: true, LinkTokenBuffer: 24 * time.Hour,
 	})
+	f.handler = NewHandler(f.service, f.whatsapp, httpx.NewResponder(logger), logger, false)
 	return f
 }
 

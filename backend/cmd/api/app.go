@@ -295,7 +295,17 @@ func newApplication(cfg config, d deps) (*application, error) {
 	cache := userCache{mw: mw}
 
 	placesHandler := places.NewHandler(places.Config{APIKey: cfg.google.placesAPIKey}, respond)
-	clientsService := clients.NewService(d.models.Clients, d.models.Bookings)
+
+	// The booking domain's cross-domain entry point, built over the booking
+	// store alone and therefore available here, before any domain service
+	// exists. Every domain that reads bookings — clients, complexes, courts,
+	// auth, reporting, payments — takes this instead of d.models.Bookings, so
+	// no domain outside internal/bookings holds a booking store. The booking
+	// service still has to be built last, because it depends on those domains;
+	// it embeds this same facade (see bookings.Dependencies.Facade below).
+	bookingsFacade := bookings.NewFacade(d.models.Bookings)
+
+	clientsService := clients.NewService(d.models.Clients, bookingsFacade)
 	clientsHandler := clients.NewHandler(clientsService, respond)
 	// The stream re-authorizes through the same chain that admitted it: see
 	// streamAuthorizer. Its cadence and lifetime are the package's defaults.
@@ -305,9 +315,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 		WebhookURL: cfg.leads.abandonedWebhookURL,
 		Token:      cfg.leads.abandonedWebhookToken,
 	})
-	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
-	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
-
 	var queues health.QueueReporter
 	if d.db != nil {
 		queues = queueProbe{pool: d.db}
@@ -339,17 +346,23 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// map errors. A service is passed wherever another domain reads this one,
 	// so the entry point into a domain is its service rather than its store —
 	// which is what lets a rule added later (authorization, caching) land in
-	// one place. Two exceptions:
+	// one place.
 	//
-	//   - bookings and payments still receive stores, because their own
-	//     services do not exist yet.
-	//   - complexes receives the court store, because courts and complexes read
-	//     each other and the two services cannot both be constructed second.
-	//     Courts takes the complexes service; complexes keeps the court store.
+	// The order below follows the dependency edges, and the locals-then-publish
+	// rule above makes a wrong order a compile error rather than a runtime
+	// surprise. Two domains read each other, so the edges cannot all be
+	// construction arguments:
 	//
-	// The rest of the ordering follows the dependency edges, and the
-	// locals-then-publish rule above makes a wrong order a compile error rather
-	// than a runtime surprise.
+	//   - courts and complexes: complexes is built with no court port, courts
+	//     takes the complexes service, and SetCourts closes the loop below —
+	//     once, here, before the router exists.
+	//   - bookings and payments: bookings takes the payments service, and
+	//     payments takes bookingsFacade. The booking service cannot exist yet
+	//     — it takes payments — so the facade is what stands in for it.
+	//
+	// Everything upstream of bookings (clients, complexes, courts, auth,
+	// reporting) reads bookings through bookingsFacade for the same reason:
+	// the booking service is built last, because it depends on all of them.
 	complexesConfig := complexes.Config{
 		MaxComplexes: cfg.limits.maxComplexes,
 		FrontendURL:  cfg.frontendURL,
@@ -357,14 +370,14 @@ func newApplication(cfg config, d deps) (*application, error) {
 		MPAppID:      cfg.mp.appID,
 	}
 	// complexesService is built before courtsService because the court domain
-	// reads venues and their opening hours through it. The reverse edge — the
-	// public venue page reading that venue's courts — is the one place a store
-	// is still passed between two converted domains: the two services cannot
-	// both be constructed second.
+	// reads venues and their opening hours through it, and with no court port
+	// at all: the reverse edge — the public venue page reading that venue's
+	// courts — is closed by SetCourts a few lines below, which is the only way
+	// two mutually reading services can both end up holding the other.
 	complexesService := complexes.NewService(complexes.Dependencies{
 		Store:    d.models.Complexes,
-		Courts:   d.models.Courts,
-		Bookings: d.models.Bookings,
+		Courts:   nil,
+		Bookings: bookingsFacade,
 		Payments: mpClient,
 		OAuth:    mpOAuthClient,
 		Storage:  d.storage,
@@ -374,15 +387,16 @@ func newApplication(cfg config, d deps) (*application, error) {
 	}, complexesConfig)
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 
-	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, complexesService, auditor)
+	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor)
 	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
 
-	reportingService := reporting.NewService(d.models.Bookings, clientsService, courtsService,
-		complexesService, d.models.Reports)
-	reportingHandler := reporting.NewHandler(reportingService, respond)
-
-	publicsiteService := publicsite.NewService(complexesService, cfg.frontendURL)
-	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
+	// The one edge that cannot be a constructor argument, closed the moment the
+	// other side exists: before any handler is built, before the router is
+	// built, and therefore before a request can reach the public venue page
+	// that reads it. complexes.Service.publicCourts panics on a nil port rather
+	// than answering a venue page with no courts on it, so moving this line
+	// below the router fails loudly instead of shipping an empty list.
+	complexesService.SetCourts(courtsService)
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.
@@ -403,7 +417,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Verifications: d.models.EmailVerification,
 		Resets:        d.models.PasswordReset,
 		Complexes:     complexesService,
-		Bookings:      d.models.Bookings,
+		Bookings:      bookingsFacade,
 		Blacklist:     blacklist,
 		Notify:        notify,
 		Cache:         cache,
@@ -416,18 +430,31 @@ func newApplication(cfg config, d deps) (*application, error) {
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
-	paymentsHandler := payments.NewHandler(payments.Dependencies{
-		Payments:      d.models.Payments,
-		Bookings:      d.models.Bookings,
-		Clients:       d.models.Clients,
-		Complexes:     d.models.Complexes,
-		Courts:        d.models.Courts,
+	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
+	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
+
+	reportingService := reporting.NewService(bookingsFacade, clientsService, courtsService,
+		complexesService, d.models.Reports)
+	reportingHandler := reporting.NewHandler(reportingService, respond)
+
+	publicsiteService := publicsite.NewService(complexesService, cfg.frontendURL)
+	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
+
+	paymentsService := payments.NewService(payments.Dependencies{
+		Payments:  d.models.Payments,
+		Clients:   clientsService,
+		Complexes: complexesService,
+		Courts:    courtsService,
+		// Bookings and RefundIntents both take the facade: the booking service
+		// takes this one (AutoRefundIfPaid), so it cannot exist yet. See the
+		// note on the two mutually reading domains above.
+		Bookings:      bookingsFacade,
 		FailedRefunds: d.models.FailedRefunds,
 		WebhookEvents: d.models.WebhookEvents,
-		// d.models.Bookings is typed stores.BookingStore, which composes
-		// BookingRefundIntentManager, so it already structurally satisfies
-		// payments.RefundIntentStore — no new store instance is constructed.
-		RefundIntents: d.models.Bookings,
+		// The same facade satisfies payments.RefundIntentStore, whose three
+		// methods it carries for the reconciliation sweep — no second entry
+		// point into the booking domain.
+		RefundIntents: bookingsFacade,
 		// d.models.BookingLinkTokens is typed stores.BookingLinkTokenStore, which
 		// already structurally satisfies payments.LinkMinter's one method — no
 		// new store instance is constructed.
@@ -437,7 +464,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Notify:     notify,
 		Realtime:   events,
 		Audit:      auditor,
-		Respond:    respond,
 		Logger:     d.logger,
 		Run:        app.background,
 	}, payments.Config{
@@ -445,28 +471,35 @@ func newApplication(cfg config, d deps) (*application, error) {
 		CancellationGracePeriod: cfg.booking.gracePeriod,
 		LinkTokenBuffer:         cfg.booking.linkTokenBuffer,
 	})
+	// The webhook handler verifies MercadoPago's signature itself, so it takes
+	// the provider alongside the service: the signature is computed over the
+	// request, which never reaches the service.
+	paymentsHandler := payments.NewHandler(paymentsService, mpClient, respond, d.logger)
 
-	// bookings.Dependencies.Refunds takes paymentsHandler, the local above —
-	// not app.payments. Move this block above paymentsHandler's and
-	// `undefined: paymentsHandler` fails the build, before any test runs.
-	bookingsHandler := bookings.NewHandler(bookings.Dependencies{
+	// bookings.Dependencies.Refunds takes paymentsService, the local above —
+	// not app.payments. Move this block above paymentsService's and
+	// `undefined: paymentsService` fails the build, before any test runs.
+	bookingsService := bookings.NewService(bookings.Dependencies{
+		// The same facade every other domain took above, so the cross-domain
+		// reads have one implementation whoever the caller is.
+		Facade:    bookingsFacade,
 		Store:     d.models.Bookings,
-		Clients:   d.models.Clients,
-		Complexes: d.models.Complexes,
-		Courts:    d.models.Courts,
-		Payments:  d.models.Payments,
+		Clients:   clientsService,
+		Complexes: complexesService,
+		Courts:    courtsService,
+		Payments:  paymentsService,
 		Locks:     d.models.SlotLocks,
 		Checkout:  mpClient,
-		WhatsApp:  waClient,
-		Refunds:   paymentsHandler,
+		Refunds:   paymentsService,
 		// d.models.BookingLinkTokens is typed stores.BookingLinkTokenStore, which
-		// already structurally satisfies bookings.LinkResolver's one method —
-		// no new store instance is constructed.
+		// already structurally satisfies both bookings.LinkResolver's one
+		// method and bookings.LinkTokenStore's two — no new store instance is
+		// constructed for either.
 		LinkResolver: d.models.BookingLinkTokens,
+		LinkTokens:   d.models.BookingLinkTokens,
 		Notify:       notify,
 		Realtime:     events,
 		Audit:        auditor,
-		Respond:      respond,
 		Logger:       d.logger,
 		Run:          app.background,
 	}, bookings.Config{
@@ -478,7 +511,12 @@ func newApplication(cfg config, d deps) (*application, error) {
 		SlotLockTTL:     cfg.booking.slotLockTTL,
 		TrustProxies:    cfg.trustedProxies,
 		WhatsAppEnabled: whatsappEnabled,
+		LinkTokenBuffer: cfg.booking.linkTokenBuffer,
 	})
+	// The WhatsApp webhook verifies Meta's own handshake and signature, so the
+	// handler takes the client alongside the service: both are computed over
+	// the request, which never reaches the service.
+	bookingsHandler := bookings.NewHandler(bookingsService, waClient, respond, d.logger, cfg.trustedProxies)
 
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a
@@ -506,7 +544,9 @@ func newApplication(cfg config, d deps) (*application, error) {
 	app.notify = notify
 	app.auth = authHandler
 	app.payments = paymentsHandler
+	app.paymentsService = paymentsService
 	app.bookings = bookingsHandler
+	app.bookingsService = bookingsService
 	app.complexes = complexesHandler
 	app.complexesService = complexesService
 	app.scheduler = sched

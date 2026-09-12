@@ -580,7 +580,7 @@ func TestCheckoutRetryReportsAFailedCredentialPersist(t *testing.T) {
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	_, _ = f.handler.createMPPreferenceWithRetry(t.Context(),
+	_, _ = f.service.createMPPreferenceWithRetry(t.Context(),
 		mp.CreatePreferenceInput{Caller: mustSeller(t, accessToken)}, complex)
 
 	if len(f.complexes.credentials) != 1 {
@@ -1094,7 +1094,7 @@ func TestPublicStatusFullPayloadForAConfirmedBooking(t *testing.T) {
 	if got, _ := cancellation["cancellation_hours"].(float64); got != 24 {
 		t.Errorf("want cancellation_hours 24; got %v", cancellation["cancellation_hours"])
 	}
-	wantDeadline := pricing.RefundDeadline(booking, 24, f.handler.cfg.GracePeriod).Format(time.RFC3339)
+	wantDeadline := pricing.RefundDeadline(booking, 24, f.service.cfg.GracePeriod).Format(time.RFC3339)
 	if got, _ := cancellation["refund_deadline"].(string); got != wantDeadline {
 		t.Errorf("want refund_deadline %s; got %v", wantDeadline, cancellation["refund_deadline"])
 	}
@@ -1229,7 +1229,7 @@ func TestPublicStatusGraceStillOpenAfterWindowClosed(t *testing.T) {
 	if cancellation["can_refund_now"] != true {
 		t.Errorf("want can_refund_now true while the grace period is still open; got %v", cancellation["can_refund_now"])
 	}
-	wantDeadline := booking.CreatedAt.In(timezone.Argentina).Add(f.handler.cfg.GracePeriod).Format(time.RFC3339)
+	wantDeadline := booking.CreatedAt.In(timezone.Argentina).Add(f.service.cfg.GracePeriod).Format(time.RFC3339)
 	if got, _ := cancellation["refund_deadline"].(string); got != wantDeadline {
 		t.Errorf("want refund_deadline %s (grace end); got %v", wantDeadline, got)
 	}

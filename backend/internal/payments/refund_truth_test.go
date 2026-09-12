@@ -48,7 +48,7 @@ func TestARefundRecordsWhatMercadoPagoMovedNotWhatWasClaimed(t *testing.T) {
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.payments.recordedSuccess) != 1 {
 		t.Fatalf("an accepted refund must be recorded exactly once; got %d", len(f.payments.recordedSuccess))
@@ -109,7 +109,7 @@ func TestAnAcceptedRefundWithNoAmountKeepsTheClaimedFigure(t *testing.T) {
 	// Accepted, with no amount on the response.
 	f.provider.refundAmount = 0
 
-	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.payments.recordedSuccess) != 1 {
 		t.Fatalf("an accepted refund must be recorded exactly once; got %d", len(f.payments.recordedSuccess))
@@ -145,7 +145,7 @@ func TestARejectedRefundWithFundsAlreadyAtProviderResolvesAsSuccess(t *testing.T
 	// ...but the payment itself shows the money already moved.
 	f.provider.payment = &mp.Payment{ID: 123, Status: "refunded", TransactionAmountRefunded: 1500.00}
 
-	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.payments.recordedFailure) != 0 {
 		t.Fatalf("a refund already present at the provider must not spend a retry attempt; got %d recorded failures: %+v",
@@ -202,7 +202,7 @@ func TestAPartialRefundIsNotReadAsFullBecauseTheRowUnderstatesWhatWasPaid(t *tes
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	if err := f.handler.processRefundedPayment(t.Context(), payment, mpPayment, "mp-123"); err != nil {
+	if err := f.service.processRefundedPayment(t.Context(), payment, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("processing a refund webhook: %v", err)
 	}
 
@@ -269,7 +269,7 @@ func TestAnUnclaimedRefundLeavesTheSweepAMarkerRatherThanAFalseRefundPending(t *
 
 	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_500.00}
 
-	err := f.handler.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123")
+	err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123")
 	if err == nil {
 		t.Fatalf("a claim the database refused must be returned as retryable")
 	}
@@ -316,7 +316,7 @@ func TestAClaimedRefundLeavesNoMarkerBehind(t *testing.T) {
 
 	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_500.00}
 
-	if err := f.handler.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+	if err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("refunding a payment for a cancelled booking: %v", err)
 	}
 

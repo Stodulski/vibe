@@ -136,7 +136,7 @@ func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 			tt.prepare(f, booking, payment)
 
-			got := f.handler.AutoRefundIfPaid(t.Context(), booking)
+			got := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 			if got.Result != tt.want {
 				t.Errorf("want outcome %q; got %q (reason %q)", tt.want, got.Result, got.Reason)
@@ -160,7 +160,7 @@ func TestARefundThatCannotBeIssuedIsReportedRatherThanDropped(t *testing.T) {
 	f.payments.byBooking = payment
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
 
-	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if outcome.Result != paymentstore.RefundManual {
 		t.Fatalf("cash owed back is a manual refund; got %q", outcome.Result)
@@ -195,7 +195,7 @@ func TestARefundWeIssuedIsNotAnnouncedTwice(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
-	err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
+	err := f.service.processRefundedPayment(t.Context(), payment, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmountRefunded: 2500,
 	}, "mp-123")
 	if err != nil {
@@ -219,7 +219,7 @@ func TestAPartialRefundStillTellsTheClient(t *testing.T) {
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	// MercadoPago refunded 1000.00 of the 2500.00 the client paid.
-	err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
+	err := f.service.processRefundedPayment(t.Context(), payment, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmountRefunded: 1000,
 	}, "mp-123")
 	if err != nil {
@@ -244,7 +244,7 @@ func TestARefundWithNoPaymentRecordStillTellsTheClient(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
-	err := f.handler.processRefundedPaymentFromBooking(t.Context(), booking, &mp.Payment{
+	err := f.service.processRefundedPaymentFromBooking(t.Context(), booking, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmountRefunded: 2500,
 	}, "mp-123")
 	if err != nil {
@@ -280,7 +280,7 @@ func TestACancelledBookingRefundsWhatTheClientActuallyPaid(t *testing.T) {
 	// What MercadoPago says the client was charged: 3000.00, not the 2500.00 the
 	// booking's current deposit plus service fee would imply.
 	const paidPesos = 3000.0
-	_ = f.handler.processApprovedPayment(t.Context(), booking,
+	_ = f.service.processApprovedPayment(t.Context(), booking,
 		&mp.Payment{ID: 123, Status: "approved", TransactionAmount: paidPesos, CollectorID: 111111111}, "mp-123")
 
 	if f.payments.inserted == nil {
@@ -316,7 +316,7 @@ func TestAMissingSellerTokenRefusesBeforeMercadoPagoIsCalled(t *testing.T) {
 
 	sentryEvents := withCapturedSentryEvents(t)
 
-	outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
+	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
 
 	if len(f.provider.refunds) != 0 || len(f.provider.callers) != 0 {
 		t.Fatalf("a missing credential must refuse before MercadoPago is called; got refunds=%v tokens=%v",
@@ -363,7 +363,7 @@ func TestTheWebhookLeavesTheRecordToTheClaimThatHoldsIt(t *testing.T) {
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
-	err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
+	err := f.service.processRefundedPayment(t.Context(), payment, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmount: 2500, TransactionAmountRefunded: 1000,
 	}, "mp-123")
 	if err != nil {
@@ -414,7 +414,7 @@ func TestAPartialRefundIsNotCountedTwiceWhenTheWebhookRacesTheRecorder(t *testin
 	const moved = 100_000 // 1000.00, what MercadoPago actually returned
 
 	// The provider's webhook lands first, while our claim is still in flight.
-	if err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
+	if err := f.service.processRefundedPayment(t.Context(), payment, &mp.Payment{
 		ID: 123, Status: "refunded", TransactionAmount: 2500, TransactionAmountRefunded: 1000,
 	}, "mp-123"); err != nil {
 		t.Fatalf("webhook: %v", err)

@@ -19,12 +19,14 @@ import (
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/booklink"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // Refund methods reported by cancel-info. They answer "how would the money come
@@ -228,7 +230,11 @@ const preferenceExpiryBudget = 25 * time.Second
 // public routes, whose spec (openspec/specs/booking-link-credential) forbids a
 // resolved booking id from reaching Sentry. The logger, which is not Sentry,
 // still carries it.
-func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex) {
+// It takes the credential source rather than the complex itself, because the
+// expiry sweep reaches it holding an enriched booking that carries the venue's
+// token and no complex row (bookingstore.CronBooking). Everything else it needs
+// is on the booking.
+func (s *Service) expireCheckoutPreference(ctx context.Context, booking *bookingstore.Booking, creds sellerCredentials) {
 	// Detached from the caller's cancellation for the same reason
 	// releaseSlotLocks is: every call site hands this the request's own context,
 	// and a client who cancels and closes the tab cancelled it. The read below
@@ -238,36 +244,44 @@ func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *booking
 	ctx, cancelBudget := context.WithTimeout(context.WithoutCancel(ctx), preferenceExpiryBudget)
 	defer cancelBudget()
 
-	payment, err := h.payments.GetByBookingID(ctx, booking.ID)
+	payment, err := s.payments.GetByBookingID(ctx, booking.ID)
 	if err != nil || payment.MPPreferenceID == nil || *payment.MPPreferenceID == "" {
 		return
 	}
 	preferenceID := *payment.MPPreferenceID
 
-	caller, credErr := expiryCaller(complex)
+	caller, credErr := expiryCaller(creds)
 	if credErr != nil {
 		// Calling as the platform here would send the request as the wrong
 		// party. Refuse, and say so loudly: the link is still live.
-		h.logger.Error("cancel: the seller credential could not be read, so the checkout link was left open",
-			"error", credErr, "booking_id", booking.ID, "complex_id", complex.ID, "preference_id", preferenceID)
+		s.logger.Error("cancel: the seller credential could not be read, so the checkout link was left open",
+			"error", credErr, "booking_id", booking.ID, "complex_id", booking.ComplexID, "preference_id", preferenceID)
 		sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION SKIPPED, CREDENTIAL UNREADABLE (client may still pay): complex_id=%s preference_id=%s",
-			complex.ID, preferenceID))
+			booking.ComplexID, preferenceID))
 		return
 	}
 
-	expErr := h.checkout.UpdatePreferenceExpired(ctx, preferenceID, caller)
+	expErr := s.checkout.UpdatePreferenceExpired(ctx, preferenceID, caller)
 	if expErr == nil {
 		return
 	}
-	h.logger.Error("cancel: first attempt to expire the MercadoPago preference failed, retrying",
+	s.logger.Error("cancel: first attempt to expire the MercadoPago preference failed, retrying",
 		"error", expErr, "booking_id", booking.ID, "preference_id", preferenceID)
 
-	if retryErr := h.checkout.UpdatePreferenceExpired(ctx, preferenceID, caller); retryErr != nil {
-		h.logger.Error("cancel: retry failed to expire the MercadoPago preference",
-			"error", retryErr, "booking_id", booking.ID, "complex_id", complex.ID, "preference_id", preferenceID)
+	if retryErr := s.checkout.UpdatePreferenceExpired(ctx, preferenceID, caller); retryErr != nil {
+		s.logger.Error("cancel: retry failed to expire the MercadoPago preference",
+			"error", retryErr, "booking_id", booking.ID, "complex_id", booking.ComplexID, "preference_id", preferenceID)
 		sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION FAILED (client may still pay): complex_id=%s preference_id=%s",
-			complex.ID, preferenceID))
+			booking.ComplexID, preferenceID))
 	}
+}
+
+// sellerCredentials is where the token a checkout link's owner is addressed
+// with comes from. A complex carries it, and so does the enriched booking the
+// expiry sweep reads, which is why this is an interface rather than the complex
+// itself: both answer the one question expiryCaller asks.
+type sellerCredentials interface {
+	SellerAccessToken() (string, error)
 }
 
 // expiryCaller names who the request that closes a checkout link is made as.
@@ -279,8 +293,8 @@ func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *booking
 // it used to be the silent meaning of an empty token, which is also what a
 // credential that would not decrypt produced — and that one must never take
 // it. It comes back as an error for the caller to refuse and alert on.
-func expiryCaller(complex *complexstore.Complex) (mp.Caller, error) {
-	token, err := complex.SellerAccessToken()
+func expiryCaller(creds sellerCredentials) (mp.Caller, error) {
+	token, err := creds.SellerAccessToken()
 	switch {
 	case err == nil:
 		return mp.AsSeller(token)
@@ -307,7 +321,7 @@ func expiryCaller(complex *complexstore.Complex) (mp.Caller, error) {
 // act regardless of whatever else is on the booking, so that answer wins
 // even when an MP row is also present: refundByHand is always the safe,
 // client-facing answer for a mixed booking.
-func (h *Handler) refundMethod(ctx context.Context, booking *bookingstore.Booking) string {
+func (s *Service) refundMethod(ctx context.Context, booking *bookingstore.Booking) string {
 	// The refund axis answers first and the collection axis is the fallback,
 	// which is the same order the single payment_status enum enforced by having
 	// only one value: a row that is mid-refund is not also merely "paid".
@@ -328,18 +342,18 @@ func (h *Handler) refundMethod(ctx context.Context, booking *bookingstore.Bookin
 	}
 	// Collected and no refund under way: the payment ledger decides.
 
-	payments, err := h.payments.ListByBookingID(ctx, booking.ID)
+	payments, err := s.payments.ListByBookingID(ctx, booking.ID)
 	if err != nil {
 		// The booking reads as paid and its payments cannot be read. Promising an
 		// automatic refund here is the failure being fixed; a person decides.
-		h.logger.Error("cancel-info: the booking reads as paid but its payments could not be read",
+		s.logger.Error("cancel-info: the booking reads as paid but its payments could not be read",
 			"error", err, "booking_id", booking.ID)
 		return refundByHand
 	}
 	if len(payments) == 0 {
 		// The booking reads as paid and carries no payment row at all. Same
 		// refusal as an unreadable payment: a person has to find this money.
-		h.logger.Error("cancel-info: the booking reads as paid but carries no payment record",
+		s.logger.Error("cancel-info: the booking reads as paid but carries no payment record",
 			"booking_id", booking.ID)
 		return refundByHand
 	}
@@ -360,6 +374,47 @@ func (h *Handler) refundMethod(ctx context.Context, booking *bookingstore.Bookin
 		return refundByMercadoPago
 	}
 	return refundNotApplicable
+}
+
+// notifyCancelledAndRelease tells the client their booking is off, says what
+// became of their money, and frees the checkout lock the slot was still held
+// by.
+//
+// Both cancellation paths do exactly this, in this order, and the notification
+// is skipped when either the court or the client cannot be read — there is
+// nothing to name in the message. The release is keyed on the court, so it is
+// skipped on the same court failure.
+func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex, outcome paymentstore.RefundOutcome) {
+	court, courterr := s.courts.GetByID(ctx, booking.CourtID)
+	client, cerr := s.clients.GetByID(ctx, booking.ClientID)
+	if cerr == nil && courterr == nil {
+		clientEmail := ""
+		if client.Email != nil {
+			clientEmail = *client.Email
+		}
+		// The refund decision made above travels with the message. It used to
+		// stop here: the client was told their booking was off and nothing
+		// about their deposit, and found out about the money — or did not —
+		// from a separate email that only fires when one is actually sent.
+		refundLine, refundAmount := refundNotice(outcome)
+		s.notify.BookingCancelled(notifications.Cancellation{
+			Email:        clientEmail,
+			Phone:        client.Phone,
+			ComplexName:  complex.Name,
+			CourtName:    court.Name,
+			Date:         booking.Date.Format("02/01"),
+			StartTime:    timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
+			RefundLine:   refundLine,
+			RefundAmount: refundAmount,
+			BookPath:     booklink.BookPath(complex.Slug),
+			BookURL:      booklink.Book(s.cfg.FrontendURL, complex.Slug),
+		})
+	}
+
+	// The slot is free now; the checkout lock that was holding it is not.
+	if courterr == nil {
+		s.releaseHeldSlots(ctx, booking)
+	}
 }
 
 // releaseHeldSlots frees the checkout lock a cancelled booking still holds.
@@ -391,8 +446,8 @@ func (h *Handler) refundMethod(ctx context.Context, booking *bookingstore.Bookin
 // for a release the database refuses. No live inventory is permanently lost;
 // at worst a pre-existing chunk row squats on its own slot until its TTL
 // passes, same as it would have before this change shipped.
-func (h *Handler) releaseHeldSlots(ctx context.Context, booking *bookingstore.Booking) {
-	h.releaseSlotLock(ctx, booking.CourtID, booking.Date, booking.StartTime)
+func (s *Service) releaseHeldSlots(ctx context.Context, booking *bookingstore.Booking) {
+	s.releaseSlotLock(ctx, booking.CourtID, booking.Date, booking.StartTime)
 }
 
 // slotReleaseBudget bounds the detached release below.
@@ -424,11 +479,11 @@ const slotReleaseBudget = 10 * time.Second
 // view called free, and that the public booking page alone refused to sell,
 // for the whole SlotLockTTL. The client did nothing wrong and the venue lost
 // the hours.
-func (h *Handler) releaseSlotLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) {
+func (s *Service) releaseSlotLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), slotReleaseBudget)
 	defer cancel()
 
-	if relErr := h.locks.ReleaseLock(ctx, courtID, date, startTime); relErr != nil {
-		h.logger.Error("failed to release slot lock", "error", relErr, "court_id", courtID, "slot_start", startTime)
+	if relErr := s.locks.ReleaseLock(ctx, courtID, date, startTime); relErr != nil {
+		s.logger.Error("failed to release slot lock", "error", relErr, "court_id", courtID, "slot_start", startTime)
 	}
 }

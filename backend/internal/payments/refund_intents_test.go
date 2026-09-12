@@ -29,7 +29,7 @@ func TestSweepNeverCallsMercadoPagoForACashBooking(t *testing.T) {
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 	f.refundIntents.orphans = []*bookingstore.Booking{booking}
 
-	f.handler.SweepOrphanedRefundIntents(t.Context())
+	f.service.SweepOrphanedRefundIntents(t.Context())
 
 	if len(f.refundIntents.claimed) != 1 {
 		t.Fatalf("want the orphan claimed exactly once; got %d", len(f.refundIntents.claimed))
@@ -55,7 +55,7 @@ func TestSweepLeavesAnAlreadyClaimedOrphanAlone(t *testing.T) {
 	f.refundIntents.orphans = []*bookingstore.Booking{booking}
 	f.refundIntents.notFoundFor = map[uuid.UUID]bool{booking.ID: true}
 
-	f.handler.SweepOrphanedRefundIntents(t.Context())
+	f.service.SweepOrphanedRefundIntents(t.Context())
 
 	if len(f.payments.claimed) != 0 {
 		t.Error("a lost claim race must never reach ClaimRefund")

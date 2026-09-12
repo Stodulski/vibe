@@ -526,7 +526,7 @@ func TestTheSweeperWorksEventsLeftBehind(t *testing.T) {
 	}
 	f.webhookEvents.pending = []*paymentstore.WebhookEvent{abandoned}
 
-	f.handler.ProcessPendingWebhookEvents(t.Context())
+	f.service.ProcessPendingWebhookEvents(t.Context())
 
 	if len(f.webhookEvents.claimed) != 1 || f.webhookEvents.claimed[0] != abandoned.ID {
 		t.Fatalf("the sweeper must claim what it picks up; got %v", f.webhookEvents.claimed)
@@ -549,7 +549,7 @@ func TestASweptEventAlreadyClaimedElsewhereIsLeftAlone(t *testing.T) {
 		EventType: "payment", Payload: json.RawMessage(webhookBody), Status: "pending",
 	}}
 
-	f.handler.ProcessPendingWebhookEvents(t.Context())
+	f.service.ProcessPendingWebhookEvents(t.Context())
 
 	if len(f.locks.attempts) != 0 {
 		t.Error("an event another worker claimed must not be processed here as well")

@@ -20,6 +20,18 @@ func newTestApplication(t *testing.T) *application {
 	return app
 }
 
+// newTestApplicationWithStores is the harness with the store set the caller
+// wants, named before the application is built.
+//
+// A domain service captures its stores at construction, exactly as production
+// does, so a test that needs a double has to supply it here — assigning
+// app.models afterwards reaches the field the service already read past.
+func newTestApplicationWithStores(t *testing.T, customize func(*stores.Stores)) (*application, *memoryQueue) {
+	t.Helper()
+
+	return newTestApplicationWith(t, slog.New(slog.NewTextHandler(io.Discard, nil)), customize)
+}
+
 // newTestApplicationWithNotifications also hands back the queue the
 // application's notification service publishes to: newApplication builds a
 // *memoryQueue whenever deps.rdb is nil, which the harness's mock-store,
@@ -37,6 +49,15 @@ func newTestApplicationWithNotifications(t *testing.T) (*application, *memoryQue
 // app.logger afterwards, so a test that reads log output has to name the
 // logger up front.
 func newTestApplicationWithLogger(t *testing.T, testLogger *slog.Logger) (*application, *memoryQueue) {
+	t.Helper()
+
+	return newTestApplicationWith(t, testLogger, nil)
+}
+
+// newTestApplicationWith is the one harness both wrappers above go through:
+// the caller chooses the logger and, optionally, adjusts the store set before
+// newApplication reads it.
+func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize func(*stores.Stores)) (*application, *memoryQueue) {
 	t.Helper()
 
 	cfg := config{
@@ -92,28 +113,33 @@ func newTestApplicationWithLogger(t *testing.T, testLogger *slog.Logger) (*appli
 		},
 	}
 
+	models := stores.Stores{
+		Users:             &mockUserStore{},
+		UserIdentities:    &mockUserIdentityStore{},
+		Tokens:            &mockTokenStore{},
+		Complexes:         &mockComplexStore{},
+		Courts:            &mockCourtStore{},
+		Bookings:          &mockBookingStore{},
+		BookingLinkTokens: &mockBookingLinkTokenStore{},
+		Clients:           &mockClientStore{},
+		Payments:          &mockPaymentStore{},
+		EmailVerification: &mockEmailVerificationStore{},
+		PasswordReset:     &mockPasswordResetStore{},
+		FailedRefunds:     &mockFailedRefundStore{},
+		WebhookEvents:     &mockWebhookEventStore{},
+		SlotLocks:         &mockSlotLockStore{},
+		Reports:           &mockReportStore{},
+		Admin:             &mockAdminStore{},
+		Audit:             &mockAuditStore{},
+		Locks:             &mockLockStore{},
+	}
+	if customize != nil {
+		customize(&models)
+	}
+
 	app, err := newApplication(cfg, deps{
 		logger: testLogger,
-		models: stores.Stores{
-			Users:             &mockUserStore{},
-			UserIdentities:    &mockUserIdentityStore{},
-			Tokens:            &mockTokenStore{},
-			Complexes:         &mockComplexStore{},
-			Courts:            &mockCourtStore{},
-			Bookings:          &mockBookingStore{},
-			BookingLinkTokens: &mockBookingLinkTokenStore{},
-			Clients:           &mockClientStore{},
-			Payments:          &mockPaymentStore{},
-			EmailVerification: &mockEmailVerificationStore{},
-			PasswordReset:     &mockPasswordResetStore{},
-			FailedRefunds:     &mockFailedRefundStore{},
-			WebhookEvents:     &mockWebhookEventStore{},
-			SlotLocks:         &mockSlotLockStore{},
-			Reports:           &mockReportStore{},
-			Admin:             &mockAdminStore{},
-			Audit:             &mockAuditStore{},
-			Locks:             &mockLockStore{},
-		},
+		models: models,
 		// db and rdb stay nil: no database, in-memory blacklist/hub/limiter,
 		// and the memoryQueue branch of newApplication's notifier decision.
 	})

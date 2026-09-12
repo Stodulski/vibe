@@ -265,8 +265,10 @@ func newFixture(t *testing.T) *fixture {
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	cfg := Config{MaxComplexes: 4, FrontendURL: "https://vibe.test", MPAppID: "app-123"}
 	f.service = NewService(Dependencies{
-		Store:    f.store,
-		Courts:   f.courts,
+		Store: f.store,
+		// Left nil and closed by SetCourts below, exactly as cmd/api does it:
+		// the court service does not exist when this one is built.
+		Courts:   nil,
 		Bookings: f.bookings,
 		Payments: f.payments,
 		OAuth:    f.oauth,
@@ -275,6 +277,7 @@ func newFixture(t *testing.T) *fixture {
 		Logger:   logger,
 		Run:      func(fn func()) { fn() }, // run background work inline so tests can observe it
 	}, cfg)
+	f.service.SetCourts(f.courts)
 	f.handler = NewHandler(f.service, responder, cfg)
 	return f
 }

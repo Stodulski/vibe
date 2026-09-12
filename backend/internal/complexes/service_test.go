@@ -94,3 +94,29 @@ func TestServiceCreate(t *testing.T) {
 		})
 	}
 }
+
+// TestThePublicProfileRefusesToServeWithNoCourtPort pins the one thing the
+// deferred court port must never do: answer quietly.
+//
+// courts and complexes read each other, so this service is built with no court
+// port at all and cmd/api closes the loop with SetCourts before the router
+// exists. If that call is ever moved, deleted, or ordered after the first
+// request, the failure has to be loud — a venue page that renders with no
+// courts on it looks exactly like a venue that has none, and nothing in the
+// response says otherwise.
+func TestThePublicProfileRefusesToServeWithNoCourtPort(t *testing.T) {
+	f := newFixture(t)
+	// The court port is the one dependency this service can be built without,
+	// so the fixture's is taken back off to reach the state a missing SetCourts
+	// leaves behind.
+	f.service.SetCourts(nil)
+	f.store.complex = &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo", IsActive: true}
+
+	defer func() {
+		if recover() == nil {
+			t.Error("a public profile served with no court port must panic, not answer a venue page with no courts on it")
+		}
+	}()
+
+	_, _ = f.service.GetPublic(t.Context(), "vibe-palermo")
+}

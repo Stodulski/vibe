@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
-	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/stores"
@@ -68,7 +67,7 @@ func setupIntegrationDB(t *testing.T) *pgxpool.Pool {
 type integrationFixture struct {
 	pool      *pgxpool.Pool
 	models    stores.Stores
-	handler   *Handler
+	service   *Service
 	complexID uuid.UUID
 	courtID   uuid.UUID
 	clientID  uuid.UUID
@@ -128,7 +127,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 	}
 
 	logger := slog.New(slog.NewTextHandler(&discard{}, nil))
-	f.handler = NewHandler(Dependencies{
+	f.service = NewService(Dependencies{
 		Payments:      f.models.Payments,
 		Bookings:      f.models.Bookings,
 		Clients:       &stubClients{},
@@ -142,7 +141,6 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 		Provider:      &stubProvider{},
 		Notify:        &stubNotifier{},
 		Realtime:      &stubBroadcaster{},
-		Respond:       httpx.NewResponder(logger),
 		Logger:        logger,
 		Run:           func(fn func()) { fn() },
 	}, Config{FrontendURL: "https://vibe.test", CancellationGracePeriod: 15 * time.Minute})
@@ -210,7 +208,7 @@ func TestTwoConcurrentSweepsClaimTheOrphanExactlyOnce(t *testing.T) {
 		go func() {
 			defer done.Done()
 			start.Wait() // release both goroutines as close to together as possible
-			f.handler.SweepOrphanedRefundIntents(context.Background())
+			f.service.SweepOrphanedRefundIntents(context.Background())
 		}()
 	}
 	start.Done()
@@ -285,7 +283,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 	mpPaymentID := "mp-" + uuid.NewString()
 	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_575.00}
 
-	if _, err := f.handler.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID); err != nil {
+	if _, err := f.service.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID); err != nil {
 		t.Fatalf("recording the payment owed a refund: %v", err)
 	}
 
@@ -316,7 +314,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 		t.Fatalf("backdating the marker: %v", err)
 	}
 
-	f.handler.SweepOrphanedRefundIntents(ctx)
+	f.service.SweepOrphanedRefundIntents(ctx)
 
 	// The fixture's complex has no MercadoPago credential, so the claim commits
 	// its attempt row and then refuses at sellerCredential — the attempt is the

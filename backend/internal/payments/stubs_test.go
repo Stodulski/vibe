@@ -88,6 +88,10 @@ type stubPayments struct {
 	// exactly the question a redelivery has to answer.
 	insertedRows []*paymentstore.Payment
 
+	// manualRefunds and manualRefundAmount back the cross-domain proxy above.
+	manualRefunds      int
+	manualRefundAmount int
+
 	claimed         []uuid.UUID
 	recordedSuccess []paymentstore.RefundClaim
 	// recordedSuccessManualOwed is the manualOwedCentavos each RecordRefundSuccess
@@ -204,6 +208,24 @@ func (s *stubPayments) remember(p *paymentstore.Payment) {
 	}
 	s.byBooking = p
 	s.byBookingAll = append(s.byBookingAll, p)
+}
+
+// Insert and RecordManualRefund are the two methods no rule in this module
+// calls: they exist on PaymentStore so Service can proxy the payment ledger for
+// the booking domain, and are recorded here so a test could see one if a rule
+// ever did reach for them.
+func (s *stubPayments) Insert(_ context.Context, p *paymentstore.Payment) error {
+	if p.ID == uuid.Nil {
+		p.ID = uuid.New()
+	}
+	s.insertedRows = append(s.insertedRows, p)
+	s.remember(p)
+	return nil
+}
+
+func (s *stubPayments) RecordManualRefund(_ context.Context, _ uuid.UUID) (int, error) {
+	s.manualRefunds++
+	return s.manualRefundAmount, nil
 }
 
 func (s *stubPayments) Update(_ context.Context, p *paymentstore.Payment) error {
@@ -703,6 +725,7 @@ func (s *stubBroadcaster) PublishBookingChanged(complexID uuid.UUID) {
 
 type fixture struct {
 	handler       *Handler
+	service       *Service
 	payments      *stubPayments
 	bookings      *stubBookings
 	clients       *stubClients
@@ -745,7 +768,7 @@ func newFixture(t *testing.T) *fixture {
 		logs:          logs,
 	}
 	logger := slog.New(slog.NewTextHandler(logs, nil))
-	f.handler = NewHandler(Dependencies{
+	f.service = NewService(Dependencies{
 		Payments:      f.payments,
 		Bookings:      f.bookings,
 		Clients:       f.clients,
@@ -760,10 +783,10 @@ func newFixture(t *testing.T) *fixture {
 		Notify:        f.notify,
 		Realtime:      f.realtime,
 		Audit:         f.audit,
-		Respond:       httpx.NewResponder(logger),
 		Logger:        logger,
 		Run:           func(fn func()) { fn() }, // inline, so tests observe the work
 	}, Config{FrontendURL: "https://vibe.test", CancellationGracePeriod: 15 * time.Minute, LinkTokenBuffer: 24 * time.Hour})
+	f.handler = NewHandler(f.service, f.provider, httpx.NewResponder(logger), logger)
 	return f
 }
 

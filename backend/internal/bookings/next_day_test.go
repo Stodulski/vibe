@@ -236,7 +236,7 @@ func TestSlotIsBlockedPutsBothSidesOnTheVenuesClock(t *testing.T) {
 	f.courts.block(courtID, local.AddDate(0, 0, 1), "00:00", "01:00")
 
 	startAt := slots.At(local, "23:00")
-	blocked, err := f.handler.slotIsBlocked(context.Background(), courtID, utcDate, startAt, startAt.Add(2*time.Hour))
+	blocked, err := f.service.slotIsBlocked(context.Background(), courtID, utcDate, startAt, startAt.Add(2*time.Hour))
 	if err != nil {
 		t.Fatalf("slotIsBlocked: %v", err)
 	}

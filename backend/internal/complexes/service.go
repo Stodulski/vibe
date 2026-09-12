@@ -109,6 +109,21 @@ func NewService(deps Dependencies, cfg Config) *Service {
 	}
 }
 
+// SetCourts supplies the court port after construction.
+//
+// It exists because this domain and the court domain read each other — the
+// public venue page lists a venue's courts, and every court read needs the
+// venue and its opening hours — so one of the two services has to be built
+// before the other exists. Courts takes this service at construction; this one
+// takes courts here, once, in cmd/api, before the router is built and therefore
+// before any request can be served. It is not a setter anything else may call:
+// there is no live reconfiguration behind it, and the only method that reads
+// the port panics while it is nil rather than answering a venue page with no
+// courts on it.
+func (s *Service) SetCourts(courts CourtStore) {
+	s.courts = courts
+}
+
 // record writes an audit entry for a change to a complex. Every write in this
 // module acts on the complex itself, so the entity type is fixed.
 func (s *Service) record(complexID uuid.UUID, actor Actor, action string, entityID *uuid.UUID, oldVal, newVal any) {
@@ -482,6 +497,15 @@ func (s *Service) GetPublic(ctx context.Context, slug string) (*PublicProfile, e
 // return every court the complex has ever had, so a retired court appeared on
 // the page with a price list and no slots to book it in.
 func (s *Service) publicCourts(ctx context.Context, complexID uuid.UUID) ([]CourtWithPrices, error) {
+	if s.courts == nil {
+		// Unreachable in a booted application: cmd/api calls SetCourts before
+		// the router is built, and nothing can reach this line before that.
+		// It panics rather than answering an empty court list, because a public
+		// venue page silently missing every court is a defect that looks like a
+		// venue with no courts.
+		panic("complexes: the court port was never set; call Service.SetCourts before serving")
+	}
+
 	courts, err := s.courts.GetByComplex(ctx, complexID)
 	if err != nil {
 		return nil, err

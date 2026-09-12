@@ -29,6 +29,12 @@ import (
 // PaymentStore is the payment persistence this module uses.
 type PaymentStore interface {
 	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
+	// Insert and RecordManualRefund are used by no rule in this module: they
+	// are here because the booking domain reaches the payment ledger through
+	// Service rather than through the payment store, and a service cannot
+	// proxy a method its own store interface does not declare.
+	Insert(ctx context.Context, p *paymentstore.Payment) error
+	RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (returnedCentavos int, err error)
 	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
 	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
 	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
@@ -77,10 +83,10 @@ type LinkMinter interface {
 	Mint(ctx context.Context, bookingID uuid.UUID, expiresAt time.Time) (plaintext string, err error)
 }
 
-// ClientStore is the client side: a confirmed booking updates their counters.
+// ClientStore is the client side: a confirmed booking names them in its
+// notification.
 type ClientStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
-	Update(ctx context.Context, c *clientstore.Client) error
 }
 
 // ComplexReader supplies the complex, including the seller credentials a
@@ -167,8 +173,14 @@ type Config struct {
 	LinkTokenBuffer time.Duration
 }
 
-// Handler serves the payment webhook and owns the refund flows.
-type Handler struct {
+// Service holds this module's rules: how a provider notification becomes a
+// confirmed booking, how a cancellation gives captured money back, and what a
+// refund the provider refused is owed to the client. Every store call, every
+// provider call and every audit entry of the payment domain goes through it.
+//
+// It is also where the background entrypoints live — the schedulers in cmd/api
+// call them directly, because none of them is an HTTP concern.
+type Service struct {
 	payments      PaymentStore
 	bookings      BookingStore
 	clients       ClientStore
@@ -183,14 +195,13 @@ type Handler struct {
 	notify        Notifier
 	realtime      Broadcaster
 	audit         Recorder
-	respond       *httpx.Responder
 	logger        *slog.Logger
 	cfg           Config
 	// run schedules background work on the application's tracked goroutines.
 	run func(func())
 }
 
-// Dependencies groups what NewHandler needs, because the list is long enough
+// Dependencies groups what NewService needs, because the list is long enough
 // that a positional call would be unreadable and easy to mis-order.
 type Dependencies struct {
 	Payments      PaymentStore
@@ -207,22 +218,21 @@ type Dependencies struct {
 	Notify        Notifier
 	Realtime      Broadcaster
 	Audit         Recorder
-	Respond       *httpx.Responder
 	Logger        *slog.Logger
 	Run           func(func())
 }
 
-// NewHandler returns a Handler.
-func NewHandler(d Dependencies, cfg Config) *Handler {
+// NewService returns a Service backed by the given dependencies.
+func NewService(d Dependencies, cfg Config) *Service {
 	// A nil recorder is refused here rather than left to panic at the first
 	// refund — or, worse, made nil-safe. An audit trail that silently drops
 	// entries is the one kind of broken this table cannot survive: it still
 	// answers every query, and every answer is short. Failing at construction
 	// is what makes "there is no entry" mean "it did not happen".
 	if d.Audit == nil {
-		panic("payments: NewHandler needs an audit recorder; the money path's entries are not optional")
+		panic("payments: NewService needs an audit recorder; the money path's entries are not optional")
 	}
-	return &Handler{
+	return &Service{
 		payments:      d.Payments,
 		bookings:      d.Bookings,
 		clients:       d.Clients,
@@ -237,10 +247,32 @@ func NewHandler(d Dependencies, cfg Config) *Handler {
 		notify:        d.Notify,
 		realtime:      d.Realtime,
 		audit:         d.Audit,
-		respond:       d.Respond,
 		logger:        d.Logger,
 		cfg:           cfg,
 		run:           d.Run,
+	}
+}
+
+// Handler serves the payment webhook. It caps the body, verifies MercadoPago's
+// signature and decides what the provider is told; the delivery itself and
+// everything that follows from it belong to the Service.
+type Handler struct {
+	svc *Service
+	// provider is held for VerifyWebhookSignature alone: the signature is an
+	// HTTP concern — it is computed over the request — so it is checked here,
+	// before a single byte reaches the service.
+	provider Provider
+	respond  *httpx.Responder
+	logger   *slog.Logger
+}
+
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, provider Provider, respond *httpx.Responder, logger *slog.Logger) *Handler {
+	return &Handler{
+		svc:      svc,
+		provider: provider,
+		respond:  respond,
+		logger:   logger,
 	}
 }
 
@@ -251,4 +283,44 @@ func NewHandler(d Dependencies, cfg Config) *Handler {
 // anything else out of the body.
 func (h *Handler) Routes(router httpx.Router, _ httpx.Guards) {
 	router.HandlerFunc(http.MethodPost, "/api/v1/webhooks/mercadopago", h.MercadoPagoWebhook)
+}
+
+// ---------------------------------------------------------------------------
+// The payment ledger, as the booking domain reads and writes it
+// ---------------------------------------------------------------------------
+//
+// Each carries the store's own signature, so *Service satisfies the
+// bookings.PaymentStore interface that domain declares for itself. A method
+// that only proxies the store is deliberate: the point is that the entry point
+// into this domain is the service, so a rule added later lands in one place.
+
+// Insert records a payment. Exported for bookings, which creates the pending
+// MercadoPago row and the owner's cash/transfer rows.
+func (s *Service) Insert(ctx context.Context, p *paymentstore.Payment) error {
+	return s.payments.Insert(ctx, p)
+}
+
+// GetByBookingID returns a booking's MercadoPago-preferred payment row.
+// Exported for bookings.
+func (s *Service) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error) {
+	return s.payments.GetByBookingID(ctx, bookingID)
+}
+
+// ListByBookingID returns a booking's whole payment ledger. Exported for
+// bookings, whose detail view and cancellation preview both read every row.
+func (s *Service) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error) {
+	return s.payments.ListByBookingID(ctx, bookingID)
+}
+
+// InsertAndConfirmBooking records a payment and confirms its booking in one
+// transaction. Exported for bookings, whose counter-payment path uses it.
+func (s *Service) InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error {
+	return s.payments.InsertAndConfirmBooking(ctx, payment, booking)
+}
+
+// RecordManualRefund closes out a partial refund's remaining cash/transfer
+// rows. Exported for bookings, which is where the owner confirms they handed
+// the money back.
+func (s *Service) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (int, error) {
+	return s.payments.RecordManualRefund(ctx, bookingID)
 }

@@ -2,18 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/getsentry/sentry-go"
-
-	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
-	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
-	"github.com/stodulski/vibe-server/internal/mp"
-	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/scheduler"
-	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // startCronJobs hands the recurring jobs to the scheduler, which owns the
@@ -48,9 +40,9 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("release_expired_payments", 5*time.Minute, app.cronReleaseExpiredPayments),
 		job("clean_slot_locks", 5*time.Minute, app.cronCleanSlotLocks),
 		job("report_queue_depth", 5*time.Minute, app.cronReportQueueDepth),
-		job("retry_refunds", 2*time.Minute, app.payments.RetryFailedRefunds),
-		job("sweep_webhook_events", 2*time.Minute, app.payments.ProcessPendingWebhookEvents),
-		job("sweep_refund_intents", 2*time.Minute, app.payments.SweepOrphanedRefundIntents),
+		job("retry_refunds", 2*time.Minute, app.paymentsService.RetryFailedRefunds),
+		job("sweep_webhook_events", 2*time.Minute, app.paymentsService.ProcessPendingWebhookEvents),
+		job("sweep_refund_intents", 2*time.Minute, app.paymentsService.SweepOrphanedRefundIntents),
 		job("sweep_booking_link_tokens", 2*time.Minute, app.cronCleanBookingLinkTokens),
 		job("complete_bookings", 30*time.Minute, app.cronCompleteBookings),
 		job("refresh_mp_tokens", 12*time.Hour, app.cronRefreshMPTokens),
@@ -138,147 +130,19 @@ func (app *application) cronReportQueueDepth(ctx context.Context) {
 	}
 }
 
-// cronReminder2h sends 2-hour reminder notifications (email + optionally WhatsApp).
-// Reminders are informational only — bookings are never auto-cancelled for lack of confirmation.
+// cronReminder2h sends the 2-hour reminder notifications.
+//
+// The sweep itself lives in bookings.Service, beside the rules it shares with
+// the request paths. This wrapper exists so the scheduler still names one
+// method per job.
 func (app *application) cronReminder2h(ctx context.Context) {
-	// time.Now() and not timezone.Now(): the store compares instants, so the
-	// location this value carries changes nothing. Argentina enters the
-	// calculation once, inside booking_starts_at, where the stored date and
-	// start_time are read as local wall clock.
-	bookings, err := app.models.Bookings.GetForReminder2hEnriched(ctx, time.Now())
-	if err != nil {
-		app.logger.Error("cron_reminder_2h: failed to get bookings", "error", err)
-		return
-	}
-
-	sent := 0
-	for _, b := range bookings {
-		if err := app.models.Bookings.MarkReminderSent2h(ctx, b.ID); err != nil {
-			app.logger.Error("cron_reminder_2h: failed to mark sent", "error", err, "booking_id", b.ID)
-			continue
-		}
-
-		// A fresh access token per reminder, rather than the one the booking
-		// was confirmed with: booking_link_tokens stores only a hash, so the
-		// plaintext minted at confirmation is unreadable from here — see
-		// booklinkstore.Store.Mint on why every process that emits a link
-		// mints its own row. A mint that fails costs the WhatsApp cancel
-		// button and nothing else: the reminder still goes out, by email and
-		// without the button, rather than not at all.
-		cancelPath, cancelURL := "", ""
-		token, mintErr := app.models.BookingLinkTokens.Mint(ctx, b.ID, b.EndsAt.Add(app.config.booking.linkTokenBuffer))
-		if mintErr != nil {
-			app.logger.Error("cron_reminder_2h: failed to mint a cancel link, sending the reminder without one",
-				"error", mintErr, "booking_id", b.ID)
-		} else {
-			cancelPath = booklink.CancelPath(b.ComplexSlug, token)
-			cancelURL = booklink.Cancel(app.config.frontendURL, b.ComplexSlug, token)
-		}
-
-		app.notify.ReminderDue(notifications.Reminder{
-			Email:       b.ClientEmail,
-			Phone:       b.ClientPhone,
-			ComplexName: b.ComplexName,
-			CourtName:   b.CourtName,
-			Date:        b.Date.Format("02/01"),
-			StartTime:   timezone.HoursLabel(b.StartsAt, b.EndsAt),
-			Address:     complexAddress(b),
-			// What is left to pay at the venue. Two hours out this is the fact
-			// a client acts on, and the confirmation that carried it went out
-			// days ago.
-			BalanceAmount: notifications.BalanceAmount(b.Price, b.DepositAmount, b.CollectionStatus),
-			MapsQuery:     booklink.MapsQuery(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
-			MapsURL:       booklink.MapsURL(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
-			CancelPath:    cancelPath,
-			CancelURL:     cancelURL,
-		})
-
-		app.logger.Info("cron_reminder_2h: sent reminder", "booking_id", b.ID)
-		sent++
-	}
-
-	app.logger.Info("cron_reminder_2h: completed", "candidates", len(bookings), "sent", sent)
+	app.bookingsService.Reminder2h(ctx)
 }
 
-// cronReleaseExpiredPayments cancels public bookings that remain unpaid after 15 minutes.
+// cronReleaseExpiredPayments cancels public bookings that remain unpaid past
+// the payment window. The sweep lives in bookings.Service; see cronReminder2h.
 func (app *application) cronReleaseExpiredPayments(ctx context.Context) {
-	bookings, err := app.models.Bookings.GetExpiredPendingEnriched(ctx, app.config.booking.paymentExpiry)
-	if err != nil {
-		app.logger.Error("cron_release_expired_payments: failed to get bookings", "error", err)
-		return
-	}
-
-	released := 0
-	for _, b := range bookings {
-		// Expire the MP preference FIRST so the client can't pay while we cancel.
-		payment, perr := app.models.Payments.GetByBookingID(ctx, b.ID)
-		if perr == nil && payment.MPPreferenceID != nil && *payment.MPPreferenceID != "" {
-			// Who the expiry call is made as. Any credential this sweep cannot
-			// read leaves the platform as the only party left to ask, and
-			// MercadoPago rejecting that costs one failed call — cheaper than
-			// leaving a payable link on a booking nobody holds. The arm is
-			// written out because it used to be what an empty token quietly
-			// meant inside mp.UpdatePreferenceExpired.
-			caller := mp.AsPlatform()
-			if tok, err := b.SellerAccessToken(); err == nil {
-				if seller, callerErr := mp.AsSeller(tok); callerErr == nil {
-					caller = seller
-				}
-			}
-			if expErr := app.mp.UpdatePreferenceExpired(ctx, *payment.MPPreferenceID, caller); expErr != nil {
-				app.logger.Error("cron_release_expired_payments: first attempt to expire MP preference failed, retrying",
-					"error", expErr, "booking_id", b.ID)
-				// Retry with short backoff — non-blocking to other bookings in the batch.
-				retryCtx, retryCancel := context.WithTimeout(ctx, 10*time.Second)
-				if retryErr := app.mp.UpdatePreferenceExpired(retryCtx, *payment.MPPreferenceID, caller); retryErr != nil {
-					app.logger.Error("cron_release_expired_payments: retry failed to expire MP preference",
-						"error", retryErr, "booking_id", b.ID, "preference_id", *payment.MPPreferenceID)
-					sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION FAILED (client may still pay): booking_id=%s preference_id=%s", b.ID, *payment.MPPreferenceID))
-				}
-				retryCancel()
-			}
-		}
-
-		// Cancel booking after preference is expired.
-		b.Status = "cancelled"
-		notes := fmt.Sprintf("Cancelado automáticamente: tiempo de pago expirado (%v)", app.config.booking.paymentExpiry)
-		if b.Notes != nil {
-			notes = *b.Notes + " | " + notes
-		}
-		b.Notes = &notes
-
-		if err := app.models.Bookings.Update(ctx, &b.Booking); err != nil {
-			app.logger.Error("cron_release_expired_payments: failed to cancel booking", "error", err, "booking_id", b.ID)
-			continue
-		}
-
-		//nolint:contextcheck // notifyBookingChanged->publish is a fire-and-forget SSE broadcast
-		// with its own bounded 2s internal Redis timeout (see sse.go); it must not be cancelled
-		// by the ctx of this cron job (which itself has its own bounded lifetime, unrelated to
-		// the broadcast). Same shared-helper shape as the payments/bookings call sites (PR2b/2c-i).
-		app.events.PublishBookingChanged(b.ComplexID)
-
-		app.notify.BookingCancelled(notifications.Cancellation{
-			Email:       b.ClientEmail,
-			Phone:       b.ClientPhone,
-			ComplexName: b.ComplexName,
-			CourtName:   b.CourtName,
-			Date:        b.Date.Format("02/01"),
-			StartTime:   timezone.HoursLabel(b.StartsAt, b.EndsAt),
-			// This booking was never paid, so none of the six refund outcomes
-			// applies and there is no amount. The client's question here is
-			// why their booking vanished, which the generic cancellation copy
-			// never answered.
-			RefundLine: notifications.ExpiredUnpaidRefundLine,
-			BookPath:   booklink.BookPath(b.ComplexSlug),
-			BookURL:    booklink.Book(app.config.frontendURL, b.ComplexSlug),
-		})
-
-		app.logger.Info("cron_release_expired_payments: released expired booking", "booking_id", b.ID)
-		released++
-	}
-
-	app.logger.Info("cron_release_expired_payments: completed", "candidates", len(bookings), "released", released)
+	app.bookingsService.ReleaseExpiredPayments(ctx)
 }
 
 // cronCleanExpiredTokens deletes expired refresh and verification tokens.
@@ -301,35 +165,17 @@ func (app *application) cronCleanUnverifiedUsers(ctx context.Context) {
 	app.logger.Info("cron_clean_unverified_users: completed")
 }
 
-// cronCompleteBookings marks past confirmed bookings as completed.
+// cronCompleteBookings marks past confirmed bookings as completed. The sweep
+// lives in bookings.Service; see cronReminder2h.
 func (app *application) cronCompleteBookings(ctx context.Context) {
-	count, err := app.models.Bookings.CompletePastBookings(ctx)
-	if err != nil {
-		app.logger.Error("cron_complete_bookings: failed", "error", err)
-		return
-	}
-	app.logger.Info("cron_complete_bookings: completed", "count", count)
+	app.bookingsService.CompletePastBookings(ctx)
 }
 
-// bookingLinkTokenRetention is how long past its stored expiry a terminal
-// booking's link token is kept before the sweep deletes it. Purely
-// housekeeping — DeleteExpiredTerminal's terminal-status predicate already
-// guarantees a live booking's token is never touched, so this window exists
-// only to keep the table from growing without bound, not to protect a link
-// still in use.
-const bookingLinkTokenRetention = 24 * time.Hour
-
-// cronCleanBookingLinkTokens deletes booking link tokens whose booking has
-// reached a terminal state and whose stored expiry is safely in the past. See
-// internal/data/booking_link_tokens.go's DeleteExpiredTerminal: a pending or
-// confirmed booking's token is never touched here, however old, so a sweep
-// can never turn a live link into a 404.
+// cronCleanBookingLinkTokens deletes the link tokens of bookings that have
+// reached a terminal state. The sweep, and the retention window it uses
+// (bookings.LinkTokenRetention), live in bookings.Service; see cronReminder2h.
 func (app *application) cronCleanBookingLinkTokens(ctx context.Context) {
-	if err := app.models.BookingLinkTokens.DeleteExpiredTerminal(ctx, bookingLinkTokenRetention); err != nil {
-		app.logger.Error("cron_clean_booking_link_tokens: failed", "error", err)
-		return
-	}
-	app.logger.Info("cron_clean_booking_link_tokens: completed")
+	app.bookingsService.CleanLinkTokens(ctx)
 }
 
 // cronCleanSlotLocks removes expired slot locks to free up slots.
@@ -406,14 +252,4 @@ func (app *application) cronCleanFailedRefunds(ctx context.Context) {
 // job.
 func (app *application) cronRefreshMPTokens(ctx context.Context) {
 	app.complexesService.RefreshMPTokens(ctx)
-}
-
-// complexAddress is the venue's address as a person reads it, city included.
-//
-// A complex with no address on file yields the empty string rather than a
-// stray comma, and internal/mailer and the WhatsApp reminder both leave the
-// line out when it is empty. It delegates to booklink.Address, which the
-// confirmation email now needs the same join from.
-func complexAddress(b *bookingstore.CronBooking) string {
-	return booklink.Address(b.ComplexAddress, b.ComplexCity)
 }
