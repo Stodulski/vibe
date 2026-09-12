@@ -30,6 +30,24 @@ describe('availabilityDataSchema', () => {
   });
 });
 
+describe('availabilityDataSchema — unknown vocabulary', () => {
+  it('keeps the whole grid when one court is in a sport this build predates', () => {
+    // The public slot grid is the revenue path: an unknown sport must cost
+    // that court its label, not the day's availability.
+    const withNewSport = {
+      ...validAvailability,
+      day: 'quintaday',
+      courts: [
+        { ...validAvailability.courts[0], sport: 'pickleball', court_type: 'covered_roof' },
+        ...validAvailability.courts.slice(1),
+      ],
+    };
+    const result = availabilityDataSchema.safeParse(withNewSport);
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.courts[0]?.sport).toBe('pickleball');
+  });
+});
+
 describe('availabilityEnvelopeSchema', () => {
   it('validates publicBookingApi.getAvailability response shape', () => {
     const result = availabilityEnvelopeSchema.safeParse({ availability: validAvailability });

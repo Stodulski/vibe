@@ -1,4 +1,5 @@
 import type { DurationMinutes } from './court';
+import type { Payment } from './payment';
 import type { Body, Ok, Spec } from './spec';
 
 // ─── Booking ───
@@ -85,10 +86,20 @@ export type CancelBookingResponse = Omit<Ok<'bookingsCancel'>, 'booking'> & { bo
 
 export type ConfirmPaymentRequest = Body<'bookingsConfirmPayment'>;
 
-export type ConfirmPaymentResponse = Omit<Ok<'bookingsConfirmPayment'>, 'booking'> & { booking: Booking };
+export type ConfirmPaymentResponse = Omit<Ok<'bookingsConfirmPayment'>, 'booking' | 'payment'> & {
+  booking: Booking;
+  payment: Payment;
+};
 
 export type BookingsListResponse = Omit<Ok<'bookingsList'>, 'bookings'> & { bookings: Booking[] };
 
-export type BookingDetailResponse = Omit<Ok<'bookingsGet'>, 'booking'> & { booking: Booking };
+export type BookingDetailResponse = Omit<Ok<'bookingsGet'>, 'booking' | 'payment' | 'payments'> & {
+  booking: Booking;
+  payment?: Payment;
+  payments: Payment[];
+};
 
-export type ManualRefundResponse = Omit<Ok<'bookingsManualRefund'>, 'booking'> & { booking: Booking };
+export type ManualRefundResponse = Omit<Ok<'bookingsManualRefund'>, 'booking' | 'payments'> & {
+  booking: Booking;
+  payments: Payment[];
+};

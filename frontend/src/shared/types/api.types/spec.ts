@@ -20,6 +20,24 @@ import type { components, operations } from '../api.generated';
  */
 export type Spec<K extends keyof components['schemas']> = components['schemas'][K];
 
+/**
+ * A closed vocabulary the document declares, reopened for reading.
+ *
+ * The server owns these lists and can grow one in a deploy the client has
+ * not seen — a new payment method, a new sport. Parsing such a value as a
+ * hard failure takes the whole response down: one court with an unknown
+ * sport would empty the public slot grid, and one stored payment row with a
+ * retired status would blank a booking's detail panel. So response schemas
+ * accept any string and the type keeps the known members for autocomplete
+ * and for `switch`/lookup exhaustiveness, while saying out loud that an
+ * unknown one can arrive — every consumer of these fields already falls back
+ * to rendering the raw value.
+ *
+ * Request bodies keep the closed union: sending an unknown member is the
+ * client's own bug, and the server answers it with a 422 either way.
+ */
+export type Open<T extends string> = T | (string & {});
+
 /** The `application/json` body an operation answers 2xx with. */
 export type Ok<K extends keyof operations> =
   operations[K]['responses'] extends { 200: { content: { 'application/json': infer B } } }
