@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { AdminUserRow } from '@/shared/types/api.types';
+import { ResultCountAnnouncer } from '@/shared/components/common/ResultCountAnnouncer';
 import { MobileUserCard } from './MobileUserCard';
 import { DesktopUsersTable } from './DesktopUsersTable';
 
@@ -21,6 +22,8 @@ export function UsersTableResults({
 }: UsersTableResultsProps) {
   return (
     <>
+      <ResultCountAnnouncer count={users.length} />
+
       {/* Mobile card view */}
       <div className="flex flex-col gap-2 md:hidden">
         {users.map((user) => (

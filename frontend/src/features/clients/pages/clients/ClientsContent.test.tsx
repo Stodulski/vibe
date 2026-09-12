@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ClientsContent } from './ClientsContent';
+import { makeClient } from '@/test/factories';
 
 const baseProps = {
   isLoading: false,
@@ -18,6 +19,16 @@ describe('ClientsContent', () => {
   it('shows the empty state when there are no clients and no error', () => {
     render(<ClientsContent {...baseProps} />);
     expect(screen.getByText('Todavía no hay clientes registrados')).toBeInTheDocument();
+  });
+
+  // The grid grows as you scroll and shrinks as you filter, with nothing to
+  // announce either (A11Y-07).
+  it('announces how many clients the grid is showing', () => {
+    const clients = [makeClient({ id: 'c1' }), makeClient({ id: 'c2' })];
+    render(<ClientsContent {...baseProps} clients={clients} />);
+
+    const region = screen.getByText('2 resultados');
+    expect(region).toHaveAttribute('aria-live', 'polite');
   });
 
   it('shows the error state instead of the empty state when the query fails', () => {
