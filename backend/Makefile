@@ -61,6 +61,19 @@ test/cover/html: test/cover
 lint:
 	golangci-lint run
 
+## generate/api: regenerate internal/openapi/gen from the OpenAPI document
+# The generator is the version pinned by the `tool` directive in go.mod, run
+# through `go tool`, never one from $PATH: a binary somebody installed by hand
+# generates different code on every machine that has a different one, and on a
+# fresh CI runner it is not installed at all. Its whole configuration lives in
+# internal/openapi/oapi-codegen.yaml.
+#
+# The generated package is committed, and the lint job re-runs this target and
+# refuses a diff, so the code and the document cannot drift apart.
+.PHONY: generate/api
+generate/api:
+	go tool oapi-codegen -config internal/openapi/oapi-codegen.yaml internal/openapi/openapi.yaml
+
 ## lint/openapi: check the embedded OpenAPI document loads and validates.
 # Route-vs-document parity (every registered route documented, and vice
 # versa) needs the application's route table and lives in

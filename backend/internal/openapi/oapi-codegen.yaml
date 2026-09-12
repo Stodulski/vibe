@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/v2.8.0/configuration-schema.json
+#
+# The generator's whole configuration. `make generate/api` runs oapi-codegen —
+# the version pinned by the `tool` directive in go.mod, never one from $PATH —
+# over internal/openapi/openapi.yaml with this file, and CI re-runs it and
+# refuses a diff, so the generated package cannot drift from the document.
+#
+# Paths are relative to the module root, because that is where make runs.
+package: gen
+output: internal/openapi/gen/gen.go
+
+generate:
+  # Request and response bodies, parameter sets and every named component
+  # schema, as Go types. This is the half the handlers decode into and encode
+  # from.
+  models: true
+
+output-options:
+  # The document's own components are the contract; pruning them to whatever
+  # the operations happen to reference would make the generated package change
+  # shape whenever an operation is edited.
+  skip-prune: true
