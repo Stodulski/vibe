@@ -203,12 +203,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.VerifyEmail(r.Context(), input.Token)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrInvalidToken):
-			h.respond.Error(w, r, http.StatusBadRequest, "invalid or expired verification token")
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -351,12 +346,7 @@ func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.DeleteAccount(r.Context(), h.actor(r), user, accessToken)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrActiveBookings):
-			h.respond.Error(w, r, http.StatusConflict, "cannot delete account while you have active bookings, cancel them first")
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -533,12 +523,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.ResetPassword(r.Context(), h.actor(r), input.Token, input.Password)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrInvalidToken):
-			h.respond.Error(w, r, http.StatusBadRequest, "invalid or expired reset token")
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainErrorWith(w, r, err, "invalid or expired reset token")
 		return
 	}
 

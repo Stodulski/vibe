@@ -210,10 +210,33 @@ type Config struct {
 // lives in the Service.
 type Handler struct {
 	svc     *Service
-	respond *httpx.Responder
+	respond *httpx.Refuser
 	logger  *slog.Logger
 	cfg     Config
 }
+
+// refusals is this module's whole error-to-status table: every domain error of
+// its own that is a refusal rather than a fault, and the status and message it
+// earns. Everything absent from it — the shared sentinels, and the errors this
+// module answers as a validation failure or a 401 rather than as a status of
+// their own — is answered elsewhere.
+//
+// ErrInvalidToken is the entry with two messages: it is the same failure for an
+// email verification link and for a password reset link, but the person reading
+// it needs to know which link died, so each handler overrides the message
+// through DomainErrorWith and keeps this status.
+var refusals = httpx.Refusals{
+	ErrInvalidToken: httpx.BadRequest("invalid or expired verification token"),
+	ErrActiveBookings: httpx.Conflict(
+		"cannot delete account while you have active bookings, cancel them first"),
+	ErrAccountExists:        httpx.Conflict("account already exists"),
+	googleid.ErrUnavailable: httpx.Unavailable("google sign-in is temporarily unavailable"),
+}
+
+// googleNotConfigured is the answer both Google routes give while
+// GOOGLE_OAUTH_CLIENT_ID is empty. It is a guard rather than a domain error —
+// there is no call to fail — so it has no entry in the table above.
+var googleNotConfigured = httpx.Unavailable("google sign-in is not configured")
 
 // Dependencies groups what NewService needs. It is a struct because the list is
 // thirteen long, and a positional call at that width is unreadable and easy to
@@ -246,7 +269,7 @@ type Dependencies struct {
 func NewHandler(svc *Service, respond *httpx.Responder, logger *slog.Logger, cfg Config) *Handler {
 	return &Handler{
 		svc:     svc,
-		respond: respond,
+		respond: respond.WithRefusals(refusals),
 		logger:  logger,
 		cfg:     cfg,
 	}

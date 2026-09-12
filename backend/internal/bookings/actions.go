@@ -1,11 +1,9 @@
 package bookings
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
-	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -104,18 +102,9 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 		Amount: input.Amount,
 	})
 	if err != nil {
-		// H-15 / R4: the status check inside the service runs against a read
-		// taken before the store's own transaction opened, so a client
-		// cancellation landing in that gap used to fall through every named
-		// case and answer 500 — after the owner had already taken the client's
-		// cash at the counter, with no way to tell whether it was recorded.
-		// These two sentinels are the re-read inside InsertAndConfirmBooking's
-		// own transaction catching exactly that race; naming them turns it into
-		// a 409 the owner can act on.
-		if errors.Is(err, bookingstore.ErrBookingNotConfirmable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
-			h.respond.Error(w, r, http.StatusConflict, confirmPaymentRaceMessage)
-			return
-		}
+		// The two sentinels this path is most easily got wrong on — the
+		// confirm-payment race of H-15 / R4 — are named in the module's
+		// refusals table, so refuse answers them 409 rather than 500.
 		h.refuse(w, r, err)
 		return
 	}

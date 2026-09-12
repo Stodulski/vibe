@@ -178,14 +178,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Description: input.Description,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		case errors.Is(err, ErrEditConflict):
-			h.respond.EditConflict(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -209,20 +202,14 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.Delete(r.Context(), complex.ID, h.actor(r), courtID)
 	if err != nil {
-		switch {
-		case errors.Is(err, courtstore.ErrCourtHasActiveBookings):
-			h.respond.Error(w, r, http.StatusConflict, "cannot delete court while it has active bookings, cancel them first")
 		// SoftDelete's WHERE clause can also match nothing because the row
 		// disappeared between the service's own lookup and the delete, or
 		// because a concurrent delete already soft-deleted it — the ordinary
-		// lookup race, not the has-bookings conflict. See SoftDelete's own
-		// comment (internal/courts/store/courts.go) for why the three zero-row
-		// causes are no longer conflated into one sentinel.
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		// lookup race, not the has-bookings conflict, so it answers 404 through
+		// the shared sentinel. See SoftDelete's own comment
+		// (internal/courts/store/courts.go) for why the three zero-row causes
+		// are no longer conflated into one sentinel.
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -435,21 +422,7 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		CreatedBy: user.ID,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		case errors.Is(err, courtstore.ErrSlotAlreadyBlocked):
-			h.respond.Error(w, r, http.StatusConflict, "this time range already has a blocked slot")
-		case errors.Is(err, courtstore.ErrSlotHasBooking):
-			// One sentence for one collision. A client cannot be told two
-			// different things about it depending on which of the service's
-			// two checks happened to see it — the only difference between them
-			// is that one ran inside the transaction, which is not something
-			// the owner can act on.
-			h.respond.Error(w, r, http.StatusConflict, blockedSlotHasBookingMessage)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 

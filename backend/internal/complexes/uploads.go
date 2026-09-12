@@ -1,13 +1,11 @@
 package complexes
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -67,12 +65,7 @@ func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
 
 	upload, err := h.svc.PresignUpload(r.Context(), complex.ID, input.Type, input.ContentType, input.FileSize)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrUploadsNotConfigured):
-			h.respond.Error(w, r, http.StatusNotImplemented, "image uploads are not configured")
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -113,19 +106,12 @@ func (h *Handler) DeleteUpload(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.DeleteUpload(r.Context(), complex.ID, input.URL)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrUploadsNotConfigured):
-			h.respond.Error(w, r, http.StatusNotImplemented, "image uploads are not configured")
-		case errors.Is(err, ErrForeignObject):
-			h.respond.Error(w, r, http.StatusBadRequest, "URL does not belong to this storage")
 		// A mismatch answers 404, not 403, matching the convention documented
 		// in internal/clients: 403 would confirm the object exists and turn
-		// this endpoint into a probe for another tenant's storage keys.
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		// this endpoint into a probe for another tenant's storage keys. That
+		// is the shared data.ErrRecordNotFound answer, so it needs no entry of
+		// its own here.
+		h.respond.DomainError(w, r, err)
 		return
 	}
 

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 // Places API (New) statuses this proxy treats specially. Every other status
@@ -72,24 +74,29 @@ func (e *upstreamError) Error() string {
 	return msg
 }
 
-// clientStatus is the status the browser receives for this failure.
+// refusal is the status and message the browser receives for this failure.
 //
 // Collapsing every upstream outcome onto one status hides which side broke: a
 // 200 with an empty list says the address simply does not exist, and a 500 says
 // this service has a bug. Neither is true when Google is rate limiting us or is
 // down, and a caller told the wrong thing retries the wrong way — or gives up
 // on an address that is fine.
-func (e *upstreamError) clientStatus() int {
+//
+// The message describes the dependency rather than naming Google, because which
+// geocoder is behind this proxy is not the browser's business. It travels with
+// the status because the two were derived from the same three cases and could
+// not be allowed to disagree about which case this is.
+func (e *upstreamError) refusal() httpx.Refusal {
 	switch {
-	case e.apiStatus == apiStatusResourceExhausted, e.httpStatus == http.StatusTooManyRequests:
+	case e.apiStatus == apiStatusResourceExhausted, e.httpStatus == upstreamRateLimited:
 		// The platform's own quota, not the caller's — but backing off is
 		// still the only useful response, and 429 is the only status that
 		// says so.
-		return http.StatusTooManyRequests
+		return httpx.TooManyRequests("the address lookup service is rate limited, please retry shortly")
 	case e.apiStatus == apiStatusNotFound:
 		// Only Details can produce this, and only for a place_id the caller
 		// supplied, so it is the caller's input that is wrong.
-		return http.StatusNotFound
+		return httpx.NotFound("the requested place could not be found")
 	case e.apiStatus == apiStatusPermissionDenied:
 		// The key's Cloud project does not have Places API (New) enabled (or
 		// the key is otherwise restricted against this call) — still this
@@ -99,27 +106,22 @@ func (e *upstreamError) clientStatus() int {
 		// e.apiStatus's logged value and this branch both name the cause an
 		// operator actually needs: "the key isn't enabled for this API",
 		// distinguishable in logs from a plain outage.
-		return http.StatusBadGateway
+		return httpx.BadGateway(upstreamUnavailableMessage)
 	default:
 		// Everything else — 5xx, an unreadable body, an unrecognized status —
 		// is this service failing to get an answer out of a dependency.
-		return http.StatusBadGateway
+		return httpx.BadGateway(upstreamUnavailableMessage)
 	}
 }
 
-// message is the text sent with clientStatus. It describes the dependency
-// rather than naming Google, because which geocoder is behind this proxy is not
-// the browser's business.
-func (e *upstreamError) message() string {
-	switch e.clientStatus() {
-	case http.StatusTooManyRequests:
-		return "the address lookup service is rate limited, please retry shortly"
-	case http.StatusNotFound:
-		return "the requested place could not be found"
-	default:
-		return "the address lookup service is unavailable"
-	}
-}
+// upstreamUnavailableMessage is what the browser is told for every failure that
+// is this service's problem to solve rather than the caller's.
+const upstreamUnavailableMessage = "the address lookup service is unavailable"
+
+// upstreamRateLimited is the status Google answers with when it is throttling
+// us. It is the upstream's status, not one this API chooses, which is why it is
+// read here rather than built from internal/httpx.
+const upstreamRateLimited = http.StatusTooManyRequests
 
 // readBounded reads body up to maxResponseBytes. A hostile or broken upstream
 // must not be able to make this process read an unbounded body.
@@ -188,8 +190,8 @@ func (h *Handler) failUpstream(w http.ResponseWriter, r *http.Request, err error
 	if !errors.As(err, &ue) {
 		// A transport failure or an unreadable body: no answer came back, so
 		// this service is a failing gateway, not a broken one.
-		ue = &upstreamError{httpStatus: http.StatusBadGateway}
+		ue = &upstreamError{}
 	}
 
-	h.respond.Error(w, r, ue.clientStatus(), ue.message())
+	h.respond.Refuse(w, r, ue.refusal())
 }

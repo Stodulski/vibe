@@ -343,7 +343,7 @@ func (m *Middleware) LogRequests(next http.Handler) http.Handler {
 // What sampling never touches: anything that failed, and anything slow. Those
 // are the lines the endpoint was built for.
 func (m *Middleware) shouldLog(status int, d time.Duration) bool {
-	if status >= http.StatusBadRequest || d >= slowRequest {
+	if httpx.IsErrorStatus(status) || d >= slowRequest {
 		return true
 	}
 	if m.cfg.RequestLogSample <= 1 {

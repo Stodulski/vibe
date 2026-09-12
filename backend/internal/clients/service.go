@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +17,7 @@ import (
 // row the update aimed at was gone by the time it ran. It is distinct from
 // data.ErrRecordNotFound, which means the client was never this complex's to
 // begin with, because the two answer the caller differently.
-var ErrEditConflict = errors.New("client changed before the update")
+var ErrEditConflict = fmt.Errorf("client changed before the update: %w", data.ErrEditConflict)
 
 // Service holds this module's rules. The important one is the tenant check: a
 // client record belongs to exactly one complex, and a record under another

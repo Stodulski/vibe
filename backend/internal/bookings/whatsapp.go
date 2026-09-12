@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 // maskPhone returns only the last 4 digits of a phone number for safe logging.
@@ -20,7 +22,7 @@ func (h *Handler) WhatsAppVerify(w http.ResponseWriter, r *http.Request) {
 	challenge, err := h.whatsapp.VerifyWebhook(r)
 	if err != nil {
 		h.logger.Error("wa verify: verification failed", "error", err)
-		h.respond.Error(w, r, http.StatusForbidden, "verification failed")
+		h.respond.Refuse(w, r, httpx.Forbidden("verification failed"))
 		return
 	}
 
@@ -56,7 +58,9 @@ func (h *Handler) WhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"remote_addr", r.RemoteAddr,
 		)
-		w.WriteHeader(http.StatusUnauthorized)
+		// A bare status, no body: Meta reads the code and nothing else, and a
+		// body here would only be a second thing to keep true.
+		h.respond.Refuse(w, r, httpx.Unauthorized(nil))
 		return
 	}
 

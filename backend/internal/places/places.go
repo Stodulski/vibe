@@ -15,6 +15,7 @@ package places
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -306,7 +307,7 @@ func (d placeDetails) flatten() address {
 func (h *Handler) Details(w http.ResponseWriter, r *http.Request) {
 	placeID := r.URL.Query().Get("place_id")
 	if placeID == "" {
-		h.respond.Error(w, r, http.StatusBadRequest, "place_id is required")
+		h.respond.BadRequest(w, r, errors.New("place_id is required"))
 		return
 	}
 

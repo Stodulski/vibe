@@ -91,15 +91,30 @@ type Recorder interface {
 // service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
 	svc          *Service
-	respond      *httpx.Responder
+	respond      *httpx.Refuser
 	trustProxies bool
+}
+
+// refusals is this module's whole error-to-status table: every domain error of
+// its own that is a refusal rather than a fault, and the status and message it
+// earns. Everything absent from it — data.ErrRecordNotFound, the edit conflict
+// ErrEditConflict wraps — is answered by internal/httpx.
+var refusals = httpx.Refusals{
+	courtstore.ErrCourtHasActiveBookings: httpx.Conflict(
+		"cannot delete court while it has active bookings, cancel them first"),
+	courtstore.ErrSlotAlreadyBlocked: httpx.Conflict("this time range already has a blocked slot"),
+	// One sentence for one collision. A client cannot be told two different
+	// things about it depending on which of the service's two checks happened
+	// to see it — the only difference between them is that one ran inside the
+	// transaction, which is not something the owner can act on.
+	courtstore.ErrSlotHasBooking: httpx.Conflict(blockedSlotHasBookingMessage),
 }
 
 // NewHandler returns a Handler backed by the given service.
 func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Handler {
 	return &Handler{
 		svc:          svc,
-		respond:      respond,
+		respond:      respond.WithRefusals(refusals),
 		trustProxies: trustProxies,
 	}
 }

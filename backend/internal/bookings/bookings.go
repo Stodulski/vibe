@@ -12,6 +12,7 @@ package bookings
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -23,6 +24,7 @@ import (
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -248,9 +250,32 @@ type Handler struct {
 	// over the request, so they are an HTTP concern and are checked here,
 	// before anything reaches the service.
 	whatsapp     WhatsAppVerifier
-	respond      *httpx.Responder
+	respond      *httpx.Refuser
 	logger       *slog.Logger
 	trustProxies bool
+}
+
+// refusals is this module's whole error-to-status table: every domain error of
+// its own that is a refusal rather than a fault, and the status and message it
+// earns. Everything absent from it — the shared sentinels, and the errors
+// refuse still has to match on their type rather than their identity — is
+// answered by internal/httpx or by refuse itself.
+var refusals = httpx.Refusals{
+	ErrSlotTaken:               httpx.Conflict(slotTakenMessage),
+	ErrClientBlocked:           httpx.Forbidden("your account is blocked, contact the complex for more information"),
+	ErrMercadoPagoNotConnected: httpx.BadRequest("the complex does not have MercadoPago connected, contact the complex"),
+	ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),
+	ErrVenueGone:               httpx.Gone(venueGoneMessage),
+	ErrLinkExpired:             httpx.Gone(linkExpiredMessage),
+	// H-15 / R4: ConfirmPayment's status check runs against a read taken
+	// before the store's own transaction opened, so a client cancellation
+	// landing in that gap used to fall through every named case and answer 500
+	// — after the owner had already taken the client's cash at the counter,
+	// with no way to tell whether it was recorded. These two sentinels are the
+	// re-read inside InsertAndConfirmBooking's own transaction catching exactly
+	// that race; naming them here turns it into a 409 the owner can act on.
+	bookingstore.ErrBookingNotConfirmable: httpx.Conflict(confirmPaymentRaceMessage),
+	bookingstore.ErrBookingCancelled:      httpx.Conflict(confirmPaymentRaceMessage),
 }
 
 // NewHandler returns a Handler backed by the given service.
@@ -258,7 +283,7 @@ func NewHandler(svc *Service, whatsapp WhatsAppVerifier, respond *httpx.Responde
 	return &Handler{
 		svc:          svc,
 		whatsapp:     whatsapp,
-		respond:      respond,
+		respond:      respond.WithRefusals(refusals),
 		logger:       logger,
 		trustProxies: trustProxies,
 	}
@@ -305,7 +330,7 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 // the update aimed at was gone by the time it ran. It is distinct from
 // data.ErrRecordNotFound, which means the booking was never this complex's to
 // begin with, because the two answer the caller differently — 409 against 404.
-var ErrEditConflict = errors.New("booking changed before the update")
+var ErrEditConflict = fmt.Errorf("booking changed before the update: %w", data.ErrEditConflict)
 
 // ErrNoActor reports a write that reached the service with no authenticated
 // user on it, on a route whose guard should have made that impossible. The

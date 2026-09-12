@@ -117,14 +117,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Longitude:         input.Longitude,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrSlugTaken):
+		if errors.Is(err, ErrSlugTaken) {
 			h.respond.FailedValidation(w, r, map[string]string{"slug": httpx.CodeSlugTaken})
-		case errors.Is(err, ErrMaxComplexes):
-			h.respond.Error(w, r, http.StatusForbidden, fmt.Sprintf("maximum of %d complexes per account reached", h.cfg.MaxComplexes))
-		default:
-			h.respond.ServerError(w, r, err)
+			return
 		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -349,14 +346,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	courtsDeactivated, err := h.svc.Delete(r.Context(), complex, h.actor(r))
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrActiveBookings):
-			h.respond.Error(w, r, http.StatusConflict, "cannot delete complex while it has active bookings, cancel them first")
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -443,12 +433,7 @@ func (h *Handler) GetPublic(w http.ResponseWriter, r *http.Request) {
 
 	profile, err := h.svc.GetPublic(r.Context(), slug)
 	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrRecordNotFound):
-			h.respond.NotFound(w, r)
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -588,12 +573,8 @@ func (h *Handler) DisconnectMercadoPago(w http.ResponseWriter, r *http.Request) 
 
 	err := h.svc.DisconnectMercadoPago(r.Context(), complex.ID, h.actor(r))
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrActiveBookings):
-			h.respond.Error(w, r, http.StatusConflict, "cannot disconnect MercadoPago while you have active bookings, cancel them first")
-		default:
-			h.respond.ServerError(w, r, err)
-		}
+		h.respond.DomainErrorWith(w, r, err,
+			"cannot disconnect MercadoPago while you have active bookings, cancel them first")
 		return
 	}
 

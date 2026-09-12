@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ var (
 	// unknown, expired or spent.
 	ErrInvalidToken = errors.New("invalid or expired token")
 	// ErrEditConflict reports that the account row moved out from under a read.
-	ErrEditConflict = errors.New("account changed before the update")
+	ErrEditConflict = fmt.Errorf("account changed before the update: %w", data.ErrEditConflict)
 	// ErrActiveBookings reports that an account cannot be deleted because a
 	// venue it owns still has live bookings.
 	ErrActiveBookings = errors.New("account still has active bookings")

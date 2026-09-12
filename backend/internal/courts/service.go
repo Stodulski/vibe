@@ -3,6 +3,7 @@ package courts
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,7 +22,7 @@ import (
 // the update aimed at was gone by the time it ran. It is distinct from
 // data.ErrRecordNotFound, which means the court was never this complex's to
 // begin with, because the two answer the caller differently.
-var ErrEditConflict = errors.New("court changed before the update")
+var ErrEditConflict = fmt.Errorf("court changed before the update: %w", data.ErrEditConflict)
 
 // Actor is who a change is attributed to, as the handler read it off the
 // request. The service needs it for the audit trail and for nothing else.

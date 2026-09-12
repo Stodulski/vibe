@@ -168,7 +168,7 @@ func (h *Handler) ExportPaymentsExcel(w http.ResponseWriter, r *http.Request) {
 			// support needs the number behind it.
 			h.respond.LogError(r, fmt.Errorf("export for complex %s %d/%d has %d rows, over the %d cap",
 				complex.ID, month, year, rowCount, h.svc.ExportRowCap()))
-			h.respond.Error(w, r, http.StatusUnprocessableEntity, httpx.CodeExportTooLarge)
+			h.respond.Refuse(w, r, httpx.Unprocessable(httpx.CodeExportTooLarge))
 			return
 		}
 		h.failExport(w, r, err)
@@ -278,7 +278,7 @@ func (h *Handler) sendExport(w http.ResponseWriter, r *http.Request, filename st
 func (h *Handler) failExport(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, context.DeadlineExceeded) {
 		h.respond.LogError(r, err)
-		h.respond.Error(w, r, http.StatusServiceUnavailable, httpx.CodeExportTimedOut)
+		h.respond.Refuse(w, r, httpx.Unavailable(httpx.CodeExportTimedOut))
 		return
 	}
 	if errors.Is(err, context.Canceled) {
