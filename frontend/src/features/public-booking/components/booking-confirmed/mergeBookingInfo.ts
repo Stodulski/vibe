@@ -68,7 +68,7 @@ export function mergeBookingInfo(
     cancellation: details?.cancellation
       ? {
           canCancel: details.cancellation.can_cancel,
-          refundDeadline: details.cancellation.refund_deadline,
+          refundDeadline: details.cancellation.refund_deadline ?? null,
           canRefundNow: details.cancellation.can_refund_now,
         }
       : undefined,

@@ -59,7 +59,7 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
             The full text is on `title`, so the truncation costs nothing: the
             owner wrote it for a player, and here it is only a reminder of what
             is on the storefront. */}
-        {court.description === undefined || court.description === '' ? (
+        {!court.description ? (
           <p className="mt-1.5 truncate text-xs text-text-tertiary">{t.courts.noDescription}</p>
         ) : (
           <p className="mt-1.5 truncate text-xs text-text-secondary" title={court.description}>

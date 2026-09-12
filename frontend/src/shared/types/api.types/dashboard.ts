@@ -1,75 +1,32 @@
 import type { Booking } from './booking';
+import type { Ok, Spec } from './spec';
 
 // ─── Dashboard ───
 
-export interface PaymentSummary {
-  /**
-   * Keyed by the booking's `collection_status` (backend split
-   * the old payment_status enum and GetPaymentSummary groups by the money-in
-   * axis). Left as `Record<string, …>` rather than
-   * `Record<CollectionStatus, …>`: it is a server-built map, the client renders
-   * whatever keys arrive, and a narrower type here would be a promise this
-   * build cannot keep about a server that is ahead of it.
-   */
-  by_status: Record<string, { count: number; total: number }>;
-  by_method: Record<string, number>;
-}
+/**
+ * `by_status` is keyed by the booking's `collection_status` (the money-in
+ * axis of the old `payment_status`) and `by_method` by payment method, both
+ * as open string maps: they are server-built, the client renders whatever
+ * keys arrive, and `openapi.yaml` types them the same way for the same
+ * reason — a narrower key type here would be a promise this build cannot
+ * keep about a server that is ahead of it.
+ */
+export type PaymentSummary = Spec<'PaymentSummary'>;
 
-export interface TopClient {
-  id: string;
-  name: string;
-  phone: string;
-  booking_count: number;
-  total_spent: number;
-}
+export type TopClient = Spec<'TopClient'>;
 
-export interface ClientInsights {
-  top: TopClient[];
-  no_show_rate: number;
-  no_show_count: number;
-  resolved_count: number;
-  new_clients_30d: number;
-  recurring_30d: number;
-  total_active_30d: number;
-}
+export type ClientInsights = Spec<'ClientInsights'>;
 
-export interface ClientInsightsResponse {
-  clients: ClientInsights;
-}
+export type ClientInsightsResponse = Ok<'reportingGetClientInsights'>;
 
-export interface DashboardStats {
-  today_bookings: number;
-  yesterday_bookings: number;
-  today_revenue: number;
-  yesterday_revenue: number;
-  weekly_revenue: number;
-  monthly_revenue: number;
-  occupancy_rate: number;
-  pending_bookings: number;
-  total_clients: number;
-  upcoming_bookings: Booking[];
-  payment_summary: PaymentSummary;
-}
+export type DashboardStats = Omit<Spec<'DashboardStats'>, 'upcoming_bookings'> & { upcoming_bookings: Booking[] };
 
-export interface DashboardStatsResponse {
-  stats: DashboardStats;
-}
+export type DashboardStatsResponse = Omit<Ok<'reportingGetDashboardStats'>, 'stats'> & { stats: DashboardStats };
 
-export interface RevenueDataPoint {
-  date: string;
-  amount: number;
-}
+export type RevenueDataPoint = Spec<'RevenueDataPoint'>;
 
-export interface RevenueChartResponse {
-  revenue: RevenueDataPoint[];
-}
+export type RevenueChartResponse = Ok<'reportingGetRevenueChart'>;
 
-export interface OccupancyDataPoint {
-  day_of_week: number;
-  hour: number;
-  percentage: number;
-}
+export type OccupancyDataPoint = Spec<'OccupancyPoint'>;
 
-export interface OccupancyChartResponse {
-  occupancy: OccupancyDataPoint[];
-}
+export type OccupancyChartResponse = Ok<'reportingGetOccupancyChart'>;

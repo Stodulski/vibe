@@ -5,10 +5,12 @@ import { exact } from '@/shared/lib/apiParse';
 // ─── Payment ───
 
 /**
- * `method` and `status` stay `z.string()`, matching the handwritten type: the
- * server's payment-method and payment-status vocabularies aren't modeled as
- * TS unions in `payment.ts`, so narrowing them here would validate against a
- * contract stricter than the one this codebase actually declares.
+ * `method` and `status` are the closed vocabularies `openapi.yaml` declares.
+ * They used to be `z.string()` here because `payment.ts` typed them that way
+ * by hand; now that `Payment` is derived from the document, an unexpected
+ * value is a response-schema failure instead of a string nothing can render.
+ * `status` is the payments table's own, wider vocabulary — distinct from a
+ * booking's `collection_status`/`refund_status`, which were split off it.
  */
 export const paymentSchema = exact<Payment>(
   z
@@ -18,11 +20,12 @@ export const paymentSchema = exact<Payment>(
       complex_id: z.string(),
       amount: z.number(),
       service_fee: z.number(),
-      method: z.string(),
-      status: z.string(),
-      mp_payment_id: z.string().optional(),
-      mp_preference_id: z.string().optional(),
+      method: z.enum(['mercadopago', 'cash', 'transfer']),
+      status: z.enum(['unpaid', 'deposit_paid', 'fully_paid', 'refunded', 'refund_pending', 'partial_refund']),
+      mp_payment_id: z.string().nullable().optional(),
+      mp_preference_id: z.string().nullable().optional(),
       refund_amount: z.number(),
+      status_detail: z.string().nullable().optional(),
       created_at: z.string(),
       updated_at: z.string(),
     })

@@ -64,13 +64,16 @@ export const publicComplexSchema = exact<PublicComplex>(
       country_code: z.string(),
       currency: z.string(),
       phone: z.string(),
-      email: z.string().nullable().optional(),
-      logo_url: z.string().nullable().optional(),
-      cover_url: z.string().nullable().optional(),
+      // The storefront projection declares these as absent-or-string, not
+      // nullable: `openapi.yaml`'s `PublicComplex` differs from `Complex`
+      // here, and the schema follows the document it is checking against.
+      email: z.string().optional(),
+      logo_url: z.string().optional(),
+      cover_url: z.string().optional(),
       deposit_percentage: z.number(),
       cancellation_hours: z.number(),
-      latitude: z.number().nullable().optional(),
-      longitude: z.number().nullable().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
       amenities: z.array(amenitySchema),
       payments_enabled: z.boolean(),
     })
@@ -114,11 +117,12 @@ export const publicBookingResponseSchema = exact<PublicBookingResponse>(
     .loose(),
 );
 
+/** `mp_user_id` is required here, unlike on `mp/status`: a successful connect always names the account it linked. */
 export const mpConnectResponseSchema = exact<MPConnectResponse>(
   z
     .object({
       connected: z.boolean(),
-      mp_user_id: z.string().optional(),
+      mp_user_id: z.string(),
     })
     .loose(),
 );
@@ -133,14 +137,18 @@ export const mpStatusResponseSchema = exact<MPStatusResponse>(
     .loose(),
 );
 
-export const bookingStatusCancellationSchema = z
-  .object({
-    can_cancel: z.boolean(),
-    refund_deadline: z.string().nullable(),
-    can_refund_now: z.boolean(),
-    cancellation_hours: z.number(),
-  })
-  .loose() satisfies z.ZodType<BookingStatusCancellation>;
+export const bookingStatusCancellationSchema = exact<BookingStatusCancellation>(
+  z
+    .object({
+      can_cancel: z.boolean(),
+      // Null when there is no fixed deadline (cancellable with refund right
+      // up to the turn itself), and absent on a server that predates it.
+      refund_deadline: z.string().nullable().optional(),
+      can_refund_now: z.boolean(),
+      cancellation_hours: z.number(),
+    })
+    .loose(),
+);
 
 /**
  * Only `status`, `collection_status` and `refund_status` are guaranteed by
@@ -156,7 +164,7 @@ export const bookingStatusDetailsSchema = exact<BookingStatusDetails>(
       refund_status: bookingRefundStatusSchema,
       complex_name: z.string().optional(),
       complex_address: z.string().optional(),
-      complex_phone: z.string().nullable().optional(),
+      complex_phone: z.string().optional(),
       court_name: z.string().optional(),
       sport: sportSchema.optional(),
       court_type: courtTypeSchema.optional(),
@@ -187,7 +195,7 @@ export const cancelInfoResponseSchema = exact<CancelInfoResponse>(
     .object({
       booking: z
         .object({
-          status: z.string(),
+          status: bookingStatusSchema,
           date: z.string(),
           start_time: z.string(),
           court_name: z.string(),

@@ -72,7 +72,10 @@ describe('complexApi.connectMP', () => {
     server.use(
       http.post('*/complexes/:complexId/mp/connect', async ({ request }) => {
         receivedBody = await request.json();
-        return HttpResponse.json({ connected: true });
+        // A successful connect always names the account it linked, so the
+        // response carries `mp_user_id` even though this test is about the
+        // request body.
+        return HttpResponse.json({ connected: true, mp_user_id: 'mp1' });
       }),
     );
 

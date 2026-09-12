@@ -1,37 +1,12 @@
+import type { Body, Ok, Spec } from './spec';
 import type { Booking } from './booking';
 
 // ─── Client ───
 
-export interface Client {
-  id: string;
-  complex_id: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  email?: string;
-  notes?: string;
-  is_blocked: boolean;
-  total_bookings: number;
-  no_shows: number;
-  created_at: string;
-  updated_at: string;
-}
+export type Client = Spec<'Client'>;
 
-export interface ClientsListResponse {
-  clients: Client[];
-  metadata: {
-    next_cursor?: string;
-    has_more: boolean;
-    total_count?: number;
-  };
-}
+export type ClientsListResponse = Ok<'clientsList'>;
 
-export interface ClientDetailResponse {
-  client: Client;
-  recent_bookings: Booking[];
-}
+export type ClientDetailResponse = Omit<Ok<'clientsGet'>, 'recent_bookings'> & { recent_bookings: Booking[] };
 
-export interface UpdateClientRequest {
-  notes?: string;
-  is_blocked?: boolean;
-}
+export type UpdateClientRequest = Body<'clientsUpdate'>;

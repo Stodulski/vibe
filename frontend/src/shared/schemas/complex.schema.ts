@@ -32,18 +32,22 @@ export const complexSchema = exact<Complex>(
       country_code: z.string(),
       currency: z.string(),
       phone: z.string(),
-      email: z.string().nullable(),
-      logo_url: z.string().nullable(),
-      cover_url: z.string().nullable(),
+      // `openapi.yaml` leaves all five out of `Complex.required`: a venue
+      // that has never been given one sends no key at all, and one that was
+      // cleared sends null. The schema used to demand the key.
+      email: z.string().nullable().optional(),
+      logo_url: z.string().nullable().optional(),
+      cover_url: z.string().nullable().optional(),
       deposit_percentage: z.number(),
       cancellation_hours: z.number(),
-      latitude: z.number().nullable(),
-      longitude: z.number().nullable(),
+      latitude: z.number().nullable().optional(),
+      longitude: z.number().nullable().optional(),
       is_active: z.boolean(),
       amenities: z.array(amenitySchema),
       court_count: z.number().optional(),
       payments_enabled: z.boolean(),
       mp_user_id: z.string().nullable().optional(),
+      mp_token_expires_at: z.string().nullable().optional(),
       created_at: z.string(),
       updated_at: z.string(),
     })

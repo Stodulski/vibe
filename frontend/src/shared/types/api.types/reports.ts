@@ -1,45 +1,33 @@
+import type { Ok, Spec } from './spec';
+
 // ─── Reports ───
 
-export interface MonthlyReportMethod {
-  count: number;
-  total: number;
-  refunded: number;
-  net: number;
-}
+/**
+ * One row of the month, by payment method. `service_fees` is optional in the
+ * document because only the totals rows carry it — {@link MonthlyReportTotals}
+ * is the same schema with that field required.
+ */
+export type MonthlyReportMethod = Spec<'MonthlyReportSummary'>;
 
-export interface MonthlyReportTotals {
-  count: number;
-  total: number;
-  service_fees: number;
-  refunded: number;
-  net: number;
-}
+/**
+ * The month's totals. Narrowed to require `service_fees`: the document marks
+ * it "Present on the totals/previous_totals rows", and the reports table
+ * renders it as a figure of its own.
+ */
+export type MonthlyReportTotals = Spec<'MonthlyReportSummary'> &
+  Required<Pick<Spec<'MonthlyReportSummary'>, 'service_fees'>>;
 
 /** One court's share of the month, ordered by what it took, highest first. */
-export interface MonthlyReportCourt {
-  court_id: string;
-  /** Empty when the court has since been deleted; the money still counts. */
-  court_name: string;
-  count: number;
-  total: number;
-  refunded: number;
-  net: number;
-}
+export type MonthlyReportCourt = Spec<'MonthlyReportCourtSummary'>;
 
-export interface MonthlyReport {
-  month: number;
-  year: number;
-  by_method: Record<string, MonthlyReportMethod>;
-  by_court: MonthlyReportCourt[];
+/**
+ * `previous_totals` is the month before, totalled the same way. A figure on
+ * its own cannot say whether a month went well; this is what turns the totals
+ * into a direction. All zeroes for a month that predates the complex.
+ */
+export type MonthlyReport = Omit<Spec<'MonthlyReport'>, 'totals' | 'previous_totals'> & {
   totals: MonthlyReportTotals;
-  /**
-   * The month before, totalled the same way. A figure on its own cannot say
-   * whether a month went well; this is what turns the totals into a direction.
-   * All zeroes for a month that predates the complex.
-   */
   previous_totals: MonthlyReportTotals;
-}
+};
 
-export interface MonthlyReportResponse {
-  report: MonthlyReport;
-}
+export type MonthlyReportResponse = Omit<Ok<'reportingGetMonthlyReport'>, 'report'> & { report: MonthlyReport };

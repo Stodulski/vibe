@@ -39,7 +39,7 @@ function createPayment(overrides?: Partial<Payment>): Payment {
     amount: 15000,
     service_fee: 0,
     method: 'cash',
-    status: 'approved',
+    status: 'fully_paid',
     refund_amount: 0,
     created_at: '2026-03-14T10:00:00Z',
     updated_at: '2026-03-14T10:00:00Z',

@@ -1,79 +1,22 @@
-import type { User, UserRole } from './auth';
 import type { Complex } from './complex';
+import type { Ok, Spec } from './spec';
 
 // ─── Admin ───
 
-export interface PlatformStats {
-  total_users: number;
-  active_users: number;
-  new_users_month: number;
-  total_complexes: number;
-  new_complexes_month: number;
-  total_courts: number;
-  total_bookings: number;
-  total_revenue: number;
-}
+export type PlatformStats = Spec<'PlatformStats'>;
 
-export interface PlatformStatsResponse {
-  stats: PlatformStats;
-}
+export type PlatformStatsResponse = Ok<'adminGetStats'>;
 
-export interface AdminUserRow {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  role: UserRole;
-  is_active: boolean;
-  email_verified: boolean;
-  created_at: string;
-  complex_count: number;
-}
+export type AdminUserRow = Spec<'AdminUserRow'>;
 
-export interface AdminUsersResponse {
-  users: AdminUserRow[];
-  metadata: {
-    next_cursor?: string;
-    has_more: boolean;
-    total_count?: number;
-  };
-}
+export type AdminUsersResponse = Ok<'adminListUsers'>;
 
-export interface AdminUserDetailResponse {
-  user: User;
-  complexes: Complex[];
-}
+// `complexes` is remapped to the narrowed `Complex` (closed `amenities`
+// union); the document's own schema types that field as `string[]`.
+export type AdminUserDetailResponse = Omit<Ok<'adminGetUser'>, 'complexes'> & { complexes: Complex[] };
 
-export interface AdminComplexRow {
-  id: string;
-  owner_id: string;
-  owner_name: string;
-  owner_email: string;
-  name: string;
-  slug: string;
-  city: string;
-  is_active: boolean;
-  courts_count: number;
-  mp_connected: boolean;
-  created_at: string;
-}
+export type AdminComplexRow = Spec<'AdminComplexRow'>;
 
-export interface AdminComplexesResponse {
-  complexes: AdminComplexRow[];
-  metadata: {
-    next_cursor?: string;
-    has_more: boolean;
-    total_count?: number;
-  };
-}
+export type AdminComplexesResponse = Ok<'adminListComplexes'>;
 
-export interface AdminComplexDetailResponse {
-  complex: Complex;
-  owner_name: string;
-  owner_email: string;
-  courts_count: number;
-  clients_count: number;
-  bookings_count: number;
-  total_revenue: number;
-}
+export type AdminComplexDetailResponse = Omit<Ok<'adminGetComplex'>, 'complex'> & { complex: Complex };

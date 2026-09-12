@@ -1,117 +1,34 @@
+import type { Body, Spec } from './spec';
+
 // ─── Complex ───
 
 /**
- * What a venue offers. A closed vocabulary — the server's complexes_amenities_known CHECK has the
- * matching CHECK constraint, and the union is what keeps a typo here from
- * becoming a 500 there.
+ * What a venue offers. A closed vocabulary — the server's
+ * complexes_amenities_known CHECK has the matching CHECK constraint.
+ *
+ * Read off the update-complex request body, which is where `openapi.yaml`
+ * enumerates the set; the `Complex` and `PublicComplex` response schemas type
+ * the same field as a plain `string[]`. Deriving it from the one place that
+ * spells it out keeps the union honest without restating it here.
  */
-export type Amenity =
-  | 'parking'
-  | 'changing_rooms'
-  | 'showers'
-  | 'bar'
-  | 'racket_rental'
-  | 'pro_shop'
-  | 'wifi'
-  | 'lockers'
-  | 'lessons'
-  | 'tournaments'
-  | 'accessible'
-  | 'match_recording';
+export type Amenity = NonNullable<Body<'complexesUpdate'>['amenities']>[number];
 
-export interface Complex {
-  id: string;
-  owner_id: string;
-  name: string;
-  slug: string;
-  address: string;
-  city: string;
-  province: string;
-  country_code: string;
-  currency: string;
-  phone: string;
-  email: string | null;
-  logo_url: string | null;
-  cover_url: string | null;
-  deposit_percentage: number;
-  cancellation_hours: number;
-  latitude: number | null;
-  longitude: number | null;
-  is_active: boolean;
-  amenities: Amenity[];
-  /**
-   * How many courts this complex has — present only where the server counted
-   * them, which today is the owner's list.
-   *
-   * Optional on purpose: absent means "not counted", zero means "no courts".
-   * A screen that cannot tell those apart would announce a brand new venue as
-   * broken every time it loaded a complex from somewhere else.
-   */
-  court_count?: number;
-  /**
-   * Whether this venue can take an online payment.
-   *
-   * Prefer this over `mp_user_id` for anything the UI decides. The id answers
-   * "which MercadoPago account is linked" and was read three times as "is this
-   * complex OK?" — the selector warned about it, onboarding called such a
-   * complex incomplete, and the manual booking form refused to save. A club
-   * taking cash lost its booking form to that confusion.
-   */
-  payments_enabled: boolean;
-  mp_user_id?: string | null;
-  created_at: string;
-  updated_at: string;
-}
+/**
+ * `amenities` is narrowed to {@link Amenity}: the document types the response
+ * field as `string[]` (see above), and every screen that renders an amenity
+ * looks it up in a fixed icon/label table, so an unknown string would render
+ * as a blank row.
+ */
+export type Complex = Omit<Spec<'Complex'>, 'amenities'> & { amenities: Amenity[] };
 
-export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+export type DayOfWeek = Spec<'Weekday'>;
 
-export interface Schedule {
-  id: string;
-  complex_id: string;
-  day: DayOfWeek;
-  open_time: string;
-  close_time: string;
-  is_closed: boolean;
-}
+export type Schedule = Spec<'Schedule'>;
 
-export interface CreateComplexRequest {
-  name: string;
-  slug: string;
-  address: string;
-  city: string;
-  province: string;
-  phone: string;
-  email?: string;
-  deposit_percentage: number;
-  cancellation_hours: number;
-  latitude?: number;
-  longitude?: number;
-}
+export type CreateComplexRequest = Body<'complexesCreate'>;
 
-export type UpdateComplexRequest = Partial<CreateComplexRequest> & {
-  logo_url?: string;
-  cover_url?: string;
-  is_active?: boolean;
-  amenities?: Amenity[];
-};
+export type UpdateComplexRequest = Body<'complexesUpdate'>;
 
-export interface UpdateSchedulesRequest {
-  schedules: {
-    day: DayOfWeek;
-    open_time: string;
-    close_time: string;
-    is_closed: boolean;
-  }[];
-}
+export type UpdateSchedulesRequest = Body<'complexesUpdateSchedules'>;
 
-export interface BlockedSlot {
-  id: string;
-  court_id: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  reason: string | null;
-  created_by?: string | null;
-  created_at: string;
-  court_name?: string;
-}
+export type BlockedSlot = Spec<'BlockedSlot'>;

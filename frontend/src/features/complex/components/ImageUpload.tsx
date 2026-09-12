@@ -106,7 +106,9 @@ function Slot({
 }: {
   complexId: string;
   type: 'logo' | 'cover';
-  url: string | null;
+  // `openapi.yaml` marks `logo_url`/`cover_url` optional as well as nullable:
+  // a venue that has never uploaded one sends no key at all.
+  url: string | null | undefined;
   label: string;
   className: string;
   rounded?: boolean;
