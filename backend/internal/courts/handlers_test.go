@@ -279,6 +279,31 @@ func TestUpdatePricesRejectsInvalidBands(t *testing.T) {
 	}
 }
 
+// A stale version turns a zero-row ReplacePrices into courts.ErrEditConflict,
+// which wraps data.ErrEditConflict; before this it fell through to
+// ServerError and answered 500 instead of 409.
+func TestUpdatePricesReportsAnEditConflictOnAStaleVersion(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	store := &stubStore{
+		court:              &courtstore.Court{ID: courtID, ComplexID: complexID},
+		replacePricesErr:   data.ErrRecordNotFound,
+		replaceFailedIndex: -1,
+	}
+
+	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.UpdatePrices(w, ownerRequest(t, http.MethodPut, "/", complexID,
+		map[string]string{"courtID": courtID.String()},
+		`{"version":3,"prices":[{"day_type":"monday","time_from":"08:00","time_to":"18:00","price":500000}]}`))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(store.insertedPrices) != 0 {
+		t.Error("a refused update must not clear or write prices")
+	}
+}
+
 // A complex may close after midnight (complex_schedules reads close_time <=
 // open_time as "closes after midnight" since complex_schedules_open_window_not_empty), and a court's
 // price band for that closing window is legitimately "18:00" to "08:00" — the

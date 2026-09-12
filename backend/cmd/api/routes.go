@@ -22,9 +22,11 @@ func (app *application) routes() http.Handler {
 
 	app.registerRoutes(router)
 
-	// Spec validation sits directly outside the router and inside everything
-	// else, so a request the guards already rejected is never parsed a second
-	// time to check a shape nobody will use.
+	// Spec validation wraps the router, so it runs before the per-route auth
+	// guards (requireAuth, requireComplexOwner, requireRole) that live inside
+	// each route's own handler chain: an unauthenticated or unauthorized
+	// request is still checked against the document before those guards ever
+	// see it.
 	var handler http.Handler = router
 	if app.specValidator != nil {
 		handler = app.specValidator.ValidateRequests(handler)

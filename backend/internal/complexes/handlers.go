@@ -331,7 +331,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, data.ErrRecordNotFound):
 			h.respond.EditConflict(w, r)
 		default:
-			h.respond.ServerError(w, r, err)
+			// Covers data.ErrEditConflict on a stale If-Match/version (409),
+			// falling through to ServerError only for anything DomainError
+			// does not know.
+			h.respond.DomainError(w, r, err)
 		}
 		return
 	}

@@ -285,3 +285,26 @@ func TestTheHandlerStillSeesTheRequestBody(t *testing.T) {
 		t.Errorf("the handler saw %q, want the original body", seen)
 	}
 }
+
+// A body over the limit ReadJSON would enforce anyway is refused here first,
+// with no read of the whole thing into memory and no Redis write — there is
+// nothing yet to fingerprint or claim.
+func TestAnOversizedBodyIsRefusedBeforeRedis(t *testing.T) {
+	idem, mr := newIdempotencyFixture(t)
+	handler, runs := countingBooking()
+	guarded := idem.Guard("public-book")(handler)
+
+	oversized := `{"slot":"` + strings.Repeat("x", httpx.MaxJSONBody) + `"}`
+	w := httptest.NewRecorder()
+	guarded(w, book(t, "too-big", oversized))
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want %d: %s", w.Code, http.StatusRequestEntityTooLarge, w.Body.String())
+	}
+	if runs.Load() != 0 {
+		t.Errorf("the handler ran %d times on an oversized body, want 0", runs.Load())
+	}
+	if keys := mr.Keys(); len(keys) != 0 {
+		t.Errorf("an oversized body was recorded in Redis: %v", keys)
+	}
+}

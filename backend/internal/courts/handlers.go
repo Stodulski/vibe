@@ -350,7 +350,10 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 				keyIdx("prices", failedIndex, "time_from"): "overlaps another price rule for this day",
 			})
 		default:
-			h.respond.ServerError(w, r, err)
+			// Covers courts.ErrEditConflict on a stale If-Match/version, which
+			// wraps data.ErrEditConflict (409), falling through to
+			// ServerError only for anything DomainError does not know.
+			h.respond.DomainError(w, r, err)
 		}
 		return
 	}

@@ -57,6 +57,9 @@ func Gone(message any) Refusal { return Refusal{http.StatusGone, message} }
 // Unprocessable refuses a well-formed request the rules reject: 422.
 func Unprocessable(message any) Refusal { return Refusal{http.StatusUnprocessableEntity, message} }
 
+// TooLarge refuses a request body over the size an endpoint accepts: 413.
+func TooLarge(message any) Refusal { return Refusal{http.StatusRequestEntityTooLarge, message} }
+
 // TooManyRequests refuses a caller who is over a limit: 429.
 func TooManyRequests(message any) Refusal { return Refusal{http.StatusTooManyRequests, message} }
 

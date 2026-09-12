@@ -106,7 +106,7 @@ func TestReadJSON(t *testing.T) {
 
 func TestReadJSONBodyTooLarge(t *testing.T) {
 	w := httptest.NewRecorder()
-	oversized := `{"name":"` + strings.Repeat("x", maxRequestBodyBytes) + `"}`
+	oversized := `{"name":"` + strings.Repeat("x", MaxJSONBody) + `"}`
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(oversized))
 
 	var dst struct {

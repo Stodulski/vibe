@@ -110,8 +110,14 @@ func (v *SpecValidator) ValidateRequests(next http.Handler) http.Handler {
 			return
 		}
 
-		body, err := v.rewindableBody(r)
+		body, err := v.rewindableBody(w, r)
 		if err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				v.respond.Refuse(w, r, httpx.TooLarge(
+					fmt.Sprintf("body must not be larger than %d bytes", tooLarge.Limit)))
+				return
+			}
 			v.respond.ServerError(w, r, fmt.Errorf("middleware: reading the request body to validate it: %w", err))
 			return
 		}
@@ -145,11 +151,13 @@ func (v *SpecValidator) ValidateRequests(next http.Handler) http.Handler {
 }
 
 // rewindableBody reads the body out and puts a fresh reader back, so that both
-// the validator and the handler behind it see the whole thing.
-func (v *SpecValidator) rewindableBody(r *http.Request) ([]byte, error) {
+// the validator and the handler behind it see the whole thing. The read is
+// capped at httpx.MaxJSONBody, the same limit ReadJSON enforces.
+func (v *SpecValidator) rewindableBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	if r.Body == nil {
 		return nil, nil
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, httpx.MaxJSONBody)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err

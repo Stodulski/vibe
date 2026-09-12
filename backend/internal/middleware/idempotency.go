@@ -108,8 +108,16 @@ func (i *Idempotency) serve(scope string, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	body, err := rewindBody(r)
+	body, err := rewindBody(w, r)
 	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			// Redis is never touched: an oversized body is refused the same
+			// way ReadJSON would refuse it, before there is anything to claim.
+			i.respond.Refuse(w, r, httpx.TooLarge(
+				fmt.Sprintf("body must not be larger than %d bytes", tooLarge.Limit)))
+			return
+		}
 		i.respond.ServerError(w, r, fmt.Errorf("idempotency: reading the request body: %w", err))
 		return
 	}
@@ -291,11 +299,13 @@ func fingerprintActor(r *http.Request) string {
 }
 
 // rewindBody reads the body out and puts it back, so the handler behind this
-// still sees it.
-func rewindBody(r *http.Request) ([]byte, error) {
+// still sees it. The read is capped at httpx.MaxJSONBody, the same limit
+// ReadJSON enforces, so this guard never reads more than the handler would.
+func rewindBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	if r.Body == nil {
 		return nil, nil
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, httpx.MaxJSONBody)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err

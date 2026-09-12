@@ -104,6 +104,35 @@ DROP TRIGGER IF EXISTS set_version ON courts;
 DROP TRIGGER IF EXISTS set_version ON complexes;
 DROP FUNCTION IF EXISTS trigger_bump_version();
 
+-- The Up rebuilt both views with `version` in their column list, so a bare
+-- ALTER TABLE ... DROP COLUMN on complexes/courts fails on that view
+-- dependency. Drop both views first, drop the columns, then recreate the
+-- views exactly as 001_init.sql defines them (same column list without
+-- version, same JOIN/WHERE, same security_invoker).
+DROP VIEW active_courts;
+DROP VIEW active_complexes;
+
 ALTER TABLE court_prices DROP COLUMN IF EXISTS version;
 ALTER TABLE courts       DROP COLUMN IF EXISTS version;
 ALTER TABLE complexes    DROP COLUMN IF EXISTS version;
+
+CREATE VIEW active_complexes WITH (security_invoker = true) AS
+SELECT id, owner_id, name, slug, address, city, province, country_code, currency,
+       phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours,
+       latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id,
+       deleted_at, created_at, updated_at, amenities, mp_token_expires_at
+FROM complexes
+WHERE deleted_at IS NULL;
+
+CREATE VIEW active_courts WITH (security_invoker = true) AS
+SELECT c.id, c.complex_id, c.name, c.sport, c.court_type, c.is_active,
+       c.deleted_at, c.created_at, c.updated_at, c.description
+FROM courts c
+JOIN complexes cx ON cx.id = c.complex_id
+WHERE c.deleted_at IS NULL
+  AND cx.deleted_at IS NULL;
+
+COMMENT ON VIEW active_complexes IS
+    'Complexes that are not soft-deleted. Read this, not the table, unless the caller needs deleted rows (admin, audit, slug reservation).';
+COMMENT ON VIEW active_courts IS
+    'Courts that are not soft-deleted and whose complex is not soft-deleted either. Read this, not the table, unless the caller needs deleted rows (admin, audit, the court name on a historical booking).';
