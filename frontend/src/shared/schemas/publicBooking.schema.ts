@@ -22,6 +22,19 @@ import { amenitySchema, scheduleSchema } from './complex.schema';
 import { courtWithPricesSchema, durationMinutesSchema, sportSchema, courtTypeSchema } from './court.schema';
 import { exact } from '@/shared/lib/apiParse';
 
+/**
+ * Reads a field that may arrive as `null`, as the key with a value, or not at
+ * all, and yields `undefined` for the first and last. Zod's `.optional()`
+ * alone rejects an explicit `null`, which is how a cleared column serializes
+ * on one projection of a row even where the document only shows the other.
+ */
+function nullableToAbsent<T extends z.ZodType>(inner: T) {
+  return inner
+    .nullable()
+    .optional()
+    .transform((value) => value ?? undefined);
+}
+
 // ─── Public Booking ───
 //
 // `bookingStatusSchema`/`collectionStatusSchema`/`bookingRefundStatusSchema`
@@ -64,16 +77,19 @@ export const publicComplexSchema = exact<PublicComplex>(
       country_code: z.string(),
       currency: z.string(),
       phone: z.string(),
-      // The storefront projection declares these as absent-or-string, not
-      // nullable: `openapi.yaml`'s `PublicComplex` differs from `Complex`
-      // here, and the schema follows the document it is checking against.
-      email: z.string().optional(),
-      logo_url: z.string().optional(),
-      cover_url: z.string().optional(),
+      // `openapi.yaml`'s `PublicComplex` declares these absent-or-string
+      // while its `Complex` also allows null, and the two are projections of
+      // one row: a venue whose email was cleared sends null on the owner path
+      // and, by the document, nothing on the storefront. Accepting both and
+      // folding null into "absent" keeps the derived type — the storefront
+      // has no "cleared" state to render, only "has one" or "does not".
+      email: nullableToAbsent(z.string()),
+      logo_url: nullableToAbsent(z.string()),
+      cover_url: nullableToAbsent(z.string()),
       deposit_percentage: z.number(),
       cancellation_hours: z.number(),
-      latitude: z.number().optional(),
-      longitude: z.number().optional(),
+      latitude: nullableToAbsent(z.number()),
+      longitude: nullableToAbsent(z.number()),
       amenities: z.array(amenitySchema),
       payments_enabled: z.boolean(),
     })
@@ -164,7 +180,7 @@ export const bookingStatusDetailsSchema = exact<BookingStatusDetails>(
       refund_status: bookingRefundStatusSchema,
       complex_name: z.string().optional(),
       complex_address: z.string().optional(),
-      complex_phone: z.string().optional(),
+      complex_phone: nullableToAbsent(z.string()),
       court_name: z.string().optional(),
       sport: sportSchema.optional(),
       court_type: courtTypeSchema.optional(),

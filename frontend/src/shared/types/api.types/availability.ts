@@ -1,4 +1,4 @@
-import type { Spec } from './spec';
+import type { Open, Spec } from './spec';
 
 // ─── Availability ───
 
@@ -12,6 +12,17 @@ import type { Spec } from './spec';
  */
 export type AvailabilitySlot = Spec<'AvailabilitySlot'>;
 
-export type CourtAvailability = Spec<'AvailabilityCourt'>;
+/**
+ * `sport` and `court_type` are read through {@link Open}. This is the public
+ * slot grid: a venue that adds a court in a sport this build predates must
+ * cost that one court its label, not the whole day's availability.
+ */
+export type CourtAvailability = Omit<Spec<'AvailabilityCourt'>, 'sport' | 'court_type'> & {
+  sport: Open<Spec<'AvailabilityCourt'>['sport']>;
+  court_type: Open<Spec<'AvailabilityCourt'>['court_type']>;
+};
 
-export type AvailabilityData = Spec<'Availability'>;
+export type AvailabilityData = Omit<Spec<'Availability'>, 'day' | 'courts'> & {
+  day: Open<Spec<'Availability'>['day']>;
+  courts: CourtAvailability[];
+};

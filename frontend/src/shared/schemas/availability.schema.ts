@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import type { AvailabilitySlot, CourtAvailability, AvailabilityData } from '@/shared/types/api.types';
 import { exact } from '@/shared/lib/apiParse';
-import { dayOfWeekSchema } from './complex.schema';
-import { courtTypeSchema, sportSchema } from './court.schema';
 
 // ─── Availability ───
 
@@ -18,9 +16,11 @@ export const availabilitySlotSchema = z
   .loose() satisfies z.ZodType<AvailabilitySlot>;
 
 /**
- * `sport`, `court_type` and `day` were `z.string()` while the handwritten
- * types said the same; `openapi.yaml` declares all three as closed
- * vocabularies, and the slot grid keys its icons and labels off them.
+ * `sport`, `court_type` and `day` stay `z.string()`, and the types reopen the
+ * document's closed vocabularies with `Open<>` to match. This response is the
+ * public slot grid — the revenue path — so a venue that adds a court in a
+ * sport this build predates must cost that court its label, not the whole
+ * day's availability; the labels already fall back to the raw value.
  *
  * There is no `duration_minutes` here any more either: the handwritten type
  * carried one, marked "not sent by the server", and nothing ever read it.
@@ -30,8 +30,8 @@ export const courtAvailabilitySchema = exact<CourtAvailability>(
     .object({
       court_id: z.string(),
       court_name: z.string(),
-      sport: sportSchema,
-      court_type: courtTypeSchema,
+      sport: z.string(),
+      court_type: z.string(),
       description: z.string().optional(),
       slots: z.array(availabilitySlotSchema),
     })
@@ -41,7 +41,7 @@ export const courtAvailabilitySchema = exact<CourtAvailability>(
 export const availabilityDataSchema = z
   .object({
     date: z.string(),
-    day: dayOfWeekSchema,
+    day: z.string(),
     is_open: z.boolean(),
     courts: z.array(courtAvailabilitySchema),
   })

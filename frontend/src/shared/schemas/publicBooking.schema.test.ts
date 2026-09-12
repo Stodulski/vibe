@@ -35,6 +35,28 @@ describe('publicComplexResponseSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('accepts a cleared email, logo, cover or coordinate sent as null, and reads it as absent', () => {
+    // The owner projection of the same row declares these nullable, so a
+    // cleared column can reach the storefront as null. The storefront has no
+    // "cleared" state to render — only "has one" or "does not".
+    const result = publicComplexResponseSchema.safeParse({
+      complex: {
+        ...validPublicComplex,
+        email: null,
+        logo_url: null,
+        cover_url: null,
+        latitude: null,
+        longitude: null,
+      },
+      courts: [{ ...makeCourt(), prices: [makePrice()] }],
+      schedules: [],
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.complex.email).toBeUndefined();
+    expect(result.success && result.data.complex.logo_url).toBeUndefined();
+    expect(result.success && result.data.complex.latitude).toBeUndefined();
+  });
 });
 
 describe('publicBookingResponseSchema', () => {
@@ -75,6 +97,19 @@ describe('bookingStatusResponseSchema', () => {
       booking: { status: 'confirmed', collection_status: 'fully_paid', refund_status: 'none' },
     });
     expect(result.success).toBe(true);
+  });
+
+  it('accepts a venue with no phone on file, sent as null, and reads it as absent', () => {
+    const result = bookingStatusResponseSchema.safeParse({
+      booking: {
+        status: 'confirmed',
+        collection_status: 'fully_paid',
+        refund_status: 'none',
+        complex_phone: null,
+      },
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.booking.complex_phone).toBeUndefined();
   });
 });
 
