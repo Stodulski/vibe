@@ -335,11 +335,21 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Respond: respond,
 	}, health.Config{Environment: cfg.env, Version: appVersion})
 
-	// Domain services hold the rules; the handlers below only decode, validate
-	// and map errors. A service is passed wherever another domain reads this
-	// one, so the entry point into a domain is its service rather than its
-	// store. The bookings and payments modules are the exception until their
-	// own services land: they still receive stores.
+	// Domain services hold the rules; their handlers only decode, validate and
+	// map errors. A service is passed wherever another domain reads this one,
+	// so the entry point into a domain is its service rather than its store —
+	// which is what lets a rule added later (authorization, caching) land in
+	// one place. Two exceptions:
+	//
+	//   - bookings and payments still receive stores, because their own
+	//     services do not exist yet.
+	//   - complexes receives the court store, because courts and complexes read
+	//     each other and the two services cannot both be constructed second.
+	//     Courts takes the complexes service; complexes keeps the court store.
+	//
+	// The rest of the ordering follows the dependency edges, and the
+	// locals-then-publish rule above makes a wrong order a compile error rather
+	// than a runtime surprise.
 	complexesConfig := complexes.Config{
 		MaxComplexes: cfg.limits.maxComplexes,
 		FrontendURL:  cfg.frontendURL,
