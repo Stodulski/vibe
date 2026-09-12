@@ -1,6 +1,5 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { HTTPError } from 'ky';
 import { googleCompleteSchema, type GoogleCompleteDto } from '../schemas/auth.schema';
 import { useGoogleComplete } from '../hooks/useGoogleComplete';
 import { useAbandonedGoogleSignupLead } from './google-complete/useAbandonedGoogleSignupLead';
@@ -9,24 +8,16 @@ import { GoogleCompleteNameFields } from './google-complete/GoogleCompleteNameFi
 import { GoogleCompletePhoneField } from './google-complete/GoogleCompletePhoneField';
 import { GoogleCompleteSubmit } from './google-complete/GoogleCompleteSubmit';
 import { submitHandler } from '@/shared/lib/form';
-import { getFieldErrors } from '@/shared/lib/serverErrors';
+import { applyServerFieldErrors } from '@/shared/lib/serverFieldErrors';
 import type { GoogleProfilePreview } from '@/shared/types/api.types';
 
-/** ky consumes the body before throwing, so the payload lives on `.data`. */
-function errorBody(error: unknown): unknown {
-  return error instanceof HTTPError ? error.data : null;
-}
-
-const SERVER_FIELDS = new Set<keyof GoogleCompleteDto>(['first_name', 'last_name', 'phone']);
-
-/** Server-side field errors land ON their field, not only in a toast — same reasoning as `useComplexForm`. */
-function applyServerFieldErrors(error: unknown, setError: ReturnType<typeof useForm<GoogleCompleteDto>>['setError']) {
-  for (const [field, message] of Object.entries(getFieldErrors(errorBody(error)))) {
-    if (SERVER_FIELDS.has(field as keyof GoogleCompleteDto)) {
-      setError(field as keyof GoogleCompleteDto, { type: 'server', message });
-    }
-  }
-}
+/**
+ * The fields this step owns. Passed explicitly rather than left to the
+ * helper's `getValues()` default: `email` is rendered read-only from the
+ * Google profile and is not a registered input, so an `email` error from the
+ * server belongs on `root`, not under a field nobody can edit.
+ */
+const SERVER_FIELDS: readonly string[] = ['first_name', 'last_name', 'phone'];
 
 interface GoogleCompleteFormProps {
   profileToken: string;
@@ -40,14 +31,7 @@ interface GoogleCompleteFormProps {
  * validation and input.
  */
 export function GoogleCompleteForm({ profileToken, profile }: GoogleCompleteFormProps) {
-  const {
-    register,
-    handleSubmit,
-    control,
-    setError,
-    getValues,
-    formState: { errors },
-  } = useForm<GoogleCompleteDto>({
+  const form = useForm<GoogleCompleteDto>({
     resolver: zodResolver(googleCompleteSchema),
     defaultValues: {
       first_name: profile.first_name,
@@ -55,6 +39,13 @@ export function GoogleCompleteForm({ profileToken, profile }: GoogleCompleteForm
       phone: '',
     },
   });
+  const {
+    register,
+    handleSubmit,
+    control,
+    getValues,
+    formState: { errors },
+  } = form;
 
   const lead = useAbandonedGoogleSignupLead(profile.email, getValues);
   const googleComplete = useGoogleComplete({ onAccountCreated: lead.markAccountCreated });
@@ -64,7 +55,7 @@ export function GoogleCompleteForm({ profileToken, profile }: GoogleCompleteForm
       { profile_token: profileToken, ...data },
       {
         onError: (error) => {
-          applyServerFieldErrors(error, setError);
+          applyServerFieldErrors(form, error, { fields: SERVER_FIELDS });
         },
       },
     );

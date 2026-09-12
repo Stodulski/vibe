@@ -6,8 +6,7 @@ import { useCreateComplex } from '../../hooks/useCreateComplex';
 import { useUpdateComplex } from '../../hooks/useUpdateComplex';
 import type { Complex } from '@/shared/types/api.types';
 import { blankToUndefined, slugify } from './utils';
-import { getFieldErrors } from '@/shared/lib/serverErrors';
-import { HTTPError } from 'ky';
+import { applyServerFieldErrors } from '@/shared/lib/serverFieldErrors';
 
 function buildDefaultValues(complex: Complex | undefined) {
   if (complex) {
@@ -51,37 +50,6 @@ interface UseComplexFormArgs {
    * field behind a disclosure can open it before the error is pointed at.
    */
   revealField?: (field: string) => void;
-}
-
-/** ky consumes the body before throwing, so the payload lives on `.data`. */
-function errorBody(error: unknown): unknown {
-  return error instanceof HTTPError ? error.data : null;
-}
-
-// Server-side field errors land ON their field, not only in a toast.
-//
-// A taken public URL is the one the server alone can detect — two owners can
-// pick "club-norte" a second apart and nothing on this client knows — and it
-// used to surface as a toast beside a slug input that is now collapsed
-// behind "Editar". A message about a field nobody can see is worse than no
-// message: it names a problem and hides the fix.
-//
-// `setError` puts it under the input AND `revealField` opens the group, so
-// the reader lands on the thing they have to change.
-function applyServerFieldErrors(
-  error: unknown,
-  form: ReturnType<typeof useForm<CreateComplexDto>>,
-  revealField?: (field: string) => void,
-) {
-  const formValues = form.getValues();
-  for (const [field, message] of Object.entries(getFieldErrors(errorBody(error)))) {
-    // An unrecognized field name (e.g. the server renamed one) must not
-    // silently drop the error: `setError` on a key that isn't part of the
-    // form is a no-op, and the person would never see it.
-    if (!(field in formValues)) continue;
-    form.setError(field as keyof CreateComplexDto, { type: 'server', message });
-    revealField?.(field);
-  }
 }
 
 // `email`/`latitude`/`longitude` on `CreateComplexRequest`/
@@ -134,8 +102,16 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
     }
   };
 
+  // Server-side field errors land ON their field, not only in a toast.
+  //
+  // A taken public URL is the one the server alone can detect — two owners
+  // can pick "club-norte" a second apart and nothing on this client knows —
+  // and it used to surface as a toast beside a slug input that is now
+  // collapsed behind "Editar". A message about a field nobody can see is
+  // worse than no message: it names a problem and hides the fix. `setError`
+  // puts it under the input AND `revealField` opens the group.
   const onMutationError = (error: unknown) => {
-    applyServerFieldErrors(error, form, revealField);
+    applyServerFieldErrors(form, error, { onField: revealField });
   };
 
   const onSubmit = (data: CreateComplexDto) => {
