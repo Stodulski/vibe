@@ -15,15 +15,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/julienschmidt/httprouter"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/middleware"
 	"github.com/stodulski/vibe-server/internal/notifier"
+	platformdb "github.com/stodulski/vibe-server/internal/platform/db"
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 	"github.com/stodulski/vibe-server/internal/realtime"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 )
@@ -34,7 +34,7 @@ import (
 // or cache client the application actually uses.
 
 // dbProbe adapts the Postgres pool to health.Pinger and health.PoolReporter.
-type dbProbe struct{ pool *pgxpool.Pool }
+type dbProbe struct{ pool *platformdb.Pool }
 
 func (p dbProbe) Ping(ctx context.Context) error { return p.pool.Ping(ctx) }
 
@@ -64,7 +64,7 @@ func (p dbProbe) PoolStats() map[string]int64 {
 // redisProbe adapts the Redis client to the same two interfaces. go-redis
 // returns a command rather than an error, which is why this cannot satisfy
 // health.Pinger directly.
-type redisProbe struct{ rdb *redis.Client }
+type redisProbe struct{ rdb *platformredis.Client }
 
 func (p redisProbe) Ping(ctx context.Context) error { return p.rdb.Ping(ctx).Err() }
 
@@ -89,7 +89,7 @@ func (p redisProbe) PoolStats() map[string]int64 {
 // A free function rather than a method on *application: newApplication builds
 // this before app.db/app.rdb are published, and a method would have to read
 // those fields — the back-reference the composition root exists to remove.
-func healthProbes(db *pgxpool.Pool, rdb *redis.Client) (database, cache health.Pinger, dbPool, cachePool health.PoolReporter) {
+func healthProbes(db *platformdb.Pool, rdb *platformredis.Client) (database, cache health.Pinger, dbPool, cachePool health.PoolReporter) {
 	if db != nil {
 		probe := dbProbe{pool: db}
 		database, dbPool = probe, probe
@@ -123,7 +123,7 @@ type recordedNotification struct {
 // memoryQueue is the notifications.Queue newApplication builds when no Redis
 // client is available: it records what was enqueued instead of publishing it.
 //
-// notifier.Enqueue is not nil-safe on a nil *redis.Client, so a notifier
+// notifier.Enqueue is not nil-safe on a nil *platformredis.Client, so a notifier
 // wrapped around one is not a usable fallback — this is a real, separate
 // implementation, not notifier pointed at nothing. It is what a unit test
 // needs to assert a handler actually published a notification, and what
@@ -272,7 +272,7 @@ var processStart = time.Now()
 // index-covered and this is a scan of the table's non-processed rows. That is
 // affordable because the retention sweep keeps the table to ninety days, and
 // the query is bounded by the health handler's own deadline either way.
-type queueProbe struct{ pool *pgxpool.Pool }
+type queueProbe struct{ pool *platformdb.Pool }
 
 // queueDepthSQL counts each queue's non-terminal rows and the age of the
 // oldest one that is already due.

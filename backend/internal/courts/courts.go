@@ -21,14 +21,24 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
-// Store is the court, price and blocked-slot persistence this module uses.
-type Store interface {
+// The court domain reads three different things through its store, and a
+// caller almost never wants all three: the surfaces themselves, the price
+// bands on them, and the hours their owner has taken off sale. They are three
+// ports for that reason — a reader of this package can see which of the three
+// a rule touches from its call site, and a double in a test only has to answer
+// for the one it is standing in for.
+
+// CourtStore is the surfaces themselves.
+type CourtStore interface {
 	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
 	Insert(ctx context.Context, c *courtstore.Court) error
 	Update(ctx context.Context, c *courtstore.Court) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
+}
 
+// PriceStore is the per-day price bands a court is sold at.
+type PriceStore interface {
 	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
 	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*courtstore.CourtPrice, error)
 	// ReplacePrices atomically replaces a court's whole price table in one
@@ -36,7 +46,10 @@ type Store interface {
 	// replaces the old DeletePricesByCourtID-then-InsertPrice-loop shape
 	// UpdatePrices used to call directly.
 	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (failedIndex int, err error)
+}
 
+// BlockedSlotStore is the hours an owner has withdrawn from sale.
+type BlockedSlotStore interface {
 	InsertBlockedSlot(ctx context.Context, s *courtstore.BlockedSlot) error
 	GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*courtstore.BlockedSlot, error)
 	// GetBlockedSlots serves Service.GetBlockedSlots, which the booking domain
@@ -45,6 +58,14 @@ type Store interface {
 	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error)
 	GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
 	DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error
+}
+
+// Store is all three together: one concrete store implements them, and the
+// composition is what NewService takes, so a caller still passes one value.
+type Store interface {
+	CourtStore
+	PriceStore
+	BlockedSlotStore
 }
 
 // BookingReader is the booking side of availability and of the check that

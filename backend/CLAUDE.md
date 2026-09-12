@@ -48,6 +48,7 @@ Middleware chain order: `recoverPanic → requestID → securityHeaders → CORS
 
 - **`cmd/api/`** — HTTP handlers, routes, middleware, helpers. Handlers are methods on `*application` which holds all injected dependencies. One file per domain (auth.go, bookings.go, courts.go, etc.).
 - **`internal/data/`** — Store interfaces and implementations. Interfaces are segregated by responsibility (ISP): e.g., `BookingStore` composes `BookingCreator`, `BookingReader`, `BookingUpdater`, `BookingStatsQuerier`, `BookingReminderManager`, `BookingLifecycleManager`. The `Models` struct in `models.go` aggregates all stores and is injected into the app.
+- **`internal/platform/`** — the infrastructure the composition root wires and the domain never names: `config/` (the whole flag and environment surface, loaded once by `config.Load`; nothing else in the tree reads the environment), `db/` (the pgx pool and its slow-query tracer) and `redis/` (the client). A platform package never imports a domain package.
 - **`internal/db/`** — **sqlc-generated code — do not edit manually.** Edit SQL in `db/queries/*.sql`, then run `make sqlc`.
 - **`db/migrations/`** — Goose migrations (PostgreSQL). `001_init.sql` is the whole schema (the pre-launch chain was squashed into it, and its header says why); every change since is a new numbered file on top of it, and applied files are immutable from here on.
 - **`db/queries/`** — SQL queries consumed by sqlc. One `.sql` file per entity.
@@ -79,20 +80,7 @@ Middleware chain order: `recoverPanic → requestID → securityHeaders → CORS
   - `DB_AUTO_MIGRATE=true` — apply at startup, before the server listens; a failure aborts the boot with a non-zero exit. Off by default. Prefer the pre-deploy command wherever there is more than one replica: the migrator takes a session advisory lock so racing replicas are safe, but only one of them has anything to do.
   - `DB_MIGRATOR_URL` — optional DSN migrations run as; falls back to `DATABASE_URL`. It exists for the split that is coming: DDL belongs to the role that owns the schema, while the server wants a DML-only role so that a handler defect cannot drop a table and so that row-level security binds (PostgreSQL exempts a table's owner from its own policies unless the table is `FORCE`d).
   - `db/migrations.go` is not sqlc-generated and is not a migration; it is the embed carrier, and it has to live in `db/` because `go:embed` cannot name a path outside its own package directory.
-  - **`.env.example` does not list these two yet** — tooling here is denied write access to `.env*`. Paste this into its "Database tuning" section by hand:
-
-    ```
-    # ─── Migrations ────────────────────────────────────────────────────────────
-
-    DB_AUTO_MIGRATE=false            # true: apply pending migrations at startup,
-                                     # before serving; a failure aborts the boot.
-                                     # Leave false where Railway's pre-deploy
-                                     # command (./api -migrate-only) already runs.
-    DB_MIGRATOR_URL=                 # Optional. DSN migrations run as when that is
-                                     # not the DSN the server runs as. Empty falls
-                                     # back to DATABASE_URL. Set it to the schema
-                                     # owner once DATABASE_URL becomes a DML-only role.
-    ```
+  - Both are listed in `.env.example`, which is regenerated from the environment surface `internal/platform/config` reads.
 - **Two database roles, and the application is neither a superuser nor the owner.** Migration 041 creates `vibe_migrator` (owns schema `public`, runs DDL) and `vibe_app` (SELECT/INSERT/UPDATE/DELETE only, `NOSUPERUSER`, `NOBYPASSRLS`). Migration 042 puts `ENABLE`/`FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy on every tenant-scoped table.
   - Both roles are created `NOLOGIN` with no password — roles are cluster-level and a password in a migration is a password in git. The deploy runs `ALTER ROLE vibe_migrator LOGIN PASSWORD '...'` and the same for `vibe_app`, once per cluster, then points `DB_MIGRATOR_URL` at the first and `DATABASE_URL` at the second. `make e2e-db-roles` does it for the test database with throwaway passwords.
   - **The tenant reaches SQL through the request context.** `internal/data/tenant.go` is the whole mechanism and the place to read first: `data.ContextWithTenant` / `data.ContextWithTenantBypass` put the scope on the context, the pool's `PrepareConn` hook (`data.StampTenantScope`, wired in `cmd/api/main.go`) stamps it on every checkout, and `DB.Begin` repeats it as `SET LOCAL` inside every transaction.

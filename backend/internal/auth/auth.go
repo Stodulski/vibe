@@ -24,17 +24,45 @@ import (
 	"github.com/stodulski/vibe-server/internal/notifications"
 )
 
-// UserStore is the account persistence this module uses.
-type UserStore interface {
+// An account is read, edited, has its credentials changed, and is locked out
+// after too many failed sign-ins. Those are four different reasons to touch a
+// user row and four different blast radiuses, so they are four ports: the two
+// that change what a credential is are nameable on their own, and a rule that
+// only reads an account cannot reach a writer by accident.
+
+// UserReader finds an account.
+type UserReader interface {
 	GetByEmail(ctx context.Context, email string) (*authstore.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error)
+}
+
+// UserWriter creates, edits and deletes an account.
+type UserWriter interface {
 	Insert(ctx context.Context, user *authstore.User) error
 	Update(ctx context.Context, user *authstore.User) error
 	Delete(ctx context.Context, userID uuid.UUID) error
-	IncrementFailedAttempts(ctx context.Context, userID uuid.UUID) error
-	ResetFailedAttempts(ctx context.Context, userID uuid.UUID) error
+}
+
+// CredentialStore changes what an account signs in with, and what it has
+// proved about its address.
+type CredentialStore interface {
 	SetEmailVerified(ctx context.Context, userID uuid.UUID) error
 	UpdatePassword(ctx context.Context, userID uuid.UUID, newHash []byte) error
+}
+
+// LockoutStore is the failed-sign-in counter behind the account lockout.
+type LockoutStore interface {
+	IncrementFailedAttempts(ctx context.Context, userID uuid.UUID) error
+	ResetFailedAttempts(ctx context.Context, userID uuid.UUID) error
+}
+
+// UserStore is all four together: one concrete store implements them, and the
+// composition is what Dependencies takes, so a caller still passes one value.
+type UserStore interface {
+	UserReader
+	UserWriter
+	CredentialStore
+	LockoutStore
 }
 
 // TokenStore holds the refresh tokens that back a session.

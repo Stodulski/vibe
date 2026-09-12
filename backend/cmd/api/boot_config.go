@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/url"
 	"strings"
+
+	"github.com/stodulski/vibe-server/internal/platform/config"
 )
 
 // validateBootConfig checks configuration invariants that nothing else in the
@@ -26,25 +28,25 @@ import (
 // logged once and startup continues, matching how JWT_SECRET's weaker checks
 // above are already handled — development intentionally runs without every
 // MercadoPago secret set.
-func validateBootConfig(cfg config, logger *slog.Logger) error {
+func validateBootConfig(cfg config.Config, logger *slog.Logger) error {
 	var missing []string
 
-	if cfg.mp.accessToken != "" {
+	if cfg.MP.AccessToken != "" {
 		missing = append(missing, missingMPConfig(cfg)...)
 	}
 
-	if cfg.booking.slotLockTTL < cfg.booking.paymentExpiry {
+	if cfg.Booking.SlotLockTTL < cfg.Booking.PaymentExpiry {
 		missing = append(missing, fmt.Sprintf(
 			"booking-slot-lock-ttl (%s) must be >= booking-payment-expiry (%s), "+
 				"otherwise a slot lock can expire while its payment window is still open",
-			cfg.booking.slotLockTTL, cfg.booking.paymentExpiry))
+			cfg.Booking.SlotLockTTL, cfg.Booking.PaymentExpiry))
 	}
 
 	if len(missing) == 0 {
 		return nil
 	}
 
-	if cfg.env == "production" {
+	if cfg.Env == "production" {
 		return fmt.Errorf("invalid boot configuration: %s", strings.Join(missing, "; "))
 	}
 	logger.Error("invalid boot configuration (continuing outside production)",
@@ -54,16 +56,16 @@ func validateBootConfig(cfg config, logger *slog.Logger) error {
 
 // missingMPConfig reports what a MercadoPago-enabled deployment (a non-empty
 // access token) is missing to work end to end.
-func missingMPConfig(cfg config) []string {
+func missingMPConfig(cfg config.Config) []string {
 	var missing []string
 
-	if cfg.mp.appID == "" {
+	if cfg.MP.AppID == "" {
 		missing = append(missing, "mp-app-id/MP_APP_ID is required when mp-access-token/MP_ACCESS_TOKEN is set")
 	}
-	if cfg.mp.clientSecret == "" {
+	if cfg.MP.ClientSecret == "" {
 		missing = append(missing, "mp-client-secret/MP_CLIENT_SECRET is required when mp-access-token/MP_ACCESS_TOKEN is set")
 	}
-	if cfg.mp.webhookSecret == "" {
+	if cfg.MP.WebhookSecret == "" {
 		missing = append(missing, "mp-webhook-secret/MP_WEBHOOK_SECRET is required when mp-access-token/MP_ACCESS_TOKEN is set")
 	}
 	missing = append(missing, validateBackendURL(cfg)...)
@@ -75,16 +77,16 @@ func missingMPConfig(cfg config) []string {
 // and — in production — https. MercadoPago redirects OAuth callbacks and
 // posts webhooks to it; a relative or non-https value fails those silently
 // rather than at boot.
-func validateBackendURL(cfg config) []string {
-	if cfg.backendURL == "" {
+func validateBackendURL(cfg config.Config) []string {
+	if cfg.BackendURL == "" {
 		return []string{"backend-url/BACKEND_URL is required when mp-access-token/MP_ACCESS_TOKEN is set"}
 	}
-	u, err := url.Parse(cfg.backendURL)
+	u, err := url.Parse(cfg.BackendURL)
 	if err != nil || !u.IsAbs() {
-		return []string{fmt.Sprintf("backend-url/BACKEND_URL %q must be an absolute URL", cfg.backendURL)}
+		return []string{fmt.Sprintf("backend-url/BACKEND_URL %q must be an absolute URL", cfg.BackendURL)}
 	}
-	if cfg.env == "production" && u.Scheme != "https" {
-		return []string{fmt.Sprintf("backend-url/BACKEND_URL %q must be https in production", cfg.backendURL)}
+	if cfg.Env == "production" && u.Scheme != "https" {
+		return []string{fmt.Sprintf("backend-url/BACKEND_URL %q must be https in production", cfg.BackendURL)}
 	}
 	return nil
 }

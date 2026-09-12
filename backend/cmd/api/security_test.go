@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/stodulski/vibe-server/internal/platform/config"
 )
 
 // ═══════════════════════════════════════════════════════════════
@@ -312,10 +314,10 @@ func TestSecurity_RateLimit_AuthEndpoints(t *testing.T) {
 
 	// The ceiling goes in before the constructor runs. Set on app.config
 	// afterwards it reaches nothing: middleware.Config took its copy already.
-	app := newIntegrationApp(t, pool, func(c *config) {
-		c.limiter.enabled = true
-		c.limiter.rps = 2
-		c.limiter.burst = 3
+	app := newIntegrationApp(t, pool, func(c *config.Config) {
+		c.Limiter.Enabled = true
+		c.Limiter.RPS = 2
+		c.Limiter.Burst = 3
 	})
 
 	ts := newIntegrationServer(t, app)
@@ -455,9 +457,9 @@ func TestSecurity_Cookies_SecureAttributes(t *testing.T) {
 	cleanupDB(t, pool)
 
 	// Production before construction: auth.Config decides the Secure flag when
-	// the token service is built, so setting app.config.env afterwards leaves
+	// the token service is built, so setting app.config.Env afterwards leaves
 	// the cookies exactly as development wrote them.
-	app := newIntegrationApp(t, pool, func(c *config) { c.env = "production" })
+	app := newIntegrationApp(t, pool, func(c *config.Config) { c.Env = "production" })
 	ts := newIntegrationServer(t, app)
 
 	// Register and login

@@ -17,7 +17,8 @@ import (
 // previous arrangement relied on someone remembering to write a 401 test per
 // handler, which is how the Places proxy briefly shipped unguarded.
 var publicRoutes = map[string]string{
-	"GET /api/v1/healthcheck":                         "liveness probe for the platform",
+	"GET /api/v1/healthcheck":                         "readiness probe for the platform",
+	"GET /api/v1/livez":                               "liveness probe: a restart policy has no session",
 	"GET /api/sitemap.xml":                            "crawled by search engines",
 	"GET /api/v1/public/prerender/:slug":              "server-rendered page for social and search crawlers",
 	"GET /api/v1/public/complexes/:slug":              "the public booking page for a complex",

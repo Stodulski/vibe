@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/migrate"
+	"github.com/stodulski/vibe-server/internal/platform/config"
 )
 
 // migrationTimeout bounds a whole migrate run: the wait for the advisory lock
@@ -30,22 +31,22 @@ const migrationTimeout = 10 * time.Minute
 // FORCEd, and a DML-only role is the honest way to hold that line. Until those
 // roles exist, DB_MIGRATOR_URL is unset and both are the same connection
 // string, which is why the fallback is silent rather than a warning.
-func migratorDSN(cfg config) string {
-	if cfg.db.migratorDSN != "" {
-		return cfg.db.migratorDSN
+func migratorDSN(cfg config.Config) string {
+	if cfg.DB.MigratorDSN != "" {
+		return cfg.DB.MigratorDSN
 	}
-	return cfg.db.dsn
+	return cfg.DB.DSN
 }
 
 // runMigrations applies the embedded chain and logs the version either side of
 // it. The returned error is the caller's to make fatal; both call sites do.
-func runMigrations(cfg config, logger *slog.Logger) error {
+func runMigrations(cfg config.Config, logger *slog.Logger) error {
 	ctx, cancel := context.WithTimeout(context.Background(), migrationTimeout)
 	defer cancel()
 
 	dsn := migratorDSN(cfg)
 	logger.Info("running database migrations",
-		"source", "embedded", "migrator_dsn_configured", cfg.db.migratorDSN != "")
+		"source", "embedded", "migrator_dsn_configured", cfg.DB.MigratorDSN != "")
 
 	result, err := migrate.Up(ctx, dsn, logger)
 	if err != nil {
@@ -70,7 +71,7 @@ func runMigrations(cfg config, logger *slog.Logger) error {
 // logMigrationStatus writes one line per migration in the embedded chain. It is
 // what -migrate-only prints after migrating, so the pre-deploy log answers
 // "what does this database have" without a psql session.
-func logMigrationStatus(cfg config, logger *slog.Logger) error {
+func logMigrationStatus(cfg config.Config, logger *slog.Logger) error {
 	ctx, cancel := context.WithTimeout(context.Background(), migrationTimeout)
 	defer cancel()
 

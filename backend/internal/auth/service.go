@@ -67,7 +67,13 @@ type Session struct {
 //
 //nolint:govet // field order follows the dependency list, not padding
 type Service struct {
-	users         UserStore
+	// The four account ports, all satisfied by the one store Dependencies
+	// carries. They are separate fields so a rule reads through the port it
+	// actually needs: what a call site touches is visible at the call site.
+	users         UserReader
+	userWrites    UserWriter
+	credentials   CredentialStore
+	lockout       LockoutStore
 	tokens        TokenStore
 	tokenService  *TokenService
 	verifications VerificationStore
@@ -115,8 +121,11 @@ func NewService(d Dependencies, cfg Config) *Service {
 		googleVerifier = disabledGoogle{}
 	}
 	return &Service{
-		users:  d.Users,
-		tokens: d.Tokens,
+		users:       d.Users,
+		userWrites:  d.Users,
+		credentials: d.Users,
+		lockout:     d.Users,
+		tokens:      d.Tokens,
 		tokenService: NewTokenService(TokenServiceConfig{
 			JWTSecret:    cfg.JWTSecret,
 			CookieDomain: cfg.CookieDomain,
@@ -179,7 +188,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) error {
 		return err
 	}
 
-	err := s.users.Insert(ctx, user)
+	err := s.userWrites.Insert(ctx, user)
 	if err != nil {
 		if !errors.Is(err, authstore.ErrDuplicateEmail) {
 			return err
@@ -211,7 +220,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) error {
 
 	// In development, auto-verify the email so E2E tests can login immediately.
 	if s.cfg.Environment == "development" {
-		if verifyErr := s.users.SetEmailVerified(ctx, user.ID); verifyErr != nil {
+		if verifyErr := s.credentials.SetEmailVerified(ctx, user.ID); verifyErr != nil {
 			s.logger.Error("dev: auto-verify failed", "error", verifyErr, "user_id", user.ID)
 		}
 	}
@@ -283,7 +292,7 @@ func (s *Service) Login(ctx context.Context, actor Actor, email, password string
 
 	if !match {
 		// Increment failed attempts (handles progressive lockout).
-		if incErr := s.users.IncrementFailedAttempts(ctx, user.ID); incErr != nil {
+		if incErr := s.lockout.IncrementFailedAttempts(ctx, user.ID); incErr != nil {
 			s.logger.Error("login: failed to increment login attempts", "error", incErr, "user_id", user.ID)
 		}
 		return nil, s.loginFailed(actor, email)
@@ -291,7 +300,7 @@ func (s *Service) Login(ctx context.Context, actor Actor, email, password string
 
 	// Successful password match — reset failed attempts.
 	if user.FailedLoginAttempts > 0 {
-		if resetErr := s.users.ResetFailedAttempts(ctx, user.ID); resetErr != nil {
+		if resetErr := s.lockout.ResetFailedAttempts(ctx, user.ID); resetErr != nil {
 			s.logger.Error("login: failed to reset login attempts", "error", resetErr, "user_id", user.ID)
 		}
 	}
@@ -386,7 +395,7 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	}
 
 	// SetEmailVerified is idempotent — safe against concurrent requests.
-	if err := s.users.SetEmailVerified(ctx, vToken.UserID); err != nil {
+	if err := s.credentials.SetEmailVerified(ctx, vToken.UserID); err != nil {
 		return err
 	}
 	s.cache.InvalidateUser(ctx, vToken.UserID)
@@ -638,7 +647,7 @@ func (s *Service) DeleteAccount(ctx context.Context, actor Actor, user *authstor
 	// refresh was refused, and the app signed the owner out and sent them to
 	// the login page, which reads as "deleted", with the account fully intact.
 	// A failed delete must leave the session exactly as it was.
-	if err := s.users.Delete(ctx, user.ID); err != nil {
+	if err := s.userWrites.Delete(ctx, user.ID); err != nil {
 		return err
 	}
 	s.cache.InvalidateUser(ctx, user.ID)
@@ -737,7 +746,7 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *auth
 		}
 	}
 
-	if err := s.users.Update(ctx, user); err != nil {
+	if err := s.userWrites.Update(ctx, user); err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
 			return nil, ErrEditConflict
 		}
@@ -774,7 +783,7 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *auth
 		if err := user.SetPassword(*in.NewPassword, s.cfg.PasswordHashCost); err != nil {
 			return nil, err
 		}
-		if err := s.users.UpdatePassword(ctx, user.ID, user.PasswordHash); err != nil {
+		if err := s.credentials.UpdatePassword(ctx, user.ID, user.PasswordHash); err != nil {
 			return nil, err
 		}
 
@@ -909,7 +918,7 @@ func (s *Service) ResetPassword(ctx context.Context, actor Actor, token, passwor
 	if err := user.SetPassword(password, s.cfg.PasswordHashCost); err != nil {
 		return err
 	}
-	if err := s.users.UpdatePassword(ctx, user.ID, user.PasswordHash); err != nil {
+	if err := s.credentials.UpdatePassword(ctx, user.ID, user.PasswordHash); err != nil {
 		return err
 	}
 
@@ -940,7 +949,7 @@ func (s *Service) ResetPassword(ctx context.Context, actor Actor, token, passwor
 	// Nothing is lost by clearing it: the lockout exists to stop someone
 	// guessing a password, and whoever got here proved control of the email
 	// address and then chose a new one. There is no longer a guess to stop.
-	if resetErr := s.users.ResetFailedAttempts(ctx, user.ID); resetErr != nil {
+	if resetErr := s.lockout.ResetFailedAttempts(ctx, user.ID); resetErr != nil {
 		s.logger.Error("reset-password: failed to clear the login lockout — the new password may still be refused",
 			"error", resetErr, "user_id", user.ID)
 	}
@@ -1018,7 +1027,7 @@ func (s *Service) GoogleSignIn(ctx context.Context, actor Actor, credential stri
 	}
 
 	if user.FailedLoginAttempts > 0 {
-		if resetErr := s.users.ResetFailedAttempts(ctx, user.ID); resetErr != nil {
+		if resetErr := s.lockout.ResetFailedAttempts(ctx, user.ID); resetErr != nil {
 			s.logger.Error("google sign-in: failed to reset login attempts", "error", resetErr, "user_id", user.ID)
 		}
 	}
@@ -1081,7 +1090,7 @@ func (s *Service) GoogleComplete(ctx context.Context, actor Actor, claims *Googl
 		return nil, err
 	}
 
-	if err := s.users.Insert(ctx, user); err != nil {
+	if err := s.userWrites.Insert(ctx, user); err != nil {
 		if errors.Is(err, authstore.ErrDuplicateEmail) {
 			return nil, ErrAccountExists
 		}
@@ -1092,7 +1101,7 @@ func (s *Service) GoogleComplete(ctx context.Context, actor Actor, claims *Googl
 	// back false from the RETURNING clause Insert reads onto user — this is what
 	// actually persists the true the contract promises, the way Register's
 	// development-only auto-verify does.
-	if err := s.users.SetEmailVerified(ctx, user.ID); err != nil {
+	if err := s.credentials.SetEmailVerified(ctx, user.ID); err != nil {
 		return nil, err
 	}
 	user.EmailVerified = true
@@ -1112,7 +1121,7 @@ func (s *Service) claimUnverifiedAccount(ctx context.Context, actor Actor, user 
 	if err := setUnusablePassword(user, s.cfg.PasswordHashCost); err != nil {
 		return err
 	}
-	if err := s.users.UpdatePassword(ctx, user.ID, user.PasswordHash); err != nil {
+	if err := s.credentials.UpdatePassword(ctx, user.ID, user.PasswordHash); err != nil {
 		return err
 	}
 
@@ -1135,7 +1144,7 @@ func (s *Service) claimUnverifiedAccount(ctx context.Context, actor Actor, user 
 		s.revocationFailed("google claim", user.ID.String(), err)
 	}
 
-	if err := s.users.SetEmailVerified(ctx, user.ID); err != nil {
+	if err := s.credentials.SetEmailVerified(ctx, user.ID); err != nil {
 		s.logger.Error("google sign-in: failed to mark email verified", "error", err, "user_id", user.ID)
 		return nil
 	}

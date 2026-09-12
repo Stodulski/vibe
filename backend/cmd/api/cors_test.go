@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/rs/cors"
@@ -13,13 +14,7 @@ import (
 // test exercises the exact configuration the server runs rather than a
 // reconstruction of it.
 func newTestCORSHandler() *cors.Cors {
-	return cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-CSRF-Token"},
-		AllowCredentials: true,
-		MaxAge:           86400,
-	})
+	return cors.New(corsOptions("http://localhost:5173"))
 }
 
 // preflight builds and serves one OPTIONS preflight against handler and
@@ -101,5 +96,28 @@ func TestNormalizeCORSPreflightHeadersFixesMixedCase(t *testing.T) {
 				t.Errorf("want Access-Control-Allow-Headers to be set for %q", reqHeaders)
 			}
 		})
+	}
+}
+
+// TestTheRequestIDIsExposedToTheBrowser pins the header the frontend needs to
+// show a correlation id in an error toast. A browser hides every response
+// header outside the CORS-safelist unless the server names it, so without this
+// the id was readable by curl and invisible to the page.
+func TestTheRequestIDIsExposedToTheBrowser(t *testing.T) {
+	handler := newTestCORSHandler().Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Request-ID", "01JABCDEF")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/auth/me", nil)
+	r.Header.Set("Origin", "http://localhost:5173")
+	handler.ServeHTTP(w, r)
+
+	// rs/cors writes the name back canonicalized ("X-Request-Id"); header
+	// names are case-insensitive, and so is the browser's own matching.
+	got := w.Header().Get("Access-Control-Expose-Headers")
+	if !strings.Contains(strings.ToLower(got), "x-request-id") {
+		t.Errorf("Access-Control-Expose-Headers = %q, want it to name X-Request-ID", got)
 	}
 }

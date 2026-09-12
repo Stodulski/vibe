@@ -6,20 +6,22 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stodulski/vibe-server/internal/platform/config"
 )
 
 // testConfig builds a config that passes validateBootConfig, so each test
 // case only has to describe the one thing it breaks.
-func testConfig() config {
-	var cfg config
-	cfg.env = "development"
-	cfg.mp.accessToken = "APP_USR-token"
-	cfg.mp.appID = "app-id"
-	cfg.mp.clientSecret = "client-secret"
-	cfg.mp.webhookSecret = "webhook-secret"
-	cfg.backendURL = "https://api.example.com"
-	cfg.booking.paymentExpiry = 15 * time.Minute
-	cfg.booking.slotLockTTL = 15 * time.Minute
+func testConfig() config.Config {
+	var cfg config.Config
+	cfg.Env = "development"
+	cfg.MP.AccessToken = "APP_USR-token"
+	cfg.MP.AppID = "app-id"
+	cfg.MP.ClientSecret = "client-secret"
+	cfg.MP.WebhookSecret = "webhook-secret"
+	cfg.BackendURL = "https://api.example.com"
+	cfg.Booking.PaymentExpiry = 15 * time.Minute
+	cfg.Booking.SlotLockTTL = 15 * time.Minute
 	return cfg
 }
 
@@ -28,125 +30,125 @@ func TestValidateBootConfig(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		mutate    func(*config)
+		mutate    func(*config.Config)
 		wantErr   bool
 		errSubstr string
 	}{
 		{
 			name:   "everything set, passes in every environment",
-			mutate: func(c *config) {},
+			mutate: func(c *config.Config) {},
 		},
 		{
 			name: "MP disabled: an empty access token skips every MP check",
-			mutate: func(c *config) {
-				c.mp.accessToken = ""
-				c.mp.appID = ""
-				c.mp.clientSecret = ""
-				c.mp.webhookSecret = ""
-				c.backendURL = ""
+			mutate: func(c *config.Config) {
+				c.MP.AccessToken = ""
+				c.MP.AppID = ""
+				c.MP.ClientSecret = ""
+				c.MP.WebhookSecret = ""
+				c.BackendURL = ""
 			},
 		},
 		{
 			name: "MP enabled, missing app id, development: logged, not fatal",
-			mutate: func(c *config) {
-				c.mp.appID = ""
+			mutate: func(c *config.Config) {
+				c.MP.AppID = ""
 			},
 		},
 		{
 			name: "MP enabled, missing app id, production: fatal",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.mp.appID = ""
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.MP.AppID = ""
 			},
 			wantErr:   true,
 			errSubstr: "mp-app-id",
 		},
 		{
 			name: "MP enabled, missing client secret, production: fatal",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.mp.clientSecret = ""
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.MP.ClientSecret = ""
 			},
 			wantErr:   true,
 			errSubstr: "mp-client-secret",
 		},
 		{
 			name: "MP enabled, missing webhook secret, production: fatal",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.mp.webhookSecret = ""
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.MP.WebhookSecret = ""
 			},
 			wantErr:   true,
 			errSubstr: "mp-webhook-secret",
 		},
 		{
 			name: "MP enabled, missing backend URL, production: fatal",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.backendURL = ""
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.BackendURL = ""
 			},
 			wantErr:   true,
 			errSubstr: "backend-url",
 		},
 		{
 			name: "MP enabled, relative backend URL, production: fatal",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.backendURL = "/webhooks/mp"
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.BackendURL = "/webhooks/mp"
 			},
 			wantErr:   true,
 			errSubstr: "must be an absolute URL",
 		},
 		{
 			name: "MP enabled, http backend URL, production: fatal",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.backendURL = "http://api.example.com"
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.BackendURL = "http://api.example.com"
 			},
 			wantErr:   true,
 			errSubstr: "must be https in production",
 		},
 		{
 			name: "MP enabled, http backend URL, development: allowed",
-			mutate: func(c *config) {
-				c.backendURL = "http://localhost:8080"
+			mutate: func(c *config.Config) {
+				c.BackendURL = "http://localhost:8080"
 			},
 		},
 		{
 			name: "everything missing at once, production: every issue reported",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.mp.appID = ""
-				c.mp.clientSecret = ""
-				c.mp.webhookSecret = ""
-				c.backendURL = ""
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.MP.AppID = ""
+				c.MP.ClientSecret = ""
+				c.MP.WebhookSecret = ""
+				c.BackendURL = ""
 			},
 			wantErr:   true,
 			errSubstr: "mp-app-id",
 		},
 		{
 			name: "slot lock TTL shorter than payment expiry, production: fatal",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.booking.slotLockTTL = 5 * time.Minute
-				c.booking.paymentExpiry = 15 * time.Minute
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.Booking.SlotLockTTL = 5 * time.Minute
+				c.Booking.PaymentExpiry = 15 * time.Minute
 			},
 			wantErr:   true,
 			errSubstr: "booking-slot-lock-ttl",
 		},
 		{
 			name: "slot lock TTL shorter than payment expiry, development: logged, not fatal",
-			mutate: func(c *config) {
-				c.booking.slotLockTTL = 5 * time.Minute
-				c.booking.paymentExpiry = 15 * time.Minute
+			mutate: func(c *config.Config) {
+				c.Booking.SlotLockTTL = 5 * time.Minute
+				c.Booking.PaymentExpiry = 15 * time.Minute
 			},
 		},
 		{
 			name: "slot lock TTL exactly equal to payment expiry: allowed (>=, not >)",
-			mutate: func(c *config) {
-				c.env = "production"
-				c.booking.slotLockTTL = 15 * time.Minute
-				c.booking.paymentExpiry = 15 * time.Minute
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.Booking.SlotLockTTL = 15 * time.Minute
+				c.Booking.PaymentExpiry = 15 * time.Minute
 			},
 		},
 	}

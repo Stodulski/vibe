@@ -164,3 +164,48 @@ func TestDetailedOmitsPoolFiguresWhenUnavailable(t *testing.T) {
 		t.Errorf("the dependency states must still be reported; got %v", deps["database"])
 	}
 }
+
+// TestLiveAnswersWhileEveryDependencyIsDown is the separation this endpoint
+// exists for. With one endpoint doing both jobs, a database outage marked the
+// process dead and the platform restarted every replica — turning an outage
+// that would have ended when the database came back into a restart loop that
+// could not.
+func TestLiveAnswersWhileEveryDependencyIsDown(t *testing.T) {
+	down := stubPinger{err: errors.New("connection refused")}
+	h := newHandler(down, down, nil, nil)
+
+	w := httptest.NewRecorder()
+	h.Live(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/livez", nil))
+
+	if w.Code != http.StatusOK {
+		t.Errorf("want 200 while the dependencies are down; got %d", w.Code)
+	}
+	if got := decode(t, w)["status"]; got != statusAvailable {
+		t.Errorf("want %q; got %v", statusAvailable, got)
+	}
+}
+
+// TestLiveProbesNothing pins the other half: an endpoint a restart policy polls
+// every few seconds must not open a database connection to answer.
+func TestLiveProbesNothing(t *testing.T) {
+	probe := &countingPinger{}
+	h := newHandler(probe, probe, nil, nil)
+
+	w := httptest.NewRecorder()
+	h.Live(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/livez", nil))
+
+	if probe.calls != 0 {
+		t.Errorf("Live pinged a dependency %d times; want none", probe.calls)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want 200; got %d", w.Code)
+	}
+}
+
+// countingPinger counts the probes made against it.
+type countingPinger struct{ calls int }
+
+func (p *countingPinger) Ping(context.Context) error {
+	p.calls++
+	return nil
+}

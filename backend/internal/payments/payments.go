@@ -26,24 +26,35 @@ import (
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
-// PaymentStore is the payment persistence this module uses.
-type PaymentStore interface {
+// The payment ledger is read, written, and refunded, and the refund half is a
+// lifecycle of its own — a durable claim, a provider call made with no
+// database resource held, and exactly one recorder closing the attempt out.
+// Those are three ports for that reason: a rule that reads the ledger cannot
+// reach a refund recorder, and the refund lifecycle is nameable on its own.
+
+// PaymentReader finds a payment.
+type PaymentReader interface {
 	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
-	// Insert and RecordManualRefund are used by no rule in this module: they
-	// are here because the booking domain reaches the payment ledger through
-	// Service rather than through the payment store, and a service cannot
-	// proxy a method its own store interface does not declare.
-	Insert(ctx context.Context, p *paymentstore.Payment) error
-	RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (returnedCentavos int, err error)
 	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
 	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
+}
+
+// PaymentWriter records a payment and the booking state that follows from it.
+type PaymentWriter interface {
+	// Insert is used by no rule in this module: it is here because the booking
+	// domain reaches the payment ledger through Service rather than through
+	// the payment store, and a service cannot proxy a method its own store
+	// interface does not declare.
+	Insert(ctx context.Context, p *paymentstore.Payment) error
+	Update(ctx context.Context, payment *paymentstore.Payment) error
 	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
-	Update(ctx context.Context, payment *paymentstore.Payment) error
+}
 
-	// The refund lifecycle, in the order it runs. ClaimRefund commits a durable
-	// reservation, the provider is then called with no database resource held, and
-	// exactly one of the two recorders closes the attempt out.
+// RefundStore is the refund lifecycle, in the order it runs. ClaimRefund
+// commits a durable reservation, the provider is then called with no database
+// resource held, and exactly one of the two recorders closes the attempt out.
+type RefundStore interface {
 	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's cash/transfer balance still owed by
 	// hand — computed by manualBalance or manualOwedForBooking — so the
@@ -51,6 +62,18 @@ type PaymentStore interface {
 	// refund settles the automatic half but leaves that balance outstanding.
 	RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
 	RecordRefundFailure(ctx context.Context, claim paymentstore.RefundClaim, cause string) (exhausted bool, err error)
+	// RecordManualRefund is used by no rule in this module, for the same
+	// reason Insert is not: the booking domain proxies it through Service.
+	RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (returnedCentavos int, err error)
+}
+
+// PaymentStore is all three together: one concrete store implements them, and
+// the composition is what Dependencies takes, so a caller still passes one
+// value.
+type PaymentStore interface {
+	PaymentReader
+	PaymentWriter
+	RefundStore
 }
 
 // BookingStore is the booking side of confirming and cancelling.
@@ -181,7 +204,12 @@ type Config struct {
 // It is also where the background entrypoints live — the schedulers in cmd/api
 // call them directly, because none of them is an HTTP concern.
 type Service struct {
-	payments      PaymentStore
+	// The three ledger ports, all satisfied by the one store Dependencies
+	// carries. They are separate fields so a rule reads through the port it
+	// actually needs: what a call site touches is visible at the call site.
+	payments      PaymentReader
+	ledger        PaymentWriter
+	refunds       RefundStore
 	bookings      BookingStore
 	clients       ClientStore
 	complexes     ComplexReader
@@ -234,6 +262,8 @@ func NewService(d Dependencies, cfg Config) *Service {
 	}
 	return &Service{
 		payments:      d.Payments,
+		ledger:        d.Payments,
+		refunds:       d.Payments,
 		bookings:      d.Bookings,
 		clients:       d.Clients,
 		complexes:     d.Complexes,
@@ -297,7 +327,7 @@ func (h *Handler) Routes(router httpx.Router, _ httpx.Guards) {
 // Insert records a payment. Exported for bookings, which creates the pending
 // MercadoPago row and the owner's cash/transfer rows.
 func (s *Service) Insert(ctx context.Context, p *paymentstore.Payment) error {
-	return s.payments.Insert(ctx, p)
+	return s.ledger.Insert(ctx, p)
 }
 
 // GetByBookingID returns a booking's MercadoPago-preferred payment row.
@@ -315,12 +345,12 @@ func (s *Service) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*
 // InsertAndConfirmBooking records a payment and confirms its booking in one
 // transaction. Exported for bookings, whose counter-payment path uses it.
 func (s *Service) InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error {
-	return s.payments.InsertAndConfirmBooking(ctx, payment, booking)
+	return s.ledger.InsertAndConfirmBooking(ctx, payment, booking)
 }
 
 // RecordManualRefund closes out a partial refund's remaining cash/transfer
 // rows. Exported for bookings, which is where the owner confirms they handed
 // the money back.
 func (s *Service) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (int, error) {
-	return s.payments.RecordManualRefund(ctx, bookingID)
+	return s.refunds.RecordManualRefund(ctx, bookingID)
 }

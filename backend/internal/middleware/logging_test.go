@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -537,5 +539,69 @@ func TestBucketOf(t *testing.T) {
 	}
 	if got := bucketLabel(0); got != fmt.Sprint(latencyBounds[0].Milliseconds()) {
 		t.Errorf("want the bucket labelled by its bound in ms; got %q", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The actor
+// ---------------------------------------------------------------------------
+
+// TestAnAuthenticatedRequestIsLoggedWithItsUserID closes the gap that made the
+// request log useless for "what did this account do": the line was written by
+// a middleware sitting outside authentication, so it knew the address and the
+// route but never who was asking.
+func TestAnAuthenticatedRequestIsLoggedWithItsUserID(t *testing.T) {
+	f := newLogFixture(t, Config{})
+
+	userID := uuid.New()
+	// The shape of the real chain: authentication runs inside LogRequests and
+	// replaces the request it was handed.
+	handler := f.mw.LogRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = httpx.ContextSetUser(r, &authstore.User{ID: userID, Role: "owner"})
+		if _, ok := httpx.ContextGetAuthenticatedUser(r); !ok {
+			t.Error("the user did not survive into the request")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	serve(t, handler, http.MethodGet, "/api/v1/auth/me")
+
+	if got := str(t, f.onlyLine(t), "user_id"); got != userID.String() {
+		t.Errorf("user_id = %q, want %q", got, userID)
+	}
+}
+
+// TestAnAnonymousRequestHasNoUserIDField keeps the field out of the lines it
+// would only ever be empty on.
+func TestAnAnonymousRequestHasNoUserIDField(t *testing.T) {
+	f := newLogFixture(t, Config{})
+
+	handler := f.mw.LogRequests(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	serve(t, handler, http.MethodGet, "/api/v1/healthcheck")
+
+	if _, present := f.onlyLine(t)["user_id"]; present {
+		t.Error("an unauthenticated request carries a user_id field")
+	}
+}
+
+// TestTheRequestLogCarriesNoPersonalDataBeyondTheID is the limit on the field
+// above: an id identifies an account to whoever can query the database, an
+// email address identifies a person to whoever can read the logs.
+func TestTheRequestLogCarriesNoPersonalDataBeyondTheID(t *testing.T) {
+	f := newLogFixture(t, Config{})
+
+	user := &authstore.User{ID: uuid.New(), Email: "someone@example.com", FirstName: "Some", LastName: "One", Phone: "+5491122334455", Role: "owner"}
+	handler := f.mw.LogRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = httpx.ContextSetUser(r, user)
+		w.WriteHeader(http.StatusOK)
+	}))
+	serve(t, handler, http.MethodGet, "/api/v1/auth/me")
+
+	logged := f.logs.String()
+	for _, personal := range []string{user.Email, user.LastName, user.Phone} {
+		if strings.Contains(logged, personal) {
+			t.Errorf("the request log carries %q", personal)
+		}
 	}
 }

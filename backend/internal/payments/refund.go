@@ -146,18 +146,18 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		// Do NOT cancel completed/no_show bookings — service was already rendered.
 		booking.Status = "cancelled"
 		booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
-		if err := s.payments.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+		if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
 			return fmt.Errorf("record the refund of payment %s and cancel its booking: %w", mpPaymentID, err)
 		}
 	} else {
 		// Partial refund, or full refund on completed/no_show: only update payment.
 		if isFullRefund {
 			booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
-			if err := s.payments.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+			if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
 				return fmt.Errorf("record the refund of payment %s on a played booking: %w", mpPaymentID, err)
 			}
 		} else {
-			if err := s.payments.Update(ctx, payment); err != nil {
+			if err := s.ledger.Update(ctx, payment); err != nil {
 				return fmt.Errorf("record the partial refund of payment %s: %w", mpPaymentID, err)
 			}
 		}
@@ -411,7 +411,7 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstore.Booking, payment *paymentstore.Payment, manualOwed int, committed *bool) paymentstore.RefundOutcome {
 	owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
 
-	claim, err := s.payments.ClaimRefund(ctx, payment.ID)
+	claim, err := s.refunds.ClaimRefund(ctx, payment.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, paymentstore.ErrAlreadyRefunded):
@@ -444,7 +444,7 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 		return *outcome
 	}
 
-	refundTotal, err := s.payments.RecordRefundSuccess(ctx, settled, manualOwed)
+	refundTotal, err := s.refunds.RecordRefundSuccess(ctx, settled, manualOwed)
 	if err != nil {
 		// The money has left the account. The claim's attempt row is still queued
 		// with its backoff, so the retry job will replay this refund; MercadoPago's
@@ -864,7 +864,7 @@ func (s *Service) recordRefundFailure(ctx context.Context, claim paymentstore.Re
 		"attempt_id", claim.AttemptID,
 	)
 
-	exhausted, err := s.payments.RecordRefundFailure(ctx, claim, cause.Error())
+	exhausted, err := s.refunds.RecordRefundFailure(ctx, claim, cause.Error())
 	if err != nil {
 		s.logger.Error("auto-refund: failed to requeue the refund attempt",
 			"error", err, "attempt_id", claim.AttemptID, "booking_id", claim.BookingID)
@@ -1044,7 +1044,7 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 		}
 
 		manualOwed := s.manualOwedForBooking(ctx, fr.BookingID)
-		refundTotal, err := s.payments.RecordRefundSuccess(ctx, settled, manualOwed)
+		refundTotal, err := s.refunds.RecordRefundSuccess(ctx, settled, manualOwed)
 		if err != nil {
 			s.logger.Error("refund-retry: refund issued but not recorded, left queued for retry",
 				"error", err, "id", fr.ID, "payment_id", fr.PaymentID)

@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
@@ -15,10 +16,66 @@ type (
 	userContextKey      struct{}
 	complexContextKey   struct{}
 	requestIDContextKey struct{}
+	actorContextKey     struct{}
 )
 
-// ContextSetUser returns a copy of r carrying the authenticated user.
+// Actor is the slot the authentication middleware writes the authenticated
+// actor's id into, so that middleware which ran before authentication can
+// still name who the request turned out to be.
+//
+// It exists because the request log is written by a middleware that wraps the
+// authenticator: its own *http.Request was copied and replaced downstream by
+// the time authentication finished, so the id cannot be read back out of the
+// context it holds. A mutable slot placed in the context before the chain runs
+// is the one thing both halves can see.
+//
+// It carries the id and nothing else. A log line naming a user is a support
+// ticket answered; a log line carrying their email address is personal data in
+// a log aggregator nobody scoped for it.
+type Actor struct {
+	mu sync.RWMutex
+	id string
+}
+
+// set records the id. It is called once per request, by ContextSetUser.
+func (a *Actor) set(id string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.id = id
+}
+
+// ID is the authenticated actor's id, or "" on a request that never
+// authenticated.
+func (a *Actor) ID() string {
+	if a == nil {
+		return ""
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.id
+}
+
+// ContextWithActor returns a context carrying an empty actor slot, and the
+// slot itself for the caller to read once the chain below it has run.
+func ContextWithActor(ctx context.Context) (context.Context, *Actor) {
+	actor := &Actor{}
+	return context.WithValue(ctx, actorContextKey{}, actor), actor
+}
+
+// contextActor returns the slot placed by ContextWithActor, if there is one.
+func contextActor(ctx context.Context) *Actor {
+	actor, _ := ctx.Value(actorContextKey{}).(*Actor)
+	return actor
+}
+
+// ContextSetUser returns a copy of r carrying the authenticated user, and
+// records the actor's id in the slot any outer middleware left for it.
 func ContextSetUser(r *http.Request, user *authstore.User) *http.Request {
+	if user != nil {
+		if actor := contextActor(r.Context()); actor != nil {
+			actor.set(user.ID.String())
+		}
+	}
 	return r.WithContext(context.WithValue(r.Context(), userContextKey{}, user))
 }
 
