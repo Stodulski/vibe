@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { HTTPError } from 'ky';
 import { toast } from 'sonner';
-import { publicBookingApi } from '@/features/public-booking';
+import { publicBookingApi } from '../api/public-booking.api';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 

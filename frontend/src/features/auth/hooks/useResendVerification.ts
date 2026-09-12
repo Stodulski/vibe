@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { authApi } from '@/features/auth';
+import { authApi } from '../api/auth.api';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 

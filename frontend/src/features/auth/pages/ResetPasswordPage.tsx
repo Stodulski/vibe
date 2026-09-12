@@ -3,7 +3,7 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { ResetPasswordForm } from './reset-password/ResetPasswordForm';
 import { ResetPasswordResult } from './reset-password/ResetPasswordResult';
-import { useResetPassword } from './reset-password/useResetPassword';
+import { useResetPassword } from '@/features/auth/hooks/useResetPassword';
 
 const t = ES_AR;
 

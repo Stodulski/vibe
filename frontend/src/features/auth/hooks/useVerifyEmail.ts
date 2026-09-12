@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { authApi } from '@/features/auth';
+import { authApi } from '../api/auth.api';
 import { useStore } from '@/shared/stores';
 
 export function useVerifyEmail() {

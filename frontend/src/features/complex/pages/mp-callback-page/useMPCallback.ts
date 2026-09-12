@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@/shared/stores';
-import api from '@/shared/lib/ky';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
-import { parseWith } from '@/shared/lib/apiParse';
-import { mpConnectResponseSchema } from '@/shared/schemas';
+import { complexApi } from '../../api/complex.api';
 import { safeSessionStorage } from '@/shared/lib/safeStorage';
 
 interface OAuthParams {
@@ -46,16 +44,11 @@ function useConnectMutation({
 }) {
   return useMutation({
     mutationFn: (params: { complexId: string; code: string; codeVerifier?: string | undefined }) =>
-      api
-        .post(`complexes/${params.complexId}/mp/connect`, {
-          json: {
-            code: params.code,
-            redirect_uri: `${window.location.origin}/settings/mp/callback`,
-            ...(params.codeVerifier ? { code_verifier: params.codeVerifier } : {}),
-          },
-        })
-        .json()
-        .then(parseWith(mpConnectResponseSchema, 'useMPCallback.connect')),
+      complexApi.connectMP(params.complexId, {
+        code: params.code,
+        redirect_uri: `${window.location.origin}/settings/mp/callback`,
+        ...(params.codeVerifier ? { code_verifier: params.codeVerifier } : {}),
+      }),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.complexes.mpStatus(variables.complexId),
