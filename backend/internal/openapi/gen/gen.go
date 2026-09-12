@@ -918,31 +918,31 @@ func (e BookingsWhatsAppVerifyWebhookParamsHubMode) Valid() bool {
 
 // AdminComplexRow defines model for AdminComplexRow.
 type AdminComplexRow struct {
-	City        string              `json:"city"`
-	CourtsCount int                 `json:"courts_count"`
-	CreatedAt   time.Time           `json:"created_at"`
-	Id          openapi_types.UUID  `json:"id"`
-	IsActive    bool                `json:"is_active"`
-	MpConnected bool                `json:"mp_connected"`
-	Name        string              `json:"name"`
-	OwnerEmail  openapi_types.Email `json:"owner_email"`
-	OwnerId     openapi_types.UUID  `json:"owner_id"`
-	OwnerName   string              `json:"owner_name"`
-	Slug        string              `json:"slug"`
+	City        string             `json:"city"`
+	CourtsCount int                `json:"courts_count"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Id          openapi_types.UUID `json:"id"`
+	IsActive    bool               `json:"is_active"`
+	MpConnected bool               `json:"mp_connected"`
+	Name        string             `json:"name"`
+	OwnerEmail  string             `json:"owner_email"`
+	OwnerId     openapi_types.UUID `json:"owner_id"`
+	OwnerName   string             `json:"owner_name"`
+	Slug        string             `json:"slug"`
 }
 
 // AdminUserRow defines model for AdminUserRow.
 type AdminUserRow struct {
-	ComplexCount  int                 `json:"complex_count"`
-	CreatedAt     time.Time           `json:"created_at"`
-	Email         openapi_types.Email `json:"email"`
-	EmailVerified bool                `json:"email_verified"`
-	FirstName     string              `json:"first_name"`
-	Id            openapi_types.UUID  `json:"id"`
-	IsActive      bool                `json:"is_active"`
-	LastName      string              `json:"last_name"`
-	Phone         string              `json:"phone"`
-	Role          AdminUserRowRole    `json:"role"`
+	ComplexCount  int                `json:"complex_count"`
+	CreatedAt     time.Time          `json:"created_at"`
+	Email         string             `json:"email"`
+	EmailVerified bool               `json:"email_verified"`
+	FirstName     string             `json:"first_name"`
+	Id            openapi_types.UUID `json:"id"`
+	IsActive      bool               `json:"is_active"`
+	LastName      string             `json:"last_name"`
+	Phone         string             `json:"phone"`
+	Role          AdminUserRowRole   `json:"role"`
 }
 
 // AdminUserRowRole defines model for AdminUserRow.Role.
@@ -950,15 +950,15 @@ type AdminUserRowRole string
 
 // AuditLogRow Every pointer field lacks `omitempty` in Go, so an absent value serializes as JSON `null`, not as an absent key.
 type AuditLogRow struct {
-	Action     string               `json:"action"`
-	ComplexId  *openapi_types.UUID  `json:"complex_id"`
-	CreatedAt  time.Time            `json:"created_at"`
-	EntityId   *openapi_types.UUID  `json:"entity_id"`
-	EntityType string               `json:"entity_type"`
-	Id         openapi_types.UUID   `json:"id"`
-	IpAddress  *string              `json:"ip_address"`
-	UserEmail  *openapi_types.Email `json:"user_email"`
-	UserId     *openapi_types.UUID  `json:"user_id"`
+	Action     string              `json:"action"`
+	ComplexId  *openapi_types.UUID `json:"complex_id"`
+	CreatedAt  time.Time           `json:"created_at"`
+	EntityId   *openapi_types.UUID `json:"entity_id"`
+	EntityType string              `json:"entity_type"`
+	Id         openapi_types.UUID  `json:"id"`
+	IpAddress  *string             `json:"ip_address"`
+	UserEmail  *string             `json:"user_email"`
+	UserId     *openapi_types.UUID `json:"user_id"`
 }
 
 // Availability defines model for Availability.
@@ -1059,16 +1059,16 @@ type BookingStatus string
 
 // Client defines model for Client.
 type Client struct {
-	ComplexId openapi_types.UUID   `json:"complex_id"`
-	CreatedAt time.Time            `json:"created_at"`
-	Email     *openapi_types.Email `json:"email,omitempty"`
-	FirstName string               `json:"first_name"`
-	Id        openapi_types.UUID   `json:"id"`
-	IsBlocked bool                 `json:"is_blocked"`
-	LastName  string               `json:"last_name"`
-	NoShows   int                  `json:"no_shows"`
-	Notes     *string              `json:"notes,omitempty"`
-	Phone     string               `json:"phone"`
+	ComplexId openapi_types.UUID `json:"complex_id"`
+	CreatedAt time.Time          `json:"created_at"`
+	Email     *string            `json:"email,omitempty"`
+	FirstName string             `json:"first_name"`
+	Id        openapi_types.UUID `json:"id"`
+	IsBlocked bool               `json:"is_blocked"`
+	LastName  string             `json:"last_name"`
+	NoShows   int                `json:"no_shows"`
+	Notes     *string            `json:"notes,omitempty"`
+	Phone     string             `json:"phone"`
 
 	// TotalBookings A live count, not a stored counter.
 	TotalBookings int       `json:"total_bookings"`
@@ -1100,26 +1100,29 @@ type Complex struct {
 	CountryCode       string   `json:"country_code"`
 
 	// CourtCount Present only when returned by the owner's complex-list query.
-	CourtCount        *int                 `json:"court_count,omitempty"`
-	CoverUrl          *string              `json:"cover_url,omitempty"`
-	CreatedAt         time.Time            `json:"created_at"`
-	Currency          string               `json:"currency"`
-	DepositPercentage int                  `json:"deposit_percentage"`
-	Email             *openapi_types.Email `json:"email,omitempty"`
-	Id                openapi_types.UUID   `json:"id"`
-	IsActive          bool                 `json:"is_active"`
-	Latitude          *float32             `json:"latitude,omitempty"`
-	LogoUrl           *string              `json:"logo_url,omitempty"`
-	Longitude         *float32             `json:"longitude,omitempty"`
-	MpTokenExpiresAt  *time.Time           `json:"mp_token_expires_at,omitempty"`
-	MpUserId          *string              `json:"mp_user_id,omitempty"`
-	Name              string               `json:"name"`
-	OwnerId           openapi_types.UUID   `json:"owner_id"`
-	PaymentsEnabled   bool                 `json:"payments_enabled"`
-	Phone             string               `json:"phone"`
-	Province          string               `json:"province"`
-	Slug              string               `json:"slug"`
-	UpdatedAt         time.Time            `json:"updated_at"`
+	CourtCount        *int               `json:"court_count,omitempty"`
+	CoverUrl          *string            `json:"cover_url,omitempty"`
+	CreatedAt         time.Time          `json:"created_at"`
+	Currency          string             `json:"currency"`
+	DepositPercentage int                `json:"deposit_percentage"`
+	Email             *string            `json:"email,omitempty"`
+	Id                openapi_types.UUID `json:"id"`
+	IsActive          bool               `json:"is_active"`
+	Latitude          *float64           `json:"latitude,omitempty"`
+	LogoUrl           *string            `json:"logo_url,omitempty"`
+	Longitude         *float64           `json:"longitude,omitempty"`
+	MpTokenExpiresAt  *time.Time         `json:"mp_token_expires_at,omitempty"`
+	MpUserId          *string            `json:"mp_user_id,omitempty"`
+	Name              string             `json:"name"`
+	OwnerId           openapi_types.UUID `json:"owner_id"`
+	PaymentsEnabled   bool               `json:"payments_enabled"`
+	Phone             string             `json:"phone"`
+	Province          string             `json:"province"`
+	Slug              string             `json:"slug"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+
+	// Version Optimistic-concurrency counter, bumped on every update.
+	Version int `json:"version"`
 }
 
 // Court defines model for Court.
@@ -1521,24 +1524,24 @@ type PublicCancelInfoRefundMethod string
 
 // PublicComplex The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state.
 type PublicComplex struct {
-	Address           string               `json:"address"`
-	Amenities         []string             `json:"amenities"`
-	CancellationHours int                  `json:"cancellation_hours"`
-	City              string               `json:"city"`
-	CountryCode       string               `json:"country_code"`
-	CoverUrl          *string              `json:"cover_url,omitempty"`
-	Currency          string               `json:"currency"`
-	DepositPercentage int                  `json:"deposit_percentage"`
-	Email             *openapi_types.Email `json:"email,omitempty"`
-	Id                openapi_types.UUID   `json:"id"`
-	Latitude          *float32             `json:"latitude,omitempty"`
-	LogoUrl           *string              `json:"logo_url,omitempty"`
-	Longitude         *float32             `json:"longitude,omitempty"`
-	Name              string               `json:"name"`
-	PaymentsEnabled   bool                 `json:"payments_enabled"`
-	Phone             string               `json:"phone"`
-	Province          string               `json:"province"`
-	Slug              string               `json:"slug"`
+	Address           string             `json:"address"`
+	Amenities         []string           `json:"amenities"`
+	CancellationHours int                `json:"cancellation_hours"`
+	City              string             `json:"city"`
+	CountryCode       string             `json:"country_code"`
+	CoverUrl          *string            `json:"cover_url,omitempty"`
+	Currency          string             `json:"currency"`
+	DepositPercentage int                `json:"deposit_percentage"`
+	Email             *string            `json:"email,omitempty"`
+	Id                openapi_types.UUID `json:"id"`
+	Latitude          *float64           `json:"latitude,omitempty"`
+	LogoUrl           *string            `json:"logo_url,omitempty"`
+	Longitude         *float64           `json:"longitude,omitempty"`
+	Name              string             `json:"name"`
+	PaymentsEnabled   bool               `json:"payments_enabled"`
+	Phone             string             `json:"phone"`
+	Province          string             `json:"province"`
+	Slug              string             `json:"slug"`
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -1615,16 +1618,16 @@ type TopClient struct {
 
 // User defines model for User.
 type User struct {
-	CreatedAt     time.Time           `json:"created_at"`
-	Email         openapi_types.Email `json:"email"`
-	EmailVerified bool                `json:"email_verified"`
-	FirstName     string              `json:"first_name"`
-	Id            openapi_types.UUID  `json:"id"`
-	IsActive      bool                `json:"is_active"`
-	LastName      string              `json:"last_name"`
-	Phone         string              `json:"phone"`
-	Role          UserRole            `json:"role"`
-	UpdatedAt     time.Time           `json:"updated_at"`
+	CreatedAt     time.Time          `json:"created_at"`
+	Email         string             `json:"email"`
+	EmailVerified bool               `json:"email_verified"`
+	FirstName     string             `json:"first_name"`
+	Id            openapi_types.UUID `json:"id"`
+	IsActive      bool               `json:"is_active"`
+	LastName      string             `json:"last_name"`
+	Phone         string             `json:"phone"`
+	Role          UserRole           `json:"role"`
+	UpdatedAt     time.Time          `json:"updated_at"`
 }
 
 // UserRole defines model for User.Role.
@@ -1737,8 +1740,8 @@ type AdminToggleUserActiveJSONBody struct {
 // AuthForgotPasswordJSONBody defines parameters for AuthForgotPassword.
 type AuthForgotPasswordJSONBody struct {
 	// Email Omitting it, or an unknown address, still answers the same 200 message.
-	Email          *openapi_types.Email `json:"email,omitempty"`
-	TurnstileToken *string              `json:"turnstile_token,omitempty"`
+	Email          *string `json:"email,omitempty"`
+	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
 // AuthGoogleJSONBody defines parameters for AuthGoogle.
@@ -1758,9 +1761,9 @@ type AuthGoogle200JSONResponseBody0 struct {
 type AuthGoogle200JSONResponseBody1 struct {
 	NeedsProfile AuthGoogle200JSONResponseBody1NeedsProfile `json:"needs_profile"`
 	Profile      struct {
-		Email     openapi_types.Email `json:"email"`
-		FirstName string              `json:"first_name"`
-		LastName  string              `json:"last_name"`
+		Email     string `json:"email"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
 	} `json:"profile"`
 
 	// ProfileToken Signed, 10-minute token. Send back to `/auth/google/complete`.
@@ -1790,27 +1793,27 @@ type AuthGoogleCompleteJSONBody struct {
 
 // AuthLoginJSONBody defines parameters for AuthLogin.
 type AuthLoginJSONBody struct {
-	Email          openapi_types.Email `json:"email"`
-	Password       string              `json:"password"`
-	TurnstileToken *string             `json:"turnstile_token,omitempty"`
+	Email          string  `json:"email"`
+	Password       string  `json:"password"`
+	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
 // AuthUpdateCurrentUserJSONBody defines parameters for AuthUpdateCurrentUser.
 type AuthUpdateCurrentUserJSONBody struct {
-	CurrentPassword *string              `json:"current_password,omitempty"`
-	Email           *openapi_types.Email `json:"email,omitempty"`
-	FirstName       *string              `json:"first_name,omitempty"`
-	LastName        *string              `json:"last_name,omitempty"`
-	NewPassword     *string              `json:"new_password,omitempty"`
-	Phone           *string              `json:"phone,omitempty"`
+	CurrentPassword *string `json:"current_password,omitempty"`
+	Email           *string `json:"email,omitempty"`
+	FirstName       *string `json:"first_name,omitempty"`
+	LastName        *string `json:"last_name,omitempty"`
+	NewPassword     *string `json:"new_password,omitempty"`
+	Phone           *string `json:"phone,omitempty"`
 }
 
 // AuthRegisterJSONBody defines parameters for AuthRegister.
 type AuthRegisterJSONBody struct {
-	Email     openapi_types.Email `json:"email"`
-	FirstName string              `json:"first_name"`
-	LastName  string              `json:"last_name"`
-	Password  string              `json:"password"`
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Password  string `json:"password"`
 
 	// Phone Normalized server-side to E.164.
 	Phone string `json:"phone"`
@@ -1838,10 +1841,10 @@ type AuthVerifyEmailJSONBody struct {
 
 // BookingsPublicCreateJSONBody defines parameters for BookingsPublicCreate.
 type BookingsPublicCreateJSONBody struct {
-	ClientEmail     *openapi_types.Email `json:"client_email,omitempty"`
-	ClientFirstName string               `json:"client_first_name"`
-	ClientLastName  string               `json:"client_last_name"`
-	ClientNotes     *string              `json:"client_notes,omitempty"`
+	ClientEmail     *string `json:"client_email,omitempty"`
+	ClientFirstName string  `json:"client_first_name"`
+	ClientLastName  string  `json:"client_last_name"`
+	ClientNotes     *string `json:"client_notes,omitempty"`
 
 	// ClientPhone Normalized to E.164.
 	ClientPhone string             `json:"client_phone"`
@@ -1884,14 +1887,14 @@ type ComplexesCreateJSONBody struct {
 	City              string `json:"city"`
 
 	// DepositPercentage Defaults to 0 (no deposit required) when omitted.
-	DepositPercentage *int                 `json:"deposit_percentage,omitempty"`
-	Email             *openapi_types.Email `json:"email,omitempty"`
-	Latitude          *float32             `json:"latitude,omitempty"`
-	Longitude         *float32             `json:"longitude,omitempty"`
-	Name              string               `json:"name"`
-	Phone             string               `json:"phone"`
-	Province          string               `json:"province"`
-	Slug              string               `json:"slug"`
+	DepositPercentage *int     `json:"deposit_percentage,omitempty"`
+	Email             *string  `json:"email,omitempty"`
+	Latitude          *float64 `json:"latitude,omitempty"`
+	Longitude         *float64 `json:"longitude,omitempty"`
+	Name              string   `json:"name"`
+	Phone             string   `json:"phone"`
+	Province          string   `json:"province"`
+	Slug              string   `json:"slug"`
 }
 
 // ComplexesUpdateJSONBody defines parameters for ComplexesUpdate.
@@ -1902,11 +1905,11 @@ type ComplexesUpdateJSONBody struct {
 	City              *string                             `json:"city,omitempty"`
 	CoverUrl          *string                             `json:"cover_url,omitempty"`
 	DepositPercentage *int                                `json:"deposit_percentage,omitempty"`
-	Email             *openapi_types.Email                `json:"email,omitempty"`
+	Email             *string                             `json:"email,omitempty"`
 	IsActive          *bool                               `json:"is_active,omitempty"`
-	Latitude          *float32                            `json:"latitude,omitempty"`
+	Latitude          *float64                            `json:"latitude,omitempty"`
 	LogoUrl           *string                             `json:"logo_url,omitempty"`
-	Longitude         *float32                            `json:"longitude,omitempty"`
+	Longitude         *float64                            `json:"longitude,omitempty"`
 	Name              *string                             `json:"name,omitempty"`
 	Phone             *string                             `json:"phone,omitempty"`
 	Province          *string                             `json:"province,omitempty"`
@@ -1961,12 +1964,12 @@ type BookingsListParams struct {
 
 // BookingsCreateJSONBody defines parameters for BookingsCreate.
 type BookingsCreateJSONBody struct {
-	ClientEmail     *openapi_types.Email `json:"client_email,omitempty"`
-	ClientFirstName string               `json:"client_first_name"`
-	ClientLastName  string               `json:"client_last_name"`
-	ClientPhone     string               `json:"client_phone"`
-	CourtId         openapi_types.UUID   `json:"court_id"`
-	Date            openapi_types.Date   `json:"date"`
+	ClientEmail     *string            `json:"client_email,omitempty"`
+	ClientFirstName string             `json:"client_first_name"`
+	ClientLastName  string             `json:"client_last_name"`
+	ClientPhone     string             `json:"client_phone"`
+	CourtId         openapi_types.UUID `json:"court_id"`
+	Date            openapi_types.Date `json:"date"`
 
 	// DepositAmount Centavos ARS.
 	DepositAmount   *int                                 `json:"deposit_amount,omitempty"`
@@ -2200,7 +2203,7 @@ type CourtsPublicAvailabilityParams struct {
 
 // LeadsCaptureAbandonedRegistrationJSONBody defines parameters for LeadsCaptureAbandonedRegistration.
 type LeadsCaptureAbandonedRegistrationJSONBody struct {
-	Email openapi_types.Email `json:"email"`
+	Email string `json:"email"`
 
 	// FirstName As far as the person got; forwarded as typed.
 	FirstName *string `json:"first_name,omitempty"`

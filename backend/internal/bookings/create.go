@@ -121,5 +121,5 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"booking": booking})
+	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"booking": toGenBooking(booking)})
 }

@@ -12,6 +12,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/validator"
@@ -32,7 +33,12 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"courts": result})
+	courts := make([]gen.CourtWithPrices, len(result))
+	for i, c := range result {
+		courts[i] = toGenCourtWithPrices(c)
+	}
+
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"courts": courts})
 }
 
 // A description is free text a player reads on a storefront card, so it is
@@ -78,42 +84,37 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Name        string  `json:"name"`
-		Sport       string  `json:"sport"`
-		CourtType   string  `json:"court_type"`
-		Description *string `json:"description"`
-	}
+	var body gen.CourtsCreateJSONBody
 
-	err := httpx.ReadJSON(w, r, &input)
+	err := httpx.ReadJSON(w, r, &body)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
 	v := validator.New()
-	v.Check(input.Name != "", "name", "must be provided")
-	v.Check(len(input.Name) <= 100, "name", "must not be more than 100 characters")
-	v.Check(validator.PermittedValue(input.Sport, "padel", "tennis", "soccer", "basketball"), "sport", "must be one of: padel, tennis, soccer, basketball")
-	v.Check(validator.PermittedValue(input.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
-	v.Check(input.Description == nil || len(*input.Description) <= descriptionMaxLen, "description", descriptionMessage)
+	v.Check(body.Name != "", "name", "must be provided")
+	v.Check(len(body.Name) <= 100, "name", "must not be more than 100 characters")
+	v.Check(validator.PermittedValue(body.Sport, "padel", "tennis", "soccer", "basketball"), "sport", "must be one of: padel, tennis, soccer, basketball")
+	v.Check(validator.PermittedValue(body.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
+	v.Check(body.Description == nil || len(*body.Description) <= descriptionMaxLen, "description", descriptionMessage)
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
 	court, err := h.svc.Create(r.Context(), complex.ID, h.actor(r), CreateInput{
-		Name:        input.Name,
-		Sport:       input.Sport,
-		CourtType:   input.CourtType,
-		Description: input.Description,
+		Name:        body.Name,
+		Sport:       string(body.Sport),
+		CourtType:   string(body.CourtType),
+		Description: body.Description,
 	})
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"court": court})
+	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"court": toGenCourt(court)})
 }
 
 // Update handles PUT /api/v1/complexes/{id}/courts/{courtID}. Every field is
@@ -137,55 +138,55 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Name        *string `json:"name"`
-		Sport       *string `json:"sport"`
-		CourtType   *string `json:"court_type"`
-		IsActive    *bool   `json:"is_active"`
-		Description *string `json:"description"`
-		// Version is the optimistic-concurrency precondition in the body, for a
-		// client that finds that easier than If-Match. Either spelling works
-		// and neither is required — see httpx.ExpectedVersion (API-08).
-		Version *int `json:"version"`
-	}
+	var body gen.CourtsUpdateJSONBody
 
-	err = httpx.ReadJSON(w, r, &input)
+	err = httpx.ReadJSON(w, r, &body)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
 	v := validator.New()
-	if input.Name != nil {
-		v.Check(*input.Name != "", "name", "must not be empty")
-		v.Check(len(*input.Name) <= 100, "name", "must not be more than 100 characters")
+	if body.Name != nil {
+		v.Check(*body.Name != "", "name", "must not be empty")
+		v.Check(len(*body.Name) <= 100, "name", "must not be more than 100 characters")
 	}
-	if input.Sport != nil {
-		v.Check(validator.PermittedValue(*input.Sport, "padel", "tennis", "soccer", "basketball"), "sport", "must be one of: padel, tennis, soccer, basketball")
+	if body.Sport != nil {
+		v.Check(validator.PermittedValue(*body.Sport, "padel", "tennis", "soccer", "basketball"), "sport", "must be one of: padel, tennis, soccer, basketball")
 	}
-	if input.CourtType != nil {
-		v.Check(validator.PermittedValue(*input.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
+	if body.CourtType != nil {
+		v.Check(validator.PermittedValue(*body.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
 	}
-	if input.Description != nil {
-		v.Check(len(*input.Description) <= descriptionMaxLen, "description", descriptionMessage)
+	if body.Description != nil {
+		v.Check(len(*body.Description) <= descriptionMaxLen, "description", descriptionMessage)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
-	expectedVersion, err := httpx.ExpectedVersion(r, input.Version)
+	expectedVersion, err := httpx.ExpectedVersion(r, body.Version)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
+	var sport, courtType *string
+	if body.Sport != nil {
+		s := string(*body.Sport)
+		sport = &s
+	}
+	if body.CourtType != nil {
+		c := string(*body.CourtType)
+		courtType = &c
+	}
+
 	court, err := h.svc.Update(r.Context(), complex.ID, h.actor(r), courtID, UpdateInput{
-		Name:            input.Name,
-		Sport:           input.Sport,
-		CourtType:       input.CourtType,
-		IsActive:        input.IsActive,
-		Description:     input.Description,
+		Name:            body.Name,
+		Sport:           sport,
+		CourtType:       courtType,
+		IsActive:        body.IsActive,
+		Description:     body.Description,
 		ExpectedVersion: expectedVersion,
 	})
 	if err != nil {
@@ -193,7 +194,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"court": court})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"court": toGenCourt(court)})
 }
 
 // Delete handles DELETE /api/v1/complexes/{id}/courts/{courtID}. The court is
@@ -251,27 +252,16 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Prices []struct {
-			Price    int    `json:"price"`
-			DayType  string `json:"day_type"`
-			TimeFrom string `json:"time_from"`
-			TimeTo   string `json:"time_to"`
-		} `json:"prices"`
-		// Version is the COURT's version, not a band's: the bands are replaced
-		// wholesale, so the court is the only thing a client can have read and
-		// still hold. If-Match carries the same value (API-08).
-		Version *int `json:"version"`
-	}
+	var body gen.CourtsUpdatePricesJSONBody
 
-	err = httpx.ReadJSON(w, r, &input)
+	err = httpx.ReadJSON(w, r, &body)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
 	v := validator.New()
-	v.Check(len(input.Prices) > 0, "prices", "must contain at least one price")
+	v.Check(len(body.Prices) > 0, "prices", "must contain at least one price")
 
 	// Bands are grouped by day_type and checked for overlap in-memory before
 	// anything is written, using the same wrap rule the DB's generated
@@ -282,9 +272,9 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 	// exactly the schedules the product is meant to support.
 	bandsByDay := make(map[string][]priceBand)
 
-	prices := make([]PriceInput, len(input.Prices))
-	for i, p := range input.Prices {
-		prices[i] = PriceInput{Price: p.Price, DayType: p.DayType, TimeFrom: p.TimeFrom, TimeTo: p.TimeTo}
+	prices := make([]PriceInput, len(body.Prices))
+	for i, p := range body.Prices {
+		prices[i] = PriceInput{Price: p.Price, DayType: string(p.DayType), TimeFrom: p.TimeFrom, TimeTo: p.TimeTo}
 
 		v.Check(p.Price > 0, keyIdx("prices", i, "price"), "must be greater than 0")
 		// H-17: court_prices.price is INTEGER (db/migrations/001_init.sql), and
@@ -317,7 +307,7 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		if toMin <= fromMin {
 			spanTo += minutesPerDay
 		}
-		bandsByDay[p.DayType] = append(bandsByDay[p.DayType], priceBand{index: i, fromMin: fromMin, toMin: spanTo})
+		bandsByDay[string(p.DayType)] = append(bandsByDay[string(p.DayType)], priceBand{index: i, fromMin: fromMin, toMin: spanTo})
 	}
 
 	for _, bands := range bandsByDay {
@@ -329,7 +319,7 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expectedVersion, err := httpx.ExpectedVersion(r, input.Version)
+	expectedVersion, err := httpx.ExpectedVersion(r, body.Version)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
@@ -358,7 +348,12 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"prices": written})
+	genPrices := make([]gen.CourtPrice, len(written))
+	for i, p := range written {
+		genPrices[i] = toGenCourtPrice(p)
+	}
+
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"prices": genPrices})
 }
 
 // BlockSlot handles POST /api/v1/complexes/{id}/courts/{courtID}/block, taking a
@@ -387,6 +382,14 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// WIRE MISMATCH: courts BlockSlot date — gen.CourtsBlockSlotJSONBody.Date
+	// is openapi_types.Date, whose UnmarshalJSON rejects an empty or
+	// malformed date string during body decoding itself. That would turn a
+	// missing/malformed "date" into a generic decode-time 400 instead of the
+	// structured 422 {"date":"must be provided"} / {"date":"must be a valid
+	// date (YYYY-MM-DD)"} this handler produces today via its own field
+	// validation below. Kept as a plain string here to preserve that
+	// error contract; the generated type is not used for this field.
 	var input struct {
 		Date      string  `json:"date"`
 		StartTime string  `json:"start_time"`
@@ -450,7 +453,7 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"blocked_slot": slot})
+	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"blocked_slot": toBlockedSlotWire(slot)})
 }
 
 // onOrAfterToday reports whether a requested calendar date is today or later.

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
+	gen "github.com/stodulski/vibe-server/internal/openapi/gen"
 )
 
 // minAutocompleteLength is the shortest input worth sending upstream. Below it
@@ -197,21 +198,25 @@ func (r autocompleteResponse) toLegacy() []legacyPrediction {
 // Inputs shorter than three characters return an empty list without calling
 // Google, since every upstream call is billable.
 func (h *Handler) Autocomplete(w http.ResponseWriter, r *http.Request) {
-	input := r.URL.Query().Get("input")
-	if len(input) < minAutocompleteLength {
+	params := gen.PlacesAutocompleteParams{Input: r.URL.Query().Get("input")}
+	if token := r.URL.Query().Get("session_token"); token != "" {
+		params.SessionToken = &token
+	}
+
+	if len(params.Input) < minAutocompleteLength {
 		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"predictions": []any{}})
 		return
 	}
 
 	reqBody := autocompleteRequest{
-		Input:                input,
+		Input:                params.Input,
 		LanguageCode:         languageCode,
 		RegionCode:           regionCode,
 		IncludedRegionCodes:  []string{"ar"},
 		IncludedPrimaryTypes: addressPrimaryTypes,
 	}
-	if token := r.URL.Query().Get("session_token"); token != "" {
-		reqBody.SessionToken = token
+	if params.SessionToken != nil {
+		reqBody.SessionToken = *params.SessionToken
 	}
 
 	payload, err := json.Marshal(reqBody) //nolint:gosec // G117: "SessionToken" matches the secret-name pattern, but it is Google's Autocomplete/Details session-correlation token (billing grouping), not a credential — safe to marshal, forward, and log.
@@ -295,24 +300,43 @@ func (d placeDetails) flatten() address {
 	return address{Street: street, City: city, Province: province}
 }
 
+// toGen maps the upstream Details response into gen.PlaceDetails, the API's
+// contract type for this endpoint (openapi.yaml's #/components/schemas/PlaceDetails).
+// Coordinates are formatted with "%f" — a string, not a JSON number — matching
+// the legacy API's response and gen.PlaceDetails's documented field shape.
+func (d placeDetails) toGen() gen.PlaceDetails {
+	addr := d.flatten()
+	return gen.PlaceDetails{
+		Address:          addr.Street,
+		City:             addr.City,
+		Province:         addr.Province,
+		FormattedAddress: d.FormattedAddress,
+		Latitude:         fmt.Sprintf("%f", d.Location.Latitude),
+		Longitude:        fmt.Sprintf("%f", d.Location.Longitude),
+	}
+}
+
 // Details handles GET /api/v1/places/details, returning one place flattened
 // into the fields the complex form binds to.
 func (h *Handler) Details(w http.ResponseWriter, r *http.Request) {
-	placeID := r.URL.Query().Get("place_id")
-	if placeID == "" {
+	params := gen.PlacesDetailsParams{PlaceId: r.URL.Query().Get("place_id")}
+	if params.PlaceId == "" {
 		h.respond.BadRequest(w, r, errors.New("place_id is required"))
 		return
 	}
+	if token := r.URL.Query().Get("session_token"); token != "" {
+		params.SessionToken = &token
+	}
 
-	params := url.Values{
+	query := url.Values{
 		"languageCode": {languageCode},
 		"regionCode":   {regionCode},
 	}
-	if token := r.URL.Query().Get("session_token"); token != "" {
-		params.Set("sessionToken", token)
+	if params.SessionToken != nil {
+		query.Set("sessionToken", *params.SessionToken)
 	}
 
-	reqURL := h.cfg.BaseURL + "/places/" + url.PathEscape(placeID) + "?" + params.Encode()
+	reqURL := h.cfg.BaseURL + "/places/" + url.PathEscape(params.PlaceId) + "?" + query.Encode()
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, reqURL, nil) //nolint:gosec // G704: the host and path prefix are h.cfg.BaseURL + "/places/", both fixed; only the final path segment is the caller-supplied place_id, and url.PathEscape confines it to that one segment — it cannot introduce a new host, scheme, or path traversal.
 	if err != nil {
 		h.failUpstream(w, r, err)
@@ -326,13 +350,13 @@ func (h *Handler) Details(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addr := details.flatten()
+	resp := details.toGen()
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"address":           addr.Street,
-		"city":              addr.City,
-		"province":          addr.Province,
-		"formatted_address": details.FormattedAddress,
-		"latitude":          fmt.Sprintf("%f", details.Location.Latitude),
-		"longitude":         fmt.Sprintf("%f", details.Location.Longitude),
+		"address":           resp.Address,
+		"city":              resp.City,
+		"province":          resp.Province,
+		"formatted_address": resp.FormattedAddress,
+		"latitude":          resp.Latitude,
+		"longitude":         resp.Longitude,
 	})
 }

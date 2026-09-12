@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -34,11 +35,7 @@ func uploadKeyPrefix(complexID uuid.UUID) string {
 // short-lived URL the browser uploads straight to, so image bytes never pass
 // through this service. The object key is namespaced to the complex.
 func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Type        string `json:"type"`
-		ContentType string `json:"content_type"`
-		FileSize    int64  `json:"file_size"`
-	}
+	var input gen.ComplexesPresignUploadJSONBody
 
 	err := httpx.ReadJSON(w, r, &input)
 	if err != nil {
@@ -46,11 +43,15 @@ func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	uploadType := string(input.Type)
+	contentType := string(input.ContentType)
+	fileSize := int64(input.FileSize)
+
 	v := validator.New()
-	v.Check(input.Type == "logo" || input.Type == "cover", "type", "must be 'logo' or 'cover'")
-	v.Check(allowedContentTypes[input.ContentType] != "", "content_type", "must be image/jpeg, image/png, or image/webp")
-	v.Check(input.FileSize > 0, "file_size", "must be greater than 0")
-	v.Check(input.FileSize <= maxFileSize, "file_size", fmt.Sprintf("must not exceed %d bytes (5MB)", maxFileSize))
+	v.Check(uploadType == "logo" || uploadType == "cover", "type", "must be 'logo' or 'cover'")
+	v.Check(allowedContentTypes[contentType] != "", "content_type", "must be image/jpeg, image/png, or image/webp")
+	v.Check(fileSize > 0, "file_size", "must be greater than 0")
+	v.Check(fileSize <= maxFileSize, "file_size", fmt.Sprintf("must not exceed %d bytes (5MB)", maxFileSize))
 
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -63,7 +64,7 @@ func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	upload, err := h.svc.PresignUpload(r.Context(), complex.ID, input.Type, input.ContentType, input.FileSize)
+	upload, err := h.svc.PresignUpload(r.Context(), complex.ID, uploadType, contentType, fileSize)
 	if err != nil {
 		h.respond.DomainError(w, r, err)
 		return
@@ -81,9 +82,7 @@ func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
 // namespace within it, so neither an arbitrary URL nor another tenant's URL can
 // be used to delete something else. See Service.DeleteUpload for why.
 func (h *Handler) DeleteUpload(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		URL string `json:"url"`
-	}
+	var input gen.ComplexesDeleteUploadJSONBody
 
 	err := httpx.ReadJSON(w, r, &input)
 	if err != nil {
@@ -92,7 +91,7 @@ func (h *Handler) DeleteUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	v.Check(input.URL != "", "url", "must be provided")
+	v.Check(input.Url != "", "url", "must be provided")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -104,7 +103,7 @@ func (h *Handler) DeleteUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.svc.DeleteUpload(r.Context(), complex.ID, input.URL)
+	err = h.svc.DeleteUpload(r.Context(), complex.ID, input.Url)
 	if err != nil {
 		// A mismatch answers 404, not 403, matching the convention documented
 		// in internal/clients: 403 would confirm the object exists and turn

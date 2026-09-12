@@ -21,6 +21,7 @@ import (
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	gen "github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -88,6 +89,67 @@ func (h *Handler) route(w http.ResponseWriter, r *http.Request) (complexID, clie
 	return complex.ID, clientID, true
 }
 
+// toGenClient maps a store client onto the generated wire type, field for
+// field, so the wire never carries a store struct directly (rule HTTP-08).
+// Email needs no conversion: the OpenAPI document declares it a plain string
+// (format: email was dropped, since it made oapi-codegen emit
+// openapi_types.Email, which fails to marshal any stored value that is not a
+// valid net/mail address).
+func toGenClient(c *clientstore.Client) gen.Client {
+	return gen.Client{
+		ComplexId:     c.ComplexID,
+		CreatedAt:     c.CreatedAt,
+		Email:         c.Email,
+		FirstName:     c.FirstName,
+		Id:            c.ID,
+		IsBlocked:     c.IsBlocked,
+		LastName:      c.LastName,
+		NoShows:       c.NoShows,
+		Notes:         c.Notes,
+		Phone:         c.Phone,
+		TotalBookings: c.TotalBookings,
+		UpdatedAt:     c.UpdatedAt,
+	}
+}
+
+// toGenBooking maps a store booking onto the generated wire type for the
+// recent-bookings list on a client's detail view.
+//
+// CourtName, ClientName and ClientPhone are plain (non-pointer) strings on
+// the store type and always present on the wire today, including as an
+// empty string when a JOIN found nothing. The generated type marks them
+// optional, but taking their address rather than only setting the pointer
+// when non-empty keeps every one of them on the wire exactly as before:
+// encoding/json only omits a nil *string under omitempty, never an empty one.
+func toGenBooking(b *bookingstore.Booking) gen.Booking {
+	courtName, clientName, clientPhone := b.CourtName, b.ClientName, b.ClientPhone
+
+	return gen.Booking{
+		ClientId:         b.ClientID,
+		ClientName:       &clientName,
+		ClientPhone:      &clientPhone,
+		CollectionStatus: gen.CollectionStatus(b.CollectionStatus),
+		ComplexId:        b.ComplexID,
+		CourtId:          b.CourtID,
+		CourtName:        &courtName,
+		CreatedAt:        b.CreatedAt,
+		CreatedBy:        b.CreatedBy,
+		Date:             b.Date,
+		DepositAmount:    b.DepositAmount,
+		DurationMinutes:  b.DurationMinutes,
+		EndsAt:           b.EndsAt,
+		Id:               b.ID,
+		Notes:            b.Notes,
+		Price:            b.Price,
+		RefundStatus:     gen.RefundStatus(b.RefundStatus),
+		ReminderSent2h:   b.ReminderSent2h,
+		StartTime:        b.StartTime,
+		StartsAt:         b.StartsAt,
+		Status:           gen.BookingStatus(b.Status),
+		UpdatedAt:        b.UpdatedAt,
+	}
+}
+
 // Get handles GET /api/v1/complexes/{id}/clients/{clientID}.
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	complexID, clientID, ok := h.route(w, r)
@@ -105,9 +167,14 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	genBookings := make([]gen.Booking, len(recentBookings))
+	for i, b := range recentBookings {
+		genBookings[i] = toGenBooking(b)
+	}
+
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"client":          client,
-		"recent_bookings": recentBookings,
+		"client":          toGenClient(client),
+		"recent_bookings": genBookings,
 	})
 }
 
@@ -121,10 +188,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Notes     *string `json:"notes"`
-		IsBlocked *bool   `json:"is_blocked"`
-	}
+	var input gen.ClientsUpdateJSONBody
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
@@ -139,7 +203,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"client": client})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"client": toGenClient(client)})
 }
 
 // List handles GET /api/v1/complexes/{id}/clients.
@@ -174,8 +238,13 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	genClients := make([]gen.Client, len(clients))
+	for i, c := range clients {
+		genClients[i] = toGenClient(c)
+	}
+
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"clients":  clients,
+		"clients":  genClients,
 		"metadata": metadata,
 	})
 }

@@ -276,7 +276,7 @@ paths:
                 properties:
                   complex: {$ref: "#/components/schemas/Complex"}
                   owner_name: {type: string}
-                  owner_email: {type: string, format: email}
+                  owner_email: {type: string}
                   courts_count: {type: integer}
                   clients_count: {type: integer}
                   bookings_count: {type: integer}
@@ -438,7 +438,7 @@ paths:
               type: object
               required: [email, password, first_name, last_name, phone]
               properties:
-                email: {type: string, format: email}
+                email: {type: string}
                 password: {type: string, minLength: 8, maxLength: 72}
                 first_name: {type: string, maxLength: 100}
                 last_name: {type: string, maxLength: 100}
@@ -492,7 +492,7 @@ paths:
               type: object
               required: [email, password]
               properties:
-                email: {type: string, format: email}
+                email: {type: string}
                 password: {type: string}
                 turnstile_token: {type: string}
 
@@ -537,7 +537,7 @@ paths:
                         type: object
                         required: [email, first_name, last_name]
                         properties:
-                          email: {type: string, format: email}
+                          email: {type: string}
                           first_name: {type: string}
                           last_name: {type: string}
         "422": {$ref: "#/components/responses/ValidationError"}
@@ -774,7 +774,6 @@ paths:
               properties:
                 email:
                   type: string
-                  format: email
                   description: Omitting it, or an unknown address, still answers the same 200 message.
                 turnstile_token: {type: string}
 
@@ -875,7 +874,7 @@ paths:
             schema:
               type: object
               properties:
-                email: {type: string, format: email}
+                email: {type: string}
                 first_name: {type: string, maxLength: 100}
                 last_name: {type: string, maxLength: 100}
                 phone: {type: string}
@@ -1026,7 +1025,7 @@ paths:
                 client_first_name: {type: string}
                 client_last_name: {type: string}
                 client_phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
-                client_email: {type: string, format: email}
+                client_email: {type: string}
                 client_notes: {type: string, maxLength: 2000}
 
   /api/v1/book/status:
@@ -1221,7 +1220,7 @@ paths:
                 start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
                 duration_minutes: {type: integer}
                 client_phone: {type: string, example: "+5491112345678"}
-                client_email: {type: string, format: email}
+                client_email: {type: string}
                 client_first_name: {type: string}
                 client_last_name: {type: string}
                 payment_method: {type: string, enum: ["", cash, transfer]}
@@ -1683,7 +1682,7 @@ paths:
                 city: {type: string}
                 province: {type: string}
                 phone: {type: string}
-                email: {type: string, format: email}
+                email: {type: string}
                 deposit_percentage:
                   type: integer
                   minimum: 0
@@ -1691,8 +1690,8 @@ paths:
                   default: 0
                   description: Defaults to 0 (no deposit required) when omitted.
                 cancellation_hours: {type: integer, minimum: 1, maximum: 168}
-                latitude: {type: number}
-                longitude: {type: number}
+                latitude: {type: number, format: double}
+                longitude: {type: number, format: double}
 
   /api/v1/complexes/{id}:
     get:
@@ -1763,14 +1762,14 @@ paths:
                 city: {type: string}
                 province: {type: string}
                 phone: {type: string}
-                email: {type: string, format: email}
+                email: {type: string}
                 logo_url: {type: string}
                 cover_url: {type: string}
                 deposit_percentage: {type: integer, minimum: 0, maximum: 100}
                 cancellation_hours: {type: integer, minimum: 1, maximum: 168}
                 is_active: {type: boolean}
-                latitude: {type: number}
-                longitude: {type: number}
+                latitude: {type: number, format: double}
+                longitude: {type: number, format: double}
                 amenities:
                   type: array
                   items:
@@ -2486,7 +2485,7 @@ paths:
               type: object
               required: [email]
               properties:
-                email: {type: string, format: email}
+                email: {type: string}
                 source:
                   type: string
                   enum: [register, google]
@@ -3201,7 +3200,7 @@ components:
       required: [id, email, first_name, last_name, phone, role, is_active, email_verified, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
-        email: {type: string, format: email}
+        email: {type: string}
         first_name: {type: string}
         last_name: {type: string}
         phone: {type: string, example: "+5491112345678"}
@@ -3216,7 +3215,7 @@ components:
       required:
         [id, owner_id, name, slug, address, city, province, country_code, currency, phone,
          deposit_percentage, cancellation_hours, is_active, amenities, payments_enabled,
-         created_at, updated_at]
+         version, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         owner_id: {type: string, format: uuid}
@@ -3228,13 +3227,13 @@ components:
         country_code: {type: string, example: "AR"}
         currency: {type: string, example: "ARS"}
         phone: {type: string, example: "+5491112345678"}
-        email: {type: [string, "null"], format: email}
+        email: {type: [string, "null"]}
         logo_url: {type: [string, "null"], format: uri}
         cover_url: {type: [string, "null"], format: uri}
         deposit_percentage: {type: integer, minimum: 0, maximum: 100}
         cancellation_hours: {type: integer, minimum: 1, maximum: 168}
-        latitude: {type: [number, "null"]}
-        longitude: {type: [number, "null"]}
+        latitude: {type: [number, "null"], format: double}
+        longitude: {type: [number, "null"], format: double}
         is_active: {type: boolean}
         amenities:
           type: array
@@ -3247,6 +3246,7 @@ components:
         mp_token_expires_at: {type: [string, "null"], format: date-time}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
+        version: {type: integer, description: "Optimistic-concurrency counter, bumped on every update."}
 
     PublicComplex:
       type: object
@@ -3266,13 +3266,13 @@ components:
         country_code: {type: string, example: "AR"}
         currency: {type: string, example: "ARS"}
         phone: {type: string}
-        email: {type: string, format: email}
+        email: {type: string}
         logo_url: {type: string, format: uri}
         cover_url: {type: string, format: uri}
         deposit_percentage: {type: integer}
         cancellation_hours: {type: integer}
-        latitude: {type: number}
-        longitude: {type: number}
+        latitude: {type: number, format: double}
+        longitude: {type: number, format: double}
         amenities:
           type: array
           items: {type: string}
@@ -3373,7 +3373,7 @@ components:
         first_name: {type: string}
         last_name: {type: string}
         phone: {type: string, example: "+5491112345678"}
-        email: {type: [string, "null"], format: email}
+        email: {type: [string, "null"]}
         notes: {type: [string, "null"]}
         is_blocked: {type: boolean}
         total_bookings: {type: integer, description: "A live count, not a stored counter."}
@@ -3571,7 +3571,7 @@ components:
       required: [id, email, first_name, last_name, phone, role, is_active, email_verified, created_at, complex_count]
       properties:
         id: {type: string, format: uuid}
-        email: {type: string, format: email}
+        email: {type: string}
         first_name: {type: string}
         last_name: {type: string}
         phone: {type: string}
@@ -3588,7 +3588,7 @@ components:
         id: {type: string, format: uuid}
         owner_id: {type: string, format: uuid}
         owner_name: {type: string}
-        owner_email: {type: string, format: email}
+        owner_email: {type: string}
         name: {type: string}
         slug: {type: string}
         city: {type: string}
@@ -3604,7 +3604,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         user_id: {type: [string, "null"], format: uuid}
-        user_email: {type: [string, "null"], format: email}
+        user_email: {type: [string, "null"]}
         complex_id: {type: [string, "null"], format: uuid}
         action: {type: string}
         entity_type: {type: string}

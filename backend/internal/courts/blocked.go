@@ -82,8 +82,13 @@ func (h *Handler) ListBlockedSlots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	out := make([]blockedSlotWire, len(page))
+	for i, s := range page {
+		out[i] = toBlockedSlotWire(s)
+	}
+
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"blocked_slots": page,
+		"blocked_slots": out,
 		"metadata":      metadata,
 	})
 }

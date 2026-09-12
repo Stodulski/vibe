@@ -94,5 +94,5 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"availability": availability})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"availability": toGenAvailability(availability, date)})
 }

@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -145,39 +147,75 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	booking, complex, court := result.Booking, result.Complex, result.Court
-
 	// The response never carries the booking's primary key
 	// (specs/booking-link-credential): only the fields the frontend needs to
 	// render a confirmation, plus the token that now authorizes the three
 	// public routes.
-	response := httpx.Envelope{
+	//
+	// respond.JSON only ever writes an httpx.Envelope (this endpoint's body
+	// has no wrapping key of its own, unlike every other response in this
+	// package), so the generated PublicBookingResult toGenPublicBookingResult
+	// builds is flattened into one here rather than passed through
+	// unconverted.
+	mapped := toGenPublicBookingResult(result)
+	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{
 		"booking": httpx.Envelope{
-			"status":            booking.Status,
-			"collection_status": booking.CollectionStatus,
-			"refund_status":     booking.RefundStatus,
-			"date":              booking.Date.Format("2006-01-02"),
-			"start_time":        booking.StartTime,
-			"starts_at":         booking.StartsAt.Format(time.RFC3339),
-			"ends_at":           booking.EndsAt.Format(time.RFC3339),
-			"court_name":        court.Name,
-			"complex_name":      complex.Name,
-			"price":             booking.Price,
-			"deposit_amount":    booking.DepositAmount,
+			"status":            mapped.Booking.Status,
+			"collection_status": mapped.Booking.CollectionStatus,
+			"refund_status":     mapped.Booking.RefundStatus,
+			"date":              mapped.Booking.Date,
+			"start_time":        mapped.Booking.StartTime,
+			"starts_at":         mapped.Booking.StartsAt.Format(time.RFC3339),
+			"ends_at":           mapped.Booking.EndsAt.Format(time.RFC3339),
+			"court_name":        mapped.Booking.CourtName,
+			"complex_name":      mapped.Booking.ComplexName,
+			"price":             mapped.Booking.Price,
+			"deposit_amount":    mapped.Booking.DepositAmount,
 		},
-		"token": booking.LinkToken,
-	}
+		"token":             mapped.Token,
+		"mp_init_point":     mapped.MpInitPoint,
+		"mp_preference_id":  mapped.MpPreferenceId,
+		"service_fee":       mapped.ServiceFee,
+		"total_client_pays": mapped.TotalClientPays,
+	})
+}
 
-	// MP retired the sandbox environment: whether a payment runs in test
-	// or production mode is decided by the credential (test-user
-	// APP_USR- tokens), not by the redirect URL. sandbox_init_point is
-	// deprecated by MP; always use init_point.
-	response["mp_init_point"] = result.Preference.InitPoint
-	response["mp_preference_id"] = result.Preference.ID
-	response["service_fee"] = result.ServiceFee
-	response["total_client_pays"] = result.TotalClientPays
+// toGenPublicBookingResult maps a held public booking onto the generated wire
+// type (HTTP-08). result.Preference is never nil on this call path: PublicBook
+// returns ErrCheckoutUnavailable before this point whenever MercadoPago could
+// not be reached.
+//
+// MpInitPoint, MpPreferenceId, ServiceFee and TotalClientPays are always set,
+// never left nil, because the wire has always carried them unconditionally —
+// the generated type's omitempty must not start dropping them now.
+func toGenPublicBookingResult(result PublicBookResult) gen.PublicBookingResult {
+	booking, complex, court := result.Booking, result.Complex, result.Court
 
-	h.respond.JSON(w, r, http.StatusCreated, response)
+	var out gen.PublicBookingResult
+	out.Booking.CollectionStatus = gen.CollectionStatus(booking.CollectionStatus)
+	out.Booking.ComplexName = complex.Name
+	out.Booking.CourtName = court.Name
+	out.Booking.Date = openapi_types.Date{Time: booking.Date}
+	out.Booking.DepositAmount = booking.DepositAmount
+	out.Booking.EndsAt = booking.EndsAt
+	out.Booking.Price = booking.Price
+	out.Booking.RefundStatus = gen.RefundStatus(booking.RefundStatus)
+	out.Booking.StartTime = booking.StartTime
+	out.Booking.StartsAt = booking.StartsAt
+	out.Booking.Status = gen.BookingStatus(booking.Status)
+
+	initPoint := result.Preference.InitPoint
+	preferenceID := result.Preference.ID
+	serviceFee := result.ServiceFee
+	totalClientPays := result.TotalClientPays
+
+	out.Token = booking.LinkToken
+	out.MpInitPoint = &initPoint
+	out.MpPreferenceId = &preferenceID
+	out.ServiceFee = &serviceFee
+	out.TotalClientPays = &totalClientPays
+
+	return out
 }
 
 // PublicStatus handles GET /api/v1/book/status. It is public because the
@@ -202,13 +240,17 @@ func (h *Handler) PublicStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, publicStatusResponse(view))
+	h.respond.JSON(w, r, http.StatusOK, publicStatusEnvelope(toGenPublicBookingStatus(view)))
 }
 
-// publicStatusResponse builds PublicStatus's payload. The payment is nil when
-// the booking carries no payment row yet, in which case service_fee reads 0
-// rather than failing the request.
-func publicStatusResponse(view StatusView) httpx.Envelope {
+// toGenPublicBookingStatus maps PublicStatus's view onto the generated wire
+// type (HTTP-08). The payment is nil when the booking carries no payment row
+// yet, in which case ServiceFee reads 0 rather than failing the request.
+//
+// RefundDeadline and ComplexPhone are left nil exactly when the current wire
+// omits or nulls them (see publicStatusEnvelope, which is what actually
+// decides their JSON shape — this mapper only carries the values).
+func toGenPublicBookingStatus(view StatusView) gen.PublicBookingStatus {
 	booking, complex, court := view.Booking, view.Complex, view.Court
 
 	serviceFee := 0
@@ -221,39 +263,82 @@ func publicStatusResponse(view StatusView) httpx.Envelope {
 		remaining = 0
 	}
 
-	cancellation := httpx.Envelope{
-		"can_cancel":         view.Cancellation.CanCancel,
-		"can_refund_now":     view.Cancellation.WithinWindow,
-		"cancellation_hours": complex.CancellationHours,
-	}
+	var out gen.PublicBookingStatus
+	out.Cancellation.CanCancel = view.Cancellation.CanCancel
+	out.Cancellation.CanRefundNow = view.Cancellation.WithinWindow
+	out.Cancellation.CancellationHours = complex.CancellationHours
 	if view.Cancellation.CanCancel {
-		cancellation["refund_deadline"] = view.Cancellation.Deadline.Format(time.RFC3339)
-	} else {
-		cancellation["refund_deadline"] = nil
+		deadline := view.Cancellation.Deadline
+		out.Cancellation.RefundDeadline = &deadline
+	}
+	out.CollectionStatus = gen.CollectionStatus(booking.CollectionStatus)
+	out.ComplexAddress = complex.Address
+	out.ComplexName = complex.Name
+	if complex.Phone != "" {
+		phone := complex.Phone
+		out.ComplexPhone = &phone
+	}
+	out.CourtName = court.Name
+	out.CourtType = gen.PublicBookingStatusCourtType(court.CourtType)
+	out.Date = openapi_types.Date{Time: booking.Date}
+	out.DepositAmount = booking.DepositAmount
+	out.DurationMinutes = booking.DurationMinutes
+	out.EndsAt = booking.EndsAt
+	out.Price = booking.Price
+	out.RefundStatus = gen.RefundStatus(booking.RefundStatus)
+	out.RemainingAmount = remaining
+	out.ServiceFee = serviceFee
+	out.Sport = gen.PublicBookingStatusSport(court.Sport)
+	out.StartTime = booking.StartTime
+	out.StartsAt = booking.StartsAt
+	out.Status = gen.BookingStatus(booking.Status)
+
+	return out
+}
+
+// publicStatusEnvelope flattens the generated PublicBookingStatus into the
+// httpx.Envelope respond.JSON requires (this package's Responder only ever
+// writes a map, never a struct passed through as-is). The flattening is what
+// actually decides the JSON shape, deliberately not the generated type's own
+// tags: "refund_deadline" stays present with an explicit null when the
+// booking cannot be cancelled — the generated field's omitempty would instead
+// drop the key outright — while "complex_phone" is omitted entirely when the
+// complex has none on file, which omitempty does reproduce correctly.
+func publicStatusEnvelope(v gen.PublicBookingStatus) httpx.Envelope {
+	var refundDeadline any
+	if v.Cancellation.RefundDeadline != nil {
+		refundDeadline = v.Cancellation.RefundDeadline.Format(time.RFC3339)
+	}
+
+	cancellation := httpx.Envelope{
+		"can_cancel":         v.Cancellation.CanCancel,
+		"can_refund_now":     v.Cancellation.CanRefundNow,
+		"cancellation_hours": v.Cancellation.CancellationHours,
+		"refund_deadline":    refundDeadline,
 	}
 
 	bookingEnvelope := httpx.Envelope{
-		"status":            booking.Status,
-		"collection_status": booking.CollectionStatus,
-		"refund_status":     booking.RefundStatus,
-		"complex_name":      complex.Name,
-		"complex_address":   complex.Address,
-		"court_name":        court.Name,
-		"sport":             court.Sport,
-		"court_type":        court.CourtType,
-		"date":              booking.Date.Format("2006-01-02"),
-		"start_time":        booking.StartTime,
-		"starts_at":         booking.StartsAt.Format(time.RFC3339),
-		"ends_at":           booking.EndsAt.Format(time.RFC3339),
-		"duration_minutes":  booking.DurationMinutes,
-		"price":             booking.Price,
-		"deposit_amount":    booking.DepositAmount,
-		"service_fee":       serviceFee,
-		"remaining_amount":  remaining,
+		"status":            v.Status,
+		"collection_status": v.CollectionStatus,
+		"refund_status":     v.RefundStatus,
+		"complex_name":      v.ComplexName,
+		"complex_address":   v.ComplexAddress,
+		"court_name":        v.CourtName,
+		"sport":             v.Sport,
+		"court_type":        v.CourtType,
+		"date":              v.Date,
+		"start_time":        v.StartTime,
+		"starts_at":         v.StartsAt.Format(time.RFC3339),
+		"ends_at":           v.EndsAt.Format(time.RFC3339),
+		"duration_minutes":  v.DurationMinutes,
+		"price":             v.Price,
+		"deposit_amount":    v.DepositAmount,
+		"service_fee":       v.ServiceFee,
+		"remaining_amount":  v.RemainingAmount,
 		"cancellation":      cancellation,
 	}
-	if complex.Phone != "" {
-		bookingEnvelope["complex_phone"] = complex.Phone
+	if v.ComplexPhone != nil {
+		bookingEnvelope["complex_phone"] = *v.ComplexPhone
 	}
 
 	return httpx.Envelope{"booking": bookingEnvelope}
@@ -274,47 +359,81 @@ func (h *Handler) PublicCancelInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, publicCancelInfoResponse(view))
+	h.respond.JSON(w, r, http.StatusOK, publicCancelInfoEnvelope(toGenPublicCancelInfo(view)))
 }
 
-// publicCancelInfoResponse builds PublicCancelInfo's payload: the same booking
-// detail the success page shows, plus the money actually at stake if the client
-// cancels right now.
-func publicCancelInfoResponse(view CancelInfoView) httpx.Envelope {
+// toGenPublicCancelInfo maps PublicCancelInfo's view onto the generated wire
+// type (HTTP-08).
+func toGenPublicCancelInfo(view CancelInfoView) gen.PublicCancelInfo {
 	booking, complex, court := view.Booking, view.Complex, view.Court
 
-	bookingEnvelope := httpx.Envelope{
-		"status":           booking.Status,
-		"date":             booking.Date.Format("2006-01-02"),
-		"start_time":       booking.StartTime,
-		"starts_at":        booking.StartsAt.Format(time.RFC3339),
-		"ends_at":          booking.EndsAt.Format(time.RFC3339),
-		"duration_minutes": booking.DurationMinutes,
-		"court_name":       court.Name,
-		"sport":            court.Sport,
-		"court_type":       court.CourtType,
-		"complex_name":     complex.Name,
-	}
+	var out gen.PublicCancelInfo
 	if complex.Address != "" {
-		bookingEnvelope["complex_address"] = complex.Address
+		address := complex.Address
+		out.Booking.ComplexAddress = &address
+	}
+	out.Booking.ComplexName = complex.Name
+	out.Booking.CourtName = court.Name
+	out.Booking.CourtType = gen.PublicCancelInfoBookingCourtType(court.CourtType)
+	out.Booking.Date = openapi_types.Date{Time: booking.Date}
+	out.Booking.DurationMinutes = booking.DurationMinutes
+	out.Booking.EndsAt = booking.EndsAt
+	out.Booking.Sport = gen.PublicCancelInfoBookingSport(court.Sport)
+	out.Booking.StartTime = booking.StartTime
+	out.Booking.StartsAt = booking.StartsAt
+	out.Booking.Status = gen.BookingStatus(booking.Status)
+
+	out.CanCancel = view.Cancellation.CanCancel
+	out.CanRefund = view.CanRefund
+	out.CancellationHours = complex.CancellationHours
+	out.PaidAmount = view.PaidAmount
+	out.RefundAmount = view.RefundAmount
+	// How it would come back: "mercadopago" is automatic, "manual" means the
+	// complex has to hand it over, "none" means there is nothing to return.
+	out.RefundMethod = gen.PublicCancelInfoRefundMethod(view.RefundMethod)
+
+	return out
+}
+
+// publicCancelInfoEnvelope flattens the generated PublicCancelInfo into the
+// httpx.Envelope respond.JSON requires (this package's Responder only ever
+// writes a map). Unlike PublicStatus's cancellation.refund_deadline, every
+// optional field here already means the same thing on both sides — "omitted
+// when there is nothing to say" — so the generated type's own omitempty
+// reproduces the wire shape correctly and this only has to read it back out.
+func publicCancelInfoEnvelope(v gen.PublicCancelInfo) httpx.Envelope {
+	bookingEnvelope := httpx.Envelope{
+		"status":           v.Booking.Status,
+		"date":             v.Booking.Date,
+		"start_time":       v.Booking.StartTime,
+		"starts_at":        v.Booking.StartsAt.Format(time.RFC3339),
+		"ends_at":          v.Booking.EndsAt.Format(time.RFC3339),
+		"duration_minutes": v.Booking.DurationMinutes,
+		"court_name":       v.Booking.CourtName,
+		"sport":            v.Booking.Sport,
+		"court_type":       v.Booking.CourtType,
+		"complex_name":     v.Booking.ComplexName,
+	}
+	if v.Booking.ComplexAddress != nil {
+		bookingEnvelope["complex_address"] = *v.Booking.ComplexAddress
 	}
 
 	return httpx.Envelope{
 		"booking":    bookingEnvelope,
-		"can_cancel": view.Cancellation.CanCancel,
-		"can_refund": view.CanRefund,
+		"can_cancel": v.CanCancel,
+		"can_refund": v.CanRefund,
 		// How it would come back: "mercadopago" is automatic, "manual" means the
 		// complex has to hand it over, "none" means there is nothing to return.
-		"refund_method":      view.RefundMethod,
-		"cancellation_hours": complex.CancellationHours,
+		"refund_method":      v.RefundMethod,
+		"cancellation_hours": v.CancellationHours,
 		// refund_amount is what an automatic MercadoPago refund would return if
 		// the client cancels right now, computed row by row the same way the
 		// automatic refund itself does.
-		"refund_amount": view.RefundAmount,
+		"refund_amount": v.RefundAmount,
 		// paid_amount is what has actually been paid so far, regardless of
 		// whether any of it comes back — so the page can say what was paid even
 		// when cancelling now returns nothing.
-		"paid_amount": view.PaidAmount,
+		"paid_amount": v.PaidAmount,
 	}
 }
 
@@ -323,9 +442,7 @@ func publicCancelInfoResponse(view CancelInfoView) httpx.Envelope {
 // Outside the refund window the booking is still cancelled — a client should
 // not have to show up — but the deposit is not returned.
 func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Token string `json:"token"`
-	}
+	var input gen.BookingsPublicCancelJSONBody
 
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
@@ -348,9 +465,9 @@ func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
 	// Return minimal info — don't expose internal booking details to public endpoint.
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"booking": httpx.Envelope{
-			"status":            result.Booking.Status,
-			"collection_status": result.Booking.CollectionStatus,
-			"refund_status":     refundStatusAfter(result.Booking, result.Outcome),
+			"status":            gen.BookingStatus(result.Booking.Status),
+			"collection_status": gen.CollectionStatus(result.Booking.CollectionStatus),
+			"refund_status":     gen.RefundStatus(refundStatusAfter(result.Booking, result.Outcome)),
 		},
 		// Kept for the clients already reading it, and now true when the money
 		// actually came back rather than never. It stays true even when
@@ -358,6 +475,6 @@ func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
 		// came back, and "manual_amount" in "refund" below is what says a
 		// cash/transfer balance is still owed.
 		"refunded": result.Outcome.MoneyReturned(),
-		"refund":   refundEnvelope(result.Outcome),
+		"refund":   toGenRefundOutcome(result.Outcome),
 	})
 }

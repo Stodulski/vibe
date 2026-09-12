@@ -3,6 +3,7 @@ package reporting
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	"github.com/stodulski/vibe-server/internal/spreadsheet"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -55,7 +57,41 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"report": report})
+	genReport, err := toGenMonthlyReport(report)
+	if err != nil {
+		h.respond.ServerError(w, r, err)
+		return
+	}
+
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"report": genReport})
+}
+
+// toGenMonthlyReport maps the service's report onto the generated wire type.
+//
+// Service.MonthlyReport (service.go) builds its result as map[string]any,
+// keyed exactly the way the OpenAPI document's MonthlyReport/
+// MonthlyReportSummary/MonthlyReportCourtSummary schemas expect — down to
+// by_method rows omitting service_fees while totals/previous_totals carry it,
+// which is what gen.MonthlyReportSummary.ServiceFees being a nil-omitted
+// pointer requires. The by_method values are typed with a struct local to
+// that function, so it cannot be named here to copy field-by-field without
+// widening Service.MonthlyReport's signature — out of scope for this
+// package's handlers-only change. Round-tripping through JSON instead
+// decodes the map into the generated struct using the same field
+// correspondence a hand-written copy would use (the json tags on each side),
+// so the wire body is always the generated type and never the ad-hoc map
+// serialized directly (HTTP-08).
+func toGenMonthlyReport(report map[string]any) (gen.MonthlyReport, error) {
+	raw, err := json.Marshal(report)
+	if err != nil {
+		return gen.MonthlyReport{}, fmt.Errorf("encoding the monthly report: %w", err)
+	}
+
+	var out gen.MonthlyReport
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return gen.MonthlyReport{}, fmt.Errorf("decoding the monthly report into the generated shape: %w", err)
+	}
+	return out, nil
 }
 
 // periodTotals adds up one period's payments the same way the selected month

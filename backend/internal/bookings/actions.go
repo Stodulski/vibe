@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi/gen"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -26,16 +28,19 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Reason string `json:"reason"`
-	}
+	var input gen.BookingsCancelJSONBody
 
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
 
-	result, err := h.svc.Cancel(r.Context(), complex, h.actor(r), bookingID, input.Reason)
+	var reason string
+	if input.Reason != nil {
+		reason = *input.Reason
+	}
+
+	result, err := h.svc.Cancel(r.Context(), complex, h.actor(r), bookingID, reason)
 	if err != nil {
 		h.refuse(w, r, err)
 		return
@@ -44,13 +49,13 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	// A retried cancellation answers from the row alone: this request produced
 	// no refund outcome, so it names none.
 	if result.AlreadyCancelled {
-		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"booking": result.Booking})
+		h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"booking": toGenBooking(result.Booking)})
 		return
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"booking": result.Booking,
-		"refund":  refundEnvelope(result.Outcome),
+		"booking": toGenBooking(result.Booking),
+		"refund":  toGenRefundOutcome(result.Outcome),
 	})
 }
 
@@ -78,10 +83,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Method string `json:"method"`
-		Amount int    `json:"amount"`
-	}
+	var input gen.BookingsConfirmPaymentJSONBody
 
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
@@ -89,7 +91,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	v.Check(input.Method == "cash" || input.Method == "transfer", "method", "must be cash or transfer")
+	v.Check(string(input.Method) == "cash" || string(input.Method) == "transfer", "method", "must be cash or transfer")
 	v.Check(input.Amount > 0, "amount", "must be greater than 0")
 	v.Check(input.Amount <= 99_999_999, "amount", "amount too large")
 	if !v.Valid() {
@@ -98,7 +100,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	booking, payment, err := h.svc.ConfirmPayment(r.Context(), complex.ID, h.actor(r), bookingID, ConfirmPaymentInput{
-		Method: input.Method,
+		Method: string(input.Method),
 		Amount: input.Amount,
 	})
 	if err != nil {
@@ -110,8 +112,8 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"booking": booking,
-		"payment": payment,
+		"booking": toGenBooking(booking),
+		"payment": toGenPayment(payment),
 	})
 }
 
@@ -139,8 +141,33 @@ func (h *Handler) ManualRefund(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"booking":         result.Booking,
-		"payments":        result.Payments,
+		"booking":         toGenBooking(result.Booking),
+		"payments":        toGenPayments(result.Payments),
 		"returned_amount": result.Returned,
 	})
+}
+
+// toGenRefundOutcome renders a refund outcome as the generated wire type,
+// reproducing cancel.go's refundEnvelope field-for-field (HTTP-08): "amount"
+// present only when positive, "manual_amount"/"manual_message" present only
+// when a manual balance remains. refundMessage is cancel.go's own renderer —
+// reused here rather than duplicated, so the API response and the
+// notification text this same outcome drives can never drift into two
+// different accounts of the same money.
+func toGenRefundOutcome(outcome paymentstore.RefundOutcome) gen.RefundOutcome {
+	out := gen.RefundOutcome{
+		Message: refundMessage(outcome.Result, outcome.AmountCentavos),
+		Status:  gen.RefundOutcomeStatus(outcome.Result),
+	}
+	if outcome.AmountCentavos > 0 {
+		amount := outcome.AmountCentavos
+		out.Amount = &amount
+	}
+	if outcome.ManualAmountCentavos > 0 {
+		manualAmount := outcome.ManualAmountCentavos
+		out.ManualAmount = &manualAmount
+		manualMessage := refundMessage(paymentstore.RefundManual, outcome.ManualAmountCentavos)
+		out.ManualMessage = &manualMessage
+	}
+	return out
 }
