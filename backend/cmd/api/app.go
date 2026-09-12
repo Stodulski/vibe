@@ -453,7 +453,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// bookings.Dependencies.Refunds takes paymentsService, the local above —
 	// not app.payments. Move this block above paymentsService's and
 	// `undefined: paymentsService` fails the build, before any test runs.
-	bookingsHandler := bookings.NewHandler(bookings.Dependencies{
+	bookingsService := bookings.NewService(bookings.Dependencies{
 		Store:     d.models.Bookings,
 		Clients:   d.models.Clients,
 		Complexes: d.models.Complexes,
@@ -461,16 +461,16 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Payments:  d.models.Payments,
 		Locks:     d.models.SlotLocks,
 		Checkout:  mpClient,
-		WhatsApp:  waClient,
 		Refunds:   paymentsService,
 		// d.models.BookingLinkTokens is typed stores.BookingLinkTokenStore, which
-		// already structurally satisfies bookings.LinkResolver's one method —
-		// no new store instance is constructed.
+		// already structurally satisfies both bookings.LinkResolver's one
+		// method and bookings.LinkTokenStore's two — no new store instance is
+		// constructed for either.
 		LinkResolver: d.models.BookingLinkTokens,
+		LinkTokens:   d.models.BookingLinkTokens,
 		Notify:       notify,
 		Realtime:     events,
 		Audit:        auditor,
-		Respond:      respond,
 		Logger:       d.logger,
 		Run:          app.background,
 	}, bookings.Config{
@@ -482,7 +482,12 @@ func newApplication(cfg config, d deps) (*application, error) {
 		SlotLockTTL:     cfg.booking.slotLockTTL,
 		TrustProxies:    cfg.trustedProxies,
 		WhatsAppEnabled: whatsappEnabled,
+		LinkTokenBuffer: cfg.booking.linkTokenBuffer,
 	})
+	// The WhatsApp webhook verifies Meta's own handshake and signature, so the
+	// handler takes the client alongside the service: both are computed over
+	// the request, which never reaches the service.
+	bookingsHandler := bookings.NewHandler(bookingsService, waClient, respond, d.logger, cfg.trustedProxies)
 
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a
@@ -512,6 +517,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	app.payments = paymentsHandler
 	app.paymentsService = paymentsService
 	app.bookings = bookingsHandler
+	app.bookingsService = bookingsService
 	app.complexes = complexesHandler
 	app.complexesService = complexesService
 	app.scheduler = sched

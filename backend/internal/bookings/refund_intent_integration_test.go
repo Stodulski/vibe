@@ -121,7 +121,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 	}
 
 	logger := slog.New(slog.NewTextHandler(&discard{}, nil))
-	f.handler = NewHandler(Dependencies{
+	svc := NewService(Dependencies{
 		Store:     f.models.Bookings,
 		Clients:   &stubClients{},
 		Complexes: f.models.Complexes,
@@ -129,16 +129,15 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 		Payments:  &stubPayments{},
 		Locks:     &stubLocks{},
 		Checkout:  &stubCheckout{},
-		WhatsApp:  &stubWhatsApp{},
 		Refunds:   &stubRefunder{},
 		// f.models.BookingLinkTokens is the real, data-backed store — this
-		// suite exercises PublicCancel through resolveLink, and a minted
+		// suite exercises PublicCancel through ResolveLink, and a minted
 		// token has to actually resolve against it.
 		LinkResolver: f.models.BookingLinkTokens,
+		LinkTokens:   f.models.BookingLinkTokens,
 		Notify:       &stubNotifier{},
 		Realtime:     &stubBroadcaster{},
 		Audit:        &stubRecorder{},
-		Respond:      httpx.NewResponder(logger),
 		Logger:       logger,
 		Run:          func(fn func()) { fn() },
 	}, Config{
@@ -146,6 +145,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 		Environment: "test", GracePeriod: 15 * time.Minute,
 		PaymentExpiry: 15 * time.Minute, SlotLockTTL: 15 * time.Minute,
 	})
+	f.handler = NewHandler(svc, &stubWhatsApp{}, httpx.NewResponder(logger), logger, false)
 	return f
 }
 

@@ -170,7 +170,7 @@ func TestApprovedPaymentForACancelledBookingWithAForeignCollectorWritesNothing(t
 //
 // ClaimRefund is made to fail so the call stops before
 // refundCancelledBookingPayment reaches sellerCredential, which calls the same
-// h.complexes.GetByID dependency for an unrelated reason (the seller token) —
+// s.complexes.GetByID dependency for an unrelated reason (the seller token) —
 // failing the claim isolates the count to the collector check alone.
 func TestConcurrentCancellationRunsTheCollectorCheckOnce(t *testing.T) {
 	f := newFixture(t)

@@ -565,7 +565,7 @@ func TestABookingCrossingMidnightSeesTheNextDaysBlock(t *testing.T) {
 	startAt := slots.At(date, "23:00")
 	endAt := startAt.Add(2 * time.Hour)
 
-	blocked, err := f.handler.slotIsBlocked(context.Background(), courtID, date, startAt, endAt)
+	blocked, err := f.service.slotIsBlocked(context.Background(), courtID, date, startAt, endAt)
 	if err != nil {
 		t.Fatalf("slotIsBlocked: %v", err)
 	}
@@ -598,7 +598,7 @@ func TestABookingThatEndsBeforeMidnightIgnoresTheNextDay(t *testing.T) {
 	startAt := slots.At(date, "22:00")
 	endAt := startAt.Add(2 * time.Hour)
 
-	blocked, err := f.handler.slotIsBlocked(context.Background(), courtID, date, startAt, endAt)
+	blocked, err := f.service.slotIsBlocked(context.Background(), courtID, date, startAt, endAt)
 	if err != nil {
 		t.Fatalf("slotIsBlocked: %v", err)
 	}

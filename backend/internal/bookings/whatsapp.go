@@ -70,9 +70,7 @@ func (h *Handler) WhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// Detached on purpose: Meta redelivers any webhook it is not acknowledged for
 	// quickly enough, so the 200 below must not wait on the processing.
-	h.run(func() {
-		h.processWhatsAppMessages(webhook)
-	})
+	h.svc.DispatchWhatsAppMessages(webhook)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -108,11 +106,19 @@ type waMessage struct {
 	} `json:"interactive"`
 }
 
-func (h *Handler) processWhatsAppMessages(webhook waWebhookPayload) {
+// DispatchWhatsAppMessages works a verified delivery on the application's
+// tracked goroutines, after the handler has already acknowledged it.
+func (s *Service) DispatchWhatsAppMessages(webhook waWebhookPayload) {
+	s.run(func() {
+		s.processWhatsAppMessages(webhook)
+	})
+}
+
+func (s *Service) processWhatsAppMessages(webhook waWebhookPayload) {
 	for _, entry := range webhook.Entry {
 		for _, change := range entry.Changes {
 			for _, msg := range change.Value.Messages {
-				h.processWhatsAppMessage(msg)
+				s.processWhatsAppMessage(msg)
 			}
 		}
 	}
@@ -121,7 +127,7 @@ func (h *Handler) processWhatsAppMessages(webhook waWebhookPayload) {
 // processWhatsAppMessage logs an inbound WhatsApp message. Confirmations and
 // cancellations are handled through the web app only, so no ctx-bound action
 // is taken here; a detached context is not needed for a synchronous log call.
-func (h *Handler) processWhatsAppMessage(msg waMessage) {
+func (s *Service) processWhatsAppMessage(msg waMessage) {
 	phone := msg.From
 
 	// Extract response text from text message, button reply, or interactive reply.
@@ -141,5 +147,5 @@ func (h *Handler) processWhatsAppMessage(msg waMessage) {
 
 	// WhatsApp messages from clients are logged but no action is taken.
 	// Confirmations and cancellations are handled through the web app only.
-	h.logger.Info("wa webhook: received message", "from", maskPhone(phone), "text", responseText)
+	s.logger.Info("wa webhook: received message", "from", maskPhone(phone), "text", responseText)
 }

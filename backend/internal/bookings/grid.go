@@ -48,8 +48,8 @@ var errComplexClosed = errors.New("bookings: the complex is closed on the select
 // complex's opening hours for that weekday — the only input left now that a
 // booking's length is chosen per request rather than fixed on the court — so a
 // position this refuses is a position the storefront never drew.
-func (h *Handler) courtGrid(ctx context.Context, complexID uuid.UUID, date time.Time) (slots.Grid, error) {
-	schedules, err := h.complexes.GetSchedules(ctx, complexID)
+func (s *Service) courtGrid(ctx context.Context, complexID uuid.UUID, date time.Time) (slots.Grid, error) {
+	schedules, err := s.complexes.GetSchedules(ctx, complexID)
 	if err != nil {
 		return slots.Grid{}, err
 	}
@@ -118,14 +118,14 @@ func (h *Handler) courtGrid(ctx context.Context, complexID uuid.UUID, date time.
 // is closed, and an owner reading it could not tell their own maintenance
 // block from a sale. The second read costs one query, and only for the
 // bookings that actually cross midnight.
-func (h *Handler) slotIsBlocked(
+func (s *Service) slotIsBlocked(
 	ctx context.Context,
 	courtID uuid.UUID,
 	date time.Time,
 	startAt, endAt time.Time,
 ) (bool, error) {
 	for _, day := range blockedDays(date, endAt) {
-		blocked, err := h.courts.GetBlockedSlots(ctx, courtID, day)
+		blocked, err := s.courts.GetBlockedSlots(ctx, courtID, day)
 		if err != nil {
 			return false, err
 		}

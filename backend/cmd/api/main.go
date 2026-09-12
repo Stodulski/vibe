@@ -211,6 +211,11 @@ type application struct {
 	// not HTTP routes.
 	paymentsService *payments.Service
 	bookings        *bookings.Handler
+	// bookingsService is held separately from the handler because the scheduler
+	// calls it directly: the reminder, the expiry sweep, the completion sweep
+	// and the link-token sweep are the booking domain's own rules, not HTTP
+	// routes.
+	bookingsService *bookings.Service
 	scheduler       *scheduler.Scheduler
 	middleware      *middleware.Middleware
 	db              *pgxpool.Pool

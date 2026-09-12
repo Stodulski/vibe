@@ -11,6 +11,7 @@ package bookings
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -30,11 +31,38 @@ import (
 )
 
 // Store is the booking persistence this module uses.
+//
+// The last block is what the scheduler drives: the four booking cron jobs moved
+// out of cmd/api into Service, so the sweeps they run are reads and writes of
+// this domain like any other.
 type Store interface {
 	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
 	InsertSafe(ctx context.Context, b *bookingstore.Booking) error
 	Update(ctx context.Context, b *bookingstore.Booking) error
+
+	// Reads other domains enter this one through, on Service. They carry the
+	// store's own signatures so that *Service satisfies the interfaces
+	// courts, complexes, clients, auth, reporting and payments declare.
+	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
+	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
+	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
+	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
+	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error
+	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
+	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
+	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error)
+	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
+	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
+	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error)
+	ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error
+	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
+
+	// The scheduled sweeps.
+	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
+	MarkReminderSent2h(ctx context.Context, id uuid.UUID) error
+	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
+	CompletePastBookings(ctx context.Context) (int64, error)
 }
 
 // ClientStore resolves the person a booking is for. Public bookings create the
@@ -139,10 +167,24 @@ type LinkResolver interface {
 	ResolveBooking(ctx context.Context, plaintext string) (*bookingstore.Booking, time.Time, error)
 }
 
+// LinkTokenStore is the scheduled half of the booking-link tokens: minting a
+// fresh one for a reminder, because booking_link_tokens stores only a hash and
+// the plaintext sent at confirmation cannot be read back, and sweeping the
+// tokens of bookings that have reached a terminal state.
+//
+// Kept apart from LinkResolver, which is the request path's single read, the
+// same segregation stores.BookingLinkTokenStore's own comment draws.
+type LinkTokenStore interface {
+	Mint(ctx context.Context, bookingID uuid.UUID, expiresAt time.Time) (plaintext string, err error)
+	DeleteExpiredTerminal(ctx context.Context, retention time.Duration) error
+}
+
 // Notifier tells the client what happened to their booking.
 type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation)
 	BookingCancelled(c notifications.Cancellation)
+	// ReminderDue is the two-hour reminder the scheduler sends.
+	ReminderDue(r notifications.Reminder)
 }
 
 // Broadcaster pushes a change to the owner's open dashboards.
@@ -174,30 +216,14 @@ type Config struct {
 	TrustProxies bool
 	// WhatsAppEnabled reflects whether the channel is configured.
 	WhatsAppEnabled bool
+	// LinkTokenBuffer is added to a booking's end time to compute the
+	// expires_at of the token the two-hour reminder mints. Same value
+	// bookingstore.Store.InsertSafe uses for its own mint — both come from
+	// the one -booking-link-token-buffer flag.
+	LinkTokenBuffer time.Duration
 }
 
-// Handler serves the booking routes.
-type Handler struct {
-	store        Store
-	clients      ClientStore
-	complexes    ComplexReader
-	courts       CourtReader
-	payments     PaymentStore
-	locks        SlotLocker
-	checkout     Checkout
-	whatsapp     WhatsAppVerifier
-	refunds      Refunder
-	linkResolver LinkResolver
-	notify       Notifier
-	realtime     Broadcaster
-	audit        Recorder
-	respond      *httpx.Responder
-	logger       *slog.Logger
-	cfg          Config
-	run          func(func())
-}
-
-// Dependencies groups what NewHandler needs.
+// Dependencies groups what NewService needs.
 type Dependencies struct {
 	Store        Store
 	Clients      ClientStore
@@ -206,38 +232,58 @@ type Dependencies struct {
 	Payments     PaymentStore
 	Locks        SlotLocker
 	Checkout     Checkout
-	WhatsApp     WhatsAppVerifier
 	Refunds      Refunder
 	LinkResolver LinkResolver
+	LinkTokens   LinkTokenStore
 	Notify       Notifier
 	Realtime     Broadcaster
 	Audit        Recorder
-	Respond      *httpx.Responder
 	Logger       *slog.Logger
 	Run          func(func())
 }
 
-// NewHandler returns a Handler.
-func NewHandler(d Dependencies, cfg Config) *Handler {
+// Actor is who a change is attributed to, as the handler read it off the
+// request. The service needs it for the audit trail and for nothing else.
+type Actor struct {
+	// UserID is the authenticated owner, or nil for a client acting on a
+	// public route and for a scheduled sweep.
+	UserID *uuid.UUID
+	// IP is the address the request arrived from.
+	IP string
+}
+
+// Handler serves the booking routes. It decodes, validates the request's shape,
+// and maps the service's domain errors onto HTTP; every rule lives in the
+// Service.
+type Handler struct {
+	svc *Service
+	// whatsapp is held for the two verification calls alone: both are computed
+	// over the request, so they are an HTTP concern and are checked here,
+	// before anything reaches the service.
+	whatsapp     WhatsAppVerifier
+	respond      *httpx.Responder
+	logger       *slog.Logger
+	trustProxies bool
+}
+
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, whatsapp WhatsAppVerifier, respond *httpx.Responder, logger *slog.Logger, trustProxies bool) *Handler {
 	return &Handler{
-		store:        d.Store,
-		clients:      d.Clients,
-		complexes:    d.Complexes,
-		courts:       d.Courts,
-		payments:     d.Payments,
-		locks:        d.Locks,
-		checkout:     d.Checkout,
-		whatsapp:     d.WhatsApp,
-		refunds:      d.Refunds,
-		linkResolver: d.LinkResolver,
-		notify:       d.Notify,
-		realtime:     d.Realtime,
-		audit:        d.Audit,
-		respond:      d.Respond,
-		logger:       d.Logger,
-		cfg:          cfg,
-		run:          d.Run,
+		svc:          svc,
+		whatsapp:     whatsapp,
+		respond:      respond,
+		logger:       logger,
+		trustProxies: trustProxies,
 	}
+}
+
+// actor reads who is making the change off the request.
+func (h *Handler) actor(r *http.Request) Actor {
+	var userID *uuid.UUID
+	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
+		userID = &user.ID
+	}
+	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.trustProxies)}
 }
 
 // Routes registers this module's endpoints.
@@ -268,21 +314,64 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/:id/bookings/:bookingID/manual-refund", owner(h.ManualRefund))
 }
 
+// ErrEditConflict reports that a booking moved out from under a read: the row
+// the update aimed at was gone by the time it ran. It is distinct from
+// data.ErrRecordNotFound, which means the booking was never this complex's to
+// begin with, because the two answer the caller differently — 409 against 404.
+var ErrEditConflict = errors.New("booking changed before the update")
+
+// ErrNoActor reports a write that reached the service with no authenticated
+// user on it, on a route whose guard should have made that impossible. The
+// handler answers it the way it always did: the token is not valid.
+var ErrNoActor = errors.New("bookings: the change has no authenticated user")
+
+// ErrVenueGone reports a live booking link whose venue — or whose court — has
+// since been soft-deleted. It is not the same fact as an unknown token, and it
+// can never succeed by being retried.
+var ErrVenueGone = errors.New("bookings: the booking's venue is no longer available")
+
+// ErrLinkExpired reports a booking link past the point where it still
+// authorizes anything (specs/booking-link-credential).
+var ErrLinkExpired = errors.New("bookings: the booking link has expired")
+
+// FieldError is a rule the request breaks that belongs to one named field. The
+// handler answers 422 naming it — the same field error it used to add to its
+// own validator right where the rule ran.
+type FieldError struct {
+	Field   string
+	Message string
+}
+
+func (e *FieldError) Error() string { return e.Field + ": " + e.Message }
+
+// ValidationError carries a whole validator's field errors, for the one use
+// case (Update) that accumulates several before deciding.
+type ValidationError struct{ Errors map[string]string }
+
+func (e *ValidationError) Error() string { return "bookings: the request is not valid" }
+
+// ConflictError is a rule the request breaks that is about the booking's state
+// rather than one field. The handler answers 409 with its message, unchanged.
+type ConflictError struct{ Message string }
+
+func (e *ConflictError) Error() string { return e.Message }
+
+// StateError is an operation the booking's current state does not allow. The
+// handler answers 400 with its message, unchanged.
+type StateError struct{ Message string }
+
+func (e *StateError) Error() string { return e.Message }
+
 // record writes an audit entry for a change to a booking. Every write in this
 // module acts on a booking, so the entity type is fixed.
-func (h *Handler) record(r *http.Request, complexID uuid.UUID, action string, bookingID *uuid.UUID, newVal any) {
-	var userID *uuid.UUID
-	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
-		userID = &user.ID
-	}
-
-	h.audit.Record(audit.Entry{
-		UserID:     userID,
+func (s *Service) record(actor Actor, complexID uuid.UUID, action string, bookingID *uuid.UUID, newVal any) {
+	s.audit.Record(audit.Entry{
+		UserID:     actor.UserID,
 		ComplexID:  &complexID,
 		Action:     action,
 		EntityType: "booking",
 		EntityID:   bookingID,
 		NewValue:   newVal,
-		IPAddress:  httpx.ClientIP(r, h.cfg.TrustProxies),
+		IPAddress:  actor.IP,
 	})
 }
