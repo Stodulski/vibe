@@ -372,4 +372,61 @@ export default defineConfig([
       ],
     },
   },
+  // Both selectors below live in one no-restricted-syntax block (same rule
+  // key, same 'error' severity) rather than two separate config objects:
+  // flat config lets the LAST config object matching a file win a given
+  // rule key OUTRIGHT instead of merging it with an earlier match, and the
+  // per-feature/pages no-restricted-imports blocks above already claim that
+  // key for most of `src` — a different rule key here keeps both checks
+  // additive everywhere instead of one silently discarding the other.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/shared/lib/env.ts', '**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        // CI-03/BLD-04: raw `import.meta.env.VITE_*` reads are only allowed
+        // inside src/shared/lib/env.ts, where the Zod schema in envSchema
+        // validates them once at startup — every other read site imports
+        // the typed `env` export instead. `MODE`/`DEV`/`PROD`/`BASE_URL`/
+        // `SSR` are Vite's own built-ins, not app config, so they are
+        // exempt. Tests are exempt too: several (sentry.test.ts,
+        // env.test.ts) deliberately stub/parse raw env values to exercise
+        // env.ts and initSentry() in isolation.
+        {
+          selector:
+            "MemberExpression[object.object.type='MetaProperty'][object.property.name='env'][property.name=/^VITE_/]",
+          message: "Import `env` from '@/shared/lib/env' instead of reading `import.meta.env.VITE_*` directly.",
+        },
+        // CI-03: `import { X } from 'lucide-react'` (and date-fns) named
+        // imports are the correct, tree-shakeable form — only the
+        // namespace import pulls in the whole package. 167 files already
+        // use named imports from lucide-react, so unlike a blanket barrel
+        // ban this is clean today (`rg -n "import \* as .* from
+        // '(lucide-react|date-fns)'" src` finds nothing) and can sit at
+        // 'error'.
+        {
+          selector: 'ImportNamespaceSpecifier[parent.source.value=/^(lucide-react|date-fns)$/]',
+          message: "Import only the named icons/functions you use, not the whole module with 'import * as'.",
+        },
+      ],
+    },
+  },
+  // CI-03: raw `fetch` is only allowed inside src/shared/lib (the ky client
+  // it backs) plus the two sites that deliberately bypass ky because ky's
+  // cookie/CSRF behavior is wrong for them: mpFees.api.ts calls a public
+  // static file on a different origin (the landing), and upload.api.ts PUTs
+  // straight to a presigned R2 URL.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      'src/shared/lib/**',
+      'src/features/complex/api/mpFees.api.ts',
+      'src/features/complex/api/upload.api.ts',
+      '**/*.test.{ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-globals': ['error', { name: 'fetch', message: "Usá el cliente ky de '@/shared/lib/ky'." }],
+    },
+  },
 ]);
