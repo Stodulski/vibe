@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
+	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
@@ -16,6 +17,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -1217,11 +1219,17 @@ func (m *mockAdminStore) ToggleUserActive(ctx context.Context, userID uuid.UUID,
 	return nil
 }
 
-func (m *mockAdminStore) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*adminstore.AuditLogRow, data.Metadata, error) {
+// ---------------------------------------------------------------------------
+// mockAuditStore — the trail, split out of the admin store
+// ---------------------------------------------------------------------------
+
+type mockAuditStore struct{}
+
+func (m *mockAuditStore) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*auditstore.AuditLogRow, data.Metadata, error) {
 	return nil, data.Metadata{}, nil
 }
 
-func (m *mockAdminStore) InsertAuditLog(ctx context.Context, userID, complexID *uuid.UUID, action, entityType string, entityID *uuid.UUID, oldJSON, newJSON []byte, ipAddr string) error {
+func (m *mockAuditStore) InsertAuditLog(ctx context.Context, userID, complexID *uuid.UUID, action, entityType string, entityID *uuid.UUID, oldJSON, newJSON []byte, ipAddr string) error {
 	return nil
 }
 
@@ -1259,26 +1267,26 @@ func (m *mockSlotLockStore) CleanExpired(ctx context.Context) (int64, error) {
 // nothing reported it — TestRouteAuthorizationMatrix is what surfaced it, by
 // being the first test to call those routes as a caller entitled to them.
 type mockReportStore struct {
-	PaymentSummaryByMethodFn func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentMethodSummary, error)
-	PaymentSummaryByCourtFn  func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentCourtSummary, error)
-	PaymentDetailsFn         func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentDetail, error)
+	PaymentSummaryByMethodFn func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
+	PaymentSummaryByCourtFn  func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
+	PaymentDetailsFn         func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
 }
 
-func (m *mockReportStore) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentMethodSummary, error) {
+func (m *mockReportStore) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
 	if m.PaymentSummaryByMethodFn != nil {
 		return m.PaymentSummaryByMethodFn(ctx, complexID, from, to)
 	}
 	return nil, nil
 }
 
-func (m *mockReportStore) PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentCourtSummary, error) {
+func (m *mockReportStore) PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error) {
 	if m.PaymentSummaryByCourtFn != nil {
 		return m.PaymentSummaryByCourtFn(ctx, complexID, from, to)
 	}
 	return nil, nil
 }
 
-func (m *mockReportStore) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.PaymentDetail, error) {
+func (m *mockReportStore) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error) {
 	if m.PaymentDetailsFn != nil {
 		return m.PaymentDetailsFn(ctx, complexID, from, to)
 	}

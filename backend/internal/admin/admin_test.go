@@ -16,6 +16,7 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/audit"
+	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -27,7 +28,7 @@ type stubStore struct {
 	userDetail  *adminstore.AdminUserDetail
 	complexes   []*adminstore.AdminComplexRow
 	cxDetail    *adminstore.AdminComplexDetail
-	logs        []*adminstore.AuditLogRow
+	logs        []*auditstore.AuditLogRow
 	err         error
 	toggleErr   error
 	toggledTo   *bool
@@ -67,7 +68,7 @@ func (s *stubStore) GetComplexDetail(context.Context, uuid.UUID) (*adminstore.Ad
 	return s.cxDetail, nil
 }
 
-func (s *stubStore) ListAuditLogs(_ context.Context, complexID *uuid.UUID, entityType string, f data.Filters) ([]*adminstore.AuditLogRow, data.Metadata, error) {
+func (s *stubStore) ListAuditLogs(_ context.Context, complexID *uuid.UUID, entityType string, f data.Filters) ([]*auditstore.AuditLogRow, data.Metadata, error) {
 	s.lastComplexID, s.lastEntityType, s.lastFilters = complexID, entityType, f
 	return s.logs, data.Metadata{}, s.err
 }
@@ -90,10 +91,13 @@ type stubRecorder struct{ entries []audit.Entry }
 
 func (r *stubRecorder) Record(e audit.Entry) { r.entries = append(r.entries, e) }
 
-func newTestHandler(store Store) (*Handler, *stubCache, *stubRecorder) {
+// newTestHandler builds the handler from one stub that plays both the admin
+// store and the audit reader — they are two dependencies now, but one fake
+// answers for both, which keeps every existing case unchanged.
+func newTestHandler(store *stubStore) (*Handler, *stubCache, *stubRecorder) {
 	cache, recorder := &stubCache{}, &stubRecorder{}
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	return NewHandler(store, cache, recorder, responder, false), cache, recorder
+	return NewHandler(store, store, cache, recorder, responder, false), cache, recorder
 }
 
 // operatorRequest builds a request from an authenticated superadmin, with the

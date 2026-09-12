@@ -36,13 +36,14 @@ func validTestDeps(t *testing.T) deps {
 			SlotLocks:         &mockSlotLockStore{},
 			Reports:           &mockReportStore{},
 			Admin:             &mockAdminStore{},
+			Audit:             &mockAuditStore{},
 			Locks:             &mockLockStore{},
 		},
 	}
 }
 
 // TestNewApplicationRejectsAMissingStore covers the gap unwiredDependencies()
-// could not: a store data.Models composes, left nil, is caught before any
+// could not: a store stores.Stores composes, left nil, is caught before any
 // constructor runs — not mid-sequence, with several handlers already built.
 func TestNewApplicationRejectsAMissingStore(t *testing.T) {
 	d := validTestDeps(t)
@@ -80,6 +81,7 @@ func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 		{"WebhookEvents", func(m *stores.Stores) { m.WebhookEvents = nil }},
 		{"SlotLocks", func(m *stores.Stores) { m.SlotLocks = nil }},
 		{"Admin", func(m *stores.Stores) { m.Admin = nil }},
+		{"Audit", func(m *stores.Stores) { m.Audit = nil }},
 		{"Reports", func(m *stores.Stores) { m.Reports = nil }},
 		{"Locks", func(m *stores.Stores) { m.Locks = nil }},
 	}

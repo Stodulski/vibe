@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
+	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -29,7 +29,7 @@ import (
 // verified complex and not from the request, and a reader that discarded its
 // arguments could not tell the two apart.
 type stubReader struct {
-	logs []*adminstore.AuditLogRow
+	logs []*auditstore.AuditLogRow
 	meta data.Metadata
 	err  error
 
@@ -41,7 +41,7 @@ type stubReader struct {
 
 func (s *stubReader) ListAuditLogs(_ context.Context, complexID *uuid.UUID, entityType string,
 	filters data.Filters,
-) ([]*adminstore.AuditLogRow, data.Metadata, error) {
+) ([]*auditstore.AuditLogRow, data.Metadata, error) {
 	s.called++
 	if complexID != nil {
 		id := *complexID
@@ -89,8 +89,8 @@ func (f *trailFixture) request(t *testing.T, target string) *http.Request {
 	return httpx.ContextSetComplex(r, f.complex)
 }
 
-func (f *trailFixture) row() *adminstore.AuditLogRow {
-	return &adminstore.AuditLogRow{
+func (f *trailFixture) row() *auditstore.AuditLogRow {
+	return &auditstore.AuditLogRow{
 		ID:         uuid.New(),
 		UserID:     &f.caller.ID,
 		ComplexID:  &f.complex.ID,
@@ -103,7 +103,7 @@ func (f *trailFixture) row() *adminstore.AuditLogRow {
 // The trail of a venue was readable by the platform and not by the venue.
 func TestTenantReadsItsOwnTrail(t *testing.T) {
 	f := newTrailFixture(t)
-	f.reader.logs = []*adminstore.AuditLogRow{f.row(), f.row()}
+	f.reader.logs = []*auditstore.AuditLogRow{f.row(), f.row()}
 
 	w := httptest.NewRecorder()
 	f.handler.List(w, f.request(t, "/api/v1/complexes/x/audit-log"))
@@ -193,7 +193,7 @@ func TestTrailAppliesADefaultPageSize(t *testing.T) {
 // The person who can read the trail must leave a record of having read it.
 func TestReadingTheTrailIsItselfRecorded(t *testing.T) {
 	f := newTrailFixture(t)
-	f.reader.logs = []*adminstore.AuditLogRow{f.row(), f.row(), f.row()}
+	f.reader.logs = []*auditstore.AuditLogRow{f.row(), f.row(), f.row()}
 
 	w := httptest.NewRecorder()
 	f.handler.List(w, f.request(t, "/api/v1/complexes/x/audit-log?entity_type=booking"))

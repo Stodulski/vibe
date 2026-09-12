@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	"github.com/stodulski/vibe-server/internal/spreadsheet"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/xuri/excelize/v2"
@@ -140,7 +140,7 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 //
 // Net is what the owner keeps: the amount plus the service fee the client paid
 // on top, minus anything refunded.
-func periodTotals(summaries []data.PaymentMethodSummary) map[string]any {
+func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 	var count, amount, serviceFees, refunded int
 	for _, s := range summaries {
 		count += s.Count
@@ -272,9 +272,9 @@ func (h *Handler) ExportPaymentsExcel(w http.ResponseWriter, r *http.Request) {
 // They travel together because they are always needed together, always for the
 // same complex, and always for the same period.
 type exportSummaries struct {
-	byMethod []data.PaymentMethodSummary
-	byCourt  []data.PaymentCourtSummary
-	previous []data.PaymentMethodSummary
+	byMethod []reportstore.PaymentMethodSummary
+	byCourt  []reportstore.PaymentCourtSummary
+	previous []reportstore.PaymentMethodSummary
 }
 
 // readExportSummaries runs the same aggregate queries the JSON report runs, so
@@ -311,10 +311,10 @@ func (h *Handler) readExportSummaries(ctx context.Context, complexID uuid.UUID, 
 func buildExportWorkbook(
 	ctx context.Context,
 	title string,
-	details []data.PaymentDetail,
-	summaries []data.PaymentMethodSummary,
-	courts []data.PaymentCourtSummary,
-	previous []data.PaymentMethodSummary,
+	details []reportstore.PaymentDetail,
+	summaries []reportstore.PaymentMethodSummary,
+	courts []reportstore.PaymentCourtSummary,
+	previous []reportstore.PaymentMethodSummary,
 ) (*bytes.Buffer, error) {
 	f := excelize.NewFile()
 	// In-memory workbook cleanup; a close error here (e.g. stale sheet references) cannot
@@ -387,7 +387,7 @@ func (h *Handler) failExport(w http.ResponseWriter, r *http.Request, err error) 
 // serialised, which for a full export is the largest thing this process holds.
 // The streaming writer spills rows as they are written, so the sheet costs
 // roughly the row being built rather than the whole month.
-func writePaymentSheet(ctx context.Context, f *excelize.File, details []data.PaymentDetail) error {
+func writePaymentSheet(ctx context.Context, f *excelize.File, details []reportstore.PaymentDetail) error {
 	if err := f.SetSheetName("Sheet1", paymentSheetName); err != nil {
 		return fmt.Errorf("naming the payment sheet: %w", err)
 	}
@@ -452,7 +452,7 @@ func writePaymentSheet(ctx context.Context, f *excelize.File, details []data.Pay
 // booking form, and the guard is applied uniformly rather than singled out
 // per column so a future free-text field does not have to remember to ask
 // for it.
-func paymentRow(d data.PaymentDetail) []any {
+func paymentRow(d reportstore.PaymentDetail) []any {
 	return []any{
 		spreadsheet.EscapeFormulaCell(d.CreatedAt.In(timezone.Argentina).Format("02/01/2006 15:04")),
 		spreadsheet.EscapeFormulaCell(timezone.HoursLabel(d.StartsAt, d.EndsAt)),
@@ -470,7 +470,7 @@ func paymentRow(d data.PaymentDetail) []any {
 }
 
 // paymentColumnWidths sizes each column to its widest value, headers included.
-func paymentColumnWidths(details []data.PaymentDetail) []float64 {
+func paymentColumnWidths(details []reportstore.PaymentDetail) []float64 {
 	widths := make([]float64, len(paymentSheetHeaders))
 	for i, header := range paymentSheetHeaders {
 		widths[i] = float64(len(header)) + 2
@@ -497,9 +497,9 @@ func paymentColumnWidths(details []data.PaymentDetail) []float64 {
 func writeSummarySheet(
 	f *excelize.File,
 	title string,
-	summaries []data.PaymentMethodSummary,
-	courts []data.PaymentCourtSummary,
-	previous []data.PaymentMethodSummary,
+	summaries []reportstore.PaymentMethodSummary,
+	courts []reportstore.PaymentCourtSummary,
+	previous []reportstore.PaymentMethodSummary,
 ) error {
 	if _, err := f.NewSheet(summarySheetName); err != nil {
 		return fmt.Errorf("creating the summary sheet: %w", err)
@@ -547,7 +547,7 @@ func writeSummarySheet(
 //
 // The totals are accumulated from exactly the rows written here. Summing the
 // same slice anywhere else is what lets a table and its own total disagree.
-func writeMethodBlock(f *excelize.File, row int, summaries []data.PaymentMethodSummary, styles summaryStyles) (int, error) {
+func writeMethodBlock(f *excelize.File, row int, summaries []reportstore.PaymentMethodSummary, styles summaryStyles) (int, error) {
 	var totalCount, totalAmount, totalServiceFees, totalRefunded int
 
 	for _, sum := range summaries {
@@ -586,7 +586,7 @@ func writeMethodBlock(f *excelize.File, row int, summaries []data.PaymentMethodS
 
 // writeCourtBlock adds the per-court breakdown under the method table and
 // returns the next free row.
-func writeCourtBlock(f *excelize.File, row int, courts []data.PaymentCourtSummary, styles summaryStyles) (int, error) {
+func writeCourtBlock(f *excelize.File, row int, courts []reportstore.PaymentCourtSummary, styles summaryStyles) (int, error) {
 	if len(courts) == 0 {
 		return row, nil
 	}
@@ -624,7 +624,7 @@ func writeCourtBlock(f *excelize.File, row int, courts []data.PaymentCourtSummar
 // writePreviousBlock adds the month before's totals, so the file carries the
 // same baseline the screen shows rather than a figure with nothing to read it
 // against.
-func writePreviousBlock(f *excelize.File, row int, previous []data.PaymentMethodSummary, styles summaryStyles) error {
+func writePreviousBlock(f *excelize.File, row int, previous []reportstore.PaymentMethodSummary, styles summaryStyles) error {
 	var count, amount, serviceFees, refunded int
 	for _, s := range previous {
 		count += s.Count

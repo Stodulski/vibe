@@ -14,6 +14,7 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	"github.com/stodulski/vibe-server/internal/audit"
+	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -28,8 +29,17 @@ type Store interface {
 	GetUserDetail(ctx context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error)
 	ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*adminstore.AdminComplexRow, data.Metadata, error)
 	GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error)
-	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*adminstore.AuditLogRow, data.Metadata, error)
 	ToggleUserActive(ctx context.Context, userID uuid.UUID, isActive bool) error
+}
+
+// AuditReader is the platform-wide read of the audit trail this module's
+// /admin/audit-log route serves.
+//
+// It is separate from Store because the trail is its own store: it is written
+// by every module and read by a venue's own trail route as well as this one,
+// while the rest of Store is read by nobody but the platform operator.
+type AuditReader interface {
+	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*auditstore.AuditLogRow, data.Metadata, error)
 }
 
 // UserCache is the cached-session invalidation this module needs after
@@ -46,6 +56,7 @@ type Recorder interface {
 // Handler serves the admin routes.
 type Handler struct {
 	store        Store
+	auditLogs    AuditReader
 	cache        UserCache
 	audit        Recorder
 	respond      *httpx.Responder
@@ -55,8 +66,8 @@ type Handler struct {
 // NewHandler returns a Handler. trustProxies must match the deployment: it
 // decides whether the audit trail records the forwarded client address or the
 // immediate peer.
-func NewHandler(store Store, cache UserCache, recorder Recorder, respond *httpx.Responder, trustProxies bool) *Handler {
-	return &Handler{store: store, cache: cache, audit: recorder, respond: respond, trustProxies: trustProxies}
+func NewHandler(store Store, auditLogs AuditReader, cache UserCache, recorder Recorder, respond *httpx.Responder, trustProxies bool) *Handler {
+	return &Handler{store: store, auditLogs: auditLogs, cache: cache, audit: recorder, respond: respond, trustProxies: trustProxies}
 }
 
 // Routes registers this module's endpoints. Every one exposes data across all

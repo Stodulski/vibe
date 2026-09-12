@@ -205,7 +205,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logs, metadata, err := h.store.ListAuditLogs(r.Context(), complexID, entityType, filters)
+	logs, metadata, err := h.auditLogs.ListAuditLogs(r.Context(), complexID, entityType, filters)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrInvalidCursor):
