@@ -45,6 +45,19 @@ function reportQueryError(error: unknown): void {
   }
 }
 
+/**
+ * Whether a failure is the caller's fault rather than a bad moment.
+ *
+ * A 401, 403, 404 or 422 answers the same way however many times it is asked:
+ * the blind `retry: 1` this replaced spent a second round-trip — and a second
+ * spinner — on every one of them before showing the person the error they
+ * were always going to get. Only "not now" failures (5xx, a timeout, a dropped
+ * connection) are worth asking again.
+ */
+function isClientError(error: unknown): boolean {
+  return error instanceof HTTPError && error.response.status >= 400 && error.response.status < 500;
+}
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: reportQueryError }),
   mutationCache: new MutationCache({ onError: reportQueryError }),
@@ -52,7 +65,7 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
-      retry: 1,
+      retry: (failureCount, error) => failureCount < 1 && !isClientError(error),
       refetchOnWindowFocus: false,
     },
     mutations: {

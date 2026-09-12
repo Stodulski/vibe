@@ -35,9 +35,23 @@ describe('queryClient', () => {
     expect(defaults.queries?.gcTime).toBe(10 * 60 * 1000);
   });
 
-  it('has retry set to 1 for queries', () => {
-    const defaults = queryClient.getDefaultOptions();
-    expect(defaults.queries?.retry).toBe(1);
+  it('retries a 5xx once and never retries a 4xx', () => {
+    const retry = queryClient.getDefaultOptions().queries?.retry;
+    if (typeof retry !== 'function') throw new Error('expected a retry predicate');
+
+    expect(retry(0, makeHttpError(500))).toBe(true);
+    expect(retry(1, makeHttpError(500))).toBe(false);
+    for (const status of [401, 403, 404, 422, 400]) {
+      expect(retry(0, makeHttpError(status))).toBe(false);
+    }
+  });
+
+  it('retries a timeout or a dropped connection, which carry no status at all', () => {
+    const retry = queryClient.getDefaultOptions().queries?.retry;
+    if (typeof retry !== 'function') throw new Error('expected a retry predicate');
+
+    expect(retry(0, new TimeoutError(new Request('https://api.vibe.com.ar/v1/bookings')))).toBe(true);
+    expect(retry(0, new NetworkError(new Request('https://api.vibe.com.ar/v1/bookings')))).toBe(true);
   });
 
   it('has refetchOnWindowFocus disabled', () => {
