@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { API_CACHE_NAME, purgeApiCache } from './apiCache';
 
 describe('purgeApiCache', () => {
@@ -42,5 +44,16 @@ describe('purgeApiCache', () => {
     expect(() => {
       purgeApiCache();
     }).not.toThrow();
+  });
+});
+
+describe('API_CACHE_NAME', () => {
+  it('is the cacheName the Workbox rule in vite.config.ts stores API responses under', () => {
+    // vite.config.ts cannot import this module (it runs without the browser
+    // Cache API), so the literal there is pinned here: renaming one side
+    // without the other would silently turn purgeApiCache() into a no-op.
+    // Vitest runs with the package directory as cwd.
+    const viteConfig = readFileSync(resolve(process.cwd(), 'vite.config.ts'), 'utf8');
+    expect(viteConfig).toContain(`cacheName: '${API_CACHE_NAME}',`);
   });
 });
