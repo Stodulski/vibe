@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/crypto"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 )
 
 // TestIntegration_RawMPAccessTokenColumnIsNeverAUsableToken is spec
@@ -100,8 +101,8 @@ func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetWithMPConnected did not return the unreadable complex %s — presence (not readability) is all the SQL predicate may filter on", unreadableID)
 	}
-	if _, err := unreadable.SellerAccessToken(); !errors.Is(err, ErrMPCredentialUnreadable) {
-		t.Errorf("unreadable complex SellerAccessToken(): want ErrMPCredentialUnreadable, got %v", err)
+	if _, err := unreadable.SellerAccessToken(); !errors.Is(err, mpcred.ErrMPCredentialUnreadable) {
+		t.Errorf("unreadable complex SellerAccessToken(): want mpcred.ErrMPCredentialUnreadable, got %v", err)
 	}
 	if unreadable.MPConnected() {
 		t.Error("a row sealed under a key this keyring does not hold must not report MPConnected() == true")
@@ -250,11 +251,11 @@ func (f *testFixture) sealUnderForeignKey(t *testing.T, complexID uuid.UUID) {
 		t.Fatalf("building foreign keyring: %v", err)
 	}
 
-	sealedAccess, err := foreign.Seal(MPCredAAD(complexID, MPAccessTokenColumn), "will-not-open")
+	sealedAccess, err := foreign.Seal(mpcred.AAD(complexID, mpcred.AccessTokenColumn), "will-not-open")
 	if err != nil {
 		t.Fatalf("sealing under foreign key: %v", err)
 	}
-	sealedRefresh, err := foreign.Seal(MPCredAAD(complexID, MPRefreshTokenColumn), "will-not-open-either")
+	sealedRefresh, err := foreign.Seal(mpcred.AAD(complexID, mpcred.RefreshTokenColumn), "will-not-open-either")
 	if err != nil {
 		t.Fatalf("sealing under foreign key: %v", err)
 	}

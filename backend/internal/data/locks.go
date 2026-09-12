@@ -113,7 +113,7 @@ func leaseTTL(ctx context.Context) time.Duration {
 // crash path is the price of the pool no longer being the ceiling on how many
 // payment notifications the service can accept.
 func (m *LockModel) TryAdvisory(ctx context.Context, key string) (bool, func(), error) {
-	queryCtx, cancel := queryContext(ctx)
+	queryCtx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	holder := uuid.New()
@@ -155,8 +155,8 @@ func (m *LockModel) release(ctx context.Context, key string, holder uuid.UUID) {
 	// job that hit its budget — and a lease left in place would refuse every
 	// attempt on this key until it expired. The deadline is what stops a wedged
 	// PostgreSQL turning the cleanup into a goroutine blocked forever. See
-	// detachedQueryContext.
-	releaseCtx, cancel := detachedQueryContext(ctx)
+	// DetachedQueryContext.
+	releaseCtx, cancel := DetachedQueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(releaseCtx, `

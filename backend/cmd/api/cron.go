@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -453,7 +455,7 @@ const (
 func (app *application) refreshOneMPToken(ctx context.Context, c *data.Complex) mpRefreshResult {
 	refreshTok, refreshErr := c.SellerRefreshToken()
 	if refreshErr != nil {
-		if errors.Is(refreshErr, data.ErrMPCredentialUnreadable) {
+		if errors.Is(refreshErr, mpcred.ErrMPCredentialUnreadable) {
 			sentry.CaptureMessage(fmt.Sprintf("MP refresh token UNREADABLE (skipping refresh): complex=%s (%s) error=%v", c.Name, c.ID, refreshErr))
 			return mpRefreshFailed
 		}

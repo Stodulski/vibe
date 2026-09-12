@@ -34,21 +34,21 @@ type UserIdentityModel struct {
 // (db/migrations/002_user_identities.sql), so a repeated Google sign-in never
 // fails on the identity link.
 func (m *UserIdentityModel) Insert(ctx context.Context, identity *UserIdentity) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	return m.Q.InsertUserIdentity(ctx, db.InsertUserIdentityParams{
-		UserID:   uuidToPg(identity.UserID),
+		UserID:   UUIDToPg(identity.UserID),
 		Provider: identity.Provider,
 		Subject:  identity.Subject,
-		Email:    textToPg(identity.Email),
+		Email:    TextToPg(identity.Email),
 	})
 }
 
 // GetByProviderSubject returns the identity link for a (provider, subject)
 // pair, or ErrRecordNotFound if none exists.
 func (m *UserIdentityModel) GetByProviderSubject(ctx context.Context, provider, subject string) (*UserIdentity, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	row, err := m.Q.GetUserIdentityByProviderSubject(ctx, db.GetUserIdentityByProviderSubjectParams{
@@ -66,10 +66,10 @@ func (m *UserIdentityModel) GetByProviderSubject(ctx context.Context, provider, 
 
 // GetByUser returns every identity linked to userID, oldest first.
 func (m *UserIdentityModel) GetByUser(ctx context.Context, userID uuid.UUID) ([]*UserIdentity, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
-	rows, err := m.Q.GetUserIdentitiesByUser(ctx, uuidToPg(userID))
+	rows, err := m.Q.GetUserIdentitiesByUser(ctx, UUIDToPg(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +82,11 @@ func (m *UserIdentityModel) GetByUser(ctx context.Context, userID uuid.UUID) ([]
 
 func userIdentityFromDB(u db.UserIdentity) *UserIdentity {
 	return &UserIdentity{
-		ID:        pgToUUID(u.ID),
-		UserID:    pgToUUID(u.UserID),
+		ID:        PgToUUID(u.ID),
+		UserID:    PgToUUID(u.UserID),
 		Provider:  u.Provider,
 		Subject:   u.Subject,
-		Email:     pgToTextPtr(u.Email),
-		CreatedAt: pgToTime(u.CreatedAt),
+		Email:     PgToTextPtr(u.Email),
+		CreatedAt: PgToTime(u.CreatedAt),
 	}
 }

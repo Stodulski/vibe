@@ -10,6 +10,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/db"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 )
 
 // testKeyring32 returns a base64-encoded 32-byte key filled with fill, so
@@ -35,11 +36,11 @@ func TestComplexFromDB_DecryptsStoredCredential(t *testing.T) {
 	id := uuid.New()
 	keys := testKeyring32(t, "k1", 0x01)
 
-	sealedAccess, err := keys.Seal(MPCredAAD(id, MPAccessTokenColumn), "seller-access-token")
+	sealedAccess, err := keys.Seal(mpcred.AAD(id, mpcred.AccessTokenColumn), "seller-access-token")
 	if err != nil {
 		t.Fatalf("Seal access: %v", err)
 	}
-	sealedRefresh, err := keys.Seal(MPCredAAD(id, MPRefreshTokenColumn), "seller-refresh-token")
+	sealedRefresh, err := keys.Seal(mpcred.AAD(id, mpcred.RefreshTokenColumn), "seller-refresh-token")
 	if err != nil {
 		t.Fatalf("Seal refresh: %v", err)
 	}
@@ -72,14 +73,14 @@ func TestComplexFromDB_DecryptsStoredCredential(t *testing.T) {
 // TestComplexFromDB_UnreadableCredentialSurfacesAsUnreadable proves the
 // real failure mode spec requirement 6 targets: a credential sealed under a
 // key the reading keyring no longer holds (a retired key, or corruption)
-// must surface as ErrMPCredentialUnreadable, never as a value that passes
+// must surface as mpcred.ErrMPCredentialUnreadable, never as a value that passes
 // the historical nil/empty check.
 func TestComplexFromDB_UnreadableCredentialSurfacesAsUnreadable(t *testing.T) {
 	id := uuid.New()
 	writingKeys := testKeyring32(t, "retired", 0x02)
 	readingKeys := testKeyring32(t, "active", 0x03) // does not hold "retired"
 
-	sealed, err := writingKeys.Seal(MPCredAAD(id, MPAccessTokenColumn), "seller-access-token")
+	sealed, err := writingKeys.Seal(mpcred.AAD(id, mpcred.AccessTokenColumn), "seller-access-token")
 	if err != nil {
 		t.Fatalf("Seal: %v", err)
 	}
@@ -92,8 +93,8 @@ func TestComplexFromDB_UnreadableCredentialSurfacesAsUnreadable(t *testing.T) {
 	c := complexFromDB(dbComplex, readingKeys)
 
 	_, err = c.SellerAccessToken()
-	if !errors.Is(err, ErrMPCredentialUnreadable) {
-		t.Fatalf("SellerAccessToken(): want ErrMPCredentialUnreadable, got %v", err)
+	if !errors.Is(err, mpcred.ErrMPCredentialUnreadable) {
+		t.Fatalf("SellerAccessToken(): want mpcred.ErrMPCredentialUnreadable, got %v", err)
 	}
 	if c.MPConnected() {
 		t.Error("MPConnected() must be false for an unreadable credential")
@@ -102,7 +103,7 @@ func TestComplexFromDB_UnreadableCredentialSurfacesAsUnreadable(t *testing.T) {
 
 // TestComplexFromDB_NoStoredCredentialReturnsNotConnected proves a genuinely
 // absent credential is unaffected by the decrypt step — the NULL/empty case
-// still reports ErrMPNotConnected, not ErrMPCredentialUnreadable.
+// still reports mpcred.ErrMPNotConnected, not mpcred.ErrMPCredentialUnreadable.
 func TestComplexFromDB_NoStoredCredentialReturnsNotConnected(t *testing.T) {
 	id := uuid.New()
 	keys := testKeyring32(t, "k1", 0x04)
@@ -115,8 +116,8 @@ func TestComplexFromDB_NoStoredCredentialReturnsNotConnected(t *testing.T) {
 	c := complexFromDB(dbComplex, keys)
 
 	_, err := c.SellerAccessToken()
-	if !errors.Is(err, ErrMPNotConnected) {
-		t.Fatalf("SellerAccessToken(): want ErrMPNotConnected, got %v", err)
+	if !errors.Is(err, mpcred.ErrMPNotConnected) {
+		t.Fatalf("SellerAccessToken(): want mpcred.ErrMPNotConnected, got %v", err)
 	}
 	if c.MPConnected() {
 		t.Error("MPConnected() must be false when nothing is stored")
@@ -138,8 +139,8 @@ func TestComplexFromDB_NilKeyringNeverPassesStoredValueThrough(t *testing.T) {
 	c := complexFromDB(dbComplex, nil)
 
 	_, err := c.SellerAccessToken()
-	if !errors.Is(err, ErrMPCredentialUnreadable) {
-		t.Fatalf("SellerAccessToken() with a nil keyring: want ErrMPCredentialUnreadable, got %v", err)
+	if !errors.Is(err, mpcred.ErrMPCredentialUnreadable) {
+		t.Fatalf("SellerAccessToken() with a nil keyring: want mpcred.ErrMPCredentialUnreadable, got %v", err)
 	}
 }
 
@@ -162,8 +163,8 @@ func TestUpdateMPCredentials_RefusesEmptyBeforeSealing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := m.UpdateMPCredentials(t.Context(), uuid.New(), tt.access, tt.refresh, tt.mpUserID, 0)
-			if !errors.Is(err, ErrMPCredentialEmpty) {
-				t.Errorf("UpdateMPCredentials(): want ErrMPCredentialEmpty, got %v", err)
+			if !errors.Is(err, mpcred.ErrMPCredentialEmpty) {
+				t.Errorf("UpdateMPCredentials(): want mpcred.ErrMPCredentialEmpty, got %v", err)
 			}
 		})
 	}

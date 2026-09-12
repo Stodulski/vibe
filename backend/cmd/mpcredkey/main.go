@@ -41,7 +41,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/stodulski/vibe-server/internal/crypto"
-	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 )
 
 const usage = "usage: mpcredkey <seal|rekey> -db-dsn=<dsn> -mp-credential-keys=kid:base64key[,...]"
@@ -125,11 +125,11 @@ func convertCredentials(ctx context.Context, pool *pgxpool.Pool, keyring *crypto
 
 	converted := 0
 	for _, row := range rows {
-		newAccess, accessChanged, err := convertColumn(keyring, row.id, data.MPAccessTokenColumn, row.accessToken, mode)
+		newAccess, accessChanged, err := convertColumn(keyring, row.id, mpcred.AccessTokenColumn, row.accessToken, mode)
 		if err != nil {
 			return converted, fmt.Errorf("complex %s: %s mp_access_token: %w", row.id, mode, err)
 		}
-		newRefresh, refreshChanged, err := convertColumn(keyring, row.id, data.MPRefreshTokenColumn, row.refreshToken, mode)
+		newRefresh, refreshChanged, err := convertColumn(keyring, row.id, mpcred.RefreshTokenColumn, row.refreshToken, mode)
 		if err != nil {
 			return converted, fmt.Errorf("complex %s: %s mp_refresh_token: %w", row.id, mode, err)
 		}
@@ -153,7 +153,7 @@ func convertColumn(keyring *crypto.Keyring, complexID uuid.UUID, column string, 
 		return value, false, nil
 	}
 
-	aad := data.MPCredAAD(complexID, column)
+	aad := mpcred.AAD(complexID, column)
 
 	switch {
 	case mode == "seal" && !isEnvelope(value.String):

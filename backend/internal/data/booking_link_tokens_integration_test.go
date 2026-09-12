@@ -217,7 +217,7 @@ func TestDeleteExpiredTerminalRespectsRetention(t *testing.T) {
 // Mutation, run and recorded: add a delete of every other token for the same
 // booking_id to Mint itself —
 //
-//	_, _ = tx.Exec(ctx, `DELETE FROM booking_link_tokens WHERE booking_id = $1`, uuidToPg(bookingID))
+//	_, _ = tx.Exec(ctx, `DELETE FROM booking_link_tokens WHERE booking_id = $1`, UUIDToPg(bookingID))
 //
 // — right before the INSERT in mintLinkToken, standing in for a revoke-on-
 // confirm the production confirmation path (internal/payments/process.go)

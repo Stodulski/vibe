@@ -9,25 +9,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func uuidToPg(id uuid.UUID) pgtype.UUID {
+// UUIDToPg wraps a uuid.UUID as a valid pgtype.UUID.
+func UUIDToPg(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
-func uuidPtrToPg(id *uuid.UUID) pgtype.UUID {
+// UUIDPtrToPg wraps an optional uuid.UUID as a pgtype.UUID; nil becomes SQL NULL.
+func UUIDPtrToPg(id *uuid.UUID) pgtype.UUID {
 	if id == nil {
 		return pgtype.UUID{}
 	}
 	return pgtype.UUID{Bytes: *id, Valid: true}
 }
 
-func pgToUUID(id pgtype.UUID) uuid.UUID {
+// PgToUUID unwraps a pgtype.UUID; a NULL becomes uuid.Nil.
+func PgToUUID(id pgtype.UUID) uuid.UUID {
 	if !id.Valid {
 		return uuid.Nil
 	}
 	return uuid.UUID(id.Bytes)
 }
 
-func pgToUUIDPtr(id pgtype.UUID) *uuid.UUID {
+// PgToUUIDPtr unwraps a pgtype.UUID into an optional uuid.UUID; a NULL becomes nil.
+func PgToUUIDPtr(id pgtype.UUID) *uuid.UUID {
 	if !id.Valid {
 		return nil
 	}
@@ -35,38 +39,43 @@ func pgToUUIDPtr(id pgtype.UUID) *uuid.UUID {
 	return &u
 }
 
-func uuidSliceToPg(ids []uuid.UUID) []pgtype.UUID {
+// UUIDSliceToPg wraps a slice of uuid.UUID for a query taking a uuid[] parameter.
+func UUIDSliceToPg(ids []uuid.UUID) []pgtype.UUID {
 	result := make([]pgtype.UUID, len(ids))
 	for i, id := range ids {
-		result[i] = uuidToPg(id)
+		result[i] = UUIDToPg(id)
 	}
 	return result
 }
 
-func timeToPg(t time.Time) pgtype.Timestamptz {
+// TimeToPg wraps a time.Time as a pgtype.Timestamptz; a zero time becomes SQL NULL.
+func TimeToPg(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: !t.IsZero()}
 }
 
-func pgToTime(t pgtype.Timestamptz) time.Time {
+// PgToTime unwraps a pgtype.Timestamptz; a NULL becomes the zero time.
+func PgToTime(t pgtype.Timestamptz) time.Time {
 	if !t.Valid {
 		return time.Time{}
 	}
 	return t.Time
 }
 
-// timePtrToPg and pgToTimePtr are the nullable-pointer pair for a timestamp
-// column, matching the shape textToPg/pgToTextPtr already has for a nullable
+// TimePtrToPg and PgToTimePtr are the nullable-pointer pair for a timestamp
+// column, matching the shape TextToPg/PgToTextPtr already has for a nullable
 // text column: nil means the SQL value is NULL rather than a zero time, so a
 // caller that never touched the field cannot be confused with one that
 // explicitly cleared it.
-func timePtrToPg(t *time.Time) pgtype.Timestamptz {
+func TimePtrToPg(t *time.Time) pgtype.Timestamptz {
 	if t == nil {
 		return pgtype.Timestamptz{}
 	}
 	return pgtype.Timestamptz{Time: *t, Valid: true}
 }
 
-func pgToTimePtr(t pgtype.Timestamptz) *time.Time {
+// PgToTimePtr unwraps a pgtype.Timestamptz into an optional time.Time; a NULL
+// becomes nil. See TimePtrToPg above.
+func PgToTimePtr(t pgtype.Timestamptz) *time.Time {
 	if !t.Valid {
 		return nil
 	}
@@ -74,25 +83,29 @@ func pgToTimePtr(t pgtype.Timestamptz) *time.Time {
 	return &tm
 }
 
-func dateToPg(t time.Time) pgtype.Date {
+// DateToPg wraps a time.Time as a pgtype.Date; a zero time becomes SQL NULL.
+func DateToPg(t time.Time) pgtype.Date {
 	return pgtype.Date{Time: t, Valid: !t.IsZero()}
 }
 
-func pgToDate(d pgtype.Date) time.Time {
+// PgToDate unwraps a pgtype.Date; a NULL becomes the zero time.
+func PgToDate(d pgtype.Date) time.Time {
 	if !d.Valid {
 		return time.Time{}
 	}
 	return d.Time
 }
 
-func textToPg(s *string) pgtype.Text {
+// TextToPg wraps an optional string as a pgtype.Text; nil becomes SQL NULL.
+func TextToPg(s *string) pgtype.Text {
 	if s == nil {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: *s, Valid: true}
 }
 
-func pgToTextPtr(t pgtype.Text) *string {
+// PgToTextPtr unwraps a pgtype.Text into an optional string; a NULL becomes nil.
+func PgToTextPtr(t pgtype.Text) *string {
 	if !t.Valid {
 		return nil
 	}
@@ -108,7 +121,7 @@ func pgToTextPtr(t pgtype.Text) *string {
 // backslash a caller typed.
 var likeEscapeReplacer = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
-// escapeLikeTerm escapes s for safe use inside a LIKE/ILIKE pattern.
+// EscapeLikeTerm escapes s for safe use inside a LIKE/ILIKE pattern.
 //
 // H-04: a search term built into a pattern with plain string concatenation —
 // "%" + search + "%", or the SQL-side equivalent '%' || $1 || '%' — lets a
@@ -123,24 +136,28 @@ var likeEscapeReplacer = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 // escaping is inert: Postgres only treats '\' as LIKE's default escape
 // character in some configurations, so the clause has to be explicit rather
 // than assumed.
-func escapeLikeTerm(s string) string {
+func EscapeLikeTerm(s string) string {
 	return likeEscapeReplacer.Replace(s)
 }
 
-func int4ToPg(n int) pgtype.Int4 {
+// Int4ToPg wraps an int as a valid pgtype.Int4.
+func Int4ToPg(n int) pgtype.Int4 {
 	//nolint:gosec // G115: all call sites pass currency amounts (refund cents, bounded by the original payment
 	// amount) or other domain values already validated to fit comfortably within int32 range.
 	return pgtype.Int4{Int32: int32(n), Valid: true}
 }
 
-func pgToInt(n pgtype.Int4) int {
+// PgToInt unwraps a pgtype.Int4; a NULL becomes zero.
+func PgToInt(n pgtype.Int4) int {
 	if !n.Valid {
 		return 0
 	}
 	return int(n.Int32)
 }
 
-func pgToTimeStr(t pgtype.Time) string {
+// PgToTimeStr renders a pgtype.Time as the "HH:MM" wall-clock string the
+// domain types carry; a NULL becomes the empty string.
+func PgToTimeStr(t pgtype.Time) string {
 	if !t.Valid {
 		return ""
 	}
@@ -148,21 +165,25 @@ func pgToTimeStr(t pgtype.Time) string {
 	return fmt.Sprintf("%02d:%02d", totalSec/3600, (totalSec%3600)/60)
 }
 
-func float8ToPg(f *float64) pgtype.Float8 {
+// Float8ToPg wraps an optional float64 as a pgtype.Float8; nil becomes SQL NULL.
+func Float8ToPg(f *float64) pgtype.Float8 {
 	if f == nil {
 		return pgtype.Float8{}
 	}
 	return pgtype.Float8{Float64: *f, Valid: true}
 }
 
-func pgToFloat8Ptr(f pgtype.Float8) *float64 {
+// PgToFloat8Ptr unwraps a pgtype.Float8 into an optional float64; a NULL becomes nil.
+func PgToFloat8Ptr(f pgtype.Float8) *float64 {
 	if !f.Valid {
 		return nil
 	}
 	return &f.Float64
 }
 
-func timeStrToPg(s string) pgtype.Time {
+// TimeStrToPg parses an "HH:MM" wall-clock string into a pgtype.Time; an
+// unparseable string becomes SQL NULL.
+func TimeStrToPg(s string) pgtype.Time {
 	var h, m int
 	if n, _ := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 {
 		return pgtype.Time{}

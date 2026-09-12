@@ -13,6 +13,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/db"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 )
 
 // Complex represents a padel venue owned by a user, including its MercadoPago integration state.
@@ -107,7 +108,7 @@ type ComplexModel struct {
 // rather than a 500.
 func (m *ComplexModel) Insert(ctx context.Context, c *Complex) error {
 	dbComplex, err := m.Q.InsertComplex(ctx, db.InsertComplexParams{
-		OwnerID:           uuidToPg(c.OwnerID),
+		OwnerID:           UUIDToPg(c.OwnerID),
 		Name:              c.Name,
 		Slug:              c.Slug,
 		Address:           c.Address,
@@ -116,13 +117,13 @@ func (m *ComplexModel) Insert(ctx context.Context, c *Complex) error {
 		CountryCode:       c.CountryCode,
 		Currency:          c.Currency,
 		Phone:             c.Phone,
-		Email:             textToPg(c.Email),
-		LogoUrl:           textToPg(c.LogoURL),
-		CoverUrl:          textToPg(c.CoverURL),
+		Email:             TextToPg(c.Email),
+		LogoUrl:           TextToPg(c.LogoURL),
+		CoverUrl:          TextToPg(c.CoverURL),
 		DepositPercentage: int32(c.DepositPercentage), //nolint:gosec // G115: validated 0..100 at complexes.go handler.
 		CancellationHours: int32(c.CancellationHours), //nolint:gosec // G115: validated 0..168 at complexes.go handler.
-		Latitude:          float8ToPg(c.Latitude),
-		Longitude:         float8ToPg(c.Longitude),
+		Latitude:          Float8ToPg(c.Latitude),
+		Longitude:         Float8ToPg(c.Longitude),
 		// The column is NOT NULL and a nil slice binds as NULL, which Postgres
 		// takes as the value rather than as "use the default". Never send nil.
 		Amenities: orEmpty(c.Amenities),
@@ -135,16 +136,16 @@ func (m *ComplexModel) Insert(ctx context.Context, c *Complex) error {
 		return err
 	}
 
-	c.ID = pgToUUID(dbComplex.ID)
+	c.ID = PgToUUID(dbComplex.ID)
 	c.IsActive = dbComplex.IsActive
-	c.CreatedAt = pgToTime(dbComplex.CreatedAt)
-	c.UpdatedAt = pgToTime(dbComplex.UpdatedAt)
+	c.CreatedAt = PgToTime(dbComplex.CreatedAt)
+	c.UpdatedAt = PgToTime(dbComplex.UpdatedAt)
 	return nil
 }
 
 // GetByID returns the complex with the given ID, or ErrRecordNotFound if none exists.
 func (m *ComplexModel) GetByID(ctx context.Context, id uuid.UUID) (*Complex, error) {
-	dbComplex, err := m.Q.GetComplexByID(ctx, uuidToPg(id))
+	dbComplex, err := m.Q.GetComplexByID(ctx, UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrRecordNotFound
@@ -168,7 +169,7 @@ func (m *ComplexModel) GetBySlug(ctx context.Context, slug string) (*Complex, er
 
 // GetByOwner returns every complex owned by the given user.
 func (m *ComplexModel) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, error) {
-	dbComplexes, err := m.Q.GetComplexesByOwner(ctx, uuidToPg(ownerID))
+	dbComplexes, err := m.Q.GetComplexesByOwner(ctx, UUIDToPg(ownerID))
 	if err != nil {
 		return nil, err
 	}
@@ -218,17 +219,17 @@ func (m *ComplexModel) Update(ctx context.Context, c *Complex) error {
 		City:              c.City,
 		Province:          c.Province,
 		Phone:             c.Phone,
-		Email:             textToPg(c.Email),
-		LogoUrl:           textToPg(c.LogoURL),
-		CoverUrl:          textToPg(c.CoverURL),
+		Email:             TextToPg(c.Email),
+		LogoUrl:           TextToPg(c.LogoURL),
+		CoverUrl:          TextToPg(c.CoverURL),
 		DepositPercentage: int32(c.DepositPercentage), //nolint:gosec // G115: validated 0..100 at complexes.go handler.
 		CancellationHours: int32(c.CancellationHours), //nolint:gosec // G115: validated 0..168 at complexes.go handler.
 		IsActive:          c.IsActive,
-		Latitude:          float8ToPg(c.Latitude),
-		Longitude:         float8ToPg(c.Longitude),
+		Latitude:          Float8ToPg(c.Latitude),
+		Longitude:         Float8ToPg(c.Longitude),
 		Amenities:         c.Amenities,
-		ID:                uuidToPg(c.ID),
-		UpdatedAt:         timeToPg(c.UpdatedAt),
+		ID:                UUIDToPg(c.ID),
+		UpdatedAt:         TimeToPg(c.UpdatedAt),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -237,7 +238,7 @@ func (m *ComplexModel) Update(ctx context.Context, c *Complex) error {
 		return err
 	}
 
-	c.UpdatedAt = pgToTime(dbComplex.UpdatedAt)
+	c.UpdatedAt = PgToTime(dbComplex.UpdatedAt)
 	return nil
 }
 
@@ -259,7 +260,7 @@ func (m *ComplexModel) Update(ctx context.Context, c *Complex) error {
 // UPDATE carries `AND deleted_at IS NULL`, so a second delete is not an error
 // to report as a success.
 func (m *ComplexModel) SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	tx, err := m.DB.Begin(ctx)
@@ -283,7 +284,7 @@ func (m *ComplexModel) SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int
 		return 0, fmt.Errorf("count live courts: %w", err)
 	}
 
-	rows, err := m.Q.WithTx(tx).SoftDeleteComplex(ctx, uuidToPg(id))
+	rows, err := m.Q.WithTx(tx).SoftDeleteComplex(ctx, UUIDToPg(id))
 	if err != nil {
 		return 0, fmt.Errorf("soft-delete complex: %w", err)
 	}
@@ -315,23 +316,23 @@ func (m *ComplexModel) SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int
 // UpsertSchedule creates or replaces the opening hours for one day of a complex's schedule.
 func (m *ComplexModel) UpsertSchedule(ctx context.Context, s *Schedule) error {
 	dbSchedule, err := m.Q.UpsertSchedule(ctx, db.UpsertScheduleParams{
-		ComplexID: uuidToPg(s.ComplexID),
+		ComplexID: UUIDToPg(s.ComplexID),
 		Day:       db.DayOfWeek(s.Day),
-		OpenTime:  timeStrToPg(s.OpenTime),
-		CloseTime: timeStrToPg(s.CloseTime),
+		OpenTime:  TimeStrToPg(s.OpenTime),
+		CloseTime: TimeStrToPg(s.CloseTime),
 		IsClosed:  s.IsClosed,
 	})
 	if err != nil {
 		return err
 	}
 
-	s.ID = pgToUUID(dbSchedule.ID)
+	s.ID = PgToUUID(dbSchedule.ID)
 	return nil
 }
 
 // GetSchedules returns the complex's full weekly opening schedule.
 func (m *ComplexModel) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*Schedule, error) {
-	dbSchedules, err := m.Q.GetSchedulesByComplex(ctx, uuidToPg(complexID))
+	dbSchedules, err := m.Q.GetSchedulesByComplex(ctx, UUIDToPg(complexID))
 	if err != nil {
 		return nil, err
 	}
@@ -339,11 +340,11 @@ func (m *ComplexModel) GetSchedules(ctx context.Context, complexID uuid.UUID) ([
 	result := make([]*Schedule, len(dbSchedules))
 	for i, s := range dbSchedules {
 		result[i] = &Schedule{
-			ID:        pgToUUID(s.ID),
-			ComplexID: pgToUUID(s.ComplexID),
+			ID:        PgToUUID(s.ID),
+			ComplexID: PgToUUID(s.ComplexID),
 			Day:       string(s.Day),
-			OpenTime:  pgToTimeStr(s.OpenTime),
-			CloseTime: pgToTimeStr(s.CloseTime),
+			OpenTime:  PgToTimeStr(s.OpenTime),
+			CloseTime: PgToTimeStr(s.CloseTime),
 			IsClosed:  s.IsClosed,
 		}
 	}
@@ -353,7 +354,7 @@ func (m *ComplexModel) GetSchedules(ctx context.Context, complexID uuid.UUID) ([
 // UpdateMPCredentials stores the complex's MercadoPago OAuth access token, refresh token and user ID.
 //
 // It refuses an empty accessToken, refreshToken or userID with
-// ErrMPCredentialEmpty before any sealing is attempted — the
+// mpcred.ErrMPCredentialEmpty before any sealing is attempted — the
 // CHECK (mp_access_token <> the empty string, etc.) is a floor under this refusal, not the
 // guard itself; nothing downstream may ever store an empty value that later
 // reads as "connected".
@@ -366,40 +367,40 @@ func (m *ComplexModel) GetSchedules(ctx context.Context, complexID uuid.UUID) ([
 // which ListComplexesNeedingMPRefresh also treats as due for a refresh.
 func (m *ComplexModel) UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
 	if accessToken == "" || refreshToken == "" || userID == "" {
-		return ErrMPCredentialEmpty
+		return mpcred.ErrMPCredentialEmpty
 	}
 
-	sealedAccess, err := m.Keys.Seal(MPCredAAD(complexID, MPAccessTokenColumn), accessToken)
+	sealedAccess, err := m.Keys.Seal(mpcred.AAD(complexID, mpcred.AccessTokenColumn), accessToken)
 	if err != nil {
 		return fmt.Errorf("data: sealing mp_access_token: %w", err)
 	}
-	sealedRefresh, err := m.Keys.Seal(MPCredAAD(complexID, MPRefreshTokenColumn), refreshToken)
+	sealedRefresh, err := m.Keys.Seal(mpcred.AAD(complexID, mpcred.RefreshTokenColumn), refreshToken)
 	if err != nil {
 		return fmt.Errorf("data: sealing mp_refresh_token: %w", err)
 	}
 
 	var expiresAt pgtype.Timestamptz
 	if expiresIn > 0 {
-		expiresAt = timeToPg(time.Now().Add(time.Duration(expiresIn) * time.Second))
+		expiresAt = TimeToPg(time.Now().Add(time.Duration(expiresIn) * time.Second))
 	}
 
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err = m.DB.Exec(ctx,
 		`UPDATE complexes SET mp_access_token = $1, mp_refresh_token = $2, mp_user_id = $3, mp_token_expires_at = $4 WHERE id = $5`,
-		sealedAccess, sealedRefresh, userID, expiresAt, uuidToPg(complexID))
+		sealedAccess, sealedRefresh, userID, expiresAt, UUIDToPg(complexID))
 	return err
 }
 
 // ClearMPCredentials disconnects the complex's MercadoPago OAuth integration.
 func (m *ComplexModel) ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
 		`UPDATE complexes SET mp_access_token = NULL, mp_refresh_token = NULL, mp_user_id = NULL, mp_token_expires_at = NULL WHERE id = $1`,
-		uuidToPg(complexID))
+		UUIDToPg(complexID))
 	return err
 }
 
@@ -407,7 +408,7 @@ func (m *ComplexModel) ClearMPCredentials(ctx context.Context, complexID uuid.UU
 // has no known expiry or expires within 30 days — see the query's own
 // comment in db/queries/complexes.sql for why.
 func (m *ComplexModel) ListComplexesNeedingMPRefresh(ctx context.Context) ([]*Complex, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	dbComplexes, err := m.Q.ListComplexesNeedingMPRefresh(ctx)
@@ -424,7 +425,7 @@ func (m *ComplexModel) ListComplexesNeedingMPRefresh(ctx context.Context) ([]*Co
 
 // GetWithMPConnected returns all active complexes that have MercadoPago OAuth connected.
 func (m *ComplexModel) GetWithMPConnected(ctx context.Context) ([]*Complex, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx,
@@ -470,7 +471,7 @@ func (m *ComplexModel) GetWithMPConnected(ctx context.Context) ([]*Complex, erro
 // constraint spans the whole table, so a suggestion that ignored them would be
 // refused by the insert it was made for.
 func (m *ComplexModel) SlugsWithPrefix(ctx context.Context, base string) ([]string, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx,
@@ -505,7 +506,7 @@ func (m *ComplexModel) SlugsWithPrefix(ctx context.Context, base string) ([]stri
 // point somebody else's traffic at a different business, and would make
 // restoring a soft-deleted complex impossible without renaming it.
 func (m *ComplexModel) SlugExists(ctx context.Context, slug string) (bool, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	var exists bool
@@ -519,7 +520,7 @@ func (m *ComplexModel) SlugExists(ctx context.Context, slug string) (bool, error
 
 // GetAllSlugs returns the slug and last-updated time of every active complex, for sitemap generation.
 func (m *ComplexModel) GetAllSlugs(ctx context.Context) ([]ComplexSlug, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx,
@@ -564,8 +565,8 @@ func complexRowFromActive(c db.ActiveComplex) db.Complex {
 
 func complexFromDB(c db.Complex, keys *crypto.Keyring) *Complex {
 	complex := &Complex{
-		ID:                pgToUUID(c.ID),
-		OwnerID:           pgToUUID(c.OwnerID),
+		ID:                PgToUUID(c.ID),
+		OwnerID:           PgToUUID(c.OwnerID),
 		Name:              c.Name,
 		Slug:              c.Slug,
 		Address:           c.Address,
@@ -574,23 +575,23 @@ func complexFromDB(c db.Complex, keys *crypto.Keyring) *Complex {
 		CountryCode:       c.CountryCode,
 		Currency:          c.Currency,
 		Phone:             c.Phone,
-		Email:             pgToTextPtr(c.Email),
-		LogoURL:           pgToTextPtr(c.LogoUrl),
-		CoverURL:          pgToTextPtr(c.CoverUrl),
+		Email:             PgToTextPtr(c.Email),
+		LogoURL:           PgToTextPtr(c.LogoUrl),
+		CoverURL:          PgToTextPtr(c.CoverUrl),
 		DepositPercentage: int(c.DepositPercentage),
 		CancellationHours: int(c.CancellationHours),
-		Latitude:          pgToFloat8Ptr(c.Latitude),
-		Longitude:         pgToFloat8Ptr(c.Longitude),
+		Latitude:          PgToFloat8Ptr(c.Latitude),
+		Longitude:         PgToFloat8Ptr(c.Longitude),
 		Amenities:         orEmpty(c.Amenities),
 		IsActive:          c.IsActive,
-		MPUserID:          pgToTextPtr(c.MpUserID),
-		MPTokenExpiresAt:  pgToTimePtr(c.MpTokenExpiresAt),
-		CreatedAt:         pgToTime(c.CreatedAt),
-		UpdatedAt:         pgToTime(c.UpdatedAt),
+		MPUserID:          PgToTextPtr(c.MpUserID),
+		MPTokenExpiresAt:  PgToTimePtr(c.MpTokenExpiresAt),
+		CreatedAt:         PgToTime(c.CreatedAt),
+		UpdatedAt:         PgToTime(c.UpdatedAt),
 	}
 
-	complex.mpAccessToken, complex.mpAccessTokenErr = openMPCredential(keys, complex.ID, MPAccessTokenColumn, pgToTextPtr(c.MpAccessToken))
-	complex.mpRefreshToken, complex.mpRefreshTokenErr = openMPCredential(keys, complex.ID, MPRefreshTokenColumn, pgToTextPtr(c.MpRefreshToken))
+	complex.mpAccessToken, complex.mpAccessTokenErr = mpcred.Open(keys, complex.ID, mpcred.AccessTokenColumn, PgToTextPtr(c.MpAccessToken))
+	complex.mpRefreshToken, complex.mpRefreshTokenErr = mpcred.Open(keys, complex.ID, mpcred.RefreshTokenColumn, PgToTextPtr(c.MpRefreshToken))
 
 	// Derived here, once, so no caller has to remember to compute it — and so
 	// nobody has to reach for `mp_user_id` to answer a question this already

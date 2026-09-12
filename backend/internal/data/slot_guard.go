@@ -99,7 +99,7 @@ func lockCourtLive(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error {
 	var id pgtype.UUID
 	err := tx.QueryRow(ctx,
 		`SELECT id FROM courts WHERE id = $1 AND deleted_at IS NULL FOR SHARE`,
-		uuidToPg(courtID)).Scan(&id)
+		UUIDToPg(courtID)).Scan(&id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrRecordNotFound
@@ -170,7 +170,7 @@ func localRange(date time.Time, startTime string, d time.Duration) (start, end t
 // two spellings is also the wrong one.
 func localInstant(date time.Time, hhmm string) time.Time {
 	y, m, d := date.Date()
-	seconds := timeStrToPg(hhmm).Microseconds / 1_000_000
+	seconds := TimeStrToPg(hhmm).Microseconds / 1_000_000
 	return time.Date(y, m, d, 0, 0, int(seconds), 0, timezone.Argentina)
 }
 
@@ -248,7 +248,7 @@ func releaseStalePendingOverlaps(ctx context.Context, tx pgx.Tx, b *Booking, hol
 		  AND collection_status = 'unpaid'
 		  AND created_by IS NULL
 		  AND created_at < NOW() - make_interval(secs => $5)`,
-		uuidToPg(b.CourtID), dateToPg(b.Date), timeStrToPg(b.StartTime),
+		UUIDToPg(b.CourtID), DateToPg(b.Date), TimeStrToPg(b.StartTime),
 		b.DurationMinutes, hold.Seconds(),
 	)
 	if err != nil {
@@ -286,7 +286,7 @@ func spanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Ra
 			    AND created_at < NOW() - make_interval(secs => $3)
 			  )
 		)`,
-		uuidToPg(courtID), span, hold.Seconds(),
+		UUIDToPg(courtID), span, hold.Seconds(),
 	).Scan(&taken)
 	if err != nil {
 		return false, fmt.Errorf("check bookings: %w", err)
@@ -313,8 +313,8 @@ func slotTaken(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration, e
 			    AND created_at < NOW() - make_interval(secs => $6)
 			  )
 		)`,
-		uuidToPg(b.CourtID), dateToPg(b.Date), timeStrToPg(b.StartTime),
-		b.DurationMinutes, uuidToPg(exclude), hold.Seconds(),
+		UUIDToPg(b.CourtID), DateToPg(b.Date), TimeStrToPg(b.StartTime),
+		b.DurationMinutes, UUIDToPg(exclude), hold.Seconds(),
 	).Scan(&taken)
 	if err != nil {
 		return false, fmt.Errorf("check bookings: %w", err)

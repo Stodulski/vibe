@@ -120,11 +120,11 @@ func (m *UserModel) Insert(ctx context.Context, user *User) error {
 		return err
 	}
 
-	user.ID = pgToUUID(dbUser.ID)
+	user.ID = PgToUUID(dbUser.ID)
 	user.IsActive = dbUser.IsActive
 	user.EmailVerified = dbUser.EmailVerified
-	user.CreatedAt = pgToTime(dbUser.CreatedAt)
-	user.UpdatedAt = pgToTime(dbUser.UpdatedAt)
+	user.CreatedAt = PgToTime(dbUser.CreatedAt)
+	user.UpdatedAt = PgToTime(dbUser.UpdatedAt)
 	return nil
 }
 
@@ -138,7 +138,7 @@ func (m *UserModel) Insert(ctx context.Context, user *User) error {
 // is now either loaded for every caller or for none, and there is no longer a
 // pair of lists that can silently disagree.
 func (m *UserModel) GetByEmail(ctx context.Context, email string) (*User, error) {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	dbUser, err := m.Q.GetUserByEmail(ctx, email)
@@ -153,7 +153,7 @@ func (m *UserModel) GetByEmail(ctx context.Context, email string) (*User, error)
 
 // GetByID returns the user with the given ID, or ErrRecordNotFound if none exists.
 func (m *UserModel) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	dbUser, err := m.Q.GetUserByID(ctx, uuidToPg(id))
+	dbUser, err := m.Q.GetUserByID(ctx, UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrRecordNotFound
@@ -176,7 +176,7 @@ func (m *UserModel) Update(ctx context.Context, user *User) error {
 		// verification, or the account moves onto an address nobody proved they own
 		// and password-reset links follow it there.
 		EmailVerified: user.EmailVerified,
-		ID:            uuidToPg(user.ID),
+		ID:            UUIDToPg(user.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -189,13 +189,13 @@ func (m *UserModel) Update(ctx context.Context, user *User) error {
 		return err
 	}
 
-	user.UpdatedAt = pgToTime(dbUser.UpdatedAt)
+	user.UpdatedAt = PgToTime(dbUser.UpdatedAt)
 	return nil
 }
 
 // UpdatePassword replaces the user's stored password hash, returning ErrRecordNotFound if the user no longer exists.
 func (m *UserModel) UpdatePassword(ctx context.Context, userID uuid.UUID, newHash []byte) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	result, err := m.DB.Exec(ctx, "UPDATE users SET password_hash = $1 WHERE id = $2", newHash, userID)
@@ -210,12 +210,12 @@ func (m *UserModel) UpdatePassword(ctx context.Context, userID uuid.UUID, newHas
 
 // SetEmailVerified marks the user's email address as verified.
 func (m *UserModel) SetEmailVerified(ctx context.Context, userID uuid.UUID) error {
-	return m.Q.SetEmailVerified(ctx, uuidToPg(userID))
+	return m.Q.SetEmailVerified(ctx, UUIDToPg(userID))
 }
 
 // Delete permanently removes the user account.
 func (m *UserModel) Delete(ctx context.Context, userID uuid.UUID) error {
-	return m.Q.DeleteUser(ctx, uuidToPg(userID))
+	return m.Q.DeleteUser(ctx, UUIDToPg(userID))
 }
 
 // DeleteUnverifiedStale deletes accounts that never verified their email within the retention window.
@@ -226,7 +226,7 @@ func (m *UserModel) DeleteUnverifiedStale(ctx context.Context) error {
 // IncrementFailedAttempts atomically increments the failed login counter and
 // applies progressive lockout: 5 attempts = 15 min, 10 = 1 hour, 15+ = 4 hours.
 func (m *UserModel) IncrementFailedAttempts(ctx context.Context, userID uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx, `
@@ -245,7 +245,7 @@ func (m *UserModel) IncrementFailedAttempts(ctx context.Context, userID uuid.UUI
 
 // ResetFailedAttempts clears the failed login counter and lockout after a successful login.
 func (m *UserModel) ResetFailedAttempts(ctx context.Context, userID uuid.UUID) error {
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := QueryContext(ctx)
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx, `
@@ -273,7 +273,7 @@ func (m *UserModel) ResetFailedAttempts(ctx context.Context, userID uuid.UUID) e
 // carry, so the next field cannot be dropped quietly the way these three were.
 func userFromDB(u db.User) *User {
 	return &User{
-		ID:                  pgToUUID(u.ID),
+		ID:                  PgToUUID(u.ID),
 		Email:               u.Email,
 		PasswordHash:        u.PasswordHash,
 		FirstName:           u.FirstName,
@@ -282,10 +282,10 @@ func userFromDB(u db.User) *User {
 		Role:                string(u.Role),
 		IsActive:            u.IsActive,
 		EmailVerified:       u.EmailVerified,
-		CreatedAt:           pgToTime(u.CreatedAt),
-		UpdatedAt:           pgToTime(u.UpdatedAt),
+		CreatedAt:           PgToTime(u.CreatedAt),
+		UpdatedAt:           PgToTime(u.UpdatedAt),
 		FailedLoginAttempts: int(u.FailedLoginAttempts),
-		LockedUntil:         pgToTimePtr(u.LockedUntil),
-		LastFailedLogin:     pgToTimePtr(u.LastFailedLogin),
+		LockedUntil:         PgToTimePtr(u.LockedUntil),
+		LastFailedLogin:     PgToTimePtr(u.LastFailedLogin),
 	}
 }
