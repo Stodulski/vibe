@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
+import { UnsavedChangesDialog } from '@/shared/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesBlocker } from '@/shared/hooks/useUnsavedChangesBlocker';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { submitHandler } from '@/shared/lib/form';
 import type { Complex } from '@/shared/types/api.types';
@@ -45,6 +47,10 @@ export function ComplexForm({ complex, onSuccess, footerAction, fields }: Comple
     complex,
     onSuccess,
   });
+  // FORM-11: a complex is a long form — name, public URL, address, deposit,
+  // cancellation window, a dozen services. Leaving it half-filled used to cost
+  // all of it silently.
+  const blocker = useUnsavedChangesBlocker(form.formState.isDirty);
 
   return (
     // Capped at a readable measure. A field is sized for the answer it expects,
@@ -65,6 +71,7 @@ export function ComplexForm({ complex, onSuccess, footerAction, fields }: Comple
         align="start"
         extra={footerAction}
       />
+      <UnsavedChangesDialog blocker={blocker} />
     </form>
   );
 }

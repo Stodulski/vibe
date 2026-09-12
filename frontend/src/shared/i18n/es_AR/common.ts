@@ -30,6 +30,12 @@ export const common = {
   optional: 'opcional',
   requiredMarker: 'requerido',
   requiredHint: 'Los campos obligatorios están marcados con *',
+  // Shown when someone navigates away from a form they have edited but not
+  // saved (see useUnsavedChangesBlocker). The confirm button is the one that
+  // throws the work away, so it says so instead of "Confirmar".
+  unsavedChangesTitle: 'Tenés cambios sin guardar',
+  unsavedChangesDescription: 'Si salís ahora se van a perder los cambios que hiciste en este formulario.',
+  unsavedChangesConfirm: 'Salir sin guardar',
   all: 'Todos',
   complex: 'Complejo',
   day: 'Día',

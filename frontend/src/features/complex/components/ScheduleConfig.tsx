@@ -6,6 +6,8 @@ import { updateSchedulesSchema, type UpdateSchedulesDto } from '../schemas/compl
 import { useSchedules } from '../hooks/useSchedules';
 import { useUpdateSchedules } from '../hooks/useUpdateSchedules';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
+import { UnsavedChangesDialog } from '@/shared/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesBlocker } from '@/shared/hooks/useUnsavedChangesBlocker';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { DAYS } from './schedule-config/days';
@@ -78,10 +80,16 @@ export function ScheduleConfig({ complexId, slug }: ScheduleConfigProps) {
 function ScheduleForm({ complexId, schedules }: { complexId: string; schedules: Schedule[] }) {
   const updateSchedules = useUpdateSchedules(complexId);
 
-  const { control, handleSubmit, setValue } = useAppForm<UpdateSchedulesDto>({
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    formState: { isDirty },
+  } = useAppForm<UpdateSchedulesDto>({
     resolver: zodResolver(updateSchedulesSchema),
     defaultValues: { schedules: orderedSchedules(schedules) },
   });
+  const blocker = useUnsavedChangesBlocker(isDirty);
 
   const { fields } = useFieldArray({ control, name: 'schedules' });
 
@@ -105,6 +113,7 @@ function ScheduleForm({ complexId, schedules }: { complexId: string; schedules: 
       </div>
 
       <SectionFooter submitLabel={t.common.save} pending={updateSchedules.isPending} align="start" />
+      <UnsavedChangesDialog blocker={blocker} />
     </form>
   );
 }
