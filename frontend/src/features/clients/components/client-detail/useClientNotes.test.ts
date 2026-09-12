@@ -1,11 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useClientNotes } from './useClientNotes';
 import type { Client } from '@/shared/types/api.types';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('../../api/clients.api', () => ({
   clientsApi: {
@@ -14,12 +13,6 @@ vi.mock('../../api/clients.api', () => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
 
 function makeClient(overrides: Partial<Client> = {}): Client {
   return {
@@ -57,7 +50,7 @@ describe('useClientNotes — A4 autosave error handling', () => {
     vi.mocked(clientsApi.update).mockRejectedValueOnce(await makeConsumedHttpError(500, {}));
 
     const client = makeClient();
-    const { result } = renderHook(() => useClientNotes('c1', client), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useClientNotes('c1', client), { wrapper: createQueryWrapper() });
 
     act(() => {
       result.current.onNotesChange('nota en progreso');
@@ -81,7 +74,7 @@ describe('useClientNotes — A4 autosave error handling', () => {
     });
 
     const client = makeClient();
-    const { result } = renderHook(() => useClientNotes('c1', client), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useClientNotes('c1', client), { wrapper: createQueryWrapper() });
 
     act(() => {
       result.current.onNotesChange('nota guardada');
@@ -118,7 +111,7 @@ describe('useClientNotes — A4 retry', () => {
       .mockResolvedValueOnce({ client: makeClient({ notes: 'nota en progreso' }) });
 
     const client = makeClient();
-    const { result } = renderHook(() => useClientNotes('c1', client), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useClientNotes('c1', client), { wrapper: createQueryWrapper() });
 
     act(() => {
       result.current.onNotesChange('nota en progreso');
@@ -150,7 +143,7 @@ describe('useClientNotes — M1 draft sync on client id change', () => {
   it('does not erase a draft when a refetch delivers a new client reference with the old notes', () => {
     const client = makeClient({ notes: 'nota original' });
     const { result, rerender } = renderHook(({ client }: { client: Client }) => useClientNotes('c1', client), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
       initialProps: { client },
     });
 
@@ -170,7 +163,7 @@ describe('useClientNotes — M1 draft sync on client id change', () => {
   it('resets the draft when a different client is selected', () => {
     const clientA = makeClient({ id: 'cl1', notes: 'nota de A' });
     const { result, rerender } = renderHook(({ client }: { client: Client }) => useClientNotes('c1', client), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
       initialProps: { client: clientA },
     });
 

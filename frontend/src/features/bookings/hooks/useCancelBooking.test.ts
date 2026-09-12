@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { makeBooking } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { queryKeys } from '@/shared/lib/queryKeys';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('../api/bookings.api', () => ({
   bookingsApi: {
@@ -15,12 +16,6 @@ vi.mock('../api/bookings.api', () => ({
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
 }));
-
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
 
 describe("useCancelBooking — tells the refund outcome from the complex's side", () => {
   it("describes an automatic refund as a success toast, in the owner's words", async () => {
@@ -33,7 +28,7 @@ describe("useCancelBooking — tells the refund outcome from the complex's side"
 
     const { useCancelBooking } = await import('./useCancelBooking');
     const { result } = renderHook(() => useCancelBooking('c1', '2026-03-18'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
 
     result.current.mutate({ bookingId: 'b1' });
@@ -58,7 +53,7 @@ describe("useCancelBooking — tells the refund outcome from the complex's side"
 
     const { useCancelBooking } = await import('./useCancelBooking');
     const { result } = renderHook(() => useCancelBooking('c1', '2026-03-18'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
 
     result.current.mutate({ bookingId: 'b1' });

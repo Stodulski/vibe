@@ -1,9 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { useMonthlyReport } from './useMonthlyReport';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import type { MonthlyReportResponse } from '@/shared/types/api.types';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('../api/dashboard.api', () => ({
   dashboardApi: {
@@ -20,18 +19,10 @@ vi.mock('../api/dashboard.api', () => ({
   },
 }));
 
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 describe('useMonthlyReport', () => {
   it('returns undefined data when complexId is null', () => {
     const { result } = renderHook(() => useMonthlyReport(null, 3, 2026), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     expect(result.current.data).toBeUndefined();
     expect(result.current.fetchStatus).toBe('idle');
@@ -49,7 +40,7 @@ describe('useMonthlyReport', () => {
 
   it('fetches data when complexId is provided', async () => {
     const { result } = renderHook(() => useMonthlyReport('test-complex-id', 3, 2026), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
 
     await waitFor(() => {

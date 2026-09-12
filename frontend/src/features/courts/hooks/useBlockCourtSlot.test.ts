@@ -1,9 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('../api/courts.api', () => ({
   courtsApi: {
@@ -12,12 +11,6 @@ vi.mock('../api/courts.api', () => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
 
 describe('useBlockCourtSlot — onError surfaces the real backend message', () => {
   it('shows the backend error message from error.data instead of the generic fallback', async () => {
@@ -28,7 +21,7 @@ describe('useBlockCourtSlot — onError surfaces the real backend message', () =
     vi.mocked(courtsApi.blockSlot).mockRejectedValueOnce(backendError);
 
     const { useBlockCourtSlot } = await import('./useBlockCourtSlot');
-    const { result } = renderHook(() => useBlockCourtSlot('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBlockCourtSlot('c1'), { wrapper: createQueryWrapper() });
 
     result.current.mutate({
       courtId: 'ct1',
@@ -49,7 +42,7 @@ describe('useBlockCourtSlot — onError surfaces the real backend message', () =
     vi.mocked(courtsApi.blockSlot).mockRejectedValueOnce(backendError);
 
     const { useBlockCourtSlot } = await import('./useBlockCourtSlot');
-    const { result } = renderHook(() => useBlockCourtSlot('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBlockCourtSlot('c1'), { wrapper: createQueryWrapper() });
 
     result.current.mutate({
       courtId: 'ct1',

@@ -1,9 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { createQueryWrapper } from '@/test/test-utils';
 
 // Shared default `createBooking` resolution: the module-registry note on the
 // `afterEach` below explains why this needs restoring after every test.
@@ -51,17 +50,11 @@ vi.mock('@/shared/lib/queryKeys', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 describe('useComplexBySlug', () => {
   it('fetches complex by slug', async () => {
     const { useComplexBySlug } = await import('./useComplexBySlug');
     const { result } = renderHook(() => useComplexBySlug('test-club'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -70,7 +63,7 @@ describe('useComplexBySlug', () => {
 
   it('is disabled when slug is undefined', async () => {
     const { useComplexBySlug } = await import('./useComplexBySlug');
-    const { result } = renderHook(() => useComplexBySlug(undefined), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useComplexBySlug(undefined), { wrapper: createQueryWrapper() });
     expect(result.current.fetchStatus).toBe('idle');
   });
 });
@@ -79,7 +72,7 @@ describe('useAvailability', () => {
   it('fetches availability', async () => {
     const { useAvailability } = await import('./useAvailability');
     const { result } = renderHook(() => useAvailability('test-club', '2026-03-18', 90), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -90,7 +83,7 @@ describe('useAvailability', () => {
   it('is disabled when slug is undefined', async () => {
     const { useAvailability } = await import('./useAvailability');
     const { result } = renderHook(() => useAvailability(undefined, '2026-03-18', 90), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     expect(result.current.fetchStatus).toBe('idle');
   });
@@ -99,7 +92,7 @@ describe('useAvailability', () => {
 describe('useBookingStatus', () => {
   it('fetches booking status', async () => {
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createQueryWrapper() });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
@@ -108,13 +101,13 @@ describe('useBookingStatus', () => {
 
   it('is disabled when token is null', async () => {
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus(null), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus(null), { wrapper: createQueryWrapper() });
     expect(result.current.fetchStatus).toBe('idle');
   });
 
   it('has timedOut property', async () => {
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createQueryWrapper() });
     expect(result.current.timedOut).toBe(false);
   });
 });
@@ -122,7 +115,7 @@ describe('useBookingStatus', () => {
 describe('usePublicBooking', () => {
   it('returns a mutation', async () => {
     const { usePublicBooking } = await import('./usePublicBooking');
-    const { result } = renderHook(() => usePublicBooking(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => usePublicBooking(), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 
@@ -134,7 +127,7 @@ describe('usePublicBooking', () => {
     vi.mocked(publicBookingApi.createBooking).mockRejectedValueOnce(backendError);
 
     const { usePublicBooking } = await import('./usePublicBooking');
-    const { result } = renderHook(() => usePublicBooking(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => usePublicBooking(), { wrapper: createQueryWrapper() });
 
     result.current.mutate({
       complex_id: 'c1',
@@ -162,7 +155,7 @@ describe('usePublicBooking', () => {
     vi.mocked(publicBookingApi.createBooking).mockRejectedValueOnce(backendError);
 
     const { usePublicBooking } = await import('./usePublicBooking');
-    const { result } = renderHook(() => usePublicBooking(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => usePublicBooking(), { wrapper: createQueryWrapper() });
 
     result.current.mutate({
       complex_id: 'c1',

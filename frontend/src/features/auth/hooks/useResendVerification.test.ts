@@ -1,9 +1,8 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('@/features/auth/api/auth.api', () => ({
   authApi: { resendVerification: vi.fn() },
@@ -12,15 +11,6 @@ vi.mock('@/features/auth/api/auth.api', () => ({
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
-
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return createElement(QueryClientProvider, { client: queryClient }, children);
-  };
-}
 
 describe('useResendVerification', () => {
   beforeEach(() => {
@@ -33,7 +23,7 @@ describe('useResendVerification', () => {
 
     const { useResendVerification } = await import('./useResendVerification');
     const { result } = renderHook(() => useResendVerification('juan@test.com'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
 
     act(() => {
@@ -56,7 +46,7 @@ describe('useResendVerification', () => {
 
     const { useResendVerification } = await import('./useResendVerification');
     const { result } = renderHook(() => useResendVerification('juan@test.com'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
 
     act(() => {
@@ -83,7 +73,7 @@ describe('useResendVerification', () => {
 
     const { useResendVerification } = await import('./useResendVerification');
     const { result } = renderHook(() => useResendVerification('juan@test.com'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
 
     act(() => {

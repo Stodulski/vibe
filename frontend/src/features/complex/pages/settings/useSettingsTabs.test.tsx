@@ -1,18 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter, useNavigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useSettingsTabs } from './useSettingsTabs';
-
-function createWrapper(initialEntries: string[]) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
-      </QueryClientProvider>
-    );
-  };
-}
+import { createWrapper } from '@/test/test-utils';
 
 function Harness() {
   const { activeTab } = useSettingsTabs(null);

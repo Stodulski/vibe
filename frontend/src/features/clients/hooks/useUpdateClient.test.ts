@@ -1,10 +1,9 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { HTTPError } from 'ky';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('../api/clients.api', () => ({
   clientsApi: {
@@ -14,19 +13,13 @@ vi.mock('../api/clients.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 /** Mutates once with a rejected `clientsApi.update` and waits for the error state. */
 async function triggerUpdateError(backendError: HTTPError) {
   const { clientsApi } = await import('../api/clients.api');
   vi.mocked(clientsApi.update).mockRejectedValueOnce(backendError);
 
   const { useUpdateClient } = await import('./useUpdateClient');
-  const { result } = renderHook(() => useUpdateClient('c1'), { wrapper: createWrapper() });
+  const { result } = renderHook(() => useUpdateClient('c1'), { wrapper: createQueryWrapper() });
 
   result.current.mutate({ clientId: 'cl1', data: { notes: 'algo' } });
 

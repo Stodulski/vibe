@@ -1,7 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { makeConsumedHttpError } from '@/test/factories';
+import { createQueryWrapper } from '@/test/test-utils';
 import { ApiResponseError } from '@/shared/lib/apiParse';
 import { bookingStatusResponseSchema } from '@/shared/schemas/publicBooking.schema';
 
@@ -20,12 +19,6 @@ vi.mock('../api/public-booking.api', () => ({
   },
 }));
 
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -35,7 +28,7 @@ describe('useBookingStatus link status (resolveLink 404 vs 410)', () => {
     getBookingStatus.mockRejectedValue(await makeConsumedHttpError(410, { error: 'link expired' }));
 
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('tok-1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus('tok-1'), { wrapper: createQueryWrapper() });
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
@@ -49,7 +42,7 @@ describe('useBookingStatus link status (resolveLink 404 vs 410)', () => {
     getBookingStatus.mockRejectedValue(await makeConsumedHttpError(404, { error: 'not found' }));
 
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('tok-2'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus('tok-2'), { wrapper: createQueryWrapper() });
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
@@ -66,7 +59,7 @@ describe('useBookingStatus link status (resolveLink 404 vs 410)', () => {
     getBookingStatus.mockRejectedValue(await makeConsumedHttpError(500, { error: 'internal error' }));
 
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('tok-500'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus('tok-500'), { wrapper: createQueryWrapper() });
 
     await waitFor(
       () => {
@@ -85,7 +78,7 @@ describe('useBookingStatus link status (resolveLink 404 vs 410)', () => {
 
     const { useBookingStatus } = await import('./useBookingStatus');
     const { result } = renderHook(() => useBookingStatus('tok-network'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
 
     await waitFor(
@@ -111,7 +104,7 @@ describe('useBookingStatus link status — success case', () => {
     });
 
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('tok-3'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus('tok-3'), { wrapper: createQueryWrapper() });
 
     await waitFor(() => {
       expect(result.current.data?.status).toBe('confirmed');
@@ -127,7 +120,7 @@ describe('useBookingStatus schema-rejected polling', () => {
     getBookingStatus.mockRejectedValue(makeSchemaRejectionError());
 
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('tok-4'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useBookingStatus('tok-4'), { wrapper: createQueryWrapper() });
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
