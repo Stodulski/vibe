@@ -135,7 +135,11 @@ describe('useCreateBookingForm — manual price entered (02-bookings-clients.md 
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
-    expect(bookingsApi.create).toHaveBeenCalledWith('c1', expect.objectContaining({ price: 500000 }));
+    expect(bookingsApi.create).toHaveBeenCalledWith(
+      'c1',
+      expect.objectContaining({ price: 500000 }),
+      expect.any(String),
+    );
   });
 });
 
@@ -177,7 +181,11 @@ describe('useCreateBookingForm — deposit amount follows the current price at s
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
-    expect(bookingsApi.create).toHaveBeenCalledWith('c1', expect.objectContaining({ deposit_amount: 20000 }));
+    expect(bookingsApi.create).toHaveBeenCalledWith(
+      'c1',
+      expect.objectContaining({ deposit_amount: 20000 }),
+      expect.any(String),
+    );
   });
 });
 
@@ -220,6 +228,10 @@ describe('useCreateBookingForm — deposit amount kept when hand-entered (02-boo
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
-    expect(bookingsApi.create).toHaveBeenCalledWith('c1', expect.objectContaining({ deposit_amount: 350000 }));
+    expect(bookingsApi.create).toHaveBeenCalledWith(
+      'c1',
+      expect.objectContaining({ deposit_amount: 350000 }),
+      expect.any(String),
+    );
   });
 });
