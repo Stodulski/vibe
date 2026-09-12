@@ -117,6 +117,41 @@ func (s *Store) Claim(ctx context.Context, worker string, limit int) ([]*Job, er
 	return scanJobs(rows)
 }
 
+// ClaimType is Claim narrowed to one job type.
+//
+// Claim's own contract is deliberately type-blind — every production worker
+// drains the whole table, and an unregistered type simply drops back out
+// through Pool's Release path (pool.go). This exists for a caller that must
+// not depend on that: the integration suite shares one database across every
+// package and test that touches this table, so a fixed-limit Claim can be
+// filled entirely by another test's backlog before it ever reaches the rows
+// this caller enqueued. Nothing in production calls this; Claim keeps its
+// contract unchanged.
+func (s *Store) ClaimType(ctx context.Context, worker, jobType string, limit int) ([]*Job, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := s.DB.Query(ctx, `
+		UPDATE jobs SET
+			status = 'processing',
+			locked_at = NOW(),
+			locked_by = $1,
+			attempts = attempts + 1
+		WHERE id IN (
+			SELECT id FROM jobs
+			WHERE status = 'pending' AND run_at <= NOW() AND type = $3
+			ORDER BY run_at
+			FOR UPDATE SKIP LOCKED
+			LIMIT $2
+		)
+		RETURNING `+jobColumns, worker, limit, jobType)
+	if err != nil {
+		return nil, fmt.Errorf("claim jobs of type %s: %w", jobType, err)
+	}
+	defer rows.Close()
+	return scanJobs(rows)
+}
+
 // Complete acknowledges a job. It is detached from the caller's cancellation
 // for the reason every closing write in this repository is: the moment it
 // matters most is the moment the caller's budget is spent, and a skipped
