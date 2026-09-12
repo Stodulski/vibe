@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
 
@@ -59,8 +60,8 @@ func TestBlockedSlotMidnight(t *testing.T) {
 	// book builds the booking exactly as the handlers do — a start time and a
 	// duration, with the end left to the generated span — and calls the
 	// transactional path directly.
-	book := func(date time.Time, start string, durationMinutes int) (*Booking, error) {
-		b := &Booking{
+	book := func(date time.Time, start string, durationMinutes int) (*data.Booking, error) {
+		b := &data.Booking{
 			ComplexID:        f.ComplexID,
 			CourtID:          f.CourtID,
 			ClientID:         f.ClientID,
@@ -70,8 +71,8 @@ func TestBlockedSlotMidnight(t *testing.T) {
 			Price:            500_000,
 			DepositAmount:    150_000,
 			Status:           "pending",
-			CollectionStatus: CollectionStatusUnpaid,
-			RefundStatus:     RefundStatusNone,
+			CollectionStatus: data.CollectionStatusUnpaid,
+			RefundStatus:     data.RefundStatusNone,
 		}
 		return b, f.Models.Bookings.InsertSafe(ctx, b)
 	}
@@ -89,7 +90,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 		if got := slots.Add(b.StartTime, b.DurationMinutes); got != "23:00" {
 			t.Fatalf("control precondition: the booking ends at %q, want %q", got, "23:00")
 		}
-		if !errors.Is(err, ErrSlotUnavailable) {
+		if !errors.Is(err, data.ErrSlotUnavailable) {
 			t.Fatalf("booking 22:00 +60m over a 22:00-23:00 block: got err = %v, want ErrSlotUnavailable "+
 				"(the guard is blind beyond the midnight case — the defect is broader than F01 describes)", err)
 		}
@@ -113,7 +114,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 			t.Logf("generated span upper (the value the exclusion constraint uses) = %s", b.EndsAt.Format(time.RFC3339))
 		}
 
-		if !errors.Is(err, ErrSlotUnavailable) {
+		if !errors.Is(err, data.ErrSlotUnavailable) {
 			t.Fatalf("booking 23:00 +120m over a 23:00-23:59 block: got err = %v, want ErrSlotUnavailable. "+
 				"The in-transaction blocked-slot guard did not see the block: the end wrapped to %q, so "+
 				"`start_time < end_time` is false and `date = $2` excludes the following day. F01 REPRODUCES.",
@@ -163,9 +164,9 @@ func TestBlockedSlotsCannotOverlap(t *testing.T) {
 		if !errors.As(err, &pgErr) {
 			t.Fatalf("expected a *pgconn.PgError, got %T: %v", err, err)
 		}
-		if pgErr.Code != sqlStateExclusionViolation {
+		if pgErr.Code != data.SQLStateExclusionViolation {
 			t.Fatalf("SQLSTATE = %q (%s), want %q (exclusion_violation)",
-				pgErr.Code, pgErr.ConstraintName, sqlStateExclusionViolation)
+				pgErr.Code, pgErr.ConstraintName, data.SQLStateExclusionViolation)
 		}
 		if pgErr.ConstraintName != "blocked_slots_no_overlapping_span" {
 			t.Errorf("constraint = %q, want blocked_slots_no_overlapping_span", pgErr.ConstraintName)
@@ -186,7 +187,7 @@ func TestBlockedSlotsCannotOverlap(t *testing.T) {
 
 	t.Run("the_store_still_maps_the_refusal_to_ErrSlotAlreadyBlocked", func(t *testing.T) {
 		reason := "maintenance"
-		first := &BlockedSlot{
+		first := &data.BlockedSlot{
 			CourtID: f.CourtID, Date: date,
 			StartTime: "18:00", EndTime: "19:00", Reason: &reason,
 		}
@@ -194,12 +195,12 @@ func TestBlockedSlotsCannotOverlap(t *testing.T) {
 			t.Fatalf("first store insert: %v", err)
 		}
 
-		second := &BlockedSlot{
+		second := &data.BlockedSlot{
 			CourtID: f.CourtID, Date: date,
 			StartTime: "18:30", EndTime: "19:30", Reason: &reason,
 		}
 		err := f.Models.Courts.InsertBlockedSlot(ctx, second)
-		if !errors.Is(err, ErrSlotAlreadyBlocked) {
+		if !errors.Is(err, data.ErrSlotAlreadyBlocked) {
 			t.Fatalf("overlapping store insert: got err = %v, want ErrSlotAlreadyBlocked", err)
 		}
 	})

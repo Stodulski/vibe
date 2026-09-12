@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // SQLSTATEs the constraints in db/migrations/001_init.sql raise. checkViolation ("23514")
@@ -359,10 +360,10 @@ func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
 
 	// Through the real store, so the domain error the handler will see is proven
 	// too rather than only the constraint underneath it.
-	err := f.Models.Courts.Insert(ctx, &Court{
+	err := f.Models.Courts.Insert(ctx, &data.Court{
 		ComplexID: f.ComplexID, Name: "Court 1", Sport: "padel", CourtType: "indoor",
 	})
-	if !errors.Is(err, ErrDuplicateCourtName) {
+	if !errors.Is(err, data.ErrDuplicateCourtName) {
 		t.Fatalf("a second live court called %q must return ErrDuplicateCourtName; got %v", "Court 1", err)
 	}
 
@@ -396,12 +397,12 @@ func TestTwoPriceRulesCannotCoverTheSameMinute(t *testing.T) {
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	base := &CourtPrice{CourtID: f.CourtID, Price: 10_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
+	base := &data.CourtPrice{CourtID: f.CourtID, Price: 10_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
 	accepted(t, f.Models.Courts.InsertPrice(ctx, base), "the first price rule for monday")
 
 	// An identical rule — the case the review reported.
-	dup := &CourtPrice{CourtID: f.CourtID, Price: 99_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
-	if err := f.Models.Courts.InsertPrice(ctx, dup); !errors.Is(err, ErrOverlappingPriceRule) {
+	dup := &data.CourtPrice{CourtID: f.CourtID, Price: 99_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
+	if err := f.Models.Courts.InsertPrice(ctx, dup); !errors.Is(err, data.ErrOverlappingPriceRule) {
 		t.Fatalf("an identical price rule must return ErrOverlappingPriceRule; got %v", err)
 	}
 
@@ -523,13 +524,13 @@ func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
 	refusedByConstraint(t, err, checkViolation, collectionStatusNoReturnToUnpaid)
 
 	status, collectionStatus, refundStatus := f.readBookingState(t, b.ID)
-	if status != "cancelled" || refundStatus != RefundStatusFull {
+	if status != "cancelled" || refundStatus != data.RefundStatusFull {
 		t.Errorf("a refused reversal must leave the booking cancelled+fully refunded; it reads %s+%s",
 			status, refundStatus)
 	}
 	// And the deposit the fixture collected is still on the row: the payment_status split
 	// put the refund on its own axis so it stops overwriting this one.
-	if collectionStatus != CollectionStatusDepositPaid {
+	if collectionStatus != data.CollectionStatusDepositPaid {
 		t.Errorf("the refund must not have erased what was collected; it reads %s", collectionStatus)
 	}
 }
@@ -543,16 +544,16 @@ func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
 // on the collection axis alone would wave through.
 func TestARefundCannotExistWithoutMoneyHavingBeenCollected(t *testing.T) {
 	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{CollectionStatus: CollectionStatusUnpaid})
+	b := f.createBooking(t, bookingOptions{CollectionStatus: data.CollectionStatusUnpaid})
 
-	for _, refund := range []string{RefundStatusPending, RefundStatusPartial, RefundStatusFull} {
+	for _, refund := range []string{data.RefundStatusPending, data.RefundStatusPartial, data.RefundStatusFull} {
 		err := f.exec(`UPDATE bookings SET refund_status = $2 WHERE id = $1`, b.ID, refund)
 		refusedByConstraint(t, err, checkViolation, refundNeedsCollectedMoney)
 	}
 
-	if _, collectionStatus, refundStatus := f.readBookingState(t, b.ID); refundStatus != RefundStatusNone {
+	if _, collectionStatus, refundStatus := f.readBookingState(t, b.ID); refundStatus != data.RefundStatusNone {
 		t.Errorf("the booking must still read (%s, none); it reads (%s, %s)",
-			CollectionStatusUnpaid, collectionStatus, refundStatus)
+			data.CollectionStatusUnpaid, collectionStatus, refundStatus)
 	}
 }
 

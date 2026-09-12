@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // R2-softdelete-error-name-overreaches / R3-softdelete-conflates-notfound:
@@ -24,7 +25,7 @@ func TestSoftDeleteAnUnknownCourtIsNotFound(t *testing.T) {
 	f := newTestFixture(t)
 
 	err := f.Models.Courts.SoftDelete(context.Background(), uuid.New())
-	if !errors.Is(err, ErrRecordNotFound) {
+	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("deleting an unknown court must answer ErrRecordNotFound; got %v", err)
 	}
 }
@@ -56,7 +57,7 @@ func TestSoftDeleteRefusesACourtWithLiveBookings(t *testing.T) {
 	f.createBooking(t, bookingOptions{Status: "confirmed"})
 
 	err := f.Models.Courts.SoftDelete(ctx, f.CourtID)
-	if !errors.Is(err, ErrCourtHasActiveBookings) {
+	if !errors.Is(err, data.ErrCourtHasActiveBookings) {
 		t.Errorf("deleting a court with a live booking must be refused with ErrCourtHasActiveBookings; got %v", err)
 	}
 }

@@ -1,11 +1,13 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // The stale-pending carve-out reads the collection axis, and this is the test
@@ -13,7 +15,7 @@ import (
 //
 // The predicate — status 'pending', nothing collected, created by nobody, older
 // than the configured hold — is written four times: db/queries/bookings.sql's
-// GetBookedSlots, and slotTaken, spanTaken and releaseStalePendingOverlaps in
+// GetBookedSlots, and SlotTaken, SpanTaken and ReleaseStalePendingOverlaps in
 // slot_guard.go. The payment_status split rewrote the money clause in every one of them
 // from `payment_status = 'unpaid'` to `collection_status = 'unpaid'`.
 //
@@ -36,7 +38,7 @@ import (
 // backdated — so the only thing that can change the answer is the money.
 func depositPaidStaleBookingOptions() bookingOptions {
 	opts := staleBookingOptions()
-	opts.CollectionStatus = CollectionStatusDepositPaid
+	opts.CollectionStatus = data.CollectionStatusDepositPaid
 	return opts
 }
 
@@ -98,7 +100,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 
 			newcomer := f.newBooking(overlappingBookingOptions())
 			err := f.Models.Bookings.InsertSafe(context.Background(), newcomer)
-			if !errors.Is(err, ErrSlotUnavailable) {
+			if !errors.Is(err, data.ErrSlotUnavailable) {
 				t.Errorf("selling hours a paid pending booking already holds must be refused with "+
 					"ErrSlotUnavailable; got %v", err)
 			}

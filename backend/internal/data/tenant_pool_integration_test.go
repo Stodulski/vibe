@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // TestADeadPooledConnectionIsReplacedRatherThanReported pins the PrepareConn
@@ -34,7 +35,7 @@ func TestADeadPooledConnectionIsReplacedRatherThanReported(t *testing.T) {
 	// was killed or by its replacement.
 	config.MaxConns = 1
 	config.MinConns = 0
-	config.PrepareConn = StampTenantScope
+	config.PrepareConn = data.StampTenantScope
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		t.Fatalf("opening the pool: %v", err)

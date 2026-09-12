@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // The refund flow is claim → call MercadoPago → record. These tests exercise the
@@ -209,7 +210,7 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
 	type result struct {
-		claim *RefundClaim
+		claim *data.RefundClaim
 		err   error
 	}
 	results := make([]result, 2)
@@ -235,7 +236,7 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 		switch {
 		case r.err == nil:
 			won++
-		case errors.Is(r.err, ErrRefundInFlight):
+		case errors.Is(r.err, data.ErrRefundInFlight):
 			refused++
 		default:
 			t.Errorf("a losing claim must be refused with ErrRefundInFlight; got %v", r.err)
@@ -299,13 +300,13 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 	if bookingStatus != "cancelled" {
 		t.Errorf("a fully refunded booking must be cancelled, or the court stays sold; got %q", bookingStatus)
 	}
-	if bookingRefund != RefundStatusFull {
+	if bookingRefund != data.RefundStatusFull {
 		t.Errorf("the stored booking refund status must be full; got %q", bookingRefund)
 	}
 	// The payment_status split's whole point: the refund records itself on its own axis
 	// and does not overwrite what the booking collected. This fixture took a
 	// deposit, so the row must still say so after the money went back.
-	if bookingCollection != CollectionStatusDepositPaid {
+	if bookingCollection != data.CollectionStatusDepositPaid {
 		t.Errorf("refunding must not erase what was collected; want deposit_paid, got %q", bookingCollection)
 	}
 
@@ -383,10 +384,10 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 	if bookingStatus != "cancelled" {
 		t.Errorf("a refunded booking must be cancelled; got %q", bookingStatus)
 	}
-	if bookingRefund != RefundStatusPartial {
+	if bookingRefund != data.RefundStatusPartial {
 		t.Errorf("a booking with cash still owed must read refund_status 'partial', not 'full'; got %q", bookingRefund)
 	}
-	if bookingCollection != CollectionStatusDepositPaid {
+	if bookingCollection != data.CollectionStatusDepositPaid {
 		t.Errorf("a partial refund must not erase what was collected; want deposit_paid, got %q", bookingCollection)
 	}
 }
@@ -415,7 +416,7 @@ func TestRecordManualRefund(t *testing.T) {
 		t.Fatalf("RecordRefundSuccess: %v", err)
 	}
 
-	if _, _, refundStatus := f.readBookingState(t, booking.ID); refundStatus != RefundStatusPartial {
+	if _, _, refundStatus := f.readBookingState(t, booking.ID); refundStatus != data.RefundStatusPartial {
 		t.Fatalf("setup: booking must read refund_status 'partial' before RecordManualRefund runs; got %q", refundStatus)
 	}
 
@@ -439,15 +440,15 @@ func TestRecordManualRefund(t *testing.T) {
 	if bookingStatus != "cancelled" {
 		t.Errorf("the booking must stay cancelled; got %q", bookingStatus)
 	}
-	if bookingRefund != RefundStatusFull {
+	if bookingRefund != data.RefundStatusFull {
 		t.Errorf("the booking must now read a full refund; got %q", bookingRefund)
 	}
-	if bookingCollection != CollectionStatusDepositPaid {
+	if bookingCollection != data.CollectionStatusDepositPaid {
 		t.Errorf("closing out the manual balance must not erase what was collected; want deposit_paid, got %q", bookingCollection)
 	}
 
 	// A second call finds nothing left to close out.
-	if _, err := f.Models.Payments.RecordManualRefund(ctx, booking.ID); !errors.Is(err, ErrNoManualRefundOwed) {
+	if _, err := f.Models.Payments.RecordManualRefund(ctx, booking.ID); !errors.Is(err, data.ErrNoManualRefundOwed) {
 		t.Errorf("a booking that no longer reads refund_status 'partial' must be refused; got %v", err)
 	}
 }
@@ -509,7 +510,7 @@ func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
 	}
 
 	bookingStatus, _, bookingRefund := f.readBookingState(t, booking.ID)
-	if bookingRefund == RefundStatusFull || bookingStatus == "cancelled" {
+	if bookingRefund == data.RefundStatusFull || bookingStatus == "cancelled" {
 		t.Errorf("the booking must not be settled by a refund that never happened; got status=%q refund_status=%q",
 			bookingStatus, bookingRefund)
 	}
@@ -617,9 +618,9 @@ func TestAProviderOutageDoesNotSpendAClaimedRefundsRetryBudget(t *testing.T) {
 	if after.status != "pending" {
 		t.Errorf("want the attempt left queued; got %q", after.status)
 	}
-	if wait := time.Until(after.nextRetryAt); wait > providerOutageRetryDelay+time.Minute {
+	if wait := time.Until(after.nextRetryAt); wait > data.ProviderOutageRetryDelayForTest+time.Minute {
 		t.Errorf("want the flat %v outage probe; the attempt waits %v, which is the escalating backoff for "+
-			"an answer it never got", providerOutageRetryDelay, wait)
+			"an answer it never got", data.ProviderOutageRetryDelayForTest, wait)
 	}
 }
 
@@ -642,7 +643,7 @@ func TestARefusedRefundStillSpendsTheBudget(t *testing.T) {
 	if after.retryCount != 3 {
 		t.Errorf("a refusal is an answer about this refund and must spend a retry; want 3, got %d", after.retryCount)
 	}
-	if wait := time.Until(after.nextRetryAt); wait <= providerOutageRetryDelay+time.Minute {
+	if wait := time.Until(after.nextRetryAt); wait <= data.ProviderOutageRetryDelayForTest+time.Minute {
 		t.Errorf("want the escalating backoff for an answered attempt; the attempt waits only %v", wait)
 	}
 }
@@ -721,7 +722,7 @@ func TestARefundFailureIsRecordedEvenWhenTheCallerIsAlreadyDone(t *testing.T) {
 // which is the state every RecordRefundFailure case starts from. The slot times
 // are explicit because several claims in one test share a court and date, and
 // bookings(court_id, date, start_time) is uniquely indexed.
-func (f *testFixture) claimRefund(t *testing.T, startTime, endTime string) *RefundClaim {
+func (f *testFixture) claimRefund(t *testing.T, startTime, endTime string) *data.RefundClaim {
 	t.Helper()
 
 	booking := f.createBooking(t, bookingOptions{StartTime: startTime, EndTime: endTime})

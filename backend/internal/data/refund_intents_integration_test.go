@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // These tests exercise the reconciliation sweep's store layer
@@ -53,7 +54,7 @@ func TestTwoConcurrentSweepersOnlyOneClaimsAnOrphan(t *testing.T) {
 		switch {
 		case r.err == nil:
 			won++
-		case errors.Is(r.err, ErrRecordNotFound):
+		case errors.Is(r.err, data.ErrRecordNotFound):
 			refused++
 		default:
 			t.Errorf("a losing claim must be refused with ErrRecordNotFound; got %v", r.err)

@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // execModePool opens a pool the way cmd/api does: QueryExecModeExec, which
@@ -50,7 +51,7 @@ func execModePool(t *testing.T) *pgxpool.Pool {
 // caller produces — a payload and no payload at all.
 func TestInsertAuditLogPersistsUnderQueryExecModeExec(t *testing.T) {
 	pool := execModePool(t)
-	model := &AdminModel{DB: NewDB(pool)}
+	model := &data.AdminModel{DB: data.NewDB(pool)}
 	ctx := context.Background()
 
 	action := "integration-audit-" + uuid.NewString()

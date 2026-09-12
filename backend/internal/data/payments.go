@@ -127,7 +127,7 @@ func (m *PaymentModel) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *Boo
 
 	// The booking being confirmed overlaps itself, so it is the one row the
 	// overlap query has to ignore.
-	taken, err := slotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
+	taken, err := SlotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
 	if err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func (m *PaymentModel) InsertAndConfirmBooking(ctx context.Context, p *Payment, 
 	// Two writers reach the same pair of locks from opposite directions.
 	// InsertSafe (internal/data/bookings.go) takes lockCourtDays and then
 	// UPDATEs the stale pending bookings that overlap the hours it wants
-	// (releaseStalePendingOverlaps), which locks those rows. This transaction
+	// (ReleaseStalePendingOverlaps), which locks those rows. This transaction
 	// used to take the booking row first — guardBookingConfirmable's
 	// SELECT ... FOR UPDATE — and then ask guardSlotStillFree for the court-day
 	// lock. Advisory lock then row, against row then advisory lock: a deadlock,

@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // These tests are the only ones in the repository that connect as the
@@ -60,7 +61,7 @@ func appPool(t *testing.T) *pgxpool.Pool {
 	}
 	config.MaxConns = 4
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-	config.PrepareConn = StampTenantScope
+	config.PrepareConn = data.StampTenantScope
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
@@ -141,7 +142,7 @@ type tenant struct {
 type rlsFixture struct {
 	Admin  *pgxpool.Pool
 	App    *pgxpool.Pool
-	Models Models
+	Models data.Models
 	A      tenant
 	B      tenant
 }
@@ -150,7 +151,7 @@ func newRLSFixture(t *testing.T) *rlsFixture {
 	t.Helper()
 
 	f := &rlsFixture{Admin: adminPool(t), App: appPool(t)}
-	f.Models = NewModels(f.App, Config{Keys: testCredentialKeyring(t)})
+	f.Models = data.NewModels(f.App, data.Config{Keys: testCredentialKeyring(t)})
 	f.A = f.seedTenant(t, "a")
 	f.B = f.seedTenant(t, "b")
 	return f
@@ -252,7 +253,7 @@ const insertBookingAtAFreeHourSQL = `
 func TestABookingOfAnotherTenantIsInvisible(t *testing.T) {
 	f := newRLSFixture(t)
 
-	own, err := f.Models.Bookings.GetByID(ContextWithTenant(context.Background(), f.A.ComplexID), f.A.BookingID)
+	own, err := f.Models.Bookings.GetByID(data.ContextWithTenant(context.Background(), f.A.ComplexID), f.A.BookingID)
 	if err != nil {
 		t.Fatalf("tenant A reading its own booking: %v", err)
 	}
@@ -260,8 +261,8 @@ func TestABookingOfAnotherTenantIsInvisible(t *testing.T) {
 		t.Fatalf("tenant A read booking %s, want its own %s", own.ID, f.A.BookingID)
 	}
 
-	stolen, err := f.Models.Bookings.GetByID(ContextWithTenant(context.Background(), f.A.ComplexID), f.B.BookingID)
-	if !errors.Is(err, ErrRecordNotFound) {
+	stolen, err := f.Models.Bookings.GetByID(data.ContextWithTenant(context.Background(), f.A.ComplexID), f.B.BookingID)
+	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("tenant A read tenant B's booking %s and got (%+v, %v), want ErrRecordNotFound: "+
 			"a by-id query with no tenant predicate returned another tenant's row", f.B.BookingID, stolen, err)
 	}
@@ -274,7 +275,7 @@ func TestABookingOfAnotherTenantIsInvisible(t *testing.T) {
 func TestInsertingAnotherTenantsRowIsRefused(t *testing.T) {
 	f := newRLSFixture(t)
 
-	ctx := ContextWithTenant(context.Background(), f.A.ComplexID)
+	ctx := data.ContextWithTenant(context.Background(), f.A.ComplexID)
 
 	var id uuid.UUID
 	err := f.App.QueryRow(ctx, insertBookingAtAFreeHourSQL, f.B.ComplexID, f.B.CourtID, f.B.ClientID).Scan(&id)
@@ -297,7 +298,7 @@ func TestInsertingAnotherTenantsRowIsRefused(t *testing.T) {
 func TestTheCrossTenantBypassSeesBothTenants(t *testing.T) {
 	f := newRLSFixture(t)
 
-	ctx := ContextWithTenantBypass(context.Background())
+	ctx := data.ContextWithTenantBypass(context.Background())
 
 	for _, want := range []struct {
 		name string
@@ -315,7 +316,7 @@ func TestTheCrossTenantBypassSeesBothTenants(t *testing.T) {
 	// And a context with neither a tenant nor the bypass sees nothing at all.
 	// This is the fail-closed default, and it is what makes a path nobody
 	// scoped break in a test rather than leak in production.
-	if _, err := f.Models.Bookings.GetByID(context.Background(), f.A.BookingID); !errors.Is(err, ErrRecordNotFound) {
+	if _, err := f.Models.Bookings.GetByID(context.Background(), f.A.BookingID); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("an unscoped context read a booking (err = %v), want ErrRecordNotFound: "+
 			"a session that declared no tenant must see nothing", err)
 	}
@@ -350,7 +351,7 @@ func TestTheApplicationRoleCannotReshapeTheSchema(t *testing.T) {
 	// It can still do the DML the application actually issues. Without this
 	// half, a role with no privileges at all would pass the loop above.
 	var reachable int
-	if err := f.App.QueryRow(ContextWithTenant(ctx, f.A.ComplexID),
+	if err := f.App.QueryRow(data.ContextWithTenant(ctx, f.A.ComplexID),
 		`SELECT count(*) FROM bookings`).Scan(&reachable); err != nil {
 		t.Fatalf("the application role cannot read the table it is supposed to: %v", err)
 	}
@@ -368,7 +369,7 @@ func TestTheApplicationRoleCannotReshapeTheSchema(t *testing.T) {
 func TestTheFilteredViewsReturnOnlyTheCallersTenant(t *testing.T) {
 	f := newRLSFixture(t)
 
-	ctx := ContextWithTenant(context.Background(), f.A.ComplexID)
+	ctx := data.ContextWithTenant(context.Background(), f.A.ComplexID)
 
 	// Named, not counted. Counting assumes this database holds nothing but
 	// these two fixtures, which is a property of the harness rather than of
@@ -436,7 +437,7 @@ func TestRowLevelSecurityIsTheSecondWallWithTheHandlerComparisonRemoved(t *testi
 
 	// What the middleware leaves behind on a request for tenant A, after it
 	// has verified that the caller owns that complex.
-	ctx := ContextWithTenant(context.Background(), f.A.ComplexID)
+	ctx := data.ContextWithTenant(context.Background(), f.A.ComplexID)
 
 	// What a handler with the comparison removed does: load by id, use it.
 	// The id is tenant B's, which is exactly the request an attacker sends.
@@ -445,7 +446,7 @@ func TestRowLevelSecurityIsTheSecondWallWithTheHandlerComparisonRemoved(t *testi
 		t.Fatalf("a handler with no tenant comparison read tenant B's booking %s while serving tenant A; "+
 			"the database was supposed to be the second wall and it did not hold", booking.ID)
 	}
-	if !errors.Is(err, ErrRecordNotFound) {
+	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("got %v, want ErrRecordNotFound", err)
 	}
 }
@@ -464,8 +465,8 @@ func TestTheTenantScopeReachesTheSessionSettings(t *testing.T) {
 		wantTenant string
 		wantBypass string
 	}{
-		{"scoped", ContextWithTenant(context.Background(), f.A.ComplexID), f.A.ComplexID.String(), "off"},
-		{"bypass", ContextWithTenantBypass(context.Background()), "", "on"},
+		{"scoped", data.ContextWithTenant(context.Background(), f.A.ComplexID), f.A.ComplexID.String(), "off"},
+		{"bypass", data.ContextWithTenantBypass(context.Background()), "", "on"},
 		{"neither", context.Background(), "", "off"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -486,8 +487,8 @@ func TestTheTenantScopeReachesTheSessionSettings(t *testing.T) {
 	// The same, inside a transaction, because DB.Begin repeats the stamp as
 	// SET LOCAL and a transaction that inherited the wrong connection's
 	// setting would be the failure nobody sees.
-	db := NewDB(f.App)
-	tx, err := db.Begin(ContextWithTenant(context.Background(), f.B.ComplexID))
+	db := data.NewDB(f.App)
+	tx, err := db.Begin(data.ContextWithTenant(context.Background(), f.B.ComplexID))
 	if err != nil {
 		t.Fatalf("beginning a scoped transaction: %v", err)
 	}

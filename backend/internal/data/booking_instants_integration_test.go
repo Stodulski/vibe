@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -35,17 +36,17 @@ func TestTheOwnerListCarriesTheSpansOwnInstants(t *testing.T) {
 	ordinary := f.createBooking(t, bookingOptions{StartTime: "09:00", EndTime: "10:30"})
 
 	from := timezone.Day(overnight.Date).AddDate(0, 0, -1)
-	listed, _, err := f.Models.Bookings.GetByComplex(ctx, f.ComplexID, from, from.AddDate(0, 0, 3), Filters{Limit: 50})
+	listed, _, err := f.Models.Bookings.GetByComplex(ctx, f.ComplexID, from, from.AddDate(0, 0, 3), data.Filters{Limit: 50})
 	if err != nil {
 		t.Fatalf("listing the complex's bookings: %v", err)
 	}
 
-	byID := map[string]*Booking{}
+	byID := map[string]*data.Booking{}
 	for _, b := range listed {
 		byID[b.ID.String()] = b
 	}
 
-	for _, want := range []*Booking{overnight, ordinary} {
+	for _, want := range []*data.Booking{overnight, ordinary} {
 		got, ok := byID[want.ID.String()]
 		if !ok {
 			t.Fatalf("booking %s starting at %s is missing from the owner list", want.ID, want.StartTime)

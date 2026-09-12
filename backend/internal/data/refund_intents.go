@@ -67,7 +67,7 @@ func (m *BookingModel) GetRefundIntentOrphans(ctx context.Context, olderThan tim
 		); err != nil {
 			return nil, fmt.Errorf("scan refund intent orphan: %w", err)
 		}
-		result = append(result, bookingFromDB(b))
+		result = append(result, BookingFromDB(b))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

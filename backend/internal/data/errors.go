@@ -105,7 +105,7 @@ var (
 	//
 	// H-23. A public booking that goes unpaid past the payment expiry stops
 	// holding its slot, and the next InsertSafe to want those hours cancels it
-	// outright (releaseStalePendingOverlaps). That path deliberately does NOT
+	// outright (ReleaseStalePendingOverlaps). That path deliberately does NOT
 	// expire the MercadoPago preference — its own comment says so — so a
 	// payment for the cancelled booking can still arrive, and when it does the
 	// money has to go back. The webhook refunds on ErrSlotUnavailable, and

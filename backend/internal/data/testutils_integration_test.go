@@ -1,6 +1,6 @@
 //go:build integration
 
-package data
+package data_test
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/stodulski/vibe-server/internal/crypto"
+	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // testCredentialKeyring is the MercadoPago credential keyring every
@@ -87,7 +88,7 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 // global reset between every case.
 type testFixture struct {
 	Pool      *pgxpool.Pool
-	Models    Models
+	Models    data.Models
 	UserID    uuid.UUID
 	ComplexID uuid.UUID
 	CourtID   uuid.UUID
@@ -101,7 +102,7 @@ func newTestFixture(t *testing.T) *testFixture {
 	ctx := context.Background()
 	suffix := uuid.NewString()
 
-	f := &testFixture{Pool: pool, Models: NewModels(pool, Config{Keys: testCredentialKeyring(t)})}
+	f := &testFixture{Pool: pool, Models: data.NewModels(pool, data.Config{Keys: testCredentialKeyring(t)})}
 
 	err := pool.QueryRow(ctx, `
 		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
@@ -205,7 +206,7 @@ type bookingOptions struct {
 
 // minutesBetween is the duration a fixture's StartTime and EndTime describe.
 //
-// `span` — the column the exclusion constraint and slotTaken compare — is
+// `span` — the column the exclusion constraint and SlotTaken compare — is
 // generated from start plus duration_minutes, and there is no stored end at
 // all. This used to be a fixed 90, so
 // a fixture written as 09:00-12:00
@@ -239,10 +240,10 @@ func (o bookingOptions) withDefaults() bookingOptions {
 		o.Status = "confirmed"
 	}
 	if o.CollectionStatus == "" {
-		o.CollectionStatus = CollectionStatusDepositPaid
+		o.CollectionStatus = data.CollectionStatusDepositPaid
 	}
 	if o.RefundStatus == "" {
-		o.RefundStatus = RefundStatusNone
+		o.RefundStatus = data.RefundStatusNone
 	}
 	if o.Price == 0 {
 		o.Price = 500_000
@@ -255,10 +256,10 @@ func (o bookingOptions) withDefaults() bookingOptions {
 
 // newBooking builds an unsaved Booking wired to this fixture's complex, court and
 // client. Tests that exercise an insert path use this and insert it themselves.
-func (f *testFixture) newBooking(opts bookingOptions) *Booking {
+func (f *testFixture) newBooking(opts bookingOptions) *data.Booking {
 	opts = opts.withDefaults()
 
-	b := &Booking{
+	b := &data.Booking{
 		ComplexID:        f.ComplexID,
 		CourtID:          f.CourtID,
 		ClientID:         f.ClientID,
@@ -279,7 +280,7 @@ func (f *testFixture) newBooking(opts bookingOptions) *Booking {
 }
 
 // createBooking inserts a booking through the real store and returns it.
-func (f *testFixture) createBooking(t *testing.T, opts bookingOptions) *Booking {
+func (f *testFixture) createBooking(t *testing.T, opts bookingOptions) *data.Booking {
 	t.Helper()
 
 	b := f.newBooking(opts)
@@ -291,7 +292,7 @@ func (f *testFixture) createBooking(t *testing.T, opts bookingOptions) *Booking 
 
 // createPayment inserts a payment through the real store and returns it. A nil
 // mpPaymentID produces the cash-style row that carries no MercadoPago identifier.
-func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, serviceFee int, mpPaymentID *string) *Payment {
+func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, serviceFee int, mpPaymentID *string) *data.Payment {
 	t.Helper()
 
 	method := "cash"
@@ -299,7 +300,7 @@ func (f *testFixture) createPayment(t *testing.T, bookingID uuid.UUID, amount, s
 		method = "mercadopago"
 	}
 
-	p := &Payment{
+	p := &data.Payment{
 		BookingID:   bookingID,
 		ComplexID:   f.ComplexID,
 		Amount:      amount,
@@ -364,11 +365,11 @@ func (f *testFixture) backdateBookingCreatedAt(t *testing.T, id uuid.UUID, age t
 // one a MercadoPago webhook takes when it confirms a paid booking — and returns
 // whatever the store decided. models is passed in so a test can confirm through a
 // differently configured set of stores.
-func (f *testFixture) confirmBooking(models Models, b *Booking) error {
+func (f *testFixture) confirmBooking(models data.Models, b *data.Booking) error {
 	b.Status = "confirmed"
-	b.CollectionStatus = CollectionStatusDepositPaid
+	b.CollectionStatus = data.CollectionStatusDepositPaid
 
-	payment := &Payment{
+	payment := &data.Payment{
 		BookingID:  b.ID,
 		ComplexID:  f.ComplexID,
 		Amount:     b.DepositAmount,
