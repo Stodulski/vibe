@@ -1,13 +1,16 @@
 import type { RouteObject } from 'react-router-dom';
-import { PublicLayout } from '@/shared/components/layout/PublicLayout';
 import { SkeletonBookConfirm, SkeletonBookSuccess, SkeletonCancelInfo } from '@/shared/components/common/Skeletons';
 import { SkeletonComplexHeader } from '@/features/public-booking/components/SkeletonComplexHeader';
 import { SkeletonSlotGrid } from '@/features/public-booking/components/SkeletonSlotGrid';
-import { lazyPage } from './routeHelpers';
+import { lazyPage, lazyShell } from './routeHelpers';
+import { PublicPageLoader } from './loaders';
 
 export const publicRoutes: RouteObject[] = [
   {
-    element: <PublicLayout />,
+    element: lazyShell(
+      () => import('@/shared/components/layout/PublicLayout').then((m) => ({ default: m.PublicLayout })),
+      <PublicPageLoader />,
+    ),
     children: [
       {
         path: '/:slug',

@@ -1,8 +1,7 @@
 import type { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
-import { DashboardLayout } from '@/app/layout/DashboardLayout';
 import { SkeletonDashboard, SkeletonSettings, SkeletonBookings } from '@/shared/components/common/Skeletons';
-import { lazyPage, ownerPage } from './routeHelpers';
+import { lazyPage, lazyShell, ownerPage } from './routeHelpers';
 import { PageLoader } from './loaders';
 
 export const ownerStandaloneRoutes: RouteObject[] = [
@@ -36,7 +35,7 @@ export const ownerDashboardRoutes: RouteObject[] = [
   {
     element: (
       <ProtectedRoute>
-        <DashboardLayout />
+        {lazyShell(() => import('@/app/layout/DashboardLayout').then((m) => ({ default: m.DashboardLayout })))}
       </ProtectedRoute>
     ),
     children: [

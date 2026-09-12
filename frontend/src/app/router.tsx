@@ -3,7 +3,8 @@ import { authRoutes } from './router/authRoutes';
 import { ownerStandaloneRoutes, ownerDashboardRoutes } from './router/ownerRoutes';
 import { adminRoutes } from './router/adminRoutes';
 import { publicRoutes } from './router/publicRoutes';
-import { NotFoundPage } from './router/NotFoundPage';
+import { lazyShell } from './router/routeHelpers';
+import { PublicPageLoader } from './router/loaders';
 import { RootRedirect } from './router/RootRedirect';
 import { ScrollToTop } from './router/ScrollToTop';
 import { RouteErrorPage } from './router/RouteErrorPage';
@@ -35,7 +36,10 @@ const routes: RouteObject[] = [
   // ─── 404 catch-all ───
   {
     path: '*',
-    element: <NotFoundPage />,
+    element: lazyShell(
+      () => import('./router/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+      <PublicPageLoader />,
+    ),
   },
 ];
 

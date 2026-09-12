@@ -49,3 +49,25 @@ export function ownerPage(
     </ErrorBoundary>
   );
 }
+
+/**
+ * Same lazy + retry treatment for the app shell — the three route layouts
+ * and `NotFoundPage` — which used to be static imports, so every anonymous
+ * visitor of `/:slug` downloaded the owner and admin layouts too.
+ *
+ * Deliberately *not* wrapped in `<ErrorBoundary>` the way `lazyPage`/
+ * `ownerPage` are: shell render errors are what `router.tsx`'s root
+ * `errorElement` exists for (see the comment there), and a boundary here
+ * would swallow them before the route boundary ever saw them.
+ */
+export function lazyShell(
+  factory: () => Promise<{ default: React.ComponentType }>,
+  loader: React.ReactNode = <PageLoader />,
+) {
+  const Component = lazyRetry(factory);
+  return (
+    <Suspense fallback={loader}>
+      <Component />
+    </Suspense>
+  );
+}
