@@ -282,7 +282,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// /debug/vars still reads "notifier".
 	var pool *jobs.Pool
 	var queue notifications.Queue
+	var jobRetention jobRetentionStore
 	if d.models.Jobs != nil {
+		jobRetention = d.models.Jobs
 		metrics := queueMetrics()
 		pool = jobs.NewPool(d.models.Jobs, jobs.Config{
 			Workers:    4,
@@ -592,6 +594,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.wa = waClient
 	app.mailer = mailerClient
 	app.jobs = pool
+	app.jobRetention = jobRetention
 	app.queue = queue
 	app.blacklist = blacklist
 	app.events = events

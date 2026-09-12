@@ -202,6 +202,53 @@ func TestAPermanentRefusalDoesNotSpendTheWholeBudget(t *testing.T) {
 	}
 }
 
+// TestAnUnknownTypeExpiresAfterMaxAge is the terminal state MaxAge gives a
+// not-attempted job: a job already past MaxAge dead-letters with the reason
+// recorded, while a fresh one of the same unknown type is still released,
+// spending no attempt, as before.
+func TestAnUnknownTypeExpiresAfterMaxAge(t *testing.T) {
+	s, jobType := newStore(t)
+	ctx := bypass(t)
+
+	old := enqueue(t, s, ctx, jobType, map[string]int{"n": 1}, time.Time{}, 5, "")
+	fresh := enqueue(t, s, ctx, jobType, map[string]int{"n": 2}, time.Time{}, 5, "")
+	if _, err := s.DB.Exec(ctx,
+		`UPDATE jobs SET created_at = NOW() - INTERVAL '25 hours' WHERE id = $1`, old,
+	); err != nil {
+		t.Fatalf("backdating created_at: %v", err)
+	}
+
+	pool := jobs.NewPool(s, jobs.Config{
+		Workers: 2, PollInterval: 10 * time.Millisecond, MaxAge: 24 * time.Hour, Logger: discardLogger(),
+	})
+	pool.Start()
+	t.Cleanup(pool.Shutdown)
+
+	waitFor(t, "the old job to expire", func() bool {
+		got, err := s.Get(ctx, old)
+		return err == nil && got.Status == jobs.StatusFailed
+	})
+	got, err := s.Get(ctx, old)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.LastError == "" {
+		t.Error("an expired job records no reason")
+	}
+
+	waitFor(t, "the fresh job to be released rather than killed", func() bool {
+		got, err := s.Get(ctx, fresh)
+		return err == nil && got.Status == jobs.StatusPending
+	})
+	got, err = s.Get(ctx, fresh)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Attempts != 0 {
+		t.Errorf("a released job spent an attempt: %d", got.Attempts)
+	}
+}
+
 // TestTheCounterNamesAreTheOnesOperatorsRead pins the queue's expvar surface
 // (CON-07). The map is injected now rather than registered by a package-level
 // expvar.NewMap, and the one thing that must not change in that move is what

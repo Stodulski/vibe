@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"expvar"
 	"fmt"
 	"log/slog"
@@ -35,6 +36,16 @@ type Config struct {
 	// being attempted. Default: 30s — half the mailer breaker's 60s reset, so
 	// a job rides out an open breaker in two hops instead of spinning on it.
 	NotAttemptedDelay time.Duration
+	// MaxAge bounds how long a job may circulate without ever completing an
+	// attempt. Default: 24h — the old notifier's TaskTTL. Past it, an
+	// outcome that would otherwise be released (an unknown type, an open
+	// breaker) kills the job instead, and a claim past MaxAge is killed
+	// rather than run.
+	MaxAge time.Duration
+	// Retention is how long a finished job is kept before cmd/api's
+	// clean_jobs cron deletes it. Default: 7 days — also how long DedupKey
+	// keeps protecting.
+	Retention time.Duration
 
 	// Metrics is the counter surface, published by whoever registered the map.
 	//
@@ -77,9 +88,24 @@ func (c *Config) applyDefaults() {
 	if c.NotAttemptedDelay <= 0 {
 		c.NotAttemptedDelay = 30 * time.Second
 	}
+	if c.MaxAge <= 0 {
+		c.MaxAge = 24 * time.Hour
+	}
+	if c.Retention <= 0 {
+		c.Retention = 7 * 24 * time.Hour
+	}
 	if c.Worker == "" {
 		c.Worker = uuid.NewString()
 	}
+}
+
+// DefaultConfig applies every default to a zero Config — for a caller that
+// needs one field's default (cmd/api's clean_jobs cron and Retention)
+// without duplicating the numbers here.
+func DefaultConfig() Config {
+	var c Config
+	c.applyDefaults()
+	return c
 }
 
 // Pool is a fixed set of workers draining the jobs table, plus the sweeper
@@ -198,6 +224,13 @@ func (p *Pool) work() {
 func (p *Pool) handle(job *Job) {
 	start := time.Now()
 
+	// Checked before the handler lookup: a type a rollback restored to the
+	// registry must still not run once the job is this old.
+	if p.expired(job) {
+		p.expire(job, "claimed past MaxAge without an attempt", start)
+		return
+	}
+
 	handler, known := p.handlers[job.Type]
 	if !known {
 		// Not a poison payload: an instance on an older build does not know a
@@ -237,6 +270,11 @@ func (p *Pool) settle(job *Job, outcome Outcome, cause error, start time.Time) {
 		text = cause.Error()
 	}
 
+	if outcome == OutcomeNotAttempted && p.expired(job) {
+		p.expire(job, text, start)
+		return
+	}
+
 	var result string
 	var err error
 	switch outcome {
@@ -255,6 +293,21 @@ func (p *Pool) settle(job *Job, outcome Outcome, cause error, start time.Time) {
 	}
 
 	p.log(job, result, cause, err, start)
+}
+
+// expired reports whether job has sat past MaxAge without completing an
+// attempt — the state that would otherwise circulate forever.
+func (p *Pool) expired(job *Job) bool {
+	return time.Since(job.CreatedAt) >= p.cfg.MaxAge
+}
+
+// expire kills a job that ran out its MaxAge without a completed attempt.
+// See jobs.Config.MaxAge.
+func (p *Pool) expire(job *Job, reason string, start time.Time) {
+	text := fmt.Sprintf("expired after %s without an attempt: %s", p.cfg.MaxAge, reason)
+	err := p.store.Kill(context.Background(), job.ID, text)
+	p.count("expired", 1)
+	p.log(job, "expired", errors.New(reason), err, start)
 }
 
 // retry spends the attempt, reporting whether that was the last one.

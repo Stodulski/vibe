@@ -145,6 +145,7 @@ var optionalApplicationFields = map[string]string{
 	"storage":   "nil unless object storage is configured; uploads answer 503",
 	"specValidator": "nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off; " +
 		"the conformance suite is the same check without the runtime cost",
+	"jobRetention": "built from models.Jobs alongside jobs; nil under the same condition",
 }
 
 // TestNewApplicationWiresEveryField is the check unwiredDependencies() was

@@ -26,6 +26,9 @@ import (
 //
 // Every part is included, in order, separated by a byte that cannot occur in
 // one, so ("a", "bc") and ("ab", "c") are different keys.
+//
+// The key protects for as long as its row lives: it is Config.Retention's
+// DeleteDone sweep that frees one, by deleting the done job holding it.
 func DedupKey(jobType string, parts ...string) string {
 	h := sha256.New()
 	h.Write([]byte(jobType))

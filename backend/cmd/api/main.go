@@ -101,6 +101,8 @@ type application struct {
 	wa      *whatsapp.WAClient
 	mailer  *mailer.Mailer
 	jobs    *jobs.Pool
+	// jobRetention is what clean_jobs needs; see jobRetentionStore in cron.go.
+	jobRetention jobRetentionStore
 	// queue is what app.notify publishes to: the jobs table (wrapped by
 	// taskQueue) when a store is configured, a recording memoryQueue
 	// otherwise. It is a field, distinct from jobs, so a test can read back
