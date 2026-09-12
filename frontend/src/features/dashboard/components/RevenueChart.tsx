@@ -4,6 +4,7 @@ import { formatPrice, formatDateShort } from '@/shared/lib/utils';
 import { useRevenueChart } from '../hooks/useRevenueChart';
 import { PeriodToggle, type RevenuePeriod } from './revenue-chart/PeriodToggle';
 import { ChartBody } from './revenue-chart/ChartBody';
+import type { ChartBodyState } from './revenue-chart/chartBodyState';
 
 const t = ES_AR;
 
@@ -26,6 +27,17 @@ export function RevenueChart({ complexId }: RevenueChartProps) {
 
   const total = useMemo(() => chartData.reduce((sum, d) => sum + d.amount, 0), [chartData]);
 
+  const state: ChartBodyState = isLoading
+    ? { status: 'loading' }
+    : isError
+      ? {
+          status: 'error',
+          onRetry: () => {
+            void refetch();
+          },
+        }
+      : { status: 'ready', chartData };
+
   return (
     <section
       className="flex h-72 flex-col rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-5 xl:h-full"
@@ -34,7 +46,7 @@ export function RevenueChart({ complexId }: RevenueChartProps) {
       <div className="mb-4 flex items-start justify-between gap-3 sm:mb-5">
         <div className="min-w-0">
           <h3 className="whitespace-nowrap text-sm font-semibold text-text-primary">{t.dashboard.revenue}</h3>
-          {!isLoading && (
+          {state.status !== 'loading' && (
             <p className="score-text mt-0.5 whitespace-nowrap text-lg font-bold text-text-primary sm:text-xl">
               {formatPrice(total)}
             </p>
@@ -44,15 +56,7 @@ export function RevenueChart({ complexId }: RevenueChartProps) {
       </div>
 
       <div className="min-h-0 flex-1">
-        <ChartBody
-          isLoading={isLoading}
-          isError={isError}
-          onRetry={() => {
-            void refetch();
-          }}
-          chartData={chartData}
-          period={period}
-        />
+        <ChartBody state={state} period={period} />
       </div>
     </section>
   );

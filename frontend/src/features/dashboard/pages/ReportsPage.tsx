@@ -5,6 +5,7 @@ import { useMonthlyReport } from '@/features/dashboard';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { MonthYearExportBar } from './reports/MonthYearExportBar';
 import { ReportCard } from './reports/ReportCard';
+import { toReportCardState } from './reports/reportCardState';
 import { useMonthYearSelection } from './reports/useMonthYearSelection';
 import { useReportExport } from './reports/useReportExport';
 
@@ -55,7 +56,7 @@ function ReportsPageContent({ complexId, createdAt }: { complexId: string; creat
         </div>
       )}
 
-      <ReportCard month={month} year={year} isLoading={isLoading} isError={isError} report={report} />
+      <ReportCard month={month} year={year} state={toReportCardState({ isLoading, isError, report })} />
     </div>
   );
 }
