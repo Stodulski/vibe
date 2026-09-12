@@ -1,13 +1,12 @@
 import type { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
-import { AdminLayout } from '@/app/layout/AdminLayout';
-import { ownerPage } from './routeHelpers';
+import { lazyShell, ownerPage } from './routeHelpers';
 
 export const adminRoutes: RouteObject[] = [
   {
     element: (
       <ProtectedRoute allowedRoles={['superadmin']}>
-        <AdminLayout />
+        {lazyShell(() => import('@/app/layout/AdminLayout').then((m) => ({ default: m.AdminLayout })))}
       </ProtectedRoute>
     ),
     children: [
