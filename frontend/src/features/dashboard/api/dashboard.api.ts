@@ -64,6 +64,9 @@ export const dashboardApi = {
     api
       .get(`complexes/${complexId}/reports/export`, {
         searchParams: { month: String(month), year: String(year) },
+        // The backend builds the workbook synchronously, so this is the one
+        // call that legitimately outlives the client's 10 s default.
+        timeout: 60_000,
       })
       .blob(),
 };

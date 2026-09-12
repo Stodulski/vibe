@@ -1,5 +1,6 @@
-import ky, { HTTPError } from 'ky';
-import type { Options } from 'ky';
+import ky, { HTTPError, isHTTPError } from 'ky';
+import type { Options, RetryOptions } from 'ky';
+import { ApiError } from '@/shared/lib/ApiError';
 import { useStore } from '@/shared/stores';
 import { env } from '@/shared/lib/env';
 import { parseWith } from '@/shared/lib/apiParse';
@@ -120,11 +121,66 @@ function getCurrentUser(signal?: AbortSignal): Promise<CurrentUserResponse> {
     .then(parseWith(currentUserResponseSchema, 'ky.getCurrentUser'));
 }
 
+/**
+ * Where a session that could not be refreshed has to send the browser.
+ *
+ * This is a hard navigation — the store is gone and React never gets to
+ * render a `<Navigate>` — so the destination cannot ride along in router
+ * state the way `ProtectedRoute`'s does. It goes in the query string
+ * instead, and `useAuthSuccessHandler` reads it back after the next login
+ * and validates it against the same allowlist, so an expired token no
+ * longer costs the person the page they were on.
+ *
+ * Returns `null` when there is nothing to do: already on `/login` or
+ * `/register`, where a redirect would only wipe a half-typed form.
+ */
+export function loginUrlPreserving(location: { pathname: string; search: string }): string | null {
+  const { pathname, search } = location;
+  if (pathname === '/login' || pathname === '/register') return null;
+  return `/login?from=${encodeURIComponent(pathname + search)}`;
+}
+
+/**
+ * How long a request gets before it is given up on.
+ *
+ * Ten seconds, not ky's default of ten *thousand* milliseconds' worth of
+ * patience on a hung API: past that a spinner is telling the person nothing
+ * except that the page is broken, and a `TimeoutError` at least produces a
+ * toast and a Sentry event. The one call that legitimately takes longer —
+ * the monthly report export, which the backend builds synchronously — passes
+ * its own `timeout` per request.
+ */
+export const REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * Retry policy, spelled out rather than inherited.
+ *
+ * ky's defaults happen to be close to this, but they are ky's to change in a
+ * major version, and the thing they would silently change is whether a POST
+ * that creates a booking can run twice. Only methods that are idempotent by
+ * definition are retried, and only on statuses that mean "not now" rather
+ * than "no": 4xx other than 408/429 are the caller's fault and repeating them
+ * only costs time. POST/PATCH are absent on purpose — the ones that must
+ * survive a retry carry an `Idempotency-Key` instead (see the booking hooks).
+ */
+const RETRY: RetryOptions = {
+  limit: 2,
+  methods: ['get', 'head', 'options', 'trace'],
+  statusCodes: [408, 429, 500, 502, 503, 504],
+};
+
 const api = ky.create({
   prefix: env.VITE_API_URL,
-  timeout: 30_000,
+  timeout: REQUEST_TIMEOUT_MS,
+  retry: RETRY,
   credentials: 'include',
   hooks: {
+    beforeError: [
+      // Every failure leaving this client is an `ApiError`: the backend's
+      // error body read once, here, instead of at each of the twenty-odd
+      // call sites that used to re-read `error.data` themselves.
+      ({ error }) => (isHTTPError(error) ? new ApiError(error) : error),
+    ],
     beforeRequest: [
       ({ request }) => {
         const csrfToken = useStore.getState().csrfToken;
@@ -163,9 +219,9 @@ const api = ky.create({
           return await ky(request, { ...options, hooks: {} } as Options);
         } catch {
           useStore.getState().logout();
-          const path = window.location.pathname;
-          if (path !== '/login' && path !== '/register') {
-            window.location.href = '/login';
+          const target = loginUrlPreserving(window.location);
+          if (target) {
+            window.location.href = target;
           }
           return response;
         }

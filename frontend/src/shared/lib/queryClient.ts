@@ -1,6 +1,7 @@
 import { QueryCache, QueryClient, MutationCache } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react';
 import { HTTPError, NetworkError, TimeoutError } from 'ky';
+import { ApiError } from '@/shared/lib/ApiError';
 
 /**
  * Statuses a query/mutation fails with often enough in normal use that
@@ -14,16 +15,18 @@ const EXPECTED_STATUSES = new Set([401, 403, 404, 422]);
 /**
  * Shared `onError` for both caches (see `queryClient` below).
  *
- * `src/shared/lib/ky.ts` is the one client every query and mutation goes
- * through, but it is reserved for a separate change — reporting from here
- * instead reads the same `HTTPError` ky already throws, without adding a
- * `beforeError` hook there.
+ * Every failure that came through `src/shared/lib/ky.ts` is an `ApiError`,
+ * which read `X-Request-ID` off the response once — so the tag that lets a
+ * Sentry event be matched to the backend's own log line for the same request
+ * is taken from there rather than re-read here. A bare `HTTPError` (the boot
+ * calls that bypass the shared client) still reports, reading the header
+ * directly.
  */
 function reportQueryError(error: unknown): void {
   if (error instanceof HTTPError) {
     if (EXPECTED_STATUSES.has(error.response.status)) return;
 
-    const requestId = error.response.headers.get('X-Request-Id');
+    const requestId = error instanceof ApiError ? error.requestId : error.response.headers.get('X-Request-ID');
     Sentry.captureException(error, {
       tags: {
         status: error.response.status,
