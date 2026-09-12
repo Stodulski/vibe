@@ -4,7 +4,7 @@ Backend API for Vibe, a booking platform for sports complexes: court availabilit
 
 ## Stack
 
-- Go 1.26, `net/http` + [httprouter](https://github.com/julienschmidt/httprouter)
+- Go 1.27, `net/http` + [httprouter](https://github.com/julienschmidt/httprouter) (planned move to `net/http`'s own `ServeMux` + [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) — see [ADR 0001](docs/adr/0001-httprouter-and-the-move-to-net-http.md))
 - PostgreSQL via [pgx/v5](https://github.com/jackc/pgx) and [sqlc](https://sqlc.dev)
 - Redis (required at runtime, see below)
 - [MercadoPago](https://www.mercadopago.com) for payments
@@ -17,12 +17,12 @@ Backend API for Vibe, a booking platform for sports complexes: court availabilit
 
 ## Prerequisites
 
-- Go 1.26 (see `go.mod`)
+- Go 1.27 (see `go.mod`)
 - Docker and Docker Compose, to run PostgreSQL and Redis locally
 - PostgreSQL 18.6 and Redis 8.10.1 (provided by `docker-compose.yml`, no separate install needed)
 - [goose](https://github.com/pressly/goose) for running migrations with the CLI: `go install github.com/pressly/goose/v3/cmd/goose@latest`
-- [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html), only if you edit `db/queries/*.sql`
-- [golangci-lint](https://golangci-lint.run/welcome/install/) v2.12+, only for `make lint` (CI pins v2.12)
+- [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html) v1.31+, only if you edit `db/queries/*.sql` (`make sqlc`) or want to run `make vet/sqlc` locally
+- [golangci-lint](https://golangci-lint.run/welcome/install/) v2.13+, only for `make lint` (CI pins v2.13)
 
 ## Install and run locally
 
@@ -52,6 +52,12 @@ Generate the two secrets `.env` needs and that have no default:
 openssl rand -base64 32   # JWT_SECRET (at least 32 random bytes)
 echo "k1:$(openssl rand -base64 32)"   # MP_CREDENTIAL_KEYS
 ```
+
+`MP_CREDENTIAL_KEYS` is required unconditionally, even if MercadoPago is unused — it is the
+keyring that encrypts stored MercadoPago credentials at rest. `cmd/mpcredkey` does not generate
+this keyring (the command above does); it consumes one, to convert credentials already in the
+database between plaintext and the encrypted envelope when the keyring changes — see
+`go run ./cmd/mpcredkey` (dev/E2E databases only) and its package doc comment for `seal`/`rekey`.
 
 Then apply migrations and run the server:
 
@@ -182,7 +188,7 @@ internal/db/       sqlc-generated code: do not edit manually
 internal/          Cross-cutting services: mailer, notifier, storage, whatsapp, mp, circuitbreaker...
 db/migrations/     Goose migrations (PostgreSQL)
 db/queries/        SQL consumed by sqlc, one file per entity
-docs/              Reference docs (e.g. WhatsApp templates)
+docs/              Reference docs (WhatsApp templates, backup runbook, ADRs in docs/adr/)
 scripts/           Operational scripts (backup, e2e runner)
 tests/load/        Artillery load test scenarios
 ```
@@ -196,8 +202,10 @@ make lint                # golangci-lint
 make audit                # go mod verify + govulncheck
 make build               # build ./bin/api
 make sqlc                 # regenerate internal/db after editing db/queries/*.sql
+make vet/sqlc              # validate queries against a live, migrated schema (needs DATABASE_URL)
 make migrate-up           # apply migrations with goose
 make migrate-down         # roll back one migration (asks for confirmation)
+make migrate-create name=<name>   # scaffold a new empty migration file
 make e2e-db-up            # start an isolated Postgres/Redis for integration tests
 make test/integration     # integration tests against that database
 make test/security        # security-focused integration tests
@@ -210,13 +218,53 @@ go run ./cmd/mpcredkey seal|rekey ...        # convert MercadoPago OAuth credent
 
 ## Deploy
 
-The server deploys to [Railway](https://railway.app) from `Dockerfile` (Go 1.26 multi-stage build). `railway.toml` sets:
+The server deploys to [Railway](https://railway.app) from `Dockerfile` (Go 1.27 multi-stage build, distroless final image — see the Dockerfile's own comments for why). `railway.toml` sets:
 
 - `preDeployCommand = ["/app/api -migrate-only"]`: applies migrations once per deploy, before any replica serves traffic, using the same binary that runs the server.
 - `startCommand = "/app/api"`
-- `healthcheckPath = "/api/v1/healthcheck"`
+- `healthcheckPath = "/api/v1/healthcheck"`: **readiness** (pings Postgres and Redis). `/api/v1/livez` is liveness (answers 200 unconditionally) — not wired into `railway.toml` because Railway's own health check only supports one path per service, but there for a future separate liveness prober.
 
-CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository root) with these jobs on every push and pull request to `main` that touches `backend/`: `lint` (golangci-lint), `test` (`make test`), `build` (`make build`), `audit` (`make audit`), and `integration` (`make e2e-db-up && make test/integration`). The client's Playwright suite runs from `.github/workflows/e2e.yml` via `make e2e`, triggered by changes to either `backend/` or `frontend/`.
+CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository root) on every push to `main` and every pull request that touches `backend/`, regardless of the PR's base branch (stacked PRs get CI too). Jobs:
+
+| Job | What it runs |
+|---|---|
+| `lint` | golangci-lint (config in `.golangci.yml`) |
+| `format` | `gofmt -l .`, `goimports -l .`, `go vet ./...` |
+| `test` | `make test` (unit tests, race detector) |
+| `build` | `make build` |
+| `audit` | `make audit` (`go mod verify` + `govulncheck`) |
+| `sqlc` | `make vet/sqlc` against a disposable, migrated Postgres — catches a query that no longer matches the schema |
+| `container` | builds `Dockerfile` and scans the image with [Trivy](https://github.com/aquasecurity/trivy), failing on HIGH/CRITICAL findings with a known fix |
+| `integration` | `make e2e-db-up && make test/integration` |
+
+**Required status checks**: all eight jobs above should be marked required for merging into `main` (GitHub → repository Settings → Branches → branch protection rule for `main`). Not configured by this PR — it is a repository setting, done by the owner outside the codebase.
+
+**"Wait for CI"**: Railway's GitHub integration deploys on push to `main` by reading `railway.toml`, independent of whether GitHub Actions passed. Railway has a **"Wait for CI"** toggle (project → service → Settings → Source) that makes it hold the deploy until GitHub's checks for that commit are green. Not enabled by this PR — it is a Railway dashboard setting the owner flips.
+
+The client's Playwright suite runs from `.github/workflows/e2e.yml` via `make e2e`, triggered by changes to either `backend/` or `frontend/`.
+
+**Backups**: not a Railway feature for this plan — see [`docs/runbook-backups.md`](docs/runbook-backups.md) for the scheduled `pg_dump`-to-R2 workflow, retention, and the restore procedure.
+
+**Dependency updates**: Dependabot (`.github/dependabot.yml`) opens weekly, grouped (minor/patch) PRs for `backend`'s Go modules, its Docker base images, and every workflow's GitHub Actions.
+
+**Release tagging**: annotated, semantic-version tags per release — `git tag -a vX.Y.Z -m "..."`. The repository has no tags yet; `v1.0.0` should be the first, created by the owner (not by an automated PR) once cut.
+
+## Operations
+
+- **Backups and restore**: [`docs/runbook-backups.md`](docs/runbook-backups.md) — what runs, where backups land, retention, and the step-by-step restore procedure.
+- **Log retention**: this service does not manage its own log storage — stdout/stderr go to whatever Railway's plan retains and shows under the service's **Observability**/**Logs** tab. Check the current plan's retention window there (or in Railway's pricing page) rather than assuming a number; it can change with the plan. Sampling on top of that (independent of Railway's retention) is `REQUEST_LOG_SAMPLE`, implemented in `internal/middleware/logging.go` — it logs one successful request in N, never sampling away failures or slow requests.
+- **R2 bucket policy** (`R2_PUBLIC_URL`, client-uploaded images): the bucket is public **by object key only** — anyone with a specific object's URL can read it, but the bucket does not expose listing, so an object's key has to already be known (it is not guessable: see `internal/storage`). Writes never go through the backend directly; the client uploads via a **presigned PUT** the backend issues, scoped to one object key. There is no presigned GET: reads are the plain public URL. This is a deliberate tradeoff (simplicity over per-read expiry), not an oversight — revisit if these images should ever need to stop being permanently public once linked.
+- **Timezone**: the process runs at `TZ=UTC`; the product's own wall-clock is a single hardcoded `America/Argentina/Buenos_Aires`. See [ADR 0005](docs/adr/0005-single-timezone.md).
+
+## Architecture decisions
+
+Short, one-page ADRs for decisions that aren't obvious from reading the code: [`docs/adr/`](docs/adr/).
+
+- [0001 — httprouter today, planned move to `net/http` `ServeMux` + oapi-codegen](docs/adr/0001-httprouter-and-the-move-to-net-http.md)
+- [0002 — sqlc + pgx/v5](docs/adr/0002-sqlc-and-pgx.md)
+- [0003 — goose migrations, forward-only, direct edits while there are no production users](docs/adr/0003-goose-migrations.md)
+- [0004 — Redis-backed notification queue today, planned unification onto a Postgres `jobs` table](docs/adr/0004-notification-queue-and-the-move-to-a-jobs-table.md)
+- [0005 — single timezone by design](docs/adr/0005-single-timezone.md)
 
 ## Architecture notes
 
