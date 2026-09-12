@@ -22,17 +22,30 @@ func (app *application) routes() http.Handler {
 
 	app.registerRoutes(router)
 
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{app.config.FrontendURL},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-CSRF-Token"},
-		AllowCredentials: true,
-		MaxAge:           86400,
-	})
+	c := cors.New(corsOptions(app.config.FrontendURL))
 
 	return app.middleware.Wrap(router, func(next http.Handler) http.Handler {
 		return normalizeCORSPreflightHeaders(c.Handler(next))
 	})
+}
+
+// corsOptions is the browser-facing CORS policy: one allowed origin, the
+// methods the API answers, and the headers a request may carry.
+//
+// ExposedHeaders is the one that is not about the request. Without it a browser
+// hides every response header outside the CORS-safelist from the page's own
+// JavaScript, X-Request-ID included — so the correlation id the server puts on
+// every response, and asks support tickets to quote, was readable by curl and
+// invisible to the app that would have to show it.
+func corsOptions(frontendURL string) cors.Options {
+	return cors.Options{
+		AllowedOrigins:   []string{frontendURL},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"X-Request-ID"},
+		AllowCredentials: true,
+		MaxAge:           86400,
+	}
 }
 
 // normalizeCORSPreflightHeaders lowercases an incoming
