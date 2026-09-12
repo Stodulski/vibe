@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useId } from 'react';
 import { Input } from '@/shared/components/ui/input';
+import { cn } from '@/shared/lib/utils';
 
 /**
  * One line of the rate table: a label on the left, a price field on the right.
@@ -69,7 +70,7 @@ export function PriceField({
         aria-invalid={!!error}
         aria-label={ariaLabel}
         aria-describedby={error ? errorId : undefined}
-        className={`h-8 pl-5 text-sm font-semibold ${className ?? ''}`}
+        className={cn('h-8 pl-5 text-sm font-semibold', className)}
         {...props}
       />
       {error && (
