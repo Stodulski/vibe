@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useClientActions, useClient } from '@/features/clients';
 import { queryKeys } from '@/shared/lib/queryKeys';
@@ -16,9 +16,9 @@ import type { TopClient } from '@/shared/types/api.types';
 export function useDashboardClientDetail(complexId: string) {
   const queryClient = useQueryClient();
 
-  const invalidateDashboardClients = useCallback(() => {
+  const invalidateDashboardClients = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.clients(complexId) });
-  }, [queryClient, complexId]);
+  };
 
   const actions = useClientActions(complexId, invalidateDashboardClients);
 
@@ -29,21 +29,15 @@ export function useDashboardClientDetail(complexId: string) {
   const [topClientId, setTopClientId] = useState<string | null>(null);
   const { data: topClientDetail } = useClient(complexId, topClientId);
 
-  const handleSelectTopClient = useCallback(
-    (topClient: TopClient) => {
-      setTopClientId(topClient.id);
-      actions.setDetailOpen(true);
-    },
-    [actions],
-  );
+  const handleSelectTopClient = (topClient: TopClient) => {
+    setTopClientId(topClient.id);
+    actions.setDetailOpen(true);
+  };
 
-  const setDetailOpen = useCallback(
-    (open: boolean) => {
-      if (!open) setTopClientId(null);
-      actions.setDetailOpen(open);
-    },
-    [actions],
-  );
+  const setDetailOpen = (open: boolean) => {
+    if (!open) setTopClientId(null);
+    actions.setDetailOpen(open);
+  };
 
   const selectedClient = topClientId ? (topClientDetail?.client ?? null) : actions.selectedClient;
 

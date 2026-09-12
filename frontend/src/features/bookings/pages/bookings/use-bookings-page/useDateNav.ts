@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns/format';
 import { addDays } from 'date-fns/addDays';
@@ -24,24 +24,18 @@ export function useDateNav() {
   const selectedDate = parseDateParam(searchParams.get('date'));
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const setSelectedDate = useCallback(
-    (date: string) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          next.set('date', date);
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  const setSelectedDate = (date: string) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('date', date);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
-  const dateLabel = useMemo(() => {
-    const d = parseISO(selectedDate);
-    return format(d, "EEEE d 'de' MMMM", { locale: es });
-  }, [selectedDate]);
+  const dateLabel = format(parseISO(selectedDate), "EEEE d 'de' MMMM", { locale: es });
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const isToday = selectedDate === todayStr;
@@ -49,27 +43,18 @@ export function useDateNav() {
 
   // Reads the current date from the URL itself (not the closed-over
   // `selectedDate`) so two quick clicks never race against a stale value.
-  const shiftDate = useCallback(
-    (deltaDays: number) => {
-      setSearchParams(
-        (current) => {
-          const currentDate = parseDateParam(current.get('date'));
-          const next = new URLSearchParams(current);
-          next.set('date', format(addDays(parseISO(currentDate), deltaDays), 'yyyy-MM-dd'));
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  const shiftDate = (deltaDays: number) => {
+    setSearchParams(
+      (current) => {
+        const currentDate = parseDateParam(current.get('date'));
+        const next = new URLSearchParams(current);
+        next.set('date', format(addDays(parseISO(currentDate), deltaDays), 'yyyy-MM-dd'));
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
-  // Not memoized: all three end up on the `onClick` of a plain shadcn
-  // `Button` in DateNavControls, which is not wrapped in `memo`. A stable
-  // identity buys nothing there, and the hook's own consumers re-render on
-  // every date change anyway (PERF-04). `shiftDate` and `setSelectedDate`
-  // keep their `useCallback`: both are effect-free URL writers handed to
-  // other components as props.
   const handlePrevDay = () => {
     shiftDate(-1);
   };

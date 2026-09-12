@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import type { Booking, BlockedSlot, CourtWithPrices } from '@/shared/types/api.types';
 
 export interface TimelineColumnData {
@@ -24,30 +23,28 @@ export function useTimelineColumns({
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
 }): TimelineColumnData[] {
-  return useMemo(() => {
-    const columns: TimelineColumnData[] = activeCourts.map((court) => ({
-      courtId: court.id,
-      courtName: court.name,
-      bookings: bookings.filter((b) => b.court_id === court.id),
-      blocked: blockedSlots.filter((s) => s.court_id === court.id),
-    }));
+  const columns: TimelineColumnData[] = activeCourts.map((court) => ({
+    courtId: court.id,
+    courtName: court.name,
+    bookings: bookings.filter((b) => b.court_id === court.id),
+    blocked: blockedSlots.filter((s) => s.court_id === court.id),
+  }));
 
-    const knownIds = new Set(activeCourts.map((c) => c.id));
-    const orphanIds = [...new Set([...bookings, ...blockedSlots].map((item) => item.court_id))].filter(
-      (id) => !knownIds.has(id),
-    );
+  const knownIds = new Set(activeCourts.map((c) => c.id));
+  const orphanIds = [...new Set([...bookings, ...blockedSlots].map((item) => item.court_id))].filter(
+    (id) => !knownIds.has(id),
+  );
 
-    for (const courtId of orphanIds) {
-      const orphanBooking = bookings.find((b) => b.court_id === courtId);
-      const orphanBlocked = blockedSlots.find((s) => s.court_id === courtId);
-      columns.push({
-        courtId,
-        courtName: orphanBooking?.court_name ?? orphanBlocked?.court_name ?? courtId,
-        bookings: bookings.filter((b) => b.court_id === courtId),
-        blocked: blockedSlots.filter((s) => s.court_id === courtId),
-      });
-    }
+  for (const courtId of orphanIds) {
+    const orphanBooking = bookings.find((b) => b.court_id === courtId);
+    const orphanBlocked = blockedSlots.find((s) => s.court_id === courtId);
+    columns.push({
+      courtId,
+      courtName: orphanBooking?.court_name ?? orphanBlocked?.court_name ?? courtId,
+      bookings: bookings.filter((b) => b.court_id === courtId),
+      blocked: blockedSlots.filter((s) => s.court_id === courtId),
+    });
+  }
 
-    return columns;
-  }, [activeCourts, bookings, blockedSlots]);
+  return columns;
 }

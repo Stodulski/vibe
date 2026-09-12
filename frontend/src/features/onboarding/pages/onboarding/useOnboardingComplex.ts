@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useComplexes } from '@/features/complex';
 import { useCourts } from '@/features/courts';
 
@@ -25,12 +24,10 @@ export function useOnboardingComplex({ isNewComplex, stateComplexId, justCreated
   // court count. So it stops guessing. `useOnboardingStep` already derives the
   // right step from the server once a complex is chosen; the only job left
   // here is choosing one when the caller did not.
-  const incompleteComplex = useMemo(() => {
-    if (!complexes || complexes.length === 0) return null;
-    return (
-      [...complexes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] ?? null
-    );
-  }, [complexes]);
+  const incompleteComplex =
+    !complexes || complexes.length === 0
+      ? null
+      : ([...complexes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] ?? null);
 
   // The complex being onboarded: explicit state > just created > incomplete from API.
   // When creating a new complex, don't pick an existing one.

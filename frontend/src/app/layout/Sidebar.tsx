@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '@/shared/stores';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
@@ -24,12 +23,9 @@ export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const prefetch = usePrefetch(complex?.id ?? null);
-  const handlePrefetch = useCallback(
-    (to: string) => () => {
-      prefetch(to);
-    },
-    [prefetch],
-  );
+  const handlePrefetch = (to: string) => () => {
+    prefetch(to);
+  };
 
   const collapsed = !isMobile;
 

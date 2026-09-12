@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
@@ -40,45 +40,39 @@ export function useClientNotes(complexId: string, client: Client | null | undefi
     [client?.id],
   );
 
-  const saveNotes = useCallback(
-    (value: string, clientId: string) => {
-      lastAttemptRef.current = { value, clientId };
-      setSaveError(undefined);
-      updateClient.mutate(
-        { clientId, data: { notes: value } },
-        {
-          onSuccess: () => {
-            lastAttemptRef.current = undefined;
-            toast.success(t.clients.notesUpdated);
-          },
-          // Keep the typed draft as-is (it already lives in `notes`, set by
-          // `onNotesChange` below) and surface an inline, retryable error
-          // instead of silently discarding the failed save.
-          onError: (error) => {
-            setSaveError(getHttpErrorMessage(error, t.clients.notesSaveError));
-          },
+  const saveNotes = (value: string, clientId: string) => {
+    lastAttemptRef.current = { value, clientId };
+    setSaveError(undefined);
+    updateClient.mutate(
+      { clientId, data: { notes: value } },
+      {
+        onSuccess: () => {
+          lastAttemptRef.current = undefined;
+          toast.success(t.clients.notesUpdated);
         },
-      );
-    },
-    [updateClient],
-  );
+        // Keep the typed draft as-is (it already lives in `notes`, set by
+        // `onNotesChange` below) and surface an inline, retryable error
+        // instead of silently discarding the failed save.
+        onError: (error) => {
+          setSaveError(getHttpErrorMessage(error, t.clients.notesSaveError));
+        },
+      },
+    );
+  };
 
-  const onNotesChange = useCallback(
-    (value: string) => {
-      setNotes(value);
-      if (!client) return;
-      clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        saveNotes(value, client.id);
-      }, AUTOSAVE_DELAY_MS);
-    },
-    [client, saveNotes],
-  );
+  const onNotesChange = (value: string) => {
+    setNotes(value);
+    if (!client) return;
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      saveNotes(value, client.id);
+    }, AUTOSAVE_DELAY_MS);
+  };
 
-  const retrySave = useCallback(() => {
+  const retrySave = () => {
     const attempt = lastAttemptRef.current;
     if (attempt) saveNotes(attempt.value, attempt.clientId);
-  }, [saveNotes]);
+  };
 
   return {
     notes,

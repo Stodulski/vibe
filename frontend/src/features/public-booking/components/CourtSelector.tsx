@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { CourtAvailability } from '@/shared/types/api.types';
 import { TimeGroupList } from './court-selector/TimeGroupList';
@@ -58,8 +57,8 @@ export function CourtSelector({
 }: CourtSelectorProps) {
   const { handleSlotClick } = useCourtSelectorState({ onSelect });
 
-  const options = useMemo(() => buildTimeOptions(courts), [courts]);
-  const grouped = useMemo(() => groupTimeOptions(options), [options]);
+  const options = buildTimeOptions(courts);
+  const grouped = groupTimeOptions(options);
   // Whether this venue has courts of more than one type — decided once for
   // the whole grid. A club whose courts are all covered has nothing to warn
   // about, and a label that never varies is not a label.

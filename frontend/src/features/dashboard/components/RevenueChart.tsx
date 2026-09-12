@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice, formatDateShort } from '@/shared/lib/utils';
 import { useRevenueChart } from '../hooks/useRevenueChart';
@@ -16,16 +16,13 @@ export function RevenueChart({ complexId }: RevenueChartProps) {
   const [period, setPeriod] = useState<RevenuePeriod>('week');
   const { data: revenue, isLoading, isError, refetch } = useRevenueChart(complexId, period);
 
-  const chartData = useMemo(
-    () =>
-      revenue?.map((d) => ({
-        date: formatDateShort(d.date + 'T12:00:00').slice(0, 5),
-        amount: d.amount,
-      })) ?? [],
-    [revenue],
-  );
+  const chartData =
+    revenue?.map((d) => ({
+      date: formatDateShort(d.date + 'T12:00:00').slice(0, 5),
+      amount: d.amount,
+    })) ?? [];
 
-  const total = useMemo(() => chartData.reduce((sum, d) => sum + d.amount, 0), [chartData]);
+  const total = chartData.reduce((sum, d) => sum + d.amount, 0);
 
   const state: ChartBodyState = isLoading
     ? { status: 'loading' }

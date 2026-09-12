@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { findTotalPrice } from './pricing';
 import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';
 
@@ -43,15 +42,10 @@ export function useBookingPricing({
   /** Opening hours: they decide which day's card prices the hour. */
   schedules: Schedule[];
 }) {
-  // Not measured to be worth memoizing (§7) — a handful of courts, both a
-  // plain filter/find on every render (see 02-bookings-clients.md B6).
   const activeCourts = courts.filter((c) => c.is_active);
   const selectedCourt = courts.find((c) => c.id === courtId);
 
-  const estimatedPrice = useMemo(
-    () => findTotalPrice(courts, courtId, date, startTime, durationMinutes, schedules),
-    [courts, courtId, date, startTime, durationMinutes, schedules],
-  );
+  const estimatedPrice = findTotalPrice(courts, courtId, date, startTime, durationMinutes, schedules);
 
   // `estimatedPrice` is null both for "nothing chosen yet" and for "this hour
   // has no rate", which are not the same thing. Only once a court and a time
@@ -62,17 +56,13 @@ export function useBookingPricing({
 
   // Cents, from the manual-price field (pesos) — only meaningful when there's
   // no server-computed estimate for this span.
-  const manualPriceCents = useMemo(
-    () => (typeof price === 'number' && !Number.isNaN(price) ? Math.round(price * 100) : null),
-    [price],
-  );
+  const manualPriceCents = typeof price === 'number' && !Number.isNaN(price) ? Math.round(price * 100) : null;
 
   // The price the rest of the form (deposit cap, payment summary) should
   // follow: the server-computed estimate when there is one, otherwise
   // whatever the person typed into the manual-price field.
   const effectivePrice = estimatedPrice ?? manualPriceCents;
 
-  // Not measured to be worth memoizing (§7) — one division (see B6).
   const defaultDepositPesos = depositInPesos(effectivePrice, depositPercentage);
 
   const maxDepositPesos = effectivePrice !== null ? effectivePrice / 100 : null;

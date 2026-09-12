@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { fetchAutocompletePredictions, fetchPlaceDetails } from './addressApi';
 import { generateSessionToken, type AddressSelection, type Prediction } from './types';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -17,7 +17,7 @@ function useAddressSearch() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const search = useCallback((query: string, sessionToken: string) => {
+  const search = (query: string, sessionToken: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     // A new keystroke supersedes whatever request is still in flight for the
     // previous one — without this, a slow response for "Av. Lib" can land
@@ -52,7 +52,7 @@ function useAddressSearch() {
         }
       })();
     }, 500);
-  }, []);
+  };
 
   useEffect(() => {
     // Cleanup on unmount: an in-flight debounce timer or request must not

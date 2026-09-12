@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLogout } from '@/features/auth';
 import type { Complex } from '@/shared/types/api.types';
@@ -33,15 +33,12 @@ export function useOnboarding() {
   });
 
   // --- Step 1: complex created ---
-  const handleComplexCreated = useCallback(
-    (created?: Complex) => {
-      if (created) {
-        setJustCreatedId(created.id);
-      }
-      changeStep(2);
-    },
-    [changeStep],
-  );
+  const handleComplexCreated = (created?: Complex) => {
+    if (created) {
+      setJustCreatedId(created.id);
+    }
+    changeStep(2);
+  };
 
   const hasCourts = courts && courts.length > 0;
 

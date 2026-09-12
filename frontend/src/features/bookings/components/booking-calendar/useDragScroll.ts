@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 
 /**
  * Movement below this is a click's own jitter, not a drag.
@@ -33,53 +33,44 @@ export function useDragScroll(ref: RefObject<HTMLDivElement | null>) {
   const [dragging, setDragging] = useState(false);
   const origin = useRef({ x: 0, scrollLeft: 0, active: false });
 
-  const onPointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      const el = ref.current;
-      if (!el || e.pointerType !== 'mouse' || e.button !== 0) return;
-      origin.current = { x: e.clientX, scrollLeft: el.scrollLeft, active: true };
-    },
-    [ref],
-  );
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el || e.pointerType !== 'mouse' || e.button !== 0) return;
+    origin.current = { x: e.clientX, scrollLeft: el.scrollLeft, active: true };
+  };
 
-  const onPointerMove = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      const el = ref.current;
-      if (!el || !origin.current.active) return;
-      const dx = e.clientX - origin.current.x;
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el || !origin.current.active) return;
+    const dx = e.clientX - origin.current.x;
 
-      // Capture once the movement is past a click's jitter, so a plain click
-      // keeps its target. The columns have been following since the first
-      // pixel either way.
-      if (!dragging && Math.abs(dx) >= DRAG_THRESHOLD_PX) {
-        el.setPointerCapture(e.pointerId);
-        setDragging(true);
-      }
+    // Capture once the movement is past a click's jitter, so a plain click
+    // keeps its target. The columns have been following since the first
+    // pixel either way.
+    if (!dragging && Math.abs(dx) >= DRAG_THRESHOLD_PX) {
+      el.setPointerCapture(e.pointerId);
+      setDragging(true);
+    }
 
-      const target = origin.current.scrollLeft - dx;
-      el.scrollLeft = target;
+    const target = origin.current.scrollLeft - dx;
+    el.scrollLeft = target;
 
-      // Re-anchor whenever the browser clamps at either end. Without this,
-      // pulling 100px further into a wall builds up 100px of debt that has to
-      // be paid back before the columns move again — which is exactly what
-      // "it takes effort to get going at the edges" is.
-      if (el.scrollLeft !== target) {
-        origin.current.x = e.clientX;
-        origin.current.scrollLeft = el.scrollLeft;
-      }
-    },
-    [dragging, ref],
-  );
+    // Re-anchor whenever the browser clamps at either end. Without this,
+    // pulling 100px further into a wall builds up 100px of debt that has to
+    // be paid back before the columns move again — which is exactly what
+    // "it takes effort to get going at the edges" is.
+    if (el.scrollLeft !== target) {
+      origin.current.x = e.clientX;
+      origin.current.scrollLeft = el.scrollLeft;
+    }
+  };
 
-  const endDrag = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      const el = ref.current;
-      origin.current.active = false;
-      if (el?.hasPointerCapture(e.pointerId) === true) el.releasePointerCapture(e.pointerId);
-      setDragging(false);
-    },
-    [ref],
-  );
+  const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    origin.current.active = false;
+    if (el?.hasPointerCapture(e.pointerId) === true) el.releasePointerCapture(e.pointerId);
+    setDragging(false);
+  };
 
   return {
     dragging,

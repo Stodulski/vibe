@@ -1,4 +1,4 @@
-import { useCallback, useState, type RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import { formatPrice } from '@/shared/lib/utils';
 import type { ChartDatum, ChartLayout } from './chart-draw';
 import { measureText } from './measureText';
@@ -60,40 +60,37 @@ export function useChartTooltip(
   // render longer than it stays valid.
   const tooltip = rawTooltip?.resizeTick === resizeTick ? rawTooltip : null;
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      // Refs are read here, inside an event handler — never during render.
-      const layout = layoutRef.current;
-      const rect = rectRef.current;
-      if (!layout || !rect) return;
-      const mx = e.clientX - rect.left;
-      const nearest = findNearestPointIndex(layout.points, mx);
-      const pt = layout.points[nearest];
-      const datum = data[nearest];
-      if (!pt || !datum) return;
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Refs are read here, inside an event handler — never during render.
+    const layout = layoutRef.current;
+    const rect = rectRef.current;
+    if (!layout || !rect) return;
+    const mx = e.clientX - rect.left;
+    const nearest = findNearestPointIndex(layout.points, mx);
+    const pt = layout.points[nearest];
+    const datum = data[nearest];
+    if (!pt || !datum) return;
 
-      const wrapperW = rect.width;
-      const tooltipText = `${datum.date}  ${formatPrice(datum.amount)}`;
-      const estW = measureText(tooltipText, '13px sans-serif') + 32; // padding
-      let left = pt[0];
-      if (left + estW / 2 > wrapperW) left = wrapperW - estW / 2 - 4;
-      if (left - estW / 2 < 0) left = estW / 2 + 4;
+    const wrapperW = rect.width;
+    const tooltipText = `${datum.date}  ${formatPrice(datum.amount)}`;
+    const estW = measureText(tooltipText, '13px sans-serif') + 32; // padding
+    let left = pt[0];
+    if (left + estW / 2 > wrapperW) left = wrapperW - estW / 2 - 4;
+    if (left - estW / 2 < 0) left = estW / 2 + 4;
 
-      setRawTooltip({
-        x: pt[0],
-        y: pt[1],
-        datum,
-        bottomY: layout.bottomY,
-        resizeTick,
-        style: { left, top: pt[1] - 44 },
-      });
-    },
-    [data, layoutRef, rectRef, resizeTick],
-  );
+    setRawTooltip({
+      x: pt[0],
+      y: pt[1],
+      datum,
+      bottomY: layout.bottomY,
+      resizeTick,
+      style: { left, top: pt[1] - 44 },
+    });
+  };
 
-  const handlePointerLeave = useCallback(() => {
+  const handlePointerLeave = () => {
     setRawTooltip(null);
-  }, []);
+  };
 
   const tooltipStyle = tooltip?.style;
 

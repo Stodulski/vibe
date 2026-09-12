@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { parsePhoneWithPrefix, formatE164 } from '@/shared/lib/phone';
 import { DEFAULT_PHONE_PREFIX } from '@/shared/lib/constants';
 
@@ -30,16 +30,13 @@ export function usePhoneInputState({ value, onChange }: UsePhoneInputStateArgs) 
     }
   }
 
-  const handleLocalChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newLocal = e.target.value;
-      setLocalNumber(newLocal);
-      const emitted = formatE164(DEFAULT_PHONE_PREFIX, newLocal);
-      setLastEmitted(emitted);
-      onChange(emitted);
-    },
-    [onChange],
-  );
+  const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLocal = e.target.value;
+    setLocalNumber(newLocal);
+    const emitted = formatE164(DEFAULT_PHONE_PREFIX, newLocal);
+    setLastEmitted(emitted);
+    onChange(emitted);
+  };
 
   // The prefix is fixed to Argentina — no selector changes it — but is still
   // returned for callers/tests that read it off the hook.

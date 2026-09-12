@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, CalendarDays, Trophy, Users, FileBarChart, Settings } from 'lucide-react';
 import {
@@ -46,10 +46,10 @@ export function CommandPalette() {
     };
   }, []);
 
-  const runCommand = useCallback((command: () => void) => {
+  const runCommand = (command: () => void) => {
     setOpen(false);
     command();
-  }, []);
+  };
 
   return (
     <CommandDialog

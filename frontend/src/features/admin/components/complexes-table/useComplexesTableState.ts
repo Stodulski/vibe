@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAdminComplexes } from '../../hooks/useAdminComplexes';
 import { useIntersectionObserver } from '@/shared/hooks/useIntersectionObserver';
@@ -8,7 +8,13 @@ function readSearch(params: URLSearchParams): string {
   return params.get('search') ?? '';
 }
 
-/** Merges into the query, dropping keys set to null. Never pushes history. */
+/**
+ * Merges into the query, dropping keys set to null. Never pushes history.
+ *
+ * Keeps its `useCallback` under the React Compiler: the debounce effect below
+ * lists `patchParams` as a dependency, and an effect's firing is not something
+ * to hand to inferred memoization.
+ */
 function useQueryPatch() {
   const [, setSearchParams] = useSearchParams();
   return useCallback(
@@ -58,8 +64,10 @@ export function useComplexesTableState() {
 
   const { data, isLoading, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useAdminComplexes(debouncedSearch);
-  const complexes = useMemo(() => data?.pages.flatMap((p) => p.complexes) ?? [], [data]);
+  const complexes = data?.pages.flatMap((p) => p.complexes) ?? [];
 
+  // The `useCallback` stays: `useIntersectionObserver` lists `onIntersect` in
+  // an effect's dependencies (PERF-04).
   const sentinelRef = useIntersectionObserver(
     useCallback(() => {
       void fetchNextPage();
@@ -67,12 +75,9 @@ export function useComplexesTableState() {
     hasNextPage && !isFetchingNextPage,
   );
 
-  const handleRowClick = useCallback(
-    (id: string) => {
-      void navigate(`/admin/complexes/${id}`);
-    },
-    [navigate],
-  );
+  const handleRowClick = (id: string) => {
+    void navigate(`/admin/complexes/${id}`);
+  };
 
   return {
     searchInput,

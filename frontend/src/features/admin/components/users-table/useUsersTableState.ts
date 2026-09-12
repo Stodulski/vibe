@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAdminUsers } from '../../hooks/useAdminUsers';
 import { useIntersectionObserver } from '@/shared/hooks/useIntersectionObserver';
@@ -16,7 +16,13 @@ function readParams(params: URLSearchParams) {
   };
 }
 
-/** Merges into the query, dropping keys set to null. Never pushes history. */
+/**
+ * Merges into the query, dropping keys set to null. Never pushes history.
+ *
+ * Keeps its `useCallback` under the React Compiler: the debounce effect below
+ * lists `patchParams` as a dependency, and an effect's firing is not something
+ * to hand to inferred memoization.
+ */
 function useQueryPatch() {
   const [, setSearchParams] = useSearchParams();
   return useCallback(
@@ -66,21 +72,20 @@ export function useUsersTableState() {
     };
   }, [searchInput, patchParams]);
 
-  const setRoleFilter = useCallback(
-    (value: string) => {
-      setRoleFilterState(value);
-      patchParams({ role: value === DEFAULT_ROLE_FILTER ? null : value });
-    },
-    [patchParams],
-  );
+  const setRoleFilter = (value: string) => {
+    setRoleFilterState(value);
+    patchParams({ role: value === DEFAULT_ROLE_FILTER ? null : value });
+  };
 
   const actualRole = roleFilter === DEFAULT_ROLE_FILTER ? '' : roleFilter;
   const { data, isLoading, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } = useAdminUsers(
     debouncedSearch,
     actualRole,
   );
-  const users = useMemo(() => data?.pages.flatMap((p) => p.users) ?? [], [data]);
+  const users = data?.pages.flatMap((p) => p.users) ?? [];
 
+  // The `useCallback` stays: `useIntersectionObserver` lists `onIntersect` in
+  // an effect's dependencies (PERF-04).
   const sentinelRef = useIntersectionObserver(
     useCallback(() => {
       void fetchNextPage();
@@ -88,12 +93,9 @@ export function useUsersTableState() {
     hasNextPage && !isFetchingNextPage,
   );
 
-  const handleRowClick = useCallback(
-    (id: string) => {
-      void navigate(`/admin/users/${id}`);
-    },
-    [navigate],
-  );
+  const handleRowClick = (id: string) => {
+    void navigate(`/admin/users/${id}`);
+  };
 
   return {
     searchInput,

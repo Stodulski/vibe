@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useForm, type UseFormReturn, type UseFormWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isToday } from 'date-fns/isToday';
@@ -103,45 +103,44 @@ function blockSlotActions(
   };
 }
 
-function useSlotOptions(
+/** The starts still on offer for this court and day, past and taken hours removed. */
+function freeStartTimes(date: string, courtId: string, existingBookings: Booking[], existingBlocked: BlockedSlot[]) {
+  let slots = ALL_TIME_SLOTS;
+
+  // Filter past times for today.
+  if (date && isToday(parseISO(date))) {
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    slots = slots.filter((slot) => slot > currentTime);
+  }
+
+  // Filter occupied slots (bookings + existing blocks) for the selected court.
+  //
+  // Asked as an overlap between instants, through the same helper the booking
+  // grid uses. This used to compare minutes of the day, and a booking running
+  // 23:00 to 01:00 asked `slotMin >= 1380 && slotMin < 60` — a condition no
+  // minute of any day satisfies. The booking became invisible here and every
+  // hour it held was offered as free to block, so an owner could put a block
+  // on top of a court that was already sold.
+  if (courtId && date) {
+    const obstacles = courtObstacles(existingBookings, existingBlocked, courtId, date);
+    slots = slots.filter(
+      (slotTime) => !windowIsOccupied(obstacles, date, timeToMinutes(slotTime), SLOT_LENGTH_MINUTES),
+    );
+  }
+
+  return slots;
+}
+
+function slotOptions(
   date: string,
   courtId: string,
   startTime: string,
   existingBookings: Booking[],
   existingBlocked: BlockedSlot[],
 ) {
-  const startTimeOptions = useMemo(() => {
-    let slots = ALL_TIME_SLOTS;
-
-    // Filter past times for today.
-    if (date && isToday(parseISO(date))) {
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      slots = slots.filter((slot) => slot > currentTime);
-    }
-
-    // Filter occupied slots (bookings + existing blocks) for the selected court.
-    //
-    // Asked as an overlap between instants, through the same helper the booking
-    // grid uses. This used to compare minutes of the day, and a booking running
-    // 23:00 to 01:00 asked `slotMin >= 1380 && slotMin < 60` — a condition no
-    // minute of any day satisfies. The booking became invisible here and every
-    // hour it held was offered as free to block, so an owner could put a block
-    // on top of a court that was already sold.
-    if (courtId && date) {
-      const obstacles = courtObstacles(existingBookings, existingBlocked, courtId, date);
-      slots = slots.filter(
-        (slotTime) => !windowIsOccupied(obstacles, date, timeToMinutes(slotTime), SLOT_LENGTH_MINUTES),
-      );
-    }
-
-    return slots;
-  }, [date, courtId, existingBookings, existingBlocked]);
-
-  const endTimeOptions = useMemo(
-    () => (startTime ? startTimeOptions.filter((slot) => slot > startTime) : startTimeOptions),
-    [startTime, startTimeOptions],
-  );
+  const startTimeOptions = freeStartTimes(date, courtId, existingBookings, existingBlocked);
+  const endTimeOptions = startTime ? startTimeOptions.filter((slot) => slot > startTime) : startTimeOptions;
 
   return { startTimeOptions, endTimeOptions };
 }
@@ -172,13 +171,7 @@ export function useBlockSlotForm(
   const { data: existingBookings = [] } = useBookingsByDate(date ? complexId : null, date);
   const { data: existingBlocked = [] } = useBlockedSlots(complexId, date, date);
 
-  const { startTimeOptions, endTimeOptions } = useSlotOptions(
-    date,
-    courtId,
-    startTime,
-    existingBookings,
-    existingBlocked,
-  );
+  const { startTimeOptions, endTimeOptions } = slotOptions(date, courtId, startTime, existingBookings, existingBlocked);
   const { handleSelectDate, handleStartTimeChange, setCourtId, setEndTime, setReason, onSubmit } = blockSlotActions(
     form,
     blockSlot,

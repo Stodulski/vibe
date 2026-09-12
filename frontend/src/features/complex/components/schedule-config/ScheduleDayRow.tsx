@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
@@ -42,20 +41,12 @@ export function ScheduleDayRow({
   const day = DAYS[index];
   const dayName = day ? t.complex.days[day] : '';
 
-  // Stable identities so a row's re-render does not churn its two inputs.
-  // `setValue` is stable across renders and `index` never changes for a row.
-  const setOpen = useCallback(
-    (v: string) => {
-      setValue(scheduleField(index, 'open_time'), v);
-    },
-    [setValue, index],
-  );
-  const setClose = useCallback(
-    (v: string) => {
-      setValue(scheduleField(index, 'close_time'), v);
-    },
-    [setValue, index],
-  );
+  const setOpen = (v: string) => {
+    setValue(scheduleField(index, 'open_time'), v);
+  };
+  const setClose = (v: string) => {
+    setValue(scheduleField(index, 'close_time'), v);
+  };
 
   return (
     <div

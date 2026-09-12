@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/shared/components/common/PageHeader';
@@ -26,7 +26,7 @@ function useCopyPublicUrl(publicUrl: string | null) {
     [],
   );
 
-  const handleCopy = useCallback(() => {
+  const handleCopy = () => {
     if (!publicUrl) return;
     void navigator.clipboard.writeText(publicUrl);
     toast.success(t.dashboard.linkCopied);
@@ -35,7 +35,7 @@ function useCopyPublicUrl(publicUrl: string | null) {
     copiedTimeoutRef.current = setTimeout(() => {
       setCopied(false);
     }, 2000);
-  }, [publicUrl]);
+  };
 
   return { copied, handleCopy };
 }

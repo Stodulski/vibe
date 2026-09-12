@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { courtObstacles, isSlotOccupied, upcomingSlots } from './helpers';
 import { FreeSlots } from './FreeSlots';
@@ -110,16 +110,10 @@ function CourtColumnImpl({
 }: CourtColumnProps) {
   // Once for the column, not once per slot: every free-slot control asks the
   // same question of the same day's bookings and blocks.
-  const obstacles = useMemo(
-    () => courtObstacles(allBookings, allBlockedSlots, column.courtId, date),
-    [allBookings, allBlockedSlots, column.courtId, date],
-  );
-  const handlePick = useCallback(
-    (slot: string, durations: DurationMinutes[]) => {
-      onPickSlot(column.courtId, slot, durations);
-    },
-    [onPickSlot, column.courtId],
-  );
+  const obstacles = courtObstacles(allBookings, allBlockedSlots, column.courtId, date);
+  const handlePick = (slot: string, durations: DurationMinutes[]) => {
+    onPickSlot(column.courtId, slot, durations);
+  };
   const freeSlots = upcomingSlots(slots, nowMin).filter((slot) => !isSlotOccupied(obstacles, slot, date));
 
   return (

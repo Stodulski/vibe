@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import type { AvailabilitySlot, CourtAvailability } from '@/shared/types/api.types';
 import { computeTotalPrice, getEndTime } from './slotMath';
 import type { SelectedSlot } from './types';
@@ -20,26 +19,23 @@ interface UseCourtSelectorStateParams {
  */
 export function useCourtSelectorState({ onSelect }: UseCourtSelectorStateParams) {
   /** Reports the selection and returns it, or null for a slot that is taken. */
-  const handleSlotClick = useCallback(
-    (court: CourtAvailability, slot: AvailabilitySlot): SelectedSlot | null => {
-      if (!slot.available) return null;
+  const handleSlotClick = (court: CourtAvailability, slot: AvailabilitySlot): SelectedSlot | null => {
+    if (!slot.available) return null;
 
-      const selection: SelectedSlot = {
-        courtId: court.court_id,
-        courtName: court.court_name,
-        sport: court.sport,
-        courtType: court.court_type,
-        courtDescription: court.description,
-        slot,
-        durationMinutes: slot.duration_minutes,
-        totalPrice: computeTotalPrice(slot),
-        endTime: getEndTime(slot),
-      };
-      onSelect(selection);
-      return selection;
-    },
-    [onSelect],
-  );
+    const selection: SelectedSlot = {
+      courtId: court.court_id,
+      courtName: court.court_name,
+      sport: court.sport,
+      courtType: court.court_type,
+      courtDescription: court.description,
+      slot,
+      durationMinutes: slot.duration_minutes,
+      totalPrice: computeTotalPrice(slot),
+      endTime: getEndTime(slot),
+    };
+    onSelect(selection);
+    return selection;
+  };
 
   return { handleSlotClick };
 }

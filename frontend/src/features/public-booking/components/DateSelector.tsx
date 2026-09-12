@@ -18,9 +18,13 @@ interface DateSelectorProps {
 }
 
 export function DateSelector({ selectedDate, onDateSelect, schedules }: DateSelectorProps) {
+  // One "today" for the life of the strip. Kept as an explicit `useMemo`
+  // rather than left to the React Compiler: `new Date()` reads the clock, so
+  // it is not the kind of expression inferred memoization should be trusted to
+  // pin, and every day in the strip is measured from it.
   const today = useMemo(() => new Date(), []);
   const [daysCount, setDaysCount] = useState(14);
-  const days = useMemo(() => Array.from({ length: daysCount }, (_, i) => addDays(today, i)), [today, daysCount]);
+  const days = Array.from({ length: daysCount }, (_, i) => addDays(today, i));
 
   const scrollRef = useLoadMoreOnScroll(() => {
     setDaysCount((prev) => prev + 14);

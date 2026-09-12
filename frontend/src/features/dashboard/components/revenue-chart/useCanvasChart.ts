@@ -7,6 +7,10 @@ import { drawChart, type ChartDatum, type ChartLayout } from './chart-draw';
  * `resizeTick` increments on every debounced resize-triggered redraw — the
  * caller can depend on it (e.g. in a `useEffect`) to react to a resize, such
  * as dismissing a stale tooltip, without reading a ref during render.
+ *
+ * `redraw` keeps its `useCallback` where most of the app dropped theirs
+ * (PERF-04): the effect below lists it as a dependency, and an effect's firing
+ * is not something to hand to the React Compiler's inferred memoization.
  */
 export function useCanvasChart(data: ChartDatum[]) {
   const canvasRef = useRef<HTMLCanvasElement>(null);

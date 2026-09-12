@@ -166,6 +166,11 @@ function wireStreamListeners(es: EventSource, complexId: string, queryClient: Qu
  * periodic re-authorization denied this caller — reconnecting is not). Both
  * are followed by an ordinary `onerror`, so `lastCloseReasonRef` records
  * which one preceded it for `onerror` to act on.
+ *
+ * `connect` and `disconnect` keep their `useCallback` where most of the app
+ * dropped theirs (PERF-04): the effects below list them as dependencies, and
+ * an effect's firing — here, opening and closing an EventSource — is not
+ * something to hand to the React Compiler's inferred memoization.
  */
 export function useRealtimeEvents(complexId: string | null) {
   const queryClient = useQueryClient();

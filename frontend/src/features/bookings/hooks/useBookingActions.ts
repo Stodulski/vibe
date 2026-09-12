@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { useUpdateBooking } from '@/features/bookings/hooks/useUpdateBooking';
 import { useMarkManualRefund } from '@/features/bookings/hooks/useMarkManualRefund';
 import { useCancelBooking } from '@/features/bookings/hooks/useCancelBooking';
@@ -7,30 +6,27 @@ import { useBookingMutations } from './useBookingMutations';
 import type { Booking } from '@/shared/types/api.types';
 import type { ConfirmPaymentDto } from '@/features/bookings/schemas/booking.schema';
 
-function useNoShowHandler(
+function noShowHandler(
   updateBooking: ReturnType<typeof useUpdateBooking>,
   setDetailOpen: (open: boolean) => void,
   setSelectedBooking: (booking: Booking | null) => void,
   onActionSuccess?: () => void,
 ) {
-  return useCallback(
-    (booking: Booking) => {
-      updateBooking.mutate(
-        { bookingId: booking.id, data: { status: 'no_show' } },
-        {
-          onSuccess: () => {
-            setDetailOpen(false);
-            setSelectedBooking(null);
-            onActionSuccess?.();
-          },
+  return (booking: Booking) => {
+    updateBooking.mutate(
+      { bookingId: booking.id, data: { status: 'no_show' } },
+      {
+        onSuccess: () => {
+          setDetailOpen(false);
+          setSelectedBooking(null);
+          onActionSuccess?.();
         },
-      );
-    },
-    [updateBooking, setDetailOpen, setSelectedBooking, onActionSuccess],
-  );
+      },
+    );
+  };
 }
 
-function useConfirmCancelHandler(
+function confirmCancelHandler(
   cancelBooking: ReturnType<typeof useCancelBooking>,
   selectedBooking: Booking | null,
   setCancelOpen: (open: boolean) => void,
@@ -38,26 +34,23 @@ function useConfirmCancelHandler(
   setSelectedBooking: (booking: Booking | null) => void,
   onActionSuccess?: () => void,
 ) {
-  return useCallback(
-    (reason?: string) => {
-      if (!selectedBooking) return;
-      cancelBooking.mutate(
-        { bookingId: selectedBooking.id, ...(reason ? { data: { reason } } : {}) },
-        {
-          onSuccess: () => {
-            setCancelOpen(false);
-            setDetailOpen(false);
-            setSelectedBooking(null);
-            onActionSuccess?.();
-          },
+  return (reason?: string) => {
+    if (!selectedBooking) return;
+    cancelBooking.mutate(
+      { bookingId: selectedBooking.id, ...(reason ? { data: { reason } } : {}) },
+      {
+        onSuccess: () => {
+          setCancelOpen(false);
+          setDetailOpen(false);
+          setSelectedBooking(null);
+          onActionSuccess?.();
         },
-      );
-    },
-    [selectedBooking, cancelBooking, setCancelOpen, setDetailOpen, setSelectedBooking, onActionSuccess],
-  );
+      },
+    );
+  };
 }
 
-function usePaymentSubmitHandler(
+function paymentSubmitHandler(
   confirmPayment: ReturnType<typeof useConfirmPayment>,
   selectedBooking: Booking | null,
   setPaymentOpen: (open: boolean) => void,
@@ -65,26 +58,23 @@ function usePaymentSubmitHandler(
   setSelectedBooking: (booking: Booking | null) => void,
   onActionSuccess?: () => void,
 ) {
-  return useCallback(
-    (data: ConfirmPaymentDto) => {
-      if (!selectedBooking) return;
-      confirmPayment.mutate(
-        { bookingId: selectedBooking.id, data },
-        {
-          onSuccess: () => {
-            setPaymentOpen(false);
-            setDetailOpen(false);
-            setSelectedBooking(null);
-            onActionSuccess?.();
-          },
+  return (data: ConfirmPaymentDto) => {
+    if (!selectedBooking) return;
+    confirmPayment.mutate(
+      { bookingId: selectedBooking.id, data },
+      {
+        onSuccess: () => {
+          setPaymentOpen(false);
+          setDetailOpen(false);
+          setSelectedBooking(null);
+          onActionSuccess?.();
         },
-      );
-    },
-    [selectedBooking, confirmPayment, setPaymentOpen, setDetailOpen, setSelectedBooking, onActionSuccess],
-  );
+      },
+    );
+  };
 }
 
-function useManualRefundHandler(
+function manualRefundHandler(
   markManualRefund: ReturnType<typeof useMarkManualRefund>,
   selectedBooking: Booking | null,
   setManualRefundOpen: (open: boolean) => void,
@@ -92,7 +82,7 @@ function useManualRefundHandler(
   setSelectedBooking: (booking: Booking | null) => void,
   onActionSuccess?: () => void,
 ) {
-  return useCallback(() => {
+  return () => {
     if (!selectedBooking) return;
     markManualRefund.mutate(
       { bookingId: selectedBooking.id },
@@ -105,7 +95,7 @@ function useManualRefundHandler(
         },
       },
     );
-  }, [selectedBooking, markManualRefund, setManualRefundOpen, setDetailOpen, setSelectedBooking, onActionSuccess]);
+  };
 }
 
 export function useBookingActions({
@@ -139,7 +129,7 @@ export function useBookingActions({
     selectedDate,
   );
 
-  const handleConfirmCancel = useConfirmCancelHandler(
+  const handleConfirmCancel = confirmCancelHandler(
     cancelBooking,
     selectedBooking,
     setCancelOpen,
@@ -147,7 +137,7 @@ export function useBookingActions({
     setSelectedBooking,
     onActionSuccess,
   );
-  const handlePaymentSubmit = usePaymentSubmitHandler(
+  const handlePaymentSubmit = paymentSubmitHandler(
     confirmPayment,
     selectedBooking,
     setPaymentOpen,
@@ -155,8 +145,8 @@ export function useBookingActions({
     setSelectedBooking,
     onActionSuccess,
   );
-  const handleNoShow = useNoShowHandler(updateBooking, setDetailOpen, setSelectedBooking, onActionSuccess);
-  const handleConfirmManualRefund = useManualRefundHandler(
+  const handleNoShow = noShowHandler(updateBooking, setDetailOpen, setSelectedBooking, onActionSuccess);
+  const handleConfirmManualRefund = manualRefundHandler(
     markManualRefund,
     selectedBooking,
     setManualRefundOpen,

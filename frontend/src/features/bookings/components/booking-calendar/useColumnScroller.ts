@@ -27,6 +27,10 @@ export function useColumnScroller() {
    *
    * Written straight to the node: this fires on every scroll event, and a
    * re-render per frame is what made dragging judder.
+   *
+   * Keeps its `useCallback` where most of the app dropped theirs (PERF-04):
+   * the effects below list it as a dependency, and an effect's firing is not
+   * something to hand to the React Compiler's inferred memoization.
    */
   const syncTrack = useCallback(() => {
     const el = ref.current;

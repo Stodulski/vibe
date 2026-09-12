@@ -41,12 +41,15 @@ export function useOnboardingStep(args: UseOnboardingStepArgs) {
   // covers both the initial load and resuming an in-progress complex.
   const [manualStep, setManualStep] = useState<OnboardingStep | null>(null);
 
-  const changeStep = useCallback((newStep: OnboardingStep) => {
+  const changeStep = (newStep: OnboardingStep) => {
     setAnimKey((k) => k + 1);
     setManualStep(newStep);
-  }, []);
+  };
 
-  // Consolidated onboarding completion -- single source of truth.
+  // Consolidated onboarding completion -- single source of truth. Keeps its
+  // `useCallback` where the rest of this hook dropped theirs (PERF-04): the
+  // effect below lists it as a dependency, and an effect's firing is not
+  // something to hand to the React Compiler's inferred memoization.
   const completeOnboarding = useCallback(
     (id: string) => {
       setSelectedComplexId(id);

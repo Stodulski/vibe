@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { getNowMinutesInBuenosAires } from './nowIndicator';
 import { useTimelineColumns } from './useTimelineColumns';
 import { useColumnScroller } from './useColumnScroller';
@@ -48,7 +47,7 @@ export function CourtTimeGrid({
   // `isSlotOccupied` uses for free slots: everything but a cancellation. Any
   // other filter here would let a slot show as free while a booking still
   // holds it — or the reverse — with the two disagreeing on the same screen.
-  const occupyingBookings = useMemo(() => bookings.filter((b) => b.status !== 'cancelled'), [bookings]);
+  const occupyingBookings = bookings.filter((b) => b.status !== 'cancelled');
   const columns = useTimelineColumns({ activeCourts, bookings: occupyingBookings, blockedSlots });
   const nowMin = getNowMinutesInBuenosAires(date);
   const { ref, trackRef, frameRef } = useColumnScroller();

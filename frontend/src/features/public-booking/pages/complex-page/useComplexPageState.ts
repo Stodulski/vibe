@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns/format';
 import type { SelectedSlot } from '@/features/public-booking';
@@ -29,22 +29,19 @@ function readFlow(params: URLSearchParams) {
 /** Merges into the query, dropping keys set to null. Never pushes history. */
 function useQueryPatch() {
   const [, setSearchParams] = useSearchParams();
-  return useCallback(
-    (patch: Record<string, string | null>) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(patch)) {
-            if (value === null) next.delete(key);
-            else next.set(key, value);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  return (patch: Record<string, string | null>) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null) next.delete(key);
+          else next.set(key, value);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
 }
 
 // Debounce the date string for API calls (300ms) to avoid rapid-fire requests
@@ -64,32 +61,21 @@ function useDebouncedDateStr(dateStr: string) {
 
 // Every change here also drops the open hour: a different day, sport or
 // duration is a different grid, and the question belongs to the old one.
-function useFlowChangeHandlers(setSelectedSlot: (slot: null) => void, patchParams: ReturnType<typeof useQueryPatch>) {
-  const handleDateSelect = useCallback(
-    (date: Date) => {
+function flowChangeHandlers(setSelectedSlot: (slot: null) => void, patchParams: ReturnType<typeof useQueryPatch>) {
+  return {
+    handleDateSelect: (date: Date) => {
       setSelectedSlot(null);
       patchParams({ date: format(date, 'yyyy-MM-dd'), time: null });
     },
-    [setSelectedSlot, patchParams],
-  );
-
-  const handleSportFilter = useCallback(
-    (sport: Sport | null) => {
+    handleSportFilter: (sport: Sport | null) => {
       setSelectedSlot(null);
       patchParams({ sport, time: null });
     },
-    [setSelectedSlot, patchParams],
-  );
-
-  const handleDurationChange = useCallback(
-    (newDuration: DurationMinutes) => {
+    handleDurationChange: (newDuration: DurationMinutes) => {
       setSelectedSlot(null);
       patchParams({ duration: String(newDuration), time: null });
     },
-    [setSelectedSlot, patchParams],
-  );
-
-  return { handleDateSelect, handleSportFilter, handleDurationChange };
+  };
 }
 
 /**
@@ -120,6 +106,9 @@ export function useComplexPageState() {
   // unrelated re-renders. That stability matters here — `DateSelector`'s
   // auto-scroll effect depends on `selectedDate` by reference, and a new
   // instance every render would re-trigger it even when the day is unchanged.
+  // Kept explicit for that reason rather than left to the React Compiler
+  // (PERF-04): an effect's firing is not something to hand to inferred
+  // memoization.
   const dateParam = searchParams.get('date');
   const selectedDate = useMemo(() => parseDateParam(dateParam), [dateParam]);
 
@@ -142,14 +131,11 @@ export function useComplexPageState() {
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const debouncedDateStr = useDebouncedDateStr(dateStr);
 
-  const setPendingStartTime = useCallback(
-    (startTime: string | null) => {
-      patchParams({ time: startTime });
-    },
-    [patchParams],
-  );
+  const setPendingStartTime = (startTime: string | null) => {
+    patchParams({ time: startTime });
+  };
 
-  const { handleDateSelect, handleSportFilter, handleDurationChange } = useFlowChangeHandlers(
+  const { handleDateSelect, handleSportFilter, handleDurationChange } = flowChangeHandlers(
     setSelectedSlot,
     patchParams,
   );

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { format } from 'date-fns/format';
 import { addDays } from 'date-fns/addDays';
 import { subDays } from 'date-fns/subDays';
@@ -37,11 +36,9 @@ export function WeekStrip({
 }) {
   const { ref, width } = useElementWidth();
 
-  const days = useMemo(() => {
-    const count = visibleDayCount(width);
-    const start = subDays(parseISO(selectedDate), (count - 1) / 2);
-    return Array.from({ length: count }, (_, i) => addDays(start, i));
-  }, [selectedDate, width]);
+  const count = visibleDayCount(width);
+  const start = subDays(parseISO(selectedDate), (count - 1) / 2);
+  const days = Array.from({ length: count }, (_, i) => addDays(start, i));
 
   return (
     <div ref={ref} className="flex items-stretch gap-0.5 sm:gap-1">

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState } from 'react';
 import { useUpdateCourt } from '../hooks/useUpdateCourt';
 import { useDeleteCourt } from '../hooks/useDeleteCourt';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
@@ -24,22 +24,22 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
   const updateCourt = useUpdateCourt(complexId);
   const deleteCourt = useDeleteCourt(complexId);
 
-  const priceRange = useMemo(() => getPriceRange(court.prices), [court.prices]);
+  const priceRange = getPriceRange(court.prices);
 
-  const handleToggleActive = useCallback(() => {
+  const handleToggleActive = () => {
     updateCourt.mutate({
       courtId: court.id,
       data: { is_active: !court.is_active },
     });
-  }, [updateCourt, court.id, court.is_active]);
+  };
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = () => {
     deleteCourt.mutate(court.id, {
       onSuccess: () => {
         setDeleteOpen(false);
       },
     });
-  }, [deleteCourt, court.id]);
+  };
 
   return (
     <>

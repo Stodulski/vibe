@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import type { OpenSlot } from './SlotDurationMenu';
 import type { DurationMinutes } from '@/shared/types/api.types';
 import type { TimelineColumnData } from './useTimelineColumns';
@@ -32,20 +32,17 @@ export function useSlotMenu(
     setPreview(null);
   };
 
-  // Bound to `columns`, which is itself memoized from the day's data — so it
-  // keeps one identity across opening and closing the menu, and only changes
-  // when the courts or their contents actually do.
-  const openOn = useCallback(
-    (courtId: string, slot: string, durations: DurationMinutes[]) => {
-      const columnIndex = columns.findIndex((c) => c.courtId === courtId);
-      const column = columns[columnIndex];
-      if (!column) return;
+  // Identity comes from the React Compiler, which binds it to `columns` — so
+  // it keeps one identity across opening and closing the menu, and only
+  // changes when the courts or their contents actually do.
+  const openOn = (courtId: string, slot: string, durations: DurationMinutes[]) => {
+    const columnIndex = columns.findIndex((c) => c.courtId === courtId);
+    const column = columns[columnIndex];
+    if (!column) return;
 
-      setPreview(null);
-      setOpen({ columnIndex, courtId, courtName: column.courtName, slot, durations });
-    },
-    [columns],
-  );
+    setPreview(null);
+    setOpen({ columnIndex, courtId, courtName: column.courtName, slot, durations });
+  };
 
   const pick = (duration: DurationMinutes) => {
     const picked = open;

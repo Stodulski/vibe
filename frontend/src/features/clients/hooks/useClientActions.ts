@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import type { UseMutationResult } from '@tanstack/react-query';
 import { useUpdateClient } from '@/features/clients/hooks/useUpdateClient';
@@ -40,10 +40,10 @@ function useSelectedClient(complexId: string | null) {
   const { data: detail } = useClient(complexId, id);
   const client = detail?.client ?? seed;
 
-  const select = useCallback((next: Client | null) => {
+  const select = (next: Client | null) => {
     setId(next?.id ?? null);
     setSeed(next);
-  }, []);
+  };
 
   return { client, id, select };
 }
@@ -68,22 +68,16 @@ export function useClientActions(
   // from a grid row's menu, for a client whose detail drawer was never opened.
   const toBlock = useSelectedClient(selectedComplexId);
 
-  const handleSelectClient = useCallback(
-    (client: Client) => {
-      selected.select(client);
-      setDetailOpen(true);
-    },
-    [selected],
-  );
+  const handleSelectClient = (client: Client) => {
+    selected.select(client);
+    setDetailOpen(true);
+  };
 
-  const handleBlockClient = useCallback(
-    (client: Client) => {
-      toBlock.select(client);
-    },
-    [toBlock],
-  );
+  const handleBlockClient = (client: Client) => {
+    toBlock.select(client);
+  };
 
-  const handleConfirmBlock = useCallback(() => {
+  const handleConfirmBlock = () => {
     const blockClient = toBlock.client;
     if (!blockClient) return;
     const isBlocking = !blockClient.is_blocked;
@@ -97,7 +91,7 @@ export function useClientActions(
         },
       },
     );
-  }, [toBlock, updateClient, onActionSuccess]);
+  };
 
   return {
     updateClient,

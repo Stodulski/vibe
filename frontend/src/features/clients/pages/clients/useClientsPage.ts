@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSelectedComplex } from '@/features/complex';
 import { useClients, useClientActions } from '@/features/clients';
@@ -12,20 +12,17 @@ function useClientsList(selectedComplexId: string | null) {
   const searchInput = searchParams.get('q') ?? '';
   const [debouncedSearch, setDebouncedSearch] = useState(searchInput);
 
-  const setSearchInput = useCallback(
-    (value: string) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          if (value) next.set('q', value);
-          else next.delete('q');
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  const setSearchInput = (value: string) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value) next.set('q', value);
+        else next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -41,6 +38,9 @@ function useClientsList(selectedComplexId: string | null) {
     debouncedSearch,
   );
 
+  // The `useCallback` stays: `useIntersectionObserver` lists `onIntersect` in
+  // an effect's dependencies, and an effect's firing is not something to hand
+  // to the React Compiler's inferred memoization.
   const sentinelRef = useIntersectionObserver(
     useCallback(() => {
       void fetchNextPage();
@@ -48,7 +48,7 @@ function useClientsList(selectedComplexId: string | null) {
     hasNextPage && !isFetchingNextPage,
   );
 
-  const clients = useMemo(() => data?.pages.flatMap((p) => p.clients) ?? [], [data]);
+  const clients = data?.pages.flatMap((p) => p.clients) ?? [];
 
   return {
     searchInput,

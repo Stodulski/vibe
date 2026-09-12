@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import { MobileNavSheet } from './MobileNavSheet';
 import { AppMasthead } from './AppMasthead';
@@ -32,12 +32,12 @@ interface AppShellProps {
  */
 export function AppShell({ brand, sidebar, renderMobileSidebar, header, showSearchTrigger, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const handleCloseMobile = useCallback(() => {
+  const handleCloseMobile = () => {
     setMobileOpen(false);
-  }, []);
-  const handleOpenMobile = useCallback(() => {
+  };
+  const handleOpenMobile = () => {
     setMobileOpen(true);
-  }, []);
+  };
 
   return (
     // The page scrolls, not an inner pane. The shell used to be `h-dvh` with

@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns/format';
 import { useBookingModals, useBookingActions } from '@/features/bookings';
@@ -15,10 +14,10 @@ export function useDashboardBookingDetail(complexId: string | null) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const modals = useBookingModals(today, complexId);
 
-  const invalidateDashboardStats = useCallback(() => {
+  const invalidateDashboardStats = () => {
     if (!complexId) return;
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats(complexId) });
-  }, [queryClient, complexId]);
+  };
 
   const actions = useBookingActions({
     selectedComplexId: complexId,

@@ -2,6 +2,12 @@ import { useMemo } from 'react';
 import type { OccupancyDataPoint } from '@/shared/types/api.types';
 import { DAY_LABELS, HOURS, heatKey } from './heatmapUtils';
 
+/**
+ * Keeps its `useMemo` where the rest of the app dropped theirs (PERF-04): the
+ * React Compiler refuses this function outright — `count++` on a variable
+ * captured by the `forEach` lambda is on its unsupported list — so nothing
+ * memoizes this pass but this call.
+ */
 export function useHeatmapData(occupancy: OccupancyDataPoint[] | undefined) {
   return useMemo(() => {
     const map = new Map<string, number>();

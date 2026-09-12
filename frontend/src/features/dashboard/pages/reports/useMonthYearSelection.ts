@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MONTH_NAMES } from './constants';
 
@@ -26,13 +26,15 @@ function parseMonthYearParams(searchParams: URLSearchParams, now: Date): { month
  */
 export function useMonthYearSelection(createdAtIso: string | undefined) {
   const [searchParams, setSearchParams] = useSearchParams();
-  // Stable references across re-renders — recreating `Date` objects on every
-  // render would defeat `availableMonths`' memoization below.
+  // One "now" for the life of the component. Kept as an explicit `useMemo`
+  // rather than left to the React Compiler: `new Date()` reads the clock, so
+  // it is not the kind of expression inferred memoization should be trusted to
+  // pin, and every bound derived below has to agree on the same instant.
   const now = useMemo(() => new Date(), []);
 
   const { month: monthParam, year: yearParam } = parseMonthYearParams(searchParams, now);
 
-  const createdAt = useMemo(() => (createdAtIso ? new Date(createdAtIso) : null), [createdAtIso]);
+  const createdAt = createdAtIso ? new Date(createdAtIso) : null;
   const minYear = createdAt ? createdAt.getFullYear() : now.getFullYear();
   const maxYear = now.getFullYear();
 
@@ -40,35 +42,28 @@ export function useMonthYearSelection(createdAtIso: string | undefined) {
   // future) clamps to the nearest one it can, rather than showing nothing.
   const year = Math.min(maxYear, Math.max(minYear, yearParam));
 
-  // Determine which months are selectable for the chosen year.
-  const availableMonths = useMemo(() => {
-    const createdMonth = year === createdAt?.getFullYear() ? createdAt.getMonth() + 1 : 1;
-    const maxMonth = year === now.getFullYear() ? now.getMonth() + 1 : 12;
-    return MONTH_NAMES.map((name, i) => ({
-      value: i + 1,
-      label: name,
-      disabled: i + 1 < createdMonth || i + 1 > maxMonth,
-    }));
-  }, [year, createdAt, now]);
-
   const minMonth = year === createdAt?.getFullYear() ? createdAt.getMonth() + 1 : 1;
   const maxMonth = year === now.getFullYear() ? now.getMonth() + 1 : 12;
   const month = Math.min(maxMonth, Math.max(minMonth, monthParam));
 
-  const patchMonthYear = useCallback(
-    (next: { month: number; year: number }) => {
-      setSearchParams(
-        (current) => {
-          const params = new URLSearchParams(current);
-          params.set('month', String(next.month));
-          params.set('year', String(next.year));
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  // Which months are selectable for the chosen year.
+  const availableMonths = MONTH_NAMES.map((name, i) => ({
+    value: i + 1,
+    label: name,
+    disabled: i + 1 < minMonth || i + 1 > maxMonth,
+  }));
+
+  const patchMonthYear = (next: { month: number; year: number }) => {
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        params.set('month', String(next.month));
+        params.set('year', String(next.year));
+        return params;
+      },
+      { replace: true },
+    );
+  };
 
   // Clamp month when year changes and current month is out of range.
   const handleYearChange = (newYear: number) => {
