@@ -124,8 +124,36 @@ jobs:
       # Integration and security tests are behind the `integration` build tag
       # and need a live Postgres, so they are not part of this gate. They run
       # via `make test/integration` in the job below.
+      #
+      # test/cover runs the same suite as test (also -race -shuffle=on) plus
+      # -coverprofile, so this is strictly more than `make test` for the same
+      # cost — no separate run needed to get coverage visible in CI (TST-10).
       - name: Test
-        run: make test
+        run: make test/cover
+
+      # if: always() so a broken test still leaves the summary and artifact:
+      # coverage.out is written once compilation succeeds, before `go test`
+      # returns non-zero on a failing case.
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo '### Unit test coverage' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f coverage.out ]; then
+            go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'coverage.out not produced (build or test failure before coverage was written)' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: backend/coverage.out
+          retention-days: 14
+          if-no-files-found: warn
 
   build:
     name: Build (make build)
