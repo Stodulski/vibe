@@ -3,7 +3,7 @@ import { Controller } from 'react-hook-form';
 import { FormField } from '@/shared/components/common/FormField';
 import { PhoneInput } from '@/shared/components/common/PhoneInput';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { GoogleCompleteDto } from '../../schemas/auth.schemas';
+import type { GoogleCompleteDto } from '../../schemas/auth.schema';
 
 const t = ES_AR;
 

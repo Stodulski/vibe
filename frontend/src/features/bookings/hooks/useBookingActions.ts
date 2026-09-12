@@ -5,7 +5,7 @@ import { useCancelBooking } from '@/features/bookings/hooks/useCancelBooking';
 import { useConfirmPayment } from '@/features/bookings/hooks/useConfirmPayment';
 import { useBookingMutations } from './useBookingMutations';
 import type { Booking } from '@/shared/types/api.types';
-import type { ConfirmPaymentDto } from '@/features/bookings/schemas/booking.schemas';
+import type { ConfirmPaymentDto } from '@/features/bookings/schemas/booking.schema';
 
 function useNoShowHandler(
   updateBooking: ReturnType<typeof useUpdateBooking>,

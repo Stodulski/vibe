@@ -1,5 +1,5 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { PriceFormSchema } from '../../schemas/courts.schemas';
+import type { PriceFormSchema } from '../../schemas/courts.schema';
 import type { DayType } from '@/shared/types/api.types';
 
 const t = ES_AR;

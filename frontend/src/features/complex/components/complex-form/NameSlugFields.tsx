@@ -5,7 +5,7 @@ import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { RequiredMark } from '@/shared/components/common/RequiredMark';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { CreateComplexDto } from '../../schemas/complex.schemas';
+import type { CreateComplexDto } from '../../schemas/complex.schema';
 
 const t = ES_AR;
 

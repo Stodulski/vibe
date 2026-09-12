@@ -1,6 +1,6 @@
 import { useCreateCourt } from '../../hooks/useCreateCourt';
 import { useUpdateCourt } from '../../hooks/useUpdateCourt';
-import type { CreateCourtDto } from '../../schemas/courts.schemas';
+import type { CreateCourtDto } from '../../schemas/courts.schema';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 
 /** The form's `defaultValues` for a given court, or a blank court to create. */

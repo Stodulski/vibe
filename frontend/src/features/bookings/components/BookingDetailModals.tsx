@@ -3,7 +3,7 @@ import { CancelBookingModal } from './CancelBookingModal';
 import { ConfirmPaymentModal } from './ConfirmPaymentModal';
 import { ManualRefundDialog } from './ManualRefundDialog';
 import type { Booking, Client } from '@/shared/types/api.types';
-import type { ConfirmPaymentDto } from '../schemas/booking.schemas';
+import type { ConfirmPaymentDto } from '../schemas/booking.schema';
 
 // Structural shape shared by any "open a booking's detail sheet from
 // elsewhere in the app" hook (dashboard's `useDashboardBookingDetail`,

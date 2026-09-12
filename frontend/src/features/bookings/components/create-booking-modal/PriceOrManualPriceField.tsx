@@ -1,7 +1,7 @@
 import { PricePreview } from './PricePreview';
 import { ManualPriceField } from './ManualPriceField';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 
 /**
  * The estimate when there is one, the manual-price input when the chosen hour

@@ -1,4 +1,4 @@
-import { createBookingSchema } from './booking.schemas';
+import { createBookingSchema } from './booking.schema';
 
 const validBase = {
   court_id: 'court-1',

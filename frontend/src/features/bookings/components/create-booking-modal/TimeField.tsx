@@ -3,7 +3,7 @@ import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 
 const t = ES_AR;
 

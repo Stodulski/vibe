@@ -25,7 +25,7 @@ vi.mock('@/shared/components/ui/select', async () => {
   };
 });
 vi.mock('@/features/courts/components/PriceConfig', () => ({ PriceConfig: () => null }));
-vi.mock('@/features/courts/schemas/courts.schemas', () => ({
+vi.mock('@/features/courts/schemas/courts.schema', () => ({
   createCourtSchema: { parse: vi.fn() },
 }));
 vi.mock('@hookform/resolvers/zod', () => ({ zodResolver: () => vi.fn() }));

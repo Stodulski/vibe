@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createComplexSchema, updateComplexSchema } from './complex.schemas';
+import { createComplexSchema, updateComplexSchema } from './complex.schema';
 
 // The floor lives in `complexShape`, which both schemas share, so it is
 // exercised through the schema that actually validates an edit. Everything but

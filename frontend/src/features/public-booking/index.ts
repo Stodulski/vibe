@@ -20,7 +20,7 @@ export { useBookingStatus } from './hooks/useBookingStatus';
 export { useComplexBySlug } from './hooks/useComplexBySlug';
 export { useAvailability } from './hooks/useAvailability';
 
-export type { PublicBookingFormData } from './schemas/public-booking.schemas';
+export type { PublicBookingFormData } from './schemas/public-booking.schema';
 
 export { BOOKING_INFO_KEY, readStoredBookingInfo } from './lib/storedBookingInfo';
 

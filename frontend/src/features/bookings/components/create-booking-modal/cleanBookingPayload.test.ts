@@ -1,5 +1,5 @@
 import { cleanBookingPayload } from './cleanBookingPayload';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 
 const base: CreateBookingDto = {
   court_id: 'ct1',

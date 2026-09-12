@@ -6,7 +6,7 @@ import { useUpdatePrices } from '../../hooks/useUpdatePrices';
 import { useComplex, useSchedules } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getFieldErrors } from '@/shared/lib/serverErrors';
-import { priceFormSchema } from '../../schemas/courts.schemas';
+import { priceFormSchema } from '../../schemas/courts.schema';
 import { ALL_DAYS, EMPTY_PRICE_FORM_VALUES, type PriceFormValues } from './days';
 import type { CourtWithPrices, DayType, Schedule } from '@/shared/types/api.types';
 

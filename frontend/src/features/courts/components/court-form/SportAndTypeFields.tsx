@@ -4,7 +4,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { SPORTS, COURT_TYPES } from './options';
-import type { CreateCourtDto } from '../../schemas/courts.schemas';
+import type { CreateCourtDto } from '../../schemas/courts.schema';
 
 const t = ES_AR;
 

@@ -1,6 +1,6 @@
 import type { Ref } from 'react';
 import type { Control, FieldErrors, UseFormRegister } from 'react-hook-form';
-import type { RegisterDto } from '../../schemas/auth.schemas';
+import type { RegisterDto } from '../../schemas/auth.schema';
 import { TurnstileField, type TurnstileFieldHandle } from '@/shared/components/common/TurnstileField';
 import { RegisterEmailField } from './RegisterEmailField';
 import { RegisterContactFields } from './RegisterContactFields';

@@ -2,7 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
-import type { ConfirmPaymentDto } from '../../schemas/booking.schemas';
+import type { ConfirmPaymentDto } from '../../schemas/booking.schema';
 
 const t = ES_AR;
 

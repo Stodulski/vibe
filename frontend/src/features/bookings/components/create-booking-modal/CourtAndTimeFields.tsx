@@ -2,7 +2,7 @@ import { CourtField } from './CourtField';
 import { TimeField } from './TimeField';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
 import type { CourtWithPrices } from '@/shared/types/api.types';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 
 export function CourtAndTimeFields({
   activeCourts,

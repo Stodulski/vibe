@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { loginSchema, type LoginDto } from '../schemas/auth.schemas';
+import { loginSchema, type LoginDto } from '../schemas/auth.schema';
 import { useLogin } from '../hooks/useLogin';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { submitHandler } from '@/shared/lib/form';

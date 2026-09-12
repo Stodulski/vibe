@@ -3,7 +3,7 @@ import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { ConfirmPaymentDto } from '../../schemas/booking.schemas';
+import type { ConfirmPaymentDto } from '../../schemas/booking.schema';
 import type { Booking } from '@/shared/types/api.types';
 
 const t = ES_AR;

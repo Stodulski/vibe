@@ -14,5 +14,5 @@ export { useDeleteCourt } from './hooks/useDeleteCourt';
 export { useDeleteBlockedSlot } from './hooks/useDeleteBlockedSlot';
 export { useBlockedSlots } from './hooks/useBlockedSlots';
 
-export { createCourtSchema } from './schemas/courts.schemas';
-export type { CreateCourtDto } from './schemas/courts.schemas';
+export { createCourtSchema } from './schemas/courts.schema';
+export type { CreateCourtDto } from './schemas/courts.schema';

@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/components/ui/dialog';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { DateField, CourtField, TimeRangeFields, ReasonField } from './block-slot-modal/fields';
+import { DateField, CourtField, TimeRangeFields, ReasonField } from './block-slot-modal/BlockSlotFields';
 import { useBlockSlotForm, type BlockSlotPrefill } from './block-slot-modal/useBlockSlotForm';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 

@@ -3,7 +3,7 @@ import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { PublicBookingFormData } from '../../schemas/public-booking.schemas';
+import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 
 const t = ES_AR;
 

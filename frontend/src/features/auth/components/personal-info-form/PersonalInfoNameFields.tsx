@@ -2,7 +2,7 @@ import type { FieldErrors, UseFormRegister } from 'react-hook-form';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { PersonalInfoFormData } from './schema';
+import type { PersonalInfoFormData } from './personalInfo.schema';
 
 const t = ES_AR;
 

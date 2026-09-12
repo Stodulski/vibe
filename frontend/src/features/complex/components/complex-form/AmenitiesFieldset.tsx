@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 import { AMENITIES } from '@/shared/lib/amenities';
 import type { Control } from 'react-hook-form';
 import type { Amenity } from '@/shared/types/api.types';
-import type { CreateComplexDto } from '../../schemas/complex.schemas';
+import type { CreateComplexDto } from '../../schemas/complex.schema';
 
 const t = ES_AR;
 

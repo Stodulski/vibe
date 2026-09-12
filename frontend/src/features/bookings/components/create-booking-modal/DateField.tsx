@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 import { todayInArgentina } from '../../lib/today';
 
 const t = ES_AR;

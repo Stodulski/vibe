@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { UseFormReset } from 'react-hook-form';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { DurationMinutes } from '@/shared/types/api.types';
 import { todayInArgentina } from '../../lib/today';
 

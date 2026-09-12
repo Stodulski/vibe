@@ -8,7 +8,7 @@ import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { submitHandler } from '@/shared/lib/form';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
-import { personalInfoSchema, type PersonalInfoFormData } from './personal-info-form/schema';
+import { personalInfoSchema, type PersonalInfoFormData } from './personal-info-form/personalInfo.schema';
 import { PersonalInfoNameFields } from './personal-info-form/PersonalInfoNameFields';
 
 const t = ES_AR;

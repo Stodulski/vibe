@@ -5,7 +5,7 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
-import type { PublicBookingFormData } from '../../schemas/public-booking.schemas';
+import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 
 const NOTES_TEXTAREA_ID = 'client_notes';
 

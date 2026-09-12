@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { confirmPaymentSchema, type ConfirmPaymentDto } from '../../schemas/booking.schemas';
+import { confirmPaymentSchema, type ConfirmPaymentDto } from '../../schemas/booking.schema';
 import type { Booking } from '@/shared/types/api.types';
 
 /**

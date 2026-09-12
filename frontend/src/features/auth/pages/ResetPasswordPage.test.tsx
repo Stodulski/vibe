@@ -41,7 +41,7 @@ vi.mock('@/shared/components/ui/label', async () => {
   return { Label: passthrough('label') };
 });
 
-vi.mock('@/features/auth/schemas/auth.schemas', () => ({
+vi.mock('@/features/auth/schemas/auth.schema', () => ({
   resetPasswordSchema: { parse: vi.fn() },
 }));
 

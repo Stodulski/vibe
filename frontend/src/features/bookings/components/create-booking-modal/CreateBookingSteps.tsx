@@ -5,7 +5,7 @@ import { submitHandler } from '@/shared/lib/form';
 import { CreateBookingFormBody } from './CreateBookingFormBody';
 import type { CreateBookingStep } from './CreateBookingFormBody';
 import type { useCreateBookingForm } from './useCreateBookingForm';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 
 const t = ES_AR;
 

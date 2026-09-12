@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createComplexSchema, updateComplexSchema, type CreateComplexDto } from '../../schemas/complex.schemas';
+import { createComplexSchema, updateComplexSchema, type CreateComplexDto } from '../../schemas/complex.schema';
 import { useCreateComplex } from '../../hooks/useCreateComplex';
 import { useUpdateComplex } from '../../hooks/useUpdateComplex';
 import type { Complex } from '@/shared/types/api.types';
