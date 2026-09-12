@@ -55,6 +55,10 @@ export default defineConfig({
         'reports.spec.ts',
         'confirm-payment.spec.ts',
         'blocked-slots.spec.ts',
+        // Mixes authenticatedPage (dashboard/bookings/settings) and a plain,
+        // unauthenticated page (login) in one file — belongs here for the
+        // former; nothing about the latter requires the 'public' project.
+        'a11y.spec.ts',
       ],
     },
     {
@@ -87,6 +91,9 @@ export default defineConfig({
         // never share a session with any other spec (see the spec's own
         // top-of-file comment).
         'token-refresh.spec.ts',
+        // No login at all — a fresh, unauthenticated page/context is exactly
+        // what its offline and service-worker-update checks need.
+        'pwa.spec.ts',
       ],
     },
   ],
