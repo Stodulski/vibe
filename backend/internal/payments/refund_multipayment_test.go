@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -44,7 +45,7 @@ func TestAutoRefundIssuesTheMercadoPagoRowAndAlertsOnTheCashRemainder(t *testing
 	f.payments.byBookingAll = []*data.Payment{deposit, cash}
 	f.payments.claimAmount = 157_500
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 	f.provider.refundAmount = 1_575.00
 
 	sentryEvents := withCapturedSentryEvents(t)

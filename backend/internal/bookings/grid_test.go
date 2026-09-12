@@ -12,6 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
@@ -36,11 +39,11 @@ func staffFixture(t *testing.T) (f *fixture, complexID, courtID uuid.UUID) {
 	f = newFixture(t)
 	complexID, courtID = uuid.New(), uuid.New()
 	openAllWeek(f, courtID, "09:00", "23:00")
-	f.courts.court = &data.Court{
+	f.courts.court = &courtstore.Court{
 		ID: courtID, ComplexID: complexID, Name: "Court 1",
 		IsActive: true,
 	}
-	f.clients.client = &data.Client{ID: uuid.New(), FirstName: "Ana", Phone: "+541100000000"}
+	f.clients.client = &clientstore.Client{ID: uuid.New(), FirstName: "Ana", Phone: "+541100000000"}
 	return f, complexID, courtID
 }
 
@@ -153,9 +156,9 @@ func TestTheOwnersDashboardRefusesAMalformedStartTimeEvenThoughItAcceptsAnyRealH
 
 // publicComplex is the active, MercadoPago-connected complex the public path
 // needs before it will get as far as the rules under test.
-func publicComplex(complexID uuid.UUID) *data.Complex {
+func publicComplex(complexID uuid.UUID) *complexstore.Complex {
 	token := "seller-token"
-	c := data.NewComplexForTest(complexID, &token, nil)
+	c := complexstore.NewComplexForTest(complexID, &token, nil)
 	c.Name = "Vibe"
 	c.Slug = "vibe"
 	c.IsActive = true

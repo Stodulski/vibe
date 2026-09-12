@@ -14,7 +14,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/storage"
@@ -22,17 +23,17 @@ import (
 
 // Store is the complex and schedule persistence this module uses.
 type Store interface {
-	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*data.Complex, error)
-	GetBySlug(ctx context.Context, slug string) (*data.Complex, error)
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error)
-	Insert(ctx context.Context, c *data.Complex) error
-	Update(ctx context.Context, c *data.Complex) error
+	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
+	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
+	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
+	Insert(ctx context.Context, c *complexstore.Complex) error
+	Update(ctx context.Context, c *complexstore.Complex) error
 	// SoftDeleteCascade deletes the venue and its courts in one transaction,
 	// returning how many courts it closed. See the soft-delete cascade in db/migrations/001_init.sql.
 	SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SlugsWithPrefix(ctx context.Context, base string) ([]string, error)
-	UpsertSchedule(ctx context.Context, s *data.Schedule) error
+	UpsertSchedule(ctx context.Context, s *complexstore.Schedule) error
 	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
 	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
 }
@@ -42,8 +43,8 @@ type Store interface {
 // closes the venue (Store.SoftDeleteCascade), not by a second call this handler
 // had to remember to make.
 type CourtStore interface {
-	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*data.Court, error)
-	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*data.CourtPrice, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
+	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*courtstore.CourtPrice, error)
 }
 
 // BookingStore is what deletion needs: whether anything is still live, and the

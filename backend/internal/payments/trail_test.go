@@ -6,6 +6,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
@@ -73,8 +76,8 @@ func TestAConfirmedPaymentIsRecorded(t *testing.T) {
 	mpPayment.CollectorID = 111111111
 	f.complexes.complex = linkedComplex(complexID, sellerID)
 	f.bookings.booking = booking
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	if err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("confirming an approved payment must not fail: %v", err)
@@ -200,7 +203,7 @@ func TestEveryRefundOutcomeReachesTheTrail(t *testing.T) {
 			f.payments.byBooking = payment
 			f.complexes.complex = linkedComplex(complexID, "")
 			f.complexes.complex.Name = "Vibe"
-			f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 			tt.prepare(f, booking, payment)
 
 			outcome := f.handler.AutoRefundIfPaid(t.Context(), booking)
@@ -279,7 +282,7 @@ func TestTheRetryQueueRecordsHowEachAttemptEnded(t *testing.T) {
 			}}
 			f.payments.byBooking = payment
 			f.bookings.booking = booking
-			f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 			f.complexes.complex = linkedComplex(complexID, "")
 			tt.prepare(f)
 
@@ -332,8 +335,8 @@ func TestMoneyMercadoPagoTookBackIsRecordedAsItsOwnDoing(t *testing.T) {
 			booking, payment := paidBooking(complexID)
 			payment.ServiceFee = 100_000 // total paid: 250_000
 			f.bookings.booking = booking
-			f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-			f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+			f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 			err := f.handler.processRefundedPayment(t.Context(), payment, &mp.Payment{
 				ID: 123, Status: tt.mpStatus, TransactionAmount: 2500, TransactionAmountRefunded: 2500,
@@ -370,8 +373,8 @@ func TestARefundWithNoPaymentRowIsRecordedWithoutInventingOne(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking, _ := paidBooking(complexID)
-	f.complexes.complex = &data.Complex{ID: complexID, Name: "Vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	err := f.handler.processRefundedPaymentFromBooking(t.Context(), booking, &mp.Payment{
 		ID: 123, Status: "charged_back", TransactionAmount: 2500,
@@ -413,7 +416,7 @@ func TestARefundForAnAlreadyCancelledBookingIsRecorded(t *testing.T) {
 	mpPayment.CollectorID = 111111111
 	f.complexes.complex = linkedComplex(complexID, sellerID)
 	f.bookings.booking = booking
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 
 	if err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("refunding a cancelled booking's payment must not fail: %v", err)

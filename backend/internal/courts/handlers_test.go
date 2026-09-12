@@ -12,12 +12,14 @@ import (
 
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
 func TestListReturnsTheComplexCourts(t *testing.T) {
 	complexID := uuid.New()
-	store := &stubStore{courts: []*data.Court{
+	store := &stubStore{courts: []*courtstore.Court{
 		{ID: uuid.New(), ComplexID: complexID, Name: "Court 1"},
 		{ID: uuid.New(), ComplexID: complexID, Name: "Court 2"},
 	}}
@@ -96,7 +98,7 @@ func TestCreatePersistsAndAudits(t *testing.T) {
 // would confirm the id exists.
 func TestCourtsOfOtherComplexesAreInvisible(t *testing.T) {
 	courtID := uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: uuid.New()}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: uuid.New()}}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 
@@ -129,7 +131,7 @@ func TestDeleteIsRefusedWhileBookingsAreLive(t *testing.T) {
 	// first. The assertions below are unchanged — a refusal, no delete, no
 	// audit entry — only where the setup states the precondition has moved.
 	store := &stubStore{
-		court:             &data.Court{ID: courtID, ComplexID: complexID},
+		court:             &courtstore.Court{ID: courtID, ComplexID: complexID},
 		hasActiveBookings: true,
 	}
 	bookings := &stubBookings{hasActive: true}
@@ -152,7 +154,7 @@ func TestDeleteIsRefusedWhileBookingsAreLive(t *testing.T) {
 
 func TestDeleteSucceedsWithNoLiveBookings(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 	h, rec := newTestHandler(store, &stubBookings{hasActive: false}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -179,7 +181,7 @@ func TestDeleteSucceedsWithNoLiveBookings(t *testing.T) {
 // changed underneath it.
 func TestDeleteOfAnAlreadyDeletedCourtIsIdempotent(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 	h, rec := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -200,7 +202,7 @@ func TestDeleteOfAnAlreadyDeletedCourtIsIdempotent(t *testing.T) {
 func TestDeleteAnswersNotFoundWhenTheCourtDisappearsBeforeTheDelete(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{
-		court:         &data.Court{ID: courtID, ComplexID: complexID},
+		court:         &courtstore.Court{ID: courtID, ComplexID: complexID},
 		softDeleteErr: data.ErrRecordNotFound,
 	}
 
@@ -221,7 +223,7 @@ func TestDeleteAnswersNotFoundWhenTheCourtDisappearsBeforeTheDelete(t *testing.T
 // one is written or the two would both apply.
 func TestUpdatePricesReplacesTheWholeBand(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 	h, rec := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -259,7 +261,7 @@ func TestUpdatePricesRejectsInvalidBands(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			complexID, courtID := uuid.New(), uuid.New()
-			store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+			store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 			h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 			w := httptest.NewRecorder()
@@ -283,7 +285,7 @@ func TestUpdatePricesRejectsInvalidBands(t *testing.T) {
 // dialog, because the handler used to require time_from < time_to.
 func TestUpdatePricesAcceptsABandCrossingMidnight(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -305,7 +307,7 @@ func TestUpdatePricesAcceptsABandCrossingMidnight(t *testing.T) {
 // a raw pgconn error straight to ServerError.
 func TestUpdatePricesRejectsOverlappingBandsForTheSameDay(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -331,7 +333,7 @@ func TestUpdatePricesRejectsOverlappingBandsForTheSameDay(t *testing.T) {
 // availability grid for a day already played.
 func TestBlockSlotRejectsAPastDate(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -350,7 +352,7 @@ func TestBlockSlotRejectsAPastDate(t *testing.T) {
 // A block must not be able to erase a slot somebody already booked.
 func TestBlockSlotRefusesToOverlapABooking(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 	day := mustParseDate(t, futureDate())
 	bookings := &stubBookings{booked: []data.BookedSpan{{
 		StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "19:30"),
@@ -374,7 +376,7 @@ func TestBlockSlotRefusesToOverlapABooking(t *testing.T) {
 // allowed.
 func TestBlockSlotAllowsAnAdjacentRange(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 	day := mustParseDate(t, futureDate())
 	bookings := &stubBookings{booked: []data.BookedSpan{{
 		StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "19:30"),
@@ -397,8 +399,8 @@ func TestBlockSlotAllowsAnAdjacentRange(t *testing.T) {
 func TestBlockSlotReportsAnAlreadyBlockedRange(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{
-		court:    &data.Court{ID: courtID, ComplexID: complexID},
-		blockErr: data.ErrSlotAlreadyBlocked,
+		court:    &courtstore.Court{ID: courtID, ComplexID: complexID},
+		blockErr: courtstore.ErrSlotAlreadyBlocked,
 	}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
@@ -420,8 +422,8 @@ func TestBlockSlotReportsAnAlreadyBlockedRange(t *testing.T) {
 func TestBlockSlotReportsARangeARaceSold(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{
-		court:    &data.Court{ID: courtID, ComplexID: complexID},
-		blockErr: data.ErrSlotHasBooking,
+		court:    &courtstore.Court{ID: courtID, ComplexID: complexID},
+		blockErr: courtstore.ErrSlotHasBooking,
 	}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
@@ -440,7 +442,7 @@ func TestBlockSlotReportsARangeARaceSold(t *testing.T) {
 
 func TestBlockSlotRecordsWhoBlockedIt(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -467,7 +469,7 @@ func TestBlockSlotRecordsWhoBlockedIt(t *testing.T) {
 // all.
 func TestBlockSlotAuditsTheCourtName(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &data.Court{ID: courtID, ComplexID: complexID, Name: "Cancha Bloqueo"}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID, Name: "Cancha Bloqueo"}}
 
 	h, table, runAudits := newTestHandlerWithAuditTrail(store, &stubBookings{}, &stubComplexes{})
 	w := httptest.NewRecorder()
@@ -496,8 +498,8 @@ func TestBlockSlotAuditsTheCourtName(t *testing.T) {
 func TestDeleteBlockedSlotHidesOtherComplexes(t *testing.T) {
 	slotID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{
-		blockedSlot: &data.BlockedSlot{ID: slotID, CourtID: courtID},
-		court:       &data.Court{ID: courtID, ComplexID: uuid.New()},
+		blockedSlot: &courtstore.BlockedSlot{ID: slotID, CourtID: courtID},
+		court:       &courtstore.Court{ID: courtID, ComplexID: uuid.New()},
 	}
 
 	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
@@ -557,11 +559,11 @@ func TestAvailabilityIsPublicAndBuildsTheGrid(t *testing.T) {
 	date := futureDate()
 
 	complexes := &stubComplexes{
-		complex:   &data.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", IsActive: true},
+		complex:   &complexstore.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", IsActive: true},
 		schedules: openEveryDay(),
 	}
 	store := &stubStore{
-		courts: []*data.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: pricedEveryDay(courtID),
 	}
 
@@ -611,7 +613,7 @@ func TestAvailabilityReportsAnUnknownComplexAsNotFound(t *testing.T) {
 }
 
 func TestAvailabilityRejectsAMalformedDate(t *testing.T) {
-	complexes := &stubComplexes{complex: &data.Complex{ID: uuid.New(), Slug: "vibe", IsActive: true}}
+	complexes := &stubComplexes{complex: &complexstore.Complex{ID: uuid.New(), Slug: "vibe", IsActive: true}}
 	h, _ := newTestHandler(&stubStore{}, &stubBookings{}, complexes)
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?date=next-tuesday", nil)
@@ -630,10 +632,10 @@ func TestAvailabilityRejectsAMalformedDate(t *testing.T) {
 func TestAvailabilityOmitsInactiveCourts(t *testing.T) {
 	complexID := uuid.New()
 	complexes := &stubComplexes{
-		complex:   &data.Complex{ID: complexID, Slug: "vibe", IsActive: true},
+		complex:   &complexstore.Complex{ID: complexID, Slug: "vibe", IsActive: true},
 		schedules: openEveryDay(),
 	}
-	store := &stubStore{courts: []*data.Court{
+	store := &stubStore{courts: []*courtstore.Court{
 		{ID: uuid.New(), ComplexID: complexID, Name: "Retired", IsActive: false},
 	}}
 

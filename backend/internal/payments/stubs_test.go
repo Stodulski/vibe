@@ -13,6 +13,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -338,12 +341,12 @@ func (s *stubLinkTokens) Mint(_ context.Context, bookingID uuid.UUID, _ time.Tim
 }
 
 type stubClients struct {
-	client  *data.Client
+	client  *clientstore.Client
 	err     error
-	updated *data.Client
+	updated *clientstore.Client
 }
 
-func (s *stubClients) GetByID(context.Context, uuid.UUID) (*data.Client, error) {
+func (s *stubClients) GetByID(context.Context, uuid.UUID) (*clientstore.Client, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -353,13 +356,13 @@ func (s *stubClients) GetByID(context.Context, uuid.UUID) (*data.Client, error) 
 	return s.client, nil
 }
 
-func (s *stubClients) Update(_ context.Context, c *data.Client) error {
+func (s *stubClients) Update(_ context.Context, c *clientstore.Client) error {
 	s.updated = c
 	return nil
 }
 
 type stubComplexes struct {
-	complex *data.Complex
+	complex *complexstore.Complex
 	err     error
 	// calls counts GetByID invocations, so a test can assert the collector
 	// check (the only caller of this method in internal/payments) runs
@@ -367,7 +370,7 @@ type stubComplexes struct {
 	calls int
 }
 
-func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*data.Complex, error) {
+func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*complexstore.Complex, error) {
 	s.calls++
 	if s.err != nil {
 		return nil, s.err
@@ -378,9 +381,9 @@ func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*data.Complex, erro
 	return s.complex, nil
 }
 
-type stubCourts struct{ court *data.Court }
+type stubCourts struct{ court *courtstore.Court }
 
-func (s *stubCourts) GetByID(context.Context, uuid.UUID) (*data.Court, error) {
+func (s *stubCourts) GetByID(context.Context, uuid.UUID) (*courtstore.Court, error) {
 	if s.court == nil {
 		return nil, data.ErrRecordNotFound
 	}
@@ -793,9 +796,9 @@ const sellerTestToken = "seller-access-token"
 // internal/data can never carry a seller token, and sellerCredential would
 // then always refuse with ErrMPNotConnected regardless of what the test is
 // actually about.
-func linkedComplex(id uuid.UUID, mpUserID string) *data.Complex {
+func linkedComplex(id uuid.UUID, mpUserID string) *complexstore.Complex {
 	token := sellerTestToken
-	c := data.NewComplexForTest(id, &token, nil)
+	c := complexstore.NewComplexForTest(id, &token, nil)
 	if mpUserID != "" {
 		c.MPUserID = &mpUserID
 	}

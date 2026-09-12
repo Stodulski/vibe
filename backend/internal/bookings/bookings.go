@@ -18,6 +18,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -35,20 +38,20 @@ type Store interface {
 // ClientStore resolves the person a booking is for. Public bookings create the
 // client record on the fly, since they arrive with no account.
 type ClientStore interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Client, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
 	// allowNameUpdate must be true only from the authenticated owner path
 	// (create.go) and false from the public one (public.go) — see
 	// data.ClientModel.GetOrCreate's comment for why an unauthenticated
 	// caller must never be able to overwrite an existing client's name.
-	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*data.Client, error)
-	Update(ctx context.Context, c *data.Client) error
+	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
+	Update(ctx context.Context, c *clientstore.Client) error
 	IncrementNoShows(ctx context.Context, clientID uuid.UUID) error
 }
 
 // ComplexReader supplies the venue and its opening hours.
 type ComplexReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Complex, error)
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
+	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
 }
 
@@ -60,9 +63,9 @@ type ComplexReader interface {
 // is selling on a given day — and because a write path that cannot see them
 // sells hours the storefront has already withdrawn.
 type CourtReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Court, error)
-	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*data.CourtPrice, error)
-	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*data.BlockedSlot, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
+	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
+	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
 }
 
 // PaymentStore records the payment a public booking is waiting on.

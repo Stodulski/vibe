@@ -16,15 +16,16 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
 
 type stubStore struct {
-	owned     []*data.Complex
-	complex   *data.Complex
-	schedules []*data.Schedule
+	owned     []*complexstore.Complex
+	complex   *complexstore.Complex
+	schedules []*complexstore.Schedule
 	slugTaken bool
 	slugErr   error
 	getErr    error
@@ -35,13 +36,13 @@ type stubStore struct {
 	// slugsChecked is every slug SlugExists was asked about, in order.
 	slugsChecked []string
 
-	inserted          *data.Complex
-	updated           *data.Complex
+	inserted          *complexstore.Complex
+	updated           *complexstore.Complex
 	updateErr         error
 	softDeleted       *uuid.UUID
 	courtsDeactivated int
 	softDeleteErr     error
-	upsertedSchedule  []*data.Schedule
+	upsertedSchedule  []*complexstore.Schedule
 	mpCredentials     *struct {
 		access, refresh, user string
 		expiresIn             int
@@ -49,22 +50,22 @@ type stubStore struct {
 	mpCleared *uuid.UUID
 }
 
-func (s *stubStore) GetByOwner(context.Context, uuid.UUID) ([]*data.Complex, error) {
+func (s *stubStore) GetByOwner(context.Context, uuid.UUID) ([]*complexstore.Complex, error) {
 	return s.owned, s.getErr
 }
 
-func (s *stubStore) GetBySlug(context.Context, string) (*data.Complex, error) {
+func (s *stubStore) GetBySlug(context.Context, string) (*complexstore.Complex, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
 	return s.complex, nil
 }
 
-func (s *stubStore) GetSchedules(context.Context, uuid.UUID) ([]*data.Schedule, error) {
+func (s *stubStore) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.Schedule, error) {
 	return s.schedules, nil
 }
 
-func (s *stubStore) Insert(_ context.Context, c *data.Complex) error {
+func (s *stubStore) Insert(_ context.Context, c *complexstore.Complex) error {
 	if s.insertErr != nil {
 		return s.insertErr
 	}
@@ -73,7 +74,7 @@ func (s *stubStore) Insert(_ context.Context, c *data.Complex) error {
 	return nil
 }
 
-func (s *stubStore) Update(_ context.Context, c *data.Complex) error {
+func (s *stubStore) Update(_ context.Context, c *complexstore.Complex) error {
 	if s.updateErr != nil {
 		return s.updateErr
 	}
@@ -102,7 +103,7 @@ func (s *stubStore) SlugsWithPrefix(_ context.Context, base string) ([]string, e
 	return s.slugsWithPrefix, s.slugErr
 }
 
-func (s *stubStore) UpsertSchedule(_ context.Context, sc *data.Schedule) error {
+func (s *stubStore) UpsertSchedule(_ context.Context, sc *complexstore.Schedule) error {
 	s.upsertedSchedule = append(s.upsertedSchedule, sc)
 	return nil
 }
@@ -121,15 +122,15 @@ func (s *stubStore) ClearMPCredentials(_ context.Context, id uuid.UUID) error {
 }
 
 type stubCourts struct {
-	courts []*data.Court
-	prices []*data.CourtPrice
+	courts []*courtstore.Court
+	prices []*courtstore.CourtPrice
 }
 
-func (c *stubCourts) GetByComplex(context.Context, uuid.UUID) ([]*data.Court, error) {
+func (c *stubCourts) GetByComplex(context.Context, uuid.UUID) ([]*courtstore.Court, error) {
 	return c.courts, nil
 }
 
-func (c *stubCourts) GetPricesByCourtIDs(context.Context, []uuid.UUID) ([]*data.CourtPrice, error) {
+func (c *stubCourts) GetPricesByCourtIDs(context.Context, []uuid.UUID) ([]*courtstore.CourtPrice, error) {
 	return c.prices, nil
 }
 
@@ -231,7 +232,7 @@ func newFixture(t *testing.T) *fixture {
 // ownerRequest builds a request from an authenticated owner. Pass a non-nil
 // complexID to also put the owned complex in context, as the ownership
 // middleware does.
-func ownerRequest(t *testing.T, method, target string, ownerID uuid.UUID, complex *data.Complex, params map[string]string, body string) *http.Request {
+func ownerRequest(t *testing.T, method, target string, ownerID uuid.UUID, complex *complexstore.Complex, params map[string]string, body string) *http.Request {
 	t.Helper()
 
 	var r *http.Request

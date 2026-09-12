@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -31,32 +32,32 @@ type Client struct {
 // CursorKey returns the (created-at, ID) pair used to build a pagination cursor for this client.
 func (c *Client) CursorKey() (time.Time, uuid.UUID) { return c.CreatedAt, c.ID }
 
-// ClientModel implements ClientStore against PostgreSQL.
-type ClientModel struct {
-	DB *DB
+// Store implements ClientStore against PostgreSQL.
+type Store struct {
+	DB *data.DB
 	Q  *db.Queries
 }
 
 // Insert creates a new client and populates c with its generated ID and defaults.
-func (m *ClientModel) Insert(ctx context.Context, c *Client) error {
+func (m *Store) Insert(ctx context.Context, c *Client) error {
 	dbClient, err := m.Q.InsertClient(ctx, db.InsertClientParams{
-		ComplexID: UUIDToPg(c.ComplexID),
+		ComplexID: data.UUIDToPg(c.ComplexID),
 		FirstName: c.FirstName,
 		LastName:  c.LastName,
 		Phone:     c.Phone,
-		Email:     TextToPg(c.Email),
-		Notes:     TextToPg(c.Notes),
+		Email:     data.TextToPg(c.Email),
+		Notes:     data.TextToPg(c.Notes),
 	})
 	if err != nil {
 		return err
 	}
 
-	c.ID = PgToUUID(dbClient.ID)
+	c.ID = data.PgToUUID(dbClient.ID)
 	c.IsBlocked = dbClient.IsBlocked
 	c.TotalBookings = int(dbClient.TotalBookings)
 	c.NoShows = int(dbClient.NoShows)
-	c.CreatedAt = PgToTime(dbClient.CreatedAt)
-	c.UpdatedAt = PgToTime(dbClient.UpdatedAt)
+	c.CreatedAt = data.PgToTime(dbClient.CreatedAt)
+	c.UpdatedAt = data.PgToTime(dbClient.UpdatedAt)
 	return nil
 }
 
@@ -66,56 +67,56 @@ func (m *ClientModel) Insert(ctx context.Context, c *Client) error {
 // no_show), not read off the clients.total_bookings column: that counter was
 // only ever incremented from the MercadoPago webhook, so it silently stayed
 // at 0 for every booking the owner confirmed manually or by cash/transfer.
-func (m *ClientModel) GetByID(ctx context.Context, id uuid.UUID) (*Client, error) {
-	row, err := m.Q.GetClientByID(ctx, UUIDToPg(id))
+func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Client, error) {
+	row, err := m.Q.GetClientByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
 	return &Client{
-		ID:            PgToUUID(row.ID),
-		ComplexID:     PgToUUID(row.ComplexID),
+		ID:            data.PgToUUID(row.ID),
+		ComplexID:     data.PgToUUID(row.ComplexID),
 		FirstName:     row.FirstName,
 		LastName:      row.LastName,
 		Phone:         row.Phone,
-		Email:         PgToTextPtr(row.Email),
-		Notes:         PgToTextPtr(row.Notes),
+		Email:         data.PgToTextPtr(row.Email),
+		Notes:         data.PgToTextPtr(row.Notes),
 		IsBlocked:     row.IsBlocked,
 		TotalBookings: int(row.TotalBookings),
 		NoShows:       int(row.NoShows),
-		CreatedAt:     PgToTime(row.CreatedAt),
-		UpdatedAt:     PgToTime(row.UpdatedAt),
+		CreatedAt:     data.PgToTime(row.CreatedAt),
+		UpdatedAt:     data.PgToTime(row.UpdatedAt),
 	}, nil
 }
 
 // GetByPhone returns the client with the given phone number within a complex, or ErrRecordNotFound if none exists.
 // total_bookings is a live count — see GetByID's comment for why.
-func (m *ClientModel) GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*Client, error) {
+func (m *Store) GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*Client, error) {
 	row, err := m.Q.GetClientByPhone(ctx, db.GetClientByPhoneParams{
-		ComplexID: UUIDToPg(complexID),
+		ComplexID: data.UUIDToPg(complexID),
 		Phone:     phone,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrRecordNotFound
+			return nil, data.ErrRecordNotFound
 		}
 		return nil, err
 	}
 	return &Client{
-		ID:            PgToUUID(row.ID),
-		ComplexID:     PgToUUID(row.ComplexID),
+		ID:            data.PgToUUID(row.ID),
+		ComplexID:     data.PgToUUID(row.ComplexID),
 		FirstName:     row.FirstName,
 		LastName:      row.LastName,
 		Phone:         row.Phone,
-		Email:         PgToTextPtr(row.Email),
-		Notes:         PgToTextPtr(row.Notes),
+		Email:         data.PgToTextPtr(row.Email),
+		Notes:         data.PgToTextPtr(row.Notes),
 		IsBlocked:     row.IsBlocked,
 		TotalBookings: int(row.TotalBookings),
 		NoShows:       int(row.NoShows),
-		CreatedAt:     PgToTime(row.CreatedAt),
-		UpdatedAt:     PgToTime(row.UpdatedAt),
+		CreatedAt:     data.PgToTime(row.CreatedAt),
+		UpdatedAt:     data.PgToTime(row.UpdatedAt),
 	}, nil
 }
 
@@ -126,13 +127,13 @@ func (m *ClientModel) GetByPhone(ctx context.Context, complexID uuid.UUID, phone
 // codebase's store method conventions (wrap sqlc queries, map to domain structs).
 //
 //nolint:funlen // single cohesive SQL-building-and-execution flow for one store operation
-func (m *ClientModel) GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters Filters) ([]*Client, Metadata, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*Client, data.Metadata, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	cursorTime, cursorID, err := filters.ParseCursor()
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
 	if cursorTime.IsZero() {
@@ -151,7 +152,7 @@ func (m *ClientModel) GetByComplex(ctx context.Context, complexID uuid.UUID, sea
 		// H-04: escaped so a literal '%' or '_' the owner typed matches only
 		// itself — see EscapeLikeTerm's comment. ESCAPE '\' on all three
 		// predicates is what makes the escaping below take effect.
-		pattern := "%" + EscapeLikeTerm(search) + "%"
+		pattern := "%" + data.EscapeLikeTerm(search) + "%"
 		rows, err = m.DB.Query(ctx, `
 			SELECT c.id, c.complex_id, c.first_name, c.last_name, c.phone, c.email, c.notes,
 			       c.is_blocked, c.no_shows, c.created_at, c.updated_at,
@@ -165,9 +166,9 @@ func (m *ClientModel) GetByComplex(ctx context.Context, complexID uuid.UUID, sea
 			  AND (c.first_name ILIKE $5 ESCAPE '\' OR c.last_name ILIKE $5 ESCAPE '\' OR c.phone ILIKE $5 ESCAPE '\')
 			ORDER BY c.created_at ASC, c.id ASC
 			LIMIT $4`,
-			UUIDToPg(complexID),
-			TimeToPg(cursorTime),
-			UUIDToPg(cursorID),
+			data.UUIDToPg(complexID),
+			data.TimeToPg(cursorTime),
+			data.UUIDToPg(cursorID),
 			int32(limit+1),
 			pattern,
 		)
@@ -184,14 +185,14 @@ func (m *ClientModel) GetByComplex(ctx context.Context, complexID uuid.UUID, sea
 			  AND (c.created_at, c.id) > ($2, $3)
 			ORDER BY c.created_at ASC, c.id ASC
 			LIMIT $4`,
-			UUIDToPg(complexID),
-			TimeToPg(cursorTime),
-			UUIDToPg(cursorID),
+			data.UUIDToPg(complexID),
+			data.TimeToPg(cursorTime),
+			data.UUIDToPg(cursorID),
 			int32(limit+1),
 		)
 	}
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 	defer rows.Close()
 
@@ -204,37 +205,37 @@ func (m *ClientModel) GetByComplex(ctx context.Context, complexID uuid.UUID, sea
 			&c.CreatedAt, &c.UpdatedAt, &c.TotalBookings,
 		)
 		if err != nil {
-			return nil, Metadata{}, err
+			return nil, data.Metadata{}, err
 		}
 		clients = append(clients, clientFromDB(c))
 	}
 	if err := rows.Err(); err != nil {
-		return nil, Metadata{}, err
+		return nil, data.Metadata{}, err
 	}
 
-	clients, meta := TrimPage(clients, limit, BuildTimestampCursor)
+	clients, meta := data.TrimPage(clients, limit, data.BuildTimestampCursor)
 	return clients, meta, nil
 }
 
 // Update persists changes to an existing client, returning ErrRecordNotFound if it no longer exists.
-func (m *ClientModel) Update(ctx context.Context, c *Client) error {
+func (m *Store) Update(ctx context.Context, c *Client) error {
 	dbClient, err := m.Q.UpdateClient(ctx, db.UpdateClientParams{
 		FirstName: c.FirstName,
 		LastName:  c.LastName,
 		Phone:     c.Phone,
-		Email:     TextToPg(c.Email),
-		Notes:     TextToPg(c.Notes),
+		Email:     data.TextToPg(c.Email),
+		Notes:     data.TextToPg(c.Notes),
 		IsBlocked: c.IsBlocked,
-		ID:        UUIDToPg(c.ID),
+		ID:        data.UUIDToPg(c.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+			return data.ErrRecordNotFound
 		}
 		return err
 	}
 
-	c.UpdatedAt = PgToTime(dbClient.UpdatedAt)
+	c.UpdatedAt = data.PgToTime(dbClient.UpdatedAt)
 	return nil
 }
 
@@ -284,8 +285,8 @@ func (m *ClientModel) Update(ctx context.Context, c *Client) error {
 // 500, it just never lets an unauthenticated request rename an existing
 // client. A brand-new row is unaffected either way, since there is nothing
 // yet to overwrite.
-func (m *ClientModel) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*Client, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*Client, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	var emailPtr *string
@@ -302,7 +303,7 @@ func (m *ClientModel) GetOrCreate(ctx context.Context, complexID uuid.UUID, firs
 			last_name = CASE WHEN $6 THEN EXCLUDED.last_name ELSE clients.last_name END,
 			email = COALESCE(NULLIF(clients.email, ''), EXCLUDED.email)
 		RETURNING id`,
-		UUIDToPg(complexID), firstName, lastName, phone, TextToPg(emailPtr), allowNameUpdate,
+		data.UUIDToPg(complexID), firstName, lastName, phone, data.TextToPg(emailPtr), allowNameUpdate,
 	).Scan(&id)
 	if err != nil {
 		return nil, err
@@ -312,21 +313,21 @@ func (m *ClientModel) GetOrCreate(ctx context.Context, complexID uuid.UUID, firs
 	// RETURNING clause above, so this keeps computing total_bookings live —
 	// see GetByID's comment for why the stored column cannot be trusted — the
 	// same way the check-then-insert version did by way of GetByPhone.
-	return m.GetByID(ctx, PgToUUID(id))
+	return m.GetByID(ctx, data.PgToUUID(id))
 }
 
 // IncrementNoShows increments the client's no-show counter by one.
-func (m *ClientModel) IncrementNoShows(ctx context.Context, clientID uuid.UUID) error {
-	return m.Q.IncrementNoShowCount(ctx, UUIDToPg(clientID))
+func (m *Store) IncrementNoShows(ctx context.Context, clientID uuid.UUID) error {
+	return m.Q.IncrementNoShowCount(ctx, data.UUIDToPg(clientID))
 }
 
 // CountByComplex returns the total number of clients registered in the complex.
-func (m *ClientModel) CountByComplex(ctx context.Context, complexID uuid.UUID) (int, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) CountByComplex(ctx context.Context, complexID uuid.UUID) (int, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	var count int
-	err := m.DB.QueryRow(ctx, `SELECT COUNT(*) FROM clients WHERE complex_id = $1`, UUIDToPg(complexID)).Scan(&count)
+	err := m.DB.QueryRow(ctx, `SELECT COUNT(*) FROM clients WHERE complex_id = $1`, data.UUIDToPg(complexID)).Scan(&count)
 	return count, err
 }
 
@@ -355,8 +356,8 @@ type ClientInsights struct {
 // GetInsights computes top clients, no-show rate and new/recurring client counts for the trailing 30 days.
 //
 //nolint:funlen // single cohesive sequence of aggregate queries feeding one insights struct
-func (m *ClientModel) GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*ClientInsights, error) {
-	ctx, cancel := QueryContext(ctx)
+func (m *Store) GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*ClientInsights, error) {
+	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	insights := &ClientInsights{}
@@ -371,7 +372,7 @@ func (m *ClientModel) GetInsights(ctx context.Context, complexID uuid.UUID, toda
 		GROUP BY cl.id, cl.first_name, cl.last_name, cl.phone
 		ORDER BY COUNT(*) DESC
 		LIMIT 10`,
-		UUIDToPg(complexID), DateToPg(from), DateToPg(today),
+		data.UUIDToPg(complexID), data.DateToPg(from), data.DateToPg(today),
 	)
 	if err != nil {
 		return nil, err
@@ -383,7 +384,7 @@ func (m *ClientModel) GetInsights(ctx context.Context, complexID uuid.UUID, toda
 		if err := rows.Scan(&id, &tc.Name, &tc.Phone, &tc.BookingCount, &tc.TotalSpent); err != nil {
 			return nil, err
 		}
-		tc.ID = PgToUUID(id)
+		tc.ID = data.PgToUUID(id)
 		insights.TopClients = append(insights.TopClients, tc)
 	}
 	if err := rows.Err(); err != nil {
@@ -399,7 +400,7 @@ func (m *ClientModel) GetInsights(ctx context.Context, complexID uuid.UUID, toda
 			COUNT(*) FILTER (WHERE status IN ('completed', 'no_show'))::int
 		FROM bookings
 		WHERE complex_id = $1 AND date BETWEEN $2 AND $3`,
-		UUIDToPg(complexID), DateToPg(from), DateToPg(today),
+		data.UUIDToPg(complexID), data.DateToPg(from), data.DateToPg(today),
 	).Scan(&insights.NoShowCount, &insights.CompletedCount)
 	if err != nil {
 		return nil, err
@@ -415,7 +416,7 @@ func (m *ClientModel) GetInsights(ctx context.Context, complexID uuid.UUID, toda
 		FROM bookings b
 		JOIN clients cl ON cl.id = b.client_id
 		WHERE b.complex_id = $1 AND b.date BETWEEN $3 AND $4 AND b.status != 'cancelled'`,
-		UUIDToPg(complexID), TimeToPg(from), DateToPg(from), DateToPg(today),
+		data.UUIDToPg(complexID), data.TimeToPg(from), data.DateToPg(from), data.DateToPg(today),
 	).Scan(&insights.NewClients, &insights.TotalActive)
 	if err != nil {
 		return nil, err
@@ -427,17 +428,17 @@ func (m *ClientModel) GetInsights(ctx context.Context, complexID uuid.UUID, toda
 
 func clientFromDB(c db.Client) *Client {
 	return &Client{
-		ID:            PgToUUID(c.ID),
-		ComplexID:     PgToUUID(c.ComplexID),
+		ID:            data.PgToUUID(c.ID),
+		ComplexID:     data.PgToUUID(c.ComplexID),
 		FirstName:     c.FirstName,
 		LastName:      c.LastName,
 		Phone:         c.Phone,
-		Email:         PgToTextPtr(c.Email),
-		Notes:         PgToTextPtr(c.Notes),
+		Email:         data.PgToTextPtr(c.Email),
+		Notes:         data.PgToTextPtr(c.Notes),
 		IsBlocked:     c.IsBlocked,
 		TotalBookings: int(c.TotalBookings),
 		NoShows:       int(c.NoShows),
-		CreatedAt:     PgToTime(c.CreatedAt),
-		UpdatedAt:     PgToTime(c.UpdatedAt),
+		CreatedAt:     data.PgToTime(c.CreatedAt),
+		UpdatedAt:     data.PgToTime(c.UpdatedAt),
 	}
 }

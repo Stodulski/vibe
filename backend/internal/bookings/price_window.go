@@ -3,7 +3,7 @@ package bookings
 import (
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
 
@@ -36,7 +36,7 @@ type PriceWindow struct {
 // for its own weekday — because staff book days the venue is shut and a card is
 // per weekday, not per opening. Returning "no window" would have made every
 // such booking unpriceable, which is a different rule than the one chosen.
-func priceWindow(schedules []*data.Schedule, date time.Time, startTime string) PriceWindow {
+func priceWindow(schedules []*complexstore.Schedule, date time.Time, startTime string) PriceWindow {
 	// Last night first, asked as "are you still open at this hour tomorrow".
 	previous := slots.DayName(date.AddDate(0, 0, -1).Weekday())
 	if grid, ok := gridForDay(schedules, previous); ok {
@@ -67,7 +67,7 @@ func priceWindow(schedules []*data.Schedule, date time.Time, startTime string) P
 
 // gridForDay finds one weekday's window. A closed day has no window, and a
 // weekday with no row at all is the same fact — nothing says the venue opens.
-func gridForDay(schedules []*data.Schedule, day string) (slots.Grid, bool) {
+func gridForDay(schedules []*complexstore.Schedule, day string) (slots.Grid, bool) {
 	for _, s := range schedules {
 		if s.Day != day {
 			continue

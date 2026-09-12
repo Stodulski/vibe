@@ -18,7 +18,6 @@ func TestSentinelErrors_NotNil(t *testing.T) {
 		{"ErrAlreadyRefunded", ErrAlreadyRefunded},
 		{"ErrCooldownActive", ErrCooldownActive},
 		{"ErrSlotLocked", ErrSlotLocked},
-		{"ErrSlotAlreadyBlocked", ErrSlotAlreadyBlocked},
 	}
 
 	for _, tt := range sentinels {
@@ -39,7 +38,6 @@ func TestSentinelErrors_Distinct(t *testing.T) {
 		ErrAlreadyRefunded,
 		ErrCooldownActive,
 		ErrSlotLocked,
-		ErrSlotAlreadyBlocked,
 	}
 
 	for i := 0; i < len(all); i++ {
@@ -60,7 +58,6 @@ func TestSentinelErrors_MatchWithErrorsIs(t *testing.T) {
 		ErrAlreadyRefunded,
 		ErrCooldownActive,
 		ErrSlotLocked,
-		ErrSlotAlreadyBlocked,
 	}
 
 	for _, sentinel := range sentinels {
@@ -93,7 +90,6 @@ func TestSentinelErrors_NonEmptyMessage(t *testing.T) {
 		ErrAlreadyRefunded,
 		ErrCooldownActive,
 		ErrSlotLocked,
-		ErrSlotAlreadyBlocked,
 	}
 
 	for _, sentinel := range sentinels {

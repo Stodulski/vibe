@@ -16,6 +16,8 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
@@ -31,9 +33,9 @@ const recentBookingLimit = 20
 // than reused from data.ClientStore so that this package depends on the three
 // methods it calls, and no more.
 type Store interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Client, error)
-	GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*data.Client, data.Metadata, error)
-	Update(ctx context.Context, c *data.Client) error
+	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*clientstore.Client, data.Metadata, error)
+	Update(ctx context.Context, c *clientstore.Client) error
 }
 
 // BookingReader is the one booking query this module needs, for the recent
@@ -73,7 +75,7 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 // The three handlers opened with the same twenty lines of context lookup,
 // parameter parsing, fetch and ownership check. It returns ok rather than an
 // error because it has already written the response on every failure path.
-func (h *Handler) load(w http.ResponseWriter, r *http.Request) (*data.Complex, *data.Client, bool) {
+func (h *Handler) load(w http.ResponseWriter, r *http.Request) (*complexstore.Complex, *clientstore.Client, bool) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
 		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))

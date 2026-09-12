@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -173,7 +173,7 @@ func TestStreamSendsHeadersAndTheConnectedEvent(t *testing.T) {
 	h := testHandler(t, hub, shutdown)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.Stream(w, httpx.ContextSetComplex(r, &data.Complex{ID: complexID}))
+		h.Stream(w, httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID}))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -213,7 +213,7 @@ func TestStreamDeliversPublishedEvents(t *testing.T) {
 	h := testHandler(t, hub, make(chan struct{}))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.Stream(w, httpx.ContextSetComplex(r, &data.Complex{ID: complexID}))
+		h.Stream(w, httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID}))
 	}))
 	t.Cleanup(srv.Close)
 

@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"encoding/base64"
@@ -149,7 +149,7 @@ func TestComplexFromDB_NilKeyringNeverPassesStoredValueThrough(t *testing.T) {
 // an empty value, so a bug in the CHECK constraint is never the only thing
 // standing between an empty credential and storage.
 func TestUpdateMPCredentials_RefusesEmptyBeforeSealing(t *testing.T) {
-	m := &ComplexModel{Keys: testKeyring32(t, "k1", 0x05)}
+	m := &Store{Keys: testKeyring32(t, "k1", 0x05)}
 
 	tests := []struct {
 		name                      string

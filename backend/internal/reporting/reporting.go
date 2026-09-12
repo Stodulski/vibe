@@ -12,6 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -28,18 +31,18 @@ type BookingReader interface {
 // ClientReader is the client side: headline counts and the insights panel.
 type ClientReader interface {
 	CountByComplex(ctx context.Context, complexID uuid.UUID) (int, error)
-	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.ClientInsights, error)
+	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*clientstore.ClientInsights, error)
 }
 
 // CourtReader supplies the courts a complex has, which the dashboard and the
 // occupancy grid are dimensioned by.
 type CourtReader interface {
-	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*data.Court, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
 }
 
 // ScheduleReader supplies opening hours, which bound the occupancy grid.
 type ScheduleReader interface {
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error)
+	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 }
 
 // PaymentReportReader supplies the monthly aggregates behind the report and

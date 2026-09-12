@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -24,28 +26,28 @@ import (
 // the interface at the consumer buys.
 
 type stubStore struct {
-	client   *data.Client
-	list     []*data.Client
+	client   *clientstore.Client
+	list     []*clientstore.Client
 	metadata data.Metadata
 
 	getErr    error
 	listErr   error
 	updateErr error
 
-	updated *data.Client
+	updated *clientstore.Client
 	// lastSearch records what List forwarded to the store.
 	lastSearch  string
 	lastFilters data.Filters
 }
 
-func (s *stubStore) GetByID(context.Context, uuid.UUID) (*data.Client, error) {
+func (s *stubStore) GetByID(context.Context, uuid.UUID) (*clientstore.Client, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
 	return s.client, nil
 }
 
-func (s *stubStore) GetByComplex(_ context.Context, _ uuid.UUID, search string, filters data.Filters) ([]*data.Client, data.Metadata, error) {
+func (s *stubStore) GetByComplex(_ context.Context, _ uuid.UUID, search string, filters data.Filters) ([]*clientstore.Client, data.Metadata, error) {
 	s.lastSearch, s.lastFilters = search, filters
 	if s.listErr != nil {
 		return nil, data.Metadata{}, s.listErr
@@ -53,7 +55,7 @@ func (s *stubStore) GetByComplex(_ context.Context, _ uuid.UUID, search string, 
 	return s.list, s.metadata, nil
 }
 
-func (s *stubStore) Update(_ context.Context, c *data.Client) error {
+func (s *stubStore) Update(_ context.Context, c *clientstore.Client) error {
 	if s.updateErr != nil {
 		return s.updateErr
 	}
@@ -92,7 +94,7 @@ func requestFor(t *testing.T, method, target string, complexID, clientID uuid.UU
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
 	}
 
-	r = httpx.ContextSetComplex(r, &data.Complex{ID: complexID})
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID})
 	if clientID != uuid.Nil {
 		r = withParam(r, "clientID", clientID.String())
 	}
@@ -101,7 +103,7 @@ func requestFor(t *testing.T, method, target string, complexID, clientID uuid.UU
 
 func TestGetReturnsClientWithRecentBookings(t *testing.T) {
 	complexID, clientID := uuid.New(), uuid.New()
-	store := &stubStore{client: &data.Client{ID: clientID, ComplexID: complexID, FirstName: "Ana"}}
+	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID, FirstName: "Ana"}}
 	bookings := &stubBookings{bookings: []*data.Booking{{ID: uuid.New()}}}
 
 	h := NewHandler(store, bookings, testResponder())
@@ -134,7 +136,7 @@ func TestGetReturnsClientWithRecentBookings(t *testing.T) {
 // a 403 would confirm to the caller that the id exists.
 func TestGetHidesClientsOfOtherComplexes(t *testing.T) {
 	clientID := uuid.New()
-	store := &stubStore{client: &data.Client{ID: clientID, ComplexID: uuid.New()}}
+	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: uuid.New()}}
 
 	h := NewHandler(store, &stubBookings{}, testResponder())
 	w := httptest.NewRecorder()
@@ -161,7 +163,7 @@ func TestGetRejectsMalformedClientID(t *testing.T) {
 	h := NewHandler(&stubStore{}, &stubBookings{}, testResponder())
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-	r = httpx.ContextSetComplex(r, &data.Complex{ID: uuid.New()})
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: uuid.New()})
 	r = withParam(r, "clientID", "not-a-uuid")
 
 	w := httptest.NewRecorder()
@@ -192,7 +194,7 @@ func TestHandlersRequireTheComplexInContext(t *testing.T) {
 func TestUpdateAppliesOnlyTheFieldsSent(t *testing.T) {
 	complexID, clientID := uuid.New(), uuid.New()
 	existingNotes := "pays cash"
-	store := &stubStore{client: &data.Client{
+	store := &stubStore{client: &clientstore.Client{
 		ID: clientID, ComplexID: complexID,
 		Notes: &existingNotes, IsBlocked: false,
 	}}
@@ -218,7 +220,7 @@ func TestUpdateAppliesOnlyTheFieldsSent(t *testing.T) {
 
 func TestUpdateRejectsMalformedBody(t *testing.T) {
 	complexID, clientID := uuid.New(), uuid.New()
-	store := &stubStore{client: &data.Client{ID: clientID, ComplexID: complexID}}
+	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID}}
 
 	h := NewHandler(store, &stubBookings{}, testResponder())
 	w := httptest.NewRecorder()
@@ -235,7 +237,7 @@ func TestUpdateRejectsMalformedBody(t *testing.T) {
 func TestUpdateReportsALostRaceAsConflict(t *testing.T) {
 	complexID, clientID := uuid.New(), uuid.New()
 	store := &stubStore{
-		client:    &data.Client{ID: clientID, ComplexID: complexID},
+		client:    &clientstore.Client{ID: clientID, ComplexID: complexID},
 		updateErr: data.ErrRecordNotFound,
 	}
 
@@ -250,7 +252,7 @@ func TestUpdateReportsALostRaceAsConflict(t *testing.T) {
 
 func TestListForwardsSearchAndPaging(t *testing.T) {
 	complexID := uuid.New()
-	store := &stubStore{list: []*data.Client{{ID: uuid.New(), FirstName: "Ana"}}}
+	store := &stubStore{list: []*clientstore.Client{{ID: uuid.New(), FirstName: "Ana"}}}
 
 	h := NewHandler(store, &stubBookings{}, testResponder())
 	w := httptest.NewRecorder()
@@ -321,7 +323,7 @@ func TestStoreFailuresBecomeServerErrors(t *testing.T) {
 	})
 
 	t.Run("on the booking lookup", func(t *testing.T) {
-		store := &stubStore{client: &data.Client{ID: clientID, ComplexID: complexID}}
+		store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID}}
 		h := NewHandler(store, &stubBookings{err: boom}, testResponder())
 		w := httptest.NewRecorder()
 		h.Get(w, requestFor(t, http.MethodGet, "/", complexID, clientID, ""))

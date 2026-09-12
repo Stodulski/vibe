@@ -10,7 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -44,9 +46,9 @@ func bookableDate() (date time.Time, dayType string) {
 func gapPricedCourt(f *fixture, courtID uuid.UUID) (basePrice, peakPrice int) {
 	_, dayType := bookableDate()
 	basePrice, peakPrice = 500_000, 900_000
-	f.courts.prices = []*data.CourtPrice{
-		data.NewCourtPriceForTest(courtID, dayType, "08:00", "18:00", basePrice),
-		data.NewCourtPriceForTest(courtID, dayType, "20:00", "23:00", peakPrice),
+	f.courts.prices = []*courtstore.CourtPrice{
+		courtstore.NewCourtPriceForTest(courtID, dayType, "08:00", "18:00", basePrice),
+		courtstore.NewCourtPriceForTest(courtID, dayType, "20:00", "23:00", peakPrice),
 	}
 	return basePrice, peakPrice
 }
@@ -113,8 +115,8 @@ func TestStaffCreateRequiresAnExplicitPriceWhenNoBandPricesTheSlot(t *testing.T)
 	f := newFixture(t)
 	complexID, courtID := uuid.New(), uuid.New()
 	basePrice, _ := gapPricedCourt(f, courtID)
-	f.courts.court = &data.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
-	f.clients.client = &data.Client{ID: uuid.New(), FirstName: "Ana"}
+	f.courts.court = &courtstore.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
+	f.clients.client = &clientstore.Client{ID: uuid.New(), FirstName: "Ana"}
 	// The schedule is set, and the price bands gapPricedCourt installed are
 	// left alone, so 18:00 is a real position on this court's grid and the only
 	// thing that can refuse this booking is the missing price band. The owner
@@ -147,8 +149,8 @@ func TestStaffCreateAcceptsAnExplicitPriceWhenNoBandPricesTheSlot(t *testing.T) 
 	f := newFixture(t)
 	complexID, courtID := uuid.New(), uuid.New()
 	gapPricedCourt(f, courtID)
-	f.courts.court = &data.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
-	f.clients.client = &data.Client{ID: uuid.New(), FirstName: "Ana"}
+	f.courts.court = &courtstore.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
+	f.clients.client = &clientstore.Client{ID: uuid.New(), FirstName: "Ana"}
 	scheduleOnly(f, "09:00", "23:00")
 
 	const manualPrice = 650_000
@@ -183,10 +185,10 @@ func TestOwnerBookingRequiresAnExplicitPriceForAWeekdayWithNoBandsAtAll(t *testi
 			continue
 		}
 		f.courts.prices = append(f.courts.prices,
-			data.NewCourtPriceForTest(courtID, d, "08:00", "23:00", 111_000))
+			courtstore.NewCourtPriceForTest(courtID, d, "08:00", "23:00", 111_000))
 	}
-	f.courts.court = &data.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
-	f.clients.client = &data.Client{ID: uuid.New(), FirstName: "Ana"}
+	f.courts.court = &courtstore.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
+	f.clients.client = &clientstore.Client{ID: uuid.New(), FirstName: "Ana"}
 	// Same reason as above: the venue is open and 18:00 is on the grid, so the
 	// only thing left to refuse this booking is the weekday nothing prices.
 	scheduleOnly(f, "09:00", "23:00")
@@ -216,8 +218,8 @@ func TestABookingIsRefusedWhenOnlyItsTailIsUnpriced(t *testing.T) {
 	_, dayType := bookableDate()
 	// A 120-minute booking from 18:00 walks blocks 18:00, 18:30, 19:00, 19:30.
 	// The band only covers the first two.
-	f.courts.prices = []*data.CourtPrice{
-		data.NewCourtPriceForTest(courtID, dayType, "08:00", "19:00", 500_000),
+	f.courts.prices = []*courtstore.CourtPrice{
+		courtstore.NewCourtPriceForTest(courtID, dayType, "08:00", "19:00", 500_000),
 	}
 
 	w := httptest.NewRecorder()
@@ -265,7 +267,7 @@ func staffBookBodyWithPrice(courtID uuid.UUID, startTime string, durationMinutes
 func scheduleOnly(f *fixture, opensAt, closesAt string) {
 	f.complexes.schedules = nil
 	for _, d := range []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"} {
-		f.complexes.schedules = append(f.complexes.schedules, &data.Schedule{Day: d, OpenTime: opensAt, CloseTime: closesAt})
+		f.complexes.schedules = append(f.complexes.schedules, &complexstore.Schedule{Day: d, OpenTime: opensAt, CloseTime: closesAt})
 	}
 }
 

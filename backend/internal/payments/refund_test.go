@@ -11,7 +11,8 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 )
 
 // captureTransport is a sentry.Transport that records every event handed to
@@ -105,8 +106,8 @@ func TestAnUnreadableSellerTokenRefusesBeforeMercadoPagoIsCalled(t *testing.T) {
 	f.payments.byBooking = payment
 	// Connected — the venue has a credential stored — but the stored bytes no
 	// longer decrypt, so the accessor refuses with ErrMPCredentialUnreadable.
-	f.complexes.complex = data.NewComplexWithUnreadableCredentialForTest(complexID)
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.complexes.complex = complexstore.NewComplexWithUnreadableCredentialForTest(complexID)
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 
 	sentryEvents := withCapturedSentryEvents(t)
 
@@ -166,7 +167,7 @@ func TestAnUnfetchableComplexIsTreatedAsATransientOutage(t *testing.T) {
 	booking, payment := paidBooking(complexID)
 	f.payments.byBooking = payment
 	f.complexes.err = errors.New("connection refused")
-	f.clients.client = &data.Client{ID: booking.ClientID}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID}
 
 	sentryEvents := withCapturedSentryEvents(t)
 

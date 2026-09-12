@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -92,7 +93,7 @@ func TestCronRefreshMPTokens_NoComplexes(t *testing.T) {
 	app := newTestApplication(t)
 
 	app.models.Complexes = &mockComplexStore{
-		GetWithMPConnectedFn: func(ctx context.Context) ([]*data.Complex, error) {
+		GetWithMPConnectedFn: func(ctx context.Context) ([]*complexstore.Complex, error) {
 			return nil, nil
 		},
 	}
@@ -111,7 +112,7 @@ func TestCronRefreshMPTokens_SkipsEmptyRefreshToken(t *testing.T) {
 	app := newTestApplication(t)
 
 	emptyToken := ""
-	complex := data.NewComplexForTest(uuid.New(), nil, &emptyToken)
+	complex := complexstore.NewComplexForTest(uuid.New(), nil, &emptyToken)
 	complex.Name = "Test Complex"
 
 	if _, err := complex.SellerRefreshToken(); !errors.Is(err, mpcred.ErrMPNotConnected) {
@@ -119,8 +120,8 @@ func TestCronRefreshMPTokens_SkipsEmptyRefreshToken(t *testing.T) {
 	}
 
 	app.models.Complexes = &mockComplexStore{
-		GetWithMPConnectedFn: func(ctx context.Context) ([]*data.Complex, error) {
-			return []*data.Complex{complex}, nil
+		GetWithMPConnectedFn: func(ctx context.Context) ([]*complexstore.Complex, error) {
+			return []*complexstore.Complex{complex}, nil
 		},
 	}
 

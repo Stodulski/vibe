@@ -8,6 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -135,7 +138,7 @@ func TestApprovedPaymentForACancelledBookingWithAForeignCollectorWritesNothing(t
 	booking.Status = "cancelled"
 	beforeCollection, beforeRefund := booking.CollectionStatus, booking.RefundStatus
 	ownSellerID := "111111111"
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &ownSellerID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &ownSellerID}
 
 	_ = f.handler.processApprovedPayment(t.Context(), booking,
 		&mp.Payment{ID: 123, TransactionAmount: 1500, CollectorID: 999999999, ExternalReference: booking.ID.String()}, "mp-123")
@@ -173,7 +176,7 @@ func TestConcurrentCancellationRunsTheCollectorCheckOnce(t *testing.T) {
 	initialBooking, mpPayment := pendingBooking(complexID)
 	sellerID := "111111111"
 	mpPayment.CollectorID = 111111111
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 	f.payments.claimErr = errDatabase
 
 	// The booking was cancelled by another process (e.g. the expiry cron)
@@ -261,8 +264,8 @@ func TestAutoRefundIssuesTheRefundAndTellsTheClient(t *testing.T) {
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
 	f.complexes.complex.Name = "Vibe"
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", Phone: "+5491155551234"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", Phone: "+5491155551234"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	f.handler.AutoRefundIfPaid(t.Context(), booking)
 
@@ -378,7 +381,7 @@ func TestRefundsUseTheComplexOwnSellerToken(t *testing.T) {
 	booking, payment := paidBooking(complexID)
 	sellerToken := "seller-access-token"
 	f.payments.byBooking = payment
-	f.complexes.complex = data.NewComplexForTest(complexID, &sellerToken, nil)
+	f.complexes.complex = complexstore.NewComplexForTest(complexID, &sellerToken, nil)
 
 	f.handler.AutoRefundIfPaid(t.Context(), booking)
 
@@ -465,7 +468,7 @@ func TestApprovedPaymentIsRefusedWhenAnotherSellerCollectedTheMoney(t *testing.T
 	complexID := uuid.New()
 	booking, mpPayment := pendingBooking(complexID)
 	ownSellerID := "111111111"
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &ownSellerID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &ownSellerID}
 	f.bookings.booking = booking
 	mpPayment.CollectorID = 999999999 // the attacker's own seller account
 
@@ -500,21 +503,21 @@ func TestApprovedPaymentIsRefusedWhenTheCollectorCannotBeVerified(t *testing.T) 
 		{
 			name: "the complex has no MercadoPago account linked",
 			prepare: func(f *fixture, p *mp.Payment, complexID uuid.UUID) {
-				f.complexes.complex = &data.Complex{ID: complexID}
+				f.complexes.complex = &complexstore.Complex{ID: complexID}
 				p.CollectorID = 111111111
 			},
 		},
 		{
 			name: "the complex's MercadoPago user id is blank",
 			prepare: func(f *fixture, p *mp.Payment, complexID uuid.UUID) {
-				f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &empty}
+				f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &empty}
 				p.CollectorID = 111111111
 			},
 		},
 		{
 			name: "MercadoPago sent no collector_id",
 			prepare: func(f *fixture, p *mp.Payment, complexID uuid.UUID) {
-				f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID}
+				f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 				p.CollectorID = 0
 			},
 		},
@@ -563,10 +566,10 @@ func TestApprovedPaymentIsConfirmedWhenTheComplexCollectedTheMoney(t *testing.T)
 	sellerID := "111111111"
 	mpPayment.CollectorID = 111111111
 
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
 	f.bookings.booking = booking
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	_ = f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
 
@@ -661,8 +664,8 @@ func runRefundedRefusal(
 	f.complexes.complex = linkedComplex(complexID, "111111111")
 	f.complexes.complex.Name, f.complexes.complex.Slug = "Vibe", "vibe"
 	f.bookings.booking = booking
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	f.payments.slotErr = guardErr
 	prepare(f, booking)
 
@@ -708,7 +711,7 @@ func TestAConfirmationThatFailsOnTheDatabaseIsRetriedRatherThanRefunded(t *testi
 	sellerID := "111111111"
 	mpPayment.CollectorID = 111111111
 
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 	f.bookings.booking = booking
 	f.payments.byBooking = &data.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount}
 	f.payments.confirmErr = errDatabase
@@ -737,7 +740,7 @@ func TestAnAutoRefundThatCannotBeRecordedIsNotAnnouncedToTheClient(t *testing.T)
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
 	f.complexes.complex.Name = "Vibe"
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 	f.payments.successErr = errRecord
 
 	f.handler.AutoRefundIfPaid(t.Context(), booking)
@@ -775,7 +778,7 @@ func TestAnAutoRefundIsNotIssuedWhenThePaymentCannotBeRecorded(t *testing.T) {
 	booking.Status = "cancelled"
 	booking.DepositAmount = 150_000
 	sellerID := "111111111"
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 	f.payments.insertErr = errDatabase
 
 	_ = f.handler.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123, TransactionAmount: 2500, CollectorID: 111111111}, "mp-123")
@@ -868,8 +871,8 @@ func TestTheOnlineConfirmationSaysWhatWasPaidAndWhatIsOwed(t *testing.T) {
 	complex.CancellationHours = 24
 	f.complexes.complex = complex
 	f.bookings.booking = booking
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", Phone: "+5491155551234"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Cancha 1"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", Phone: "+5491155551234"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
 
 	if err := f.handler.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
 		t.Fatalf("processApprovedPayment = %v", err)

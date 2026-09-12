@@ -10,6 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
@@ -37,9 +40,9 @@ func TestWebhookStillConfirmsABookingThroughThePlatformAppOwnerToken(t *testing.
 
 	f.provider.payment = mpPayment
 	f.bookings.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	w := httptest.NewRecorder()
 	f.handler.MercadoPagoWebhook(w, webhookRequest(t, webhookBody))
@@ -74,9 +77,9 @@ func TestWebhookRequeuesWhenTheLinkTokenMintFails(t *testing.T) {
 
 	f.provider.payment = mpPayment
 	f.bookings.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 	f.linkTokens.mintErr = errDatabase
 
 	w := httptest.NewRecorder()
@@ -364,9 +367,9 @@ func TestDuplicateDeliveryIsRecordedTwiceButConfirmsOnce(t *testing.T) {
 
 	f.provider.payment = mpPayment
 	f.bookings.booking = booking
-	f.complexes.complex = &data.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
-	f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
 	first := httptest.NewRecorder()
 	f.handler.MercadoPagoWebhook(first, webhookRequest(t, webhookBody))
@@ -468,8 +471,8 @@ func TestARedeliveredWebhookLeavesExactlyOnePaymentRow(t *testing.T) {
 			f.provider.payment = mpPayment
 			f.bookings.booking = booking
 			f.complexes.complex = complex
-			f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
-			f.courts.court = &data.Court{ID: booking.CourtID, Name: "Court 1"}
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+			f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 			if tt.prepare != nil {
 				tt.prepare(f, booking)
 			}

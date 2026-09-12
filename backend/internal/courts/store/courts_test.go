@@ -1,4 +1,4 @@
-package data
+package store
 
 import (
 	"testing"
@@ -107,8 +107,8 @@ func TestBlockedSlot_NilOptionalFields(t *testing.T) {
 	}
 }
 
-// TestCourtModel_RequiresDB documents that all CourtModel methods
+// TestCourtModel_RequiresDB documents that all Store methods
 // require a database connection.
 func TestCourtModel_RequiresDB(t *testing.T) {
-	t.Skip("CourtModel methods all require *pgxpool.Pool and *db.Queries")
+	t.Skip("Store methods all require *pgxpool.Pool and *db.Queries")
 }

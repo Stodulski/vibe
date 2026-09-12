@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -25,7 +26,7 @@ func TestSweepNeverCallsMercadoPagoForACashBooking(t *testing.T) {
 	payment.Method = "cash"
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.clients.client = &data.Client{ID: booking.ClientID, FirstName: "Ana"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
 	f.refundIntents.orphans = []*data.Booking{booking}
 
 	f.handler.SweepOrphanedRefundIntents(t.Context())

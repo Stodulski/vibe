@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -82,12 +83,12 @@ func TestBlockOverALiveBookingIsRefused(t *testing.T) {
 	insertLiveBooking(t, f, date, "20:00", 60)
 
 	reason := "maintenance"
-	block := &data.BlockedSlot{
+	block := &courtstore.BlockedSlot{
 		CourtID: f.CourtID, Date: date,
 		StartTime: "20:30", EndTime: "21:30", Reason: &reason,
 	}
 	err := f.Models.Courts.InsertBlockedSlot(ctx, block)
-	if !errors.Is(err, data.ErrSlotHasBooking) {
+	if !errors.Is(err, courtstore.ErrSlotHasBooking) {
 		t.Fatalf("blocking 20:30-21:30 over a confirmed 20:00-21:00 booking: got err = %v, want ErrSlotHasBooking", err)
 	}
 	if n := countBlocks(t, f); n != 0 {
@@ -113,7 +114,7 @@ func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
 	release := blockCourtDay(t, f, date)
 
 	reason := "maintenance"
-	block := &data.BlockedSlot{
+	block := &courtstore.BlockedSlot{
 		CourtID: f.CourtID, Date: date,
 		StartTime: "19:00", EndTime: "20:00", Reason: &reason,
 	}
@@ -128,7 +129,7 @@ func TestBlockCommittingMidBookingCannotSlipPast(t *testing.T) {
 	release()
 
 	err := <-result
-	if !errors.Is(err, data.ErrSlotHasBooking) {
+	if !errors.Is(err, courtstore.ErrSlotHasBooking) {
 		t.Fatalf("a block filed while a booking for the same hours was committing: got err = %v, "+
 			"want ErrSlotHasBooking. The court is both sold and closed for maintenance.", err)
 	}

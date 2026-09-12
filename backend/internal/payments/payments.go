@@ -16,6 +16,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -75,19 +78,19 @@ type LinkMinter interface {
 
 // ClientStore is the client side: a confirmed booking updates their counters.
 type ClientStore interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Client, error)
-	Update(ctx context.Context, c *data.Client) error
+	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
+	Update(ctx context.Context, c *clientstore.Client) error
 }
 
 // ComplexReader supplies the complex, including the seller credentials a
 // refund has to be issued against.
 type ComplexReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Complex, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 }
 
 // CourtReader supplies the court named in a confirmation message.
 type CourtReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Court, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
 }
 
 // FailedRefundStore is the queue of refunds still owed to a client.

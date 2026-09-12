@@ -15,32 +15,33 @@ import (
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 type stubStore struct {
-	slugs     []data.ComplexSlug
-	complex   *data.Complex
-	schedules []*data.Schedule
+	slugs     []complexstore.ComplexSlug
+	complex   *complexstore.Complex
+	schedules []*complexstore.Schedule
 
 	slugsErr     error
 	complexErr   error
 	schedulesErr error
 }
 
-func (s *stubStore) GetAllSlugs(context.Context) ([]data.ComplexSlug, error) {
+func (s *stubStore) GetAllSlugs(context.Context) ([]complexstore.ComplexSlug, error) {
 	return s.slugs, s.slugsErr
 }
 
-func (s *stubStore) GetBySlug(context.Context, string) (*data.Complex, error) {
+func (s *stubStore) GetBySlug(context.Context, string) (*complexstore.Complex, error) {
 	if s.complexErr != nil {
 		return nil, s.complexErr
 	}
 	return s.complex, nil
 }
 
-func (s *stubStore) GetSchedules(context.Context, uuid.UUID) ([]*data.Schedule, error) {
+func (s *stubStore) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.Schedule, error) {
 	return s.schedules, s.schedulesErr
 }
 
@@ -77,7 +78,7 @@ func slugRequest(t *testing.T, slug string) *http.Request {
 }
 
 func TestSitemapListsHomepageAndEveryComplex(t *testing.T) {
-	store := &stubStore{slugs: []data.ComplexSlug{
+	store := &stubStore{slugs: []complexstore.ComplexSlug{
 		{Slug: "vibe-palermo", UpdatedAt: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
 		{Slug: "vibe-pilar", UpdatedAt: time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)},
 	}}
@@ -125,12 +126,12 @@ func TestSitemapReportsStoreFailure(t *testing.T) {
 func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 	logo := "https://cdn.example/logo.png"
 	store := &stubStore{
-		complex: &data.Complex{
+		complex: &complexstore.Complex{
 			ID: uuid.New(), Name: "Vibe Palermo", Phone: "+541100000000",
 			Address: "Av. Santa Fe 1234", City: "CABA", Province: "Buenos Aires",
 			CountryCode: "AR", LogoURL: &logo, IsActive: true,
 		},
-		schedules: []*data.Schedule{
+		schedules: []*complexstore.Schedule{
 			{Day: "monday", OpenTime: "08:00", CloseTime: "23:00"},
 			{Day: "sunday", IsClosed: true},
 		},
@@ -175,7 +176,7 @@ func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 // escaped rather than interpolated raw.
 func TestPrerenderEscapesOwnerSuppliedText(t *testing.T) {
 	store := &stubStore{
-		complex: &data.Complex{ID: uuid.New(), Name: `Vibe <script>alert(1)</script>`, IsActive: true},
+		complex: &complexstore.Complex{ID: uuid.New(), Name: `Vibe <script>alert(1)</script>`, IsActive: true},
 	}
 
 	h := NewHandler(store, testResponder(), frontendServing(t, baseTemplate))
@@ -194,7 +195,7 @@ func TestPrerenderEscapesOwnerSuppliedText(t *testing.T) {
 // The JSON-LD block sits inside a <script> tag, so a name containing </script>
 // must not be able to close it.
 func TestStructuredDataCannotBreakOutOfItsScriptTag(t *testing.T) {
-	complex := &data.Complex{ID: uuid.New(), Name: `</script><img src=x onerror=alert(1)>`}
+	complex := &complexstore.Complex{ID: uuid.New(), Name: `</script><img src=x onerror=alert(1)>`}
 
 	got := structuredData(complex, nil, "https://vibe.example/x")
 
@@ -212,8 +213,8 @@ func TestStructuredDataCannotBreakOutOfItsScriptTag(t *testing.T) {
 }
 
 func TestStructuredDataOmitsAbsentFieldsAndClosedDays(t *testing.T) {
-	complex := &data.Complex{ID: uuid.New(), Name: "Vibe", Phone: "+5411"}
-	schedules := []*data.Schedule{
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe", Phone: "+5411"}
+	schedules := []*complexstore.Schedule{
 		{Day: "monday", OpenTime: "08:00", CloseTime: "23:00"},
 		{Day: "sunday", IsClosed: true},
 	}
@@ -330,11 +331,11 @@ func TestTemplateFetchFailsWhenNothingIsCached(t *testing.T) {
 // structured data.
 func TestPrerenderIsClosedForADeactivatedComplex(t *testing.T) {
 	store := &stubStore{
-		complex: &data.Complex{
+		complex: &complexstore.Complex{
 			ID: uuid.New(), Name: "Vibe Palermo", Phone: "+541100000000",
 			Address: "Av. Santa Fe 1234", City: "CABA", IsActive: false,
 		},
-		schedules: []*data.Schedule{{Day: "monday", OpenTime: "08:00", CloseTime: "23:00"}},
+		schedules: []*complexstore.Schedule{{Day: "monday", OpenTime: "08:00", CloseTime: "23:00"}},
 	}
 
 	h := NewHandler(store, testResponder(), frontendServing(t, baseTemplate))

@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 )
 
 func TestPlatformStats_StructFields(t *testing.T) {
@@ -76,7 +76,7 @@ func TestAdminUserDetail_StructFields(t *testing.T) {
 		Email: "owner@example.com",
 		Role:  "owner",
 	}
-	complexes := []*data.Complex{
+	complexes := []*complexstore.Complex{
 		{ID: uuid.New(), Name: "Complex A"},
 		{ID: uuid.New(), Name: "Complex B"},
 	}
@@ -122,7 +122,7 @@ func TestAdminComplexRow_StructFields(t *testing.T) {
 
 func TestAdminComplexDetail_StructFields(t *testing.T) {
 	detail := AdminComplexDetail{
-		Complex:       &data.Complex{ID: uuid.New(), Name: "Test Complex"},
+		Complex:       &complexstore.Complex{ID: uuid.New(), Name: "Test Complex"},
 		OwnerName:     "Jane Smith",
 		OwnerEmail:    "jane@example.com",
 		CourtsCount:   6,

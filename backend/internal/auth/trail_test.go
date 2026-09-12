@@ -12,7 +12,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 )
 
 // encodedValue returns an audit value as the recorder will persist it.
@@ -265,7 +265,7 @@ func TestARefusedDeletionIsNotRecorded(t *testing.T) {
 	f := newFixture(t)
 	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
 	f.users.add(user)
-	f.complexes.owned = []*data.Complex{{ID: uuid.New()}}
+	f.complexes.owned = []*complexstore.Complex{{ID: uuid.New()}}
 	f.bookings.hasActive = true
 
 	r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/", nil), user)

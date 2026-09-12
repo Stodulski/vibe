@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/realtime"
 )
@@ -27,7 +27,7 @@ type streamAuthzFixture struct {
 	users     *mockUserStore
 	complexes *mockComplexStore
 	owner     *authstore.User
-	complex   *data.Complex
+	complex   *complexstore.Complex
 	// req is the stream's original request: authenticated, owner-approved, and
 	// carrying both of those in its context, exactly as Stream receives it.
 	req *http.Request
@@ -57,7 +57,7 @@ func newStreamAuthzFixture(t *testing.T) *streamAuthzFixture {
 		IsActive:      true,
 		EmailVerified: true,
 	})
-	complex := complexes.seed(data.Complex{
+	complex := complexes.seed(complexstore.Complex{
 		ID:          uuid.New(),
 		OwnerID:     owner.ID,
 		Name:        "Complejo",
@@ -164,7 +164,7 @@ func TestStreamAuthorizerRefusesASignedOutSession(t *testing.T) {
 func TestStreamAuthorizerChecksTheStreamsComplexNotTheRequestURL(t *testing.T) {
 	f := newStreamAuthzFixture(t)
 
-	foreign := f.complexes.seed(data.Complex{
+	foreign := f.complexes.seed(complexstore.Complex{
 		ID:       uuid.New(),
 		OwnerID:  uuid.New(),
 		Name:     "Ajeno",
@@ -181,7 +181,7 @@ func TestStreamAuthorizerChecksTheStreamsComplexNotTheRequestURL(t *testing.T) {
 // disconnect every dashboard on a database blip.
 func TestStreamAuthorizerReportsAnUnverifiableCheckSeparately(t *testing.T) {
 	f := newStreamAuthzFixture(t)
-	f.complexes.GetByIDFn = func(context.Context, uuid.UUID) (*data.Complex, error) {
+	f.complexes.GetByIDFn = func(context.Context, uuid.UUID) (*complexstore.Complex, error) {
 		return nil, errors.New("connection refused")
 	}
 

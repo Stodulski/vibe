@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -514,7 +515,7 @@ func TestDeleteAccountIsRefusedWhileAComplexHasLiveBookings(t *testing.T) {
 	f := newFixture(t)
 	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
 	f.users.add(user)
-	f.complexes.owned = []*data.Complex{{ID: uuid.New()}}
+	f.complexes.owned = []*complexstore.Complex{{ID: uuid.New()}}
 	f.bookings.hasActive = true
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/", nil)

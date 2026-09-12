@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 )
@@ -227,7 +227,7 @@ func TestTheReminderJobReportsHowManyCandidatesItSaw(t *testing.T) {
 func TestTheTokenRefreshJobReportsAnEmptyRun(t *testing.T) {
 	f := newCronFixture(t)
 	f.app.models.Complexes = &mockComplexStore{
-		GetWithMPConnectedFn: func(context.Context) ([]*data.Complex, error) { return nil, nil },
+		GetWithMPConnectedFn: func(context.Context) ([]*complexstore.Complex, error) { return nil, nil },
 	}
 
 	f.app.cronRefreshMPTokens(t.Context())

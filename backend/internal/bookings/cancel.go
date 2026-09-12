@@ -18,6 +18,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -226,7 +227,7 @@ const preferenceExpiryBudget = 25 * time.Second
 // public routes, whose spec (openspec/specs/booking-link-credential) forbids a
 // resolved booking id from reaching Sentry. The logger, which is not Sentry,
 // still carries it.
-func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *data.Booking, complex *data.Complex) {
+func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *data.Booking, complex *complexstore.Complex) {
 	// Detached from the caller's cancellation for the same reason
 	// releaseSlotLocks is: every call site hands this the request's own context,
 	// and a client who cancels and closes the tab cancelled it. The read below
@@ -277,7 +278,7 @@ func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *data.Bo
 // it used to be the silent meaning of an empty token, which is also what a
 // credential that would not decrypt produced — and that one must never take
 // it. It comes back as an error for the caller to refuse and alert on.
-func expiryCaller(complex *data.Complex) (mp.Caller, error) {
+func expiryCaller(complex *complexstore.Complex) (mp.Caller, error) {
 	token, err := complex.SellerAccessToken()
 	switch {
 	case err == nil:

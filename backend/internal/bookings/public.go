@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/booklink"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -562,7 +564,7 @@ const venueGoneMessage = "the venue for this booking is no longer available; con
 //
 // It returns the complex it had to load for LinkLive, so PublicCancelInfo and
 // PublicCancel can drop their own separate complexes.GetByID call.
-func (h *Handler) resolveLink(w http.ResponseWriter, r *http.Request, token string) (*data.Booking, *data.Complex, bool) {
+func (h *Handler) resolveLink(w http.ResponseWriter, r *http.Request, token string) (*data.Booking, *complexstore.Complex, bool) {
 	booking, expiresAt, err := h.linkResolver.ResolveBooking(r.Context(), token)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
@@ -608,7 +610,7 @@ func (h *Handler) resolveLink(w http.ResponseWriter, r *http.Request, token stri
 // lookup and is left alone — this only gives the two read-only handlers the
 // same care, per the finding: three sibling handlers, the same lookup, and
 // the one that writes was the only one already careful.
-func (h *Handler) courtOrGone(w http.ResponseWriter, r *http.Request, courtID uuid.UUID) (*data.Court, bool) {
+func (h *Handler) courtOrGone(w http.ResponseWriter, r *http.Request, courtID uuid.UUID) (*courtstore.Court, bool) {
 	court, err := h.courts.GetByID(r.Context(), courtID)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
@@ -640,7 +642,7 @@ type cancellationInfo struct {
 
 // cancellationInfo computes what PublicStatus and PublicCancelInfo both tell
 // a client about cancelling their booking right now.
-func (h *Handler) cancellationInfo(booking *data.Booking, complex *data.Complex) cancellationInfo {
+func (h *Handler) cancellationInfo(booking *data.Booking, complex *complexstore.Complex) cancellationInfo {
 	canCancel := booking.Status != "cancelled" && booking.Status != "completed" && booking.Status != "no_show"
 	return cancellationInfo{
 		canCancel:    canCancel,
@@ -688,7 +690,7 @@ func (h *Handler) PublicStatus(w http.ResponseWriter, r *http.Request) {
 // publicStatusResponse builds PublicStatus's payload. payment is nil when the
 // booking carries no payment row yet (data.ErrRecordNotFound), in which case
 // service_fee reads 0 rather than failing the request.
-func (h *Handler) publicStatusResponse(booking *data.Booking, complex *data.Complex, court *data.Court, payment *data.Payment) httpx.Envelope {
+func (h *Handler) publicStatusResponse(booking *data.Booking, complex *complexstore.Complex, court *courtstore.Court, payment *data.Payment) httpx.Envelope {
 	serviceFee := 0
 	if payment != nil {
 		serviceFee = payment.ServiceFee
@@ -764,7 +766,7 @@ func (h *Handler) PublicCancelInfo(w http.ResponseWriter, r *http.Request) {
 // publicCancelInfoResponse builds PublicCancelInfo's payload: the same
 // booking detail the success page shows (publicStatusResponse), plus the
 // money actually at stake if the client cancels right now.
-func (h *Handler) publicCancelInfoResponse(ctx context.Context, booking *data.Booking, complex *data.Complex, court *data.Court) httpx.Envelope {
+func (h *Handler) publicCancelInfoResponse(ctx context.Context, booking *data.Booking, complex *complexstore.Complex, court *courtstore.Court) httpx.Envelope {
 	info := h.cancellationInfo(booking, complex)
 
 	// The window decides whether the money is owed. The payment decides whether
@@ -1024,7 +1026,7 @@ func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
 
 // createMPPreferenceWithRetry creates a MercadoPago preference, retrying once
 // with a token refresh if the seller's access token has expired.
-func (h *Handler) createMPPreferenceWithRetry(ctx context.Context, prefInput mp.CreatePreferenceInput, complex *data.Complex) (*mp.Preference, error) {
+func (h *Handler) createMPPreferenceWithRetry(ctx context.Context, prefInput mp.CreatePreferenceInput, complex *complexstore.Complex) (*mp.Preference, error) {
 	pref, err := h.checkout.CreatePreference(ctx, prefInput)
 
 	refreshTok, refreshTokErr := complex.SellerRefreshToken()

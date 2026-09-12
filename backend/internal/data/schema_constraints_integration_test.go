@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -360,10 +361,10 @@ func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
 
 	// Through the real store, so the domain error the handler will see is proven
 	// too rather than only the constraint underneath it.
-	err := f.Models.Courts.Insert(ctx, &data.Court{
+	err := f.Models.Courts.Insert(ctx, &courtstore.Court{
 		ComplexID: f.ComplexID, Name: "Court 1", Sport: "padel", CourtType: "indoor",
 	})
-	if !errors.Is(err, data.ErrDuplicateCourtName) {
+	if !errors.Is(err, courtstore.ErrDuplicateCourtName) {
 		t.Fatalf("a second live court called %q must return ErrDuplicateCourtName; got %v", "Court 1", err)
 	}
 
@@ -397,12 +398,12 @@ func TestTwoPriceRulesCannotCoverTheSameMinute(t *testing.T) {
 	f := newTestFixture(t)
 	ctx := context.Background()
 
-	base := &data.CourtPrice{CourtID: f.CourtID, Price: 10_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
+	base := &courtstore.CourtPrice{CourtID: f.CourtID, Price: 10_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
 	accepted(t, f.Models.Courts.InsertPrice(ctx, base), "the first price rule for monday")
 
 	// An identical rule — the case the review reported.
-	dup := &data.CourtPrice{CourtID: f.CourtID, Price: 99_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
-	if err := f.Models.Courts.InsertPrice(ctx, dup); !errors.Is(err, data.ErrOverlappingPriceRule) {
+	dup := &courtstore.CourtPrice{CourtID: f.CourtID, Price: 99_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
+	if err := f.Models.Courts.InsertPrice(ctx, dup); !errors.Is(err, courtstore.ErrOverlappingPriceRule) {
 		t.Fatalf("an identical price rule must return ErrOverlappingPriceRule; got %v", err)
 	}
 

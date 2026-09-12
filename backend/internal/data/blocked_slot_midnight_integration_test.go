@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
@@ -187,7 +188,7 @@ func TestBlockedSlotsCannotOverlap(t *testing.T) {
 
 	t.Run("the_store_still_maps_the_refusal_to_ErrSlotAlreadyBlocked", func(t *testing.T) {
 		reason := "maintenance"
-		first := &data.BlockedSlot{
+		first := &courtstore.BlockedSlot{
 			CourtID: f.CourtID, Date: date,
 			StartTime: "18:00", EndTime: "19:00", Reason: &reason,
 		}
@@ -195,12 +196,12 @@ func TestBlockedSlotsCannotOverlap(t *testing.T) {
 			t.Fatalf("first store insert: %v", err)
 		}
 
-		second := &data.BlockedSlot{
+		second := &courtstore.BlockedSlot{
 			CourtID: f.CourtID, Date: date,
 			StartTime: "18:30", EndTime: "19:30", Reason: &reason,
 		}
 		err := f.Models.Courts.InsertBlockedSlot(ctx, second)
-		if !errors.Is(err, data.ErrSlotAlreadyBlocked) {
+		if !errors.Is(err, courtstore.ErrSlotAlreadyBlocked) {
 			t.Fatalf("overlapping store insert: got err = %v, want ErrSlotAlreadyBlocked", err)
 		}
 	})

@@ -22,7 +22,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/auth"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -33,7 +33,7 @@ type UserReader interface {
 
 // ComplexReader loads the complex an ownership-scoped route names.
 type ComplexReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Complex, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 }
 
 // TokenVerifier verifies the access and CSRF tokens on a request.

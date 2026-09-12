@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -211,7 +212,7 @@ func TestDeletingACourtWhileABookingCommitsIsRefused(t *testing.T) {
 	insertLiveBooking(t, f, date, "10:00", 60)
 	release()
 
-	if err := <-result; !errors.Is(err, data.ErrCourtHasActiveBookings) {
+	if err := <-result; !errors.Is(err, courtstore.ErrCourtHasActiveBookings) {
 		t.Fatalf("deleting a court while a booking for it was committing: got err = %v, "+
 			"want ErrCourtHasActiveBookings. The booking survives on a deleted court.", err)
 	}

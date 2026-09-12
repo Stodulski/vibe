@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -408,7 +408,7 @@ func TestTheChainsDatabaseReadsCarryADeadline(t *testing.T) {
 	t.Run("the complex an ownership-scoped route names", func(t *testing.T) {
 		f := newFixture(t, Config{})
 		ownerID, complexID := uuid.New(), uuid.New()
-		f.complexes.complex = &data.Complex{ID: complexID, OwnerID: ownerID}
+		f.complexes.complex = &complexstore.Complex{ID: complexID, OwnerID: ownerID}
 
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		r = httpx.ContextSetUser(r, &authstore.User{ID: ownerID, Role: "owner"})

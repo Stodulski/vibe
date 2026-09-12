@@ -10,6 +10,9 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -342,28 +345,28 @@ func (m *mockTokenStore) DeleteExpired(ctx context.Context) error {
 // ErrRecordNotFound. The Fn fields still take precedence, so a test that wants
 // a specific failure keeps setting one.
 type mockComplexStore struct {
-	InsertFn                        func(ctx context.Context, c *data.Complex) error
-	GetByIDFn                       func(ctx context.Context, id uuid.UUID) (*data.Complex, error)
-	GetBySlugFn                     func(ctx context.Context, slug string) (*data.Complex, error)
-	GetByOwnerFn                    func(ctx context.Context, ownerID uuid.UUID) ([]*data.Complex, error)
-	UpdateFn                        func(ctx context.Context, c *data.Complex) error
+	InsertFn                        func(ctx context.Context, c *complexstore.Complex) error
+	GetByIDFn                       func(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
+	GetBySlugFn                     func(ctx context.Context, slug string) (*complexstore.Complex, error)
+	GetByOwnerFn                    func(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
+	UpdateFn                        func(ctx context.Context, c *complexstore.Complex) error
 	SoftDeleteCascadeFn             func(ctx context.Context, id uuid.UUID) (int, error)
-	UpsertScheduleFn                func(ctx context.Context, schedule *data.Schedule) error
-	GetSchedulesFn                  func(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error)
+	UpsertScheduleFn                func(ctx context.Context, schedule *complexstore.Schedule) error
+	GetSchedulesFn                  func(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 	UpdateMPCredentialsFn           func(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
 	ClearMPCredentialsFn            func(ctx context.Context, complexID uuid.UUID) error
-	GetWithMPConnectedFn            func(ctx context.Context) ([]*data.Complex, error)
-	ListComplexesNeedingMPRefreshFn func(ctx context.Context) ([]*data.Complex, error)
+	GetWithMPConnectedFn            func(ctx context.Context) ([]*complexstore.Complex, error)
+	ListComplexesNeedingMPRefreshFn func(ctx context.Context) ([]*complexstore.Complex, error)
 	SlugExistsFn                    func(ctx context.Context, slug string) (bool, error)
 	SlugsWithPrefixFn               func(ctx context.Context, base string) ([]string, error)
-	GetAllSlugsFn                   func(ctx context.Context) ([]data.ComplexSlug, error)
+	GetAllSlugsFn                   func(ctx context.Context) ([]complexstore.ComplexSlug, error)
 
 	mu   sync.Mutex
-	rows map[uuid.UUID]data.Complex
+	rows map[uuid.UUID]complexstore.Complex
 }
 
 // seed writes c into the store, bypassing the Fn overrides, and returns a copy.
-func (m *mockComplexStore) seed(c data.Complex) *data.Complex {
+func (m *mockComplexStore) seed(c complexstore.Complex) *complexstore.Complex {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.put(c)
@@ -372,14 +375,14 @@ func (m *mockComplexStore) seed(c data.Complex) *data.Complex {
 }
 
 // put stores c. The caller holds mu.
-func (m *mockComplexStore) put(c data.Complex) {
+func (m *mockComplexStore) put(c complexstore.Complex) {
 	if m.rows == nil {
-		m.rows = make(map[uuid.UUID]data.Complex)
+		m.rows = make(map[uuid.UUID]complexstore.Complex)
 	}
 	m.rows[c.ID] = c
 }
 
-func (m *mockComplexStore) Insert(ctx context.Context, c *data.Complex) error {
+func (m *mockComplexStore) Insert(ctx context.Context, c *complexstore.Complex) error {
 	if m.InsertFn != nil {
 		return m.InsertFn(ctx, c)
 	}
@@ -400,7 +403,7 @@ func (m *mockComplexStore) Insert(ctx context.Context, c *data.Complex) error {
 	return nil
 }
 
-func (m *mockComplexStore) GetByID(ctx context.Context, id uuid.UUID) (*data.Complex, error) {
+func (m *mockComplexStore) GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error) {
 	if m.GetByIDFn != nil {
 		return m.GetByIDFn(ctx, id)
 	}
@@ -415,7 +418,7 @@ func (m *mockComplexStore) GetByID(ctx context.Context, id uuid.UUID) (*data.Com
 	return &c, nil
 }
 
-func (m *mockComplexStore) GetBySlug(ctx context.Context, slug string) (*data.Complex, error) {
+func (m *mockComplexStore) GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error) {
 	if m.GetBySlugFn != nil {
 		return m.GetBySlugFn(ctx, slug)
 	}
@@ -432,7 +435,7 @@ func (m *mockComplexStore) GetBySlug(ctx context.Context, slug string) (*data.Co
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockComplexStore) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*data.Complex, error) {
+func (m *mockComplexStore) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error) {
 	if m.GetByOwnerFn != nil {
 		return m.GetByOwnerFn(ctx, ownerID)
 	}
@@ -440,7 +443,7 @@ func (m *mockComplexStore) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var out []*data.Complex
+	var out []*complexstore.Complex
 	for _, c := range m.rows {
 		if c.OwnerID == ownerID {
 			stored := c
@@ -450,7 +453,7 @@ func (m *mockComplexStore) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([
 	return out, nil
 }
 
-func (m *mockComplexStore) Update(ctx context.Context, c *data.Complex) error {
+func (m *mockComplexStore) Update(ctx context.Context, c *complexstore.Complex) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, c)
 	}
@@ -486,14 +489,14 @@ func (m *mockComplexStore) SoftDeleteCascade(ctx context.Context, id uuid.UUID) 
 	return 0, nil
 }
 
-func (m *mockComplexStore) UpsertSchedule(ctx context.Context, schedule *data.Schedule) error {
+func (m *mockComplexStore) UpsertSchedule(ctx context.Context, schedule *complexstore.Schedule) error {
 	if m.UpsertScheduleFn != nil {
 		return m.UpsertScheduleFn(ctx, schedule)
 	}
 	return nil
 }
 
-func (m *mockComplexStore) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error) {
+func (m *mockComplexStore) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error) {
 	if m.GetSchedulesFn != nil {
 		return m.GetSchedulesFn(ctx, complexID)
 	}
@@ -514,14 +517,14 @@ func (m *mockComplexStore) ClearMPCredentials(ctx context.Context, complexID uui
 	return nil
 }
 
-func (m *mockComplexStore) GetWithMPConnected(ctx context.Context) ([]*data.Complex, error) {
+func (m *mockComplexStore) GetWithMPConnected(ctx context.Context) ([]*complexstore.Complex, error) {
 	if m.GetWithMPConnectedFn != nil {
 		return m.GetWithMPConnectedFn(ctx)
 	}
 	return nil, nil
 }
 
-func (m *mockComplexStore) ListComplexesNeedingMPRefresh(ctx context.Context) ([]*data.Complex, error) {
+func (m *mockComplexStore) ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error) {
 	if m.ListComplexesNeedingMPRefreshFn != nil {
 		return m.ListComplexesNeedingMPRefreshFn(ctx)
 	}
@@ -542,7 +545,7 @@ func (m *mockComplexStore) SlugsWithPrefix(ctx context.Context, base string) ([]
 	return nil, nil
 }
 
-func (m *mockComplexStore) GetAllSlugs(ctx context.Context) ([]data.ComplexSlug, error) {
+func (m *mockComplexStore) GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error) {
 	if m.GetAllSlugsFn != nil {
 		return m.GetAllSlugsFn(ctx)
 	}
@@ -554,46 +557,46 @@ func (m *mockComplexStore) GetAllSlugs(ctx context.Context) ([]data.ComplexSlug,
 // ---------------------------------------------------------------------------
 
 type mockCourtStore struct {
-	InsertFn                   func(ctx context.Context, court *data.Court) error
-	GetByIDFn                  func(ctx context.Context, id uuid.UUID) (*data.Court, error)
-	GetByComplexFn             func(ctx context.Context, complexID uuid.UUID) ([]*data.Court, error)
-	UpdateFn                   func(ctx context.Context, court *data.Court) error
+	InsertFn                   func(ctx context.Context, court *courtstore.Court) error
+	GetByIDFn                  func(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
+	GetByComplexFn             func(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
+	UpdateFn                   func(ctx context.Context, court *courtstore.Court) error
 	SoftDeleteFn               func(ctx context.Context, id uuid.UUID) error
-	InsertPriceFn              func(ctx context.Context, price *data.CourtPrice) error
-	GetPricesFn                func(ctx context.Context, courtID uuid.UUID) ([]*data.CourtPrice, error)
-	UpdatePriceFn              func(ctx context.Context, price *data.CourtPrice) error
+	InsertPriceFn              func(ctx context.Context, price *courtstore.CourtPrice) error
+	GetPricesFn                func(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
+	UpdatePriceFn              func(ctx context.Context, price *courtstore.CourtPrice) error
 	DeletePriceFn              func(ctx context.Context, id uuid.UUID) error
 	DeletePricesByCourtFn      func(ctx context.Context, courtID uuid.UUID) error
-	ReplacePricesFn            func(ctx context.Context, courtID uuid.UUID, prices []*data.CourtPrice) (int, error)
-	InsertBlockedSlotFn        func(ctx context.Context, slot *data.BlockedSlot) error
-	GetBlockedSlotsFn          func(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*data.BlockedSlot, error)
-	GetBlockedSlotByIDFn       func(ctx context.Context, id uuid.UUID) (*data.BlockedSlot, error)
-	GetBlockedSlotsByComplexFn func(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*data.BlockedSlot, error)
+	ReplacePricesFn            func(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (int, error)
+	InsertBlockedSlotFn        func(ctx context.Context, slot *courtstore.BlockedSlot) error
+	GetBlockedSlotsFn          func(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
+	GetBlockedSlotByIDFn       func(ctx context.Context, id uuid.UUID) (*courtstore.BlockedSlot, error)
+	GetBlockedSlotsByComplexFn func(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error)
 	DeleteBlockedSlotFn        func(ctx context.Context, id uuid.UUID) error
 }
 
-func (m *mockCourtStore) Insert(ctx context.Context, court *data.Court) error {
+func (m *mockCourtStore) Insert(ctx context.Context, court *courtstore.Court) error {
 	if m.InsertFn != nil {
 		return m.InsertFn(ctx, court)
 	}
 	return nil
 }
 
-func (m *mockCourtStore) GetByID(ctx context.Context, id uuid.UUID) (*data.Court, error) {
+func (m *mockCourtStore) GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error) {
 	if m.GetByIDFn != nil {
 		return m.GetByIDFn(ctx, id)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockCourtStore) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*data.Court, error) {
+func (m *mockCourtStore) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error) {
 	if m.GetByComplexFn != nil {
 		return m.GetByComplexFn(ctx, complexID)
 	}
 	return nil, nil
 }
 
-func (m *mockCourtStore) Update(ctx context.Context, court *data.Court) error {
+func (m *mockCourtStore) Update(ctx context.Context, court *courtstore.Court) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, court)
 	}
@@ -607,21 +610,21 @@ func (m *mockCourtStore) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *mockCourtStore) InsertPrice(ctx context.Context, price *data.CourtPrice) error {
+func (m *mockCourtStore) InsertPrice(ctx context.Context, price *courtstore.CourtPrice) error {
 	if m.InsertPriceFn != nil {
 		return m.InsertPriceFn(ctx, price)
 	}
 	return nil
 }
 
-func (m *mockCourtStore) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*data.CourtPrice, error) {
+func (m *mockCourtStore) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error) {
 	if m.GetPricesFn != nil {
 		return m.GetPricesFn(ctx, courtID)
 	}
 	return nil, nil
 }
 
-func (m *mockCourtStore) UpdatePrice(ctx context.Context, price *data.CourtPrice) error {
+func (m *mockCourtStore) UpdatePrice(ctx context.Context, price *courtstore.CourtPrice) error {
 	if m.UpdatePriceFn != nil {
 		return m.UpdatePriceFn(ctx, price)
 	}
@@ -649,46 +652,46 @@ func (m *mockCourtStore) DeletePricesByCourtID(ctx context.Context, courtID uuid
 // The default stands in for a successful replacement, and returns the
 // failedIndex the real store returns in that case: -1, meaning no price was the
 // one that failed. A test that needs the failure path sets ReplacePricesFn.
-func (m *mockCourtStore) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*data.CourtPrice) (int, error) {
+func (m *mockCourtStore) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (int, error) {
 	if m.ReplacePricesFn != nil {
 		return m.ReplacePricesFn(ctx, courtID, prices)
 	}
 	return -1, nil
 }
 
-func (m *mockCourtStore) InsertBlockedSlot(ctx context.Context, slot *data.BlockedSlot) error {
+func (m *mockCourtStore) InsertBlockedSlot(ctx context.Context, slot *courtstore.BlockedSlot) error {
 	if m.InsertBlockedSlotFn != nil {
 		return m.InsertBlockedSlotFn(ctx, slot)
 	}
 	return nil
 }
 
-func (m *mockCourtStore) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*data.BlockedSlot, error) {
+func (m *mockCourtStore) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error) {
 	if m.GetBlockedSlotsFn != nil {
 		return m.GetBlockedSlotsFn(ctx, courtID, date)
 	}
 	return nil, nil
 }
 
-func (m *mockCourtStore) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*data.BlockedSlot, error) {
+func (m *mockCourtStore) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*courtstore.BlockedSlot, error) {
 	if m.GetBlockedSlotByIDFn != nil {
 		return m.GetBlockedSlotByIDFn(ctx, id)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockCourtStore) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*data.BlockedSlot, error) {
+func (m *mockCourtStore) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error) {
 	if m.GetBlockedSlotsByComplexFn != nil {
 		return m.GetBlockedSlotsByComplexFn(ctx, complexID, dateFrom, dateTo)
 	}
 	return nil, nil
 }
 
-func (m *mockCourtStore) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*data.CourtPrice, error) {
+func (m *mockCourtStore) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*courtstore.CourtPrice, error) {
 	return nil, nil
 }
 
-func (m *mockCourtStore) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*data.BlockedSlot, error) {
+func (m *mockCourtStore) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error) {
 	return nil, nil
 }
 
@@ -912,56 +915,56 @@ func (m *mockBookingLinkTokenStore) DeleteExpiredTerminal(ctx context.Context, r
 // ---------------------------------------------------------------------------
 
 type mockClientStore struct {
-	InsertFn           func(ctx context.Context, client *data.Client) error
-	GetByIDFn          func(ctx context.Context, id uuid.UUID) (*data.Client, error)
-	GetByPhoneFn       func(ctx context.Context, complexID uuid.UUID, phone string) (*data.Client, error)
-	GetByComplexFn     func(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*data.Client, data.Metadata, error)
-	UpdateFn           func(ctx context.Context, client *data.Client) error
-	GetOrCreateFn      func(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*data.Client, error)
+	InsertFn           func(ctx context.Context, client *clientstore.Client) error
+	GetByIDFn          func(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
+	GetByPhoneFn       func(ctx context.Context, complexID uuid.UUID, phone string) (*clientstore.Client, error)
+	GetByComplexFn     func(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*clientstore.Client, data.Metadata, error)
+	UpdateFn           func(ctx context.Context, client *clientstore.Client) error
+	GetOrCreateFn      func(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
 	IncrementNoShowsFn func(ctx context.Context, clientID uuid.UUID) error
 	CountByComplexFn   func(ctx context.Context, complexID uuid.UUID) (int, error)
 }
 
-func (m *mockClientStore) Insert(ctx context.Context, client *data.Client) error {
+func (m *mockClientStore) Insert(ctx context.Context, client *clientstore.Client) error {
 	if m.InsertFn != nil {
 		return m.InsertFn(ctx, client)
 	}
 	return nil
 }
 
-func (m *mockClientStore) GetByID(ctx context.Context, id uuid.UUID) (*data.Client, error) {
+func (m *mockClientStore) GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error) {
 	if m.GetByIDFn != nil {
 		return m.GetByIDFn(ctx, id)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockClientStore) GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*data.Client, error) {
+func (m *mockClientStore) GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*clientstore.Client, error) {
 	if m.GetByPhoneFn != nil {
 		return m.GetByPhoneFn(ctx, complexID, phone)
 	}
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockClientStore) GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*data.Client, data.Metadata, error) {
+func (m *mockClientStore) GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*clientstore.Client, data.Metadata, error) {
 	if m.GetByComplexFn != nil {
 		return m.GetByComplexFn(ctx, complexID, search, filters)
 	}
 	return nil, data.Metadata{}, nil
 }
 
-func (m *mockClientStore) Update(ctx context.Context, client *data.Client) error {
+func (m *mockClientStore) Update(ctx context.Context, client *clientstore.Client) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, client)
 	}
 	return nil
 }
 
-func (m *mockClientStore) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*data.Client, error) {
+func (m *mockClientStore) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error) {
 	if m.GetOrCreateFn != nil {
 		return m.GetOrCreateFn(ctx, complexID, firstName, lastName, phone, email, allowNameUpdate)
 	}
-	return &data.Client{
+	return &clientstore.Client{
 		ID:        uuid.New(),
 		ComplexID: complexID,
 		FirstName: firstName,
@@ -984,8 +987,8 @@ func (m *mockClientStore) CountByComplex(ctx context.Context, complexID uuid.UUI
 	return 0, nil
 }
 
-func (m *mockClientStore) GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.ClientInsights, error) {
-	return &data.ClientInsights{}, nil
+func (m *mockClientStore) GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*clientstore.ClientInsights, error) {
+	return &clientstore.ClientInsights{}, nil
 }
 
 // ---------------------------------------------------------------------------

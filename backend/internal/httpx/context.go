@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -46,15 +47,15 @@ func ContextGetAuthenticatedUser(r *http.Request) (*authstore.User, bool) {
 // Ownership is verified before this is called (middleware.RequireComplexOwner
 // is the only production caller), which is what makes it safe to widen the
 // database session to that tenant here.
-func ContextSetComplex(r *http.Request, c *data.Complex) *http.Request {
+func ContextSetComplex(r *http.Request, c *complexstore.Complex) *http.Request {
 	ctx := context.WithValue(r.Context(), complexContextKey{}, c)
 	return r.WithContext(data.ContextWithTenant(ctx, c.ID))
 }
 
 // ContextGetComplex returns the complex set by the ownership middleware. The
 // boolean is false on routes that are not scoped to a complex.
-func ContextGetComplex(r *http.Request) (*data.Complex, bool) {
-	c, ok := r.Context().Value(complexContextKey{}).(*data.Complex)
+func ContextGetComplex(r *http.Request) (*complexstore.Complex, bool) {
+	c, ok := r.Context().Value(complexContextKey{}).(*complexstore.Complex)
 	return c, ok
 }
 

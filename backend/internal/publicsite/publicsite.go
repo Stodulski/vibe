@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -26,9 +26,9 @@ const fetchTimeout = 10 * time.Second
 
 // Store is the complex data these two pages need.
 type Store interface {
-	GetAllSlugs(ctx context.Context) ([]data.ComplexSlug, error)
-	GetBySlug(ctx context.Context, slug string) (*data.Complex, error)
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*data.Schedule, error)
+	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
+	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
+	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 }
 
 // Handler serves the crawler-facing routes.

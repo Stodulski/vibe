@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -57,7 +58,7 @@ func TestSoftDeleteRefusesACourtWithLiveBookings(t *testing.T) {
 	f.createBooking(t, bookingOptions{Status: "confirmed"})
 
 	err := f.Models.Courts.SoftDelete(ctx, f.CourtID)
-	if !errors.Is(err, data.ErrCourtHasActiveBookings) {
+	if !errors.Is(err, courtstore.ErrCourtHasActiveBookings) {
 		t.Errorf("deleting a court with a live booking must be refused with ErrCourtHasActiveBookings; got %v", err)
 	}
 }
