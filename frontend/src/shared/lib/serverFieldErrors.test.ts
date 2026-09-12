@@ -49,12 +49,42 @@ describe('applyServerFieldErrors — the legacy `{"error": {campo: mensaje}}` 42
   });
 });
 
+/**
+ * The exact 422 the backend will send, copied from the contract. A form is
+ * where a wrong reading of `errors[]` is most visible: the field messages
+ * simply never appear and the person is told nothing about which input the
+ * server refused.
+ */
+const VALIDATION_PROBLEM = {
+  type: 'https://vibe.com.ar/problems/validation',
+  title: 'Validation Failed',
+  status: 422,
+  detail: 'the request failed validation',
+  instance: '/api/v1/auth/register',
+  request_id: '8f14e45f-ceea-467a-9c1d-3f3b4b5a6c7d',
+  errors: [
+    { field: 'first_name', message: 'must be provided' },
+    { field: 'phone', message: 'must be provided' },
+  ],
+};
+
 describe('applyServerFieldErrors — RFC 9457 problem+json', () => {
+  it("puts the backend's real 422 under each field it names", () => {
+    const form = fakeForm();
+    const applied = applyServerFieldErrors(form, apiError(422, VALIDATION_PROBLEM));
+
+    expect(applied).toBe(true);
+    expect(form.setError).toHaveBeenCalledWith('first_name', { type: 'server', message: 'must be provided' });
+    expect(form.setError).toHaveBeenCalledWith('phone', { type: 'server', message: 'must be provided' });
+    // A field error is on screen, so the generic `detail` would only repeat it.
+    expect(form.setError).not.toHaveBeenCalledWith('root', expect.anything());
+  });
+
   it('reads `errors[]` addressed by field', () => {
     const form = fakeForm();
     const applied = applyServerFieldErrors(
       form,
-      apiError(422, { title: 'Validation failed', errors: [{ field: 'phone', detail: 'invalid' }] }),
+      apiError(422, { title: 'Validation failed', errors: [{ field: 'phone', message: 'invalid' }] }),
     );
 
     expect(applied).toBe(true);

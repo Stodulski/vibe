@@ -25,6 +25,82 @@ function httpError(status: number, body: unknown, headers: Record<string, string
   return error;
 }
 
+/**
+ * The exact 422 the backend will send once its problem+json PR lands, copied
+ * verbatim from the contract rather than paraphrased: the field names in
+ * `errors[]` (`field`/`message`, not `detail`) and the body-level
+ * `request_id` are the two places where a plausible-looking guess would parse
+ * to an empty problem and lose the message the person needs to read.
+ */
+const VALIDATION_PROBLEM = {
+  type: 'https://vibe.com.ar/problems/validation',
+  title: 'Validation Failed',
+  status: 422,
+  detail: 'the request failed validation',
+  instance: '/api/v1/auth/register',
+  request_id: '8f14e45f-ceea-467a-9c1d-3f3b4b5a6c7d',
+  errors: [
+    { field: 'email', message: 'must be provided' },
+    { field: 'password', message: 'must be provided' },
+  ],
+};
+
+describe("normalizeProblem — the API's problem+json contract", () => {
+  it('reads the validation 422 exactly as the backend sends it', () => {
+    expect(normalizeProblem(VALIDATION_PROBLEM, 422)).toEqual({
+      type: 'https://vibe.com.ar/problems/validation',
+      kind: 'validation',
+      title: 'Validation Failed',
+      status: 422,
+      detail: 'the request failed validation',
+      instance: '/api/v1/auth/register',
+      requestId: '8f14e45f-ceea-467a-9c1d-3f3b4b5a6c7d',
+      errors: [
+        { field: 'email', message: 'must be provided' },
+        { field: 'password', message: 'must be provided' },
+      ],
+    });
+  });
+
+  // Every 4xx/5xx carries type/title/status/detail/instance/request_id; only
+  // validation carries `errors[]`.
+  it.each([
+    'invalid-json',
+    'not-found',
+    'route-not-found',
+    'conflict',
+    'unauthorized',
+    'forbidden',
+    'rate-limited',
+    'too-large',
+    'unavailable',
+    'gone',
+    'internal',
+    'method-not-allowed',
+  ])('exposes %s as a bare kind, so callers never compare URIs', (kind) => {
+    const problem = normalizeProblem(
+      {
+        type: `https://vibe.com.ar/problems/${kind}`,
+        title: 'Something',
+        status: 409,
+        detail: 'a detail',
+        instance: '/api/v1/book',
+        request_id: 'req-1',
+      },
+      409,
+    );
+    expect(problem.kind).toBe(kind);
+    expect(problem.errors).toEqual([]);
+  });
+
+  it('leaves kind undefined for a type from anywhere else', () => {
+    expect(
+      normalizeProblem({ type: 'https://example.test/problems/validation', title: 'x' }, 400).kind,
+    ).toBeUndefined();
+    expect(normalizeProblem({ error: 'slot_taken' }, 409).kind).toBeUndefined();
+  });
+});
+
 describe('normalizeProblem — the legacy `{"error": ...}` envelope', () => {
   it('reads a bare string error as the title', () => {
     expect(normalizeProblem({ error: 'booking_not_found' }, 404)).toMatchObject({
@@ -57,10 +133,12 @@ describe('normalizeProblem — the legacy `{"error": ...}` envelope', () => {
   it('answers an empty problem for a body it cannot read at all', () => {
     expect(normalizeProblem('<html>502 Bad Gateway</html>', 502)).toEqual({
       type: 'about:blank',
+      kind: undefined,
       title: '',
       status: 502,
       detail: undefined,
       instance: undefined,
+      requestId: undefined,
       errors: [],
     });
   });
@@ -80,10 +158,12 @@ describe('normalizeProblem — RFC 9457 problem+json', () => {
     );
     expect(problem).toEqual({
       type: 'https://vibe.com.ar/problems/slot-taken',
+      kind: 'slot-taken',
       title: 'Slot taken',
       status: 409,
       detail: 'Ese horario ya fue reservado',
       instance: '/api/v1/book',
+      requestId: undefined,
       errors: [],
     });
   });
@@ -92,7 +172,10 @@ describe('normalizeProblem — RFC 9457 problem+json', () => {
     expect(normalizeProblem({ title: 'Unprocessable', status: 422 }, 400).status).toBe(422);
   });
 
-  it('reads `errors[]` entries addressed by `field`', () => {
+  it('reads `errors[]` entries addressed by `field`, whether the text is in `message` or `detail`', () => {
+    expect(
+      normalizeProblem({ title: 'Validation failed', errors: [{ field: 'phone', message: 'invalid' }] }, 422).errors,
+    ).toEqual([{ field: 'phone', message: 'invalid' }]);
     expect(
       normalizeProblem({ title: 'Validation failed', errors: [{ field: 'phone', detail: 'invalid' }] }, 422).errors,
     ).toEqual([{ field: 'phone', message: 'invalid' }]);
@@ -135,7 +218,17 @@ describe('ApiError', () => {
     expect(error.requestId).toBe('req-abc123');
   });
 
-  it('leaves requestId undefined when the header is absent', () => {
+  it('falls back to the body request_id when CORS did not expose the header', () => {
+    const error = new ApiError(httpError(422, VALIDATION_PROBLEM));
+    expect(error.requestId).toBe('8f14e45f-ceea-467a-9c1d-3f3b4b5a6c7d');
+  });
+
+  it('prefers the header over the body when both are there', () => {
+    const error = new ApiError(httpError(422, VALIDATION_PROBLEM, { 'X-Request-ID': 'from-header' }));
+    expect(error.requestId).toBe('from-header');
+  });
+
+  it('leaves requestId undefined when neither carries one', () => {
     expect(new ApiError(httpError(500, { error: 'internal' })).requestId).toBeUndefined();
   });
 

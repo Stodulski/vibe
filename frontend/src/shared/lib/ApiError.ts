@@ -26,12 +26,35 @@ export interface ProblemFieldError {
 export interface Problem {
   /** RFC 9457 `type`, or `about:blank` for the legacy envelope. */
   type: string;
+  /**
+   * The last segment of a `type` under {@link PROBLEM_TYPE_PREFIX} —
+   * `validation`, `rate-limited`, `conflict`, and so on.
+   *
+   * The URI is the stable identifier on the wire, but comparing against it at
+   * a call site means pasting a domain into a `switch`, and one rename of the
+   * documentation host would then silently stop matching everywhere. Reading
+   * the suffix once, here, gives callers a short token and keeps that risk in
+   * one file. `undefined` for the legacy envelope and for any `type` from
+   * somewhere else, so an unrecognized URI can never be mistaken for a known
+   * kind.
+   */
+  kind: string | undefined;
   /** Short, human-readable summary. Empty when the body carried none. */
   title: string;
   status: number;
   detail: string | undefined;
   instance: string | undefined;
+  /** The backend's own `request_id` for this failure, when the body carried one. */
+  requestId: string | undefined;
   errors: ProblemFieldError[];
+}
+
+/** Every problem type the API mints lives under this prefix. */
+export const PROBLEM_TYPE_PREFIX = 'https://vibe.com.ar/problems/';
+
+/** The short name behind a problem `type`, or `undefined` if it isn't one of ours. */
+function problemKind(type: string): string | undefined {
+  return type.startsWith(PROBLEM_TYPE_PREFIX) ? type.slice(PROBLEM_TYPE_PREFIX.length) : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -65,7 +88,10 @@ function problemErrors(raw: unknown): ProblemFieldError[] {
   for (const entry of raw as unknown[]) {
     if (!isRecord(entry)) continue;
     const field = entryField(entry);
-    const message = asString(entry.detail) ?? asString(entry.message) ?? asString(entry.title);
+    // `message` is what the API sends (see the validation problem body);
+    // `detail` and `title` are read too because RFC 9457 leaves the shape of
+    // an `errors` entry to the API, and a later endpoint may pick either.
+    const message = asString(entry.message) ?? asString(entry.detail) ?? asString(entry.title);
     if (field && message) errors.push({ field, message: translateServerError(message) });
   }
   return errors;
@@ -73,7 +99,7 @@ function problemErrors(raw: unknown): ProblemFieldError[] {
 
 /** `{"error": {...}}` — the shape the API answers with today. */
 function legacyProblem(error: unknown, status: number): Problem {
-  const base = { type: 'about:blank', status, instance: undefined };
+  const base = { type: 'about:blank', kind: undefined, status, instance: undefined, requestId: undefined };
 
   const message = asString(error);
   if (message !== undefined) {
@@ -109,18 +135,30 @@ function legacyProblem(error: unknown, status: number): Problem {
  */
 export function normalizeProblem(body: unknown, status: number): Problem {
   if (!isRecord(body)) {
-    return { type: 'about:blank', title: '', status, detail: undefined, instance: undefined, errors: [] };
+    return {
+      type: 'about:blank',
+      kind: undefined,
+      title: '',
+      status,
+      detail: undefined,
+      instance: undefined,
+      requestId: undefined,
+      errors: [],
+    };
   }
 
   const isProblemJson = typeof body.type === 'string' || typeof body.title === 'string' || Array.isArray(body.errors);
   if (!isProblemJson) return legacyProblem(body.error, status);
 
+  const type = asString(body.type) ?? 'about:blank';
   return {
-    type: asString(body.type) ?? 'about:blank',
+    type,
+    kind: problemKind(type),
     title: translateServerError(asString(body.title) ?? ''),
     status: typeof body.status === 'number' ? body.status : status,
     detail: asString(body.detail),
     instance: asString(body.instance),
+    requestId: asString(body.request_id),
     errors: problemErrors(body.errors),
   };
 }
@@ -154,8 +192,14 @@ export class ApiError extends HTTPError {
     // wrapper's constructor; `stack` is optional on Error, so it is only
     // carried over when the source had one.
     if (source.stack !== undefined) this.stack = source.stack;
-    this.requestId = source.response.headers.get('X-Request-ID') ?? undefined;
     this.problem = normalizeProblem(source.data, source.response.status);
+    // The header is the primary source — it is present on every response,
+    // including the ones with no body to read. The body's `request_id` is the
+    // fallback for when CORS has not exposed the header (a preview
+    // deployment, a misconfigured origin): losing the id there would mean
+    // losing the only link between a Sentry event and the backend's own log
+    // line for the same request.
+    this.requestId = source.response.headers.get('X-Request-ID') ?? this.problem.requestId;
   }
 }
 
