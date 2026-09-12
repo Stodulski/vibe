@@ -91,12 +91,15 @@ describe('useCreateBooking — onError surfaces the real backend message', () =>
   // anything that isn't ky's HTTPError (a dropped connection throws a plain
   // TypeError with no .response) — the mutation would go stuck in a broken
   // state with no toast shown at all instead of a generic error message.
-  it('shows the generic error toast instead of crashing when the request fails with a network error', async () => {
+  // That message is now the generic connectivity one, not this mutation's
+  // own fallback (ERR-04) — a dropped connection never reached the server,
+  // so it shouldn't read as "we couldn't create the booking".
+  it('shows the generic connectivity toast instead of crashing when the request fails with a network error', async () => {
     await triggerCreateError(
       new TypeError('Failed to fetch') as unknown as Awaited<ReturnType<typeof makeConsumedHttpError>>,
     );
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.bookings.createError);
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.common.networkError);
   });
 
   afterEach(async () => {

@@ -14,6 +14,15 @@ const t = ES_AR;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_INPUT_SIZE = 5 * 1024 * 1024; // 5MB
 
+/**
+ * Messages `mutationFn` below throws itself, already in Spanish and already
+ * specific ("only JPG/PNG/WebP", "under 5MB") — worth showing as-is, unlike
+ * an uncaught `TypeError` or a browser-internal `DOMException` (from
+ * `compressImage`'s `createImageBitmap`, e.g.), whose raw `.message` is
+ * neither translated nor something a person should have to read.
+ */
+const KNOWN_VALIDATION_MESSAGES = new Set<string>([t.complex.imageInvalidType, t.complex.imageTooLarge]);
+
 interface UploadParams {
   file: File;
   type: 'logo' | 'cover';
@@ -59,11 +68,11 @@ export function useUploadImage(complexId: string) {
       toast.success(t.complex.imageUploaded);
     },
     onError: (error: Error | HTTPError) => {
-      if ('response' in error) {
-        toast.error(getHttpErrorMessage(error, t.complex.imageUploadError));
-      } else {
-        toast.error(error.message || t.complex.imageUploadError);
+      if (KNOWN_VALIDATION_MESSAGES.has(error.message)) {
+        toast.error(error.message);
+        return;
       }
+      toast.error(getHttpErrorMessage(error, t.complex.imageUploadError));
     },
   });
 }

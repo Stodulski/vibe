@@ -14,3 +14,10 @@ interface ImportMetaEnv {
   VITE_TURNSTILE_SITE_KEY?: string;
   VITE_GOOGLE_CLIENT_ID?: string;
 }
+
+/**
+ * The commit that produced this build, or `'dev'` outside Vercel — see
+ * `vite.config.ts`'s `define`. Read by `src/shared/lib/sentry.ts` as the
+ * Sentry `release`.
+ */
+declare const APP_RELEASE: string;

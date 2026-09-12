@@ -1,3 +1,4 @@
+import { beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ComplexHeader } from './ComplexHeader';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
@@ -5,6 +6,22 @@ import type { PublicComplex, Schedule } from '@/shared/types/api.types';
 vi.mock('./ComplexMap', () => ({
   ComplexMap: () => <div data-testid="mock-map">Map</div>,
 }));
+
+// Suppress the expected "Leaflet failed to load" console noise React logs
+// for the caught render error in the map-failure test below, same pattern
+// as ErrorBoundary's own test helpers.
+const originalError = console.error;
+beforeAll(() => {
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === 'string' && args[0].includes('Leaflet failed to load')) {
+      return;
+    }
+    originalError.call(console, ...args);
+  };
+});
+afterAll(() => {
+  console.error = originalError;
+});
 
 const mockComplex: PublicComplex = {
   id: 'c1',
@@ -126,5 +143,21 @@ describe('ComplexHeader', () => {
     const noPhone = { ...mockComplex, phone: '' };
     render(<ComplexHeader complex={noPhone} schedules={mockSchedules} />);
     expect(screen.queryByText('+5491155550000')).not.toBeInTheDocument();
+  });
+
+  it('shows a fallback instead of crashing the whole page when the map fails to render', async () => {
+    vi.doMock('./ComplexMap', () => ({
+      ComplexMap: () => {
+        throw new Error('Leaflet failed to load');
+      },
+    }));
+    vi.resetModules();
+    const { ComplexHeader: ComplexHeaderWithBrokenMap } = await import('./ComplexHeader');
+
+    render(<ComplexHeaderWithBrokenMap complex={mockComplex} schedules={mockSchedules} />);
+
+    expect(await screen.findByText('No pudimos cargar el mapa')).toBeInTheDocument();
+    // The rest of the club's page — outside the map's own boundary — is unaffected.
+    expect(screen.getByRole('heading', { name: 'Club Padel Norte' })).toBeInTheDocument();
   });
 });

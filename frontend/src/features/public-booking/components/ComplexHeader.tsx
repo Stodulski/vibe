@@ -1,10 +1,14 @@
 import { lazy, Suspense } from 'react';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { ErrorBoundary } from '@/shared/components/common/ErrorBoundary';
+import { ES_AR } from '@/shared/i18n/es_AR';
 import { CoverBanner } from './complex-header/CoverBanner';
 import { ComplexLogo } from './complex-header/ComplexLogo';
 import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
 import { ComplexDetails } from './complex-header/ComplexDetails';
+
+const t = ES_AR;
 
 const ComplexMap = lazy(() => import('./ComplexMap').then((m) => ({ default: m.ComplexMap })));
 
@@ -63,14 +67,28 @@ export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeade
 
         {complex.latitude != null && complex.longitude != null && (
           <div className="mt-6">
-            <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
-              <ComplexMap
-                latitude={complex.latitude}
-                longitude={complex.longitude}
-                name={complex.name}
-                address={`${complex.address}, ${complex.city}`}
-              />
-            </Suspense>
+            {/*
+              Leaflet is a third-party map widget loaded lazily; a failure in
+              it (a bad tile server, a bundling issue) must not take down the
+              rest of the club's page with it — see routeHelpers.tsx's own
+              per-page ErrorBoundary for the equivalent guard one level up.
+            */}
+            <ErrorBoundary
+              fallback={
+                <div className="flex h-[200px] w-full items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-center text-sm text-text-secondary">
+                  {t.publicBooking.mapUnavailable}
+                </div>
+              }
+            >
+              <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
+                <ComplexMap
+                  latitude={complex.latitude}
+                  longitude={complex.longitude}
+                  name={complex.name}
+                  address={`${complex.address}, ${complex.city}`}
+                />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         )}
       </div>

@@ -13,5 +13,7 @@ export const layout = {
   poweredBy: 'Powered by Vibe',
   notFoundTitle: 'Página no encontrada',
   notFoundDescription: 'La página que buscás no existe.',
+  forbiddenTitle: 'No tenés permiso para ver esta página',
+  forbiddenDescription: 'Si te parece que es un error, contactá al administrador de tu complejo.',
   offline: 'Sin conexión a internet',
 } as const;
