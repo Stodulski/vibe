@@ -59,6 +59,56 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
+// The four server timeouts are the difference between a bounded connection and
+// one a peer can hold open indefinitely, so their defaults are asserted rather
+// than left to whoever last edited the flag set. The write timeout in
+// particular has to stay above reporting.ExportBudget, which cmd/api checks at
+// boot.
+func TestHTTPTimeoutDefaults(t *testing.T) {
+	cfg, err := config.Load(nil, env(nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.HTTP.ReadHeaderTimeout != 5*time.Second {
+		t.Errorf("ReadHeaderTimeout = %s, want 5s", cfg.HTTP.ReadHeaderTimeout)
+	}
+	if cfg.HTTP.ReadTimeout != 5*time.Second {
+		t.Errorf("ReadTimeout = %s, want 5s", cfg.HTTP.ReadTimeout)
+	}
+	if cfg.HTTP.WriteTimeout != 60*time.Second {
+		t.Errorf("WriteTimeout = %s, want 60s", cfg.HTTP.WriteTimeout)
+	}
+	if cfg.HTTP.IdleTimeout != 60*time.Second {
+		t.Errorf("IdleTimeout = %s, want 60s", cfg.HTTP.IdleTimeout)
+	}
+}
+
+func TestHTTPTimeoutsAreConfigurable(t *testing.T) {
+	cfg, err := config.Load(nil, env(map[string]string{
+		"HTTP_READ_HEADER_TIMEOUT": "2s",
+		"HTTP_READ_TIMEOUT":        "20s",
+		"HTTP_WRITE_TIMEOUT":       "90s",
+		"HTTP_IDLE_TIMEOUT":        "2m",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.HTTP.ReadHeaderTimeout != 2*time.Second {
+		t.Errorf("ReadHeaderTimeout = %s, want 2s", cfg.HTTP.ReadHeaderTimeout)
+	}
+	if cfg.HTTP.ReadTimeout != 20*time.Second {
+		t.Errorf("ReadTimeout = %s, want 20s", cfg.HTTP.ReadTimeout)
+	}
+	if cfg.HTTP.WriteTimeout != 90*time.Second {
+		t.Errorf("WriteTimeout = %s, want 90s", cfg.HTTP.WriteTimeout)
+	}
+	if cfg.HTTP.IdleTimeout != 2*time.Minute {
+		t.Errorf("IdleTimeout = %s, want 2m", cfg.HTTP.IdleTimeout)
+	}
+}
+
 func TestFlagsAreRead(t *testing.T) {
 	cfg, err := config.Load([]string{
 		"-port", "9090",

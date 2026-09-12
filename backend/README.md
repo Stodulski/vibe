@@ -95,6 +95,17 @@ route that no longer exists, so the two cannot drift apart silently.
 | `PORT` | HTTP port the API listens on. | Optional | `8080` |
 | `REDIS_URL` | Redis connection URL. | **Required**: the notification queue (email/WhatsApp) has no fallback; boot refuses to start without a reachable Redis. | none |
 
+### HTTP server
+
+The four bounds `http.Server` places on one connection. `0` disables any of them; none of them defaults to `0`.
+
+| Variable | Purpose | Required | Default |
+|---|---|---|---|
+| `HTTP_READ_HEADER_TIMEOUT` | Deadline for reading the request line and headers alone (Go duration). This is the Slowloris bound: `HTTP_READ_TIMEOUT` does not cover a peer that dribbles its headers a byte at a time. | Optional | `5s` |
+| `HTTP_READ_TIMEOUT` | Deadline for reading the whole request, headers and body (Go duration). | Optional | `5s` |
+| `HTTP_WRITE_TIMEOUT` | Deadline for writing the response (Go duration). Must be greater than the 50s spreadsheet export budget (`reporting.ExportBudget`) — boot refuses a smaller value, because the timeout closes the connection without cancelling the handler and the export would be built and then discarded. | Optional | `60s` |
+| `HTTP_IDLE_TIMEOUT` | How long a keep-alive connection may sit idle between requests (Go duration). | Optional | `60s` |
+
 ### Database
 
 | Variable | Purpose | Required | Default |

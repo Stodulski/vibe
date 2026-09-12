@@ -306,7 +306,7 @@ type Export struct {
 // error object stapled to the end, and Excel reported a corrupt file rather
 // than the server reporting a problem.
 func (s *Service) ExportPaymentsExcel(ctx context.Context, complex *complexstore.Complex, month, year int) (export *Export, rowCount int, err error) {
-	ctx, cancel := context.WithTimeout(ctx, exportBudget)
+	ctx, cancel := context.WithTimeout(ctx, ExportBudget)
 	defer cancel()
 
 	from := periodStart(month, year)

@@ -72,6 +72,16 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.IntVar(&cfg.Port, "port", 8080, "API server port (PORT)")
 	fs.StringVar(&cfg.Env, "env", "development", "Environment (development|staging|production) (ENV)")
 
+	fs.DurationVar(&cfg.HTTP.ReadHeaderTimeout, "http-read-header-timeout", 5*time.Second,
+		"Deadline for reading the request line and headers; 0 disables it (HTTP_READ_HEADER_TIMEOUT)")
+	fs.DurationVar(&cfg.HTTP.ReadTimeout, "http-read-timeout", 5*time.Second,
+		"Deadline for reading the whole request, headers and body; 0 disables it (HTTP_READ_TIMEOUT)")
+	fs.DurationVar(&cfg.HTTP.WriteTimeout, "http-write-timeout", 60*time.Second,
+		"Deadline for writing the response; must stay above the spreadsheet export budget; "+
+			"0 disables it (HTTP_WRITE_TIMEOUT)")
+	fs.DurationVar(&cfg.HTTP.IdleTimeout, "http-idle-timeout", 60*time.Second,
+		"How long a keep-alive connection may sit idle between requests; 0 disables it (HTTP_IDLE_TIMEOUT)")
+
 	fs.StringVar(&cfg.DB.DSN, "db-dsn", "", "PostgreSQL DSN (DATABASE_URL)")
 	fs.IntVar(&cfg.DB.MaxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections (DB_MAX_OPEN_CONNS)")
 	fs.IntVar(&cfg.DB.MaxIdleConns, "db-max-idle-conns", 10, "PostgreSQL max idle connections (DB_MAX_IDLE_CONNS)")
@@ -170,6 +180,11 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 func (cfg *Config) applyEnv(env *reader) {
 	env.intVal("PORT", &cfg.Port, positive)
 	env.strVal("ENV", &cfg.Env)
+
+	env.durVal("HTTP_READ_HEADER_TIMEOUT", &cfg.HTTP.ReadHeaderTimeout, nonNegativeDur)
+	env.durVal("HTTP_READ_TIMEOUT", &cfg.HTTP.ReadTimeout, nonNegativeDur)
+	env.durVal("HTTP_WRITE_TIMEOUT", &cfg.HTTP.WriteTimeout, nonNegativeDur)
+	env.durVal("HTTP_IDLE_TIMEOUT", &cfg.HTTP.IdleTimeout, nonNegativeDur)
 
 	env.strVal("DATABASE_URL", &cfg.DB.DSN)
 	env.strVal("DB_MIGRATOR_URL", &cfg.DB.MigratorDSN)

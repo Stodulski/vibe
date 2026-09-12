@@ -86,7 +86,7 @@ func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 // what the export actually consumes: the payment slice, the cells excelize
 // holds, and the compressed archive all grow linearly with them, and memory is
 // the resource that takes the whole instance down rather than one request. A
-// time budget alone would let a large export get most of the way through 8s of
+// time budget alone would let a large export get most of the way through its
 // allocation before being cut off, having already done the damage.
 //
 // Fifty thousand is roughly five times the pathological ceiling for one venue
@@ -102,15 +102,21 @@ func periodTotals(summaries []reportstore.PaymentMethodSummary) map[string]any {
 // the process.
 const defaultMaxExportRows = 50_000
 
-// exportBudget bounds the whole export — the query, the build and the
+// ExportBudget bounds the whole export — the query, the build and the
 // serialisation.
 //
-// The request context carries no deadline of its own: http.Server's 10s
+// The request context carries no deadline of its own: http.Server's
 // WriteTimeout closes the connection but does not cancel the handler, so
 // without this an export keeps allocating for a client that hung up minutes
-// ago. Eight seconds sits under that WriteTimeout, leaving room to flush what
-// was built, and a full-cap export measures around a second.
-const exportBudget = 8 * time.Second
+// ago. The budget therefore has to sit under that timeout, with room left to
+// flush what was built; validateBootConfig in cmd/api refuses a configuration
+// where it does not, because HTTP_WRITE_TIMEOUT is an operator's knob and this
+// is the invariant it can break. A full-cap export measures around a second,
+// so the fifty here is headroom for a slow database rather than a target.
+//
+// It is exported only so that boot check can name it; nothing outside this
+// package uses it to do work.
+const ExportBudget = 50 * time.Second
 
 // exportRowCheckInterval is how often the row loop looks at the budget.
 // Checking every row would cost more than it saves; checking never would make

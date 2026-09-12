@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/platform/config"
+	"github.com/stodulski/vibe-server/internal/reporting"
 )
 
 // testConfig builds a config that passes validateBootConfig, so each test
@@ -22,6 +23,7 @@ func testConfig() config.Config {
 	cfg.BackendURL = "https://api.example.com"
 	cfg.Booking.PaymentExpiry = 15 * time.Minute
 	cfg.Booking.SlotLockTTL = 15 * time.Minute
+	cfg.HTTP.WriteTimeout = 60 * time.Second
 	return cfg
 }
 
@@ -149,6 +151,37 @@ func TestValidateBootConfig(t *testing.T) {
 				c.Env = "production"
 				c.Booking.SlotLockTTL = 15 * time.Minute
 				c.Booking.PaymentExpiry = 15 * time.Minute
+			},
+		},
+		{
+			name: "write timeout under the export budget, production: fatal",
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.HTTP.WriteTimeout = 10 * time.Second
+			},
+			wantErr:   true,
+			errSubstr: "http-write-timeout",
+		},
+		{
+			name: "write timeout exactly the export budget: refused, the export needs room to flush",
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.HTTP.WriteTimeout = reporting.ExportBudget
+			},
+			wantErr:   true,
+			errSubstr: "http-write-timeout",
+		},
+		{
+			name: "write timeout under the export budget, development: logged, not fatal",
+			mutate: func(c *config.Config) {
+				c.HTTP.WriteTimeout = 10 * time.Second
+			},
+		},
+		{
+			name: "write timeout of zero means no limit at all, so nothing to check",
+			mutate: func(c *config.Config) {
+				c.Env = "production"
+				c.HTTP.WriteTimeout = 0
 			},
 		},
 	}

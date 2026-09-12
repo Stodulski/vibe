@@ -19,6 +19,7 @@ import (
 type Config struct {
 	Port int
 	Env  string
+	HTTP HTTP
 	DB   DB
 	JWT  JWT
 	MP   MP
@@ -68,6 +69,37 @@ type Config struct {
 	// command runs, and it has no env var on purpose — it is an invocation
 	// mode, not a setting of the deployment.
 	MigrateOnly bool
+}
+
+// HTTP is the server's timeout surface: the four bounds http.Server places on
+// one connection's lifetime.
+//
+// They are configuration rather than constants because the right values depend
+// on what sits in front of the process. A platform whose proxy already caps a
+// request at 30s wants a write timeout under that, not over it; a deployment
+// behind a slow uplink wants a longer read.
+//
+// Zero means "no limit" for every one of them, which is http.Server's own
+// meaning. It is accepted, and it is never a default: an unbounded server is a
+// choice an operator has to make on purpose.
+type HTTP struct {
+	// ReadHeaderTimeout bounds the request line and headers alone. Without it
+	// a peer that opens a connection and dribbles one header byte per minute
+	// holds a goroutine and a file descriptor for as long as it likes —
+	// Slowloris — because ReadTimeout is only armed once the handler starts
+	// reading the body.
+	ReadHeaderTimeout time.Duration
+	// ReadTimeout bounds reading the whole request, headers and body.
+	ReadTimeout time.Duration
+	// WriteTimeout bounds writing the response, measured from the end of the
+	// request headers. It is the ceiling the spreadsheet export's own budget
+	// has to sit under (see reporting.ExportBudget and validateBootConfig):
+	// the timeout closes the connection but does not cancel the handler, so
+	// work that outlives it is work nobody will ever read.
+	WriteTimeout time.Duration
+	// IdleTimeout bounds how long a keep-alive connection may sit unused
+	// between requests.
+	IdleTimeout time.Duration
 }
 
 // DB is the Postgres connection and pool configuration.

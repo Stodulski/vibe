@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/stodulski/vibe-server/internal/platform/config"
+	"github.com/stodulski/vibe-server/internal/reporting"
 )
 
 // validateBootConfig checks configuration invariants that nothing else in the
@@ -19,6 +20,11 @@ import (
 //     — OAuth link-a-seller flows fail, and an unconfigured webhook secret
 //     is refused explicitly elsewhere (mp.VerifyWebhookSignature), but only
 //     once the first webhook arrives.
+//   - The HTTP write timeout must be longer than the spreadsheet export's own
+//     budget. WriteTimeout closes the connection but does not cancel the
+//     handler, so a timeout under the budget means every large export is built
+//     in full and then thrown away, and the owner sees a truncated download
+//     rather than a refusal.
 //   - The booking slot lock TTL must be at least as long as the payment
 //     expiry: a lock that expires before the payment window closes lets a
 //     second client claim a slot while the first client's payment can still
@@ -33,6 +39,13 @@ func validateBootConfig(cfg config.Config, logger *slog.Logger) error {
 
 	if cfg.MP.AccessToken != "" {
 		missing = append(missing, missingMPConfig(cfg)...)
+	}
+
+	if cfg.HTTP.WriteTimeout > 0 && cfg.HTTP.WriteTimeout <= reporting.ExportBudget {
+		missing = append(missing, fmt.Sprintf(
+			"http-write-timeout (%s) must be greater than the spreadsheet export budget (%s), "+
+				"otherwise the connection is closed while the export is still building and the work is wasted",
+			cfg.HTTP.WriteTimeout, reporting.ExportBudget))
 	}
 
 	if cfg.Booking.SlotLockTTL < cfg.Booking.PaymentExpiry {
