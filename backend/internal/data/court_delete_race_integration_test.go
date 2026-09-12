@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
@@ -100,13 +101,13 @@ func courtIsDeleted(t *testing.T, f *testFixture) bool {
 	return deleted
 }
 
-func pendingBooking(f *testFixture, date time.Time) *data.Booking {
-	return &data.Booking{
+func pendingBooking(f *testFixture, date time.Time) *bookingstore.Booking {
+	return &bookingstore.Booking{
 		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
 		Date: date, StartTime: "10:00", DurationMinutes: 60,
 		Price: 500_000, DepositAmount: 150_000,
-		Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus: data.RefundStatusNone,
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus: bookingstore.RefundStatusNone,
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -47,9 +48,9 @@ const publicActor = "client"
 // trail, the same way data.Complex's tags keep MercadoPago credentials out of
 // it. TestPublicBookAuditEntryCarriesNoLinkToken pins that.
 type publicBooking struct {
-	Actor    string        `json:"actor"`
-	ClientID uuid.UUID     `json:"client_id"`
-	Booking  *data.Booking `json:"booking"`
+	Actor    string                `json:"actor"`
+	ClientID uuid.UUID             `json:"client_id"`
+	Booking  *bookingstore.Booking `json:"booking"`
 }
 
 // publicCancellation is the audit value for a cancellation a client made
@@ -63,11 +64,11 @@ type publicBooking struct {
 // system writes down that it was applied. What then became of the money is
 // internal/payments' entry to write, not this one's.
 type publicCancellation struct {
-	Actor              string        `json:"actor"`
-	ClientID           uuid.UUID     `json:"client_id"`
-	Booking            *data.Booking `json:"booking"`
-	WithinRefundWindow bool          `json:"within_refund_window"`
-	OwesRefund         bool          `json:"owes_refund"`
+	Actor              string                `json:"actor"`
+	ClientID           uuid.UUID             `json:"client_id"`
+	Booking            *bookingstore.Booking `json:"booking"`
+	WithinRefundWindow bool                  `json:"within_refund_window"`
+	OwesRefund         bool                  `json:"owes_refund"`
 }
 
 // PublicBook handles POST /api/v1/book, the flow a client uses with no account.
@@ -187,9 +188,9 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 	// whose end time has already passed. It is a standing way for an
 	// anonymous visitor — this endpoint needs no account — to leave permanent
 	// rows behind, one request at a time.
-	if date.After(todayDate.AddDate(0, 0, data.MaxBookingHorizonDays)) {
+	if date.After(todayDate.AddDate(0, 0, bookingstore.MaxBookingHorizonDays)) {
 		h.respond.Error(w, r, http.StatusConflict,
-			fmt.Sprintf("cannot book more than %d days in advance", data.MaxBookingHorizonDays))
+			fmt.Sprintf("cannot book more than %d days in advance", bookingstore.MaxBookingHorizonDays))
 		return
 	}
 
@@ -349,7 +350,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 	serviceFee := pricing.ServiceFee(mpAmount)
 	totalClientPays := mpAmount + serviceFee
 
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		ComplexID:        complex.ID,
 		CourtID:          courtID,
 		ClientID:         client.ID,
@@ -359,8 +360,8 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 		Price:            totalPrice,
 		DepositAmount:    depositAmount,
 		Status:           "pending",
-		CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus:     data.RefundStatusNone,
+		CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus:     bookingstore.RefundStatusNone,
 	}
 
 	if input.ClientNotes != "" {
@@ -378,7 +379,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 	slotLockTTL := h.cfg.SlotLockTTL
 	lockErr := h.locks.AcquireLock(r.Context(), courtID, date, input.StartTime, lockEndTime, nil, slotLockTTL)
 	if lockErr != nil {
-		if errors.Is(lockErr, data.ErrSlotLocked) {
+		if errors.Is(lockErr, bookingstore.ErrSlotLocked) {
 			h.respond.Error(w, r, http.StatusConflict, "the selected time slot is no longer available, please choose another")
 			return
 		}
@@ -390,7 +391,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Release the slot lock on insert failure.
 		h.releaseSlotLock(r.Context(), courtID, date, input.StartTime)
-		if errors.Is(err, data.ErrDuplicateBooking) || errors.Is(err, data.ErrSlotUnavailable) {
+		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			h.respond.Error(w, r, http.StatusConflict, "the selected time slot is no longer available, please choose another")
 			return
 		}
@@ -565,7 +566,7 @@ const venueGoneMessage = "the venue for this booking is no longer available; con
 //
 // It returns the complex it had to load for LinkLive, so PublicCancelInfo and
 // PublicCancel can drop their own separate complexes.GetByID call.
-func (h *Handler) resolveLink(w http.ResponseWriter, r *http.Request, token string) (*data.Booking, *complexstore.Complex, bool) {
+func (h *Handler) resolveLink(w http.ResponseWriter, r *http.Request, token string) (*bookingstore.Booking, *complexstore.Complex, bool) {
 	booking, expiresAt, err := h.linkResolver.ResolveBooking(r.Context(), token)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
@@ -643,7 +644,7 @@ type cancellationInfo struct {
 
 // cancellationInfo computes what PublicStatus and PublicCancelInfo both tell
 // a client about cancelling their booking right now.
-func (h *Handler) cancellationInfo(booking *data.Booking, complex *complexstore.Complex) cancellationInfo {
+func (h *Handler) cancellationInfo(booking *bookingstore.Booking, complex *complexstore.Complex) cancellationInfo {
 	canCancel := booking.Status != "cancelled" && booking.Status != "completed" && booking.Status != "no_show"
 	return cancellationInfo{
 		canCancel:    canCancel,
@@ -691,7 +692,7 @@ func (h *Handler) PublicStatus(w http.ResponseWriter, r *http.Request) {
 // publicStatusResponse builds PublicStatus's payload. payment is nil when the
 // booking carries no payment row yet (data.ErrRecordNotFound), in which case
 // service_fee reads 0 rather than failing the request.
-func (h *Handler) publicStatusResponse(booking *data.Booking, complex *complexstore.Complex, court *courtstore.Court, payment *paymentstore.Payment) httpx.Envelope {
+func (h *Handler) publicStatusResponse(booking *bookingstore.Booking, complex *complexstore.Complex, court *courtstore.Court, payment *paymentstore.Payment) httpx.Envelope {
 	serviceFee := 0
 	if payment != nil {
 		serviceFee = payment.ServiceFee
@@ -767,7 +768,7 @@ func (h *Handler) PublicCancelInfo(w http.ResponseWriter, r *http.Request) {
 // publicCancelInfoResponse builds PublicCancelInfo's payload: the same
 // booking detail the success page shows (publicStatusResponse), plus the
 // money actually at stake if the client cancels right now.
-func (h *Handler) publicCancelInfoResponse(ctx context.Context, booking *data.Booking, complex *complexstore.Complex, court *courtstore.Court) httpx.Envelope {
+func (h *Handler) publicCancelInfoResponse(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex, court *courtstore.Court) httpx.Envelope {
 	info := h.cancellationInfo(booking, complex)
 
 	// The window decides whether the money is owed. The payment decides whether
@@ -826,7 +827,7 @@ func (h *Handler) publicCancelInfoResponse(ctx context.Context, booking *data.Bo
 // canRefund false or method "none" means nothing is owed automatically
 // (either the window has closed or the booking still isn't paid), so
 // refundAmount is 0 without needing to look at the rows at all.
-func (h *Handler) cancelPreviewAmounts(ctx context.Context, booking *data.Booking, canRefund bool, method string) (refundAmount, paidAmount int) {
+func (h *Handler) cancelPreviewAmounts(ctx context.Context, booking *bookingstore.Booking, canRefund bool, method string) (refundAmount, paidAmount int) {
 	payments, err := h.payments.ListByBookingID(ctx, booking.ID)
 	if err != nil {
 		// An unreadable ledger has nothing to compute from; refundMethod already
@@ -904,7 +905,7 @@ func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
 	// default (RefundNotEligible) branch is exactly !owesRefund, and an edit
 	// that marks a declined cancellation is, by construction, the same edit
 	// that refunds it (refund-intent-durability spec's load-bearing property).
-	owesRefund := booking.CollectionStatus != data.CollectionStatusUnpaid && withinRefundWindow
+	owesRefund := booking.CollectionStatus != bookingstore.CollectionStatusUnpaid && withinRefundWindow
 
 	// Cancel the booking.
 	booking.Status = "cancelled"
@@ -957,7 +958,7 @@ func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
 	// The staff path deliberately has no window at all. That difference stays.
 	var outcome paymentstore.RefundOutcome
 	switch {
-	case booking.CollectionStatus == data.CollectionStatusUnpaid:
+	case booking.CollectionStatus == bookingstore.CollectionStatusUnpaid:
 		h.expireCheckoutPreference(r.Context(), booking, complex)
 		outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundNone, Reason: "the booking was never paid"}
 	case owesRefund:

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -61,8 +62,8 @@ func TestBlockedSlotMidnight(t *testing.T) {
 	// book builds the booking exactly as the handlers do — a start time and a
 	// duration, with the end left to the generated span — and calls the
 	// transactional path directly.
-	book := func(date time.Time, start string, durationMinutes int) (*data.Booking, error) {
-		b := &data.Booking{
+	book := func(date time.Time, start string, durationMinutes int) (*bookingstore.Booking, error) {
+		b := &bookingstore.Booking{
 			ComplexID:        f.ComplexID,
 			CourtID:          f.CourtID,
 			ClientID:         f.ClientID,
@@ -72,8 +73,8 @@ func TestBlockedSlotMidnight(t *testing.T) {
 			Price:            500_000,
 			DepositAmount:    150_000,
 			Status:           "pending",
-			CollectionStatus: data.CollectionStatusUnpaid,
-			RefundStatus:     data.RefundStatusNone,
+			CollectionStatus: bookingstore.CollectionStatusUnpaid,
+			RefundStatus:     bookingstore.RefundStatusNone,
 		}
 		return b, f.Models.Bookings.InsertSafe(ctx, b)
 	}
@@ -91,7 +92,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 		if got := slots.Add(b.StartTime, b.DurationMinutes); got != "23:00" {
 			t.Fatalf("control precondition: the booking ends at %q, want %q", got, "23:00")
 		}
-		if !errors.Is(err, data.ErrSlotUnavailable) {
+		if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			t.Fatalf("booking 22:00 +60m over a 22:00-23:00 block: got err = %v, want ErrSlotUnavailable "+
 				"(the guard is blind beyond the midnight case — the defect is broader than F01 describes)", err)
 		}
@@ -115,7 +116,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 			t.Logf("generated span upper (the value the exclusion constraint uses) = %s", b.EndsAt.Format(time.RFC3339))
 		}
 
-		if !errors.Is(err, data.ErrSlotUnavailable) {
+		if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			t.Fatalf("booking 23:00 +120m over a 23:00-23:59 block: got err = %v, want ErrSlotUnavailable. "+
 				"The in-transaction blocked-slot guard did not see the block: the end wrapped to %q, so "+
 				"`start_time < end_time` is false and `date = $2` excludes the following day. F01 REPRODUCES.",

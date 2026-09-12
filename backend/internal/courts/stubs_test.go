@@ -18,9 +18,9 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
@@ -168,12 +168,12 @@ func (s *stubStore) DeleteBlockedSlot(_ context.Context, id uuid.UUID) error {
 }
 
 type stubBookings struct {
-	booked    []data.BookedSpan
+	booked    []bookingstore.BookedSpan
 	hasActive bool
 	err       error
 }
 
-func (b *stubBookings) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]data.BookedSpan, error) {
+func (b *stubBookings) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {
 	return b.booked, b.err
 }
 

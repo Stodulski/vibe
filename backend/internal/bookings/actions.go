@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -94,7 +95,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	// load-bearing property). The staff path ignores the complex's refund
 	// window entirely (see the comment below), so this reads only the
 	// collection axis: money was taken, so money is owed back.
-	owesRefund := booking.CollectionStatus != data.CollectionStatusUnpaid
+	owesRefund := booking.CollectionStatus != bookingstore.CollectionStatusUnpaid
 	if owesRefund {
 		now := time.Now()
 		booking.RefundIntentAt = &now
@@ -237,7 +238,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 		h.respond.BadRequest(w, r, fmt.Errorf("cannot confirm payment for a cancelled booking"))
 		return
 	}
-	if booking.CollectionStatus == data.CollectionStatusFullyPaid {
+	if booking.CollectionStatus == bookingstore.CollectionStatusFullyPaid {
 		h.respond.BadRequest(w, r, fmt.Errorf("esta reserva ya tiene pago confirmado"))
 		return
 	}
@@ -277,13 +278,13 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 		booking.Status = "confirmed"
 	}
 	totalPaid := input.Amount
-	if booking.CollectionStatus == data.CollectionStatusDepositPaid {
+	if booking.CollectionStatus == bookingstore.CollectionStatusDepositPaid {
 		totalPaid += booking.DepositAmount
 	}
 	if totalPaid >= booking.Price {
-		booking.CollectionStatus = data.CollectionStatusFullyPaid
+		booking.CollectionStatus = bookingstore.CollectionStatusFullyPaid
 	} else {
-		booking.CollectionStatus = data.CollectionStatusDepositPaid
+		booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 		booking.DepositAmount = totalPaid
 	}
 	err = h.payments.InsertAndConfirmBooking(r.Context(), payment, booking)
@@ -292,7 +293,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 		// conflict reaches here as ErrSlotUnavailable. It is a business answer —
 		// somebody else holds those hours — not a server fault, and it gets the
 		// same 409 the booking-creation paths return for it.
-		if errors.Is(err, data.ErrSlotUnavailable) || errors.Is(err, data.ErrDuplicateBooking) {
+		if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrDuplicateBooking) {
 			h.respond.EditConflict(w, r)
 			return
 		}
@@ -312,7 +313,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 		// completed underneath them. The split between the two exists for the
 		// webhook, which has money to send back (H-23), not for this path,
 		// which has cash in a till.
-		if errors.Is(err, data.ErrBookingNotConfirmable) || errors.Is(err, data.ErrBookingCancelled) {
+		if errors.Is(err, bookingstore.ErrBookingNotConfirmable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
 			h.respond.Error(w, r, http.StatusConflict,
 				"this booking's status changed before the payment could be confirmed, refresh and check it")
 			return
@@ -376,7 +377,7 @@ func (h *Handler) ManualRefund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if booking.Status != "cancelled" || booking.RefundStatus != data.RefundStatusPartial {
+	if booking.Status != "cancelled" || booking.RefundStatus != bookingstore.RefundStatusPartial {
 		h.respond.BadRequest(w, r, fmt.Errorf("esta reserva no tiene una devolución manual pendiente"))
 		return
 	}
@@ -397,7 +398,7 @@ func (h *Handler) ManualRefund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	booking.RefundStatus = data.RefundStatusFull
+	booking.RefundStatus = bookingstore.RefundStatusFull
 
 	payments, err := h.payments.ListByBookingID(r.Context(), booking.ID)
 	if err != nil {

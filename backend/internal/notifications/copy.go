@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 )
 
 // This file holds the sentences a client is told about their money and their
@@ -62,14 +62,14 @@ func FormatARS(centavos int) string {
 // telling nobody anything is what the confirmation used to do.
 func PaymentAmounts(priceCentavos, depositCentavos int, collectionStatus string) (depositAmount, balanceAmount string) {
 	switch collectionStatus {
-	case data.CollectionStatusFullyPaid:
+	case bookingstore.CollectionStatusFullyPaid:
 		// The whole price was collected. depositCentavos may still hold
 		// whatever the complex's deposit percentage would have produced for a
 		// booking paid in one go — ConfirmPayment never rewrites it once the
 		// booking reads as fully paid — so the price itself, not that stale
 		// field, is what the client actually paid.
 		return FormatARS(priceCentavos), FormatARS(0)
-	case data.CollectionStatusDepositPaid:
+	case bookingstore.CollectionStatusDepositPaid:
 		balance := priceCentavos - depositCentavos
 		if balance <= 0 {
 			return FormatARS(depositCentavos), FormatARS(0)

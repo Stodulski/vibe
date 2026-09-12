@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 )
 
 // The lock's TTL only means something if acquiring enforces it. These run against
@@ -30,7 +30,7 @@ func TestAcquireLockRefusesASlotThatIsStillHeld(t *testing.T) {
 	}
 
 	err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute)
-	if !errors.Is(err, data.ErrSlotLocked) {
+	if !errors.Is(err, bookingstore.ErrSlotLocked) {
 		t.Errorf("a slot held by a live lock must be refused; got %v", err)
 	}
 }
@@ -70,7 +70,7 @@ func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
 	if !expiresAt.After(time.Now()) {
 		t.Errorf("the taken-over lock must carry the new TTL; expires_at is %s", expiresAt)
 	}
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute); !errors.Is(err, data.ErrSlotLocked) {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute); !errors.Is(err, bookingstore.ErrSlotLocked) {
 		t.Errorf("the slot must now be held by the caller that took it over; got %v", err)
 	}
 }
@@ -107,7 +107,7 @@ func TestTwoCallersRacingForAnExpiredLockYieldOneWinner(t *testing.T) {
 		switch {
 		case err == nil:
 			winners++
-		case errors.Is(err, data.ErrSlotLocked):
+		case errors.Is(err, bookingstore.ErrSlotLocked):
 		default:
 			t.Fatalf("unexpected acquisition error: %v", err)
 		}

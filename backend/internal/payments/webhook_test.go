@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
@@ -55,7 +55,7 @@ func TestWebhookStillConfirmsABookingThroughThePlatformAppOwnerToken(t *testing.
 		t.Fatalf("GetPayment must still be called as the platform; got %d call(s), first %+v",
 			len(f.provider.callers), f.provider.callers)
 	}
-	if booking.Status != "confirmed" || booking.CollectionStatus != data.CollectionStatusDepositPaid {
+	if booking.Status != "confirmed" || booking.CollectionStatus != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("the booking must be confirmed by the webhook path; got status=%q collection_status=%q", booking.Status, booking.CollectionStatus)
 	}
 	if f.payments.inserted == nil {
@@ -431,7 +431,7 @@ func TestARedeliveredWebhookLeavesExactlyOnePaymentRow(t *testing.T) {
 		// the public booking flow already wrote the checkout row, which the
 		// webhook settles in place rather than duplicating.
 		wantInserts int
-		prepare     func(*fixture, *data.Booking)
+		prepare     func(*fixture, *bookingstore.Booking)
 	}{
 		{
 			name:        "no checkout row: the webhook writes the only payment",
@@ -442,7 +442,7 @@ func TestARedeliveredWebhookLeavesExactlyOnePaymentRow(t *testing.T) {
 			name:        "a checkout row exists: the webhook settles it in place",
 			status:      "pending",
 			wantInserts: 0,
-			prepare: func(f *fixture, b *data.Booking) {
+			prepare: func(f *fixture, b *bookingstore.Booking) {
 				f.payments.byBooking = &paymentstore.Payment{
 					ID: uuid.New(), BookingID: b.ID, ComplexID: b.ComplexID,
 					Amount: b.DepositAmount, Method: "mercadopago", Status: "pending",

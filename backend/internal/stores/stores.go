@@ -10,6 +10,8 @@ import (
 
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	booklinkstore "github.com/stodulski/vibe-server/internal/booklink/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -106,7 +108,7 @@ type BookingLinkTokenStore interface {
 	// expiry in one JOIN, mirroring GetByID's hand-written SELECT.
 	// ErrRecordNotFound means no row carries that hash — never that the row
 	// expired; the caller decides expiry.
-	ResolveBooking(ctx context.Context, plaintext string) (*data.Booking, time.Time, error)
+	ResolveBooking(ctx context.Context, plaintext string) (*bookingstore.Booking, time.Time, error)
 	DeleteExpiredTerminal(ctx context.Context, retention time.Duration) error
 }
 
@@ -234,30 +236,30 @@ type CourtStore interface {
 
 // BookingCreator creates new bookings, with a race-safe variant for concurrent slot claims.
 type BookingCreator interface {
-	Insert(ctx context.Context, booking *data.Booking) error
-	InsertSafe(ctx context.Context, booking *data.Booking) error
+	Insert(ctx context.Context, booking *bookingstore.Booking) error
+	InsertSafe(ctx context.Context, booking *bookingstore.Booking) error
 }
 
 // BookingReader queries bookings and the slots they occupy.
 type BookingReader interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Booking, error)
-	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*data.Booking, data.Metadata, error)
-	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]data.BookedSpan, error)
-	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*data.Booking, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
+	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
+	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
+	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 }
 
 // BookingUpdater persists changes to an existing booking.
 type BookingUpdater interface {
-	Update(ctx context.Context, booking *data.Booking) error
+	Update(ctx context.Context, booking *bookingstore.Booking) error
 }
 
 // BookingStatsQuerier computes dashboard and reporting aggregates over bookings.
 type BookingStatsQuerier interface {
-	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.DashboardStats, error)
-	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*data.Booking, error)
-	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.RevenueDataPoint, error)
-	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]data.OccupancyDataPoint, error)
-	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*data.PaymentSummary, error)
+	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
+	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
+	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
+	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
+	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error)
 }
 
 // BookingReminderManager selects bookings due for reminder or confirmation notifications.
@@ -265,14 +267,14 @@ type BookingReminderManager interface {
 	// Both take the caller's clock rather than reading the database's NOW():
 	// the two-hour window is a range between instants, and the instant it is
 	// measured from is the one thing a test has to be able to choose.
-	GetForReminder2h(ctx context.Context, now time.Time) ([]*data.Booking, error)
-	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*data.CronBooking, error)
+	GetForReminder2h(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error)
+	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
 	MarkReminderSent2h(ctx context.Context, id uuid.UUID) error
 }
 
 // BookingLifecycleManager drives booking state transitions such as expiry, completion and bulk cancellation.
 type BookingLifecycleManager interface {
-	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*data.CronBooking, error)
+	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 	CompletePastBookings(ctx context.Context) (int64, error)
@@ -286,7 +288,7 @@ type BookingLifecycleManager interface {
 // BookingUpdater, whose single Update method is the ordinary write path every
 // other booking mutation already uses.
 type BookingRefundIntentManager interface {
-	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*data.Booking, error)
+	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error)
 	ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error
 	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
 }
@@ -352,8 +354,8 @@ type PaymentReader interface {
 // PaymentWriter creates and updates payments, including atomic booking confirmation.
 type PaymentWriter interface {
 	Insert(ctx context.Context, payment *paymentstore.Payment) error
-	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
-	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
+	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	Update(ctx context.Context, payment *paymentstore.Payment) error
 }
 
@@ -566,8 +568,8 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
 		Complexes:         &complexstore.Store{DB: pooled, Q: q, Keys: cfg.Keys},
 		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
-		Bookings:          &data.BookingModel{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
-		BookingLinkTokens: &data.BookingLinkTokenModel{DB: pooled},
+		Bookings:          &bookingstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
+		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
 		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
 		Clients:           &clientstore.Store{DB: pooled, Q: q},
 		Payments:          &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
@@ -577,7 +579,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		WebhookEvents:     &paymentstore.WebhookEvents{DB: pooled},
 		Reports:           &data.ReportModel{DB: pooled},
 		Locks:             &data.LockModel{DB: pooled, Logger: cfg.Logger},
-		SlotLocks:         &data.SlotLockModel{DB: pooled},
+		SlotLocks:         &bookingstore.SlotLocks{DB: pooled},
 		Admin:             &adminstore.Store{DB: pooled},
 	}
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -64,13 +65,13 @@ func (s *stubStore) Update(_ context.Context, c *clientstore.Client) error {
 }
 
 type stubBookings struct {
-	bookings []*data.Booking
+	bookings []*bookingstore.Booking
 	err      error
 	// lastLimit records the limit the handler asked for.
 	lastLimit int
 }
 
-func (s *stubBookings) GetByClient(_ context.Context, _, _ uuid.UUID, limit int) ([]*data.Booking, error) {
+func (s *stubBookings) GetByClient(_ context.Context, _, _ uuid.UUID, limit int) ([]*bookingstore.Booking, error) {
 	s.lastLimit = limit
 	if s.err != nil {
 		return nil, s.err
@@ -104,7 +105,7 @@ func requestFor(t *testing.T, method, target string, complexID, clientID uuid.UU
 func TestGetReturnsClientWithRecentBookings(t *testing.T) {
 	complexID, clientID := uuid.New(), uuid.New()
 	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID, FirstName: "Ana"}}
-	bookings := &stubBookings{bookings: []*data.Booking{{ID: uuid.New()}}}
+	bookings := &stubBookings{bookings: []*bookingstore.Booking{{ID: uuid.New()}}}
 
 	h := NewHandler(store, bookings, testResponder())
 	w := httptest.NewRecorder()

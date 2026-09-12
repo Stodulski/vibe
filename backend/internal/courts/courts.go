@@ -15,9 +15,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -47,7 +47,7 @@ type Store interface {
 // BookingReader is the booking side of availability and of the check that
 // stops a court with live bookings from being deleted.
 type BookingReader interface {
-	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]data.BookedSpan, error)
+	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 }
 

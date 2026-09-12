@@ -18,8 +18,8 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
@@ -167,7 +167,7 @@ func refundEnvelope(outcome paymentstore.RefundOutcome) httpx.Envelope {
 // It answers on the refund axis only. Since the payment_status split a refund no longer
 // overwrites what the booking collected, so the collection status on the
 // in-memory struct is still correct and is left alone.
-func refundStatusAfter(booking *data.Booking, outcome paymentstore.RefundOutcome) string {
+func refundStatusAfter(booking *bookingstore.Booking, outcome paymentstore.RefundOutcome) string {
 	switch {
 	case outcome.ManualAmountCentavos > 0:
 		// The automatic half came back — MoneyReturned() would also be true
@@ -175,11 +175,11 @@ func refundStatusAfter(booking *data.Booking, outcome paymentstore.RefundOutcome
 		// RecordRefundSuccess/cancelRefundedBooking wrote to the row instead
 		// of 'full'. This case must run before MoneyReturned()'s so the
 		// response matches what was actually persisted.
-		return data.RefundStatusPartial
+		return bookingstore.RefundStatusPartial
 	case outcome.MoneyReturned():
-		return data.RefundStatusFull
+		return bookingstore.RefundStatusFull
 	case outcome.Result == paymentstore.RefundQueued:
-		return data.RefundStatusPending
+		return bookingstore.RefundStatusPending
 	default:
 		return booking.RefundStatus
 	}
@@ -228,7 +228,7 @@ const preferenceExpiryBudget = 25 * time.Second
 // public routes, whose spec (openspec/specs/booking-link-credential) forbids a
 // resolved booking id from reaching Sentry. The logger, which is not Sentry,
 // still carries it.
-func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *data.Booking, complex *complexstore.Complex) {
+func (h *Handler) expireCheckoutPreference(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex) {
 	// Detached from the caller's cancellation for the same reason
 	// releaseSlotLocks is: every call site hands this the request's own context,
 	// and a client who cancels and closes the tab cancelled it. The read below
@@ -307,22 +307,22 @@ func expiryCaller(complex *complexstore.Complex) (mp.Caller, error) {
 // act regardless of whatever else is on the booking, so that answer wins
 // even when an MP row is also present: refundByHand is always the safe,
 // client-facing answer for a mixed booking.
-func (h *Handler) refundMethod(ctx context.Context, booking *data.Booking) string {
+func (h *Handler) refundMethod(ctx context.Context, booking *bookingstore.Booking) string {
 	// The refund axis answers first and the collection axis is the fallback,
 	// which is the same order the single payment_status enum enforced by having
 	// only one value: a row that is mid-refund is not also merely "paid".
 	switch {
-	case booking.RefundStatus == data.RefundStatusPending:
+	case booking.RefundStatus == bookingstore.RefundStatusPending:
 		// Already on its way back through MercadoPago.
 		return refundByMercadoPago
-	case booking.RefundStatus == data.RefundStatusPartial:
+	case booking.RefundStatus == bookingstore.RefundStatusPartial:
 		// The automatic half is already back; what remains is exactly the
 		// cash/transfer balance only a person can return.
 		return refundByHand
-	case booking.RefundStatus == data.RefundStatusFull:
+	case booking.RefundStatus == bookingstore.RefundStatusFull:
 		// Already refunded.
 		return refundNotApplicable
-	case booking.CollectionStatus == data.CollectionStatusUnpaid:
+	case booking.CollectionStatus == bookingstore.CollectionStatusUnpaid:
 		// Nothing was ever collected.
 		return refundNotApplicable
 	}
@@ -391,7 +391,7 @@ func (h *Handler) refundMethod(ctx context.Context, booking *data.Booking) strin
 // for a release the database refuses. No live inventory is permanently lost;
 // at worst a pre-existing chunk row squats on its own slot until its TTL
 // passes, same as it would have before this change shipped.
-func (h *Handler) releaseHeldSlots(ctx context.Context, booking *data.Booking) {
+func (h *Handler) releaseHeldSlots(ctx context.Context, booking *bookingstore.Booking) {
 	h.releaseSlotLock(ctx, booking.CourtID, booking.Date, booking.StartTime)
 }
 

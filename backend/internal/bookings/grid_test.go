@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
 
@@ -338,12 +338,12 @@ func TestConfirmingAPaymentRefusesHoursTheOwnerBlocked(t *testing.T) {
 	// booking's own span to ask whether those hours are still on sale, the same
 	// way the database stores it. A row read from the database always carries
 	// them, so a fixture without them is not a booking the code will ever meet.
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		ID: uuid.New(), ComplexID: complexID, CourtID: courtID, ClientID: uuid.New(),
 		Date: date, StartTime: onGrid,
 		StartsAt: slots.At(date, onGrid), EndsAt: slots.At(date, onGridEnd),
-		Price: 500_000, Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus: data.RefundStatusNone,
+		Price: 500_000, Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus: bookingstore.RefundStatusNone,
 	}
 	f.store.booking = booking
 	f.courts.block(courtID, date, onGrid, onGridEnd)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -212,31 +213,31 @@ func TestRejectedPaymentLeavesASettledBookingAlone(t *testing.T) {
 func TestAutoRefundSkipsWhatCannotBeRefunded(t *testing.T) {
 	tests := []struct {
 		name    string
-		prepare func(*fixture, *data.Booking, *paymentstore.Payment)
+		prepare func(*fixture, *bookingstore.Booking, *paymentstore.Payment)
 	}{
 		{
 			name: "the booking was never paid",
-			prepare: func(f *fixture, b *data.Booking, _ *paymentstore.Payment) {
-				b.CollectionStatus = data.CollectionStatusUnpaid
+			prepare: func(f *fixture, b *bookingstore.Booking, _ *paymentstore.Payment) {
+				b.CollectionStatus = bookingstore.CollectionStatusUnpaid
 			},
 		},
 		{
 			name: "the payment did not go through MercadoPago",
-			prepare: func(f *fixture, _ *data.Booking, p *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, p *paymentstore.Payment) {
 				p.MPPaymentID = nil
 				f.payments.byBooking = p
 			},
 		},
 		{
 			name: "it was refunded already",
-			prepare: func(f *fixture, _ *data.Booking, p *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, p *paymentstore.Payment) {
 				p.Status = "refunded"
 				f.payments.byBooking = p
 			},
 		},
 		{
 			name: "there is no payment record at all",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.bookingErr = data.ErrRecordNotFound
 			},
 		},
@@ -577,7 +578,7 @@ func TestApprovedPaymentIsConfirmedWhenTheComplexCollectedTheMoney(t *testing.T)
 	if f.payments.inserted == nil {
 		t.Fatal("a payment collected by the complex itself must be recorded")
 	}
-	if booking.Status != "confirmed" || booking.CollectionStatus != data.CollectionStatusDepositPaid {
+	if booking.Status != "confirmed" || booking.CollectionStatus != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("the booking must be confirmed; got status=%q collection_status=%q", booking.Status, booking.CollectionStatus)
 	}
 	if len(f.notify.confirmations) != 1 {
@@ -607,13 +608,13 @@ func TestApprovedPaymentIsRefusedAndRefundedWhenTheSlotWasTaken(t *testing.T) {
 		name string
 		err  error
 	}{
-		{name: "the slot was taken by somebody else", err: data.ErrSlotUnavailable},
-		{name: "the booking was cancelled when its payment expired", err: data.ErrBookingCancelled},
+		{name: "the slot was taken by somebody else", err: bookingstore.ErrSlotUnavailable},
+		{name: "the booking was cancelled when its payment expired", err: bookingstore.ErrBookingCancelled},
 	}
 
 	tests := []struct {
 		name    string
-		prepare func(f *fixture, booking *data.Booking)
+		prepare func(f *fixture, booking *bookingstore.Booking)
 		// wantInsert says whether a payment row has to be created. The checkout
 		// case must not create one: the row already exists, and inserting a
 		// second orphans the first — which still carries the preference id.
@@ -623,7 +624,7 @@ func TestApprovedPaymentIsRefusedAndRefundedWhenTheSlotWasTaken(t *testing.T) {
 	}{
 		{
 			name: "an existing checkout payment",
-			prepare: func(f *fixture, booking *data.Booking) {
+			prepare: func(f *fixture, booking *bookingstore.Booking) {
 				f.payments.byBooking = &paymentstore.Payment{
 					ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount, Status: "pending",
 				}
@@ -633,7 +634,7 @@ func TestApprovedPaymentIsRefusedAndRefundedWhenTheSlotWasTaken(t *testing.T) {
 		},
 		{
 			name:            "no payment recorded yet",
-			prepare:         func(*fixture, *data.Booking) {},
+			prepare:         func(*fixture, *bookingstore.Booking) {},
 			wantInsert:      true,
 			refundedPayment: func(f *fixture) uuid.UUID { return f.payments.inserted.ID },
 		},
@@ -651,7 +652,7 @@ func TestApprovedPaymentIsRefusedAndRefundedWhenTheSlotWasTaken(t *testing.T) {
 func runRefundedRefusal(
 	t *testing.T,
 	guardErr error,
-	prepare func(f *fixture, booking *data.Booking),
+	prepare func(f *fixture, booking *bookingstore.Booking),
 	wantInsert bool,
 	refundedPayment func(f *fixture) uuid.UUID,
 ) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 )
 
 // TestLinkLiveNeverRejectsARefundEligibleCancellation is task 9.1/9.3: the
@@ -42,7 +42,7 @@ func TestLinkLiveNeverRejectsARefundEligibleCancellation(t *testing.T) {
 				for bookingDateName, bookingDate := range bookingDateValues {
 					name := fmtCase(cancellationHours, grace, expiresAtName, bookingDateName)
 					t.Run(name, func(t *testing.T) {
-						booking := &data.Booking{
+						booking := &bookingstore.Booking{
 							Date:      bookingDate,
 							StartTime: bookingDate.Format("15:04"),
 							CreatedAt: now.Add(-1 * time.Hour),
@@ -74,7 +74,7 @@ func fmtCase(cancellationHours int, grace time.Duration, expiresAtName, bookingD
 // case, so a reader can see the regression without decoding the matrix.
 func TestLinkLiveRegressionThroughDirectCall(t *testing.T) {
 	future := time.Now().Add(72 * time.Hour)
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		Date:      future,
 		StartTime: future.Format("15:04"),
 		CreatedAt: time.Now(),

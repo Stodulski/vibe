@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 )
 
 // The stale-pending carve-out reads the collection axis, and this is the test
@@ -38,7 +38,7 @@ import (
 // backdated — so the only thing that can change the answer is the money.
 func depositPaidStaleBookingOptions() bookingOptions {
 	opts := staleBookingOptions()
-	opts.CollectionStatus = data.CollectionStatusDepositPaid
+	opts.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	return opts
 }
 
@@ -100,7 +100,7 @@ func TestTheCarveOutFreesAnUnpaidPendingAndNeverADepositPaidOne(t *testing.T) {
 
 			newcomer := f.newBooking(overlappingBookingOptions())
 			err := f.Models.Bookings.InsertSafe(context.Background(), newcomer)
-			if !errors.Is(err, data.ErrSlotUnavailable) {
+			if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 				t.Errorf("selling hours a paid pending booking already holds must be refused with "+
 					"ErrSlotUnavailable; got %v", err)
 			}

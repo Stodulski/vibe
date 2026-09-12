@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -14,7 +14,7 @@ func TestCanRefund(t *testing.T) {
 	argTZ, _ := time.LoadLocation("America/Argentina/Buenos_Aires")
 
 	t.Run("zero cancellation hours always allows refund", func(t *testing.T) {
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), // past
 			StartTime: "10:00",
 		}
@@ -24,7 +24,7 @@ func TestCanRefund(t *testing.T) {
 	})
 
 	t.Run("negative cancellation hours always allows refund", func(t *testing.T) {
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 			StartTime: "10:00",
 		}
@@ -34,7 +34,7 @@ func TestCanRefund(t *testing.T) {
 	})
 
 	t.Run("booking far in future is refundable", func(t *testing.T) {
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      time.Date(2099, 6, 15, 0, 0, 0, 0, time.UTC),
 			StartTime: "18:00",
 		}
@@ -44,7 +44,7 @@ func TestCanRefund(t *testing.T) {
 	})
 
 	t.Run("booking in the past is not refundable", func(t *testing.T) {
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 			StartTime: "10:00",
 		}
@@ -55,7 +55,7 @@ func TestCanRefund(t *testing.T) {
 
 	t.Run("booking starting now with 1h window is not refundable", func(t *testing.T) {
 		now := time.Now().In(argTZ)
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      now,
 			StartTime: now.Format("15:04"),
 		}
@@ -66,7 +66,7 @@ func TestCanRefund(t *testing.T) {
 
 	t.Run("booking in 48h with 24h window is refundable", func(t *testing.T) {
 		future := time.Now().In(argTZ).Add(48 * time.Hour)
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      future,
 			StartTime: future.Format("15:04"),
 		}
@@ -83,7 +83,7 @@ func TestRefundDeadline(t *testing.T) {
 	argTZ, _ := time.LoadLocation("America/Argentina/Buenos_Aires")
 
 	t.Run("zero cancellation hours: deadline is the booking start itself", func(t *testing.T) {
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      time.Date(2026, 9, 6, 0, 0, 0, 0, argTZ),
 			StartTime: "19:00",
 		}
@@ -95,7 +95,7 @@ func TestRefundDeadline(t *testing.T) {
 	})
 
 	t.Run("window deadline later than grace end: deadline is the window", func(t *testing.T) {
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      time.Date(2026, 9, 10, 0, 0, 0, 0, argTZ),
 			StartTime: "19:00",
 			CreatedAt: time.Date(2026, 9, 1, 10, 0, 0, 0, argTZ),
@@ -110,7 +110,7 @@ func TestRefundDeadline(t *testing.T) {
 	})
 
 	t.Run("window already closed but grace still open: deadline is grace end", func(t *testing.T) {
-		booking := &data.Booking{
+		booking := &bookingstore.Booking{
 			Date:      time.Date(2026, 9, 6, 0, 0, 0, 0, argTZ),
 			StartTime: "19:00",
 			CreatedAt: time.Date(2026, 9, 6, 18, 50, 0, 0, argTZ), // created a minute-scale moment before start
@@ -238,9 +238,9 @@ func TestWithinStandardWindowIgnoresTheGracePeriodCanRefundHonours(t *testing.T)
 // bookingStartingAt builds a booking whose wall-clock start is instant, in the
 // zone WithinStandardWindow resolves it in. StartTime carries only HH:MM, which
 // is why every margin above is minutes rather than seconds.
-func bookingStartingAt(instant time.Time) *data.Booking {
+func bookingStartingAt(instant time.Time) *bookingstore.Booking {
 	inArg := instant.In(timezone.Argentina)
-	return &data.Booking{
+	return &bookingstore.Booking{
 		Date:      inArg,
 		StartTime: inArg.Format("15:04"),
 		CreatedAt: inArg.Add(-30 * 24 * time.Hour),

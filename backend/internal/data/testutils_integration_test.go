@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/crypto"
-	"github.com/stodulski/vibe-server/internal/data"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
@@ -242,10 +242,10 @@ func (o bookingOptions) withDefaults() bookingOptions {
 		o.Status = "confirmed"
 	}
 	if o.CollectionStatus == "" {
-		o.CollectionStatus = data.CollectionStatusDepositPaid
+		o.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	}
 	if o.RefundStatus == "" {
-		o.RefundStatus = data.RefundStatusNone
+		o.RefundStatus = bookingstore.RefundStatusNone
 	}
 	if o.Price == 0 {
 		o.Price = 500_000
@@ -258,10 +258,10 @@ func (o bookingOptions) withDefaults() bookingOptions {
 
 // newBooking builds an unsaved Booking wired to this fixture's complex, court and
 // client. Tests that exercise an insert path use this and insert it themselves.
-func (f *testFixture) newBooking(opts bookingOptions) *data.Booking {
+func (f *testFixture) newBooking(opts bookingOptions) *bookingstore.Booking {
 	opts = opts.withDefaults()
 
-	b := &data.Booking{
+	b := &bookingstore.Booking{
 		ComplexID:        f.ComplexID,
 		CourtID:          f.CourtID,
 		ClientID:         f.ClientID,
@@ -282,7 +282,7 @@ func (f *testFixture) newBooking(opts bookingOptions) *data.Booking {
 }
 
 // createBooking inserts a booking through the real store and returns it.
-func (f *testFixture) createBooking(t *testing.T, opts bookingOptions) *data.Booking {
+func (f *testFixture) createBooking(t *testing.T, opts bookingOptions) *bookingstore.Booking {
 	t.Helper()
 
 	b := f.newBooking(opts)
@@ -367,9 +367,9 @@ func (f *testFixture) backdateBookingCreatedAt(t *testing.T, id uuid.UUID, age t
 // one a MercadoPago webhook takes when it confirms a paid booking — and returns
 // whatever the store decided. models is passed in so a test can confirm through a
 // differently configured set of stores.
-func (f *testFixture) confirmBooking(models stores.Stores, b *data.Booking) error {
+func (f *testFixture) confirmBooking(models stores.Stores, b *bookingstore.Booking) error {
 	b.Status = "confirmed"
-	b.CollectionStatus = data.CollectionStatusDepositPaid
+	b.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 
 	payment := &paymentstore.Payment{
 		BookingID:  b.ID,

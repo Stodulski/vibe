@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -271,7 +271,7 @@ func TestAvailabilityMarksBookedSlotsUnavailable(t *testing.T) {
 		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
 		prices: pricedEveryDay(courtID),
 	}
-	bookings := &stubBookings{booked: []data.BookedSpan{
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{
 		{CourtID: courtID, StartsAt: slots.At(day, "10:00"), EndsAt: slots.At(day, "11:00")},
 	}}
 
@@ -412,7 +412,7 @@ func TestAvailabilityMarksSlotsTakenByLastNightsBooking(t *testing.T) {
 		prices: everyDayBand(courtID, "00:00", "22:00", 500_000),
 	}
 	// 23:00 yesterday through 01:00 today.
-	bookings := &stubBookings{booked: []data.BookedSpan{{
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
 		CourtID:  courtID,
 		StartsAt: slots.At(day.AddDate(0, 0, -1), "23:00"),
 		EndsAt:   slots.At(day, "01:00"),

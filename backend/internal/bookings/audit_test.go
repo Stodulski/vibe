@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // auditEntry returns the single entry recorded under action, failing if the
@@ -168,7 +168,7 @@ func TestPublicBookAuditEntryCarriesNoLinkToken(t *testing.T) {
 func TestPublicCancelRecordsTheRefundWindowDecision(t *testing.T) {
 	tests := []struct {
 		name             string
-		booking          func(uuid.UUID) *data.Booking
+		booking          func(uuid.UUID) *bookingstore.Booking
 		collectionStatus string
 		wantWithinWindow bool
 		wantOwesRefund   bool
@@ -176,7 +176,7 @@ func TestPublicCancelRecordsTheRefundWindowDecision(t *testing.T) {
 		{
 			name:             "inside the window, on a paid booking",
 			booking:          futureBooking,
-			collectionStatus: data.CollectionStatusDepositPaid,
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
 			wantWithinWindow: true,
 			wantOwesRefund:   true,
 		},
@@ -186,14 +186,14 @@ func TestPublicCancelRecordsTheRefundWindowDecision(t *testing.T) {
 			// cancellation, and the one case where the venue keeps the money.
 			name:             "outside the window",
 			booking:          outOfWindowBooking,
-			collectionStatus: data.CollectionStatusDepositPaid,
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
 			wantWithinWindow: false,
 			wantOwesRefund:   false,
 		},
 		{
 			name:             "inside the window but never paid",
 			booking:          futureBooking,
-			collectionStatus: data.CollectionStatusUnpaid,
+			collectionStatus: bookingstore.CollectionStatusUnpaid,
 			wantWithinWindow: true,
 			wantOwesRefund:   false,
 		},

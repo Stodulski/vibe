@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -60,7 +60,7 @@ func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
 	if err == nil {
 		t.Fatal("00:30 falls inside a booking that runs to 01:00; accepting it sells one court to two clients")
 	}
-	if !errors.Is(err, data.ErrDuplicateBooking) && !errors.Is(err, data.ErrSlotUnavailable) {
+	if !errors.Is(err, bookingstore.ErrDuplicateBooking) && !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Fatalf("the refusal must name the slot as taken; got %v", err)
 	}
 
@@ -267,13 +267,13 @@ func (f *testFixture) seedReminderCandidate(t *testing.T, date time.Time, startT
 // The reminder queries are global — they carry no complex filter, because the
 // cron that runs them sweeps the whole platform. So a test asserts on its own
 // booking's presence, never on the size of the result.
-func bookingIDs[T *data.Booking | *data.CronBooking](rows []T) []uuid.UUID {
+func bookingIDs[T *bookingstore.Booking | *bookingstore.CronBooking](rows []T) []uuid.UUID {
 	ids := make([]uuid.UUID, 0, len(rows))
 	for _, row := range rows {
 		switch b := any(row).(type) {
-		case *data.Booking:
+		case *bookingstore.Booking:
 			ids = append(ids, b.ID)
-		case *data.CronBooking:
+		case *bookingstore.CronBooking:
 			ids = append(ids, b.ID)
 		}
 	}

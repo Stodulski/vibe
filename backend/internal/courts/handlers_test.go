@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -354,7 +355,7 @@ func TestBlockSlotRefusesToOverlapABooking(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 	day := mustParseDate(t, futureDate())
-	bookings := &stubBookings{booked: []data.BookedSpan{{
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
 		StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "19:30"),
 	}}}
 
@@ -378,7 +379,7 @@ func TestBlockSlotAllowsAnAdjacentRange(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
 	day := mustParseDate(t, futureDate())
-	bookings := &stubBookings{booked: []data.BookedSpan{{
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
 		StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "19:30"),
 	}}}
 

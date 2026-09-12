@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -205,10 +206,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	// Determine collection status based on payment_option. A booking created
 	// here has nothing to give back yet, so the refund axis stays at its column
 	// default of 'none' and is not named.
-	collectionStatus := data.CollectionStatusUnpaid
+	collectionStatus := bookingstore.CollectionStatusUnpaid
 	switch input.PaymentOption {
 	case "deposit":
-		collectionStatus = data.CollectionStatusDepositPaid
+		collectionStatus = bookingstore.CollectionStatusDepositPaid
 		if input.DepositAmount != nil && *input.DepositAmount > 0 {
 			if *input.DepositAmount > totalPrice {
 				v.AddError("deposit_amount", httpx.CodeDepositExceedsPrice)
@@ -218,7 +219,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			depositAmount = *input.DepositAmount
 		}
 	case "full":
-		collectionStatus = data.CollectionStatusFullyPaid
+		collectionStatus = bookingstore.CollectionStatusFullyPaid
 	}
 
 	// Get or create client. This is the authenticated owner path
@@ -246,7 +247,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		notes = &input.Notes
 	}
 
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		ComplexID:        complex.ID,
 		CourtID:          courtID,
 		ClientID:         client.ID,
@@ -257,14 +258,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		DepositAmount:    depositAmount,
 		Status:           "confirmed",
 		CollectionStatus: collectionStatus,
-		RefundStatus:     data.RefundStatusNone,
+		RefundStatus:     bookingstore.RefundStatusNone,
 		Notes:            notes,
 		CreatedBy:        &user.ID,
 	}
 
 	err = h.store.InsertSafe(r.Context(), booking)
 	if err != nil {
-		if errors.Is(err, data.ErrDuplicateBooking) || errors.Is(err, data.ErrSlotUnavailable) {
+		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			h.respond.EditConflict(w, r)
 			return
 		}
@@ -283,9 +284,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	h.record(r, complex.ID, "create", &booking.ID, booking)
 
 	// Record payment when staff marks deposit or full payment at creation.
-	if input.PaymentMethod != "" && collectionStatus != data.CollectionStatusUnpaid {
+	if input.PaymentMethod != "" && collectionStatus != bookingstore.CollectionStatusUnpaid {
 		paymentAmount := totalPrice
-		if collectionStatus == data.CollectionStatusDepositPaid {
+		if collectionStatus == bookingstore.CollectionStatusDepositPaid {
 			paymentAmount = depositAmount
 		}
 		payment := &paymentstore.Payment{

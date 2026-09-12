@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -30,10 +30,10 @@ func TestAutoRefundIssuesTheMercadoPagoRowAndAlertsOnTheCashRemainder(t *testing
 	bookingID := uuid.New()
 	mpID := "mp-" + uuid.NewString()
 
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		ID: bookingID, ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
-		Status: "confirmed", CollectionStatus: data.CollectionStatusFullyPaid,
-		RefundStatus: data.RefundStatusNone, Price: 500_000, DepositAmount: 150_000,
+		Status: "confirmed", CollectionStatus: bookingstore.CollectionStatusFullyPaid,
+		RefundStatus: bookingstore.RefundStatusNone, Price: 500_000, DepositAmount: 150_000,
 	}
 	deposit := &paymentstore.Payment{
 		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID,
@@ -97,10 +97,10 @@ func TestAutoRefundSumsMultipleCashRowsIntoOneManualOutcome(t *testing.T) {
 	complexID := uuid.New()
 	bookingID := uuid.New()
 
-	booking := &data.Booking{
+	booking := &bookingstore.Booking{
 		ID: bookingID, ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
-		Status: "confirmed", CollectionStatus: data.CollectionStatusFullyPaid,
-		RefundStatus: data.RefundStatusNone, Price: 500_000, DepositAmount: 100_000,
+		Status: "confirmed", CollectionStatus: bookingstore.CollectionStatusFullyPaid,
+		RefundStatus: bookingstore.RefundStatusNone, Price: 500_000, DepositAmount: 100_000,
 	}
 	deposit := &paymentstore.Payment{
 		ID: uuid.New(), BookingID: bookingID, ComplexID: complexID,

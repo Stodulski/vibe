@@ -6,10 +6,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
@@ -148,28 +148,28 @@ func TestAConfirmationTheDatabaseRefusedIsNotRecorded(t *testing.T) {
 func TestEveryRefundOutcomeReachesTheTrail(t *testing.T) {
 	tests := []struct {
 		name       string
-		prepare    func(*fixture, *data.Booking, *paymentstore.Payment)
+		prepare    func(*fixture, *bookingstore.Booking, *paymentstore.Payment)
 		want       paymentstore.RefundResult
 		wantAmount int
 		wantReason bool
 	}{
 		{
 			name:       "MercadoPago accepted the refund",
-			prepare:    func(*fixture, *data.Booking, *paymentstore.Payment) {},
+			prepare:    func(*fixture, *bookingstore.Booking, *paymentstore.Payment) {},
 			want:       paymentstore.RefundIssued,
 			wantAmount: 150_000,
 		},
 		{
 			name: "the booking was never paid",
-			prepare: func(_ *fixture, b *data.Booking, _ *paymentstore.Payment) {
-				b.CollectionStatus = data.CollectionStatusUnpaid
+			prepare: func(_ *fixture, b *bookingstore.Booking, _ *paymentstore.Payment) {
+				b.CollectionStatus = bookingstore.CollectionStatusUnpaid
 			},
 			want:       paymentstore.RefundNone,
 			wantReason: true,
 		},
 		{
 			name: "the booking was paid in cash, so a person has to return it",
-			prepare: func(_ *fixture, _ *data.Booking, p *paymentstore.Payment) {
+			prepare: func(_ *fixture, _ *bookingstore.Booking, p *paymentstore.Payment) {
 				p.MPPaymentID = nil
 				p.Method = "cash"
 			},
@@ -179,7 +179,7 @@ func TestEveryRefundOutcomeReachesTheTrail(t *testing.T) {
 		},
 		{
 			name: "MercadoPago rejected the refund, so it is queued",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 			},
 			want:       paymentstore.RefundQueued,
@@ -188,7 +188,7 @@ func TestEveryRefundOutcomeReachesTheTrail(t *testing.T) {
 		},
 		{
 			name: "the retry budget is spent and nothing automatic is left",
-			prepare: func(f *fixture, _ *data.Booking, _ *paymentstore.Payment) {
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.provider.refundErr = errProvider
 				f.payments.exhausted = true
 			},

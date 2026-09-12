@@ -12,11 +12,8 @@ func TestSentinelErrors_NotNil(t *testing.T) {
 		err  error
 	}{
 		{"ErrRecordNotFound", ErrRecordNotFound},
-		{"ErrDuplicateBooking", ErrDuplicateBooking},
-		{"ErrSlotUnavailable", ErrSlotUnavailable},
 		{"ErrInvalidCursor", ErrInvalidCursor},
 		{"ErrCooldownActive", ErrCooldownActive},
-		{"ErrSlotLocked", ErrSlotLocked},
 	}
 
 	for _, tt := range sentinels {
@@ -31,11 +28,8 @@ func TestSentinelErrors_NotNil(t *testing.T) {
 func TestSentinelErrors_Distinct(t *testing.T) {
 	all := []error{
 		ErrRecordNotFound,
-		ErrDuplicateBooking,
-		ErrSlotUnavailable,
 		ErrInvalidCursor,
 		ErrCooldownActive,
-		ErrSlotLocked,
 	}
 
 	for i := 0; i < len(all); i++ {
@@ -50,11 +44,8 @@ func TestSentinelErrors_Distinct(t *testing.T) {
 func TestSentinelErrors_MatchWithErrorsIs(t *testing.T) {
 	sentinels := []error{
 		ErrRecordNotFound,
-		ErrDuplicateBooking,
-		ErrSlotUnavailable,
 		ErrInvalidCursor,
 		ErrCooldownActive,
-		ErrSlotLocked,
 	}
 
 	for _, sentinel := range sentinels {
@@ -76,11 +67,8 @@ func TestSentinelErrors_WrappedMatch(t *testing.T) {
 func TestSentinelErrors_NonEmptyMessage(t *testing.T) {
 	sentinels := []error{
 		ErrRecordNotFound,
-		ErrDuplicateBooking,
-		ErrSlotUnavailable,
 		ErrInvalidCursor,
 		ErrCooldownActive,
-		ErrSlotLocked,
 	}
 
 	for _, sentinel := range sentinels {

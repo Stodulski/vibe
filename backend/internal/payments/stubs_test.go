@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -79,8 +80,8 @@ type stubPayments struct {
 	// state at the end of the flow rather than the state that was committed —
 	// and "committed together with the payment" is exactly the question the
 	// refund-intent marker is asked.
-	insertedBooking  *data.Booking
-	confirmedBooking *data.Booking
+	insertedBooking  *bookingstore.Booking
+	confirmedBooking *bookingstore.Booking
 
 	// insertedRows is every row this store was asked to create. `inserted` only
 	// remembers the last one, so it cannot tell one insert from two — which is
@@ -152,7 +153,7 @@ func (s *stubPayments) ListByBookingID(_ context.Context, _ uuid.UUID) ([]*payme
 	return nil, nil
 }
 
-func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *paymentstore.Payment, b *data.Booking) error {
+func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *paymentstore.Payment, b *bookingstore.Booking) error {
 	if s.slotErr != nil && b.Status == "confirmed" {
 		return s.slotErr
 	}
@@ -171,7 +172,7 @@ func (s *stubPayments) InsertAndConfirmBooking(_ context.Context, p *paymentstor
 	return nil
 }
 
-func (s *stubPayments) ConfirmWebhookPayment(_ context.Context, p *paymentstore.Payment, b *data.Booking) error {
+func (s *stubPayments) ConfirmWebhookPayment(_ context.Context, p *paymentstore.Payment, b *bookingstore.Booking) error {
 	if s.slotErr != nil && b.Status == "confirmed" {
 		return s.slotErr
 	}
@@ -304,12 +305,12 @@ func (s *stubPayments) RecordRefundFailure(_ context.Context, claim paymentstore
 }
 
 type stubBookings struct {
-	booking *data.Booking
+	booking *bookingstore.Booking
 	err     error
-	updated *data.Booking
+	updated *bookingstore.Booking
 }
 
-func (s *stubBookings) GetByID(context.Context, uuid.UUID) (*data.Booking, error) {
+func (s *stubBookings) GetByID(context.Context, uuid.UUID) (*bookingstore.Booking, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -319,7 +320,7 @@ func (s *stubBookings) GetByID(context.Context, uuid.UUID) (*data.Booking, error
 	return s.booking, nil
 }
 
-func (s *stubBookings) Update(_ context.Context, b *data.Booking) error {
+func (s *stubBookings) Update(_ context.Context, b *bookingstore.Booking) error {
 	s.updated = b
 	return nil
 }
@@ -524,7 +525,7 @@ func (s *stubWebhookEvents) MarkFailed(_ context.Context, id uuid.UUID, cause st
 // simulate another instance already handling the same webhook.
 // stubRefundIntents stands in for the reconciliation sweep's store layer.
 type stubRefundIntents struct {
-	orphans    []*data.Booking
+	orphans    []*bookingstore.Booking
 	orphansErr error
 
 	claimErr error
@@ -539,7 +540,7 @@ type stubRefundIntents struct {
 	cleared []uuid.UUID
 }
 
-func (s *stubRefundIntents) GetRefundIntentOrphans(context.Context, time.Duration, int) ([]*data.Booking, error) {
+func (s *stubRefundIntents) GetRefundIntentOrphans(context.Context, time.Duration, int) ([]*bookingstore.Booking, error) {
 	if s.orphansErr != nil {
 		return nil, s.orphansErr
 	}
@@ -767,13 +768,13 @@ func newFixture(t *testing.T) *fixture {
 }
 
 // paidBooking returns a confirmed, deposit-paid booking and its payment.
-func paidBooking(complexID uuid.UUID) (*data.Booking, *paymentstore.Payment) {
+func paidBooking(complexID uuid.UUID) (*bookingstore.Booking, *paymentstore.Payment) {
 	bookingID := uuid.New()
 	mpID := "mp-123"
-	return &data.Booking{
+	return &bookingstore.Booking{
 		ID: bookingID, ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
-		Status: "confirmed", CollectionStatus: data.CollectionStatusDepositPaid,
-		RefundStatus: data.RefundStatusNone, Price: 500_000,
+		Status: "confirmed", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
+		RefundStatus: bookingstore.RefundStatusNone, Price: 500_000,
 		Date: time.Now().AddDate(0, 0, 7), StartTime: "18:00", DurationMinutes: 90,
 		CreatedAt: time.Now(),
 	}, &paymentstore.Payment{
@@ -815,11 +816,11 @@ var (
 // pendingBooking returns a booking still waiting on payment together with the
 // MercadoPago payment that pays for it exactly, so a test exercising the confirmation
 // path clears the amount check and is decided by whatever it is actually testing.
-func pendingBooking(complexID uuid.UUID) (*data.Booking, *mp.Payment) {
-	booking := &data.Booking{
+func pendingBooking(complexID uuid.UUID) (*bookingstore.Booking, *mp.Payment) {
+	booking := &bookingstore.Booking{
 		ID: uuid.New(), ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
-		Status: "pending", CollectionStatus: data.CollectionStatusUnpaid,
-		RefundStatus: data.RefundStatusNone, Price: 500_000, DepositAmount: 150_000,
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		RefundStatus: bookingstore.RefundStatusNone, Price: 500_000, DepositAmount: 150_000,
 		Date: time.Now().AddDate(0, 0, 7), StartTime: "18:00", DurationMinutes: 90,
 		CreatedAt: time.Now(),
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -30,10 +31,10 @@ import (
 
 // Store is the booking persistence this module uses.
 type Store interface {
-	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*data.Booking, data.Metadata, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*data.Booking, error)
-	InsertSafe(ctx context.Context, b *data.Booking) error
-	Update(ctx context.Context, b *data.Booking) error
+	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
+	InsertSafe(ctx context.Context, b *bookingstore.Booking) error
+	Update(ctx context.Context, b *bookingstore.Booking) error
 }
 
 // ClientStore resolves the person a booking is for. Public bookings create the
@@ -74,7 +75,7 @@ type PaymentStore interface {
 	Insert(ctx context.Context, p *paymentstore.Payment) error
 	GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error)
 	ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
-	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *data.Booking) error
+	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	Update(ctx context.Context, p *paymentstore.Payment) error
 	// RecordManualRefund closes out a partial_refund booking's remaining
 	// cash/transfer rows, in one transaction with the booking's move to
@@ -123,7 +124,7 @@ type WhatsAppVerifier interface {
 // It used to return nothing at all, and every caller had to infer the answer from
 // a struct the refund path never writes to.
 type Refunder interface {
-	AutoRefundIfPaid(ctx context.Context, booking *data.Booking) paymentstore.RefundOutcome
+	AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome
 }
 
 // LinkResolver resolves the plaintext access token presented to the three
@@ -135,7 +136,7 @@ type Refunder interface {
 // expired; resolveLink (public.go) is what decides expiry, via
 // pricing.LinkLive.
 type LinkResolver interface {
-	ResolveBooking(ctx context.Context, plaintext string) (*data.Booking, time.Time, error)
+	ResolveBooking(ctx context.Context, plaintext string) (*bookingstore.Booking, time.Time, error)
 }
 
 // Notifier tells the client what happened to their booking.

@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -32,7 +32,7 @@ import (
 // Date is anchored the way pgx hands a `date` column back — midnight UTC —
 // because that is the value the confirmation path actually meets, and it is
 // what made the block check on that path answer about the wrong hours.
-func overnightBooking(complexID uuid.UUID) *data.Booking {
+func overnightBooking(complexID uuid.UUID) *bookingstore.Booking {
 	b := futureBooking(complexID)
 	day := timezone.Day(b.Date)
 
@@ -176,7 +176,7 @@ func TestConfirmingAPaymentRefusesANextDayBlock(t *testing.T) {
 	booking.ComplexID = complexID
 	booking.CourtID = courtID
 	booking.Status = "pending"
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	f.store.booking = booking
 
 	// The block is filed on the day after the booking's own date, at the hours
@@ -207,7 +207,7 @@ func TestConfirmingAPaymentIgnoresABlockTheBookingDoesNotReach(t *testing.T) {
 	booking.ComplexID = complexID
 	booking.CourtID = courtID
 	booking.Status = "pending"
-	booking.CollectionStatus = data.CollectionStatusUnpaid
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
 	f.store.booking = booking
 
 	f.courts.block(courtID, booking.StartsAt, "00:00", "01:00")

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stodulski/vibe-server/internal/data"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 )
 
 // Two clients paying for the same court at the same hour is the failure this system
@@ -32,7 +32,7 @@ func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			booking := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: data.CollectionStatusUnpaid})
+			booking := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
 			<-start
 			results[i] = f.Models.Bookings.InsertSafe(context.Background(), booking)
@@ -48,7 +48,7 @@ func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
 		switch {
 		case err == nil:
 			accepted++
-		case errors.Is(err, data.ErrSlotUnavailable):
+		case errors.Is(err, bookingstore.ErrSlotUnavailable):
 			rejected++
 		default:
 			t.Errorf("attempt %d failed for an unexpected reason: %v", i, err)
@@ -91,7 +91,7 @@ func TestInsertSafeRejectsAnOverlappingBooking(t *testing.T) {
 
 	overlapping := f.newBooking(bookingOptions{StartTime: "18:30", EndTime: "20:00"})
 	err := f.Models.Bookings.InsertSafe(ctx, overlapping)
-	if !errors.Is(err, data.ErrSlotUnavailable) {
+	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("a booking overlapping a live one must be refused with ErrSlotUnavailable; got %v", err)
 	}
 
