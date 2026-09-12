@@ -300,4 +300,3 @@ func (disabledGoogle) Enabled() bool { return false }
 func (disabledGoogle) Verify(context.Context, string) (*googleid.Claims, error) {
 	return nil, googleid.ErrUnavailable
 }
-

@@ -39,4 +39,3 @@ func NewHandler(respond *httpx.Responder, cfg Config) *Handler {
 		token:      cfg.Token,
 	}
 }
-

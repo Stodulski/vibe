@@ -41,4 +41,3 @@ type Handler struct {
 func NewHandler(svc *Service, respond *httpx.Responder) *Handler {
 	return &Handler{svc: svc, respond: respond}
 }
-
