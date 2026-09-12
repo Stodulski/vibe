@@ -93,20 +93,17 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
   const ariaLabel = bookingAriaLabel(booking, courtName);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    // A real button, not a div wearing role="button": Enter and Space, the
+    // disabled semantics and the form-control defaults come with the element
+    // instead of being re-implemented in a key handler (A11Y-02). `text-left`
+    // undoes the centring a button brings with it.
+    <button
+      type="button"
       aria-label={ariaLabel}
       title={ariaLabel}
       onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
       className={cn(
-        'focus-self absolute inset-x-[3px] flex cursor-pointer flex-col overflow-hidden rounded-md border px-1.5 py-0.5',
+        'focus-self absolute inset-x-[3px] flex cursor-pointer flex-col overflow-hidden rounded-md border px-1.5 py-0.5 text-left',
         'transition-[filter] focus-visible:brightness-150',
         runsOnPastToday && 'rounded-b-none border-b-0',
         beganBeforeToday && 'rounded-t-none border-t-0',
@@ -131,6 +128,6 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
         </span>
       )}
       <p className="truncate text-xs font-medium text-text-primary">{booking.client_name}</p>
-    </div>
+    </button>
   );
 }

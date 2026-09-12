@@ -161,7 +161,8 @@ describe('BookingCalendar', () => {
     const user = userEvent.setup();
     render(<BookingCalendar {...defaultProps} />);
 
-    const bookingCard = screen.getByText('Juan Perez').closest('[role="button"]');
+    // The block is a real <button> now (A11Y-02), not a div with role.
+    const bookingCard = screen.getByText('Juan Perez').closest('button');
     if (!bookingCard) throw new Error('booking card not found');
     await user.click(bookingCard);
 
