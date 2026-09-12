@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type UserConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
@@ -81,6 +82,46 @@ const config: UserConfig = {
   },
   plugins: [
     react(),
+    // The React Compiler memoizes components and hooks at build time, which is
+    // what lets the hand-written useMemo/useCallback that existed only to stop
+    // re-renders be deleted (PERF-04/PERF-05).
+    //
+    // It is wired as a separate Babel plugin rather than through
+    // `react({ babel: ... })`: @vitejs/plugin-react 6.0.0 removed the inline
+    // `babel` option (the plugin itself transforms with oxc now), and this
+    // `react() + babel({ presets: [reactCompilerPreset()] })` pair is the shape
+    // react.dev documents for plugin-react >= 6. `@rolldown/plugin-babel` and
+    // `@babel/core` are its peer dependencies and exist here only to host the
+    // compiler pass; nothing else in this build goes through Babel.
+    //
+    // `@babel/core` is held at 7 on purpose even though 8 is out and
+    // `@rolldown/plugin-babel` accepts both. On Babel 8 the compiler bails out
+    // of every function whose parameters are destructured with a default —
+    // `function Button({ variant = 'default' })`, i.e. most of this codebase —
+    // with `(BuildHIR::lowerAssignment) Expected object property value to be an
+    // LVal, got: AssignmentPattern`, and because a bailout is silent by default
+    // the build still succeeds while compiling almost nothing. Measured on this
+    // tree: 77 bailouts across 41 files on @babel/core 8.0.5, 5 across 4 files
+    // on 7.29.7. Revisit when babel-plugin-react-compiler ships Babel 8 AST
+    // support; until then `pnpm up @babel/core` would quietly undo this change.
+    //
+    // The plugin also ships an `oxc-transform-react`-backed `react({ compiler })`
+    // option that would replace all three packages with one, but its own README
+    // flags it as experimental and it is a Rust re-implementation rather than
+    // the compiler React publishes, so this build runs the real thing.
+    //
+    // `target: '19'` is the documented default and matches the React version in
+    // package.json: the emitted code imports the memo cache from
+    // `react/compiler-runtime`, which React 19 ships, so no
+    // `react-compiler-runtime` polyfill package is needed. It is written out
+    // rather than left implicit so a future React major has to look at this
+    // line instead of silently changing the emitted runtime import.
+    //
+    // Cost: the Babel pass runs over the ~700 first-party modules that mention
+    // a component, a hook, `memo` or `forwardRef`, and takes the production
+    // build from ~5s to ~20s. Dependencies are already excluded — the preset's
+    // code filter never reaches them — so there is nothing left to narrow.
+    babel({ presets: [reactCompilerPreset({ target: '19' })] }),
     tailwindcss(),
     VitePWA({
       // Prompt mode: a new worker waits instead of taking over, so a deploy

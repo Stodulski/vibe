@@ -63,7 +63,7 @@ Cookie-based sessions with CSRF protection. The ky client auto-handles token ref
 ### Testing
 
 - The full unit suite takes about ten minutes: every test file boots its own happy-dom (`isolate: true` in `vitest.config.ts`, kept for determinism) and workers are capped at half the cores. Run the directory you are working on (`pnpm test src/features/bookings`); leave the full run to CI or to the end of a task, and never run two full suites at once on one machine.
-- React Compiler is deliberately not enabled (see README). Manual `useMemo`/`useCallback` is kept only where a test or a measurement justifies it; do not add it preventively.
+- The React Compiler is enabled in `vite.config.ts`, so re-render memoization is automatic: do not add `useMemo`/`useCallback` to avoid re-renders. They are still correct — and still present — where identity is part of the contract rather than an optimization: a value in a `useEffect` dependency array, or one handed to a non-React consumer that keys off identity (Leaflet, cmdk, react-day-picker). `@babel/core` is pinned to 7 there for a reason the comment explains; do not bump it.
 
 - **Unit/Integration**: Vitest + Testing Library. Tests colocated with source (`*.test.ts(x)`). Setup in `src/test/setup.ts`.
 - **E2E**: Playwright. Specs in `e2e/specs/`, auth setup in `e2e/setup/`. Locale `es-AR`, timezone `America/Argentina/Buenos_Aires`.

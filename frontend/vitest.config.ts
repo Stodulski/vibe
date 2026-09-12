@@ -1,9 +1,17 @@
 import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [react()],
+  // The React Compiler runs here too. This file does not load vite.config.ts
+  // — it declares its own plugin list — so without this line the suite would
+  // exercise unmemoized source while the browser gets the compiled build, and
+  // every behaviour that depends on the compiler (PageHeadingProvider's
+  // context identity, B12) would fail against code that ships working. Kept
+  // byte-identical to vite.config.ts's own invocation; the reasoning behind
+  // the wiring and the @babel/core 7 pin lives there.
+  plugins: [react(), babel({ presets: [reactCompilerPreset({ target: '19' })] })],
   // Mirrors vite.config.ts's own `define` for `APP_RELEASE`: that file
   // isn't loaded here, so without this every test importing
   // `src/shared/lib/sentry.ts` would hit a ReferenceError on the bare
