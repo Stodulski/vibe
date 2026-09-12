@@ -45,6 +45,20 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
     };
   }, []);
 
+  // Leaflet's container is keyboard-focusable and pans with the arrow keys,
+  // so it cannot be hidden from assistive tech — but it was reaching it as
+  // an unnamed box of tiles (A11Y-11). `application` is what it is: a widget
+  // that consumes the arrow keys itself. Anyone who would rather not drive a
+  // map still has the address as text above it and the Google Maps link
+  // below. Set here rather than as JSX props because react-leaflet's
+  // MapContainer only forwards className, id and style to the element.
+  useEffect(() => {
+    const container = mapRef.current?.getContainer();
+    if (!container) return;
+    container.setAttribute('role', 'application');
+    container.setAttribute('aria-label', `${t.complex.mapOf} ${name}, ${address}`);
+  }, [name, address]);
+
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${String(latitude)},${String(longitude)}`;
 
   return (
