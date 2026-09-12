@@ -472,7 +472,7 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
 		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(respBody)}
 	}
 
@@ -520,7 +520,7 @@ func (c *MPClient) UpdatePreferenceExpired(ctx context.Context, preferenceID str
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
 		return &APIError{StatusCode: resp.StatusCode, Body: string(respBody)}
 	}
 

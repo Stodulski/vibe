@@ -804,6 +804,6 @@ const minutesPerDay = 24 * 60
 
 func minutesOfDay(hhmm string) int {
 	var h, m int
-	_, _ = fmt.Sscanf(hhmm, "%d:%d", &h, &m)
+	_, _ = fmt.Sscanf(hhmm, "%d:%d", &h, &m) //nolint:errcheck // a schedule value the DB stored through a validated path; a malformed one yields 0
 	return h*60 + m
 }

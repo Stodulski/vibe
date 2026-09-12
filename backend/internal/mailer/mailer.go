@@ -352,7 +352,7 @@ func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainT
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
 		return &brevoError{statusCode: resp.StatusCode, body: string(respBody)}
 	}
 
@@ -426,7 +426,7 @@ func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText 
 		_ = conn.Close()
 		return fmt.Errorf("mailer: smtp client failed: %w", err)
 	}
-	defer func() { _ = c.Close() }()
+	defer func() { _ = c.Close() }() //nolint:errcheck // the send either succeeded or returned its own error; a close failure adds nothing
 
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		if err = c.StartTLS(&tls.Config{ServerName: m.smtpHost}); err != nil {

@@ -230,7 +230,7 @@ func buildExportWorkbook(
 	// In-memory workbook cleanup; a close error here (e.g. stale sheet references) cannot
 	// occur for a freshly created *excelize.File and there is nothing actionable to do with
 	// it in a defer.
-	defer func() { _ = f.Close() }()
+	defer func() { _ = f.Close() }() //nolint:errcheck // see above: an in-memory workbook's close has nothing actionable to report
 
 	if err := writePaymentSheet(ctx, f, details); err != nil {
 		return nil, err

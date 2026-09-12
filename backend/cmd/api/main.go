@@ -352,7 +352,7 @@ func main() {
 		//nolint:gocritic // exitAfterDefer: the deferred sentry.Flush is replicated on the line above.
 		os.Exit(1)
 	}
-	defer func() { _ = rdb.Close() }()
+	defer func() { _ = rdb.Close() }() //nolint:errcheck // the process is exiting; a failed close reaches nobody
 	logger.Info("redis connected")
 
 	var objectStorage storage.ObjectStorage

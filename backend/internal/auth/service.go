@@ -255,7 +255,8 @@ func (s *Service) Login(ctx context.Context, actor Actor, email, password string
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			_ = authstore.ComparePassword(authstore.DummyPasswordHash(s.cfg.PasswordHashCost), password)
+			// Run for its cost, not its answer: this compare must always fail.
+			_ = authstore.ComparePassword(authstore.DummyPasswordHash(s.cfg.PasswordHashCost), password) //nolint:errcheck // see above
 			return nil, s.loginFailed(actor, email)
 		}
 		return nil, err

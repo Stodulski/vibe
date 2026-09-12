@@ -222,7 +222,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	// GetByID's error path already returns a nil client, so a lookup failure
 	// here degrades to skipping the confirmation notification below rather
 	// than failing the webhook — the payment is already recorded.
-	client, _ := s.clients.GetByID(ctx, booking.ClientID)
+	client, _ := s.clients.GetByID(ctx, booking.ClientID) //nolint:errcheck // a nil client skips the notification; the payment is already recorded
 
 	s.logger.Info("mp webhook: payment approved and booking confirmed",
 		"mp_payment_id", mpPaymentID,

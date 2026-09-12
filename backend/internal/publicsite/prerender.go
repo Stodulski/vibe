@@ -147,6 +147,6 @@ func structuredData(complex *complexstore.Complex, schedules []*complexstore.Sch
 
 	// The schema is built from values that always marshal, so an error here
 	// would be a programming fault rather than a runtime condition.
-	b, _ := json.Marshal(schema)
+	b, _ := json.Marshal(schema) //nolint:errcheck // see above: an error here would be a programming fault, not a runtime condition
 	return string(b)
 }

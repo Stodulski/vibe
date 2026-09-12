@@ -185,7 +185,7 @@ func PgToFloat8Ptr(f pgtype.Float8) *float64 {
 // unparseable string becomes SQL NULL.
 func TimeStrToPg(s string) pgtype.Time {
 	var h, m int
-	if n, _ := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 {
+	if n, _ := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 { //nolint:errcheck // n is the check: fewer than two fields is the NULL below
 		return pgtype.Time{}
 	}
 	return pgtype.Time{

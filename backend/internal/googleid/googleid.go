@@ -247,7 +247,9 @@ func (v *Verifier) keyForKID(ctx context.Context, kid string) (*rsa.PublicKey, e
 	v.mu.Unlock()
 	if ok {
 		if !fresh {
-			_, _ = v.refreshKeys(ctx)
+			// Best-effort refresh of a key we already hold: a failure keeps the
+			// cached one rather than rejecting a token that is probably valid.
+			_, _ = v.refreshKeys(ctx) //nolint:errcheck // see above
 		}
 		return key, nil
 	}
