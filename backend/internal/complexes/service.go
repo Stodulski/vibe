@@ -81,7 +81,15 @@ type TokenRefresher interface {
 // URL may be, when a venue may be deleted or disconnected from MercadoPago, and
 // which objects belong to which tenant.
 type Service struct {
-	store    Store
+	// The five venue ports, all satisfied by the one store Dependencies
+	// carries. They are separate fields so a rule reads through the port it
+	// actually needs: what a call site touches is visible at the call site.
+	venues      VenueReader
+	venueWrites VenueWriter
+	slugs       SlugStore
+	schedules   ScheduleStore
+	credentials CredentialStore
+
 	courts   CourtStore
 	bookings BookingStore
 	payments PaymentConnector
@@ -96,7 +104,12 @@ type Service struct {
 // NewService returns a Service backed by the given dependencies.
 func NewService(deps Dependencies, cfg Config) *Service {
 	return &Service{
-		store:    deps.Store,
+		venues:      deps.Store,
+		venueWrites: deps.Store,
+		slugs:       deps.Store,
+		schedules:   deps.Store,
+		credentials: deps.Store,
+
 		courts:   deps.Courts,
 		bookings: deps.Bookings,
 		payments: deps.Payments,
@@ -141,7 +154,7 @@ func (s *Service) record(complexID uuid.UUID, actor Actor, action string, entity
 
 // List returns every venue an account owns.
 func (s *Service) List(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error) {
-	return s.store.GetByOwner(ctx, ownerID)
+	return s.venues.GetByOwner(ctx, ownerID)
 }
 
 // CreateInput is a validated request to open a venue. Slug is already
@@ -165,7 +178,7 @@ type CreateInput struct {
 // default 08:00-23:00 week.
 func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in CreateInput) (*complexstore.Complex, error) {
 	// Ensure slug uniqueness.
-	exists, err := s.store.SlugExists(ctx, in.Slug)
+	exists, err := s.slugs.SlugExists(ctx, in.Slug)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +187,7 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 	}
 
 	// Check complex limit per account.
-	owned, err := s.store.GetByOwner(ctx, ownerID)
+	owned, err := s.venues.GetByOwner(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +217,7 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 		Amenities: []string{},
 	}
 
-	err = s.store.Insert(ctx, complex)
+	err = s.venueWrites.Insert(ctx, complex)
 	if err != nil {
 		// The check above said the slug was free and the constraint disagreed:
 		// either another request took it in between, or the two are answering
@@ -228,7 +241,7 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 			CloseTime: "23:00",
 			IsClosed:  false,
 		}
-		if err := s.store.UpsertSchedule(ctx, schedule); err != nil {
+		if err := s.schedules.UpsertSchedule(ctx, schedule); err != nil {
 			return nil, err
 		}
 	}
@@ -266,7 +279,7 @@ func (s *Service) SlugAvailable(ctx context.Context, raw string) (SlugStatus, er
 		return SlugStatus{Slug: slug, Valid: false, Available: false}, nil
 	}
 
-	existing, err := s.store.SlugsWithPrefix(ctx, slug)
+	existing, err := s.slugs.SlugsWithPrefix(ctx, slug)
 	if err != nil {
 		return SlugStatus{}, err
 	}
@@ -324,7 +337,7 @@ func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, act
 	oldCoverURL := complex.CoverURL
 
 	if in.Slug != nil && *in.Slug != complex.Slug {
-		taken, err := s.store.SlugExists(ctx, *in.Slug)
+		taken, err := s.slugs.SlugExists(ctx, *in.Slug)
 		if err != nil {
 			return nil, err
 		}
@@ -379,7 +392,7 @@ func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, act
 		complex.IsActive = *in.IsActive
 	}
 
-	if err := s.store.Update(ctx, complex); err != nil {
+	if err := s.venueWrites.Update(ctx, complex); err != nil {
 		return nil, err
 	}
 
@@ -436,7 +449,7 @@ func (s *Service) Delete(ctx context.Context, complex *complexstore.Complex, act
 		return 0, ErrActiveBookings
 	}
 
-	courtsDeactivated, err = s.store.SoftDeleteCascade(ctx, complex.ID)
+	courtsDeactivated, err = s.venueWrites.SoftDeleteCascade(ctx, complex.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -466,7 +479,7 @@ type PublicProfile struct {
 // its address, phone, courts and prices, and answered every booking attempt
 // with a bare 404 the page could not explain.
 func (s *Service) GetPublic(ctx context.Context, slug string) (*PublicProfile, error) {
-	complex, err := s.store.GetBySlug(ctx, slug)
+	complex, err := s.venues.GetBySlug(ctx, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +492,7 @@ func (s *Service) GetPublic(ctx context.Context, slug string) (*PublicProfile, e
 		return nil, err
 	}
 
-	schedules, err := s.store.GetSchedules(ctx, complex.ID)
+	schedules, err := s.schedules.GetSchedules(ctx, complex.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +571,7 @@ func (s *Service) UpdateSchedules(ctx context.Context, complexID uuid.UUID, acto
 			CloseTime: day.CloseTime,
 			IsClosed:  day.IsClosed,
 		}
-		if err := s.store.UpsertSchedule(ctx, schedule); err != nil {
+		if err := s.schedules.UpsertSchedule(ctx, schedule); err != nil {
 			return nil, err
 		}
 		schedules = append(schedules, schedule)
@@ -581,7 +594,7 @@ func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, a
 
 	mpUserID := fmt.Sprintf("%d", tokens.UserID)
 
-	err = s.store.UpdateMPCredentials(ctx, complexID, tokens.AccessToken, tokens.RefreshToken, mpUserID, tokens.ExpiresIn)
+	err = s.credentials.UpdateMPCredentials(ctx, complexID, tokens.AccessToken, tokens.RefreshToken, mpUserID, tokens.ExpiresIn)
 	if err != nil {
 		return "", err
 	}
@@ -603,7 +616,7 @@ func (s *Service) DisconnectMercadoPago(ctx context.Context, complexID uuid.UUID
 		return ErrActiveBookings
 	}
 
-	if err := s.store.ClearMPCredentials(ctx, complexID); err != nil {
+	if err := s.credentials.ClearMPCredentials(ctx, complexID); err != nil {
 		return err
 	}
 
@@ -724,7 +737,7 @@ func (s *Service) RefreshMPTokens(ctx context.Context) {
 	// 30 days, instead of GetWithMPConnected's every-connected-complex: MP
 	// tokens live ~180 days, and refreshing all of them on every 12h tick was
 	// pure waste once the expiry was actually tracked (mp_token_expires_at).
-	complexes, err := s.store.ListComplexesNeedingMPRefresh(ctx)
+	complexes, err := s.credentials.ListComplexesNeedingMPRefresh(ctx)
 	if err != nil {
 		s.logger.Error("cron_refresh_mp_tokens: failed to get complexes", "error", err)
 		sentry.CaptureMessage(fmt.Sprintf("cron_refresh_mp_tokens: CRITICAL - cannot fetch complexes: %v", err))
@@ -789,7 +802,7 @@ func (s *Service) refreshOneMPToken(ctx context.Context, c *complexstore.Complex
 	}
 
 	mpUserID := fmt.Sprintf("%d", newTokens.UserID)
-	if updateErr := s.store.UpdateMPCredentials(ctx, c.ID, newTokens.AccessToken, newTokens.RefreshToken, mpUserID, newTokens.ExpiresIn); updateErr != nil {
+	if updateErr := s.credentials.UpdateMPCredentials(ctx, c.ID, newTokens.AccessToken, newTokens.RefreshToken, mpUserID, newTokens.ExpiresIn); updateErr != nil {
 		s.logger.Error("cron_refresh_mp_tokens: failed to save new tokens", "error", updateErr, "complex_id", c.ID)
 		sentry.CaptureMessage(fmt.Sprintf("MP OAuth token save FAILED: complex=%s (%s) error=%v", c.Name, c.ID, updateErr))
 		return mpRefreshFailed
@@ -819,35 +832,35 @@ func refreshTokenWasRejected(err error) bool {
 
 // GetByID returns one venue. Exported for bookings and payments.
 func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error) {
-	return s.store.GetByID(ctx, id)
+	return s.venues.GetByID(ctx, id)
 }
 
 // GetBySlug returns the venue serving a public URL. Exported for courts and
 // publicsite.
 func (s *Service) GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error) {
-	return s.store.GetBySlug(ctx, slug)
+	return s.venues.GetBySlug(ctx, slug)
 }
 
 // GetSchedules returns a venue's opening hours. Exported for courts, reporting
 // and publicsite.
 func (s *Service) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error) {
-	return s.store.GetSchedules(ctx, complexID)
+	return s.schedules.GetSchedules(ctx, complexID)
 }
 
 // GetByOwner returns the venues an account owns. Exported for auth, which
 // refuses to delete an account that still owns one.
 func (s *Service) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error) {
-	return s.store.GetByOwner(ctx, ownerID)
+	return s.venues.GetByOwner(ctx, ownerID)
 }
 
 // GetAllSlugs returns every public URL the product serves. Exported for
 // publicsite's sitemap.
 func (s *Service) GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error) {
-	return s.store.GetAllSlugs(ctx)
+	return s.venues.GetAllSlugs(ctx)
 }
 
 // UpdateMPCredentials stores a seller's MercadoPago credentials. Exported for
 // bookings, which refreshes them on the booking path when it finds them stale.
 func (s *Service) UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
-	return s.store.UpdateMPCredentials(ctx, complexID, accessToken, refreshToken, userID, expiresIn)
+	return s.credentials.UpdateMPCredentials(ctx, complexID, accessToken, refreshToken, userID, expiresIn)
 }

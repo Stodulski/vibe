@@ -19,29 +19,63 @@ import (
 	"github.com/stodulski/vibe-server/internal/mp"
 )
 
-// Store is the complex and schedule persistence this module uses.
-type Store interface {
+// The venue domain persists five distinguishable things, and no rule here
+// touches more than one or two of them: the venue rows, the slug namespace,
+// the opening hours, and the MercadoPago credentials a venue is connected
+// with. They are separate ports so a rule reads through the one it needs, and
+// so the credential surface — the only one holding a seller's OAuth tokens —
+// is nameable on its own.
+
+// VenueReader is every read of a venue row.
+type VenueReader interface {
 	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
-	Insert(ctx context.Context, c *complexstore.Complex) error
-	Update(ctx context.Context, c *complexstore.Complex) error
-	// SoftDeleteCascade deletes the venue and its courts in one transaction,
-	// returning how many courts it closed. See the soft-delete cascade in db/migrations/001_init.sql.
-	SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error)
-	SlugExists(ctx context.Context, slug string) (bool, error)
-	SlugsWithPrefix(ctx context.Context, base string) ([]string, error)
-	UpsertSchedule(ctx context.Context, s *complexstore.Schedule) error
-	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
-	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
 	// GetByID and GetAllSlugs serve the cross-domain reads on Service; every
 	// other module enters this domain through them rather than through the
 	// complex store.
 	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
+}
+
+// VenueWriter creates, edits and closes a venue.
+type VenueWriter interface {
+	Insert(ctx context.Context, c *complexstore.Complex) error
+	Update(ctx context.Context, c *complexstore.Complex) error
+	// SoftDeleteCascade deletes the venue and its courts in one transaction,
+	// returning how many courts it closed. See the soft-delete cascade in db/migrations/001_init.sql.
+	SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error)
+}
+
+// SlugStore is the public-URL namespace, which is shared across every tenant.
+type SlugStore interface {
+	SlugExists(ctx context.Context, slug string) (bool, error)
+	SlugsWithPrefix(ctx context.Context, base string) ([]string, error)
+}
+
+// ScheduleStore is a venue's opening hours.
+type ScheduleStore interface {
+	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
+	UpsertSchedule(ctx context.Context, s *complexstore.Schedule) error
+}
+
+// CredentialStore is the venue's MercadoPago connection: the only port here
+// that touches a seller's OAuth tokens.
+type CredentialStore interface {
+	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
+	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
 	// ListComplexesNeedingMPRefresh drives Service.RefreshMPTokens, the OAuth
 	// sweep cmd/api schedules every 12 hours.
 	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error)
+}
+
+// Store is all five together: one concrete store implements them, and the
+// composition is what Dependencies takes, so a caller still passes one value.
+type Store interface {
+	VenueReader
+	VenueWriter
+	SlugStore
+	ScheduleStore
+	CredentialStore
 }
 
 // CourtStore is the court side of the public profile. Deletion is no longer

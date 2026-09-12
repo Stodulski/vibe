@@ -37,7 +37,12 @@ type Actor struct {
 // advertise. Every store call and every audit entry of the court domain goes
 // through it.
 type Service struct {
-	store     Store
+	// The three court ports, all satisfied by the one store NewService takes.
+	// They are separate fields so a rule reads through the port it actually
+	// needs: what a call site touches is visible at the call site.
+	courts    CourtStore
+	prices    PriceStore
+	blocked   BlockedSlotStore
 	bookings  BookingReader
 	complexes ComplexReader
 	audit     Recorder
@@ -46,7 +51,9 @@ type Service struct {
 // NewService returns a Service backed by the given stores.
 func NewService(store Store, bookings BookingReader, complexes ComplexReader, recorder Recorder) *Service {
 	return &Service{
-		store:     store,
+		courts:    store,
+		prices:    store,
+		blocked:   store,
 		bookings:  bookings,
 		complexes: complexes,
 		audit:     recorder,
@@ -71,7 +78,7 @@ func (s *Service) record(complexID uuid.UUID, actor Actor, action, entityType st
 // answers the same ErrRecordNotFound a court that does not exist answers, so a
 // probe cannot tell the two apart.
 func (s *Service) ownedCourt(ctx context.Context, complexID, courtID uuid.UUID) (*courtstore.Court, error) {
-	court, err := s.store.GetByID(ctx, courtID)
+	court, err := s.courts.GetByID(ctx, courtID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,14 +98,14 @@ type CourtWithPrices struct {
 // List returns every court of a complex, active or not — the owner manages
 // both — each with its own price bands.
 func (s *Service) List(ctx context.Context, complexID uuid.UUID) ([]CourtWithPrices, error) {
-	courts, err := s.store.GetByComplex(ctx, complexID)
+	courts, err := s.courts.GetByComplex(ctx, complexID)
 	if err != nil {
 		return nil, err
 	}
 
 	result := make([]CourtWithPrices, len(courts))
 	for i, c := range courts {
-		prices, err := s.store.GetPrices(ctx, c.ID)
+		prices, err := s.prices.GetPrices(ctx, c.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +134,7 @@ func (s *Service) Create(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		Description: emptyToNil(in.Description),
 	}
 
-	if err := s.store.Insert(ctx, court); err != nil {
+	if err := s.courts.Insert(ctx, court); err != nil {
 		return nil, err
 	}
 
@@ -173,7 +180,7 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		court.Description = emptyToNil(in.Description)
 	}
 
-	err = s.store.Update(ctx, court)
+	err = s.courts.Update(ctx, court)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
 			return nil, ErrEditConflict
@@ -199,7 +206,7 @@ func (s *Service) Delete(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		return err
 	}
 
-	if err := s.store.SoftDelete(ctx, courtID); err != nil {
+	if err := s.courts.SoftDelete(ctx, courtID); err != nil {
 		return err
 	}
 
@@ -245,7 +252,7 @@ func (s *Service) UpdatePrices(ctx context.Context, complexID uuid.UUID, actor A
 		}
 	}
 
-	failedIndex, err = s.store.ReplacePrices(ctx, courtID, prices)
+	failedIndex, err = s.prices.ReplacePrices(ctx, courtID, prices)
 	if err != nil {
 		return nil, failedIndex, err
 	}
@@ -303,7 +310,7 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 		CreatedBy: &in.CreatedBy,
 	}
 
-	if err := s.store.InsertBlockedSlot(ctx, slot); err != nil {
+	if err := s.blocked.InsertBlockedSlot(ctx, slot); err != nil {
 		return nil, err
 	}
 
@@ -326,7 +333,7 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 // the range cap the handler applies. A caller that names either one gets the
 // limit/cursor/metadata envelope every other list endpoint already has.
 func (s *Service) ListBlockedSlots(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters, paginate bool) ([]*courtstore.BlockedSlot, data.Metadata, error) {
-	slots, err := s.store.GetBlockedSlotsByComplex(ctx, complexID, dateFrom, dateTo)
+	slots, err := s.blocked.GetBlockedSlotsByComplex(ctx, complexID, dateFrom, dateTo)
 	if err != nil {
 		return nil, data.Metadata{}, err
 	}
@@ -348,7 +355,7 @@ func (s *Service) ListBlockedSlots(ctx context.Context, complexID uuid.UUID, dat
 // above it already ran. Answering that rather than the success the winner gets
 // is what lets a caller tell whether their own request deleted anything.
 func (s *Service) DeleteBlockedSlot(ctx context.Context, complexID uuid.UUID, actor Actor, slotID uuid.UUID) error {
-	slot, err := s.store.GetBlockedSlotByID(ctx, slotID)
+	slot, err := s.blocked.GetBlockedSlotByID(ctx, slotID)
 	if err != nil {
 		return err
 	}
@@ -358,7 +365,7 @@ func (s *Service) DeleteBlockedSlot(ctx context.Context, complexID uuid.UUID, ac
 		return err
 	}
 
-	if err := s.store.DeleteBlockedSlot(ctx, slotID); err != nil {
+	if err := s.blocked.DeleteBlockedSlot(ctx, slotID); err != nil {
 		return err
 	}
 
@@ -455,7 +462,7 @@ func (s *Service) Availability(ctx context.Context, slug, dateStr string, date t
 		}, nil
 	}
 
-	courts, err := s.store.GetByComplex(ctx, complex.ID)
+	courts, err := s.courts.GetByComplex(ctx, complex.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -484,7 +491,7 @@ func (s *Service) Availability(ctx context.Context, slug, dateStr string, date t
 		courtIDs[i] = c.ID
 	}
 
-	allPrices, err := s.store.GetPricesByCourtIDs(ctx, courtIDs)
+	allPrices, err := s.prices.GetPricesByCourtIDs(ctx, courtIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +501,7 @@ func (s *Service) Availability(ctx context.Context, slug, dateStr string, date t
 		return nil, err
 	}
 
-	allBlockedSlots, err := s.store.GetBlockedSlotsByCourtIDs(ctx, courtIDs, date)
+	allBlockedSlots, err := s.blocked.GetBlockedSlotsByCourtIDs(ctx, courtIDs, date)
 	if err != nil {
 		return nil, err
 	}
@@ -650,34 +657,34 @@ func slotIsFree(slotStart, slotEnd, date time.Time, booked []bookingstore.Booked
 
 // GetByID returns one court. Exported for bookings and payments.
 func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error) {
-	return s.store.GetByID(ctx, id)
+	return s.courts.GetByID(ctx, id)
 }
 
 // GetByComplex returns a complex's courts. Exported for complexes and
 // reporting.
 func (s *Service) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error) {
-	return s.store.GetByComplex(ctx, complexID)
+	return s.courts.GetByComplex(ctx, complexID)
 }
 
 // GetPrices returns one court's price bands. Exported for bookings.
 func (s *Service) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error) {
-	return s.store.GetPrices(ctx, courtID)
+	return s.prices.GetPrices(ctx, courtID)
 }
 
 // GetPricesByCourtIDs returns the price bands of several courts at once.
 // Exported for complexes.
 func (s *Service) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*courtstore.CourtPrice, error) {
-	return s.store.GetPricesByCourtIDs(ctx, courtIDs)
+	return s.prices.GetPricesByCourtIDs(ctx, courtIDs)
 }
 
 // GetBlockedSlots returns one court's blocked slots for a date. Exported for
 // bookings.
 func (s *Service) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error) {
-	return s.store.GetBlockedSlots(ctx, courtID, date)
+	return s.blocked.GetBlockedSlots(ctx, courtID, date)
 }
 
 // GetBlockedSlotsByCourtIDs returns the blocked slots of several courts at
 // once. Exported for bookings.
 func (s *Service) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error) {
-	return s.store.GetBlockedSlotsByCourtIDs(ctx, courtIDs, date)
+	return s.blocked.GetBlockedSlotsByCourtIDs(ctx, courtIDs, date)
 }

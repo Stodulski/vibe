@@ -178,7 +178,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		existingPayment.MPPaymentID = &mpPaymentID
 		existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
 
-		if err := s.payments.ConfirmWebhookPayment(ctx, existingPayment, booking); err != nil {
+		if err := s.ledger.ConfirmWebhookPayment(ctx, existingPayment, booking); err != nil {
 			// H-23: ErrBookingCancelled refunds for the same reason
 			// ErrSlotUnavailable does. The booking this money was for no longer
 			// exists — cancelled when its payment expired and its hours went
@@ -206,7 +206,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			StatusDetail: statusDetailPtr(mpPayment.StatusDetail),
 		}
 
-		if err := s.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
+		if err := s.ledger.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
 			// H-23, same as above: a cancelled booking's late payment is
 			// refunded, not retried.
 			if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
@@ -375,7 +375,7 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	committed := false
 	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
 
-	claim, err := s.payments.ClaimRefund(ctx, payment.ID)
+	claim, err := s.refunds.ClaimRefund(ctx, payment.ID)
 	if err != nil {
 		s.logger.Error("mp webhook: failed to claim the refund for a cancelled booking",
 			"error", err,
@@ -408,7 +408,7 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	}
 
 	manualOwed := s.manualOwedForBooking(ctx, booking.ID)
-	if _, err := s.payments.RecordRefundSuccess(ctx, settled, manualOwed); err != nil {
+	if _, err := s.refunds.RecordRefundSuccess(ctx, settled, manualOwed); err != nil {
 		// See AutoRefundIfPaid: the attempt stays queued and the retry job replays
 		// the call, which MercadoPago deduplicates on its idempotency key.
 		s.logger.Error("mp webhook: auto-refund issued but not recorded, left queued for retry",
@@ -481,7 +481,7 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 	if existing != nil {
 		existing.Status = "deposit_paid"
 		existing.MPPaymentID = &mpPaymentID
-		if err := s.payments.ConfirmWebhookPayment(ctx, existing, booking); err != nil {
+		if err := s.ledger.ConfirmWebhookPayment(ctx, existing, booking); err != nil {
 			return nil, err
 		}
 		return existing, nil
@@ -507,7 +507,7 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 		Status:      "deposit_paid",
 		MPPaymentID: &mpPaymentID,
 	}
-	if err := s.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
+	if err := s.ledger.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
 		return nil, err
 	}
 	return payment, nil
@@ -621,7 +621,7 @@ func (s *Service) recordRejectedPaymentDetail(ctx context.Context, bookingID uui
 	// its own vocabulary is the other half of F11 and a separate change.
 	existingPayment.MPPaymentID = &mpPaymentID
 	existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
-	if err := s.payments.Update(ctx, existingPayment); err != nil {
+	if err := s.ledger.Update(ctx, existingPayment); err != nil {
 		s.logger.Error("mp webhook: failed to record the rejection detail on the payment row",
 			"error", err, "booking_id", bookingID, "mp_payment_id", mpPaymentID)
 	}
