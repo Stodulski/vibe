@@ -49,7 +49,7 @@ jobs:
             go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-
             go-build-${{ github.job }}-
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: frontend/package.json
 
