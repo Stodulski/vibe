@@ -54,40 +54,17 @@ type PaymentReportReader interface {
 	PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
 }
 
-// Handler serves the reporting routes.
+// Handler serves the reporting routes. It decodes, validates, and maps the
+// service's domain errors onto HTTP; every store call and every calculation
+// lives in the Service.
 type Handler struct {
-	bookings  BookingReader
-	clients   ClientReader
-	courts    CourtReader
-	complexes ScheduleReader
-	reports   PaymentReportReader
-	respond   *httpx.Responder
-
-	// maxExportRows is defaultMaxExportRows, held as a field so a test can
-	// exercise the cap boundary — which is an off-by-one in one comparison —
-	// without building a fifty-thousand-row workbook to do it. The budget
-	// beside it needs no such seam, so it stays a constant.
-	maxExportRows int
+	svc     *Service
+	respond *httpx.Responder
 }
 
-// NewHandler returns a Handler backed by the given readers.
-func NewHandler(
-	bookings BookingReader,
-	clients ClientReader,
-	courts CourtReader,
-	complexes ScheduleReader,
-	reports PaymentReportReader,
-	respond *httpx.Responder,
-) *Handler {
-	return &Handler{
-		bookings:      bookings,
-		clients:       clients,
-		courts:        courts,
-		complexes:     complexes,
-		reports:       reports,
-		respond:       respond,
-		maxExportRows: defaultMaxExportRows,
-	}
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, respond *httpx.Responder) *Handler {
+	return &Handler{svc: svc, respond: respond}
 }
 
 // Routes registers this module's endpoints. All of them expose one complex's

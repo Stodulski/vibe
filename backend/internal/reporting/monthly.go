@@ -49,90 +49,13 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	from := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, timezone.Argentina)
-	to := from.AddDate(0, 1, -1)
-	summaries, err := h.reports.PaymentSummaryByMethod(r.Context(), complex.ID, from, to)
+	report, err := h.svc.MonthlyReport(r.Context(), complex.ID, month, year)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
 
-	courts, err := h.reports.PaymentSummaryByCourt(r.Context(), complex.ID, from, to)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
-	// The month before, for the same figures. A total on its own says nothing:
-	// "$140" is a good month or a collapse depending entirely on what the last
-	// one was, and the owner is the only one who currently holds that number.
-	//
-	// Read through the same query, so the two months are counted identically.
-	// A period that predates the complex simply has no payments and totals
-	// zero — validateReportPeriod is not consulted for it, because the owner
-	// asked about THIS month, and the comparison is context rather than a
-	// second request they made.
-	prevFrom := from.AddDate(0, -1, 0)
-	prevSummaries, err := h.reports.PaymentSummaryByMethod(r.Context(), complex.ID, prevFrom, prevFrom.AddDate(0, 1, -1))
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
-	type methodSummary struct {
-		Count    int `json:"count"`
-		Total    int `json:"total"`
-		Refunded int `json:"refunded"`
-		Net      int `json:"net"`
-	}
-
-	byMethod := make(map[string]*methodSummary, len(summaries))
-	var totalCount, totalAmount, totalServiceFees, totalRefunded int
-
-	for _, s := range summaries {
-		// Net is what the owner keeps: the amount plus the service fee the
-		// client paid on top, minus anything refunded.
-		byMethod[s.Method] = &methodSummary{
-			Count:    s.Count,
-			Total:    s.Amount,
-			Refunded: s.Refunded,
-			Net:      s.Amount + s.ServiceFee - s.Refunded,
-		}
-
-		totalCount += s.Count
-		totalAmount += s.Amount
-		totalServiceFees += s.ServiceFee
-		totalRefunded += s.Refunded
-	}
-
-	byCourt := make([]map[string]any, 0, len(courts))
-	for _, c := range courts {
-		byCourt = append(byCourt, map[string]any{
-			"court_id":   c.CourtID,
-			"court_name": c.CourtName,
-			"count":      c.Count,
-			"total":      c.Amount,
-			"refunded":   c.Refunded,
-			"net":        c.Amount + c.ServiceFee - c.Refunded,
-		})
-	}
-
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"report": map[string]any{
-			"month":     month,
-			"year":      year,
-			"by_method": byMethod,
-			"by_court":  byCourt,
-			"totals": map[string]any{
-				"count":        totalCount,
-				"total":        totalAmount,
-				"service_fees": totalServiceFees,
-				"refunded":     totalRefunded,
-				"net":          totalAmount + totalServiceFees - totalRefunded,
-			},
-			"previous_totals": periodTotals(prevSummaries),
-		},
-	})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"report": report})
 }
 
 // periodTotals adds up one period's payments the same way the selected month
@@ -232,40 +155,21 @@ func (h *Handler) ExportPaymentsExcel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), exportBudget)
-	defer cancel()
-
-	from := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, timezone.Argentina)
-	to := from.AddDate(0, 1, -1)
-
-	details, err := h.reports.PaymentDetails(ctx, complex.ID, from, to)
+	export, rowCount, err := h.svc.ExportPaymentsExcel(r.Context(), complex, month, year)
 	if err != nil {
+		if errors.Is(err, ErrExportTooLarge) {
+			// Logged with the real count, because the owner is given a code and
+			// support needs the number behind it.
+			h.respond.LogError(r, fmt.Errorf("export for complex %s %d/%d has %d rows, over the %d cap",
+				complex.ID, month, year, rowCount, h.svc.ExportRowCap()))
+			h.respond.Error(w, r, http.StatusUnprocessableEntity, httpx.CodeExportTooLarge)
+			return
+		}
 		h.failExport(w, r, err)
 		return
 	}
 
-	if len(details) > h.maxExportRows {
-		// Logged with the real count, because the owner is given a code and
-		// support needs the number behind it.
-		h.respond.LogError(r, fmt.Errorf("export for complex %s %d/%d has %d rows, over the %d cap",
-			complex.ID, month, year, len(details), h.maxExportRows))
-		h.respond.Error(w, r, http.StatusUnprocessableEntity, httpx.CodeExportTooLarge)
-		return
-	}
-
-	sums, err := h.readExportSummaries(ctx, complex.ID, from, to)
-	if err != nil {
-		h.failExport(w, r, err)
-		return
-	}
-
-	buf, err := buildExportWorkbook(ctx, reportTitle(complex.Name, month, year), details, sums.byMethod, sums.byCourt, sums.previous)
-	if err != nil {
-		h.failExport(w, r, err)
-		return
-	}
-
-	h.sendExport(w, r, fmt.Sprintf("pagos_%s_%d_%d.xlsx", complex.Slug, month, year), buf)
+	h.sendExport(w, r, export.Filename, export.Body)
 }
 
 // exportSummaries is the three aggregate reads the summary sheet is built from.
@@ -284,19 +188,19 @@ type exportSummaries struct {
 // The previous month is read here rather than by the caller because it is not a
 // period the caller chose — it is this report's own comparison baseline, and
 // deriving it beside the queries that consume it keeps the offset in one place.
-func (h *Handler) readExportSummaries(ctx context.Context, complexID uuid.UUID, from, to time.Time) (exportSummaries, error) {
-	byMethod, err := h.reports.PaymentSummaryByMethod(ctx, complexID, from, to)
+func (s *Service) readExportSummaries(ctx context.Context, complexID uuid.UUID, from, to time.Time) (exportSummaries, error) {
+	byMethod, err := s.reports.PaymentSummaryByMethod(ctx, complexID, from, to)
 	if err != nil {
 		return exportSummaries{}, err
 	}
 
-	byCourt, err := h.reports.PaymentSummaryByCourt(ctx, complexID, from, to)
+	byCourt, err := s.reports.PaymentSummaryByCourt(ctx, complexID, from, to)
 	if err != nil {
 		return exportSummaries{}, err
 	}
 
 	prevFrom := from.AddDate(0, -1, 0)
-	previous, err := h.reports.PaymentSummaryByMethod(ctx, complexID, prevFrom, prevFrom.AddDate(0, 1, -1))
+	previous, err := s.reports.PaymentSummaryByMethod(ctx, complexID, prevFrom, prevFrom.AddDate(0, 1, -1))
 	if err != nil {
 		return exportSummaries{}, err
 	}

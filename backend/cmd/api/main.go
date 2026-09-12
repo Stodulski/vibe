@@ -195,23 +195,23 @@ type application struct {
 	// queues reports the durable work queues' backlog. It is a field so the
 	// cron heartbeat and the health endpoint read the same source, and so a
 	// test can supply one without a database.
-	queues     health.QueueReporter
-	notify     *notifications.Service
-	courts     *courts.Handler
-	complexes  *complexes.Handler
+	queues    health.QueueReporter
+	notify    *notifications.Service
+	courts    *courts.Handler
+	complexes *complexes.Handler
 	// complexesService is held separately from the handler because the
 	// scheduler calls it directly: the MercadoPago OAuth refresh sweep is the
 	// venue domain's own credential lifecycle, not an HTTP route.
 	complexesService *complexes.Service
-	auth       *auth.Handler
-	payments   *payments.Handler
-	bookings   *bookings.Handler
-	scheduler  *scheduler.Scheduler
-	middleware *middleware.Middleware
-	db         *pgxpool.Pool
-	rdb        *redis.Client
-	models     stores.Stores
-	mp         *mp.MPClient
+	auth             *auth.Handler
+	payments         *payments.Handler
+	bookings         *bookings.Handler
+	scheduler        *scheduler.Scheduler
+	middleware       *middleware.Middleware
+	db               *pgxpool.Pool
+	rdb              *redis.Client
+	models           stores.Stores
+	mp               *mp.MPClient
 	// mpOAuth is the same provider on its own circuit breaker, used only by the
 	// bulk token-refresh cron. See newApplication for why it is separate.
 	mpOAuth  *mp.MPClient

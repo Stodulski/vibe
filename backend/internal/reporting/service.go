@@ -1,0 +1,367 @@
+package reporting
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
+	"github.com/stodulski/vibe-server/internal/slots"
+	"github.com/stodulski/vibe-server/internal/timezone"
+)
+
+// upcomingBookingLimit is how many of today's next bookings the dashboard
+// lists.
+const upcomingBookingLimit = 10
+
+// ErrExportTooLarge reports a period whose detail sheet exceeds the row cap.
+// It is refused rather than truncated: a ledger that stops silently on the
+// twelfth still looks complete to whoever files it.
+var ErrExportTooLarge = errors.New("export exceeds the row cap")
+
+// Service holds this module's arithmetic: the occupancy rates, the period
+// totals, and the workbook the export hands back. Every store call the module
+// makes goes through it; nothing here touches HTTP.
+type Service struct {
+	bookings  BookingReader
+	clients   ClientReader
+	courts    CourtReader
+	complexes ScheduleReader
+	reports   PaymentReportReader
+
+	// maxExportRows is defaultMaxExportRows, held as a field so a test can
+	// exercise the cap boundary — which is an off-by-one in one comparison —
+	// without building a fifty-thousand-row workbook to do it. The budget
+	// beside it needs no such seam, so it stays a constant.
+	maxExportRows int
+}
+
+// NewService returns a Service backed by the given readers.
+func NewService(
+	bookings BookingReader,
+	clients ClientReader,
+	courts CourtReader,
+	complexes ScheduleReader,
+	reports PaymentReportReader,
+) *Service {
+	return &Service{
+		bookings:      bookings,
+		clients:       clients,
+		courts:        courts,
+		complexes:     complexes,
+		reports:       reports,
+		maxExportRows: defaultMaxExportRows,
+	}
+}
+
+// DashboardStats is the headline panel for today.
+type DashboardStats struct {
+	Stats          *bookingstore.DashboardStats
+	TotalClients   int
+	OccupancyRate  int
+	Upcoming       []*bookingstore.Booking
+	PaymentSummary *bookingstore.PaymentSummary
+}
+
+// DashboardStats aggregates today's figures for one complex.
+//
+// The occupancy rate is booked hours over the court-hours the venue is open
+// for, capped at 100: a day with more booked minutes than open hours is a
+// schedule that changed under a booking, not a venue over capacity.
+//
+// It is one cohesive read and splitting it would relocate sequential steps into
+// helpers without reducing what a reader holds at once.
+//
+//nolint:funlen // see the cohesion note above
+func (s *Service) DashboardStats(ctx context.Context, complexID uuid.UUID, now time.Time) (*DashboardStats, error) {
+	today := startOfDay(now)
+	nowTime := fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute())
+
+	stats, err := s.bookings.GetDashboardStats(ctx, complexID, today)
+	if err != nil {
+		return nil, err
+	}
+
+	totalClients, err := s.clients.CountByComplex(ctx, complexID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate occupancy rate: (booked hours today) / (total available hours today) × 100.
+	courts, err := s.courts.GetByComplex(ctx, complexID)
+	if err != nil {
+		return nil, err
+	}
+	activeCourts := countActive(courts)
+
+	schedules, err := s.complexes.GetSchedules(ctx, complexID)
+	if err != nil {
+		return nil, err
+	}
+
+	dayName := slots.DayName(today.Weekday())
+	var openHours float64
+	for _, sc := range schedules {
+		if sc.Day == dayName && !sc.IsClosed {
+			openHours = slots.ToHours(sc.CloseTime) - slots.ToHours(sc.OpenTime)
+			break
+		}
+	}
+
+	var occupancyRate int
+	totalSlotHours := float64(activeCourts) * openHours
+	if totalSlotHours > 0 {
+		bookedHours := float64(stats.TodayBookedMinutes) / 60.0
+		occupancyRate = min(int((bookedHours/totalSlotHours)*100), 100)
+	}
+
+	upcoming, err := s.bookings.GetUpcomingToday(ctx, complexID, today, nowTime, upcomingBookingLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Payment summary for today.
+	paymentSummary, err := s.bookings.GetPaymentSummary(ctx, complexID, today)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DashboardStats{
+		Stats:          stats,
+		TotalClients:   totalClients,
+		OccupancyRate:  occupancyRate,
+		Upcoming:       upcoming,
+		PaymentSummary: paymentSummary,
+	}, nil
+}
+
+// RevenueChart returns daily revenue over the requested period, which is either
+// the last week or the last thirty days.
+func (s *Service) RevenueChart(ctx context.Context, complexID uuid.UUID, now time.Time, period string) ([]bookingstore.RevenueDataPoint, error) {
+	today := startOfDay(now)
+
+	from := today.AddDate(0, 0, -6)
+	if period == "month" {
+		from = today.AddDate(0, 0, -29)
+	}
+
+	return s.bookings.GetRevenueByDay(ctx, complexID, from, today)
+}
+
+// OccupancySlot is the share of one (weekday, hour) slot that was booked.
+type OccupancySlot struct {
+	DayOfWeek  int `json:"day_of_week"`
+	Hour       int `json:"hour"`
+	Percentage int `json:"percentage"`
+}
+
+// OccupancyChart returns the share of open court-hours booked, by hour and
+// weekday, over the given number of weeks.
+//
+// The denominator is the active courts times the weeks looked at: that is how
+// many bookings one (weekday, hour) slot could have held.
+func (s *Service) OccupancyChart(ctx context.Context, complexID uuid.UUID, now time.Time, weeks int) ([]OccupancySlot, error) {
+	today := startOfDay(now)
+	from := today.AddDate(0, 0, -7*weeks)
+
+	rawData, err := s.bookings.GetOccupancyByHourDay(ctx, complexID, from, today)
+	if err != nil {
+		return nil, err
+	}
+
+	courts, err := s.courts.GetByComplex(ctx, complexID)
+	if err != nil {
+		return nil, err
+	}
+
+	maxPerSlot := countActive(courts) * weeks
+
+	result := make([]OccupancySlot, len(rawData))
+	for i, dp := range rawData {
+		pct := 0
+		if maxPerSlot > 0 {
+			pct = min((dp.BookingCount*100)/maxPerSlot, 100)
+		}
+		result[i] = OccupancySlot{DayOfWeek: dp.DayOfWeek, Hour: dp.Hour, Percentage: pct}
+	}
+	return result, nil
+}
+
+// ClientInsights returns the retention and frequency panel.
+func (s *Service) ClientInsights(ctx context.Context, complexID uuid.UUID, now time.Time) (*clientstore.ClientInsights, error) {
+	return s.clients.GetInsights(ctx, complexID, startOfDay(now))
+}
+
+// MonthlyReport totals a period's payments per method and per court, alongside
+// the month before.
+//
+// That comparison is read through the same query, so the two months are counted
+// identically. A period that predates the complex simply has no payments and
+// totals zero — the period validation is not consulted for it, because the
+// owner asked about THIS month and the comparison is context rather than a
+// second request they made.
+//
+// It is one cohesive read — three queries and the arithmetic that turns them
+// into the report — and splitting it would relocate sequential steps into
+// helpers without reducing what a reader holds at once.
+//
+//nolint:funlen // see the cohesion note above
+func (s *Service) MonthlyReport(ctx context.Context, complexID uuid.UUID, month, year int) (map[string]any, error) {
+	from := periodStart(month, year)
+	to := from.AddDate(0, 1, -1)
+
+	summaries, err := s.reports.PaymentSummaryByMethod(ctx, complexID, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	courts, err := s.reports.PaymentSummaryByCourt(ctx, complexID, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	prevFrom := from.AddDate(0, -1, 0)
+	prevSummaries, err := s.reports.PaymentSummaryByMethod(ctx, complexID, prevFrom, prevFrom.AddDate(0, 1, -1))
+	if err != nil {
+		return nil, err
+	}
+
+	type methodSummary struct {
+		Count    int `json:"count"`
+		Total    int `json:"total"`
+		Refunded int `json:"refunded"`
+		Net      int `json:"net"`
+	}
+
+	byMethod := make(map[string]*methodSummary, len(summaries))
+	var totalCount, totalAmount, totalServiceFees, totalRefunded int
+
+	for _, sm := range summaries {
+		// Net is what the owner keeps: the amount plus the service fee the
+		// client paid on top, minus anything refunded.
+		byMethod[sm.Method] = &methodSummary{
+			Count:    sm.Count,
+			Total:    sm.Amount,
+			Refunded: sm.Refunded,
+			Net:      sm.Amount + sm.ServiceFee - sm.Refunded,
+		}
+
+		totalCount += sm.Count
+		totalAmount += sm.Amount
+		totalServiceFees += sm.ServiceFee
+		totalRefunded += sm.Refunded
+	}
+
+	byCourt := make([]map[string]any, 0, len(courts))
+	for _, c := range courts {
+		byCourt = append(byCourt, map[string]any{
+			"court_id":   c.CourtID,
+			"court_name": c.CourtName,
+			"count":      c.Count,
+			"total":      c.Amount,
+			"refunded":   c.Refunded,
+			"net":        c.Amount + c.ServiceFee - c.Refunded,
+		})
+	}
+
+	return map[string]any{
+		"month":     month,
+		"year":      year,
+		"by_method": byMethod,
+		"by_court":  byCourt,
+		"totals": map[string]any{
+			"count":        totalCount,
+			"total":        totalAmount,
+			"service_fees": totalServiceFees,
+			"refunded":     totalRefunded,
+			"net":          totalAmount + totalServiceFees - totalRefunded,
+		},
+		"previous_totals": periodTotals(prevSummaries),
+	}, nil
+}
+
+// Export is a finished workbook and the name it downloads as.
+type Export struct {
+	Filename string
+	Body     *bytes.Buffer
+}
+
+// ExportPaymentsExcel builds the two-sheet workbook: every payment in the
+// period, and the same totals the JSON report returns.
+//
+// rowCount is the size of the detail sheet, meaningful alongside
+// ErrExportTooLarge: the caller logs the real number behind the code the owner
+// is given.
+//
+// The workbook is finished in full before it is handed back. It used to be
+// written straight at the ResponseWriter, which commits a 200 with its first
+// byte — so a failure halfway through arrived as a short .xlsx with a JSON
+// error object stapled to the end, and Excel reported a corrupt file rather
+// than the server reporting a problem.
+func (s *Service) ExportPaymentsExcel(ctx context.Context, complex *complexstore.Complex, month, year int) (export *Export, rowCount int, err error) {
+	ctx, cancel := context.WithTimeout(ctx, exportBudget)
+	defer cancel()
+
+	from := periodStart(month, year)
+	to := from.AddDate(0, 1, -1)
+
+	details, err := s.reports.PaymentDetails(ctx, complex.ID, from, to)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(details) > s.maxExportRows {
+		return nil, len(details), ErrExportTooLarge
+	}
+
+	sums, err := s.readExportSummaries(ctx, complex.ID, from, to)
+	if err != nil {
+		return nil, len(details), err
+	}
+
+	buf, err := buildExportWorkbook(ctx, reportTitle(complex.Name, month, year), details, sums.byMethod, sums.byCourt, sums.previous)
+	if err != nil {
+		return nil, len(details), err
+	}
+
+	return &Export{
+		Filename: fmt.Sprintf("pagos_%s_%d_%d.xlsx", complex.Slug, month, year),
+		Body:     buf,
+	}, len(details), nil
+}
+
+// ExportRowCap is the largest detail sheet this service will build. It is
+// exported for the caller's log line, which names the cap the refused export
+// was measured against.
+func (s *Service) ExportRowCap() int { return s.maxExportRows }
+
+// startOfDay is midnight on the product's calendar, which is Argentina's. Every
+// figure here is a day's figure, and a day is a calendar question.
+func startOfDay(now time.Time) time.Time {
+	local := now.In(timezone.Argentina)
+	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, timezone.Argentina)
+}
+
+// periodStart is the first instant of a report's month, on the same calendar.
+func periodStart(month, year int) time.Time {
+	return time.Date(year, time.Month(month), 1, 0, 0, 0, 0, timezone.Argentina)
+}
+
+// countActive counts the courts a complex currently trades on. A retired court
+// is not capacity.
+func countActive(courts []*courtstore.Court) int {
+	n := 0
+	for _, c := range courts {
+		if c.IsActive {
+			n++
+		}
+	}
+	return n
+}
