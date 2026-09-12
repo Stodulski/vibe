@@ -1,14 +1,6 @@
 // @vitest-environment node
-const { mockGet, mockPost } = vi.hoisted(() => ({
-  mockGet: vi.fn().mockReturnValue({ json: vi.fn().mockResolvedValue({}) }),
-  mockPost: vi.fn().mockReturnValue({ json: vi.fn().mockResolvedValue({}) }),
-}));
-
-vi.mock('@/shared/lib/ky', () => ({
-  default: { get: mockGet, post: mockPost },
-  withSignal: (signal?: AbortSignal) => (signal ? { signal } : {}),
-}));
-
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/msw/server';
 import { publicBookingApi } from './public-booking.api';
 import type { PublicBookingRequest, PublicCancelBookingRequest } from '@/shared/types/api.types';
 
@@ -18,10 +10,6 @@ import type { PublicBookingRequest, PublicCancelBookingRequest } from '@/shared/
 // filled in; optional fields are left out on purpose to prove the schema
 // still accepts the older-server shape described in
 // `publicBooking.ts` (e.g. `BookingStatusDetails`, lines ~136-141).
-function mockJsonOnce(mock: typeof mockGet, data: unknown) {
-  mock.mockReturnValueOnce({ json: vi.fn().mockResolvedValue(data) });
-}
-
 const COMPLEX_RESPONSE = {
   complex: {
     id: 'complex-1',
@@ -106,28 +94,39 @@ const CANCEL_BOOKING_RESPONSE = {
   },
 };
 
-beforeEach(() => vi.clearAllMocks());
-
 describe('publicBookingApi', () => {
   it('getComplex calls GET public/complexes/:slug', async () => {
-    mockJsonOnce(mockGet, COMPLEX_RESPONSE);
-    await publicBookingApi.getComplex('test-club');
-    expect(mockGet).toHaveBeenCalledWith('public/complexes/test-club', expect.any(Object));
+    server.use(http.get('*/public/complexes/:slug', () => HttpResponse.json(COMPLEX_RESPONSE)));
+    await expect(publicBookingApi.getComplex('test-club')).resolves.toEqual(COMPLEX_RESPONSE);
   });
 
-  it('getAvailability calls GET public/complexes/:slug/availability', async () => {
-    mockJsonOnce(mockGet, AVAILABILITY_RESPONSE);
-    await publicBookingApi.getAvailability('test-club', '2026-03-18', 90);
-    expect(mockGet).toHaveBeenCalledWith(
-      'public/complexes/test-club/availability',
-      expect.objectContaining({
-        searchParams: { date: '2026-03-18', duration: 90 },
+  it('getAvailability calls GET public/complexes/:slug/availability with the date and duration params', async () => {
+    let receivedDate: string | null = null;
+    let receivedDuration: string | null = null;
+    server.use(
+      http.get('*/public/complexes/:slug/availability', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        receivedDate = params.get('date');
+        receivedDuration = params.get('duration');
+        return HttpResponse.json(AVAILABILITY_RESPONSE);
       }),
     );
+
+    await publicBookingApi.getAvailability('test-club', '2026-03-18', 90);
+
+    expect(receivedDate).toBe('2026-03-18');
+    expect(receivedDuration).toBe('90');
   });
 
-  it('createBooking calls POST book', async () => {
-    mockJsonOnce(mockPost, CREATE_BOOKING_RESPONSE);
+  it('createBooking calls POST book with the request body', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post('*/book', async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(CREATE_BOOKING_RESPONSE);
+      }),
+    );
+
     const data: PublicBookingRequest = {
       complex_id: 'c1',
       court_id: 'ct1',
@@ -140,7 +139,7 @@ describe('publicBookingApi', () => {
       client_email: 'juan@test.com',
     };
     await publicBookingApi.createBooking(data);
-    expect(mockPost).toHaveBeenCalledWith('book', { json: data });
+    expect(receivedBody).toEqual(data);
   });
 });
 
@@ -149,37 +148,50 @@ describe('publicBookingApi', () => {
 // separate top-level call.
 describe('publicBookingApi — booking status and cancellation', () => {
   it('getBookingStatus calls GET book/status with the token query param', async () => {
-    mockJsonOnce(mockGet, BOOKING_STATUS_RESPONSE);
-    await publicBookingApi.getBookingStatus('tok1');
-    expect(mockGet).toHaveBeenCalledWith(
-      'book/status',
-      expect.objectContaining({
-        searchParams: { token: 'tok1' },
+    let receivedToken: string | null = null;
+    server.use(
+      http.get('*/book/status', ({ request }) => {
+        receivedToken = new URL(request.url).searchParams.get('token');
+        return HttpResponse.json(BOOKING_STATUS_RESPONSE);
       }),
     );
+
+    await publicBookingApi.getBookingStatus('tok1');
+
+    expect(receivedToken).toBe('tok1');
   });
 
   it('getCancelInfo calls GET book/cancel-info with the token query param', async () => {
-    mockJsonOnce(mockGet, CANCEL_INFO_RESPONSE);
-    await publicBookingApi.getCancelInfo('tok1');
-    expect(mockGet).toHaveBeenCalledWith(
-      'book/cancel-info',
-      expect.objectContaining({
-        searchParams: { token: 'tok1' },
+    let receivedToken: string | null = null;
+    server.use(
+      http.get('*/book/cancel-info', ({ request }) => {
+        receivedToken = new URL(request.url).searchParams.get('token');
+        return HttpResponse.json(CANCEL_INFO_RESPONSE);
       }),
     );
+
+    await publicBookingApi.getCancelInfo('tok1');
+
+    expect(receivedToken).toBe('tok1');
   });
 
   it('cancelBooking calls POST book/cancel with the token in the body', async () => {
-    mockJsonOnce(mockPost, CANCEL_BOOKING_RESPONSE);
+    let receivedBody: unknown;
+    server.use(
+      http.post('*/book/cancel', async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(CANCEL_BOOKING_RESPONSE);
+      }),
+    );
+
     const data: PublicCancelBookingRequest = { token: 'tok1' };
     await publicBookingApi.cancelBooking(data);
-    expect(mockPost).toHaveBeenCalledWith('book/cancel', { json: data });
+    expect(receivedBody).toEqual(data);
   });
 
   it('rejects with ApiResponseError when the response body does not match the schema', async () => {
     const { ApiResponseError } = await import('@/shared/lib/apiParse');
-    mockJsonOnce(mockGet, { booking: { status: 'not-a-real-status' } });
+    server.use(http.get('*/book/status', () => HttpResponse.json({ booking: { status: 'not-a-real-status' } })));
 
     await expect(publicBookingApi.getBookingStatus('tok1')).rejects.toThrow(ApiResponseError);
   });

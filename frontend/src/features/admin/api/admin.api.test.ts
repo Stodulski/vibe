@@ -1,20 +1,8 @@
 // @vitest-environment node
-const { mockGet, mockPatch } = vi.hoisted(() => ({
-  mockGet: vi.fn(),
-  mockPatch: vi.fn(),
-}));
-
-vi.mock('@/shared/lib/ky', () => ({
-  default: { get: mockGet, patch: mockPatch },
-  withSignal: (signal?: AbortSignal) => (signal ? { signal } : {}),
-}));
-
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/msw/server';
 import { adminApi } from './admin.api';
 import { ApiResponseError } from '@/shared/lib/apiParse';
-
-function jsonOf(body: unknown) {
-  return { json: vi.fn().mockResolvedValue(body) };
-}
 
 async function expectApiResponseError(promise: Promise<unknown>, context: string) {
   try {
@@ -38,21 +26,21 @@ const validStats = {
 };
 
 describe('adminApi response validation', () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it('getStats resolves with a valid response', async () => {
-    mockGet.mockReturnValue(jsonOf({ stats: validStats }));
+    server.use(http.get('*/admin/stats', () => HttpResponse.json({ stats: validStats })));
     const result = await adminApi.getStats();
     expect(result.stats.total_users).toBe(10);
   });
 
   it('getStats rejects with ApiResponseError carrying its context when total_revenue is a string', async () => {
-    mockGet.mockReturnValue(jsonOf({ stats: { ...validStats, total_revenue: '500000' } }));
+    server.use(
+      http.get('*/admin/stats', () => HttpResponse.json({ stats: { ...validStats, total_revenue: '500000' } })),
+    );
     await expectApiResponseError(adminApi.getStats(), 'adminApi.getStats');
   });
 
   it('toggleUserActive rejects with ApiResponseError carrying its context when message is missing', async () => {
-    mockPatch.mockReturnValue(jsonOf({}));
+    server.use(http.patch('*/admin/users/:userId/toggle-active', () => HttpResponse.json({})));
     await expectApiResponseError(adminApi.toggleUserActive('u1', true), 'adminApi.toggleUserActive');
   });
 });

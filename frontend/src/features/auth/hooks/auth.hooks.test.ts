@@ -1,20 +1,19 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
+import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
-import { makeConsumedHttpError } from '@/test/factories';
+import { server } from '@/test/msw/server';
+import { makeConsumedHttpError, makeUser } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { createQueryWrapper } from '@/test/test-utils';
 
-const { mockSetUser, mockSetCsrfToken, mockBootstrapSession, mockRefreshAccessToken, bootUser } = vi.hoisted(() => {
-  const bootUser = { id: 'u1', first_name: 'Juan' };
-  return {
-    bootUser,
-    mockSetUser: vi.fn(),
-    mockSetCsrfToken: vi.fn(),
-    mockBootstrapSession: vi.fn().mockResolvedValue({ user: bootUser, csrf_token: 'from-me' }),
-    mockRefreshAccessToken: vi.fn().mockResolvedValue(undefined),
-  };
-});
+const bootUser = makeUser({ id: 'u1', first_name: 'Juan' });
+
+const { mockSetUser, mockSetCsrfToken } = vi.hoisted(() => ({
+  mockSetUser: vi.fn(),
+  mockSetCsrfToken: vi.fn(),
+}));
 
 vi.mock('../api/auth.api', () => ({
   authApi: {
@@ -42,12 +41,6 @@ vi.mock('@/shared/lib/queryKeys', () => ({
   queryKeys: { auth: { me: ['auth', 'me'] } },
 }));
 
-vi.mock('@/shared/lib/ky', () => ({
-  default: {},
-  bootstrapSession: mockBootstrapSession,
-  refreshAccessToken: mockRefreshAccessToken,
-}));
-
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
   useLocation: () => ({ state: null, pathname: '/login' }),
@@ -55,22 +48,16 @@ vi.mock('react-router-dom', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 describe('useAuth', () => {
   it('returns isAuthenticated false when no user', async () => {
     const { useAuth } = await import('./useAuth');
-    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useAuth(), { wrapper: createQueryWrapper() });
     expect(result.current.isAuthenticated).toBe(false);
   });
 
   it('returns user as null initially', async () => {
     const { useAuth } = await import('./useAuth');
-    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useAuth(), { wrapper: createQueryWrapper() });
     expect(result.current.user).toBeNull();
   });
 
@@ -100,26 +87,32 @@ describe('useAuth', () => {
   // A page load boots from GET /auth/me, which carries the CSRF token for the
   // access token the cookie holds. Nothing here may spend the refresh token:
   // that is `bootstrapSession`'s job, and only once /auth/me answered 401.
+  // The real `ky` client runs here (no `@/shared/lib/ky` mock): a spy on
+  // `refreshAccessToken` proves it was never invoked, while the MSW handler
+  // for `GET auth/me` below answers the real network call `bootstrapSession`
+  // makes.
   it('feeds the store from the bootstrapped session without refreshing the tokens', async () => {
+    const ky = await import('@/shared/lib/ky');
+    const refreshAccessToken = vi.spyOn(ky, 'refreshAccessToken');
     mockSetUser.mockClear();
     mockSetCsrfToken.mockClear();
-    mockRefreshAccessToken.mockClear();
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: bootUser, csrf_token: 'from-me' })));
 
     const { useAuth } = await import('./useAuth');
-    renderHook(() => useAuth(), { wrapper: createWrapper() });
+    renderHook(() => useAuth(), { wrapper: createQueryWrapper() });
 
     await waitFor(() => {
       expect(mockSetUser).toHaveBeenCalledWith(bootUser);
     });
     expect(mockSetCsrfToken).toHaveBeenCalledWith('from-me');
-    expect(mockRefreshAccessToken).not.toHaveBeenCalled();
+    expect(refreshAccessToken).not.toHaveBeenCalled();
   });
 });
 
 describe('useLogin', () => {
   it('returns a mutation with mutate function', async () => {
     const { useLogin } = await import('./useLogin');
-    const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useLogin(), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 });
@@ -127,7 +120,7 @@ describe('useLogin', () => {
 describe('useLogout', () => {
   it('returns a mutation with mutate function', async () => {
     const { useLogout } = await import('./useLogout');
-    const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useLogout(), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 });
@@ -135,7 +128,7 @@ describe('useLogout', () => {
 describe('useRegister', () => {
   it('returns a mutation with mutate function', async () => {
     const { useRegister } = await import('./useRegister');
-    const { result } = renderHook(() => useRegister(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useRegister(), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 
@@ -153,7 +146,7 @@ describe('useRegister', () => {
     vi.mocked(authApi.register).mockRejectedValueOnce(backendError);
 
     const { useRegister } = await import('./useRegister');
-    const { result } = renderHook(() => useRegister(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useRegister(), { wrapper: createQueryWrapper() });
     result.current.mutate(registerPayload);
 
     await waitFor(() => {
@@ -170,7 +163,7 @@ describe('useRegister', () => {
     vi.mocked(authApi.register).mockRejectedValueOnce(backendError);
 
     const { useRegister } = await import('./useRegister');
-    const { result } = renderHook(() => useRegister(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useRegister(), { wrapper: createQueryWrapper() });
     result.current.mutate(registerPayload);
 
     await waitFor(() => {
