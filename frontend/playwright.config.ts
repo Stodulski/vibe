@@ -55,6 +55,11 @@ export default defineConfig({
         'reports.spec.ts',
         'confirm-payment.spec.ts',
         'blocked-slots.spec.ts',
+        // Four owner specs that were in no project and therefore never ran.
+        'blocked-slots-availability.spec.ts',
+        'clients-search.spec.ts',
+        'court-management-display.spec.ts',
+        'settings-tabs.spec.ts',
         // Mixes authenticatedPage (dashboard/bookings/settings) and a plain,
         // unauthenticated page (login) in one file — belongs here for the
         // former; nothing about the latter requires the 'public' project.
@@ -82,6 +87,9 @@ export default defineConfig({
       testMatch: [
         'auth.spec.ts',
         'auth-validation.spec.ts',
+        // Two unauthenticated specs that were in no project and never ran.
+        'auth-navigation.spec.ts',
+        'public-booking-form.spec.ts',
         'public-booking.spec.ts',
         'public-booking-keyboard.spec.ts',
         'public-cancel.spec.ts',
