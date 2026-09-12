@@ -30,6 +30,12 @@ type Court struct {
 	Description *string   `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	// Version is the row's optimistic-concurrency counter, bumped by a trigger
+	// on every UPDATE (db/migrations/003_optimistic_concurrency.sql). It is
+	// also the version of this court's price set, because those rows are
+	// replaced wholesale and a version on one of them does not survive the
+	// replace — see BumpCourtVersion in db/queries/courts.sql.
+	Version int `json:"version"`
 }
 
 // CourtPrice defines the price charged for a court during a day-type and
@@ -58,6 +64,13 @@ type CourtPrice struct {
 	// it produces.
 	FromMin int `json:"from_min"`
 	ToMin   int `json:"to_min"`
+	// Version is this band's own optimistic-concurrency counter, bumped by the
+	// trigger in db/migrations/003_optimistic_concurrency.sql. It is exposed
+	// for completeness and for UpdatePrice, the single-band write; the PUT that
+	// replaces a court's whole price table is guarded by the COURT's version
+	// instead, because these rows are deleted and reinserted and a band's own
+	// counter does not survive that.
+	Version int `json:"version"`
 }
 
 // Covers reports whether this band prices the minute `min`, counted from its
@@ -177,14 +190,19 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court
 }
 
 // Update persists changes to an existing court, returning ErrRecordNotFound if it no longer exists.
-func (m *Store) Update(ctx context.Context, c *Court) error {
+//
+// expectedVersion is the caller's optimistic-concurrency precondition: the
+// version it read before it filled in the form. Nil means it sent none, and the
+// write is the last-write-wins it always was (API-08).
+func (m *Store) Update(ctx context.Context, c *Court, expectedVersion *int) error {
 	dbCourt, err := m.Q.UpdateCourt(ctx, db.UpdateCourtParams{
-		Name:        c.Name,
-		Sport:       db.SportType(c.Sport),
-		CourtType:   db.CourtType(c.CourtType),
-		IsActive:    c.IsActive,
-		Description: data.TextToPg(c.Description),
-		ID:          data.UUIDToPg(c.ID),
+		ExpectedVersion: data.Int4PtrToPg(expectedVersion),
+		Name:            c.Name,
+		Sport:           db.SportType(c.Sport),
+		CourtType:       db.CourtType(c.CourtType),
+		IsActive:        c.IsActive,
+		Description:     data.TextToPg(c.Description),
+		ID:              data.UUIDToPg(c.ID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -194,6 +212,7 @@ func (m *Store) Update(ctx context.Context, c *Court) error {
 	}
 
 	c.UpdatedAt = data.PgToTime(dbCourt.UpdatedAt)
+	c.Version = int(dbCourt.Version)
 	return nil
 }
 
@@ -345,6 +364,7 @@ func (m *Store) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*CourtPrice
 			TimeTo:   data.PgToTimeStr(p.TimeTo),
 			FromMin:  int(p.SpanMin.Lower.Int32),
 			ToMin:    int(p.SpanMin.Upper.Int32),
+			Version:  int(p.Version),
 		}
 	}
 	return result, nil
@@ -413,7 +433,15 @@ func (m *Store) DeletePricesByCourtID(ctx context.Context, courtID uuid.UUID) er
 // field-scoped validation error ("prices[i].time_from: ...") the old
 // per-row loop built; it is -1 when the failure is not attributable to one
 // row (the delete itself, or the transaction machinery).
-func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*CourtPrice) (failedIndex int, err error) {
+//
+// expectedVersion is the caller's precondition, and it is the COURT's version
+// rather than any band's: the bands are deleted and reinserted here, so a
+// counter on one of them cannot be held across this call. Bumping the court in
+// the same transaction is what gives the new price set a version at all — see
+// BumpCourtVersion in db/queries/courts.sql. Nil means no precondition, which
+// is the last-write-wins this endpoint had before versions existed (API-08).
+func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*CourtPrice,
+	expectedVersion *int) (failedIndex int, err error) {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -424,6 +452,20 @@ func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*
 	// Rollback is a no-op once Commit succeeds (pgx returns ErrTxClosed, which is expected).
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// First, because it is the precondition: if the version has moved, nothing
+	// below should run at all, and inside one transaction the delete would
+	// otherwise be rolled back rather than never attempted.
+	qtx := m.Q.WithTx(tx)
+	if _, err := qtx.BumpCourtVersion(ctx, db.BumpCourtVersionParams{
+		ID:              data.UUIDToPg(courtID),
+		ExpectedVersion: data.Int4PtrToPg(expectedVersion),
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return -1, data.ErrRecordNotFound
+		}
+		return -1, err
+	}
+
 	if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, data.UUIDToPg(courtID)); err != nil {
 		return -1, err
 	}
@@ -431,7 +473,6 @@ func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*
 	// qtx reuses InsertCourtPrice's own sqlc-generated encoding for the
 	// day_of_week enum rather than hand-rolling a raw INSERT for it — the same
 	// reason InsertPrice below calls it directly.
-	qtx := m.Q.WithTx(tx)
 	for i, p := range prices {
 		dbPrice, err := qtx.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
 			CourtID: data.UUIDToPg(p.CourtID),
@@ -773,6 +814,7 @@ func courtFromDB(c db.Court) *Court {
 		Description: data.PgToTextPtr(c.Description),
 		CreatedAt:   data.PgToTime(c.CreatedAt),
 		UpdatedAt:   data.PgToTime(c.UpdatedAt),
+		Version:     int(c.Version),
 	}
 }
 

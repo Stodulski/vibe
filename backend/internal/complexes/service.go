@@ -318,6 +318,10 @@ type UpdateInput struct {
 	// vocabulary by the handler, which is the only layer that can name the
 	// offending value in a field error.
 	Amenities *[]string
+	// ExpectedVersion is the version the client read before it filled in the
+	// form, from If-Match or the body. Nil means it sent none, and the write
+	// stays the last-write-wins it always was (API-08).
+	ExpectedVersion *int
 }
 
 // Update applies a partial change to a venue and schedules the cleanup of any
@@ -392,7 +396,16 @@ func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, act
 		complex.IsActive = *in.IsActive
 	}
 
-	if err := s.venueWrites.Update(ctx, complex); err != nil {
+	if err := s.venueWrites.Update(ctx, complex, in.ExpectedVersion); err != nil {
+		// A precondition that no longer holds and a row that is gone both come
+		// back as zero rows, and the caller has to be told them apart: one is
+		// worth retrying against the current version, the other is not. The
+		// row is still there iff this read finds it.
+		if errors.Is(err, data.ErrRecordNotFound) && in.ExpectedVersion != nil {
+			if _, readErr := s.venues.GetByID(ctx, complex.ID); readErr == nil {
+				return nil, data.ErrEditConflict
+			}
+		}
 		return nil, err
 	}
 

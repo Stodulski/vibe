@@ -351,6 +351,7 @@ type ActiveComplex struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	Amenities         []string           `json:"amenities"`
 	MpTokenExpiresAt  pgtype.Timestamptz `json:"mp_token_expires_at"`
+	Version           int32              `json:"version"`
 }
 
 // Courts that are not soft-deleted and whose complex is not soft-deleted either. Read this, not the table, unless the caller needs deleted rows (admin, audit, the court name on a historical booking).
@@ -365,6 +366,7 @@ type ActiveCourt struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	Description pgtype.Text        `json:"description"`
+	Version     int32              `json:"version"`
 }
 
 type AuditLog struct {
@@ -465,6 +467,7 @@ type Complex struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	Amenities         []string           `json:"amenities"`
 	MpTokenExpiresAt  pgtype.Timestamptz `json:"mp_token_expires_at"`
+	Version           int32              `json:"version"`
 }
 
 type ComplexSchedule struct {
@@ -489,6 +492,7 @@ type Court struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	Description pgtype.Text        `json:"description"`
+	Version     int32              `json:"version"`
 }
 
 type CourtPrice struct {
@@ -502,6 +506,7 @@ type CourtPrice struct {
 	CreatedAt pgtype.Timestamptz        `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz        `json:"updated_at"`
 	SpanMin   pgtype.Range[pgtype.Int4] `json:"span_min"`
+	Version   int32                     `json:"version"`
 }
 
 type EmailVerificationToken struct {

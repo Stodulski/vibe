@@ -457,7 +457,7 @@ func (m *mockComplexStore) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([
 	return out, nil
 }
 
-func (m *mockComplexStore) Update(ctx context.Context, c *complexstore.Complex) error {
+func (m *mockComplexStore) Update(ctx context.Context, c *complexstore.Complex, _ *int) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, c)
 	}
@@ -600,7 +600,7 @@ func (m *mockCourtStore) GetByComplex(ctx context.Context, complexID uuid.UUID) 
 	return nil, nil
 }
 
-func (m *mockCourtStore) Update(ctx context.Context, court *courtstore.Court) error {
+func (m *mockCourtStore) Update(ctx context.Context, court *courtstore.Court, _ *int) error {
 	if m.UpdateFn != nil {
 		return m.UpdateFn(ctx, court)
 	}
@@ -656,7 +656,7 @@ func (m *mockCourtStore) DeletePricesByCourtID(ctx context.Context, courtID uuid
 // The default stands in for a successful replacement, and returns the
 // failedIndex the real store returns in that case: -1, meaning no price was the
 // one that failed. A test that needs the failure path sets ReplacePricesFn.
-func (m *mockCourtStore) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (int, error) {
+func (m *mockCourtStore) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice, _ *int) (int, error) {
 	if m.ReplacePricesFn != nil {
 		return m.ReplacePricesFn(ctx, courtID, prices)
 	}

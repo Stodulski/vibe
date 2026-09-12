@@ -143,6 +143,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		CourtType   *string `json:"court_type"`
 		IsActive    *bool   `json:"is_active"`
 		Description *string `json:"description"`
+		// Version is the optimistic-concurrency precondition in the body, for a
+		// client that finds that easier than If-Match. Either spelling works
+		// and neither is required — see httpx.ExpectedVersion (API-08).
+		Version *int `json:"version"`
 	}
 
 	err = httpx.ReadJSON(w, r, &input)
@@ -170,12 +174,19 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	expectedVersion, err := httpx.ExpectedVersion(r, input.Version)
+	if err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+
 	court, err := h.svc.Update(r.Context(), complex.ID, h.actor(r), courtID, UpdateInput{
-		Name:        input.Name,
-		Sport:       input.Sport,
-		CourtType:   input.CourtType,
-		IsActive:    input.IsActive,
-		Description: input.Description,
+		Name:            input.Name,
+		Sport:           input.Sport,
+		CourtType:       input.CourtType,
+		IsActive:        input.IsActive,
+		Description:     input.Description,
+		ExpectedVersion: expectedVersion,
 	})
 	if err != nil {
 		h.respond.DomainError(w, r, err)
@@ -247,6 +258,10 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 			TimeFrom string `json:"time_from"`
 			TimeTo   string `json:"time_to"`
 		} `json:"prices"`
+		// Version is the COURT's version, not a band's: the bands are replaced
+		// wholesale, so the court is the only thing a client can have read and
+		// still hold. If-Match carries the same value (API-08).
+		Version *int `json:"version"`
 	}
 
 	err = httpx.ReadJSON(w, r, &input)
@@ -314,7 +329,13 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	written, failedIndex, err := h.svc.UpdatePrices(r.Context(), complex.ID, h.actor(r), courtID, prices)
+	expectedVersion, err := httpx.ExpectedVersion(r, input.Version)
+	if err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+
+	written, failedIndex, err := h.svc.UpdatePrices(r.Context(), complex.ID, h.actor(r), courtID, prices, expectedVersion)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):

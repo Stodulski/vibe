@@ -22,6 +22,10 @@ WHERE complex_id = $1
 ORDER BY NULLIF(regexp_replace(name, '\D', '', 'g'), '')::int NULLS LAST, name;
 
 -- name: UpdateCourt :one
+-- expected_version is the caller's optimistic-concurrency precondition and is
+-- optional (API-08): NULL is the last-write-wins this endpoint had before
+-- versions existed. Zero rows means either the court is gone or somebody else
+-- wrote it first; courtstore.Store.Update tells those apart by re-reading.
 UPDATE courts
 SET name = $1,
     sport = $2,
@@ -30,6 +34,28 @@ SET name = $1,
     description = $5
 WHERE id = $6
   AND deleted_at IS NULL
+  AND (sqlc.narg('expected_version')::int IS NULL
+       OR version = sqlc.narg('expected_version')::int)
+RETURNING *;
+
+-- name: BumpCourtVersion :one
+-- Bumps the court's version without changing any of its own columns, so that
+-- replacing its price bands moves a counter a client can hold.
+--
+-- The price rows are replaced wholesale (courtstore.Store.ReplacePrices deletes
+-- them and inserts the new set), so a version on an individual band is gone the
+-- moment the set is written and cannot be anybody's precondition. The court is
+-- the thing that persists, so the court's version is the price set's version.
+--
+-- The UPDATE names deleted_at as its assignment precisely because it changes
+-- nothing: the trigger on this table fires on any UPDATE, which is the whole
+-- effect wanted here.
+UPDATE courts
+SET deleted_at = deleted_at
+WHERE id = $1
+  AND deleted_at IS NULL
+  AND (sqlc.narg('expected_version')::int IS NULL
+       OR version = sqlc.narg('expected_version')::int)
 RETURNING *;
 
 -- name: SoftDeleteCourt :exec

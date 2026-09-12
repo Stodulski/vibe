@@ -183,7 +183,7 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 
 	// The first tab saves. This must succeed and move updated_at forward.
 	firstTab.City = "Concurrency City"
-	if err := f.Stores.Complexes.Update(ctx, firstTab); err != nil {
+	if err := f.Stores.Complexes.Update(ctx, firstTab, nil); err != nil {
 		t.Fatalf("first Update (should win the race): %v", err)
 	}
 
@@ -191,7 +191,7 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 	// tab's write landed. Its save must be refused rather than silently
 	// overwrite the first tab's change with the stale row it has in memory.
 	secondTab.Province = "Concurrency Province"
-	err = f.Stores.Complexes.Update(ctx, secondTab)
+	err = f.Stores.Complexes.Update(ctx, secondTab, nil)
 	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("second Update (stale updated_at) = %v, want ErrRecordNotFound", err)
 	}
@@ -209,7 +209,7 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 
 	// The losing tab can retry against the now-current row and succeed.
 	secondTab.UpdatedAt = final.UpdatedAt
-	if err := f.Stores.Complexes.Update(ctx, secondTab); err != nil {
+	if err := f.Stores.Complexes.Update(ctx, secondTab, nil); err != nil {
 		t.Fatalf("retry after refresh: %v", err)
 	}
 }

@@ -224,6 +224,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Latitude          *float64  `json:"latitude"`
 		Longitude         *float64  `json:"longitude"`
 		Amenities         *[]string `json:"amenities"`
+		// Version is the optimistic-concurrency precondition in the body, for a
+		// client that finds that easier than If-Match. Either spelling works
+		// and neither is required — see httpx.ExpectedVersion (API-08).
+		Version *int `json:"version"`
 	}
 
 	err := httpx.ReadJSON(w, r, &input)
@@ -232,7 +236,14 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	expectedVersion, err := httpx.ExpectedVersion(r, input.Version)
+	if err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+
 	in := UpdateInput{
+		ExpectedVersion:   expectedVersion,
 		Name:              input.Name,
 		Address:           input.Address,
 		City:              input.City,

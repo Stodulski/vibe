@@ -41,7 +41,7 @@ type VenueReader interface {
 // VenueWriter creates, edits and closes a venue.
 type VenueWriter interface {
 	Insert(ctx context.Context, c *complexstore.Complex) error
-	Update(ctx context.Context, c *complexstore.Complex) error
+	Update(ctx context.Context, c *complexstore.Complex, expectedVersion *int) error
 	// SoftDeleteCascade deletes the venue and its courts in one transaction,
 	// returning how many courts it closed. See the soft-delete cascade in db/migrations/001_init.sql.
 	SoftDeleteCascade(ctx context.Context, id uuid.UUID) (int, error)

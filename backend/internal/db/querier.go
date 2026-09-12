@@ -11,6 +11,18 @@ import (
 )
 
 type Querier interface {
+	// Bumps the court's version without changing any of its own columns, so that
+	// replacing its price bands moves a counter a client can hold.
+	//
+	// The price rows are replaced wholesale (courtstore.Store.ReplacePrices deletes
+	// them and inserts the new set), so a version on an individual band is gone the
+	// moment the set is written and cannot be anybody's precondition. The court is
+	// the thing that persists, so the court's version is the price set's version.
+	//
+	// The UPDATE names deleted_at as its assignment precisely because it changes
+	// nothing: the trigger on this table fires on any UPDATE, which is the whole
+	// effect wanted here.
+	BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteCourtPrice(ctx context.Context, id pgtype.UUID) error
@@ -206,7 +218,17 @@ type Querier interface {
 	// handler already maps to a 409 edit-conflict response (it previously existed
 	// only to cover a row deleted out from under the request) — so a refused
 	// update now reaches the caller as a conflict to retry, not as data loss.
+	//
+	// `expected_version` is the CALLER's precondition, and it is optional (API-08).
+	// NULL means "whatever it is now", which is the last-write-wins this endpoint
+	// had before versions existed and is what a client that sends no If-Match
+	// still gets. A client that does send one and finds the row has moved matches
+	// zero rows, the same conflict the timestamp above produces.
 	UpdateComplex(ctx context.Context, arg UpdateComplexParams) (Complex, error)
+	// expected_version is the caller's optimistic-concurrency precondition and is
+	// optional (API-08): NULL is the last-write-wins this endpoint had before
+	// versions existed. Zero rows means either the court is gone or somebody else
+	// wrote it first; courtstore.Store.Update tells those apart by re-reading.
 	UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court, error)
 	UpdateCourtPrice(ctx context.Context, arg UpdateCourtPriceParams) (CourtPrice, error)
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (Payment, error)

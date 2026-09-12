@@ -64,6 +64,11 @@ type Complex struct {
 	mpRefreshToken    *string
 	mpRefreshTokenErr error
 	MPUserID          *string `json:"mp_user_id,omitempty"`
+	// Version is the row's optimistic-concurrency counter, bumped by a trigger
+	// on every UPDATE (db/migrations/003_optimistic_concurrency.sql). A client
+	// that echoes it back on a PUT is told, with 409, when somebody else wrote
+	// the row since it was read; a client that does not is not (API-08).
+	Version int `json:"version"`
 	// MPTokenExpiresAt is when the current OAuth access/refresh token pair
 	// expires, per MercadoPago's own expires_in. Nil for a complex never
 	// connected, or connected before this column existed — cronRefreshMPTokens
@@ -212,8 +217,13 @@ func (m *Store) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, 
 // update is refused instead of silently overwriting the other request's
 // change, and the handler already maps that error to a 409 conflict a caller
 // can retry against the now-current row.
-func (m *Store) Update(ctx context.Context, c *Complex) error {
+//
+// expectedVersion is the caller's own precondition on top of that one: the
+// version the client read before it filled in the form. Nil means it sent none,
+// and the write is the last-write-wins it always was (API-08).
+func (m *Store) Update(ctx context.Context, c *Complex, expectedVersion *int) error {
 	dbComplex, err := m.Q.UpdateComplex(ctx, db.UpdateComplexParams{
+		ExpectedVersion:   data.Int4PtrToPg(expectedVersion),
 		Slug:              c.Slug,
 		Name:              c.Name,
 		Address:           c.Address,
@@ -240,6 +250,7 @@ func (m *Store) Update(ctx context.Context, c *Complex) error {
 	}
 
 	c.UpdatedAt = data.PgToTime(dbComplex.UpdatedAt)
+	c.Version = int(dbComplex.Version)
 	return nil
 }
 
@@ -589,6 +600,7 @@ func complexFromDB(c db.Complex, keys *crypto.Keyring) *Complex {
 		MPTokenExpiresAt:  data.PgToTimePtr(c.MpTokenExpiresAt),
 		CreatedAt:         data.PgToTime(c.CreatedAt),
 		UpdatedAt:         data.PgToTime(c.UpdatedAt),
+		Version:           int(c.Version),
 	}
 
 	complex.mpAccessToken, complex.mpAccessTokenErr = mpcred.Open(keys, complex.ID, mpcred.AccessTokenColumn, data.PgToTextPtr(c.MpAccessToken))

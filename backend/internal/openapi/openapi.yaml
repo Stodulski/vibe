@@ -1716,6 +1716,7 @@ paths:
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IfMatchVersion"}
       responses:
         "200":
           description: The updated complex.
@@ -1739,6 +1740,12 @@ paths:
             schema:
               type: object
               properties:
+                version:
+                  type: integer
+                  minimum: 1
+                  description: >-
+                    The row version the client read before it edited. Same meaning as `If-Match`,
+                    which wins where both are sent; omitting both is last-write-wins.
                 name: {type: string}
                 slug: {type: string}
                 address: {type: string}
@@ -2155,6 +2162,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/CourtID"}
+        - {$ref: "#/components/parameters/IfMatchVersion"}
       responses:
         "200":
           description: The updated court.
@@ -2178,6 +2186,12 @@ paths:
             schema:
               type: object
               properties:
+                version:
+                  type: integer
+                  minimum: 1
+                  description: >-
+                    The row version the client read before it edited. Same meaning as `If-Match`,
+                    which wins where both are sent; omitting both is last-write-wins.
                 name: {type: string, maxLength: 100}
                 sport: {type: string, enum: [padel, tennis, soccer, basketball]}
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
@@ -2224,6 +2238,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/CourtID"}
+        - {$ref: "#/components/parameters/IfMatchVersion"}
       responses:
         "200":
           description: The updated price bands.
@@ -2239,6 +2254,7 @@ paths:
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/EditConflict"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -2250,6 +2266,12 @@ paths:
               type: object
               required: [prices]
               properties:
+                version:
+                  type: integer
+                  minimum: 1
+                  description: >-
+                    The row version the client read before it edited. Same meaning as `If-Match`,
+                    which wins where both are sent; omitting both is last-write-wins.
                 prices:
                   type: array
                   minItems: 1
@@ -3042,6 +3064,17 @@ components:
       required: true
       description: The opaque booking-link token, never the booking's primary key.
       schema: {type: string}
+    IfMatchVersion:
+      name: If-Match
+      in: header
+      required: false
+      description: >-
+        The row version the client read before it edited, as an entity tag — `If-Match: "3"`.
+        The write is refused with 409 if the row moved since. A `version` field in the body means
+        the same thing, and this header wins where both are sent. `*`, or neither, is
+        last-write-wins: unchanged behaviour for a client that has not adopted this.
+      schema: {type: string, example: "\"3\""}
+
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -3230,6 +3263,13 @@ components:
           type: array
           items: {type: string}
         payments_enabled: {type: boolean}
+        version:
+          type: integer
+          minimum: 1
+          description: >-
+            Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as
+            `If-Match: "<version>"` or as a `version` body field — and the write is refused with
+            409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 
     Schedule:
       type: object
@@ -3255,6 +3295,13 @@ components:
         description: {type: [string, "null"]}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
+        version:
+          type: integer
+          minimum: 1
+          description: >-
+            Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as
+            `If-Match: "<version>"` or as a `version` body field — and the write is refused with
+            409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 
     CourtWithPrices:
       allOf:
@@ -3281,6 +3328,13 @@ components:
           description: "At or before time_from means the band runs past midnight."
         from_min: {type: integer, description: Minutes from weekday midnight.}
         to_min: {type: integer, description: "Minutes from weekday midnight, may exceed 1440."}
+        version:
+          type: integer
+          minimum: 1
+          description: >-
+            This band's own counter. The PUT that saves a court's price table is guarded by the
+            COURT's version instead: these rows are replaced wholesale, so a band's counter does
+            not survive the save.
 
     BlockedSlot:
       type: object

@@ -1,10 +1,12 @@
 package httpx
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -81,4 +83,34 @@ func ReadIntStrict(qs url.Values, key string, defaultValue int) (int, error) {
 		return 0, fmt.Errorf("%s must be a whole number", key)
 	}
 	return i, nil
+}
+
+// ExpectedVersion reads the optimistic-concurrency precondition a client sends
+// with a write: the row version it read before it filled in the form.
+//
+// Two spellings, because the two callers are different. `If-Match: "3"` is the
+// HTTP one (RFC 9110 §13.1.1) and is what a client library already knows how to
+// send; a `version` field in the body is what a form posting JSON reaches for
+// first. They mean the same thing, the header wins where both are present, and
+// neither is required — nil means the client sent no precondition and the write
+// is the last-write-wins it was before (API-08).
+//
+// The entity-tag quoting is optional here: `If-Match: "3"` and `If-Match: 3`
+// are both read as 3, because a version is a number this API minted and there
+// is nothing to gain from refusing the unquoted form over punctuation. `*`
+// means "any current version", which is the same thing as sending nothing.
+func ExpectedVersion(r *http.Request, bodyVersion *int) (*int, error) {
+	raw := strings.TrimSpace(r.Header.Get("If-Match"))
+	if raw == "" || raw == "*" {
+		return bodyVersion, nil
+	}
+
+	raw = strings.TrimPrefix(raw, "W/")
+	raw = strings.Trim(raw, `"`)
+
+	version, err := strconv.Atoi(raw)
+	if err != nil || version < 1 {
+		return nil, errors.New(`If-Match must be a row version, e.g. "3"`)
+	}
+	return &version, nil
 }

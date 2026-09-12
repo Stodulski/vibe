@@ -83,9 +83,17 @@ SET name = $1,
     latitude = $13,
     longitude = $14,
     amenities = $15
+--
+-- `expected_version` is the CALLER's precondition, and it is optional (API-08).
+-- NULL means "whatever it is now", which is the last-write-wins this endpoint
+-- had before versions existed and is what a client that sends no If-Match
+-- still gets. A client that does send one and finds the row has moved matches
+-- zero rows, the same conflict the timestamp above produces.
 WHERE id = $16
   AND deleted_at IS NULL
   AND updated_at = $17
+  AND (sqlc.narg('expected_version')::int IS NULL
+       OR version = sqlc.narg('expected_version')::int)
 RETURNING *;
 
 -- name: SoftDeleteComplex :execrows

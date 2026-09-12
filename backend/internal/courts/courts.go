@@ -33,7 +33,7 @@ type CourtStore interface {
 	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
 	Insert(ctx context.Context, c *courtstore.Court) error
-	Update(ctx context.Context, c *courtstore.Court) error
+	Update(ctx context.Context, c *courtstore.Court, expectedVersion *int) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -45,7 +45,8 @@ type PriceStore interface {
 	// transaction (H-07) — see its comment in internal/courts/store/courts.go. It
 	// replaces the old DeletePricesByCourtID-then-InsertPrice-loop shape
 	// UpdatePrices used to call directly.
-	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (failedIndex int, err error)
+	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice,
+		expectedVersion *int) (failedIndex int, err error)
 }
 
 // BlockedSlotStore is the hours an owner has withdrawn from sale.
