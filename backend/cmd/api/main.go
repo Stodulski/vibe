@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"expvar"
 	"io"
 	"log/slog"
@@ -157,6 +158,11 @@ const serviceName = "vibe-api"
 //nolint:funlen // flat sequential startup/wiring code; splitting would fragment a single linear
 func main() {
 	cfg, err := config.Load(os.Args[1:], config.OSLookup)
+	if errors.Is(err, config.ErrHelp) {
+		// -h. Asking what the flags are is not a misconfiguration.
+		config.Usage(os.Stdout)
+		os.Exit(0)
+	}
 	if err != nil {
 		// Written before there is a configured logger, because the thing that
 		// failed is the configuration a logger would be built from.

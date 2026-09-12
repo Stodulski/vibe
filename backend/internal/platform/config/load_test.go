@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -233,5 +234,22 @@ func TestFeaturesZeroValueSaysNo(t *testing.T) {
 	}
 	if len(f.Names()) != 0 {
 		t.Errorf("Names = %v, want none", f.Names())
+	}
+}
+
+// TestHelpIsNotAMisconfiguration keeps -h printing the flags and exiting zero,
+// which is what the ~70 flags' own documentation is.
+func TestHelpIsNotAMisconfiguration(t *testing.T) {
+	_, err := config.Load([]string{"-h"}, env(nil))
+	if !errors.Is(err, config.ErrHelp) {
+		t.Fatalf("Load(-h) = %v, want ErrHelp", err)
+	}
+
+	var out strings.Builder
+	config.Usage(&out)
+	for _, want := range []string{"-port", "PORT", "-mp-credential-keys"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("Usage does not mention %q", want)
+		}
 	}
 }

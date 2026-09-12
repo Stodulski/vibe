@@ -27,14 +27,45 @@ func OSLookup(key string) (string, bool) { return os.LookupEnv(key) }
 // error when it cannot be, and every error is collected rather than the first
 // one returned, so an operator fixing a misconfigured deployment is told about
 // all of it at once instead of one variable per restart.
-//
-// splitting it hides which flag carries which default, which is the only thing
-// this function is for.
-//
-//nolint:funlen // one flat declaration of the whole configuration surface;
 func Load(args []string, lookup Lookup) (Config, error) {
 	var cfg Config
+	fs := newFlagSet(&cfg)
 
+	if err := fs.Parse(args); err != nil {
+		return Config{}, fmt.Errorf("config: parsing command-line flags: %w", err)
+	}
+
+	env := &reader{lookup: lookup}
+	cfg.applyEnv(env)
+
+	if err := errors.Join(env.errs...); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
+	return cfg, nil
+}
+
+// ErrHelp is what Load returns, wrapped, for -h. The caller prints Usage and
+// exits zero: asking what the flags are is not a misconfiguration.
+var ErrHelp = flag.ErrHelp
+
+// Usage writes every flag, its default and the environment variable that
+// overrides it. It builds the same flag set Load does, so the two cannot
+// describe different programs.
+func Usage(w io.Writer) {
+	var cfg Config
+	fs := newFlagSet(&cfg)
+	fs.SetOutput(w)
+	fs.PrintDefaults()
+}
+
+// newFlagSet declares the whole configuration surface: every flag, its default,
+// and in its usage text the environment variable that overrides it.
+//
+// splitting it hides which flag carries which default, which is the only thing
+// it is for.
+//
+//nolint:funlen // one flat declaration of that surface;
+func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs := flag.NewFlagSet("api", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 
@@ -128,17 +159,7 @@ func Load(args []string, lookup Lookup) (Config, error) {
 		`Peers allowed to set X-Forwarded-For: "false" (default), "true" for the private ranges, `+
 			`or a comma-separated list of CIDR prefixes (TRUSTED_PROXIES)`)
 
-	if err := fs.Parse(args); err != nil {
-		return Config{}, fmt.Errorf("config: parsing command-line flags: %w", err)
-	}
-
-	env := &reader{lookup: lookup}
-	cfg.applyEnv(env)
-
-	if err := errors.Join(env.errs...); err != nil {
-		return Config{}, fmt.Errorf("config: %w", err)
-	}
-	return cfg, nil
+	return fs
 }
 
 // applyEnv lets the environment override what the flags left behind. The
