@@ -12,6 +12,7 @@ import (
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/health"
+	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 )
 
@@ -323,6 +324,54 @@ func TestAFailedResolvedRefundSweepIsReported(t *testing.T) {
 	}
 	if got := len(f.lines(t, "cron_clean_failed_refunds: completed")); got != 0 {
 		t.Errorf("a sweep that failed must not also report completion; got %d lines", got)
+	}
+}
+
+// fakeJobRetentionStore lets a test fake the one method clean_jobs needs
+// from jobs.Store, which is concrete and otherwise needs a database.
+type fakeJobRetentionStore struct {
+	fn func(ctx context.Context, olderThan time.Duration) (int64, error)
+}
+
+func (f fakeJobRetentionStore) DeleteDone(ctx context.Context, olderThan time.Duration) (int64, error) {
+	return f.fn(ctx, olderThan)
+}
+
+// TestTheFinishedJobsSweepPrunesThroughTheStore covers registration, the
+// call and its retention window, and the completion log in one job: a sweep
+// unregistered or uncalled is invisible from every other angle.
+func TestTheFinishedJobsSweepPrunesThroughTheStore(t *testing.T) {
+	f := newCronFixture(t)
+
+	registered := f.app.cronJobs()
+	var found *scheduler.Job
+	for i := range registered {
+		if registered[i].Name == "clean_jobs" {
+			found = &registered[i]
+		}
+	}
+	if found == nil || found.Every != 24*time.Hour {
+		t.Fatalf("want clean_jobs registered on the daily interval; got %+v", found)
+	}
+
+	var got time.Duration
+	calls := 0
+	f.app.jobRetention = fakeJobRetentionStore{fn: func(_ context.Context, olderThan time.Duration) (int64, error) {
+		calls++
+		got = olderThan
+		return 9, nil
+	}}
+
+	f.app.cronCleanJobs(t.Context())
+
+	if calls != 1 {
+		t.Fatalf("want DeleteDone called exactly once; got %d", calls)
+	}
+	if want := jobs.DefaultConfig().Retention; got != want {
+		t.Errorf("want the default retention window (%v); got %v", want, got)
+	}
+	if count := field(t, f.onlyLine(t, "cron_clean_jobs: completed"), "count"); count != float64(9) {
+		t.Errorf("want the deleted count on the line; got %v", count)
 	}
 }
 

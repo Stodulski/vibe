@@ -92,6 +92,12 @@ type BookingConfirmation struct {
 	// OwnerID is the complex owner, who is emailed separately about the sale.
 	OwnerID string `json:"owner_id"`
 
+	// BookingID identifies the booking this is about. It is the business half
+	// of the queue's deduplication key (JOB-04) and never travels into the
+	// payload — the workers do not read it, and a durable queue should not
+	// store a field nobody consumes.
+	BookingID string `json:"-"`
+
 	// Source names the flow that triggered this, for log lines only.
 	Source string `json:"-"`
 }
@@ -122,6 +128,12 @@ type Reminder struct {
 	// MapsURL is the absolute Google Maps link the email's "Cómo llegar"
 	// line uses instead of WhatsApp's button-suffix MapsQuery.
 	MapsURL string `json:"maps_url"`
+
+	// BookingID identifies the booking this is about. It is the business half
+	// of the queue's deduplication key (JOB-04) and never travels into the
+	// payload — the workers do not read it, and a durable queue should not
+	// store a field nobody consumes.
+	BookingID string `json:"-"`
 }
 
 // Cancellation is the notice sent when a booking is cancelled.
@@ -148,6 +160,12 @@ type Cancellation struct {
 	// absolute, for the email.
 	BookPath string `json:"book_path"`
 	BookURL  string `json:"book_url"`
+
+	// BookingID identifies the booking this is about. It is the business half
+	// of the queue's deduplication key (JOB-04) and never travels into the
+	// payload — the workers do not read it, and a durable queue should not
+	// store a field nobody consumes.
+	BookingID string `json:"-"`
 }
 
 // Refund is the notice sent when a deposit is returned.
@@ -160,6 +178,12 @@ type Refund struct {
 	// absolute, for the email.
 	BookPath string `json:"book_path"`
 	BookURL  string `json:"book_url"`
+
+	// BookingID identifies the booking this is about. It is the business half
+	// of the queue's deduplication key (JOB-04) and never travels into the
+	// payload — the workers do not read it, and a durable queue should not
+	// store a field nobody consumes.
+	BookingID string `json:"-"`
 }
 
 // The three transactional account messages each get their own type.

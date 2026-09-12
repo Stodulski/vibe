@@ -19,6 +19,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
+	"github.com/stodulski/vibe-server/internal/jobs"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 )
@@ -565,6 +566,13 @@ type Stores struct {
 	Audit             AuditStore
 	Reports           reportstore.ReportStore
 	Locks             data.LockStore
+	// Jobs is the durable work queue (internal/jobs). It is the one member
+	// cmd/api's validateDeps does not require, because a nil one is a valid
+	// configuration there: the unit suite builds a Stores by hand with no
+	// database behind it and gets the recording in-memory queue instead. New
+	// below always builds it, so it is never nil in a deployment — the pool
+	// it needs is the pool the process cannot start without.
+	Jobs *jobs.Store
 }
 
 // New builds a Stores with every store backed by the given connection pool
@@ -603,5 +611,6 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		SlotLocks:         &bookingstore.SlotLocks{DB: pooled},
 		Admin:             &adminstore.Store{DB: pooled},
 		Audit:             &auditstore.Store{DB: pooled},
+		Jobs:              &jobs.Store{DB: pooled},
 	}
 }

@@ -294,7 +294,8 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 				BalanceAmount: confirmBalanceAmount,
 				CancellationLine: notifications.CancellationLine(complex.CancellationHours, s.cfg.CancellationGracePeriod,
 					pricing.WithinStandardWindow(booking, complex.CancellationHours)),
-				OwnerID: complex.OwnerID.String(),
+				OwnerID:   complex.OwnerID.String(),
+				BookingID: booking.ID.String(),
 			})
 		}
 	}

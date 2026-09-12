@@ -128,8 +128,8 @@ func (app *application) gracefulShutdown(srv *http.Server, timeout time.Duration
 
 	app.events.Shutdown()
 
-	app.logger.Info("draining notification queue")
-	app.notifier.Shutdown()
+	app.logger.Info("draining the job queue")
+	app.jobs.Shutdown()
 
 	if app.rdb != nil {
 		if closeErr := app.rdb.Close(); closeErr != nil {

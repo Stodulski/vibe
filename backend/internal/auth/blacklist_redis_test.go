@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ func newRedisBlacklist(t *testing.T) (*TokenBlacklist, *miniredis.Miniredis) {
 	})
 	t.Cleanup(func() { _ = rdb.Close() })
 
-	return NewTokenBlacklist(rdb, slog.New(slog.NewTextHandler(io.Discard, nil))), mr
+	return NewTokenBlacklist(rdb, slog.New(slog.NewTextHandler(io.Discard, nil)), "test"), mr
 }
 
 func tokenHash(raw string) [32]byte {
@@ -198,7 +199,7 @@ func TestBlacklistRedisHappyPath(t *testing.T) {
 			t.Fatalf("BlacklistToken: %v", err)
 		}
 
-		key := "bl:token:" + hex.EncodeToString(hash[:])
+		key := bl.prefix + "bl:token:" + hex.EncodeToString(hash[:])
 		if !mr.Exists(key) {
 			t.Fatalf("expected redis key %q to exist; keys present: %v", key, mr.Keys())
 		}
@@ -224,7 +225,7 @@ func TestBlacklistRedisHappyPath(t *testing.T) {
 		}
 		after := time.Now()
 
-		key := "bl:user:" + userID.String()
+		key := bl.prefix + "bl:user:" + userID.String()
 		raw, err := mr.Get(key)
 		if err != nil {
 			t.Fatalf("expected redis key %q to exist: %v; keys present: %v", key, err, mr.Keys())
@@ -290,7 +291,7 @@ func TestBlacklistWriteFailureIsReported(t *testing.T) {
 // left the suite green.
 func TestBlacklistCleanup(t *testing.T) {
 	t.Run("evicts expired tokens and keeps live ones", func(t *testing.T) {
-		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 		// The in-memory path cannot fail, so these errors are always nil.
 		_ = bl.BlacklistToken(t.Context(), "expired-token", time.Now().Add(-time.Second))
 		_ = bl.BlacklistToken(t.Context(), "live-token", time.Now().Add(15*time.Minute))
@@ -306,7 +307,7 @@ func TestBlacklistCleanup(t *testing.T) {
 	})
 
 	t.Run("evicts user invalidations only once they can no longer matter", func(t *testing.T) {
-		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 
 		// A cutoff stops mattering one access-token lifetime after itself:
 		// by then every token it could reject has expired on its own.
@@ -419,4 +420,34 @@ func TestBlacklistSurvivesRedisRecovery(t *testing.T) {
 			t.Error("nothing was revoked anywhere, yet the token was rejected")
 		}
 	})
+}
+
+// TestEveryRevocationKeyCarriesTheEnvironment is RED-01 for the blacklist,
+// which is the store where sharing a key does the most damage: two deployments
+// pointed at one Redis — a managed instance with staging beside production is
+// the ordinary shape — would revoke each other's sessions, and nothing would
+// report it.
+func TestEveryRevocationKeyCarriesTheEnvironment(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr(), MaxRetries: -1})
+	t.Cleanup(func() { _ = rdb.Close() })
+	bl := NewTokenBlacklist(rdb, slog.New(slog.NewTextHandler(io.Discard, nil)), "staging")
+
+	if err := bl.BlacklistToken(t.Context(), "my-token", time.Now().Add(15*time.Minute)); err != nil {
+		t.Fatalf("BlacklistToken: %v", err)
+	}
+	if err := bl.InvalidateUserTokens(t.Context(), uuid.New()); err != nil {
+		t.Fatalf("InvalidateUserTokens: %v", err)
+	}
+
+	keys := mr.Keys()
+	if len(keys) != 2 {
+		t.Fatalf("wrote %d keys, want 2: %v", len(keys), keys)
+	}
+	for _, key := range keys {
+		if !strings.HasPrefix(key, "vibe:staging:") {
+			t.Errorf("key %q is not namespaced by application and environment; another deployment on this "+
+				"Redis would revoke this one's sessions", key)
+		}
+	}
 }

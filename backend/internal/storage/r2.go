@@ -3,13 +3,41 @@ package storage
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
+
+// r2RequestTimeout bounds one round trip to R2, transport and body included.
+//
+// It exists because the alternative is not "a longer timeout", it is none at
+// all (S3-05). An aws.Config with no HTTPClient gets the SDK's default one,
+// whose Timeout is zero: a request that gets a socket and then no bytes hangs
+// until the caller's context expires, and the callers here are handlers
+// deleting a court photo — several of which run under contexts measured in
+// seconds and one of which, the cleanup that follows a court delete, runs
+// detached. Every other outbound client in this repository fixes a timeout
+// explicitly; this one was the exception.
+//
+// Fifteen seconds is generous for an object delete against an edge network and
+// short enough that a stalled request fails inside a request budget rather
+// than outliving it.
+const r2RequestTimeout = 15 * time.Second
+
+// r2MaxAttempts is how many times one operation is sent before the failure
+// reaches the caller.
+//
+// Three, and named here rather than left to the SDK's default of three,
+// because "the same as the default" and "nobody decided" are different states
+// and only one of them survives an SDK upgrade. The retryer this configures
+// retries transport failures, 5xx and throttling — never a 403 or a 404, which
+// are answers about this object.
+const r2MaxAttempts = 3
 
 // R2Client wraps the S3-compatible client used to upload and manage files in Cloudflare R2.
 type R2Client struct {
@@ -21,12 +49,32 @@ type R2Client struct {
 
 // NewR2Client builds an R2Client authenticated against the given Cloudflare R2 account and bucket.
 func NewR2Client(accountID, accessKey, secretKey, bucketName, publicBaseURL string) (*R2Client, error) {
+	return newR2Client(accountID, accessKey, secretKey, bucketName, publicBaseURL,
+		&http.Client{Timeout: r2RequestTimeout})
+}
+
+// newR2Client is NewR2Client with the HTTP client supplied, so a test can put
+// a transport in front of the SDK and watch what it actually does — how many
+// attempts one operation costs, and which failures it declines to retry.
+// Those are the two properties this constructor exists to fix, and neither is
+// observable from the outside.
+func newR2Client(accountID, accessKey, secretKey, bucketName, publicBaseURL string, httpClient aws.HTTPClient) (*R2Client, error) {
 	endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
 
 	cfg := aws.Config{
 		Region:       "auto",
 		Credentials:  credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
 		BaseEndpoint: aws.String(endpoint),
+		HTTPClient:   httpClient,
+		// A function, not a value: the SDK calls it per operation because a
+		// standard retryer carries a rate-limiting token bucket, and sharing
+		// one across every operation lets a burst of failures on one starve
+		// the retries of another.
+		Retryer: func() aws.Retryer {
+			return retry.NewStandard(func(o *retry.StandardOptions) {
+				o.MaxAttempts = r2MaxAttempts
+			})
+		},
 	}
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {

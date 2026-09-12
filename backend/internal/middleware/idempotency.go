@@ -15,6 +15,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 )
 
 // Idempotency is the Idempotency-Key handling for the requests that create a
@@ -160,7 +161,7 @@ func (i *Idempotency) serve(scope string, w http.ResponseWriter, r *http.Request
 // it because a staging deployment sharing a Redis with production must not
 // replay production's answers.
 func (i *Idempotency) key(scope, key string) string {
-	return fmt.Sprintf("vibe:%s:idem:%s:%s", i.env, scope, key)
+	return fmt.Sprintf("%sidem:%s:%s", platformredis.KeyPrefix(i.env), scope, key)
 }
 
 // claim takes the key for this request, or reports what already holds it.

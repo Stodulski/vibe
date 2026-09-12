@@ -185,7 +185,7 @@ func TestAStaleSchemaRecordIsReadAsAMiss(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	if err := mr.Set(userCacheKey(user.ID), string(raw)); err != nil {
+	if err := mr.Set(f.mw.userCacheKey(user.ID), string(raw)); err != nil {
 		t.Fatalf("seeding the cache: %v", err)
 	}
 
@@ -237,7 +237,7 @@ func TestInvalidateUserSurvivesACancelledRequestContext(t *testing.T) {
 	cancel() // the client is gone before the delete is attempted
 	f.mw.InvalidateUser(ctx, user.ID)
 
-	if mr.Exists(userCacheKey(user.ID)) {
+	if mr.Exists(f.mw.userCacheKey(user.ID)) {
 		t.Error("the cached account must be dropped even though the request context was cancelled")
 	}
 }
@@ -295,7 +295,7 @@ func TestARecordThatCannotBeDecodedIsReported(t *testing.T) {
 	f, mr := newCacheFixture(t)
 	id := uuid.New()
 
-	if err := mr.Set(userCacheKey(id), "not json at all"); err != nil {
+	if err := mr.Set(f.mw.userCacheKey(id), "not json at all"); err != nil {
 		t.Fatalf("seeding the cache: %v", err)
 	}
 
@@ -318,7 +318,7 @@ func TestAStaleSchemaRecordIsNotReportedAsAFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	if err := mr.Set(userCacheKey(user.ID), string(raw)); err != nil {
+	if err := mr.Set(f.mw.userCacheKey(user.ID), string(raw)); err != nil {
 		t.Fatalf("seeding the cache: %v", err)
 	}
 
@@ -372,5 +372,33 @@ func TestABrokenCacheDoesNotWriteALinePerRequest(t *testing.T) {
 
 	if got := f.logs.String(); !strings.Contains(got, "suppressed_since_last_line="+strconv.Itoa(requests-1)) {
 		t.Errorf("the line must account for the %d occurrences it stands for; got %s", requests-1, got)
+	}
+}
+
+// TestTheUserCacheKeyCarriesTheEnvironment is RED-01 for the cache. Two
+// deployments on one Redis would otherwise serve each other's accounts, and
+// the symptom is not an error: it is a user reading a stale copy of their own
+// row from the wrong environment, with the role and the is_active flag it had
+// there.
+func TestTheUserCacheKeyCarriesTheEnvironment(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr(), MaxRetries: -1})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	staging := newFixtureWith(t, Config{Env: "staging"}, rdb)
+	production := newFixtureWith(t, Config{Env: "production"}, rdb)
+
+	id := uuid.New()
+	if staging.mw.userCacheKey(id) == production.mw.userCacheKey(id) {
+		t.Fatal("two environments cache one account under the same key")
+	}
+	if !strings.HasPrefix(staging.mw.userCacheKey(id), "vibe:staging:") {
+		t.Errorf("key %q is not namespaced by application and environment", staging.mw.userCacheKey(id))
+	}
+
+	user := testUser(t)
+	staging.mw.cacheUser(t.Context(), user)
+	if cached := production.mw.getCachedUser(t.Context(), user.ID); cached != nil {
+		t.Error("an account cached by staging was served to production")
 	}
 }

@@ -223,7 +223,7 @@ func (m *WebhookEvents) MarkFailed(ctx context.Context, id uuid.UUID, cause stri
 	// every queued payment at once. See transientProviderFailure.
 	if transientProviderFailure(cause) {
 		newRetryCount = retryCount
-		delay = providerOutageRetryDelay
+		delay = providerOutageDelay()
 	}
 
 	exhausted := newRetryCount >= maxRetries

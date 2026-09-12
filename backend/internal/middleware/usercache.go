@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 )
 
 const (
@@ -222,7 +223,14 @@ func (c cachedUser) user() (*authstore.User, bool) {
 }
 
 // userCacheKey is where an account's cached record lives.
-func userCacheKey(id uuid.UUID) string { return "cache:user:" + id.String() }
+//
+// The environment prefix is not decoration: without it two deployments sharing
+// one Redis serve each other's accounts, and the symptom is a user reading
+// another environment's copy of their own row rather than an error anybody
+// notices (RED-01).
+func (m *Middleware) userCacheKey(id uuid.UUID) string {
+	return platformredis.KeyPrefix(m.cfg.Env) + "cache:user:" + id.String()
+}
 
 // getCachedUser returns the cached account, or nil for a miss.
 //
@@ -237,7 +245,7 @@ func (m *Middleware) getCachedUser(ctx context.Context, id uuid.UUID) *authstore
 	ctx, cancel := context.WithTimeout(ctx, redisCacheTimeout)
 	defer cancel()
 
-	raw, err := m.rdb.Get(ctx, userCacheKey(id)).Result()
+	raw, err := m.rdb.Get(ctx, m.userCacheKey(id)).Result()
 	switch {
 	case errors.Is(err, redis.Nil):
 		// The entry expired, or this account has not been seen in ten
@@ -280,7 +288,7 @@ func (m *Middleware) cacheUser(ctx context.Context, user *authstore.User) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, redisCacheTimeout)
 	defer cancel()
-	if err := m.rdb.Set(ctx, userCacheKey(user.ID), raw, userCacheTTL).Err(); err != nil {
+	if err := m.rdb.Set(ctx, m.userCacheKey(user.ID), raw, userCacheTTL).Err(); err != nil {
 		m.reportCacheFailure("SET", err)
 	}
 }
@@ -338,5 +346,5 @@ func (m *Middleware) InvalidateUser(ctx context.Context, id uuid.UUID) {
 func (m *Middleware) deleteCachedUser(ctx context.Context, id uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), redisCacheTimeout)
 	defer cancel()
-	return m.rdb.Del(ctx, userCacheKey(id)).Err()
+	return m.rdb.Del(ctx, m.userCacheKey(id)).Err()
 }

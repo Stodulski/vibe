@@ -100,7 +100,7 @@ func startStream(t *testing.T, auth Authorizer, cfg Config) *streamFixture {
 	t.Helper()
 
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	hub := NewHub(nil, logger)
+	hub := NewHub(nil, logger, "test")
 	t.Cleanup(hub.Shutdown)
 
 	f := &streamFixture{hub: hub, complexID: uuid.New(), done: make(chan struct{})}
@@ -291,7 +291,7 @@ func TestStreamWithNoAuthorizerFailsClosed(t *testing.T) {
 // status code instead of a stream that opens and dies.
 func TestStreamRefusesAConnectionOverTheCap(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	hub := NewHub(nil, logger)
+	hub := NewHub(nil, logger, "test")
 	t.Cleanup(hub.Shutdown)
 	hub.perComplexLimit = 1
 
@@ -324,7 +324,7 @@ func TestStreamRefusesAConnectionOverTheCap(t *testing.T) {
 }
 
 func TestHubRefusesBeyondThePerComplexLimit(t *testing.T) {
-	hub := NewHub(nil, testLogger())
+	hub := NewHub(nil, testLogger(), "test")
 	t.Cleanup(hub.Shutdown)
 	hub.perComplexLimit = 2
 
@@ -349,7 +349,7 @@ func TestHubRefusesBeyondThePerComplexLimit(t *testing.T) {
 }
 
 func TestHubRefusesBeyondTheProcessLimit(t *testing.T) {
-	hub := NewHub(nil, testLogger())
+	hub := NewHub(nil, testLogger(), "test")
 	t.Cleanup(hub.Shutdown)
 	hub.totalLimit = 2
 
@@ -369,7 +369,7 @@ func TestHubRefusesBeyondTheProcessLimit(t *testing.T) {
 
 // A repeated Unsubscribe must not hand back capacity that was never taken.
 func TestUnsubscribingTwiceDoesNotInventCapacity(t *testing.T) {
-	hub := NewHub(nil, testLogger())
+	hub := NewHub(nil, testLogger(), "test")
 	t.Cleanup(hub.Shutdown)
 	hub.totalLimit = 1
 

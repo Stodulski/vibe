@@ -5,8 +5,14 @@ import (
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 )
+
+// jobRetentionStore lets clean_jobs be tested without a database.
+type jobRetentionStore interface {
+	DeleteDone(ctx context.Context, olderThan time.Duration) (int64, error)
+}
 
 // startCronJobs hands the recurring jobs to the scheduler, which owns the
 // intervals and the cross-instance locking.
@@ -50,6 +56,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("clean_webhook_events", 24*time.Hour, app.cronCleanWebhookEvents),
 		job("clean_failed_refunds", 24*time.Hour, app.cronCleanFailedRefunds),
 		job("clean_unverified_users", 24*time.Hour, app.cronCleanUnverifiedUsers),
+		job("clean_jobs", 24*time.Hour, app.cronCleanJobs),
 
 		// The token blacklist is an in-process fallback when Redis is absent,
 		// so every instance prunes its own — this one takes no lock.
@@ -163,6 +170,20 @@ func (app *application) cronCleanUnverifiedUsers(ctx context.Context) {
 		return
 	}
 	app.logger.Info("cron_clean_unverified_users: completed")
+}
+
+// cronCleanJobs deletes finished jobs.Store rows past Retention, which is
+// also what frees a done job's DedupKey again. See jobs.DedupKey.
+func (app *application) cronCleanJobs(ctx context.Context) {
+	if app.jobRetention == nil {
+		return
+	}
+	count, err := app.jobRetention.DeleteDone(ctx, jobs.DefaultConfig().Retention)
+	if err != nil {
+		app.logger.Error("cron_clean_jobs: failed", "error", err)
+		return
+	}
+	app.logger.Info("cron_clean_jobs: completed", "count", count)
 }
 
 // cronCompleteBookings marks past confirmed bookings as completed. The sweep

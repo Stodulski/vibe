@@ -4,6 +4,7 @@
 BEGIN;
 
 TRUNCATE
+    jobs,
     payments,
     failed_refunds,
     slot_locks,

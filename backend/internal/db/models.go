@@ -534,6 +534,25 @@ type FailedRefund struct {
 	ResolvedAt   pgtype.Timestamptz `json:"resolved_at"`
 }
 
+// The durable work queue. Claimed with SELECT ... FOR UPDATE SKIP LOCKED; see internal/jobs.
+type Job struct {
+	ID      pgtype.UUID        `json:"id"`
+	Type    string             `json:"type"`
+	Payload []byte             `json:"payload"`
+	Status  string             `json:"status"`
+	RunAt   pgtype.Timestamptz `json:"run_at"`
+	// Claims, not failures: incremented by the claim itself, so a handler that kills the process still spends one.
+	Attempts    int32              `json:"attempts"`
+	MaxAttempts int32              `json:"max_attempts"`
+	LastError   pgtype.Text        `json:"last_error"`
+	LockedAt    pgtype.Timestamptz `json:"locked_at"`
+	LockedBy    pgtype.Text        `json:"locked_by"`
+	// sha256 of the job type and what identifies the work (recipient, booking, event). A second enqueue under an existing key does nothing.
+	DedupKey  pgtype.Text        `json:"dedup_key"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type JobLock struct {
 	Key        string             `json:"key"`
 	Holder     pgtype.UUID        `json:"holder"`

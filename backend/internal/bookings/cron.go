@@ -73,6 +73,7 @@ func (s *Service) Reminder2h(ctx context.Context) {
 			MapsURL:       booklink.MapsURL(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
 			CancelPath:    cancelPath,
 			CancelURL:     cancelURL,
+			BookingID:     b.ID.String(),
 		})
 
 		s.logger.Info("cron_reminder_2h: sent reminder", "booking_id", b.ID)
@@ -132,6 +133,7 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 			RefundLine: notifications.ExpiredUnpaidRefundLine,
 			BookPath:   booklink.BookPath(b.ComplexSlug),
 			BookURL:    booklink.Book(s.cfg.FrontendURL, b.ComplexSlug),
+			BookingID:  b.ID.String(),
 		})
 
 		s.logger.Info("cron_release_expired_payments: released expired booking", "booking_id", b.ID)

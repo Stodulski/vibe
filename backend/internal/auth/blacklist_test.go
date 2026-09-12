@@ -11,7 +11,7 @@ import (
 
 func TestTokenBlacklist(t *testing.T) {
 	t.Run("blacklisted token is rejected", func(t *testing.T) {
-		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 		_ = bl.BlacklistToken(t.Context(), "my-token", time.Now().Add(15*time.Minute))
 
 		if !bl.IsBlacklisted(t.Context(), "my-token", uuid.New(), time.Now()) {
@@ -20,7 +20,7 @@ func TestTokenBlacklist(t *testing.T) {
 	})
 
 	t.Run("non-blacklisted token is allowed", func(t *testing.T) {
-		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 
 		if bl.IsBlacklisted(t.Context(), "other-token", uuid.New(), time.Now()) {
 			t.Error("expected token to not be blacklisted")
@@ -28,7 +28,7 @@ func TestTokenBlacklist(t *testing.T) {
 	})
 
 	t.Run("user invalidation rejects old tokens", func(t *testing.T) {
-		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 		userID := uuid.New()
 
 		issuedAt := time.Now().Add(-5 * time.Minute)
@@ -40,7 +40,7 @@ func TestTokenBlacklist(t *testing.T) {
 	})
 
 	t.Run("user invalidation allows new tokens", func(t *testing.T) {
-		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 		userID := uuid.New()
 
 		_ = bl.InvalidateUserTokens(t.Context(), userID)
@@ -53,7 +53,7 @@ func TestTokenBlacklist(t *testing.T) {
 	})
 
 	t.Run("cleanup removes expired entries", func(t *testing.T) {
-		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		bl := NewTokenBlacklist(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 		_ = bl.BlacklistToken(t.Context(), "expired-token", time.Now().Add(-1*time.Second))
 
 		bl.Cleanup()
