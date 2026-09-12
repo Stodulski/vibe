@@ -78,7 +78,7 @@ Defined in `.env.example`:
 
 ### Deployment
 
-Vercel with edge middleware (`middleware.ts`) for bot/social-crawler prerendering of public `/:slug` pages. PWA via vite-plugin-pwa with workbox (network-first for API, cache-first for fonts).
+Vercel with edge middleware (`middleware.ts`) for bot/social-crawler prerendering of public `/:slug` pages. PWA via vite-plugin-pwa with workbox (network-first for the _public_ API only — authenticated responses are never cached — cache-first for fonts and map tiles).
 
 ## Code Principles
 

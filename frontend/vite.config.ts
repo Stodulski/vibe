@@ -93,9 +93,22 @@ const config: UserConfig = {
       injectRegister: null,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp}'],
+        // Declared rather than inherited from the plugin default, so the
+        // precache purge is part of this config's contract (PWA-08). It only
+        // drops stale *precaches*; the runtime cache below is purged from the
+        // client by src/shared/lib/apiCache.ts.
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            urlPattern: /\/api\/v1\//,
+            // Only the unauthenticated public booking endpoints are cached.
+            // Everything else under /api/v1 is deliberately absent from
+            // runtimeCaching, so the worker never handles it and the request
+            // goes straight to the network: auth travels in a cookie, and a
+            // NetworkFirst rule over the whole API left other people's
+            // bookings and clients readable in the browser's Cache Storage
+            // after logout (PWA-03). The public cache is still purged on
+            // logout by src/shared/lib/apiCache.ts, which owns this name.
+            urlPattern: /\/api\/v1\/public\//,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',

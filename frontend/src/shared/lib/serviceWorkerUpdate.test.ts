@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 import type { registerSW } from 'virtual:pwa-register';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { setupServiceWorkerUpdates, SW_UPDATE_INTERVAL_MS, SW_UPDATE_TOAST_ID } from './serviceWorkerUpdate';
+import { API_CACHE_NAME } from './apiCache';
 
 vi.mock('sonner', () => ({ toast: vi.fn() }));
 
@@ -110,6 +111,22 @@ describe('setupServiceWorkerUpdates', () => {
 
     const ids = vi.mocked(toast).mock.calls.map((call) => (call[1] as { id?: string }).id);
     expect(ids).toEqual([SW_UPDATE_TOAST_ID, SW_UPDATE_TOAST_ID]);
+  });
+});
+
+describe('setupServiceWorkerUpdates cache purge', () => {
+  it('purges the runtime API cache before handing over to the new worker', () => {
+    const del = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal('caches', { delete: del });
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    sw.options().onNeedRefresh?.();
+    expect(del).not.toHaveBeenCalled();
+
+    lastToastOptions().action?.onClick(new Event('click'));
+
+    expect(del).toHaveBeenCalledWith(API_CACHE_NAME);
+    vi.unstubAllGlobals();
   });
 });
 

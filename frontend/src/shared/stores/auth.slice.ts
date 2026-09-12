@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react';
 import type { User } from '@/shared/types/api.types';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
 import { safeLocalStorage, safeSessionStorage } from '@/shared/lib/safeStorage';
+import { purgeApiCache } from '@/shared/lib/apiCache';
 
 export interface AuthSlice {
   user: User | null;
@@ -32,6 +33,9 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
     safeSessionStorage.remove(STORAGE_KEYS.MP_CODE_VERIFIER);
     safeSessionStorage.remove(STORAGE_KEYS.MP_RETURN_PATH);
     Sentry.setUser(null);
+    // The service worker's API cache outlives the in-memory store, so
+    // clearing state is not enough to end a session on a shared device.
+    purgeApiCache();
     set({ user: null, csrfToken: null });
   },
 });

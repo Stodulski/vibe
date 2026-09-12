@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import type { registerSW } from 'virtual:pwa-register';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { purgeApiCache } from '@/shared/lib/apiCache';
 
 const t = ES_AR;
 
@@ -59,6 +60,10 @@ export function setupServiceWorkerUpdates(register: typeof registerSW): void {
             // workbox-window only reports the takeover as an update when the
             // tab already had a controlling worker at registration time, so a
             // first visit left open across a deploy would swallow the click.
+            // `cleanupOutdatedCaches` only drops stale *precaches*; the
+            // runtime API cache would survive the takeover and let the new
+            // build read the old one's responses until they expire (PWA-08).
+            purgeApiCache();
             if ('serviceWorker' in navigator) {
               navigator.serviceWorker.addEventListener(
                 'controllerchange',
