@@ -294,7 +294,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 	cache := userCache{mw: mw}
 
 	placesHandler := places.NewHandler(places.Config{APIKey: cfg.google.placesAPIKey}, respond)
-	clientsHandler := clients.NewHandler(d.models.Clients, d.models.Bookings, respond)
+	clientsService := clients.NewService(d.models.Clients, d.models.Bookings)
+	clientsHandler := clients.NewHandler(clientsService, respond)
 	// The stream re-authorizes through the same chain that admitted it: see
 	// streamAuthorizer. Its cadence and lifetime are the package's defaults.
 	realtimeHandler := realtime.NewHandler(events, streamAuthorizer{mw: mw}, respond, d.logger,
