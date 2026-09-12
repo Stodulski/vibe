@@ -2,6 +2,8 @@ package httpx
 
 import (
 	"net/http"
+	"net/url"
+	"path"
 	"slices"
 	"strings"
 )
@@ -67,10 +69,37 @@ func (m *ServeMux) Build() http.Handler {
 	}
 
 	// Least specific pattern there is, so it matches only what nothing above
-	// claimed: a path this API does not serve at all.
-	m.mux.Handle("/", m.notFound)
+	// claimed: a path this API does not serve at all — unless cleaning it up
+	// lands on one that is, in which case the caller is redirected there.
+	m.mux.Handle("/", m.redirectOrNotFound())
 
 	return m.mux
+}
+
+// redirectOrNotFound answers a request nothing above matched by retrying
+// path.Clean(r.URL.Path) — a trailing slash, or a "//"/"./"/"../" segment
+// that survived to a genuine miss. If the cleaned path is one this API
+// serves, the caller is redirected there (301 GET/HEAD, 308 otherwise, so
+// method and body survive the hop) — httprouter's RedirectTrailingSlash and
+// RedirectFixedPath. Anything still unresolved gets the JSON 404, as before.
+func (m *ServeMux) redirectOrNotFound() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cleaned := path.Clean(r.URL.Path)
+		probe := &http.Request{Method: r.Method, URL: &url.URL{Path: cleaned}}
+		if _, pattern := m.mux.Handler(probe); cleaned != r.URL.Path && pattern != "" && pattern != "/" {
+			target := cleaned
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			status := http.StatusPermanentRedirect
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
+				status = http.StatusMovedPermanently
+			}
+			http.Redirect(w, r, target, status) //nolint:gosec // target is path.Clean(r.URL.Path)+query, never caller-supplied
+			return
+		}
+		m.notFound.ServeHTTP(w, r)
+	})
 }
 
 // methodNotAllowedOr200 answers a request that reached a known path by a method
