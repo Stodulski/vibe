@@ -23,7 +23,6 @@ func (f *fakeTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 // status builds a bodiless response with the given status.
-//
 func status(code int) func(*http.Request) (*http.Response, error) {
 	return func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
