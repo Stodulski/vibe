@@ -225,8 +225,8 @@ tests/load/        Artillery load test scenarios
 ## Useful commands
 
 ```bash
-make test               # unit tests (go test -race)
-make test/cover          # unit tests with coverage report
+make test               # unit tests (go test -race -shuffle=on)
+make test/cover          # unit tests with coverage report (same flags, plus -coverprofile)
 make lint                # golangci-lint
 make audit                # go mod verify + govulncheck
 make build               # build ./bin/api
@@ -245,6 +245,11 @@ go run ./cmd/mpcredkey seal|rekey ...        # convert MercadoPago OAuth credent
 
 `make e2e` looks for the client at `../frontend` by default (override with `CLIENT_DIR`), which is where it lives in this repository.
 
+## Testing
+
+- **Flags**: `test`, `test/cover` and `test/integration` all run with `-race` (data-race detector) and `-shuffle=on` (each run reorders tests and subtests with a fresh seed, so a test that only passes for a particular execution order fails instead of hiding). `test/integration` also forces `-p 1` because every package shares the one E2E database. On a failure, `go test` prints the seed it used (`-shuffle=on -shuffle-seed=<n>`); reruns with that seed reproduce the same order for debugging an order-dependent failure.
+- **Integration Redis**: `test/integration` also exports `REDIS_URL` (`E2E_REDIS_URL` in the Makefile) pointing at `docker-compose.e2e.yml`'s `redis` service on `localhost:6380`, for any integration test that needs a real Redis instead of the nil client `newIntegrationApp` otherwise builds.
+
 ## Deploy
 
 The server deploys to [Railway](https://railway.app) from `Dockerfile` (Go 1.27 multi-stage build, distroless final image — see the Dockerfile's own comments for why). `railway.toml` sets:
@@ -259,12 +264,12 @@ CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository roo
 |---|---|
 | `lint` | golangci-lint (config in `.golangci.yml`) |
 | `format` | `gofmt -l .`, `goimports -l .`, `go vet ./...` |
-| `test` | `make test` (unit tests, race detector) |
+| `test` | `make test` (unit tests, race detector + `-shuffle=on`) |
 | `build` | `make build` |
 | `audit` | `make audit` (`go mod verify` + `govulncheck`) |
 | `sqlc` | `make vet/sqlc` against a disposable, migrated Postgres — catches a query that no longer matches the schema |
 | `container` | builds `Dockerfile` and scans the image with [Trivy](https://github.com/aquasecurity/trivy), failing on HIGH/CRITICAL findings with a known fix |
-| `integration` | `make e2e-db-up && make test/integration` |
+| `integration` | `make e2e-db-up && make test/integration` (also `-race -shuffle=on`) |
 
 **Required status checks**: all eight jobs above should be marked required for merging into `main` (GitHub → repository Settings → Branches → branch protection rule for `main`). Not configured by this PR — it is a repository setting, done by the owner outside the codebase.
 
