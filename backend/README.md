@@ -188,6 +188,7 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `SENTRY_DSN` | Sentry DSN. | Optional: enables error tracking when set. | `""` |
 | `SENTRY_RELEASE` | Sentry release tag. | Optional | `""` (falls back to `vibe@<build version>` stamped by the Dockerfile) |
 | `PPROF_ENABLED` | Enable `pprof` profiling endpoints. | Optional | `false` |
+| `OPENAPI_VALIDATE_REQUESTS` | Validate every incoming request against the embedded OpenAPI document and refuse what it forbids with 400. **Ignored in production**: the check exists to fail a mismatch in front of the person who can fix it, and production's version of it is the conformance suite in CI, which costs nothing at runtime. Set it to `false` to turn it off in development or staging. | Optional | `true` outside production |
 | `REQUEST_LOG_SAMPLE` | Log one successful request in N (failures and slow requests are never sampled away). | Optional | `1` |
 
 ### Other

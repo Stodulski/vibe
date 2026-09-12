@@ -161,6 +161,9 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.StringVar(&cfg.Google.PlacesAPIKey, "google-places-api-key", "", "Google Places API key (GOOGLE_MAPS_API)")
 	fs.StringVar(&cfg.Google.OAuthClientID, "google-oauth-client-id", "",
 		"Google OAuth client id; enables Sign in with Google (GOOGLE_OAUTH_CLIENT_ID)")
+	fs.BoolVar(&cfg.OpenAPIValidateRequests, "openapi-validate-requests", true,
+		"Validate every request against the embedded OpenAPI document; ignored in production "+
+			"(OPENAPI_VALIDATE_REQUESTS)")
 	fs.BoolVar(&cfg.PProf, "pprof", false, "Enable pprof profiling endpoints (PPROF_ENABLED)")
 	fs.IntVar(&cfg.RequestLogSample, "request-log-sample", 1,
 		"Log one successful request in N (1 logs every request; failures and slow requests are never "+
@@ -247,6 +250,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("SENTRY_RELEASE", &cfg.Sentry.Release)
 	env.strVal("GOOGLE_MAPS_API", &cfg.Google.PlacesAPIKey)
 	env.strVal("GOOGLE_OAUTH_CLIENT_ID", &cfg.Google.OAuthClientID)
+	env.boolVal("OPENAPI_VALIDATE_REQUESTS", &cfg.OpenAPIValidateRequests)
 	env.boolVal("PPROF_ENABLED", &cfg.PProf)
 
 	cfg.Features = env.features("FEATURE_FLAGS")

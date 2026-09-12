@@ -60,6 +60,17 @@ type Config struct {
 	Sentry  Sentry
 	Google  Google
 
+	// OpenAPIValidateRequests runs every request through
+	// openapi3filter.ValidateRequest before a handler sees it, refusing what
+	// internal/openapi/openapi.yaml does not allow.
+	//
+	// It is ignored in production: the check exists to fail a mismatch in
+	// front of the person who can fix it, and production's version of it is
+	// the conformance suite in CI, which costs nothing at runtime. So this is
+	// a way to turn it OFF in development or staging, never a way to turn it
+	// on in production.
+	OpenAPIValidateRequests bool
+
 	PProf bool
 	// Features are the product flags read from FEATURE_FLAGS: code can ship
 	// dark and be switched on per deployment without a new build.

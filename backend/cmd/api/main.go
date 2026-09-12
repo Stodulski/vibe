@@ -61,6 +61,10 @@ type application struct {
 	admin      *admin.Handler
 	health     *health.Handler
 	openapi    *openapi.Handler
+	// specValidator refuses requests the OpenAPI document does not allow. It
+	// is nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off,
+	// which is the only thing routes() checks.
+	specValidator *middleware.SpecValidator
 	// queues reports the durable work queues' backlog. It is a field so the
 	// cron heartbeat and the health endpoint read the same source, and so a
 	// test can supply one without a database.
