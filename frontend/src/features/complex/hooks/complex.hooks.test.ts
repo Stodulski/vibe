@@ -1,6 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
+import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('../api/complex.api', () => ({
   complexApi: {
@@ -56,16 +55,10 @@ vi.mock('react-router-dom', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 describe('useComplexes', () => {
   it('fetches and selects complexes', async () => {
     const { useComplexes } = await import('./useComplexes');
-    const { result } = renderHook(() => useComplexes(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useComplexes(), { wrapper: createQueryWrapper() });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
@@ -76,7 +69,7 @@ describe('useComplexes', () => {
 describe('useComplex', () => {
   it('fetches a single complex', async () => {
     const { useComplex } = await import('./useComplex');
-    const { result } = renderHook(() => useComplex('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useComplex('c1'), { wrapper: createQueryWrapper() });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
@@ -84,7 +77,7 @@ describe('useComplex', () => {
 
   it('is disabled when id is null', async () => {
     const { useComplex } = await import('./useComplex');
-    const { result } = renderHook(() => useComplex(null), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useComplex(null), { wrapper: createQueryWrapper() });
     expect(result.current.fetchStatus).toBe('idle');
   });
 });
@@ -92,7 +85,7 @@ describe('useComplex', () => {
 describe('useCreateComplex', () => {
   it('returns a mutation', async () => {
     const { useCreateComplex } = await import('./useCreateComplex');
-    const { result } = renderHook(() => useCreateComplex(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useCreateComplex(), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   }, 10_000);
 });
@@ -100,7 +93,7 @@ describe('useCreateComplex', () => {
 describe('useUpdateComplex', () => {
   it('returns a mutation', async () => {
     const { useUpdateComplex } = await import('./useUpdateComplex');
-    const { result } = renderHook(() => useUpdateComplex('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useUpdateComplex('c1'), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 });
@@ -108,7 +101,7 @@ describe('useUpdateComplex', () => {
 describe('useDeleteComplex', () => {
   it('returns a mutation', async () => {
     const { useDeleteComplex } = await import('./useDeleteComplex');
-    const { result } = renderHook(() => useDeleteComplex(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useDeleteComplex(), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 });
@@ -117,7 +110,7 @@ describe('useSchedules', () => {
   it('fetches schedules', async () => {
     const { useSchedules } = await import('./useSchedules');
     const { result } = renderHook(() => useSchedules('c1', 'test-club'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -127,7 +120,7 @@ describe('useSchedules', () => {
   it('is disabled when slug is undefined', async () => {
     const { useSchedules } = await import('./useSchedules');
     const { result } = renderHook(() => useSchedules('c1', undefined), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     expect(result.current.fetchStatus).toBe('idle');
   });
@@ -136,7 +129,7 @@ describe('useSchedules', () => {
 describe('useUpdateSchedules', () => {
   it('returns a mutation', async () => {
     const { useUpdateSchedules } = await import('./useUpdateSchedules');
-    const { result } = renderHook(() => useUpdateSchedules('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useUpdateSchedules('c1'), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 });
@@ -144,7 +137,7 @@ describe('useUpdateSchedules', () => {
 describe('useUploadImage', () => {
   it('returns a mutation', async () => {
     const { useUploadImage } = await import('./useUploadImage');
-    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 });
@@ -152,7 +145,7 @@ describe('useUploadImage', () => {
 describe('useDeleteImage', () => {
   it('returns a mutation', async () => {
     const { useDeleteImage } = await import('./useUploadImage');
-    const { result } = renderHook(() => useDeleteImage('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useDeleteImage('c1'), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 });

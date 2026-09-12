@@ -1,8 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { useDashboardClientDetail } from './useDashboardClientDetail';
 import type { Client, TopClient } from '@/shared/types/api.types';
+import { createQueryWrapper } from '@/test/test-utils';
 
 const useClientActionsMock = vi.fn();
 const useClientMock = vi.fn();
@@ -11,12 +10,6 @@ vi.mock('@/features/clients', () => ({
   useClientActions: (...args: unknown[]) => useClientActionsMock(...args) as unknown,
   useClient: (...args: unknown[]) => useClientMock(...args) as unknown,
 }));
-
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
 
 const topClient: TopClient = {
   id: 'client-1',
@@ -61,7 +54,7 @@ describe('useDashboardClientDetail', () => {
   // read null until the real record arrives.
   it('does not fabricate a placeholder Client for the selected top client', () => {
     const { result } = renderHook(() => useDashboardClientDetail('c1'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     act(() => {
       result.current.handleSelectTopClient(topClient);
@@ -78,7 +71,7 @@ describe('useDashboardClientDetail', () => {
       handleSelectClient: vi.fn(),
     });
     const { result } = renderHook(() => useDashboardClientDetail('c1'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     act(() => {
       result.current.handleSelectTopClient(topClient);
@@ -90,7 +83,7 @@ describe('useDashboardClientDetail', () => {
   it('shows the real client once useClient resolves it', () => {
     useClientMock.mockReturnValue({ data: { client: realClient, recent_bookings: [] } });
     const { result } = renderHook(() => useDashboardClientDetail('c1'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     act(() => {
       result.current.handleSelectTopClient(topClient);
@@ -101,7 +94,7 @@ describe('useDashboardClientDetail', () => {
   it('clears the tracked top-client id when the detail sheet closes', () => {
     useClientMock.mockReturnValue({ data: { client: realClient, recent_bookings: [] } });
     const { result, rerender } = renderHook(() => useDashboardClientDetail('c1'), {
-      wrapper: createWrapper(),
+      wrapper: createQueryWrapper(),
     });
     act(() => {
       result.current.handleSelectTopClient(topClient);

@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createElement } from 'react';
 import { useUploadImage, useDeleteImage } from './useUploadImage';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { createQueryWrapper } from '@/test/test-utils';
 
 const t = ES_AR;
 
@@ -35,12 +34,6 @@ vi.mock('../utils/compressImage', () => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 describe('useUploadImage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,7 +53,7 @@ describe('useUploadImage', () => {
     mockUploadToR2.mockResolvedValue({ ok: false });
     const { toast } = await import('sonner');
 
-    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createQueryWrapper() });
     result.current.mutate({
       file: new File(['x'], 'logo.png', { type: 'image/png' }),
       type: 'logo',
@@ -131,7 +124,7 @@ describe('useDeleteImage', () => {
     const Sentry = await import('@sentry/react');
     const { toast } = await import('sonner');
 
-    const { result } = renderHook(() => useDeleteImage('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useDeleteImage('c1'), { wrapper: createQueryWrapper() });
     result.current.mutate({ type: 'logo', currentUrl: 'https://cdn.test/logo.webp' });
 
     await waitFor(() => {

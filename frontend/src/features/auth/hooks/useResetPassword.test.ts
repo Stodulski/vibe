@@ -1,10 +1,8 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
-import { createElement } from 'react';
 import { toast } from 'sonner';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { makeConsumedHttpError } from '@/test/factories';
+import { createWrapper } from '@/test/test-utils';
 
 vi.mock('@/features/auth/api/auth.api', () => ({
   authApi: {
@@ -20,19 +18,6 @@ vi.mock('@/shared/stores', () => ({
 vi.mock('sonner', () => ({
   toast: { error: vi.fn() },
 }));
-
-function createWrapper(initialEntries: string[]) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      createElement(MemoryRouter, { initialEntries }, children),
-    );
-  };
-}
 
 beforeEach(() => {
   vi.clearAllMocks();

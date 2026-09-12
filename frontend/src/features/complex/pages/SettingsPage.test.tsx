@@ -1,7 +1,5 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
 vi.mock('@/shared/tour/useTourReady', () => ({ useTourReady: vi.fn() }));
@@ -40,17 +38,7 @@ vi.mock('@/features/complex/api/complex.api', () => ({
 
 import { useSelectedComplex, useComplexes } from '@/features/complex';
 import { makeComplex } from '@/test/factories';
-
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>{children}</MemoryRouter>
-    </QueryClientProvider>
-  );
-}
+import { createWrapper } from '@/test/test-utils';
 
 describe('SettingsPage', () => {
   it('renders page title', async () => {
