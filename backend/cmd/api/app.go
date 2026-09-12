@@ -306,8 +306,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 		WebhookURL: cfg.leads.abandonedWebhookURL,
 		Token:      cfg.leads.abandonedWebhookToken,
 	})
-	reportingHandler := reporting.NewHandler(d.models.Bookings, d.models.Clients, d.models.Courts,
-		d.models.Complexes, d.models.Reports, respond)
 	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
 	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
 
@@ -369,6 +367,10 @@ func newApplication(cfg config, d deps) (*application, error) {
 
 	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, complexesService, auditor)
 	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
+
+	reportingService := reporting.NewService(d.models.Bookings, clientsService, courtsService,
+		complexesService, d.models.Reports)
+	reportingHandler := reporting.NewHandler(reportingService, respond)
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.
