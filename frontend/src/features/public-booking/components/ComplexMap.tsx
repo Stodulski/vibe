@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import type { Map as LeafletMap } from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { icon } from 'leaflet';
 import { ExternalLink } from 'lucide-react';
@@ -33,17 +34,22 @@ interface ComplexMapProps {
 }
 
 export function ComplexMap({ latitude, longitude, name, address }: ComplexMapProps) {
-  const mapRef = useRef<L.Map | null>(null);
+  // State, not a ref: react-leaflet builds the Leaflet map in its own effect
+  // and only then fills the forwarded ref, so an effect here reading a ref
+  // sees `null` on the pass that matters and never runs again. Holding the
+  // instance in state re-runs the effects below the moment it arrives.
+  const [map, setMap] = useState<LeafletMap | null>(null);
 
   useEffect(() => {
+    if (!map) return;
     // Invalidate map size after mount to handle container resize.
     const timer = setTimeout(() => {
-      mapRef.current?.invalidateSize();
+      map.invalidateSize();
     }, 100);
     return () => {
       clearTimeout(timer);
     };
-  }, []);
+  }, [map]);
 
   // Leaflet's container is keyboard-focusable and pans with the arrow keys,
   // so it cannot be hidden from assistive tech — but it was reaching it as
@@ -53,11 +59,11 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
   // below. Set here rather than as JSX props because react-leaflet's
   // MapContainer only forwards className, id and style to the element.
   useEffect(() => {
-    const container = mapRef.current?.getContainer();
+    const container = map?.getContainer();
     if (!container) return;
     container.setAttribute('role', 'application');
     container.setAttribute('aria-label', `${t.complex.mapOf} ${name}, ${address}`);
-  }, [name, address]);
+  }, [map, name, address]);
 
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${String(latitude)},${String(longitude)}`;
 
@@ -69,7 +75,7 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
         scrollWheelZoom={false}
         dragging={!('ontouchstart' in window)}
         className="h-[200px] w-full z-0"
-        ref={mapRef}
+        ref={setMap}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
