@@ -64,16 +64,22 @@ export function useDateNav() {
     [setSearchParams],
   );
 
-  const handlePrevDay = useCallback(() => {
+  // Not memoized: all three end up on the `onClick` of a plain shadcn
+  // `Button` in DateNavControls, which is not wrapped in `memo`. A stable
+  // identity buys nothing there, and the hook's own consumers re-render on
+  // every date change anyway (PERF-04). `shiftDate` and `setSelectedDate`
+  // keep their `useCallback`: both are effect-free URL writers handed to
+  // other components as props.
+  const handlePrevDay = () => {
     shiftDate(-1);
-  }, [shiftDate]);
-  const handleNextDay = useCallback(() => {
+  };
+  const handleNextDay = () => {
     shiftDate(1);
-  }, [shiftDate]);
+  };
 
-  const handleGoToToday = useCallback(() => {
+  const handleGoToToday = () => {
     setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
-  }, [setSelectedDate]);
+  };
 
   return {
     selectedDate,
