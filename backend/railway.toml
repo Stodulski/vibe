@@ -1,6 +1,11 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+# TZ=UTC (DOM-01, single-timezone-by-design: docs/adr/0005-single-timezone.md)
+# is fixed in the Dockerfile's final stage, not set here: this schema has no
+# runtime-variables section (https://railway.com/railway.schema.json only
+# covers build/deploy/service), so an image-level ENV is the one place that
+# can't be forgotten in the Railway dashboard or drift between environments.
 
 [deploy]
 # Runs after the image is built and before any container starts serving. The
@@ -22,6 +27,13 @@ dockerfilePath = "Dockerfile"
 # documentation shows.
 preDeployCommand = ["/app/api -migrate-only"]
 startCommand = "/app/api"
+# Readiness, not liveness: it pings Postgres and Redis (2s timeout) and
+# answers 503 only when Postgres is down. /api/v1/livez (added alongside this
+# PR by the companion Go change, OBS-06) answers 200 unconditionally and is
+# meant for a liveness probe instead — Railway's own health check only
+# supports one path, so this stays the one wired here; point any future
+# separate liveness prober (or a platform migration away from Railway) at
+# /api/v1/livez instead of duplicating this one.
 healthcheckPath = "/api/v1/healthcheck"
 # Seconds Railway keeps probing before it declares the replica unhealthy. Five
 # was the Docker HEALTHCHECK per-probe timeout copied by mistake; the boot opens
