@@ -105,8 +105,19 @@ func (stubSchedules) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.S
 }
 
 func newTestHandler(reports PaymentReportReader) *Handler {
+	return newTestHandlerWithService(newTestService(reports))
+}
+
+// newTestService builds the service the handler under test is backed by, so a
+// test that needs to reach past the HTTP layer — the export row cap is the one
+// that does — holds the same instance.
+func newTestService(reports PaymentReportReader) *Service {
+	return NewService(stubBookings{}, stubClients{}, stubCourts{}, stubSchedules{}, reports)
+}
+
+func newTestHandlerWithService(svc *Service) *Handler {
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	return NewHandler(stubBookings{}, stubClients{}, stubCourts{}, stubSchedules{}, reports, responder)
+	return NewHandler(svc, responder)
 }
 
 // reportRequest builds a request for a period, already carrying a complex that
@@ -594,8 +605,9 @@ func TestExportWorkbookCarriesEveryPaymentAndTheTotals(t *testing.T) {
 func TestExportRefusesAPeriodOverTheRowCap(t *testing.T) {
 	reports := &stubReports{details: exportDetails(testExportCap + 1)}
 
-	h := newTestHandler(reports)
-	h.maxExportRows = testExportCap
+	svc := newTestService(reports)
+	svc.maxExportRows = testExportCap
+	h := newTestHandlerWithService(svc)
 	w := httptest.NewRecorder()
 	h.ExportPaymentsExcel(w, reportRequest(t, "?month=3&year=2026"))
 
@@ -633,8 +645,9 @@ const testExportCap = 3
 func TestExportAtTheRowCapStillSucceeds(t *testing.T) {
 	reports := &stubReports{details: exportDetails(testExportCap)}
 
-	h := newTestHandler(reports)
-	h.maxExportRows = testExportCap
+	svc := newTestService(reports)
+	svc.maxExportRows = testExportCap
+	h := newTestHandlerWithService(svc)
 	w := httptest.NewRecorder()
 	h.ExportPaymentsExcel(w, reportRequest(t, "?month=3&year=2026"))
 

@@ -244,7 +244,7 @@ func TestGoogleSignInUnknownEmailNeedsProfile(t *testing.T) {
 		t.Fatalf("profile_token missing or not a string: %v", body["profile_token"])
 	}
 
-	claims, err := f.handler.tokenService.ValidateProfileToken(token)
+	claims, err := f.service.tokenService.ValidateProfileToken(token)
 	if err != nil {
 		t.Fatalf("the issued profile_token does not verify: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestGoogleSignInUnknownEmailNeedsProfile(t *testing.T) {
 // verifiable profile_token without going through GoogleSignIn.
 func mintProfileToken(t *testing.T, f *fixture, sub, email, givenName, familyName string) string {
 	t.Helper()
-	token, err := f.handler.tokenService.GenerateProfileToken(sub, email, givenName, familyName)
+	token, err := f.service.tokenService.GenerateProfileToken(sub, email, givenName, familyName)
 	if err != nil {
 		t.Fatalf("minting profile token: %v", err)
 	}
@@ -383,7 +383,7 @@ func TestGoogleCompleteMalformedToken(t *testing.T) {
 func TestGoogleCompleteWrongPurposeToken(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 
-	accessToken, err := f.handler.tokenService.GenerateAccessToken(uuid.New(), "owner")
+	accessToken, err := f.service.tokenService.GenerateAccessToken(uuid.New(), "owner")
 	if err != nil {
 		t.Fatalf("minting access token: %v", err)
 	}

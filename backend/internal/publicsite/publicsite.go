@@ -31,22 +31,16 @@ type Store interface {
 	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 }
 
-// Handler serves the crawler-facing routes.
+// Handler serves the crawler-facing routes. It maps the service's errors onto
+// HTTP and writes the two documents it builds; the rules live in the Service.
 type Handler struct {
-	store       Store
-	respond     *httpx.Responder
-	frontendURL string
-	templates   *templateCache
+	svc     *Service
+	respond *httpx.Responder
 }
 
-// NewHandler returns a Handler rendering against the given frontend origin.
-func NewHandler(store Store, respond *httpx.Responder, frontendURL string) *Handler {
-	return &Handler{
-		store:       store,
-		respond:     respond,
-		frontendURL: frontendURL,
-		templates:   newTemplateCache(templateTTL, fetchTimeout),
-	}
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, respond *httpx.Responder) *Handler {
+	return &Handler{svc: svc, respond: respond}
 }
 
 // Routes registers the crawler-facing endpoints. Both are public by design:

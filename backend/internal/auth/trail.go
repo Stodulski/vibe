@@ -1,13 +1,13 @@
 package auth
 
 import (
-	"net/http"
+	"fmt"
 	"strings"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
-	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 // Actions this module records.
@@ -129,12 +129,32 @@ type accountEvent struct {
 // the trail records the address that was tried and the fact that no session came
 // of it, and whether that address has an account is a join a reader entitled to
 // make can make for themselves.
-func (h *Handler) record(r *http.Request, e audit.Entry) {
+func (s *Service) record(actor Actor, e audit.Entry) {
 	e.ComplexID = nil
 	e.EntityType = entityUser
-	e.IPAddress = httpx.ClientIP(r, h.cfg.TrustProxies)
+	e.IPAddress = actor.IP
 
-	h.audit.Record(e)
+	s.audit.Record(e)
+}
+
+// revocationFailed reports a revocation the blacklist could not share with the
+// other instances, and is the single place that decides what the user is told
+// about it: nothing.
+//
+// The request keeps its normal successful response on purpose. The revocation
+// did land — the blacklist records a failed Redis write in its own memory, so
+// this instance still enforces it — and what is missing is only its propagation
+// to the other instances, which the person clicking "log out" can neither see
+// nor do anything about. Answering "logout failed" would invite them to retry
+// something that already worked as far as they are concerned, while the real
+// problem is a Redis outage that only we can fix. So the alarm is raised at
+// error level and in Sentry, where it reaches the people who can act on it.
+func (s *Service) revocationFailed(op, subject string, err error) {
+	s.logger.Error("SECURITY: token revocation not shared with other instances — enforced on this instance only",
+		"op", op, "subject", subject, "error", err)
+	sentry.CaptureMessage(fmt.Sprintf(
+		"TOKEN REVOCATION DEGRADED (enforced on this instance only, other instances still accept the token): op=%s subject=%s error=%v",
+		op, subject, err))
 }
 
 // accountID copies an account's id for an entry.

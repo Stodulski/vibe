@@ -268,7 +268,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 	}
 
 	auditor := audit.NewRecorder(d.models.Audit, d.logger, app.background)
-	auditTrailHandler := audit.NewHandler(d.models.Audit, auditor, respond, cfg.trustedProxies)
+	auditService := audit.NewService(d.models.Audit, auditor)
+	auditTrailHandler := audit.NewHandler(auditService, respond, cfg.trustedProxies)
 
 	tokens := auth.NewTokenService(auth.TokenServiceConfig{
 		JWTSecret:    cfg.jwt.secret,
@@ -294,19 +295,18 @@ func newApplication(cfg config, d deps) (*application, error) {
 	cache := userCache{mw: mw}
 
 	placesHandler := places.NewHandler(places.Config{APIKey: cfg.google.placesAPIKey}, respond)
-	clientsHandler := clients.NewHandler(d.models.Clients, d.models.Bookings, respond)
+	clientsService := clients.NewService(d.models.Clients, d.models.Bookings)
+	clientsHandler := clients.NewHandler(clientsService, respond)
 	// The stream re-authorizes through the same chain that admitted it: see
 	// streamAuthorizer. Its cadence and lifetime are the package's defaults.
 	realtimeHandler := realtime.NewHandler(events, streamAuthorizer{mw: mw}, respond, d.logger,
 		app.shutdown, realtime.Config{})
-	publicsiteHandler := publicsite.NewHandler(d.models.Complexes, respond, cfg.frontendURL)
 	leadsHandler := leads.NewHandler(respond, leads.Config{
 		WebhookURL: cfg.leads.abandonedWebhookURL,
 		Token:      cfg.leads.abandonedWebhookToken,
 	})
-	reportingHandler := reporting.NewHandler(d.models.Bookings, d.models.Clients, d.models.Courts,
-		d.models.Complexes, d.models.Reports, respond)
-	adminHandler := admin.NewHandler(d.models.Admin, d.models.Audit, cache, auditor, respond, cfg.trustedProxies)
+	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
+	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
 
 	var queues health.QueueReporter
 	if d.db != nil {
@@ -335,19 +335,74 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Respond: respond,
 	}, health.Config{Environment: cfg.env, Version: appVersion})
 
-	courtsHandler := courts.NewHandler(d.models.Courts, d.models.Bookings, d.models.Complexes,
-		auditor, respond, cfg.trustedProxies)
+	// Domain services hold the rules; their handlers only decode, validate and
+	// map errors. A service is passed wherever another domain reads this one,
+	// so the entry point into a domain is its service rather than its store —
+	// which is what lets a rule added later (authorization, caching) land in
+	// one place. Two exceptions:
+	//
+	//   - bookings and payments still receive stores, because their own
+	//     services do not exist yet.
+	//   - complexes receives the court store, because courts and complexes read
+	//     each other and the two services cannot both be constructed second.
+	//     Courts takes the complexes service; complexes keeps the court store.
+	//
+	// The rest of the ordering follows the dependency edges, and the
+	// locals-then-publish rule above makes a wrong order a compile error rather
+	// than a runtime surprise.
+	complexesConfig := complexes.Config{
+		MaxComplexes: cfg.limits.maxComplexes,
+		FrontendURL:  cfg.frontendURL,
+		TrustProxies: cfg.trustedProxies,
+		MPAppID:      cfg.mp.appID,
+	}
+	// complexesService is built before courtsService because the court domain
+	// reads venues and their opening hours through it. The reverse edge — the
+	// public venue page reading that venue's courts — is the one place a store
+	// is still passed between two converted domains: the two services cannot
+	// both be constructed second.
+	complexesService := complexes.NewService(complexes.Dependencies{
+		Store:    d.models.Complexes,
+		Courts:   d.models.Courts,
+		Bookings: d.models.Bookings,
+		Payments: mpClient,
+		OAuth:    mpOAuthClient,
+		Storage:  d.storage,
+		Audit:    auditor,
+		Logger:   d.logger,
+		Run:      app.background,
+	}, complexesConfig)
+	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
+
+	courtsService := courts.NewService(d.models.Courts, d.models.Bookings, complexesService, auditor)
+	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
+
+	reportingService := reporting.NewService(d.models.Bookings, clientsService, courtsService,
+		complexesService, d.models.Reports)
+	reportingHandler := reporting.NewHandler(reportingService, respond)
+
+	publicsiteService := publicsite.NewService(complexesService, cfg.frontendURL)
+	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.
 	notify := notifications.NewService(queue, mailerClient, waClient, d.models.Users, d.logger, whatsappEnabled)
 
-	authHandler := auth.NewHandler(auth.Dependencies{
+	authConfig := auth.Config{
+		JWTSecret:        cfg.jwt.secret,
+		CookieDomain:     cfg.cookieDomain,
+		Environment:      cfg.env,
+		FrontendURL:      cfg.frontendURL,
+		TrustProxies:     cfg.trustedProxies,
+		PasswordHashCost: cfg.passwordHashCost,
+	}
+
+	authService := auth.NewService(auth.Dependencies{
 		Users:         d.models.Users,
 		Tokens:        d.models.Tokens,
 		Verifications: d.models.EmailVerification,
 		Resets:        d.models.PasswordReset,
-		Complexes:     d.models.Complexes,
+		Complexes:     complexesService,
 		Bookings:      d.models.Bookings,
 		Blacklist:     blacklist,
 		Notify:        notify,
@@ -358,14 +413,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Identities:    d.models.UserIdentities,
 		Respond:       respond,
 		Logger:        d.logger,
-	}, auth.Config{
-		JWTSecret:        cfg.jwt.secret,
-		CookieDomain:     cfg.cookieDomain,
-		Environment:      cfg.env,
-		FrontendURL:      cfg.frontendURL,
-		TrustProxies:     cfg.trustedProxies,
-		PasswordHashCost: cfg.passwordHashCost,
-	})
+	}, authConfig)
+	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
 	paymentsHandler := payments.NewHandler(payments.Dependencies{
 		Payments:      d.models.Payments,
@@ -431,15 +480,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 		WhatsAppEnabled: whatsappEnabled,
 	})
 
-	complexesHandler := complexes.NewHandler(d.models.Complexes, d.models.Courts, d.models.Bookings,
-		mpClient, d.storage, auditor, respond, d.logger, app.background,
-		complexes.Config{
-			MaxComplexes: cfg.limits.maxComplexes,
-			FrontendURL:  cfg.frontendURL,
-			TrustProxies: cfg.trustedProxies,
-			MPAppID:      cfg.mp.appID,
-		})
-
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a
 	// multi-instance deployment the instances that skipped were silent.
@@ -468,6 +508,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	app.payments = paymentsHandler
 	app.bookings = bookingsHandler
 	app.complexes = complexesHandler
+	app.complexesService = complexesService
 	app.scheduler = sched
 	app.mp = mpClient
 	app.mpOAuth = mpOAuthClient

@@ -426,6 +426,7 @@ func (s *stubRecorder) only(t *testing.T) audit.Entry {
 
 type fixture struct {
 	handler       *Handler
+	service       *Service
 	users         *stubUsers
 	tokens        *stubTokens
 	verifications *stubVerifications
@@ -474,7 +475,17 @@ func newFixture(t *testing.T) *fixture {
 		logs:       &bytes.Buffer{},
 	}
 	logger := slog.New(slog.NewTextHandler(f.logs, nil))
-	f.handler = NewHandler(Dependencies{
+	cfg := Config{
+		JWTSecret:   testJWTSecret,
+		Environment: "test",
+		FrontendURL: "https://vibe.test",
+		// bcrypt.MinCost, not the production cost: this suite registers and
+		// signs in hundreds of users, and a cost-12 hash under the race
+		// detector takes seconds each. It used to be a package variable a
+		// TestMain wrote; it is configuration now.
+		PasswordHashCost: bcrypt.MinCost,
+	}
+	f.service = NewService(Dependencies{
 		Users:         f.users,
 		Tokens:        f.tokens,
 		Verifications: f.verifications,
@@ -490,16 +501,8 @@ func newFixture(t *testing.T) *fixture {
 		Identities:    f.identities,
 		Respond:       httpx.NewResponder(logger),
 		Logger:        logger,
-	}, Config{
-		JWTSecret:   testJWTSecret,
-		Environment: "test",
-		FrontendURL: "https://vibe.test",
-		// bcrypt.MinCost, not the production cost: this suite registers and
-		// signs in hundreds of users, and a cost-12 hash under the race
-		// detector takes seconds each. It used to be a package variable a
-		// TestMain wrote; it is configuration now.
-		PasswordHashCost: bcrypt.MinCost,
-	})
+	}, cfg)
+	f.handler = NewHandler(f.service, httpx.NewResponder(logger), logger, cfg)
 	return f
 }
 

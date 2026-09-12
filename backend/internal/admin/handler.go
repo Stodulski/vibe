@@ -53,12 +53,10 @@ type Recorder interface {
 	Record(e audit.Entry)
 }
 
-// Handler serves the admin routes.
+// Handler serves the admin routes. It decodes, validates, and maps the
+// service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
-	store        Store
-	auditLogs    AuditReader
-	cache        UserCache
-	audit        Recorder
+	svc          *Service
 	respond      *httpx.Responder
 	trustProxies bool
 }
@@ -66,8 +64,8 @@ type Handler struct {
 // NewHandler returns a Handler. trustProxies must match the deployment: it
 // decides whether the audit trail records the forwarded client address or the
 // immediate peer.
-func NewHandler(store Store, auditLogs AuditReader, cache UserCache, recorder Recorder, respond *httpx.Responder, trustProxies bool) *Handler {
-	return &Handler{store: store, auditLogs: auditLogs, cache: cache, audit: recorder, respond: respond, trustProxies: trustProxies}
+func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Handler {
+	return &Handler{svc: svc, respond: respond, trustProxies: trustProxies}
 }
 
 // Routes registers this module's endpoints. Every one exposes data across all
@@ -86,41 +84,11 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 	router.HandlerFunc(http.MethodGet, "/api/v1/admin/audit-log", superAdmin(h.ListAuditLogs))
 }
 
-// recordRead writes the audit entry for one platform-operator read.
-//
-// Every read here crosses tenants, and until this existed none of them left a
-// trace: the account that can see every venue's revenue, every owner's contact
-// details and the whole audit trail was the only actor on the platform whose
-// activity was invisible. A trail that records what operators change but not
-// what they look at cannot answer the question an operator is most likely to
-// be asked.
-//
-// complexID is set whenever the read is about one tenant, so the entry lands
-// in that tenant's own trail as well — being able to see that the platform
-// read your records is the part that makes this accountability rather than
-// bookkeeping.
-//
-// The entry names what was read, not what came back: copying the rows into
-// new_value would re-publish the very data the read exposed into a second
-// table, and would grow the audit log by the size of every page anybody views.
-func (h *Handler) recordRead(r *http.Request, entityType string, complexID, entityID *uuid.UUID, scope map[string]any) {
-	// An empty scope is handed over as an untyped nil, not as a nil map: a nil
-	// map inside an `any` is not nil, so it would encode to the four bytes
-	// "null" and be stored as a JSON null where the column means "no value".
-	var value any
-	if len(scope) > 0 {
-		value = scope
-	}
-
-	h.audit.Record(audit.Entry{
-		UserID:     actingUserID(r),
-		ComplexID:  complexID,
-		Action:     "read",
-		EntityType: entityType,
-		EntityID:   entityID,
-		NewValue:   value,
-		IPAddress:  httpx.ClientIP(r, h.trustProxies),
-	})
+// actor reads the operator behind a request, and the address it came from, off
+// the request. It is the only thing the audit trail needs that lives on the
+// HTTP side.
+func (h *Handler) actor(r *http.Request) Actor {
+	return Actor{UserID: actingUserID(r), IP: httpx.ClientIP(r, h.trustProxies)}
 }
 
 // actingUserID returns the authenticated operator's id, or nil when the

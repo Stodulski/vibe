@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
@@ -14,13 +13,11 @@ import (
 
 // Stats handles GET /api/v1/admin/stats, returning the platform-wide totals.
 func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
-	stats, err := h.store.GetPlatformStats(r.Context())
+	stats, err := h.svc.Stats(r.Context(), h.actor(r))
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
-
-	h.recordRead(r, "platform_stats", nil, nil, nil)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"stats": stats})
 }
@@ -48,7 +45,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, metadata, err := h.store.ListUsers(r.Context(), search, role, filters)
+	users, metadata, err := h.svc.ListUsers(r.Context(), h.actor(r), search, role, filters)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrInvalidCursor):
@@ -58,15 +55,6 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	scope := map[string]any{"returned": len(users)}
-	if search != "" {
-		scope["search"] = search
-	}
-	if role != "" {
-		scope["role"] = role
-	}
-	h.recordRead(r, "user", nil, nil, scope)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"users":    users,
@@ -83,7 +71,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	detail, err := h.store.GetUserDetail(r.Context(), id)
+	detail, err := h.svc.GetUser(r.Context(), h.actor(r), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
@@ -93,8 +81,6 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	h.recordRead(r, "user", nil, &id, nil)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"user":      detail.User,
@@ -121,7 +107,7 @@ func (h *Handler) ListComplexes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	complexes, metadata, err := h.store.ListComplexes(r.Context(), search, filters)
+	complexes, metadata, err := h.svc.ListComplexes(r.Context(), h.actor(r), search, filters)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrInvalidCursor):
@@ -131,12 +117,6 @@ func (h *Handler) ListComplexes(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	scope := map[string]any{"returned": len(complexes)}
-	if search != "" {
-		scope["search"] = search
-	}
-	h.recordRead(r, "complex", nil, nil, scope)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"complexes": complexes,
@@ -153,7 +133,7 @@ func (h *Handler) GetComplex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	detail, err := h.store.GetComplexDetail(r.Context(), id)
+	detail, err := h.svc.GetComplex(r.Context(), h.actor(r), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
@@ -163,8 +143,6 @@ func (h *Handler) GetComplex(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	h.recordRead(r, "complex", &id, &id, nil)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"complex":        detail.Complex,
@@ -205,7 +183,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logs, metadata, err := h.auditLogs.ListAuditLogs(r.Context(), complexID, entityType, filters)
+	logs, metadata, err := h.svc.ListAuditLogs(r.Context(), h.actor(r), complexID, entityType, filters)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrInvalidCursor):
@@ -215,12 +193,6 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	logScope := map[string]any{"returned": len(logs)}
-	if entityType != "" {
-		logScope["entity_type"] = entityType
-	}
-	h.recordRead(r, "audit_log", complexID, nil, logScope)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"audit_logs": logs,
@@ -247,19 +219,16 @@ func (h *Handler) ToggleUserActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentUser, ok := httpx.ContextGetAuthenticatedUser(r)
-	if !ok {
+	if _, ok := httpx.ContextGetAuthenticatedUser(r); !ok {
 		h.respond.InvalidAuthenticationToken(w, r)
 		return
 	}
-	if currentUser.ID == id {
-		h.respond.Error(w, r, http.StatusConflict, "cannot modify your own account status")
-		return
-	}
 
-	err = h.store.ToggleUserActive(r.Context(), id, input.IsActive)
+	err = h.svc.ToggleUserActive(r.Context(), h.actor(r), id, input.IsActive)
 	if err != nil {
 		switch {
+		case errors.Is(err, ErrSelfToggle):
+			h.respond.Error(w, r, http.StatusConflict, "cannot modify your own account status")
 		case errors.Is(err, data.ErrRecordNotFound):
 			h.respond.NotFound(w, r)
 		default:
@@ -267,19 +236,6 @@ func (h *Handler) ToggleUserActive(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	h.audit.Record(audit.Entry{
-		UserID:     actingUserID(r),
-		Action:     "toggle_active",
-		EntityType: "user",
-		EntityID:   &id,
-		NewValue:   map[string]any{"is_active": input.IsActive},
-		IPAddress:  httpx.ClientIP(r, h.trustProxies),
-	})
-
-	// The user's cached record carries is_active, so a stale copy would keep a
-	// deactivated account working until the entry expired.
-	h.cache.InvalidateUser(r.Context(), id)
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"message": "user updated"})
 }
