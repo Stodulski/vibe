@@ -15,7 +15,10 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    // Root-level `*.test.ts` too: middleware.ts and index.html live outside
+    // src but ship with the app, and their tests are the only guard on the
+    // contract they hold with the backend's prerender.
+    include: ['src/**/*.test.{ts,tsx}', '*.test.ts'],
     css: true,
     // One environment per file.
     //
