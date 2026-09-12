@@ -93,7 +93,7 @@ route that no longer exists, so the two cannot drift apart silently.
 |---|---|---|---|
 | `ENV` | Runtime environment: `development`, `staging`, or `production`. Production enforces stricter checks on `JWT_SECRET` and `BACKEND_URL`. | Optional | `development` |
 | `PORT` | HTTP port the API listens on. | Optional | `8080` |
-| `REDIS_URL` | Redis connection URL. | **Required**: the notification queue (email/WhatsApp) has no fallback; boot refuses to start without a reachable Redis. | none |
+| `REDIS_URL` | Redis connection URL. On Railway it must be the private-network host (`*.railway.internal`) — see the note under `DATABASE_URL`. | **Required**: the notification queue (email/WhatsApp) has no fallback; boot refuses to start without a reachable Redis. | none |
 
 ### HTTP server
 
@@ -110,7 +110,7 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 
 | Variable | Purpose | Required | Default |
 |---|---|---|---|
-| `DATABASE_URL` | PostgreSQL DSN. | **Required**: boot fails to open/ping the pool without it. | none |
+| `DATABASE_URL` | PostgreSQL DSN. On Railway both must resolve over the **project's private network** — a host ending in `.railway.internal`. A public host (`*.railway.app`, or anything else) sends every query, every session token and every queued notification across the internet, is billed as egress, and leaves the datastore reachable from outside the project. Boot warns once, to the log and to Sentry, when `ENV=production` and either host is not on the private network; it names the host and never the URL, because both carry a password. It is a warning and not a refusal because a self-hosted deployment has no `.railway.internal` to point at. | **Required**: boot fails to open/ping the pool without it. | none |
 | `DB_AUTO_MIGRATE` | Apply pending migrations at startup, before serving. Prefer Railway's pre-deploy command over this when running more than one replica. | Optional | `false` |
 | `DB_MIGRATOR_URL` | DSN migrations run as, when different from `DATABASE_URL` (the schema-owner role). | Optional | falls back to `DATABASE_URL` |
 | `DB_MAX_OPEN_CONNS` | Maximum open PostgreSQL connections in the pool. | Optional | `25` |

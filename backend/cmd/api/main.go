@@ -305,6 +305,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Production only: outside it, a localhost database is the point.
+	if cfg.Env == "production" {
+		for _, warning := range publicNetworkWarnings(cfg) {
+			logger.Warn(warning)
+			// Also to Sentry, because a boot warning scrolls past in the deploy
+			// log exactly once and this one describes a standing condition
+			// rather than a moment. The message carries the host and nothing
+			// else — see publicNetworkWarnings.
+			sentry.CaptureMessage(warning)
+		}
+	}
+
 	if err := validateBootConfig(cfg, logger); err != nil {
 		logger.Error("boot configuration check failed", "error", err)
 		sentry.Flush(2 * time.Second)
