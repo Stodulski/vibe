@@ -506,10 +506,11 @@ func (m *Middleware) RateLimitUser(next http.Handler) http.Handler {
 
 	c := m.userCeiling()
 	// A non-positive rate is "not configured", not "refuse everything". The
-	// environment loader already rejects LIMITER_USER_RPS <= 0, so the only
-	// way here is a Config built in code or an explicit -limiter-user-rps=0;
+	// environment loader accepts LIMITER_USER_RPS <= 0 — 0 is how an operator
+	// turns the per-account ceiling off on purpose — so this can also be
+	// reached with an explicit -limiter-user-rps=0 or a Config built in code;
 	// the general ceiling's zero-burst reading ("refuse everything") would
-	// turn either of those into a total outage for signed-in callers, which is
+	// turn any of those into a total outage for signed-in callers, which is
 	// not a failure a new knob should be able to cause.
 	if c.rps <= 0 || c.burst <= 0 {
 		m.logger.Warn("rate limit: the per-account ceiling is not configured and is off; " +

@@ -191,11 +191,6 @@ CREATE POLICY tenant_isolation ON slot_locks
     USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
     WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
 
-ALTER TABLE webhook_events ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE audit_log      ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE payments       ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE bookings       ALTER COLUMN id SET DEFAULT gen_random_uuid();
-
 DROP POLICY tenant_isolation ON booking_link_tokens;
 CREATE POLICY tenant_isolation ON booking_link_tokens
     USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
@@ -260,6 +255,12 @@ ALTER TABLE webhook_events ALTER COLUMN id SET DEFAULT uuidv7();
 
 SET LOCAL lock_timeout = '3s';
 SET LOCAL app.bypass_tenant = 'on';
+
+-- Restore the v4 defaults the Up section replaced with uuidv7().
+ALTER TABLE bookings       ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE payments       ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE audit_log      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE webhook_events ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
 DROP POLICY tenant_isolation ON booking_link_tokens;
 CREATE POLICY tenant_isolation ON booking_link_tokens

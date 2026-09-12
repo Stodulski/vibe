@@ -4,8 +4,13 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/google/uuid"
+
+	"github.com/stodulski/vibe-server/internal/clients/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
@@ -55,5 +60,32 @@ func TestIntegration_ClientTotalBookingsCountsBookingsCreatedOutsideTheMPWebhook
 
 	if client.TotalBookings != 3 {
 		t.Errorf("TotalBookings = %d, want 3 (confirmed + completed + no_show; pending and cancelled excluded)", client.TotalBookings)
+	}
+}
+
+// TestIntegration_UpdateClientScopesToTenant asserts UpdateClient's tenant
+// predicate: an update issued under another complex's context touches zero
+// rows rather than editing a client that belongs to someone else.
+func TestIntegration_UpdateClientScopesToTenant(t *testing.T) {
+	f := datatest.NewFixture(t)
+
+	foreignCtx := data.ContextWithTenant(context.Background(), uuid.New())
+	err := f.Stores.Clients.Update(foreignCtx, &store.Client{
+		ID:        f.ClientID,
+		FirstName: "Someone Else",
+		LastName:  "Diaz",
+		Phone:     "+5491100000099",
+	})
+	if !errors.Is(err, data.ErrRecordNotFound) {
+		t.Fatalf("Update for another tenant: want ErrRecordNotFound; got %v", err)
+	}
+
+	ownCtx := data.ContextWithTenant(context.Background(), f.ComplexID)
+	got, err := f.Stores.Clients.GetByID(ownCtx, f.ClientID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.FirstName != "Ana" {
+		t.Errorf("FirstName = %q, want unchanged %q (the foreign update must not have touched the row)", got.FirstName, "Ana")
 	}
 }

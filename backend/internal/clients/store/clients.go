@@ -242,6 +242,7 @@ func (m *Store) Update(ctx context.Context, c *Client) error {
 		Notes:     data.TextToPg(c.Notes),
 		IsBlocked: c.IsBlocked,
 		ID:        data.UUIDToPg(c.ID),
+		ComplexID: data.TenantParam(ctx),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -225,6 +225,7 @@ type Querier interface {
 	// writer rather than for the one query that remembered to check a counter —
 	// see the bookings section of db/migrations/001_init.sql for why the counter was removed.
 	UpdateBooking(ctx context.Context, arg UpdateBookingParams) (Booking, error)
+	// Tenant-scoped: see the note on GetClientByID for why the predicate is optional.
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	// H-14: an unconditional UPDATE let two concurrent edits race — each loads the
 	// row, applies its own fields, and writes every column back, so whichever

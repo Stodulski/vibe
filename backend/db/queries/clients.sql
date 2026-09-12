@@ -38,6 +38,7 @@ ORDER BY created_at ASC, id ASC
 LIMIT $4;
 
 -- name: UpdateClient :one
+-- Tenant-scoped: see the note on GetClientByID for why the predicate is optional.
 UPDATE clients
 SET first_name = $1,
     last_name = $2,
@@ -46,6 +47,8 @@ SET first_name = $1,
     notes = $5,
     is_blocked = $6
 WHERE id = $7
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid)
 RETURNING *;
 
 -- name: IncrementNoShowCount :exec
