@@ -297,6 +297,15 @@ func (s *Service) Login(ctx context.Context, actor Actor, email, password string
 		if incErr := s.lockout.IncrementFailedAttempts(ctx, user.ID); incErr != nil {
 			s.logger.Error("login: failed to increment login attempts", "error", incErr, "user_id", user.ID)
 		}
+		// The cached record carries failed_login_attempts and locked_until,
+		// and this write just moved both. Leaving the entry in place serves
+		// the pre-attempt counts for the next ten minutes (RED-03).
+		//
+		// It is harmless today only because the lockout check above reads the
+		// row through GetByEmail rather than through the cache — which is a
+		// property of one call site, not of the cache, and the entry is what
+		// the next reader of those fields would get.
+		s.cache.InvalidateUser(ctx, user.ID)
 		return nil, s.loginFailed(actor, email)
 	}
 
@@ -305,6 +314,11 @@ func (s *Service) Login(ctx context.Context, actor Actor, email, password string
 		if resetErr := s.lockout.ResetFailedAttempts(ctx, user.ID); resetErr != nil {
 			s.logger.Error("login: failed to reset login attempts", "error", resetErr, "user_id", user.ID)
 		}
+		// Same reason as the increment above, and it cannot be left to
+		// startSession: the three refusals between here and there — an
+		// unverified address, a deactivated account, a lockout — all return
+		// without ever reaching it.
+		s.cache.InvalidateUser(ctx, user.ID)
 	}
 
 	if !user.EmailVerified {
@@ -1151,6 +1165,13 @@ func (s *Service) claimUnverifiedAccount(ctx context.Context, actor Actor, user 
 		return nil
 	}
 	user.EmailVerified = true
+
+	// This function replaced the password hash and flipped email_verified,
+	// and both are cached fields (RED-03). startSession invalidates too, and
+	// that is not a reason to leave this out: it is one caller away, and the
+	// entry between here and there is a record whose credential material is
+	// the one this account no longer has.
+	s.cache.InvalidateUser(ctx, user.ID)
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -947,4 +948,56 @@ func TestForgotPasswordKeepsTheGenericAnswerButRecordsAStoreFailure(t *testing.T
 			t.Errorf("an active cooldown must not be logged as a failure; log was:\n%s", f.logs.String())
 		}
 	})
+}
+
+// TestAFailedLoginEvictsTheCachedAccount is RED-03. The cached record carries
+// failed_login_attempts, locked_until and last_failed_login, and a failed
+// sign-in moves all three — so an entry left in place serves the pre-attempt
+// counts for the whole ten-minute TTL, which is to say it serves "not locked
+// out" to whoever reads them next.
+//
+// It is inert today for one reason only: the lockout check reads the row
+// through GetByEmail rather than through the cache. That is a property of one
+// call site, not of the cache, and it is exactly the kind of thing that stops
+// being true without anybody noticing.
+func TestAFailedLoginEvictsTheCachedAccount(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	w := httptest.NewRecorder()
+	f.handler.Login(w, postJSON(t, `{"email":"ana@example.com","password":"wrong-password-here"}`))
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("want 401; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.users.failedIncrement != 1 {
+		t.Fatalf("the attempt counter moved %d times, want 1", f.users.failedIncrement)
+	}
+	if !slices.Contains(f.cache.invalidated, user.ID) {
+		t.Error("the failed attempt was written to the row and the cached copy was left behind, " +
+			"so a reader of failed_login_attempts or locked_until gets the counts from before it")
+	}
+}
+
+// TestASuccessfulLoginThatIsStillRefusedEvictsTheCachedAccount covers the case
+// startSession's own invalidation cannot reach: the password matched, the
+// counter was reset, and the request is then refused for an unverified
+// address — returning long before a session is ever started.
+func TestASuccessfulLoginThatIsStillRefusedEvictsTheCachedAccount(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	user.EmailVerified = false
+	user.FailedLoginAttempts = 3
+	f.users.add(user)
+
+	w := httptest.NewRecorder()
+	f.handler.Login(w, postJSON(t, `{"email":"ana@example.com","password":"correct-horse-battery"}`))
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("want 401 for an unverified address; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !slices.Contains(f.cache.invalidated, user.ID) {
+		t.Error("the attempt counter was reset and the cached copy still carries the old one")
+	}
 }
