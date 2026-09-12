@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
 
@@ -29,28 +30,28 @@ const staleAge = 20 * time.Minute
 // idx_bookings_no_double, which only sees an identical start_time. Both are
 // durations the schema permits (60, 90 or 120 minutes); the fixture derives
 // duration_minutes from these hours, and span from that.
-func staleBookingOptions() bookingOptions {
-	return bookingOptions{
+func staleBookingOptions() datatest.BookingOptions {
+	return datatest.BookingOptions{
 		StartTime: "09:00", EndTime: "11:00",
 		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid,
 		RefundStatus: bookingstore.RefundStatusNone, Public: true,
 	}
 }
 
-func overlappingBookingOptions() bookingOptions {
-	return bookingOptions{StartTime: "10:30", EndTime: "12:00", Status: "confirmed"}
+func overlappingBookingOptions() datatest.BookingOptions {
+	return datatest.BookingOptions{StartTime: "10:30", EndTime: "12:00", Status: "confirmed"}
 }
 
 // newStaleBooking inserts a public unpaid booking through the real insert path and
 // ages it past the fixture's payment expiry.
-func newStaleBooking(t *testing.T, f *testFixture) *bookingstore.Booking {
+func newStaleBooking(t *testing.T, f *datatest.Fixture) *bookingstore.Booking {
 	t.Helper()
 
-	stale := f.newBooking(staleBookingOptions())
-	if err := f.Models.Bookings.InsertSafe(context.Background(), stale); err != nil {
+	stale := f.NewBooking(staleBookingOptions())
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), stale); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
-	f.backdateBookingCreatedAt(t, stale.ID, staleAge)
+	f.BackdateBookingCreatedAt(t, stale.ID, staleAge)
 	return stale
 }
 
@@ -58,12 +59,12 @@ func newStaleBooking(t *testing.T, f *testFixture) *bookingstore.Booking {
 // older than the payment expiry it no longer blocks the court, or a visitor who
 // abandoned a checkout would hold a slot until the next cron sweep.
 func TestAStalePendingBookingStopsHoldingItsSlot(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
 	newStaleBooking(t, f)
 
-	newcomer := f.newBooking(overlappingBookingOptions())
-	if err := f.Models.Bookings.InsertSafe(context.Background(), newcomer); err != nil {
+	newcomer := f.NewBooking(overlappingBookingOptions())
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), newcomer); err != nil {
 		t.Errorf("a booking overlapping only a stale pending one must be accepted: %v", err)
 	}
 }
@@ -76,13 +77,13 @@ func TestAStalePendingBookingStopsHoldingItsSlot(t *testing.T) {
 // booking was confirmed too, and the court held two confirmed bookings ninety
 // minutes on top of each other.
 func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	stale := newStaleBooking(t, f)
 
-	taken := f.newBooking(overlappingBookingOptions())
-	if err := f.Models.Bookings.InsertSafe(ctx, taken); err != nil {
+	taken := f.NewBooking(overlappingBookingOptions())
+	if err := f.Stores.Bookings.InsertSafe(ctx, taken); err != nil {
 		t.Fatalf("the overlapping booking must be accepted while the first one is stale: %v", err)
 	}
 
@@ -96,7 +97,7 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 	// ErrBookingCancelled instead. H-23 is what happened when that split was
 	// made without the refund branch following it: the money stopped going
 	// back and nothing here said so, because this file was not being run.
-	err := f.confirmBooking(f.Models, stale)
+	err := f.ConfirmBooking(f.Stores, stale)
 	if !errors.Is(err, bookingstore.ErrBookingCancelled) && !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("confirming a stale booking whose slot was taken must be refused with an error the "+
 			"webhook refunds on (ErrBookingCancelled or ErrSlotUnavailable); got %v", err)
@@ -105,11 +106,11 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 	// The taker's insert released the stale booking (ReleaseStalePendingOverlaps),
 	// so it is cancelled by the time its payment arrives; what the refusal must
 	// not do is turn it back into a confirmed one or record its payment.
-	status, collectionStatus, _ := f.readBookingState(t, stale.ID)
+	status, collectionStatus, _ := f.ReadBookingState(t, stale.ID)
 	if status != "cancelled" || collectionStatus != bookingstore.CollectionStatusUnpaid {
 		t.Errorf("a refused confirmation must leave the released booking as it was; got status=%q collection_status=%q", status, collectionStatus)
 	}
-	if confirmed := f.countBookings(t, "confirmed"); confirmed != 1 {
+	if confirmed := f.CountBookings(t, "confirmed"); confirmed != 1 {
 		t.Errorf("the court must hold exactly one confirmed booking for those hours; found %d", confirmed)
 	}
 
@@ -130,15 +131,15 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 // took, still gets their booking. Refusing them for being old would be a new
 // defect wearing the fix's clothes.
 func TestConfirmingAStalePendingBookingWhoseSlotIsFreeSucceeds(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
 	stale := newStaleBooking(t, f)
 
-	if err := f.confirmBooking(f.Models, stale); err != nil {
+	if err := f.ConfirmBooking(f.Stores, stale); err != nil {
 		t.Fatalf("a late payment into a free slot must still confirm the booking: %v", err)
 	}
 
-	status, collectionStatus, _ := f.readBookingState(t, stale.ID)
+	status, collectionStatus, _ := f.ReadBookingState(t, stale.ID)
 	if status != "confirmed" || collectionStatus != bookingstore.CollectionStatusDepositPaid {
 		t.Errorf("the booking must be confirmed and paid; got status=%q collection_status=%q", status, collectionStatus)
 	}
@@ -151,7 +152,7 @@ func TestConfirmingAStalePendingBookingWhoseSlotIsFreeSucceeds(t *testing.T) {
 // two disagree, the gap between them is a window in which a booking holds no slot
 // and nothing has cancelled it.
 func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// Stores configured to hold a slot for a full hour, against the fixture's
@@ -160,7 +161,7 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	newStaleBooking(t, f)
 
-	newcomer := f.newBooking(overlappingBookingOptions())
+	newcomer := f.NewBooking(overlappingBookingOptions())
 	err := longHold.Bookings.InsertSafe(ctx, newcomer)
 	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Fatalf("under an hour-long payment expiry a %v-old booking still holds its slot; got %v", staleAge, err)
@@ -168,7 +169,7 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	// Same booking, same age, stores configured with the fifteen-minute default:
 	// now it is stale and the slot is free. Only the configured value differs.
-	if err := f.Models.Bookings.InsertSafe(ctx, newcomer); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(ctx, newcomer); err != nil {
 		t.Errorf("under the default expiry the same slot must be free: %v", err)
 	}
 }
@@ -182,7 +183,7 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 // refused at booking time, or the reverse. GetBookedSlots now takes the same
 // Config.PaymentExpiry every other copy of this carve-out reads.
 func TestAvailabilityFollowsTheConfiguredPaymentExpiry(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	stale := newStaleBooking(t, f)
@@ -242,23 +243,23 @@ func TestAnInsertAndAConfirmationRacingForTheSameSlotLeaveOneWinner(t *testing.T
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newTestFixture(t)
+			f := datatest.NewFixture(t)
 
 			stale := newStaleBooking(t, f)
-			newcomer := f.newBooking(overlappingBookingOptions())
+			newcomer := f.NewBooking(overlappingBookingOptions())
 
 			insert := func() error {
-				return f.Models.Bookings.InsertSafe(context.Background(), newcomer)
+				return f.Stores.Bookings.InsertSafe(context.Background(), newcomer)
 			}
 			confirm := func() error {
-				return f.confirmBooking(f.Models, stale)
+				return f.ConfirmBooking(f.Stores, stale)
 			}
 			first, second := insert, confirm
 			if !tt.insertFirst {
 				first, second = confirm, insert
 			}
 
-			release := blockCourtDay(t, f, stale.Date)
+			release := f.BlockCourtDay(t, stale.Date)
 
 			results := make([]error, 2)
 			var wg sync.WaitGroup
@@ -270,13 +271,13 @@ func TestAnInsertAndAConfirmationRacingForTheSameSlotLeaveOneWinner(t *testing.T
 			}()
 			// Both goroutines are inside a real transaction blocked on the lock before
 			// it is released, so neither can run to completion ahead of the other.
-			waitForLockWaiters(t, f, 1)
+			f.WaitForLockWaiters(t, 1)
 
 			go func() {
 				defer wg.Done()
 				results[1] = second()
 			}()
-			waitForLockWaiters(t, f, 2)
+			f.WaitForLockWaiters(t, 2)
 
 			release()
 			wg.Wait()
@@ -310,82 +311,9 @@ func TestAnInsertAndAConfirmationRacingForTheSameSlotLeaveOneWinner(t *testing.T
 			// Whoever won, the court is sold once: either the newcomer was inserted
 			// confirmed and the stale booking stayed pending, or the stale booking was
 			// confirmed and the newcomer never existed.
-			if confirmed := f.countBookings(t, "confirmed"); confirmed != 1 {
+			if confirmed := f.CountBookings(t, "confirmed"); confirmed != 1 {
 				t.Errorf("the court must hold exactly one confirmed booking for those hours; found %d", confirmed)
 			}
 		})
-	}
-}
-
-// blockCourtDay takes the very lock InsertSafe and the confirmation guard take, on
-// its own connection, and holds it until the returned function is called.
-//
-// It is the starting gate: transactions queue behind it in the order they ask, so
-// a test can replay a chosen interleaving of two genuinely concurrent writers
-// instead of hoping the scheduler produces the interesting one.
-func blockCourtDay(t *testing.T, f *testFixture, date time.Time) (release func()) {
-	t.Helper()
-
-	ctx := context.Background()
-	conn, err := f.Pool.Acquire(ctx)
-	if err != nil {
-		t.Fatalf("acquiring the gate connection: %v", err)
-	}
-
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		conn.Release()
-		t.Fatalf("beginning the gate transaction: %v", err)
-	}
-
-	if _, err := tx.Exec(ctx,
-		`SELECT pg_advisory_xact_lock(hashtext($1 || $2))`,
-		f.CourtID.String(), date.Format("2006-01-02"),
-	); err != nil {
-		_ = tx.Rollback(ctx)
-		conn.Release()
-		t.Fatalf("taking the gate lock: %v", err)
-	}
-
-	var once sync.Once
-	release = func() {
-		once.Do(func() {
-			_ = tx.Rollback(ctx)
-			conn.Release()
-		})
-	}
-	t.Cleanup(release)
-	return release
-}
-
-// waitForLockWaiters blocks until exactly want transactions are queued on an
-// advisory lock in this database, so the test knows a goroutine has really reached
-// the gate rather than merely been started.
-//
-// A writer that never appears in that queue is itself the failure — it is not
-// serialized against anything — so the timeout is reported and the caller carries
-// on to its own assertions rather than stopping here.
-func waitForLockWaiters(t *testing.T, f *testFixture, want int) {
-	t.Helper()
-
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		var waiting int
-		err := f.Pool.QueryRow(context.Background(), `
-			SELECT COUNT(*) FROM pg_locks
-			WHERE locktype = 'advisory' AND NOT granted
-			  AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`,
-		).Scan(&waiting)
-		if err != nil {
-			t.Fatalf("reading lock waiters: %v", err)
-		}
-		if waiting == want {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Errorf("both the insert and the confirmation must queue on the court lock; want %d waiting, got %d — a writer that never takes the lock is serialized against nothing", want, waiting)
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
 	}
 }

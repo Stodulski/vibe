@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // newLockModel returns a lock store over pool whose log output the test can read.
@@ -122,7 +123,7 @@ func TestALockCostsNoConnectionWhileItIsHeld(t *testing.T) {
 // The lock still has to be a lock: two instances must not both believe they hold
 // the same key, or three of them send the same reminder three times.
 func TestOnlyOneCallerHoldsALockAtATime(t *testing.T) {
-	pool := setupTestDB(t)
+	pool := datatest.SetupTestDB(t)
 	locks, _ := newLockModel(pool)
 	key := lockKey(t, pool, "exclusive")
 
@@ -165,7 +166,7 @@ func TestOnlyOneCallerHoldsALockAtATime(t *testing.T) {
 // released, and every attempt on that key would be refused until its lease
 // lapsed.
 func TestTheLockIsReleasedAfterItsCallerIsCancelled(t *testing.T) {
-	pool := setupTestDB(t)
+	pool := datatest.SetupTestDB(t)
 	locks, logs := newLockModel(pool)
 	key := lockKey(t, pool, "release-after-cancel")
 
@@ -206,7 +207,7 @@ func TestTheLockIsReleasedAfterItsCallerIsCancelled(t *testing.T) {
 // a second worker while the first is still calling MercadoPago; much longer and
 // a crashed holder would block its key for minutes after its work had stopped.
 func TestALeaseIsBoundedByItsCallersDeadline(t *testing.T) {
-	pool := setupTestDB(t)
+	pool := datatest.SetupTestDB(t)
 	locks, _ := newLockModel(pool)
 	key := lockKey(t, pool, "lease-window")
 
@@ -238,7 +239,7 @@ func TestALeaseIsBoundedByItsCallersDeadline(t *testing.T) {
 // once that lease has lapsed. This is what a session lock got for free and a
 // lease has to earn.
 func TestAnExpiredLeaseIsTakenOver(t *testing.T) {
-	pool := setupTestDB(t)
+	pool := datatest.SetupTestDB(t)
 	locks, _ := newLockModel(pool)
 	key := lockKey(t, pool, "expired-lease")
 
@@ -274,7 +275,7 @@ func TestAnExpiredLeaseIsTakenOver(t *testing.T) {
 // holds — which is what an unscoped delete would do the moment a lease lapsed
 // and a late release ran.
 func TestALateReleaseCannotFreeTheNewHoldersLock(t *testing.T) {
-	pool := setupTestDB(t)
+	pool := datatest.SetupTestDB(t)
 	locks, _ := newLockModel(pool)
 	key := lockKey(t, pool, "late-release")
 
@@ -317,7 +318,7 @@ func TestALateReleaseCannotFreeTheNewHoldersLock(t *testing.T) {
 // traffic has to clear them, or this table repeats the growth defect it was
 // meant to avoid.
 func TestALongAbandonedLeaseIsSweptAwayByOrdinaryTraffic(t *testing.T) {
-	pool := setupTestDB(t)
+	pool := datatest.SetupTestDB(t)
 	locks, _ := newLockModel(pool)
 	abandoned := lockKey(t, pool, "abandoned")
 	unrelated := lockKey(t, pool, "unrelated")

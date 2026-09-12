@@ -669,7 +669,7 @@ func taskIDOf(raw string) string {
 // and one visibility timeout later any instance may take it back. It runs on
 // every instance, so recovery does not depend on the dead process ever coming
 // back — the equivalent of the 'processing AND updated_at < NOW() - interval'
-// clause in data.WebhookEventModel.GetPendingDue.
+// clause in data.paymentstore.WebhookEvents.GetPendingDue.
 func (n *Notifier) reclaimLoop() {
 	// Sweep once at startup so the clock on anything abandoned by the previous
 	// process starts at boot rather than at the first tick.

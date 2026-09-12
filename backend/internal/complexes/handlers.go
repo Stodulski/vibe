@@ -523,7 +523,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // publicComplex is what a stranger is allowed to know about a venue.
 //
-// The public page used to serialise the whole data.Complex, which carries
+// The public page used to serialise the whole complexstore.Complex, which carries
 // owner_id and mp_user_id. mp_user_id is the MercadoPago collector id the
 // payment path compares an incoming payment against to decide the money
 // reached the right seller; publishing it on an unauthenticated endpoint hands

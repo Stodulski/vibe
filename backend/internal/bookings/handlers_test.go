@@ -880,7 +880,7 @@ func TestPublicBookNeverAllowsOverwritingAnExistingClientsName(t *testing.T) {
 
 // The owner-booking counterpart: create.go runs behind requireComplexOwner, so
 // the same phone match is trusted to carry the owner's name correction — see
-// ClientModel.GetOrCreate's comment on allowNameUpdate.
+// clientstore.Store.GetOrCreate's comment on allowNameUpdate.
 func TestStaffCreateAllowsCorrectingAnExistingClientsName(t *testing.T) {
 	f, complexID, courtID := staffFixture(t)
 

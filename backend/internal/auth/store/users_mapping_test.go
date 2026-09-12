@@ -29,7 +29,7 @@ import (
 
 // userColumnsDeliberatelyNotMapped names db.User fields that userFromDB is meant
 // to drop, with the reason. It is empty today: every column of users has a home
-// on data.User. It exists so that dropping the next one is a decision somebody
+// on authstore.User. It exists so that dropping the next one is a decision somebody
 // writes down here, rather than an omission that looks identical to a mistake.
 var userColumnsDeliberatelyNotMapped = map[string]string{}
 

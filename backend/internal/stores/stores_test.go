@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestModels_RequiresDB documents that NewModels and the Stores struct
+// TestModels_RequiresDB documents that stores.New and the Stores struct
 // require a *pgxpool.Pool database connection. All store interfaces
 // (UserStore, ComplexStore, etc.) define methods that take context.Context
 // and perform database operations. There is no pure logic on the Stores

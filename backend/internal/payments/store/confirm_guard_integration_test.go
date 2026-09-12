@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -29,15 +30,15 @@ import (
 // still be caught by the re-read here rather than reaching the UPDATE and
 // falling through to bookings_forbid_status_reversal as a raw 500.
 func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	b := f.createBooking(t, bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
+	b := f.CreateBooking(t, datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
 	// The cancellation committing in the gap between ConfirmPayment's read and
 	// this transaction — markStatus is the same raw UPDATE the sibling
 	// occupancy tests use to move a booking straight to a terminal status.
-	markStatus(t, f, b.ID, "cancelled")
+	f.MarkStatus(t, b.ID, "cancelled")
 
 	// ConfirmPayment's own "if pending then confirmed" runs against the stale
 	// in-memory copy it read before the race, so the booking this call carries
@@ -62,12 +63,12 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	// cancels — is unaffected by that split and must keep behaving exactly as
 	// it did: refused, nothing written, and answered as a 409 by
 	// internal/bookings/actions.go, which names both sentinels.
-	err := f.Models.Payments.InsertAndConfirmBooking(ctx, payment, b)
+	err := f.Stores.Payments.InsertAndConfirmBooking(ctx, payment, b)
 	if !errors.Is(err, bookingstore.ErrBookingCancelled) {
 		t.Errorf("confirming a concurrently cancelled booking must be refused with ErrBookingCancelled; got %v", err)
 	}
 
-	status, _, _ := f.readBookingState(t, b.ID)
+	status, _, _ := f.ReadBookingState(t, b.ID)
 	if status != "cancelled" {
 		t.Errorf("a refused confirmation must leave the booking cancelled; got status=%q", status)
 	}
@@ -89,11 +90,11 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 // against the row this call inserts — never reached the database, and the
 // money stayed captured with nothing to refund it against.
 func TestGuardBookingConfirmableAllowsRecordingAPaymentForAnAlreadyCancelledBooking(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	b := f.createBooking(t, bookingOptions{Status: "confirmed"})
-	markStatus(t, f, b.ID, "cancelled")
+	b := f.CreateBooking(t, datatest.BookingOptions{Status: "confirmed"})
+	f.MarkStatus(t, b.ID, "cancelled")
 
 	// refundBookingWhoseSlotIsGone sets booking.Status = "cancelled" before
 	// calling InsertAndConfirmBooking, precisely so the guard has nothing to
@@ -108,11 +109,11 @@ func TestGuardBookingConfirmableAllowsRecordingAPaymentForAnAlreadyCancelledBook
 		Status:     "deposit_paid",
 	}
 
-	if err := f.Models.Payments.InsertAndConfirmBooking(ctx, payment, b); err != nil {
+	if err := f.Stores.Payments.InsertAndConfirmBooking(ctx, payment, b); err != nil {
 		t.Fatalf("recording a payment for an already-cancelled booking must succeed: %v", err)
 	}
 
-	status, _, _ := f.readBookingState(t, b.ID)
+	status, _, _ := f.ReadBookingState(t, b.ID)
 	if status != "cancelled" {
 		t.Errorf("the booking must stay cancelled; got status=%q", status)
 	}

@@ -254,7 +254,7 @@ func TestTwoConcurrentSweepsClaimTheOrphanExactlyOnce(t *testing.T) {
 //
 // Mutation: restore the old write in recordPaymentOwedARefund —
 //
-//	booking.RefundStatus = data.RefundStatusPending   // and drop the marker
+//	booking.RefundStatus = bookingstore.RefundStatusPending   // and drop the marker
 //
 // — and re-run. Every assertion below fails: the committed row reads a
 // pending refund, refund_intent_at is NULL, and the sweep claims nothing.

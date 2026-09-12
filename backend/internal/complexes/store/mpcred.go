@@ -54,7 +54,7 @@ func (c *Complex) MPConnected() bool {
 // them. Every other field on Complex remains exported and can be set by
 // direct assignment on the returned pointer, e.g.:
 //
-//	c := data.NewComplexForTest(id, &accessToken, nil)
+//	c := complexstore.NewComplexForTest(id, &accessToken, nil)
 //	c.Name = "Vibe"
 func NewComplexForTest(id uuid.UUID, mpAccessToken, mpRefreshToken *string) *Complex {
 	return &Complex{

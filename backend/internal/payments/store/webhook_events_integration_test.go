@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -33,7 +34,7 @@ type webhookFixture struct {
 func newWebhookFixture(t *testing.T) *webhookFixture {
 	t.Helper()
 
-	pool := setupTestDB(t)
+	pool := datatest.SetupTestDB(t)
 	f := &webhookFixture{
 		Pool:       pool,
 		Store:      &paymentstore.WebhookEvents{DB: data.NewDB(pool)},

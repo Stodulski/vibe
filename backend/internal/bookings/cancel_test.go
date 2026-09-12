@@ -907,7 +907,7 @@ func TestAPreferenceThatCannotBeExpiredAlerts(t *testing.T) {
 
 // A client closing the tab while MercadoPago is slow is the ordinary case, not
 // an exotic one. It cancels the request context, and every slot-lock release in
-// this package used to run on that context: SlotLockModel.ReleaseLock hands it
+// this package used to run on that context: bookingstore.SlotLocks.ReleaseLock hands it
 // to queryContext and then to pgx, so the DELETE failed with context.Canceled
 // before it reached PostgreSQL.
 //

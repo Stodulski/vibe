@@ -14,7 +14,7 @@ import (
 // GetRefundIntentOrphans, ClaimRefundIntent and ClearRefundIntent are the
 // reconciliation sweep's store layer (refund-intent-durability spec),
 // separate from the ordinary BookingUpdater.Update the rest of the codebase
-// uses — the same separation refunds.go already gives PaymentModel's refund
+// uses — the same separation refunds.go already gives paymentstore.Payments's refund
 // lifecycle apart from payments.go.
 //
 // All three are hand-written SQL rather than sqlc: GetRefundIntentOrphans'

@@ -65,14 +65,14 @@ func (s *stubStore) InsertSafe(_ context.Context, b *bookingstore.Booking) error
 	}
 	b.ID = uuid.New()
 	// The real InsertSafe returns lower(span) and upper(span) and writes them
-	// onto the booking (internal/data/bookings.go), so every caller downstream
+	// onto the booking (internal/bookings/store/bookings.go), so every caller downstream
 	// of an insert holds the two instants. The confirmation copy is rendered
 	// from them, so a stub that left them zero would make a handler look like
 	// it had nothing to say about the hours it just sold.
 	b.StartsAt = slots.At(timezone.Day(b.Date), b.StartTime)
 	b.EndsAt = b.StartsAt.Add(time.Duration(b.DurationMinutes) * time.Minute)
 	// The real InsertSafe mints a booking link token inside the same
-	// transaction (internal/data/bookings.go) and sets it here; mirror that so
+	// transaction (internal/bookings/store/bookings.go) and sets it here; mirror that so
 	// a test asserting on booking.LinkToken sees the same shape production
 	// does.
 	b.LinkToken = "stub-link-token-" + b.ID.String()
@@ -86,7 +86,7 @@ func (s *stubStore) Update(_ context.Context, b *bookingstore.Booking) error {
 	}
 	// A shallow copy, not the caller's own pointer: the real store writes
 	// whatever the caller held at the moment of the call, and every handler
-	// under test keeps mutating its own *data.Booking afterward (clearing
+	// under test keeps mutating its own *bookingstore.Booking afterward (clearing
 	// RefundIntentAt beside paymentStatusAfter, among others). Recording the
 	// live pointer would let a later in-memory mutation silently overwrite
 	// what a test believes it already asserted on — the exact
@@ -116,7 +116,7 @@ func (s *stubClients) GetByID(context.Context, uuid.UUID) (*clientstore.Client, 
 }
 
 // allowNameUpdate is recorded rather than acted on: the stub always hands
-// back whatever s.client already holds, and it is the real ClientModel's SQL
+// back whatever s.client already holds, and it is the real clientstore.Store's SQL
 // (internal/data/clients.go) that the R1-client-name-overwrite fix actually
 // lives in. Recording it here is what lets a test confirm which value its
 // caller passed — the whole point of the fix is that create.go and public.go
@@ -233,7 +233,7 @@ func (s *stubCourts) GetPrices(context.Context, uuid.UUID) ([]*courtstore.CourtP
 }
 
 // GetBlockedSlots honours ctx for the same reason stubLocks.ReleaseLock does:
-// CourtModel hands it to queryContext and then to pgx, so a finished caller
+// courtstore.Store hands it to queryContext and then to pgx, so a finished caller
 // context fails the read rather than answering "nothing is blocked".
 func (s *stubCourts) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error) {
 	s.blockedQueries = append(s.blockedQueries, blockedQuery{courtID: courtID, date: date.Format("2006-01-02")})
@@ -291,7 +291,7 @@ func (s *stubPayments) Insert(_ context.Context, p *paymentstore.Payment) error 
 }
 
 // GetByBookingID honours ctx for the same reason stubLocks.ReleaseLock does:
-// PaymentModel hands it to queryContext and then to pgx, so a finished caller
+// paymentstore.Payments hands it to queryContext and then to pgx, so a finished caller
 // context fails the read. expireCheckoutPreference starts with this call, and
 // whether it survives a disconnected client is exactly what a test has to be
 // able to see.
@@ -363,7 +363,7 @@ type stubLocks struct {
 	abandoned []string
 }
 
-// SlotLockModel hands its ctx to queryContext and then straight to pgx, so a
+// bookingstore.SlotLocks hands its ctx to queryContext and then straight to pgx, so a
 // caller context that is already cancelled fails the statement before it reaches
 // PostgreSQL — the lock stays. A stub that ignores its ctx cannot tell a release
 // that happened from one that was abandoned, and on the disconnect path that is

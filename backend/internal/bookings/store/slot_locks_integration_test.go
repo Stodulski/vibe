@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // The lock's TTL only means something if acquiring enforces it. These run against
@@ -20,9 +21,9 @@ import (
 
 // The ordinary case, unchanged: a live lock is a live lock.
 func TestAcquireLockRefusesASlotThatIsStillHeld(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
-	locks := f.Models.SlotLocks
+	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
 	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute); err != nil {
@@ -41,9 +42,9 @@ func TestAcquireLockRefusesASlotThatIsStillHeld(t *testing.T) {
 // five-minute sweeper happened to delete the row — and forever if it was not
 // running.
 func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
-	locks := f.Models.SlotLocks
+	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
 	// A lock that expired a minute ago: exactly what an abandoned checkout leaves.
@@ -79,9 +80,9 @@ func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
 // to MercadoPago for it. The takeover is one statement, so PostgreSQL serialises
 // them on the row and exactly one wins.
 func TestTwoCallersRacingForAnExpiredLockYieldOneWinner(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
-	locks := f.Models.SlotLocks
+	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
 	if err := locks.AcquireLock(ctx, f.CourtID, date, "20:00", "21:30", nil, -time.Minute); err != nil {
@@ -120,17 +121,17 @@ func TestTwoCallersRacingForAnExpiredLockYieldOneWinner(t *testing.T) {
 // A lock taken over carries the new holder's booking, so nothing inherits the
 // previous one's identity.
 func TestATakenOverLockCarriesTheNewHoldersBooking(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
-	locks := f.Models.SlotLocks
+	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
-	first := f.createBooking(t, bookingOptions{StartTime: "07:00", EndTime: "08:30"})
+	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "07:00", EndTime: "08:30"})
 	if err := locks.AcquireLock(ctx, f.CourtID, date, "21:00", "22:30", &first.ID, -time.Minute); err != nil {
 		t.Fatalf("seeding the expired lock: %v", err)
 	}
 
-	second := f.createBooking(t, bookingOptions{StartTime: "09:00", EndTime: "10:30"})
+	second := f.CreateBooking(t, datatest.BookingOptions{StartTime: "09:00", EndTime: "10:30"})
 	if err := locks.AcquireLock(ctx, f.CourtID, date, "21:00", "22:30", &second.ID, 15*time.Minute); err != nil {
 		t.Fatalf("taking over the expired lock: %v", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
 
@@ -143,7 +144,7 @@ type tenant struct {
 type rlsFixture struct {
 	Admin  *pgxpool.Pool
 	App    *pgxpool.Pool
-	Models stores.Stores
+	Stores stores.Stores
 	A      tenant
 	B      tenant
 }
@@ -152,7 +153,7 @@ func newRLSFixture(t *testing.T) *rlsFixture {
 	t.Helper()
 
 	f := &rlsFixture{Admin: adminPool(t), App: appPool(t)}
-	f.Models = stores.New(f.App, stores.Config{Keys: testCredentialKeyring(t)})
+	f.Stores = stores.New(f.App, stores.Config{Keys: datatest.CredentialKeyring(t)})
 	f.A = f.seedTenant(t, "a")
 	f.B = f.seedTenant(t, "b")
 	return f
@@ -254,7 +255,7 @@ const insertBookingAtAFreeHourSQL = `
 func TestABookingOfAnotherTenantIsInvisible(t *testing.T) {
 	f := newRLSFixture(t)
 
-	own, err := f.Models.Bookings.GetByID(data.ContextWithTenant(context.Background(), f.A.ComplexID), f.A.BookingID)
+	own, err := f.Stores.Bookings.GetByID(data.ContextWithTenant(context.Background(), f.A.ComplexID), f.A.BookingID)
 	if err != nil {
 		t.Fatalf("tenant A reading its own booking: %v", err)
 	}
@@ -262,7 +263,7 @@ func TestABookingOfAnotherTenantIsInvisible(t *testing.T) {
 		t.Fatalf("tenant A read booking %s, want its own %s", own.ID, f.A.BookingID)
 	}
 
-	stolen, err := f.Models.Bookings.GetByID(data.ContextWithTenant(context.Background(), f.A.ComplexID), f.B.BookingID)
+	stolen, err := f.Stores.Bookings.GetByID(data.ContextWithTenant(context.Background(), f.A.ComplexID), f.B.BookingID)
 	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("tenant A read tenant B's booking %s and got (%+v, %v), want ErrRecordNotFound: "+
 			"a by-id query with no tenant predicate returned another tenant's row", f.B.BookingID, stolen, err)
@@ -305,7 +306,7 @@ func TestTheCrossTenantBypassSeesBothTenants(t *testing.T) {
 		name string
 		id   uuid.UUID
 	}{{"A", f.A.BookingID}, {"B", f.B.BookingID}} {
-		got, err := f.Models.Bookings.GetByID(ctx, want.id)
+		got, err := f.Stores.Bookings.GetByID(ctx, want.id)
 		if err != nil {
 			t.Fatalf("a cross-tenant context could not read tenant %s's booking: %v", want.name, err)
 		}
@@ -317,7 +318,7 @@ func TestTheCrossTenantBypassSeesBothTenants(t *testing.T) {
 	// And a context with neither a tenant nor the bypass sees nothing at all.
 	// This is the fail-closed default, and it is what makes a path nobody
 	// scoped break in a test rather than leak in production.
-	if _, err := f.Models.Bookings.GetByID(context.Background(), f.A.BookingID); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := f.Stores.Bookings.GetByID(context.Background(), f.A.BookingID); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("an unscoped context read a booking (err = %v), want ErrRecordNotFound: "+
 			"a session that declared no tenant must see nothing", err)
 	}
@@ -442,7 +443,7 @@ func TestRowLevelSecurityIsTheSecondWallWithTheHandlerComparisonRemoved(t *testi
 
 	// What a handler with the comparison removed does: load by id, use it.
 	// The id is tenant B's, which is exactly the request an attacker sends.
-	booking, err := f.Models.Bookings.GetByID(ctx, f.B.BookingID)
+	booking, err := f.Stores.Bookings.GetByID(ctx, f.B.BookingID)
 	if err == nil {
 		t.Fatalf("a handler with no tenant comparison read tenant B's booking %s while serving tenant A; "+
 			"the database was supposed to be the second wall and it did not hold", booking.ID)

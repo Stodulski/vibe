@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -12,11 +12,9 @@ import (
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
-
-// checkViolation is the SQLSTATE PostgreSQL raises for a failed CHECK.
-const checkViolation = "23514"
 
 // The double sale this whole change exists for, at the storage layer.
 //
@@ -40,23 +38,23 @@ const checkViolation = "23514"
 // involved, because a guard that lives only in handlers is one new insert path
 // away from being bypassed.
 func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	overnight := f.newBooking(bookingOptions{StartTime: "23:00", EndTime: "01:00"})
+	overnight := f.NewBooking(datatest.BookingOptions{StartTime: "23:00", EndTime: "01:00"})
 	overnight.DurationMinutes = 120
 
-	if err := f.Models.Bookings.InsertSafe(ctx, overnight); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(ctx, overnight); err != nil {
 		t.Fatalf("a venue open past midnight must be able to sell 23:00-01:00; got %v", err)
 	}
 
 	// Half past midnight is inside it, and belongs to the following calendar
 	// day — the exact position the old time-of-day comparison could not see.
-	overlapping := f.newBooking(bookingOptions{StartTime: "00:30", EndTime: "01:30"})
+	overlapping := f.NewBooking(datatest.BookingOptions{StartTime: "00:30", EndTime: "01:30"})
 	overlapping.DurationMinutes = 60
 	overlapping.Date = overnight.Date.AddDate(0, 0, 1)
 
-	err := f.Models.Bookings.InsertSafe(ctx, overlapping)
+	err := f.Stores.Bookings.InsertSafe(ctx, overlapping)
 	if err == nil {
 		t.Fatal("00:30 falls inside a booking that runs to 01:00; accepting it sells one court to two clients")
 	}
@@ -64,7 +62,7 @@ func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
 		t.Fatalf("the refusal must name the slot as taken; got %v", err)
 	}
 
-	if confirmed := f.countBookings(t, "confirmed"); confirmed != 1 {
+	if confirmed := f.CountBookings(t, "confirmed"); confirmed != 1 {
 		t.Errorf("only the first booking may survive; the court holds %d confirmed", confirmed)
 	}
 }
@@ -77,7 +75,7 @@ func TestTheStoreRefusesABookingOverlappingAnOvernightOne(t *testing.T) {
 // no longer a CHECK on the times but the generated `span` itself — a range whose
 // end does not follow its start cannot be constructed.
 func TestTheDatabaseAcceptsAnOvernightBookingAndNothingBackwards(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
 	insert := func(t *testing.T, startTime string, durationMinutes int) error {
 		t.Helper()
@@ -204,12 +202,12 @@ func TestTheTwoHourReminderSpansMidnight(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newTestFixture(t)
+			f := datatest.NewFixture(t)
 			ctx := context.Background()
 
-			id := f.seedReminderCandidate(t, tt.date, tt.startTime, tt.now.Add(-tt.bookedAgo))
+			id := seedReminderCandidate(f, t, tt.date, tt.startTime, tt.now.Add(-tt.bookedAgo))
 
-			enriched, err := f.Models.Bookings.GetForReminder2hEnriched(ctx, tt.now)
+			enriched, err := f.Stores.Bookings.GetForReminder2hEnriched(ctx, tt.now)
 			if err != nil {
 				t.Fatalf("GetForReminder2hEnriched: %v", err)
 			}
@@ -226,7 +224,7 @@ func TestTheTwoHourReminderSpansMidnight(t *testing.T) {
 			if tt.bookedAgo < 2*time.Hour {
 				return
 			}
-			plain, err := f.Models.Bookings.GetForReminder2h(ctx, tt.now)
+			plain, err := f.Stores.Bookings.GetForReminder2h(ctx, tt.now)
 			if err != nil {
 				t.Fatalf("GetForReminder2h: %v", err)
 			}
@@ -241,10 +239,10 @@ func TestTheTwoHourReminderSpansMidnight(t *testing.T) {
 // seedReminderCandidate writes a confirmed, un-reminded booking straight to the
 // table, with created_at chosen rather than taken from the clock.
 //
-// It bypasses BookingModel.Insert deliberately: Insert stamps created_at with
+// It bypasses bookingstore.Store.Insert deliberately: Insert stamps created_at with
 // NOW(), and every case here is anchored to a fixed instant in March 2026 that
 // has nothing to do with when the suite runs.
-func (f *testFixture) seedReminderCandidate(t *testing.T, date time.Time, startTime string, createdAt time.Time) uuid.UUID {
+func seedReminderCandidate(f *datatest.Fixture, t *testing.T, date time.Time, startTime string, createdAt time.Time) uuid.UUID {
 	t.Helper()
 
 	var id uuid.UUID

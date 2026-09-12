@@ -224,7 +224,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Get or create client. This is the authenticated owner path
 	// (requireComplexOwner), so a name correction on an existing phone match
-	// is trusted the way public.go's is not — see ClientModel.GetOrCreate's
+	// is trusted the way public.go's is not — see clientstore.Store.GetOrCreate's
 	// comment on allowNameUpdate.
 	client, err := h.clients.GetOrCreate(r.Context(), complex.ID, input.ClientFirstName, input.ClientLastName, input.ClientPhone, input.ClientEmail, true)
 	if err != nil {
@@ -310,7 +310,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		clientEmail = *client.Email
 	}
 	// InsertSafe already minted this booking's access token
-	// (data.Booking.LinkToken); it is the credential every public route
+	// (bookingstore.Booking.LinkToken); it is the credential every public route
 	// authorizes on, not the booking's primary key.
 	cancelURL := booklink.Cancel(h.cfg.FrontendURL, complex.Slug, booking.LinkToken)
 	cancelPath := booklink.CancelPath(complex.Slug, booking.LinkToken)

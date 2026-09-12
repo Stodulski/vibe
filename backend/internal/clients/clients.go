@@ -31,7 +31,7 @@ const defaultPageLimit = 50
 const recentBookingLimit = 20
 
 // Store is the client persistence this module uses. It is declared here rather
-// than reused from data.ClientStore so that this package depends on the three
+// than reused from stores.ClientStore so that this package depends on the three
 // methods it calls, and no more.
 type Store interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)

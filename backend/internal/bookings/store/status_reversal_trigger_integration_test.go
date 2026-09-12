@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // This file replaces version_bypass_integration_test.go.
@@ -38,13 +39,13 @@ import (
 // `confirmed` over `cancelled`. Nothing in Go compares anything: the refusal
 // comes from inside the database, as SQLSTATE 23514 carrying the rule name.
 func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	booking := seedFutureBooking(t, f, "09:00", "10:00")
 
 	// The in-flight writer reads the booking before the bulk cancel commits.
-	inFlight, err := f.Models.Bookings.GetByID(ctx, booking.ID)
+	inFlight, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
 	if err != nil {
 		t.Fatalf("reading the booking before the cancel: %v", err)
 	}
@@ -52,14 +53,14 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 		t.Fatalf("seeded status = %q, want pending", inFlight.Status)
 	}
 
-	if err := f.Models.Bookings.CancelFutureByComplex(ctx, f.ComplexID); err != nil {
+	if err := f.Stores.Bookings.CancelFutureByComplex(ctx, f.ComplexID); err != nil {
 		t.Fatalf("CancelFutureByComplex: %v", err)
 	}
 
 	// The stale writer commits its decision.
 	inFlight.Status = "confirmed"
 	inFlight.CollectionStatus = bookingstore.CollectionStatusFullyPaid
-	err = f.Models.Bookings.Update(ctx, inFlight)
+	err = f.Stores.Bookings.Update(ctx, inFlight)
 
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -74,7 +75,7 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 		t.Errorf("constraint = %q, want bookings_status_no_terminal_reentry", pgErr.ConstraintName)
 	}
 
-	final, err := f.Models.Bookings.GetByID(ctx, booking.ID)
+	final, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
 	if err != nil {
 		t.Fatalf("final read: %v", err)
 	}
@@ -105,29 +106,29 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 // TestARefundCannotExistWithoutMoneyHavingBeenCollected in
 // schema_constraints_integration_test.go is what makes it so.
 func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	booking := seedFutureBooking(t, f, "11:00", "12:00")
 
-	paid, err := f.Models.Bookings.GetByID(ctx, booking.ID)
+	paid, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
 	paid.CollectionStatus = bookingstore.CollectionStatusDepositPaid
 	paid.DepositAmount = 100_000
-	if err := f.Models.Bookings.Update(ctx, paid); err != nil {
+	if err := f.Stores.Bookings.Update(ctx, paid); err != nil {
 		t.Fatalf("taking the deposit: %v", err)
 	}
 	// A refund claim goes out on that deposit. The row now carries something on
 	// both axes, which is the state the single enum could not hold at all.
 	paid.RefundStatus = bookingstore.RefundStatusPending
-	if err := f.Models.Bookings.Update(ctx, paid); err != nil {
+	if err := f.Stores.Bookings.Update(ctx, paid); err != nil {
 		t.Fatalf("claiming the refund: %v", err)
 	}
 
 	paid.CollectionStatus = bookingstore.CollectionStatusUnpaid
-	err = f.Models.Bookings.Update(ctx, paid)
+	err = f.Stores.Bookings.Update(ctx, paid)
 
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -141,7 +142,7 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 		t.Errorf("constraint = %q, want bookings_collection_status_no_return_to_unpaid", pgErr.ConstraintName)
 	}
 
-	final, err := f.Models.Bookings.GetByID(ctx, booking.ID)
+	final, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
 	if err != nil {
 		t.Fatalf("final read: %v", err)
 	}
@@ -158,7 +159,7 @@ func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
 // what CancelFutureByComplex's `date >= CURRENT_DATE` predicate selects. The
 // date is built in UTC and pinned to midnight so the row lands on exactly one
 // local day whatever hour the suite runs at.
-func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) *bookingstore.Booking {
+func seedFutureBooking(t *testing.T, f *datatest.Fixture, startTime, endTime string) *bookingstore.Booking {
 	t.Helper()
 
 	d := time.Now().In(time.UTC).AddDate(0, 0, 7)
@@ -177,7 +178,7 @@ func seedFutureBooking(t *testing.T, f *testFixture, startTime, endTime string) 
 		CollectionStatus: bookingstore.CollectionStatusUnpaid,
 		RefundStatus:     bookingstore.RefundStatusNone,
 	}
-	if err := f.Models.Bookings.InsertSafe(context.Background(), b); err != nil {
+	if err := f.Stores.Bookings.InsertSafe(context.Background(), b); err != nil {
 		t.Fatalf("seeding the booking: %v", err)
 	}
 	return b

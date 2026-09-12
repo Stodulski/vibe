@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -33,14 +34,14 @@ import (
 // the store used. An uncommitted write is invisible to it by definition, so the
 // row reading 'refund_pending' here is proof the claim is durable.
 func TestClaimRefundIsCommittedBeforeTheProviderIsCalled(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	claim, err := f.Models.Payments.ClaimRefund(ctx, payment.ID)
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
 	if err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
@@ -54,7 +55,7 @@ func TestClaimRefundIsCommittedBeforeTheProviderIsCalled(t *testing.T) {
 		t.Fatal("a claim must name the durable attempt row that survives this process")
 	}
 
-	conn := f.separateConn(t)
+	conn := separateConn(f, t)
 
 	var status string
 	if err := conn.QueryRow(ctx,
@@ -92,20 +93,20 @@ func TestClaimRefundIsCommittedBeforeTheProviderIsCalled(t *testing.T) {
 // Under the old design the same statement would have failed while the caller sat
 // inside the provider call, which is precisely the window that mattered.
 func TestClaimRefundHoldsNoLockOnceItReturns(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	if _, err := f.Models.Payments.ClaimRefund(ctx, payment.ID); err != nil {
+	if _, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID); err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 
 	// This is where the provider call happens in production. Nothing of ours may
 	// be holding the payment row now.
-	conn := f.separateConn(t)
+	conn := separateConn(f, t)
 
 	tx, err := conn.Begin(ctx)
 	if err != nil {
@@ -144,21 +145,21 @@ func TestClaimRefundHoldsNoLockOnceItReturns(t *testing.T) {
 // Nothing is done here after the claim, which is exactly what a crash looks like
 // from the database's side.
 func TestAnAbandonedClaimIsPickedUpByTheRetryQueue(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	claim, err := f.Models.Payments.ClaimRefund(ctx, payment.ID)
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
 	if err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 
 	// A fresh claim is deliberately invisible: the refund it describes is in
 	// flight, and handing it to a second worker would refund the client twice.
-	due, err := f.Models.FailedRefunds.GetPendingDue(ctx)
+	due, err := f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -167,9 +168,9 @@ func TestAnAbandonedClaimIsPickedUpByTheRetryQueue(t *testing.T) {
 	}
 
 	// ... and the process dies here. Time passes.
-	f.expireRefundAttempt(t, claim.AttemptID)
+	expireRefundAttempt(f, t, claim.AttemptID)
 
-	due, err = f.Models.FailedRefunds.GetPendingDue(ctx)
+	due, err = f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -203,12 +204,12 @@ func TestAnAbandonedClaimIsPickedUpByTheRetryQueue(t *testing.T) {
 // the only version of this test that exercises the row lock; running them one
 // after the other would pass on any implementation that merely re-reads the row.
 func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
 	type result struct {
 		claim *paymentstore.RefundClaim
@@ -225,7 +226,7 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 		go func() {
 			defer done.Done()
 			start.Wait() // release both goroutines as close to together as possible
-			claim, err := f.Models.Payments.ClaimRefund(ctx, payment.ID)
+			claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
 			results[i] = result{claim: claim, err: err}
 		}()
 	}
@@ -269,19 +270,19 @@ func TestTwoConcurrentClaimsOnlyOneWins(t *testing.T) {
 // so a crash in between left a refunded client, a court that still read as sold,
 // and an attempt already marked done.
 func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	claim, err := f.Models.Payments.ClaimRefund(ctx, payment.ID)
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
 	if err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 
-	refundTotal, err := f.Models.Payments.RecordRefundSuccess(ctx, *claim, 0)
+	refundTotal, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, 0)
 	if err != nil {
 		t.Fatalf("RecordRefundSuccess: %v", err)
 	}
@@ -289,7 +290,7 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 		t.Errorf("the recorded total must be the deposit plus the service fee; want %d, got %d", want, refundTotal)
 	}
 
-	status, refundAmount := f.readPaymentState(t, payment.ID)
+	status, refundAmount := f.ReadPaymentState(t, payment.ID)
 	if status != "refunded" {
 		t.Errorf("the stored payment must read as refunded; got %q", status)
 	}
@@ -297,7 +298,7 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 		t.Errorf("the stored refund amount must be %d; got %d", refundTotal, refundAmount)
 	}
 
-	bookingStatus, bookingCollection, bookingRefund := f.readBookingState(t, booking.ID)
+	bookingStatus, bookingCollection, bookingRefund := f.ReadBookingState(t, booking.ID)
 	if bookingStatus != "cancelled" {
 		t.Errorf("a fully refunded booking must be cancelled, or the court stays sold; got %q", bookingStatus)
 	}
@@ -324,7 +325,7 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 			booking.DepositAmount, storedDeposit)
 	}
 
-	attempt := f.readRefundAttempt(t, claim.AttemptID)
+	attempt := readRefundAttempt(f, t, claim.AttemptID)
 	if attempt.status != "resolved" {
 		t.Errorf("the attempt must be resolved once the money state is written; got %q", attempt.status)
 	}
@@ -342,21 +343,21 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 // manualOwedCentavos is what tells RecordRefundSuccess to write refund_status
 // 'partial' instead.
 func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	mpPayment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
-	cashPayment := f.createPayment(t, booking.ID, 50_000, 0, nil)
+	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	cashPayment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)
 
-	claim, err := f.Models.Payments.ClaimRefund(ctx, mpPayment.ID)
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, mpPayment.ID)
 	if err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 
 	manualOwed := cashPayment.Amount + cashPayment.ServiceFee - cashPayment.RefundAmount
-	refundTotal, err := f.Models.Payments.RecordRefundSuccess(ctx, *claim, manualOwed)
+	refundTotal, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, manualOwed)
 	if err != nil {
 		t.Fatalf("RecordRefundSuccess: %v", err)
 	}
@@ -364,7 +365,7 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 		t.Errorf("the recorded total for the MercadoPago row must be the deposit plus the service fee; want %d, got %d", want, refundTotal)
 	}
 
-	mpStatus, mpRefundAmount := f.readPaymentState(t, mpPayment.ID)
+	mpStatus, mpRefundAmount := f.ReadPaymentState(t, mpPayment.ID)
 	if mpStatus != "refunded" {
 		t.Errorf("the mercadopago row must read as refunded; got %q", mpStatus)
 	}
@@ -373,7 +374,7 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 	}
 
 	// The cash row is untouched — nothing automatic may send this money back.
-	cashStatus, cashRefundAmount := f.readPaymentState(t, cashPayment.ID)
+	cashStatus, cashRefundAmount := f.ReadPaymentState(t, cashPayment.ID)
 	if cashStatus == "refunded" {
 		t.Error("the cash row must not read as refunded; nothing here returned that money")
 	}
@@ -381,7 +382,7 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 		t.Errorf("the cash row's refund amount must be untouched; got %d", cashRefundAmount)
 	}
 
-	bookingStatus, bookingCollection, bookingRefund := f.readBookingState(t, booking.ID)
+	bookingStatus, bookingCollection, bookingRefund := f.ReadBookingState(t, booking.ID)
 	if bookingStatus != "cancelled" {
 		t.Errorf("a refunded booking must be cancelled; got %q", bookingStatus)
 	}
@@ -400,28 +401,28 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 // payment ledger or the booking disagreeing about whether this money is
 // still owed.
 func TestRecordManualRefund(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	mpPayment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
-	cashPayment := f.createPayment(t, booking.ID, 50_000, 0, nil)
+	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	cashPayment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)
 
-	claim, err := f.Models.Payments.ClaimRefund(ctx, mpPayment.ID)
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, mpPayment.ID)
 	if err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 	manualOwed := cashPayment.Amount + cashPayment.ServiceFee - cashPayment.RefundAmount
-	if _, err := f.Models.Payments.RecordRefundSuccess(ctx, *claim, manualOwed); err != nil {
+	if _, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, manualOwed); err != nil {
 		t.Fatalf("RecordRefundSuccess: %v", err)
 	}
 
-	if _, _, refundStatus := f.readBookingState(t, booking.ID); refundStatus != bookingstore.RefundStatusPartial {
+	if _, _, refundStatus := f.ReadBookingState(t, booking.ID); refundStatus != bookingstore.RefundStatusPartial {
 		t.Fatalf("setup: booking must read refund_status 'partial' before RecordManualRefund runs; got %q", refundStatus)
 	}
 
-	returned, err := f.Models.Payments.RecordManualRefund(ctx, booking.ID)
+	returned, err := f.Stores.Payments.RecordManualRefund(ctx, booking.ID)
 	if err != nil {
 		t.Fatalf("RecordManualRefund: %v", err)
 	}
@@ -429,7 +430,7 @@ func TestRecordManualRefund(t *testing.T) {
 		t.Errorf("the returned amount must be the cash row's own balance; want %d, got %d", manualOwed, returned)
 	}
 
-	cashStatus, cashRefundAmount := f.readPaymentState(t, cashPayment.ID)
+	cashStatus, cashRefundAmount := f.ReadPaymentState(t, cashPayment.ID)
 	if cashStatus != "refunded" {
 		t.Errorf("the cash row must now read as refunded; got %q", cashStatus)
 	}
@@ -437,7 +438,7 @@ func TestRecordManualRefund(t *testing.T) {
 		t.Errorf("the cash row's refund amount must be its amount plus service fee; want %d, got %d", want, cashRefundAmount)
 	}
 
-	bookingStatus, bookingCollection, bookingRefund := f.readBookingState(t, booking.ID)
+	bookingStatus, bookingCollection, bookingRefund := f.ReadBookingState(t, booking.ID)
 	if bookingStatus != "cancelled" {
 		t.Errorf("the booking must stay cancelled; got %q", bookingStatus)
 	}
@@ -449,7 +450,7 @@ func TestRecordManualRefund(t *testing.T) {
 	}
 
 	// A second call finds nothing left to close out.
-	if _, err := f.Models.Payments.RecordManualRefund(ctx, booking.ID); !errors.Is(err, paymentstore.ErrNoManualRefundOwed) {
+	if _, err := f.Stores.Payments.RecordManualRefund(ctx, booking.ID); !errors.Is(err, paymentstore.ErrNoManualRefundOwed) {
 		t.Errorf("a booking that no longer reads refund_status 'partial' must be refused; got %v", err)
 	}
 }
@@ -459,21 +460,21 @@ func TestRecordManualRefund(t *testing.T) {
 // read as refunded. There is no rollback to perform — the claim never claimed the
 // refund had happened, only that one was owed.
 func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	claim, err := f.Models.Payments.ClaimRefund(ctx, payment.ID)
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
 	if err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 
-	before := f.readRefundAttempt(t, claim.AttemptID)
+	before := readRefundAttempt(f, t, claim.AttemptID)
 
-	exhausted, err := f.Models.Payments.RecordRefundFailure(ctx, *claim, "mercadopago unavailable")
+	exhausted, err := f.Stores.Payments.RecordRefundFailure(ctx, *claim, "mercadopago unavailable")
 	if err != nil {
 		t.Fatalf("RecordRefundFailure: %v", err)
 	}
@@ -481,7 +482,7 @@ func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
 		t.Error("one rejection out of five must not exhaust the retry budget")
 	}
 
-	after := f.readRefundAttempt(t, claim.AttemptID)
+	after := readRefundAttempt(f, t, claim.AttemptID)
 	if after.status != "pending" {
 		t.Errorf("a rejected refund must stay queued; got status %q", after.status)
 	}
@@ -499,7 +500,7 @@ func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
 		t.Errorf("the attempt must record why the provider refused; got %q", after.errorMessage)
 	}
 
-	status, refundAmount := f.readPaymentState(t, payment.ID)
+	status, refundAmount := f.ReadPaymentState(t, payment.ID)
 	if status == "refunded" {
 		t.Error("a refund the provider refused must never read as refunded")
 	}
@@ -510,7 +511,7 @@ func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
 		t.Errorf("no money came back, so nothing may be recorded as refunded; got %d", refundAmount)
 	}
 
-	bookingStatus, _, bookingRefund := f.readBookingState(t, booking.ID)
+	bookingStatus, _, bookingRefund := f.ReadBookingState(t, booking.ID)
 	if bookingRefund == bookingstore.RefundStatusFull || bookingStatus == "cancelled" {
 		t.Errorf("the booking must not be settled by a refund that never happened; got status=%q refund_status=%q",
 			bookingStatus, bookingRefund)
@@ -522,7 +523,7 @@ func TestRecordRefundFailureLeavesTheAttemptRetryable(t *testing.T) {
 // The refund tests need a reader that cannot possibly be sharing a transaction
 // with the code under test: an uncommitted write is invisible to it, and a row
 // lock it cannot take is a row lock somebody else is really holding.
-func (f *testFixture) separateConn(t *testing.T) *pgx.Conn {
+func separateConn(f *datatest.Fixture, t *testing.T) *pgx.Conn {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -550,7 +551,7 @@ type refundAttemptState struct {
 	resolvedAt   *time.Time
 }
 
-func (f *testFixture) readRefundAttempt(t *testing.T, id uuid.UUID) refundAttemptState {
+func readRefundAttempt(f *datatest.Fixture, t *testing.T, id uuid.UUID) refundAttemptState {
 	t.Helper()
 
 	var state refundAttemptState
@@ -567,7 +568,7 @@ func (f *testFixture) readRefundAttempt(t *testing.T, id uuid.UUID) refundAttemp
 // expireRefundAttempt brings an attempt's retry time forward into the past, which
 // is what waiting out its backoff would do. next_retry_at carries no trigger, so
 // an ordinary UPDATE is enough here.
-func (f *testFixture) expireRefundAttempt(t *testing.T, id uuid.UUID) {
+func expireRefundAttempt(f *datatest.Fixture, t *testing.T, id uuid.UUID) {
 	t.Helper()
 
 	tag, err := f.Pool.Exec(context.Background(),
@@ -590,19 +591,19 @@ func (f *testFixture) expireRefundAttempt(t *testing.T, id uuid.UUID) {
 // permanent abandonment of every queued refund at once — five attempts at
 // 1m/5m/15m/1h/4h elapse in five hours and twenty minutes whatever the reason.
 //
-// FailedRefundModel.IncrementRetry already had this; the recorder on the money
+// paymentstore.FailedRefunds.IncrementRetry already had this; the recorder on the money
 // path did not, and it is the one the refund handler calls.
 func TestAProviderOutageDoesNotSpendAClaimedRefundsRetryBudget(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	claim := f.claimRefund(t, "08:00", "09:30")
+	claim := claimRefund(f, t, "08:00", "09:30")
 	// Two attempts have already been made and answered, so the escalating table
 	// and the flat outage probe are far enough apart to tell apart: the next
 	// backoff for an answer is an hour.
-	f.setRefundRetryCount(t, claim.AttemptID, 2)
+	setRefundRetryCount(f, t, claim.AttemptID, 2)
 
-	exhausted, err := f.Models.Payments.RecordRefundFailure(ctx, *claim,
+	exhausted, err := f.Stores.Payments.RecordRefundFailure(ctx, *claim,
 		"mp: refund request failed: Post \"https://api.mercadopago.com/v1/payments/1/refunds\": dial tcp: i/o timeout")
 	if err != nil {
 		t.Fatalf("RecordRefundFailure: %v", err)
@@ -611,7 +612,7 @@ func TestAProviderOutageDoesNotSpendAClaimedRefundsRetryBudget(t *testing.T) {
 		t.Error("a provider that never answered must not exhaust a budget meant for answers")
 	}
 
-	after := f.readRefundAttempt(t, claim.AttemptID)
+	after := readRefundAttempt(f, t, claim.AttemptID)
 	if after.retryCount != 2 {
 		t.Errorf("a provider outage spent a retry; want the count left at 2, got %d — five hours of one "+
 			"outage still abandons every queued refund", after.retryCount)
@@ -629,18 +630,18 @@ func TestAProviderOutageDoesNotSpendAClaimedRefundsRetryBudget(t *testing.T) {
 // budget and still escalates. The outage branch must not swallow the ordinary
 // case it was added beside.
 func TestARefusedRefundStillSpendsTheBudget(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	claim := f.claimRefund(t, "08:00", "09:30")
-	f.setRefundRetryCount(t, claim.AttemptID, 2)
+	claim := claimRefund(f, t, "08:00", "09:30")
+	setRefundRetryCount(f, t, claim.AttemptID, 2)
 
-	if _, err := f.Models.Payments.RecordRefundFailure(ctx, *claim,
+	if _, err := f.Stores.Payments.RecordRefundFailure(ctx, *claim,
 		"mp: refund failed with status 400: the payment cannot be refunded"); err != nil {
 		t.Fatalf("RecordRefundFailure: %v", err)
 	}
 
-	after := f.readRefundAttempt(t, claim.AttemptID)
+	after := readRefundAttempt(f, t, claim.AttemptID)
 	if after.retryCount != 3 {
 		t.Errorf("a refusal is an answer about this refund and must spend a retry; want 3, got %d", after.retryCount)
 	}
@@ -649,7 +650,7 @@ func TestARefusedRefundStillSpendsTheBudget(t *testing.T) {
 	}
 }
 
-// The case FailedRefundModel.IncrementRetry never had to face. Both queues now
+// The case paymentstore.FailedRefunds.IncrementRetry never had to face. Both queues now
 // re-select 'exhausted' rows once next_retry_at elapses, so an exhausted attempt
 // is retried and can fail again on an outage — and the outage branch has to
 // decide whether that flips it back to 'pending'.
@@ -661,14 +662,14 @@ func TestARefusedRefundStillSpendsTheBudget(t *testing.T) {
 // is piling up fastest. The row is retried either way; the status only decides
 // whether anybody is told.
 func TestAnExhaustedRefundStaysExhaustedThroughAProviderOutage(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	claim := f.claimRefund(t, "08:00", "09:30")
-	f.exhaustRefund(t, claim.AttemptID)
-	before := f.readRefundAttempt(t, claim.AttemptID)
+	claim := claimRefund(f, t, "08:00", "09:30")
+	exhaustRefund(f, t, claim.AttemptID)
+	before := readRefundAttempt(f, t, claim.AttemptID)
 
-	exhausted, err := f.Models.Payments.RecordRefundFailure(ctx, *claim, "mp: circuit breaker is open")
+	exhausted, err := f.Stores.Payments.RecordRefundFailure(ctx, *claim, "mp: circuit breaker is open")
 	if err != nil {
 		t.Fatalf("RecordRefundFailure: %v", err)
 	}
@@ -676,7 +677,7 @@ func TestAnExhaustedRefundStaysExhaustedThroughAProviderOutage(t *testing.T) {
 		t.Error("the caller must still be told the budget is spent, or the refund reads as automatically retryable")
 	}
 
-	after := f.readRefundAttempt(t, claim.AttemptID)
+	after := readRefundAttempt(f, t, claim.AttemptID)
 	if after.status != "exhausted" {
 		t.Errorf("an outage downgraded an exhausted attempt to %q, silencing the only alarm an operator gets "+
 			"for money that needs a person", after.status)
@@ -693,21 +694,21 @@ func TestAnExhaustedRefundStaysExhaustedThroughAProviderOutage(t *testing.T) {
 // no backoff and no recorded reason — it reads as abandoned rather than failed,
 // and is invisible to every instance until it goes stale.
 func TestARefundFailureIsRecordedEvenWhenTheCallerIsAlreadyDone(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	claim := f.claimRefund(t, "08:00", "09:30")
-	before := f.readRefundAttempt(t, claim.AttemptID)
+	claim := claimRefund(f, t, "08:00", "09:30")
+	before := readRefundAttempt(f, t, claim.AttemptID)
 
 	spent, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	const cause = "mp: refund failed with status 400: the payment cannot be refunded"
-	if _, err := f.Models.Payments.RecordRefundFailure(spent, *claim, cause); err != nil {
+	if _, err := f.Stores.Payments.RecordRefundFailure(spent, *claim, cause); err != nil {
 		t.Fatalf("the failure went unrecorded because the caller's context was already spent, which is "+
 			"precisely when a refund fails: %v", err)
 	}
 
-	after := f.readRefundAttempt(t, claim.AttemptID)
+	after := readRefundAttempt(f, t, claim.AttemptID)
 	if after.retryCount != before.retryCount+1 {
 		t.Errorf("the attempt did not count the failed try; want %d, got %d", before.retryCount+1, after.retryCount)
 	}
@@ -723,14 +724,14 @@ func TestARefundFailureIsRecordedEvenWhenTheCallerIsAlreadyDone(t *testing.T) {
 // which is the state every RecordRefundFailure case starts from. The slot times
 // are explicit because several claims in one test share a court and date, and
 // bookings(court_id, date, start_time) is uniquely indexed.
-func (f *testFixture) claimRefund(t *testing.T, startTime, endTime string) *paymentstore.RefundClaim {
+func claimRefund(f *datatest.Fixture, t *testing.T, startTime, endTime string) *paymentstore.RefundClaim {
 	t.Helper()
 
-	booking := f.createBooking(t, bookingOptions{StartTime: startTime, EndTime: endTime})
+	booking := f.CreateBooking(t, datatest.BookingOptions{StartTime: startTime, EndTime: endTime})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	claim, err := f.Models.Payments.ClaimRefund(context.Background(), payment.ID)
+	claim, err := f.Stores.Payments.ClaimRefund(context.Background(), payment.ID)
 	if err != nil {
 		t.Fatalf("claiming a refund on payment %s: %v", payment.ID, err)
 	}
@@ -739,7 +740,7 @@ func (f *testFixture) claimRefund(t *testing.T, startTime, endTime string) *paym
 
 // setRefundRetryCount puts an attempt part-way through its budget, as a run of
 // answered failures would.
-func (f *testFixture) setRefundRetryCount(t *testing.T, id uuid.UUID, count int) {
+func setRefundRetryCount(f *datatest.Fixture, t *testing.T, id uuid.UUID, count int) {
 	t.Helper()
 
 	tag, err := f.Pool.Exec(context.Background(),

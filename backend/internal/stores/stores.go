@@ -322,7 +322,7 @@ type ClientCRUD interface {
 type ClientLookup interface {
 	// allowNameUpdate is what tells the authenticated owner-booking caller
 	// apart from the public, unauthenticated one on a phone match — see
-	// ClientModel.GetOrCreate's own comment for why the two must not share
+	// clientstore.Store.GetOrCreate's own comment for why the two must not share
 	// one answer.
 	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
 	GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*clientstore.Client, error)
@@ -504,9 +504,9 @@ type Config struct {
 	// Logger is where the stores report what no caller can be told. Only the
 	// advisory-lock release needs it today: see LockModel.
 	Logger *slog.Logger
-	// Keys is the MercadoPago credential encryption keyring. ComplexModel and
-	// BookingModel use it to seal mp_access_token/mp_refresh_token on write
-	// and open them on read (internal/data/mpcred.go). A nil Keys is a valid
+	// Keys is the MercadoPago credential encryption keyring. complexstore.Store and
+	// bookingstore.Store use it to seal mp_access_token/mp_refresh_token on write
+	// and open them on read (internal/mpcred). A nil Keys is a valid
 	// zero value that Seal and Open both refuse — see crypto.Keyring — so a
 	// Config built without it fails loudly the first time a credential is
 	// touched, rather than storing or returning plaintext.
@@ -517,8 +517,8 @@ type Config struct {
 	// package variable.
 	PasswordHashCost int
 	// LinkTokenBuffer is added to a booking's end time to compute a booking
-	// link token's expires_at. BookingModel.InsertSafe and
-	// BookingLinkTokenModel.Mint's callers both use it. Zero falls back to
+	// link token's expires_at. bookingstore.Store.InsertSafe and
+	// booklinkstore.Store.Mint's callers both use it. Zero falls back to
 	// defaultLinkTokenBuffer, the same "a zero Config is not a smaller hazard"
 	// reasoning PaymentExpiry documents above.
 	LinkTokenBuffer time.Duration

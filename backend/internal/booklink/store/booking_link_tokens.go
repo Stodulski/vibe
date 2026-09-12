@@ -16,7 +16,7 @@ import (
 
 // Store implements BookingLinkTokenStore against PostgreSQL.
 //
-// Hand-written rather than sqlc, precedent internal/data/refund_intents.go:
+// Hand-written rather than sqlc, precedent internal/bookings/store/refund_intents.go:
 // ResolveBooking needs GetByID's enrichment JOIN, which sqlc's
 // :one/:many/:exec generators have no shape for, so all three statements here
 // stay hand-written rather than mixing generated and hand-written access to

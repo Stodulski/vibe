@@ -106,7 +106,7 @@ func parseFlags(mode string) (dsn, keysSpec string) {
 
 // credentialRow is one complex's raw mp_access_token / mp_refresh_token
 // columns, read straight from the database — never through
-// internal/data.ComplexModel, whose accessors would refuse to hand back
+// complexstore.Store, whose accessors would refuse to hand back
 // ciphertext this tool needs to read and rewrite directly.
 type credentialRow struct {
 	id           uuid.UUID

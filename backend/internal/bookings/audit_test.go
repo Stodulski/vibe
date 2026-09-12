@@ -124,13 +124,13 @@ func TestPublicBookIsRecordedWithTheClientAsActor(t *testing.T) {
 }
 
 // specs/booking-link-credential's token is the credential that authorizes the
-// three public routes. data.Booking keeps it out of anything encoded by
-// tagging LinkToken `json:"-"`, exactly as data.Complex's tags keep
+// three public routes. bookingstore.Booking keeps it out of anything encoded by
+// tagging LinkToken `json:"-"`, exactly as complexstore.Complex's tags keep
 // MercadoPago credentials out of the trail — and the audit value hands the
 // whole booking over, so that tag is what stands between the token and a
 // database row the platform can read.
 //
-// Mutation-verified: change LinkToken's tag in internal/data/bookings.go to
+// Mutation-verified: change LinkToken's tag in internal/bookings/store/bookings.go to
 // `json:"link_token"` and this test fails.
 func TestPublicBookAuditEntryCarriesNoLinkToken(t *testing.T) {
 	f := newFixture(t)

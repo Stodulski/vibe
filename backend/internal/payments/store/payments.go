@@ -42,7 +42,7 @@ type Payments struct {
 	DB *data.DB
 	Q  *db.Queries
 	// PaymentExpiry is how long an unpaid public booking holds its slot, taken
-	// from configuration by NewModels. The confirmation-time slot guard needs it
+	// from configuration by stores.New. The confirmation-time slot guard needs it
 	// to ask the same question InsertSafe asks. See Config.PaymentExpiry.
 	PaymentExpiry time.Duration
 }
@@ -268,7 +268,7 @@ func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *b
 	// order is the whole point.
 	//
 	// Two writers reach the same pair of locks from opposite directions.
-	// InsertSafe (internal/data/bookings.go) takes lockCourtDays and then
+	// InsertSafe (internal/bookings/store/bookings.go) takes lockCourtDays and then
 	// UPDATEs the stale pending bookings that overlap the hours it wants
 	// (ReleaseStalePendingOverlaps), which locks those rows. This transaction
 	// used to take the booking row first — guardBookingConfirmable's

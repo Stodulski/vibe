@@ -77,14 +77,14 @@ const maxRecordedAddress = 254
 // token, or a single-use verification or reset token, and the absence is the
 // design. Those are live credentials; this table is long-lived, has no retention
 // job, and is read by people who are not the account's owner, so a credential
-// landing in it is a credential published. data.Booking.LinkToken and
-// data.Complex's MercadoPago fields keep out of the same table with `json:"-"`,
+// landing in it is a credential published. bookingstore.Booking.LinkToken and
+// complexstore.Complex's MercadoPago fields keep out of the same table with `json:"-"`,
 // and audit.Recorder.Record encodes with json.Marshal, so a tagged field cannot
 // reach it. Here the shape is stronger than a tag: there is nowhere to put one.
 //
-// It also means a caller cannot hand over the whole *data.User and let the tags
+// It also means a caller cannot hand over the whole *authstore.User and let the tags
 // decide. That would be safe today, and would silently stop being safe the day
-// somebody adds a field to data.User without one.
+// somebody adds a field to authstore.User without one.
 type accountEvent struct {
 	// Email is the address the act concerned. On a sign-in that succeeded, on a
 	// sign-out, on a password change, it is the account's own address, which

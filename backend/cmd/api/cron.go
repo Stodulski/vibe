@@ -164,7 +164,7 @@ func (app *application) cronReminder2h(ctx context.Context) {
 		// A fresh access token per reminder, rather than the one the booking
 		// was confirmed with: booking_link_tokens stores only a hash, so the
 		// plaintext minted at confirmation is unreadable from here — see
-		// BookingLinkTokenModel.Mint on why every process that emits a link
+		// booklinkstore.Store.Mint on why every process that emits a link
 		// mints its own row. A mint that fails costs the WhatsApp cancel
 		// button and nothing else: the reminder still goes out, by email and
 		// without the button, rather than not at all.

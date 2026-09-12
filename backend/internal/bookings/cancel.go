@@ -407,7 +407,7 @@ func (h *Handler) releaseHeldSlots(ctx context.Context, booking *bookingstore.Bo
 //
 // The budget was originally sized to cover a loop of up to MaxSlotCount
 // releases; a booking now takes exactly one lock, so this bounds the single
-// DELETE SlotLockModel.ReleaseLock issues, with the same margin as before.
+// DELETE bookingstore.SlotLocks.ReleaseLock issues, with the same margin as before.
 const slotReleaseBudget = 10 * time.Second
 
 // releaseSlotLock releases the one slot lock a booking's span holds.

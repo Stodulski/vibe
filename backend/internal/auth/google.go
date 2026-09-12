@@ -319,7 +319,7 @@ func (h *Handler) respondNeedsProfile(w http.ResponseWriter, r *http.Request, cl
 // linkGoogleIdentity records the Google account behind userID, once. A store
 // failure is logged, not fatal: the session this request is about to start
 // does not depend on the link row existing, and the next Google sign-in
-// tries again (Insert is idempotent — see data.UserIdentityStore.Insert).
+// tries again (Insert is idempotent — see stores.UserIdentityStore.Insert).
 func (h *Handler) linkGoogleIdentity(r *http.Request, userID uuid.UUID, claims *googleid.Claims) {
 	email := claims.Email
 	err := h.identities.Insert(r.Context(), &authstore.UserIdentity{

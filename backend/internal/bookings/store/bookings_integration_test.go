@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // Two clients paying for the same court at the same hour is the failure this system
@@ -19,7 +20,7 @@ import (
 // The bookings here are freshly created and owner-attributed, so the stale-pending
 // exclusion inside InsertSafe plays no part — this is the plain collision.
 func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
 	const attempts = 2
 
@@ -32,10 +33,10 @@ func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			booking := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
+			booking := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
 			<-start
-			results[i] = f.Models.Bookings.InsertSafe(context.Background(), booking)
+			results[i] = f.Stores.Bookings.InsertSafe(context.Background(), booking)
 		}()
 	}
 
@@ -81,22 +82,22 @@ func TestConcurrentInsertSafeLetsExactlyOneBookingThrough(t *testing.T) {
 // unique index on (court_id, date, start_time) does not see it. Running these
 // sequentially isolates the query from the locking above.
 func TestInsertSafeRejectsAnOverlappingBooking(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	first := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30"})
-	if err := f.Models.Bookings.InsertSafe(ctx, first); err != nil {
+	first := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30"})
+	if err := f.Stores.Bookings.InsertSafe(ctx, first); err != nil {
 		t.Fatalf("the first booking must be accepted: %v", err)
 	}
 
-	overlapping := f.newBooking(bookingOptions{StartTime: "18:30", EndTime: "20:00"})
-	err := f.Models.Bookings.InsertSafe(ctx, overlapping)
+	overlapping := f.NewBooking(datatest.BookingOptions{StartTime: "18:30", EndTime: "20:00"})
+	err := f.Stores.Bookings.InsertSafe(ctx, overlapping)
 	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
 		t.Errorf("a booking overlapping a live one must be refused with ErrSlotUnavailable; got %v", err)
 	}
 
-	adjacent := f.newBooking(bookingOptions{StartTime: "19:30", EndTime: "21:00"})
-	if err := f.Models.Bookings.InsertSafe(ctx, adjacent); err != nil {
+	adjacent := f.NewBooking(datatest.BookingOptions{StartTime: "19:30", EndTime: "21:00"})
+	if err := f.Stores.Bookings.InsertSafe(ctx, adjacent); err != nil {
 		t.Errorf("a booking starting exactly when the previous one ends must be accepted: %v", err)
 	}
 }

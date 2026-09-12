@@ -354,7 +354,7 @@ WHERE id = $1
 `
 
 // :execrows, so the caller can tell "deleted it" from "it was already deleted"
-// without a separate SELECT. ComplexModel.SoftDeleteCascade is the only caller
+// without a separate SELECT. complexstore.Store.SoftDeleteCascade is the only caller
 // and runs this inside the transaction that also counts the courts the
 // soft-delete cascade trigger closes.
 func (q *Queries) SoftDeleteComplex(ctx context.Context, id pgtype.UUID) (int64, error) {
@@ -418,7 +418,7 @@ type UpdateComplexParams struct {
 // must echo back the `updated_at` it read when it loaded the row. If another
 // write landed in between, that timestamp has already moved and this UPDATE
 // matches zero rows instead of clobbering the other request's change.
-// ComplexModel.Update turns zero rows into ErrRecordNotFound, which the
+// complexstore.Store.Update turns zero rows into ErrRecordNotFound, which the
 // handler already maps to a 409 edit-conflict response (it previously existed
 // only to cover a row deleted out from under the request) — so a refused
 // update now reaches the caller as a conflict to retry, not as data loss.

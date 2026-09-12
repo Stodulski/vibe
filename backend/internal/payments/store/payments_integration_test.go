@@ -1,12 +1,13 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/google/uuid"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -27,22 +28,22 @@ func TestGetPaymentByBookingIDPrefersTheMercadoPagoRow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newTestFixture(t)
+			f := datatest.NewFixture(t)
 			ctx := context.Background()
 
-			booking := f.createBooking(t, bookingOptions{})
+			booking := f.CreateBooking(t, datatest.BookingOptions{})
 			mpPaymentID := "mp-" + uuid.NewString()
 
 			var mpPayment, cashPayment *paymentstore.Payment
 			if tt.cashFirst {
-				cashPayment = f.createPayment(t, booking.ID, 150_000, 0, nil)
-				mpPayment = f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+				cashPayment = f.CreatePayment(t, booking.ID, 150_000, 0, nil)
+				mpPayment = f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 			} else {
-				mpPayment = f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
-				cashPayment = f.createPayment(t, booking.ID, 150_000, 0, nil)
+				mpPayment = f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+				cashPayment = f.CreatePayment(t, booking.ID, 150_000, 0, nil)
 			}
 
-			found, err := f.Models.Payments.GetByBookingID(ctx, booking.ID)
+			found, err := f.Stores.Payments.GetByBookingID(ctx, booking.ID)
 			if err != nil {
 				t.Fatalf("GetByBookingID: %v", err)
 			}
@@ -65,16 +66,16 @@ func TestGetPaymentByBookingIDPrefersTheMercadoPagoRow(t *testing.T) {
 // payment on a booking (the detail endpoint) cannot use a query that silently
 // picks one row and discards the rest.
 func TestListPaymentsByBookingIDReturnsEveryRowOldestFirst(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
 
-	cashPayment := f.createPayment(t, booking.ID, 150_000, 0, nil)
-	mpPayment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	cashPayment := f.CreatePayment(t, booking.ID, 150_000, 0, nil)
+	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
-	found, err := f.Models.Payments.ListByBookingID(ctx, booking.ID)
+	found, err := f.Stores.Payments.ListByBookingID(ctx, booking.ID)
 	if err != nil {
 		t.Fatalf("ListByBookingID: %v", err)
 	}
@@ -107,13 +108,13 @@ func TestListPaymentsByBookingIDReturnsEveryRowOldestFirst(t *testing.T) {
 // schema that has to be pinned. Drop that index and the query becomes
 // non-deterministic without a single line of Go changing.
 func TestOneMercadoPagoPaymentIDCannotBeOnTwoPaymentRows(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	booking := f.createBooking(t, bookingOptions{})
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
 	mpPaymentID := "mp-" + uuid.NewString()
 
-	recorded := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	recorded := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
 	// A booking may legitimately carry more than one payment row, so the index on
 	// payments(booking_id) does not stop this. The second row is what a redelivery
@@ -128,12 +129,12 @@ func TestOneMercadoPagoPaymentIDCannotBeOnTwoPaymentRows(t *testing.T) {
 		Status:      "deposit_paid",
 		MPPaymentID: &mpPaymentID,
 	}
-	if err := f.Models.Payments.Insert(ctx, duplicate); err == nil {
+	if err := f.Stores.Payments.Insert(ctx, duplicate); err == nil {
 		t.Fatal("the database accepted a second payment row carrying the same mp_payment_id; GetPaymentByMPID can no longer be deterministic")
 	}
 
 	// And the lookup still answers with the one row that exists.
-	found, err := f.Models.Payments.GetByMPPaymentID(ctx, mpPaymentID)
+	found, err := f.Stores.Payments.GetByMPPaymentID(ctx, mpPaymentID)
 	if err != nil {
 		t.Fatalf("GetByMPPaymentID: %v", err)
 	}

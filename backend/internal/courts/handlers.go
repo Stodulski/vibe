@@ -281,7 +281,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		// disappeared between the GetByID above and this call, or because a
 		// concurrent delete already soft-deleted it — the ordinary GetByID
 		// race, not the has-bookings conflict. See SoftDelete's own comment
-		// (internal/data/courts.go) for why the three zero-row causes are no
+		// (internal/courts/store/courts.go) for why the three zero-row causes are no
 		// longer conflated into one sentinel.
 		case errors.Is(err, data.ErrRecordNotFound):
 			h.respond.NotFound(w, r)
@@ -416,7 +416,7 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 	// concurrent writer) answered a 4xx to the owner with the court's whole
 	// price table already gone. ReplacePrices wraps both halves in one
 	// transaction, so a refused write costs nothing: see its comment in
-	// internal/data/courts.go.
+	// internal/courts/store/courts.go.
 	prices := make([]*courtstore.CourtPrice, len(input.Prices))
 	for i, p := range input.Prices {
 		prices[i] = &courtstore.CourtPrice{
@@ -531,7 +531,7 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		// block dated "9999-12-31" was accepted and stored. It sits in a future
 		// nobody queries, so it is merely inert rather than harmful the way an
 		// unbounded public booking is (see the horizon's own comment,
-		// data.MaxBookingHorizonDays), but the two write paths share one
+		// bookingstore.MaxBookingHorizonDays), but the two write paths share one
 		// horizon so an owner and a client hit the same wall for the same
 		// reason.
 		v.Check(!date.After(maxBookableDate(time.Now())), "date",
@@ -629,7 +629,7 @@ func onOrAfterToday(date, now time.Time) bool {
 
 // maxBookableDate is the latest calendar date — on the product's calendar,
 // same as onOrAfterToday above — a blocked slot may be dated. See
-// data.MaxBookingHorizonDays (H-08) for why this bound exists and why a
+// bookingstore.MaxBookingHorizonDays (H-08) for why this bound exists and why a
 // year is the value.
 func maxBookableDate(now time.Time) time.Time {
 	today := now.In(timezone.Argentina)

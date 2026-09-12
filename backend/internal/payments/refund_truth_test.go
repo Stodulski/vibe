@@ -253,7 +253,7 @@ func TestAPartialRefundIsNotReadAsFullBecauseTheRowUnderstatesWhatWasPaid(t *tes
 //
 // Mutation: restore the old write in recordPaymentOwedARefund —
 //
-//	booking.RefundStatus = data.RefundStatusPending   // and drop the marker
+//	booking.RefundStatus = bookingstore.RefundStatusPending   // and drop the marker
 //
 // — and re-run. Both assertions below must fail.
 func TestAnUnclaimedRefundLeavesTheSweepAMarkerRatherThanAFalseRefundPending(t *testing.T) {

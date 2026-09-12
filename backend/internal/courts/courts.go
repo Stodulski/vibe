@@ -32,7 +32,7 @@ type Store interface {
 	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
 	GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*courtstore.CourtPrice, error)
 	// ReplacePrices atomically replaces a court's whole price table in one
-	// transaction (H-07) — see its comment in internal/data/courts.go. It
+	// transaction (H-07) — see its comment in internal/courts/store/courts.go. It
 	// replaces the old DeletePricesByCourtID-then-InsertPrice-loop shape
 	// UpdatePrices used to call directly.
 	ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*courtstore.CourtPrice) (failedIndex int, err error)

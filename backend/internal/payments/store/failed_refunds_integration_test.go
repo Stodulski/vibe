@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -22,23 +23,23 @@ import (
 // window — and only those, or the queue would hand a live in-flight refund to a second
 // worker and pay the client twice.
 func TestGetPendingDueReclaimsStaleProcessingRefunds(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	stale := f.createFailedRefund(t, "08:00", "09:30")
-	fresh := f.createFailedRefund(t, "10:00", "11:30")
+	stale := createFailedRefund(f, t, "08:00", "09:30")
+	fresh := createFailedRefund(f, t, "10:00", "11:30")
 
 	for _, id := range []uuid.UUID{stale.ID, fresh.ID} {
-		if err := f.Models.FailedRefunds.MarkProcessing(ctx, id); err != nil {
+		if err := f.Stores.FailedRefunds.MarkProcessing(ctx, id); err != nil {
 			t.Fatalf("MarkProcessing(%s): %v", id, err)
 		}
 	}
 
 	// Only the first attempt is aged past the window; the second stays as it was
 	// marked a moment ago, which is what a healthy in-flight retry looks like.
-	f.backdateFailedRefundUpdatedAt(t, stale.ID, 20*time.Minute)
+	f.BackdateFailedRefundUpdatedAt(t, stale.ID, 20*time.Minute)
 
-	due, err := f.Models.FailedRefunds.GetPendingDue(ctx)
+	due, err := f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -54,17 +55,17 @@ func TestGetPendingDueReclaimsStaleProcessingRefunds(t *testing.T) {
 
 // The reclaim clause must not swallow the ordinary case it was added beside.
 func TestGetPendingDueStillRespectsTheRetrySchedule(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	due := f.createFailedRefund(t, "08:00", "09:30")
+	due := createFailedRefund(f, t, "08:00", "09:30")
 
-	backedOff := f.createFailedRefund(t, "10:00", "11:30")
-	if err := f.Models.FailedRefunds.IncrementRetry(ctx, backedOff.ID, 0, "mercadopago unavailable"); err != nil {
+	backedOff := createFailedRefund(f, t, "10:00", "11:30")
+	if err := f.Stores.FailedRefunds.IncrementRetry(ctx, backedOff.ID, 0, "mercadopago unavailable"); err != nil {
 		t.Fatalf("IncrementRetry: %v", err)
 	}
 
-	pending, err := f.Models.FailedRefunds.GetPendingDue(ctx)
+	pending, err := f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -82,12 +83,12 @@ func TestGetPendingDueStillRespectsTheRetrySchedule(t *testing.T) {
 // payment and booking so the foreign keys hold. The slot times are explicit because
 // several refunds in one test share a court and date, and
 // bookings(court_id, date, start_time) is uniquely indexed.
-func (f *testFixture) createFailedRefund(t *testing.T, startTime, endTime string) *paymentstore.FailedRefund {
+func createFailedRefund(f *datatest.Fixture, t *testing.T, startTime, endTime string) *paymentstore.FailedRefund {
 	t.Helper()
 
-	booking := f.createBooking(t, bookingOptions{StartTime: startTime, EndTime: endTime})
+	booking := f.CreateBooking(t, datatest.BookingOptions{StartTime: startTime, EndTime: endTime})
 	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.createPayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
 	fr := &paymentstore.FailedRefund{
 		PaymentID:    payment.ID,
@@ -98,7 +99,7 @@ func (f *testFixture) createFailedRefund(t *testing.T, startTime, endTime string
 		ErrorMessage: "mercadopago unavailable",
 		NextRetryAt:  time.Now().Add(-time.Minute),
 	}
-	if err := f.Models.FailedRefunds.Insert(context.Background(), fr); err != nil {
+	if err := f.Stores.FailedRefunds.Insert(context.Background(), fr); err != nil {
 		t.Fatalf("queueing failed refund: %v", err)
 	}
 	return fr
@@ -122,13 +123,13 @@ func idsOf(refunds []*paymentstore.FailedRefund) map[uuid.UUID]bool {
 // at once, permanently, for a reason that had nothing to do with the refunds.
 // The status now means "paused and alerting" rather than "given up on".
 func TestAnExhaustedRefundComesBackWhenItsBackoffElapses(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	fr := f.createFailedRefund(t, "08:00", "09:30")
-	f.exhaustRefund(t, fr.ID)
+	fr := createFailedRefund(f, t, "08:00", "09:30")
+	exhaustRefund(f, t, fr.ID)
 
-	due, err := f.Models.FailedRefunds.GetPendingDue(ctx)
+	due, err := f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -136,7 +137,7 @@ func TestAnExhaustedRefundComesBackWhenItsBackoffElapses(t *testing.T) {
 		t.Fatal("a refund whose retry budget is spent is never looked at again, so the money is owed forever")
 	}
 
-	if err := f.Models.FailedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
+	if err := f.Stores.FailedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
 		t.Errorf("a revived attempt must be claimable: %v", err)
 	}
 }
@@ -144,17 +145,17 @@ func TestAnExhaustedRefundComesBackWhenItsBackoffElapses(t *testing.T) {
 // A refund still waiting out the tail of its backoff is not revived early; the
 // pause has to be a real one or an unfixable refund becomes a hot loop.
 func TestAnExhaustedRefundWaitsOutItsBackoff(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	fr := f.createFailedRefund(t, "08:00", "09:30")
-	f.exhaustRefund(t, fr.ID)
+	fr := createFailedRefund(f, t, "08:00", "09:30")
+	exhaustRefund(f, t, fr.ID)
 	if _, err := f.Pool.Exec(ctx,
 		`UPDATE failed_refunds SET next_retry_at = NOW() + INTERVAL '4 hours' WHERE id = $1`, fr.ID); err != nil {
 		t.Fatalf("scheduling the revival: %v", err)
 	}
 
-	due, err := f.Models.FailedRefunds.GetPendingDue(ctx)
+	due, err := f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -168,16 +169,16 @@ func TestAnExhaustedRefundWaitsOutItsBackoff(t *testing.T) {
 // MercadoPago. An unconditional MarkProcessing let both through and left the
 // provider's idempotency key as the only thing between a client and two refunds.
 func TestOnlyOneWorkerCanTakeARefundAttempt(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	fr := f.createFailedRefund(t, "08:00", "09:30")
+	fr := createFailedRefund(f, t, "08:00", "09:30")
 
-	if err := f.Models.FailedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
+	if err := f.Stores.FailedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
 		t.Fatalf("the first claim must succeed: %v", err)
 	}
 
-	err := f.Models.FailedRefunds.MarkProcessing(ctx, fr.ID)
+	err := f.Stores.FailedRefunds.MarkProcessing(ctx, fr.ID)
 	if err == nil {
 		t.Error("a second worker took an attempt the first is still working, so the client can be refunded twice")
 	} else if !errors.Is(err, data.ErrRecordNotFound) {
@@ -191,18 +192,18 @@ func TestOnlyOneWorkerCanTakeARefundAttempt(t *testing.T) {
 // capped at two minutes — where the old fifteen was three times the longest
 // thing it had to outlast.
 func TestAnAbandonedRefundIsReclaimedOnceItsAttemptCannotStillBeHonest(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	fr := f.createFailedRefund(t, "08:00", "09:30")
-	if err := f.Models.FailedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
+	fr := createFailedRefund(f, t, "08:00", "09:30")
+	if err := f.Stores.FailedRefunds.MarkProcessing(ctx, fr.ID); err != nil {
 		t.Fatalf("MarkProcessing: %v", err)
 	}
 	// Older than any attempt can honestly be — the sweep that claimed it has
 	// long since hit its own two-minute budget — but well inside the old window.
-	f.backdateFailedRefundUpdatedAt(t, fr.ID, 6*time.Minute)
+	f.BackdateFailedRefundUpdatedAt(t, fr.ID, 6*time.Minute)
 
-	due, err := f.Models.FailedRefunds.GetPendingDue(ctx)
+	due, err := f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -215,7 +216,7 @@ func TestAnAbandonedRefundIsReclaimedOnceItsAttemptCannotStillBeHonest(t *testin
 // eight seconds per row in MercadoPago, so it reads what it can work rather than
 // fifty rows it will drop.
 func TestTheRefundSweepReadsNoMoreThanARunCanWork(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// One-hour bookings, back to back: the fixture derives duration_minutes
@@ -223,10 +224,10 @@ func TestTheRefundSweepReadsNoMoreThanARunCanWork(t *testing.T) {
 	for i := range paymentstore.RefundSweepBatchForTest + 3 {
 		start := fmt.Sprintf("%02d:00", 6+i)
 		end := fmt.Sprintf("%02d:00", 7+i)
-		f.createFailedRefund(t, start, end)
+		createFailedRefund(f, t, start, end)
 	}
 
-	due, err := f.Models.FailedRefunds.GetPendingDue(ctx)
+	due, err := f.Stores.FailedRefunds.GetPendingDue(ctx)
 	if err != nil {
 		t.Fatalf("GetPendingDue: %v", err)
 	}
@@ -240,28 +241,28 @@ func TestTheRefundSweepReadsNoMoreThanARunCanWork(t *testing.T) {
 // are written before MercadoPago is called — and almost all of them resolve
 // within seconds. Nothing deleted any of them.
 func TestResolvedRefundAttemptsAreDeletedAndNothingElse(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	const retention = 90 * 24 * time.Hour
 
-	old := f.createFailedRefund(t, "08:00", "09:30")
-	recent := f.createFailedRefund(t, "10:00", "11:30")
-	owed := f.createFailedRefund(t, "12:00", "13:30")
+	old := createFailedRefund(f, t, "08:00", "09:30")
+	recent := createFailedRefund(f, t, "10:00", "11:30")
+	owed := createFailedRefund(f, t, "12:00", "13:30")
 
 	for _, id := range []uuid.UUID{old.ID, recent.ID} {
-		if err := f.Models.FailedRefunds.MarkResolved(ctx, id); err != nil {
+		if err := f.Stores.FailedRefunds.MarkResolved(ctx, id); err != nil {
 			t.Fatalf("MarkResolved(%s): %v", id, err)
 		}
 	}
-	f.exhaustRefund(t, owed.ID)
+	exhaustRefund(f, t, owed.ID)
 	if _, err := f.Pool.Exec(ctx,
 		`UPDATE failed_refunds SET resolved_at = NOW() - $2::interval WHERE id = $1`,
 		old.ID, (retention + 24*time.Hour).String()); err != nil {
 		t.Fatalf("ageing the resolved attempt: %v", err)
 	}
 
-	// The concrete model rather than f.Models.FailedRefunds: retention is not on
+	// The concrete model rather than f.Stores.FailedRefunds: retention is not on
 	// the FailedRefundStore interface yet, because adding it there means editing
 	// models.go and the mock beside it. See the note in DeleteResolved.
 	store := &paymentstore.FailedRefunds{DB: data.NewDB(f.Pool)}
@@ -269,13 +270,13 @@ func TestResolvedRefundAttemptsAreDeletedAndNothingElse(t *testing.T) {
 		t.Fatalf("DeleteResolved: %v", err)
 	}
 
-	if f.refundExists(t, old.ID) {
+	if refundExists(f, t, old.ID) {
 		t.Error("a refund resolved months ago is kept forever, so this table only ever grows")
 	}
-	if !f.refundExists(t, recent.ID) {
+	if !refundExists(f, t, recent.ID) {
 		t.Error("a refund resolved inside the retention window was deleted")
 	}
-	if !f.refundExists(t, owed.ID) {
+	if !refundExists(f, t, owed.ID) {
 		t.Error("an exhausted refund is money still owed to a client and must never be deleted on a timer")
 	}
 }
@@ -290,7 +291,7 @@ func TestResolvedRefundAttemptsAreDeletedAndNothingElse(t *testing.T) {
 // happens to hold: with an index that cannot answer the predicate, PostgreSQL
 // scans anyway and says so.
 func TestTheRefundSweepQueryIsAnsweredByItsIndex(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	tx, err := f.Pool.Begin(ctx)
@@ -339,24 +340,24 @@ func TestTheRefundSweepQueryIsAnsweredByItsIndex(t *testing.T) {
 // the refund, so it must not spend part of the budget that bounds how many times
 // we ask a provider that is answering us.
 func TestAProviderOutageDoesNotSpendARefundsRetryBudget(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	fr := f.createFailedRefund(t, "08:00", "09:30")
+	fr := createFailedRefund(f, t, "08:00", "09:30")
 
 	// Two attempts have already been made and answered.
-	if err := f.Models.FailedRefunds.IncrementRetry(ctx, fr.ID, 2, "mp: refund failed with status 400: invalid amount"); err != nil {
+	if err := f.Stores.FailedRefunds.IncrementRetry(ctx, fr.ID, 2, "mp: refund failed with status 400: invalid amount"); err != nil {
 		t.Fatalf("IncrementRetry: %v", err)
 	}
-	if got := f.readRefund(t, fr.ID).retryCount; got != 2 {
+	if got := readRefund(f, t, fr.ID).retryCount; got != 2 {
 		t.Fatalf("a rejection must spend a retry; want 2, got %d", got)
 	}
 
-	if err := f.Models.FailedRefunds.IncrementRetry(ctx, fr.ID, 3, "mp: refund request failed: dial tcp: i/o timeout"); err != nil {
+	if err := f.Stores.FailedRefunds.IncrementRetry(ctx, fr.ID, 3, "mp: refund request failed: dial tcp: i/o timeout"); err != nil {
 		t.Fatalf("IncrementRetry: %v", err)
 	}
 
-	state := f.readRefund(t, fr.ID)
+	state := readRefund(f, t, fr.ID)
 	if state.retryCount != 2 {
 		t.Errorf("a provider outage spent a retry; want the count left at 2, got %d — five hours of one "+
 			"outage still abandons every queued refund", state.retryCount)
@@ -368,7 +369,7 @@ func TestAProviderOutageDoesNotSpendARefundsRetryBudget(t *testing.T) {
 
 // exhaustRefund spends an attempt's whole retry budget, as a run of provider
 // rejections would, and leaves it due.
-func (f *testFixture) exhaustRefund(t *testing.T, id uuid.UUID) {
+func exhaustRefund(f *datatest.Fixture, t *testing.T, id uuid.UUID) {
 	t.Helper()
 
 	_, err := f.Pool.Exec(context.Background(), `
@@ -387,7 +388,7 @@ type refundState struct {
 	nextRetryAt time.Time
 }
 
-func (f *testFixture) readRefund(t *testing.T, id uuid.UUID) refundState {
+func readRefund(f *datatest.Fixture, t *testing.T, id uuid.UUID) refundState {
 	t.Helper()
 
 	var s refundState
@@ -400,7 +401,7 @@ func (f *testFixture) readRefund(t *testing.T, id uuid.UUID) refundState {
 	return s
 }
 
-func (f *testFixture) refundExists(t *testing.T, id uuid.UUID) bool {
+func refundExists(f *datatest.Fixture, t *testing.T, id uuid.UUID) bool {
 	t.Helper()
 
 	var exists bool

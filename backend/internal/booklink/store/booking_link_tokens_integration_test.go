@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // These tests exercise the booking-link-token store layer
@@ -19,7 +20,7 @@ import (
 // are labeled [Unit] in tasks.md, but InsertSafe and ResolveBooking both
 // require a real transaction and a real SELECT — see
 // TestBookingModel_RequiresDB in bookings_test.go, which documents that every
-// BookingModel method needs *pgxpool.Pool. They live here rather than in a
+// bookingstore.Store method needs *pgxpool.Pool. They live here rather than in a
 // mock-based unit test for the same reason every other InsertSafe/atomicity
 // test in this package does (see refund_intents_integration_test.go).
 
@@ -33,11 +34,11 @@ import (
 // booking row must persist despite the mint failing, because a mint that no
 // longer participates in the transaction cannot roll it back.
 func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
-	if err := f.Models.Bookings.InsertSafe(ctx, b); err != nil {
+	b := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
+	if err := f.Stores.Bookings.InsertSafe(ctx, b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
 
@@ -50,7 +51,7 @@ func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
 
 	// The token actually resolves, proving it was committed, not merely held
 	// in memory on b.
-	resolved, expiresAt, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, b.LinkToken)
+	resolved, expiresAt, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, b.LinkToken)
 	if err != nil {
 		t.Fatalf("ResolveBooking(minted token): %v", err)
 	}
@@ -73,17 +74,17 @@ func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
 // catch as sharply as the UNIQUE-collision failure does. Either failure mode
 // breaks this test.
 func TestTwoMintsForTheSameBookingProduceDifferentTokensBothResolve(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	b := f.createBooking(t, bookingOptions{})
+	b := f.CreateBooking(t, datatest.BookingOptions{})
 
 	expiresAt := b.EndsAt.Add(24 * time.Hour)
-	first, err := f.Models.BookingLinkTokens.Mint(ctx, b.ID, expiresAt)
+	first, err := f.Stores.BookingLinkTokens.Mint(ctx, b.ID, expiresAt)
 	if err != nil {
 		t.Fatalf("first Mint: %v", err)
 	}
-	second, err := f.Models.BookingLinkTokens.Mint(ctx, b.ID, expiresAt)
+	second, err := f.Stores.BookingLinkTokens.Mint(ctx, b.ID, expiresAt)
 	if err != nil {
 		t.Fatalf("second Mint: %v", err)
 	}
@@ -93,7 +94,7 @@ func TestTwoMintsForTheSameBookingProduceDifferentTokensBothResolve(t *testing.T
 	}
 
 	for _, plaintext := range []string{first, second} {
-		resolved, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, plaintext)
+		resolved, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, plaintext)
 		if err != nil {
 			t.Fatalf("ResolveBooking(%q): %v", plaintext, err)
 		}
@@ -112,17 +113,17 @@ func TestTwoMintsForTheSameBookingProduceDifferentTokensBothResolve(t *testing.T
 // ResolveBooking's SELECT — re-run, and this test must fail with
 // ErrRecordNotFound instead of returning the row and its past expires_at.
 func TestResolveBookingIgnoresExpiryAndReturnsIt(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	b := f.createBooking(t, bookingOptions{})
+	b := f.CreateBooking(t, datatest.BookingOptions{})
 	past := time.Now().Add(-48 * time.Hour)
-	plaintext, err := f.Models.BookingLinkTokens.Mint(ctx, b.ID, past)
+	plaintext, err := f.Stores.BookingLinkTokens.Mint(ctx, b.ID, past)
 	if err != nil {
 		t.Fatalf("Mint: %v", err)
 	}
 
-	resolved, expiresAt, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, plaintext)
+	resolved, expiresAt, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, plaintext)
 	if err != nil {
 		t.Fatalf("ResolveBooking on an expired token must still return the row, not %v", err)
 	}
@@ -137,10 +138,10 @@ func TestResolveBookingIgnoresExpiryAndReturnsIt(t *testing.T) {
 // TestResolveBookingUnknownTokenIsNotFound proves the negative counterpart:
 // a value never minted resolves to ErrRecordNotFound, not any other error.
 func TestResolveBookingUnknownTokenIsNotFound(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	_, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, "never-minted-value")
+	_, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, "never-minted-value")
 	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("ResolveBooking(unknown) = %v, want ErrRecordNotFound", err)
 	}
@@ -153,30 +154,30 @@ func TestResolveBookingUnknownTokenIsNotFound(t *testing.T) {
 // and the confirmed booking's token, despite its past expiry, must survive
 // this test's assertion but will not once the predicate is gone.
 func TestDeleteExpiredTerminalNeverTouchesALiveBooking(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	live := f.createBooking(t, bookingOptions{Status: "confirmed"})
-	terminal := f.createBooking(t, bookingOptions{Status: "cancelled", StartTime: "08:00", EndTime: "09:30"})
+	live := f.CreateBooking(t, datatest.BookingOptions{Status: "confirmed"})
+	terminal := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: "08:00", EndTime: "09:30"})
 
 	past := time.Now().Add(-48 * time.Hour)
-	liveToken, err := f.Models.BookingLinkTokens.Mint(ctx, live.ID, past)
+	liveToken, err := f.Stores.BookingLinkTokens.Mint(ctx, live.ID, past)
 	if err != nil {
 		t.Fatalf("Mint(live): %v", err)
 	}
-	terminalToken, err := f.Models.BookingLinkTokens.Mint(ctx, terminal.ID, past)
+	terminalToken, err := f.Stores.BookingLinkTokens.Mint(ctx, terminal.ID, past)
 	if err != nil {
 		t.Fatalf("Mint(terminal): %v", err)
 	}
 
-	if err := f.Models.BookingLinkTokens.DeleteExpiredTerminal(ctx, time.Hour); err != nil {
+	if err := f.Stores.BookingLinkTokens.DeleteExpiredTerminal(ctx, time.Hour); err != nil {
 		t.Fatalf("DeleteExpiredTerminal: %v", err)
 	}
 
-	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, liveToken); err != nil {
+	if _, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, liveToken); err != nil {
 		t.Errorf("a live (confirmed) booking's token must survive the sweep however old its expiry; got %v", err)
 	}
-	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, terminalToken); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, terminalToken); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("a terminal booking's token past retention must be swept; ResolveBooking = %v, want ErrRecordNotFound", err)
 	}
 }
@@ -186,21 +187,21 @@ func TestDeleteExpiredTerminalNeverTouchesALiveBooking(t *testing.T) {
 // even though its status already qualifies — the predicate is a conjunction,
 // not an either/or.
 func TestDeleteExpiredTerminalRespectsRetention(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	terminal := f.createBooking(t, bookingOptions{Status: "completed"})
+	terminal := f.CreateBooking(t, datatest.BookingOptions{Status: "completed"})
 	recentPast := time.Now().Add(-10 * time.Minute)
-	token, err := f.Models.BookingLinkTokens.Mint(ctx, terminal.ID, recentPast)
+	token, err := f.Stores.BookingLinkTokens.Mint(ctx, terminal.ID, recentPast)
 	if err != nil {
 		t.Fatalf("Mint: %v", err)
 	}
 
-	if err := f.Models.BookingLinkTokens.DeleteExpiredTerminal(ctx, 24*time.Hour); err != nil {
+	if err := f.Stores.BookingLinkTokens.DeleteExpiredTerminal(ctx, 24*time.Hour); err != nil {
 		t.Fatalf("DeleteExpiredTerminal: %v", err)
 	}
 
-	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, token); err != nil {
+	if _, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, token); err != nil {
 		t.Errorf("a terminal booking's token still inside its retention window must survive; got %v", err)
 	}
 }
@@ -227,18 +228,18 @@ func TestDeleteExpiredTerminalRespectsRetention(t *testing.T) {
 // call must then fail, breaking the "checkout token still resolves"
 // assertion below.
 func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	b := f.newBooking(bookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
-	if err := f.Models.Bookings.InsertSafe(ctx, b); err != nil {
+	b := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
+	if err := f.Stores.Bookings.InsertSafe(ctx, b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
 	checkoutToken := b.LinkToken
 
 	// Stands in for internal/payments/process.go's confirmation-path mint,
 	// which runs in a separate request/transaction from InsertSafe's.
-	confirmationToken, err := f.Models.BookingLinkTokens.Mint(ctx, b.ID, b.EndsAt.Add(24*time.Hour))
+	confirmationToken, err := f.Stores.BookingLinkTokens.Mint(ctx, b.ID, b.EndsAt.Add(24*time.Hour))
 	if err != nil {
 		t.Fatalf("confirmation Mint: %v", err)
 	}
@@ -246,10 +247,10 @@ func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
 		t.Fatal("the confirmation path must mint its own token, not reuse the checkout one")
 	}
 
-	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, checkoutToken); err != nil {
+	if _, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, checkoutToken); err != nil {
 		t.Errorf("the checkout token must still resolve after the confirmation mint — it is deliberately not revoked: %v", err)
 	}
-	if _, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, confirmationToken); err != nil {
+	if _, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, confirmationToken); err != nil {
 		t.Errorf("the confirmation token must resolve: %v", err)
 	}
 }
@@ -257,10 +258,10 @@ func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
 // TestMintRejectsAnUnknownBooking proves the foreign key does its job: a
 // bookingID that names no row refuses rather than inserting an orphan.
 func TestMintRejectsAnUnknownBooking(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	_, err := f.Models.BookingLinkTokens.Mint(ctx, uuid.New(), time.Now().Add(24*time.Hour))
+	_, err := f.Stores.BookingLinkTokens.Mint(ctx, uuid.New(), time.Now().Add(24*time.Hour))
 	if err == nil {
 		t.Fatal("Mint for an unknown booking id must fail on the foreign key, not silently insert an orphan")
 	}
@@ -285,11 +286,11 @@ func TestMintRejectsAnUnknownBooking(t *testing.T) {
 // stored and not against another Go value that could be zero for the same
 // reason.
 func TestResolveBookingCarriesTheSpansInstants(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	b := f.newBooking(bookingOptions{StartTime: "18:00", EndTime: "19:30", Public: true})
-	if err := f.Models.Bookings.InsertSafe(ctx, b); err != nil {
+	b := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30", Public: true})
+	if err := f.Stores.Bookings.InsertSafe(ctx, b); err != nil {
 		t.Fatalf("InsertSafe: %v", err)
 	}
 
@@ -301,7 +302,7 @@ func TestResolveBookingCarriesTheSpansInstants(t *testing.T) {
 		t.Fatalf("reading the stored span: %v", err)
 	}
 
-	resolved, _, err := f.Models.BookingLinkTokens.ResolveBooking(ctx, b.LinkToken)
+	resolved, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, b.LinkToken)
 	if err != nil {
 		t.Fatalf("ResolveBooking: %v", err)
 	}

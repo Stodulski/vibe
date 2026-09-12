@@ -113,7 +113,7 @@ func TestTheOwnersDashboardRefusesAnOffBoundaryTimeEvenOffHours(t *testing.T) {
 
 // Dropping the opening-hours check does not weaken slotTaken: an off-hours
 // booking that overlaps a live one is still refused, exactly as an in-hours
-// one would be. The overlap check itself lives in internal/data/slot_guard.go
+// one would be. The overlap check itself lives in internal/data/slotguard
 // and is duration- and hours-agnostic; this pins that the owner write path
 // still surfaces its refusal rather than skipping it for off-hours requests.
 func TestAnOffHoursOwnerBookingIsStillRefusedWhenItOverlapsAnExistingBooking(t *testing.T) {

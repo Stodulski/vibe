@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 )
 
@@ -23,13 +24,13 @@ import (
 // bypassing the credential accessor entirely — must never yield the value a
 // caller stored, only the v1 envelope.
 func TestIntegration_RawMPAccessTokenColumnIsNeverAUsableToken(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	const plainAccess = "seller-access-token-raw-check"
 	const plainRefresh = "seller-refresh-token-raw-check"
 
-	if err := f.Models.Complexes.UpdateMPCredentials(ctx, f.ComplexID, plainAccess, plainRefresh, "mp-user-raw-check", 0); err != nil {
+	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, f.ComplexID, plainAccess, plainRefresh, "mp-user-raw-check", 0); err != nil {
 		t.Fatalf("UpdateMPCredentials: %v", err)
 	}
 
@@ -56,7 +57,7 @@ func TestIntegration_RawMPAccessTokenColumnIsNeverAUsableToken(t *testing.T) {
 
 	// The round trip through the real accessor must still recover the
 	// original plaintext — the point is that only this path can.
-	complex, err := f.Models.Complexes.GetByID(ctx, f.ComplexID)
+	complex, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
@@ -71,17 +72,17 @@ func TestIntegration_RawMPAccessTokenColumnIsNeverAUsableToken(t *testing.T) {
 // row and a row sealed under a key this process's keyring does not hold,
 // and the Go-side accessor — not the SQL query — is what tells them apart.
 func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	if err := f.Models.Complexes.UpdateMPCredentials(ctx, f.ComplexID, "readable-access", "readable-refresh", "mp-user-readable", 0); err != nil {
+	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, f.ComplexID, "readable-access", "readable-refresh", "mp-user-readable", 0); err != nil {
 		t.Fatalf("UpdateMPCredentials (readable complex): %v", err)
 	}
 
-	unreadableID := f.insertSecondComplex(t, "gwmc-unreadable")
-	f.sealUnderForeignKey(t, unreadableID)
+	unreadableID := insertSecondComplex(f, t, "gwmc-unreadable")
+	sealUnderForeignKey(f, t, unreadableID)
 
-	complexes, err := f.Models.Complexes.GetWithMPConnected(ctx)
+	complexes, err := f.Stores.Complexes.GetWithMPConnected(ctx)
 	if err != nil {
 		t.Fatalf("GetWithMPConnected: %v", err)
 	}
@@ -116,27 +117,27 @@ func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
 // recorded expiry, or expires within 30 days, is due for a refresh; one
 // whose token still has 100 days left is not.
 func TestIntegration_ListComplexesNeedingMPRefresh(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// The fixture's own complex: connected, but UpdateMPCredentials was
 	// never told an expiry (expiresIn=0) — mp_token_expires_at stays NULL,
 	// which must read as "needs a refresh".
-	if err := f.Models.Complexes.UpdateMPCredentials(ctx, f.ComplexID, "null-expiry-access", "null-expiry-refresh", "mp-user-null-expiry", 0); err != nil {
+	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, f.ComplexID, "null-expiry-access", "null-expiry-refresh", "mp-user-null-expiry", 0); err != nil {
 		t.Fatalf("UpdateMPCredentials (null expiry): %v", err)
 	}
 
-	soonID := f.insertSecondComplex(t, "lcnmr-soon")
-	if err := f.Models.Complexes.UpdateMPCredentials(ctx, soonID, "soon-access", "soon-refresh", "mp-user-soon", 10*24*3600); err != nil {
+	soonID := insertSecondComplex(f, t, "lcnmr-soon")
+	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, soonID, "soon-access", "soon-refresh", "mp-user-soon", 10*24*3600); err != nil {
 		t.Fatalf("UpdateMPCredentials (expires in 10 days): %v", err)
 	}
 
-	freshID := f.insertSecondComplex(t, "lcnmr-fresh")
-	if err := f.Models.Complexes.UpdateMPCredentials(ctx, freshID, "fresh-access", "fresh-refresh", "mp-user-fresh", 100*24*3600); err != nil {
+	freshID := insertSecondComplex(f, t, "lcnmr-fresh")
+	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, freshID, "fresh-access", "fresh-refresh", "mp-user-fresh", 100*24*3600); err != nil {
 		t.Fatalf("UpdateMPCredentials (expires in 100 days): %v", err)
 	}
 
-	complexes, err := f.Models.Complexes.ListComplexesNeedingMPRefresh(ctx)
+	complexes, err := f.Stores.Complexes.ListComplexesNeedingMPRefresh(ctx)
 	if err != nil {
 		t.Fatalf("ListComplexesNeedingMPRefresh: %v", err)
 	}
@@ -161,28 +162,28 @@ func TestIntegration_ListComplexesNeedingMPRefresh(t *testing.T) {
 // two editors who both loaded the row before either wrote must not be able to
 // silently erase one another's change. UpdateComplex's `updated_at = $17`
 // precondition is what makes that true — this test is the proof that the SQL
-// actually enforces it, not just that ComplexModel.Update compiles against
+// actually enforces it, not just that complexstore.Store.Update compiles against
 // the right shape.
 //
 // Simulates "one owner in two tabs" (CPX-17): both tabs GET the same row,
 // each edits a different field, and the second save must not overwrite the
 // first's — which is exactly the failure CPX-17 observed before this fix.
 func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
-	firstTab, err := f.Models.Complexes.GetByID(ctx, f.ComplexID)
+	firstTab, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("GetByID (first tab): %v", err)
 	}
-	secondTab, err := f.Models.Complexes.GetByID(ctx, f.ComplexID)
+	secondTab, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("GetByID (second tab): %v", err)
 	}
 
 	// The first tab saves. This must succeed and move updated_at forward.
 	firstTab.City = "Concurrency City"
-	if err := f.Models.Complexes.Update(ctx, firstTab); err != nil {
+	if err := f.Stores.Complexes.Update(ctx, firstTab); err != nil {
 		t.Fatalf("first Update (should win the race): %v", err)
 	}
 
@@ -190,12 +191,12 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 	// tab's write landed. Its save must be refused rather than silently
 	// overwrite the first tab's change with the stale row it has in memory.
 	secondTab.Province = "Concurrency Province"
-	err = f.Models.Complexes.Update(ctx, secondTab)
+	err = f.Stores.Complexes.Update(ctx, secondTab)
 	if !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("second Update (stale updated_at) = %v, want ErrRecordNotFound", err)
 	}
 
-	final, err := f.Models.Complexes.GetByID(ctx, f.ComplexID)
+	final, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
 	if err != nil {
 		t.Fatalf("GetByID (final): %v", err)
 	}
@@ -208,7 +209,7 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 
 	// The losing tab can retry against the now-current row and succeed.
 	secondTab.UpdatedAt = final.UpdatedAt
-	if err := f.Models.Complexes.Update(ctx, secondTab); err != nil {
+	if err := f.Stores.Complexes.Update(ctx, secondTab); err != nil {
 		t.Fatalf("retry after refresh: %v", err)
 	}
 }
@@ -216,7 +217,7 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 // insertSecondComplex creates one more complex under the fixture's owner,
 // with no MercadoPago credential yet — sealUnderForeignKey fills that in.
 // Registered for cleanup the same way newTestFixture's own complex is.
-func (f *testFixture) insertSecondComplex(t *testing.T, slugSuffix string) (id uuid.UUID) {
+func insertSecondComplex(f *datatest.Fixture, t *testing.T, slugSuffix string) (id uuid.UUID) {
 	t.Helper()
 
 	err := f.Pool.QueryRow(context.Background(), `
@@ -241,7 +242,7 @@ func (f *testFixture) insertSecondComplex(t *testing.T, slugSuffix string) (id u
 // sealUnderForeignKey writes a credential sealed under a keyring the
 // fixture's own Models was never given — simulating a row encrypted under a
 // key that has since been retired and dropped.
-func (f *testFixture) sealUnderForeignKey(t *testing.T, complexID uuid.UUID) {
+func sealUnderForeignKey(f *datatest.Fixture, t *testing.T, complexID uuid.UUID) {
 	t.Helper()
 
 	key := make([]byte, 32)
@@ -281,7 +282,7 @@ func (f *testFixture) sealUnderForeignKey(t *testing.T, complexID uuid.UUID) {
 // Both halves are asserted here, because fixing only the check would leave the
 // race (another request taking the slug in between) landing as a 500 again.
 func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	var slug string
@@ -294,17 +295,17 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 	// stamp a complex without closing its courts (the soft-delete cascade). The count it
 	// returns is not what this test is about, and every assertion below is
 	// unchanged — the slug stays taken, which is the decision this pins.
-	if _, err := f.Models.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
+	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
 
 	// The complex is gone from every live-row query...
-	if _, err := f.Models.Complexes.GetBySlug(ctx, slug); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := f.Stores.Complexes.GetBySlug(ctx, slug); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("a soft-deleted complex is still served publicly: %v", err)
 	}
 
 	// ...but its slug is not free, because the constraint says it is not.
-	taken, err := f.Models.Complexes.SlugExists(ctx, slug)
+	taken, err := f.Stores.Complexes.SlugExists(ctx, slug)
 	if err != nil {
 		t.Fatalf("SlugExists: %v", err)
 	}
@@ -322,7 +323,7 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 	// wrong error. That is not an inconvenience of the constraint; it is the
 	// constraint catching the same shape of omission that put two
 	// cancellation_hours = 0 rows in the development database.
-	err = f.Models.Complexes.Insert(ctx, &complexstore.Complex{
+	err = f.Stores.Complexes.Insert(ctx, &complexstore.Complex{
 		OwnerID:           f.UserID,
 		Name:              "Reuses the deleted slug",
 		Slug:              slug,

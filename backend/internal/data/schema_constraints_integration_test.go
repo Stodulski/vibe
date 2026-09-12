@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // SQLSTATEs the constraints in db/migrations/001_init.sql raise. checkViolation ("23514")
@@ -57,6 +58,9 @@ const (
 // trigger refusals the schema carries. The trigger cases work because the
 // RAISE statements pass USING CONSTRAINT, which populates the same error field
 // PostgreSQL fills in for a real constraint and pgx exposes as ConstraintName.
+// checkViolation is the SQLSTATE PostgreSQL raises for a failed CHECK.
+const checkViolation = "23514"
+
 func refusedByConstraint(t *testing.T, err error, sqlState, constraint string) {
 	t.Helper()
 
@@ -88,15 +92,15 @@ func accepted(t *testing.T, err error, what string) {
 }
 
 // exec runs one statement against the fixture's pool and returns the error.
-func (f *testFixture) exec(query string, args ...any) error {
+func exec(f *datatest.Fixture, query string, args ...any) error {
 	_, err := f.Pool.Exec(context.Background(), query, args...)
 	return err
 }
 
-// insertBooking writes a booking row directly, bypassing BookingModel entirely,
+// insertBooking writes a booking row directly, bypassing bookingstore.Store entirely,
 // so the assertions below prove the storage layer rather than one store method.
-func (f *testFixture) insertBookingRow(complexID, courtID, clientID uuid.UUID, price, deposit int) error {
-	return f.exec(`
+func insertBookingRow(f *datatest.Fixture, complexID, courtID, clientID uuid.UUID, price, deposit int) error {
+	return exec(f, `
 		INSERT INTO bookings
 			(complex_id, court_id, client_id, date, start_time,
 			 duration_minutes, price, deposit_amount, status, collection_status)
@@ -111,23 +115,23 @@ func (f *testFixture) insertBookingRow(complexID, courtID, clientID uuid.UUID, p
 // CHECK (refund_amount >= 0), so the column knew how to be non-negative and
 // nothing at all about the payment it belonged to.
 func TestARefundCannotExceedWhatThePaymentCollected(t *testing.T) {
-	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{})
-	p := f.createPayment(t, b.ID, 1000, 70, nil)
+	f := datatest.NewFixture(t)
+	b := f.CreateBooking(t, datatest.BookingOptions{})
+	p := f.CreatePayment(t, b.ID, 1000, 70, nil)
 
-	err := f.exec(`UPDATE payments SET refund_amount = 50000 WHERE id = $1`, p.ID)
+	err := exec(f, `UPDATE payments SET refund_amount = 50000 WHERE id = $1`, p.ID)
 	refusedByConstraint(t, err, checkViolation, paymentsRefundWithinAmountPaid)
 
-	if _, refunded := f.readPaymentState(t, p.ID); refunded != 0 {
+	if _, refunded := f.ReadPaymentState(t, p.ID); refunded != 0 {
 		t.Errorf("a refused refund must leave the payment untouched; refund_amount is %d", refunded)
 	}
 
 	// The bound is amount + service_fee, not amount. claimable() in refunds.go
 	// computes totalPaid that way because a full refund returns the service fee
 	// too, so a cap of `amount` would refuse refunds the product intends to make.
-	accepted(t, f.exec(`UPDATE payments SET refund_amount = 1070 WHERE id = $1`, p.ID),
+	accepted(t, exec(f, `UPDATE payments SET refund_amount = 1070 WHERE id = $1`, p.ID),
 		"a full refund of amount + service_fee")
-	accepted(t, f.exec(`UPDATE payments SET refund_amount = 0 WHERE id = $1`, p.ID),
+	accepted(t, exec(f, `UPDATE payments SET refund_amount = 0 WHERE id = $1`, p.ID),
 		"resetting refund_amount to zero")
 }
 
@@ -136,17 +140,17 @@ func TestARefundCannotExceedWhatThePaymentCollected(t *testing.T) {
 // the cash it receives and calls the booking fully_paid when the sum clears the
 // price, so an inflated deposit settles a booking nobody paid for.
 func TestADepositCannotExceedTheBookingPrice(t *testing.T) {
-	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{Price: 1000, DepositAmount: 300})
+	f := datatest.NewFixture(t)
+	b := f.CreateBooking(t, datatest.BookingOptions{Price: 1000, DepositAmount: 300})
 
-	err := f.exec(`UPDATE bookings SET deposit_amount = 999999 WHERE id = $1`, b.ID)
+	err := exec(f, `UPDATE bookings SET deposit_amount = 999999 WHERE id = $1`, b.ID)
 	refusedByConstraint(t, err, checkViolation, bookingsDepositWithinPrice)
 
-	err = f.insertBookingRow(f.ComplexID, f.CourtID, f.ClientID, 1000, 999999)
+	err = insertBookingRow(f, f.ComplexID, f.CourtID, f.ClientID, 1000, 999999)
 	refusedByConstraint(t, err, checkViolation, bookingsDepositWithinPrice)
 
 	// A deposit equal to the price is a booking paid in full, which is ordinary.
-	accepted(t, f.exec(`UPDATE bookings SET deposit_amount = 1000 WHERE id = $1`, b.ID),
+	accepted(t, exec(f, `UPDATE bookings SET deposit_amount = 1000 WHERE id = $1`, b.ID),
 		"a deposit equal to the price")
 }
 
@@ -155,11 +159,11 @@ func TestADepositCannotExceedTheBookingPrice(t *testing.T) {
 // to 0, while PaymentDetails scans it into a Go int and fails the whole monthly
 // export. Same row, two answers, one of them a 500.
 func TestRefundAmountCannotBeNull(t *testing.T) {
-	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{})
-	p := f.createPayment(t, b.ID, 1000, 70, nil)
+	f := datatest.NewFixture(t)
+	b := f.CreateBooking(t, datatest.BookingOptions{})
+	p := f.CreatePayment(t, b.ID, 1000, 70, nil)
 
-	err := f.exec(`UPDATE payments SET refund_amount = NULL WHERE id = $1`, p.ID)
+	err := exec(f, `UPDATE payments SET refund_amount = NULL WHERE id = $1`, p.ID)
 	if err == nil {
 		t.Fatal("refund_amount = NULL must be refused; it was accepted")
 	}
@@ -197,8 +201,8 @@ func TestRefundAmountCannotBeNull(t *testing.T) {
 // test is about: a constraint an operator cannot see enforced anywhere would
 // not be worth adding.
 func TestABookingsDurationMustBeOneTheGridSells(t *testing.T) {
-	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{})
+	f := datatest.NewFixture(t)
+	b := f.CreateBooking(t, datatest.BookingOptions{})
 
 	// 0 is excluded here: it is refused by the pre-existing
 	// bookings_duration_minutes_check (> 0) before this constraint is even
@@ -206,13 +210,13 @@ func TestABookingsDurationMustBeOneTheGridSells(t *testing.T) {
 	// this constraint's.
 	for _, minutes := range []int{45, 61, 180} {
 		t.Run(fmt.Sprintf("duration=%d", minutes), func(t *testing.T) {
-			err := f.exec(`UPDATE bookings SET duration_minutes = $2 WHERE id = $1`, b.ID, minutes)
+			err := exec(f, `UPDATE bookings SET duration_minutes = $2 WHERE id = $1`, b.ID, minutes)
 			refusedByConstraint(t, err, checkViolation, bookingsDurationMinutesPermitted)
 		})
 	}
 
 	for _, minutes := range []int{60, 90, 120} {
-		accepted(t, f.exec(`UPDATE bookings SET duration_minutes = $2 WHERE id = $1`, b.ID, minutes),
+		accepted(t, exec(f, `UPDATE bookings SET duration_minutes = $2 WHERE id = $1`, b.ID, minutes),
 			fmt.Sprintf("a %d-minute booking", minutes))
 	}
 }
@@ -229,11 +233,11 @@ func TestABookingsDurationMustBeOneTheGridSells(t *testing.T) {
 // This test is here because zero must be unreachable through every other one:
 // a direct UPDATE, a raw INSERT, a future endpoint, a fixture.
 func TestACancellationWindowMustBeAWindow(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
 	for _, hours := range []int{-500, -1, 0, 169} {
 		t.Run(fmt.Sprintf("update/hours=%d", hours), func(t *testing.T) {
-			err := f.exec(`UPDATE complexes SET cancellation_hours = $2 WHERE id = $1`, f.ComplexID, hours)
+			err := exec(f, `UPDATE complexes SET cancellation_hours = $2 WHERE id = $1`, f.ComplexID, hours)
 			refusedByConstraint(t, err, checkViolation, complexesCancellationHoursRange)
 		})
 	}
@@ -247,7 +251,7 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 	// so the DEFAULT 24 never applies.
 	for _, hours := range []int{-1, 0, 169} {
 		t.Run(fmt.Sprintf("insert/hours=%d", hours), func(t *testing.T) {
-			err := f.exec(`
+			err := exec(f, `
 				INSERT INTO complexes (owner_id, name, slug, address, city, province, phone, cancellation_hours)
 				VALUES ($1, 'Zero Window', $2, 'Av. Siempreviva 742', 'Rosario', 'Santa Fe', '+5491100000009', $3)`,
 				f.UserID, fmt.Sprintf("zero-window-%d-%s", hours, uuid.NewString()), hours)
@@ -259,7 +263,7 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 	// asserting it is accepted is what stops a stricter bound (>= 2, or > 1)
 	// from passing this test while quietly refusing the smallest legal window.
 	for _, hours := range []int{1, 24, 168} {
-		accepted(t, f.exec(`UPDATE complexes SET cancellation_hours = $2 WHERE id = $1`, f.ComplexID, hours),
+		accepted(t, exec(f, `UPDATE complexes SET cancellation_hours = $2 WHERE id = $1`, f.ComplexID, hours),
 			fmt.Sprintf("a %d-hour cancellation window", hours))
 	}
 
@@ -273,11 +277,11 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 	// later test in a suite that shares one database.
 	defaultSlug := "default-window-" + uuid.NewString()
 	t.Cleanup(func() {
-		if err := f.exec(`DELETE FROM complexes WHERE slug = $1`, defaultSlug); err != nil {
+		if err := exec(f, `DELETE FROM complexes WHERE slug = $1`, defaultSlug); err != nil {
 			t.Errorf("cleaning up %s: %v", defaultSlug, err)
 		}
 	})
-	accepted(t, f.exec(`
+	accepted(t, exec(f, `
 		INSERT INTO complexes (owner_id, name, slug, address, city, province, phone)
 		VALUES ($1, 'Default Window', $2, 'Av. Siempreviva 742', 'Rosario', 'Santa Fe', '+5491100000009')`,
 		f.UserID, defaultSlug),
@@ -288,15 +292,15 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 // ran against the wrong row — and it silently inverts the no-show history an
 // owner uses to decide who to refuse.
 func TestClientCountersCannotGoNegative(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	err := f.exec(`UPDATE clients SET total_bookings = -10 WHERE id = $1`, f.ClientID)
+	err := exec(f, `UPDATE clients SET total_bookings = -10 WHERE id = $1`, f.ClientID)
 	refusedByConstraint(t, err, checkViolation, clientsCountersNonNegative)
 
-	err = f.exec(`UPDATE clients SET no_shows = -10 WHERE id = $1`, f.ClientID)
+	err = exec(f, `UPDATE clients SET no_shows = -10 WHERE id = $1`, f.ClientID)
 	refusedByConstraint(t, err, checkViolation, clientsCountersNonNegative)
 
-	accepted(t, f.exec(`UPDATE clients SET total_bookings = 0, no_shows = 0 WHERE id = $1`, f.ClientID),
+	accepted(t, exec(f, `UPDATE clients SET total_bookings = 0, no_shows = 0 WHERE id = $1`, f.ClientID),
 		"counters at zero")
 }
 
@@ -308,20 +312,20 @@ func TestClientCountersCannotGoNegative(t *testing.T) {
 // "closes after midnight". What is genuinely wrong is a zero-length window on an
 // open day, because the same wrap turns it into a 24-hour one.
 func TestAnOpenDayCannotHaveAZeroLengthWindow(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
-	err := f.exec(`
+	err := exec(f, `
 		INSERT INTO complex_schedules (complex_id, day, open_time, close_time, is_closed)
 		VALUES ($1, 'monday', '10:00', '10:00', false)`, f.ComplexID)
 	refusedByConstraint(t, err, checkViolation, schedulesOpenWindowNotEmpty)
 
 	// Both shapes a naive open_time < close_time would have rejected.
-	accepted(t, f.exec(`
+	accepted(t, exec(f, `
 		INSERT INTO complex_schedules (complex_id, day, open_time, close_time, is_closed)
 		VALUES ($1, 'tuesday', '20:00', '02:00', false)`, f.ComplexID),
 		"a venue that closes after midnight (20:00-02:00)")
 
-	accepted(t, f.exec(`
+	accepted(t, exec(f, `
 		INSERT INTO complex_schedules (complex_id, day, open_time, close_time, is_closed)
 		VALUES ($1, 'sunday', '00:00', '00:00', true)`, f.ComplexID),
 		"a closed day stored as 00:00/00:00")
@@ -334,20 +338,20 @@ func TestAnOpenDayCannotHaveAZeroLengthWindow(t *testing.T) {
 // first — two users, one hash, arbitrary identity. Both sibling token tables
 // have carried UNIQUE since the initial schema; this one carried a plain index.
 func TestARefreshTokenHashIsUnique(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	hash := []byte("hash-" + uuid.NewString())
 
-	accepted(t, f.exec(`
+	accepted(t, exec(f, `
 		INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
 		VALUES ($1, $2, NOW() + INTERVAL '7 days')`, f.UserID, hash),
 		"the first token with this hash")
 
-	err := f.exec(`
+	err := exec(f, `
 		INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
 		VALUES ($1, $2, NOW() + INTERVAL '7 days')`, f.UserID, hash)
 	refusedByConstraint(t, err, uniqueViolation, refreshTokensTokenHashKey)
 
-	accepted(t, f.exec(`DELETE FROM refresh_tokens WHERE user_id = $1`, f.UserID),
+	accepted(t, exec(f, `DELETE FROM refresh_tokens WHERE user_id = $1`, f.UserID),
 		"cleaning up this fixture's tokens")
 }
 
@@ -356,34 +360,34 @@ func TestARefreshTokenHashIsUnique(t *testing.T) {
 // identifies a court by its name, so the ambiguity ends up in a year of records
 // rather than in one table.
 func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// Through the real store, so the domain error the handler will see is proven
 	// too rather than only the constraint underneath it.
-	err := f.Models.Courts.Insert(ctx, &courtstore.Court{
+	err := f.Stores.Courts.Insert(ctx, &courtstore.Court{
 		ComplexID: f.ComplexID, Name: "Court 1", Sport: "padel", CourtType: "indoor",
 	})
 	if !errors.Is(err, courtstore.ErrDuplicateCourtName) {
 		t.Fatalf("a second live court called %q must return ErrDuplicateCourtName; got %v", "Court 1", err)
 	}
 
-	// And directly, so a future insert path that skips CourtModel is covered.
-	err = f.exec(`INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1')`, f.ComplexID)
+	// And directly, so a future insert path that skips courtstore.Store is covered.
+	err = exec(f, `INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1')`, f.ComplexID)
 	refusedByConstraint(t, err, uniqueViolation, courtsActiveNameUniqueName)
 
 	// The uniqueness is per complex. Another tenant's "Court 1" is a different
 	// court, and the constraint must not reach across the tenant boundary.
-	other := newTestFixture(t)
-	accepted(t, other.exec(`INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1 bis')`, other.ComplexID),
+	other := datatest.NewFixture(t)
+	accepted(t, exec(other, `INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1 bis')`, other.ComplexID),
 		"a court name in a different complex")
 
 	// SoftDeleteCourt sets deleted_at rather than removing the row, so the index
 	// is partial: an owner who deletes a court and adds a new one with the same
 	// name is doing something ordinary.
-	accepted(t, f.exec(`UPDATE courts SET deleted_at = NOW() WHERE id = $1`, f.CourtID),
+	accepted(t, exec(f, `UPDATE courts SET deleted_at = NOW() WHERE id = $1`, f.CourtID),
 		"soft-deleting the original court")
-	accepted(t, f.exec(`INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1')`, f.ComplexID),
+	accepted(t, exec(f, `INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 1')`, f.ComplexID),
 		"reusing the name of a soft-deleted court")
 }
 
@@ -395,41 +399,41 @@ func TestACourtNameIsUniqueWithinItsComplex(t *testing.T) {
 // overlapping rules, so the price the availability grid shows and the price the
 // booking handler charges come from two different sorts of the same ambiguity.
 func TestTwoPriceRulesCannotCoverTheSameMinute(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	base := &courtstore.CourtPrice{CourtID: f.CourtID, Price: 10_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
-	accepted(t, f.Models.Courts.InsertPrice(ctx, base), "the first price rule for monday")
+	accepted(t, f.Stores.Courts.InsertPrice(ctx, base), "the first price rule for monday")
 
 	// An identical rule — the case the review reported.
 	dup := &courtstore.CourtPrice{CourtID: f.CourtID, Price: 99_000, DayType: "monday", TimeFrom: "08:00", TimeTo: "23:00"}
-	if err := f.Models.Courts.InsertPrice(ctx, dup); !errors.Is(err, courtstore.ErrOverlappingPriceRule) {
+	if err := f.Stores.Courts.InsertPrice(ctx, dup); !errors.Is(err, courtstore.ErrOverlappingPriceRule) {
 		t.Fatalf("an identical price rule must return ErrOverlappingPriceRule; got %v", err)
 	}
 
 	// A partial overlap, which a composite UNIQUE would have let through while
 	// leaving the non-determinism entirely intact for every minute from 10:00.
-	err := f.exec(`
+	err := exec(f, `
 		INSERT INTO court_prices (court_id, price, day_type, time_from, time_to)
 		VALUES ($1, 15000, 'monday', '10:00', '14:00')`, f.CourtID)
 	refusedByConstraint(t, err, exclusionViolation, courtPricesNoOverlappingName)
 
 	// Half-open bounds. Adjacent rules sharing an endpoint are the normal way to
 	// price a peak window and must stay legal.
-	accepted(t, f.exec(`
+	accepted(t, exec(f, `
 		INSERT INTO court_prices (court_id, price, day_type, time_from, time_to)
 		VALUES ($1, 10000, 'friday', '08:00', '12:00'), ($1, 15000, 'friday', '12:00', '23:00')`, f.CourtID),
 		"adjacent price rules 08:00-12:00 and 12:00-23:00")
 
 	// The same window on another weekday, and on another court, are different
 	// rules — the constraint is scoped to (court, weekday).
-	accepted(t, f.exec(`
+	accepted(t, exec(f, `
 		INSERT INTO court_prices (court_id, price, day_type, time_from, time_to)
 		VALUES ($1, 12000, 'saturday', '08:00', '23:00')`, f.CourtID),
 		"the same window on a different weekday")
 
-	other := newTestFixture(t)
-	accepted(t, other.exec(`
+	other := datatest.NewFixture(t)
+	accepted(t, exec(other, `
 		INSERT INTO court_prices (court_id, price, day_type, time_from, time_to)
 		VALUES ($1, 12000, 'monday', '08:00', '23:00')`, other.CourtID),
 		"the same window on a different court")
@@ -442,16 +446,16 @@ func TestTwoPriceRulesCannotCoverTheSameMinute(t *testing.T) {
 // own booking's complex_id lands in one owner's monthly total while its booking
 // sits in another's — and neither report looks wrong.
 func TestAPaymentCannotBelongToADifferentComplexThanItsBooking(t *testing.T) {
-	f := newTestFixture(t)
-	other := newTestFixture(t)
+	f := datatest.NewFixture(t)
+	other := datatest.NewFixture(t)
 
-	b := f.createBooking(t, bookingOptions{})
-	p := f.createPayment(t, b.ID, 1000, 70, nil)
+	b := f.CreateBooking(t, datatest.BookingOptions{})
+	p := f.CreatePayment(t, b.ID, 1000, 70, nil)
 
-	err := f.exec(`UPDATE payments SET complex_id = $2 WHERE id = $1`, p.ID, other.ComplexID)
+	err := exec(f, `UPDATE payments SET complex_id = $2 WHERE id = $1`, p.ID, other.ComplexID)
 	refusedByConstraint(t, err, foreignKeyViolation, paymentsBookingInSameComplex)
 
-	err = f.exec(`
+	err = exec(f, `
 		INSERT INTO payments (booking_id, complex_id, amount, method, status)
 		VALUES ($1, $2, 500, 'cash', 'deposit_paid')`, b.ID, other.ComplexID)
 	refusedByConstraint(t, err, foreignKeyViolation, paymentsBookingInSameComplex)
@@ -473,25 +477,25 @@ func TestAPaymentCannotBelongToADifferentComplexThanItsBooking(t *testing.T) {
 // complex and another tenant's court was not a bug to be found in a handler — it
 // was a shape the schema endorsed.
 func TestABookingCannotMixTenants(t *testing.T) {
-	f := newTestFixture(t)
-	other := newTestFixture(t)
+	f := datatest.NewFixture(t)
+	other := datatest.NewFixture(t)
 
-	b := f.createBooking(t, bookingOptions{})
+	b := f.CreateBooking(t, datatest.BookingOptions{})
 
-	err := f.exec(`UPDATE bookings SET court_id = $2 WHERE id = $1`, b.ID, other.CourtID)
+	err := exec(f, `UPDATE bookings SET court_id = $2 WHERE id = $1`, b.ID, other.CourtID)
 	refusedByConstraint(t, err, foreignKeyViolation, bookingsCourtInSameComplex)
 
-	err = f.exec(`UPDATE bookings SET client_id = $2 WHERE id = $1`, b.ID, other.ClientID)
+	err = exec(f, `UPDATE bookings SET client_id = $2 WHERE id = $1`, b.ID, other.ClientID)
 	refusedByConstraint(t, err, foreignKeyViolation, bookingsClientInSameComplex)
 
-	err = f.insertBookingRow(f.ComplexID, other.CourtID, f.ClientID, 1000, 300)
+	err = insertBookingRow(f, f.ComplexID, other.CourtID, f.ClientID, 1000, 300)
 	refusedByConstraint(t, err, foreignKeyViolation, bookingsCourtInSameComplex)
 
-	err = f.insertBookingRow(f.ComplexID, f.CourtID, other.ClientID, 1000, 300)
+	err = insertBookingRow(f, f.ComplexID, f.CourtID, other.ClientID, 1000, 300)
 	refusedByConstraint(t, err, foreignKeyViolation, bookingsClientInSameComplex)
 
 	// The booking that belongs entirely to one tenant is still ordinary.
-	accepted(t, f.insertBookingRow(f.ComplexID, f.CourtID, f.ClientID, 1000, 300),
+	accepted(t, insertBookingRow(f, f.ComplexID, f.CourtID, f.ClientID, 1000, 300),
 		"a booking whose complex, court and client are all the same tenant's")
 }
 
@@ -501,30 +505,30 @@ func TestABookingCannotMixTenants(t *testing.T) {
 // booking now claims nobody paid and the court is theirs; idx_bookings_no_double
 // catches it only if somebody else already bought that exact minute.
 func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
-	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{})
+	f := datatest.NewFixture(t)
+	b := f.CreateBooking(t, datatest.BookingOptions{})
 
-	accepted(t, f.exec(
+	accepted(t, exec(f,
 		`UPDATE bookings SET status = 'cancelled', refund_status = 'full' WHERE id = $1`, b.ID),
 		"cancelling and refunding the booking")
 
-	err := f.exec(
+	err := exec(f,
 		`UPDATE bookings SET status = 'confirmed', collection_status = 'unpaid' WHERE id = $1`, b.ID)
 	refusedByConstraint(t, err, checkViolation, statusNoTerminalReentry)
 
 	// Each half is refused on its own too, so neither can be walked back in two
 	// statements instead of one.
-	err = f.exec(`UPDATE bookings SET status = 'confirmed' WHERE id = $1`, b.ID)
+	err = exec(f, `UPDATE bookings SET status = 'confirmed' WHERE id = $1`, b.ID)
 	refusedByConstraint(t, err, checkViolation, statusNoTerminalReentry)
 
 	// The BEFORE ROW trigger runs ahead of constraint checking, so this write is
 	// refused by the trigger's rule rather than by
 	// bookings_refund_needs_collected_money, which the same row would also
 	// violate. Asserting the name is what pins that order.
-	err = f.exec(`UPDATE bookings SET collection_status = 'unpaid' WHERE id = $1`, b.ID)
+	err = exec(f, `UPDATE bookings SET collection_status = 'unpaid' WHERE id = $1`, b.ID)
 	refusedByConstraint(t, err, checkViolation, collectionStatusNoReturnToUnpaid)
 
-	status, collectionStatus, refundStatus := f.readBookingState(t, b.ID)
+	status, collectionStatus, refundStatus := f.ReadBookingState(t, b.ID)
 	if status != "cancelled" || refundStatus != bookingstore.RefundStatusFull {
 		t.Errorf("a refused reversal must leave the booking cancelled+fully refunded; it reads %s+%s",
 			status, refundStatus)
@@ -544,15 +548,15 @@ func TestACancelledRefundedBookingCannotBeResoldToItsOwnClient(t *testing.T) {
 // (unpaid, none), which the old enum refused as refunded -> unpaid and a rule
 // on the collection axis alone would wave through.
 func TestARefundCannotExistWithoutMoneyHavingBeenCollected(t *testing.T) {
-	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{CollectionStatus: bookingstore.CollectionStatusUnpaid})
+	f := datatest.NewFixture(t)
+	b := f.CreateBooking(t, datatest.BookingOptions{CollectionStatus: bookingstore.CollectionStatusUnpaid})
 
 	for _, refund := range []string{bookingstore.RefundStatusPending, bookingstore.RefundStatusPartial, bookingstore.RefundStatusFull} {
-		err := f.exec(`UPDATE bookings SET refund_status = $2 WHERE id = $1`, b.ID, refund)
+		err := exec(f, `UPDATE bookings SET refund_status = $2 WHERE id = $1`, b.ID, refund)
 		refusedByConstraint(t, err, checkViolation, refundNeedsCollectedMoney)
 	}
 
-	if _, collectionStatus, refundStatus := f.readBookingState(t, b.ID); refundStatus != bookingstore.RefundStatusNone {
+	if _, collectionStatus, refundStatus := f.ReadBookingState(t, b.ID); refundStatus != bookingstore.RefundStatusNone {
 		t.Errorf("the booking must still read (%s, none); it reads (%s, %s)",
 			bookingstore.CollectionStatusUnpaid, collectionStatus, refundStatus)
 	}
@@ -562,22 +566,22 @@ func TestARefundCannotExistWithoutMoneyHavingBeenCollected(t *testing.T) {
 // the expired-pending sweep (GetExpiredPendingEnriched), which cancels pending
 // bookings on a timer.
 func TestAFinishedBookingCannotBeResurrected(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
 	for _, terminal := range []string{"cancelled", "completed", "no_show"} {
 		for _, live := range []string{"pending", "confirmed"} {
 			t.Run(terminal+"->"+live, func(t *testing.T) {
-				b := f.createBooking(t, bookingOptions{StartTime: "08:00", EndTime: "09:30"})
-				accepted(t, f.exec(`UPDATE bookings SET status = $2::booking_status WHERE id = $1`, b.ID, terminal),
+				b := f.CreateBooking(t, datatest.BookingOptions{StartTime: "08:00", EndTime: "09:30"})
+				accepted(t, exec(f, `UPDATE bookings SET status = $2::booking_status WHERE id = $1`, b.ID, terminal),
 					"reaching "+terminal)
 
-				err := f.exec(`UPDATE bookings SET status = $2::booking_status WHERE id = $1`, b.ID, live)
+				err := exec(f, `UPDATE bookings SET status = $2::booking_status WHERE id = $1`, b.ID, live)
 				refusedByConstraint(t, err, checkViolation, statusNoTerminalReentry)
 
-				if status, _, _ := f.readBookingState(t, b.ID); status != terminal {
+				if status, _, _ := f.ReadBookingState(t, b.ID); status != terminal {
 					t.Errorf("the booking must still read %s; it reads %s", terminal, status)
 				}
-				accepted(t, f.exec(`DELETE FROM bookings WHERE id = $1`, b.ID), "cleaning up")
+				accepted(t, exec(f, `DELETE FROM bookings WHERE id = $1`, b.ID), "cleaning up")
 			})
 		}
 	}
@@ -588,7 +592,7 @@ func TestAFinishedBookingCannotBeResurrected(t *testing.T) {
 // is a line in internal/payments or internal/bookings, and a trigger that
 // refused any of them would break the product to protect it.
 func TestTheTransitionsTheMoneyPathsPerformStillGoThrough(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 
 	tests := []struct {
 		name                       string
@@ -618,18 +622,18 @@ func TestTheTransitionsTheMoneyPathsPerformStillGoThrough(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := f.createBooking(t, bookingOptions{
+			b := f.CreateBooking(t, datatest.BookingOptions{
 				StartTime: "08:00", EndTime: "09:30",
 				Status: tt.from, CollectionStatus: tt.fromCollection, RefundStatus: tt.fromRefund,
 			})
 
-			err := f.exec(`
+			err := exec(f, `
 				UPDATE bookings SET status = $2::booking_status, collection_status = $3, refund_status = $4
 				WHERE id = $1`, b.ID, tt.to, tt.toCollection, tt.toRefund)
 			accepted(t, err, fmt.Sprintf("%s+%s+%s -> %s+%s+%s (%s)",
 				tt.from, tt.fromCollection, tt.fromRefund, tt.to, tt.toCollection, tt.toRefund, tt.why))
 
-			accepted(t, f.exec(`DELETE FROM bookings WHERE id = $1`, b.ID), "cleaning up")
+			accepted(t, exec(f, `DELETE FROM bookings WHERE id = $1`, b.ID), "cleaning up")
 		})
 	}
 }
@@ -638,16 +642,16 @@ func TestTheTransitionsTheMoneyPathsPerformStillGoThrough(t *testing.T) {
 // at all: the WHEN clause keeps it out of the way of every notes edit, reminder
 // flag and deposit adjustment the application performs.
 func TestTheTriggerIgnoresWritesThatDoNotChangeStatus(t *testing.T) {
-	f := newTestFixture(t)
-	b := f.createBooking(t, bookingOptions{})
+	f := datatest.NewFixture(t)
+	b := f.CreateBooking(t, datatest.BookingOptions{})
 
-	accepted(t, f.exec(`UPDATE bookings SET status = 'cancelled' WHERE id = $1`, b.ID),
+	accepted(t, exec(f, `UPDATE bookings SET status = 'cancelled' WHERE id = $1`, b.ID),
 		"cancelling the booking")
 
-	accepted(t, f.exec(`UPDATE bookings SET notes = 'cancelled by owner' WHERE id = $1`, b.ID),
+	accepted(t, exec(f, `UPDATE bookings SET notes = 'cancelled by owner' WHERE id = $1`, b.ID),
 		"editing the notes of a cancelled booking")
-	accepted(t, f.exec(`UPDATE bookings SET reminder_sent_2h = true WHERE id = $1`, b.ID),
+	accepted(t, exec(f, `UPDATE bookings SET reminder_sent_2h = true WHERE id = $1`, b.ID),
 		"marking a reminder sent on a cancelled booking")
-	accepted(t, f.exec(`UPDATE bookings SET status = 'cancelled' WHERE id = $1`, b.ID),
+	accepted(t, exec(f, `UPDATE bookings SET status = 'cancelled' WHERE id = $1`, b.ID),
 		"rewriting the same status")
 }

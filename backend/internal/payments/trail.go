@@ -31,12 +31,12 @@ const (
 // moneyEvent is the audit value for one thing that happened to a client's
 // money.
 //
-// The fields are named explicitly rather than handing over a data.Payment: a
+// The fields are named explicitly rather than handing over a paymentstore.Payment: a
 // payment row is not a credential-free struct by construction the way
-// data.Booking is, and this value is written from paths that sometimes hold a
+// bookingstore.Booking is, and this value is written from paths that sometimes hold a
 // claim and no row at all. Everything here is an amount, an internal id, or a
 // MercadoPago payment reference — never a seller token, which is what
-// data.Complex's `json:"-"` tags exist to keep out of exactly this table.
+// complexstore.Complex's `json:"-"` tags exist to keep out of exactly this table.
 type moneyEvent struct {
 	Actor string `json:"actor"`
 	// PaymentID is our own payments row, absent on the exits that refuse
@@ -49,7 +49,7 @@ type moneyEvent struct {
 	// AmountCentavos is the sum the Result is about: confirmed, refunded,
 	// queued or owed.
 	AmountCentavos int `json:"amount_centavos"`
-	// Result is data.RefundResult on the refund paths, and a short verb on the
+	// Result is paymentstore.RefundResult on the refund paths, and a short verb on the
 	// others. Reason is the operator-facing note the outcome already carries.
 	Result string `json:"result,omitempty"`
 	Reason string `json:"reason,omitempty"`

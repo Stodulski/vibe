@@ -421,7 +421,7 @@ func TestAPartialRefundIsNotCountedTwiceWhenTheWebhookRacesTheRecorder(t *testin
 	}
 
 	// Then the claim's own recorder closes the attempt out, adding its figure to
-	// whatever the row holds — exactly as internal/data/refunds.go does.
+	// whatever the row holds — exactly as internal/payments/store/refunds.go does.
 	refundTotal, err := f.payments.RecordRefundSuccess(t.Context(), paymentstore.RefundClaim{
 		PaymentID: payment.ID, BookingID: booking.ID, ComplexID: complexID,
 		MPPaymentID: "mp-123", RefundCentavos: moved,

@@ -230,7 +230,7 @@ func (m *mockUserStore) Delete(ctx context.Context, userID uuid.UUID) error {
 // suite (surface, audit, authz, exemptions, OpenAPI sync) drives the Google
 // sign-in flow far enough to observe a link being written or read — that
 // behavior is covered in internal/auth's own handler tests, against
-// stubIdentities. This satisfies data.Models.UserIdentities so the harness
+// stubIdentities. This satisfies stores.Stores.UserIdentities so the harness
 // wires a complete Models without a nil store panicking a handler that does
 // reach it.
 type mockUserIdentityStore struct{}
@@ -870,7 +870,7 @@ func (m *mockBookingStore) CancelFutureByComplex(ctx context.Context, complexID 
 // field: nothing in cmd/api's own test suite exercises the reconciliation
 // sweep — that behavior is covered in internal/data and internal/payments,
 // against the real store — so these only exist to keep mockBookingStore
-// satisfying data.BookingStore.
+// satisfying stores.BookingStore.
 func (m *mockBookingStore) GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error) {
 	return nil, nil
 }
@@ -1259,7 +1259,7 @@ func (m *mockSlotLockStore) CleanExpired(ctx context.Context) (int64, error) {
 // mockReportStore
 // ---------------------------------------------------------------------------
 
-// mockReportStore stands in for data.ReportStore.
+// mockReportStore stands in for stores.ReportStore.
 //
 // It exists because the harness left Models.Reports nil, so the two reporting
 // endpoints panicked on the first request that reached them and answered 500.
@@ -1297,10 +1297,10 @@ func (m *mockReportStore) PaymentDetails(ctx context.Context, complexID uuid.UUI
 // mockPasswordResetStore
 // ---------------------------------------------------------------------------
 
-// mockPasswordResetStore stands in for data.PasswordResetStore.
+// mockPasswordResetStore stands in for stores.PasswordResetStore.
 //
 // It exists because newApplication's validateDeps rejects a nil store for
-// every field data.Models composes — this one and mockLockStore were the two
+// every field stores.Stores composes — this one and mockLockStore were the two
 // the harness left out, invisible to the boot-time checklist that preceded it
 // because that list covered services, not the stores a service is built from.
 type mockPasswordResetStore struct {

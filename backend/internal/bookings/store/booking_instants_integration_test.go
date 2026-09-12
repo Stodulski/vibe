@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -27,17 +28,17 @@ import (
 // back off the row and comparing is what says the wire carries those and not a
 // second derivation that has to stay in step by hand.
 func TestTheOwnerListCarriesTheSpansOwnInstants(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 
 	// Two bookings on one court: one ordinary, one crossing midnight. The
 	// second is the row every clock-reading representation was wrong about,
 	// and it must be on the same page as the first.
-	overnight := f.createBooking(t, bookingOptions{StartTime: "23:00", EndTime: "01:00"})
-	ordinary := f.createBooking(t, bookingOptions{StartTime: "09:00", EndTime: "10:30"})
+	overnight := f.CreateBooking(t, datatest.BookingOptions{StartTime: "23:00", EndTime: "01:00"})
+	ordinary := f.CreateBooking(t, datatest.BookingOptions{StartTime: "09:00", EndTime: "10:30"})
 
 	from := timezone.Day(overnight.Date).AddDate(0, 0, -1)
-	listed, _, err := f.Models.Bookings.GetByComplex(ctx, f.ComplexID, from, from.AddDate(0, 0, 3), data.Filters{Limit: 50})
+	listed, _, err := f.Stores.Bookings.GetByComplex(ctx, f.ComplexID, from, from.AddDate(0, 0, 3), data.Filters{Limit: 50})
 	if err != nil {
 		t.Fatalf("listing the complex's bookings: %v", err)
 	}

@@ -19,7 +19,7 @@ import (
 // The original defect: the guard compared > 1440, which let exactly 1440
 // through. A 23:00 booking on a 60-minute court lands on that boundary and
 // slots.FromMinutes wraps its end to "00:00" — a row whose end_time is before
-// its start_time, invisible to the overlap check in internal/data/slot_guard.go,
+// its start_time, invisible to the overlap check in internal/data/slotguard,
 // so the court could be sold a second time for the same hours. Both handlers
 // carried the same off-by-one, and both then refused every such booking.
 //

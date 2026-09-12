@@ -82,7 +82,7 @@ func cleanupDB(t *testing.T, pool *pgxpool.Pool) {
 // newIntegrationApp builds a real *application via newApplication, the same
 // constructor the unit harness (testutils_test.go) and main() both use — the
 // only substitution boundary is deps: a real *pgxpool.Pool instead of mocks,
-// so deps.models comes from data.NewModels(pool, ...) and deps.db is the pool
+// so deps.models comes from data.stores.New(pool, ...) and deps.db is the pool
 // itself. deps.rdb stays nil, which routes newApplication to the same
 // in-memory blacklist, hub, rate limiter and memoryQueue fallback the old
 // hand-built struct literal wired directly.

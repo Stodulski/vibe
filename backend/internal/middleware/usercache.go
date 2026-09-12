@@ -113,8 +113,8 @@ func (m *Middleware) reportCacheFailure(op string, err error) {
 
 // cachedUser is the Redis representation of an authenticated account.
 //
-// It exists because the obvious thing — marshalling *data.User straight to
-// JSON — is silently lossy in exactly the way that matters. data.User carries
+// It exists because the obvious thing — marshalling *authstore.User straight to
+// JSON — is silently lossy in exactly the way that matters. authstore.User carries
 // `json:"-"` on PasswordHash, LockedUntil, FailedLoginAttempts and
 // LastFailedLogin, because that struct is also the API response body and none
 // of those belong in it. Reusing it as the cache format inherited those tags,
@@ -124,7 +124,7 @@ func (m *Middleware) reportCacheFailure(op string, err error) {
 // request onwards, for as long as the cache stayed warm. Which is always.
 //
 // The rule this type encodes: the cache returns what the database would have
-// returned, or it returns nothing. A field that is present on data.User and
+// returned, or it returns nothing. A field that is present on authstore.User and
 // absent here is a field some handler will read as its zero value while
 // believing it read the row — and the zero values are the dangerous answers.
 // LockedUntil nil reads as "not locked out". IsActive false at least fails
@@ -140,7 +140,7 @@ func (m *Middleware) reportCacheFailure(op string, err error) {
 //
 //   - The alternative on offer is not "the hash stays in Postgres". It is "the
 //     hash is nil in the object handlers are handed", which is the live 500.
-//     Serving a *data.User that is missing a field it declares is a lie the
+//     Serving a *authstore.User that is missing a field it declares is a lie the
 //     type system cannot catch.
 //   - This Redis already holds the token blacklist and the notification queue:
 //     an attacker reading it can already revoke sessions, forge nothing, and

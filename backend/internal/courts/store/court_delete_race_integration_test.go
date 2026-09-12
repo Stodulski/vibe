@@ -1,6 +1,6 @@
 //go:build integration
 
-package data_test
+package store_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 )
 
 // H-22. These cover the other pairing the court-day advisory lock does not
@@ -21,7 +22,7 @@ import (
 // SoftDelete's own UPDATE, so the check and the act became one statement. That
 // closes the case it was written for — a booking that has ALREADY COMMITTED is
 // seen by the UPDATE's own predicate — and it closes nothing about two writers
-// still in flight. BookingModel.InsertSafe takes an advisory lock on
+// still in flight. bookingstore.Store.InsertSafe takes an advisory lock on
 // (court, day); SoftDelete took no lock of its own at all. The two writers
 // never contended on one object, so under READ COMMITTED each one's check was
 // correct against its own snapshot and the pair was still wrong: both
@@ -47,7 +48,7 @@ import (
 // holdCourtRow takes a FOR SHARE lock on the fixture's court row and holds it
 // until the returned release runs, standing in for a booking transaction that
 // has read the court and not yet committed.
-func holdCourtRow(t *testing.T, f *testFixture) (release func()) {
+func holdCourtRow(t *testing.T, f *datatest.Fixture) (release func()) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -79,7 +80,7 @@ func holdCourtRow(t *testing.T, f *testFixture) (release func()) {
 	}
 }
 
-func countBookingsOnCourt(t *testing.T, f *testFixture) int {
+func countBookingsOnCourt(t *testing.T, f *datatest.Fixture) int {
 	t.Helper()
 
 	var n int
@@ -90,7 +91,7 @@ func countBookingsOnCourt(t *testing.T, f *testFixture) int {
 	return n
 }
 
-func courtIsDeleted(t *testing.T, f *testFixture) bool {
+func courtIsDeleted(t *testing.T, f *datatest.Fixture) bool {
 	t.Helper()
 
 	var deleted bool
@@ -101,7 +102,7 @@ func courtIsDeleted(t *testing.T, f *testFixture) bool {
 	return deleted
 }
 
-func pendingBooking(f *testFixture, date time.Time) *bookingstore.Booking {
+func pendingBooking(f *datatest.Fixture, date time.Time) *bookingstore.Booking {
 	return &bookingstore.Booking{
 		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
 		Date: date, StartTime: "10:00", DurationMinutes: 60,
@@ -119,7 +120,7 @@ func pendingBooking(f *testFixture, date time.Time) *bookingstore.Booking {
 // no lock on the court, so nothing serializes it against a booking in flight —
 // and the timeout is reported so the caller carries on to its own assertion
 // rather than stopping on the diagnosis.
-func waitForRowLockWaiters(t *testing.T, f *testFixture, want int) {
+func waitForRowLockWaiters(t *testing.T, f *datatest.Fixture, want int) {
 	t.Helper()
 
 	deadline := time.Now().Add(3 * time.Second)
@@ -157,20 +158,20 @@ func waitForRowLockWaiters(t *testing.T, f *testFixture, want int) {
 // A booking that never reads the court under a lock resumes, sees the snapshot
 // it took before the delete committed, and inserts onto a court that is gone.
 func TestBookingOnACourtDeletedMidTransactionIsRefused(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 	date := bookedDay(20)
 
-	release := blockCourtDay(t, f, date)
+	release := f.BlockCourtDay(t, date)
 
 	result := make(chan error, 1)
-	go func() { result <- f.Models.Bookings.InsertSafe(ctx, pendingBooking(f, date)) }()
+	go func() { result <- f.Stores.Bookings.InsertSafe(ctx, pendingBooking(f, date)) }()
 
 	// The booking must be inside its transaction, queued on the court-day
 	// lock, before the court is deleted. Without the lock it is already done.
-	waitForLockWaiters(t, f, 1)
+	f.WaitForLockWaiters(t, 1)
 
-	if err := f.Models.Courts.SoftDelete(ctx, f.CourtID); err != nil {
+	if err := f.Stores.Courts.SoftDelete(ctx, f.CourtID); err != nil {
 		t.Fatalf("deleting the court while the booking is mid-transaction: %v", err)
 	}
 	release()
@@ -197,14 +198,14 @@ func TestBookingOnACourtDeletedMidTransactionIsRefused(t *testing.T) {
 // snapshot, does not see the booking that just committed, and deletes the
 // court anyway.
 func TestDeletingACourtWhileABookingCommitsIsRefused(t *testing.T) {
-	f := newTestFixture(t)
+	f := datatest.NewFixture(t)
 	ctx := context.Background()
 	date := bookedDay(21)
 
 	release := holdCourtRow(t, f)
 
 	result := make(chan error, 1)
-	go func() { result <- f.Models.Courts.SoftDelete(ctx, f.CourtID) }()
+	go func() { result <- f.Stores.Courts.SoftDelete(ctx, f.CourtID) }()
 
 	// The delete must be queued on the court row before the booking commits.
 	// A delete that never locks that row is already finished here.

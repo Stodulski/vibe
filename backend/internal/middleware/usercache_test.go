@@ -23,7 +23,7 @@ import (
 )
 
 // The user cache is the other half of the package that had no Redis test at
-// all, and it is where the password-change 500 lived: caching *data.User
+// all, and it is where the password-change 500 lived: caching *authstore.User
 // marshalled it through the API response tags, so PasswordHash came back nil.
 
 func newCacheFixture(t *testing.T) (*fixture, *miniredis.Miniredis) {
@@ -145,7 +145,7 @@ func TestTheCachedAccountIsTheRowNotASubsetOfIt(t *testing.T) {
 }
 
 // The guard that keeps this fixed. cachedUser is a hand-written mirror of
-// data.User, so a field added to data.User and forgotten here becomes another
+// authstore.User, so a field added to authstore.User and forgotten here becomes another
 // silently-zero value on every cache hit — which is exactly the shape of the
 // original defect.
 func TestCachedUserMirrorsEveryFieldOfDataUser(t *testing.T) {
@@ -179,7 +179,7 @@ func TestAStaleSchemaRecordIsReadAsAMiss(t *testing.T) {
 	f, mr := newCacheFixture(t)
 	user := testUser(t)
 
-	// Exactly what the previous build wrote: data.User through its API tags,
+	// Exactly what the previous build wrote: authstore.User through its API tags,
 	// so no password hash and no schema stamp.
 	raw, err := json.Marshal(user)
 	if err != nil {
