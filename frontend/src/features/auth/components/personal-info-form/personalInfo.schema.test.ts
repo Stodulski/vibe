@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { personalInfoSchema } from './schema';
+import { personalInfoSchema } from './personalInfo.schema';
 
 const validForm = {
   first_name: 'Juan',

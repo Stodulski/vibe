@@ -75,7 +75,7 @@ describe('useUploadImage', () => {
     vi.mocked(compressImage).mockRejectedValueOnce(new Error('The source image could not be decoded'));
     const { toast } = await import('sonner');
 
-    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createQueryWrapper() });
     result.current.mutate({
       file: new File(['x'], 'logo.png', { type: 'image/png' }),
       type: 'logo',
@@ -95,7 +95,7 @@ describe('useUploadImage', () => {
   it('reports the specific "invalid type" message for a rejected file type', async () => {
     const { toast } = await import('sonner');
 
-    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createQueryWrapper() });
     result.current.mutate({
       file: new File(['x'], 'logo.gif', { type: 'image/gif' }),
       type: 'logo',

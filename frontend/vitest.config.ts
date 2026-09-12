@@ -24,8 +24,20 @@ export default defineConfig({
     // file that imports it (directly or transitively) evaluates `parseEnv` at
     // module load, so the suite needs a value the same way .env.example gives
     // local dev one.
+    //
+    // `VITE_API_URL` is set alongside it for a different reason: the
+    // production/dev default (see .env.example) is the relative "/api/v1",
+    // resolved by the browser's own document URL or the dev-server proxy.
+    // Neither exists here: some ky tests run in `@vitest-environment node`,
+    // where the global `fetch` has no document to resolve a relative URL
+    // against, so a relative prefix throws "Failed to parse URL" before MSW
+    // (src/test/msw) ever gets a chance to intercept the request. An
+    // absolute URL sidesteps that entirely; MSW's handlers match it with a
+    // `*/` origin wildcard, so the exact host is arbitrary and never dialed
+    // for real.
     env: {
       VITE_APP_URL: 'http://localhost:5173',
+      VITE_API_URL: 'http://localhost/api/v1',
     },
     // One environment per file.
     //
@@ -52,18 +64,6 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     testTimeout: 10000,
-    // The production/dev default (see .env.example) is the relative
-    // "/api/v1", resolved by the browser's own document URL or the dev-server
-    // proxy. Neither exists here: some ky tests run in
-    // `@vitest-environment node`, where the global `fetch` has no document to
-    // resolve a relative URL against, so a relative prefix throws "Failed to
-    // parse URL" before MSW (src/test/msw) ever gets a chance to intercept
-    // the request. An absolute URL sidesteps that entirely; MSW's handlers
-    // match it with a `*/` origin wildcard, so the exact host is arbitrary
-    // and never dialed for real.
-    env: {
-      VITE_API_URL: 'http://localhost/api/v1',
-    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'lcov'],

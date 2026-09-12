@@ -5,7 +5,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   googleCompleteSchema,
-} from './auth.schemas';
+} from './auth.schema';
 
 describe('loginSchema', () => {
   it('accepts a valid email and a non-empty password', () => {

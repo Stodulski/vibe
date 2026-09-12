@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { blockSlotFormSchema } from './blockSlotForm.schemas';
+import { blockSlotFormSchema } from './blockSlotForm.schema';
 
 const validForm = {
   date: '2026-03-18',

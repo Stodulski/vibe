@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { publicBookingSchema } from './public-booking.schemas';
+import { publicBookingSchema } from './public-booking.schema';
 
 const validForm = {
   client_first_name: 'Juan',
