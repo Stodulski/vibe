@@ -1,5 +1,5 @@
 import type { Ref } from 'react';
-import { useForm } from 'react-hook-form';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
 import { Loader2, Mail } from 'lucide-react';
@@ -9,7 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { TurnstileField, type TurnstileFieldHandle } from '@/shared/components/common/TurnstileField';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 
 const t = ES_AR;
 
@@ -33,8 +33,13 @@ export function ForgotPasswordForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ForgotPasswordDto>({
+  } = useAppForm<ForgotPasswordDto>({
     resolver: zodResolver(forgotPasswordSchema),
+    // FORM-09: without this the inputs mount with `value === undefined`, so
+    // React treats them as uncontrolled and then switches them to controlled on
+    // the first keystroke — a dev warning, and a `reset()` that cannot put the
+    // field back to a value it never had.
+    defaultValues: { email: '' },
   });
 
   return (

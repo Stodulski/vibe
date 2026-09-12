@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
 import { Loader2, Lock, Eye, EyeOff } from 'lucide-react';
@@ -8,7 +8,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 
 const t = ES_AR;
 
@@ -23,8 +23,13 @@ export function ResetPasswordForm({ loading, onSubmit }: ResetPasswordFormProps)
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ResetPasswordDto>({
+  } = useAppForm<ResetPasswordDto>({
     resolver: zodResolver(resetPasswordSchema),
+    // FORM-09: without this the inputs mount with `value === undefined`, so
+    // React treats them as uncontrolled and then switches them to controlled on
+    // the first keystroke — a dev warning, and a `reset()` that cannot put the
+    // field back to a value it never had.
+    defaultValues: { password: '' },
   });
 
   return (

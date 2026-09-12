@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginDto } from '../schemas/auth.schema';
 import { useLogin } from '../hooks/useLogin';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { useTurnstileChallenge } from '@/shared/hooks/useTurnstileChallenge';
 import { TurnstileField, type TurnstileFieldHandle } from '@/shared/components/common/TurnstileField';
 import { LoginEmailField } from './login-form/LoginEmailField';
@@ -23,8 +23,13 @@ export function LoginForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginDto>({
+  } = useAppForm<LoginDto>({
     resolver: zodResolver(loginSchema),
+    // FORM-09: without this the inputs mount with `value === undefined`, so
+    // React treats them as uncontrolled and then switches them to controlled on
+    // the first keystroke — a dev warning, and a `reset()` that cannot put the
+    // field back to a value it never had.
+    defaultValues: { email: '', password: '' },
   });
 
   const onSubmit = (data: LoginDto) => {

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { createCourtSchema, type CreateCourtDto } from '@/features/courts';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { Court, CourtWithPrices } from '@/shared/types/api.types';
 
@@ -28,7 +28,7 @@ export interface MutationLike<TData, TVariables> {
 export function useCourtSetupForm(createCourt: MutationLike<{ court: Court }, CreateCourtDto>) {
   const [pricingCourt, setPricingCourt] = useState<CourtWithPrices | null>(null);
 
-  const courtForm = useForm<CreateCourtDto>({
+  const courtForm = useAppForm<CreateCourtDto>({
     resolver: zodResolver(createCourtSchema),
     defaultValues: DEFAULT_COURT_VALUES,
   });

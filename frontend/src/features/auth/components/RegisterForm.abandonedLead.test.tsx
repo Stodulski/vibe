@@ -56,11 +56,14 @@ describe('RegisterForm abandoned-registration lead capture', () => {
     await user.type(screen.getByLabelText(/email/i), 'juan@test.com');
     unmount();
 
+    // The untouched fields read back as '' rather than `undefined` now that the
+    // form declares `defaultValues` (FORM-09). The request body is unchanged:
+    // `leadBody` (leads.api.ts) already drops any field that trims to empty.
     expect(captureAbandonedRegistrationLead).toHaveBeenCalledWith({
       email: 'juan@test.com',
-      first_name: undefined,
-      last_name: undefined,
-      phone: undefined,
+      first_name: '',
+      last_name: '',
+      phone: '',
     });
     expect(captureAbandonedRegistrationLead).toHaveBeenCalledTimes(1);
     expect(captureAbandonedRegistrationLeadBeacon).not.toHaveBeenCalled();

@@ -1,5 +1,6 @@
 import { useRef } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useAppForm } from '@/shared/lib/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createComplexSchema, updateComplexSchema, type CreateComplexDto } from '../../schemas/complex.schema';
 import { useCreateComplex } from '../../hooks/useCreateComplex';
@@ -76,7 +77,7 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
   const updateMutation = useUpdateComplex(complex?.id ?? '');
   const mutation = isEdit ? updateMutation : createMutation;
 
-  const form = useForm<CreateComplexDto>({
+  const form = useAppForm<CreateComplexDto>({
     resolver: zodResolver(isEdit ? updateComplexSchema : createComplexSchema),
     defaultValues: buildDefaultValues(complex),
   });

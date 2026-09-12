@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, type RegisterDto } from '../schemas/auth.schema';
 import { useRegister } from '../hooks/useRegister';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { submitHandler } from '@/shared/lib/form';
+import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { useTurnstileChallenge } from '@/shared/hooks/useTurnstileChallenge';
 import type { TurnstileFieldHandle } from '@/shared/components/common/TurnstileField';
 import { RegisterFormSteps } from './register-form/RegisterFormSteps';
@@ -16,6 +16,21 @@ import { useRegisterFormNavigation, type Step } from './register-form/useRegiste
 const t = ES_AR;
 
 const REGISTER_STEP_LABELS = [t.auth.registerStep1, t.auth.registerStep2, t.auth.registerStep3];
+
+/**
+ * FORM-09: without these the inputs mount with `value === undefined`, so React
+ * treats them as uncontrolled and then switches them to controlled on the first
+ * keystroke — a dev warning, and a `reset()` that cannot put a field back to a
+ * value it never had.
+ */
+const EMPTY_REGISTER_VALUES: RegisterDto = {
+  first_name: '',
+  last_name: '',
+  email: '',
+  phone: '',
+  password: '',
+  confirm_password: '',
+};
 
 function RegisterFormHeader({ step }: { step: Step }) {
   return (
@@ -43,8 +58,9 @@ export function RegisterForm() {
     trigger,
     getValues,
     formState: { errors },
-  } = useForm<RegisterDto>({
+  } = useAppForm<RegisterDto>({
     resolver: zodResolver(registerSchema),
+    defaultValues: EMPTY_REGISTER_VALUES,
   });
 
   const { step, goNext, goBack } = useRegisterFormNavigation(trigger);

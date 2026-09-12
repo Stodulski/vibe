@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useForm, type UseFormReturn, type UseFormWatch } from 'react-hook-form';
+import { type UseFormReturn, type UseFormWatch } from 'react-hook-form';
+import { useAppForm } from '@/shared/lib/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isToday } from 'date-fns/isToday';
 import { parseISO } from 'date-fns/parseISO';
@@ -156,7 +157,7 @@ export function useBlockSlotForm(
   const blockSlot = useBlockCourtSlot(complexId);
   const activeCourts = courts.filter((c) => c.is_active);
 
-  const form = useForm<BlockSlotFormValues>({
+  const form = useAppForm<BlockSlotFormValues>({
     resolver: zodResolver(blockSlotFormSchema),
     mode: 'onChange',
     defaultValues: blockSlotDefaultValues(prefill),
