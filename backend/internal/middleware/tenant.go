@@ -79,25 +79,25 @@ var crossTenantRoutes = map[string]string{
 	"GET /api/v1/public/complexes/{slug}":              "resolves: the storefront finds its complex by slug",
 	"GET /api/v1/public/complexes/{slug}/availability": "resolves: the availability grid finds its complex by slug",
 	"GET /api/v1/public/prerender/{slug}":              "resolves: the prerendered storefront finds its complex by slug",
-	"GET /api/v1/sitemap.xml":                         "platform: every active slug on the platform, by definition",
-	"GET /api/sitemap.xml":                            "platform: the 301 to the line above; it reads nothing",
-	"POST /api/v1/book":                               "resolves: the public booking flow is handed a complex id and validates it",
-	"GET /api/v1/book/status":                         "resolves: the booking link authenticates by token hash, which yields the booking",
-	"GET /api/v1/book/cancel-info":                    "resolves: same token hash, same booking",
-	"POST /api/v1/book/cancel":                        "resolves: same token hash, same booking",
+	"GET /api/v1/sitemap.xml":                          "platform: every active slug on the platform, by definition",
+	"GET /api/sitemap.xml":                             "platform: the 301 to the line above; it reads nothing",
+	"POST /api/v1/book":                                "resolves: the public booking flow is handed a complex id and validates it",
+	"GET /api/v1/book/status":                          "resolves: the booking link authenticates by token hash, which yields the booking",
+	"GET /api/v1/book/cancel-info":                     "resolves: same token hash, same booking",
+	"POST /api/v1/book/cancel":                         "resolves: same token hash, same booking",
 
 	// resolves — MercadoPago arrives with a payment id and nothing else.
 	"POST /api/v1/webhooks/mercadopago": "resolves: the tenant is found from the payment's external reference",
 
 	// platform — the superadmin console exists to see across tenants.
-	"GET /api/v1/admin/stats":                     "platform: aggregates across every tenant",
-	"GET /api/v1/admin/users":                     "platform: the operator's user list",
+	"GET /api/v1/admin/stats":                      "platform: aggregates across every tenant",
+	"GET /api/v1/admin/users":                      "platform: the operator's user list",
 	"GET /api/v1/admin/users/{id}":                 "platform: the operator's user detail, with that user's complexes",
 	"PATCH /api/v1/admin/users/{id}/toggle-active": "platform: the operator suspends an account",
-	"GET /api/v1/admin/complexes":                 "platform: the operator's complex list",
+	"GET /api/v1/admin/complexes":                  "platform: the operator's complex list",
 	"GET /api/v1/admin/complexes/{id}":             "platform: the operator's complex detail, with no ownership check by design",
-	"GET /api/v1/admin/audit-log":                 "platform: the operator's audit trail, optionally filtered to one complex",
-	"GET /api/v1/admin/healthcheck":               "platform: queue depths counted across every tenant",
+	"GET /api/v1/admin/audit-log":                  "platform: the operator's audit trail, optionally filtered to one complex",
+	"GET /api/v1/admin/healthcheck":                "platform: queue depths counted across every tenant",
 }
 
 // CrossTenantRoutes returns the routes whose database session crosses tenants,
