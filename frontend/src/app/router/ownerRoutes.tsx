@@ -32,7 +32,7 @@ export const ownerDashboardRoutes: RouteObject[] = [
     children: [
       {
         path: '/dashboard',
-        element: ownerPage(() => import('@/pages/owner/DashboardPage'), <SkeletonDashboard />),
+        element: ownerPage(() => import('@/features/dashboard/pages/DashboardPage'), <SkeletonDashboard />),
       },
       {
         path: '/bookings',
@@ -48,7 +48,7 @@ export const ownerDashboardRoutes: RouteObject[] = [
       },
       {
         path: '/reports',
-        element: ownerPage(() => import('@/pages/owner/ReportsPage')),
+        element: ownerPage(() => import('@/features/dashboard/pages/ReportsPage')),
       },
       {
         path: '/settings',
