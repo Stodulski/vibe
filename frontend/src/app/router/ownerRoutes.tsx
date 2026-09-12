@@ -36,7 +36,7 @@ export const ownerDashboardRoutes: RouteObject[] = [
       },
       {
         path: '/bookings',
-        element: ownerPage(() => import('@/pages/owner/BookingsPage'), <SkeletonBookings />),
+        element: ownerPage(() => import('@/features/bookings/pages/BookingsPage'), <SkeletonBookings />),
       },
       {
         path: '/courts',
