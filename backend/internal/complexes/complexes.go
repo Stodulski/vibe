@@ -171,29 +171,32 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 		return guards.RequireAuth(guards.RequireComplexOwner(next))
 	}
 
-	router.HandlerFunc(http.MethodGet, "/api/v1/public/complexes/:slug", h.GetPublic)
+	router.HandlerFunc(http.MethodGet, "/api/v1/public/complexes/{slug}", h.GetPublic)
 
-	// NOT under /api/v1/complexes/: httprouter refuses a static segment in the
-	// position a wildcard already owns, and ":id" owns everything after
-	// /complexes/. Registration order does not help — it is rejected at build
-	// time, not matched at request time. So it sits at the root, and the query
-	// parameter says what it is about.
+	// NOT under /api/v1/complexes/. The router that first registered this
+	// route refused a static segment in the position "{id}" already owned, so
+	// the check went to the root and the query parameter says what it is
+	// about. net/http's ServeMux has no such restriction — a literal segment
+	// beats a wildcard at the same position — so the address could move now.
+	// It has not: /api/v1/slug-available is the URL the frontend calls and the
+	// one the document declares, and moving it is a wire change that belongs
+	// to whoever wants it, not a side effect of changing routers.
 	router.HandlerFunc(http.MethodGet, "/api/v1/slug-available", guards.RequireAuth(h.SlugAvailable))
 
 	router.HandlerFunc(http.MethodGet, "/api/v1/complexes", guards.RequireAuth(h.List))
 	router.HandlerFunc(http.MethodPost, "/api/v1/complexes", guards.RequireAuth(h.Create))
 
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id", owner(h.Get))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/:id", owner(h.Update))
-	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/:id", owner(h.Delete))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/:id/schedules", owner(h.UpdateSchedules))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}", owner(h.Get))
+	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}", owner(h.Update))
+	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/{id}", owner(h.Delete))
+	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}/schedules", owner(h.UpdateSchedules))
 
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/:id/uploads/presign", owner(h.PresignUpload))
-	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/:id/uploads", owner(h.DeleteUpload))
+	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/uploads/presign", owner(h.PresignUpload))
+	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/{id}/uploads", owner(h.DeleteUpload))
 
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/:id/mp/connect", owner(h.ConnectMercadoPago))
-	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/:id/mp/connect", owner(h.DisconnectMercadoPago))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/mp/status", owner(h.MercadoPagoStatus))
+	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/mp/connect", owner(h.ConnectMercadoPago))
+	router.HandlerFunc(http.MethodDelete, "/api/v1/complexes/{id}/mp/connect", owner(h.DisconnectMercadoPago))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/mp/status", owner(h.MercadoPagoStatus))
 }
 
 // actor reads who is making the change, and from where, off the request. It is

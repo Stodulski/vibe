@@ -317,14 +317,14 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 	router.HandlerFunc(http.MethodGet, "/api/v1/book/cancel-info", h.PublicCancelInfo)
 	router.HandlerFunc(http.MethodPost, "/api/v1/book/cancel", h.PublicCancel)
 
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/bookings", owner(h.List))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/:id/bookings", owner(guards.Idempotent("owner-book")(h.Create)))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/bookings/:bookingID", owner(h.Get))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/:id/bookings/:bookingID", owner(h.Update))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/:id/bookings/:bookingID/cancel", owner(h.Cancel))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/:id/bookings/:bookingID/confirm-payment",
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/bookings", owner(h.List))
+	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings", owner(guards.Idempotent("owner-book")(h.Create)))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/bookings/{bookingID}", owner(h.Get))
+	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}/bookings/{bookingID}", owner(h.Update))
+	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings/{bookingID}/cancel", owner(h.Cancel))
+	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment",
 		owner(guards.Idempotent("confirm-payment")(h.ConfirmPayment)))
-	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/:id/bookings/:bookingID/manual-refund",
+	router.HandlerFunc(http.MethodPost, "/api/v1/complexes/{id}/bookings/{bookingID}/manual-refund",
 		owner(guards.Idempotent("manual-refund")(h.ManualRefund)))
 }
 

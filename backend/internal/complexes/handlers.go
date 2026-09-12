@@ -128,7 +128,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"complex": complex})
 }
 
-// Get handles GET /api/v1/complexes/:id, returning one venue with its
+// Get handles GET /api/v1/complexes/{id}, returning one venue with its
 // schedules.
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
@@ -148,7 +148,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 // refused on submit.
 //
 // It exists as its own route because the obvious shortcut is wrong. Probing
-// GET /public/complexes/:slug looks equivalent and is not: that endpoint 404s
+// GET /public/complexes/{slug} looks equivalent and is not: that endpoint 404s
 // for a DEACTIVATED venue, so it would report "free" for a name the database
 // will refuse — a check that lies in exactly the case it was added for.
 //
@@ -193,7 +193,7 @@ func suggestSlug(base string, taken map[string]bool) string {
 	return ""
 }
 
-// Update handles PUT /api/v1/complexes/:id. Every field is optional; an
+// Update handles PUT /api/v1/complexes/{id}. Every field is optional; an
 // omitted one keeps its current value.
 //
 // It is one cohesive request lifecycle for a single resource operation, per
@@ -350,7 +350,7 @@ type deletionOutcome struct {
 	CourtsDeactivated int `json:"courts_deactivated"`
 }
 
-// Delete handles DELETE /api/v1/complexes/:id.
+// Delete handles DELETE /api/v1/complexes/{id}.
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
@@ -436,7 +436,7 @@ type CourtWithPrices struct {
 	Prices []*courtstore.CourtPrice `json:"prices"`
 }
 
-// GetPublic handles GET /api/v1/public/complexes/:slug, the page a client
+// GetPublic handles GET /api/v1/public/complexes/{slug}, the page a client
 // lands on from a shared link. It carries only what a booking decision needs.
 func (h *Handler) GetPublic(w http.ResponseWriter, r *http.Request) {
 	slug := httpx.ReadStringParam(r, "slug")
@@ -458,7 +458,7 @@ func (h *Handler) GetPublic(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// UpdateSchedules handles PUT /api/v1/complexes/:id/schedules, replacing the
+// UpdateSchedules handles PUT /api/v1/complexes/{id}/schedules, replacing the
 // venue's weekly opening hours.
 //
 // It is one cohesive request lifecycle for a single resource operation, per
@@ -535,7 +535,7 @@ func (h *Handler) UpdateSchedules(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"schedules": schedules})
 }
 
-// ConnectMercadoPago handles POST /api/v1/complexes/:id/mp/connect, exchanging
+// ConnectMercadoPago handles POST /api/v1/complexes/{id}/mp/connect, exchanging
 // the OAuth code for the owner's own MercadoPago credentials so payments settle
 // into their account rather than the platform's.
 func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
@@ -577,7 +577,7 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DisconnectMercadoPago handles DELETE /api/v1/complexes/:id/mp/connect.
+// DisconnectMercadoPago handles DELETE /api/v1/complexes/{id}/mp/connect.
 func (h *Handler) DisconnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
@@ -595,7 +595,7 @@ func (h *Handler) DisconnectMercadoPago(w http.ResponseWriter, r *http.Request) 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"connected": false})
 }
 
-// MercadoPagoStatus handles GET /api/v1/complexes/:id/mp/status, reporting
+// MercadoPagoStatus handles GET /api/v1/complexes/{id}/mp/status, reporting
 // whether the venue can currently take online payments.
 func (h *Handler) MercadoPagoStatus(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)

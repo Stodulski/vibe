@@ -1,20 +1,10 @@
 package main
 
 import (
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
 )
-
-// pathParam matches an httprouter path parameter, e.g. ":id" or ":bookingID".
-var pathParam = regexp.MustCompile(`:([A-Za-z0-9_]+)`)
-
-// canonicalPath rewrites an httprouter path (":name") to the OpenAPI template
-// form ("{name}") so the two can be compared directly.
-func canonicalPath(path string) string {
-	return pathParam.ReplaceAllString(path, "{$1}")
-}
 
 // TestOpenAPISyncWithRouter proves internal/openapi/openapi.yaml documents
 // exactly the routes this application registers, outside /debug/.
@@ -33,7 +23,7 @@ func TestOpenAPISyncWithRouter(t *testing.T) {
 		if strings.HasPrefix(rt.path, "/debug/") {
 			continue // dev-only, framework-owned; excluded from the document by design
 		}
-		registered[rt.method+" "+canonicalPath(rt.path)] = struct{}{}
+		registered[rt.method+" "+rt.path] = struct{}{}
 	}
 
 	documented := make(map[string]struct{})
@@ -59,7 +49,8 @@ func TestOpenAPISyncWithRouter(t *testing.T) {
 
 	for _, key := range missingFromSpec {
 		t.Errorf("route %q is registered but not documented in internal/openapi/openapi.yaml.\n"+
-			"Add a paths entry for it there, translating httprouter's \":name\" segments to \"{name}\".", key)
+			"Add a paths entry for it there; the router and the document spell a wildcard "+
+			"segment the same way, as \"{name}\".", key)
 	}
 	for _, key := range missingFromRouter {
 		t.Errorf("internal/openapi/openapi.yaml documents %q, which is not a registered route.\n"+

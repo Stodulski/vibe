@@ -33,7 +33,7 @@ var durationParamMessage = func() string {
 	return "duration must be " + strings.Join(parts[:len(parts)-1], ", ") + ", or " + parts[len(parts)-1]
 }()
 
-// Availability handles GET /api/v1/public/complexes/:slug/availability,
+// Availability handles GET /api/v1/public/complexes/{slug}/availability,
 // returning the bookable grid for one day.
 func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 	slug := httpx.ReadStringParam(r, "slug")

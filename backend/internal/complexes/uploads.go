@@ -30,7 +30,7 @@ func uploadKeyPrefix(complexID uuid.UUID) string {
 	return fmt.Sprintf("complexes/%s/", complexID)
 }
 
-// PresignUpload handles POST /api/v1/complexes/:id/uploads/presign, returning a
+// PresignUpload handles POST /api/v1/complexes/{id}/uploads/presign, returning a
 // short-lived URL the browser uploads straight to, so image bytes never pass
 // through this service. The object key is namespaced to the complex.
 func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +76,7 @@ func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DeleteUpload handles DELETE /api/v1/complexes/:id/uploads. It accepts only
+// DeleteUpload handles DELETE /api/v1/complexes/{id}/uploads. It accepts only
 // URLs inside our own storage, and only those inside the calling complex's own
 // namespace within it, so neither an arbitrary URL nor another tenant's URL can
 // be used to delete something else. See Service.DeleteUpload for why.

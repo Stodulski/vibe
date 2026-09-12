@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -73,8 +72,8 @@ const baseTemplate = `<!DOCTYPE html><html><head>` +
 func slugRequest(t *testing.T, slug string) *http.Request {
 	t.Helper()
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-	params := httprouter.Params{{Key: "slug", Value: slug}}
-	return r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
+	r.SetPathValue("slug", slug)
+	return r
 }
 
 func TestSitemapListsEveryComplexAndNotTheNoindexRoot(t *testing.T) {

@@ -95,7 +95,7 @@ func TestCreateRejectsATakenSlug(t *testing.T) {
 // H-13 / CPX-09: "../admin" slugified to the bare "admin" and was accepted
 // with 201 — the venue was created, paid for, and its own storefront URL was
 // permanently unreachable, because frontend's router matches its own
-// static /admin route before the public /:slug page ever gets a look.
+// static /admin route before the public /{slug} page ever gets a look.
 // slugify runs before validation, so this is the same code path a client
 // typing "admin" directly would hit; the traversal-looking input is here to
 // document exactly the payload CPX-09 used, not because slugify needs a

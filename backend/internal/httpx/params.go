@@ -9,15 +9,16 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 )
 
 // ReadUUIDParam parses the named router path parameter as a UUID. The error
 // names the parameter so the caller can return it to the client unchanged.
+//
+// The value comes from net/http's own pattern matching (r.PathValue), so a
+// parameter the matched route never declared reads as "" and fails here,
+// which is the same answer the previous router gave for an unbound name.
 func ReadUUIDParam(r *http.Request, name string) (uuid.UUID, error) {
-	params := httprouter.ParamsFromContext(r.Context())
-
-	id, err := uuid.Parse(params.ByName(name))
+	id, err := uuid.Parse(r.PathValue(name))
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("invalid %s parameter", name)
 	}
@@ -28,8 +29,7 @@ func ReadUUIDParam(r *http.Request, name string) (uuid.UUID, error) {
 // ReadStringParam returns the named router path parameter, or "" when the route
 // does not define it.
 func ReadStringParam(r *http.Request, name string) string {
-	params := httprouter.ParamsFromContext(r.Context())
-	return params.ByName(name)
+	return r.PathValue(name)
 }
 
 // ReadString returns the query-string value for key, or defaultValue when the

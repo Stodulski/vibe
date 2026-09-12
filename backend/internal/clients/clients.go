@@ -73,9 +73,9 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 		return guards.RequireAuth(guards.RequireComplexOwner(next))
 	}
 
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/clients", protected(h.List))
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/clients/:clientID", protected(h.Get))
-	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/:id/clients/:clientID", protected(h.Update))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/clients", protected(h.List))
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/clients/{clientID}", protected(h.Get))
+	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/{id}/clients/{clientID}", protected(h.Update))
 }
 
 // route reads the complex the guard put in context and the client id the
@@ -100,7 +100,7 @@ func (h *Handler) route(w http.ResponseWriter, r *http.Request) (complexID, clie
 	return complex.ID, clientID, true
 }
 
-// Get handles GET /api/v1/complexes/:id/clients/:clientID.
+// Get handles GET /api/v1/complexes/{id}/clients/{clientID}.
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	complexID, clientID, ok := h.route(w, r)
 	if !ok {
@@ -123,7 +123,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Update handles PUT /api/v1/complexes/:id/clients/:clientID.
+// Update handles PUT /api/v1/complexes/{id}/clients/{clientID}.
 //
 // Only the owner's own annotations are editable. The client's identity fields
 // come from their bookings and are not writable here.
@@ -154,7 +154,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"client": client})
 }
 
-// List handles GET /api/v1/complexes/:id/clients.
+// List handles GET /api/v1/complexes/{id}/clients.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {

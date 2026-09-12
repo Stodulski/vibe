@@ -17,7 +17,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
-// List handles GET /api/v1/complexes/:id/courts, returning every court the
+// List handles GET /api/v1/complexes/{id}/courts, returning every court the
 // complex has, active or not — the owner manages both.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
@@ -70,7 +70,7 @@ func emptyToNil(s *string) *string {
 	return s
 }
 
-// Create handles POST /api/v1/complexes/:id/courts.
+// Create handles POST /api/v1/complexes/{id}/courts.
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
@@ -116,7 +116,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"court": court})
 }
 
-// Update handles PUT /api/v1/complexes/:id/courts/:courtID. Every field is
+// Update handles PUT /api/v1/complexes/{id}/courts/{courtID}. Every field is
 // optional; an omitted one keeps its current value.
 //
 // It is one cohesive request lifecycle for a single resource operation, per
@@ -196,7 +196,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"court": court})
 }
 
-// Delete handles DELETE /api/v1/complexes/:id/courts/:courtID. The court is
+// Delete handles DELETE /api/v1/complexes/{id}/courts/{courtID}. The court is
 // soft-deleted, and refused outright while it still has live bookings.
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
@@ -227,7 +227,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"message": "court deleted"})
 }
 
-// UpdatePrices handles PUT /api/v1/complexes/:id/courts/:courtID/prices.
+// UpdatePrices handles PUT /api/v1/complexes/{id}/courts/{courtID}/prices.
 //
 // The band is replaced wholesale rather than merged, so the request body is the
 // court's complete price list — a partial update would leave the old bands in
@@ -361,7 +361,7 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"prices": written})
 }
 
-// BlockSlot handles POST /api/v1/complexes/:id/courts/:courtID/block, taking a
+// BlockSlot handles POST /api/v1/complexes/{id}/courts/{courtID}/block, taking a
 // time range off sale for maintenance or a private event.
 //
 // It is one cohesive request lifecycle for a single resource operation, per

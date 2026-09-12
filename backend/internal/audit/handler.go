@@ -44,11 +44,11 @@ func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Hand
 // Routes registers the tenant-facing trail. It is scoped to one complex and
 // readable only by its owner.
 func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
-	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/audit-log",
+	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/{id}/audit-log",
 		guards.RequireAuth(guards.RequireComplexOwner(h.List)))
 }
 
-// List handles GET /api/v1/complexes/:id/audit-log.
+// List handles GET /api/v1/complexes/{id}/audit-log.
 //
 // The scope comes from the complex the ownership guard put in the context, and
 // never from the query string: a complex_id parameter here would be a caller

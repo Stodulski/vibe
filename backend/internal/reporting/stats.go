@@ -12,7 +12,7 @@ import (
 // allowedRevenuePeriods are the values GetRevenueChart accepts for "period".
 var allowedRevenuePeriods = []string{"week", "month"}
 
-// GetDashboardStats handles GET /api/v1/complexes/:id/stats, returning the
+// GetDashboardStats handles GET /api/v1/complexes/{id}/stats, returning the
 // headline figures for today plus the next bookings due.
 //
 // It is one cohesive request lifecycle — parse the input, aggregate the day's
@@ -50,7 +50,7 @@ func (h *Handler) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetRevenueChart handles GET /api/v1/complexes/:id/stats/revenue, returning
+// GetRevenueChart handles GET /api/v1/complexes/{id}/stats/revenue, returning
 // daily revenue over the requested period.
 func (h *Handler) GetRevenueChart(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
@@ -78,7 +78,7 @@ func (h *Handler) GetRevenueChart(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"revenue": revenue})
 }
 
-// GetOccupancyChart handles GET /api/v1/complexes/:id/stats/occupancy, returning
+// GetOccupancyChart handles GET /api/v1/complexes/{id}/stats/occupancy, returning
 // the share of open court-hours booked, by hour and weekday.
 func (h *Handler) GetOccupancyChart(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
@@ -102,7 +102,7 @@ func (h *Handler) GetOccupancyChart(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"occupancy": result})
 }
 
-// GetClientInsights handles GET /api/v1/complexes/:id/stats/clients, returning
+// GetClientInsights handles GET /api/v1/complexes/{id}/stats/clients, returning
 // the retention and frequency panel.
 func (h *Handler) GetClientInsights(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)

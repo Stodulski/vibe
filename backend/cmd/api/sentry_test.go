@@ -255,14 +255,14 @@ func TestBreadcrumbsAreScrubbed(t *testing.T) {
 func TestAnOrdinaryEventSurvivesIntact(t *testing.T) {
 	event := send(t, &sentry.Event{
 		Message:     "slot lock expired before payment",
-		Transaction: "POST /api/v1/book/:id",
+		Transaction: "POST /api/v1/book/{id}",
 		Tags:        map[string]string{"complex_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"},
 	})
 
 	if event.Message != "slot lock expired before payment" {
 		t.Errorf("want the message untouched; got %q", event.Message)
 	}
-	if event.Transaction != "POST /api/v1/book/:id" {
+	if event.Transaction != "POST /api/v1/book/{id}" {
 		t.Errorf("want the transaction untouched; got %q", event.Transaction)
 	}
 	if event.Tags["complex_id"] != "6ba7b810-9dad-11d1-80b4-00c04fd430c8" {

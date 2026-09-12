@@ -1596,8 +1596,9 @@ paths:
       operationId: complexesSlugAvailable
       summary: Check whether a slug is free platform-wide
       description: >-
-        Not nested under `/complexes/` because httprouter cannot mix a static segment with the
-        `:id` wildcard already registered at that position. Cross-tenant bypass reason
+        Not nested under `/complexes/`: the router this route was first written for could not
+        mix a static segment with the `{id}` wildcard registered at that position. The address
+        is kept as it is because it is the one clients call. Cross-tenant bypass reason
         `platform` (a global uniqueness check).
       security: [{cookieAuth: []}]
       parameters:

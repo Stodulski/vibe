@@ -52,5 +52,5 @@ func (h *Handler) Routes(router httpx.Router, _ httpx.Guards) {
 	// drops the pages it lists rather than looking for a new address, so the
 	// old path stays as a 301 for as long as it is being requested.
 	router.HandlerFunc(http.MethodGet, legacySitemapPath, h.SitemapMoved)
-	router.HandlerFunc(http.MethodGet, "/api/v1/public/prerender/:slug", h.Prerender)
+	router.HandlerFunc(http.MethodGet, "/api/v1/public/prerender/{slug}", h.Prerender)
 }

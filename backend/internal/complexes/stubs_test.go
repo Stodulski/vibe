@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 
 	"github.com/stodulski/vibe-server/internal/audit"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
@@ -299,12 +298,8 @@ func ownerRequest(t *testing.T, method, target string, ownerID uuid.UUID, comple
 	if complex != nil {
 		r = httpx.ContextSetComplex(r, complex)
 	}
-	if len(params) > 0 {
-		p := make(httprouter.Params, 0, len(params))
-		for k, v := range params {
-			p = append(p, httprouter.Param{Key: k, Value: v})
-		}
-		r = r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, p))
+	for k, v := range params {
+		r.SetPathValue(k, v)
 	}
 	return r
 }
@@ -318,9 +313,9 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	return body
 }
 
-// withSlug binds the :slug path parameter, as the router does for the public
+// withSlug binds the {slug} path parameter, as the router does for the public
 // complex route.
 func withSlug(r *http.Request, slug string) *http.Request {
-	params := httprouter.Params{{Key: "slug", Value: slug}}
-	return r.WithContext(context.WithValue(r.Context(), httprouter.ParamsKey, params))
+	r.SetPathValue("slug", slug)
+	return r
 }

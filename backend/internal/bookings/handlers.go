@@ -12,7 +12,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
-// List handles GET /api/v1/complexes/:id/bookings for one day. The date is
+// List handles GET /api/v1/complexes/{id}/bookings for one day. The date is
 // required rather than defaulted, so the dashboard always gets the day it
 // asked for.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +69,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Get handles GET /api/v1/complexes/:id/bookings/:bookingID.
+// Get handles GET /api/v1/complexes/{id}/bookings/{bookingID}.
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
@@ -107,7 +107,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, response)
 }
 
-// Update handles PUT /api/v1/complexes/:id/bookings/:bookingID. Every field is
+// Update handles PUT /api/v1/complexes/{id}/bookings/{bookingID}. Every field is
 // optional; an omitted one keeps its current value.
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
