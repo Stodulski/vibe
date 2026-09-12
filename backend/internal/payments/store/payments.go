@@ -142,6 +142,9 @@ func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *booking
 
 // Insert creates a new payment and populates p with its generated ID and timestamps.
 func (m *Payments) Insert(ctx context.Context, p *Payment) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPayment, err := m.Q.InsertPayment(ctx, db.InsertPaymentParams{
 		BookingID: data.UUIDToPg(p.BookingID),
 		ComplexID: data.UUIDToPg(p.ComplexID),
@@ -168,6 +171,9 @@ func (m *Payments) Insert(ctx context.Context, p *Payment) error {
 
 // GetByBookingID returns the payment for the given booking, or ErrRecordNotFound if none exists.
 func (m *Payments) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*Payment, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPayment, err := m.Q.GetPaymentByBookingID(ctx, data.UUIDToPg(bookingID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -187,6 +193,9 @@ func (m *Payments) GetByBookingID(ctx context.Context, bookingID uuid.UUID) (*Pa
 // row GetByBookingID returns. An empty ledger is not an error: it returns a
 // nil slice and a nil error, never ErrRecordNotFound.
 func (m *Payments) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]*Payment, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPayments, err := m.Q.ListPaymentsByBookingID(ctx, data.UUIDToPg(bookingID))
 	if err != nil {
 		return nil, fmt.Errorf("list payments: %w", err)
@@ -205,6 +214,9 @@ func (m *Payments) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]
 
 // GetByMPPaymentID returns the payment matching the given MercadoPago payment ID, or ErrRecordNotFound if none exists.
 func (m *Payments) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*Payment, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPayment, err := m.Q.GetPaymentByMPID(ctx, pgtype.Text{String: mpPaymentID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -217,6 +229,9 @@ func (m *Payments) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*P
 
 // Update persists changes to an existing payment, returning ErrRecordNotFound if it no longer exists.
 func (m *Payments) Update(ctx context.Context, p *Payment) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPayment, err := m.Q.UpdatePayment(ctx, db.UpdatePaymentParams{
 		Status:         db.PaymentStatus(p.Status),
 		MpPaymentID:    data.TextToPg(p.MPPaymentID),

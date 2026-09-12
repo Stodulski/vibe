@@ -31,6 +31,9 @@ type EmailVerifications struct {
 
 // Insert creates a new email verification token for the user, expiring after 24 hours.
 func (m *EmailVerifications) Insert(ctx context.Context, userID uuid.UUID, tokenHash []byte) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	_, err := m.Q.InsertEmailVerificationToken(ctx, db.InsertEmailVerificationTokenParams{
 		UserID:    data.UUIDToPg(userID),
 		TokenHash: tokenHash,
@@ -41,6 +44,9 @@ func (m *EmailVerifications) Insert(ctx context.Context, userID uuid.UUID, token
 
 // GetByHash returns the email verification token matching tokenHash, or ErrRecordNotFound if none exists.
 func (m *EmailVerifications) GetByHash(ctx context.Context, tokenHash []byte) (*EmailVerificationToken, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	t, err := m.Q.GetEmailVerificationToken(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -59,6 +65,9 @@ func (m *EmailVerifications) GetByHash(ctx context.Context, tokenHash []byte) (*
 
 // GetLatestByUser returns the user's most recently issued email verification token, or ErrRecordNotFound if none exists.
 func (m *EmailVerifications) GetLatestByUser(ctx context.Context, userID uuid.UUID) (*EmailVerificationToken, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	t, err := m.Q.GetLatestEmailVerificationTokenByUser(ctx, data.UUIDToPg(userID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -78,6 +87,9 @@ func (m *EmailVerifications) GetLatestByUser(ctx context.Context, userID uuid.UU
 // InsertWithCooldown creates a new email verification token unless one was already issued
 // within the resend cooldown window, returning ErrCooldownActive in that case.
 func (m *EmailVerifications) InsertWithCooldown(ctx context.Context, userID uuid.UUID, tokenHash []byte) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	_, err := m.Q.InsertVerificationTokenWithCooldown(ctx, db.InsertVerificationTokenWithCooldownParams{
 		UserID:    data.UUIDToPg(userID),
 		TokenHash: tokenHash,
@@ -94,10 +106,16 @@ func (m *EmailVerifications) InsertWithCooldown(ctx context.Context, userID uuid
 
 // DeleteByUser removes every email verification token belonging to the user.
 func (m *EmailVerifications) DeleteByUser(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.DeleteEmailVerificationTokensByUser(ctx, data.UUIDToPg(userID))
 }
 
 // DeleteExpired removes every email verification token past its expiry, used by a periodic cleanup job.
 func (m *EmailVerifications) DeleteExpired(ctx context.Context) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.DeleteExpiredEmailVerificationTokens(ctx)
 }

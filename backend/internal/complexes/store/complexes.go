@@ -113,6 +113,9 @@ type Store struct {
 // the violation here is what makes the losing request a 422 naming the field
 // rather than a 500.
 func (m *Store) Insert(ctx context.Context, c *Complex) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbComplex, err := m.Q.InsertComplex(ctx, db.InsertComplexParams{
 		OwnerID:           data.UUIDToPg(c.OwnerID),
 		Name:              c.Name,
@@ -151,6 +154,9 @@ func (m *Store) Insert(ctx context.Context, c *Complex) error {
 
 // GetByID returns the complex with the given ID, or ErrRecordNotFound if none exists.
 func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Complex, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbComplex, err := m.Q.GetComplexByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -163,6 +169,9 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Complex, error) {
 
 // GetBySlug returns the complex with the given public slug, or ErrRecordNotFound if none exists.
 func (m *Store) GetBySlug(ctx context.Context, slug string) (*Complex, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbComplex, err := m.Q.GetComplexBySlug(ctx, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -175,6 +184,9 @@ func (m *Store) GetBySlug(ctx context.Context, slug string) (*Complex, error) {
 
 // GetByOwner returns every complex owned by the given user.
 func (m *Store) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbComplexes, err := m.Q.GetComplexesByOwner(ctx, data.UUIDToPg(ownerID))
 	if err != nil {
 		return nil, err
@@ -222,6 +234,9 @@ func (m *Store) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, 
 // version the client read before it filled in the form. Nil means it sent none,
 // and the write is the last-write-wins it always was (API-08).
 func (m *Store) Update(ctx context.Context, c *Complex, expectedVersion *int) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbComplex, err := m.Q.UpdateComplex(ctx, db.UpdateComplexParams{
 		ExpectedVersion:   data.Int4PtrToPg(expectedVersion),
 		Slug:              c.Slug,
@@ -329,6 +344,9 @@ func (m *Store) softDeleteCascade(
 
 // UpsertSchedule creates or replaces the opening hours for one day of a complex's schedule.
 func (m *Store) UpsertSchedule(ctx context.Context, s *Schedule) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbSchedule, err := m.Q.UpsertSchedule(ctx, db.UpsertScheduleParams{
 		ComplexID: data.UUIDToPg(s.ComplexID),
 		Day:       db.DayOfWeek(s.Day),
@@ -346,6 +364,9 @@ func (m *Store) UpsertSchedule(ctx context.Context, s *Schedule) error {
 
 // GetSchedules returns the complex's full weekly opening schedule.
 func (m *Store) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*Schedule, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbSchedules, err := m.Q.GetSchedulesByComplex(ctx, data.UUIDToPg(complexID))
 	if err != nil {
 		return nil, err

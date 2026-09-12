@@ -33,6 +33,9 @@ type Tokens struct {
 
 // InsertRefreshToken stores a new refresh token hash for the user, expiring after ttl.
 func (m *Tokens) InsertRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash []byte, ttl time.Duration) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	_, err := m.Q.InsertRefreshToken(ctx, db.InsertRefreshTokenParams{
 		UserID:    data.UUIDToPg(userID),
 		TokenHash: tokenHash,
@@ -43,6 +46,9 @@ func (m *Tokens) InsertRefreshToken(ctx context.Context, userID uuid.UUID, token
 
 // GetRefreshToken returns the unused refresh token matching tokenHash, or ErrRecordNotFound if none exists.
 func (m *Tokens) GetRefreshToken(ctx context.Context, tokenHash []byte) (*RefreshToken, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbToken, err := m.Q.GetRefreshTokenByHash(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -61,12 +67,18 @@ func (m *Tokens) GetRefreshToken(ctx context.Context, tokenHash []byte) (*Refres
 
 // MarkRefreshTokenUsed flags the refresh token as consumed, preventing replay.
 func (m *Tokens) MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.MarkRefreshTokenUsed(ctx, tokenHash)
 }
 
 // GetUsedRefreshToken returns an already-consumed refresh token matching tokenHash, used to
 // detect token reuse (a signal of a stolen refresh token), or ErrRecordNotFound if none exists.
 func (m *Tokens) GetUsedRefreshToken(ctx context.Context, tokenHash []byte) (*RefreshToken, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbToken, err := m.Q.GetUsedRefreshTokenByHash(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -95,10 +107,16 @@ func (m *Tokens) DeleteRefreshToken(ctx context.Context, tokenHash []byte) error
 
 // DeleteAllForUser revokes every refresh token belonging to the user, used on password change or logout-everywhere.
 func (m *Tokens) DeleteAllForUser(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.DeleteAllRefreshTokensByUser(ctx, data.UUIDToPg(userID))
 }
 
 // DeleteExpired removes every refresh token past its expiry, used by a periodic cleanup job.
 func (m *Tokens) DeleteExpired(ctx context.Context) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.DeleteExpiredRefreshTokens(ctx)
 }

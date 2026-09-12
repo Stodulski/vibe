@@ -145,6 +145,9 @@ func translateCourtWrite(err error) error {
 
 // Insert creates a new court and populates c with its generated ID and defaults.
 func (m *Store) Insert(ctx context.Context, c *Court) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbCourt, err := m.Q.InsertCourt(ctx, db.InsertCourtParams{
 		ComplexID:   data.UUIDToPg(c.ComplexID),
 		Name:        c.Name,
@@ -165,6 +168,9 @@ func (m *Store) Insert(ctx context.Context, c *Court) error {
 
 // GetByID returns the court with the given ID, or ErrRecordNotFound if none exists.
 func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbCourt, err := m.Q.GetCourtByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -177,6 +183,9 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) {
 
 // GetByComplex returns every court belonging to the complex.
 func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbCourts, err := m.Q.GetCourtsByComplex(ctx, data.UUIDToPg(complexID))
 	if err != nil {
 		return nil, err
@@ -195,6 +204,9 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court
 // version it read before it filled in the form. Nil means it sent none, and the
 // write is the last-write-wins it always was (API-08).
 func (m *Store) Update(ctx context.Context, c *Court, expectedVersion *int) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbCourt, err := m.Q.UpdateCourt(ctx, db.UpdateCourtParams{
 		ExpectedVersion: data.Int4PtrToPg(expectedVersion),
 		Name:            c.Name,
@@ -325,6 +337,9 @@ func softDeleteCourt(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 
 // InsertPrice creates a new price rule for a court and populates p with its generated ID.
 func (m *Store) InsertPrice(ctx context.Context, p *CourtPrice) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPrice, err := m.Q.InsertCourtPrice(ctx, db.InsertCourtPriceParams{
 		CourtID: data.UUIDToPg(p.CourtID),
 		//nolint:gosec // G115: Price is validated > 0 at the courts.go handler; it is a currency amount realistically
@@ -344,6 +359,9 @@ func (m *Store) InsertPrice(ctx context.Context, p *CourtPrice) error {
 
 // GetPrices returns every price rule defined for the court.
 func (m *Store) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*CourtPrice, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPrices, err := m.Q.GetCourtPrices(ctx, data.UUIDToPg(courtID))
 	if err != nil {
 		return nil, err
@@ -368,6 +386,9 @@ func (m *Store) GetPrices(ctx context.Context, courtID uuid.UUID) ([]*CourtPrice
 
 // UpdatePrice persists changes to an existing price rule, returning ErrRecordNotFound if it no longer exists.
 func (m *Store) UpdatePrice(ctx context.Context, p *CourtPrice) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbPrice, err := m.Q.UpdateCourtPrice(ctx, db.UpdateCourtPriceParams{
 		//nolint:gosec // G115: Price is validated > 0 at the courts.go handler; it is a currency amount realistically
 		// far below int32 range, matching the same bound rationale as booking Price.
@@ -390,6 +411,9 @@ func (m *Store) UpdatePrice(ctx context.Context, p *CourtPrice) error {
 
 // DeletePrice removes a single price rule by ID.
 func (m *Store) DeletePrice(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.DeleteCourtPrice(ctx, data.UUIDToPg(id))
 }
 
@@ -611,6 +635,9 @@ func isOverlapRefusal(err error) bool {
 
 // GetBlockedSlots returns the blocked slots for a court on the given date.
 func (m *Store) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*BlockedSlot, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	pgDate := data.DateToPg(date)
 	dbSlots, err := m.Q.GetBlockedSlots(ctx, db.GetBlockedSlotsParams{
 		CourtID: data.UUIDToPg(courtID),
@@ -639,6 +666,9 @@ func (m *Store) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date tim
 
 // GetPricesByCourtIDs returns the price rules for multiple courts in one query, ordered by court, day type and start time.
 func (m *Store) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) ([]*CourtPrice, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	rows, err := m.DB.Query(ctx,
 		`SELECT id, court_id, price, day_type, time_from, time_to, span_min
 		 FROM court_prices
@@ -672,6 +702,9 @@ func (m *Store) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) (
 
 // GetBlockedSlotsByCourtIDs returns the blocked slots across multiple courts on the given date.
 func (m *Store) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]*BlockedSlot, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	rows, err := m.DB.Query(ctx,
 		`SELECT id, court_id, date, start_time, end_time, reason, created_by, created_at
 		 FROM blocked_slots
@@ -702,6 +735,9 @@ func (m *Store) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.U
 
 // GetBlockedSlotByID returns the blocked slot with the given ID, or ErrRecordNotFound if none exists.
 func (m *Store) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*BlockedSlot, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbSlot, err := m.Q.GetBlockedSlotByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -735,6 +771,9 @@ func (m *Store) GetBlockedSlotByID(ctx context.Context, id uuid.UUID) (*BlockedS
 // cmd/api's own store wiring is built against. See the comment on
 // ListBlockedSlots for the rest of that trade-off.
 func (m *Store) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*BlockedSlot, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	rows, err := m.DB.Query(ctx,
 		`SELECT bs.id, bs.court_id, bs.date, bs.start_time, bs.end_time, bs.reason, bs.created_by, bs.created_at, c.name
 		 FROM blocked_slots bs

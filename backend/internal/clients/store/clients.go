@@ -40,6 +40,9 @@ type Store struct {
 
 // Insert creates a new client and populates c with its generated ID and defaults.
 func (m *Store) Insert(ctx context.Context, c *Client) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbClient, err := m.Q.InsertClient(ctx, db.InsertClientParams{
 		ComplexID: data.UUIDToPg(c.ComplexID),
 		FirstName: c.FirstName,
@@ -68,6 +71,9 @@ func (m *Store) Insert(ctx context.Context, c *Client) error {
 // only ever incremented from the MercadoPago webhook, so it silently stayed
 // at 0 for every booking the owner confirmed manually or by cash/transfer.
 func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Client, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	row, err := m.Q.GetClientByID(ctx, data.UUIDToPg(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -94,6 +100,9 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Client, error) {
 // GetByPhone returns the client with the given phone number within a complex, or ErrRecordNotFound if none exists.
 // total_bookings is a live count — see GetByID's comment for why.
 func (m *Store) GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*Client, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	row, err := m.Q.GetClientByPhone(ctx, db.GetClientByPhoneParams{
 		ComplexID: data.UUIDToPg(complexID),
 		Phone:     phone,
@@ -219,6 +228,9 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, search st
 
 // Update persists changes to an existing client, returning ErrRecordNotFound if it no longer exists.
 func (m *Store) Update(ctx context.Context, c *Client) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbClient, err := m.Q.UpdateClient(ctx, db.UpdateClientParams{
 		FirstName: c.FirstName,
 		LastName:  c.LastName,
@@ -318,6 +330,9 @@ func (m *Store) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName,
 
 // IncrementNoShows increments the client's no-show counter by one.
 func (m *Store) IncrementNoShows(ctx context.Context, clientID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.IncrementNoShowCount(ctx, data.UUIDToPg(clientID))
 }
 

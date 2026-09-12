@@ -205,6 +205,9 @@ type Store struct {
 // Insert without adding a mint call — a booking committed here has no usable
 // link on any of the three public routes.
 func (m *Store) Insert(ctx context.Context, b *Booking) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbBooking, err := m.Q.InsertBooking(ctx, db.InsertBookingParams{
 		ComplexID: data.UUIDToPg(b.ComplexID),
 		CourtID:   data.UUIDToPg(b.CourtID),
@@ -574,6 +577,9 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 // answer complexstore.Store.Update, courtstore.Store.Update and clientstore.Store.Update give for
 // a row that vanished under an edit.
 func (m *Store) Update(ctx context.Context, b *Booking) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbBooking, err := m.Q.UpdateBooking(ctx, db.UpdateBookingParams{
 		ID:               data.UUIDToPg(b.ID),
 		Status:           db.BookingStatus(b.Status),
@@ -603,6 +609,9 @@ func (m *Store) Update(ctx context.Context, b *Booking) error {
 // single court, returned booked slots under an inverted name, and had no
 // caller. It is gone.
 func (m *Store) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]BookedSpan, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	if len(courtIDs) == 0 {
 		return nil, nil
 	}
@@ -634,6 +643,9 @@ func (m *Store) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UU
 // now is the caller's clock: see GetForReminder2hEnriched, whose window this
 // one must agree with.
 func (m *Store) GetForReminder2h(ctx context.Context, now time.Time) ([]*Booking, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	dbBookings, err := m.Q.GetBookingsForReminder2h(ctx, data.TimeToPg(now))
 	if err != nil {
 		return nil, err
@@ -643,6 +655,9 @@ func (m *Store) GetForReminder2h(ctx context.Context, now time.Time) ([]*Booking
 
 // MarkReminderSent2h flags the booking's 2-hour reminder as already sent.
 func (m *Store) MarkReminderSent2h(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	return m.Q.MarkReminderSent2h(ctx, data.UUIDToPg(id))
 }
 
@@ -1146,6 +1161,9 @@ func (m *Store) HasActiveBookings(ctx context.Context, complexID uuid.UUID) (boo
 
 // CancelFutureByComplex cancels every future, non-terminal booking in the complex, used when a complex is deactivated.
 func (m *Store) CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
 	_, err := m.DB.Exec(ctx,
 		`UPDATE bookings SET status = 'cancelled', updated_at = NOW()
 		 WHERE complex_id = $1 AND date >= CURRENT_DATE AND status NOT IN ('cancelled', 'completed', 'no_show')`, complexID)
