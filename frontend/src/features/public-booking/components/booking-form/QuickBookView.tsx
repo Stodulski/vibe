@@ -1,7 +1,7 @@
 import { Pencil, User } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { DEFAULT_PHONE_PREFIX } from '@/shared/lib/constants';
-import { publicBookingSchema, type PublicBookingFormData } from '../../schemas/public-booking.schemas';
+import { publicBookingSchema, type PublicBookingFormData } from '../../schemas/public-booking.schema';
 import type { SavedClientData } from './savedFormData';
 import type { BookingPricing } from './pricing';
 import { BookingSummaryCard } from './BookingSummaryCard';

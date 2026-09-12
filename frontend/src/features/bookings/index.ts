@@ -15,4 +15,4 @@ export { useBookings } from './hooks/useBookings';
 export { useBookingModals } from './hooks/useBookingModals';
 export { useBookingActions } from './hooks/useBookingActions';
 
-export type { ConfirmPaymentDto } from './schemas/booking.schemas';
+export type { ConfirmPaymentDto } from './schemas/booking.schema';

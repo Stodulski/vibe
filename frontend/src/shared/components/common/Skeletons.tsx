@@ -1,4 +1,10 @@
-export { SkeletonCard, SkeletonCourtCard, SkeletonTable, SkeletonStat, SkeletonCalendar } from './skeletons/primitives';
+export {
+  SkeletonCard,
+  SkeletonCourtCard,
+  SkeletonTable,
+  SkeletonStat,
+  SkeletonCalendar,
+} from './skeletons/SkeletonPrimitives';
 
 export {
   SkeletonPage,
@@ -6,6 +12,6 @@ export {
   SkeletonSettings,
   SkeletonBookings,
   SkeletonComplexSelector,
-} from './skeletons/pages';
+} from './skeletons/PageSkeletons';
 
-export { SkeletonCancelInfo, SkeletonBookConfirm, SkeletonBookSuccess } from './skeletons/booking-flow';
+export { SkeletonCancelInfo, SkeletonBookConfirm, SkeletonBookSuccess } from './skeletons/BookingFlowSkeletons';

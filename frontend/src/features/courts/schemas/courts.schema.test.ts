@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { createCourtSchema, updatePricesSchema } from './courts.schemas';
+import { createCourtSchema, updatePricesSchema } from './courts.schema';
 
 function omit<T extends object, K extends keyof T>(obj: T, key: K): Omit<T, K> {
   const rest: Partial<T> = { ...obj };

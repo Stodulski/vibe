@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { publicBookingSchema, type PublicBookingFormData } from '../schemas/public-booking.schemas';
+import { publicBookingSchema, type PublicBookingFormData } from '../schemas/public-booking.schema';
 import { DEFAULT_PHONE_PREFIX } from '@/shared/lib/constants';
 import { getSavedFormData, hasCompleteSavedData } from './booking-form/savedFormData';
 import { useSaveFormData } from './booking-form/useSaveFormData';

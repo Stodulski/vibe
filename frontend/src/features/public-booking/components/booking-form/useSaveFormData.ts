@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { UseFormWatch } from 'react-hook-form';
-import type { PublicBookingFormData } from '../../schemas/public-booking.schemas';
+import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 import { parsePhoneWithPrefix } from '@/shared/lib/phone';
 import { safeLocalStorage } from '@/shared/lib/safeStorage';
 import { STORAGE_KEY, type SavedClientData } from './savedFormData';

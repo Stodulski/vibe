@@ -1,6 +1,6 @@
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { SkeletonStat, SkeletonTable } from './primitives';
+import { SkeletonStat, SkeletonTable } from './SkeletonPrimitives';
 
 const t = ES_AR;
 

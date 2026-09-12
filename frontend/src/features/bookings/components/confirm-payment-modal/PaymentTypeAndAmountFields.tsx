@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { DepositAmountInput } from './DepositAmountInput';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
-import type { ConfirmPaymentDto } from '../../schemas/booking.schemas';
+import type { ConfirmPaymentDto } from '../../schemas/booking.schema';
 import type { Booking } from '@/shared/types/api.types';
 
 const t = ES_AR;

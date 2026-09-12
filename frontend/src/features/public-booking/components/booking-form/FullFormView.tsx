@@ -1,6 +1,6 @@
 import type { Control, FieldErrors, UseFormHandleSubmit, UseFormRegister } from 'react-hook-form';
 import { submitHandler } from '@/shared/lib/form';
-import type { PublicBookingFormData } from '../../schemas/public-booking.schemas';
+import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 import { BookingSummaryCard } from './BookingSummaryCard';
 import { SubmitFooter } from './SubmitFooter';
 import { NameFields } from './NameFields';

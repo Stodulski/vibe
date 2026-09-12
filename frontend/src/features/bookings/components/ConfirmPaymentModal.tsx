@@ -6,7 +6,7 @@ import { BookingSummary } from './confirm-payment-modal/BookingSummary';
 import { PaymentTypeAndAmountFields } from './confirm-payment-modal/PaymentTypeAndAmountFields';
 import { PaymentMethodField } from './confirm-payment-modal/PaymentMethodField';
 import { useConfirmPaymentForm } from './confirm-payment-modal/useConfirmPaymentForm';
-import type { ConfirmPaymentDto } from '../schemas/booking.schemas';
+import type { ConfirmPaymentDto } from '../schemas/booking.schema';
 import type { Booking } from '@/shared/types/api.types';
 
 const t = ES_AR;

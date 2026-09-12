@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
 import { Button } from '@/shared/components/ui/button';
-import { updateSchedulesSchema, type UpdateSchedulesDto } from '../schemas/complex.schemas';
+import { updateSchedulesSchema, type UpdateSchedulesDto } from '../schemas/complex.schema';
 import { useSchedules } from '../hooks/useSchedules';
 import { useUpdateSchedules } from '../hooks/useUpdateSchedules';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';

@@ -3,7 +3,7 @@ import { Mail } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { RegisterDto } from '../../schemas/auth.schemas';
+import type { RegisterDto } from '../../schemas/auth.schema';
 
 const t = ES_AR;
 

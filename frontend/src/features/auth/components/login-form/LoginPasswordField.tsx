@@ -3,7 +3,7 @@ import { Eye, EyeOff, Lock } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { LoginDto } from '../../schemas/auth.schemas';
+import type { LoginDto } from '../../schemas/auth.schema';
 
 const t = ES_AR;
 

@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { authApi } from '../api/auth.api';
-import type { ResetPasswordDto } from '../schemas/auth.schemas';
+import type { ResetPasswordDto } from '../schemas/auth.schema';
 import { useStore } from '@/shared/stores';
 import { getHttpStatus } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';

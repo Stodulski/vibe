@@ -1,4 +1,4 @@
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { CreateBookingRequest } from '@/shared/types/api.types';
 
 // Plain if/return (not a ternary/`||`) so an empty string intentionally also

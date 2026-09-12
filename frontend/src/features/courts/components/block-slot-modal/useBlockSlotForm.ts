@@ -8,7 +8,7 @@ import { useBlockedSlots } from '../../hooks/useBlockedSlots';
 import { useBookingsByDate } from '@/shared/hooks/useBookingsByDate';
 import { timeToMinutes, ALL_TIME_SLOTS } from './time-slots';
 import { courtObstacles, windowIsOccupied } from '@/shared/lib/courtOccupancy';
-import { blockSlotFormSchema, type BlockSlotFormValues } from '../../schemas/blockSlotForm.schemas';
+import { blockSlotFormSchema, type BlockSlotFormValues } from '../../schemas/blockSlotForm.schema';
 import type { Booking, BlockedSlot, CourtWithPrices } from '@/shared/types/api.types';
 
 /** The grid these options come from steps every half hour. */

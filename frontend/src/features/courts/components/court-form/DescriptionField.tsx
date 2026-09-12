@@ -2,7 +2,7 @@ import type { UseFormRegister, FieldErrors } from 'react-hook-form';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { CreateCourtDto } from '../../schemas/courts.schemas';
+import type { CreateCourtDto } from '../../schemas/courts.schema';
 
 const t = ES_AR;
 

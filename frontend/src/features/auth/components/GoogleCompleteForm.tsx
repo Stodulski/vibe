@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { HTTPError } from 'ky';
-import { googleCompleteSchema, type GoogleCompleteDto } from '../schemas/auth.schemas';
+import { googleCompleteSchema, type GoogleCompleteDto } from '../schemas/auth.schema';
 import { useGoogleComplete } from '../hooks/useGoogleComplete';
 import { useAbandonedGoogleSignupLead } from './google-complete/useAbandonedGoogleSignupLead';
 import { GoogleCompleteEmailField } from './google-complete/GoogleCompleteEmailField';

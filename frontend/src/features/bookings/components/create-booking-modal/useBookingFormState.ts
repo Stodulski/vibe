@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createBookingSchema, type CreateBookingDto } from '../../schemas/booking.schemas';
+import { createBookingSchema, type CreateBookingDto } from '../../schemas/booking.schema';
 
 /** Form instance + calendar popover state + watched field values. */
 export function useBookingFormState() {

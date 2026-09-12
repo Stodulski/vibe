@@ -6,7 +6,7 @@ import { useBookingReset } from './useBookingReset';
 import type { CreateBookingPrefill } from './useBookingReset';
 import { cleanBookingPayload } from './cleanBookingPayload';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';
 
 const t = ES_AR;

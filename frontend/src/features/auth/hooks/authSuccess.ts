@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useStore } from '@/shared/stores';
-import { loginRedirectStateSchema } from '../schemas/auth.schemas';
+import { loginRedirectStateSchema } from '../schemas/auth.schema';
 import type { AuthResponse } from '@/shared/types/api.types';
 
 // Allowed redirect destinations after a successful login to prevent open redirect.

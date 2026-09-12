@@ -13,8 +13,8 @@ export { useAuth } from './hooks/useAuth';
 
 export { authApi } from './api/auth.api';
 
-export { forgotPasswordSchema } from './schemas/auth.schemas';
-export { resetPasswordSchema } from './schemas/auth.schemas';
-export { verifyEmailSentStateSchema } from './schemas/auth.schemas';
-export { googleCompleteStateSchema } from './schemas/auth.schemas';
-export type { ForgotPasswordDto, ResetPasswordDto, GoogleCompleteState } from './schemas/auth.schemas';
+export { forgotPasswordSchema } from './schemas/auth.schema';
+export { resetPasswordSchema } from './schemas/auth.schema';
+export { verifyEmailSentStateSchema } from './schemas/auth.schema';
+export { googleCompleteStateSchema } from './schemas/auth.schema';
+export type { ForgotPasswordDto, ResetPasswordDto, GoogleCompleteState } from './schemas/auth.schema';

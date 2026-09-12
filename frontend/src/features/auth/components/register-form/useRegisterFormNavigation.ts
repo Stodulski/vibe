@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UseFormTrigger } from 'react-hook-form';
-import type { RegisterDto } from '../../schemas/auth.schemas';
+import type { RegisterDto } from '../../schemas/auth.schema';
 
 export type Step = 1 | 2 | 3;
 

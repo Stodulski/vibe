@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { UseFormGetValues } from 'react-hook-form';
 import { captureAbandonedRegistrationLead, captureAbandonedRegistrationLeadBeacon } from '../../api/leads.api';
 import { emailField } from '@/shared/lib/validations';
-import type { GoogleCompleteDto } from '../../schemas/auth.schemas';
+import type { GoogleCompleteDto } from '../../schemas/auth.schema';
 
 /**
  * Captures the Google sign-up's email as a lead if the person never finishes

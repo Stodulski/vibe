@@ -1,4 +1,4 @@
-import type { UpdateSchedulesDto } from '../../schemas/complex.schemas';
+import type { UpdateSchedulesDto } from '../../schemas/complex.schema';
 import type { UseFormReturn } from 'react-hook-form';
 
 export type ScheduleFormControl = UseFormReturn<UpdateSchedulesDto>['control'];

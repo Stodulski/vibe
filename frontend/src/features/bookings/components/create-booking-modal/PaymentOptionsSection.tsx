@@ -1,6 +1,6 @@
 import { PaymentOptionFields } from './PaymentOptionFields';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
-import type { CreateBookingDto } from '../../schemas/booking.schemas';
+import type { CreateBookingDto } from '../../schemas/booking.schema';
 
 /**
  * Renders nothing until a price is known — either the server-computed
