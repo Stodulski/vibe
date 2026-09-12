@@ -13,12 +13,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
-	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
@@ -37,6 +37,14 @@ type Store interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
 	GetByComplex(ctx context.Context, complexID uuid.UUID, search string, filters data.Filters) ([]*clientstore.Client, data.Metadata, error)
 	Update(ctx context.Context, c *clientstore.Client) error
+
+	// The rest serve the cross-domain reads on Service. This module never calls
+	// them itself; they are here so that bookings, payments and reporting enter
+	// the client domain through its service rather than through its store.
+	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
+	IncrementNoShows(ctx context.Context, clientID uuid.UUID) error
+	CountByComplex(ctx context.Context, complexID uuid.UUID) (int, error)
+	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*clientstore.ClientInsights, error)
 }
 
 // BookingReader is the one booking query this module needs, for the recent
@@ -46,16 +54,16 @@ type BookingReader interface {
 	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 }
 
-// Handler serves the client routes.
+// Handler serves the client routes. It decodes, validates, and maps the
+// service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
-	store    Store
-	bookings BookingReader
-	respond  *httpx.Responder
+	svc     *Service
+	respond *httpx.Responder
 }
 
-// NewHandler returns a Handler backed by the given stores.
-func NewHandler(store Store, bookings BookingReader, respond *httpx.Responder) *Handler {
-	return &Handler{store: store, bookings: bookings, respond: respond}
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, respond *httpx.Responder) *Handler {
+	return &Handler{svc: svc, respond: respond}
 }
 
 // Routes registers this module's endpoints. All three are scoped to a complex
@@ -70,55 +78,42 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 	router.HandlerFunc(http.MethodPut, "/api/v1/complexes/:id/clients/:clientID", protected(h.Update))
 }
 
-// load resolves the client named in the route and confirms it belongs to the
-// complex the caller owns.
+// route reads the complex the guard put in context and the client id the
+// router matched.
 //
-// The three handlers opened with the same twenty lines of context lookup,
-// parameter parsing, fetch and ownership check. It returns ok rather than an
-// error because it has already written the response on every failure path.
-func (h *Handler) load(w http.ResponseWriter, r *http.Request) (*complexstore.Complex, *clientstore.Client, bool) {
+// The three handlers opened with the same lookup and parameter parse. It
+// returns ok rather than an error because it has already written the response
+// on every failure path.
+func (h *Handler) route(w http.ResponseWriter, r *http.Request) (complexID, clientID uuid.UUID, ok bool) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
 		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
-		return nil, nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
 
 	clientID, err := httpx.ReadUUIDParam(r, "clientID")
 	if err != nil {
 		h.respond.NotFound(w, r)
-		return nil, nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
 
-	client, err := h.store.GetByID(r.Context(), clientID)
+	return complex.ID, clientID, true
+}
+
+// Get handles GET /api/v1/complexes/:id/clients/:clientID.
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+	complexID, clientID, ok := h.route(w, r)
+	if !ok {
+		return
+	}
+
+	client, recentBookings, err := h.svc.Get(r.Context(), complexID, clientID)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
 			h.respond.NotFound(w, r)
 		} else {
 			h.respond.ServerError(w, r, err)
 		}
-		return nil, nil, false
-	}
-
-	// A client under another complex is reported as missing, not forbidden:
-	// a 403 would confirm the id exists.
-	if client.ComplexID != complex.ID {
-		h.respond.NotFound(w, r)
-		return nil, nil, false
-	}
-
-	return complex, client, true
-}
-
-// Get handles GET /api/v1/complexes/:id/clients/:clientID.
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	complex, client, ok := h.load(w, r)
-	if !ok {
-		return
-	}
-
-	recentBookings, err := h.bookings.GetByClient(r.Context(), complex.ID, client.ID, recentBookingLimit)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
 		return
 	}
 
@@ -133,7 +128,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 // Only the owner's own annotations are editable. The client's identity fields
 // come from their bookings and are not writable here.
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	_, client, ok := h.load(w, r)
+	complexID, clientID, ok := h.route(w, r)
 	if !ok {
 		return
 	}
@@ -147,19 +142,17 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Both fields are pointers so that omitting one leaves it untouched,
-	// rather than clearing it.
-	if input.Notes != nil {
-		client.Notes = input.Notes
-	}
-	if input.IsBlocked != nil {
-		client.IsBlocked = *input.IsBlocked
-	}
-
-	if err := h.store.Update(r.Context(), client); err != nil {
-		if errors.Is(err, data.ErrRecordNotFound) {
+	client, err := h.svc.Update(r.Context(), complexID, clientID, UpdateInput{
+		Notes:     input.Notes,
+		IsBlocked: input.IsBlocked,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			h.respond.NotFound(w, r)
+		case errors.Is(err, ErrEditConflict):
 			h.respond.EditConflict(w, r)
-		} else {
+		default:
 			h.respond.ServerError(w, r, err)
 		}
 		return
@@ -190,7 +183,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clients, metadata, err := h.store.GetByComplex(r.Context(), complex.ID, search, filters)
+	clients, metadata, err := h.svc.List(r.Context(), complex.ID, search, filters)
 	if err != nil {
 		if errors.Is(err, data.ErrInvalidCursor) {
 			h.respond.BadRequest(w, r, fmt.Errorf("invalid cursor value"))

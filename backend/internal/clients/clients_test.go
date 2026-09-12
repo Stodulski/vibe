@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -20,8 +21,8 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
-// The doubles below implement Store and BookingReader — four methods between
-// them. The shared mocks in cmd/api carry 32 methods across the same two
+// The doubles below implement Store and BookingReader — the handful of methods
+// between them. The shared mocks in cmd/api carry 32 methods across the same two
 // entities, because they satisfy the full stores.ClientStore and
 // stores.BookingStore whether a test needs them or not. This is what declaring
 // the interface at the consumer buys.
@@ -54,6 +55,22 @@ func (s *stubStore) GetByComplex(_ context.Context, _ uuid.UUID, search string, 
 		return nil, data.Metadata{}, s.listErr
 	}
 	return s.list, s.metadata, nil
+}
+
+// The four below exist only so *stubStore satisfies Store, which now also
+// declares the cross-domain reads Service exports for bookings, payments and
+// reporting. No handler path reaches them.
+
+func (s *stubStore) GetOrCreate(context.Context, uuid.UUID, string, string, string, string, bool) (*clientstore.Client, error) {
+	return s.client, s.getErr
+}
+
+func (s *stubStore) IncrementNoShows(context.Context, uuid.UUID) error { return nil }
+
+func (s *stubStore) CountByComplex(context.Context, uuid.UUID) (int, error) { return 0, nil }
+
+func (s *stubStore) GetInsights(context.Context, uuid.UUID, time.Time) (*clientstore.ClientInsights, error) {
+	return nil, nil
 }
 
 func (s *stubStore) Update(_ context.Context, c *clientstore.Client) error {
@@ -107,7 +124,7 @@ func TestGetReturnsClientWithRecentBookings(t *testing.T) {
 	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID, FirstName: "Ana"}}
 	bookings := &stubBookings{bookings: []*bookingstore.Booking{{ID: uuid.New()}}}
 
-	h := NewHandler(store, bookings, testResponder())
+	h := NewHandler(NewService(store, bookings), testResponder())
 	w := httptest.NewRecorder()
 	h.Get(w, requestFor(t, http.MethodGet, "/", complexID, clientID, ""))
 
@@ -139,7 +156,7 @@ func TestGetHidesClientsOfOtherComplexes(t *testing.T) {
 	clientID := uuid.New()
 	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: uuid.New()}}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.Get(w, requestFor(t, http.MethodGet, "/", uuid.New(), clientID, ""))
 
@@ -151,7 +168,7 @@ func TestGetHidesClientsOfOtherComplexes(t *testing.T) {
 func TestGetReportsMissingClientAsNotFound(t *testing.T) {
 	store := &stubStore{getErr: data.ErrRecordNotFound}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.Get(w, requestFor(t, http.MethodGet, "/", uuid.New(), uuid.New(), ""))
 
@@ -161,7 +178,7 @@ func TestGetReportsMissingClientAsNotFound(t *testing.T) {
 }
 
 func TestGetRejectsMalformedClientID(t *testing.T) {
-	h := NewHandler(&stubStore{}, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(&stubStore{}, &stubBookings{}), testResponder())
 
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: uuid.New()})
@@ -178,7 +195,7 @@ func TestGetRejectsMalformedClientID(t *testing.T) {
 // Without the ownership middleware there is no complex to scope the query to,
 // so the handler must fail loudly rather than read across complexes.
 func TestHandlersRequireTheComplexInContext(t *testing.T) {
-	h := NewHandler(&stubStore{}, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(&stubStore{}, &stubBookings{}), testResponder())
 
 	for name, call := range map[string]http.HandlerFunc{"Get": h.Get, "Update": h.Update, "List": h.List} {
 		t.Run(name, func(t *testing.T) {
@@ -200,7 +217,7 @@ func TestUpdateAppliesOnlyTheFieldsSent(t *testing.T) {
 		Notes: &existingNotes, IsBlocked: false,
 	}}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.Update(w, requestFor(t, http.MethodPut, "/", complexID, clientID, `{"is_blocked":true}`))
 
@@ -223,7 +240,7 @@ func TestUpdateRejectsMalformedBody(t *testing.T) {
 	complexID, clientID := uuid.New(), uuid.New()
 	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID}}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.Update(w, requestFor(t, http.MethodPut, "/", complexID, clientID, `{"is_blocked":`))
 
@@ -242,7 +259,7 @@ func TestUpdateReportsALostRaceAsConflict(t *testing.T) {
 		updateErr: data.ErrRecordNotFound,
 	}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.Update(w, requestFor(t, http.MethodPut, "/", complexID, clientID, `{"is_blocked":true}`))
 
@@ -255,7 +272,7 @@ func TestListForwardsSearchAndPaging(t *testing.T) {
 	complexID := uuid.New()
 	store := &stubStore{list: []*clientstore.Client{{ID: uuid.New(), FirstName: "Ana"}}}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.List(w, requestFor(t, http.MethodGet, "/?search=ana&limit=10&cursor=abc", complexID, uuid.Nil, ""))
 
@@ -273,7 +290,7 @@ func TestListForwardsSearchAndPaging(t *testing.T) {
 func TestListDefaultsThePageSize(t *testing.T) {
 	store := &stubStore{}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.List(w, requestFor(t, http.MethodGet, "/", uuid.New(), uuid.Nil, ""))
 
@@ -285,7 +302,7 @@ func TestListDefaultsThePageSize(t *testing.T) {
 func TestListRejectsAnInvalidCursor(t *testing.T) {
 	store := &stubStore{listErr: data.ErrInvalidCursor}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.List(w, requestFor(t, http.MethodGet, "/?cursor=garbage", uuid.New(), uuid.Nil, ""))
 
@@ -297,7 +314,7 @@ func TestListRejectsAnInvalidCursor(t *testing.T) {
 func TestListRejectsAnOutOfRangeLimit(t *testing.T) {
 	store := &stubStore{}
 
-	h := NewHandler(store, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(store, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.List(w, requestFor(t, http.MethodGet, "/?limit=100000", uuid.New(), uuid.Nil, ""))
 
@@ -311,7 +328,7 @@ func TestStoreFailuresBecomeServerErrors(t *testing.T) {
 	complexID, clientID := uuid.New(), uuid.New()
 
 	t.Run("on read", func(t *testing.T) {
-		h := NewHandler(&stubStore{getErr: boom}, &stubBookings{}, testResponder())
+		h := NewHandler(NewService(&stubStore{getErr: boom}, &stubBookings{}), testResponder())
 		w := httptest.NewRecorder()
 		h.Get(w, requestFor(t, http.MethodGet, "/", complexID, clientID, ""))
 
@@ -325,7 +342,7 @@ func TestStoreFailuresBecomeServerErrors(t *testing.T) {
 
 	t.Run("on the booking lookup", func(t *testing.T) {
 		store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID}}
-		h := NewHandler(store, &stubBookings{err: boom}, testResponder())
+		h := NewHandler(NewService(store, &stubBookings{err: boom}), testResponder())
 		w := httptest.NewRecorder()
 		h.Get(w, requestFor(t, http.MethodGet, "/", complexID, clientID, ""))
 
@@ -335,7 +352,7 @@ func TestStoreFailuresBecomeServerErrors(t *testing.T) {
 	})
 
 	t.Run("on list", func(t *testing.T) {
-		h := NewHandler(&stubStore{listErr: boom}, &stubBookings{}, testResponder())
+		h := NewHandler(NewService(&stubStore{listErr: boom}, &stubBookings{}), testResponder())
 		w := httptest.NewRecorder()
 		h.List(w, requestFor(t, http.MethodGet, "/", complexID, uuid.Nil, ""))
 
@@ -348,7 +365,7 @@ func TestStoreFailuresBecomeServerErrors(t *testing.T) {
 // A complex with no clients returns 200 and an empty collection, not 404 —
 // the collection exists, it is simply empty.
 func TestListReturnsAnEmptyCollection(t *testing.T) {
-	h := NewHandler(&stubStore{}, &stubBookings{}, testResponder())
+	h := NewHandler(NewService(&stubStore{}, &stubBookings{}), testResponder())
 	w := httptest.NewRecorder()
 	h.List(w, requestFor(t, http.MethodGet, "/", uuid.New(), uuid.Nil, ""))
 
