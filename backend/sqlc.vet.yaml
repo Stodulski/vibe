@@ -1,0 +1,45 @@
+# CI-01 / DB-09: config for `sqlc vet` only (Makefile target `vet/sqlc`,
+# `.github/workflows/backend.yml` job `sqlc`) — never used to generate code.
+#
+# This is a SEPARATE file from sqlc.yaml on purpose. `sqlc/db-prepare` (the
+# one vet rule that catches a real bug here — a query that no longer matches
+# the schema) needs a live, migrated Postgres named in `database.uri`.
+# Adding that same `database` block to sqlc.yaml was tried
+# and reverted: as soon as sqlc.yaml carries a `database.uri`, `sqlc generate`
+# (`make sqlc`) silently switches from static schema analysis to live
+# database introspection for parameter/result typing, and the two disagree —
+# confirmed locally, `sqlc generate` against this schema+queries pair
+# produced `int64`/`pgtype.UUID` for a `LIMIT $4` parameter that the
+# committed, schema-only-generated internal/db/audit_log.sql.go correctly
+# types as `int32`. That would have made `make sqlc` non-deterministic
+# (output depends on whichever Postgres happens to be reachable) and, on a
+# fresh clone with no local Postgres running, would have broken `make sqlc`
+# outright — it previously needed no database at all. Keeping `database` out
+# of sqlc.yaml preserves both.
+#
+# `sql`/`gen` below are intentionally identical to sqlc.yaml: `sqlc vet`
+# never writes to `gen.go.out`, so pointing it at internal/db is safe and
+# keeps this file from drifting out of sync with the real query set.
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "db/queries/"
+    schema: "db/migrations/"
+    database:
+      # DATABASE_URL is the same variable every other DB-touching target in
+      # this Makefile already requires (make run, migrate-up, ...), and the
+      # Makefile's `-include .env` + `export` puts it in the environment for
+      # any target that needs it, this one included. CI's `sqlc` job points
+      # it at an ephemeral, freshly-migrated Postgres instead (see
+      # .github/workflows/backend.yml).
+      uri: "${DATABASE_URL}"
+    rules:
+      - sqlc/db-prepare
+    gen:
+      go:
+        package: "db"
+        out: "internal/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_prepared_queries: false
+        emit_interface: true

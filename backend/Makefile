@@ -100,6 +100,11 @@ migrate-up:
 migrate-down: confirm
 	goose -dir ./db/migrations postgres "$(DATABASE_URL)" down
 
+## migrate-create: create a new empty migration file ("make migrate-create name=add_foo")
+.PHONY: migrate-create
+migrate-create:
+	goose -dir ./db/migrations create $(name) sql
+
 ## migrate-embedded: apply migrations with the API binary instead of the goose CLI (what Railway's pre-deploy command runs)
 # Same chain, same goose_db_version table, no goose on PATH: the .sql files are
 # compiled into the binary. This target exists so the deploy path can be run
@@ -116,6 +121,15 @@ migrate-embedded:
 .PHONY: sqlc
 sqlc:
 	sqlc generate
+
+## vet/sqlc: vet SQL queries against a live, migrated schema (needs DATABASE_URL; see sqlc.vet.yaml)
+# Separate config from `sqlc` above: sqlc.vet.yaml carries the sqlc/db-prepare
+# rule and its required `database.uri`, which sqlc.yaml deliberately does not
+# (see sqlc.vet.yaml's header comment — adding it there made `sqlc generate`
+# depend on whichever Postgres happens to be reachable).
+.PHONY: vet/sqlc
+vet/sqlc:
+	sqlc vet -f sqlc.vet.yaml
 
 ## seed: run database seed
 .PHONY: seed
