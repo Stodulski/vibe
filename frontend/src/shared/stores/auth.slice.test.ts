@@ -1,6 +1,7 @@
 import type { StoreApi } from 'zustand';
 import { createAuthSlice, type AuthSlice } from './auth.slice';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
+import { API_CACHE_NAME } from '@/shared/lib/apiCache';
 import type { User } from '@/shared/types/api.types';
 
 const mockSetUser = vi.fn<(user: { id: string } | null) => void>();
@@ -106,6 +107,17 @@ describe('authSlice', () => {
     expect(localStorage.getItem(STORAGE_KEYS.SELECTED_COMPLEX_ID)).toBeNull();
     expect(sessionStorage.getItem(STORAGE_KEYS.MP_CODE_VERIFIER)).toBeNull();
     expect(sessionStorage.getItem(STORAGE_KEYS.MP_RETURN_PATH)).toBeNull();
+  });
+
+  it('logout purges the service worker API cache so nothing stays readable on the device', () => {
+    const del = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal('caches', { delete: del });
+    const store = createStore();
+
+    store.logout();
+
+    expect(del).toHaveBeenCalledWith(API_CACHE_NAME);
+    vi.unstubAllGlobals();
   });
 });
 
