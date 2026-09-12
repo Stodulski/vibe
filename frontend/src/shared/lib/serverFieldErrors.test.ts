@@ -23,6 +23,7 @@ function apiError(status: number, body: unknown): ApiError {
 function fakeForm() {
   const form = {
     setError: vi.fn(),
+    clearErrors: vi.fn(),
     getValues: vi.fn().mockReturnValue({ first_name: '', phone: '' }),
   };
   return form as unknown as ServerErrorForm<TestForm> & typeof form;
@@ -147,5 +148,35 @@ describe('applyServerFieldErrors — what cannot land on a field', () => {
     const form = fakeForm();
     expect(applyServerFieldErrors(form, new Error('Failed to fetch'))).toBe(false);
     expect(form.setError).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyServerFieldErrors — the React Compiler contract', () => {
+  it('clears the form before applying, so `formState.errors` gets a new identity', () => {
+    const form = fakeForm();
+    const order: string[] = [];
+    form.clearErrors.mockImplementation(() => order.push('clear'));
+    form.setError.mockImplementation(() => order.push('set'));
+
+    applyServerFieldErrors(form, apiError(422, { error: { phone: 'invalid' } }));
+
+    // React Hook Form mutates `formState.errors` in place when it already has
+    // an object to write into, which is exactly the state a form is in right
+    // after a submit passed validation. The React Compiler memoizes the JSX
+    // that carries `errors` on that object's identity, so an in-place write
+    // never reaches the field. `clearErrors()` installs a fresh object first.
+    expect(order).toEqual(['clear', 'set']);
+  });
+
+  it('clears even when the error carries nothing this form can use', () => {
+    const form = fakeForm();
+    applyServerFieldErrors(form, apiError(500, {}));
+    expect(form.clearErrors).toHaveBeenCalled();
+  });
+
+  it('does not clear when the failure is not a problem this helper understands', () => {
+    const form = fakeForm();
+    expect(applyServerFieldErrors(form, new Error('offline'))).toBe(false);
+    expect(form.clearErrors).not.toHaveBeenCalled();
   });
 });

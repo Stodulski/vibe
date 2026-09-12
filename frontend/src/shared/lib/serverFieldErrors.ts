@@ -2,7 +2,7 @@ import type { FieldValues, Path, UseFormReturn } from 'react-hook-form';
 import { getProblem } from '@/shared/lib/ApiError';
 
 /** The slice of a form this helper needs — any `useForm` return satisfies it. */
-export type ServerErrorForm<T extends FieldValues> = Pick<UseFormReturn<T>, 'setError' | 'getValues'>;
+export type ServerErrorForm<T extends FieldValues> = Pick<UseFormReturn<T>, 'setError' | 'getValues' | 'clearErrors'>;
 
 export interface ApplyServerFieldErrorsOptions {
   /**
@@ -46,6 +46,20 @@ export function applyServerFieldErrors<T extends FieldValues>(
 ): boolean {
   const problem = getProblem(error);
   if (!problem) return false;
+
+  // Before anything is written, not as housekeeping: React Hook Form writes
+  // `setError` straight into the `formState.errors` object it already holds,
+  // and after a submit that passed validation it always holds one. The object
+  // therefore keeps its identity while its contents change — and the React
+  // Compiler (vite.config.ts) memoizes the JSX carrying `errors` on exactly
+  // that identity, so the field never re-renders and the server's reason for
+  // refusing the submit is invisible. `clearErrors()` installs a fresh object,
+  // which the compiler does see. This is react-hook-form#13505, fixed upstream
+  // only in its unreleased v8.
+  //
+  // It is also the right thing on its own terms: a fresh 422 replaces the
+  // previous attempt's errors rather than layering on top of them.
+  form.clearErrors();
 
   const known = new Set(options.fields ?? Object.keys(form.getValues()));
   const unmapped: string[] = [];
