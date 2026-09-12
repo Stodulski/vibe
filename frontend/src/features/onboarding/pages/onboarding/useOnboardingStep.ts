@@ -32,7 +32,7 @@ function deriveStep({
 export function useOnboardingStep(args: UseOnboardingStepArgs) {
   const { complexId, currentComplex, courts, complexesLoading, courtsLoading } = args;
   const navigate = useNavigate();
-  const { setSelectedComplexId } = useStore();
+  const setSelectedComplexId = useStore((s) => s.setSelectedComplexId);
 
   // Animation key for step transitions
   const [animKey, setAnimKey] = useState(0);

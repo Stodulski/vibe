@@ -75,7 +75,7 @@ export function useMPCallback() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { setSelectedComplexId } = useStore();
+  const setSelectedComplexId = useStore((s) => s.setSelectedComplexId);
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(

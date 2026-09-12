@@ -12,8 +12,10 @@ vi.mock('@/features/auth/api/auth.api', () => ({
   },
 }));
 
+// Selector-aware, like the real zustand store: every call site reads one
+// atomic slice now (STORE-02), not the whole state.
 vi.mock('@/shared/stores', () => ({
-  useStore: () => ({ logout: mockLogout }),
+  useStore: (selector: (s: { logout: typeof mockLogout }) => unknown) => selector({ logout: mockLogout }),
 }));
 
 vi.mock('@/shared/components/layout/AppHeader', () => ({
