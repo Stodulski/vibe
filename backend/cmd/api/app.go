@@ -301,7 +301,6 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// streamAuthorizer. Its cadence and lifetime are the package's defaults.
 	realtimeHandler := realtime.NewHandler(events, streamAuthorizer{mw: mw}, respond, d.logger,
 		app.shutdown, realtime.Config{})
-	publicsiteHandler := publicsite.NewHandler(d.models.Complexes, respond, cfg.frontendURL)
 	leadsHandler := leads.NewHandler(respond, leads.Config{
 		WebhookURL: cfg.leads.abandonedWebhookURL,
 		Token:      cfg.leads.abandonedWebhookToken,
@@ -371,6 +370,9 @@ func newApplication(cfg config, d deps) (*application, error) {
 	reportingService := reporting.NewService(d.models.Bookings, clientsService, courtsService,
 		complexesService, d.models.Reports)
 	reportingHandler := reporting.NewHandler(reportingService, respond)
+
+	publicsiteService := publicsite.NewService(complexesService, cfg.frontendURL)
+	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.

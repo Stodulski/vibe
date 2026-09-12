@@ -29,7 +29,7 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	complex, err := h.store.GetBySlug(r.Context(), slug)
+	page, err := h.svc.Prerender(r.Context(), slug)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
 			h.respond.NotFound(w, r)
@@ -39,33 +39,14 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A deactivated venue is not published. The sitemap already filters on
-	// is_active, so leaving this page live meant a complex that switched itself
-	// off stayed indexable and shareable through a link a crawler had already
-	// seen — with its address, phone and opening hours in structured data.
-	if !complex.IsActive {
-		h.respond.NotFound(w, r)
-		return
-	}
-
-	schedules, err := h.store.GetSchedules(r.Context(), complex.ID)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
-	tmpl, err := h.templates.get(r.Context(), h.frontendURL)
-	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
-	}
-
-	page := h.render(tmpl, complex, schedules, slug)
-
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", prerenderCacheHeader)
 	w.WriteHeader(http.StatusOK)
 	// The response is committed; a write failure can no longer be reported.
+	//
+	//nolint:gosec // G705: the page is the frontend's own index.html with this
+	// complex's meta tags substituted in, and every owner-supplied value in
+	// them is HTML-escaped where it is interpolated (Service.render below).
 	_, _ = w.Write([]byte(page))
 }
 
@@ -74,8 +55,8 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 //
 // Every interpolated value is HTML-escaped: complex names, descriptions and
 // logo URLs are owner-supplied, and they are being written into markup.
-func (h *Handler) render(tmpl string, complex *complexstore.Complex, schedules []*complexstore.Schedule, slug string) string {
-	baseURL := strings.TrimRight(h.frontendURL, "/")
+func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules []*complexstore.Schedule, slug string) string {
+	baseURL := strings.TrimRight(s.frontendURL, "/")
 	canonicalURL := baseURL + "/" + slug
 
 	escapedName := html.EscapeString(complex.Name)
