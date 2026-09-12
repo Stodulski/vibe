@@ -8,7 +8,6 @@ package complexes
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -18,7 +17,6 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
-	"github.com/stodulski/vibe-server/internal/storage"
 )
 
 // Store is the complex and schedule persistence this module uses.
@@ -36,6 +34,14 @@ type Store interface {
 	UpsertSchedule(ctx context.Context, s *complexstore.Schedule) error
 	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
 	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
+	// GetByID and GetAllSlugs serve the cross-domain reads on Service; every
+	// other module enters this domain through them rather than through the
+	// complex store.
+	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
+	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
+	// ListComplexesNeedingMPRefresh drives Service.RefreshMPTokens, the OAuth
+	// sweep cmd/api schedules every 12 hours.
+	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error)
 }
 
 // CourtStore is the court side of the public profile. Deletion is no longer
@@ -80,38 +86,20 @@ type Config struct {
 	MPAppID string
 }
 
-// Handler serves the complex routes.
+// Handler serves the complex routes. It decodes, validates, and maps the
+// service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {
-	store    Store
-	courts   CourtStore
-	bookings BookingStore
-	payments PaymentConnector
-	storage  storage.ObjectStorage
-	audit    Recorder
-	logger   *slog.Logger
-	// run schedules background work on the application's tracked goroutines,
-	// so cleanup started here still completes during a graceful shutdown.
-	run     func(func())
+	svc     *Service
 	respond *httpx.Responder
 	cfg     Config
 }
 
-// NewHandler returns a Handler backed by the given stores and services.
-func NewHandler(store Store, courts CourtStore, bookings BookingStore, payments PaymentConnector,
-	objectStorage storage.ObjectStorage, recorder Recorder, respond *httpx.Responder,
-	logger *slog.Logger, run func(func()), cfg Config,
-) *Handler {
+// NewHandler returns a Handler backed by the given service.
+func NewHandler(svc *Service, respond *httpx.Responder, cfg Config) *Handler {
 	return &Handler{
-		store:    store,
-		courts:   courts,
-		bookings: bookings,
-		payments: payments,
-		storage:  objectStorage,
-		audit:    recorder,
-		logger:   logger,
-		run:      run,
-		respond:  respond,
-		cfg:      cfg,
+		svc:     svc,
+		respond: respond,
+		cfg:     cfg,
 	}
 }
 
@@ -150,22 +138,12 @@ func (h *Handler) Routes(router httpx.Router, guards httpx.Guards) {
 	router.HandlerFunc(http.MethodGet, "/api/v1/complexes/:id/mp/status", owner(h.MercadoPagoStatus))
 }
 
-// record writes an audit entry for a change to a complex. Every write in this
-// module acts on the complex itself, so the entity type is fixed.
-func (h *Handler) record(r *http.Request, complexID uuid.UUID, action string, entityID *uuid.UUID, oldVal, newVal any) {
+// actor reads who is making the change, and from where, off the request. It is
+// the only thing the audit trail needs that lives on the HTTP side.
+func (h *Handler) actor(r *http.Request) Actor {
 	var userID *uuid.UUID
 	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
 		userID = &user.ID
 	}
-
-	h.audit.Record(audit.Entry{
-		UserID:     userID,
-		ComplexID:  &complexID,
-		Action:     action,
-		EntityType: "complex",
-		EntityID:   entityID,
-		OldValue:   oldVal,
-		NewValue:   newVal,
-		IPAddress:  httpx.ClientIP(r, h.cfg.TrustProxies),
-	})
+	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.cfg.TrustProxies)}
 }

@@ -1,14 +1,13 @@
 package complexes
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"path"
-	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
@@ -37,11 +36,6 @@ func uploadKeyPrefix(complexID uuid.UUID) string {
 // short-lived URL the browser uploads straight to, so image bytes never pass
 // through this service. The object key is namespaced to the complex.
 func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
-	if h.storage == nil {
-		h.respond.Error(w, r, http.StatusNotImplemented, "image uploads are not configured")
-		return
-	}
-
 	var input struct {
 		Type        string `json:"type"`
 		ContentType string `json:"content_type"`
@@ -70,38 +64,30 @@ func (h *Handler) PresignUpload(w http.ResponseWriter, r *http.Request) {
 		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
 		return
 	}
-	// The validated type is the one that gets signed, and its extension is the
-	// one the key carries. Both were hardcoded to webp while the validation
-	// above accepted three types, so a client legitimately declaring image/jpeg
-	// got a URL that only accepts image/webp — the upload either failed at R2
-	// or succeeded by lying about itself. allowedContentTypes' extension values
-	// were dead until now.
-	ext := allowedContentTypes[input.ContentType]
-	key := fmt.Sprintf("%s%s/%s.%s", uploadKeyPrefix(complex.ID), input.Type, uuid.New(), ext)
 
-	uploadURL, publicURL, err := h.storage.GeneratePresignedPUT(r.Context(), key, input.ContentType, input.FileSize, 10*time.Minute)
+	upload, err := h.svc.PresignUpload(r.Context(), complex.ID, input.Type, input.ContentType, input.FileSize)
 	if err != nil {
-		h.respond.ServerError(w, r, err)
+		switch {
+		case errors.Is(err, ErrUploadsNotConfigured):
+			h.respond.Error(w, r, http.StatusNotImplemented, "image uploads are not configured")
+		default:
+			h.respond.ServerError(w, r, err)
+		}
 		return
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"upload_url": uploadURL,
-		"public_url": publicURL,
-		"key":        key,
+		"upload_url": upload.UploadURL,
+		"public_url": upload.PublicURL,
+		"key":        upload.Key,
 	})
 }
 
 // DeleteUpload handles DELETE /api/v1/complexes/:id/uploads. It accepts only
 // URLs inside our own storage, and only those inside the calling complex's own
 // namespace within it, so neither an arbitrary URL nor another tenant's URL can
-// be used to delete something else.
+// be used to delete something else. See Service.DeleteUpload for why.
 func (h *Handler) DeleteUpload(w http.ResponseWriter, r *http.Request) {
-	if h.storage == nil {
-		h.respond.Error(w, r, http.StatusNotImplemented, "image uploads are not configured")
-		return
-	}
-
 	var input struct {
 		URL string `json:"url"`
 	}
@@ -125,65 +111,21 @@ func (h *Handler) DeleteUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, ok := h.storage.KeyFromPublicURL(input.URL)
-	if !ok {
-		h.respond.Error(w, r, http.StatusBadRequest, "URL does not belong to this storage")
-		return
-	}
-
-	// The route guard proved the caller owns the complex in the *path*; nothing
-	// so far proves they own the object in the *body*. Every venue's logo_url
-	// and cover_url are public (the sitemap enumerates the slugs and the public
-	// complex endpoint hands out both URLs), so without this comparison one
-	// authenticated owner could delete every rival venue's images.
-	//
-	// H-12: strings.HasPrefix compares raw strings, and a key of
-	// complexes/{A}/../{B}/logo/x.jpg lexically starts with A's prefix — the
-	// comparison passed a delete that targets B's object straight through.
-	// CPX-04 reproduced this against production: no cross-tenant object was
-	// actually removed, but only because the storage SDK normalizes ".." out
-	// of the path it sends to R2 while the request's signature was computed
-	// over the raw key, so R2 answered SignatureDoesNotMatch (403) and this
-	// handler surfaced it as a caller-triggered 500 — an accident of URL
-	// normalization stood in for the check, not the check itself.
-	//
-	// Reject outright rather than clean-and-allow: PresignUpload only ever
-	// builds keys shaped complexes/{id}/{type}/{uuid}.{ext}, so a legitimate
-	// key never contains a ".." segment at all. A caller-supplied key that
-	// does is malformed, and a rejection says so — resolving it with
-	// path.Clean and letting a passing comparison decide would silently
-	// rewrite what the caller asked for into a different key entirely, which
-	// is not a decision this endpoint should make quietly.
-	if strings.Contains(key, "..") {
-		h.respond.Error(w, r, http.StatusBadRequest, "URL does not belong to this storage")
-		return
-	}
-
-	// Normalize before comparing, not after — path.Clean the key (collapsing
-	// redundant slashes and "." segments) and compare *that* against the
-	// prefix, then delete the cleaned key rather than the raw one. This is
-	// also what turns the caller-triggered 500 from CPX-04 into a deliberate
-	// 4xx: the previous strings.HasPrefix(key, ...) compared raw strings, so
-	// complexes/{A}/../{B}/logo/x.jpg lexically started with A's prefix and
-	// reached DeleteObject; the only thing that stopped a cross-tenant delete
-	// in production was the storage SDK normalizing ".." out of the path it
-	// sent to R2 while the request's signature was computed over the raw
-	// key, which made R2 answer SignatureDoesNotMatch (403) and this handler
-	// turn that into a 500. The ".." rejection above now refuses that key
-	// before it gets this far; this comparison is what protects a legitimate
-	// key against a mismatched prefix.
-	cleanKey := path.Clean(key)
-
-	// A mismatch answers 404, not 403, matching the convention documented in
-	// internal/clients: 403 would confirm the object exists and turn this
-	// endpoint into a probe for another tenant's storage keys.
-	if !strings.HasPrefix(cleanKey, uploadKeyPrefix(complex.ID)) {
-		h.respond.NotFound(w, r)
-		return
-	}
-
-	if err := h.storage.DeleteObject(r.Context(), cleanKey); err != nil {
-		h.respond.ServerError(w, r, err)
+	err = h.svc.DeleteUpload(r.Context(), complex.ID, input.URL)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUploadsNotConfigured):
+			h.respond.Error(w, r, http.StatusNotImplemented, "image uploads are not configured")
+		case errors.Is(err, ErrForeignObject):
+			h.respond.Error(w, r, http.StatusBadRequest, "URL does not belong to this storage")
+		// A mismatch answers 404, not 403, matching the convention documented
+		// in internal/clients: 403 would confirm the object exists and turn
+		// this endpoint into a probe for another tenant's storage keys.
+		case errors.Is(err, data.ErrRecordNotFound):
+			h.respond.NotFound(w, r)
+		default:
+			h.respond.ServerError(w, r, err)
+		}
 		return
 	}
 

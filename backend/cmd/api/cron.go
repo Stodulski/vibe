@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,10 +9,8 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
-	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
-	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -398,107 +395,17 @@ func (app *application) cronCleanFailedRefunds(ctx context.Context) {
 	app.logger.Info("cron_clean_failed_refunds: completed", "count", count)
 }
 
-// cronRefreshMPTokens proactively refreshes OAuth tokens for all connected complexes.
-// MP tokens expire after ~6 months; refreshing every 12h keeps them fresh.
+// cronRefreshMPTokens proactively refreshes OAuth tokens for all connected
+// complexes. MP tokens expire after ~6 months; refreshing every 12h keeps them
+// fresh.
+//
+// The sweep itself lives in complexes.Service: it is the same credential
+// lifecycle the connect and disconnect routes open and close, and keeping it
+// beside them is what stops this file from being a second place venue rules
+// are written. This wrapper exists so the scheduler still names one method per
+// job.
 func (app *application) cronRefreshMPTokens(ctx context.Context) {
-	// Narrowed to complexes whose token has no known expiry or expires within
-	// 30 days, instead of GetWithMPConnected's every-connected-complex: MP
-	// tokens live ~180 days, and refreshing all of them on every 12h tick was
-	// pure waste once the expiry was actually tracked (mp_token_expires_at).
-	complexes, err := app.models.Complexes.ListComplexesNeedingMPRefresh(ctx)
-	if err != nil {
-		app.logger.Error("cron_refresh_mp_tokens: failed to get complexes", "error", err)
-		sentry.CaptureMessage(fmt.Sprintf("cron_refresh_mp_tokens: CRITICAL - cannot fetch complexes: %v", err))
-		return
-	}
-
-	refreshed := 0
-	failed := 0
-	for _, c := range complexes {
-		switch app.refreshOneMPToken(ctx, c) {
-		case mpRefreshOK:
-			refreshed++
-		case mpRefreshFailed:
-			failed++
-		case mpRefreshSkipped:
-			// Not connected (ErrMPNotConnected): ListComplexesNeedingMPRefresh
-			// already filters on mp_refresh_token IS NOT NULL, so this is
-			// defensive rather than expected — neither a success nor a
-			// failure of this cron run.
-		}
-	}
-
-	if failed > 0 {
-		sentry.CaptureMessage(fmt.Sprintf("cron_refresh_mp_tokens: %d/%d complexes failed to refresh", failed, len(complexes)))
-	}
-
-	app.logger.Info("cron_refresh_mp_tokens: completed",
-		"total", len(complexes),
-		"refreshed", refreshed,
-		"failed", failed,
-	)
-}
-
-// mpRefreshResult is what happened to one complex's refresh attempt.
-type mpRefreshResult int
-
-const (
-	mpRefreshOK mpRefreshResult = iota
-	mpRefreshFailed
-	// mpRefreshSkipped means there was nothing to refresh — the credential
-	// read as not-connected, which ListComplexesNeedingMPRefresh's own
-	// filter should already have excluded. Defensive, not expected.
-	mpRefreshSkipped
-)
-
-// refreshOneMPToken refreshes a single complex's MercadoPago OAuth token and
-// persists the result. Every failure branch alerts Sentry itself, so the
-// caller only has to count.
-func (app *application) refreshOneMPToken(ctx context.Context, c *complexstore.Complex) mpRefreshResult {
-	refreshTok, refreshErr := c.SellerRefreshToken()
-	if refreshErr != nil {
-		if errors.Is(refreshErr, mpcred.ErrMPCredentialUnreadable) {
-			sentry.CaptureMessage(fmt.Sprintf("MP refresh token UNREADABLE (skipping refresh): complex=%s (%s) error=%v", c.Name, c.ID, refreshErr))
-			return mpRefreshFailed
-		}
-		return mpRefreshSkipped
-	}
-
-	newTokens, err := app.mpOAuth.RefreshOAuthToken(ctx, refreshTok)
-	if err != nil {
-		// A 4xx here is ordinarily MercadoPago answering invalid_grant — the
-		// seller revoked access, or the refresh token itself expired — which
-		// is an expected, unactionable-by-retry outcome, not an operational
-		// failure of this cron job. Anything else (5xx, network, decode) is.
-		if refreshTokenWasRejected(err) {
-			app.logger.Warn("cron_refresh_mp_tokens: MercadoPago rejected the refresh token",
-				"error", err, "complex_id", c.ID, "complex_name", c.Name)
-		} else {
-			app.logger.Error("cron_refresh_mp_tokens: failed to refresh token",
-				"error", err, "complex_id", c.ID, "complex_name", c.Name)
-		}
-		sentry.CaptureMessage(fmt.Sprintf("MP OAuth refresh FAILED: complex=%s (%s) error=%v", c.Name, c.ID, err))
-		return mpRefreshFailed
-	}
-
-	mpUserID := fmt.Sprintf("%d", newTokens.UserID)
-	if updateErr := app.models.Complexes.UpdateMPCredentials(ctx, c.ID, newTokens.AccessToken, newTokens.RefreshToken, mpUserID, newTokens.ExpiresIn); updateErr != nil {
-		app.logger.Error("cron_refresh_mp_tokens: failed to save new tokens", "error", updateErr, "complex_id", c.ID)
-		sentry.CaptureMessage(fmt.Sprintf("MP OAuth token save FAILED: complex=%s (%s) error=%v", c.Name, c.ID, updateErr))
-		return mpRefreshFailed
-	}
-
-	app.logger.Info("cron_refresh_mp_tokens: refreshed token", "complex_id", c.ID, "complex_name", c.Name)
-	return mpRefreshOK
-}
-
-// refreshTokenWasRejected reports whether a RefreshOAuthToken failure was
-// MercadoPago's 4xx invalid_grant-style answer — the seller revoked the
-// grant, or the refresh token itself expired — rather than an outage (5xx,
-// network, decode failure) worth an Error-level page.
-func refreshTokenWasRejected(err error) bool {
-	var apiErr *mp.APIError
-	return errors.As(err, &apiErr) && apiErr.StatusCode >= 400 && apiErr.StatusCode < 500
+	app.complexesService.RefreshMPTokens(ctx)
 }
 
 // complexAddress is the venue's address as a person reads it, city included.
