@@ -277,10 +277,15 @@ func (m *Middleware) LogRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := m.now()
 		rec := &recorder{ResponseWriter: w}
+		// The slot authentication writes the actor's id into. It is placed
+		// here, before the chain below runs, because this middleware wraps the
+		// authenticator: the request it holds is not the one authentication
+		// enriched, so the id has to come back through something shared.
 		// Captured before the handler runs: the deferred log below is the one
 		// place that must still be able to say which request this was, and by
 		// the time it runs the handler may have replaced r entirely.
-		ctx := r.Context()
+		ctx, actor := httpx.ContextWithActor(r.Context())
+		r = r.WithContext(ctx)
 		requestID := httpx.ContextGetRequestID(r)
 		method, path := r.Method, r.URL.Path
 		ip := m.clientIP(r)
@@ -301,7 +306,7 @@ func (m *Middleware) LogRequests(next http.Handler) http.Handler {
 				return
 			}
 
-			m.logger.LogAttrs(ctx, slog.LevelInfo, "request",
+			attrs := []slog.Attr{
 				slog.String("method", method),
 				slog.String("route", routeOf(path)),
 				slog.String("path", sanitize(path)),
@@ -310,7 +315,15 @@ func (m *Middleware) LogRequests(next http.Handler) http.Handler {
 				slog.Int64("bytes", rec.written),
 				slog.String("request_id", requestID),
 				slog.String("ip", ip),
-			)
+			}
+			// Only on a request that authenticated, and only the id: "which
+			// account did this" is the question a support ticket asks, and the
+			// id is the whole of the answer. Nothing else about the user
+			// belongs in a log line.
+			if id := actor.ID(); id != "" {
+				attrs = append(attrs, slog.String("user_id", id))
+			}
+			m.logger.LogAttrs(ctx, slog.LevelInfo, "request", attrs...)
 		}()
 
 		next.ServeHTTP(rec, r)
