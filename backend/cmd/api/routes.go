@@ -23,7 +23,7 @@ func (app *application) routes() http.Handler {
 	app.registerRoutes(router)
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{app.config.frontendURL},
+		AllowedOrigins:   []string{app.config.FrontendURL},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-CSRF-Token"},
 		AllowCredentials: true,
@@ -81,10 +81,10 @@ func (app *application) registerRoutes(router httpx.Router) {
 	router = middleware.TenantAwareRouter(router)
 
 	// Public routes.
-	if app.config.env == "development" {
+	if app.config.Env == "development" {
 		router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 	}
-	if app.config.pprof && app.config.env == "development" {
+	if app.config.PProf && app.config.Env == "development" {
 		router.HandlerFunc(http.MethodGet, "/debug/pprof/", pprof.Index)
 		router.HandlerFunc(http.MethodGet, "/debug/pprof/cmdline", pprof.Cmdline)
 		router.HandlerFunc(http.MethodGet, "/debug/pprof/profile", pprof.Profile)

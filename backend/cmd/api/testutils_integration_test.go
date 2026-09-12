@@ -15,15 +15,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stodulski/vibe-server/internal/platform/config"
+	platformdb "github.com/stodulski/vibe-server/internal/platform/db"
 	"github.com/stodulski/vibe-server/internal/stores"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const integrationJWTSecret = "e2e-test-secret-key-32-bytes-long!"
 
-func setupTestDB(t *testing.T) *pgxpool.Pool {
+func setupTestDB(t *testing.T) *platformdb.Pool {
 	t.Helper()
 
 	dsn := os.Getenv("DATABASE_URL")
@@ -34,23 +34,17 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	config, err := pgxpool.ParseConfig(dsn)
-	if err != nil {
-		t.Fatalf("parsing DSN: %v", err)
-	}
-	config.MaxConns = 5
-	// Same exec mode as the production pool (main.go): pgx infers parameter
-	// types from the Go values in this mode, which is where a []byte bound to
-	// a jsonb column turns into bytea. See internal/data.setupTestDB.
-	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
+	// The same opener production uses, so this suite runs against a pool
+	// tuned the way the real one is — exec mode included, which is where a
+	// []byte bound to a jsonb column turns into bytea.
+	pool, err := platformdb.Open(ctx, platformdb.Config{
+		DSN:          dsn,
+		MaxOpenConns: 5,
+		MaxIdleConns: 1,
+		MaxIdleTime:  time.Minute,
+	})
 	if err != nil {
 		t.Fatalf("connecting to database: %v", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		t.Fatalf("pinging database: %v", err)
 	}
 
 	t.Cleanup(func() {
@@ -60,7 +54,7 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func cleanupDB(t *testing.T, pool *pgxpool.Pool) {
+func cleanupDB(t *testing.T, pool *platformdb.Pool) {
 	t.Helper()
 
 	tables := []string{
@@ -81,7 +75,7 @@ func cleanupDB(t *testing.T, pool *pgxpool.Pool) {
 
 // newIntegrationApp builds a real *application via newApplication, the same
 // constructor the unit harness (testutils_test.go) and main() both use — the
-// only substitution boundary is deps: a real *pgxpool.Pool instead of mocks,
+// only substitution boundary is deps: a real *platformdb.Pool instead of mocks,
 // so deps.models comes from data.stores.New(pool, ...) and deps.db is the pool
 // itself. deps.rdb stays nil, which routes newApplication to the same
 // in-memory blacklist, hub, rate limiter and memoryQueue fallback the old
@@ -91,7 +85,7 @@ func cleanupDB(t *testing.T, pool *pgxpool.Pool) {
 // fields — middleware (among many others) was left nil, so every request
 // panicked in middleware.Wrap before any handler ran and this whole
 // integration suite never executed a single assertion.
-func newIntegrationApp(t *testing.T, pool *pgxpool.Pool, opts ...func(*config)) *application {
+func newIntegrationApp(t *testing.T, pool *platformdb.Pool, opts ...func(*config.Config)) *application {
 	t.Helper()
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -99,62 +93,39 @@ func newIntegrationApp(t *testing.T, pool *pgxpool.Pool, opts ...func(*config)) 
 		jwtSecret = integrationJWTSecret
 	}
 
-	cfg := config{
-		env: "development",
-		jwt: struct{ secret string }{
-			secret: jwtSecret,
-		},
+	cfg := config.Config{
+		Env: "development",
+		JWT: config.JWT{Secret: jwtSecret},
 		// bcrypt.MinCost, for the reason the unit harness gives: this suite
 		// registers and signs in real users against a real database.
-		passwordHashCost: bcrypt.MinCost,
+		PasswordHashCost: bcrypt.MinCost,
 		// Placeholder credentials, matching what the previous hand-built
 		// application literal passed directly to mp.NewMPClient /
 		// whatsapp.NewWAClient. No test talks to the real MercadoPago or
 		// WhatsApp APIs; these only need to be non-empty so client
 		// construction mirrors production shape.
-		mp: struct {
-			accessToken    string
-			webhookSecret  string
-			appID          string
-			clientSecret   string
-			credentialKeys string
-		}{
-			accessToken:   "test",
-			webhookSecret: "test",
-			appID:         "test",
-			clientSecret:  "test",
+		MP: config.MP{
+			AccessToken:   "test",
+			WebhookSecret: "test",
+			AppID:         "test",
+			ClientSecret:  "test",
 			// Unused here: newApplication never re-derives a keyring from
-			// cfg.mp.credentialKeys — that parsing only happens once, in
+			// cfg.MP.CredentialKeys — that parsing only happens once, in
 			// main()'s boot validation. deps.models below carries its own
 			// independent Config with no Keys, matching production shape
 			// where nothing in this suite ever seals or opens a real
 			// credential (see integration_test.go's "fake MP connection").
-			credentialKeys: "test",
+			CredentialKeys: "test",
 		},
-		whatsapp: struct {
-			token       string
-			phoneID     string
-			verifyToken string
-			appSecret   string
-		}{
-			token:       "test",
-			phoneID:     "test",
-			verifyToken: "test",
-			appSecret:   "test",
+		WhatsApp: config.WhatsApp{
+			Token:       "test",
+			PhoneID:     "test",
+			VerifyToken: "test",
+			AppSecret:   "test",
 		},
-		limiter: struct {
-			enabled bool
-			rps     float64
-			burst   int
-		}{
-			enabled: false,
-		},
-		limits: struct {
-			maxComplexes int
-		}{
-			maxComplexes: 4,
-		},
-		frontendURL: "http://localhost:5173",
+		Limiter:     config.Limiter{Enabled: false},
+		Limits:      config.Limits{MaxComplexes: 4},
+		FrontendURL: "http://localhost:5173",
 	}
 
 	// Applied before the constructor runs, and that is the whole reason this

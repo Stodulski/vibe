@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stodulski/vibe-server/internal/platform/config"
 	"github.com/stodulski/vibe-server/internal/stores"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -60,11 +61,9 @@ func newTestApplicationWithLogger(t *testing.T, testLogger *slog.Logger) (*appli
 func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize func(*stores.Stores)) (*application, *memoryQueue) {
 	t.Helper()
 
-	cfg := config{
-		env: "test",
-		jwt: struct{ secret string }{
-			secret: testJWTSecret,
-		},
+	cfg := config.Config{
+		Env: "test",
+		JWT: config.JWT{Secret: testJWTSecret},
 		// Rate limiting is ON in the harness, and deliberately so.
 		//
 		// It used to be off, and middleware.Config{} below carried the
@@ -80,37 +79,23 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize fun
 		// hardcoded (10 per 6s, 3 per 20s) and not raised by this, which
 		// is correct: a test that trips one has found a genuine limit on
 		// the endpoint it is hammering.
-		limiter: struct {
-			enabled bool
-			rps     float64
-			burst   int
-		}{
-			enabled: true,
-			rps:     10_000,
-			burst:   10_000,
+		Limiter: config.Limiter{
+			Enabled: true,
+			RPS:     10_000,
+			Burst:   10_000,
 		},
-		frontendURL: "http://localhost:5173",
+		FrontendURL: "http://localhost:5173",
 		// bcrypt.MinCost for the same reason internal/auth's own harness uses
 		// it: the routes this suite drives register and sign in users, and a
 		// cost-12 hash under the race detector takes seconds each.
-		passwordHashCost: bcrypt.MinCost,
-		booking: struct {
-			gracePeriod        time.Duration
-			paymentExpiry      time.Duration
-			cancellationWindow time.Duration
-			slotLockTTL        time.Duration
-			linkTokenBuffer    time.Duration
-		}{
-			gracePeriod:     15 * time.Minute,
-			paymentExpiry:   15 * time.Minute,
-			slotLockTTL:     20 * time.Minute,
-			linkTokenBuffer: 24 * time.Hour,
+		PasswordHashCost: bcrypt.MinCost,
+		Booking: config.Booking{
+			GracePeriod:     15 * time.Minute,
+			PaymentExpiry:   15 * time.Minute,
+			SlotLockTTL:     20 * time.Minute,
+			LinkTokenBuffer: 24 * time.Hour,
 		},
-		limits: struct {
-			maxComplexes int
-		}{
-			maxComplexes: 4,
-		},
+		Limits: config.Limits{MaxComplexes: 4},
 	}
 
 	models := stores.Stores{

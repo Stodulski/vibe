@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stodulski/vibe-server/internal/platform/config"
+)
 
 // TestMigratorDSNFallsBackToTheApplicationDSN pins the rule that keeps today's
 // single-role deployment working: DB_MIGRATOR_URL is optional, and leaving it
@@ -40,9 +44,9 @@ func TestMigratorDSNFallsBackToTheApplicationDSN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var cfg config
-			cfg.db.dsn = tt.dsn
-			cfg.db.migratorDSN = tt.migratorDSN
+			var cfg config.Config
+			cfg.DB.DSN = tt.dsn
+			cfg.DB.MigratorDSN = tt.migratorDSN
 
 			if got := migratorDSN(cfg); got != tt.want {
 				t.Errorf("migratorDSN() = %q, want %q", got, tt.want)

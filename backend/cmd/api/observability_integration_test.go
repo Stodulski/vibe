@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	platformdb "github.com/stodulski/vibe-server/internal/platform/db"
 
 	"github.com/stodulski/vibe-server/internal/health"
 )
@@ -18,7 +18,7 @@ import (
 // clearWebhookEvents empties the queue table this file writes to. cleanupDB
 // does not list it, and a leftover row from another test would move every
 // count asserted below.
-func clearWebhookEvents(t *testing.T, pool *pgxpool.Pool) {
+func clearWebhookEvents(t *testing.T, pool *platformdb.Pool) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -30,7 +30,7 @@ func clearWebhookEvents(t *testing.T, pool *pgxpool.Pool) {
 }
 
 // insertWebhookEvent writes one row in the given state, due at now+offset.
-func insertWebhookEvent(t *testing.T, pool *pgxpool.Pool, status string, offset time.Duration) {
+func insertWebhookEvent(t *testing.T, pool *platformdb.Pool, status string, offset time.Duration) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

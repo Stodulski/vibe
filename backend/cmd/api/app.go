@@ -6,9 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
-
 	"github.com/stodulski/vibe-server/internal/admin"
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
@@ -29,6 +26,9 @@ import (
 	"github.com/stodulski/vibe-server/internal/openapi"
 	"github.com/stodulski/vibe-server/internal/payments"
 	"github.com/stodulski/vibe-server/internal/places"
+	"github.com/stodulski/vibe-server/internal/platform/config"
+	platformdb "github.com/stodulski/vibe-server/internal/platform/db"
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 	"github.com/stodulski/vibe-server/internal/publicsite"
 	"github.com/stodulski/vibe-server/internal/realtime"
 	"github.com/stodulski/vibe-server/internal/reporting"
@@ -49,12 +49,17 @@ type deps struct {
 	models stores.Stores
 	// db backs the database health probe only; it MAY be nil (health then
 	// reports "not configured" instead of failing).
-	db *pgxpool.Pool
+	db *platformdb.Pool
 	// rdb backs Redis-dependent features; a nil value falls back to the
 	// in-memory blacklist, hub, rate limiter and notification queue.
-	rdb *redis.Client
+	rdb *platformredis.Client
 	// storage MAY be nil (no R2 configured).
 	storage storage.ObjectStorage
+	// trustedProxies is the parsed -trusted-proxies/TRUSTED_PROXIES set: the
+	// peers allowed to rewrite the client address. It arrives through deps
+	// rather than through cfg because parsing it produces an internal/httpx
+	// type, and the configuration package holds no domain types.
+	trustedProxies httpx.TrustedProxies
 }
 
 // validateDeps checks that every store stores.Stores composes is present,
@@ -133,7 +138,7 @@ func validateDeps(d deps) error {
 // exemption for the same reason.
 //
 //nolint:funlen // flat sequential locals-then-publish wiring, see above.
-func newApplication(cfg config, d deps) (*application, error) {
+func newApplication(cfg config.Config, d deps) (*application, error) {
 	if err := validateDeps(d); err != nil {
 		return nil, err
 	}
@@ -226,27 +231,27 @@ func newApplication(cfg config, d deps) (*application, error) {
 	blacklist := auth.NewTokenBlacklist(d.rdb, d.logger)
 	events := realtime.NewHub(d.rdb, d.logger)
 
-	mpClient := mp.NewMPClient(cfg.mp.accessToken, cfg.mp.webhookSecret, cfg.mp.appID, cfg.mp.clientSecret, mpCB)
-	mpOAuthClient := mp.NewMPClient(cfg.mp.accessToken, cfg.mp.webhookSecret, cfg.mp.appID, cfg.mp.clientSecret, mpOAuthCB)
-	waClient := whatsapp.NewWAClient(cfg.whatsapp.token, cfg.whatsapp.phoneID, cfg.whatsapp.verifyToken, cfg.whatsapp.appSecret, waCB)
+	mpClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpCB)
+	mpOAuthClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpOAuthCB)
+	waClient := whatsapp.NewWAClient(cfg.WhatsApp.Token, cfg.WhatsApp.PhoneID, cfg.WhatsApp.VerifyToken, cfg.WhatsApp.AppSecret, waCB)
 	mailerClient := mailer.New(mailer.Config{
-		BrevoAPIKey:  cfg.brevo.apiKey,
-		SMTPHost:     cfg.smtp.host,
-		SMTPPort:     cfg.smtp.port,
-		SMTPUsername: cfg.smtp.username,
-		SMTPPassword: cfg.smtp.password,
-		Sender:       cfg.brevo.sender,
-		LogoURL:      cfg.frontendURL + "/logo.png",
-		AppURL:       cfg.frontendURL,
+		BrevoAPIKey:  cfg.Brevo.APIKey,
+		SMTPHost:     cfg.SMTP.Host,
+		SMTPPort:     cfg.SMTP.Port,
+		SMTPUsername: cfg.SMTP.Username,
+		SMTPPassword: cfg.SMTP.Password,
+		Sender:       cfg.Brevo.Sender,
+		LogoURL:      cfg.FrontendURL + "/logo.png",
+		AppURL:       cfg.FrontendURL,
 		CB:           mailerCB,
 	})
-	whatsappEnabled := cfg.whatsapp.token != "" && cfg.whatsapp.phoneID != ""
+	whatsappEnabled := cfg.WhatsApp.Token != "" && cfg.WhatsApp.PhoneID != ""
 	turnstileClient := turnstile.New(turnstile.Config{
-		SecretKey: cfg.turnstile.secretKey,
+		SecretKey: cfg.Turnstile.SecretKey,
 		CB:        turnstileCB,
 	})
 	googleVerifier := googleid.NewVerifier(googleid.Config{
-		ClientID: cfg.google.oauthClientID,
+		ClientID: cfg.Google.OAuthClientID,
 		CB:       googleCB,
 	})
 
@@ -269,12 +274,12 @@ func newApplication(cfg config, d deps) (*application, error) {
 
 	auditor := audit.NewRecorder(d.models.Audit, d.logger, app.background)
 	auditService := audit.NewService(d.models.Audit, auditor)
-	auditTrailHandler := audit.NewHandler(auditService, respond, cfg.trustedProxies)
+	auditTrailHandler := audit.NewHandler(auditService, respond, d.trustedProxies.Any())
 
 	tokens := auth.NewTokenService(auth.TokenServiceConfig{
-		JWTSecret:    cfg.jwt.secret,
-		CookieDomain: cfg.cookieDomain,
-		Environment:  cfg.env,
+		JWTSecret:    cfg.JWT.Secret,
+		CookieDomain: cfg.CookieDomain,
+		Environment:  cfg.Env,
 	})
 	mw := middleware.New(middleware.Dependencies{
 		Users:     d.models.Users,
@@ -286,15 +291,15 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Logger:    d.logger,
 		Shutdown:  app.shutdown,
 	}, middleware.Config{
-		TrustedProxies:   cfg.trustedProxySet,
-		RateLimitEnabled: cfg.limiter.enabled,
-		RateLimitRPS:     cfg.limiter.rps,
-		RateLimitBurst:   cfg.limiter.burst,
-		RequestLogSample: cfg.requestLogSample,
+		TrustedProxies:   d.trustedProxies,
+		RateLimitEnabled: cfg.Limiter.Enabled,
+		RateLimitRPS:     cfg.Limiter.RPS,
+		RateLimitBurst:   cfg.Limiter.Burst,
+		RequestLogSample: cfg.RequestLogSample,
 	})
 	cache := userCache{mw: mw}
 
-	placesHandler := places.NewHandler(places.Config{APIKey: cfg.google.placesAPIKey}, respond)
+	placesHandler := places.NewHandler(places.Config{APIKey: cfg.Google.PlacesAPIKey}, respond)
 
 	// The booking domain's cross-domain entry point, built over the booking
 	// store alone and therefore available here, before any domain service
@@ -312,8 +317,8 @@ func newApplication(cfg config, d deps) (*application, error) {
 	realtimeHandler := realtime.NewHandler(events, streamAuthorizer{mw: mw}, respond, d.logger,
 		app.shutdown, realtime.Config{})
 	leadsHandler := leads.NewHandler(respond, leads.Config{
-		WebhookURL: cfg.leads.abandonedWebhookURL,
-		Token:      cfg.leads.abandonedWebhookToken,
+		WebhookURL: cfg.Leads.AbandonedWebhookURL,
+		Token:      cfg.Leads.AbandonedWebhookToken,
 	})
 	var queues health.QueueReporter
 	if d.db != nil {
@@ -340,7 +345,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 		// published.
 		Metrics: processMetrics{app: app},
 		Respond: respond,
-	}, health.Config{Environment: cfg.env, Version: appVersion})
+	}, health.Config{Environment: cfg.Env, Version: version})
 
 	// Domain services hold the rules; their handlers only decode, validate and
 	// map errors. A service is passed wherever another domain reads this one,
@@ -364,10 +369,10 @@ func newApplication(cfg config, d deps) (*application, error) {
 	// reporting) reads bookings through bookingsFacade for the same reason:
 	// the booking service is built last, because it depends on all of them.
 	complexesConfig := complexes.Config{
-		MaxComplexes: cfg.limits.maxComplexes,
-		FrontendURL:  cfg.frontendURL,
-		TrustProxies: cfg.trustedProxies,
-		MPAppID:      cfg.mp.appID,
+		MaxComplexes: cfg.Limits.MaxComplexes,
+		FrontendURL:  cfg.FrontendURL,
+		TrustProxies: d.trustedProxies.Any(),
+		MPAppID:      cfg.MP.AppID,
 	}
 	// complexesService is built before courtsService because the court domain
 	// reads venues and their opening hours through it, and with no court port
@@ -388,7 +393,7 @@ func newApplication(cfg config, d deps) (*application, error) {
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 
 	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor)
-	courtsHandler := courts.NewHandler(courtsService, respond, cfg.trustedProxies)
+	courtsHandler := courts.NewHandler(courtsService, respond, d.trustedProxies.Any())
 
 	// The one edge that cannot be a constructor argument, closed the moment the
 	// other side exists: before any handler is built, before the router is
@@ -403,12 +408,12 @@ func newApplication(cfg config, d deps) (*application, error) {
 	notify := notifications.NewService(queue, mailerClient, waClient, d.models.Users, d.logger, whatsappEnabled)
 
 	authConfig := auth.Config{
-		JWTSecret:        cfg.jwt.secret,
-		CookieDomain:     cfg.cookieDomain,
-		Environment:      cfg.env,
-		FrontendURL:      cfg.frontendURL,
-		TrustProxies:     cfg.trustedProxies,
-		PasswordHashCost: cfg.passwordHashCost,
+		JWTSecret:        cfg.JWT.Secret,
+		CookieDomain:     cfg.CookieDomain,
+		Environment:      cfg.Env,
+		FrontendURL:      cfg.FrontendURL,
+		TrustProxies:     d.trustedProxies.Any(),
+		PasswordHashCost: cfg.PasswordHashCost,
 	}
 
 	authService := auth.NewService(auth.Dependencies{
@@ -431,13 +436,13 @@ func newApplication(cfg config, d deps) (*application, error) {
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
 	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
-	adminHandler := admin.NewHandler(adminService, respond, cfg.trustedProxies)
+	adminHandler := admin.NewHandler(adminService, respond, d.trustedProxies.Any())
 
 	reportingService := reporting.NewService(bookingsFacade, clientsService, courtsService,
 		complexesService, d.models.Reports)
 	reportingHandler := reporting.NewHandler(reportingService, respond)
 
-	publicsiteService := publicsite.NewService(complexesService, cfg.frontendURL)
+	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL)
 	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
 
 	paymentsService := payments.NewService(payments.Dependencies{
@@ -467,9 +472,9 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Logger:     d.logger,
 		Run:        app.background,
 	}, payments.Config{
-		FrontendURL:             cfg.frontendURL,
-		CancellationGracePeriod: cfg.booking.gracePeriod,
-		LinkTokenBuffer:         cfg.booking.linkTokenBuffer,
+		FrontendURL:             cfg.FrontendURL,
+		CancellationGracePeriod: cfg.Booking.GracePeriod,
+		LinkTokenBuffer:         cfg.Booking.LinkTokenBuffer,
 	})
 	// The webhook handler verifies MercadoPago's signature itself, so it takes
 	// the provider alongside the service: the signature is computed over the
@@ -503,20 +508,20 @@ func newApplication(cfg config, d deps) (*application, error) {
 		Logger:       d.logger,
 		Run:          app.background,
 	}, bookings.Config{
-		FrontendURL:     cfg.frontendURL,
-		BackendURL:      cfg.backendURL,
-		Environment:     cfg.env,
-		GracePeriod:     cfg.booking.gracePeriod,
-		PaymentExpiry:   cfg.booking.paymentExpiry,
-		SlotLockTTL:     cfg.booking.slotLockTTL,
-		TrustProxies:    cfg.trustedProxies,
+		FrontendURL:     cfg.FrontendURL,
+		BackendURL:      cfg.BackendURL,
+		Environment:     cfg.Env,
+		GracePeriod:     cfg.Booking.GracePeriod,
+		PaymentExpiry:   cfg.Booking.PaymentExpiry,
+		SlotLockTTL:     cfg.Booking.SlotLockTTL,
+		TrustProxies:    d.trustedProxies.Any(),
 		WhatsAppEnabled: whatsappEnabled,
-		LinkTokenBuffer: cfg.booking.linkTokenBuffer,
+		LinkTokenBuffer: cfg.Booking.LinkTokenBuffer,
 	})
 	// The WhatsApp webhook verifies Meta's own handshake and signature, so the
 	// handler takes the client alongside the service: both are computed over
 	// the request, which never reaches the service.
-	bookingsHandler := bookings.NewHandler(bookingsService, waClient, respond, d.logger, cfg.trustedProxies)
+	bookingsHandler := bookings.NewHandler(bookingsService, waClient, respond, d.logger, d.trustedProxies.Any())
 
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a

@@ -8,7 +8,8 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
+	"github.com/stodulski/vibe-server/internal/platform/config"
+	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 	"github.com/stodulski/vibe-server/internal/stores"
 )
 
@@ -49,7 +50,7 @@ func TestNewApplicationRejectsAMissingStore(t *testing.T) {
 	d := validTestDeps(t)
 	d.models.PasswordReset = nil
 
-	_, err := newApplication(config{}, d)
+	_, err := newApplication(config.Config{}, d)
 	if err == nil {
 		t.Fatal("newApplication: want an error for a missing store; got nil")
 	}
@@ -91,7 +92,7 @@ func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 			d := validTestDeps(t)
 			c.zero(&d.models)
 
-			_, err := newApplication(config{}, d)
+			_, err := newApplication(config.Config{}, d)
 			if err == nil {
 				t.Fatalf("newApplication: want an error with models.%s nil; got nil", c.name)
 			}
@@ -107,7 +108,7 @@ func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 // process-global, so nothing about calling it a second time — in the same
 // process, with equivalent deps — can panic or double-register anything.
 func TestNewApplicationCanBeCalledTwiceInOneProcess(t *testing.T) {
-	cfg := config{env: "test", jwt: struct{ secret string }{secret: testJWTSecret}}
+	cfg := config.Config{Env: "test", JWT: config.JWT{Secret: testJWTSecret}}
 
 	first, err := newApplication(cfg, validTestDeps(t))
 	if err != nil {
@@ -161,7 +162,7 @@ var optionalApplicationFields = map[string]string{
 // block sets it, and hands bookings a nil — which is exactly the defect this
 // change exists to remove.
 func TestNewApplicationWiresEveryField(t *testing.T) {
-	app, err := newApplication(config{env: "test"}, validTestDeps(t))
+	app, err := newApplication(config.Config{Env: "test"}, validTestDeps(t))
 	if err != nil {
 		t.Fatalf("newApplication with every store supplied: %v", err)
 	}
@@ -212,13 +213,13 @@ func nillable(k reflect.Kind) bool {
 // the composition root hands them the client.
 func TestNewApplicationWiresTheRedisBackedPath(t *testing.T) {
 	mr := miniredis.RunT(t)
-	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	rdb := platformredis.NewClient(&platformredis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = rdb.Close() })
 
 	d := validTestDeps(t)
 	d.rdb = rdb
 
-	app, err := newApplication(config{env: "test"}, d)
+	app, err := newApplication(config.Config{Env: "test"}, d)
 	if err != nil {
 		t.Fatalf("newApplication with Redis: %v", err)
 	}

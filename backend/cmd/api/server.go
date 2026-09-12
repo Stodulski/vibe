@@ -22,7 +22,7 @@ const shutdownTimeout = 30 * time.Second
 //nolint:funlen // flat sequential server-lifecycle wiring (configure http.Server, start listener,
 func (app *application) serve() error {
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", app.config.port),
+		Addr:         fmt.Sprintf(":%d", app.config.Port),
 		Handler:      app.routes(),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -42,7 +42,7 @@ func (app *application) serve() error {
 		shutdownError <- app.gracefulShutdown(srv, shutdownTimeout)
 	}()
 
-	app.logger.Info("starting server", "addr", srv.Addr, "env", app.config.env)
+	app.logger.Info("starting server", "addr", srv.Addr, "env", app.config.Env)
 
 	err := srv.ListenAndServe()
 	if !errors.Is(err, http.ErrServerClosed) {
