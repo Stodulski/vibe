@@ -31,6 +31,30 @@ export default defineConfig([
       // of this change (`pnpm exec eslint src 2>&1 | rg exhaustive-deps`), so
       // raising it is a no-op today and a real gate going forward.
       'react-hooks/exhaustive-deps': 'error',
+      // The React Compiler is on (vite.config.ts), so these four are the gate
+      // that keeps it working. All four are at zero violations as of this
+      // change, the same standard `exhaustive-deps` above was raised under.
+      //
+      // `memoized-effect-dependencies` is the one that matters most here: it
+      // is what PERF-04 asked by hand of every `useCallback` it deleted, and
+      // it is the reason a handful survived. An effect whose dependency is a
+      // fresh object or function every render re-fires every render, and
+      // inferred memoization is explicitly not a promise about when an effect
+      // runs — so that judgement belongs in a rule rather than in a comment.
+      //
+      // `memo-dependencies` guards the manual `useMemo`/`useCallback` that are
+      // left: each one exists because something needs its identity, and a
+      // dependency array that lies about what it is built from is exactly how
+      // that stops being true.
+      //
+      // `incompatible-library` and `unsupported-syntax` ship as 'warn' in
+      // `reactHooks.configs.flat.recommended` — code the compiler cannot
+      // memoize silently keeps working, just slower, which is precisely the
+      // kind of regression a warning does not stop.
+      'react-hooks/memoized-effect-dependencies': 'error',
+      'react-hooks/memo-dependencies': 'error',
+      'react-hooks/incompatible-library': 'error',
+      'react-hooks/unsupported-syntax': 'error',
       // Pulling a key out of a payload so the rest object omits it is a
       // deliberate discard, not an unused variable. Each of those sites used to
       // carry a bare `void key;` to stay quiet — an idiom typescript-eslint
