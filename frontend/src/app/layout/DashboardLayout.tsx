@@ -37,6 +37,7 @@ export function DashboardLayout() {
         sidebar={<Sidebar />}
         renderMobileSidebar={(onNavigate) => <Sidebar onNavigate={onNavigate} isMobile />}
         header={(onMenuClick) => <Header onMenuClick={onMenuClick} />}
+        showSearchTrigger
       >
         <Suspense>
           <CommandPalette />
