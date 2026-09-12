@@ -39,7 +39,7 @@ import (
 // `confirmed` over `cancelled`. Nothing in Go compares anything: the refusal
 // comes from inside the database, as SQLSTATE 23514 carrying the rule name.
 func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := seedFutureBooking(t, f, "09:00", "10:00")
@@ -106,7 +106,7 @@ func TestTerminalStatusReentryIsRefusedByTheTrigger(t *testing.T) {
 // TestARefundCannotExistWithoutMoneyHavingBeenCollected in
 // schema_constraints_integration_test.go is what makes it so.
 func TestCollectionStatusCannotReturnToUnpaid(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := seedFutureBooking(t, f, "11:00", "12:00")

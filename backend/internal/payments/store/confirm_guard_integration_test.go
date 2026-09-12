@@ -30,7 +30,7 @@ import (
 // still be caught by the re-read here rather than reaching the UPDATE and
 // falling through to bookings_forbid_status_reversal as a raw 500.
 func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	b := f.CreateBooking(t, datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid})
@@ -74,7 +74,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 	}
 
 	var payments int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM payments WHERE booking_id = $1`, b.ID).Scan(&payments); err != nil {
 		t.Fatalf("counting payments: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestGuardBookingConfirmableRefusesConfirmingAConcurrentlyCancelledBooking(t
 // against the row this call inserts — never reached the database, and the
 // money stayed captured with nothing to refund it against.
 func TestGuardBookingConfirmableAllowsRecordingAPaymentForAnAlreadyCancelledBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	b := f.CreateBooking(t, datatest.BookingOptions{Status: "confirmed"})
@@ -119,7 +119,7 @@ func TestGuardBookingConfirmableAllowsRecordingAPaymentForAnAlreadyCancelledBook
 	}
 
 	var payments int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM payments WHERE booking_id = $1`, b.ID).Scan(&payments); err != nil {
 		t.Fatalf("counting payments: %v", err)
 	}

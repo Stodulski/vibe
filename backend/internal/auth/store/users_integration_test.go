@@ -16,7 +16,7 @@ import (
 // it there. Only a re-read can tell the difference — the in-memory struct says false
 // either way.
 func TestUserUpdatePersistsEmailVerified(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	user, err := f.Stores.Users.GetByID(ctx, f.UserID)
@@ -48,10 +48,10 @@ func TestUserUpdatePersistsEmailVerified(t *testing.T) {
 // The same column in the other direction, so the test cannot pass by an Update that
 // simply hardcodes false.
 func TestUserUpdateCanRestoreEmailVerified(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	if _, err := f.Pool.Exec(ctx, `UPDATE users SET email_verified = false WHERE id = $1`, f.UserID); err != nil {
+	if _, err := f.DB.Exec(ctx, `UPDATE users SET email_verified = false WHERE id = $1`, f.UserID); err != nil {
 		t.Fatalf("un-verifying the owner: %v", err)
 	}
 
@@ -88,7 +88,7 @@ func TestUserUpdateCanRestoreEmailVerified(t *testing.T) {
 // and asserts the lock is visible there. A mapper can be correct while the query
 // feeding it selects the wrong columns, and only a round trip can tell.
 func TestGetByIDSeesTheLockoutState(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	unlocked, err := f.Stores.Users.GetByID(ctx, f.UserID)

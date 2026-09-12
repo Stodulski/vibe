@@ -45,6 +45,12 @@ const retryBaseDelay = 20 * time.Millisecond
 type DB struct {
 	pool *pgxpool.Pool
 	r    retrier
+	// begin opens the transaction Begin stamps and hands back. It is nil in
+	// every build the application makes, where the pool is the only thing a
+	// transaction can start on; NewDBOverTx sets it so a test can run a whole
+	// package's worth of work inside one transaction it rolls back. See that
+	// function.
+	begin func(context.Context) (pgx.Tx, error)
 }
 
 // NewDB wraps a connection pool so that single statements retry transient
@@ -73,7 +79,11 @@ func (d *DB) Pool() *pgxpool.Pool { return d.pool }
 // error rather than handing back a transaction that would read the wrong
 // tenant's rows.
 func (d *DB) Begin(ctx context.Context) (pgx.Tx, error) {
-	tx, err := d.pool.Begin(ctx)
+	open := d.begin
+	if open == nil {
+		open = d.pool.Begin
+	}
+	tx, err := open(ctx)
 	if err != nil {
 		return nil, err
 	}

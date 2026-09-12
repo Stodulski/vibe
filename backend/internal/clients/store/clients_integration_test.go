@@ -28,12 +28,12 @@ import (
 // asserts that count directly: confirmed/completed/no_show bookings count,
 // pending and cancelled ones don't, regardless of how they were inserted.
 func TestIntegration_ClientTotalBookingsCountsBookingsCreatedOutsideTheMPWebhook(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	insertBooking := func(t *testing.T, status string, startTime string, durationMinutes int) {
 		t.Helper()
-		_, err := f.Pool.Exec(ctx, `
+		_, err := f.DB.Exec(ctx, `
 			INSERT INTO bookings (complex_id, court_id, client_id, date, start_time, duration_minutes, price, status)
 			VALUES ($1, $2, $3, '2026-01-15', $4, $5, 15000, $6)`,
 			f.ComplexID, f.CourtID, f.ClientID, startTime, durationMinutes, status,
@@ -67,7 +67,7 @@ func TestIntegration_ClientTotalBookingsCountsBookingsCreatedOutsideTheMPWebhook
 // predicate: an update issued under another complex's context touches zero
 // rows rather than editing a client that belongs to someone else.
 func TestIntegration_UpdateClientScopesToTenant(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	foreignCtx := data.ContextWithTenant(context.Background(), uuid.New())
 	err := f.Stores.Clients.Update(foreignCtx, &store.Client{

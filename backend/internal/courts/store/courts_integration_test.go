@@ -15,14 +15,14 @@ import (
 // this is the one query every public-facing court list (complex profile,
 // availability grid, owner court list) shares.
 func TestIntegration_CourtsByComplexSortNaturallyNotLexically(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// The fixture already created "Court 1" for f.CourtID; add courts whose
 	// names would come out wrong under a lexical sort.
 	names := []string{"Cancha 10", "Cancha 2", "Cancha 3", "Cancha 1"}
 	for _, name := range names {
-		if _, err := f.Pool.Exec(ctx,
+		if _, err := f.DB.Exec(ctx,
 			`INSERT INTO courts (complex_id, name) VALUES ($1, $2)`, f.ComplexID, name,
 		); err != nil {
 			t.Fatalf("inserting court %q: %v", name, err)

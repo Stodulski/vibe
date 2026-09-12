@@ -21,13 +21,13 @@ const auditPlanSeedRows = 20_000
 // these EXPLAIN the exact statement the store runs and fail if the planner
 // stops using the index the trail depends on.
 func TestListAuditLogsUsesTheCreatedAtIndex(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// Rows hang off this fixture's complex so the fixture cleanup removes them, but
 	// the query under test passes complex_id = NULL, so they are all in scope for the
 	// unscoped plan regardless.
-	_, err := f.Pool.Exec(ctx, `
+	_, err := f.DB.Exec(ctx, `
 		INSERT INTO audit_log (user_id, complex_id, action, entity_type, entity_id, created_at)
 		SELECT $1, $2, 'update', 'booking', gen_random_uuid(), NOW() - (g * INTERVAL '1 second')
 		FROM generate_series(1, $3) g`,
@@ -35,14 +35,14 @@ func TestListAuditLogsUsesTheCreatedAtIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seeding audit rows: %v", err)
 	}
-	if _, err := f.Pool.Exec(ctx, `ANALYZE audit_log`); err != nil {
+	if _, err := f.DB.Exec(ctx, `ANALYZE audit_log`); err != nil {
 		t.Fatalf("analyzing audit_log: %v", err)
 	}
 
 	// EXPLAIN the constant the store itself issues, so this can never assert a plan
 	// for a copy of the SQL that has drifted from the real one. Arguments mirror an
 	// unfiltered first page: no complex, no entity type, no cursor.
-	rows, err := f.Pool.Query(ctx, "EXPLAIN "+auditstore.ListAuditLogsSQLForTest, nil, "", false, nil, nil, 21)
+	rows, err := f.DB.Query(ctx, "EXPLAIN "+auditstore.ListAuditLogsSQLForTest, nil, "", false, nil, nil, 21)
 	if err != nil {
 		t.Fatalf("explaining the audit-log query: %v", err)
 	}
@@ -73,10 +73,10 @@ func TestListAuditLogsUsesTheCreatedAtIndex(t *testing.T) {
 // index must not steal the complex-filtered query, which idx_audit_log_complex
 // already serves in about a millisecond.
 func TestListAuditLogsKeepsTheComplexScopedPlan(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	_, err := f.Pool.Exec(ctx, `
+	_, err := f.DB.Exec(ctx, `
 		INSERT INTO audit_log (user_id, complex_id, action, entity_type, entity_id, created_at)
 		SELECT $1, $2, 'update', 'booking', gen_random_uuid(), NOW() - (g * INTERVAL '1 second')
 		FROM generate_series(1, $3) g`,
@@ -84,12 +84,12 @@ func TestListAuditLogsKeepsTheComplexScopedPlan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seeding audit rows: %v", err)
 	}
-	if _, err := f.Pool.Exec(ctx, `ANALYZE audit_log`); err != nil {
+	if _, err := f.DB.Exec(ctx, `ANALYZE audit_log`); err != nil {
 		t.Fatalf("analyzing audit_log: %v", err)
 	}
 
 	complexID := f.ComplexID
-	rows, err := f.Pool.Query(ctx, "EXPLAIN "+auditstore.ListAuditLogsSQLForTest, complexID, "", false, nil, nil, 21)
+	rows, err := f.DB.Query(ctx, "EXPLAIN "+auditstore.ListAuditLogsSQLForTest, complexID, "", false, nil, nil, 21)
 	if err != nil {
 		t.Fatalf("explaining the scoped audit-log query: %v", err)
 	}

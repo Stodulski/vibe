@@ -23,14 +23,14 @@ import (
 // complex closes every one of its courts, in the same transaction, and the
 // store reports how many.
 func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// The fixture ships one court; a second one makes the count meaningful —
 	// a method that returned a hardcoded 1, or that closed only the first row
 	// it found, would pass with one court and fail here.
 	var secondCourt uuid.UUID
-	err := f.Pool.QueryRow(ctx,
+	err := f.DB.QueryRow(ctx,
 		`INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 2') RETURNING id`,
 		f.ComplexID).Scan(&secondCourt)
 	if err != nil {
@@ -46,7 +46,7 @@ func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
 	}
 
 	var live int
-	err = f.Pool.QueryRow(ctx,
+	err = f.DB.QueryRow(ctx,
 		`SELECT COUNT(*)::int FROM courts WHERE complex_id = $1 AND deleted_at IS NULL`,
 		f.ComplexID).Scan(&live)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
 	// The courts carry the venue's own deletion timestamp, not the moment the
 	// cascade happened to run. They stopped being reachable when it did.
 	var sameStamp bool
-	err = f.Pool.QueryRow(ctx, `
+	err = f.DB.QueryRow(ctx, `
 		SELECT bool_and(c.deleted_at = cx.deleted_at)
 		FROM courts c JOIN complexes cx ON cx.id = c.complex_id
 		WHERE cx.id = $1`, f.ComplexID).Scan(&sameStamp)
@@ -74,7 +74,7 @@ func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
 	// And deactivated, not merely deleted: is_active is what the owner's own
 	// screens read.
 	var stillActive int
-	err = f.Pool.QueryRow(ctx,
+	err = f.DB.QueryRow(ctx,
 		`SELECT COUNT(*)::int FROM courts WHERE complex_id = $1 AND is_active`,
 		f.ComplexID).Scan(&stillActive)
 	if err != nil {
@@ -90,7 +90,7 @@ func TestSoftDeleteCascadeLeavesNoLiveCourt(t *testing.T) {
 // `AND deleted_at IS NULL`, so a repeat delete affects no row, and reporting
 // that as a success would let a caller log a cascade that never happened.
 func TestSoftDeleteCascadeOnAnAlreadyDeletedComplexIsNotFound(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
@@ -113,14 +113,14 @@ func TestSoftDeleteCascadeOnAnAlreadyDeletedComplexIsNotFound(t *testing.T) {
 // same shape as bookings_forbid_status_reversal, so the test
 // can assert *which* rule fired rather than settle for "something refused it".
 func TestRevivingACourtUnderADeletedComplexIsRefused(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
 
-	_, err := f.Pool.Exec(ctx,
+	_, err := f.DB.Exec(ctx,
 		`UPDATE courts SET deleted_at = NULL, is_active = true WHERE id = $1`, f.CourtID)
 	if err == nil {
 		t.Fatal("a court was revived under a soft-deleted complex and nothing refused it")
@@ -139,7 +139,7 @@ func TestRevivingACourtUnderADeletedComplexIsRefused(t *testing.T) {
 
 	// Refused, not silently reverted: the row is unchanged.
 	var deleted bool
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM courts WHERE id = $1`, f.CourtID).Scan(&deleted); err != nil {
 		t.Fatalf("re-reading the court: %v", err)
 	}
@@ -152,14 +152,14 @@ func TestRevivingACourtUnderADeletedComplexIsRefused(t *testing.T) {
 // cascade misses: the parent was already deleted when the write arrived, so
 // there is no transition to fire on.
 func TestCreatingACourtUnderADeletedComplexIsRefused(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
 		t.Fatalf("SoftDeleteCascade: %v", err)
 	}
 
-	_, err := f.Pool.Exec(ctx,
+	_, err := f.DB.Exec(ctx,
 		`INSERT INTO courts (complex_id, name) VALUES ($1, 'Court After The Fact')`, f.ComplexID)
 	if err == nil {
 		t.Fatal("a court was created under a soft-deleted complex and nothing refused it")
@@ -176,16 +176,16 @@ func TestCreatingACourtUnderADeletedComplexIsRefused(t *testing.T) {
 // every write to a complex would walk its courts, and a test that only ever
 // deletes cannot tell the difference.
 func TestTheCascadeDoesNotFireOnAnOrdinaryEdit(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	if _, err := f.Pool.Exec(ctx,
+	if _, err := f.DB.Exec(ctx,
 		`UPDATE complexes SET name = 'Renamed' WHERE id = $1`, f.ComplexID); err != nil {
 		t.Fatalf("renaming the complex: %v", err)
 	}
 
 	var live int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*)::int FROM courts WHERE complex_id = $1 AND deleted_at IS NULL`,
 		f.ComplexID).Scan(&live); err != nil {
 		t.Fatalf("counting live courts: %v", err)
@@ -204,11 +204,11 @@ func TestTheCascadeDoesNotFireOnAnOrdinaryEdit(t *testing.T) {
 // used to filter on the court's own deleted_at alone, which was true of every
 // court whose complex had been deleted before this migration.
 func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	var slug string
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT slug FROM complexes WHERE id = $1`, f.ComplexID).Scan(&slug); err != nil {
 		t.Fatalf("reading the fixture's slug: %v", err)
 	}
@@ -271,28 +271,28 @@ func TestPublicReadsSkipADeletedComplexAndItsCourts(t *testing.T) {
 // the state every row created before the cascade existed was in — and requires the
 // view to be right anyway.
 func TestTheViewsHoldEvenWithTheCascadeUndone(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	if _, err := f.Pool.Exec(ctx,
+	if _, err := f.DB.Exec(ctx,
 		`ALTER TABLE complexes DISABLE TRIGGER complexes_cascade_soft_delete_to_courts`); err != nil {
 		t.Fatalf("disabling the cascade trigger: %v", err)
 	}
 	t.Cleanup(func() {
-		if _, err := f.Pool.Exec(context.Background(),
+		if _, err := f.DB.Exec(context.Background(),
 			`ALTER TABLE complexes ENABLE TRIGGER complexes_cascade_soft_delete_to_courts`); err != nil {
 			t.Errorf("re-enabling the cascade trigger: %v", err)
 		}
 	})
 
-	if _, err := f.Pool.Exec(ctx,
+	if _, err := f.DB.Exec(ctx,
 		`UPDATE complexes SET deleted_at = NOW(), is_active = false WHERE id = $1`, f.ComplexID); err != nil {
 		t.Fatalf("soft-deleting the complex: %v", err)
 	}
 
 	// The orphan this migration was written about really exists right now.
 	var live int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*)::int FROM courts WHERE complex_id = $1 AND deleted_at IS NULL`,
 		f.ComplexID).Scan(&live); err != nil {
 		t.Fatalf("counting live courts: %v", err)

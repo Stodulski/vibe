@@ -31,13 +31,13 @@ import (
 //     by destroying the record of everything the account ever did. A test that
 //     checked only the first would pass against exactly the wrong fix.
 func TestIntegration_DeletingAnAccountKeepsItsTrailAndDoesNotFail(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// A user of this test's own, so the shared fixture's account is not the one
 	// being destroyed halfway through.
 	var userID uuid.UUID
-	err := f.Pool.QueryRow(ctx, `
+	err := f.DB.QueryRow(ctx, `
 		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
 		VALUES ($1, 'x', 'Deleted', 'Account', '+5491100009999', 'owner', true)
 		RETURNING id`,
@@ -48,7 +48,7 @@ func TestIntegration_DeletingAnAccountKeepsItsTrailAndDoesNotFail(t *testing.T) 
 	}
 
 	var entryID uuid.UUID
-	err = f.Pool.QueryRow(ctx, `
+	err = f.DB.QueryRow(ctx, `
 		INSERT INTO audit_log (user_id, action, entity_type, entity_id)
 		VALUES ($1, 'password_change', 'user', $1)
 		RETURNING id`, userID,
@@ -57,7 +57,7 @@ func TestIntegration_DeletingAnAccountKeepsItsTrailAndDoesNotFail(t *testing.T) 
 		t.Fatalf("writing the audit entry: %v", err)
 	}
 	t.Cleanup(func() {
-		if _, err := f.Pool.Exec(context.Background(), `DELETE FROM audit_log WHERE id = $1`, entryID); err != nil {
+		if _, err := f.DB.Exec(context.Background(), `DELETE FROM audit_log WHERE id = $1`, entryID); err != nil {
 			t.Errorf("cleaning up the audit entry: %v", err)
 		}
 	})
@@ -73,7 +73,7 @@ func TestIntegration_DeletingAnAccountKeepsItsTrailAndDoesNotFail(t *testing.T) 
 		action          string
 		entity          uuid.UUID
 	)
-	err = f.Pool.QueryRow(ctx,
+	err = f.DB.QueryRow(ctx,
 		`SELECT user_id, action, entity_id FROM audit_log WHERE id = $1`, entryID,
 	).Scan(&survivingUserID, &action, &entity)
 	if err != nil {

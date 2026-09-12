@@ -28,7 +28,7 @@ func TestGetPaymentByBookingIDPrefersTheMercadoPagoRow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := datatest.NewFixture(t)
+			f := datatest.Isolated(t)
 			ctx := context.Background()
 
 			booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -66,7 +66,7 @@ func TestGetPaymentByBookingIDPrefersTheMercadoPagoRow(t *testing.T) {
 // payment on a booking (the detail endpoint) cannot use a query that silently
 // picks one row and discards the rest.
 func TestListPaymentsByBookingIDReturnsEveryRowOldestFirst(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
@@ -108,7 +108,7 @@ func TestListPaymentsByBookingIDReturnsEveryRowOldestFirst(t *testing.T) {
 // schema that has to be pinned. Drop that index and the query becomes
 // non-deterministic without a single line of Go changing.
 func TestOneMercadoPagoPaymentIDCannotBeOnTwoPaymentRows(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})

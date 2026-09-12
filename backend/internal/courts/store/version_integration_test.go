@@ -20,7 +20,7 @@ import (
 // both would be wrong.
 
 func TestTheVersionMovesOnEveryWriteWhetherTheWriterChecksItOrNot(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	court, err := f.Stores.Courts.GetByID(ctx, f.CourtID)
@@ -53,7 +53,7 @@ func TestTheVersionMovesOnEveryWriteWhetherTheWriterChecksItOrNot(t *testing.T) 
 }
 
 func TestASecondTabWithAStaleVersionIsRefused(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	firstTab, err := f.Stores.Courts.GetByID(ctx, f.CourtID)
@@ -95,7 +95,7 @@ func TestASecondTabWithAStaleVersionIsRefused(t *testing.T) {
 // Without a precondition the endpoint behaves exactly as it did before versions
 // existed, which is what lets the frontend adopt this on its own schedule.
 func TestAWriteWithNoVersionIsStillLastWriteWins(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	firstTab, err := f.Stores.Courts.GetByID(ctx, f.CourtID)
@@ -129,7 +129,7 @@ func TestAWriteWithNoVersionIsStillLastWriteWins(t *testing.T) {
 // version cannot be anybody's precondition. The court's version is the price
 // set's version, and replacing the set has to move it.
 func TestReplacingThePricesMovesTheCourtsVersion(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	before, err := f.Stores.Courts.GetByID(ctx, f.CourtID)

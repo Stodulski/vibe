@@ -3,7 +3,6 @@
 package data_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -15,23 +14,32 @@ import (
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
+// txDB is the *data.DB every test in this file runs its scratch table through:
+// an Isolated fixture's handle, whose Begin opens a savepoint on the
+// fixture's own outer transaction (see NewDBOverTx) rather than a pool
+// checkout. WithTx's commit/rollback contract is exactly the same either way,
+// and the scratch table this file creates is undone by the fixture's own
+// rollback, so scratchTable no longer needs to DROP it itself.
+func txDB(t *testing.T) *data.DB {
+	t.Helper()
+	return datatest.Isolated(t).DB
+}
+
 // scratchTable gives one test a table of its own to write to, so the
 // transaction boundary is the only thing under test and no fixture row has to
 // be interpreted.
+//
+// Nothing here drops it: it lives inside the fixture's own outer transaction,
+// and that transaction's rollback (t.Cleanup, registered by datatest.Isolated)
+// takes the table with it — Postgres DDL is transactional, same as any other
+// statement.
 func scratchTable(t *testing.T, d *data.DB) string {
 	t.Helper()
 
 	name := "withtx_" + uuid.New().String()[:8]
-	ctx := t.Context()
-	if _, err := d.Exec(ctx, `CREATE TABLE `+name+` (n int)`); err != nil {
+	if _, err := d.Exec(t.Context(), `CREATE TABLE `+name+` (n int)`); err != nil {
 		t.Fatalf("creating the scratch table: %v", err)
 	}
-	t.Cleanup(func() {
-		//nolint:usetesting // t.Context() is already cancelled during cleanup
-		if _, err := d.Exec(context.Background(), `DROP TABLE IF EXISTS `+name); err != nil {
-			t.Logf("dropping the scratch table: %v", err)
-		}
-	})
 	return name
 }
 
@@ -45,7 +53,7 @@ func rowCount(t *testing.T, d *data.DB, table string) int {
 }
 
 func TestWithTxCommitsWhenTheFunctionSucceeds(t *testing.T) {
-	d := data.NewDB(datatest.SetupTestDB(t))
+	d := txDB(t)
 	table := scratchTable(t, d)
 
 	err := d.WithTx(t.Context(), func(tx pgx.Tx, q *db.Queries) error {
@@ -66,7 +74,7 @@ func TestWithTxCommitsWhenTheFunctionSucceeds(t *testing.T) {
 
 // The invariant the thirteen hand-written call sites each carried on their own.
 func TestWithTxRollsBackWhenTheFunctionFails(t *testing.T) {
-	d := data.NewDB(datatest.SetupTestDB(t))
+	d := txDB(t)
 	table := scratchTable(t, d)
 
 	sentinel := errors.New("the caller refused")
@@ -88,7 +96,7 @@ func TestWithTxRollsBackWhenTheFunctionFails(t *testing.T) {
 // A panic unwinding through WithTx must roll back and keep panicking: swallowing
 // it would turn a programming error into a silent half-written transaction.
 func TestWithTxRollsBackOnAPanic(t *testing.T) {
-	d := data.NewDB(datatest.SetupTestDB(t))
+	d := txDB(t)
 	table := scratchTable(t, d)
 
 	func() {

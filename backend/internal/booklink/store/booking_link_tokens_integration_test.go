@@ -34,7 +34,7 @@ import (
 // booking row must persist despite the mint failing, because a mint that no
 // longer participates in the transaction cannot roll it back.
 func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	b := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
@@ -74,7 +74,7 @@ func TestInsertSafeMintsATokenInTheSameTransaction(t *testing.T) {
 // catch as sharply as the UNIQUE-collision failure does. Either failure mode
 // breaks this test.
 func TestTwoMintsForTheSameBookingProduceDifferentTokensBothResolve(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	b := f.CreateBooking(t, datatest.BookingOptions{})
@@ -113,7 +113,7 @@ func TestTwoMintsForTheSameBookingProduceDifferentTokensBothResolve(t *testing.T
 // ResolveBooking's SELECT — re-run, and this test must fail with
 // ErrRecordNotFound instead of returning the row and its past expires_at.
 func TestResolveBookingIgnoresExpiryAndReturnsIt(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	b := f.CreateBooking(t, datatest.BookingOptions{})
@@ -138,7 +138,7 @@ func TestResolveBookingIgnoresExpiryAndReturnsIt(t *testing.T) {
 // TestResolveBookingUnknownTokenIsNotFound proves the negative counterpart:
 // a value never minted resolves to ErrRecordNotFound, not any other error.
 func TestResolveBookingUnknownTokenIsNotFound(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	_, _, err := f.Stores.BookingLinkTokens.ResolveBooking(ctx, "never-minted-value")
@@ -154,7 +154,7 @@ func TestResolveBookingUnknownTokenIsNotFound(t *testing.T) {
 // and the confirmed booking's token, despite its past expiry, must survive
 // this test's assertion but will not once the predicate is gone.
 func TestDeleteExpiredTerminalNeverTouchesALiveBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	live := f.CreateBooking(t, datatest.BookingOptions{Status: "confirmed"})
@@ -187,7 +187,7 @@ func TestDeleteExpiredTerminalNeverTouchesALiveBooking(t *testing.T) {
 // even though its status already qualifies — the predicate is a conjunction,
 // not an either/or.
 func TestDeleteExpiredTerminalRespectsRetention(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	terminal := f.CreateBooking(t, datatest.BookingOptions{Status: "completed"})
@@ -228,7 +228,7 @@ func TestDeleteExpiredTerminalRespectsRetention(t *testing.T) {
 // call must then fail, breaking the "checkout token still resolves"
 // assertion below.
 func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	b := f.NewBooking(datatest.BookingOptions{Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true})
@@ -258,7 +258,7 @@ func TestCheckoutTokenSurvivesTheConfirmationMint(t *testing.T) {
 // TestMintRejectsAnUnknownBooking proves the foreign key does its job: a
 // bookingID that names no row refuses rather than inserting an orphan.
 func TestMintRejectsAnUnknownBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	_, err := f.Stores.BookingLinkTokens.Mint(ctx, uuid.New(), time.Now().Add(24*time.Hour))
@@ -286,7 +286,7 @@ func TestMintRejectsAnUnknownBooking(t *testing.T) {
 // stored and not against another Go value that could be zero for the same
 // reason.
 func TestResolveBookingCarriesTheSpansInstants(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	b := f.NewBooking(datatest.BookingOptions{StartTime: "18:00", EndTime: "19:30", Public: true})
@@ -295,7 +295,7 @@ func TestResolveBookingCarriesTheSpansInstants(t *testing.T) {
 	}
 
 	var wantStart, wantEnd time.Time
-	err := f.Pool.QueryRow(ctx,
+	err := f.DB.QueryRow(ctx,
 		`SELECT lower(span), upper(span) FROM bookings WHERE id = $1`, b.ID,
 	).Scan(&wantStart, &wantEnd)
 	if err != nil {

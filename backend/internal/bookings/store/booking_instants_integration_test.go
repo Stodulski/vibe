@@ -28,7 +28,7 @@ import (
 // back off the row and comparing is what says the wire carries those and not a
 // second derivation that has to stay in step by hand.
 func TestTheOwnerListCarriesTheSpansOwnInstants(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// Two bookings on one court: one ordinary, one crossing midnight. The
@@ -58,7 +58,7 @@ func TestTheOwnerListCarriesTheSpansOwnInstants(t *testing.T) {
 		// any Go code. A test that compared the DTO against another Go
 		// derivation of the same arithmetic would agree with itself.
 		var lower, upper time.Time
-		if err := f.Pool.QueryRow(ctx,
+		if err := f.DB.QueryRow(ctx,
 			`SELECT lower(span), upper(span) FROM bookings WHERE id = $1`, got.ID,
 		).Scan(&lower, &upper); err != nil {
 			t.Fatalf("reading the span of %s: %v", got.ID, err)

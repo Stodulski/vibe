@@ -40,7 +40,7 @@ import (
 // handler would exercise the midnight-safe pre-check and prove nothing about
 // the guard under test.
 func TestBlockedSlotMidnight(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// A plain calendar date. pgx encodes a pgtype.Date from the value's own
@@ -51,7 +51,7 @@ func TestBlockedSlotMidnight(t *testing.T) {
 
 	blockCourt := func(t *testing.T, date time.Time, from, to string) {
 		t.Helper()
-		_, err := f.Pool.Exec(ctx, `
+		_, err := f.DB.Exec(ctx, `
 			INSERT INTO blocked_slots (court_id, date, start_time, end_time, reason)
 			VALUES ($1, $2, $3::time, $4::time, 'maintenance')`,
 			f.CourtID, date, from, to)
@@ -140,12 +140,12 @@ func TestBlockedSlotMidnight(t *testing.T) {
 // pins the database refusing the overlap rather than the application noticing
 // it. That is the difference the migration is for.
 func TestBlockedSlotsCannotOverlap(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 	date := time.Date(2026, time.November, 20, 0, 0, 0, 0, time.UTC)
 
 	insert := func(from, to string) error {
-		_, err := f.Pool.Exec(ctx, `
+		_, err := f.DB.Exec(ctx, `
 			INSERT INTO blocked_slots (court_id, date, start_time, end_time, reason)
 			VALUES ($1, $2, $3::time, $4::time, 'maintenance')`,
 			f.CourtID, date, from, to)

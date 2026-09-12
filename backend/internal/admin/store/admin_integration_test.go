@@ -24,14 +24,14 @@ const int32Max = 2_147_483_647
 // about 1,400 payments at a 15,000 ARS average. Once crossed the endpoint never
 // recovers, because the sum only grows.
 func TestGetPlatformStatsSurvivesRevenueBeyondInt32(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// GetPlatformStats is platform-wide, so it also counts whatever the shared E2E
 	// database already holds. Read that baseline rather than assuming this test's
 	// rows are the only ones.
 	var baseline int64
-	err := f.Pool.QueryRow(ctx,
+	err := f.DB.QueryRow(ctx,
 		`SELECT COALESCE(SUM(amount), 0)::bigint FROM payments WHERE status != 'refunded'`,
 	).Scan(&baseline)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestGetPlatformStatsSurvivesRevenueBeyondInt32(t *testing.T) {
 // longer to reach — but it is the same defect one busy tenant away, and it fails the
 // same way: the whole detail query errors out, not just the revenue figure.
 func TestGetComplexDetailSurvivesRevenueBeyondInt32(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	const perRow = 2_000_000_000

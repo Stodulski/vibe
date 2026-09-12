@@ -59,7 +59,7 @@ func newStaleBooking(t *testing.T, f *datatest.Fixture) *bookingstore.Booking {
 // older than the payment expiry it no longer blocks the court, or a visitor who
 // abandoned a checkout would hold a slot until the next cron sweep.
 func TestAStalePendingBookingStopsHoldingItsSlot(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	newStaleBooking(t, f)
 
@@ -77,7 +77,7 @@ func TestAStalePendingBookingStopsHoldingItsSlot(t *testing.T) {
 // booking was confirmed too, and the court held two confirmed bookings ninety
 // minutes on top of each other.
 func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	stale := newStaleBooking(t, f)
@@ -117,7 +117,7 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 	// The refusal is a rollback, not a partial write: no payment row may survive it
 	// either, or the money would read as recorded against a booking nothing confirmed.
 	var payments int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM payments WHERE booking_id = $1`, stale.ID).Scan(&payments); err != nil {
 		t.Fatalf("counting payments: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestConfirmingAStalePendingBookingIsRefusedWhenItsSlotWasTaken(t *testing.T
 // took, still gets their booking. Refusing them for being old would be a new
 // defect wearing the fix's clothes.
 func TestConfirmingAStalePendingBookingWhoseSlotIsFreeSucceeds(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	stale := newStaleBooking(t, f)
 
@@ -152,12 +152,12 @@ func TestConfirmingAStalePendingBookingWhoseSlotIsFreeSucceeds(t *testing.T) {
 // two disagree, the gap between them is a window in which a booking holds no slot
 // and nothing has cancelled it.
 func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	// Stores configured to hold a slot for a full hour, against the fixture's
 	// default fifteen minutes.
-	longHold := stores.New(f.Pool, stores.Config{PaymentExpiry: time.Hour})
+	longHold := stores.NewOver(f.DB, stores.Config{PaymentExpiry: time.Hour})
 
 	newStaleBooking(t, f)
 
@@ -183,7 +183,7 @@ func TestTheStaleCarveOutFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 // refused at booking time, or the reverse. GetBookedSlots now takes the same
 // Config.PaymentExpiry every other copy of this carve-out reads.
 func TestAvailabilityFollowsTheConfiguredPaymentExpiry(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	stale := newStaleBooking(t, f)
@@ -197,7 +197,7 @@ func TestAvailabilityFollowsTheConfiguredPaymentExpiry(t *testing.T) {
 
 	// Under a 30-minute configured expiry the same 20-minute-old booking has not
 	// expired yet: the grid must show the slot taken.
-	longHold := stores.New(f.Pool, stores.Config{PaymentExpiry: 30 * time.Minute})
+	longHold := stores.NewOver(f.DB, stores.Config{PaymentExpiry: 30 * time.Minute})
 	takenSlots, err := longHold.Bookings.GetBookedSlotsByCourtIDs(ctx, []uuid.UUID{f.CourtID}, stale.Date)
 	if err != nil {
 		t.Fatalf("reading booked slots under a 30m expiry: %v", err)
@@ -243,7 +243,7 @@ func TestAnInsertAndAConfirmationRacingForTheSameSlotLeaveOneWinner(t *testing.T
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := datatest.NewFixture(t)
+			f := datatest.Shared(t)
 
 			stale := newStaleBooking(t, f)
 			newcomer := f.NewBooking(overlappingBookingOptions())

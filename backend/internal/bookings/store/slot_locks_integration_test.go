@@ -21,7 +21,7 @@ import (
 
 // The ordinary case, unchanged: a live lock is a live lock.
 func TestAcquireLockRefusesASlotThatIsStillHeld(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
@@ -42,7 +42,7 @@ func TestAcquireLockRefusesASlotThatIsStillHeld(t *testing.T) {
 // five-minute sweeper happened to delete the row — and forever if it was not
 // running.
 func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
@@ -59,7 +59,7 @@ func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
 	// And the takeover has to be a real lock, not a no-op that reported success.
 	var expiresAt time.Time
 	var rows int
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT count(*), max(expires_at) FROM slot_locks WHERE court_id = $1 AND date = $2 AND start_time = $3`,
 		f.CourtID, date, "18:00",
 	).Scan(&rows, &expiresAt); err != nil {
@@ -80,7 +80,7 @@ func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
 // to MercadoPago for it. The takeover is one statement, so PostgreSQL serialises
 // them on the row and exactly one wins.
 func TestTwoCallersRacingForAnExpiredLockYieldOneWinner(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Shared(t)
 	ctx := context.Background()
 	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
@@ -121,7 +121,7 @@ func TestTwoCallersRacingForAnExpiredLockYieldOneWinner(t *testing.T) {
 // A lock taken over carries the new holder's booking, so nothing inherits the
 // previous one's identity.
 func TestATakenOverLockCarriesTheNewHoldersBooking(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
@@ -137,7 +137,7 @@ func TestATakenOverLockCarriesTheNewHoldersBooking(t *testing.T) {
 	}
 
 	var held uuid.UUID
-	if err := f.Pool.QueryRow(ctx,
+	if err := f.DB.QueryRow(ctx,
 		`SELECT booking_id FROM slot_locks WHERE court_id = $1 AND date = $2 AND start_time = $3`,
 		f.CourtID, date, "21:00",
 	).Scan(&held); err != nil {

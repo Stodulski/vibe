@@ -24,7 +24,7 @@ import (
 // owns. It must answer ErrRecordNotFound, not a claim about bookings that
 // cannot exist for a court that was never created.
 func TestSoftDeleteAnUnknownCourtIsNotFound(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 
 	err := f.Stores.Courts.SoftDelete(context.Background(), uuid.New())
 	if !errors.Is(err, data.ErrRecordNotFound) {
@@ -38,7 +38,7 @@ func TestSoftDeleteAnUnknownCourtIsNotFound(t *testing.T) {
 // 409; it must go back to succeeding, since the caller's state is already
 // what it asked for.
 func TestSoftDeleteIsIdempotentOnAnAlreadyDeletedCourt(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	if err := f.Stores.Courts.SoftDelete(ctx, f.CourtID); err != nil {
@@ -53,7 +53,7 @@ func TestSoftDeleteIsIdempotentOnAnAlreadyDeletedCourt(t *testing.T) {
 // only one ErrCourtHasActiveBookings actually describes: a live booking still
 // owes someone those hours.
 func TestSoftDeleteRefusesACourtWithLiveBookings(t *testing.T) {
-	f := datatest.NewFixture(t)
+	f := datatest.Isolated(t)
 	ctx := context.Background()
 
 	f.CreateBooking(t, datatest.BookingOptions{Status: "confirmed"})
