@@ -904,25 +904,32 @@ html body[data-scroll-locked] {
   }
 }
 
-/* Toaster's own toastOptions.style sets an inline background/border/color for
-   every toast so the default/loading case matches the app's dark theme —
-   inline style beats any class, so these type overrides need !important to
-   win back semantic colour for error/success/warning toasts (and, via
-   currentColor, their icon). */
+/* The default/loading case's background/border/color used to be an inline
+   `toastOptions.style` on every toast, which outranks any class — so the
+   error/success/warning overrides below needed `!important` to win back
+   semantic colour (and, via currentColor, their icon). Now that the default
+   case is this class instead (`toastOptions.classNames.toast`), plain
+   selectors decide it by source order: this rule first, the type-specific
+   ones after, both applied to the same element by sonner. */
+[data-sonner-toast].toast-base {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
 [data-sonner-toast].toast-error {
-  background: var(--color-error-bg) !important;
-  border-color: var(--color-error-border) !important;
-  color: var(--color-error-text) !important;
+  background: var(--color-error-bg);
+  border-color: var(--color-error-border);
+  color: var(--color-error-text);
 }
 [data-sonner-toast].toast-success {
-  background: var(--color-success-bg) !important;
-  border-color: var(--color-success-border) !important;
-  color: var(--color-success-text) !important;
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
 }
 [data-sonner-toast].toast-warning {
-  background: var(--color-warning-bg) !important;
-  border-color: var(--color-warning-border) !important;
-  color: var(--color-warning-text) !important;
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-text);
 }
 
 /* Global number input spinner hiding */

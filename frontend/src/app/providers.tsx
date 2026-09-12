@@ -17,12 +17,8 @@ export function Providers({ children }: ProvidersProps) {
           position="bottom-right"
           richColors
           toastOptions={{
-            style: {
-              background: 'var(--color-bg-elevated)',
-              border: '1px solid var(--color-border-default)',
-              color: 'var(--color-text-primary)',
-            },
             classNames: {
+              toast: 'toast-base',
               error: 'toast-error',
               success: 'toast-success',
               warning: 'toast-warning',
