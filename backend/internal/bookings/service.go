@@ -658,7 +658,8 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		BalanceAmount: confirmBalanceAmount,
 		CancellationLine: notifications.CancellationLine(complex.CancellationHours, s.cfg.GracePeriod,
 			pricing.WithinStandardWindow(booking, complex.CancellationHours)),
-		OwnerID: complex.OwnerID.String(),
+		OwnerID:   complex.OwnerID.String(),
+		BookingID: booking.ID.String(),
 	})
 
 	s.realtime.PublishBookingChanged(complex.ID)

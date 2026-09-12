@@ -214,7 +214,7 @@ An environment variable that cannot be parsed — a number, a duration, a boolea
 cmd/api/           HTTP handlers, routes, middleware, boot and config
 internal/data/     Store interfaces and implementations, tenant scoping
 internal/db/       sqlc-generated code: do not edit manually
-internal/          Cross-cutting services: mailer, notifier, storage, whatsapp, mp, circuitbreaker...
+internal/          Cross-cutting services: mailer, jobs, storage, whatsapp, mp, circuitbreaker...
 db/migrations/     Goose migrations (PostgreSQL)
 db/queries/        SQL consumed by sqlc, one file per entity
 docs/              Reference docs (WhatsApp templates, backup runbook, ADRs in docs/adr/)
@@ -299,7 +299,7 @@ Short, one-page ADRs for decisions that aren't obvious from reading the code: [`
 
 - **Request flow**: `HTTP → middleware chain → httprouter → handler (cmd/api/) → store (internal/data/) → sqlc queries (internal/db/) → PostgreSQL`.
 - **Tenant scoping**: every tenant-scoped table has row-level security (`FORCE`d, so it also applies to the schema owner). Two database roles exist: `vibe_migrator` (owns the schema, runs DDL) and `vibe_app` (`SELECT`/`INSERT`/`UPDATE`/`DELETE` only, no superuser, no RLS bypass). The tenant reaches SQL through the request context (`internal/data/tenant.go`); a route that never sets a tenant scope reads nothing under RLS, by design.
-- **Durable notifications**: emails and WhatsApp messages go through a Redis-backed task queue (`internal/notifier`), not synchronously in the request path. This is why Redis has no fallback for that subsystem even though rate limiting, the token blacklist, and the SSE hub degrade gracefully without it.
+- **Durable notifications**: emails and WhatsApp messages go through the `jobs` table (`internal/jobs`), not synchronously in the request path. Workers claim rows with `SELECT ... FOR UPDATE SKIP LOCKED`, so every instance drains the same queue without contending. Delivery is at-least-once, and every enqueue carries a deduplication key so a redelivered webhook cannot send the same confirmation twice. Redis is still required at boot, but for the subsystems whose fallbacks are per-instance and therefore wrong on more than one instance: the token blacklist, the user cache, distributed rate limiting, slot locking and the SSE relay.
 - **Circuit breakers**: external services (MercadoPago, WhatsApp, mailer) are wrapped with a closed/open/half-open circuit breaker that is a no-op on a nil receiver, so it is safe when a service is not configured.
 
 ## Conventions

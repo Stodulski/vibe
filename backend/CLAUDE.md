@@ -52,7 +52,7 @@ Middleware chain order: `recoverPanic → requestID → securityHeaders → CORS
 - **`internal/db/`** — **sqlc-generated code — do not edit manually.** Edit SQL in `db/queries/*.sql`, then run `make sqlc`.
 - **`db/migrations/`** — Goose migrations (PostgreSQL). `001_init.sql` is the whole schema (the pre-launch chain was squashed into it, and its header says why); every change since is a new numbered file on top of it, and applied files are immutable from here on.
 - **`db/queries/`** — SQL queries consumed by sqlc. One `.sql` file per entity.
-- **`internal/`** subpackages — Cross-cutting services: `circuitbreaker/`, `mailer/` (Brevo API + SMTP fallback), `notifier/` (Redis task queue), `storage/` (Cloudflare R2), `validator/`, `whatsapp/`, `mp/` (MercadoPago).
+- **`internal/`** subpackages — Cross-cutting services: `circuitbreaker/`, `mailer/` (Brevo API + SMTP fallback), `jobs/` (the durable Postgres work queue), `storage/` (Cloudflare R2), `validator/`, `whatsapp/`, `mp/` (MercadoPago).
 
 ### Key patterns
 
@@ -150,5 +150,5 @@ These rules are **mandatory**. Follow them when writing or modifying any code in
 - **Context keys**: Use unexported typed keys (`type contextKey string`). Set in middleware, retrieve in handlers via `contextGet*` methods.
 - **Store implementations**: Wrap sqlc queries in model methods. Map between domain structs and sqlc params/results. Translate PostgreSQL errors to domain errors (e.g., unique constraint `23505` → `ErrDuplicateEmail`).
 - **External service clients**: Constructor takes config + optional circuit breaker. HTTP client with explicit timeout. Methods follow `AllowRequest → Do → RecordSuccess/Failure` pattern.
-- **Async work**: Use `notifier.Enqueue(taskType, payload)` for durable async tasks (emails, WhatsApp). Use `app.background(fn)` for fire-and-forget work (audit logs). Never do I/O synchronously in the request path if it can be async.
+- **Async work**: Use the durable queue (`internal/jobs`, reached through `notifications.Service`) for async tasks that must not be lost — emails, WhatsApp. Every enqueue carries a deduplication key, because the queue is at-least-once and a redelivery would otherwise send the same message twice. Use `app.background(fn)` for fire-and-forget work (audit logs). Never do I/O synchronously in the request path if it can be async.
 - **Security**: Timing-safe password comparison (always run bcrypt, even for non-existent users). PII masking in logs (`maskPhone`). CSRF validation derives token from access_token cookie.

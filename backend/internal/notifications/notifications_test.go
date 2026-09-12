@@ -17,6 +17,7 @@ import (
 type enqueued struct {
 	taskType string
 	payload  any
+	dedupKey string
 }
 
 type stubQueue struct {
@@ -28,8 +29,19 @@ func newStubQueue() *stubQueue {
 	return &stubQueue{handlers: map[string]func(context.Context, json.RawMessage) error{}}
 }
 
-func (q *stubQueue) Enqueue(taskType string, payload any) {
-	q.tasks = append(q.tasks, enqueued{taskType, payload})
+func (q *stubQueue) Enqueue(taskType string, payload any, dedupKey string) {
+	q.tasks = append(q.tasks, enqueued{taskType, payload, dedupKey})
+}
+
+// keyOf returns the dedup key the service asked for a task type, and whether
+// that type was enqueued at all.
+func (q *stubQueue) keyOf(taskType string) (string, bool) {
+	for _, t := range q.tasks {
+		if t.taskType == taskType {
+			return t.dedupKey, true
+		}
+	}
+	return "", false
 }
 
 func (q *stubQueue) RegisterHandler(taskType string, h func(context.Context, json.RawMessage) error) {
@@ -702,5 +714,104 @@ func TestDeliveryFailuresPropagateToTheQueue(t *testing.T) {
 	raw, _ := json.Marshal(PasswordResetEmail{To: "ana@example.com", ResetURL: "https://r"})
 	if err := q.handlers[TaskEmailPasswordReset](t.Context(), raw); err == nil {
 		t.Error("want the failure returned so the queue retries; got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Deduplication (JOB-04)
+// ---------------------------------------------------------------------------
+
+// TestEachDeliveryCarriesADeduplicationKey is the enqueue-side half of JOB-04.
+// The queue is at-least-once, so the only thing standing between a redelivered
+// MercadoPago webhook and a second confirmation email is a key the service
+// asks for here. A task enqueued with an empty key is one that will be sent
+// twice, which is why every one of them is listed.
+func TestEachDeliveryCarriesADeduplicationKey(t *testing.T) {
+	bookingID := uuid.New().String()
+
+	s, q, _, _, _ := newTestService(t, true)
+	confirmation := fullConfirmation()
+	confirmation.BookingID = bookingID
+	s.BookingConfirmed(confirmation)
+
+	cancellation := fullCancellation()
+	cancellation.BookingID = bookingID
+	s.BookingCancelled(cancellation)
+
+	refund := fullRefund()
+	refund.BookingID = bookingID
+	s.DepositRefunded(refund)
+
+	reminder := fullReminder()
+	reminder.BookingID = bookingID
+	s.ReminderDue(reminder)
+
+	s.EmailVerification(VerificationEmail{To: "ana@example.com", VerifyURL: "https://vibe.test/v/tok"})
+	s.PasswordReset(PasswordResetEmail{To: "ana@example.com", ResetURL: "https://vibe.test/r/tok"})
+	s.DuplicateRegistration(DuplicateRegistrationEmail{To: "ana@example.com", ResetURL: "https://vibe.test/r/tok"})
+
+	for _, taskType := range q.types() {
+		key, ok := q.keyOf(taskType)
+		if !ok {
+			t.Fatalf("%s: enqueued task vanished from the stub", taskType)
+		}
+		if key == "" {
+			t.Errorf("%s was enqueued with no deduplication key, so a redelivery sends it twice", taskType)
+		}
+	}
+}
+
+// TestTheSameDeliveryTwiceAsksForTheSameKey is what makes the key worth
+// having: two runs of the same notification have to agree, or the queue has
+// nothing to match on and both are recorded.
+func TestTheSameDeliveryTwiceAsksForTheSameKey(t *testing.T) {
+	confirmation := fullConfirmation()
+	confirmation.BookingID = uuid.New().String()
+
+	first, second := newStubQueue(), newStubQueue()
+	for _, q := range []*stubQueue{first, second} {
+		s := NewService(q, &stubMailer{}, &stubWhatsApp{},
+			&stubUsers{user: &authstore.User{Email: "owner@example.com"}},
+			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), true)
+		s.BookingConfirmed(confirmation)
+	}
+
+	for _, taskType := range first.types() {
+		a, _ := first.keyOf(taskType)
+		b, _ := second.keyOf(taskType)
+		if a != b {
+			t.Errorf("%s: key %q on the first delivery and %q on the second; a redelivery would be recorded as new work",
+				taskType, a, b)
+		}
+	}
+}
+
+// TestTwoClientsOfOneBookingDoNotShareAKey is the failure the empty-key rule
+// in dedup exists to avoid, stated as a property: the key has to separate
+// recipients, or the second client's confirmation is silently dropped as a
+// duplicate of the first's.
+func TestTwoClientsOfOneBookingDoNotShareAKey(t *testing.T) {
+	bookingID := uuid.New().String()
+
+	keys := make(map[string]string, 2)
+	for _, email := range []string{"ana@example.com", "beto@example.com"} {
+		q := newStubQueue()
+		s := NewService(q, &stubMailer{}, &stubWhatsApp{},
+			&stubUsers{user: &authstore.User{Email: "owner@example.com"}},
+			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), false)
+
+		confirmation := fullConfirmation()
+		confirmation.BookingID, confirmation.Email = bookingID, email
+		s.BookingConfirmed(confirmation)
+
+		key, ok := q.keyOf(TaskEmailBookingConfirmation)
+		if !ok {
+			t.Fatalf("%s: no confirmation was enqueued", email)
+		}
+		keys[email] = key
+	}
+
+	if keys["ana@example.com"] == keys["beto@example.com"] {
+		t.Error("two recipients of one booking got the same deduplication key; one of them never gets their email")
 	}
 }

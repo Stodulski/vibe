@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/stodulski/vibe-server/internal/jobs"
+	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/platform/config"
 	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 	"github.com/stodulski/vibe-server/internal/stores"
@@ -136,7 +138,7 @@ var optionalApplicationFields = map[string]string{
 	"db":        "supplied by main(); the unit harness runs on mock stores and has no pool",
 	"queues":    "derived from db, and deliberately left nil rather than wrapping a nil pool — a queueProbe{pool: nil} stored in the interface would be non-nil and panic on first read",
 	"rdb":       "nil when Redis is not configured; every consumer degrades",
-	"notifier":  "built from rdb, so nil for the same reason",
+	"jobs":      "built from models.Jobs; the unit harness supplies no jobs store, and the queue falls back to memoryQueue",
 	"blacklist": "token revocation is Redis-backed; nil without it",
 	"wa":        "nil unless WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID are both set",
 	"storage":   "nil unless object storage is configured; uploads answer 503",
@@ -227,16 +229,9 @@ func TestNewApplicationWiresTheRedisBackedPath(t *testing.T) {
 	}
 	t.Cleanup(func() { close(app.shutdown) })
 
-	// The three fields that exist only on this branch. With deps.rdb nil the
-	// first is nil and the second falls back to memoryQueue, so asserting them
-	// is what distinguishes "Redis was passed" from "Redis was ignored".
-	if app.notifier == nil {
-		t.Error("app.notifier is nil with Redis configured; the durable queue was not built")
-	}
-	if _, ok := app.queue.(taskQueue); !ok {
-		t.Errorf("app.queue is %T; with Redis configured it must be the notifier-backed queue, "+
-			"not the in-memory fallback", app.queue)
-	}
+	// The field that exists only on this branch. With deps.rdb nil it is nil,
+	// so asserting it is what distinguishes "Redis was passed" from "Redis was
+	// ignored".
 	if app.blacklist == nil {
 		t.Error("app.blacklist is nil with Redis configured; token revocation would be a no-op")
 	}
@@ -244,9 +239,40 @@ func TestNewApplicationWiresTheRedisBackedPath(t *testing.T) {
 	// Optional-field bookkeeping has to agree with reality: everything listed
 	// as "nil without Redis" must actually be non-nil once Redis is supplied,
 	// or the reason written next to it is wrong.
-	for _, name := range []string{"rdb", "notifier", "blacklist"} {
+	for _, name := range []string{"rdb", "blacklist"} {
 		if reflect.ValueOf(app).Elem().FieldByName(name).IsNil() {
 			t.Errorf("application.%s is documented as nil only without Redis, but is nil with it", name)
 		}
 	}
+}
+
+// TestTheDurableQueueIsBuiltFromTheJobsStore pins where the queue now comes
+// from. It used to come from Redis, and the test that covered it asserted the
+// Redis branch; the queue is the jobs table now (JOB-02), so the thing that
+// decides between the durable queue and the recording fallback is the store,
+// and nothing else.
+func TestTheDurableQueueIsBuiltFromTheJobsStore(t *testing.T) {
+	d := validTestDeps(t)
+	if _, ok := d.queueOf(t).(*memoryQueue); !ok {
+		t.Fatalf("with no jobs store the queue is %T; want the recording fallback", d.queueOf(t))
+	}
+
+	d.models.Jobs = &jobs.Store{}
+	queue := d.queueOf(t)
+	if _, ok := queue.(taskQueue); !ok {
+		t.Errorf("with a jobs store the queue is %T; want the durable one", queue)
+	}
+}
+
+// queueOf builds an application from these deps and returns the queue it
+// chose.
+func (d deps) queueOf(t *testing.T) notifications.Queue {
+	t.Helper()
+
+	app, err := newApplication(config.Config{Env: "test"}, d)
+	if err != nil {
+		t.Fatalf("newApplication: %v", err)
+	}
+	t.Cleanup(func() { close(app.shutdown) })
+	return app.queue
 }

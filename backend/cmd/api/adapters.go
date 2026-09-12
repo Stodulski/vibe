@@ -20,8 +20,8 @@ import (
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/middleware"
-	"github.com/stodulski/vibe-server/internal/notifier"
 	platformdb "github.com/stodulski/vibe-server/internal/platform/db"
 	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
 	"github.com/stodulski/vibe-server/internal/realtime"
@@ -118,26 +118,38 @@ func (c userCache) InvalidateUser(ctx context.Context, id uuid.UUID) {
 type recordedNotification struct {
 	taskType string
 	payload  any
+	dedupKey string
 }
 
-// memoryQueue is the notifications.Queue newApplication builds when no Redis
-// client is available: it records what was enqueued instead of publishing it.
+// memoryQueue is the notifications.Queue newApplication builds when no jobs
+// store is available: it records what was enqueued instead of publishing it.
 //
-// notifier.Enqueue is not nil-safe on a nil *platformredis.Client, so a notifier
-// wrapped around one is not a usable fallback — this is a real, separate
-// implementation, not notifier pointed at nothing. It is what a unit test
-// needs to assert a handler actually published a notification, and what
-// production would never construct: main() refuses to boot without Redis
-// before newApplication is ever called.
+// It is a real, separate implementation rather than the durable queue pointed
+// at nothing, because the durable one needs a database and a queue that
+// accepted work into a nil store would drop it silently. It is what a unit
+// test needs to assert a handler actually published a notification, and what
+// production never constructs: stores.New always builds a jobs store, over
+// the pool the process cannot start without.
+//
+// It deduplicates like the real queue does, so a test that asserts one
+// enqueue for two deliveries is testing the same rule production runs.
 type memoryQueue struct {
 	mu    sync.Mutex
 	tasks []recordedNotification
 }
 
-func (q *memoryQueue) Enqueue(taskType string, payload any) {
+func (q *memoryQueue) Enqueue(taskType string, payload any, dedupKey string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.tasks = append(q.tasks, recordedNotification{taskType: taskType, payload: payload})
+
+	if dedupKey != "" {
+		for _, task := range q.tasks {
+			if task.dedupKey == dedupKey {
+				return
+			}
+		}
+	}
+	q.tasks = append(q.tasks, recordedNotification{taskType: taskType, payload: payload, dedupKey: dedupKey})
 }
 
 // RegisterHandler is the worker side, which a memoryQueue never runs.
@@ -170,22 +182,47 @@ func (q *memoryQueue) taskTypes() []string {
 	return out
 }
 
-// taskQueue adapts the Redis-backed notifier to notifications.Queue.
+// taskQueue adapts the durable job queue to notifications.Queue.
 //
-// The adapter exists for one reason: notifier.RegisterHandler takes a named
-// notifier.Handler type, and Go requires an exact signature match to satisfy an
+// It joins the two halves — the pool that consumes and the enqueuer that
+// publishes — because notifications.Service holds one interface for both, and
+// it converts the handler type: jobs.RegisterHandler takes a named
+// jobs.Handler, and Go requires an exact signature match to satisfy an
 // interface. Declaring notifications.Queue in terms of a plain func keeps that
 // package from importing the queue implementation, and the conversion lands
 // here instead.
-type taskQueue struct{ n *notifier.Notifier }
+type taskQueue struct {
+	pool     *jobs.Pool
+	enqueuer *jobs.Enqueuer
+}
 
-func (q taskQueue) Enqueue(taskType string, payload any) {
-	q.n.Enqueue(taskType, payload)
+func (q taskQueue) Enqueue(taskType string, payload any, dedupKey string) {
+	q.enqueuer.Enqueue(taskType, payload, dedupKey)
 }
 
 func (q taskQueue) RegisterHandler(taskType string, h func(ctx context.Context, payload json.RawMessage) error) {
-	q.n.RegisterHandler(taskType, notifier.Handler(h))
+	q.pool.RegisterHandler(taskType, jobs.Handler(h))
 }
+
+// queueMetrics returns the expvar map the queue counts into, creating it the
+// first time and reusing it afterwards.
+//
+// expvar.NewMap panics on a name already published, and newApplication is
+// deliberately safe to call more than once in a process — the unit suite does,
+// once per test. Publish-or-get is the only way to have both, and it is why
+// the map is created here in the composition root rather than by the package
+// that counts into it (CON-07).
+func queueMetrics() *expvar.Map {
+	if published, ok := expvar.Get(queueMetricsName).(*expvar.Map); ok {
+		return published
+	}
+	return expvar.NewMap(queueMetricsName)
+}
+
+// queueMetricsName is the name /debug/vars publishes the queue's counters
+// under. It is unchanged from when the queue was Redis-backed, because an
+// operator's dashboard reads it.
+const queueMetricsName = "notifier"
 
 // ---------------------------------------------------------------------------
 // Observability adapters

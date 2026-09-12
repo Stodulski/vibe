@@ -17,12 +17,12 @@ import (
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/leads"
 	"github.com/stodulski/vibe-server/internal/mailer"
 	"github.com/stodulski/vibe-server/internal/middleware"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
-	"github.com/stodulski/vibe-server/internal/notifier"
 	"github.com/stodulski/vibe-server/internal/openapi"
 	"github.com/stodulski/vibe-server/internal/payments"
 	"github.com/stodulski/vibe-server/internal/places"
@@ -268,19 +268,36 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		CB:       googleCB,
 	})
 
-	// notifier.Enqueue is not nil-safe, so a nil rdb builds the recording
-	// memoryQueue instead of a notifier.Notifier pointed at nothing. nf stays
-	// nil in that case: app.notifier is only ever started by main(), which
-	// never runs without Redis (see the boot guard in main.go), so a nil
-	// *notifier.Notifier here is never asked to Start.
-	var nf *notifier.Notifier
+	// The queue is the jobs table, so it is built from the store rather than
+	// from the Redis client. A nil Jobs store is the unit suite, which builds
+	// stores.Stores by hand with no database behind it: it gets the recording
+	// memoryQueue instead. stores.New always builds a real one, so a
+	// deployment cannot reach that branch.
+	//
+	// The expvar map is created here and injected (CON-07). It used to be a
+	// package-level expvar.NewMap inside the queue, which registers into the
+	// process's global namespace as an import side effect — so a second queue
+	// in one process panicked on the duplicate name, and a test binary that
+	// merely imported the package published counters. The name is unchanged:
+	// /debug/vars still reads "notifier".
+	var pool *jobs.Pool
 	var queue notifications.Queue
-	if d.rdb != nil {
-		nf = notifier.New(d.rdb, d.logger, notifier.Config{
-			Workers:     4,
-			TaskTimeout: 10 * time.Second,
+	if d.models.Jobs != nil {
+		metrics := queueMetrics()
+		pool = jobs.NewPool(d.models.Jobs, jobs.Config{
+			Workers:    4,
+			JobTimeout: 10 * time.Second,
+			Metrics:    metrics,
+			Logger:     d.logger,
 		})
-		queue = taskQueue{n: nf}
+		queue = taskQueue{
+			pool: pool,
+			enqueuer: &jobs.Enqueuer{
+				Store:   d.models.Jobs,
+				Logger:  d.logger,
+				Metrics: metrics,
+			},
+		}
 	} else {
 		queue = &memoryQueue{}
 	}
@@ -574,7 +591,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.mpOAuth = mpOAuthClient
 	app.wa = waClient
 	app.mailer = mailerClient
-	app.notifier = nf
+	app.jobs = pool
 	app.queue = queue
 	app.blacklist = blacklist
 	app.events = events

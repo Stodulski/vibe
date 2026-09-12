@@ -24,12 +24,12 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/leads"
 	"github.com/stodulski/vibe-server/internal/mailer"
 	"github.com/stodulski/vibe-server/internal/middleware"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
-	"github.com/stodulski/vibe-server/internal/notifier"
 	"github.com/stodulski/vibe-server/internal/openapi"
 	"github.com/stodulski/vibe-server/internal/payments"
 	"github.com/stodulski/vibe-server/internal/places"
@@ -97,14 +97,15 @@ type application struct {
 	mp              *mp.MPClient
 	// mpOAuth is the same provider on its own circuit breaker, used only by the
 	// bulk token-refresh cron. See newApplication for why it is separate.
-	mpOAuth  *mp.MPClient
-	wa       *whatsapp.WAClient
-	mailer   *mailer.Mailer
-	notifier *notifier.Notifier
-	// queue is what app.notify publishes to: notifier (wrapped by taskQueue)
-	// when Redis is configured, a recording memoryQueue otherwise. It is a
-	// field, distinct from notifier, so a test can read back what was
-	// enqueued regardless of which implementation newApplication chose.
+	mpOAuth *mp.MPClient
+	wa      *whatsapp.WAClient
+	mailer  *mailer.Mailer
+	jobs    *jobs.Pool
+	// queue is what app.notify publishes to: the jobs table (wrapped by
+	// taskQueue) when a store is configured, a recording memoryQueue
+	// otherwise. It is a field, distinct from jobs, so a test can read back
+	// what was enqueued regardless of which implementation newApplication
+	// chose.
 	queue           notifications.Queue
 	blacklist       *auth.TokenBlacklist
 	tokens          *auth.TokenService
@@ -335,22 +336,25 @@ func main() {
 		return time.Now().Unix()
 	}))
 
-	// Rate limiting, the token blacklist and the SSE hub all have in-memory
-	// fallbacks, so Redis used to be optional for the whole process. The
-	// notification queue has no fallback: without Redis every task enqueued is
-	// discarded. An instance in that state answers requests normally and passes
-	// its health check while delivering zero email — and because sign-in
-	// requires a verified address, no account it accepts can ever be used.
+	// The notification queue no longer needs Redis — it is the jobs table
+	// (JOB-02) — but Redis is still required, and for a reason worth writing
+	// down rather than inheriting.
 	//
-	// That is not a degraded deployment, it is a broken one that looks healthy,
-	// so it refuses to start instead. The alternative — booting and counting the
-	// drops — makes the failure visible to whoever reads the metric, which is
-	// nobody on the deploy that introduced it.
+	// Rate limiting, the token blacklist, the user cache, the SSE hub and slot
+	// locking all have in-memory fallbacks, and every one of those fallbacks
+	// is per-instance. On a single instance they are correct; on the two this
+	// deployment runs during a rolling deploy they are silently wrong — a
+	// session revoked on one instance stays live on the other, a rate limit is
+	// enforced n times over, a dashboard misses the events published
+	// elsewhere. None of that fails a health check.
+	//
+	// So the process refuses to start without Redis rather than booting into a
+	// state that looks healthy and is not.
 	rdb, err := platformredis.Open(context.Background(), platformredis.Config{URL: cfg.Redis.URL})
 	if err != nil {
-		logger.Error("redis is required: the notification queue is Redis-backed and has no fallback, "+
-			"so this instance would accept registrations and bookings while dropping every "+
-			"verification email, password reset and confirmation. Set REDIS_URL to a reachable instance.",
+		logger.Error("redis is required: the token blacklist, the user cache, distributed rate limiting, "+
+			"slot locking and the SSE relay all fall back to per-instance state without it, which is "+
+			"silently wrong the moment a second instance is running. Set REDIS_URL to a reachable instance.",
 			"error", err)
 		sentry.Flush(2 * time.Second)
 		//nolint:gocritic // exitAfterDefer: the deferred sentry.Flush is replicated on the line above.
@@ -395,7 +399,7 @@ func main() {
 	// goroutine it launched itself would not be.
 	app.events.Start()
 	app.notify.RegisterWorkers()
-	app.notifier.Start()
+	app.jobs.Start()
 
 	logger.Info("email configured", "mode", app.mailer.Mode(), "sender", cfg.Brevo.Sender)
 

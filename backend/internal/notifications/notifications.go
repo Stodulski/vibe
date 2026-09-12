@@ -8,12 +8,20 @@ import (
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
 // Queue is the durable task queue this package publishes to and consumes from.
+//
+// dedupKey is what makes one delivery idempotent. The queue is at-least-once:
+// a redelivered provider webhook, or a claim whose acknowledgement was lost,
+// runs the same task again, and for this package "again" means a second
+// confirmation email and a second WhatsApp message for one booking (JOB-04).
+// An enqueue carrying a key already in the queue does nothing. An empty key
+// means this delivery is not deduplicated.
 type Queue interface {
-	Enqueue(taskType string, payload any)
+	Enqueue(taskType string, payload any, dedupKey string)
 	RegisterHandler(taskType string, h func(ctx context.Context, payload json.RawMessage) error)
 }
 
@@ -93,7 +101,7 @@ func (s *Service) BookingConfirmed(c BookingConfirmation) {
 			Address: c.Address, MapsURL: c.MapsURL,
 			CancelURL:     c.CancelURL,
 			DepositAmount: c.DepositAmount, BalanceAmount: c.BalanceAmount, CancellationLine: c.CancellationLine,
-		})
+		}, dedup(TaskEmailBookingConfirmation, c.Email, c.BookingID))
 	}
 
 	if s.wantsWhatsApp(c.Phone) {
@@ -118,7 +126,7 @@ func (s *Service) BookingConfirmed(c BookingConfirmation) {
 				Date: c.Date, StartTime: c.StartTime,
 				DepositAmount: c.DepositAmount, BalanceAmount: c.BalanceAmount, CancellationLine: c.CancellationLine,
 				CancelPath: c.CancelPath, MapsQuery: c.MapsQuery,
-			})
+			}, dedup(TaskWABookingConfirmation, c.Phone, c.BookingID))
 		}
 	}
 
@@ -129,14 +137,14 @@ func (s *Service) BookingConfirmed(c BookingConfirmation) {
 		s.queue.Enqueue(TaskEmailOwnerNewBooking, ownerNewBooking{
 			OwnerID: c.OwnerID, ComplexName: c.ComplexName, CourtName: c.CourtName,
 			ClientName: c.ClientName, Date: c.Date, StartTime: c.StartTime,
-		})
+		}, dedup(TaskEmailOwnerNewBooking, c.OwnerID, c.BookingID))
 	}
 }
 
 // ReminderDue notifies the client that their booking starts in two hours.
 func (s *Service) ReminderDue(rem Reminder) {
 	if rem.Email != "" {
-		s.queue.Enqueue(TaskEmailReminder2h, rem)
+		s.queue.Enqueue(TaskEmailReminder2h, rem, dedup(TaskEmailReminder2h, rem.Email, rem.BookingID))
 	}
 	if s.wantsWhatsApp(rem.Phone) {
 		// Same unbound-button rule as the confirmation. The cancel path is the
@@ -154,7 +162,7 @@ func (s *Service) ReminderDue(rem Reminder) {
 				Date: rem.Date, StartTime: rem.StartTime,
 				Address: rem.Address, BalanceAmount: rem.BalanceAmount,
 				MapsQuery: rem.MapsQuery, CancelPath: rem.CancelPath,
-			})
+			}, dedup(TaskWAReminder2h, rem.Phone, rem.BookingID))
 		}
 	}
 }
@@ -167,7 +175,7 @@ func (s *Service) BookingCancelled(c Cancellation) {
 			Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
 			Date: c.Date, StartTime: c.StartTime,
 			RefundLine: c.RefundLine, RefundAmount: c.RefundAmount, BookURL: c.BookURL,
-		})
+		}, dedup(TaskEmailBookingCancelled, c.Email, c.BookingID))
 	}
 	if s.wantsWhatsApp(c.Phone) {
 		if c.BookPath == "" {
@@ -177,7 +185,7 @@ func (s *Service) BookingCancelled(c Cancellation) {
 				Phone: c.Phone, ComplexName: c.ComplexName, CourtName: c.CourtName,
 				Date: c.Date, StartTime: c.StartTime,
 				RefundLine: c.RefundLine, BookPath: c.BookPath,
-			})
+			}, dedup(TaskWABookingCancelled, c.Phone, c.BookingID))
 		}
 	}
 }
@@ -188,7 +196,7 @@ func (s *Service) DepositRefunded(ref Refund) {
 		s.queue.Enqueue(TaskEmailDepositRefunded, depositRefundedEmail{
 			Email: ref.Email, ComplexName: ref.ComplexName,
 			Amount: ref.Amount, BookURL: ref.BookURL,
-		})
+		}, dedup(TaskEmailDepositRefunded, ref.Email, ref.BookingID))
 	}
 	if s.wantsWhatsApp(ref.Phone) {
 		if ref.BookPath == "" {
@@ -197,19 +205,19 @@ func (s *Service) DepositRefunded(ref Refund) {
 			s.queue.Enqueue(TaskWADepositRefunded, waDepositRefunded{
 				Phone: ref.Phone, ComplexName: ref.ComplexName,
 				Amount: ref.Amount, BookPath: ref.BookPath,
-			})
+			}, dedup(TaskWADepositRefunded, ref.Phone, ref.BookingID))
 		}
 	}
 }
 
 // EmailVerification asks a new account to confirm its address.
 func (s *Service) EmailVerification(e VerificationEmail) {
-	s.queue.Enqueue(TaskEmailVerification, e)
+	s.queue.Enqueue(TaskEmailVerification, e, dedup(TaskEmailVerification, e.To, e.VerifyURL))
 }
 
 // PasswordReset sends the reset link.
 func (s *Service) PasswordReset(e PasswordResetEmail) {
-	s.queue.Enqueue(TaskEmailPasswordReset, e)
+	s.queue.Enqueue(TaskEmailPasswordReset, e, dedup(TaskEmailPasswordReset, e.To, e.ResetURL))
 }
 
 // DuplicateRegistration tells someone who tried to register again that they
@@ -218,5 +226,21 @@ func (s *Service) PasswordReset(e PasswordResetEmail) {
 // It exists so registration can answer identically whether or not the address
 // is taken: telling the caller would make the endpoint an account oracle.
 func (s *Service) DuplicateRegistration(e DuplicateRegistrationEmail) {
-	s.queue.Enqueue(TaskEmailDuplicateRegistration, e)
+	s.queue.Enqueue(TaskEmailDuplicateRegistration, e, dedup(TaskEmailDuplicateRegistration, e.To, e.ResetURL))
+}
+
+// dedup builds the key that makes one delivery idempotent: the task type, the
+// address it is going to, and the thing it is about — a booking, or the
+// one-use token in the link the mail carries.
+//
+// An empty result means this delivery is not deduplicated, and that is the
+// honest answer when either part is missing: a key built from a blank subject
+// would be the same key for every recipient of that task type, which is not a
+// weaker guarantee but a wrong one — the second client's confirmation would be
+// silently dropped as a duplicate of the first's.
+func dedup(taskType, recipient, subject string) string {
+	if recipient == "" || subject == "" {
+		return ""
+	}
+	return jobs.DedupKey(taskType, recipient, subject)
 }

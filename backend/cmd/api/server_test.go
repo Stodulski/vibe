@@ -219,7 +219,7 @@ func TestShutdownDrainsEvenWhenTheServerTimesOut(t *testing.T) {
 	if !taskFinished.Load() {
 		t.Error("gracefulShutdown returned without waiting for a tracked background task")
 	}
-	if !f.logged("draining notification queue") {
-		t.Errorf("the notification queue was never drained on the timeout path; log was:\n%s", f.logs.String())
+	if !f.logged("draining the job queue") {
+		t.Errorf("the job queue was never drained on the timeout path; log was:\n%s", f.logs.String())
 	}
 }
