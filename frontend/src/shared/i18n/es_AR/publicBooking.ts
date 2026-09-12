@@ -80,6 +80,10 @@ export const publicBooking = {
   makeAnother: 'Nueva reserva',
   schedule: 'Horario',
   address: 'Dirección',
+  // Shown instead of the map widget when it fails to load (a bad tile
+  // server, a bundling issue) — the rest of the club's page still works, so
+  // this replaces only the map, not the whole page.
+  mapUnavailable: 'No pudimos cargar el mapa',
   complexNotFound: 'Complejo no encontrado',
   complexNotFoundDescription: 'No existe o fue eliminado.',
   // Shown instead of complexNotFoundDescription when the URL carries a slug
