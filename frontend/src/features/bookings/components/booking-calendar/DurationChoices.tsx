@@ -42,7 +42,7 @@ export function DurationChoices({
           onBlur={() => {
             onPreview(null);
           }}
-          className="score-text w-full rounded-md border border-border-subtle px-3 py-2 text-center text-xs font-semibold text-text-primary transition-colors hover:border-primary-400 hover:text-primary-300 focus-visible:outline-none focus-visible:border-primary-400 focus-visible:text-primary-300"
+          className="score-text border-border-subtle text-text-primary hover:border-primary-400 hover:text-primary-300 focus-visible:border-primary-400 focus-visible:text-primary-300 w-full rounded-md border px-3 py-2 text-center text-xs font-semibold transition-colors focus-visible:outline-none"
         >
           {duration} {t.bookings.minutesShort}
         </button>

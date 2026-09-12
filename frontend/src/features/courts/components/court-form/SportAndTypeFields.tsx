@@ -40,7 +40,7 @@ export function SportAndTypeFields({ control, errors }: SportAndTypeFieldsProps)
             </Select>
           )}
         />
-        {errors.sport && <p className="text-sm text-error-text">{errors.sport.message}</p>}
+        {errors.sport && <p className="text-error-text text-sm">{errors.sport.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -63,7 +63,7 @@ export function SportAndTypeFields({ control, errors }: SportAndTypeFieldsProps)
             </Select>
           )}
         />
-        {errors.court_type && <p className="text-sm text-error-text">{errors.court_type.message}</p>}
+        {errors.court_type && <p className="text-error-text text-sm">{errors.court_type.message}</p>}
       </div>
     </div>
   );

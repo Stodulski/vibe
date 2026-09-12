@@ -21,7 +21,7 @@ export function GridHeaderRow({ columns, stuck }: { columns: TimelineColumnData[
         >
           <span
             className={cn(
-              'truncate rounded-full px-3 py-0.5 text-sm font-medium text-text-primary transition-colors',
+              'text-text-primary truncate rounded-full px-3 py-0.5 text-sm font-medium transition-colors',
               stuck && 'bg-bg-elevated',
             )}
           >

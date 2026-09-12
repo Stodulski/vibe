@@ -126,11 +126,11 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
         // Dimmed white rather than a grey token: the greys are calibrated
         // against the near-black page, and on a mid-tone fill they drop to
         // ~2:1. This holds 5.1:1 and still reads as the secondary line.
-        <span className="score-text text-[0.6875rem] text-text-primary/80">
+        <span className="score-text text-text-primary/80 text-[0.6875rem]">
           {formatHourRange(booking.starts_at, booking.ends_at)}
         </span>
       )}
-      <p className="truncate text-xs font-medium text-text-primary">{booking.client_name}</p>
+      <p className="text-text-primary truncate text-xs font-medium">{booking.client_name}</p>
     </div>
   );
 }

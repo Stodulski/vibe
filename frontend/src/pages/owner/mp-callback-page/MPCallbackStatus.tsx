@@ -17,23 +17,23 @@ export function MPCallbackStatus({
       {status === 'processing' && (
         <>
           <LoadingSpinner size="lg" />
-          <p className="text-sm text-text-secondary">{t.mp.connecting}</p>
+          <p className="text-text-secondary text-sm">{t.mp.connecting}</p>
         </>
       )}
       {status === 'success' && (
         <>
           <CheckCircle2 className="mx-auto size-10 text-green-400" />
-          <p className="text-sm font-medium text-text-primary">{t.mp.connectSuccess}</p>
+          <p className="text-text-primary text-sm font-medium">{t.mp.connectSuccess}</p>
         </>
       )}
       {status === 'error' && (
         <>
-          <XCircle className="mx-auto size-10 text-error-text" />
-          <p className="text-sm font-medium text-text-primary">{t.mp.connectError}</p>
+          <XCircle className="text-error-text mx-auto size-10" />
+          <p className="text-text-primary text-sm font-medium">{t.mp.connectError}</p>
           <Link
             to={returnPath}
             replace
-            className="text-sm font-medium text-primary-400 underline-offset-4 transition-colors hover:text-primary-300 hover:underline"
+            className="text-primary-400 hover:text-primary-300 text-sm font-medium underline-offset-4 transition-colors hover:underline"
           >
             {t.common.back}
           </Link>

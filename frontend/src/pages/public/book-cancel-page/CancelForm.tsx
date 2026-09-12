@@ -76,10 +76,10 @@ export function CancelForm({
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-8 px-4 py-10">
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="flex size-16 items-center justify-center rounded-full bg-warning-bg ring-4 ring-warning-border/20">
-          <AlertTriangle className="size-8 text-warning-text" />
+        <div className="bg-warning-bg ring-warning-border/20 flex size-16 items-center justify-center rounded-full ring-4">
+          <AlertTriangle className="text-warning-text size-8" />
         </div>
-        <h2 className="text-xl font-bold text-text-primary sm:text-2xl">{t.publicBooking.cancelBookingQuestion}</h2>
+        <h2 className="text-text-primary text-xl font-bold sm:text-2xl">{t.publicBooking.cancelBookingQuestion}</h2>
       </div>
 
       <BookingInfoCard cancelInfo={cancelInfo} money={money} />
@@ -91,11 +91,11 @@ export function CancelForm({
       <div className="space-y-3">
         <Button
           onClick={onOpenConfirm}
-          className="min-h-12 w-full rounded-xl bg-destructive text-white hover:bg-destructive/90"
+          className="bg-destructive hover:bg-destructive/90 min-h-12 w-full rounded-xl text-white"
         >
           {canRefund ? t.publicBooking.cancelBookingConfirm : t.publicBooking.cancelNoRefund}
         </Button>
-        <Button variant="ghost" className="min-h-12 w-full text-text-secondary hover:bg-transparent" onClick={onBack}>
+        <Button variant="ghost" className="text-text-secondary min-h-12 w-full hover:bg-transparent" onClick={onBack}>
           {t.common.back}
         </Button>
       </div>

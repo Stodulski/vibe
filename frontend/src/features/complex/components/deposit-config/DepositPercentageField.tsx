@@ -32,7 +32,7 @@ export function DepositPercentageField({
       error={error?.message}
     >
       <div className="relative w-28">
-        <Percent className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-tertiary" />
+        <Percent className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
         <Input
           id="deposit_percentage"
           type="number"

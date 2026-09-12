@@ -38,7 +38,7 @@ export function ComplexesTableResults({
 
       {hasNextPage && (
         <div ref={sentinelRef} className="flex justify-center py-4">
-          {isFetchingNextPage && <Loader2 className="size-5 animate-spin text-text-tertiary" />}
+          {isFetchingNextPage && <Loader2 className="text-text-tertiary size-5 animate-spin" />}
         </div>
       )}
     </>

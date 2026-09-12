@@ -21,7 +21,7 @@ export function GridHourGutter() {
         // the gutter's right, and that lane is gone with the arrows.
         <div
           key={h}
-          className="score-text absolute left-0 -translate-y-1/2 text-[0.6875rem] text-text-tertiary"
+          className="score-text text-text-tertiary absolute left-0 -translate-y-1/2 text-[0.6875rem]"
           style={{ top: `${String(h * HOUR_HEIGHT_PX)}px` }}
         >
           {String(h).padStart(2, '0')}:00

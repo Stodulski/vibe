@@ -60,12 +60,12 @@ export function WeekScheduleList({ schedules, selectedDate }: WeekScheduleListPr
     <dl className="grid grid-cols-2 gap-x-6 gap-y-3 lg:flex lg:justify-between lg:gap-0">
       {rows.map((row, index) => (
         <Fragment key={row.day}>
-          {index > 0 && <div aria-hidden="true" className="hidden w-px self-stretch bg-border-subtle lg:block" />}
+          {index > 0 && <div aria-hidden="true" className="bg-border-subtle hidden w-px self-stretch lg:block" />}
           <div>
             <dt
               className={cn(
-                'text-micro uppercase tracking-wide lg:text-sm lg:normal-case lg:tracking-normal',
-                row.isToday ? 'font-semibold text-primary-400' : 'text-text-tertiary',
+                'text-micro tracking-wide uppercase lg:text-sm lg:tracking-normal lg:normal-case',
+                row.isToday ? 'text-primary-400 font-semibold' : 'text-text-tertiary',
               )}
             >
               {row.label}
@@ -74,8 +74,8 @@ export function WeekScheduleList({ schedules, selectedDate }: WeekScheduleListPr
               className={cn(
                 // A time range is one token: "08:00 -" over "23:00" reads as
                 // two different facts.
-                'whitespace-nowrap text-micro tabular-nums sm:text-xs xl:text-sm',
-                row.isToday ? 'font-semibold text-text-primary' : 'text-text-secondary',
+                'text-micro whitespace-nowrap tabular-nums sm:text-xs xl:text-sm',
+                row.isToday ? 'text-text-primary font-semibold' : 'text-text-secondary',
               )}
             >
               {row.hours}

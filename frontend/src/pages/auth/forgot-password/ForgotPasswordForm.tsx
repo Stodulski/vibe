@@ -69,10 +69,10 @@ export function ForgotPasswordForm({
         )}
       </Button>
 
-      <p className="!mt-4 text-center text-sm text-text-tertiary">
+      <p className="text-text-tertiary !mt-4 text-center text-sm">
         <Link
           to="/login"
-          className="font-medium text-primary-400 underline-offset-4 transition-colors hover:text-primary-300 hover:underline"
+          className="text-primary-400 hover:text-primary-300 font-medium underline-offset-4 transition-colors hover:underline"
         >
           {t.auth.goToLogin}
         </Link>

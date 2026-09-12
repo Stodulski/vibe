@@ -29,13 +29,13 @@ export function LoginPasswordField({ register, errors, showPassword, onToggleSho
         autoComplete="current-password"
         aria-invalid={!!errors.password}
         aria-describedby={errors.password ? 'password-error' : undefined}
-        className="h-11 pl-9 pr-10 text-sm sm:h-10"
+        className="h-11 pr-10 pl-9 text-sm sm:h-10"
         {...register('password')}
       />
       <button
         type="button"
         onClick={onToggleShowPassword}
-        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-text-tertiary transition-colors hover:text-text-secondary"
+        className="text-text-tertiary hover:text-text-secondary absolute top-1/2 right-1.5 -translate-y-1/2 rounded-lg p-2 transition-colors"
         aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
       >
         {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}

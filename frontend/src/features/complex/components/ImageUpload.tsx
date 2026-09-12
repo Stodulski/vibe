@@ -25,7 +25,7 @@ const ACCEPTED = 'image/jpeg,image/png,image/webp';
  */
 export function ImageUpload({ complex }: { complex: Complex }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border-subtle bg-bg-elevated">
+    <div className="border-border-subtle bg-bg-elevated overflow-hidden rounded-xl border">
       <div className="relative">
         <Slot
           complexId={complex.id}
@@ -35,7 +35,7 @@ export function ImageUpload({ complex }: { complex: Complex }) {
           className="aspect-[16/9] w-full"
           rounded={false}
           empty={
-            <div className="flex flex-col items-center gap-1.5 text-text-tertiary">
+            <div className="text-text-tertiary flex flex-col items-center gap-1.5">
               <ImageIcon className="size-7" />
               <span className="text-xs">{t.complex.noCover}</span>
             </div>
@@ -47,13 +47,13 @@ export function ImageUpload({ complex }: { complex: Complex }) {
           type="logo"
           url={complex.logo_url}
           label={t.complex.logoLabel}
-          className="absolute -bottom-10 left-5 size-24 border-2 border-bg-elevated rounded-2xl"
+          className="border-bg-elevated absolute -bottom-10 left-5 size-24 rounded-2xl border-2"
           rounded
-          empty={<Camera className="size-8 text-text-tertiary" />}
+          empty={<Camera className="text-text-tertiary size-8" />}
         />
       </div>
 
-      <p className="px-5 pt-14 pb-5 text-micro leading-4 text-text-tertiary">
+      <p className="text-micro text-text-tertiary px-5 pt-14 pb-5 leading-4">
         {t.complex.imageSpecs}
         <br />
         {t.complex.imageFormats}
@@ -100,12 +100,12 @@ function Slot({
         className={cn(
           'focus-self relative flex h-full w-full items-center justify-center overflow-hidden',
           'bg-bg-base transition-[filter] hover:brightness-110',
-          'focus-visible:ring-2 focus-visible:ring-primary-500',
+          'focus-visible:ring-primary-500 focus-visible:ring-2',
           rounded && 'rounded-2xl',
         )}
       >
         {isLoading ? (
-          <div className="size-5 animate-spin rounded-full border-2 border-primary-500/30 border-t-primary-500" />
+          <div className="border-primary-500/30 border-t-primary-500 size-5 animate-spin rounded-full border-2" />
         ) : url ? (
           <img src={url} alt={label} className="h-full w-full object-cover" />
         ) : (
@@ -118,7 +118,7 @@ function Slot({
         )}
       </button>
       {url && (
-        <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover/slot:opacity-100 focus-within:opacity-100">
+        <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover/slot:opacity-100 focus-within:opacity-100">
           <ImageDeleteConfirm
             disabled={isLoading}
             onConfirm={() => {

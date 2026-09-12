@@ -20,7 +20,7 @@ export function ClientDetailHeader({ client, fullName, isBlocked, onBlock }: Cli
       menu={<ClientActionsMenu client={client} onBlock={onBlock} />}
     >
       {isBlocked && (
-        <Tag tone="error" className="mt-0.5 w-fit text-micro font-bold uppercase">
+        <Tag tone="error" className="text-micro mt-0.5 w-fit font-bold uppercase">
           {t.clients.blocked}
         </Tag>
       )}

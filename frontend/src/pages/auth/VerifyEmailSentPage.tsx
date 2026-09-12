@@ -23,22 +23,22 @@ export default function VerifyEmailSentPage() {
   return (
     <AuthSplitLayout>
       <div className="auth-card w-full">
-        <div className="flex flex-col items-center px-0 pb-2 pt-2 text-center md:pt-6">
-          <div className="mb-4 animate-pulse-glow rounded-2xl bg-primary-500/10 p-3 ring-1 ring-primary-500/25">
-            <Mail className="size-7 text-primary-400" />
+        <div className="flex flex-col items-center px-0 pt-2 pb-2 text-center md:pt-6">
+          <div className="animate-pulse-glow bg-primary-500/10 ring-primary-500/25 mb-4 rounded-2xl p-3 ring-1">
+            <Mail className="text-primary-400 size-7" />
           </div>
-          <h1 className="font-display text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
+          <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">
             {t.auth.verifyEmailSent}
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-text-tertiary">{t.auth.verifyEmailSentDesc}</p>
-          {email && <p className="mt-1 text-sm font-medium text-text-secondary">{email}</p>}
+          <p className="text-text-tertiary mt-2 text-sm leading-relaxed">{t.auth.verifyEmailSentDesc}</p>
+          {email && <p className="text-text-secondary mt-1 text-sm font-medium">{email}</p>}
         </div>
 
-        <div className="px-0 pb-6 pt-4">
+        <div className="px-0 pt-4 pb-6">
           {email && <ResendVerificationButton resending={resending} cooldown={cooldown} onResend={handleResend} />}
           <Link
             to="/login"
-            className="block text-center text-sm font-medium text-primary-400 underline-offset-4 transition-colors hover:text-primary-300 hover:underline"
+            className="text-primary-400 hover:text-primary-300 block text-center text-sm font-medium underline-offset-4 transition-colors hover:underline"
           >
             {t.auth.goToLogin}
           </Link>

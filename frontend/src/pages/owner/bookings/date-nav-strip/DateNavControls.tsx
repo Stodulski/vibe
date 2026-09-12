@@ -55,7 +55,7 @@ export function DateNavControls({
         <Button
           variant="ghost"
           size="sm"
-          className="-mx-2 shrink-0 text-xs text-primary-400 hover:text-primary-300"
+          className="text-primary-400 hover:text-primary-300 -mx-2 shrink-0 text-xs"
           onClick={onGoToToday}
         >
           {t.bookings.goToToday}

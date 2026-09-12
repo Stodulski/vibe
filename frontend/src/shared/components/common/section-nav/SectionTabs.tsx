@@ -36,7 +36,7 @@ export function SectionTabs<V extends string>({ items, active, onChange }: Secti
                 'flex h-12 flex-1 items-center justify-center gap-2 border-b-2 px-2 text-sm font-medium transition-colors',
                 isActive
                   ? 'border-primary-500 text-primary-400'
-                  : 'border-transparent text-text-secondary active:scale-[0.97]',
+                  : 'text-text-secondary border-transparent active:scale-[0.97]',
               )}
             >
               <item.icon className="size-4 shrink-0" />

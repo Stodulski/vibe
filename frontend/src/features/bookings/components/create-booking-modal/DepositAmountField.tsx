@@ -39,7 +39,7 @@ export function DepositAmountField({
       error={errors.deposit_amount?.message}
     >
       <div className="relative">
-        <Banknote className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-tertiary" />
+        <Banknote className="text-text-tertiary absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <Input
           id="deposit-amount"
           type="number"

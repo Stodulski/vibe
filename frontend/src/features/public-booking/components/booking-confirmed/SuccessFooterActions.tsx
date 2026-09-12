@@ -32,7 +32,7 @@ export function SuccessFooterActions({ slug, token, status, canCancel }: Success
       {token && status === 'confirmed' && canCancel && (
         <Button
           variant="ghost"
-          className="min-h-12 w-full rounded-xl text-text-secondary sm:w-auto"
+          className="text-text-secondary min-h-12 w-full rounded-xl sm:w-auto"
           onClick={() => {
             window.location.href = `/${slug}/book/cancel?token=${encodeURIComponent(token)}`;
           }}

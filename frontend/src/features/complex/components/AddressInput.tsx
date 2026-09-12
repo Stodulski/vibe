@@ -104,8 +104,8 @@ export function AddressInput({
       />
 
       {loading && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          <div className="size-4 animate-spin rounded-full border-2 border-primary-500/30 border-t-primary-500" />
+        <div className="absolute top-1/2 right-3 -translate-y-1/2">
+          <div className="border-primary-500/30 border-t-primary-500 size-4 animate-spin rounded-full border-2" />
         </div>
       )}
 
@@ -121,7 +121,7 @@ export function AddressInput({
       )}
 
       {error && (
-        <p role="alert" className="mt-1 text-xs text-error-text">
+        <p role="alert" className="text-error-text mt-1 text-xs">
           {error}
         </p>
       )}

@@ -37,8 +37,8 @@ export function BookingCalendar({
 
   if (data.isClosedToday) {
     return (
-      <div className="flex items-center justify-center rounded-2xl border border-border-subtle bg-bg-subtle py-16">
-        <p className="text-sm text-text-tertiary">{t.bookings.closedToday}</p>
+      <div className="border-border-subtle bg-bg-subtle flex items-center justify-center rounded-2xl border py-16">
+        <p className="text-text-tertiary text-sm">{t.bookings.closedToday}</p>
       </div>
     );
   }

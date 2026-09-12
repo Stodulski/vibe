@@ -14,13 +14,13 @@ export function PaymentMethodBreakdown({ methodEntries }: { methodEntries: [stri
 
   return (
     <div className="mt-4 space-y-1.5">
-      <p className="text-sm font-semibold uppercase tracking-wider text-text-tertiary">
+      <p className="text-text-tertiary text-sm font-semibold tracking-wider uppercase">
         {t.dashboard.paymentMethodLabel}
       </p>
       {methodEntries.map(([key, amount]) => (
         <div key={key} className="flex items-center justify-between text-sm">
           <span className="text-text-secondary">{METHOD_CONFIG[key] ?? key}</span>
-          <span className="score-text font-medium text-text-primary">{formatPrice(amount)}</span>
+          <span className="score-text text-text-primary font-medium">{formatPrice(amount)}</span>
         </div>
       ))}
     </div>

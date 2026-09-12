@@ -21,7 +21,7 @@ export function MobileHeatmap({ dataMap }: MobileHeatmapProps) {
         <div role="row" style={{ display: 'contents' }}>
           <div role="columnheader" aria-hidden="true" />
           {HOURS.map((hour) => (
-            <div key={hour} role="columnheader" className="score-text pb-1 text-center text-micro text-text-tertiary">
+            <div key={hour} role="columnheader" className="score-text text-micro text-text-tertiary pb-1 text-center">
               {hour % 2 === 0 ? hour : ''}
             </div>
           ))}
@@ -30,7 +30,7 @@ export function MobileHeatmap({ dataMap }: MobileHeatmapProps) {
         {/* Data rows — one per day */}
         {Array.from({ length: 7 }, (_, dayIdx) => (
           <div role="row" style={{ display: 'contents' }} key={dayIdx}>
-            <div role="rowheader" className="flex items-center text-micro font-medium text-text-tertiary">
+            <div role="rowheader" className="text-micro text-text-tertiary flex items-center font-medium">
               {DAY_LABELS_SINGLE[dayIdx]}
             </div>
             {HOURS.map((hour) => {

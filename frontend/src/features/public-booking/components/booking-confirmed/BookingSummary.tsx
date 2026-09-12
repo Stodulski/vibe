@@ -24,18 +24,18 @@ function courtLines(bookingInfo: BookingInfo): string[] {
 // message the complex sends, so repeating it here is noise.
 function TicketHeader({ bookingInfo }: BookingSummaryProps) {
   return (
-    <div className="divide-y divide-border-subtle">
-      <p className="pb-3 text-sm font-semibold text-text-primary">{bookingInfo.complexName}</p>
+    <div className="divide-border-subtle divide-y">
+      <p className="text-text-primary pb-3 text-sm font-semibold">{bookingInfo.complexName}</p>
       <div className="py-3">
-        <p className="text-sm text-text-secondary first-letter:uppercase">{formatDateFull(bookingInfo.date)}</p>
-        <p className="text-3xl font-bold tabular-nums text-text-primary">
+        <p className="text-text-secondary text-sm first-letter:uppercase">{formatDateFull(bookingInfo.date)}</p>
+        <p className="text-text-primary text-3xl font-bold tabular-nums">
           {formatHourRange(bookingInfo.startsAt, bookingInfo.endsAt, `\u00A0${t.publicBooking.timeRangeTo}\u00A0`)}
         </p>
       </div>
       <div className="space-y-1 pt-3">
-        <p className="text-base font-semibold text-text-primary">{bookingInfo.courtName}</p>
+        <p className="text-text-primary text-base font-semibold">{bookingInfo.courtName}</p>
         {courtLines(bookingInfo).map((line) => (
-          <p key={line} className="text-sm text-text-secondary">
+          <p key={line} className="text-text-secondary text-sm">
             {line}
           </p>
         ))}
@@ -51,14 +51,14 @@ function TicketHeader({ bookingInfo }: BookingSummaryProps) {
 function TicketStub() {
   return (
     <div className="relative my-4 sm:-mx-5">
-      <div className="border-t border-dashed border-border-subtle" />
+      <div className="border-border-subtle border-t border-dashed" />
       <span
         aria-hidden="true"
-        className="absolute left-0 top-1/2 hidden size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-bg-base sm:block"
+        className="bg-bg-base absolute top-1/2 left-0 hidden size-3 -translate-x-1/2 -translate-y-1/2 rounded-full sm:block"
       />
       <span
         aria-hidden="true"
-        className="absolute right-0 top-1/2 hidden size-3 -translate-y-1/2 translate-x-1/2 rounded-full bg-bg-base sm:block"
+        className="bg-bg-base absolute top-1/2 right-0 hidden size-3 translate-x-1/2 -translate-y-1/2 rounded-full sm:block"
       />
     </div>
   );
@@ -73,14 +73,14 @@ function MoneySummary({ bookingInfo }: BookingSummaryProps) {
   const remaining = bookingInfo.remainingAmount ?? bookingInfo.price - bookingInfo.depositAmount;
 
   return (
-    <dl className="divide-y divide-border-subtle border-b border-border-subtle text-sm sm:border-b-0">
+    <dl className="divide-border-subtle border-border-subtle divide-y border-b text-sm sm:border-b-0">
       <div className="flex justify-between gap-2 pb-3">
         <dt className="text-text-secondary">{t.publicBooking.paidLabel}</dt>
-        <dd className="tabular-nums text-text-primary">{formatPrice(paidAmount)}</dd>
+        <dd className="text-text-primary tabular-nums">{formatPrice(paidAmount)}</dd>
       </div>
       <div className="flex justify-between gap-2 py-3">
         <dt className="text-text-secondary">{t.publicBooking.oweAtClubLabel}</dt>
-        <dd className="font-bold tabular-nums text-text-primary">{formatPrice(remaining)}</dd>
+        <dd className="text-text-primary font-bold tabular-nums">{formatPrice(remaining)}</dd>
       </div>
     </dl>
   );
@@ -90,7 +90,7 @@ export function BookingSummary({ bookingInfo }: BookingSummaryProps) {
   return (
     <section
       aria-label="Detalle de la reserva"
-      className="w-full text-left sm:rounded-2xl sm:border sm:border-border-subtle sm:bg-bg-subtle sm:p-5"
+      className="sm:border-border-subtle sm:bg-bg-subtle w-full text-left sm:rounded-2xl sm:border sm:p-5"
     >
       <TicketHeader bookingInfo={bookingInfo} />
       <TicketStub />

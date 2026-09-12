@@ -16,13 +16,13 @@ export default function ResetPasswordPage() {
       <div className="auth-card w-full">
         {status === 'form' ? (
           <>
-            <div className="flex flex-col items-center px-0 pb-1 pt-2 md:pt-6">
-              <h1 className="font-display text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
+            <div className="flex flex-col items-center px-0 pt-2 pb-1 md:pt-6">
+              <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">
                 {t.auth.resetPasswordTitle}
               </h1>
-              <p className="mt-1 text-center text-sm text-text-tertiary">{t.auth.resetPasswordDescription}</p>
+              <p className="text-text-tertiary mt-1 text-center text-sm">{t.auth.resetPasswordDescription}</p>
             </div>
-            <div className="px-0 pb-6 pt-4">
+            <div className="px-0 pt-4 pb-6">
               <ResetPasswordForm loading={loading} onSubmit={onSubmit} />
             </div>
           </>

@@ -25,7 +25,7 @@ export function ImageDeleteConfirm({ disabled, onConfirm }: { disabled: boolean;
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="sm" disabled={disabled}>
-          <Trash2 className="size-3.5 text-error-text" />
+          <Trash2 className="text-error-text size-3.5" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

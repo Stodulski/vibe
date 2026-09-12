@@ -13,7 +13,7 @@ interface PeriodToggleProps {
 export function PeriodToggle({ period, onChange }: PeriodToggleProps) {
   return (
     <div
-      className="flex rounded-lg border border-border-subtle bg-bg-base p-0.5"
+      className="border-border-subtle bg-bg-base flex rounded-lg border p-0.5"
       role="group"
       aria-label={t.dashboard.revenuePeriodLabel}
     >

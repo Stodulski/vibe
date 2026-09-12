@@ -18,18 +18,18 @@ export default function OnboardingPage() {
   // Show a brief loading state while deriving initial step from server data.
   if (step === null) {
     return (
-      <div className="relative flex min-h-[100dvh] items-center justify-center bg-bg-base">
+      <div className="bg-bg-base relative flex min-h-[100dvh] items-center justify-center">
         <MeshBackdrop />
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="size-6 animate-spin text-primary-500" />
-          <span className="text-sm text-text-tertiary">{t.common.loading}</span>
+          <Loader2 className="text-primary-500 size-6 animate-spin" />
+          <span className="text-text-tertiary text-sm">{t.common.loading}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-x-hidden bg-bg-base">
+    <div className="bg-bg-base relative flex min-h-[100dvh] flex-col overflow-x-hidden">
       <MeshBackdrop />
       <OnboardingHeaderNav
         step={step}
@@ -41,12 +41,12 @@ export default function OnboardingPage() {
         }}
       />
 
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-8 pt-6 sm:px-6 sm:pb-12 sm:pt-10">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pt-6 pb-8 sm:px-6 sm:pt-10 sm:pb-12">
         {/* Title only. The line under it — "Configurá tu complejo para
             comenzar" — was the kind of sentence that fills a header without
             telling anyone anything they can do, and the step indicator right
             below already says where they are and how far. */}
-        <h1 className="mb-6 text-center font-display text-2xl font-bold tracking-tight text-text-primary sm:mb-8 sm:text-3xl">
+        <h1 className="font-display text-text-primary mb-6 text-center text-2xl font-bold tracking-tight sm:mb-8 sm:text-3xl">
           {isNewComplex ? t.complex.onboardingTitleNew : t.complex.onboardingTitle}
         </h1>
 

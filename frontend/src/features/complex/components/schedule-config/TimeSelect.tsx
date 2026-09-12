@@ -63,10 +63,10 @@ export function TimeSelect({
         disabled={disabled}
         aria-label={ariaLabel}
         className={cn(
-          'h-10 w-full appearance-none rounded-xl border border-border-interactive bg-bg-base/60',
-          'pl-3.5 pr-8 text-sm tabular-nums text-text-primary shadow-xs outline-none transition-input',
+          'border-border-interactive bg-bg-base/60 h-10 w-full appearance-none rounded-xl border',
+          'text-text-primary transition-input pr-8 pl-3.5 text-sm tabular-nums shadow-xs outline-none',
           'hover:border-border-interactive-hover hover:bg-bg-base/80',
-          'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-[3px] focus-visible:ring-primary-500/15',
+          'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-primary-500/15 focus-visible:ring-[3px]',
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
       >
@@ -78,7 +78,7 @@ export function TimeSelect({
       </select>
       <ChevronDown
         aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-text-tertiary"
+        className="text-text-tertiary pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2"
       />
     </div>
   );

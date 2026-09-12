@@ -23,9 +23,9 @@ export function PriceRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-bg-highlight/40">
+    <div className="hover:bg-bg-highlight/40 flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition-colors">
       <div className="min-w-0">
-        <span className="text-xs font-medium text-text-secondary">
+        <span className="text-text-secondary text-xs font-medium">
           {shortLabel === undefined ? (
             label
           ) : (
@@ -60,7 +60,7 @@ export function PriceField({
   const errorId = useId();
   return (
     <div className="relative w-24 shrink-0">
-      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-text-tertiary">$</span>
+      <span className="text-text-tertiary absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium">$</span>
       <Input
         type="number"
         inputMode="decimal"
@@ -76,7 +76,7 @@ export function PriceField({
         <p
           id={errorId}
           role="alert"
-          className="absolute top-full right-0 mt-0.5 whitespace-nowrap text-[10px] text-error-text"
+          className="text-error-text absolute top-full right-0 mt-0.5 text-[10px] whitespace-nowrap"
         >
           {error}
         </p>

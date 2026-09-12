@@ -54,22 +54,22 @@ export const ClientCard = memo(function ClientCard({
       {/* Padded on the right so the name never runs under the menu. */}
       <div className="flex items-start gap-2 pr-16">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-text-primary">{fullName}</p>
-          <p className="score-text mt-0.5 truncate text-xs text-text-tertiary">{client.phone}</p>
+          <p className="text-text-primary truncate text-sm font-semibold">{fullName}</p>
+          <p className="score-text text-text-tertiary mt-0.5 truncate text-xs">{client.phone}</p>
         </div>
-        {client.is_blocked && <Ban className="mt-0.5 size-4 shrink-0 text-error-text" aria-label={t.clients.blocked} />}
+        {client.is_blocked && <Ban className="text-error-text mt-0.5 size-4 shrink-0" aria-label={t.clients.blocked} />}
       </div>
 
       {/* Two figures, each under its own label. The numbers line up across the
           grid so a column of cards can be read down rather than one at a time. */}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Figure label={t.clients.bookingsLabel}>
-          <span className="score-text text-lg font-bold text-text-primary">{client.total_bookings}</span>
+          <span className="score-text text-text-primary text-lg font-bold">{client.total_bookings}</span>
         </Figure>
         <Figure label={t.clients.attendanceLabel}>
           <div className="flex items-center gap-2">
             <span className={cn('score-text text-sm font-bold', tone.text)}>{pct}%</span>
-            <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-bg-base">
+            <div className="bg-bg-base h-1 min-w-0 flex-1 overflow-hidden rounded-full">
               <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${String(pct)}%` }} />
             </div>
           </div>
@@ -82,7 +82,7 @@ export const ClientCard = memo(function ClientCard({
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-micro font-medium uppercase tracking-wider text-text-tertiary">{label}</p>
+      <p className="text-micro text-text-tertiary font-medium tracking-wider uppercase">{label}</p>
       <div className="mt-1">{children}</div>
     </div>
   );

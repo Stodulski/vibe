@@ -26,7 +26,7 @@ function UserMenuTrigger({ user, collapsed, isMobile, fullName }: UserMenuTrigge
     <DropdownMenuTrigger asChild>
       <button
         className={cn(
-          'flex w-full items-center rounded-lg transition-colors hover:bg-bg-elevated/50',
+          'hover:bg-bg-elevated/50 flex w-full items-center rounded-lg transition-colors',
           collapsed && !isMobile ? 'justify-center p-2' : 'gap-2 px-2 py-2 text-left',
         )}
         aria-label={`${t.layout.userMenuLabel}: ${fullName}`}
@@ -37,11 +37,11 @@ function UserMenuTrigger({ user, collapsed, isMobile, fullName }: UserMenuTrigge
              "⋮" on a rail of subject icons says only "more of something". The
              expanded row keeps the dots, where the email is the subject and
              the dots are genuinely the overflow beside it. */
-          <User className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
+          <User className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
         ) : (
           <>
-            <span className="min-w-0 flex-1 truncate text-nav text-text-secondary">{user?.email}</span>
-            <EllipsisVertical className="size-4 shrink-0 text-text-tertiary" aria-hidden="true" />
+            <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{user?.email}</span>
+            <EllipsisVertical className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
           </>
         )}
       </button>
@@ -92,7 +92,7 @@ export function SidebarUserMenu({ user, collapsed, isMobile, onNavigate }: Sideb
   return (
     <div
       className={cn(
-        'shrink-0 border-t border-border-subtle',
+        'border-border-subtle shrink-0 border-t',
         collapsed && !isMobile ? 'p-2' : 'p-3',
         isMobile && 'pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]',
       )}

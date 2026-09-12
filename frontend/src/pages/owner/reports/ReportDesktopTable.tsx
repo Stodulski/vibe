@@ -7,29 +7,29 @@ const t = ES_AR;
 function ReportTableHead() {
   return (
     <thead>
-      <tr className="border-b border-border-subtle text-left">
-        <th scope="col" className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+      <tr className="border-border-subtle border-b text-left">
+        <th scope="col" className="text-text-tertiary pr-4 pb-3 text-xs font-semibold tracking-wider uppercase">
           {t.reports.method}
         </th>
         <th
           scope="col"
-          className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-wider text-text-tertiary"
+          className="text-text-tertiary pr-4 pb-3 text-right text-xs font-semibold tracking-wider uppercase"
         >
           {t.reports.count}
         </th>
         <th
           scope="col"
-          className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-wider text-text-tertiary"
+          className="text-text-tertiary pr-4 pb-3 text-right text-xs font-semibold tracking-wider uppercase"
         >
           {t.reports.total}
         </th>
         <th
           scope="col"
-          className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-wider text-text-tertiary"
+          className="text-text-tertiary pr-4 pb-3 text-right text-xs font-semibold tracking-wider uppercase"
         >
           {t.reports.refunded}
         </th>
-        <th scope="col" className="pb-3 text-right text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+        <th scope="col" className="text-text-tertiary pb-3 text-right text-xs font-semibold tracking-wider uppercase">
           {t.reports.net}
         </th>
       </tr>
@@ -46,24 +46,24 @@ function ReportTableBody({ methodEntries, totals }: ReportTableBodyProps) {
   return (
     <tbody>
       {methodEntries.map(([method, data]) => (
-        <tr key={method} className="border-b border-border-subtle/50">
-          <td className="py-3 pr-4 text-text-primary">{METHOD_LABELS[method] ?? method}</td>
-          <td className="py-3 pr-4 text-right text-text-secondary tabular-nums">{data.count}</td>
-          <td className="py-3 pr-4 text-right text-text-secondary tabular-nums">{formatPrice(data.total)}</td>
-          <td className="py-3 pr-4 text-right text-text-secondary tabular-nums">{formatPrice(data.refunded)}</td>
-          <td className="py-3 text-right text-text-primary tabular-nums font-medium">{formatPrice(data.net)}</td>
+        <tr key={method} className="border-border-subtle/50 border-b">
+          <td className="text-text-primary py-3 pr-4">{METHOD_LABELS[method] ?? method}</td>
+          <td className="text-text-secondary py-3 pr-4 text-right tabular-nums">{data.count}</td>
+          <td className="text-text-secondary py-3 pr-4 text-right tabular-nums">{formatPrice(data.total)}</td>
+          <td className="text-text-secondary py-3 pr-4 text-right tabular-nums">{formatPrice(data.refunded)}</td>
+          <td className="text-text-primary py-3 text-right font-medium tabular-nums">{formatPrice(data.net)}</td>
         </tr>
       ))}
 
       {/* Totals row */}
-      <tr className="border-t border-border-subtle">
-        <td className="pt-3 pr-4 text-sm font-bold text-text-primary">{t.reports.total}</td>
-        <td className="pt-3 pr-4 text-right font-bold text-text-primary tabular-nums">{totals.count}</td>
-        <td className="pt-3 pr-4 text-right font-bold text-text-primary tabular-nums">{formatPrice(totals.total)}</td>
-        <td className="pt-3 pr-4 text-right font-bold text-text-primary tabular-nums">
+      <tr className="border-border-subtle border-t">
+        <td className="text-text-primary pt-3 pr-4 text-sm font-bold">{t.reports.total}</td>
+        <td className="text-text-primary pt-3 pr-4 text-right font-bold tabular-nums">{totals.count}</td>
+        <td className="text-text-primary pt-3 pr-4 text-right font-bold tabular-nums">{formatPrice(totals.total)}</td>
+        <td className="text-text-primary pt-3 pr-4 text-right font-bold tabular-nums">
           {formatPrice(totals.refunded)}
         </td>
-        <td className="pt-3 text-right font-bold text-text-primary tabular-nums">{formatPrice(totals.net)}</td>
+        <td className="text-text-primary pt-3 text-right font-bold tabular-nums">{formatPrice(totals.net)}</td>
       </tr>
     </tbody>
   );
@@ -78,7 +78,7 @@ interface ReportDesktopTableProps {
 
 export function ReportDesktopTable({ month, year, methodEntries, totals }: ReportDesktopTableProps) {
   return (
-    <div className="hidden sm:block -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <div className="-mx-4 hidden overflow-x-auto px-4 sm:mx-0 sm:block sm:px-0">
       <table
         className="w-full min-w-[480px] text-sm"
         aria-label={`${t.reports.tableLabel} - ${MONTH_NAMES[month - 1] ?? ''} ${String(year)}`}
@@ -89,7 +89,7 @@ export function ReportDesktopTable({ month, year, methodEntries, totals }: Repor
 
       {/* Service fees note */}
       {totals.service_fees > 0 && (
-        <p className="mt-4 text-xs text-text-tertiary">
+        <p className="text-text-tertiary mt-4 text-xs">
           {t.reports.serviceFees}: {formatPrice(totals.service_fees)}
         </p>
       )}

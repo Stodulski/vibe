@@ -13,7 +13,7 @@ export const publicRoutes: RouteObject[] = [
         path: '/:slug',
         element: lazyPage(
           () => import('@/pages/public/ComplexPage'),
-          <div className="w-full space-y-6 animate-fade-in sm:space-y-10">
+          <div className="animate-fade-in w-full space-y-6 sm:space-y-10">
             <SkeletonComplexHeader />
             <SkeletonSlotGrid />
           </div>,

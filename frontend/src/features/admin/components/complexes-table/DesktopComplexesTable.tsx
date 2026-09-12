@@ -24,7 +24,7 @@ export function DesktopComplexesTable({ complexes }: DesktopComplexesTableProps)
               <TableCell>
                 <Link
                   to={`/admin/complexes/${complex.id}`}
-                  className="font-medium text-text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                  className="text-text-primary focus-visible:ring-primary-500/50 font-medium hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:outline-none"
                 >
                   {complex.name}
                 </Link>
@@ -32,16 +32,16 @@ export function DesktopComplexesTable({ complexes }: DesktopComplexesTableProps)
               <TableCell className="text-text-secondary text-sm">{complex.city}</TableCell>
               <TableCell>
                 <div>
-                  <p className="text-sm text-text-secondary">{complex.owner_name}</p>
-                  <p className="text-xs text-text-tertiary">{complex.owner_email}</p>
+                  <p className="text-text-secondary text-sm">{complex.owner_name}</p>
+                  <p className="text-text-tertiary text-xs">{complex.owner_email}</p>
                 </div>
               </TableCell>
-              <TableCell className="text-center text-sm text-text-secondary">{complex.courts_count}</TableCell>
+              <TableCell className="text-text-secondary text-center text-sm">{complex.courts_count}</TableCell>
               <TableCell className="text-center">
                 {complex.mp_connected ? (
-                  <CheckCircle className="size-4 text-green-400 mx-auto" aria-label={t.mp.connected} />
+                  <CheckCircle className="mx-auto size-4 text-green-400" aria-label={t.mp.connected} />
                 ) : (
-                  <XCircle className="size-4 text-text-tertiary mx-auto" aria-label={t.mp.notConnected} />
+                  <XCircle className="text-text-tertiary mx-auto size-4" aria-label={t.mp.notConnected} />
                 )}
               </TableCell>
               <TableCell className="text-center">

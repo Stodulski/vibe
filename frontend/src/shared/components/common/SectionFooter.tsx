@@ -72,7 +72,7 @@ export function SectionFooter({
   return (
     <div
       className={cn(
-        'flex flex-col-reverse gap-3 border-t border-border-subtle pt-4 sm:flex-row',
+        'border-border-subtle flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row',
         // With a trailing action there is no stacking: the submit takes the
         // room that is left and the menu sits beside it. Below it, alone under
         // a full-width button, the menu reads as something left over.

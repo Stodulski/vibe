@@ -25,7 +25,7 @@ export function ApplyToAllButton({ onClick }: ApplyToAllButtonProps) {
       title={t.courts.applyToAll}
       aria-label={t.courts.applyToAll}
       onClick={onClick}
-      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-highlight hover:text-text-primary sm:size-9"
+      className="text-text-secondary hover:bg-bg-highlight hover:text-text-primary flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors sm:size-9"
     >
       <Copy className="size-3.5" />
     </button>

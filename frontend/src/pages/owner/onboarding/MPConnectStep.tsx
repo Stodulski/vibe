@@ -21,14 +21,14 @@ export function MPConnectStep({ mpConnected, mpAuthUrl, onConnectClick, onBack, 
       <div>
         <div className="space-y-6">
           {/* No heading — the step indicator above names this step. */}
-          <p className="text-sm text-text-secondary">{t.complex.onboardingStep3Description}</p>
+          <p className="text-text-secondary text-sm">{t.complex.onboardingStep3Description}</p>
 
           {/* The fee, in one line instead of a boxed pair. The box was a
               container around two sentences that belong together anyway, and
               the second one restated the first: "no extra platform charges" IS
               "your clients pay the service fee, you only absorb MP's". */}
-          <p className="flex items-start gap-2 text-sm text-text-secondary">
-            <Shield className="mt-0.5 size-4 shrink-0 text-primary-400" />
+          <p className="text-text-secondary flex items-start gap-2 text-sm">
+            <Shield className="text-primary-400 mt-0.5 size-4 shrink-0" />
             {t.serviceFee.ownerInfo}
           </p>
 
@@ -45,11 +45,11 @@ export function MPConnectStep({ mpConnected, mpAuthUrl, onConnectClick, onBack, 
           mention their parking. Deferring is fine; deferring in silence is
           the thing the "minimal is not simple" rule is about. */}
       <div>
-        <p className="text-sm font-medium text-text-primary">{t.complex.onboardingDefaultsTitle}</p>
-        <p className="mt-1 text-xs text-text-secondary">{t.complex.onboardingDefaultsBody}</p>
+        <p className="text-text-primary text-sm font-medium">{t.complex.onboardingDefaultsTitle}</p>
+        <p className="text-text-secondary mt-1 text-xs">{t.complex.onboardingDefaultsBody}</p>
         <Link
           to="/settings"
-          className="focus-self mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary-400 underline"
+          className="focus-self text-primary-400 mt-2 inline-flex items-center gap-1 text-xs font-medium underline"
         >
           {t.complex.onboardingDefaultsLink}
           <ArrowRight className="size-3" />

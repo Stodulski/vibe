@@ -17,30 +17,30 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
   const { hasDeposit, mpAmount, serviceFee, totalOnline, remainingAmount } = pricing;
 
   return (
-    <dl className="divide-y divide-border-subtle border-t border-b border-border-subtle text-sm sm:border-b-0">
+    <dl className="divide-border-subtle border-border-subtle divide-y border-t border-b text-sm sm:border-b-0">
       {hasDeposit && (
         <div className="flex justify-between gap-2 py-3">
           <dt className="text-text-secondary">
             {t.publicBooking.deposit} ({depositPercentage}%)
           </dt>
-          <dd className="tabular-nums text-text-primary">{formatPrice(mpAmount)}</dd>
+          <dd className="text-text-primary tabular-nums">{formatPrice(mpAmount)}</dd>
         </div>
       )}
       <div className="py-3">
         <div className="flex justify-between gap-2">
           <dt className="text-text-secondary">{t.serviceFee.label}</dt>
-          <dd className="tabular-nums text-text-primary">{formatPrice(serviceFee)}</dd>
+          <dd className="text-text-primary tabular-nums">{formatPrice(serviceFee)}</dd>
         </div>
-        <p className="mt-1 text-xs text-text-tertiary">{t.serviceFee.notDeductedFromCourtPrice}</p>
+        <p className="text-text-tertiary mt-1 text-xs">{t.serviceFee.notDeductedFromCourtPrice}</p>
       </div>
       <div className="flex items-baseline justify-between gap-2 py-3">
-        <dt className="font-semibold text-text-primary">{t.publicBooking.totalOnline}</dt>
-        <dd className="text-xl font-bold tabular-nums text-primary-400">{formatPrice(totalOnline)}</dd>
+        <dt className="text-text-primary font-semibold">{t.publicBooking.totalOnline}</dt>
+        <dd className="text-primary-400 text-xl font-bold tabular-nums">{formatPrice(totalOnline)}</dd>
       </div>
       {remainingAmount > 0 && (
         <div className="flex justify-between gap-2 py-3">
           <dt className="text-text-secondary">{t.publicBooking.remaining}</dt>
-          <dd className="font-bold tabular-nums text-text-primary">{formatPrice(remainingAmount)}</dd>
+          <dd className="text-text-primary font-bold tabular-nums">{formatPrice(remainingAmount)}</dd>
         </div>
       )}
     </dl>

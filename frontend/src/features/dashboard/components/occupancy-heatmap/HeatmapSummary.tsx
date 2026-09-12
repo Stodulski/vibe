@@ -26,18 +26,18 @@ export function HeatmapSummary({
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-text-primary">{t.dashboard.occupancy}</h3>
+            <h3 className="text-text-primary text-sm font-semibold">{t.dashboard.occupancy}</h3>
             {isLoading ? (
               <Skeleton className="mt-1 h-3 w-32" />
             ) : (
-              <p className="truncate whitespace-nowrap text-xs text-text-tertiary">
-                Promedio <span className="font-medium text-text-secondary">{avgOccupancy}%</span>
+              <p className="text-text-tertiary truncate text-xs whitespace-nowrap">
+                Promedio <span className="text-text-secondary font-medium">{avgOccupancy}%</span>
                 {peakDay && peakHour && (
                   <span className="hidden sm:inline">
                     {' · '}Pico:{' '}
-                    <span className="font-medium text-text-secondary">
+                    <span className="text-text-secondary font-medium">
                       {peakDay} {peakHour}
                     </span>
                   </span>
@@ -49,7 +49,7 @@ export function HeatmapSummary({
         <Button
           variant="ghost"
           size="sm"
-          className="shrink-0 gap-1.5 text-xs text-primary-400 hover:text-primary-300 min-h-0"
+          className="text-primary-400 hover:text-primary-300 min-h-0 shrink-0 gap-1.5 text-xs"
           onClick={onToggle}
           aria-expanded={expanded}
           aria-controls="occupancy-heatmap-panel"
@@ -61,9 +61,9 @@ export function HeatmapSummary({
       </div>
 
       {!isLoading && peakDay && peakHour && (
-        <p className="mt-1.5 text-xs text-text-tertiary sm:hidden">
+        <p className="text-text-tertiary mt-1.5 text-xs sm:hidden">
           Pico:{' '}
-          <span className="font-medium text-text-secondary">
+          <span className="text-text-secondary font-medium">
             {peakDay} {peakHour}
           </span>
         </p>

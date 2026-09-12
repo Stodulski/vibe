@@ -30,27 +30,27 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
   ].filter((line): line is string => Boolean(line));
 
   return (
-    <div className="divide-y divide-border-subtle">
-      <p className="pb-3 text-sm font-semibold text-text-primary">{slotInfo.complexName}</p>
+    <div className="divide-border-subtle divide-y">
+      <p className="text-text-primary pb-3 text-sm font-semibold">{slotInfo.complexName}</p>
       <div className="py-3">
-        <p className="text-sm text-text-secondary first-letter:uppercase">
+        <p className="text-text-secondary text-sm first-letter:uppercase">
           {format(dateObj, "EEEE d 'de' MMMM", { locale: es })}
         </p>
-        <p className="text-3xl font-bold tabular-nums text-text-primary">
+        <p className="text-text-primary text-3xl font-bold tabular-nums">
           {`${slotInfo.startTime}\u00A0${t.publicBooking.timeRangeTo}\u00A0${slotInfo.endTime}`}
         </p>
       </div>
       <div className="space-y-1 py-3">
-        <p className="text-base font-semibold text-text-primary">{slotInfo.courtName}</p>
+        <p className="text-text-primary text-base font-semibold">{slotInfo.courtName}</p>
         {courtLines.map((line) => (
-          <p key={line} className="text-sm text-text-secondary">
+          <p key={line} className="text-text-secondary text-sm">
             {line}
           </p>
         ))}
       </div>
       <div className="flex justify-between gap-2 py-3 text-sm">
         <span className="text-text-secondary">{t.publicBooking.courtPrice}</span>
-        <span className="tabular-nums text-text-primary">{formatPrice(slotInfo.price)}</span>
+        <span className="text-text-primary tabular-nums">{formatPrice(slotInfo.price)}</span>
       </div>
     </div>
   );

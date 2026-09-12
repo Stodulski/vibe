@@ -38,8 +38,8 @@ export function TimeGroupGrid({
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5">
-        <Icon className="size-3.5 text-text-tertiary" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">{group.label}</span>
+        <Icon className="text-text-tertiary size-3.5" />
+        <span className="text-text-tertiary text-xs font-semibold tracking-wide uppercase">{group.label}</span>
       </div>
       <div
         className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"

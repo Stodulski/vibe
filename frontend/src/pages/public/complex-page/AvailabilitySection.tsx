@@ -78,7 +78,7 @@ export function AvailabilitySection({
   }
 
   return (
-    <p key="closed" className="py-8 text-center text-sm text-text-tertiary animate-fade-in">
+    <p key="closed" className="text-text-tertiary animate-fade-in py-8 text-center text-sm">
       {t.publicBooking.closed}
     </p>
   );

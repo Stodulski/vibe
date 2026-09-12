@@ -20,7 +20,7 @@ export function SidebarNav({ collapsed, isMobile, onNavigate, onPrefetch }: Side
     to === '/settings' ? location.pathname.startsWith('/settings') : location.pathname === to;
 
   return (
-    <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-1" aria-label={t.layout.mainNav}>
+    <nav className="flex-1 overflow-x-hidden overflow-y-auto px-3 pt-1" aria-label={t.layout.mainNav}>
       <div className="space-y-0.5">
         {mainNavItems.map((item) => (
           <SidebarNavLink
@@ -36,7 +36,7 @@ export function SidebarNav({ collapsed, isMobile, onNavigate, onPrefetch }: Side
       </div>
 
       <div className={cn('mt-4', collapsed && !isMobile && 'mt-3')}>
-        <div className={cn('mb-2', collapsed && !isMobile ? 'mx-2' : 'mx-2.5', 'border-t border-border-subtle/60')} />
+        <div className={cn('mb-2', collapsed && !isMobile ? 'mx-2' : 'mx-2.5', 'border-border-subtle/60 border-t')} />
         <div className="space-y-0.5">
           {secondaryNavItems.map((item) => (
             <SidebarNavLink

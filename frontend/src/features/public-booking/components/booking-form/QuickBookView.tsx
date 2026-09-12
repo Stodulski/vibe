@@ -47,15 +47,15 @@ export function QuickBookView({ slotInfo, pricing, saved, isLoading, onSubmit, o
 
       <Panel size="sm" className="p-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-500/10">
-              <User className="size-4 text-primary-400" />
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="bg-primary-500/10 flex size-10 shrink-0 items-center justify-center rounded-full">
+              <User className="text-primary-400 size-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-text-primary">
+              <p className="text-text-primary truncate text-sm font-medium">
                 {saved.client_first_name} {saved.client_last_name}
               </p>
-              <p className="truncate text-xs text-text-tertiary">
+              <p className="text-text-tertiary truncate text-xs">
                 {DEFAULT_PHONE_PREFIX} {saved.client_phone}
                 {saved.client_email ? ` · ${saved.client_email}` : ''}
               </p>
@@ -64,7 +64,7 @@ export function QuickBookView({ slotInfo, pricing, saved, isLoading, onSubmit, o
           <button
             type="button"
             onClick={onEdit}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-tertiary transition-colors hover:bg-bg-elevated hover:text-text-secondary"
+            className="text-text-tertiary hover:bg-bg-elevated hover:text-text-secondary flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
           >
             <Pencil className="size-3" />
             {t.common.change}

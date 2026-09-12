@@ -94,7 +94,7 @@ function ClientPhoneAndEmailFields({ register, control, errors }: ClientInfoFiel
 export function ClientInfoFields({ register, control, errors }: ClientInfoFieldsProps) {
   return (
     <div className="space-y-3">
-      <Label className="text-micro font-semibold uppercase tracking-wider text-text-tertiary">
+      <Label className="text-micro text-text-tertiary font-semibold tracking-wider uppercase">
         {t.bookings.clientData}
       </Label>
       <ClientNameFields register={register} errors={errors} />

@@ -56,9 +56,9 @@ export function ScheduleConfig({ complexId, slug }: ScheduleConfigProps) {
 
   if (isError || !schedules) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border-subtle bg-bg-subtle p-12">
-        <AlertCircle className="size-8 text-text-tertiary" />
-        <p className="text-sm text-text-tertiary">{t.common.error}</p>
+      <div className="border-border-subtle bg-bg-subtle flex flex-col items-center justify-center gap-3 rounded-lg border p-12">
+        <AlertCircle className="text-text-tertiary size-8" />
+        <p className="text-text-tertiary text-sm">{t.common.error}</p>
         <Button
           variant="outline"
           size="sm"

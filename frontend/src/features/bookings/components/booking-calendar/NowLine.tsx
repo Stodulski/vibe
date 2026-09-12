@@ -10,10 +10,10 @@ export function NowLine({ nowMin }: { nowMin: number }) {
       role="img"
       aria-label={t.bookings.currentTime}
       title={t.bookings.currentTime}
-      className="pointer-events-none absolute inset-x-0 z-10 h-px bg-error-text"
+      className="bg-error-text pointer-events-none absolute inset-x-0 z-10 h-px"
       style={{ top: `${String(minutesToPx(nowMin))}px` }}
     >
-      <div className="absolute -left-[3px] -top-[3px] size-[7px] rounded-full bg-error-text" />
+      <div className="bg-error-text absolute -top-[3px] -left-[3px] size-[7px] rounded-full" />
     </div>
   );
 }

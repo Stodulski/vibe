@@ -39,12 +39,12 @@ export function BlockedBlock({
       // a blocked slot reads as taken rather than as a different kind of
       // thing. `-bg` was tried and rejected there for being near-black: on a
       // dark grid it is indistinguishable from an empty cell.
-      className="focus-self absolute inset-x-[3px] flex cursor-pointer items-center justify-center rounded-md border border-error-icon bg-error-border transition-[filter] focus-visible:brightness-150"
+      className="focus-self border-error-icon bg-error-border absolute inset-x-[3px] flex cursor-pointer items-center justify-center rounded-md border transition-[filter] focus-visible:brightness-150"
       style={{ top: `calc(${String(topPct)}% + 1px)`, height: `calc(${String(heightPct)}% - 2px)` }}
     >
       {/* White, not `error-text`: that salmon was picked to sit on the page's
           near-black, and on this solid red it drops to about 2:1. */}
-      <Ban className="size-3.5 text-text-primary" aria-hidden="true" />
+      <Ban className="text-text-primary size-3.5" aria-hidden="true" />
     </div>
   );
 }

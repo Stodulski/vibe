@@ -107,7 +107,7 @@ export function PaymentStatusIcon({ status }: { status: PaymentDisplayStatus }) 
 
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {
   return (
-    <span className={cn('shrink-0 whitespace-nowrap text-sm font-semibold', STATUS_STYLES[status])}>
+    <span className={cn('shrink-0 text-sm font-semibold whitespace-nowrap', STATUS_STYLES[status])}>
       {ES_AR.bookings.statuses[status]}
     </span>
   );
@@ -115,7 +115,7 @@ export function BookingStatusBadge({ status }: { status: BookingStatus }) {
 
 export function PaymentStatusBadge({ status }: { status: PaymentDisplayStatus }) {
   return (
-    <span className={cn('shrink-0 whitespace-nowrap text-sm font-semibold', PAYMENT_STYLES[status])}>
+    <span className={cn('shrink-0 text-sm font-semibold whitespace-nowrap', PAYMENT_STYLES[status])}>
       {ES_AR.bookings.paymentStatuses[status]}
     </span>
   );

@@ -14,7 +14,7 @@ export function BookingSummaryCard({ slotInfo, pricing }: BookingSummaryCardProp
     // summary, and the border only ate width. The card returns from sm up.
     <section
       aria-label="Resumen de la reserva"
-      className="sm:rounded-2xl sm:border sm:border-border-subtle sm:bg-bg-subtle sm:p-5"
+      className="sm:border-border-subtle sm:bg-bg-subtle sm:rounded-2xl sm:border sm:p-5"
     >
       <SlotHeaderRow slotInfo={slotInfo} />
       <PriceBreakdown depositPercentage={slotInfo.depositPercentage} pricing={pricing} />

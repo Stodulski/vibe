@@ -6,7 +6,7 @@ const t = ES_AR;
 
 export function SkeletonPage() {
   return (
-    <div className="flex flex-col gap-12 animate-fade-in" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in flex flex-col gap-12" role="status" aria-label={t.common.loading}>
       <div className="flex items-center justify-between">
         <div>
           <Skeleton className="mb-4 h-7 w-40 rounded-lg" />
@@ -38,7 +38,7 @@ export function SkeletonDashboard() {
           <SkeletonStat />
         </div>
         {/* Live courts */}
-        <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+        <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
           <Skeleton className="mb-4 h-5 w-36 rounded-lg" />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 4 }, (_, i) => (
@@ -49,7 +49,7 @@ export function SkeletonDashboard() {
         {/* Today bookings + Payment overview */}
         <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+            <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
               <Skeleton className="mb-4 h-5 w-40 rounded-lg" />
               {Array.from({ length: 3 }, (_, i) => (
                 <Skeleton key={i} className="mb-2 h-14 w-full rounded-xl" />
@@ -57,7 +57,7 @@ export function SkeletonDashboard() {
             </div>
           </div>
           <div className="lg:col-span-2">
-            <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+            <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
               <Skeleton className="mb-4 h-5 w-32 rounded-lg" />
               <Skeleton className="h-40 w-full rounded-xl" />
             </div>
@@ -66,13 +66,13 @@ export function SkeletonDashboard() {
         {/* Revenue chart + Client insights */}
         <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+            <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
               <Skeleton className="mb-4 h-5 w-28 rounded-lg" />
               <Skeleton className="h-[200px] w-full rounded-xl" />
             </div>
           </div>
           <div className="lg:col-span-2">
-            <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+            <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
               <Skeleton className="mb-4 h-5 w-24 rounded-lg" />
               <Skeleton className="h-40 w-full rounded-xl" />
             </div>
@@ -113,7 +113,7 @@ export function SkeletonSettings() {
         </div>
         {/* Content */}
         <div className="min-w-0 flex-1">
-          <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-4 sm:p-6">
+          <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
             <Skeleton className="mb-1 h-4 w-24 rounded-lg" />
             <Skeleton className="mb-6 h-3 w-48 rounded-lg" />
             <div className="space-y-4">
@@ -141,7 +141,7 @@ export function SkeletonBookings() {
       </div>
       <div className="space-y-2.5 sm:space-y-3">
         {/* Date navigation */}
-        <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-3 sm:p-4">
+        <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
               <Skeleton className="size-8 rounded-lg" />
@@ -164,7 +164,7 @@ export function SkeletonBookings() {
           <Skeleton className="h-9 w-9 rounded-lg" />
         </div>
         {/* Calendar grid */}
-        <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-3 sm:p-4">
+        <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-3 sm:p-4">
           <div className="space-y-2">
             {Array.from({ length: 4 }, (_, i) => (
               <Skeleton key={i} className="h-16 w-full rounded-xl" />
@@ -179,14 +179,14 @@ export function SkeletonBookings() {
 /** Complex selector skeleton with complex cards */
 export function SkeletonComplexSelector() {
   return (
-    <div className="w-full max-w-2xl animate-fade-in" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in w-full max-w-2xl" role="status" aria-label={t.common.loading}>
       <div className="mb-6 text-center sm:mb-8">
         <Skeleton className="mx-auto h-7 w-56 rounded-lg" />
         <Skeleton className="mx-auto mt-2 h-4 w-72 rounded-lg" />
       </div>
       <div className="grid grid-cols-1 gap-3 sm:gap-4">
         {Array.from({ length: 2 }, (_, i) => (
-          <div key={i} className="rounded-2xl border border-border-subtle bg-bg-elevated p-4 sm:p-5">
+          <div key={i} className="border-border-subtle bg-bg-elevated rounded-2xl border p-4 sm:p-5">
             <div className="flex items-start gap-3">
               <Skeleton className="size-10 shrink-0 rounded-xl" />
               <div className="min-w-0 flex-1">

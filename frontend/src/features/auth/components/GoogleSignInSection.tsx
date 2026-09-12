@@ -15,11 +15,11 @@ export function GoogleSignInSection() {
   return (
     <div className="!mt-4 space-y-4">
       <div className="flex items-center gap-3" role="separator" aria-label={t.auth.orDivider}>
-        <div className="h-px flex-1 bg-border-subtle" />
-        <span className="text-xs text-text-tertiary" aria-hidden="true">
+        <div className="bg-border-subtle h-px flex-1" />
+        <span className="text-text-tertiary text-xs" aria-hidden="true">
           {t.auth.orDivider}
         </span>
-        <div className="h-px flex-1 bg-border-subtle" />
+        <div className="bg-border-subtle h-px flex-1" />
       </div>
       <GoogleSignInButton />
     </div>

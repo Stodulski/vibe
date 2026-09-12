@@ -12,7 +12,7 @@ interface DesktopHeatmapRowProps {
 function DesktopHeatmapRow({ hour, dataMap }: DesktopHeatmapRowProps) {
   return (
     <div role="row" style={{ display: 'contents' }}>
-      <div role="rowheader" className="score-text flex items-center pr-4 text-micro text-text-tertiary sm:pr-5">
+      <div role="rowheader" className="score-text text-micro text-text-tertiary flex items-center pr-4 sm:pr-5">
         {String(hour).padStart(2, '0')}:00
       </div>
       {Array.from({ length: 7 }, (_, dayIdx) => {
@@ -38,7 +38,7 @@ function DesktopHeatmapRow({ hour, dataMap }: DesktopHeatmapRowProps) {
                 // every row 67px tall, so twenty-four of them would run past 1600px
                 // — the chart would need scrolling to be read as a whole, which is
                 // the one thing a heatmap is for.
-                className="h-5 w-full cursor-pointer rounded-sm transition-colors duration-150 hover:ring-1 hover:ring-primary-500/30"
+                className="hover:ring-primary-500/30 h-5 w-full cursor-pointer rounded-sm transition-colors duration-150 hover:ring-1"
                 style={{ backgroundColor: getHeatColor(pct) }}
               />
             </TooltipTrigger>
@@ -78,7 +78,7 @@ export function DesktopHeatmap({ dataMap }: DesktopHeatmapProps) {
               key={day}
               role="columnheader"
               aria-label={DAY_LABELS[i]}
-              className="pb-4 text-center text-micro font-medium text-text-tertiary sm:pb-5"
+              className="text-micro text-text-tertiary pb-4 text-center font-medium sm:pb-5"
             >
               {day}
             </div>

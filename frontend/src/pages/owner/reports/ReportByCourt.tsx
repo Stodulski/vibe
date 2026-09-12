@@ -20,17 +20,17 @@ export function ReportByCourt({ courts }: { courts: MonthlyReportCourt[] }) {
   if (courts.length === 0) return null;
 
   return (
-    <section className="mt-6 border-t border-border-subtle pt-4">
-      <h3 className="mb-3 text-micro font-medium uppercase tracking-wider text-text-tertiary">{t.reports.byCourt}</h3>
+    <section className="border-border-subtle mt-6 border-t pt-4">
+      <h3 className="text-micro text-text-tertiary mb-3 font-medium tracking-wider uppercase">{t.reports.byCourt}</h3>
       <dl className="space-y-2">
         {courts.map((court) => (
           <div key={court.court_id} className="flex items-baseline justify-between gap-3">
-            <dt className="min-w-0 truncate text-sm text-text-primary">
+            <dt className="text-text-primary min-w-0 truncate text-sm">
               {court.court_name === '' ? t.reports.deletedCourt : court.court_name}
             </dt>
             <dd className="shrink-0 text-right">
-              <p className="score-text text-sm font-medium text-text-primary tabular-nums">{formatPrice(court.net)}</p>
-              <p className="text-xs text-text-tertiary tabular-nums">
+              <p className="score-text text-text-primary text-sm font-medium tabular-nums">{formatPrice(court.net)}</p>
+              <p className="text-text-tertiary text-xs tabular-nums">
                 {court.count} {t.reports.payments}
               </p>
             </dd>

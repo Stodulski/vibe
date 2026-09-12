@@ -35,7 +35,7 @@ export function CoverBanner({ coverUrl }: CoverBannerProps) {
           It began as `from-bg-subtle/90` through `via-bg-subtle/30`, darkening
           the whole lower half for the sake of text that used to sit on the
           cover and now lives below it. */}
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-bg-subtle/80 to-transparent lg:hidden" />
+      <div className="from-bg-subtle/80 absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent lg:hidden" />
     </div>
   );
 }

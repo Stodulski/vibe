@@ -25,8 +25,8 @@ export function CourtCreateForm({
   isPending: boolean;
 }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border-subtle bg-bg-base p-4 sm:p-5">
-      <p className="text-xs font-medium text-text-secondary">
+    <form onSubmit={onSubmit} className="border-border-subtle bg-bg-base space-y-4 rounded-xl border p-4 sm:p-5">
+      <p className="text-text-secondary text-xs font-medium">
         {hasCourts ? t.complex.addAnotherCourt : t.complex.addFirstCourt}
       </p>
 
@@ -40,7 +40,7 @@ export function CourtCreateForm({
           aria-invalid={!!errors.name}
           {...register('name')}
         />
-        {errors.name && <p className="text-xs text-error-text">{errors.name.message}</p>}
+        {errors.name && <p className="text-error-text text-xs">{errors.name.message}</p>}
       </div>
 
       <CourtAttributeFields setValue={setValue} />

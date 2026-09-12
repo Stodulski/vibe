@@ -8,9 +8,9 @@ interface RefundExpiredNoticeProps {
 
 export function RefundExpiredNotice({ cancellationHours }: RefundExpiredNoticeProps) {
   return (
-    <div className="rounded-2xl border border-warning-border/30 bg-warning-bg/50 p-4 text-left text-sm">
-      <p className="font-medium text-warning-text">{t.publicBooking.refundExpired}</p>
-      <p className="mt-1 text-xs text-text-secondary">
+    <div className="border-warning-border/30 bg-warning-bg/50 rounded-2xl border p-4 text-left text-sm">
+      <p className="text-warning-text font-medium">{t.publicBooking.refundExpired}</p>
+      <p className="text-text-secondary mt-1 text-xs">
         {t.publicBooking.refundExpiredBefore} <strong className="text-text-primary">{cancellationHours}h</strong>{' '}
         {t.publicBooking.refundExpiredAfter}{' '}
         <strong className="text-text-primary">{t.publicBooking.noRefundWarning}</strong>.

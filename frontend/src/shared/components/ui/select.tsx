@@ -31,17 +31,17 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-xl border border-border-interactive bg-bg-base/60 px-3.5 py-2 text-sm whitespace-nowrap shadow-xs outline-none transition-input data-[placeholder]:text-text-tertiary/70 data-[size=default]:h-10 data-[size=sm]:h-8 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-text-tertiary",
+        "border-border-interactive bg-bg-base/60 transition-input data-[placeholder]:text-text-tertiary/70 [&_svg:not([class*='text-'])]:text-text-tertiary flex w-full items-center justify-between gap-2 rounded-xl border px-3.5 py-2 text-sm whitespace-nowrap shadow-xs outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-10 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         'hover:border-border-interactive-hover hover:bg-bg-base/80',
-        'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-[3px] focus-visible:ring-primary-500/15',
-        'aria-invalid:border-error-border aria-invalid:bg-error-bg/30 aria-invalid:ring-1 aria-invalid:ring-error-text/10 aria-invalid:focus-visible:border-error-border aria-invalid:focus-visible:ring-[3px] aria-invalid:focus-visible:ring-error-text/15',
+        'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-primary-500/15 focus-visible:ring-[3px]',
+        'aria-invalid:border-error-border aria-invalid:bg-error-bg/30 aria-invalid:ring-error-text/10 aria-invalid:focus-visible:border-error-border aria-invalid:focus-visible:ring-error-text/15 aria-invalid:ring-1 aria-invalid:focus-visible:ring-[3px]',
         className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-4 text-text-tertiary" />
+        <ChevronDownIcon className="text-text-tertiary size-4" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -61,7 +61,7 @@ function SelectContent({
     <SelectPrimitive.Content
       data-slot="select-content"
       className={cn(
-        'relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border border-border-default/60 bg-popover text-popover-foreground shadow-lg data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+        'border-border-default/60 bg-popover text-popover-foreground data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border shadow-lg',
         position === 'popper' &&
           'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
         className,
@@ -92,7 +92,7 @@ function SelectLabel({ className, ...props }: React.ComponentProps<typeof Select
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn('px-2 py-1.5 text-xs text-muted-foreground', className)}
+      className={cn('text-muted-foreground px-2 py-1.5 text-xs', className)}
       {...props}
     />
   );
@@ -103,7 +103,7 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-pointer items-center gap-2 rounded-lg py-2 pr-8 pl-3 text-sm outline-hidden select-none transition-colors duration-150 focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-lg py-2 pr-8 pl-3 text-sm outline-hidden transition-colors duration-150 select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className,
       )}
       {...props}
@@ -122,7 +122,7 @@ function SelectSeparator({ className, ...props }: React.ComponentProps<typeof Se
   return (
     <SelectPrimitive.Separator
       data-slot="select-separator"
-      className={cn('pointer-events-none -mx-1 my-1 h-px bg-border', className)}
+      className={cn('bg-border pointer-events-none -mx-1 my-1 h-px', className)}
       {...props}
     />
   );

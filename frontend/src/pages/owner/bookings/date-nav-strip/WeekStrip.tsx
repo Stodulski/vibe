@@ -59,16 +59,16 @@ export function WeekStrip({
             className={cn(
               'relative flex min-h-0 flex-1 flex-col items-center rounded-xl py-2 text-xs transition-colors duration-150 sm:py-2.5',
               isSel
-                ? 'bg-primary-500/10 text-primary-400 shadow-sm shadow-primary-500/5'
+                ? 'bg-primary-500/10 text-primary-400 shadow-primary-500/5 shadow-sm'
                 : isDayToday
                   ? 'text-text-primary hover:bg-bg-elevated/50'
                   : 'text-text-tertiary hover:bg-bg-elevated/50 hover:text-text-secondary',
             )}
           >
-            <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wider">
+            <span className="text-xs font-medium tracking-wider whitespace-nowrap uppercase">
               {format(day, 'EEE', { locale: es })}
             </span>
-            <span className={cn('mt-0.5 whitespace-nowrap text-base font-bold', isSel && 'text-primary-300')}>
+            <span className={cn('mt-0.5 text-base font-bold whitespace-nowrap', isSel && 'text-primary-300')}>
               {format(day, 'd')}
             </span>
             {isDayToday && (

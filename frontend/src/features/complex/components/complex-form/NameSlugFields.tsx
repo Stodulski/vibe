@@ -75,7 +75,7 @@ function SlugSection({
           breaks every link already shared — WhatsApp, an Instagram bio, and
           the QR taped to the club's door — and nobody finds out until a
           client cannot book. The owner still decides; they decide knowing. */}
-      {isEdit && showSlugInput && <p className="text-xs text-warning-text">{t.complex.slugChangeWarning}</p>}
+      {isEdit && showSlugInput && <p className="text-warning-text text-xs">{t.complex.slugChangeWarning}</p>}
 
       {showSlugInput && (
         <FormField
@@ -196,12 +196,12 @@ function AvailabilityNote({
   onUse: (slug: string) => void;
 }) {
   if (state.status === 'free' && slugValue) {
-    return <p className="text-xs text-success-text">{t.complex.slugAvailable}</p>;
+    return <p className="text-success-text text-xs">{t.complex.slugAvailable}</p>;
   }
   if (state.status !== 'taken') return null;
 
   return (
-    <p className="text-xs text-error-text">
+    <p className="text-error-text text-xs">
       {t.validation.server.slugTaken}
       {state.suggestion && (
         <>
@@ -229,10 +229,10 @@ function AvailabilityNote({
  */
 function PublicUrlLine({ slug, onEdit }: { slug: string; onEdit?: (() => void) | undefined }) {
   return (
-    <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-text-tertiary">
+    <p className="text-text-tertiary flex flex-wrap items-baseline gap-x-2 text-xs">
       <span className="truncate">
         {t.complex.slugPreviewLabel}{' '}
-        <span className="font-medium text-primary-400">
+        <span className="text-primary-400 font-medium">
           {publicOrigin()}/{slug}
         </span>
       </span>
@@ -240,7 +240,7 @@ function PublicUrlLine({ slug, onEdit }: { slug: string; onEdit?: (() => void) |
         <button
           type="button"
           onClick={onEdit}
-          className="focus-self underline transition-colors hover:text-primary-400"
+          className="focus-self hover:text-primary-400 underline transition-colors"
         >
           {t.common.edit}
         </button>

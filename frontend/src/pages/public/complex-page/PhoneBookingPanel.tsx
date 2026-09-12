@@ -23,10 +23,10 @@ export function PhoneBookingPanel({ phone }: { phone: string }) {
   const digits = phone.replace(/\D/g, '');
   const href = `https://wa.me/${digits}?text=${encodeURIComponent(t.publicBooking.phoneOnlyMessage)}`;
   return (
-    <section className="flex flex-col items-start gap-4 py-10 text-left lg:rounded-2xl lg:border lg:border-border-subtle lg:bg-bg-subtle lg:px-6">
+    <section className="lg:border-border-subtle lg:bg-bg-subtle flex flex-col items-start gap-4 py-10 text-left lg:rounded-2xl lg:border lg:px-6">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold text-text-primary">{t.publicBooking.phoneOnlyTitle}</h2>
-        <p className="max-w-sm text-sm text-text-secondary">{t.publicBooking.phoneOnlyDescription}</p>
+        <h2 className="text-text-primary text-lg font-semibold">{t.publicBooking.phoneOnlyTitle}</h2>
+        <p className="text-text-secondary max-w-sm text-sm">{t.publicBooking.phoneOnlyDescription}</p>
       </div>
       <Button asChild size="lg">
         <a

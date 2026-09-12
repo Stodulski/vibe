@@ -33,13 +33,13 @@ export function NotFoundState() {
       animated={false}
       title={
         <>
-          <span className="block text-xs font-semibold uppercase tracking-widest text-text-tertiary">404</span>
+          <span className="text-text-tertiary block text-xs font-semibold tracking-widest uppercase">404</span>
           <span>{t.publicBooking.complexNotFound}</span>
         </>
       }
       description={description}
     >
-      <Button asChild size="lg" className="min-h-12 mt-4 rounded-xl">
+      <Button asChild size="lg" className="mt-4 min-h-12 rounded-xl">
         <Link to="/">{t.layout.backHome}</Link>
       </Button>
     </StatusHero>

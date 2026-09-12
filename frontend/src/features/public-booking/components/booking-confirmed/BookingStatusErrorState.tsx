@@ -27,7 +27,7 @@ export function BookingStatusErrorState({ onRetry }: BookingStatusErrorStateProp
       title={t.publicBooking.paymentStatusError}
       description={t.publicBooking.paymentStatusErrorDescription}
     >
-      <Button size="lg" className="min-h-12 mt-4 rounded-xl" onClick={onRetry}>
+      <Button size="lg" className="mt-4 min-h-12 rounded-xl" onClick={onRetry}>
         {t.publicBooking.tryAgain}
       </Button>
     </StatusHero>

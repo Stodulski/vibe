@@ -20,14 +20,14 @@ export function AppMasthead({ brand }: AppMastheadProps) {
   const clock = useLiveClock();
 
   return (
-    <div className="hidden h-16 shrink-0 items-stretch border-b border-border-subtle bg-bg-base md:flex">
+    <div className="border-border-subtle bg-bg-base hidden h-16 shrink-0 items-stretch border-b md:flex">
       <div className="flex w-[68px] shrink-0 items-center justify-center">{brand}</div>
 
       {heading && (
-        <div className="flex min-w-0 flex-1 items-center border-l border-border-subtle px-3 sm:px-6 lg:px-10 xl:px-14">
+        <div className="border-border-subtle flex min-w-0 flex-1 items-center border-l px-3 sm:px-6 lg:px-10 xl:px-14">
           <PageContentWidth className="flex min-w-0 flex-col justify-center gap-0.5">
-            <h1 className="truncate text-sm font-semibold text-text-primary sm:text-base">{heading.title}</h1>
-            <p className="truncate text-xs text-text-tertiary first-letter:uppercase">{clock}</p>
+            <h1 className="text-text-primary truncate text-sm font-semibold sm:text-base">{heading.title}</h1>
+            <p className="text-text-tertiary truncate text-xs first-letter:uppercase">{clock}</p>
           </PageContentWidth>
         </div>
       )}

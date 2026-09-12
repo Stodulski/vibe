@@ -31,10 +31,10 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
       )}
     >
       <div className="min-w-0 md:hidden">
-        <h1 className="font-display truncate text-xl font-semibold leading-tight tracking-tight text-text-primary sm:text-2xl">
+        <h1 className="font-display text-text-primary truncate text-xl leading-tight font-semibold tracking-tight sm:text-2xl">
           {title}
         </h1>
-        {description && <p className="mt-1 truncate whitespace-nowrap text-sm text-text-tertiary">{description}</p>}
+        {description && <p className="text-text-tertiary mt-1 truncate text-sm whitespace-nowrap">{description}</p>}
       </div>
       {action && (
         <Button

@@ -41,7 +41,7 @@ export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
         // The sheet is 280px and this said 220, so the drawer opened with a
         // 60px band of empty background down its right edge — the panel's
         // width is the sheet's decision to make, not this component's.
-        isMobile ? 'w-full' : 'w-[68px] border-r border-border-subtle',
+        isMobile ? 'w-full' : 'border-border-subtle w-[68px] border-r',
       )}
       aria-label={t.layout.sidebar}
     >

@@ -27,7 +27,7 @@ function Decoy() {
   return (
     <span
       aria-hidden="true"
-      className="flex h-full w-full items-center justify-center gap-2 rounded-full border border-border-interactive bg-background text-sm font-semibold text-foreground transition-colors group-hover:border-border-interactive-hover group-hover:bg-accent group-focus-within:ring-[3px] group-focus-within:ring-ring/50"
+      className="border-border-interactive bg-background text-foreground group-hover:border-border-interactive-hover group-hover:bg-accent group-focus-within:ring-ring/50 flex h-full w-full items-center justify-center gap-2 rounded-full border text-sm font-semibold transition-colors group-focus-within:ring-[3px]"
     >
       <GoogleMark className="size-4" />
       {t.auth.continueWithGoogle}
@@ -99,7 +99,7 @@ export function GoogleSignInButton() {
   if (!clientId) return null;
 
   if (failed) {
-    return <p className="text-center text-xs text-text-tertiary">{t.auth.googleUnavailable}</p>;
+    return <p className="text-text-tertiary text-center text-xs">{t.auth.googleUnavailable}</p>;
   }
 
   return (
@@ -108,7 +108,7 @@ export function GoogleSignInButton() {
       <div
         ref={containerRef}
         data-testid="google-button-host"
-        className="absolute left-0 top-0 origin-top-left opacity-0"
+        className="absolute top-0 left-0 origin-top-left opacity-0"
         style={{
           width: GIS_BUTTON_WIDTH,
           height: GIS_BUTTON_HEIGHT,

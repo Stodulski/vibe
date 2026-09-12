@@ -38,7 +38,7 @@ export function AppShell({ brand, sidebar, renderMobileSidebar, header, children
     // `<main>` as the only scroller, which put the scrollbar inset from the
     // window edge instead of on it. The chrome keeps its place by being
     // `fixed` rather than by sitting inside a box that never scrolls.
-    <div className="relative min-h-dvh bg-bg-base">
+    <div className="bg-bg-base relative min-h-dvh">
       <MeshBackdrop />
 
       {/* Skip navigation link */}
@@ -54,7 +54,7 @@ export function AppShell({ brand, sidebar, renderMobileSidebar, header, children
         {header(handleOpenMobile)}
       </div>
 
-      <div className="fixed bottom-0 left-0 top-16 z-20 hidden overflow-y-auto md:flex">{sidebar}</div>
+      <div className="fixed top-16 bottom-0 left-0 z-20 hidden overflow-y-auto md:flex">{sidebar}</div>
 
       <MobileNavSheet open={mobileOpen} onOpenChange={setMobileOpen} sidebar={renderMobileSidebar(handleCloseMobile)} />
 

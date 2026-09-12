@@ -27,17 +27,17 @@ export function DatePickerPopover({
     <Popover open={calendarOpen} onOpenChange={onCalendarOpenChange}>
       <PopoverTrigger asChild>
         <button
-          className="flex min-h-0 min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-bg-elevated/50"
+          className="hover:bg-bg-elevated/50 flex min-h-0 min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors"
           aria-label={`Fecha: ${dateLabel}`}
         >
-          <CalendarIcon className="hidden size-4 shrink-0 text-primary-400 sm:block" />
-          <span className="truncate whitespace-nowrap text-sm font-semibold first-letter:uppercase text-text-primary sm:text-base">
+          <CalendarIcon className="text-primary-400 hidden size-4 shrink-0 sm:block" />
+          <span className="text-text-primary truncate text-sm font-semibold whitespace-nowrap first-letter:uppercase sm:text-base">
             {dateLabel}
           </span>
           {/* Plain text, like the "Ir a hoy" control it shares this slot with:
               the two swap places, so they should read the same weight. */}
           {isToday && (
-            <span className="-mr-1.5 ml-2 hidden shrink-0 text-xs font-medium text-primary-400 sm:inline">
+            <span className="text-primary-400 -mr-1.5 ml-2 hidden shrink-0 text-xs font-medium sm:inline">
               {t.bookings.today}
             </span>
           )}

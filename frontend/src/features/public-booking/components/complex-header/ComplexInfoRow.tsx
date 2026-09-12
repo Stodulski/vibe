@@ -26,13 +26,13 @@ const t = ES_AR;
  */
 export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
   return (
-    <div className="mt-3 flex flex-col gap-2 text-micro text-text-secondary sm:text-xs lg:gap-2.5 lg:text-sm">
+    <div className="text-micro text-text-secondary mt-3 flex flex-col gap-2 sm:text-xs lg:gap-2.5 lg:text-sm">
       {/* All three rows centre their icon against the text. The address used
           `items-start` with a compensating `mt-0.5`, which put its pin two
           pixels lower than the phone's and the mail's — the rows are evenly
           spaced, but three icons on two different baselines read as uneven. */}
       <div className="flex items-center gap-2">
-        <MapPin className="size-3 shrink-0 text-primary-400 sm:size-3.5" aria-hidden="true" />
+        <MapPin className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
         <span>
           {complex.address}, {complex.city}
         </span>
@@ -41,9 +41,9 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
       {complex.phone && (
         <a
           href={`tel:${complex.phone}`}
-          className="flex w-fit items-center gap-2 transition-colors hover:text-primary-400 pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
         >
-          <Phone className="size-3 shrink-0 text-primary-400 sm:size-3.5" aria-hidden="true" />
+          <Phone className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
           <span>{complex.phone}</span>
         </a>
       )}
@@ -51,13 +51,13 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
       {complex.email ? (
         <a
           href={`mailto:${complex.email}`}
-          className="flex w-fit items-center gap-2 transition-colors hover:text-primary-400 pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
         >
-          <Mail className="size-3 shrink-0 text-primary-400 sm:size-3.5" aria-hidden="true" />
+          <Mail className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
           <span>{complex.email}</span>
         </a>
       ) : (
-        <div className="flex items-center gap-2 text-text-tertiary">
+        <div className="text-text-tertiary flex items-center gap-2">
           <Mail className="size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
           <span>{t.publicBooking.noEmail}</span>
         </div>

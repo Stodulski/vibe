@@ -51,19 +51,19 @@ export function BookingInfoCard({ cancelInfo, money }: BookingInfoCardProps) {
   return (
     <section
       aria-label="Detalle de la reserva"
-      className="w-full divide-y divide-border-subtle border-b border-border-subtle text-left sm:rounded-2xl sm:border sm:border-border-subtle sm:bg-bg-subtle sm:p-5"
+      className="divide-border-subtle border-border-subtle sm:border-border-subtle sm:bg-bg-subtle w-full divide-y border-b text-left sm:rounded-2xl sm:border sm:p-5"
     >
-      <p className="pb-3 text-sm font-semibold text-text-primary">{booking.complex_name}</p>
+      <p className="text-text-primary pb-3 text-sm font-semibold">{booking.complex_name}</p>
       <div className="py-3">
-        <p className="text-sm text-text-secondary first-letter:uppercase">
+        <p className="text-text-secondary text-sm first-letter:uppercase">
           {formatDateFull(`${booking.date}T12:00:00`)}
         </p>
-        <p className="text-3xl font-bold tabular-nums text-text-primary">{timeRange(booking)}</p>
+        <p className="text-text-primary text-3xl font-bold tabular-nums">{timeRange(booking)}</p>
       </div>
       <div className="space-y-1 py-3">
-        <p className="text-base font-semibold text-text-primary">{booking.court_name}</p>
+        <p className="text-text-primary text-base font-semibold">{booking.court_name}</p>
         {courtLines(booking).map((line) => (
-          <p key={line} className="text-sm text-text-secondary">
+          <p key={line} className="text-text-secondary text-sm">
             {line}
           </p>
         ))}
@@ -73,11 +73,11 @@ export function BookingInfoCard({ cancelInfo, money }: BookingInfoCardProps) {
           {money.label && (
             <div className="flex justify-between gap-2">
               <span className="text-text-secondary">{money.label}</span>
-              <span className="font-bold tabular-nums text-text-primary">{money.amount}</span>
+              <span className="text-text-primary font-bold tabular-nums">{money.amount}</span>
             </div>
           )}
           {money.note && (
-            <p className={money.label ? 'mt-1 text-xs text-text-tertiary' : 'text-text-secondary'}>{money.note}</p>
+            <p className={money.label ? 'text-text-tertiary mt-1 text-xs' : 'text-text-secondary'}>{money.note}</p>
           )}
         </div>
       )}

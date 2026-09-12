@@ -14,7 +14,7 @@ function AccordionItem({ className, ...props }: React.ComponentProps<typeof Acco
   return (
     <AccordionPrimitive.Item
       data-slot="accordion-item"
-      className={cn('border-b border-border-subtle last:border-b-0', className)}
+      className={cn('border-border-subtle border-b last:border-b-0', className)}
       {...props}
     />
   );
@@ -27,7 +27,7 @@ function AccordionTrigger({ className, children, ...props }: React.ComponentProp
         data-slot="accordion-trigger"
         className={cn(
           // 48px tall: this is a touch target, and the minimum is 48x48.
-          'flex flex-1 cursor-pointer items-center justify-between gap-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-text-tertiary transition-colors hover:text-text-secondary [&[data-state=open]]:text-text-secondary [&[data-state=open]>svg]:rotate-180',
+          'text-text-tertiary hover:text-text-secondary [&[data-state=open]]:text-text-secondary flex flex-1 cursor-pointer items-center justify-between gap-4 py-3 text-left text-xs font-semibold tracking-wide uppercase transition-colors [&[data-state=open]>svg]:rotate-180',
           className,
         )}
         {...props}
@@ -46,7 +46,7 @@ function AccordionContent({ className, children, ...props }: React.ComponentProp
       // Radix measures the panel and publishes its height as a CSS variable,
       // which is what makes a height animation possible at all — `height:auto`
       // is not animatable. The keyframes are defined in globals.css.
-      className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+      className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden"
       {...props}
     >
       <div className={cn('pb-4', className)}>{children}</div>

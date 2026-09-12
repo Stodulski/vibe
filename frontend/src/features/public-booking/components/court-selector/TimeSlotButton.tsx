@@ -48,18 +48,18 @@ export function TimeSlotButton({ option, isSelected, typesVary, onSelect }: Time
       aria-pressed={isSelected}
       aria-label={`${option.startTime}${typeLabel ? `, ${typeLabel}` : ''}${isLast ? `, ${t.publicBooking.lastCourtLeft}` : ''}`}
       className={cn(
-        'flex cursor-pointer flex-col items-center rounded-xl border px-2 py-3 transition-colors duration-200 press-scale',
+        'press-scale flex cursor-pointer flex-col items-center rounded-xl border px-2 py-3 transition-colors duration-200',
         isSelected
-          ? 'border-primary-500 bg-primary-500/10 shadow-brand ring-1 ring-primary-500/30'
+          ? 'border-primary-500 bg-primary-500/10 shadow-brand ring-primary-500/30 ring-1'
           : 'border-border-subtle bg-bg-subtle hover:border-border-default hover:bg-bg-overlay',
       )}
     >
       <span className={cn('text-sm font-bold tabular-nums', isSelected ? 'text-primary-400' : 'text-text-primary')}>
         {option.startTime}
       </span>
-      {typeLabel && <span className="mt-0.5 text-micro text-text-secondary">{typeLabel}</span>}
+      {typeLabel && <span className="text-micro text-text-secondary mt-0.5">{typeLabel}</span>}
       {isLast && (
-        <span className="mt-0.5 text-micro font-medium text-warning-text">{t.publicBooking.lastCourtLeft}</span>
+        <span className="text-micro text-warning-text mt-0.5 font-medium">{t.publicBooking.lastCourtLeft}</span>
       )}
     </button>
   );

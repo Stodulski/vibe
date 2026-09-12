@@ -76,7 +76,7 @@ export function FormField({
       )}
       {helpText && <p className="text-micro text-text-tertiary">{helpText}</p>}
       {error && (
-        <p id={errorId} role="alert" className="flex items-center gap-1.5 text-xs text-error-text">
+        <p id={errorId} role="alert" className="text-error-text flex items-center gap-1.5 text-xs">
           <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
           {error}
         </p>

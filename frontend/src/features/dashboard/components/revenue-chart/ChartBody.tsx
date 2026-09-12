@@ -24,8 +24,8 @@ export function ChartBody({ isLoading, isError, onRetry, chartData, period }: Ch
   if (isError) {
     return (
       <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-center">
-        <AlertTriangle className="size-5 text-error-icon" aria-hidden="true" />
-        <p className="text-sm text-text-tertiary">{t.common.loadError}</p>
+        <AlertTriangle className="text-error-icon size-5" aria-hidden="true" />
+        <p className="text-text-tertiary text-sm">{t.common.loadError}</p>
         <Button variant="outline" size="sm" onClick={onRetry}>
           {t.layout.retry}
         </Button>
@@ -35,7 +35,7 @@ export function ChartBody({ isLoading, isError, onRetry, chartData, period }: Ch
 
   if (chartData.length === 0) {
     return (
-      <div className="flex h-full min-h-[200px] items-center justify-center text-sm text-text-tertiary">
+      <div className="text-text-tertiary flex h-full min-h-[200px] items-center justify-center text-sm">
         {t.common.noResults}
       </div>
     );

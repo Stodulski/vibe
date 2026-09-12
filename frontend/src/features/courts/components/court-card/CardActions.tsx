@@ -33,7 +33,7 @@ interface CardActionsProps {
  */
 export function CardActions({ courtName, onEdit, onPrices, onDelete }: CardActionsProps) {
   return (
-    <div className="flex items-center gap-2 border-t border-border-subtle px-4 py-3 sm:px-5">
+    <div className="border-border-subtle flex items-center gap-2 border-t px-4 py-3 sm:px-5">
       <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={onEdit}>
         <Pencil className="size-3.5 shrink-0" />
         {t.common.edit}

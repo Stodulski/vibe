@@ -34,12 +34,12 @@ export function LoginForm() {
   return (
     <div className="auth-card w-full">
       {/* Header */}
-      <div className="flex flex-col items-center px-0 pb-1 pt-2 md:pt-7">
-        <h1 className="font-display text-xl font-bold tracking-tight text-text-primary sm:text-2xl">{t.auth.login}</h1>
+      <div className="flex flex-col items-center px-0 pt-2 pb-1 md:pt-7">
+        <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">{t.auth.login}</h1>
       </div>
 
       {/* Form */}
-      <div className="px-0 pb-7 pt-5">
+      <div className="px-0 pt-5 pb-7">
         <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4" noValidate>
           <LoginEmailField register={register} errors={errors} />
           <LoginPasswordField

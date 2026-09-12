@@ -39,7 +39,7 @@ export function CourtSetupStep({
           {/* No heading: the step indicator above already names this step,
               and reading it twice is the reader being told what they
               just read. The line that carries information stays. */}
-          <p className="text-sm text-text-secondary">{t.complex.onboardingStep2Description}</p>
+          <p className="text-text-secondary text-sm">{t.complex.onboardingStep2Description}</p>
         </div>
 
         {hasCourts && (

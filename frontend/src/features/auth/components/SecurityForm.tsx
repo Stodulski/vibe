@@ -46,7 +46,7 @@ export function SecurityForm() {
         </Label>
         <Input id="current_password" type="password" {...form.register('current_password')} />
         {form.formState.errors.current_password && (
-          <p className="text-xs text-error-text">{form.formState.errors.current_password.message}</p>
+          <p className="text-error-text text-xs">{form.formState.errors.current_password.message}</p>
         )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -56,7 +56,7 @@ export function SecurityForm() {
           </Label>
           <Input id="new_password" type="password" {...form.register('new_password')} />
           {form.formState.errors.new_password && (
-            <p className="text-xs text-error-text">{form.formState.errors.new_password.message}</p>
+            <p className="text-error-text text-xs">{form.formState.errors.new_password.message}</p>
           )}
         </div>
         <div className="space-y-1.5">
@@ -65,7 +65,7 @@ export function SecurityForm() {
           </Label>
           <Input id="confirm_password" type="password" {...form.register('confirm_password')} />
           {form.formState.errors.confirm_password && (
-            <p className="text-xs text-error-text">{form.formState.errors.confirm_password.message}</p>
+            <p className="text-error-text text-xs">{form.formState.errors.confirm_password.message}</p>
           )}
         </div>
       </div>
