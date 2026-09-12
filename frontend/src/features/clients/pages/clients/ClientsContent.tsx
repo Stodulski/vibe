@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { AlertTriangle, Users, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/common/EmptyState';
+import { ResultCountAnnouncer } from '@/shared/components/common/ResultCountAnnouncer';
 import { SkeletonTable } from '@/shared/components/common/Skeletons';
 import { ClientGrid } from '@/features/clients';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -51,6 +52,8 @@ export function ClientsContent({
 
   return (
     <>
+      <ResultCountAnnouncer count={clients.length} />
+
       <ClientGrid clients={clients} onSelectClient={onSelectClient} onBlockClient={onBlockClient} />
 
       {hasNextPage && (

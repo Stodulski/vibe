@@ -9,6 +9,10 @@ export const common = {
   search: 'Buscar...',
   loading: 'Cargando...',
   noResults: 'No se encontraron resultados',
+  // Screen-reader-only row count for lists that filter and paginate
+  // (see ResultCountAnnouncer).
+  result: 'resultado',
+  results: 'resultados',
   confirm: 'Confirmar',
   back: 'Volver',
   next: 'Siguiente',
