@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { publicBookingApi } from '../api/public-booking.api';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
+import { useIdempotencyKey } from '@/shared/lib/idempotency';
 import type { PublicBookingRequest } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -21,8 +22,13 @@ interface UsePublicBookingOptions {
 }
 
 export function usePublicBooking(options?: UsePublicBookingOptions) {
+  const attempt = useIdempotencyKey();
+
   return useMutation({
-    mutationFn: (data: PublicBookingRequest) => publicBookingApi.createBooking(data),
+    mutationFn: (data: PublicBookingRequest) => publicBookingApi.createBooking(data, attempt.current()),
+    onMutate: () => {
+      attempt.begin();
+    },
     onError: (error) => {
       if (error instanceof HTTPError) {
         if (error.response.status === 409) {
