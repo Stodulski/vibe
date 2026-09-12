@@ -43,24 +43,20 @@ export const messageResponseSchema = z
   .loose();
 
 /**
- * `error` is either a bare string or `{ message, details? }`. Not consumed
- * through any `.json<T>()` call today — `getHttpErrorMessage`
+ * `error` is either a bare human-readable string (the document's `Error`) or
+ * a field-name-to-message map (its `ValidationError`, what a 422 answers
+ * with). It used to be typed as a bare string or `{ message, details? }` —
+ * an object shape the API has never sent; deriving `ErrorResponse` from
+ * `openapi.yaml` is what surfaced it.
+ *
+ * Not consumed through any `.json<T>()` call today — `getHttpErrorMessage`
  * (`src/shared/lib/utils.ts`) reads `HTTPError.data` as `unknown` and
  * narrows by hand — but kept here so a future typed read of an error body
  * has a validated schema to reach for instead of another handwritten guard.
  */
 export const errorResponseSchema = exact<ErrorResponse>(
-  z
-    .object({
-      error: z.union([
-        z.string(),
-        z
-          .object({
-            message: z.string(),
-            details: z.record(z.string(), z.string()).optional(),
-          })
-          .loose(),
-      ]),
-    })
-    .loose(),
+  z.union([
+    z.object({ error: z.string() }).loose(),
+    z.object({ error: z.record(z.string(), z.string()) }).loose(),
+  ]),
 );

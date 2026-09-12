@@ -70,7 +70,7 @@ export const bookingSchema = exact<Booking>(
       client_name: z.string(),
       client_phone: z.string(),
       reminder_sent_2h: z.boolean(),
-      created_by: z.string().optional(),
+      created_by: z.string().nullable().optional(),
       created_at: z.string(),
       updated_at: z.string(),
     })

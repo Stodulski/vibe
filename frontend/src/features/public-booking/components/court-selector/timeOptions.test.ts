@@ -19,13 +19,12 @@ function slot(start: string, price: number, available = true, startMin?: number)
   };
 }
 
-function court(id: string, type: string, slots: AvailabilitySlot[]): CourtAvailability {
+function court(id: string, type: CourtAvailability['court_type'], slots: AvailabilitySlot[]): CourtAvailability {
   return {
     court_id: id,
     court_name: `Cancha ${id}`,
     sport: 'padel',
     court_type: type,
-    duration_minutes: 90,
     slots,
   };
 }

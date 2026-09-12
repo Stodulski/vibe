@@ -90,7 +90,6 @@ function buildAvailability(): AvailabilityData {
         court_name: 'Cancha 1',
         sport: 'padel',
         court_type: 'indoor',
-        duration_minutes: 60,
         slots: [
           {
             start_time: '10:00',

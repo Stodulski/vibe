@@ -45,7 +45,8 @@ const courtShape = z
     sport: sportSchema,
     court_type: courtTypeSchema,
     is_active: z.boolean(),
-    description: z.string().optional(),
+    // Absent when the owner has never written one, null when it was cleared.
+    description: z.string().nullable().optional(),
     created_at: z.string(),
     updated_at: z.string(),
   })
