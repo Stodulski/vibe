@@ -1,27 +1,24 @@
 import { FileSpreadsheet } from 'lucide-react';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { Panel } from '@/shared/components/common/Panel';
-import type { MonthlyReport } from '@/shared/types/api.types';
 import { MONTH_NAMES } from './constants';
 import { ReportMobileSummary } from './ReportMobileSummary';
 import { ReportDesktopTable } from './ReportDesktopTable';
 import { ReportHeadline } from './ReportHeadline';
 import { ReportByCourt } from './ReportByCourt';
 import { ReportCardSkeleton } from './ReportCardSkeleton';
+import type { ReportCardState } from './reportCardState';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
+
 interface ReportCardProps {
   month: number;
   year: number;
-  isLoading: boolean;
-  isError: boolean;
-  report: MonthlyReport | undefined;
+  state: ReportCardState;
 }
 
-export function ReportCard({ month, year, isLoading, isError, report }: ReportCardProps) {
-  const methodEntries = report ? Object.entries(report.by_method) : [];
-
+export function ReportCard({ month, year, state }: ReportCardProps) {
   return (
     <Panel as="section" size="md">
       <h2 className="mb-1 text-sm font-semibold text-text-primary">{t.reports.monthlyTitle}</h2>
@@ -29,28 +26,42 @@ export function ReportCard({ month, year, isLoading, isError, report }: ReportCa
         {MONTH_NAMES[month - 1]} {year}
       </p>
 
-      {isLoading ? (
-        <ReportCardSkeleton />
-      ) : isError ? (
+      <ReportCardBody month={month} year={year} state={state} />
+    </Panel>
+  );
+}
+
+function ReportCardBody({ month, year, state }: ReportCardProps) {
+  switch (state.status) {
+    case 'loading':
+      return <ReportCardSkeleton />;
+    case 'error':
+      return (
         <EmptyState
           icon={FileSpreadsheet}
           title={t.dashboard.reportLoadError}
           description={t.dashboard.reportLoadErrorDescription}
         />
-      ) : !report || (methodEntries.length === 0 && report.totals.count === 0) ? (
+      );
+    case 'empty':
+      return (
         <EmptyState
           icon={FileSpreadsheet}
           title={t.dashboard.reportNoData}
           description={t.dashboard.reportNoDataDescription}
         />
-      ) : (
+      );
+    case 'ready': {
+      const { report } = state;
+      const methodEntries = Object.entries(report.by_method);
+      return (
         <>
           <ReportHeadline totals={report.totals} previous={report.previous_totals} />
           <ReportMobileSummary methodEntries={methodEntries} totals={report.totals} />
           <ReportDesktopTable month={month} year={year} methodEntries={methodEntries} totals={report.totals} />
           <ReportByCourt courts={report.by_court} />
         </>
-      )}
-    </Panel>
-  );
+      );
+    }
+  }
 }
