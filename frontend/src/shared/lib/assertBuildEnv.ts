@@ -4,9 +4,9 @@
  * `import.meta.env` is substituted statically by `vite build`, so the schema
  * in `env.ts` (evaluated at module load) only ever runs in the browser: a
  * deploy that forgets a variable would build fine and then fail in every
- * user's tab. `vite.config.ts` calls this on `vite build` so the deploy fails
- * instead (BLD-04). Dev and e2e servers are not gated; `env.ts` falls back to
- * the page origin there.
+ * user's tab. `vite.config.ts` calls this on a production-mode `vite build`
+ * so the deploy fails instead (BLD-04). Dev, and the `--mode e2e` build the
+ * e2e suite serves, are not gated; `env.ts` falls back to the page origin.
  */
 export const REQUIRED_BUILD_ENV = ['VITE_APP_URL'] as const;
 

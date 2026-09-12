@@ -175,6 +175,10 @@ const config: UserConfig = {
 export default defineConfig(({ command, mode }) => {
   // A production bundle without VITE_APP_URL would build fine and fail in the
   // browser (env.ts only runs there), so the build is gated here (BLD-04).
-  if (command === 'build') assertBuildEnv(loadEnv(mode, import.meta.dirname, 'VITE_'));
+  // Only production mode: the e2e suite builds with `--mode e2e` and no
+  // deploy variables, and relies on env.ts falling back to the page origin.
+  if (command === 'build' && mode === 'production') {
+    assertBuildEnv(loadEnv(mode, import.meta.dirname, 'VITE_'));
+  }
   return config;
 });
