@@ -22,7 +22,7 @@ func (q *Queries) DeleteCourtPrice(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getCourtPrices = `-- name: GetCourtPrices :many
-SELECT id, court_id, price, day_type, time_from, time_to, created_at, updated_at, span_min, version FROM court_prices
+SELECT id, court_id, price, day_type, time_from, time_to, created_at, updated_at, span_min, version, complex_id FROM court_prices
 WHERE court_id = $1
 ORDER BY day_type, time_from
 `
@@ -47,6 +47,7 @@ func (q *Queries) GetCourtPrices(ctx context.Context, courtID pgtype.UUID) ([]Co
 			&i.UpdatedAt,
 			&i.SpanMin,
 			&i.Version,
+			&i.ComplexID,
 		); err != nil {
 			return nil, err
 		}
@@ -61,7 +62,7 @@ func (q *Queries) GetCourtPrices(ctx context.Context, courtID pgtype.UUID) ([]Co
 const insertCourtPrice = `-- name: InsertCourtPrice :one
 INSERT INTO court_prices (court_id, price, day_type, time_from, time_to)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, court_id, price, day_type, time_from, time_to, created_at, updated_at, span_min, version
+RETURNING id, court_id, price, day_type, time_from, time_to, created_at, updated_at, span_min, version, complex_id
 `
 
 type InsertCourtPriceParams struct {
@@ -92,6 +93,7 @@ func (q *Queries) InsertCourtPrice(ctx context.Context, arg InsertCourtPricePara
 		&i.UpdatedAt,
 		&i.SpanMin,
 		&i.Version,
+		&i.ComplexID,
 	)
 	return i, err
 }
@@ -103,7 +105,7 @@ SET price = $1,
     time_from = $3,
     time_to = $4
 WHERE id = $5
-RETURNING id, court_id, price, day_type, time_from, time_to, created_at, updated_at, span_min, version
+RETURNING id, court_id, price, day_type, time_from, time_to, created_at, updated_at, span_min, version, complex_id
 `
 
 type UpdateCourtPriceParams struct {
@@ -134,6 +136,7 @@ func (q *Queries) UpdateCourtPrice(ctx context.Context, arg UpdateCourtPricePara
 		&i.UpdatedAt,
 		&i.SpanMin,
 		&i.Version,
+		&i.ComplexID,
 	)
 	return i, err
 }

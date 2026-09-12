@@ -21,7 +21,14 @@ SELECT
   ), 0)::int AS total_bookings
 FROM clients c
 WHERE c.id = $1
+  AND ($2::uuid IS NULL
+       OR c.complex_id = $2::uuid)
 `
+
+type GetClientByIDParams struct {
+	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
 
 type GetClientByIDRow struct {
 	ID            pgtype.UUID        `json:"id"`
@@ -38,8 +45,10 @@ type GetClientByIDRow struct {
 	TotalBookings int32              `json:"total_bookings"`
 }
 
-func (q *Queries) GetClientByID(ctx context.Context, id pgtype.UUID) (GetClientByIDRow, error) {
-	row := q.db.QueryRow(ctx, getClientByID, id)
+// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+// predicate is optional.
+func (q *Queries) GetClientByID(ctx context.Context, arg GetClientByIDParams) (GetClientByIDRow, error) {
+	row := q.db.QueryRow(ctx, getClientByID, arg.ID, arg.ComplexID)
 	var i GetClientByIDRow
 	err := row.Scan(
 		&i.ID,

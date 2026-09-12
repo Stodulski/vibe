@@ -437,6 +437,11 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
 }
 
 // GetByID returns the booking with the given ID, or ErrRecordNotFound if none exists.
+//
+// The tenant predicate is the explicit half of what the row-level security
+// policies already enforce — see the note on GetBookingByID in
+// db/queries/bookings.sql for why it is optional, and why the NULL branch is
+// the set of callers that run under the bypass rather than a way around it.
 func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -452,7 +457,8 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		LEFT JOIN courts co ON co.id = b.court_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
 		WHERE b.id = $1
-		LIMIT 1`, data.UUIDToPg(id)).Scan(
+		  AND ($2::uuid IS NULL OR b.complex_id = $2::uuid)
+		LIMIT 1`, data.UUIDToPg(id), data.TenantParam(ctx)).Scan(
 		&b.ID, &b.ComplexID, &b.CourtID, &b.ClientID,
 		&b.Span,
 		&b.Date, &b.StartTime, &b.DurationMinutes,

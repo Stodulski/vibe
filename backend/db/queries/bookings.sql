@@ -9,8 +9,24 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: GetBookingByID :one
+--
+-- The tenant predicate is the explicit half of the isolation the row-level
+-- security policies enforce (db/migrations/001_init.sql). RLS is the guarantee;
+-- this is the statement saying out loud which tenant the row is supposed to
+-- belong to, so a lookup by id cannot reach across tenants even if a policy is
+-- ever relaxed, dropped, or bypassed for a path that did not need the bypass.
+--
+-- It is optional, and the NULL branch is not a loophole: it is exactly the set
+-- of callers that legitimately have no tenant on the context — the cron sweeps,
+-- the superadmin console, the MercadoPago webhook resolving its payment, the
+-- public link resolving its booking. Those run under app.bypass_tenant, so RLS
+-- lets them through anyway and a mandatory predicate here would only break
+-- them. The store passes data.TenantFromContext's answer; a scoped caller gets
+-- the filter, a bypassed one is exactly where it was.
 SELECT * FROM bookings
-WHERE id = $1;
+WHERE id = $1
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid);
 
 -- name: GetBookingsByComplex :many
 SELECT * FROM bookings
@@ -34,8 +50,12 @@ ORDER BY date ASC, start_time ASC;
 -- serialization on this table now that the `version` counter is gone: it is
 -- held by the database for the whole transaction, which is what the counter
 -- only pretended to be.
+--
+-- Tenant-scoped like GetBookingByID above, and optional for the same reason.
 SELECT * FROM bookings
 WHERE id = $1
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid)
 FOR UPDATE;
 
 -- name: UpdateBooking :one

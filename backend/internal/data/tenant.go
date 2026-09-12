@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // This file is how the tenant a request is acting for reaches the SQL session,
@@ -150,6 +151,26 @@ func TenantFromContext(ctx context.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return id, true
+}
+
+// TenantParam is the tenant on this context as a query parameter: the complex
+// id when there is one, and NULL when there is not.
+//
+// It is what the by-id queries take for their optional `complex_id = $2`
+// predicate (db/queries/bookings.sql and its three siblings). NULL is not a
+// hole in that filter: a context with no tenant is a cron sweep, the superadmin
+// console, the MercadoPago webhook or a public link — every one of them running
+// under the bypass, which the policies let through regardless — so a mandatory
+// predicate would break exactly those and protect nothing. What it adds is the
+// explicit half of the isolation for every caller that DOES have a tenant,
+// written where a human reading the query can see it rather than only in a
+// policy.
+func TenantParam(ctx context.Context) pgtype.UUID {
+	id, ok := TenantFromContext(ctx)
+	if !ok {
+		return pgtype.UUID{}
+	}
+	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
 // TenantBypassed reports whether this context is allowed to cross tenants.

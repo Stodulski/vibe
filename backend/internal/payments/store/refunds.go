@@ -78,7 +78,10 @@ func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*Refun
 	// unit cannot move money twice.
 	var claim *RefundClaim
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
-		locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(paymentID))
+		locked, err := qtx.GetPaymentByIDForUpdate(ctx, db.GetPaymentByIDForUpdateParams{
+			ID:        data.UUIDToPg(paymentID),
+			ComplexID: data.TenantParam(ctx),
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return data.ErrRecordNotFound
@@ -238,7 +241,10 @@ func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, m
 
 	var refundTotal int
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
-		locked, err := qtx.GetPaymentByIDForUpdate(ctx, data.UUIDToPg(claim.PaymentID))
+		locked, err := qtx.GetPaymentByIDForUpdate(ctx, db.GetPaymentByIDForUpdateParams{
+			ID:        data.UUIDToPg(claim.PaymentID),
+			ComplexID: data.TenantParam(ctx),
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return data.ErrRecordNotFound
@@ -316,7 +322,10 @@ func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, m
 // stands are two facts, and refunding a booking that only ever took a deposit
 // used to overwrite the first with the second.
 func cancelRefundedBooking(ctx context.Context, qtx *db.Queries, bookingID uuid.UUID, manualBalanceRemains bool) error {
-	locked, err := qtx.GetBookingByIDForUpdate(ctx, data.UUIDToPg(bookingID))
+	locked, err := qtx.GetBookingByIDForUpdate(ctx, db.GetBookingByIDForUpdateParams{
+		ID:        data.UUIDToPg(bookingID),
+		ComplexID: data.TenantParam(ctx),
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return data.ErrRecordNotFound
@@ -468,7 +477,10 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 
 	var returned int
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(_ pgx.Tx, qtx *db.Queries) error {
-		locked, err := qtx.GetBookingByIDForUpdate(ctx, data.UUIDToPg(bookingID))
+		locked, err := qtx.GetBookingByIDForUpdate(ctx, db.GetBookingByIDForUpdateParams{
+			ID:        data.UUIDToPg(bookingID),
+			ComplexID: data.TenantParam(ctx),
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return data.ErrRecordNotFound

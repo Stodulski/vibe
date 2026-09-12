@@ -94,10 +94,30 @@ func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) 
 const getBookingByID = `-- name: GetBookingByID :one
 SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
 WHERE id = $1
+  AND ($2::uuid IS NULL
+       OR complex_id = $2::uuid)
 `
 
-func (q *Queries) GetBookingByID(ctx context.Context, id pgtype.UUID) (Booking, error) {
-	row := q.db.QueryRow(ctx, getBookingByID, id)
+type GetBookingByIDParams struct {
+	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+// The tenant predicate is the explicit half of the isolation the row-level
+// security policies enforce (db/migrations/001_init.sql). RLS is the guarantee;
+// this is the statement saying out loud which tenant the row is supposed to
+// belong to, so a lookup by id cannot reach across tenants even if a policy is
+// ever relaxed, dropped, or bypassed for a path that did not need the bypass.
+//
+// It is optional, and the NULL branch is not a loophole: it is exactly the set
+// of callers that legitimately have no tenant on the context — the cron sweeps,
+// the superadmin console, the MercadoPago webhook resolving its payment, the
+// public link resolving its booking. Those run under app.bypass_tenant, so RLS
+// lets them through anyway and a mandatory predicate here would only break
+// them. The store passes data.TenantFromContext's answer; a scoped caller gets
+// the filter, a bypassed one is exactly where it was.
+func (q *Queries) GetBookingByID(ctx context.Context, arg GetBookingByIDParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, getBookingByID, arg.ID, arg.ComplexID)
 	var i Booking
 	err := row.Scan(
 		&i.ID,
@@ -126,8 +146,15 @@ func (q *Queries) GetBookingByID(ctx context.Context, id pgtype.UUID) (Booking, 
 const getBookingByIDForUpdate = `-- name: GetBookingByIDForUpdate :one
 SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
 WHERE id = $1
+  AND ($2::uuid IS NULL
+       OR complex_id = $2::uuid)
 FOR UPDATE
 `
+
+type GetBookingByIDForUpdateParams struct {
+	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
 
 // Locks the booking row for the duration of the enclosing transaction.
 // The refund recorder reads status, notes and deposit_amount back under this
@@ -136,8 +163,10 @@ FOR UPDATE
 // serialization on this table now that the `version` counter is gone: it is
 // held by the database for the whole transaction, which is what the counter
 // only pretended to be.
-func (q *Queries) GetBookingByIDForUpdate(ctx context.Context, id pgtype.UUID) (Booking, error) {
-	row := q.db.QueryRow(ctx, getBookingByIDForUpdate, id)
+//
+// Tenant-scoped like GetBookingByID above, and optional for the same reason.
+func (q *Queries) GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByIDForUpdateParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, getBookingByIDForUpdate, arg.ID, arg.ComplexID)
 	var i Booking
 	err := row.Scan(
 		&i.ID,

@@ -59,13 +59,22 @@ func (q *Queries) BumpCourtVersion(ctx context.Context, arg BumpCourtVersionPara
 const getCourtByID = `-- name: GetCourtByID :one
 SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version FROM active_courts
 WHERE id = $1
+  AND ($2::uuid IS NULL
+       OR complex_id = $2::uuid)
 `
+
+type GetCourtByIDParams struct {
+	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
 
 // Reads active_courts: a court whose complex was soft-deleted is not a court
 // anyone may book, edit or price, and filtering only on the court's own
 // deleted_at missed exactly that case. See the soft-delete cascade in db/migrations/001_init.sql.
-func (q *Queries) GetCourtByID(ctx context.Context, id pgtype.UUID) (ActiveCourt, error) {
-	row := q.db.QueryRow(ctx, getCourtByID, id)
+// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
+// predicate is optional.
+func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (ActiveCourt, error) {
+	row := q.db.QueryRow(ctx, getCourtByID, arg.ID, arg.ComplexID)
 	var i ActiveCourt
 	err := row.Scan(
 		&i.ID,

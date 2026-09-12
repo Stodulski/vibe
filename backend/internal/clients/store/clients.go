@@ -74,7 +74,10 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Client, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	row, err := m.Q.GetClientByID(ctx, data.UUIDToPg(id))
+	row, err := m.Q.GetClientByID(ctx, db.GetClientByIDParams{
+		ID:        data.UUIDToPg(id),
+		ComplexID: data.TenantParam(ctx),
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, data.ErrRecordNotFound

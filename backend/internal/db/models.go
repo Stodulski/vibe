@@ -393,6 +393,7 @@ type BlockedSlot struct {
 	CreatedAt pgtype.Timestamptz               `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz               `json:"updated_at"`
 	Span      pgtype.Range[pgtype.Timestamptz] `json:"span"`
+	ComplexID pgtype.UUID                      `json:"complex_id"`
 }
 
 type Booking struct {
@@ -423,6 +424,7 @@ type BookingLinkToken struct {
 	TokenHash []byte             `json:"token_hash"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ComplexID pgtype.UUID        `json:"complex_id"`
 }
 
 type Client struct {
@@ -507,6 +509,7 @@ type CourtPrice struct {
 	UpdatedAt pgtype.Timestamptz        `json:"updated_at"`
 	SpanMin   pgtype.Range[pgtype.Int4] `json:"span_min"`
 	Version   int32                     `json:"version"`
+	ComplexID pgtype.UUID               `json:"complex_id"`
 }
 
 type EmailVerificationToken struct {
@@ -603,6 +606,7 @@ type SlotLock struct {
 	LockedBy  string             `json:"locked_by"`
 	LockedAt  pgtype.Timestamptz `json:"locked_at"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	ComplexID pgtype.UUID        `json:"complex_id"`
 }
 
 type User struct {

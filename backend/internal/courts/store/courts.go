@@ -171,7 +171,10 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	dbCourt, err := m.Q.GetCourtByID(ctx, data.UUIDToPg(id))
+	dbCourt, err := m.Q.GetCourtByID(ctx, db.GetCourtByIDParams{
+		ID:        data.UUIDToPg(id),
+		ComplexID: data.TenantParam(ctx),
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, data.ErrRecordNotFound
