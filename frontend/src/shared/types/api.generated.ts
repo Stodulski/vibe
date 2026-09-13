@@ -1258,9 +1258,50 @@ export interface paths {
         };
         /**
          * Download the monthly payments report as an Excel workbook
+         * @deprecated
          * @description Same period parameters and validation as the monthly report. Bounded by an 8 second budget and a 50,000 row cap.
          */
         get: operations["reportingExportPaymentsExcel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/reports/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a payments export job
+         * @description Enqueues the Excel export and answers immediately. Deduplicated per complex, period and calendar day (Argentina), so a double click yields the same export id. Poll the status resource in `status_url` until `status` is `done` or `failed`.
+         */
+        post: operations["reportingCreatePaymentsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/reports/exports/{exportID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payments export status and download URL
+         * @description `download_url` and `expires_at` are present only when `status` is `done`; the URL is a short-lived signed link to private object storage. A failed export answers `200` with `status: failed` and an embedded `error` problem whose `instance` is this path.
+         */
+        get: operations["reportingGetPaymentsExport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1352,6 +1393,18 @@ export interface components {
             request_id?: string;
             /** @description Present on a validation problem; one entry per invalid field. */
             errors?: components["schemas"]["FieldError"][];
+        };
+        /** @description One payments export job. `download_url`/`expires_at` appear only on `done`; `error` only on `failed`. */
+        PaymentsExport: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "done" | "failed";
+            /** Format: uri */
+            download_url?: string;
+            /** Format: date-time */
+            expires_at?: string;
+            error?: components["schemas"]["Problem"];
         };
         FieldError: {
             /** @description Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`. */
@@ -2057,6 +2110,7 @@ export interface components {
         BookingID: string;
         CourtID: string;
         ClientID: string;
+        ExportID: string;
         /** @description The opaque booking-link token, never the booking's primary key. */
         BookingToken: string;
         /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
@@ -5297,6 +5351,116 @@ export interface operations {
             500: components["responses"]["ServerError"];
             /** @description The export did not finish inside its budget (`report_export_timed_out`). */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reportingCreatePaymentsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    month?: number;
+                    year?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The export was accepted, or an identical one was already queued. */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        export: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "pending" | "running" | "done" | "failed";
+                            status_url: string;
+                        };
+                    };
+                };
+            };
+            /** @description Period validation failed, same machine-code shape as the monthly report. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description No object storage backend is configured for exports. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reportingGetPaymentsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                exportID: components["parameters"]["ExportID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export's current state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        export: components["schemas"]["PaymentsExport"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The file has passed its 24 hour retention (`export_expired`). */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description No object storage backend is configured for exports. */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
