@@ -71,7 +71,7 @@ export const monthlyReportResponseSchema = exact<MonthlyReportResponse>(
 
 // ─── Async payments export (JOB-06) ───
 
-export const paymentsExportStatusSchema = z.enum(['pending', 'running', 'done', 'failed']);
+const paymentsExportStatusSchema = z.enum(['pending', 'running', 'done', 'failed']);
 
 const paymentsExportFieldErrorSchema = z
   .object({
@@ -81,7 +81,7 @@ const paymentsExportFieldErrorSchema = z
   .loose() satisfies z.ZodType<NonNullable<PaymentsExportProblem['errors']>[number]>;
 
 /** The generated `Problem` schema, embedded as `PaymentsExport.error` on a `failed` export — arrives inside a `200` body, not thrown as an `HTTPError`. */
-export const paymentsExportProblemSchema = exact<PaymentsExportProblem>(
+const paymentsExportProblemSchema = exact<PaymentsExportProblem>(
   z
     .object({
       type: z.string(),
@@ -95,7 +95,7 @@ export const paymentsExportProblemSchema = exact<PaymentsExportProblem>(
     .loose(),
 );
 
-export const paymentsExportSchema = exact<PaymentsExport>(
+const paymentsExportSchema = exact<PaymentsExport>(
   z
     .object({
       id: z.string(),
