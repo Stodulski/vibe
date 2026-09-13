@@ -87,11 +87,6 @@ type Problem struct {
 	// Errors is present on a validation problem: one entry per invalid
 	// field.
 	Errors []FieldError `json:"errors,omitempty"`
-	// Error mirrors Detail/Errors under the pre-RFC-9457 key an
-	// already-deployed frontend still reads: the detail string for most
-	// problems, or a field->message object for a validation problem.
-	// legacy: remove once the frontend's ApiError is deployed everywhere
-	Error any `json:"error,omitempty"`
 }
 
 // titles gives every kind a short, stable summary. It intentionally mirrors
@@ -131,8 +126,6 @@ func (rs *Responder) writeProblem(w http.ResponseWriter, r *http.Request, status
 		Instance:  r.URL.Path,
 		RequestID: ContextGetRequestID(r),
 		Errors:    fieldErrors,
-		// legacy: remove once the frontend's ApiError is deployed everywhere
-		Error: legacyError(detail, fieldErrors),
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
@@ -140,21 +133,6 @@ func (rs *Responder) writeProblem(w http.ResponseWriter, r *http.Request, status
 		rs.LogError(r, err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-}
-
-// legacyError renders a Problem's pre-RFC-9457 "error" key: the per-field
-// object a validation problem answered with, or the detail string every
-// other problem answered with, before this API moved to RFC 9457 bodies.
-// legacy: remove once the frontend's ApiError is deployed everywhere
-func legacyError(detail string, fieldErrors []FieldError) any {
-	if len(fieldErrors) == 0 {
-		return detail
-	}
-	out := make(map[string]string, len(fieldErrors))
-	for _, fe := range fieldErrors {
-		out[fe.Field] = fe.Message
-	}
-	return out
 }
 
 // sortedFieldErrors turns a validator's field->message map into a

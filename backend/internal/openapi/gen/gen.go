@@ -1416,9 +1416,6 @@ type Problem struct {
 	// Detail Human readable detail for this occurrence, safe to display.
 	Detail *string `json:"detail,omitempty"`
 
-	// Error Legacy pre-RFC-9457 error shape, kept for one release so an already-deployed client keeps rendering: the detail string for most problems, or a field-to-message object for a validation problem. Remove once the frontend's ApiError is deployed everywhere.
-	Error *Problem_Error `json:"error,omitempty"`
-
 	// Errors Present on a validation problem; one entry per invalid field.
 	Errors *[]FieldError `json:"errors,omitempty"`
 
@@ -1436,17 +1433,6 @@ type Problem struct {
 
 	// Type A stable URI identifying this problem's kind, e.g. `https://vibe.com.ar/problems/validation`.
 	Type string `json:"type"`
-}
-
-// ProblemError0 defines model for Problem.Error.0.
-type ProblemError0 = string
-
-// ProblemError1 defines model for Problem.Error.1.
-type ProblemError1 map[string]string
-
-// Problem_Error Legacy pre-RFC-9457 error shape, kept for one release so an already-deployed client keeps rendering: the detail string for most problems, or a field-to-message object for a validation problem. Remove once the frontend's ApiError is deployed everywhere.
-type Problem_Error struct {
-	union json.RawMessage
 }
 
 // PublicBookingResult defines model for PublicBookingResult.
@@ -2384,68 +2370,6 @@ type PaymentsMercadoPagoWebhookJSONRequestBody PaymentsMercadoPagoWebhookJSONBod
 
 // BookingsWhatsAppWebhookJSONRequestBody defines body for BookingsWhatsAppWebhook for application/json ContentType.
 type BookingsWhatsAppWebhookJSONRequestBody BookingsWhatsAppWebhookJSONBody
-
-// AsProblemError0 returns the union data inside the Problem_Error as a ProblemError0
-func (t Problem_Error) AsProblemError0() (ProblemError0, error) {
-	var body ProblemError0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromProblemError0 overwrites any union data inside the Problem_Error as the provided ProblemError0
-func (t *Problem_Error) FromProblemError0(v ProblemError0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeProblemError0 performs a merge with any union data inside the Problem_Error, using the provided ProblemError0
-func (t *Problem_Error) MergeProblemError0(v ProblemError0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsProblemError1 returns the union data inside the Problem_Error as a ProblemError1
-func (t Problem_Error) AsProblemError1() (ProblemError1, error) {
-	var body ProblemError1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromProblemError1 overwrites any union data inside the Problem_Error as the provided ProblemError1
-func (t *Problem_Error) FromProblemError1(v ProblemError1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeProblemError1 performs a merge with any union data inside the Problem_Error, using the provided ProblemError1
-func (t *Problem_Error) MergeProblemError1(v ProblemError1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t Problem_Error) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *Problem_Error) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
 
 // AsAuthGoogle200JSONResponseBody0 returns the union data inside the AuthGoogle200JSONResponseBody as a AuthGoogle200JSONResponseBody0
 func (t AuthGoogle200JSONResponseBody) AsAuthGoogle200JSONResponseBody0() (AuthGoogle200JSONResponseBody0, error) {

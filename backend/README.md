@@ -138,11 +138,6 @@ holds — kept distinct from the generic `conflict` so the frontend can switch o
 parsing `detail`. `internal/httpx/problem.go` is the one place that builds this body — see its
 `Kind` constants for the full, exact list.
 
-For one release, every problem also carries the pre-RFC-9457 `error` key an already-deployed
-frontend still reads: the `detail` string for most problems, or a `{field: message, ...}` object
-for a validation problem (the same pairs as `errors`, keyed by field). It will be removed once the
-frontend's `ApiError` is deployed everywhere; do not build new clients against it.
-
 ## Environment variables
 
 `.env.example` is versioned in this repository and lists every variable with a comment. `.env` is gitignored and never committed. This file's contents are not reproduced here; the tables below list names, purpose, and required/default status as read from `cmd/api/main.go` and `cmd/api/boot_config.go`.
