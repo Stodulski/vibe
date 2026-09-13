@@ -893,31 +893,34 @@ func TestStaffCreateAllowsCorrectingAnExistingClientsName(t *testing.T) {
 	}
 }
 
-// TestPublicStatusRejectsAnAbsentToken is task 13.1's absent-input half:
-// PublicStatus keeps its own existing 400 shape when the token query
-// parameter is missing entirely — resolveLink never runs.
-func TestPublicStatusRejectsAnAbsentToken(t *testing.T) {
-	f := newFixture(t)
-
-	w := httptest.NewRecorder()
-	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/", ""))
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want 400 with no token; got %d (%s)", w.Code, w.Body.String())
+// TestPublicStatusRejectsInvalidToken is task 13.1: PublicStatus keeps its
+// own existing 400 shape when the token query parameter is missing entirely
+// — resolveLink never runs — and answers 404, never 410, for a value never
+// minted, including a syntactically valid but unresolvable one, since a
+// token is no longer parsed as a UUID. Neither case sets up anything beyond
+// the query string, so both live as rows here rather than as separate
+// functions.
+func TestPublicStatusRejectsInvalidToken(t *testing.T) {
+	tests := []struct {
+		name       string
+		query      string
+		wantStatus int
+	}{
+		{"absent token", "/", http.StatusBadRequest},
+		{"unknown token", "/?token=never-minted-value", http.StatusNotFound},
 	}
-}
 
-// TestPublicStatusUnknownTokenIsNotFound is task 13.1: a value never minted —
-// including a syntactically valid but unresolvable one, since a token is no
-// longer parsed as a UUID — answers 404, never 410.
-func TestPublicStatusUnknownTokenIsNotFound(t *testing.T) {
-	f := newFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
 
-	w := httptest.NewRecorder()
-	f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, "/?token=never-minted-value", ""))
+			w := httptest.NewRecorder()
+			f.handler.PublicStatus(w, publicRequest(t, http.MethodGet, tt.query, ""))
 
-	if w.Code != http.StatusNotFound {
-		t.Errorf("want 404 for an unknown token; got %d (%s)", w.Code, w.Body.String())
+			if w.Code != tt.wantStatus {
+				t.Errorf("want %d; got %d (%s)", tt.wantStatus, w.Code, w.Body.String())
+			}
+		})
 	}
 }
 

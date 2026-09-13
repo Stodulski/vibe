@@ -191,37 +191,36 @@ func TestFailedLoginsAreIndistinguishable(t *testing.T) {
 	}
 }
 
-func TestLoginRefusesAnUnverifiedAccount(t *testing.T) {
-	f := newFixture(t)
-	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
-	user.EmailVerified = false
-	f.users.add(user)
-
-	w := httptest.NewRecorder()
-	f.handler.Login(w, postJSON(t, `{"email":"ana@example.com","password":"correct-horse-battery"}`))
-
-	if w.Code == http.StatusOK {
-		t.Errorf("an unverified account must not sign in; got %d", w.Code)
+// TestLoginRefusesAnInvalidAccount consolidates the two account states that
+// refuse a correct password outright: not yet verified, and deactivated.
+// Both vary only the account's state and assert the same shape — no session
+// issued — so they live as rows here rather than as separate functions.
+func TestLoginRefusesAnInvalidAccount(t *testing.T) {
+	tests := []struct {
+		name    string
+		account func(u *authstore.User)
+	}{
+		{"unverified account", func(u *authstore.User) { u.EmailVerified = false }},
+		{"deactivated account", func(u *authstore.User) { u.IsActive = false }},
 	}
-	if len(f.tokens.stored) != 0 {
-		t.Error("no session may be issued to an unverified account")
-	}
-}
 
-func TestLoginRefusesADeactivatedAccount(t *testing.T) {
-	f := newFixture(t)
-	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
-	user.IsActive = false
-	f.users.add(user)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+			tt.account(user)
+			f.users.add(user)
 
-	w := httptest.NewRecorder()
-	f.handler.Login(w, postJSON(t, `{"email":"ana@example.com","password":"correct-horse-battery"}`))
+			w := httptest.NewRecorder()
+			f.handler.Login(w, postJSON(t, `{"email":"ana@example.com","password":"correct-horse-battery"}`))
 
-	if w.Code == http.StatusOK {
-		t.Errorf("a deactivated account must not sign in; got %d", w.Code)
-	}
-	if len(f.tokens.stored) != 0 {
-		t.Error("no session may be issued to a deactivated account")
+			if w.Code == http.StatusOK {
+				t.Errorf("%s must not sign in; got %d", tt.name, w.Code)
+			}
+			if len(f.tokens.stored) != 0 {
+				t.Errorf("no session may be issued to %s", tt.name)
+			}
+		})
 	}
 }
 
