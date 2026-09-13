@@ -379,7 +379,7 @@ func scanFailedRefunds(rows pgx.Rows) ([]*FailedRefund, error) {
 		result = append(result, &fr)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan failed refunds: %w", err)
+		return nil, fmt.Errorf("payments: scan failed refunds: %w", err)
 	}
 	return result, nil
 }
