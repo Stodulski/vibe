@@ -19,6 +19,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/storage"
 )
 
 type stubStore struct {
@@ -207,6 +208,10 @@ type stubStorage struct {
 	// extension and the signed type while validating three.
 	signedKey         string
 	signedContentType string
+
+	// putKeys records server-side uploads. Nothing in this package makes one;
+	// see PutObject below.
+	putKeys []string
 }
 
 func (s *stubStorage) GeneratePresignedPUT(_ context.Context, key, contentType string, _ int64, _ time.Duration) (string, string, error) {
@@ -215,6 +220,23 @@ func (s *stubStorage) GeneratePresignedPUT(_ context.Context, key, contentType s
 		return "", "", s.err
 	}
 	return s.uploadURL, s.publicURL, nil
+}
+
+// PutObject and GeneratePresignedGET are the private-bucket half of
+// storage.ObjectStorage. No complexes route uses either — image uploads go
+// through the presigned PUT above — so they are here to satisfy the interface
+// and record enough that a future caller in this package cannot use them
+// silently.
+func (s *stubStorage) PutObject(_ context.Context, obj storage.Object) error {
+	s.putKeys = append(s.putKeys, obj.Key)
+	return s.err
+}
+
+func (s *stubStorage) GeneratePresignedGET(_ context.Context, key, _ string, _ time.Duration) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return "https://cdn.example/signed/" + key, nil
 }
 
 func (s *stubStorage) DeleteObject(_ context.Context, key string) error {

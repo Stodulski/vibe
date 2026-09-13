@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -124,6 +125,95 @@ func (r *R2Client) GeneratePresignedPUT(ctx context.Context, key, contentType st
 
 	publicURL := r.publicBaseURL + "/" + key
 	return presigned.URL, publicURL, nil
+}
+
+// PutObject uploads obj into the bucket from this process.
+//
+// The body travels as a bytes.Reader rather than an io.Reader the caller
+// keeps: the SDK's retryer re-sends a failed request, and a stream that has
+// already been consumed once re-sends as an empty body — a zero-length object
+// written over a good one, reported as success. A Reader over a slice can
+// seek back to the start, so a retry sends the same bytes.
+//
+// An empty key or content type is refused rather than uploaded. R2 accepts an
+// object with no declared type and serves it as an opaque stream, which is
+// how a spreadsheet arrives in a browser as an unnamed download the operating
+// system cannot open.
+func (r *R2Client) PutObject(ctx context.Context, obj Object) error {
+	if obj.Key == "" {
+		return fmt.Errorf("put object: a key is required")
+	}
+	if obj.ContentType == "" {
+		return fmt.Errorf("put object %q: a content type is required, it is what decides how the object is served", obj.Key)
+	}
+
+	input := &s3.PutObjectInput{
+		Bucket:        aws.String(r.bucket),
+		Key:           aws.String(obj.Key),
+		Body:          bytes.NewReader(obj.Body),
+		ContentType:   aws.String(obj.ContentType),
+		ContentLength: aws.Int64(int64(len(obj.Body))),
+	}
+	if obj.ContentDisposition != "" {
+		input.ContentDisposition = aws.String(obj.ContentDisposition)
+	}
+
+	if _, err := r.client.PutObject(ctx, input); err != nil {
+		return fmt.Errorf("put object %q: %w", obj.Key, err)
+	}
+	return nil
+}
+
+// GeneratePresignedGET returns a signed URL that reads key for ttl.
+//
+// This is what makes a private bucket usable: the object is unreadable
+// without a signature, the signature expires, and it is minted only after the
+// caller has proved they own the complex the object belongs to. An
+// unguessable key in a public bucket would be none of those things — it is a
+// bearer token with no expiry that leaks through browser history, Referer
+// headers and forwarded messages.
+//
+// downloadName is signed as ResponseContentDisposition rather than merely
+// appended, because an unsigned query parameter is one R2 rejects: every
+// response-override parameter is part of the SigV4 canonical query string.
+//
+// An empty key is refused because a signature over the bucket alone is not a
+// URL anybody can use, and a non-positive ttl because the SDK reads it as
+// "expire immediately" — a URL that is dead on arrival and reports itself as
+// a 403 from R2 rather than as an error here.
+func (r *R2Client) GeneratePresignedGET(ctx context.Context, key, downloadName string, ttl time.Duration) (string, error) {
+	if key == "" {
+		return "", fmt.Errorf("presign get: a key is required")
+	}
+	if ttl <= 0 {
+		return "", fmt.Errorf("presign get %q: ttl must be positive, got %s; a URL signed to expire now is refused rather than handed out", key, ttl)
+	}
+
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(r.bucket),
+		Key:    aws.String(key),
+	}
+	if downloadName != "" {
+		input.ResponseContentDisposition = aws.String(contentDisposition(downloadName))
+	}
+
+	presigned, err := r.presignClient.PresignGetObject(ctx, input, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", fmt.Errorf("presign get %q: %w", key, err)
+	}
+	return presigned.URL, nil
+}
+
+// contentDisposition is the attachment header a download is stored and served
+// with. It is one function so the object's own disposition and the one signed
+// into a presigned GET cannot spell the same file two ways.
+//
+// The name is quoted and any quote or backslash inside it removed: a filename
+// carrying a `"` would otherwise close the quoted-string early and let the
+// rest of the name be read as further header parameters.
+func contentDisposition(downloadName string) string {
+	safe := strings.NewReplacer(`"`, "", `\`, "", "\r", "", "\n", "").Replace(downloadName)
+	return fmt.Sprintf(`attachment; filename="%s"`, safe)
 }
 
 // DeleteObject removes the object at key from the bucket.

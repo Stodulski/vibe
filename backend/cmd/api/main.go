@@ -403,6 +403,27 @@ func main() {
 		logger.Info("R2 storage initialized", "bucket", cfg.R2.BucketName)
 	}
 
+	// The private bucket is a second client over the same credentials, built
+	// with no public base URL: nothing in it is served by a domain, so the
+	// only way to read an object is a presigned GET. It is separate from the
+	// bucket above rather than a prefix inside it because a public r2.dev or
+	// custom domain makes that whole bucket readable by key — see
+	// config.R2.PrivateBucketName.
+	//
+	// Left nil when R2_PRIVATE_BUCKET_NAME is unset, and the export endpoints
+	// then answer 501 exactly as the upload endpoints do without R2 at all.
+	var privateStorage storage.ObjectStorage
+	if objectStorage != nil && cfg.R2.PrivateBucketName != "" {
+		privateClient, err := storage.NewR2Client(cfg.R2.AccountID, cfg.R2.AccessKey, cfg.R2.SecretKey,
+			cfg.R2.PrivateBucketName, "")
+		if err != nil {
+			logger.Error("failed to initialize the private R2 bucket", "error", err)
+			os.Exit(1)
+		}
+		privateStorage = privateClient
+		logger.Info("R2 private storage initialized", "bucket", cfg.R2.PrivateBucketName)
+	}
+
 	app, err := newApplication(cfg, deps{
 		logger: logger,
 		models: stores.New(db, stores.Config{
@@ -414,6 +435,7 @@ func main() {
 		db:             db,
 		rdb:            rdb,
 		storage:        objectStorage,
+		privateStorage: privateStorage,
 		trustedProxies: trustedProxySet,
 	})
 	if err != nil {
