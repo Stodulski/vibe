@@ -39,9 +39,6 @@ export type MonthlyReportResponse = Omit<Ok<'reportingGetMonthlyReport'>, 'repor
 // until this regeneration; every type below now derives from the generated
 // document instead of restating it.
 
-/** The job's state machine, mirrored from the `jobs` row. */
-export type PaymentsExportStatus = Spec<'PaymentsExport'>['status'];
-
 /**
  * The RFC 9457 Problem embedded as `PaymentsExport.error` on a `failed`
  * export — not a thrown `HTTPError`, since the status route answers `200`
