@@ -326,7 +326,7 @@ CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository roo
 
 | Job | What it runs |
 |---|---|
-| `lint` | golangci-lint (config in `.golangci.yml`) |
+| `lint` | golangci-lint (config in `.golangci.yml`): errcheck, gosec, errorlint, bodyclose, sqlclosecheck, rowserrcheck, noctx, contextcheck, nilerr, wastedassign, unconvert, unparam, copyloopvar, durationcheck, exhaustive, gocritic, funlen, revive and wrapcheck on top of golangci-lint's standard set |
 | `format` | `gofmt -l .`, `goimports -l .`, `go vet ./...` |
 | `test` | `make test/cover` (unit tests, race detector + `-shuffle=on`), then prints the total coverage line to the job summary and uploads `coverage.out` as a 14-day artifact |
 | `build` | `make build` |
@@ -334,6 +334,8 @@ CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository roo
 | `sqlc` | `make vet/sqlc` against a disposable, migrated Postgres — catches a query that no longer matches the schema |
 | `container` | builds `Dockerfile` and scans the image with [Trivy](https://github.com/aquasecurity/trivy), failing on HIGH/CRITICAL findings with a known fix |
 | `integration` | `make e2e-db-up && make test/integration` (also `-race -shuffle=on`) |
+
+**wrapcheck**: an error returned from an external package (pgx, `database/sql`, stdlib, a third-party client) must cross into our code as `fmt.Errorf("<package>: <operation>: %w", err)`, so `errors.Is`/`errors.As` on sentinels still work while every store or service function names what it was doing when a dependency failed. Our own sentinels and typed errors are exempt from re-wrapping — `linters.settings.wrapcheck.ignore-package-globs` covers every `internal/*` package (`data.AssertTenant`, `DB.WithTx`/`RetryTx`, `Filters.ParseCursor`, store sentinels, internal interfaces) — and `extra-ignore-sigs` adds `(context.Context).Err(` and `(net/http.ResponseWriter).Write(` to wrapcheck's own default ignore list, since both are either an unwrappable sentinel pair or a write nothing downstream can act on. Tests, `internal/db` (sqlc-generated), `internal/openapi/gen` (oapi-codegen-generated), `internal/data/datatest` (test fixtures), and the two standalone CLIs `cmd/mpcredkey` and `cmd/benchmark` are excluded via `linters.exclusions.rules`.
 
 **Required status checks**: all eight jobs above should be marked required for merging into `main` (GitHub → repository Settings → Branches → branch protection rule for `main`). Not configured by this PR — it is a repository setting, done by the owner outside the codebase.
 

@@ -46,6 +46,7 @@ linters:
     - gocritic
     - funlen
     - revive
+    - wrapcheck
 
   settings:
     errcheck:
@@ -85,6 +86,27 @@ linters:
         - name: exported
         - name: package-comments
           disabled: true
+    wrapcheck:
+      # Our own sentinels and typed errors (data.AssertTenant, WithTx/RetryTx,
+      # Filters.ParseCursor, store sentinels, internal interfaces) are not
+      # required to be re-wrapped a second time on their way out of internal/*
+      # — the boundary that matters is where an error crosses in from an
+      # external package (pgx, database/sql, stdlib, third-party), not every
+      # internal call site that passes one along.
+      ignore-package-globs:
+        - github.com/stodulski/vibe-server/internal/*
+      # extra-ignore-sigs adds to wrapcheck's default ignore-sigs list
+      # (.Errorf(, errors.New(, errors.Unwrap(, errors.Join(, .Wrap(, .Wrapf(,
+      # .WithMessage(, .WithMessagef(, .WithStack() rather than replacing it.
+      extra-ignore-sigs:
+        # ctx.Err() only ever returns context.Canceled or
+        # context.DeadlineExceeded — both sentinels callers already match on
+        # with errors.Is; wrapping would break those checks for no benefit.
+        - (context.Context).Err(
+        # Once we call ResponseWriter.Write, the status/bytes are already on
+        # the wire; there is nothing left to add context to and errcheck's
+        # own exclude-functions list already treats this the same way.
+        - (net/http.ResponseWriter).Write(
 
   exclusions:
     rules:
@@ -100,3 +122,26 @@ linters:
           # Nothing is lost against the previous setting: every discard here
           # is a blank one, which errcheck did not look at before either.
           - errcheck
+          - wrapcheck
+      - path: internal/db
+        linters:
+          # sqlc-generated code; we don't hand-edit it to add wrapping.
+          - wrapcheck
+      - path: internal/openapi/gen
+        linters:
+          # oapi-codegen-generated code; same reasoning as internal/db.
+          - wrapcheck
+      - path: internal/data/datatest
+        linters:
+          # Test-fixture helpers used only from _test.go files; allowed to
+          # return raw errors like any other test helper.
+          - wrapcheck
+      - path: cmd/mpcredkey
+        linters:
+          # One-shot operator CLI, not a service boundary other code calls
+          # into; its errors go straight to a human on a terminal.
+          - wrapcheck
+      - path: cmd/benchmark
+        linters:
+          # Dev-only load-testing tool, same reasoning as cmd/mpcredkey.
+          - wrapcheck
