@@ -134,7 +134,7 @@ func bodyIsEmpty(r *http.Request) (bool, error) {
 	n, err := r.Body.Read(first[:])
 	if n == 0 {
 		if err != nil && !errors.Is(err, io.EOF) {
-			return false, err
+			return false, fmt.Errorf("reporting: read request body: %w", err)
 		}
 		return true, nil
 	}

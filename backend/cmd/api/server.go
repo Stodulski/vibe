@@ -53,7 +53,7 @@ func (app *application) serve() error {
 
 	err := srv.ListenAndServe()
 	if !errors.Is(err, http.ErrServerClosed) {
-		return err
+		return fmt.Errorf("server: listen and serve: %w", err)
 	}
 
 	err = <-shutdownError
@@ -120,6 +120,7 @@ func (app *application) gracefulShutdown(srv *http.Server, timeout time.Duration
 
 	err := srv.Shutdown(ctx)
 	if err != nil {
+		err = fmt.Errorf("server: shutdown: %w", err)
 		app.logger.Error("shutdown: server did not stop cleanly, draining anyway", "error", err)
 	}
 

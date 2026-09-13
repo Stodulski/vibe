@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -346,5 +347,8 @@ func (m *Middleware) InvalidateUser(ctx context.Context, id uuid.UUID) {
 func (m *Middleware) deleteCachedUser(ctx context.Context, id uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), redisCacheTimeout)
 	defer cancel()
-	return m.rdb.Del(ctx, m.userCacheKey(id)).Err()
+	if err := m.rdb.Del(ctx, m.userCacheKey(id)).Err(); err != nil {
+		return fmt.Errorf("usercache: delete: %w", err)
+	}
+	return nil
 }

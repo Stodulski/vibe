@@ -10,7 +10,10 @@
 // same location — which is how two of them end up disagreeing.
 package timezone
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // name is the IANA zone. Argentina has had no DST since 2009, but the zone is
 // still the right thing to load: it carries the historical offsets that a
@@ -56,5 +59,9 @@ func Today() time.Time {
 // It is the parsing counterpart to Today: a parsed day and today's day are the
 // same kind of value, anchored the same way.
 func ParseDay(s string) (time.Time, error) {
-	return time.ParseInLocation("2006-01-02", s, Argentina)
+	t, err := time.ParseInLocation("2006-01-02", s, Argentina)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("timezone: parse day: %w", err)
+	}
+	return t, nil
 }

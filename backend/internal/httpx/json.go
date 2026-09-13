@@ -63,7 +63,7 @@ func WriteJSON(w http.ResponseWriter, status int, data Envelope, headers http.He
 
 	enc := json.NewEncoder(buf)
 	if err := enc.Encode(data); err != nil {
-		return err
+		return fmt.Errorf("httpx: encode json body: %w", err)
 	}
 
 	maps.Copy(w.Header(), headers)
@@ -88,7 +88,7 @@ func WriteProblemJSON(w http.ResponseWriter, status int, problem Problem) error 
 
 	enc := json.NewEncoder(buf)
 	if err := enc.Encode(problem); err != nil {
-		return err
+		return fmt.Errorf("httpx: encode problem json: %w", err)
 	}
 
 	w.Header().Set("Content-Type", "application/problem+json")

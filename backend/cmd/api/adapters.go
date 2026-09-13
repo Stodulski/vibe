@@ -34,7 +34,12 @@ import (
 // dbProbe adapts the Postgres pool to health.Pinger and health.PoolReporter.
 type dbProbe struct{ pool *platformdb.Pool }
 
-func (p dbProbe) Ping(ctx context.Context) error { return p.pool.Ping(ctx) }
+func (p dbProbe) Ping(ctx context.Context) error {
+	if err := p.pool.Ping(ctx); err != nil {
+		return fmt.Errorf("db probe: ping: %w", err)
+	}
+	return nil
+}
 
 // PoolStats reports the figures that name pool exhaustion.
 //
@@ -64,7 +69,12 @@ func (p dbProbe) PoolStats() map[string]int64 {
 // health.Pinger directly.
 type redisProbe struct{ rdb *platformredis.Client }
 
-func (p redisProbe) Ping(ctx context.Context) error { return p.rdb.Ping(ctx).Err() }
+func (p redisProbe) Ping(ctx context.Context) error {
+	if err := p.rdb.Ping(ctx).Err(); err != nil {
+		return fmt.Errorf("redis probe: ping: %w", err)
+	}
+	return nil
+}
 
 func (p redisProbe) PoolStats() map[string]int64 {
 	s := p.rdb.PoolStats()

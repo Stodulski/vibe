@@ -160,7 +160,7 @@ func (v *SpecValidator) rewindableBody(w http.ResponseWriter, r *http.Request) (
 	r.Body = http.MaxBytesReader(w, r.Body, httpx.MaxJSONBody)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("openapi: read request body: %w", err)
 	}
 	_ = r.Body.Close() //nolint:errcheck // the bytes are already in hand; nothing is left to fail on
 	r.Body = io.NopCloser(bytes.NewReader(body))

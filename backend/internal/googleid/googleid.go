@@ -271,7 +271,7 @@ func (v *Verifier) keyForKID(ctx context.Context, kid string) (*rsa.PublicKey, e
 func (v *Verifier) refreshKeys(ctx context.Context) (map[string]*rsa.PublicKey, error) {
 	res, err, _ := v.sf.Do("jwks", func() (any, error) { return v.fetchKeys(ctx) })
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("googleid: refresh keys: %w", err)
 	}
 	return res.(map[string]*rsa.PublicKey), nil
 }
@@ -328,7 +328,7 @@ func (v *Verifier) Verify(ctx context.Context, credential string) (*Claims, erro
 	)
 	if err != nil {
 		if errors.Is(err, ErrUnavailable) {
-			return nil, err
+			return nil, fmt.Errorf("googleid: verify: %w", err)
 		}
 		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}

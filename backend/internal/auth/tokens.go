@@ -66,7 +66,11 @@ func (s *TokenService) ActiveKeyID() string { return s.keys.active.id }
 func (s *TokenService) sign(claims jwt.Claims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["kid"] = s.keys.active.id
-	return token.SignedString(s.keys.active.secret)
+	signed, err := token.SignedString(s.keys.active.secret)
+	if err != nil {
+		return "", fmt.Errorf("auth: sign token: %w", err)
+	}
+	return signed, nil
 }
 
 // errUnnamedKey is what a token with no `kid` header is refused with. It is a
@@ -196,7 +200,7 @@ func (s *TokenService) GenerateAccessToken(userID uuid.UUID, role string) (strin
 func (s *TokenService) ValidateAccessToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, s.keyFor, parseOptions()...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth: parse access token: %w", err)
 	}
 
 	claims, ok := token.Claims.(*Claims)
@@ -253,7 +257,7 @@ func (s *TokenService) GenerateProfileToken(sub, email, givenName, familyName st
 func (s *TokenService) ValidateProfileToken(tokenString string) (*GoogleProfileClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &GoogleProfileClaims{}, s.keyFor, parseOptions()...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth: parse profile token: %w", err)
 	}
 
 	claims, ok := token.Claims.(*GoogleProfileClaims)
