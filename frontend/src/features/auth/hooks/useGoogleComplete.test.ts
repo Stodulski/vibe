@@ -57,7 +57,9 @@ describe('useGoogleComplete — onError', () => {
   });
 
   it('shows the account-exists message on a 409', async () => {
-    await triggerGoogleCompleteError(await makeConsumedHttpError(409, { error: 'account already exists' }));
+    await triggerGoogleCompleteError(
+      await makeConsumedHttpError(409, { title: 'Conflict', detail: 'account already exists' }),
+    );
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.googleAccountExists);
   });
 
@@ -70,7 +72,12 @@ describe('useGoogleComplete — onError', () => {
   // onError (see GoogleCompleteForm) — the hook itself must stay silent so
   // the person doesn't get both a toast and a field-level message.
   it('does not toast on a 422 — the caller applies field errors instead', async () => {
-    await triggerGoogleCompleteError(await makeConsumedHttpError(422, { error: { phone: 'phone_invalid' } }));
+    await triggerGoogleCompleteError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'phone', message: 'phone_invalid' }],
+      }),
+    );
     expect(toast.error).not.toHaveBeenCalled();
   });
 

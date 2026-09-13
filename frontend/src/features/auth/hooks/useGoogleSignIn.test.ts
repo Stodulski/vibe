@@ -55,7 +55,9 @@ describe('useGoogleSignIn — onError', () => {
   });
 
   it('shows the googleUnavailable message on a 503 instead of the raw server sentence', async () => {
-    await triggerGoogleSignInError(await makeConsumedHttpError(503, { error: 'google sign-in is not configured' }));
+    await triggerGoogleSignInError(
+      await makeConsumedHttpError(503, { title: 'Service Unavailable', detail: 'google sign-in is not configured' }),
+    );
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.googleUnavailable);
   });
 

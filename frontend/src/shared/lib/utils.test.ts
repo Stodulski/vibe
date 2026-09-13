@@ -181,12 +181,12 @@ describe('formatHourRange', () => {
 
 describe('getHttpErrorMessage', () => {
   it('returns the real backend error message from error.data, not the fallback', async () => {
-    const error = await makeConsumedHttpError(400, { error: 'La cancha ya esta reservada' });
+    const error = await makeConsumedHttpError(400, { title: 'Bad Request', detail: 'La cancha ya esta reservada' });
     expect(getHttpErrorMessage(error, 'Error generico')).toBe('La cancha ya esta reservada');
   });
 
   it('does not throw even though error.response.json() would reject (body already read)', async () => {
-    const error = await makeConsumedHttpError(400, { error: 'Fondos insuficientes' });
+    const error = await makeConsumedHttpError(400, { title: 'Bad Request', detail: 'Fondos insuficientes' });
     await expect(error.response.json()).rejects.toThrow();
     expect(getHttpErrorMessage(error, 'Error generico')).toBe('Fondos insuficientes');
   });
@@ -275,15 +275,35 @@ describe('getApiError', () => {
     expect(getApiError(undefined, 'Fallback')).toBe('Fallback');
   });
 
-  it('returns string error directly', () => {
-    expect(getApiError({ error: 'Email ya registrado' }, 'Fallback')).toBe('Email ya registrado');
+  it('returns the title when the body carries no detail', () => {
+    expect(getApiError({ title: 'Email ya registrado' }, 'Fallback')).toBe('Email ya registrado');
   });
 
-  it('returns message from error object', () => {
-    expect(getApiError({ error: { message: 'Token expirado' } }, 'Fallback')).toBe('Token expirado');
+  it('prefers detail over title', () => {
+    expect(getApiError({ title: 'Conflict', detail: 'Token expirado' }, 'Fallback')).toBe('Token expirado');
   });
 
-  it('returns fallback for non-standard error object', () => {
-    expect(getApiError({ error: { code: 401 } }, 'Fallback')).toBe('Fallback');
+  it('translates a known server code carried as detail', () => {
+    expect(getApiError({ title: 'Validation Failed', detail: 'slug_taken' }, 'Fallback')).toBe(
+      ES_AR.validation.server.slugTaken,
+    );
+  });
+
+  it('joins several field errors', () => {
+    const message = getApiError(
+      {
+        title: 'Validation Failed',
+        errors: [
+          { field: 'slug', message: 'slug_taken' },
+          { field: 'deposit_amount', message: 'deposit_exceeds_price' },
+        ],
+      },
+      'Fallback',
+    );
+    expect(message).toBe(`${ES_AR.validation.server.slugTaken}. ${ES_AR.validation.server.depositExceedsPrice}`);
+  });
+
+  it('returns fallback for a body that is not problem+json', () => {
+    expect(getApiError({ foo: 'bar' }, 'Fallback')).toBe('Fallback');
   });
 });

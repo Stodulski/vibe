@@ -1,17 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { HTTPError } from 'ky';
 import { authApi } from '../api/auth.api';
 import { getHttpStatus } from '@/shared/lib/utils';
 import { getTurnstileError } from '@/shared/lib/serverErrors';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
-
-/** ky consumes the body before throwing, so the payload lives on `.data`. */
-function errorBody(error: unknown): unknown {
-  return error instanceof HTTPError ? error.data : null;
-}
 
 interface ForgotPasswordVariables {
   email: string;
@@ -35,7 +29,7 @@ export function useForgotPassword(options?: UseForgotPasswordOptions) {
     onError: (error: unknown) => {
       options?.resetTurnstile?.();
 
-      const turnstileError = getTurnstileError(errorBody(error));
+      const turnstileError = getTurnstileError(error);
       if (turnstileError) {
         toast.error(turnstileError);
         return;
@@ -49,7 +43,7 @@ export function useForgotPassword(options?: UseForgotPasswordOptions) {
     },
   });
 
-  const turnstileError = mutation.isError ? getTurnstileError(errorBody(mutation.error)) : undefined;
+  const turnstileError = mutation.isError ? getTurnstileError(mutation.error) : undefined;
 
   return {
     mutate: mutation.mutate,

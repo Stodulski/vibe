@@ -5,12 +5,8 @@ import type { NormalizedOptions } from 'ky';
 import { ApiError, getProblem, normalizeProblem } from './ApiError';
 
 /**
- * The backend answers errors two ways and is mid-migration between them:
- * `{"error": ...}` today, RFC 9457 problem+json next. Both have to be read by
- * the same client build, because the frontend and the backend deploy
- * independently — a client that only understood one of them would show a
- * generic "algo salió mal" for a whole deploy window in one direction and
- * break the other way round.
+ * The backend answers every 4xx/5xx as RFC 9457 problem+json
+ * (`type`/`title`/`status`/`detail`/`instance`/`errors[]`).
  */
 
 function httpError(status: number, body: unknown, headers: Record<string, string> = {}): HTTPError {
@@ -102,33 +98,18 @@ describe("normalizeProblem — the API's problem+json contract", () => {
   });
 });
 
-describe('normalizeProblem — the legacy `{"error": ...}` envelope', () => {
-  it('reads a bare string error as the title', () => {
-    expect(normalizeProblem({ error: 'booking_not_found' }, 404)).toMatchObject({
+describe('normalizeProblem — a body that is not problem+json', () => {
+  it('answers an empty problem for a body carrying none of type/title/errors', () => {
+    expect(normalizeProblem({ error: 'booking_not_found' }, 404)).toEqual({
       type: 'about:blank',
-      title: 'booking_not_found',
+      kind: undefined,
+      title: '',
       status: 404,
+      detail: undefined,
+      instance: undefined,
+      requestId: undefined,
       errors: [],
     });
-  });
-
-  it('translates a known server code into its Spanish copy', () => {
-    expect(normalizeProblem({ error: { slug: 'slug_taken' } }, 422).errors).toEqual([
-      { field: 'slug', message: 'Ya existe un complejo con esa URL, elegí otra' },
-    ]);
-  });
-
-  it('reads a 422 field map as one error per field', () => {
-    expect(normalizeProblem({ error: { first_name: 'required', phone: 'invalid' } }, 422).errors).toEqual([
-      { field: 'first_name', message: 'required' },
-      { field: 'phone', message: 'invalid' },
-    ]);
-  });
-
-  it('reads a lone `message` key as a sentence, never as a field called "message"', () => {
-    const problem = normalizeProblem({ error: { message: 'algo salió mal' } }, 500);
-    expect(problem.title).toBe('algo salió mal');
-    expect(problem.errors).toEqual([]);
   });
 
   it('answers an empty problem for a body it cannot read at all', () => {
@@ -191,7 +172,7 @@ describe('normalizeProblem — RFC 9457 problem+json', () => {
     ).toEqual([{ field: 'first_name', message: 'required' }]);
   });
 
-  it('translates server codes inside `errors[]` the same way as the legacy shape', () => {
+  it('translates a known server code inside `errors[]`', () => {
     expect(
       normalizeProblem({ title: 'Validation failed', errors: [{ field: 'slug', detail: 'slug_taken' }] }, 422).errors,
     ).toEqual([{ field: 'slug', message: 'Ya existe un complejo con esa URL, elegí otra' }]);
@@ -203,6 +184,23 @@ describe('normalizeProblem — RFC 9457 problem+json', () => {
       422,
     );
     expect(problem.errors).toEqual([]);
+  });
+});
+
+// Most refusals carry their code as `detail` (see `internal/httpx/refusals.go`'s
+// `detailOf`), not inside `errors[]` — a validation problem is the one
+// exception. Both must localize the same known codes.
+describe('normalizeProblem — translates a known server code carried as `detail`', () => {
+  it('translates it', () => {
+    expect(normalizeProblem({ title: 'Conflict', detail: 'slug_taken' }, 409).detail).toBe(
+      'Ya existe un complejo con esa URL, elegí otra',
+    );
+  });
+
+  it('leaves an unrecognized one unchanged', () => {
+    expect(normalizeProblem({ title: 'Conflict', detail: 'Ese horario ya fue reservado' }, 409).detail).toBe(
+      'Ese horario ya fue reservado',
+    );
   });
 });
 
@@ -233,10 +231,7 @@ describe('ApiError', () => {
     expect(new ApiError(httpError(500, { error: 'internal' })).requestId).toBeUndefined();
   });
 
-  it('normalizes whichever envelope the response carried', () => {
-    expect(new ApiError(httpError(422, { error: { slug: 'slug_taken' } })).problem.errors).toEqual([
-      { field: 'slug', message: 'Ya existe un complejo con esa URL, elegí otra' },
-    ]);
+  it('normalizes the problem+json body the response carried', () => {
     expect(
       new ApiError(httpError(422, { title: 'Validation failed', errors: [{ field: 'slug', detail: 'slug_taken' }] }))
         .problem.errors,
@@ -246,7 +241,7 @@ describe('ApiError', () => {
 
 describe('getProblem', () => {
   it('answers the problem for an ApiError', () => {
-    expect(getProblem(new ApiError(httpError(404, { error: 'not_found' })))?.title).toBe('not_found');
+    expect(getProblem(new ApiError(httpError(404, { title: 'not_found' })))?.title).toBe('not_found');
   });
 
   // The calls that bypass the shared client (`auth/me`, `auth/refresh`) still
@@ -254,7 +249,7 @@ describe('getProblem', () => {
   // reading those too is what keeps every pre-existing `HTTPError` path
   // working after the `beforeError` hook was added.
   it('normalizes a bare HTTPError on the spot', () => {
-    expect(getProblem(httpError(404, { error: 'not_found' }))?.title).toBe('not_found');
+    expect(getProblem(httpError(404, { title: 'not_found' }))?.title).toBe('not_found');
   });
 
   it('answers undefined for a failure that never carried a response', () => {

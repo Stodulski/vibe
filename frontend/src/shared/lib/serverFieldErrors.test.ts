@@ -29,27 +29,6 @@ function fakeForm() {
   return form as unknown as ServerErrorForm<TestForm> & typeof form;
 }
 
-describe('applyServerFieldErrors — the legacy `{"error": {campo: mensaje}}` 422', () => {
-  it('puts each field error under its own input', () => {
-    const form = fakeForm();
-    const applied = applyServerFieldErrors(
-      form,
-      apiError(422, { error: { first_name: 'required', phone: 'invalid' } }),
-    );
-
-    expect(applied).toBe(true);
-    expect(form.setError).toHaveBeenCalledWith('first_name', { type: 'server', message: 'required' });
-    expect(form.setError).toHaveBeenCalledWith('phone', { type: 'server', message: 'invalid' });
-  });
-
-  it('calls onField for each field that got one, so a collapsed group can open', () => {
-    const form = fakeForm();
-    const onField = vi.fn();
-    applyServerFieldErrors(form, apiError(422, { error: { phone: 'invalid' } }), { onField });
-    expect(onField).toHaveBeenCalledWith('phone');
-  });
-});
-
 /**
  * The exact 422 the backend will send, copied from the contract. A form is
  * where a wrong reading of `errors[]` is most visible: the field messages
@@ -100,12 +79,26 @@ describe('applyServerFieldErrors — RFC 9457 problem+json', () => {
     );
     expect(form.setError).toHaveBeenCalledWith('first_name', { type: 'server', message: 'required' });
   });
+
+  it('calls onField for each field that got one, so a collapsed group can open', () => {
+    const form = fakeForm();
+    const onField = vi.fn();
+    applyServerFieldErrors(
+      form,
+      apiError(422, { title: 'Validation failed', errors: [{ field: 'phone', message: 'invalid' }] }),
+      { onField },
+    );
+    expect(onField).toHaveBeenCalledWith('phone');
+  });
 });
 
 describe('applyServerFieldErrors — what cannot land on a field', () => {
   it('routes an error naming a field this form does not have to `root`', () => {
     const form = fakeForm();
-    const applied = applyServerFieldErrors(form, apiError(422, { error: { nickname: 'taken' } }));
+    const applied = applyServerFieldErrors(
+      form,
+      apiError(422, { title: 'Validation failed', errors: [{ field: 'nickname', message: 'taken' }] }),
+    );
 
     expect(applied).toBe(false);
     expect(form.setError).toHaveBeenCalledWith('root', { type: 'server', message: 'taken' });
@@ -113,13 +106,17 @@ describe('applyServerFieldErrors — what cannot land on a field', () => {
 
   it('honours an explicit `fields` allowlist over the form values', () => {
     const form = fakeForm();
-    applyServerFieldErrors(form, apiError(422, { error: { phone: 'invalid' } }), { fields: ['first_name'] });
+    applyServerFieldErrors(
+      form,
+      apiError(422, { title: 'Validation failed', errors: [{ field: 'phone', message: 'invalid' }] }),
+      { fields: ['first_name'] },
+    );
     expect(form.setError).toHaveBeenCalledWith('root', { type: 'server', message: 'invalid' });
   });
 
   it('puts a message with no field at all on `root`', () => {
     const form = fakeForm();
-    applyServerFieldErrors(form, apiError(409, { error: 'slot_taken' }));
+    applyServerFieldErrors(form, apiError(409, { title: 'slot_taken' }));
     expect(form.setError).toHaveBeenCalledWith('root', { type: 'server', message: 'slot_taken' });
   });
 
@@ -131,7 +128,16 @@ describe('applyServerFieldErrors — what cannot land on a field', () => {
 
   it('never sets `root` when a real field already carries the reason', () => {
     const form = fakeForm();
-    applyServerFieldErrors(form, apiError(422, { error: { phone: 'invalid', nickname: 'taken' } }));
+    applyServerFieldErrors(
+      form,
+      apiError(422, {
+        title: 'Validation failed',
+        errors: [
+          { field: 'phone', message: 'invalid' },
+          { field: 'nickname', message: 'taken' },
+        ],
+      }),
+    );
     expect(form.setError).not.toHaveBeenCalledWith('root', expect.anything());
   });
 

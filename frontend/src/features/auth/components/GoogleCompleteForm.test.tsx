@@ -70,7 +70,10 @@ describe('GoogleCompleteForm', () => {
     });
 
     const [, options] = mockMutate.mock.calls[0] as [unknown, { onError: (error: unknown) => void }];
-    const serverError = await makeConsumedHttpError(422, { error: { phone: 'phone_invalid' } });
+    const serverError = await makeConsumedHttpError(422, {
+      title: 'Validation Failed',
+      errors: [{ field: 'phone', message: 'phone_invalid' }],
+    });
 
     act(() => {
       options.onError(serverError);

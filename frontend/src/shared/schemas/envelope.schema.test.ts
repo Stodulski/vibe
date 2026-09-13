@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest';
 // @vitest-environment node
 import { z } from 'zod';
-import {
-  paginationMetadataSchema,
-  paginatedResponseSchema,
-  messageResponseSchema,
-  errorResponseSchema,
-} from './envelope.schema';
+import { paginationMetadataSchema, paginatedResponseSchema, messageResponseSchema } from './envelope.schema';
 
 describe('paginationMetadataSchema', () => {
   it('accepts a page with every optional field present', () => {
@@ -48,27 +43,5 @@ describe('messageResponseSchema', () => {
   it('allows extra keys alongside message', () => {
     const result = messageResponseSchema.safeParse({ message: 'listo', extra: 1 });
     expect(result.success).toBe(true);
-  });
-});
-
-describe('errorResponseSchema', () => {
-  it('accepts a bare string error', () => {
-    expect(errorResponseSchema.safeParse({ error: 'boom' }).success).toBe(true);
-  });
-
-  it('accepts the field-map error a 422 answers with', () => {
-    // `openapi.yaml`'s `ValidationError`: field name to message, where a
-    // message may be free text or one of the stable machine codes the client
-    // localizes (`slug_taken`, `deposit_exceeds_price`, …). The schema used
-    // to expect `{ message, details? }` instead — a shape the API never sent.
-    const result = errorResponseSchema.safeParse({
-      error: { slug: 'slug_taken', deposit_percentage: 'deposit_percentage_over_100' },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects an error object that is neither a string nor a field map', () => {
-    const result = errorResponseSchema.safeParse({ error: { message: 'invalid', details: { slug: 'taken' } } });
-    expect(result.success).toBe(false);
   });
 });

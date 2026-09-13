@@ -51,7 +51,7 @@ function captureKeys(failures = 0): string[] {
     http.post('*/complexes/:complexId/bookings', ({ request }) => {
       keys.push(request.headers.get('Idempotency-Key') ?? '');
       if (keys.length <= failures) {
-        return HttpResponse.json({ error: 'upstream unavailable' }, { status: 503 });
+        return HttpResponse.json({ title: 'upstream unavailable' }, { status: 503 });
       }
       return HttpResponse.json({ booking: makeBooking() });
     }),

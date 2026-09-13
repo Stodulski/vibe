@@ -18,10 +18,3 @@ export interface PaginatedResponse<T> {
   data: T[];
   metadata: Spec<'Metadata'>;
 }
-
-/**
- * The two error bodies the document declares: `Error` is the bare
- * human-readable string every 4xx/5xx uses, `ValidationError` the
- * field-name-to-message map a 422 answers with.
- */
-export type ErrorResponse = Spec<'Error'> | Spec<'ValidationError'>;

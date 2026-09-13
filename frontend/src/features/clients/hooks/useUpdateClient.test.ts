@@ -45,7 +45,8 @@ describe('useUpdateClient — onError toasts the real backend message', () => {
   it('shows the backend error message from error.data instead of the generic fallback', async () => {
     await triggerUpdateError(
       await makeConsumedHttpError(400, {
-        error: 'El teléfono no es válido',
+        title: 'Bad Request',
+        detail: 'El teléfono no es válido',
       }),
     );
 

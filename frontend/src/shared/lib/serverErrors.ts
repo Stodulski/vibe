@@ -1,4 +1,5 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { getProblem } from '@/shared/lib/ApiError';
 
 /**
  * Text for the error codes the API returns.
@@ -33,22 +34,22 @@ export function translateServerError(value: string): string {
 }
 
 /**
- * Extract the per-field validation errors from a 422 response body.
+ * Extract the per-field validation errors out of a failed request.
  *
- * The backend answers a failed validation with
- * `{"error": {"slug": "slug_taken"}}` — a map of field name to code. Returns
- * an empty object for any other shape, so callers can treat "no field errors"
- * and "not a validation failure" the same way.
+ * The backend answers a failed validation as problem+json's `errors[]` — one
+ * `{field, message}` entry per invalid field, already read into
+ * {@link Problem} by `ApiError`. Returns an empty object for any other
+ * failure (no error at all, one that never reached the API, a 422 with no
+ * field to blame), so callers can treat "no field errors" and "not a
+ * validation failure" the same way.
  */
-export function getFieldErrors(body: unknown): Record<string, string> {
-  if (!body || typeof body !== 'object') return {};
-
-  const { error } = body as Record<string, unknown>;
-  if (!error || typeof error !== 'object') return {};
+export function getFieldErrors(error: unknown): Record<string, string> {
+  const problem = getProblem(error);
+  if (!problem) return {};
 
   const fields: Record<string, string> = {};
-  for (const [field, value] of Object.entries(error as Record<string, unknown>)) {
-    if (typeof value === 'string') fields[field] = translateServerError(value);
+  for (const { field, message } of problem.errors) {
+    fields[field] = message;
   }
   return fields;
 }
@@ -69,12 +70,12 @@ const TURNSTILE_ERROR_TEXT: Record<string, string> = {
 };
 
 /**
- * Extract and translate the `turnstile_token` field error from a 422 body,
- * if any. Built on {@link getFieldErrors} rather than a separate parser —
- * the raw code passes through `translateServerError` untouched (it isn't in
- * {@link SERVER_ERROR_TEXT}), then gets mapped here.
+ * Extract and translate the `turnstile_token` field error out of a failed
+ * request, if any. Built on {@link getFieldErrors} rather than a separate
+ * parser — the raw code passes through `translateServerError` untouched (it
+ * isn't in {@link SERVER_ERROR_TEXT}), then gets mapped here.
  */
-export function getTurnstileError(body: unknown): string | undefined {
-  const code = getFieldErrors(body).turnstile_token;
+export function getTurnstileError(error: unknown): string | undefined {
+  const code = getFieldErrors(error).turnstile_token;
   return code ? (TURNSTILE_ERROR_TEXT[code] ?? code) : undefined;
 }

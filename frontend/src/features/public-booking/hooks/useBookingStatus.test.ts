@@ -26,7 +26,7 @@ beforeEach(() => {
 
 describe('useBookingStatus link status (resolveLink 404 vs 410)', () => {
   it('sets linkExpired (not linkNotFound) on a 410 response', async () => {
-    getBookingStatus.mockRejectedValue(await makeConsumedHttpError(410, { error: 'link expired' }));
+    getBookingStatus.mockRejectedValue(await makeConsumedHttpError(410, { title: 'link expired' }));
 
     const { useBookingStatus } = await import('./useBookingStatus');
     const { result } = renderHook(() => useBookingStatus('tok-1'), { wrapper: createQueryWrapper() });
@@ -40,7 +40,7 @@ describe('useBookingStatus link status (resolveLink 404 vs 410)', () => {
   });
 
   it('sets linkNotFound (not linkExpired) on a 404 response', async () => {
-    getBookingStatus.mockRejectedValue(await makeConsumedHttpError(404, { error: 'not found' }));
+    getBookingStatus.mockRejectedValue(await makeConsumedHttpError(404, { title: 'not found' }));
 
     const { useBookingStatus } = await import('./useBookingStatus');
     const { result } = renderHook(() => useBookingStatus('tok-2'), { wrapper: createQueryWrapper() });
@@ -57,7 +57,7 @@ describe('useBookingStatus link status (resolveLink 404 vs 410)', () => {
   // (M2's actual bug) was not — this is what let it read as "still loading"
   // instead of a real error.
   it('sets isError true with both link flags false on a 500 response', async () => {
-    getBookingStatus.mockRejectedValue(await makeConsumedHttpError(500, { error: 'internal error' }));
+    getBookingStatus.mockRejectedValue(await makeConsumedHttpError(500, { title: 'internal error' }));
 
     const { useBookingStatus } = await import('./useBookingStatus');
     const { result } = renderHook(() => useBookingStatus('tok-500'), { wrapper: createQueryWrapper() });

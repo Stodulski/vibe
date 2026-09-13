@@ -140,7 +140,8 @@ describe('usePriceConfigForm — server errors', () => {
   // fail silently, which is the other half of the QA-reported bug.
   it('maps a server field error back onto the row it came from', async () => {
     const serverError = await makeConsumedHttpError(422, {
-      error: { 'prices[0].time_to': 'must be after time_from' },
+      title: 'Validation Failed',
+      errors: [{ field: 'prices[0].time_to', message: 'must be after time_from' }],
     });
     vi.mocked(courtsApi.updatePrices).mockRejectedValueOnce(serverError);
     mockSchedules = [schedule({ day: 'thursday', open_time: '08:00', close_time: '01:30' })];
@@ -164,7 +165,8 @@ describe('usePriceConfigForm — server errors', () => {
 
   it('falls back to a toast for an error it cannot place on a row', async () => {
     const serverError = await makeConsumedHttpError(422, {
-      error: { prices: 'must contain at least one price' },
+      title: 'Validation Failed',
+      errors: [{ field: 'prices', message: 'must contain at least one price' }],
     });
     vi.mocked(courtsApi.updatePrices).mockRejectedValueOnce(serverError);
     mockSchedules = [schedule({ day: 'monday' })];

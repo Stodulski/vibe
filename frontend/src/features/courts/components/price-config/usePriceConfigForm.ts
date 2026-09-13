@@ -1,7 +1,6 @@
 import { useAppForm } from '@/shared/lib/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { HTTPError } from 'ky';
 import { useUpdatePrices } from '../../hooks/useUpdatePrices';
 import { useComplex, useSchedules } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -16,10 +15,6 @@ const t = ES_AR;
 // index the server refused, not a day name. This picks that index back out
 // so it can be mapped onto the row it came from.
 const PRICE_INDEX_RX = /^prices\[(\d+)\]/;
-
-function errorBody(error: unknown): unknown {
-  return error instanceof HTTPError ? error.data : null;
-}
 
 /** The form's `defaultValues`: each day's stored price, in pesos. */
 function priceFormValues(court: CourtWithPrices): PriceFormValues {
@@ -81,7 +76,7 @@ export function usePriceConfigForm(complexId: string, court: CourtWithPrices, on
         // useUpdatePrices, which stays quiet on a mappable field error so the
         // two don't both fire for the same failure.
         onError: (error: unknown) => {
-          const fieldErrors = getFieldErrors(errorBody(error));
+          const fieldErrors = getFieldErrors(error);
           const unmapped: string[] = [];
           for (const [key, message] of Object.entries(fieldErrors)) {
             const match = PRICE_INDEX_RX.exec(key);

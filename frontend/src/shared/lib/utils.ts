@@ -3,11 +3,10 @@ import { extendTailwindMerge } from 'tailwind-merge';
 import { format } from 'date-fns/format';
 import { es } from 'date-fns/locale/es';
 import { HTTPError, NetworkError, TimeoutError } from 'ky';
-import { getFieldErrors, translateServerError } from '@/shared/lib/serverErrors';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { VENUE_TIME_ZONE } from '@/shared/lib/instants';
 import { ApiResponseError } from '@/shared/lib/apiParse';
-import { ApiError, type Problem } from '@/shared/lib/ApiError';
+import { ApiError, normalizeProblem, type Problem } from '@/shared/lib/ApiError';
 
 const t = ES_AR;
 
@@ -197,27 +196,14 @@ export function formatHourRange(startsAt: string, endsAt: string, separator = '\
 
 /**
  * Extract a user-facing error message from an API response body.
- * Returns the backend-provided message (`error` string, or `error.message`)
- * when present; falls back to the i18n fallback text otherwise.
+ *
+ * Reads problem+json (`errors[]`, then `detail`, then `title`); falls back to
+ * `fallback` for a body that isn't shaped like problem+json at all — a
+ * non-JSON or empty response, the case a bare `HTTPError` reaches this from
+ * (see `getHttpErrorMessage` below).
  */
 export function getApiError(body: unknown, fallback: string): string {
-  if (!body || typeof body !== 'object') return fallback;
-  const obj = body as Record<string, unknown>;
-  if (typeof obj.error === 'string') return translateServerError(obj.error);
-
-  if (obj.error && typeof obj.error === 'object') {
-    const err = obj.error as Record<string, unknown>;
-    if (typeof err.message === 'string') return translateServerError(err.message);
-
-    // A failed validation answers with a map of field name to error code.
-    // Until this branch existed the whole shape fell through to the generic
-    // fallback, so every server-side field error was invisible — including
-    // the ones only the server can produce, like a slug already taken.
-    const fields = Object.values(getFieldErrors(body));
-    if (fields.length > 0) return fields.join('. ');
-  }
-
-  return fallback;
+  return problemMessage(normalizeProblem(body, 0), fallback);
 }
 
 /**
@@ -262,8 +248,8 @@ export function getHttpErrorMessage(error: unknown, fallback: string): string {
   // what the caller passed.
   if (error instanceof ApiResponseError) return t.common.invalidResponse;
   // `ApiError` (every failure out of `src/shared/lib/ky.ts`) has already read
-  // the body into one shape, whichever envelope the backend sent — including
-  // RFC 9457 problem+json, which `getApiError` below cannot read at all.
+  // the problem+json body into a `Problem`, so its message is read straight
+  // off that instead of re-parsing `error.data` through `getApiError` below.
   if (error instanceof ApiError) return problemMessage(error.problem, fallback);
   // A bare `HTTPError` still reaches here from the calls that bypass the
   // shared client (`auth/me`, `auth/refresh`) and from tests that build one.
