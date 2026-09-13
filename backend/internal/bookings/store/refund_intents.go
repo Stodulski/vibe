@@ -71,7 +71,7 @@ func (m *Store) GetRefundIntentOrphans(ctx context.Context, olderThan time.Durat
 		result = append(result, BookingFromDB(b))
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list refund intent orphans: %w", err)
 	}
 	return result, nil
 }

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -129,7 +130,7 @@ func (m *Store) GetPlatformStats(ctx context.Context) (*PlatformStats, error) {
 		&stats.TotalRevenue,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("admin: get platform stats: %w", err)
 	}
 
 	return &stats, nil
@@ -182,12 +183,12 @@ func (m *Store) ListUsers(ctx context.Context, search, roleFilter string, filter
 			&u.IsActive, &u.EmailVerified, &u.CreatedAt, &u.ComplexCount,
 		)
 		if err != nil {
-			return nil, data.Metadata{}, err
+			return nil, data.Metadata{}, fmt.Errorf("admin: scan user row: %w", err)
 		}
 		users = append(users, &u)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, data.Metadata{}, err
+		return nil, data.Metadata{}, fmt.Errorf("admin: list users: %w", err)
 	}
 
 	users, meta := data.TrimPage(users, filters.Limit, data.BuildTimestampCursor)
@@ -215,7 +216,7 @@ func (m *Store) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUser
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, data.ErrRecordNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("admin: get user detail: %w", err)
 	}
 
 	rows, err := m.DB.Query(ctx, `
@@ -227,7 +228,7 @@ func (m *Store) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUser
 		WHERE owner_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC`, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("admin: list owned complexes: %w", err)
 	}
 	defer rows.Close()
 
@@ -243,7 +244,7 @@ func (m *Store) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUser
 			&c.IsActive, &mpUserID, &c.CreatedAt, &c.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("admin: scan owned complex row: %w", err)
 		}
 		c.Email = email
 		c.LogoURL = logoURL
@@ -254,7 +255,7 @@ func (m *Store) GetUserDetail(ctx context.Context, userID uuid.UUID) (*AdminUser
 		complexes = append(complexes, &c)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("admin: list owned complexes: %w", err)
 	}
 
 	return &AdminUserDetail{User: &user, Complexes: complexes}, nil
@@ -307,12 +308,12 @@ func (m *Store) ListComplexes(ctx context.Context, search string, filters data.F
 			&c.CourtsCount, &c.MPConnected, &c.CreatedAt,
 		)
 		if err != nil {
-			return nil, data.Metadata{}, err
+			return nil, data.Metadata{}, fmt.Errorf("admin: scan complex row: %w", err)
 		}
 		complexes = append(complexes, &c)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, data.Metadata{}, err
+		return nil, data.Metadata{}, fmt.Errorf("admin: list complexes: %w", err)
 	}
 
 	complexes, meta := data.TrimPage(complexes, filters.Limit, data.BuildTimestampCursor)
@@ -355,7 +356,7 @@ func (m *Store) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*Adm
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, data.ErrRecordNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("admin: get complex detail: %w", err)
 	}
 
 	c.Email = email

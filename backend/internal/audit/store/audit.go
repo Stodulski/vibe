@@ -10,6 +10,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"time"
 
@@ -90,12 +91,12 @@ func (m *Store) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityT
 			&l.EntityID, &l.IPAddress, &l.CreatedAt,
 		)
 		if err != nil {
-			return nil, data.Metadata{}, err
+			return nil, data.Metadata{}, fmt.Errorf("audit: scan log row: %w", err)
 		}
 		logs = append(logs, &l)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, data.Metadata{}, err
+		return nil, data.Metadata{}, fmt.Errorf("audit: list logs: %w", err)
 	}
 
 	logs, meta := data.TrimPage(logs, filters.Limit, data.BuildTimestampCursor)

@@ -160,7 +160,10 @@ func (m *FailedRefunds) Insert(ctx context.Context, fr *FailedRefund) error {
 		fr.PaymentID, fr.BookingID, fr.ComplexID,
 		fr.Amount, fr.MPPaymentID, fr.ErrorMessage, fr.NextRetryAt,
 	).Scan(&fr.ID, &fr.CreatedAt, &fr.UpdatedAt)
-	return err
+	if err != nil {
+		return fmt.Errorf("payments: insert failed refund: %w", err)
+	}
+	return nil
 }
 
 // GetPendingDue returns failed refunds that are due for retry: the ones waiting
@@ -375,5 +378,8 @@ func scanFailedRefunds(rows pgx.Rows) ([]*FailedRefund, error) {
 		}
 		result = append(result, &fr)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan failed refunds: %w", err)
+	}
+	return result, nil
 }

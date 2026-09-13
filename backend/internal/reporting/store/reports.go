@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -102,12 +103,15 @@ func (m *Store) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID,
 	for rows.Next() {
 		var s PaymentMethodSummary
 		if err := rows.Scan(&s.Method, &s.Count, &s.Amount, &s.ServiceFee, &s.Refunded); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("reporting: scan payment summary by method row: %w", err)
 		}
 		summaries = append(summaries, s)
 	}
 
-	return summaries, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reporting: payment summary by method: %w", err)
+	}
+	return summaries, nil
 }
 
 // PaymentCourtSummary is one row of the per-court breakdown: everything taken
@@ -166,12 +170,15 @@ func (m *Store) PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, 
 	for rows.Next() {
 		var s PaymentCourtSummary
 		if err := rows.Scan(&s.CourtID, &s.CourtName, &s.Count, &s.Amount, &s.ServiceFee, &s.Refunded); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("reporting: scan payment summary by court row: %w", err)
 		}
 		summaries = append(summaries, s)
 	}
 
-	return summaries, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reporting: payment summary by court: %w", err)
+	}
+	return summaries, nil
 }
 
 // PaymentDetails returns every payment in the period with its booking, court
@@ -214,10 +221,13 @@ func (m *Store) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, t
 			&d.Method, &d.PaymentStatus, &d.BookingStatus,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("reporting: scan payment detail row: %w", err)
 		}
 		details = append(details, d)
 	}
 
-	return details, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reporting: payment details: %w", err)
+	}
+	return details, nil
 }
