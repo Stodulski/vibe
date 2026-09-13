@@ -86,6 +86,26 @@ export const handlers = [
     }),
   ),
   http.get('*/complexes/:complexId/reports/export', () => HttpResponse.arrayBuffer(new ArrayBuffer(0))),
+  // JOB-06's async export job — see `useReportExport.ts`. Default happy
+  // path: accepted, then immediately `done` on the first status poll: a
+  // test that needs to see `pending`/`running`/`failed`/410 first overrides
+  // both routes with `server.use(...)`.
+  http.post('*/complexes/:complexId/reports/exports', () =>
+    HttpResponse.json(
+      { export: { id: 'export-1', status: 'pending', status_url: '/api/v1/complexes/c1/reports/exports/export-1' } },
+      { status: 202, headers: { Location: '/api/v1/complexes/c1/reports/exports/export-1' } },
+    ),
+  ),
+  http.get('*/complexes/:complexId/reports/exports/:exportId', () =>
+    HttpResponse.json({
+      export: {
+        id: 'export-1',
+        status: 'done',
+        download_url: 'https://r2.test/exports/export-1.xlsx?signed=1',
+        expires_at: '2026-01-01T00:15:00Z',
+      },
+    }),
+  ),
 
   // ─── clients ───
   http.get('*/complexes/:complexId/clients', () =>

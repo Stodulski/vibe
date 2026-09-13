@@ -60,6 +60,11 @@ export const queryKeys = {
     occupancy: (complexId: string) => ['dashboard', 'occupancy', complexId] as const,
     clients: (complexId: string) => ['dashboard', 'clients', complexId] as const,
   },
+  // JOB-06's async export: one entry per job id, so a stale poll for a
+  // previous export can never satisfy a new one started right after it.
+  reportsExport: {
+    status: (complexId: string, exportId: string) => ['reportsExport', complexId, exportId] as const,
+  },
   admin: {
     stats: ['admin', 'stats'] as const,
     usersBase: ['admin', 'users'] as const,
