@@ -102,7 +102,7 @@ func (h *Handler) send(req *http.Request, dst any) error {
 
 	resp, err := h.client.Do(req) //nolint:gosec // G704: req's host is always h.cfg.BaseURL, a fixed operator-configured value (Google's Places API root in production); the only request-derived value ever reaching a URL built by this package is a url.PathEscape'd place_id confined to one path segment in Details (see below), which cannot redirect the call to a different host.
 	if err != nil {
-		return err
+		return fmt.Errorf("places upstream: request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 

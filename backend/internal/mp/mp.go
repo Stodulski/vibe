@@ -149,7 +149,7 @@ func (c *MPClient) doRequest(req *http.Request) (*http.Response, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.cb.RecordFailure()
-		return nil, err
+		return nil, fmt.Errorf("mp: request failed: %w", err)
 	}
 
 	if resp.StatusCode >= 500 {

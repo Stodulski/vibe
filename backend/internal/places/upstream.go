@@ -126,7 +126,11 @@ const upstreamRateLimited = http.StatusTooManyRequests
 // readBounded reads body up to maxResponseBytes. A hostile or broken upstream
 // must not be able to make this process read an unbounded body.
 func readBounded(body io.Reader) ([]byte, error) {
-	return io.ReadAll(io.LimitReader(body, maxResponseBytes))
+	b, err := io.ReadAll(io.LimitReader(body, maxResponseBytes))
+	if err != nil {
+		return nil, fmt.Errorf("places upstream: read response body: %w", err)
+	}
+	return b, nil
 }
 
 // parseUpstreamError turns a non-2xx Places API (New) response into an

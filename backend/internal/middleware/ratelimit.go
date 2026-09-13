@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"math"
@@ -314,7 +315,7 @@ func (m *Middleware) allowRedis(ctx context.Context, subject string, c ceiling) 
 		strconv.FormatInt(c.ttlMillis(), 10),
 	).Int64()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("ratelimit: token bucket: %w", err)
 	}
 	return allowed == 1, nil
 }

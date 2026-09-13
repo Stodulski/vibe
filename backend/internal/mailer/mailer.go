@@ -457,7 +457,10 @@ func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText 
 		return fmt.Errorf("mailer: smtp close data failed: %w", err)
 	}
 
-	return c.Quit()
+	if err := c.Quit(); err != nil {
+		return fmt.Errorf("mailer: smtp quit failed: %w", err)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

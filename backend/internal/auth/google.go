@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -33,7 +34,7 @@ const randomPasswordBytes = 32
 func setUnusablePassword(user *authstore.User, cost int) error {
 	randomPassword := make([]byte, randomPasswordBytes)
 	if _, err := rand.Read(randomPassword); err != nil {
-		return err
+		return fmt.Errorf("auth: generate unusable password: %w", err)
 	}
 	// The raw bytes, not a base64 or hex encoding of them: bcrypt hashes
 	// whatever it is given, and encoding them first would spend some of the

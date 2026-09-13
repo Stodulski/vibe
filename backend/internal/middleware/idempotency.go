@@ -172,12 +172,12 @@ func (i *Idempotency) key(scope, key string) string {
 func (i *Idempotency) claim(ctx context.Context, redisKey, fingerprint string) (bool, idempotencyRecord, error) {
 	pending, err := json.Marshal(idempotencyRecord{Fingerprint: fingerprint})
 	if err != nil {
-		return false, idempotencyRecord{}, err
+		return false, idempotencyRecord{}, fmt.Errorf("idempotency: marshal record: %w", err)
 	}
 
 	ok, err := i.rdb.SetNX(ctx, redisKey, pending, idempotencyLockTTL).Result()
 	if err != nil {
-		return false, idempotencyRecord{}, err
+		return false, idempotencyRecord{}, fmt.Errorf("idempotency: claim key: %w", err)
 	}
 	if ok {
 		return true, idempotencyRecord{}, nil
@@ -191,7 +191,7 @@ func (i *Idempotency) claim(ctx context.Context, redisKey, fingerprint string) (
 		return false, idempotencyRecord{Fingerprint: fingerprint}, nil
 	}
 	if err != nil {
-		return false, idempotencyRecord{}, err
+		return false, idempotencyRecord{}, fmt.Errorf("idempotency: read existing record: %w", err)
 	}
 
 	var existing idempotencyRecord
@@ -309,7 +309,7 @@ func rewindBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, httpx.MaxJSONBody)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("idempotency: read request body: %w", err)
 	}
 	_ = r.Body.Close() //nolint:errcheck // the bytes are already in hand; nothing is left to fail on
 	r.Body = io.NopCloser(bytes.NewReader(body))
