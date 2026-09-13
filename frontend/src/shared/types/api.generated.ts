@@ -1333,15 +1333,35 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        Error: {
-            /** @description Human readable, safe to display. */
-            error: string;
-        };
-        ValidationError: {
-            /** @description Field name (dotted or bracketed for nested fields, e.g. `schedules[3].open_time`) to message. A message is either free text or one of the stable machine codes intended for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`, `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`, `report_period_before_complex_existed`, `report_export_too_large`, `report_export_timed_out`, `price_required`). */
-            error: {
+        /** @description An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording. */
+        Problem: {
+            /**
+             * Format: uri
+             * @description A stable URI identifying this problem's kind, e.g. `https://vibe.com.ar/problems/validation`.
+             */
+            type: string;
+            /** @description A short, stable summary of this problem's type. */
+            title: string;
+            /** @description The HTTP status code, repeated here per RFC 9457. */
+            status: number;
+            /** @description Human readable detail for this occurrence, safe to display. */
+            detail?: string;
+            /** @description The request path that produced this problem. */
+            instance?: string;
+            /** @description Correlates this response with the server's logs. */
+            request_id?: string;
+            /** @description Present on a validation problem; one entry per invalid field. */
+            errors?: components["schemas"]["FieldError"][];
+            /** @description Legacy pre-RFC-9457 error shape, kept for one release so an already-deployed client keeps rendering: the detail string for most problems, or a field-to-message object for a validation problem. Remove once the frontend's ApiError is deployed everywhere. */
+            error?: string | {
                 [key: string]: string;
             };
+        };
+        FieldError: {
+            /** @description Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`. */
+            field: string;
+            /** @description Free text, or one of the stable machine codes intended for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`, `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`, `report_period_before_complex_existed`, `report_export_too_large`, `report_export_timed_out`, `price_required`). */
+            message: string;
         };
         Metadata: {
             next_cursor?: string;
@@ -1362,7 +1382,6 @@ export interface components {
         User: {
             /** Format: uuid */
             id: string;
-            /** Format: email */
             email: string;
             first_name: string;
             last_name: string;
@@ -1393,7 +1412,6 @@ export interface components {
             currency: string;
             /** @example +5491112345678 */
             phone: string;
-            /** Format: email */
             email?: string | null;
             /** Format: uri */
             logo_url?: string | null;
@@ -1401,7 +1419,9 @@ export interface components {
             cover_url?: string | null;
             deposit_percentage: number;
             cancellation_hours: number;
+            /** Format: double */
             latitude?: number | null;
+            /** Format: double */
             longitude?: number | null;
             is_active: boolean;
             amenities: string[];
@@ -1415,6 +1435,8 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** @description Optimistic-concurrency counter, bumped on every update. */
+            version: number;
         };
         /** @description The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state. */
         PublicComplex: {
@@ -1430,7 +1452,6 @@ export interface components {
             /** @example ARS */
             currency: string;
             phone: string;
-            /** Format: email */
             email?: string;
             /** Format: uri */
             logo_url?: string;
@@ -1438,7 +1459,9 @@ export interface components {
             cover_url?: string;
             deposit_percentage: number;
             cancellation_hours: number;
+            /** Format: double */
             latitude?: number;
+            /** Format: double */
             longitude?: number;
             amenities: string[];
             payments_enabled: boolean;
@@ -1521,7 +1544,6 @@ export interface components {
             last_name: string;
             /** @example +5491112345678 */
             phone: string;
-            /** Format: email */
             email?: string | null;
             notes?: string | null;
             is_blocked: boolean;
@@ -1731,7 +1753,6 @@ export interface components {
         AdminUserRow: {
             /** Format: uuid */
             id: string;
-            /** Format: email */
             email: string;
             first_name: string;
             last_name: string;
@@ -1750,7 +1771,6 @@ export interface components {
             /** Format: uuid */
             owner_id: string;
             owner_name: string;
-            /** Format: email */
             owner_email: string;
             name: string;
             slug: string;
@@ -1767,7 +1787,6 @@ export interface components {
             id: string;
             /** Format: uuid */
             user_id: string | null;
-            /** Format: email */
             user_email: string | null;
             /** Format: uuid */
             complex_id: string | null;
@@ -1963,7 +1982,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Authenticated, but not permitted to reach this resource. */
@@ -1972,7 +1991,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description The requested resource could not be found. */
@@ -1981,7 +2000,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description One or more fields failed validation. */
@@ -1990,7 +2009,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["ValidationError"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Too many requests. See the `Retry-After` header. */
@@ -2000,7 +2019,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description An unexpected server error. The message is always generic, it never leaks internal detail. */
@@ -2009,7 +2028,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description A concurrent edit was detected. Retry the request. */
@@ -2018,7 +2037,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description The booking link has expired. */
@@ -2027,7 +2046,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
@@ -2115,7 +2134,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2196,7 +2215,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2208,7 +2227,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -2248,7 +2267,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2279,7 +2298,6 @@ export interface operations {
                     "application/json": {
                         complex: components["schemas"]["Complex"];
                         owner_name: string;
-                        /** Format: email */
                         owner_email: string;
                         courts_count: number;
                         clients_count: number;
@@ -2330,7 +2348,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2408,7 +2426,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2429,7 +2447,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: email */
                     email: string;
                     password: string;
                     first_name: string;
@@ -2463,7 +2480,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -2481,7 +2498,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: email */
                     email: string;
                     password: string;
                     turnstile_token?: string;
@@ -2510,7 +2526,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -2552,7 +2568,6 @@ export interface operations {
                         /** @description Signed, 10-minute token. Send back to `/auth/google/complete`. */
                         profile_token: string;
                         profile: {
-                            /** Format: email */
                             email: string;
                             first_name: string;
                             last_name: string;
@@ -2569,7 +2584,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2619,7 +2634,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description An account for this address was created between `/auth/google` and this request. */
@@ -2628,7 +2643,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -2640,7 +2655,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2673,7 +2688,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -2737,7 +2752,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -2778,7 +2793,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -2794,10 +2809,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /**
-                     * Format: email
-                     * @description Omitting it, or an unknown address, still answers the same 200 message.
-                     */
+                    /** @description Omitting it, or an unknown address, still answers the same 200 message. */
                     email?: string;
                     turnstile_token?: string;
                 };
@@ -2822,7 +2834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -2863,7 +2875,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -2906,7 +2918,6 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
-                    /** Format: email */
                     email?: string;
                     first_name?: string;
                     last_name?: string;
@@ -2934,7 +2945,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             409: components["responses"]["EditConflict"];
@@ -2971,7 +2982,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -3006,7 +3017,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -3071,7 +3082,6 @@ export interface operations {
                      * @example +5491112345678
                      */
                     client_phone: string;
-                    /** Format: email */
                     client_email?: string;
                     client_notes?: string;
                 };
@@ -3093,7 +3103,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Unknown or inactive complex or court, or the court belongs to a different complex. */
@@ -3102,7 +3112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. */
@@ -3111,7 +3121,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -3123,7 +3133,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -3157,7 +3167,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             404: components["responses"]["NotFound"];
@@ -3193,7 +3203,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             404: components["responses"]["NotFound"];
@@ -3240,7 +3250,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             404: components["responses"]["NotFound"];
@@ -3251,7 +3261,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -3298,7 +3308,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3333,7 +3343,6 @@ export interface operations {
                     duration_minutes: number;
                     /** @example +5491112345678 */
                     client_phone: string;
-                    /** Format: email */
                     client_email?: string;
                     client_first_name: string;
                     client_last_name: string;
@@ -3370,7 +3379,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -3451,7 +3460,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3463,7 +3472,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -3508,7 +3517,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3561,7 +3570,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3573,7 +3582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -3617,7 +3626,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3629,7 +3638,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -3673,7 +3682,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3752,7 +3761,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3793,7 +3802,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -3866,7 +3875,6 @@ export interface operations {
                     city: string;
                     province: string;
                     phone: string;
-                    /** Format: email */
                     email?: string;
                     /**
                      * @description Defaults to 0 (no deposit required) when omitted.
@@ -3874,7 +3882,9 @@ export interface operations {
                      */
                     deposit_percentage?: number;
                     cancellation_hours: number;
+                    /** Format: double */
                     latitude?: number;
+                    /** Format: double */
                     longitude?: number;
                 };
             };
@@ -3898,7 +3908,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -3960,14 +3970,15 @@ export interface operations {
                     city?: string;
                     province?: string;
                     phone?: string;
-                    /** Format: email */
                     email?: string;
                     logo_url?: string;
                     cover_url?: string;
                     deposit_percentage?: number;
                     cancellation_hours?: number;
                     is_active?: boolean;
+                    /** Format: double */
                     latitude?: number;
+                    /** Format: double */
                     longitude?: number;
                     amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording")[];
                 };
@@ -4028,7 +4039,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -4130,7 +4141,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4172,7 +4183,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -4183,7 +4194,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -4195,7 +4206,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4244,7 +4255,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4281,7 +4292,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -4353,7 +4364,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Unknown slug, or the complex is inactive. */
@@ -4362,7 +4373,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -4524,7 +4535,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -4624,7 +4635,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -4664,7 +4675,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -4766,7 +4777,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: email */
                     email: string;
                     /**
                      * @description Which form was abandoned; it decides the row's origin in the spreadsheet.
@@ -4797,7 +4807,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             422: components["responses"]["ValidationError"];
@@ -4885,7 +4895,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Either this API's own rate limit, or Google Places' quota exhausted (the platform's own quota, surfaced as 429 because backing off is the only useful response either way). */
@@ -4894,7 +4904,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description The upstream call failed for any other reason (a 5xx, a bad key, an unreadable body). Reported as a gateway failure rather than naming Google. */
@@ -4903,7 +4913,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4935,7 +4945,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -4945,7 +4955,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description This API's own rate limit, or Google Places' quota exhausted. */
@@ -4954,7 +4964,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description The upstream call failed for any other reason. */
@@ -4963,7 +4973,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -5038,7 +5048,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -5074,7 +5084,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             500: components["responses"]["ServerError"];
@@ -5233,7 +5243,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -5273,7 +5283,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -5284,7 +5294,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -5295,7 +5305,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

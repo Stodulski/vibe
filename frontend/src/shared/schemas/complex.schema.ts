@@ -50,6 +50,9 @@ export const complexSchema = exact<Complex>(
       mp_token_expires_at: z.string().nullable().optional(),
       created_at: z.string(),
       updated_at: z.string(),
+      // Optimistic-concurrency counter. Always present on a GET — the PUT
+      // handlers read it back from the body/`If-Match` to detect a stale write.
+      version: z.number(),
     })
     .loose(),
 );

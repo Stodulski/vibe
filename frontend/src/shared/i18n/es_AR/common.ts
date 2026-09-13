@@ -53,4 +53,8 @@ export const common = {
   // offline — never for a server-side error, which keeps its own specific
   // copy (see getHttpErrorMessage in src/shared/lib/utils.ts).
   networkError: 'No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.',
+  // Shown when a PUT is refused for a stale `version` — someone else saved
+  // over the same row meanwhile. The affected query is invalidated right
+  // before this toasts, so "recargamos los datos" is true by the time it's read.
+  versionConflict: 'Alguien más modificó esto. Recargamos los datos, revisá y volvé a guardar.',
 } as const;
