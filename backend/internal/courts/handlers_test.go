@@ -634,33 +634,49 @@ func TestAvailabilityIsPublicAndBuildsTheGrid(t *testing.T) {
 	}
 }
 
-func TestAvailabilityReportsAnUnknownComplexAsNotFound(t *testing.T) {
-	complexes := &stubComplexes{err: data.ErrRecordNotFound}
-	h, _ := newTestHandler(&stubStore{}, &stubBookings{}, complexes)
-
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?date="+futureDate(), nil)
-	r = withSlug(r, "missing")
-
-	w := httptest.NewRecorder()
-	h.Availability(w, r)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("want 404; got %d", w.Code)
+// TestAvailabilityRejectsInvalidInput consolidates the two ways the public
+// grid can be asked for something that does not exist: a complex the slug
+// does not resolve to, and a date query parameter that does not parse.
+// Neither case sets up a distinct fixture beyond what the request itself
+// carries, so both live as rows here rather than as separate functions.
+func TestAvailabilityRejectsInvalidInput(t *testing.T) {
+	tests := []struct {
+		name       string
+		complexes  *stubComplexes
+		slug       string
+		date       string
+		wantStatus int
+	}{
+		{
+			name:       "unknown complex",
+			complexes:  &stubComplexes{err: data.ErrRecordNotFound},
+			slug:       "missing",
+			date:       futureDate(),
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "malformed date",
+			complexes:  &stubComplexes{complex: &complexstore.Complex{ID: uuid.New(), Slug: "vibe", IsActive: true}},
+			slug:       "vibe",
+			date:       "next-tuesday",
+			wantStatus: http.StatusBadRequest,
+		},
 	}
-}
 
-func TestAvailabilityRejectsAMalformedDate(t *testing.T) {
-	complexes := &stubComplexes{complex: &complexstore.Complex{ID: uuid.New(), Slug: "vibe", IsActive: true}}
-	h, _ := newTestHandler(&stubStore{}, &stubBookings{}, complexes)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h, _ := newTestHandler(&stubStore{}, &stubBookings{}, tt.complexes)
 
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?date=next-tuesday", nil)
-	r = withSlug(r, "vibe")
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?date="+tt.date, nil)
+			r = withSlug(r, tt.slug)
 
-	w := httptest.NewRecorder()
-	h.Availability(w, r)
+			w := httptest.NewRecorder()
+			h.Availability(w, r)
 
-	if w.Code == http.StatusOK {
-		t.Errorf("an unparseable date must not produce a grid; got %d (%s)", w.Code, w.Body.String())
+			if w.Code != tt.wantStatus {
+				t.Errorf("want %d; got %d (%s)", tt.wantStatus, w.Code, w.Body.String())
+			}
+		})
 	}
 }
 

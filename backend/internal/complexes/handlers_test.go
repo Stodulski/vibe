@@ -227,33 +227,6 @@ func TestCreateAcceptsTheSmallestLegalCancellationWindow(t *testing.T) {
 	}
 }
 
-// The same floor on the other write path. Update takes *int, so omission there
-// means "leave it alone" and only an explicit 0 is a request to remove the
-// window — which is exactly the request that must now fail. Create and Update
-// carry two separate v.Check calls, so a test of one proves nothing about the
-// other.
-func TestUpdateRejectsAZeroCancellationWindow(t *testing.T) {
-	f := newFixture(t)
-	complex := &complexstore.Complex{ID: uuid.New(), CancellationHours: 24}
-
-	w := httptest.NewRecorder()
-	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
-		`{"cancellation_hours":0}`))
-
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
-	}
-	if f.store.updated != nil {
-		t.Errorf("a refused update must not reach the store; got %+v", f.store.updated)
-	}
-	// The in-memory complex is mutated before validation runs, so this asserts
-	// what the client can observe: nothing was persisted, and the stored window
-	// is still whatever it was.
-	if !strings.Contains(w.Body.String(), "cancellation_hours") {
-		t.Errorf("the rejection must name cancellation_hours: %s", w.Body.String())
-	}
-}
-
 // And the floor from above, on Update. 1 is legal; 0 is not.
 func TestUpdateAcceptsAOneHourCancellationWindow(t *testing.T) {
 	f := newFixture(t)
@@ -321,42 +294,60 @@ func TestUpdateReportsAnEditConflictOnAStaleVersion(t *testing.T) {
 	}
 }
 
-// Deleting a complex cancels every future booking on it, so it is refused
-// while any is still live rather than silently taking clients' reservations
-// with it.
-// H-13: Create already refuses a reserved slug, but a rename through Update
-// is the same collision reached by a second write path — an owner renaming
-// their venue could talk themselves into it just as easily as one creating a
-// new one, and the fix direction only asked for Create originally.
-func TestUpdateRejectsASlugThatCollidesWithAClientRoute(t *testing.T) {
-	f := newFixture(t)
-	complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
-
-	w := httptest.NewRecorder()
-	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
-		`{"slug":"settings"}`))
-
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+// TestUpdateRejectsInvalidInput consolidates the Update refusals that only
+// vary the body and, where the standalone tests pinned it, the field the
+// rejection must name: a zero cancellation window (the same floor as
+// Create's, on Update's separate v.Check call — see H-14), a slug renamed
+// onto a route the client's own router owns (H-13's Update-side collision;
+// Create already refused it and a rename is the same collision reached by a
+// second write path), and a slug over the length bound. None of these set up
+// a fixture beyond the complex being updated, and all assert the same
+// refusal shape, so they live as rows here rather than as separate
+// functions.
+func TestUpdateRejectsInvalidInput(t *testing.T) {
+	tests := []struct {
+		name         string
+		complex      *complexstore.Complex
+		body         string
+		wantContains string
+	}{
+		{
+			name:         "zero cancellation window",
+			complex:      &complexstore.Complex{ID: uuid.New(), CancellationHours: 24},
+			body:         `{"cancellation_hours":0}`,
+			wantContains: "cancellation_hours",
+		},
+		{
+			name:    "slug collides with a client route",
+			complex: &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"},
+			body:    `{"slug":"settings"}`,
+		},
+		{
+			name:    "slug over the length bound",
+			complex: &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"},
+			body:    `{"slug":"` + strings.Repeat("a", maxSlugLength+1) + `"}`,
+		},
 	}
-	if f.store.updated != nil {
-		t.Errorf("a rename onto a reserved slug must not reach the store; got %+v", f.store.updated)
-	}
-}
 
-func TestUpdateRejectsASlugOverTheLengthBound(t *testing.T) {
-	f := newFixture(t)
-	complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
 
-	w := httptest.NewRecorder()
-	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
-		`{"slug":"`+strings.Repeat("a", maxSlugLength+1)+`"}`))
+			w := httptest.NewRecorder()
+			f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), tt.complex, nil, tt.body))
 
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
-	}
-	if f.store.updated != nil {
-		t.Errorf("an over-length rename must not reach the store; got %+v", f.store.updated)
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+			}
+			// The in-memory complex is mutated before validation runs, so this
+			// asserts what the client can observe: nothing was persisted.
+			if f.store.updated != nil {
+				t.Errorf("a refused update must not reach the store; got %+v", f.store.updated)
+			}
+			if tt.wantContains != "" && !strings.Contains(w.Body.String(), tt.wantContains) {
+				t.Errorf("the rejection must name %s, or the owner cannot fix it: %s", tt.wantContains, w.Body.String())
+			}
+		})
 	}
 }
 
