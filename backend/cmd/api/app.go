@@ -55,6 +55,10 @@ type deps struct {
 	rdb *platformredis.Client
 	// storage MAY be nil (no R2 configured).
 	storage storage.ObjectStorage
+	// privateStorage is the bucket no public domain serves, read only through
+	// presigned GETs. It MAY be nil (no R2_PRIVATE_BUCKET_NAME), and the
+	// payments-export endpoints then answer 501.
+	privateStorage storage.ObjectStorage
 	// trustedProxies is the parsed -trusted-proxies/TRUSTED_PROXIES set: the
 	// peers allowed to rewrite the client address. It arrives through deps
 	// rather than through cfg because parsing it produces an internal/httpx

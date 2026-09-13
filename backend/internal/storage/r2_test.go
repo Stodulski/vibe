@@ -200,3 +200,99 @@ func TestUnguardedZeroSizeWouldSignNothingButTheHost(t *testing.T) {
 			"GeneratePresignedPUT's non-positive-size guard can be revisited", signed)
 	}
 }
+
+// --- Private bucket: server-side PUT and presigned GET -----------------------
+//
+// The export workbook is a month of one tenant's ledger, so it lives in a
+// bucket no domain serves and is read only through a URL that expires. The
+// tests below pin the two properties that make that true rather than merely
+// intended: the read URL carries an expiry, and the filename the browser will
+// save under is inside the signature rather than beside it.
+
+// presignedGETQuery returns the query of a presigned download URL.
+func presignedGETQuery(t *testing.T, c *R2Client, key, downloadName string, ttl time.Duration) url.Values {
+	t.Helper()
+	signedURL, err := c.GeneratePresignedGET(context.Background(), key, downloadName, ttl)
+	if err != nil {
+		t.Fatalf("presigning a GET for %q: %v", key, err)
+	}
+	u, err := url.Parse(signedURL)
+	if err != nil {
+		t.Fatalf("the presigned URL does not parse: %v", err)
+	}
+	return u.Query()
+}
+
+// A download URL that never expires is an unguessable key by another name.
+func TestPresignedGETCarriesAnExpiry(t *testing.T) {
+	c := newPresignTestClient(t)
+	q := presignedGETQuery(t, c, "exports/complex/export.xlsx", "pagos.xlsx", 15*time.Minute)
+
+	if got := q.Get("X-Amz-Expires"); got != "900" {
+		t.Errorf("X-Amz-Expires = %q, want %q — a URL with no expiry is a permanent bearer token for a tenant's ledger", got, "900")
+	}
+}
+
+// R2 rejects a response-override parameter that is not part of the canonical
+// query string, so a disposition merely appended to the URL would not simply
+// be ignored — the whole download would fail. It has to be signed.
+func TestPresignedGETSignsTheDownloadName(t *testing.T) {
+	c := newPresignTestClient(t)
+	q := presignedGETQuery(t, c, "exports/complex/export.xlsx", "pagos_mi-complejo_9_2026.xlsx", 15*time.Minute)
+
+	disposition := q.Get("response-content-disposition")
+	if disposition != `attachment; filename="pagos_mi-complejo_9_2026.xlsx"` {
+		t.Fatalf("response-content-disposition = %q, want the attachment header naming the workbook", disposition)
+	}
+
+	signed := q.Get("X-Amz-SignedHeaders")
+	if signed == "" {
+		t.Fatal("the URL carries no signed headers at all")
+	}
+	// The override travels in the canonical query string rather than as a
+	// signed header, so the proof it is bound is that changing it changes the
+	// signature.
+	other := presignedGETQuery(t, c, "exports/complex/export.xlsx", "otro.xlsx", 15*time.Minute)
+	if q.Get("X-Amz-Signature") == other.Get("X-Amz-Signature") {
+		t.Error("two different download names produced the same signature, so the name is not bound to the URL and any name would be accepted")
+	}
+}
+
+// A name carrying a quote would close the header's quoted-string early and let
+// the rest be read as further parameters.
+func TestPresignedGETNeutralizesAQuoteInTheDownloadName(t *testing.T) {
+	c := newPresignTestClient(t)
+	q := presignedGETQuery(t, c, "exports/complex/export.xlsx", `a".xlsx`, 15*time.Minute)
+
+	if got := q.Get("response-content-disposition"); strings.Count(got, `"`) != 2 {
+		t.Errorf("response-content-disposition = %q, want exactly the two quotes that delimit the filename", got)
+	}
+}
+
+// An unusable request is refused here rather than signed into a URL that fails
+// later, at R2, as a 403 nobody can trace back to this call.
+func TestPresignedGETRefusesAnEmptyKeyOrADeadTTL(t *testing.T) {
+	c := newPresignTestClient(t)
+
+	if _, err := c.GeneratePresignedGET(context.Background(), "", "pagos.xlsx", time.Minute); err == nil {
+		t.Error("an empty key must be refused: the signature would cover the bucket alone")
+	}
+	for _, ttl := range []time.Duration{0, -time.Minute} {
+		if _, err := c.GeneratePresignedGET(context.Background(), "exports/a/b.xlsx", "pagos.xlsx", ttl); err == nil {
+			t.Errorf("a %s ttl must be refused: the URL is dead the moment it is handed out", ttl)
+		}
+	}
+}
+
+// PutObject's two required fields are required because R2 accepts an object
+// without them and serves it as an unnamed opaque stream.
+func TestPutObjectRefusesAnObjectItCannotServe(t *testing.T) {
+	c := newPresignTestClient(t)
+
+	if err := c.PutObject(context.Background(), Object{ContentType: "text/plain", Body: []byte("x")}); err == nil {
+		t.Error("an object with no key must be refused")
+	}
+	if err := c.PutObject(context.Background(), Object{Key: "exports/a/b.xlsx", Body: []byte("x")}); err == nil {
+		t.Error("an object with no content type must be refused: it is served as an opaque stream")
+	}
+}

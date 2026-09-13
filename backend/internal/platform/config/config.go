@@ -223,6 +223,19 @@ type R2 struct {
 	SecretKey  string
 	BucketName string
 	PublicURL  string
+	// PrivateBucketName is a SECOND bucket, served by no public domain, that
+	// holds objects only a signed URL may read: today, the payments export
+	// workbooks.
+	//
+	// It is a separate bucket rather than a prefix in BucketName because a
+	// public r2.dev or custom domain makes the WHOLE bucket readable by key,
+	// so a prefix inside it is not private however unguessable the key is —
+	// and the payload here is a month of one tenant's ledger, client names
+	// and phone numbers included.
+	//
+	// Empty means exports are not configured, and the endpoints answer 501
+	// rather than falling back to the public bucket.
+	PrivateBucketName string
 }
 
 // Limiter is the HTTP rate limiter.
