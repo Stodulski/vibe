@@ -15,6 +15,8 @@ interface MonthOption {
 interface ExportButtonProps {
   exporting: boolean;
   disabled: boolean;
+  /** Label shown while `exporting`. Defaults to `t.reports.downloading` — see the caller. */
+  statusLabel?: string;
   onExport: () => void;
 }
 
@@ -22,7 +24,7 @@ interface ExportButtonProps {
 // <button> carrying its own green, its own radius and its own disabled
 // styling — a second definition of the thing `Button` already defines, which
 // drifts the moment either is restyled.
-function ExportButton({ exporting, disabled, onExport }: ExportButtonProps) {
+function ExportButton({ exporting, disabled, statusLabel, onExport }: ExportButtonProps) {
   return (
     // `lg` because a SelectTrigger is 40px and the default Button is 36: the
     // bar aligns its controls at the bottom, so the shorter one starts four
@@ -42,7 +44,7 @@ function ExportButton({ exporting, disabled, onExport }: ExportButtonProps) {
       ) : (
         <Download className="size-4" aria-hidden="true" />
       )}
-      {exporting ? t.reports.downloading : t.reports.downloadExcel}
+      {exporting ? (statusLabel ?? t.reports.downloading) : t.reports.downloadExcel}
     </Button>
   );
 }
@@ -123,6 +125,7 @@ interface MonthYearExportBarProps {
   availableMonths: MonthOption[];
   isLoading: boolean;
   exporting: boolean;
+  exportStatusLabel?: string;
   onMonthChange: (month: number) => void;
   onYearChange: (year: number) => void;
   onExport: () => void;
@@ -136,6 +139,7 @@ export function MonthYearExportBar({
   availableMonths,
   isLoading,
   exporting,
+  exportStatusLabel,
   onMonthChange,
   onYearChange,
   onExport,
@@ -158,7 +162,12 @@ export function MonthYearExportBar({
 
       <YearPicker year={year} minYear={minYear} maxYear={maxYear} onYearChange={onYearChange} />
 
-      <ExportButton exporting={exporting} disabled={exporting || isLoading} onExport={onExport} />
+      <ExportButton
+        exporting={exporting}
+        disabled={exporting || isLoading}
+        {...(exportStatusLabel !== undefined ? { statusLabel: exportStatusLabel } : {})}
+        onExport={onExport}
+      />
     </div>
   );
 }

@@ -31,3 +31,61 @@ export type MonthlyReport = Omit<Spec<'MonthlyReport'>, 'totals' | 'previous_tot
 };
 
 export type MonthlyReportResponse = Omit<Ok<'reportingGetMonthlyReport'>, 'report'> & { report: MonthlyReport };
+
+// ─── Async payments export (JOB-06) ───
+//
+// TODO(openapi): regenerate once the backend export-job PR lands. Hand-typed
+// from `docs/auditoria-backend-2026-09-11/job06-export-job-design.md` §7
+// (the literal OpenAPI YAML for `POST/GET …/reports/exports`), because
+// `backend/internal/openapi/openapi.yaml` in this worktree still only knows
+// the deprecated synchronous `GET …/reports/export`.
+
+/** The job's state machine, mirrored from the `jobs` row (§4 of the design doc). */
+export type PaymentsExportStatus = 'pending' | 'running' | 'done' | 'failed';
+
+/** One field-level entry of an embedded {@link PaymentsExportProblem}. */
+export interface PaymentsExportFieldError {
+  field: string;
+  message: string;
+}
+
+/**
+ * The RFC 9457 Problem embedded as `PaymentsExport.error` on a `failed`
+ * export — not a thrown `HTTPError`, since the status route answers `200`
+ * even when the job itself failed (design doc §6b).
+ */
+export interface PaymentsExportProblem {
+  type: string;
+  title: string;
+  status: number;
+  detail?: string;
+  instance?: string;
+  request_id?: string;
+  errors?: PaymentsExportFieldError[];
+}
+
+/**
+ * One payments export job, as answered by the status endpoint.
+ * `download_url`/`expires_at` appear only on `done`; `error` only on `failed`.
+ */
+export interface PaymentsExport {
+  id: string;
+  status: PaymentsExportStatus;
+  download_url?: string;
+  expires_at?: string;
+  error?: PaymentsExportProblem;
+}
+
+/** `202` body from `POST …/reports/exports`. */
+export interface CreatePaymentsExportResponse {
+  export: {
+    id: string;
+    status: PaymentsExportStatus;
+    status_url: string;
+  };
+}
+
+/** `200` body from `GET …/reports/exports/{exportID}`. */
+export interface GetPaymentsExportResponse {
+  export: PaymentsExport;
+}

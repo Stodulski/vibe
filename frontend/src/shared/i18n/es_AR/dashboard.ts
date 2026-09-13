@@ -52,6 +52,13 @@ export const dashboard = {
   exportGenericError: 'No se pudo descargar el archivo. Intentá de nuevo.',
   exportTooLarge: 'El período elegido tiene demasiados pagos para exportar. Elegí un rango más corto.',
   exportTimedOut: 'La exportación tardó demasiado y no se pudo completar. Intentá de nuevo en unos minutos.',
+  // JOB-06: the async export job's own copy. `exportGenerating` is the
+  // button label while a job is pending/running (distinct from
+  // `reports.downloading`, the sync fallback's label); `exportExpired`
+  // covers the 410 the status route answers once the file's 24h retention
+  // has passed.
+  exportGenerating: 'Generando el archivo…',
+  exportExpired: 'El archivo generado ya venció. Volvé a exportarlo.',
   realtimeAccessEnded:
     'Se dejaron de recibir actualizaciones en vivo de este complejo. Recargá la página si creés que es un error.',
 } as const;

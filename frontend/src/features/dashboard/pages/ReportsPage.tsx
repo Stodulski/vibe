@@ -29,7 +29,7 @@ function ReportsPageContent({ complexId, createdAt }: { complexId: string; creat
     useMonthYearSelection(createdAt);
 
   const { data: report, isLoading, isError } = useMonthlyReport(complexId, month, year);
-  const { exporting, exportError, handleExport } = useReportExport(complexId, month, year);
+  const { exporting, exportError, statusLabel, handleExport } = useReportExport(complexId, month, year);
 
   return (
     <div className="animate-fade-in">
@@ -43,6 +43,7 @@ function ReportsPageContent({ complexId, createdAt }: { complexId: string; creat
         availableMonths={availableMonths}
         isLoading={isLoading}
         exporting={exporting}
+        exportStatusLabel={statusLabel}
         onMonthChange={handleMonthChange}
         onYearChange={handleYearChange}
         onExport={() => {

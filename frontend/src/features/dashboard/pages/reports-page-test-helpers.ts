@@ -2,7 +2,7 @@ import { createElement, type ReactElement, type ReactNode } from 'react';
 import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { UseQueryResult } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, type UseQueryResult } from '@tanstack/react-query';
 import { useMonthlyReport } from '@/features/dashboard';
 import type { MonthlyReport } from '@/shared/types/api.types';
 
@@ -18,13 +18,23 @@ export const mockedUseMonthlyReport = vi.mocked(useMonthlyReport);
 /**
  * `ReportsPage` reads/writes the month and year through `useSearchParams`
  * (see `useMonthYearSelection`), which throws outside a Router — every test
- * that renders the page needs this instead of the bare `render`.
+ * that renders the page needs this instead of the bare `render`. It also
+ * needs a `QueryClientProvider` now: JOB-06's `useReportExport` polls the
+ * export job's status through a real `useQuery`, unlike `useMonthlyReport`
+ * (mocked away above) which never touches the real client in these tests.
  */
 export function renderReportsPage(ui: ReactElement, initialEntries: string[] = ['/reports']) {
-  // Plain .ts file (no JSX loader here), so the router wrapper is built with
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+  });
+  // Plain .ts file (no JSX loader here), so the wrapper is built with
   // createElement instead of JSX — see useComplexPageState.test.ts.
   function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(MemoryRouter, { initialEntries }, children);
+    return createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      createElement(MemoryRouter, { initialEntries }, children),
+    );
   }
   return render(ui, { wrapper: Wrapper });
 }
