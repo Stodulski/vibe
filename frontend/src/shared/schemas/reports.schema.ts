@@ -6,7 +6,6 @@ import type {
   MonthlyReportCourt,
   MonthlyReport,
   MonthlyReportResponse,
-  PaymentsExportFieldError,
   PaymentsExportProblem,
   PaymentsExport,
   CreatePaymentsExportResponse,
@@ -71,9 +70,6 @@ export const monthlyReportResponseSchema = exact<MonthlyReportResponse>(
 );
 
 // ─── Async payments export (JOB-06) ───
-//
-// TODO(openapi): regenerate once the backend export-job PR lands — see the
-// same note in `src/shared/types/api.types/reports.ts`.
 
 export const paymentsExportStatusSchema = z.enum(['pending', 'running', 'done', 'failed']);
 
@@ -82,9 +78,9 @@ const paymentsExportFieldErrorSchema = z
     field: z.string(),
     message: z.string(),
   })
-  .loose() satisfies z.ZodType<PaymentsExportFieldError>;
+  .loose() satisfies z.ZodType<NonNullable<PaymentsExportProblem['errors']>[number]>;
 
-/** The embedded Problem on a `failed` export (design doc §6b). Not the thrown-`HTTPError` `Problem` shape — this one arrives inside a `200` body. */
+/** The generated `Problem` schema, embedded as `PaymentsExport.error` on a `failed` export — arrives inside a `200` body, not thrown as an `HTTPError`. */
 export const paymentsExportProblemSchema = exact<PaymentsExportProblem>(
   z
     .object({

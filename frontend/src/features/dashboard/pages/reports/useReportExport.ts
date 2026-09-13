@@ -26,10 +26,18 @@ const ACTIVE_STATUSES = new Set<PaymentsExport['status']>(['pending', 'running']
  * Whether `POST …/reports/exports` failed the way an older or half-deployed
  * backend does, rather than the way a real refusal does: a bare 404 (the
  * route doesn't exist yet — JOB-06 not deployed here) or a 501 (the route
- * exists but no private object storage is configured, design doc §3). Both
- * mean "there is no async job to poll," not "the export failed" — the caller
- * falls back to the synchronous `exportPaymentsExcel` instead of showing an
- * error.
+ * exists but no private object storage is configured — `Service.ExportsConfigured`
+ * false, `backend/internal/reporting/export_handlers.go`). Both mean "there
+ * is no async job to poll," not "the export failed" — the caller falls back
+ * to the synchronous `exportPaymentsExcel` instead of showing an error.
+ *
+ * Kept as a status check, not a `problem.kind` check: the 501 is built with
+ * `httpx.NotImplemented(...)`, whose `Refusal` carries `KindUnavailable`
+ * (`"unavailable"`, `backend/internal/httpx/refusals.go`) — the same kind a
+ * 503 answers with — not a dedicated `"not-implemented"` kind (there is no
+ * such `Kind` constant in `backend/internal/httpx/problem.go`). Status alone
+ * already disambiguates the two backend states this fallback cares about, so
+ * there is nothing a kind check would add here.
  */
 function isLegacyExportRoute(error: unknown): boolean {
   return error instanceof HTTPError && (error.response.status === 404 || error.response.status === 501);

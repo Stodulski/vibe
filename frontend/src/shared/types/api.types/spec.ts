@@ -38,13 +38,21 @@ export type Spec<K extends keyof components['schemas']> = components['schemas'][
  */
 export type Open<T extends string> = T | (string & {});
 
-/** The `application/json` body an operation answers 2xx with. */
+/**
+ * The `application/json` body an operation answers 2xx with.
+ *
+ * `202` (JOB-06's `reportingCreatePaymentsExport`) sits alongside `200`/`201`
+ * rather than replacing either: an operation that never declares a `202`
+ * response still resolves through the first two branches exactly as before.
+ */
 export type Ok<K extends keyof operations> =
   operations[K]['responses'] extends { 200: { content: { 'application/json': infer B } } }
     ? B
     : operations[K]['responses'] extends { 201: { content: { 'application/json': infer B } } }
       ? B
-      : never;
+      : operations[K]['responses'] extends { 202: { content: { 'application/json': infer B } } }
+        ? B
+        : never;
 
 /**
  * The `application/json` body an operation accepts, with its optional fields

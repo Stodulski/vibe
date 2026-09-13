@@ -34,58 +34,32 @@ export type MonthlyReportResponse = Omit<Ok<'reportingGetMonthlyReport'>, 'repor
 
 // ─── Async payments export (JOB-06) ───
 //
-// TODO(openapi): regenerate once the backend export-job PR lands. Hand-typed
-// from `docs/auditoria-backend-2026-09-11/job06-export-job-design.md` §7
-// (the literal OpenAPI YAML for `POST/GET …/reports/exports`), because
-// `backend/internal/openapi/openapi.yaml` in this worktree still only knows
-// the deprecated synchronous `GET …/reports/export`.
+// The backend's export-job PR (#56) landed and `openapi.yaml` now declares
+// both routes — these were hand-typed from the design doc's literal YAML
+// until this regeneration; every type below now derives from the generated
+// document instead of restating it.
 
-/** The job's state machine, mirrored from the `jobs` row (§4 of the design doc). */
-export type PaymentsExportStatus = 'pending' | 'running' | 'done' | 'failed';
-
-/** One field-level entry of an embedded {@link PaymentsExportProblem}. */
-export interface PaymentsExportFieldError {
-  field: string;
-  message: string;
-}
+/** The job's state machine, mirrored from the `jobs` row. */
+export type PaymentsExportStatus = Spec<'PaymentsExport'>['status'];
 
 /**
  * The RFC 9457 Problem embedded as `PaymentsExport.error` on a `failed`
  * export — not a thrown `HTTPError`, since the status route answers `200`
- * even when the job itself failed (design doc §6b).
+ * even when the job itself failed. Same generated `Problem` schema every
+ * thrown `HTTPError` carries (see `src/shared/lib/ApiError.ts`), just never
+ * `zod`-validated there because it arrives already-thrown, not embedded in a
+ * 2xx body the way this one is.
  */
-export interface PaymentsExportProblem {
-  type: string;
-  title: string;
-  status: number;
-  detail?: string;
-  instance?: string;
-  request_id?: string;
-  errors?: PaymentsExportFieldError[];
-}
+export type PaymentsExportProblem = Spec<'Problem'>;
 
 /**
  * One payments export job, as answered by the status endpoint.
  * `download_url`/`expires_at` appear only on `done`; `error` only on `failed`.
  */
-export interface PaymentsExport {
-  id: string;
-  status: PaymentsExportStatus;
-  download_url?: string;
-  expires_at?: string;
-  error?: PaymentsExportProblem;
-}
+export type PaymentsExport = Spec<'PaymentsExport'>;
 
 /** `202` body from `POST …/reports/exports`. */
-export interface CreatePaymentsExportResponse {
-  export: {
-    id: string;
-    status: PaymentsExportStatus;
-    status_url: string;
-  };
-}
+export type CreatePaymentsExportResponse = Ok<'reportingCreatePaymentsExport'>;
 
 /** `200` body from `GET …/reports/exports/{exportID}`. */
-export interface GetPaymentsExportResponse {
-  export: PaymentsExport;
-}
+export type GetPaymentsExportResponse = Ok<'reportingGetPaymentsExport'>;
