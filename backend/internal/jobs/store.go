@@ -439,7 +439,7 @@ func scanJobs(rows pgx.Rows) ([]*Job, error) {
 		out = append(out, &j)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan jobs: %w", err)
+		return nil, fmt.Errorf("jobs: scan jobs: %w", err)
 	}
 	return out, nil
 }
