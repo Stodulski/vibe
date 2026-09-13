@@ -1,5 +1,5 @@
 import { QueryCache, QueryClient, MutationCache } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react';
+import { captureException } from './observability';
 import { HTTPError, NetworkError, TimeoutError } from 'ky';
 import { ApiError } from '@/shared/lib/ApiError';
 
@@ -27,7 +27,7 @@ function reportQueryError(error: unknown): void {
     if (EXPECTED_STATUSES.has(error.response.status)) return;
 
     const requestId = error instanceof ApiError ? error.requestId : error.response.headers.get('X-Request-ID');
-    Sentry.captureException(error, {
+    captureException(error, {
       tags: {
         status: error.response.status,
         pathname: new URL(error.request.url).pathname,
@@ -41,21 +41,8 @@ function reportQueryError(error: unknown): void {
   // status, no response — but it is exactly the kind of failure a person
   // never sees a toast explain, so it still needs reporting.
   if (error instanceof TimeoutError || error instanceof NetworkError) {
-    Sentry.captureException(error);
+    captureException(error);
   }
-}
-
-/**
- * Whether a failure is the caller's fault rather than a bad moment.
- *
- * A 401, 403, 404 or 422 answers the same way however many times it is asked:
- * the blind `retry: 1` this replaced spent a second round-trip — and a second
- * spinner — on every one of them before showing the person the error they
- * were always going to get. Only "not now" failures (5xx, a timeout, a dropped
- * connection) are worth asking again.
- */
-function isClientError(error: unknown): boolean {
-  return error instanceof HTTPError && error.response.status >= 400 && error.response.status < 500;
 }
 
 /**
@@ -81,7 +68,17 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
-      retry: (failureCount, error) => failureCount < 1 && !isClientError(error),
+      // Off, because the transport already did it. `ky.ts`'s RETRY retries
+      // every GET twice on exactly the "not now" failures worth repeating
+      // (408/429/5xx, a timeout, a dropped connection), with its own backoff.
+      // A retry here multiplied against that one: a public complex page
+      // against a 500ing API made six requests over 3.4 s before the visitor
+      // was told anything, and the Lighthouse trace for `/:slug` showed the
+      // whole of that backoff sitting in front of the largest paint. One
+      // policy, in the layer that owns the request — a 5xx that survives it
+      // reaches `throwOnError` below, which is what puts a retry button in
+      // front of the person instead of a longer spinner.
+      retry: false,
       throwOnError: isServerError,
       refetchOnWindowFocus: false,
     },

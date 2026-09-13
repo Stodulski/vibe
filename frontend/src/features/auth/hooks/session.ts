@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/react';
+import { setUser } from '@/shared/lib/observability';
 import type { QueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import type { User } from '@/shared/types/api.types';
@@ -22,7 +22,7 @@ import type { User } from '@/shared/types/api.types';
  * the store's old `setUser` guaranteed.
  */
 export function identifySession(user: User | null): User | null {
-  Sentry.setUser(user ? { id: user.id } : null);
+  setUser(user ? { id: user.id } : null);
   return user;
 }
 

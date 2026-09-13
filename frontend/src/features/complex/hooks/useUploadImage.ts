@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import * as Sentry from '@sentry/react';
+import { captureException } from '@/shared/lib/observability';
 import { uploadApi } from '../api/upload.api';
 import { complexApi } from '../api/complex.api';
 import { compressImage, LOGO_OPTIONS, COVER_OPTIONS } from '../utils/compressImage';
@@ -91,7 +91,7 @@ export function useDeleteImage(complexId: string) {
       try {
         await uploadApi.deleteImage(complexId, currentUrl);
       } catch (err) {
-        Sentry.captureException(err);
+        captureException(err);
       }
 
       return result;

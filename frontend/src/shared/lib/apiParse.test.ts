@@ -5,7 +5,10 @@ import { parseResponse, parseWith, ApiResponseError } from './apiParse';
 
 const mockCaptureException = vi.fn<(error: unknown) => void>();
 
-vi.mock('@sentry/react', () => ({
+// The facade, not the SDK: reporting goes through
+// `shared/lib/observability`, which queues until `@sentry/react` has
+// finished loading off the critical path.
+vi.mock('./observability', () => ({
   captureException: (error: unknown) => {
     mockCaptureException(error);
   },
