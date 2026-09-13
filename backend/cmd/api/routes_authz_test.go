@@ -222,6 +222,8 @@ var routePolicies = map[string]policy{
 	"GET /api/v1/complexes/{id}/stats/clients":                         complexOwner,
 	"GET /api/v1/complexes/{id}/reports/monthly":                       complexOwner,
 	"GET /api/v1/complexes/{id}/reports/export":                        complexOwner,
+	"POST /api/v1/complexes/{id}/reports/exports":                      complexOwner,
+	"GET /api/v1/complexes/{id}/reports/exports/{exportID}":            complexOwner,
 
 	// Platform-wide: every tenant's data, plus the audit log that records who
 	// did what, from which address, to which entity.

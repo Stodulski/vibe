@@ -54,6 +54,18 @@ const (
 	// CodeExportTimedOut means the export did not finish inside its budget.
 	CodeExportTimedOut = "report_export_timed_out"
 
+	// CodeExportFailed means a background export job dead-lettered for a
+	// reason the owner cannot act on. It is deliberately the only thing said:
+	// a failed job's last_error is a Go error message, and putting that on
+	// the wire hands a tenant our internals.
+	CodeExportFailed = "report_export_failed"
+
+	// CodeExportExpired means the export finished but its file has passed the
+	// 24 hour retention the storage lifecycle rule enforces. The job row
+	// outlives the object it points at — jobs are kept for seven days — so
+	// this is the difference between "gone" and "never existed".
+	CodeExportExpired = "export_expired"
+
 	// CodePriceRequired means no price rule covers some part of the owner
 	// booking's span, so the caller must supply an explicit price instead of
 	// relying on the computed one.

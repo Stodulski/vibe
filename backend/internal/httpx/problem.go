@@ -57,6 +57,16 @@ const (
 // URI returns the stable type URI for k.
 func (k Kind) URI() string { return problemBaseURI + string(k) }
 
+// Title is the short, stable summary this kind's Problem carries.
+//
+// It is exported for the one caller that builds a Problem outside
+// writeProblem: an EMBEDDED problem, carried inside a 200 body rather than
+// written as the response — a failed export reported by its status route.
+// That Problem still has to be indistinguishable from one this package wrote,
+// and a title guessed at the call site is how two spellings of the same kind
+// appear.
+func (k Kind) Title() string { return titles[k] }
+
 // FieldError is one field's validation failure, reported under a Problem's
 // errors array.
 type FieldError struct {

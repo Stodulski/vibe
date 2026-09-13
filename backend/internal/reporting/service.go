@@ -41,6 +41,12 @@ type Service struct {
 	// without building a fifty-thousand-row workbook to do it.
 	maxExportRows int
 
+	// exports is the queue and the private bucket a background export needs.
+	// Both may be nil — a deployment with no R2 private bucket, and the unit
+	// suite — and the export endpoints then answer 501. See
+	// Service.ExportsConfigured.
+	exports ExportDeps
+
 	// exportBudget bounds the whole export — the query, the build and the
 	// serialisation — so a client that hung up does not leave the handler
 	// allocating for it forever (WriteTimeout closes the connection but does
@@ -51,13 +57,18 @@ type Service struct {
 }
 
 // NewService returns a Service backed by the given readers, budgeting every
-// export to exportBudget.
+// synchronous export to exportBudget.
+//
+// exports carries the two dependencies only the background export needs, as
+// one value rather than two more positional readers: they are meaningful only
+// together (see ExportDeps) and a caller with neither passes the zero value.
 func NewService(
 	bookings BookingReader,
 	clients ClientReader,
 	courts CourtReader,
 	complexes ScheduleReader,
 	reports PaymentReportReader,
+	exports ExportDeps,
 	exportBudget time.Duration,
 ) *Service {
 	return &Service{
@@ -66,6 +77,7 @@ func NewService(
 		courts:        courts,
 		complexes:     complexes,
 		reports:       reports,
+		exports:       exports,
 		maxExportRows: defaultMaxExportRows,
 		exportBudget:  exportBudget,
 	}

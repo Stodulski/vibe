@@ -113,7 +113,7 @@ func newTestHandler(reports PaymentReportReader) *Handler {
 // test that needs to reach past the HTTP layer — the export row cap is the one
 // that does — holds the same instance.
 func newTestService(reports PaymentReportReader) *Service {
-	return NewService(stubBookings{}, stubClients{}, stubCourts{}, stubSchedules{}, reports, 50*time.Second)
+	return NewService(stubBookings{}, stubClients{}, stubCourts{}, stubSchedules{}, reports, ExportDeps{}, 50*time.Second)
 }
 
 func newTestHandlerWithService(svc *Service) *Handler {
