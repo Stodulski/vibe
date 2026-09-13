@@ -196,3 +196,17 @@ export function getProblem(error: unknown): Problem | undefined {
   if (error instanceof HTTPError) return normalizeProblem(error.data, error.response.status);
   return undefined;
 }
+
+/**
+ * The kind a stale optimistic-concurrency write is refused with — a PUT whose
+ * `version` (or `If-Match`) named a row that has since moved. Distinct from
+ * the generic `conflict` kind (e.g. a duplicate slug): only this one means
+ * "reload and try again," so callers must not fold it into a generic 409
+ * handler.
+ */
+export const STALE_VERSION_KIND = 'stale-version';
+
+/** Whether `error` is a 409 refused specifically for a stale `version`. */
+export function isVersionConflict(error: unknown): boolean {
+  return getProblem(error)?.kind === STALE_VERSION_KIND;
+}

@@ -29,6 +29,7 @@ const complexWithoutCoordinates = {
   is_active: true,
   created_at: '2026-01-10T00:00:00Z',
   updated_at: '2026-01-10T00:00:00Z',
+  version: 1,
 };
 
 describe('ComplexForm edit mode and interactions', () => {
