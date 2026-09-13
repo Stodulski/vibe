@@ -173,6 +173,15 @@ const exportRowCheckInterval = 512
 // a two-sheet workbook: every payment in the period, and the same totals the
 // JSON report returns.
 //
+// Deprecated: use CreatePaymentsExport (POST .../reports/exports) and poll the
+// status resource it returns. This route builds the file inside the request,
+// so a month large enough to take longer than the export budget answers 503
+// and the owner has no way to get their ledger at all; the job route has no
+// such ceiling. It is marked `deprecated: true` in the OpenAPI document and
+// stays until the frontend has switched — see
+// frontend/src/features/dashboard/api/dashboard.api.ts and
+// docs/runbook-exports.md.
+//
 // The workbook is finished in full before the response status is chosen. It
 // used to be written straight at the ResponseWriter, which commits a 200 with
 // its first byte — so a failure halfway through arrived as a short .xlsx with a

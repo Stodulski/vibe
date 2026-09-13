@@ -232,6 +232,7 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `R2_SECRET_KEY` | Cloudflare R2 secret key. | Optional, see above | `""` |
 | `R2_BUCKET_NAME` | R2 bucket name. | Optional | `vibe` |
 | `R2_PUBLIC_URL` | Public base URL for serving stored images. | Optional | `""` |
+| `R2_PRIVATE_BUCKET_NAME` | A second bucket, served by no public domain, holding the payments export workbooks. Empty: the export endpoints answer 501. Needs a 24h lifecycle rule on `exports/` — see [`docs/runbook-exports.md`](docs/runbook-exports.md). | Optional | `""` |
 
 ### Limiter
 
@@ -279,7 +280,7 @@ internal/db/       sqlc-generated code: do not edit manually
 internal/          Cross-cutting services: mailer, jobs, storage, whatsapp, mp, circuitbreaker...
 db/migrations/     Goose migrations (PostgreSQL)
 db/queries/        SQL consumed by sqlc, one file per entity
-docs/              Reference docs (WhatsApp templates, backup and data-deletion runbooks, ADRs in docs/adr/)
+docs/              Reference docs (WhatsApp templates, backup, data-deletion and export runbooks, ADRs in docs/adr/)
 scripts/           Operational scripts (backup, e2e runner)
 tests/load/        Artillery load test scenarios
 ```
@@ -351,7 +352,8 @@ The client's Playwright suite runs from `.github/workflows/e2e.yml` via `make e2
 - **Backups and restore**: [`docs/runbook-backups.md`](docs/runbook-backups.md) — what runs, where backups land, retention, and the step-by-step restore procedure.
 - **Somebody asks to be removed**: [`docs/runbook-data-deletion.md`](docs/runbook-data-deletion.md) — how to verify the request, what is anonymized versus kept and why, and `go run ./cmd/anonymize`. The venue owner can delete their own account (`DELETE /api/v1/auth/me`, which cascades); the final client who booked without one cannot, and this is their path.
 - **Log retention**: this service does not manage its own log storage — stdout/stderr go to whatever Railway's plan retains and shows under the service's **Observability**/**Logs** tab. Check the current plan's retention window there (or in Railway's pricing page) rather than assuming a number; it can change with the plan. Sampling on top of that (independent of Railway's retention) is `REQUEST_LOG_SAMPLE`, implemented in `internal/middleware/logging.go` — it logs one successful request in N, never sampling away failures or slow requests.
-- **R2 bucket policy** (`R2_PUBLIC_URL`, client-uploaded images): the bucket is public **by object key only** — anyone with a specific object's URL can read it, but the bucket does not expose listing, so an object's key has to already be known (it is not guessable: see `internal/storage`). Writes never go through the backend directly; the client uploads via a **presigned PUT** the backend issues, scoped to one object key. There is no presigned GET: reads are the plain public URL. This is a deliberate tradeoff (simplicity over per-read expiry), not an oversight — revisit if these images should ever need to stop being permanently public once linked.
+- **R2 bucket policy** (`R2_PUBLIC_URL`, client-uploaded images): the bucket is public **by object key only** — anyone with a specific object's URL can read it, but the bucket does not expose listing, so an object's key has to already be known (it is not guessable: see `internal/storage`). Writes never go through the backend directly; the client uploads via a **presigned PUT** the backend issues, scoped to one object key. There is no presigned GET for images: reads are the plain public URL. This is a deliberate tradeoff (simplicity over per-read expiry), not an oversight — revisit if these images should ever need to stop being permanently public once linked. The payments exports do **not** live here, for exactly that reason: they are a month of a club's ledger and go to `R2_PRIVATE_BUCKET_NAME`, read only through a 15 minute presigned GET.
+- **Payments exports**: [`docs/runbook-exports.md`](docs/runbook-exports.md) — the private bucket (`R2_PRIVATE_BUCKET_NAME`), the **24 hour lifecycle rule on `exports/` the operator has to create by hand**, and how to read the export queue. The application never deletes a workbook; it only refuses to sign a URL for one older than 24 hours, so without the rule the bucket keeps every club's ledger forever.
 - **Timezone**: the process runs at `TZ=UTC`; the product's own wall-clock is a single hardcoded `America/Argentina/Buenos_Aires`. See [ADR 0005](docs/adr/0005-single-timezone.md).
 
 ## Architecture decisions
