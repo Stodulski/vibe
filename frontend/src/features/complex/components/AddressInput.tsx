@@ -3,8 +3,6 @@ import { AddressPredictionList } from './address-input/AddressPredictionList';
 import { useAddressAutocomplete } from './address-input/useAddressAutocomplete';
 import type { AddressSelection } from './address-input/types';
 
-export type { AddressSelection };
-
 interface AddressInputProps {
   value: string;
   confirmed: boolean;

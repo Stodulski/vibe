@@ -17,4 +17,4 @@ export { forgotPasswordSchema } from './schemas/auth.schema';
 export { resetPasswordSchema } from './schemas/auth.schema';
 export { verifyEmailSentStateSchema } from './schemas/auth.schema';
 export { googleCompleteStateSchema } from './schemas/auth.schema';
-export type { ForgotPasswordDto, ResetPasswordDto, GoogleCompleteState } from './schemas/auth.schema';
+export type { ForgotPasswordDto, ResetPasswordDto } from './schemas/auth.schema';

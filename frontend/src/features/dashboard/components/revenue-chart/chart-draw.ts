@@ -71,7 +71,7 @@ export function computeChartLayout(w: number, h: number, data: ChartDatum[]): Ch
 }
 
 /** Draw the dashed horizontal grid lines (5 rows) across the plot area. */
-export function drawGrid(ctx: CanvasRenderingContext2D, layout: ChartLayout): void {
+function drawGrid(ctx: CanvasRenderingContext2D, layout: ChartLayout): void {
   ctx.save();
   ctx.strokeStyle = GRID_COLOR;
   ctx.setLineDash([3, 3]);
@@ -92,7 +92,7 @@ export function drawGrid(ctx: CanvasRenderingContext2D, layout: ChartLayout): vo
  * path (caller owns `beginPath`/`fill`/`stroke`). Degrades gracefully for
  * 0, 1 or 2 points.
  */
-export function buildCurvePath(ctx: CanvasRenderingContext2D, points: [number, number][]): void {
+function buildCurvePath(ctx: CanvasRenderingContext2D, points: [number, number][]): void {
   ctx.beginPath();
   const p0 = points[0];
   if (!p0) return;
@@ -126,7 +126,7 @@ export function buildCurvePath(ctx: CanvasRenderingContext2D, points: [number, n
 }
 
 /** Fill the area under the curve with the teal gradient. */
-export function fillGradient(ctx: CanvasRenderingContext2D, points: [number, number][], layout: ChartLayout): void {
+function fillGradient(ctx: CanvasRenderingContext2D, points: [number, number][], layout: ChartLayout): void {
   const first = points[0];
   const last = points[points.length - 1];
   if (!first || !last) return;
@@ -143,7 +143,7 @@ export function fillGradient(ctx: CanvasRenderingContext2D, points: [number, num
 }
 
 /** Stroke the curve line itself. */
-export function strokeLine(ctx: CanvasRenderingContext2D, points: [number, number][]): void {
+function strokeLine(ctx: CanvasRenderingContext2D, points: [number, number][]): void {
   buildCurvePath(ctx, points);
   ctx.strokeStyle = STROKE_COLOR;
   ctx.lineWidth = 1.5;
@@ -152,7 +152,7 @@ export function strokeLine(ctx: CanvasRenderingContext2D, points: [number, numbe
 }
 
 /** Draw the first/last date labels below the x-axis. */
-export function drawAxisLabels(ctx: CanvasRenderingContext2D, layout: ChartLayout, data: ChartDatum[]): void {
+function drawAxisLabels(ctx: CanvasRenderingContext2D, layout: ChartLayout, data: ChartDatum[]): void {
   const first = data[0];
   if (!first) return;
 

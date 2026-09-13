@@ -18,7 +18,7 @@ interface OccupancyHeatmapProps {
   complexId: string;
 }
 
-export function OccupancyHeatmap({ complexId }: OccupancyHeatmapProps) {
+function OccupancyHeatmap({ complexId }: OccupancyHeatmapProps) {
   const [expanded, setExpanded] = useState(true);
   const { data: occupancy, isLoading, isError, refetch } = useOccupancyData(complexId);
   const { dataMap, peakDay, peakHour, avgOccupancy } = useHeatmapData(occupancy);

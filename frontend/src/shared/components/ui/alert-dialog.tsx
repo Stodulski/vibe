@@ -69,6 +69,25 @@ function AlertDialogHeader({ className, ...props }: React.ComponentProps<'div'>)
   );
 }
 
+// The slot `AlertDialogHeader`/`AlertDialogTitle` above already style around
+// (`has-data-[slot=alert-dialog-media]`): an icon or illustration over an
+// alert dialog's header. It lived in `AppAlertDialog` while that file was
+// the only place it was written down, which left it unreachable from the
+// primitive's own surface — pure classes with no behaviour, so UI-04's split
+// puts it here with the styling that expects it.
+function AlertDialogMedia({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      data-slot="alert-dialog-media"
+      className={cn(
+        "bg-muted mb-2 inline-flex size-16 items-center justify-center rounded-md sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 function AlertDialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -144,6 +163,7 @@ export {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogOverlay,
   AlertDialogPortal,
   AlertDialogTitle,

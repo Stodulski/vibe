@@ -65,7 +65,7 @@ const bookingRefundStatusSchema = z.enum([
   'full',
 ]) satisfies z.ZodType<BookingRefundStatus>;
 
-export const publicComplexSchema = exact<PublicComplex>(
+const publicComplexSchema = exact<PublicComplex>(
   z
     .object({
       id: z.string(),
@@ -112,7 +112,7 @@ export const publicComplexResponseSchema = z
   })
   .loose() satisfies z.ZodType<PublicComplexResponse>;
 
-export const publicBookingEnvelopeSchema = z
+const publicBookingEnvelopeSchema = z
   .object({
     status: bookingStatusSchema,
     collection_status: collectionStatusSchema,
@@ -161,7 +161,7 @@ export const mpStatusResponseSchema = exact<MPStatusResponse>(
     .loose(),
 );
 
-export const bookingStatusCancellationSchema = exact<BookingStatusCancellation>(
+const bookingStatusCancellationSchema = exact<BookingStatusCancellation>(
   z
     .object({
       can_cancel: z.boolean(),
@@ -180,7 +180,7 @@ export const bookingStatusCancellationSchema = exact<BookingStatusCancellation>(
  * `.optional()` to match, so a booking answered by an older server still
  * parses instead of throwing on an absent field the UI already falls back for.
  */
-export const bookingStatusDetailsSchema = exact<BookingStatusDetails>(
+const bookingStatusDetailsSchema = exact<BookingStatusDetails>(
   z
     .object({
       status: bookingStatusSchema,
@@ -212,7 +212,7 @@ export const bookingStatusResponseSchema = z
   })
   .loose() satisfies z.ZodType<BookingStatusResponse>;
 
-export const refundMethodSchema = z.enum(['mercadopago', 'manual', 'none']) satisfies z.ZodType<RefundMethod>;
+const refundMethodSchema = z.enum(['mercadopago', 'manual', 'none']) satisfies z.ZodType<RefundMethod>;
 
 export const cancelInfoResponseSchema = exact<CancelInfoResponse>(
   z
@@ -242,7 +242,7 @@ export const cancelInfoResponseSchema = exact<CancelInfoResponse>(
     .loose(),
 );
 
-export const refundStatusSchema = z.enum([
+const refundStatusSchema = z.enum([
   'none',
   'not_eligible',
   'issued',

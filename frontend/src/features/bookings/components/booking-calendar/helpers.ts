@@ -31,7 +31,7 @@ export function generateSlots(openTime: string, closeTime: string): string[] {
 }
 
 /** The lengths a booking may be sold in, shortest first. */
-export const BOOKING_DURATIONS: DurationMinutes[] = [60, 90, 120];
+const BOOKING_DURATIONS: DurationMinutes[] = [60, 90, 120];
 
 /** The shortest of them, which is what a slot previews before a choice is made. */
 export const SHORTEST_BOOKING_MINUTES = BOOKING_DURATIONS[0] ?? 60;

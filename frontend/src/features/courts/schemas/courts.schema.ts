@@ -78,5 +78,4 @@ export const priceFormSchema = z.object({
 });
 
 export type CreateCourtDto = z.infer<typeof createCourtSchema>;
-export type UpdatePricesDto = z.infer<typeof updatePricesSchema>;
 export type PriceFormSchema = z.infer<typeof priceFormSchema>;

@@ -52,7 +52,7 @@ function ClientInsightsSkeleton() {
   );
 }
 
-export function ClientInsightsCard({ data, isLoading, isError, onRetry, complexId }: ClientInsightsCardProps) {
+function ClientInsightsCard({ data, isLoading, isError, onRetry, complexId }: ClientInsightsCardProps) {
   const detail = useDashboardClientDetail(complexId);
 
   if (isError) {

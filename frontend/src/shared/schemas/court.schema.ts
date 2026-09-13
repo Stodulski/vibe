@@ -18,7 +18,7 @@ export const sportSchema = z.enum(['padel', 'tennis', 'soccer', 'basketball']) s
 
 export const courtTypeSchema = z.enum(['indoor', 'outdoor', 'semi_covered']) satisfies z.ZodType<CourtType>;
 
-export const dayTypeSchema = z.enum([
+const dayTypeSchema = z.enum([
   'monday',
   'tuesday',
   'wednesday',
@@ -54,7 +54,7 @@ const courtShape = z
 
 export const courtSchema = exact<Court>(courtShape);
 
-export const courtPriceSchema = z
+const courtPriceSchema = z
   .object({
     id: z.string(),
     court_id: z.string(),

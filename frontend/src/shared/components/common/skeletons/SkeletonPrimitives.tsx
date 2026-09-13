@@ -86,29 +86,3 @@ export function SkeletonStat() {
     </div>
   );
 }
-
-export function SkeletonCalendar() {
-  return (
-    <div
-      className="border-border-subtle bg-bg-subtle rounded-2xl border p-6 sm:p-8"
-      role="status"
-      aria-label={t.common.loading}
-    >
-      <div className="mb-6 flex items-center justify-between">
-        <Skeleton className="h-5 w-32 rounded-lg" />
-        <div className="flex gap-2">
-          <Skeleton className="size-9 rounded-lg" />
-          <Skeleton className="size-9 rounded-lg" />
-        </div>
-      </div>
-      <div className="grid grid-cols-7 gap-2">
-        {Array.from({ length: 7 }, (_, i) => (
-          <Skeleton key={`h-${String(i)}`} className="h-4 w-full rounded-lg" />
-        ))}
-        {Array.from({ length: 35 }, (_, i) => (
-          <Skeleton key={i} className="h-10 w-full rounded-lg" />
-        ))}
-      </div>
-    </div>
-  );
-}

@@ -7,7 +7,7 @@ import { env } from '@/shared/lib/env';
  * address was verified by Google, the phone number was never given). The
  * server tags the spreadsheet row with a distinct origin for each.
  */
-export type AbandonedLeadSource = 'register' | 'google';
+type AbandonedLeadSource = 'register' | 'google';
 
 /**
  * What is known about the person who left: the email always, and whatever

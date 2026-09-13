@@ -8,7 +8,7 @@ import { translateServerError } from '@/shared/lib/serverErrors';
  * `field` or a JSON `pointer` (`#/body/first_name`), and both end up here as
  * `first_name`.
  */
-export interface ProblemFieldError {
+interface ProblemFieldError {
   field: string;
   message: string;
 }
@@ -49,7 +49,7 @@ export interface Problem {
 }
 
 /** Every problem type the API mints lives under this prefix. */
-export const PROBLEM_TYPE_PREFIX = 'https://vibe.com.ar/problems/';
+const PROBLEM_TYPE_PREFIX = 'https://vibe.com.ar/problems/';
 
 /** The short name behind a problem `type`, or `undefined` if it isn't one of ours. */
 function problemKind(type: string): string | undefined {
@@ -204,7 +204,7 @@ export function getProblem(error: unknown): Problem | undefined {
  * "reload and try again," so callers must not fold it into a generic 409
  * handler.
  */
-export const STALE_VERSION_KIND = 'stale-version';
+const STALE_VERSION_KIND = 'stale-version';
 
 /** Whether `error` is a 409 refused specifically for a stale `version`. */
 export function isVersionConflict(error: unknown): boolean {

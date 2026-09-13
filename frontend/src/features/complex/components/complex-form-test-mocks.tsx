@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-export const mockCreateMutate = vi.fn();
+const mockCreateMutate = vi.fn();
 export const mockUpdateMutate = vi.fn();
 
 vi.mock('./AddressInput', () => ({

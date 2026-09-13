@@ -12,7 +12,7 @@ interface RevenueChartProps {
   complexId: string;
 }
 
-export function RevenueChart({ complexId }: RevenueChartProps) {
+function RevenueChart({ complexId }: RevenueChartProps) {
   const [period, setPeriod] = useState<RevenuePeriod>('week');
   const { data: revenue, isLoading, isError, refetch } = useRevenueChart(complexId, period);
 

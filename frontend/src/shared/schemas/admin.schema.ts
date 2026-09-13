@@ -15,7 +15,7 @@ import { complexSchema } from './complex.schema';
 
 // ─── Admin ───
 
-export const platformStatsSchema = z
+const platformStatsSchema = z
   .object({
     total_users: z.number(),
     active_users: z.number(),
@@ -34,7 +34,7 @@ export const platformStatsResponseSchema = z
   })
   .loose() satisfies z.ZodType<PlatformStatsResponse>;
 
-export const adminUserRowSchema = z
+const adminUserRowSchema = z
   .object({
     id: z.string(),
     email: z.string(),
@@ -63,7 +63,7 @@ export const adminUserDetailResponseSchema = z
   })
   .loose() satisfies z.ZodType<AdminUserDetailResponse>;
 
-export const adminComplexRowSchema = z
+const adminComplexRowSchema = z
   .object({
     id: z.string(),
     owner_id: z.string(),

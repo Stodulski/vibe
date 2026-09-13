@@ -22,14 +22,14 @@ import { bookingSchema } from './booking.schema';
  * updated to expect, and the type is deliberately not narrowed to
  * `CollectionStatus` for that reason (see the type's own doc comment).
  */
-export const paymentSummarySchema = z
+const paymentSummarySchema = z
   .object({
     by_status: z.record(z.string(), z.object({ count: z.number(), total: z.number() }).loose()),
     by_method: z.record(z.string(), z.number()),
   })
   .loose() satisfies z.ZodType<PaymentSummary>;
 
-export const topClientSchema = z
+const topClientSchema = z
   .object({
     id: z.string(),
     name: z.string(),
@@ -39,7 +39,7 @@ export const topClientSchema = z
   })
   .loose() satisfies z.ZodType<TopClient>;
 
-export const clientInsightsSchema = z
+const clientInsightsSchema = z
   .object({
     top: z.array(topClientSchema),
     no_show_rate: z.number(),
@@ -57,7 +57,7 @@ export const clientInsightsResponseSchema = z
   })
   .loose() satisfies z.ZodType<ClientInsightsResponse>;
 
-export const dashboardStatsSchema = z
+const dashboardStatsSchema = z
   .object({
     today_bookings: z.number(),
     yesterday_bookings: z.number(),
@@ -79,7 +79,7 @@ export const dashboardStatsResponseSchema = z
   })
   .loose() satisfies z.ZodType<DashboardStatsResponse>;
 
-export const revenueDataPointSchema = z
+const revenueDataPointSchema = z
   .object({
     date: z.string(),
     amount: z.number(),
@@ -92,7 +92,7 @@ export const revenueChartResponseSchema = z
   })
   .loose() satisfies z.ZodType<RevenueChartResponse>;
 
-export const occupancyDataPointSchema = z
+const occupancyDataPointSchema = z
   .object({
     day_of_week: z.number(),
     hour: z.number(),

@@ -16,7 +16,7 @@ import type {
 // ─── Reports ───
 
 /** The same `MonthlyReportSummary` the totals use, minus the `service_fees` only the totals rows carry. */
-export const monthlyReportMethodSchema = exact<MonthlyReportMethod>(
+const monthlyReportMethodSchema = exact<MonthlyReportMethod>(
   z
     .object({
       count: z.number(),
@@ -28,7 +28,7 @@ export const monthlyReportMethodSchema = exact<MonthlyReportMethod>(
     .loose(),
 );
 
-export const monthlyReportTotalsSchema = z
+const monthlyReportTotalsSchema = z
   .object({
     count: z.number(),
     total: z.number(),
@@ -38,7 +38,7 @@ export const monthlyReportTotalsSchema = z
   })
   .loose() satisfies z.ZodType<MonthlyReportTotals>;
 
-export const monthlyReportCourtSchema = z
+const monthlyReportCourtSchema = z
   .object({
     court_id: z.string(),
     court_name: z.string(),
@@ -49,7 +49,7 @@ export const monthlyReportCourtSchema = z
   })
   .loose() satisfies z.ZodType<MonthlyReportCourt>;
 
-export const monthlyReportSchema = exact<MonthlyReport>(
+const monthlyReportSchema = exact<MonthlyReport>(
   z
     .object({
       month: z.number(),

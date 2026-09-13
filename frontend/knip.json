@@ -1,16 +1,31 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/main.tsx", "e2e/**/*.spec.ts", "middleware.ts"],
-  "project": ["src/**/*.{ts,tsx}"],
-  "ignoreDependencies": [
-    // Referenced only from src/styles/globals.css (`@import`), which knip
-    // doesn't parse — not unused, just invisible to a project scope of
-    // .ts/.tsx files.
-    "tailwindcss",
-    "tw-animate-css",
-    // CLI-only: `pnpm dlx shadcn add ...` at the terminal, never imported.
-    "shadcn"
+  // knip's vite plugin loads vite.config.ts as a production build, which is
+  // exactly the case `assertBuildEnv` refuses without VITE_APP_URL — so the
+  // plugin errors out and knip exits non-zero even with nothing to report,
+  // which a blocking CI job cannot live with. The config's only contribution
+  // was discovering `index.html`, which is named directly below instead.
+  "vite": false,
+  "entry": [
+    "index.html",
+    "e2e/**/*.spec.ts",
+    "middleware.ts",
+    // shadcn/radix primitives. Every name in one of these files is part of
+    // the primitive's public surface — `Table` without `TableCaption`, or
+    // `Select` without `SelectGroup`, is a half-component, and the next
+    // `pnpm dlx shadcn add ...` would write the missing part straight back.
+    // Listing them as entries (rather than ignoring the files) reports them
+    // as used without hiding what they themselves import, so a dependency
+    // that only these files pull in is still traced.
+    "src/shared/components/ui/**/*.tsx",
+    // Generated from the backend's OpenAPI document by `pnpm gen:api`. Which
+    // of its types anything imports is not a thing to clean up by hand: the
+    // generator writes the whole document every time.
+    "src/shared/types/api.generated.ts"
   ],
+  // `.css` is in here so the `@import`s in `src/styles/globals.css` are
+  // followed; without it knip hints that it is skipping them.
+  "project": ["src/**/*.{ts,tsx,css}"],
   "ignoreBinaries": [
     // A system Postgres client e2e/setup/global.setup.ts shells out to, not
     // an npm-installed binary.

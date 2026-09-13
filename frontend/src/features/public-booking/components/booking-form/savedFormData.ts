@@ -15,7 +15,7 @@ export const STORAGE_KEY = STORAGE_KEYS.BOOKING_CLIENT_DATA;
  * untouched. `safeLocalStorage.getJSON` also covers storage being unreadable
  * outright (private browsing, disabled storage).
  */
-export const savedClientDataSchema = z.object({
+const savedClientDataSchema = z.object({
   client_first_name: z.string().optional(),
   client_last_name: z.string().optional(),
   client_phone: z.string().optional(),

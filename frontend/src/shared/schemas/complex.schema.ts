@@ -57,7 +57,7 @@ export const complexSchema = exact<Complex>(
     .loose(),
 );
 
-export const dayOfWeekSchema = z.enum([
+const dayOfWeekSchema = z.enum([
   'monday',
   'tuesday',
   'wednesday',

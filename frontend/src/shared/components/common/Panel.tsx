@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { cn } from '@/shared/lib/utils';
 
-export type PanelSize = 'sm' | 'md' | 'lg';
+type PanelSize = 'sm' | 'md' | 'lg';
 
 const PANEL_SIZES: Record<PanelSize, string> = {
   sm: 'p-3 sm:p-4',

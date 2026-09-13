@@ -37,5 +37,3 @@ export const ES_AR = {
   admin,
   reports,
 } as const;
-
-export type TranslationKey = typeof ES_AR;

@@ -4,7 +4,7 @@ import { exact } from '@/shared/lib/apiParse';
 
 // ─── Availability ───
 
-export const availabilitySlotSchema = z
+const availabilitySlotSchema = z
   .object({
     start_time: z.string(),
     end_time: z.string(),
@@ -25,7 +25,7 @@ export const availabilitySlotSchema = z
  * There is no `duration_minutes` here any more either: the handwritten type
  * carried one, marked "not sent by the server", and nothing ever read it.
  */
-export const courtAvailabilitySchema = exact<CourtAvailability>(
+const courtAvailabilitySchema = exact<CourtAvailability>(
   z
     .object({
       court_id: z.string(),

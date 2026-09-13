@@ -9,7 +9,7 @@ import { z } from 'zod';
  * in the browser, so throwing here would blank every tab with no telemetry.
  * At runtime a missing value falls back to the page origin (dev, e2e).
  */
-export const envSchema = z.object({
+const envSchema = z.object({
   VITE_API_URL: z.string().min(1).default('/api/v1'),
   VITE_APP_URL: z.url().optional(),
   // Defaults to production so local dev needs no `.env` entry; only a

@@ -12,7 +12,7 @@ export const DAY_NAMES: Record<string, string> = {
   saturday: t.complex.days.saturday,
 };
 
-export const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 // `Date#getDay()` returns 0-6, always in-bounds for the 7-entry WEEKDAYS
 // tuple; the undefined branch is a type-level-only safety net.

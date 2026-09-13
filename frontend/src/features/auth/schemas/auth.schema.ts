@@ -69,4 +69,3 @@ export type RegisterDto = z.infer<typeof registerSchema>;
 export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
 export type GoogleCompleteDto = z.infer<typeof googleCompleteSchema>;
-export type GoogleCompleteState = z.infer<typeof googleCompleteStateSchema>;

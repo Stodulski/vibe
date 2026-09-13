@@ -1,10 +1,4 @@
-export {
-  SkeletonCard,
-  SkeletonCourtCard,
-  SkeletonTable,
-  SkeletonStat,
-  SkeletonCalendar,
-} from './skeletons/SkeletonPrimitives';
+export { SkeletonCard, SkeletonCourtCard, SkeletonTable, SkeletonStat } from './skeletons/SkeletonPrimitives';
 
 export {
   SkeletonPage,

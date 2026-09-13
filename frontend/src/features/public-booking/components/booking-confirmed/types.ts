@@ -20,8 +20,6 @@ const bookingCancellationSchema = z.object({
   canRefundNow: z.boolean(),
 });
 
-export type BookingCancellation = z.infer<typeof bookingCancellationSchema>;
-
 /**
  * `BookingInfo` used to be a plain interface, cast into from sessionStorage
  * with `as BookingInfo` after only a `typeof === 'object'` check. sessionStorage

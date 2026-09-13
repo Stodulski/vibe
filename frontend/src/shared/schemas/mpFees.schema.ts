@@ -5,7 +5,7 @@ import { z } from 'zod';
 // `src/shared/types/api.types`, so this schema is its own source of truth via `z.infer`
 // rather than going through `exact<T>`.
 
-export const mpFeesGroupSchema = z
+const mpFeesGroupSchema = z
   .object({
     provincias: z.array(z.string()),
     tasas: z.array(z.number()),
