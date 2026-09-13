@@ -323,6 +323,99 @@ func (s *Store) Get(ctx context.Context, id uuid.UUID) (*Job, error) {
 	return found[0], nil
 }
 
+// GetByDedupKey returns the job holding key.
+//
+// Enqueue reports a deduplicated call as (uuid.Nil, false, nil): it says the
+// work is already queued but not which row is doing it, because none of its
+// callers cared — a second confirmation email is simply not sent. An export
+// does care. The caller is an owner who clicked the button twice and is owed
+// the id of the export that is already running, not a second one.
+//
+// Answers data.ErrRecordNotFound when no live row holds the key, which is the
+// ordinary state once the retention sweep has deleted the done job that did.
+func (s *Store) GetByDedupKey(ctx context.Context, key string) (*Job, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := s.DB.Query(ctx, `SELECT `+jobColumns+` FROM jobs WHERE dedup_key = $1`, key)
+	if err != nil {
+		return nil, fmt.Errorf("get job by dedup key: %w", err)
+	}
+	defer rows.Close()
+
+	found, err := scanJobs(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(found) == 0 {
+		return nil, data.ErrRecordNotFound
+	}
+	return found[0], nil
+}
+
+// ReleaseDedupKey frees a dead job's key so the same work can be queued again,
+// and reports whether it freed one.
+//
+// The status predicate is the whole of it. A dedup key protects for as long as
+// its row lives, which is right for a notification — the email either went or
+// is still going — but wrong for work an owner can legitimately ask for again
+// after it failed. Without `status = 'failed'` this would also free the key of
+// a job that is pending or in flight, and the retry would enqueue a second
+// copy of work already running.
+//
+// A 'done' job keeps its key too: re-running it writes the same object from
+// the same month, so the second request is answered with the first export
+// rather than by rebuilding it.
+func (s *Store) ReleaseDedupKey(ctx context.Context, id uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	tag, err := s.DB.Exec(ctx,
+		`UPDATE jobs SET dedup_key = NULL WHERE id = $1 AND status = 'failed'`, id)
+	if err != nil {
+		return false, fmt.Errorf("release dedup key: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// GetExport returns one job by id, but only if its payload names complexID.
+//
+// This table deliberately carries no complex_id column and no row-level
+// security (db/migrations/004_jobs.sql): it is a queue every domain shares,
+// and a tenant policy on it would have to be satisfied by every background
+// sweep that legitimately spans tenants. So the tenant lives in the payload,
+// and the predicate here is the readable half of the isolation — the other
+// half being RequireComplexOwner, which has already proved the caller owns
+// the complex named in the path.
+//
+// A mismatch answers data.ErrRecordNotFound rather than a distinguishable
+// refusal, matching internal/clients' convention: a 403 would confirm the
+// export exists and turn this route into a probe for another tenant's ids.
+//
+// complexID is text because the payload is jsonb and `payload->>'complex_id'`
+// is text; binding a uuid here would compare text to uuid and fail.
+func (s *Store) GetExport(ctx context.Context, id uuid.UUID, complexID string) (*Job, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := s.DB.Query(ctx,
+		`SELECT `+jobColumns+` FROM jobs WHERE id = $1 AND payload->>'complex_id' = $2`,
+		id, complexID)
+	if err != nil {
+		return nil, fmt.Errorf("get export job: %w", err)
+	}
+	defer rows.Close()
+
+	found, err := scanJobs(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(found) == 0 {
+		return nil, data.ErrRecordNotFound
+	}
+	return found[0], nil
+}
+
 func scanJobs(rows pgx.Rows) ([]*Job, error) {
 	var out []*Job
 	for rows.Next() {

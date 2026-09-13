@@ -5,6 +5,7 @@ package jobs_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -458,5 +459,120 @@ func TestThePayloadSurvivesTheRoundTrip(t *testing.T) {
 	}
 	if back.To != "ana@example.com" || back.Attempt != 3 {
 		t.Errorf("payload round-tripped as %+v", back)
+	}
+}
+
+// TestADedupKeyCanBeLookedUp is the half Enqueue does not give back. A
+// deduplicated Enqueue says "already queued" and nothing else, so a caller who
+// owes its user the id of the work already running — the payments export, which
+// answers a double click with the first export rather than a second — has to be
+// able to ask which row holds the key.
+func TestADedupKeyCanBeLookedUp(t *testing.T) {
+	s, jobType := newStore(t)
+	ctx := bypass(t)
+	key := jobs.DedupKey(jobType, uuid.NewString())
+
+	first := enqueue(t, s, ctx, jobType, map[string]int{"n": 1}, time.Time{}, 5, key)
+
+	found, err := s.GetByDedupKey(ctx, key)
+	if err != nil {
+		t.Fatalf("GetByDedupKey: %v", err)
+	}
+	if found.ID != first {
+		t.Errorf("GetByDedupKey returned %s; want the job that took the key, %s", found.ID, first)
+	}
+
+	if _, err := s.GetByDedupKey(ctx, jobs.DedupKey(jobType, uuid.NewString())); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("a key no live row holds must answer ErrRecordNotFound; got %v", err)
+	}
+}
+
+// TestOnlyAFailedJobGivesUpItsDedupKey is the predicate that keeps the retry
+// path from queueing a second copy of work that is already running.
+func TestOnlyAFailedJobGivesUpItsDedupKey(t *testing.T) {
+	s, jobType := newStore(t)
+	ctx := bypass(t)
+
+	live := jobs.DedupKey(jobType, "live", uuid.NewString())
+	liveID := enqueue(t, s, ctx, jobType, map[string]int{"n": 1}, time.Time{}, 5, live)
+
+	// Claimed, so the row is 'processing': the state where freeing the key
+	// would let a second worker start the same work beside the first.
+	if _, err := s.ClaimType(ctx, "worker", jobType, 10); err != nil {
+		t.Fatalf("ClaimType: %v", err)
+	}
+
+	freed, err := s.ReleaseDedupKey(ctx, liveID)
+	if err != nil {
+		t.Fatalf("ReleaseDedupKey on a claimed job: %v", err)
+	}
+	if freed {
+		t.Error("a claimed job gave up its dedup key; a retry would now run the same work twice at once")
+	}
+	if _, recorded, err := s.Enqueue(ctx, jobType, map[string]int{"n": 1}, time.Time{}, 5, live); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	} else if recorded {
+		t.Error("the key stopped protecting while the job was still in flight")
+	}
+
+	// Dead-lettered, which is the state an owner may legitimately ask us to
+	// try again from.
+	dead := jobs.DedupKey(jobType, "dead", uuid.NewString())
+	deadID := enqueue(t, s, ctx, jobType, map[string]int{"n": 2}, time.Time{}, 5, dead)
+	if err := s.Kill(ctx, deadID, "boom"); err != nil {
+		t.Fatalf("Kill: %v", err)
+	}
+
+	freed, err = s.ReleaseDedupKey(ctx, deadID)
+	if err != nil {
+		t.Fatalf("ReleaseDedupKey on a failed job: %v", err)
+	}
+	if !freed {
+		t.Fatal("a dead-lettered job kept its dedup key, so the owner can never ask for that export again")
+	}
+
+	retried, recorded, err := s.Enqueue(ctx, jobType, map[string]int{"n": 2}, time.Time{}, 5, dead)
+	if err != nil {
+		t.Fatalf("re-enqueueing after the key was freed: %v", err)
+	}
+	if !recorded {
+		t.Fatal("the freed key still deduplicated the retry")
+	}
+	if retried == deadID {
+		t.Error("the retry reused the dead row's id; the dead letter must survive as the record of what failed")
+	}
+}
+
+// TestAnExportIsInvisibleToAnotherComplex is the readable half of the tenant
+// isolation this table has no column for. The jobs table carries no complex_id
+// and no row-level security, so the payload carries the tenant and GetExport's
+// predicate is what stops one owner reading another's export by id.
+func TestAnExportIsInvisibleToAnotherComplex(t *testing.T) {
+	s, jobType := newStore(t)
+	ctx := bypass(t)
+
+	mine, theirs := uuid.NewString(), uuid.NewString()
+	id := enqueue(t, s, ctx, jobType, map[string]any{
+		"complex_id": mine, "month": 9, "year": 2026,
+	}, time.Time{}, 5, "")
+
+	found, err := s.GetExport(ctx, id, mine)
+	if err != nil {
+		t.Fatalf("GetExport for the owning complex: %v", err)
+	}
+	if found.ID != id {
+		t.Errorf("GetExport returned %s, want %s", found.ID, id)
+	}
+
+	if _, err := s.GetExport(ctx, id, theirs); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("another complex read this export and got %v; it must be ErrRecordNotFound, "+
+			"so the route cannot be used to probe which export ids exist elsewhere", err)
+	}
+
+	// A job with no complex_id at all — every notification — is not an export
+	// and must not be readable as one.
+	plain := enqueue(t, s, ctx, jobType, map[string]string{"to": "ana@example.com"}, time.Time{}, 5, "")
+	if _, err := s.GetExport(ctx, plain, mine); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("a job whose payload names no complex was readable as an export; got %v", err)
 	}
 }
