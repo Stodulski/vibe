@@ -123,7 +123,8 @@ describe('usePublicBooking', () => {
   it('onError surfaces the real backend message from error.data instead of the generic fallback', async () => {
     const { publicBookingApi } = await import('../api/public-booking.api');
     const backendError = await makeConsumedHttpError(400, {
-      error: 'El telefono ya tiene una reserva pendiente',
+      title: 'Bad Request',
+      detail: 'El telefono ya tiene una reserva pendiente',
     });
     vi.mocked(publicBookingApi.createBooking).mockRejectedValueOnce(backendError);
 

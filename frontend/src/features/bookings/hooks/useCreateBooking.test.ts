@@ -41,7 +41,8 @@ describe('useCreateBooking — onError surfaces the real backend message', () =>
   it('shows the backend error message from error.data instead of the generic fallback', async () => {
     await triggerCreateError(
       await makeConsumedHttpError(400, {
-        error: 'El cliente tiene una reserva superpuesta',
+        title: 'Bad Request',
+        detail: 'El cliente tiene una reserva superpuesta',
       }),
     );
 
@@ -64,7 +65,8 @@ describe('useCreateBooking — onError surfaces the real backend message', () =>
   it('shows a client-owned Spanish headline with the server sentence as detail on 409', async () => {
     await triggerCreateError(
       await makeConsumedHttpError(409, {
-        error: 'the selected time has no price configured and cannot be booked',
+        title: 'Conflict',
+        detail: 'the selected time has no price configured and cannot be booked',
       }),
     );
 

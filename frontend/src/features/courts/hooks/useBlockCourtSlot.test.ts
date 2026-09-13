@@ -17,7 +17,8 @@ describe('useBlockCourtSlot — onError surfaces the real backend message', () =
   it('shows the backend error message from error.data instead of the generic fallback', async () => {
     const { courtsApi } = await import('../api/courts.api');
     const backendError = await makeConsumedHttpError(400, {
-      error: 'El horario ya tiene una reserva activa',
+      title: 'Bad Request',
+      detail: 'El horario ya tiene una reserva activa',
     });
     vi.mocked(courtsApi.blockSlot).mockRejectedValueOnce(backendError);
 

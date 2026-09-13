@@ -32,7 +32,10 @@ async function triggerForgotPasswordError(backendError: unknown, options?: { res
 describe('useForgotPassword — Turnstile 422 handling', () => {
   it('shows the turnstile-specific message and does not read as "sent"', async () => {
     const result = await triggerForgotPasswordError(
-      await makeConsumedHttpError(422, { error: { turnstile_token: 'required' } }),
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'required' }],
+      }),
     );
 
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.turnstileRequired);
@@ -42,19 +45,35 @@ describe('useForgotPassword — Turnstile 422 handling', () => {
   });
 
   it('translates every documented turnstile_token code', async () => {
-    await triggerForgotPasswordError(await makeConsumedHttpError(422, { error: { turnstile_token: 'invalid' } }));
+    await triggerForgotPasswordError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'invalid' }],
+      }),
+    );
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.turnstileInvalid);
 
-    await triggerForgotPasswordError(await makeConsumedHttpError(422, { error: { turnstile_token: 'unavailable' } }));
+    await triggerForgotPasswordError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'unavailable' }],
+      }),
+    );
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.turnstileUnavailable);
   });
 
   it('resets the widget on a turnstile failure — tokens are single-use', async () => {
     const resetTurnstile = vi.fn();
 
-    await triggerForgotPasswordError(await makeConsumedHttpError(422, { error: { turnstile_token: 'invalid' } }), {
-      resetTurnstile,
-    });
+    await triggerForgotPasswordError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'invalid' }],
+      }),
+      {
+        resetTurnstile,
+      },
+    );
 
     expect(resetTurnstile).toHaveBeenCalledTimes(1);
   });

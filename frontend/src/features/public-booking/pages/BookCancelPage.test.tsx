@@ -127,7 +127,8 @@ describe('BookCancelPage cancel flow', () => {
 describe('BookCancelPage cancel error handling', () => {
   it('onError surfaces the real backend message from error.data instead of the generic fallback', async () => {
     getCancelInfo.mockResolvedValue(mockCancelInfo);
-    cancelBooking.mockRejectedValue(await makeConsumedHttpError(400, { error: 'El plazo de cancelacion ya vencio' }));
+    const detail = 'El plazo de cancelacion ya vencio';
+    cancelBooking.mockRejectedValue(await makeConsumedHttpError(400, { title: 'Bad Request', detail }));
     const user = userEvent.setup();
     await renderPage();
     await waitFor(() => {
@@ -138,7 +139,7 @@ describe('BookCancelPage cancel error handling', () => {
     await user.click(screen.getByRole('button', { name: ES_AR.publicBooking.confirmCancelYes }));
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('El plazo de cancelacion ya vencio');
+      expect(toast.error).toHaveBeenCalledWith(detail);
     });
     expect(toast.error).not.toHaveBeenCalledWith(ES_AR.publicBooking.cancelBookingError);
   });
@@ -163,7 +164,7 @@ describe('BookCancelPage cancel error handling', () => {
 
 describe('BookCancelPage link status (resolveLink 404 vs 410)', () => {
   it('shows the expired-link state on a 410, not the not-found copy', async () => {
-    getCancelInfo.mockRejectedValue(await makeConsumedHttpError(410, { error: 'link expired' }));
+    getCancelInfo.mockRejectedValue(await makeConsumedHttpError(410, { title: 'link expired' }));
     await renderPage();
     await waitFor(() => {
       expect(screen.getByText(ES_AR.publicBooking.linkExpired)).toBeInTheDocument();
@@ -172,7 +173,7 @@ describe('BookCancelPage link status (resolveLink 404 vs 410)', () => {
   });
 
   it('shows the not-found copy on a 404, not the expired-link state', async () => {
-    getCancelInfo.mockRejectedValue(await makeConsumedHttpError(404, { error: 'unknown token' }));
+    getCancelInfo.mockRejectedValue(await makeConsumedHttpError(404, { title: 'unknown token' }));
     await renderPage();
     await waitFor(() => {
       expect(screen.getByText(ES_AR.publicBooking.invalidCancelLink)).toBeInTheDocument();
@@ -181,7 +182,7 @@ describe('BookCancelPage link status (resolveLink 404 vs 410)', () => {
   });
 
   it('shows a retryable error, not the invalid-link dead end, on a 500', async () => {
-    getCancelInfo.mockRejectedValue(await makeConsumedHttpError(500, { error: 'boom' }));
+    getCancelInfo.mockRejectedValue(await makeConsumedHttpError(500, { title: 'boom' }));
     await renderPage();
     await waitFor(() => {
       expect(screen.getByText(ES_AR.publicBooking.cancelInfoLoadError)).toBeInTheDocument();
@@ -191,7 +192,7 @@ describe('BookCancelPage link status (resolveLink 404 vs 410)', () => {
   });
 
   it('retries getCancelInfo when the retry button is clicked after a 500', async () => {
-    getCancelInfo.mockRejectedValueOnce(await makeConsumedHttpError(500, { error: 'boom' }));
+    getCancelInfo.mockRejectedValueOnce(await makeConsumedHttpError(500, { title: 'boom' }));
     getCancelInfo.mockResolvedValueOnce(mockCancelInfo);
     const user = userEvent.setup();
     await renderPage();

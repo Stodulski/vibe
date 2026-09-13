@@ -78,26 +78,47 @@ describe('useRegister — onRegistered', () => {
 
 describe('useRegister — Turnstile 422 handling', () => {
   it('shows the turnstile-specific message instead of the generic register-error one', async () => {
-    await triggerRegisterError(await makeConsumedHttpError(422, { error: { turnstile_token: 'required' } }));
+    await triggerRegisterError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'required' }],
+      }),
+    );
 
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.turnstileRequired);
     expect(toast.error).not.toHaveBeenCalledWith(ES_AR.auth.registerError);
   });
 
   it('translates every documented turnstile_token code', async () => {
-    await triggerRegisterError(await makeConsumedHttpError(422, { error: { turnstile_token: 'invalid' } }));
+    await triggerRegisterError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'invalid' }],
+      }),
+    );
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.turnstileInvalid);
 
-    await triggerRegisterError(await makeConsumedHttpError(422, { error: { turnstile_token: 'unavailable' } }));
+    await triggerRegisterError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'unavailable' }],
+      }),
+    );
     expect(toast.error).toHaveBeenCalledWith(ES_AR.auth.turnstileUnavailable);
   });
 
   it('resets the widget on a turnstile failure — tokens are single-use', async () => {
     const resetTurnstile = vi.fn();
 
-    await triggerRegisterError(await makeConsumedHttpError(422, { error: { turnstile_token: 'invalid' } }), {
-      resetTurnstile,
-    });
+    await triggerRegisterError(
+      await makeConsumedHttpError(422, {
+        title: 'Validation Failed',
+        errors: [{ field: 'turnstile_token', message: 'invalid' }],
+      }),
+      {
+        resetTurnstile,
+      },
+    );
 
     expect(resetTurnstile).toHaveBeenCalledTimes(1);
   });

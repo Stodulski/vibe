@@ -21,7 +21,7 @@ describe('address autocomplete API — opts out of ky default retry', () => {
     server.use(
       http.get('*/places/autocomplete', () => {
         calls += 1;
-        return HttpResponse.json({ error: 'rate limited' }, { status: 429 });
+        return HttpResponse.json({ title: 'rate limited' }, { status: 429 });
       }),
     );
 
@@ -34,7 +34,7 @@ describe('address autocomplete API — opts out of ky default retry', () => {
     server.use(
       http.get('*/places/details', () => {
         calls += 1;
-        return HttpResponse.json({ error: 'bad gateway' }, { status: 502 });
+        return HttpResponse.json({ title: 'bad gateway' }, { status: 502 });
       }),
     );
 

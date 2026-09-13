@@ -28,9 +28,8 @@ export interface ApplyServerFieldErrorsOptions {
  * it. Two near-identical private copies of this function existed
  * (`useComplexForm`, `GoogleCompleteForm`); this is the one both now call.
  *
- * Reads the normalized {@link Problem} from `ApiError`, so it is indifferent
- * to which envelope the backend sent — today's `{"error": {campo: mensaje}}`
- * or the RFC 9457 `errors[]` it is moving to.
+ * Reads the normalized {@link Problem} from `ApiError` — its `errors[]`,
+ * already mapped from problem+json's `field`/`pointer` addressing.
  *
  * Anything that cannot land on a field lands on `root`: React Hook Form
  * keeps `root` out of `getValues()` and clears it on the next submit, so it

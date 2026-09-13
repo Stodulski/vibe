@@ -2,11 +2,11 @@ import { HTTPError } from 'ky';
 import { translateServerError } from '@/shared/lib/serverErrors';
 
 /**
- * One field-level validation failure, whichever envelope carried it.
+ * One field-level validation failure.
  *
  * `field` is the form field's own name: problem+json addresses it with either
- * `field` or a JSON `pointer` (`/body/first_name`), and the legacy envelope
- * uses the key of its `error` object. All three end up here as `first_name`.
+ * `field` or a JSON `pointer` (`#/body/first_name`), and both end up here as
+ * `first_name`.
  */
 export interface ProblemFieldError {
   field: string;
@@ -16,15 +16,14 @@ export interface ProblemFieldError {
 /**
  * The backend's error body, normalized to one shape.
  *
- * Today the API answers `{"error": "code"}` or, for a 422,
- * `{"error": {"slug": "slug_taken"}}`. It is moving to RFC 9457 problem+json
- * (`type`/`title`/`status`/`detail`/`instance`/`errors[]`). Both are parsed
- * into this, so the frontend can ship before the backend switches and keep
- * working after — no coordinated deploy, and no reader of an error has to
- * know which envelope arrived.
+ * The API answers RFC 9457 problem+json
+ * (`type`/`title`/`status`/`detail`/`instance`/`errors[]`) for every 4xx/5xx.
+ * A body that isn't shaped like problem+json (a non-JSON body, or one from
+ * somewhere else entirely) still normalizes into this — with an empty title
+ * and no errors — so a reader never has to check which shape arrived.
  */
 export interface Problem {
-  /** RFC 9457 `type`, or `about:blank` for the legacy envelope. */
+  /** RFC 9457 `type`, or `about:blank` for a body that isn't problem+json. */
   type: string;
   /**
    * The last segment of a `type` under {@link PROBLEM_TYPE_PREFIX} —
@@ -34,9 +33,9 @@ export interface Problem {
    * a call site means pasting a domain into a `switch`, and one rename of the
    * documentation host would then silently stop matching everywhere. Reading
    * the suffix once, here, gives callers a short token and keeps that risk in
-   * one file. `undefined` for the legacy envelope and for any `type` from
-   * somewhere else, so an unrecognized URI can never be mistaken for a known
-   * kind.
+   * one file. `undefined` for a body that isn't problem+json and for any
+   * `type` from somewhere else, so an unrecognized URI can never be mistaken
+   * for a known kind.
    */
   kind: string | undefined;
   /** Short, human-readable summary. Empty when the body carried none. */
@@ -97,66 +96,47 @@ function problemErrors(raw: unknown): ProblemFieldError[] {
   return errors;
 }
 
-/** `{"error": {...}}` — the shape the API answers with today. */
-function legacyProblem(error: unknown, status: number): Problem {
-  const base = { type: 'about:blank', kind: undefined, status, instance: undefined, requestId: undefined };
-
-  const message = asString(error);
-  if (message !== undefined) {
-    return { ...base, title: translateServerError(message), detail: undefined, errors: [] };
-  }
-
-  if (isRecord(error)) {
-    // `{"error": {"message": "..."}}` is a sentence, not a field map — the
-    // one key that must never reach a form as a field named "message".
-    const single = asString(error.message);
-    if (single !== undefined && Object.keys(error).length === 1) {
-      return { ...base, title: translateServerError(single), detail: undefined, errors: [] };
-    }
-
-    const errors: ProblemFieldError[] = [];
-    for (const [field, value] of Object.entries(error)) {
-      const text = asString(value);
-      if (text !== undefined) errors.push({ field, message: translateServerError(text) });
-    }
-    return { ...base, title: '', detail: undefined, errors };
-  }
-
-  return { ...base, title: '', detail: undefined, errors: [] };
+/** The empty {@link Problem} for a body that carries nothing readable. */
+function emptyProblem(status: number): Problem {
+  return {
+    type: 'about:blank',
+    kind: undefined,
+    title: '',
+    status,
+    detail: undefined,
+    instance: undefined,
+    requestId: undefined,
+    errors: [],
+  };
 }
 
 /**
- * Read either envelope into a {@link Problem}.
+ * Read a problem+json body into a {@link Problem}.
  *
- * A body that carries `type`, `title` or `errors` is read as problem+json;
- * anything else falls back to the legacy `{"error": ...}` reading, so an
- * unrecognizable body still yields a usable (empty) problem rather than
- * throwing inside an error path.
+ * A body that carries none of `type`, `title` or `errors` isn't problem+json
+ * at all (a non-JSON response, a body from somewhere else entirely) and
+ * normalizes to the empty problem, rather than throwing inside an error path.
+ *
+ * `title` and every `errors[]` message run through {@link translateServerError}
+ * — the backend sends a stable code there (`slug_taken`, `required`) rather
+ * than prose, same as `detail`, which carries a code just as often (a
+ * refusal's `Detail` — see `internal/httpx/refusals.go`'s `detailOf`, which
+ * every non-validation refusal writes its message through).
  */
 export function normalizeProblem(body: unknown, status: number): Problem {
-  if (!isRecord(body)) {
-    return {
-      type: 'about:blank',
-      kind: undefined,
-      title: '',
-      status,
-      detail: undefined,
-      instance: undefined,
-      requestId: undefined,
-      errors: [],
-    };
-  }
+  if (!isRecord(body)) return emptyProblem(status);
 
   const isProblemJson = typeof body.type === 'string' || typeof body.title === 'string' || Array.isArray(body.errors);
-  if (!isProblemJson) return legacyProblem(body.error, status);
+  if (!isProblemJson) return emptyProblem(status);
 
   const type = asString(body.type) ?? 'about:blank';
+  const detail = asString(body.detail);
   return {
     type,
     kind: problemKind(type),
     title: translateServerError(asString(body.title) ?? ''),
     status: typeof body.status === 'number' ? body.status : status,
-    detail: asString(body.detail),
+    detail: detail === undefined ? undefined : translateServerError(detail),
     instance: asString(body.instance),
     requestId: asString(body.request_id),
     errors: problemErrors(body.errors),
@@ -177,7 +157,7 @@ export function normalizeProblem(body: unknown, status: number): Problem {
  * by then, so this is the only place the payload can still be read.
  */
 export class ApiError extends HTTPError {
-  /** The error body, normalized across both envelopes. */
+  /** The error body, normalized from problem+json. */
   readonly problem: Problem;
   /** The backend's `X-Request-ID` for this response, when CORS exposed it. */
   readonly requestId: string | undefined;

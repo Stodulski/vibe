@@ -156,7 +156,10 @@ describe('useRegister', () => {
 
   it('onError surfaces the real backend message from error.data instead of the generic fallback', async () => {
     const { authApi } = await import('../api/auth.api');
-    const backendError = await makeConsumedHttpError(400, { error: 'El email ya esta registrado' });
+    const backendError = await makeConsumedHttpError(400, {
+      title: 'Bad Request',
+      detail: 'El email ya esta registrado',
+    });
     vi.mocked(authApi.register).mockRejectedValueOnce(backendError);
 
     const { useRegister } = await import('./useRegister');
@@ -173,7 +176,7 @@ describe('useRegister', () => {
 
   it('still shows the rate-limit message on 429, unaffected by the error.data fix', async () => {
     const { authApi } = await import('../api/auth.api');
-    const backendError = await makeConsumedHttpError(429, { error: 'ignored for 429' });
+    const backendError = await makeConsumedHttpError(429, { title: 'ignored for 429' });
     vi.mocked(authApi.register).mockRejectedValueOnce(backendError);
 
     const { useRegister } = await import('./useRegister');

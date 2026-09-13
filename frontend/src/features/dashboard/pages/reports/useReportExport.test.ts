@@ -17,7 +17,10 @@ describe('useReportExport — maps report_export_* codes instead of a generic fa
 
   it('shows the "too large" message when the server refuses report_export_too_large', async () => {
     const { dashboardApi } = await import('@/features/dashboard/api/dashboard.api');
-    const backendError = await makeConsumedHttpError(422, { error: 'report_export_too_large' });
+    const backendError = await makeConsumedHttpError(422, {
+      title: 'Unprocessable Entity',
+      detail: 'report_export_too_large',
+    });
     vi.mocked(dashboardApi.exportPaymentsExcel).mockRejectedValueOnce(backendError);
 
     const { useReportExport } = await import('./useReportExport');
@@ -35,7 +38,10 @@ describe('useReportExport — maps report_export_* codes instead of a generic fa
 
   it('shows the "timed out" message when the server refuses report_export_timed_out', async () => {
     const { dashboardApi } = await import('@/features/dashboard/api/dashboard.api');
-    const backendError = await makeConsumedHttpError(503, { error: 'report_export_timed_out' });
+    const backendError = await makeConsumedHttpError(503, {
+      title: 'Service Unavailable',
+      detail: 'report_export_timed_out',
+    });
     vi.mocked(dashboardApi.exportPaymentsExcel).mockRejectedValueOnce(backendError);
 
     const { useReportExport } = await import('./useReportExport');

@@ -69,7 +69,7 @@ describe('useResendVerification', () => {
   // available, only falling back to the generic copy otherwise.
   it('surfaces the backend error message on resend failure instead of only the generic fallback', async () => {
     const { authApi } = await import('@/features/auth/api/auth.api');
-    const backendError = await makeConsumedHttpError(400, { error: 'Email ya verificado' });
+    const backendError = await makeConsumedHttpError(400, { title: 'Bad Request', detail: 'Email ya verificado' });
     vi.mocked(authApi.resendVerification).mockRejectedValueOnce(backendError);
 
     const { useResendVerification } = await import('./useResendVerification');
