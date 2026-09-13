@@ -1352,10 +1352,6 @@ export interface components {
             request_id?: string;
             /** @description Present on a validation problem; one entry per invalid field. */
             errors?: components["schemas"]["FieldError"][];
-            /** @description Legacy pre-RFC-9457 error shape, kept for one release so an already-deployed client keeps rendering: the detail string for most problems, or a field-to-message object for a validation problem. Remove once the frontend's ApiError is deployed everywhere. */
-            error?: string | {
-                [key: string]: string;
-            };
         };
         FieldError: {
             /** @description Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`. */
