@@ -57,16 +57,10 @@ async function getOwnerBComplexId(): Promise<string> {
 // enforced per-request server-side, and that is what a direct request with
 // owner A's cookies against owner B's complex id proves.
 //
-// Expects 403, not 404: `RequireComplexOwner`'s own doc comment says a
-// complex the caller doesn't own "reads as missing rather than forbidden...
-// a 403 would confirm the id exists" — but the code below that comment
-// resolves the complex first (404 only for a genuinely nonexistent id) and
-// only then checks `complex.OwnerID != user.ID`, answering that mismatch
-// with `NotPermitted` (403), not `NotFound`. Whether that's the doc comment
-// drifting from an intentional behavior change or the check itself not
-// matching its own documented intent is for whoever owns that file
-// (backend/ is read-only for this branch) — this spec pins the status the
-// API actually sends today.
+// Expects 404, not 403: `RequireComplexOwner` answers a complex the caller
+// does not own as missing, so a foreign id is never confirmed to exist; 404
+// is also what a genuinely nonexistent id gets. Decided by the owner on
+// 2026-09-12 and implemented in the backend alongside this assertion.
 test.describe('Tenant isolation', () => {
   let ownerBComplexId: string;
 
@@ -76,12 +70,12 @@ test.describe('Tenant isolation', () => {
 
   test("owner A's session cannot read owner B's bookings", async ({ authenticatedPage: page }) => {
     const res = await page.request.get(`${API}/complexes/${ownerBComplexId}/bookings?date=2026-03-18`);
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBe(404);
   });
 
   test("owner A's session cannot read owner B's clients", async ({ authenticatedPage: page }) => {
     const res = await page.request.get(`${API}/complexes/${ownerBComplexId}/clients`);
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBe(404);
   });
 
   test("owner A's session cannot read owner B's complex settings", async ({ authenticatedPage: page }) => {
@@ -90,6 +84,6 @@ test.describe('Tenant isolation', () => {
     // `page.request` call carries), and without it the request never even
     // reaches RequireComplexOwner to prove this finding.
     const res = await page.request.get(`${API}/complexes/${ownerBComplexId}`);
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBe(404);
   });
 });
