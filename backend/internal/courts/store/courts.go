@@ -496,7 +496,7 @@ func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*
 		}
 
 		if _, err := tx.Exec(ctx, `DELETE FROM court_prices WHERE court_id = $1`, data.UUIDToPg(courtID)); err != nil {
-			return err
+			return fmt.Errorf("courts: delete court prices: %w", err)
 		}
 
 		// qtx reuses InsertCourtPrice's own sqlc-generated encoding for the
@@ -614,7 +614,7 @@ func (m *Store) insertBlockedSlot(
 		if isOverlapRefusal(err) {
 			return ErrSlotAlreadyBlocked
 		}
-		return err
+		return fmt.Errorf("courts: insert blocked slot: %w", err)
 	}
 
 	// The booking half, asked of the span the row above just generated rather
@@ -704,7 +704,7 @@ func (m *Store) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) (
 		// publishing nothing.
 		var span pgtype.Range[pgtype.Int4]
 		if err := rows.Scan(&p.ID, &p.CourtID, &p.Price, &p.DayType, &tf, &tt, &span); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("courts: scan price row: %w", err)
 		}
 		p.TimeFrom = tf.Format("15:04")
 		p.TimeTo = tt.Format("15:04")
@@ -712,7 +712,10 @@ func (m *Store) GetPricesByCourtIDs(ctx context.Context, courtIDs []uuid.UUID) (
 		p.ToMin = int(span.Upper.Int32)
 		result = append(result, &p)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("courts: get prices by court ids: %w", err)
+	}
+	return result, nil
 }
 
 // GetBlockedSlotsByCourtIDs returns the blocked slots across multiple courts on the given date.
@@ -737,7 +740,7 @@ func (m *Store) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.U
 		var createdBy pgtype.UUID
 		var createdAt pgtype.Timestamptz
 		if err := rows.Scan(&s.ID, &s.CourtID, &s.Date, &st, &et, &s.Reason, &createdBy, &createdAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("courts: scan blocked slot row: %w", err)
 		}
 		s.StartTime = st.Format("15:04")
 		s.EndTime = et.Format("15:04")
@@ -745,7 +748,10 @@ func (m *Store) GetBlockedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.U
 		s.CreatedAt = data.PgToTime(createdAt)
 		result = append(result, &s)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("courts: get blocked slots by court ids: %w", err)
+	}
+	return result, nil
 }
 
 // GetBlockedSlotByID returns the blocked slot with the given ID, or ErrRecordNotFound if none exists.
@@ -807,7 +813,7 @@ func (m *Store) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUI
 		var createdBy pgtype.UUID
 		var createdAt pgtype.Timestamptz
 		if err := rows.Scan(&s.ID, &s.CourtID, &s.Date, &st, &et, &s.Reason, &createdBy, &createdAt, &s.CourtName); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("courts: scan blocked slot by complex row: %w", err)
 		}
 		s.StartTime = st.Format("15:04")
 		s.EndTime = et.Format("15:04")
@@ -815,7 +821,10 @@ func (m *Store) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUI
 		s.CreatedAt = data.PgToTime(createdAt)
 		result = append(result, &s)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("courts: get blocked slots by complex: %w", err)
+	}
+	return result, nil
 }
 
 // DeleteBlockedSlot removes a single blocked slot by ID, answering

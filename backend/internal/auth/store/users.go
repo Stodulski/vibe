@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -60,7 +61,7 @@ func hashCost(cost int) int {
 func (u *User) SetPassword(plain string, cost int) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(plain), hashCost(cost))
 	if err != nil {
-		return err
+		return fmt.Errorf("auth: hash password: %w", err)
 	}
 	u.PasswordHash = hash
 	return nil
@@ -73,7 +74,7 @@ func (u *User) PasswordMatches(plain string) (bool, error) {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("auth: compare password: %w", err)
 	}
 	return true, nil
 }
@@ -88,7 +89,10 @@ func (u *User) IsLocked() bool {
 
 // ComparePassword is a package-level helper for timing-safe dummy comparisons.
 func ComparePassword(hash []byte, plain string) error {
-	return bcrypt.CompareHashAndPassword(hash, []byte(plain))
+	if err := bcrypt.CompareHashAndPassword(hash, []byte(plain)); err != nil {
+		return fmt.Errorf("auth: compare password: %w", err)
+	}
+	return nil
 }
 
 var (

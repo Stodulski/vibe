@@ -103,7 +103,7 @@ func (m *Store) ResolveBooking(ctx context.Context, plaintext string) (*bookings
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, time.Time{}, data.ErrRecordNotFound
 		}
-		return nil, time.Time{}, err
+		return nil, time.Time{}, fmt.Errorf("booklink: resolve booking: %w", err)
 	}
 	booking := bookingstore.BookingFromDB(b)
 	booking.CourtName = courtName

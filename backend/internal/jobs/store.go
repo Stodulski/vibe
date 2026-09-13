@@ -438,7 +438,10 @@ func scanJobs(rows pgx.Rows) ([]*Job, error) {
 		}
 		out = append(out, &j)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan jobs: %w", err)
+	}
+	return out, nil
 }
 
 // The three helpers below turn a Go zero value into a SQL NULL, so the

@@ -84,7 +84,7 @@ func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *bo
 		if errors.Is(err, pgx.ErrNoRows) {
 			return data.ErrRecordNotFound
 		}
-		return err
+		return fmt.Errorf("payments: guard booking confirmable: %w", err)
 	}
 	// H-23: cancelled is answered with its own sentinel. It is the only one of
 	// the three where the client's money must be sent back, and collapsing it

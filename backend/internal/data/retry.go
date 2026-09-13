@@ -128,7 +128,10 @@ func (d *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx, q *db.Queries) error
 	if err := fn(tx, db.New(tx)); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("data: commit tx: %w", err)
+	}
+	return nil
 }
 
 // Exec runs a statement that returns no rows.

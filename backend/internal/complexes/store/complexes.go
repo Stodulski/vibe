@@ -488,11 +488,14 @@ func (m *Store) GetWithMPConnected(ctx context.Context) ([]*Complex, error) {
 			&c.Latitude, &c.Longitude,
 			&c.DeletedAt, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("complexes: scan mp-connected row: %w", err)
 		}
 		result = append(result, complexFromDB(c, m.Keys))
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("complexes: get mp-connected complexes: %w", err)
+	}
+	return result, nil
 }
 
 // SlugsWithPrefix returns every slug equal to base or starting with "base-".
@@ -520,11 +523,14 @@ func (m *Store) SlugsWithPrefix(ctx context.Context, base string) ([]string, err
 	for rows.Next() {
 		var slug string
 		if err := rows.Scan(&slug); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("complexes: scan slug row: %w", err)
 		}
 		slugs = append(slugs, slug)
 	}
-	return slugs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("complexes: list slugs with prefix: %w", err)
+	}
+	return slugs, nil
 }
 
 // SlugExists reports whether the given slug is already taken.
@@ -548,7 +554,7 @@ func (m *Store) SlugExists(ctx context.Context, slug string) (bool, error) {
 	err := m.DB.QueryRow(ctx,
 		`SELECT EXISTS(SELECT 1 FROM complexes WHERE slug = $1)`, slug).Scan(&exists)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("complexes: slug exists: %w", err)
 	}
 	return exists, nil
 }
@@ -569,11 +575,14 @@ func (m *Store) GetAllSlugs(ctx context.Context) ([]ComplexSlug, error) {
 	for rows.Next() {
 		var s ComplexSlug
 		if err := rows.Scan(&s.Slug, &s.UpdatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("complexes: scan slug entry: %w", err)
 		}
 		slugs = append(slugs, s)
 	}
-	return slugs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("complexes: get all slugs: %w", err)
+	}
+	return slugs, nil
 }
 
 // complexFromDB is the single decode point for the mp_access_token /

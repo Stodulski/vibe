@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -56,7 +57,7 @@ func (m *PasswordResets) InsertWithCooldown(ctx context.Context, userID uuid.UUI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return data.ErrCooldownActive
 		}
-		return err
+		return fmt.Errorf("auth: insert password reset token: %w", err)
 	}
 	return nil
 }
@@ -80,7 +81,7 @@ func (m *PasswordResets) GetByHash(ctx context.Context, tokenHash []byte) (*Pass
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, data.ErrRecordNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("auth: get password reset token: %w", err)
 	}
 	return &t, nil
 }

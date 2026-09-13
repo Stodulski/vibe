@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -217,12 +218,12 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, search st
 			&c.CreatedAt, &c.UpdatedAt, &c.TotalBookings,
 		)
 		if err != nil {
-			return nil, data.Metadata{}, err
+			return nil, data.Metadata{}, fmt.Errorf("clients: scan client row: %w", err)
 		}
 		clients = append(clients, clientFromDB(c))
 	}
 	if err := rows.Err(); err != nil {
-		return nil, data.Metadata{}, err
+		return nil, data.Metadata{}, fmt.Errorf("clients: list clients: %w", err)
 	}
 
 	clients, meta := data.TrimPage(clients, limit, data.BuildTimestampCursor)
@@ -322,7 +323,7 @@ func (m *Store) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName,
 		data.UUIDToPg(complexID), firstName, lastName, phone, data.TextToPg(emailPtr), allowNameUpdate,
 	).Scan(&id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clients: get or create: %w", err)
 	}
 
 	// Read back through GetByID rather than building the Client from the
@@ -347,7 +348,10 @@ func (m *Store) CountByComplex(ctx context.Context, complexID uuid.UUID) (int, e
 
 	var count int
 	err := m.DB.QueryRow(ctx, `SELECT COUNT(*) FROM clients WHERE complex_id = $1`, data.UUIDToPg(complexID)).Scan(&count)
-	return count, err
+	if err != nil {
+		return 0, fmt.Errorf("clients: count by complex: %w", err)
+	}
+	return count, nil
 }
 
 // ─── Dashboard: Client Insights ─────────────────────────────────────────
@@ -401,13 +405,13 @@ func (m *Store) GetInsights(ctx context.Context, complexID uuid.UUID, today time
 		var tc TopClient
 		var id pgtype.UUID
 		if err := rows.Scan(&id, &tc.Name, &tc.Phone, &tc.BookingCount, &tc.TotalSpent); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clients: scan top client row: %w", err)
 		}
 		tc.ID = data.PgToUUID(id)
 		insights.TopClients = append(insights.TopClients, tc)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clients: get top clients: %w", err)
 	}
 	if insights.TopClients == nil {
 		insights.TopClients = []TopClient{}
@@ -422,7 +426,7 @@ func (m *Store) GetInsights(ctx context.Context, complexID uuid.UUID, today time
 		data.UUIDToPg(complexID), data.DateToPg(from), data.DateToPg(today),
 	).Scan(&insights.NoShowCount, &insights.CompletedCount)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clients: get no-show insights: %w", err)
 	}
 	if insights.CompletedCount > 0 {
 		insights.NoShowRate = (insights.NoShowCount * 100) / insights.CompletedCount
@@ -438,7 +442,7 @@ func (m *Store) GetInsights(ctx context.Context, complexID uuid.UUID, today time
 		data.UUIDToPg(complexID), data.TimeToPg(from), data.DateToPg(from), data.DateToPg(today),
 	).Scan(&insights.NewClients, &insights.TotalActive)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clients: get new and recurring insights: %w", err)
 	}
 	insights.Recurring = insights.TotalActive - insights.NewClients
 

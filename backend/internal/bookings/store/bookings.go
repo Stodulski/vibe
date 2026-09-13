@@ -522,7 +522,7 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
 		if isSlotAlreadySold(err) {
 			return ErrDuplicateBooking
 		}
-		return err
+		return fmt.Errorf("bookings: insert safe: %w", err)
 	}
 
 	b.ID = data.PgToUUID(id)
@@ -586,7 +586,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, data.ErrRecordNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("bookings: get by id: %w", err)
 	}
 	booking := BookingFromDB(b)
 	booking.CourtName = courtName
@@ -664,7 +664,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 			&courtName, &clientName, &clientPhone,
 		)
 		if err != nil {
-			return nil, data.Metadata{}, err
+			return nil, data.Metadata{}, fmt.Errorf("bookings: scan by complex row: %w", err)
 		}
 		booking := BookingFromDB(b)
 		booking.CourtName = courtName
@@ -673,7 +673,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 		bookings = append(bookings, booking)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, data.Metadata{}, err
+		return nil, data.Metadata{}, fmt.Errorf("bookings: get by complex: %w", err)
 	}
 
 	bookings, meta := data.TrimPage(bookings, limit, data.BuildNextCursor)
@@ -881,7 +881,7 @@ func (m *Store) GetDashboardStats(ctx context.Context, complexID uuid.UUID, toda
 		&s.PendingBookings,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("bookings: get dashboard stats: %w", err)
 	}
 	return &s, nil
 }
@@ -949,12 +949,12 @@ func (m *Store) GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, 
 		var d time.Time
 		var amount int
 		if err := rows.Scan(&d, &amount); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("bookings: scan revenue by day row: %w", err)
 		}
 		dataMap[d.Format("2006-01-02")] = amount
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("bookings: get revenue by day: %w", err)
 	}
 
 	// Fill in zero-days.
@@ -998,11 +998,14 @@ func (m *Store) GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, 
 	for rows.Next() {
 		var dp OccupancyDataPoint
 		if err := rows.Scan(&dp.DayOfWeek, &dp.Hour, &dp.BookingCount); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("bookings: scan occupancy row: %w", err)
 		}
 		result = append(result, dp)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: get occupancy by hour day: %w", err)
+	}
+	return result, nil
 }
 
 // GetByClient returns the client's most recent bookings in the complex, within a rolling window of the past year and next 30 days.
@@ -1050,7 +1053,7 @@ func scanBookingsWithJoins(rows pgx.Rows) ([]*Booking, error) {
 			&courtName, &clientName, &clientPhone,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("bookings: scan booking row: %w", err)
 		}
 		booking := BookingFromDB(b)
 		booking.CourtName = courtName
@@ -1058,7 +1061,10 @@ func scanBookingsWithJoins(rows pgx.Rows) ([]*Booking, error) {
 		booking.ClientPhone = clientPhone
 		bookings = append(bookings, booking)
 	}
-	return bookings, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: scan bookings with joins: %w", err)
+	}
+	return bookings, nil
 }
 
 // CronBooking holds a Booking enriched with related client, complex, court and
@@ -1189,7 +1195,7 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 			&mpAccessToken, &mpRefreshToken, &cancellationHours,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("bookings: scan cron booking row: %w", err)
 		}
 		booking := BookingFromDB(b)
 		cb := &CronBooking{
@@ -1209,7 +1215,10 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 		cb.mpRefreshToken, cb.mpRefreshTokenErr = mpcred.Open(keys, booking.ComplexID, mpcred.RefreshTokenColumn, data.PgToTextPtr(mpRefreshToken))
 		result = append(result, cb)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: scan cron bookings: %w", err)
+	}
+	return result, nil
 }
 
 // CompletePastBookings marks confirmed bookings that have finished as completed.
@@ -1261,7 +1270,10 @@ func (m *Store) HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID)
 			  AND upper(span) > NOW()
 			  AND status NOT IN `+slotguard.ReleasedBookingStatuses+`
 		)`, data.UUIDToPg(courtID)).Scan(&exists)
-	return exists, err
+	if err != nil {
+		return false, fmt.Errorf("bookings: has active bookings by court: %w", err)
+	}
+	return exists, nil
 }
 
 // HasActiveBookings reports whether the complex still owes anyone their hours
@@ -1280,7 +1292,10 @@ func (m *Store) HasActiveBookings(ctx context.Context, complexID uuid.UUID) (boo
 			  AND upper(span) > NOW()
 			  AND status NOT IN `+slotguard.ReleasedBookingStatuses+`
 		)`, data.UUIDToPg(complexID)).Scan(&exists)
-	return exists, err
+	if err != nil {
+		return false, fmt.Errorf("bookings: has active bookings: %w", err)
+	}
+	return exists, nil
 }
 
 // CancelFutureByComplex cancels every future, non-terminal booking in the complex, used when a complex is deactivated.
@@ -1369,12 +1384,12 @@ func (m *Store) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, toda
 		var ps string
 		var count, total int
 		if err := rows.Scan(&ps, &count, &total); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("bookings: scan payment summary by status row: %w", err)
 		}
 		summary.ByStatus[ps] = PaymentStatusBreakdown{Count: count, Total: total}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("bookings: get payment summary by status: %w", err)
 	}
 
 	rows2, err := m.DB.Query(ctx, `
@@ -1393,9 +1408,12 @@ func (m *Store) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, toda
 		var method string
 		var amount int
 		if err := rows2.Scan(&method, &amount); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("bookings: scan payment summary by method row: %w", err)
 		}
 		summary.ByMethod[method] = amount
 	}
-	return summary, rows2.Err()
+	if err := rows2.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: get payment summary by method: %w", err)
+	}
+	return summary, nil
 }

@@ -284,5 +284,8 @@ func scanWebhookEvents(rows pgx.Rows) ([]*WebhookEvent, error) {
 		}
 		result = append(result, &e)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan webhook events: %w", err)
+	}
+	return result, nil
 }
