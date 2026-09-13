@@ -80,9 +80,9 @@ func (s *stubExportStore) ReleaseDedupKey(_ context.Context, id uuid.UUID) (bool
 	return true, nil
 }
 
-func (s *stubExportStore) GetExport(_ context.Context, id uuid.UUID, complexID string) (*jobs.Job, error) {
+func (s *stubExportStore) GetExport(_ context.Context, id uuid.UUID, complexID, jobType string) (*jobs.Job, error) {
 	job, ok := s.byID[id]
-	if !ok {
+	if !ok || job.Type != jobType {
 		return nil, data.ErrRecordNotFound
 	}
 	var p ExportPaymentsPayload
@@ -218,6 +218,40 @@ func TestCreatingAnExportAnswers202WithSomewhereToPoll(t *testing.T) {
 	}
 	if got := w.Header().Get("Location"); got != want {
 		t.Errorf("Location = %q, want %q — a 202 has to say where the thing it accepted lives", got, want)
+	}
+}
+
+// TestCreatingAnExportDefaultsThePeriodForAnEmptyChunkedBody proves the
+// period still defaults to the current month when the body arrives with no
+// Content-Length at all — as a chunked-encoded request does — and turns out
+// to hold zero bytes once read. r.ContentLength == 0 alone (the check
+// readExportPeriod used to make) never sees this case: net/http reports -1
+// for a chunked request's ContentLength whether or not the body is empty.
+func TestCreatingAnExportDefaultsThePeriodForAnEmptyChunkedBody(t *testing.T) {
+	f := newExportFixture(t)
+
+	target := "/api/v1/complexes/" + f.complex.ID.String() + "/reports/exports"
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, target, strings.NewReader(""))
+	r.ContentLength = -1 // what a chunked request carries, empty or not.
+
+	w := httptest.NewRecorder()
+	f.handler.CreatePaymentsExport(w, httpx.ContextSetComplex(r, f.complex))
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body: %s", w.Code, w.Body.String())
+	}
+
+	export := decodeExport(t, w)
+	job := f.store.byID[uuid.MustParse(export["id"].(string))]
+	var payload ExportPaymentsPayload
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		t.Fatalf("decoding the queued payload: %v", err)
+	}
+
+	now := time.Now().In(timezone.Argentina)
+	if payload.Month != int(now.Month()) || payload.Year != now.Year() {
+		t.Errorf("queued period = %d/%d, want the current month %d/%d",
+			payload.Month, payload.Year, int(now.Month()), now.Year())
 	}
 }
 
@@ -433,11 +467,21 @@ func TestExportsAnswer501WhenNoPrivateStorageIsConfigured(t *testing.T) {
 		},
 	}
 
-	if res := f.post(t, ""); res.Code != http.StatusNotImplemented {
-		t.Errorf("POST status = %d, want 501", res.Code)
-	}
-	if res := f.get(t, uuid.New()); res.Code != http.StatusNotImplemented {
-		t.Errorf("GET status = %d, want 501", res.Code)
+	for _, res := range []*httptest.ResponseRecorder{f.post(t, ""), f.get(t, uuid.New())} {
+		if res.Code != http.StatusNotImplemented {
+			t.Errorf("status = %d, want 501", res.Code)
+		}
+		if ct := res.Header().Get("Content-Type"); ct != "application/problem+json" {
+			t.Errorf("Content-Type = %q, want application/problem+json", ct)
+		}
+
+		var problem httpx.Problem
+		if err := json.Unmarshal(res.Body.Bytes(), &problem); err != nil {
+			t.Fatalf("decoding the problem: %v", err)
+		}
+		if want := httpx.KindUnavailable.URI(); problem.Type != want {
+			t.Errorf("problem type = %q, want %q", problem.Type, want)
+		}
 	}
 }
 

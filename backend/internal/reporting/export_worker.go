@@ -33,10 +33,14 @@ type Queue interface {
 //
 // It shares the one pool rather than running a second one. Pool.work claims
 // with no type filter, so a second pool would take notification jobs off the
-// same table and run them with no handler registered; and raising the pool's
-// JobTimeout for the export's sake would widen the lease for every type. A
-// full 50,000-row workbook builds in about a second, so it fits the shared
-// 10s attempt including the upload.
+// same table and run them with no handler registered. TaskExportPayments
+// still gets its own attempt timeout rather than the pool's shared 10s
+// JobTimeout, though: cmd/api registers this type in the pool's
+// jobs.Config.Timeouts, keyed to exportBudgetFor's synchronous-route budget
+// plus exportUploadAllowance, so a large export gets the same headroom the
+// deprecated synchronous route has, plus time for the R2 upload that route
+// never has to do. Raising JobTimeout itself would have widened the lease
+// for every other type sharing this pool.
 func (s *Service) RegisterExportWorker(q Queue) {
 	q.RegisterHandler(TaskExportPayments, func(ctx context.Context, raw json.RawMessage) error {
 		var payload ExportPaymentsPayload

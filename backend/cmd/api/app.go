@@ -293,8 +293,16 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		pool = jobs.NewPool(d.models.Jobs, jobs.Config{
 			Workers:    4,
 			JobTimeout: 10 * time.Second,
-			Metrics:    metrics,
-			Logger:     d.logger,
+			// The payments export gets its own ceiling instead of running
+			// under the shared 10s JobTimeout above: it does everything the
+			// synchronous route does (see exportBudgetFor) plus an R2
+			// upload the synchronous route never has to do. See
+			// exportUploadAllowance and reporting.RegisterExportWorker.
+			Timeouts: map[string]time.Duration{
+				reporting.TaskExportPayments: exportBudgetFor(cfg.HTTP.WriteTimeout) + exportUploadAllowance,
+			},
+			Metrics: metrics,
+			Logger:  d.logger,
 		})
 		queue = taskQueue{
 			pool: pool,

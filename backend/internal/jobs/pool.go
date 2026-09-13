@@ -20,15 +20,27 @@ type Config struct {
 	// — a worker holds what it claimed, so a larger batch is a larger amount
 	// of work one dying process takes down with it for a lease.
 	ClaimBatch int
-	// JobTimeout bounds one attempt. Default: 10s.
+	// JobTimeout bounds one attempt. Default: 10s. A type named in Timeouts
+	// uses its own bound instead.
 	JobTimeout time.Duration
+	// Timeouts overrides JobTimeout for specific job types, keyed by job
+	// type. A type absent from the map — or mapped to a non-positive value —
+	// uses JobTimeout. This exists because one pool serves every job type
+	// (see RegisterHandler: a second pool would claim with no type filter
+	// and run jobs it has no handler for), so a type whose work genuinely
+	// needs longer than the shared default — the payments export, which
+	// also uploads the workbook after building it — gets its own ceiling
+	// without widening JobTimeout, and the lease that comes with it, for
+	// every other type.
+	Timeouts map[string]time.Duration
 	// PollInterval is how long a worker waits after finding nothing before it
 	// asks again. Default: 1s.
 	PollInterval time.Duration
 	// Lease is how long a claim may go unfinished before another worker may
-	// take the job back. Default: 60s, and never less than six times
-	// JobTimeout — it only has to outlast one honest attempt, which
-	// JobTimeout already bounds.
+	// take the job back. Default: 60s, and never less than six times the
+	// longest attempt timeout in effect — JobTimeout, or a type's own entry
+	// in Timeouts when that is longer — because it only has to outlast one
+	// honest attempt, which that timeout already bounds.
 	Lease time.Duration
 	// ReclaimInterval is how often stale claims are swept. Default: 15s.
 	ReclaimInterval time.Duration
@@ -79,8 +91,8 @@ func (c *Config) applyDefaults() {
 	if c.Lease <= 0 {
 		c.Lease = 60 * time.Second
 	}
-	if c.Lease < 6*c.JobTimeout {
-		c.Lease = 6 * c.JobTimeout
+	if floor := 6 * c.longestTimeout(); c.Lease < floor {
+		c.Lease = floor
 	}
 	if c.ReclaimInterval <= 0 {
 		c.ReclaimInterval = 15 * time.Second
@@ -97,6 +109,20 @@ func (c *Config) applyDefaults() {
 	if c.Worker == "" {
 		c.Worker = uuid.NewString()
 	}
+}
+
+// longestTimeout returns the longest attempt timeout in effect: JobTimeout,
+// or any per-type override in Timeouts that exceeds it. applyDefaults derives
+// the Lease floor from it, so a type given a longer timeout via Timeouts
+// never leaves the lease too short to outlast it.
+func (c *Config) longestTimeout() time.Duration {
+	longest := c.JobTimeout
+	for _, t := range c.Timeouts {
+		if t > longest {
+			longest = t
+		}
+	}
+	return longest
 }
 
 // DefaultConfig applies every default to a zero Config — for a caller that
@@ -253,10 +279,19 @@ func (p *Pool) run(job *Job, handler Handler) (err error) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), p.cfg.JobTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeoutFor(job.Type))
 	defer cancel()
 
 	return handler(ctx, job.Payload)
+}
+
+// timeoutFor returns the attempt timeout jobType runs under: its own entry in
+// cfg.Timeouts when it has one, otherwise cfg.JobTimeout.
+func (p *Pool) timeoutFor(jobType string) time.Duration {
+	if t, ok := p.cfg.Timeouts[jobType]; ok && t > 0 {
+		return t
+	}
+	return p.cfg.JobTimeout
 }
 
 // settle applies the outcome of one attempt and logs it.

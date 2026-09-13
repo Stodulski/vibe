@@ -1,8 +1,10 @@
 package reporting
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -80,11 +82,22 @@ func (h *Handler) CreatePaymentsExport(w http.ResponseWriter, r *http.Request) {
 // The body is optional in the document, and an absent one is the ordinary
 // request: the dashboard exports the month it is showing, and "the month it
 // is showing" is usually this one. ReadJSON refuses an empty body — rightly,
-// for every endpoint that requires one — so the length is checked first
-// rather than the refusal being pattern-matched afterwards.
+// for every endpoint that requires one — so emptiness is checked first rather
+// than the refusal being pattern-matched afterwards. That check cannot stop
+// at r.ContentLength == 0: a request sent with Transfer-Encoding: chunked
+// (curl --data-binary @- from an empty pipe, some proxies, some HTTP clients)
+// carries no Content-Length at all, so net/http reports -1 rather than 0 even
+// when the body turns out to hold zero bytes once read. bodyIsEmpty covers
+// that case, and http.NoBody, alongside the plain ContentLength == 0 case.
 func (h *Handler) readExportPeriod(w http.ResponseWriter, r *http.Request, now time.Time) (month, year int, ok bool) {
 	month, year = int(now.Month()), now.Year()
-	if r.ContentLength == 0 {
+
+	empty, err := bodyIsEmpty(r)
+	if err != nil {
+		h.respond.BadRequest(w, r, err)
+		return 0, 0, false
+	}
+	if empty {
 		return month, year, true
 	}
 
@@ -100,6 +113,37 @@ func (h *Handler) readExportPeriod(w http.ResponseWriter, r *http.Request, now t
 		year = *input.Year
 	}
 	return month, year, true
+}
+
+// bodyIsEmpty reports whether r carries no body worth decoding: an absent
+// body (r.ContentLength == 0), the http.NoBody sentinel, or a chunked body
+// (r.ContentLength == -1, whose length is unknown until read) that turns out
+// to hold zero bytes. A positive ContentLength is trusted without reading
+// ahead. A chunked body found to be non-empty has its first byte read back
+// onto r.Body, unconsumed, so a later httpx.ReadJSON(r) still decodes the
+// whole thing.
+func bodyIsEmpty(r *http.Request) (bool, error) {
+	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 {
+		return true, nil
+	}
+	if r.ContentLength > 0 {
+		return false, nil
+	}
+
+	var first [1]byte
+	n, err := r.Body.Read(first[:])
+	if n == 0 {
+		if err != nil && !errors.Is(err, io.EOF) {
+			return false, err
+		}
+		return true, nil
+	}
+
+	r.Body = struct {
+		io.Reader
+		io.Closer
+	}{io.MultiReader(bytes.NewReader(first[:n]), r.Body), r.Body}
+	return false, nil
 }
 
 // GetPaymentsExport handles

@@ -556,7 +556,7 @@ func TestAnExportIsInvisibleToAnotherComplex(t *testing.T) {
 		"complex_id": mine, "month": 9, "year": 2026,
 	}, time.Time{}, 5, "")
 
-	found, err := s.GetExport(ctx, id, mine)
+	found, err := s.GetExport(ctx, id, mine, jobType)
 	if err != nil {
 		t.Fatalf("GetExport for the owning complex: %v", err)
 	}
@@ -564,7 +564,7 @@ func TestAnExportIsInvisibleToAnotherComplex(t *testing.T) {
 		t.Errorf("GetExport returned %s, want %s", found.ID, id)
 	}
 
-	if _, err := s.GetExport(ctx, id, theirs); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := s.GetExport(ctx, id, theirs, jobType); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("another complex read this export and got %v; it must be ErrRecordNotFound, "+
 			"so the route cannot be used to probe which export ids exist elsewhere", err)
 	}
@@ -572,7 +572,36 @@ func TestAnExportIsInvisibleToAnotherComplex(t *testing.T) {
 	// A job with no complex_id at all — every notification — is not an export
 	// and must not be readable as one.
 	plain := enqueue(t, s, ctx, jobType, map[string]string{"to": "ana@example.com"}, time.Time{}, 5, "")
-	if _, err := s.GetExport(ctx, plain, mine); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := s.GetExport(ctx, plain, mine, jobType); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("a job whose payload names no complex was readable as an export; got %v", err)
+	}
+}
+
+// TestGetExportIgnoresAnotherTypesJobEvenWithTheSameComplexID guards the type
+// filter GetExport adds on top of the complex_id predicate above: a payload
+// shape is a convention, not a schema, so nothing stops some other job type
+// from also carrying a complex_id field. Without the type filter, that job
+// would be handed back as if it were the export the caller asked for.
+func TestGetExportIgnoresAnotherTypesJobEvenWithTheSameComplexID(t *testing.T) {
+	s, exportType := newStore(t)
+	otherType := exportType + ":other"
+	ctx := bypass(t)
+
+	complexID := uuid.NewString()
+	id := enqueue(t, s, ctx, otherType, map[string]any{
+		"complex_id": complexID, "to": "ana@example.com",
+	}, time.Time{}, 5, "")
+
+	if _, err := s.GetExport(ctx, id, complexID, exportType); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("a %s job with a matching complex_id was readable as a %s export; got %v",
+			otherType, exportType, err)
+	}
+
+	found, err := s.GetExport(ctx, id, complexID, otherType)
+	if err != nil {
+		t.Fatalf("GetExport with the matching type: %v", err)
+	}
+	if found.ID != id {
+		t.Errorf("GetExport returned %s, want %s", found.ID, id)
 	}
 }

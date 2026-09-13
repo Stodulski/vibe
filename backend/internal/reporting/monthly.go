@@ -175,9 +175,14 @@ const exportRowCheckInterval = 512
 //
 // Deprecated: use CreatePaymentsExport (POST .../reports/exports) and poll the
 // status resource it returns. This route builds the file inside the request,
-// so a month large enough to take longer than the export budget answers 503
-// and the owner has no way to get their ledger at all; the job route has no
-// such ceiling. It is marked `deprecated: true` in the OpenAPI document and
+// so a month large enough to take longer than exportBudgetFor's budget (see
+// cmd/api/boot_config.go — three quarters of HTTP_WRITE_TIMEOUT, 45s by
+// default) answers 503 and the owner has no way to get their ledger at all.
+// The job route has its own, longer ceiling instead — that same budget plus
+// an upload allowance, applied as a per-type jobs.Config.Timeouts entry (see
+// cmd/api's newApplication and reporting.RegisterExportWorker) — because it
+// also uploads the workbook to R2 after building it, which this route never
+// has to do. It is marked `deprecated: true` in the OpenAPI document and
 // stays until the frontend has switched — see
 // frontend/src/features/dashboard/api/dashboard.api.ts and
 // docs/runbook-exports.md.

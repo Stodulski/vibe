@@ -378,7 +378,8 @@ func (s *Store) ReleaseDedupKey(ctx context.Context, id uuid.UUID) (bool, error)
 	return tag.RowsAffected() > 0, nil
 }
 
-// GetExport returns one job by id, but only if its payload names complexID.
+// GetExport returns one job by id, but only if it is a jobType job whose
+// payload names complexID.
 //
 // This table deliberately carries no complex_id column and no row-level
 // security (db/migrations/004_jobs.sql): it is a queue every domain shares,
@@ -388,19 +389,28 @@ func (s *Store) ReleaseDedupKey(ctx context.Context, id uuid.UUID) (bool, error)
 // half being RequireComplexOwner, which has already proved the caller owns
 // the complex named in the path.
 //
+// jobType is required alongside id: this table holds every job type this
+// process enqueues, not only exports, and a payload shape is a convention,
+// not a schema — nothing stops some other job type from also carrying a
+// complex_id field whose value collides with the id the caller asked for.
+// Without the type filter, that job would be handed back as if it were the
+// export the caller polled for. jobs stays generic and does not know what
+// "export" means, so the caller — reporting, via TaskExportPayments — passes
+// the type it wants rather than this package hardcoding one.
+//
 // A mismatch answers data.ErrRecordNotFound rather than a distinguishable
 // refusal, matching internal/clients' convention: a 403 would confirm the
 // export exists and turn this route into a probe for another tenant's ids.
 //
 // complexID is text because the payload is jsonb and `payload->>'complex_id'`
 // is text; binding a uuid here would compare text to uuid and fail.
-func (s *Store) GetExport(ctx context.Context, id uuid.UUID, complexID string) (*Job, error) {
+func (s *Store) GetExport(ctx context.Context, id uuid.UUID, complexID, jobType string) (*Job, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := s.DB.Query(ctx,
-		`SELECT `+jobColumns+` FROM jobs WHERE id = $1 AND payload->>'complex_id' = $2`,
-		id, complexID)
+		`SELECT `+jobColumns+` FROM jobs WHERE id = $1 AND payload->>'complex_id' = $2 AND type = $3`,
+		id, complexID, jobType)
 	if err != nil {
 		return nil, fmt.Errorf("get export job: %w", err)
 	}
