@@ -2,10 +2,12 @@ name: Frontend
 
 on:
   pull_request:
+    # No `paths` filter on pull requests: every job of every workflow is a
+    # required status check on main, and a required check that never runs
+    # (because the PR touched only the other package) blocks the merge forever.
+    # `push.branches: [main]` keeps its paths filter: that side only feeds
+    # deploy-time signals and caches.
     branches: [main]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend.yml"
   push:
     branches: [main]
     paths:

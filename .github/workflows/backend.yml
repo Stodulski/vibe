@@ -6,9 +6,11 @@ on:
   # needs this to run. `push.branches: [main]` is unchanged; that side only
   # ever cares about what lands on `main`.
   pull_request:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend.yml"
+    # No `paths` filter on pull requests: every job of every workflow is a
+    # required status check on main, and a required check that never runs
+    # (because the PR touched only the other package) blocks the merge forever.
+    # `push.branches: [main]` keeps its paths filter: that side only feeds
+    # deploy-time signals and caches.
   push:
     branches: [main]
     paths:
