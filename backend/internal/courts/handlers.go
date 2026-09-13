@@ -190,7 +190,15 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		ExpectedVersion: expectedVersion,
 	})
 	if err != nil {
-		h.respond.DomainError(w, r, err)
+		switch {
+		case errors.Is(err, ErrEditConflict):
+			// courts.ErrEditConflict wraps data.ErrEditConflict for a stale
+			// If-Match/version: its own kind, distinct from the generic
+			// conflict.
+			h.respond.StaleVersion(w, r)
+		default:
+			h.respond.DomainError(w, r, err)
+		}
 		return
 	}
 
@@ -339,10 +347,12 @@ func (h *Handler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 			h.respond.FailedValidation(w, r, map[string]string{
 				keyIdx("prices", failedIndex, "time_from"): "overlaps another price rule for this day",
 			})
+		case errors.Is(err, ErrEditConflict):
+			// courts.ErrEditConflict wraps data.ErrEditConflict for a stale
+			// If-Match/version: its own kind, distinct from the generic
+			// conflict.
+			h.respond.StaleVersion(w, r)
 		default:
-			// Covers courts.ErrEditConflict on a stale If-Match/version, which
-			// wraps data.ErrEditConflict (409), falling through to
-			// ServerError only for anything DomainError does not know.
 			h.respond.DomainError(w, r, err)
 		}
 		return

@@ -351,7 +351,7 @@ func (m *Middleware) RequireComplexOwner(next http.HandlerFunc) http.HandlerFunc
 		}
 
 		if complex.OwnerID != user.ID {
-			m.respond.NotPermitted(w, r)
+			m.respond.NotFound(w, r)
 			return
 		}
 

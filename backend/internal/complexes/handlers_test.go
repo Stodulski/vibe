@@ -14,6 +14,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
 
@@ -293,7 +294,8 @@ func TestUpdateReportsAnEditConflictOnALostUpdate(t *testing.T) {
 }
 
 // A stale If-Match/version returns data.ErrEditConflict directly; before this
-// it fell through to ServerError and answered 500 instead of 409.
+// it fell through to ServerError and answered 500 instead of 409. It answers
+// with its own stale-version kind rather than the generic conflict kind.
 func TestUpdateReportsAnEditConflictOnAStaleVersion(t *testing.T) {
 	f := newFixture(t)
 	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
@@ -308,6 +310,14 @@ func TestUpdateReportsAnEditConflictOnAStaleVersion(t *testing.T) {
 	}
 	if f.store.updated != nil {
 		t.Errorf("a refused update must not be recorded as applied; got %+v", f.store.updated)
+	}
+
+	var body httpx.Problem
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("error body is not valid JSON: %v", err)
+	}
+	if want := httpx.KindStaleVersion.URI(); body.Type != want {
+		t.Errorf("want type %q; got %q", want, body.Type)
 	}
 }
 

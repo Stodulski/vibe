@@ -157,6 +157,15 @@ func (rs *Responder) EditConflict(w http.ResponseWriter, r *http.Request) {
 		"unable to update the record due to an edit conflict, please try again", nil)
 }
 
+// StaleVersion reports 409 when a write named an If-Match/version the row no
+// longer carries: somebody else's write landed first. It is EditConflict's
+// own kind rather than the generic KindConflict, so the frontend can offer
+// "refresh and retry" without parsing Detail.
+func (rs *Responder) StaleVersion(w http.ResponseWriter, r *http.Request) {
+	rs.writeProblem(w, r, http.StatusConflict, KindStaleVersion,
+		"the record changed since you last read it; refresh and try again", nil)
+}
+
 // RateLimitExceeded reports 429.
 func (rs *Responder) RateLimitExceeded(w http.ResponseWriter, r *http.Request) {
 	rs.writeProblem(w, r, http.StatusTooManyRequests, KindRateLimited, "rate limit exceeded", nil)

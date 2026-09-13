@@ -91,28 +91,13 @@ var callerClasses = []callerClass{anonymous, authenticated, foreignOwner, resour
 const allowed = 0
 
 // tenantDenial is what a caller who does not own the complex named in the path
-// gets back from RequireComplexOwner.
-//
-// It is 403, and the convention says 404. internal/clients/clients.go:6-8: a
-// mismatch is reported "as 404 rather than 403 so the endpoint cannot be used to
-// probe which client ids exist under another complex." So a 403 here does
-// confirm the id exists.
-//
-// That divergence is already known and recorded: see the comment on
+// gets back from RequireComplexOwner: 404, matching internal/clients/clients.go's
+// convention of reporting a cross-tenant mismatch "as 404 rather than 403 so
+// the endpoint cannot be used to probe which ids exist under another complex."
+// See internal/middleware/chain.go's doc comment on RequireComplexOwner and
 // TestRequireComplexOwnerRefusesAnotherOwnersComplex in
-// internal/middleware/middleware_test.go, which pins the 403 and argues that
-// complex ids are UUIDs, so the oracle is not enumerable and the two layers are
-// left disagreeing on purpose. This matrix asserts the behaviour that decision
-// produced rather than re-litigating it, and names it once instead of spelling
-// 403 into forty rows — flipping this constant to http.StatusNotFound is the
-// whole of the test-side change if the guard is ever brought in line.
-//
-// What is not covered by that decision, and is worth fixing: RequireComplexOwner
-// still carries a doc comment saying it does the opposite of what it does — "A
-// complex the caller does not own reads as missing rather than forbidden: a 403
-// would confirm the id exists" — directly above the line that calls
-// respond.NotPermitted. See internal/middleware/chain.go.
-const tenantDenial = http.StatusForbidden
+// internal/middleware/middleware_test.go, which pin the same 404.
+const tenantDenial = http.StatusNotFound
 
 // ---------------------------------------------------------------------------
 // The matrix
@@ -149,11 +134,10 @@ func (p policy) String() string {
 //
 //	                anonymous  authed  foreign-owner  this-owner  superadmin
 //	authOnly        401        allow   allow          allow       allow
-//	complexOwner    401        403*    403*           allow       403*
+//	complexOwner    401        404*    404*           allow       404*
 //	superAdmin      401        403     403            403         allow
 //
-// (*) tenantDenial — 403 today where the convention asks for 404. See its
-// comment.
+// (*) tenantDenial. See its comment.
 //
 // The superadmin cell on complexOwner is deliberate: RequireComplexOwner
 // compares owner ids and knows nothing about roles, so the platform role does

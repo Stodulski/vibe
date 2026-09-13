@@ -3180,17 +3180,6 @@ components:
           type: array
           description: Present on a validation problem; one entry per invalid field.
           items: {$ref: "#/components/schemas/FieldError"}
-        error:
-          description: >-
-            Legacy pre-RFC-9457 error shape, kept for one release so an
-            already-deployed client keeps rendering: the detail string for
-            most problems, or a field-to-message object for a validation
-            problem. Remove once the frontend's ApiError is deployed
-            everywhere.
-          oneOf:
-            - type: string
-            - type: object
-              additionalProperties: {type: string}
 
     FieldError:
       type: object
