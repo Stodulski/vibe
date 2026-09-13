@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { MutateOptions, UseMutationOptions, UseMutationResult } from '@tanstack/react-query';
 
 /** A fresh `Idempotency-Key`. A UUID is 36 chars, well inside the backend's 64-char limit. */
-export function newIdempotencyKey(): string {
+function newIdempotencyKey(): string {
   return crypto.randomUUID();
 }
 

@@ -1,6 +1,6 @@
 import { cn } from '@/shared/lib/utils';
 
-export type LogoSize = 'md' | 'lg';
+type LogoSize = 'md' | 'lg';
 
 const LOGO_SIZES: Record<LogoSize, { className: string; width: number; height: number }> = {
   md: { className: 'h-8', width: 46, height: 32 },

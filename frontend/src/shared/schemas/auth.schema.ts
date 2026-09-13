@@ -66,7 +66,7 @@ export const userEnvelopeSchema = z
   })
   .loose() satisfies z.ZodType<{ user: User }>;
 
-export const googleProfilePreviewSchema = z
+const googleProfilePreviewSchema = z
   .object({
     email: z.string(),
     first_name: z.string(),
@@ -74,7 +74,7 @@ export const googleProfilePreviewSchema = z
   })
   .loose() satisfies z.ZodType<GoogleProfilePreview>;
 
-export const googleNeedsProfileResponseSchema = z
+const googleNeedsProfileResponseSchema = z
   .object({
     needs_profile: z.literal(true),
     profile_token: z.string(),

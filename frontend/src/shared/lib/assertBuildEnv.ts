@@ -8,7 +8,7 @@
  * so the deploy fails instead (BLD-04). Dev, and the `--mode e2e` build the
  * e2e suite serves, are not gated; `env.ts` falls back to the page origin.
  */
-export const REQUIRED_BUILD_ENV = ['VITE_APP_URL'] as const;
+const REQUIRED_BUILD_ENV = ['VITE_APP_URL'] as const;
 
 export function assertBuildEnv(source: Record<string, string | undefined>): void {
   const missing = REQUIRED_BUILD_ENV.filter((name) => !source[name]?.trim());

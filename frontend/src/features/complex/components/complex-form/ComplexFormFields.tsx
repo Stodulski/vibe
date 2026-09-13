@@ -86,7 +86,7 @@ export function LocationGroup({ form }: { form: Form }) {
  * 24h), and asking a brand new owner to price a cancellation policy before
  * they have a single court is asking a question they cannot answer yet.
  */
-export function BillingGroup({ form }: { form: Form }) {
+function BillingGroup({ form }: { form: Form }) {
   return (
     <FieldGroup>
       {/* Side by side: two short related fields, each with exactly one line of
@@ -100,7 +100,7 @@ export function BillingGroup({ form }: { form: Form }) {
 }
 
 /** The twelve services, also absent from onboarding — all of them optional. */
-export function AmenitiesGroup({ form }: { form: Form }) {
+function AmenitiesGroup({ form }: { form: Form }) {
   return (
     <FieldGroup>
       <AmenitiesFieldset control={form.control} />

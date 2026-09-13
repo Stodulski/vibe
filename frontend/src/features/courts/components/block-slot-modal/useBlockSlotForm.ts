@@ -22,7 +22,7 @@ export interface BlockSlotPrefill {
 }
 
 /** The form's `defaultValues`, from whatever the caller prefilled. */
-export function blockSlotDefaultValues(prefill: BlockSlotPrefill | undefined): BlockSlotFormValues {
+function blockSlotDefaultValues(prefill: BlockSlotPrefill | undefined): BlockSlotFormValues {
   return {
     court_id: prefill?.court_id ?? '',
     date: prefill?.date ?? '',

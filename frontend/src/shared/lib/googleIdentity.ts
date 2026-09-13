@@ -4,7 +4,7 @@
  * official types package is added for ~15 lines of API surface; see
  * https://developers.google.com/identity/gsi/web/reference/js-reference.
  */
-export interface GoogleCredentialResponse {
+interface GoogleCredentialResponse {
   credential: string;
 }
 

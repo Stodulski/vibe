@@ -10,8 +10,6 @@ import { buildBookingRequest } from './buildBookingRequest';
 import { buildBookingInfo } from './buildBookingInfo';
 import { safeSessionStorage } from '@/shared/lib/safeStorage';
 
-export { BOOKING_INFO_KEY };
-
 export function useConfirmBookingSubmit(slug: string | undefined, slotInfo: BookingSlotInfo) {
   const navigate = useNavigate();
   const [redirecting, setRedirecting] = useState(false);

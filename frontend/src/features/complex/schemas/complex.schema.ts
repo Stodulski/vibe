@@ -11,7 +11,7 @@ const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * the complexes_amenities_known CHECK constraint. A value outside it is refused by the
  * database, so the form must not be able to produce one.
  */
-export const AMENITY_VALUES = [
+const AMENITY_VALUES = [
   'parking',
   'changing_rooms',
   'showers',

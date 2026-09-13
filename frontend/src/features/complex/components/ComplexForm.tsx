@@ -31,7 +31,7 @@ interface ComplexFormProps {
 }
 
 /** What the `fields` render prop receives: the live form and its slug state. */
-export interface FieldsProps {
+interface FieldsProps {
   form: ReturnType<typeof useComplexForm>['form'];
   isEdit: boolean;
   slugValue: string | undefined;

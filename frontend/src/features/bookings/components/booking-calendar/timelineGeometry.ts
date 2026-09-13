@@ -56,19 +56,3 @@ export function snapDownToSlot(min: number, rangeStartMin: number, rangeEndMin: 
   const clamped = Math.min(Math.max(min, rangeStartMin), rangeEndMin);
   return Math.floor(clamped / 30) * 30;
 }
-
-/** Formats minutes-since-midnight as an "HH:MM" string, for hour-axis labels and slot keys. */
-export function minutesToHHMM(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-/**
- * Same `endMin <= startMin` guard as `barPosition`, exposed separately so
- * callers that need the actual duration (e.g. to decide how much content a
- * block can fit) don't have to re-derive it from a percentage.
- */
-export function clampedDurationMin(startMin: number, endMin: number): number {
-  return endMin <= startMin ? MIN_END_OFFSET : endMin - startMin;
-}

@@ -76,10 +76,5 @@ export const confirmPaymentSchema = z.object({
   amount: z.number().positive(t.validation.amountPositive),
 });
 
-export const cancelBookingSchema = z.object({
-  reason: z.string().max(500, t.validation.maxChars500).optional().or(z.literal('')),
-});
-
 export type CreateBookingDto = z.infer<typeof createBookingSchema>;
 export type ConfirmPaymentDto = z.infer<typeof confirmPaymentSchema>;
-export type CancelBookingDto = z.infer<typeof cancelBookingSchema>;

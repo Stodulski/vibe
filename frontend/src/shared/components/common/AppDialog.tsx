@@ -2,14 +2,9 @@ import * as React from 'react';
 import {
   Dialog as UiDialog,
   DialogContent as UiDialogContent,
-  DialogClose,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogOverlay,
-  DialogPortal,
   DialogTitle,
-  DialogTrigger,
 } from '@/shared/components/ui/dialog';
 import { useFocusRestoreOnClose } from '@/shared/hooks/useFocusRestoreOnClose';
 
@@ -48,15 +43,4 @@ function DialogContent({ onCloseAutoFocus, ...props }: React.ComponentProps<type
   );
 }
 
-export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogTrigger,
-};
+export { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle };

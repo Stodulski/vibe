@@ -1,16 +1,3 @@
-import {
-  Circle,
-  CircleCheck,
-  CircleDot,
-  CircleEllipsis,
-  CircleMinus,
-  CircleX,
-  Clock,
-  RotateCcw,
-  UserCheck,
-  UserX,
-  type LucideIcon,
-} from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { BookingStatus, PaymentDisplayStatus } from '@/shared/types/api.types';
@@ -59,67 +46,6 @@ const PAYMENT_STYLES: Record<PaymentDisplayStatus, string> = {
   refund_pending: 'text-warning-text',
   partial_refund: 'text-warning-text',
 };
-
-// Icon-only variants for dense lists, where the state is a glance rather than a
-// read. The colour system above still applies, but colour alone can't carry it:
-// `pending` and `no_show` are both amber, so each state gets its own glyph, and
-// every icon exposes its full label to the accessibility tree and as a tooltip.
-const STATUS_ICONS: Record<BookingStatus, LucideIcon> = {
-  pending: Clock,
-  confirmed: CircleCheck,
-  cancelled: CircleX,
-  completed: UserCheck,
-  no_show: UserX,
-};
-
-const PAYMENT_ICONS: Record<PaymentDisplayStatus, LucideIcon> = {
-  unpaid: Circle,
-  deposit_paid: CircleDot,
-  fully_paid: CircleCheck,
-  refunded: RotateCcw,
-  refund_pending: CircleEllipsis,
-  partial_refund: CircleMinus,
-};
-
-function StatusIcon({ Icon, label, className }: { Icon: LucideIcon; label: string; className?: string }) {
-  return (
-    <span role="img" aria-label={label} title={label} className={cn('shrink-0', className)}>
-      <Icon className="size-4" aria-hidden="true" />
-    </span>
-  );
-}
-
-export function BookingStatusIcon({ status }: { status: BookingStatus }) {
-  return (
-    <StatusIcon Icon={STATUS_ICONS[status]} label={ES_AR.bookings.statuses[status]} className={STATUS_STYLES[status]} />
-  );
-}
-
-export function PaymentStatusIcon({ status }: { status: PaymentDisplayStatus }) {
-  return (
-    <StatusIcon
-      Icon={PAYMENT_ICONS[status]}
-      label={ES_AR.bookings.paymentStatuses[status]}
-      className={PAYMENT_STYLES[status]}
-    />
-  );
-}
-
-export function BookingStatusBadge({ status }: { status: BookingStatus }) {
-  return (
-    <span className={cn('shrink-0 text-sm font-semibold whitespace-nowrap', STATUS_STYLES[status])}>
-      {ES_AR.bookings.statuses[status]}
-    </span>
-  );
-}
-
-export function PaymentStatusBadge({ status }: { status: PaymentDisplayStatus }) {
-  return (
-    <span className={cn('shrink-0 text-sm font-semibold whitespace-nowrap', PAYMENT_STYLES[status])}>
-      {ES_AR.bookings.paymentStatuses[status]}
-    </span>
-  );
-}
 
 // Same colours at the weight a labelled detail row wants, where the value sits
 // under its own label rather than beside other statuses.

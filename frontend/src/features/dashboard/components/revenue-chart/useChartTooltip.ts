@@ -12,7 +12,7 @@ export interface ChartTooltipState {
   bottomY: number;
 }
 
-export interface ChartTooltipStyle {
+interface ChartTooltipStyle {
   left: number;
   top: number;
 }

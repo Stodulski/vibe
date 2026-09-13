@@ -1,5 +1,4 @@
 import { Download, Loader2 } from 'lucide-react';
-import { MONTH_NAMES } from './constants';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
 import { Label } from '@/shared/components/ui/label';
@@ -171,5 +170,3 @@ export function MonthYearExportBar({
     </div>
   );
 }
-
-export { MONTH_NAMES };

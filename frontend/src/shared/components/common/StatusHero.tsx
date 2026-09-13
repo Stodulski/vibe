@@ -2,8 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
 
-export type StatusHeroTone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
-export type StatusHeroSize = 'default' | 'large';
+type StatusHeroTone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+type StatusHeroSize = 'default' | 'large';
 
 const STATUS_HERO_TONES: Record<StatusHeroTone, string> = {
   success: 'bg-success-bg ring-success-border/20 text-success-icon',

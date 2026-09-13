@@ -10,7 +10,7 @@ import { AddressInput } from './AddressInput';
 // ambiently typed here even though they work fine at runtime. `vi` was
 // already imported explicitly; `beforeEach` needs the same treatment.
 
-export const PREDICTIONS = [
+const PREDICTIONS = [
   {
     place_id: 'place_1',
     description: 'Av. Libertador 1234, Palermo, CABA, Argentina',
@@ -29,7 +29,7 @@ export const PREDICTIONS = [
   },
 ];
 
-export const PLACE_DETAILS = {
+const PLACE_DETAILS = {
   address: 'Avenida del Libertador 1234',
   city: 'Buenos Aires',
   province: 'Ciudad Autónoma de Buenos Aires',

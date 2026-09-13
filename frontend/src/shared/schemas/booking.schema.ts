@@ -27,7 +27,7 @@ import { exact } from '@/shared/lib/apiParse';
 // `paymentDisplayStatus` is a pure function, not a wire shape — nothing to
 // validate.
 
-export const bookingStatusSchema = z.enum([
+const bookingStatusSchema = z.enum([
   'pending',
   'confirmed',
   'cancelled',
@@ -35,13 +35,13 @@ export const bookingStatusSchema = z.enum([
   'no_show',
 ]) satisfies z.ZodType<BookingStatus>;
 
-export const collectionStatusSchema = z.enum([
+const collectionStatusSchema = z.enum([
   'unpaid',
   'deposit_paid',
   'fully_paid',
 ]) satisfies z.ZodType<CollectionStatus>;
 
-export const bookingRefundStatusSchema = z.enum([
+const bookingRefundStatusSchema = z.enum([
   'none',
   'pending',
   'partial',

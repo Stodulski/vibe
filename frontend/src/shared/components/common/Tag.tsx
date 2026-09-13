@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { cn } from '@/shared/lib/utils';
 
-export type TagTone = 'primary' | 'success' | 'error' | 'info' | 'neutral';
+type TagTone = 'primary' | 'success' | 'error' | 'info' | 'neutral';
 
 const TAG_TONES: Record<TagTone, string> = {
   primary: 'bg-primary-500/10 text-primary-400',
