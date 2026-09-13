@@ -141,7 +141,23 @@ export const publicBooking = {
   lastCourtLeft: 'Última cancha',
   noAvailableSlots: 'Sin disponibilidad',
   checkingAvailability: 'Buscando horarios...',
+  // The three 409s POST /book can answer with, told apart by the problem+json
+  // `kind` rather than by the status (`internal/httpx/problem.go`). They ask
+  // for three different things from the person reading them, so folding them
+  // into one sentence sent somebody whose booking already existed back to the
+  // slot picker to make a second one.
+  //
+  // `slot-unavailable`: somebody else holds those hours now. The only move is
+  // another slot, and the flow takes them back to the picker.
   slotConflict: 'El horario ya no está disponible',
+  // `duplicate-booking`: the same client already has a booking over this
+  // exact slot. Re-picking would only hit the same refusal, so this says the
+  // reservation exists and where to find it instead.
+  duplicateBooking:
+    'Ya tenés una reserva para este turno. Revisá tu email o WhatsApp; si no la encontrás, escribile al complejo.',
+  // Any other 409 — `stale-version`, or a generic `conflict`. Nothing here
+  // says which slot or which booking, so it can only ask for a retry.
+  bookingConflict: 'La reserva no se pudo completar por un conflicto. Actualizá la página y volvé a intentar.',
   accountBlocked: 'Tu cuenta está bloqueada. Contactá al complejo.',
   bookingCreateError: 'No se pudo crear la reserva',
   // A 503 from POST /book (internal/bookings/public.go): the booking itself
