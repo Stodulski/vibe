@@ -484,8 +484,21 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
 	adminHandler := admin.NewHandler(adminService, respond, d.trustedProxies.Any())
 
+	// The export dependencies are assigned only when they exist, because a
+	// typed nil in an interface is not a nil interface: handing over a nil
+	// *jobs.Store would make ExportsConfigured say yes and the first call
+	// panic. A deployment with no jobs table, and the unit suite, leave both
+	// nil and the export endpoints answer 501.
+	var exportDeps reporting.ExportDeps
+	if d.models.Jobs != nil {
+		exportDeps.Store = d.models.Jobs
+	}
+	if d.privateStorage != nil {
+		exportDeps.Storage = d.privateStorage
+	}
+
 	reportingService := reporting.NewService(bookingsFacade, clientsService, courtsService,
-		complexesService, d.models.Reports, exportBudgetFor(cfg.HTTP.WriteTimeout))
+		complexesService, d.models.Reports, exportDeps, exportBudgetFor(cfg.HTTP.WriteTimeout))
 	reportingHandler := reporting.NewHandler(reportingService, respond)
 
 	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL)

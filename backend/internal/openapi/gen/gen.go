@@ -370,6 +370,30 @@ func (e PaymentStatus) Valid() bool {
 	}
 }
 
+// Defines values for PaymentsExportStatus.
+const (
+	PaymentsExportStatusDone    PaymentsExportStatus = "done"
+	PaymentsExportStatusFailed  PaymentsExportStatus = "failed"
+	PaymentsExportStatusPending PaymentsExportStatus = "pending"
+	PaymentsExportStatusRunning PaymentsExportStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the PaymentsExportStatus enum.
+func (e PaymentsExportStatus) Valid() bool {
+	switch e {
+	case PaymentsExportStatusDone:
+		return true
+	case PaymentsExportStatusFailed:
+		return true
+	case PaymentsExportStatusPending:
+		return true
+	case PaymentsExportStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublicBookingStatusCourtType.
 const (
 	PublicBookingStatusCourtTypeIndoor      PublicBookingStatusCourtType = "indoor"
@@ -820,6 +844,30 @@ func (e CourtsUpdateJSONBodySport) Valid() bool {
 	case CourtsUpdateJSONBodySportSoccer:
 		return true
 	case CourtsUpdateJSONBodySportTennis:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportingCreatePaymentsExport202JSONResponseBodyExportStatus.
+const (
+	ReportingCreatePaymentsExport202JSONResponseBodyExportStatusDone    ReportingCreatePaymentsExport202JSONResponseBodyExportStatus = "done"
+	ReportingCreatePaymentsExport202JSONResponseBodyExportStatusFailed  ReportingCreatePaymentsExport202JSONResponseBodyExportStatus = "failed"
+	ReportingCreatePaymentsExport202JSONResponseBodyExportStatusPending ReportingCreatePaymentsExport202JSONResponseBodyExportStatus = "pending"
+	ReportingCreatePaymentsExport202JSONResponseBodyExportStatusRunning ReportingCreatePaymentsExport202JSONResponseBodyExportStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the ReportingCreatePaymentsExport202JSONResponseBodyExportStatus enum.
+func (e ReportingCreatePaymentsExport202JSONResponseBodyExportStatus) Valid() bool {
+	switch e {
+	case ReportingCreatePaymentsExport202JSONResponseBodyExportStatusDone:
+		return true
+	case ReportingCreatePaymentsExport202JSONResponseBodyExportStatusFailed:
+		return true
+	case ReportingCreatePaymentsExport202JSONResponseBodyExportStatusPending:
+		return true
+	case ReportingCreatePaymentsExport202JSONResponseBodyExportStatusRunning:
 		return true
 	default:
 		return false
@@ -1383,6 +1431,20 @@ type PaymentSummary struct {
 	ByStatus map[string]PaymentStatusBreakdown `json:"by_status"`
 }
 
+// PaymentsExport One payments export job. `download_url`/`expires_at` appear only on `done`; `error` only on `failed`.
+type PaymentsExport struct {
+	DownloadUrl *string `json:"download_url,omitempty"`
+
+	// Error An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
+	Error     *Problem             `json:"error,omitempty"`
+	ExpiresAt *time.Time           `json:"expires_at,omitempty"`
+	Id        openapi_types.UUID   `json:"id"`
+	Status    PaymentsExportStatus `json:"status"`
+}
+
+// PaymentsExportStatus defines model for PaymentsExport.Status.
+type PaymentsExportStatus string
+
 // PlaceDetails defines model for PlaceDetails.
 type PlaceDetails struct {
 	Address          string `json:"address"`
@@ -1677,6 +1739,9 @@ type CourtID = openapi_types.UUID
 
 // Cursor defines model for Cursor.
 type Cursor = string
+
+// ExportID defines model for ExportID.
+type ExportID = openapi_types.UUID
 
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
@@ -2154,6 +2219,15 @@ type ReportingExportPaymentsExcelParams struct {
 	Year  *int `form:"year,omitempty" json:"year,omitempty"`
 }
 
+// ReportingCreatePaymentsExportJSONBody defines parameters for ReportingCreatePaymentsExport.
+type ReportingCreatePaymentsExportJSONBody struct {
+	Month *int `json:"month,omitempty"`
+	Year  *int `json:"year,omitempty"`
+}
+
+// ReportingCreatePaymentsExport202JSONResponseBodyExportStatus defines parameters for ReportingCreatePaymentsExport.
+type ReportingCreatePaymentsExport202JSONResponseBodyExportStatus string
+
 // ReportingGetMonthlyReportParams defines parameters for ReportingGetMonthlyReport.
 type ReportingGetMonthlyReportParams struct {
 	Month *int `form:"month,omitempty" json:"month,omitempty"`
@@ -2352,6 +2426,9 @@ type CourtsUpdatePricesJSONRequestBody CourtsUpdatePricesJSONBody
 
 // ComplexesConnectMercadoPagoJSONRequestBody defines body for ComplexesConnectMercadoPago for application/json ContentType.
 type ComplexesConnectMercadoPagoJSONRequestBody ComplexesConnectMercadoPagoJSONBody
+
+// ReportingCreatePaymentsExportJSONRequestBody defines body for ReportingCreatePaymentsExport for application/json ContentType.
+type ReportingCreatePaymentsExportJSONRequestBody ReportingCreatePaymentsExportJSONBody
 
 // ComplexesUpdateSchedulesJSONRequestBody defines body for ComplexesUpdateSchedules for application/json ContentType.
 type ComplexesUpdateSchedulesJSONRequestBody ComplexesUpdateSchedulesJSONBody
@@ -2599,7 +2676,15 @@ type ServerInterface interface {
 	ComplexesMercadoPagoStatus(w http.ResponseWriter, r *http.Request, id PathID)
 	// ReportingExportPaymentsExcel Download the monthly payments report as an Excel workbook
 	// (GET /api/v1/complexes/{id}/reports/export)
+	//
+	// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	ReportingExportPaymentsExcel(w http.ResponseWriter, r *http.Request, id PathID, params ReportingExportPaymentsExcelParams)
+	// ReportingCreatePaymentsExport Start a payments export job
+	// (POST /api/v1/complexes/{id}/reports/exports)
+	ReportingCreatePaymentsExport(w http.ResponseWriter, r *http.Request, id PathID)
+	// ReportingGetPaymentsExport Payments export status and download URL
+	// (GET /api/v1/complexes/{id}/reports/exports/{exportID})
+	ReportingGetPaymentsExport(w http.ResponseWriter, r *http.Request, id PathID, exportID ExportID)
 	// ReportingGetMonthlyReport Monthly payments report
 	// (GET /api/v1/complexes/{id}/reports/monthly)
 	ReportingGetMonthlyReport(w http.ResponseWriter, r *http.Request, id PathID, params ReportingGetMonthlyReportParams)
@@ -4501,6 +4586,67 @@ func (siw *ServerInterfaceWrapper) ReportingExportPaymentsExcel(w http.ResponseW
 	handler.ServeHTTP(w, r)
 }
 
+// ReportingCreatePaymentsExport operation middleware
+func (siw *ServerInterfaceWrapper) ReportingCreatePaymentsExport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportingCreatePaymentsExport(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReportingGetPaymentsExport operation middleware
+func (siw *ServerInterfaceWrapper) ReportingGetPaymentsExport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "exportID" -------------
+	var exportID ExportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "exportID", r.PathValue("exportID"), &exportID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exportID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportingGetPaymentsExport(w, r, id, exportID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ReportingGetMonthlyReport operation middleware
 func (siw *ServerInterfaceWrapper) ReportingGetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 
@@ -5450,6 +5596,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/stats/clients", wrapper.ReportingGetClientInsights)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/reports/monthly", wrapper.ReportingGetMonthlyReport)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/reports/export", wrapper.ReportingExportPaymentsExcel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/reports/exports", wrapper.ReportingCreatePaymentsExport)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/reports/exports/{exportID}", wrapper.ReportingGetPaymentsExport)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/openapi.json", wrapper.OpenapiGetJSON)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/openapi.yaml", wrapper.OpenapiGetYAML)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/docs", wrapper.OpenapiGetDocs)

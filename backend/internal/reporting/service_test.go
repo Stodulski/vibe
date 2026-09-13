@@ -60,6 +60,7 @@ func TestServiceOccupancyChart(t *testing.T) {
 				occupancyCourts{active: tt.courts},
 				stubSchedules{},
 				&stubReports{},
+				ExportDeps{},
 				50*time.Second,
 			)
 
@@ -90,6 +91,7 @@ func TestServiceDashboardStatsUsesTheProductsCalendar(t *testing.T) {
 		occupancyCourts{active: 1},
 		stubSchedules{},
 		&stubReports{},
+		ExportDeps{},
 		50*time.Second,
 	)
 

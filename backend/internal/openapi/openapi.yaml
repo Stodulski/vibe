@@ -2917,6 +2917,7 @@ paths:
       tags: [reporting]
       operationId: reportingExportPaymentsExcel
       summary: Download the monthly payments report as an Excel workbook
+      deprecated: true
       description: >-
         Same period parameters and validation as the monthly report. Bounded by an 8 second
         budget and a 50,000 row cap.
@@ -2954,6 +2955,100 @@ paths:
         "500": {$ref: "#/components/responses/ServerError"}
         "503":
           description: The export did not finish inside its budget (`report_export_timed_out`).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
+  /api/v1/complexes/{id}/reports/exports:
+    post:
+      tags: [reporting]
+      operationId: reportingCreatePaymentsExport
+      summary: Start a payments export job
+      description: >-
+        Enqueues the Excel export and answers immediately. Deduplicated per complex, period
+        and calendar day (Argentina), so a double click yields the same export id. Poll the
+        status resource in `status_url` until `status` is `done` or `failed`.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                month: {type: integer, minimum: 1, maximum: 12}
+                year: {type: integer}
+      responses:
+        "202":
+          description: The export was accepted, or an identical one was already queued.
+          headers:
+            Location:
+              schema: {type: string, example: "/api/v1/complexes/0f.../reports/exports/8a..."}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [export]
+                properties:
+                  export:
+                    type: object
+                    required: [id, status, status_url]
+                    properties:
+                      id: {type: string, format: uuid}
+                      status: {type: string, enum: [pending, running, done, failed]}
+                      status_url: {type: string}
+        "400":
+          description: Period validation failed, same machine-code shape as the monthly report.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: No object storage backend is configured for exports.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
+  /api/v1/complexes/{id}/reports/exports/{exportID}:
+    get:
+      tags: [reporting]
+      operationId: reportingGetPaymentsExport
+      summary: Payments export status and download URL
+      description: >-
+        `download_url` and `expires_at` are present only when `status` is `done`; the URL is a
+        short-lived signed link to private object storage. A failed export answers `200` with
+        `status: failed` and an embedded `error` problem whose `instance` is this path.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ExportID"}
+      responses:
+        "200":
+          description: The export's current state.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [export]
+                properties:
+                  export: {$ref: "#/components/schemas/PaymentsExport"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "410":
+          description: The file has passed its 24 hour retention (`export_expired`).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: No object storage backend is configured for exports.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -3071,6 +3166,11 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    ExportID:
+      name: exportID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
     BookingToken:
       name: token
       in: query
@@ -3180,6 +3280,19 @@ components:
           type: array
           description: Present on a validation problem; one entry per invalid field.
           items: {$ref: "#/components/schemas/FieldError"}
+
+    PaymentsExport:
+      type: object
+      description: >-
+        One payments export job. `download_url`/`expires_at` appear only on `done`; `error`
+        only on `failed`.
+      required: [id, status]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, enum: [pending, running, done, failed]}
+        download_url: {type: string, format: uri}
+        expires_at: {type: string, format: date-time}
+        error: {$ref: "#/components/schemas/Problem"}
 
     FieldError:
       type: object

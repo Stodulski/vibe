@@ -373,6 +373,18 @@ func (s *apiServer) ReportingExportPaymentsExcel(w http.ResponseWriter, r *http.
 	s.app.reporting.ExportPaymentsExcel(w, r)
 }
 
+// ReportingCreatePaymentsExport implements gen.ServerInterface for reportingCreatePaymentsExport
+// (POST /api/v1/complexes/{id}/reports/exports). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ReportingCreatePaymentsExport(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.reporting.CreatePaymentsExport(w, r)
+}
+
+// ReportingGetPaymentsExport implements gen.ServerInterface for reportingGetPaymentsExport
+// (GET /api/v1/complexes/{id}/reports/exports/{exportID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ReportingGetPaymentsExport(w http.ResponseWriter, r *http.Request, id gen.PathID, exportID gen.ExportID) {
+	s.app.reporting.GetPaymentsExport(w, r)
+}
+
 // ReportingGetMonthlyReport implements gen.ServerInterface for reportingGetMonthlyReport
 // (GET /api/v1/complexes/{id}/reports/monthly). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ReportingGetMonthlyReport(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.ReportingGetMonthlyReportParams) {
