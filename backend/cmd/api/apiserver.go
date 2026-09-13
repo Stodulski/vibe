@@ -370,7 +370,11 @@ func (s *apiServer) ComplexesMercadoPagoStatus(w http.ResponseWriter, r *http.Re
 // ReportingExportPaymentsExcel implements gen.ServerInterface for reportingExportPaymentsExcel
 // (GET /api/v1/complexes/{id}/reports/export). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ReportingExportPaymentsExcel(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.ReportingExportPaymentsExcelParams) {
-	s.app.reporting.ExportPaymentsExcel(w, r)
+	// The handler is deprecated in favour of the export job, and the route
+	// still has to be registered until the frontend has switched — the whole
+	// point of deprecating rather than deleting it. The marker is what tells
+	// every OTHER caller to stop; this one is the route itself.
+	s.app.reporting.ExportPaymentsExcel(w, r) //nolint:staticcheck // SA1019: see above
 }
 
 // ReportingCreatePaymentsExport implements gen.ServerInterface for reportingCreatePaymentsExport
