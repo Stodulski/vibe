@@ -1,6 +1,7 @@
 package courts
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 func TestListReturnsTheComplexCourts(t *testing.T) {
@@ -281,7 +283,8 @@ func TestUpdatePricesRejectsInvalidBands(t *testing.T) {
 
 // A stale version turns a zero-row ReplacePrices into courts.ErrEditConflict,
 // which wraps data.ErrEditConflict; before this it fell through to
-// ServerError and answered 500 instead of 409.
+// ServerError and answered 500 instead of 409. It answers with its own
+// stale-version kind rather than the generic conflict kind.
 func TestUpdatePricesReportsAnEditConflictOnAStaleVersion(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{
@@ -301,6 +304,14 @@ func TestUpdatePricesReportsAnEditConflictOnAStaleVersion(t *testing.T) {
 	}
 	if len(store.insertedPrices) != 0 {
 		t.Error("a refused update must not clear or write prices")
+	}
+
+	var body httpx.Problem
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("error body is not valid JSON: %v", err)
+	}
+	if want := httpx.KindStaleVersion.URI(); body.Type != want {
+		t.Errorf("want type %q; got %q", want, body.Type)
 	}
 }
 

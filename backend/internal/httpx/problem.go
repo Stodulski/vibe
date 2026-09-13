@@ -41,6 +41,10 @@ const (
 	// on without parsing Detail.
 	KindDuplicateBooking Kind = "duplicate-booking"
 	KindSlotUnavailable  Kind = "slot-unavailable"
+	// KindStaleVersion is a 409 distinct from the generic KindConflict: an
+	// optimistic-concurrency write that named an If-Match/version the row no
+	// longer carries, so the frontend can switch on it without parsing Detail.
+	KindStaleVersion     Kind = "stale-version"
 	KindGone             Kind = "gone"
 	KindTooLarge         Kind = "too-large"
 	KindRateLimited      Kind = "rate-limited"
@@ -104,6 +108,7 @@ var titles = map[Kind]string{
 	KindConflict:         "Conflict",
 	KindDuplicateBooking: "Duplicate Booking",
 	KindSlotUnavailable:  "Slot Unavailable",
+	KindStaleVersion:     "Stale Version",
 	KindGone:             "Gone",
 	KindTooLarge:         "Payload Too Large",
 	KindRateLimited:      "Too Many Requests",

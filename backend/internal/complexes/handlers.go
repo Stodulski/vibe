@@ -312,10 +312,12 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 			h.respond.FailedValidation(w, r, map[string]string{"slug": httpx.CodeSlugTaken})
 		case errors.Is(err, data.ErrRecordNotFound):
 			h.respond.EditConflict(w, r)
+		case errors.Is(err, data.ErrEditConflict):
+			// A stale If-Match/version: the row is still there, just not at
+			// the version this write named. Its own kind, distinct from the
+			// generic conflict above.
+			h.respond.StaleVersion(w, r)
 		default:
-			// Covers data.ErrEditConflict on a stale If-Match/version (409),
-			// falling through to ServerError only for anything DomainError
-			// does not know.
 			h.respond.DomainError(w, r, err)
 		}
 		return
