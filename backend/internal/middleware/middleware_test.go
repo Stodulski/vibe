@@ -376,13 +376,8 @@ func TestRequireRoleRejectsTheWrongRole(t *testing.T) {
 	}
 }
 
-// The ownership check answers 403 for a complex the caller does not own.
-//
-// Note the tension with the domain handlers, which answer 404 for a resource
-// under another complex precisely so the response does not confirm the id
-// exists. Here a 403 does confirm it. Complex ids are UUIDs, so enumeration is
-// impractical and this is recorded rather than changed — but the two layers
-// disagree, and that is worth knowing.
+// The ownership check answers 404 for a complex the caller does not own,
+// matching the domain handlers: a 403 would confirm the id exists.
 func TestRequireComplexOwnerRefusesAnotherOwnersComplex(t *testing.T) {
 	f := newFixture(t, Config{})
 	complexID := uuid.New()
@@ -396,8 +391,8 @@ func TestRequireComplexOwnerRefusesAnotherOwnersComplex(t *testing.T) {
 	w := httptest.NewRecorder()
 	f.mw.RequireComplexOwner(ok(&reached))(w, r)
 
-	if w.Code != http.StatusForbidden {
-		t.Errorf("want 403; got %d (%s)", w.Code, w.Body.String())
+	if w.Code != http.StatusNotFound {
+		t.Errorf("want 404; got %d (%s)", w.Code, w.Body.String())
 	}
 	if reached {
 		t.Error("the handler must not be reached")
@@ -444,8 +439,8 @@ func TestRequireComplexOwnerDoesNotExemptASuperadmin(t *testing.T) {
 	if reached {
 		t.Error("the superadmin role must not stand in for ownership")
 	}
-	if w.Code != http.StatusForbidden {
-		t.Errorf("want 403; got %d", w.Code)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("want 404; got %d", w.Code)
 	}
 }
 
