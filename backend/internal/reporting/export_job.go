@@ -99,7 +99,7 @@ type ExportStore interface {
 	Enqueue(ctx context.Context, jobType string, payload any, runAt time.Time, maxAttempts int, dedupKey string) (uuid.UUID, bool, error)
 	GetByDedupKey(ctx context.Context, key string) (*jobs.Job, error)
 	ReleaseDedupKey(ctx context.Context, id uuid.UUID) (bool, error)
-	GetExport(ctx context.Context, id uuid.UUID, complexID string) (*jobs.Job, error)
+	GetExport(ctx context.Context, id uuid.UUID, complexID, jobType string) (*jobs.Job, error)
 }
 
 // ExportStorage is the private bucket: the worker writes the workbook, the
@@ -245,7 +245,7 @@ func (s *Service) PaymentsExport(ctx context.Context, complexID, exportID uuid.U
 		return PaymentsExportView{}, ErrExportsNotConfigured
 	}
 
-	job, err := s.exports.Store.GetExport(ctx, exportID, complexID.String())
+	job, err := s.exports.Store.GetExport(ctx, exportID, complexID.String(), TaskExportPayments)
 	if err != nil {
 		return PaymentsExportView{}, err
 	}

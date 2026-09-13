@@ -78,6 +78,15 @@ func exportBudgetFor(writeTimeout time.Duration) time.Duration {
 	return minExportBudget
 }
 
+// exportUploadAllowance is added on top of exportBudgetFor's answer to build
+// the export worker's own attempt timeout (see the jobs.Config.Timeouts entry
+// in newApplication). exportBudgetFor bounds the synchronous route, which
+// streams the workbook straight to the response; the worker does the same
+// build and then also uploads the result to R2 (storage.PutObject), a step
+// the synchronous route never pays for. Fifteen seconds is comfortably above
+// what an upload of a few-megabyte workbook takes.
+const exportUploadAllowance = 15 * time.Second
+
 // missingMPConfig reports what a MercadoPago-enabled deployment (a non-empty
 // access token) is missing to work end to end.
 func missingMPConfig(cfg config.Config) []string {
