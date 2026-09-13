@@ -361,10 +361,26 @@ func (s *Service) ExportPaymentsExcel(ctx context.Context, complex *complexstore
 	ctx, cancel := context.WithTimeout(ctx, s.exportBudget)
 	defer cancel()
 
+	return s.buildPaymentsExport(ctx, complex.ID, complex.Name, complex.Slug, month, year)
+}
+
+// buildPaymentsExport is the workbook itself, with no budget of its own.
+//
+// The budget lives at the caller because the two callers have different ones
+// and neither is this function's business: the synchronous handler bounds the
+// build by a slice of the HTTP write timeout, because a client is holding a
+// connection open for it, while the background worker runs under the job
+// pool's own per-attempt timeout, because nobody is. A timeout in here would
+// be a third one, silently the tightest.
+//
+// It takes the complex's id, name and slug rather than the record, because
+// the worker has a payload rather than a row — and those three fields are the
+// whole of what a workbook needs from one.
+func (s *Service) buildPaymentsExport(ctx context.Context, complexID uuid.UUID, complexName, complexSlug string, month, year int) (export *Export, rowCount int, err error) {
 	from := periodStart(month, year)
 	to := from.AddDate(0, 1, -1)
 
-	details, err := s.reports.PaymentDetails(ctx, complex.ID, from, to)
+	details, err := s.reports.PaymentDetails(ctx, complexID, from, to)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -373,18 +389,18 @@ func (s *Service) ExportPaymentsExcel(ctx context.Context, complex *complexstore
 		return nil, len(details), ErrExportTooLarge
 	}
 
-	sums, err := s.readExportSummaries(ctx, complex.ID, from, to)
+	sums, err := s.readExportSummaries(ctx, complexID, from, to)
 	if err != nil {
 		return nil, len(details), err
 	}
 
-	buf, err := buildExportWorkbook(ctx, reportTitle(complex.Name, month, year), details, sums.byMethod, sums.byCourt, sums.previous)
+	buf, err := buildExportWorkbook(ctx, reportTitle(complexName, month, year), details, sums.byMethod, sums.byCourt, sums.previous)
 	if err != nil {
 		return nil, len(details), err
 	}
 
 	return &Export{
-		Filename: fmt.Sprintf("pagos_%s_%d_%d.xlsx", complex.Slug, month, year),
+		Filename: fmt.Sprintf("pagos_%s_%d_%d.xlsx", complexSlug, month, year),
 		Body:     buf,
 	}, len(details), nil
 }

@@ -501,6 +501,14 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		complexesService, d.models.Reports, exportDeps, exportBudgetFor(cfg.HTTP.WriteTimeout))
 	reportingHandler := reporting.NewHandler(reportingService, respond)
 
+	// Registered here rather than beside notify.RegisterWorkers() in main.go
+	// because the export worker needs the reporting service, which is a local
+	// of this constructor and is not published on the application. Both
+	// registrations still happen before main starts the pool, which is the
+	// only ordering that matters: a claimed job whose type has no handler is
+	// released rather than run.
+	reportingService.RegisterExportWorker(queue)
+
 	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL)
 	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
 
