@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import * as Sentry from '@sentry/react';
+import { captureException } from '@/shared/lib/observability';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo) {
-    Sentry.captureException(error, {
+    captureException(error, {
       tags: { route: window.location.pathname },
       extra: { componentStack: info.componentStack },
     });

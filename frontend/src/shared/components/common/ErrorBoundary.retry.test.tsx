@@ -5,7 +5,10 @@ import './error-boundary-test-helpers';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ThrowingComponent } from './error-boundary-test-helpers';
 
-vi.mock('@sentry/react', () => ({
+// The facade, not the SDK: reporting goes through
+// `shared/lib/observability`, which queues until `@sentry/react` has
+// finished loading off the critical path.
+vi.mock('@/shared/lib/observability', () => ({
   captureException: vi.fn(),
 }));
 
@@ -36,7 +39,7 @@ describe('ErrorBoundary retry and reporting', () => {
   });
 
   it('calls Sentry.captureException on error', async () => {
-    const { captureException } = await import('@sentry/react');
+    const { captureException } = await import('@/shared/lib/observability');
 
     render(
       <ErrorBoundary>

@@ -205,8 +205,6 @@ jobs:
     name: Lighthouse (lhci autorun)
     runs-on: ubuntu-latest
     needs: build
-    # Non-blocking until MAP-01/PERF-01 (leaflet out of the initial bundle graph) lands on main and brings the measured LCP under this budget — then flip this to blocking.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 

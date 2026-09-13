@@ -6,7 +6,10 @@ import { API_CACHE_NAME } from '@/shared/lib/apiCache';
 
 const mockSetUser = vi.fn<(user: { id: string } | null) => void>();
 
-vi.mock('@sentry/react', () => ({
+// The facade, not the SDK: reporting goes through
+// `shared/lib/observability`, which queues until `@sentry/react` has
+// finished loading off the critical path.
+vi.mock('@/shared/lib/observability', () => ({
   setUser: (user: { id: string } | null) => {
     mockSetUser(user);
   },

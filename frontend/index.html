@@ -40,6 +40,7 @@
     <meta name="twitter:title" content="Vibe - Reserva tu cancha" />
     <meta name="twitter:description" content="Reserva canchas de pádel, tenis y fútbol de forma rápida y segura." />
     <meta name="twitter:image" content="https://app.vibe.com.ar/logo.png" />
+    <link rel="preload" as="image" href="/logo.svg" type="image/svg+xml" fetchpriority="high" />
     <link rel="preconnect" href="https://api.vibe.com.ar" crossorigin />
     <link rel="dns-prefetch" href="https://api.vibe.com.ar" />
     <script type="application/ld+json">
@@ -61,17 +62,29 @@
         id="app-skeleton"
         style="min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: #0b0b0b"
       >
-        <svg width="32" height="32" viewBox="0 0 48 48" fill="none" style="animation: spin 0.8s linear infinite">
-          <circle
-            cx="24"
-            cy="24"
-            r="20"
-            stroke="#22c55e"
-            stroke-width="3"
-            stroke-linecap="round"
-            stroke-dasharray="80 40"
-          />
-        </svg>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 24px">
+          <!--
+            The brand mark, not just the spinner. This is the same asset the
+            app renders once React is up, and on /login and /register it is
+            the largest contentful element on the page — drawing it here means
+            the largest paint happens when the stylesheet lands, instead of
+            after the entry graph has downloaded, executed and resolved the
+            session query. Dimensions are set so it reserves its own box and
+            the swap to the real header shifts nothing.
+          -->
+          <img src="/logo.svg" alt="Vibe" width="92" height="64" style="height: 64px; width: auto" />
+          <svg width="32" height="32" viewBox="0 0 48 48" fill="none" style="animation: spin 0.8s linear infinite">
+            <circle
+              cx="24"
+              cy="24"
+              r="20"
+              stroke="#22c55e"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-dasharray="80 40"
+            />
+          </svg>
+        </div>
       </div>
       <style>
         @keyframes spin {

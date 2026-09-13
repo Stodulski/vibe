@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import * as Sentry from '@sentry/react';
+import { captureException } from './observability';
 
 /**
  * Zod types every `.optional()` field as `field?: X | undefined`, never as
@@ -84,7 +84,7 @@ function reportApiResponseError(error: ApiResponseError): void {
   // Sentry is initialized only when `VITE_SENTRY_DSN` is set
   // (`src/shared/lib/sentry.ts`); calling `captureException` without `init`
   // having run is a documented no-op, so this needs no separate guard.
-  Sentry.captureException(error);
+  captureException(error);
   if (import.meta.env.DEV) {
     console.error(error.message, error.issues);
   }

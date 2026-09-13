@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv, type UserConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -70,6 +70,37 @@ const apiProxy = {
     changeOrigin: true,
   },
 };
+
+/**
+ * Moves the render-blocking stylesheet above the `modulepreload` links Vite
+ * emits ahead of it.
+ *
+ * First paint waits on that one stylesheet and on nothing else — the entry is
+ * a module script, which is deferred. But Vite writes it last, after a dozen
+ * preloads, and a browser opens a bounded number of connections per origin:
+ * measured on `/login` under Lighthouse's mobile throttling, the stylesheet
+ * was the fourteenth request in the document and FCP sat at 2.5 s with the
+ * page's own bytes already on the wire. Order is the whole fix; nothing about
+ * what is fetched changes.
+ */
+function stylesheetFirst(): Plugin {
+  const STYLESHEET = /[^\n]*<link[^>]+rel="stylesheet"[^>]*>/g;
+  return {
+    name: 'vibe:stylesheet-first',
+    enforce: 'post',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        const links = html.match(STYLESHEET);
+        if (!links) return html;
+        const withoutLinks = html.replace(STYLESHEET, '');
+        // Back in at the top of <head>, where they are ahead of every
+        // preload and of the entry script.
+        return withoutLinks.replace('<head>', `<head>\n${links.join('\n')}`);
+      },
+    },
+  };
+}
 
 const config: UserConfig = {
   // Read once here (not per-request) and inlined as a string literal at
@@ -154,6 +185,7 @@ const config: UserConfig = {
       },
     }),
     ...sentryPlugin,
+    stylesheetFirst(),
   ],
   resolve: {
     alias: {

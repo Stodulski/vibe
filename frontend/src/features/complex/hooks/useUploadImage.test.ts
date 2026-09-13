@@ -32,7 +32,7 @@ vi.mock('../utils/compressImage', () => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+vi.mock('@/shared/lib/observability', () => ({ captureException: vi.fn() }));
 
 describe('useUploadImage', () => {
   beforeEach(() => {
@@ -121,7 +121,7 @@ describe('useDeleteImage', () => {
   it('reports a failed best-effort R2 cleanup to Sentry instead of swallowing it', async () => {
     const cleanupError = new Error('R2 delete failed');
     mockDeleteImage.mockRejectedValue(cleanupError);
-    const Sentry = await import('@sentry/react');
+    const Sentry = await import('@/shared/lib/observability');
     const { toast } = await import('sonner');
 
     const { result } = renderHook(() => useDeleteImage('c1'), { wrapper: createQueryWrapper() });

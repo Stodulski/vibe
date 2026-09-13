@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './app/App';
-import { initSentry } from '@/shared/lib/sentry';
+import { startObservability } from '@/shared/lib/observability';
 import { setupServiceWorkerUpdates } from '@/shared/lib/serviceWorkerUpdate';
 import './styles/globals.css';
 
@@ -10,13 +10,15 @@ import './styles/globals.css';
 // virtual module; the update policy itself lives in serviceWorkerUpdate.ts.
 setupServiceWorkerUpdates(registerSW);
 
-// Initialized synchronously, before the first render. A deferred
-// (requestIdleCallback) init used to run after createRoot().render() —
-// cheaper for first paint, but it meant Sentry's own global handlers
-// (unhandledrejection/error) and Session Replay were not yet wired for
-// anything that happened during the initial render or before idle time
-// arrived, so the earliest failures were exactly the ones never reported.
-initSentry();
+// Error reporting starts here, before the first render, but the SDK itself
+// loads at idle time. The two are separable now: `startObservability`
+// attaches its own `error`/`unhandledrejection` handlers synchronously and
+// queues whatever they catch, so the earliest failures still get reported —
+// the objection that made this a synchronous `initSentry()` — while the
+// 88 kB gzip of `@sentry/react` no longer sits on the critical path of every
+// route. Session Replay is the one thing that genuinely starts late: its
+// on-error buffer covers from the load onwards, not from navigation start.
+startObservability();
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {

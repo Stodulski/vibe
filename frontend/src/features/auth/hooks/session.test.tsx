@@ -8,7 +8,10 @@ import { makeUser } from '@/test/factories';
 import { queryKeys } from '@/shared/lib/queryKeys';
 
 const mockSentrySetUser = vi.fn();
-vi.mock('@sentry/react', () => ({
+// The facade, not the SDK: reporting goes through
+// `shared/lib/observability`, which queues until `@sentry/react` has
+// finished loading off the critical path.
+vi.mock('@/shared/lib/observability', () => ({
   setUser: (user: unknown) => {
     mockSentrySetUser(user);
   },

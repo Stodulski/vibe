@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useRouteError, isRouteErrorResponse } from 'react-router-dom';
-import * as Sentry from '@sentry/react';
+import { captureException } from '@/shared/lib/observability';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -26,7 +26,7 @@ export function RouteErrorPage() {
       : error instanceof Error
         ? error
         : new Error(String(error));
-    Sentry.captureException(reported, { tags: { route: window.location.pathname } });
+    captureException(reported, { tags: { route: window.location.pathname } });
   }, [error]);
 
   return (

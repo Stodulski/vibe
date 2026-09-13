@@ -6,7 +6,10 @@ import { ApiError } from './ApiError';
 
 const mockCaptureException = vi.fn<(...args: unknown[]) => void>();
 
-vi.mock('@sentry/react', () => ({
+// The facade, not the SDK: `queryClient` reports through
+// `./observability`, which queues until `@sentry/react` has finished
+// loading (see `observability.ts`). What matters here is what it is handed.
+vi.mock('./observability', () => ({
   captureException: (...args: unknown[]) => {
     mockCaptureException(...args);
   },
@@ -36,23 +39,13 @@ describe('queryClient', () => {
     expect(defaults.queries?.gcTime).toBe(10 * 60 * 1000);
   });
 
-  it('retries a 5xx once and never retries a 4xx', () => {
-    const retry = queryClient.getDefaultOptions().queries?.retry;
-    if (typeof retry !== 'function') throw new Error('expected a retry predicate');
-
-    expect(retry(0, makeHttpError(500))).toBe(true);
-    expect(retry(1, makeHttpError(500))).toBe(false);
-    for (const status of [401, 403, 404, 422, 400]) {
-      expect(retry(0, makeHttpError(status))).toBe(false);
-    }
-  });
-
-  it('retries a timeout or a dropped connection, which carry no status at all', () => {
-    const retry = queryClient.getDefaultOptions().queries?.retry;
-    if (typeof retry !== 'function') throw new Error('expected a retry predicate');
-
-    expect(retry(0, new TimeoutError(new Request('https://api.vibe.com.ar/v1/bookings')))).toBe(true);
-    expect(retry(0, new NetworkError(new Request('https://api.vibe.com.ar/v1/bookings')))).toBe(true);
+  // `ky.ts`'s RETRY already retries every GET twice on 408/429/5xx, a timeout
+  // and a dropped connection. A second policy here multiplied against it —
+  // six requests and 3.4 s of backoff in front of the public complex page's
+  // largest paint — so the transport owns retrying and this owns what to draw
+  // when it gives up.
+  it('leaves retrying to the transport instead of multiplying against it', () => {
+    expect(queryClient.getDefaultOptions().queries?.retry).toBe(false);
   });
 
   it('has refetchOnWindowFocus disabled', () => {
