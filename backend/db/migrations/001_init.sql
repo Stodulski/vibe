@@ -5,12 +5,15 @@ SET LOCAL lock_timeout = '3s';
 -- ============================================================================
 -- THE WHOLE SCHEMA, ONCE.
 --
--- This file replaces migrations 001 through 042 (031 and 039 were never used).
--- It produces the schema those forty files produced when applied in order —
--- objects, ownership, grants and row-level security policies alike; the proof
--- is a pg_dump of a database migrated by the old chain diffed against a
--- pg_dump of one migrated by this file alone, with an empty result, plus a
--- catalog comparison of policies, grants, owners and default privileges.
+-- This file replaces migrations 001 through 042 (031 and 039 were never used),
+-- and then — a second squash, 2026-09-14 — the four migrations that had landed
+-- on top of it: 002_user_identities, 003_optimistic_concurrency, 004_jobs and
+-- 005_tenant_columns. It produces the schema those files produced when applied
+-- in order — objects, ownership, grants and row-level security policies alike;
+-- the proof is a pg_dump of a database migrated by the old chain diffed against
+-- a pg_dump of one migrated by this file alone, with an empty result, plus a
+-- catalog comparison of policies, grants, owners and default privileges. Both
+-- squashes are recorded in docs/adr/0003-goose-migrations.md.
 --
 -- WHY A SQUASH, WHEN SECTION 12 OF THE SCHEMA GUIDELINES SAYS MIGRATIONS ARE
 -- IMMUTABLE. The rule exists so two databases can never disagree about what
@@ -98,6 +101,28 @@ CREATE EXTENSION IF NOT EXISTS citext;
 -- range, which is what every EXCLUDE constraint below needs.
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
+-- ==================== SERVER CAPABILITY GUARD ====================
+--
+-- The four tables that grow with traffic — bookings, payments, audit_log and
+-- webhook_events — default their primary key to uuidv7() rather than
+-- gen_random_uuid(); the argument is beside those tables. uuidv7() is a
+-- PostgreSQL 18 built-in, so there is no extension to install and no function
+-- of ours to maintain, but a server older than 18 would otherwise create four
+-- tables with a default nobody checked. This fails the migration loudly
+-- instead. The deployment is on 18.6 (docker-compose.yml, docker-compose.e2e.yml).
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF to_regprocedure('pg_catalog.uuidv7()') IS NULL THEN
+        RAISE EXCEPTION
+            'uuidv7() is a PostgreSQL 18 built-in and this server reports %; '
+            'upgrade the server or change those four defaults to gen_random_uuid()',
+            current_setting('server_version');
+    END IF;
+END;
+$$;
+-- +goose StatementEnd
+
 -- ==================== ENUMS AND RANGE TYPES ====================
 
 CREATE TYPE user_role      AS ENUM ('owner', 'client', 'superadmin');
@@ -136,6 +161,102 @@ CREATE FUNCTION trigger_set_updated_at() RETURNS trigger
 AS $$
 BEGIN
     NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+
+-- OPTIMISTIC CONCURRENCY ON THE ADMIN TABLES (complexes, courts, court_prices).
+--
+-- Two staff members editing the same venue is otherwise last-write-wins. Each
+-- loads the row, changes the one field they came for, and PUTs every column
+-- back; whoever saves second overwrites the other's change with a value read
+-- before that change existed, and both get 200 (API-08). `version` is what lets
+-- the second one be told: a client that read version 3 sends it back with its
+-- write, and if anything moved in between the row is at 4, the UPDATE matches
+-- nothing, the stores turn that into data.ErrEditConflict and the handlers into
+-- 409. A client that sends no version keeps the old behaviour exactly.
+--
+-- WHY THOSE THREE TABLES. They are what an owner and their staff edit through a
+-- form, from two browsers, over the same minute. Bookings are deliberately not
+-- among them: the race that matters there is two people claiming the same
+-- hours, which a version counter cannot see and bookings_no_overlapping_span
+-- already refuses. The counter this schema once carried on bookings is the one
+-- described there as "not a lock" — that argument is about bookings, not about
+-- a form.
+--
+-- WHY A TRIGGER RATHER THAN `version = version + 1` IN EACH UPDATE. Every
+-- writer has to bump it, including the ones that do not check it: the
+-- MercadoPago credential writes on complexes, the soft-delete, a backfill run by
+-- hand. One of those forgetting is a version that stands still while the row
+-- changes — worse than no version at all, a lock that reports success. The
+-- trigger cannot be forgotten.
+-- +goose StatementBegin
+CREATE FUNCTION trigger_bump_version() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path = pg_catalog, public
+AS $$
+BEGIN
+    -- OLD.version, not NEW.version: a writer that sends the whole row back
+    -- would otherwise be able to write the counter itself, which is the one
+    -- thing a version counter must not allow.
+    NEW.version = OLD.version + 1;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+
+-- THE TENANT COLUMN ON THE FOUR CHILD TABLES, DERIVED RATHER THAN SUPPLIED.
+--
+-- court_prices, blocked_slots and slot_locks hang off a court and
+-- booking_link_tokens off a booking; each reaches its tenant through that
+-- parent, and each still carries its own complex_id so that the explicit half
+-- of the isolation — the WHERE clause a human can read, which is what still
+-- holds when a policy is relaxed or a path takes a bypass it did not need — is
+-- writable on them as it is on the other fifteen tables.
+--
+-- A stored derivable value needs two things to stay honest, and both are paid
+-- here rather than skipped:
+--
+--   * A COMPOSITE FOREIGN KEY on each of the four, (court_id, complex_id) ->
+--     courts (id, complex_id) or (booking_id, complex_id) -> bookings (id,
+--     complex_id), which is what makes the copy impossible to contradict. A
+--     plain FK on the parent id alone would let a row name court A and tenant
+--     B; the composite one is refused by the database. It carries the same
+--     ON DELETE CASCADE the single-column key would have, and it replaces that
+--     key rather than sitting beside it, so a deletion satisfies one constraint
+--     and not two.
+--
+--   * THESE TRIGGERS, which fill the column from the parent, so no INSERT has
+--     to supply it and none can supply it wrongly. They overwrite whatever the
+--     caller passed rather than filling only NULLs: a derived column that can be
+--     overridden is a derived column that will be, and the whole value of this
+--     one is that it cannot disagree with the parent.
+--
+-- The parent is read under the same transaction as the write, and row-level
+-- security on courts does not get in the way: the function runs inside the
+-- caller's session, and every caller that may insert one of these rows can
+-- already see its own court. A row whose court is invisible fails the composite
+-- foreign key instead, which is the refusal we want.
+-- +goose StatementBegin
+CREATE FUNCTION set_complex_id_from_court() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT c.complex_id INTO NEW.complex_id
+    FROM courts c
+    WHERE c.id = NEW.court_id;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
+CREATE FUNCTION set_complex_id_from_booking() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT b.complex_id INTO NEW.complex_id
+    FROM bookings b
+    WHERE b.id = NEW.booking_id;
     RETURN NEW;
 END;
 $$;
@@ -268,6 +389,33 @@ CREATE TABLE password_reset_tokens (
 CREATE INDEX idx_password_reset_tokens_user    ON password_reset_tokens (user_id);
 CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens (expires_at);
 
+-- EXTERNAL IDENTITY LINKS. One row per external identity linked to a local
+-- account — today, one Google account behind Sign in with Google. Not
+-- tenant-scoped: like users itself, an identity link belongs to the platform
+-- account and not to any one complex, so it carries no row-level security
+-- policy — the same posture as users, refresh_tokens,
+-- email_verification_tokens and password_reset_tokens above, and for the same
+-- reason (authentication runs before any tenant is known). Its DML grant comes
+-- from the blanket GRANT in the ACCESS section, like every other table here.
+CREATE TABLE user_identities (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL,
+    provider   TEXT NOT NULL CHECK (provider IN ('google')),
+    subject    TEXT NOT NULL,
+    email      CITEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT user_identities_user_id_fkey
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    -- One local account per external identity: the same Google account
+    -- cannot silently take over a second local user.
+    CONSTRAINT user_identities_provider_subject_key UNIQUE (provider, subject),
+    -- One linked identity per provider per account: a user cannot end up
+    -- signed into two different Google accounts under one local user.
+    CONSTRAINT user_identities_user_id_provider_key UNIQUE (user_id, provider)
+);
+
+CREATE INDEX idx_user_identities_user_id ON user_identities (user_id);
+
 -- ==================== VENUES ====================
 
 -- A complex is the tenant. Everything an owner sees is scoped by complex_id,
@@ -325,6 +473,11 @@ CREATE TABLE complexes (
     -- From MercadoPago's expires_in; without it every connected venue was
     -- blindly refreshed every 12h.
     mp_token_expires_at TIMESTAMPTZ,
+    -- The optimistic-concurrency counter; see trigger_bump_version above for
+    -- why it is a trigger and not an expression in each UPDATE. NOT NULL
+    -- DEFAULT 1 so there is no "not versioned yet" state for a reader to
+    -- handle.
+    version             INTEGER NOT NULL DEFAULT 1,
     -- complexes.slug is UNIQUE across the whole table, deleted rows included:
     -- the slug is the public URL and stays reserved after a soft delete.
     CONSTRAINT complexes_slug_key UNIQUE (slug),
@@ -353,8 +506,12 @@ CREATE TABLE complexes (
             'match_recording'
         ]::TEXT[])
 );
+-- Both fire BEFORE UPDATE and they touch different columns, so neither depends
+-- on the other; the names order them (set_updated_at, then set_version).
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON complexes
     FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+CREATE TRIGGER set_version BEFORE UPDATE ON complexes
+    FOR EACH ROW EXECUTE FUNCTION trigger_bump_version();
 
 CREATE INDEX idx_complexes_owner_id   ON complexes (owner_id);
 CREATE INDEX idx_complexes_slug       ON complexes (slug) WHERE deleted_at IS NULL;
@@ -409,8 +566,11 @@ CREATE TABLE courts (
     -- Capped at about two lines on a storefront card, here as well as in the
     -- handler because seeds and imports reach the table directly.
     description TEXT,
-    -- Pointed at by the composite FKs on bookings. Redundant for uniqueness
-    -- (id alone is the PK); it exists only to be referenced.
+    -- The optimistic-concurrency counter; see trigger_bump_version above.
+    version     INTEGER NOT NULL DEFAULT 1,
+    -- Pointed at by the composite FKs on bookings, and by the ones that carry
+    -- complex_id onto court_prices, blocked_slots and slot_locks. Redundant for
+    -- uniqueness (id alone is the PK); it exists only to be referenced.
     CONSTRAINT courts_id_complex_id_key UNIQUE (id, complex_id),
     CONSTRAINT courts_complex_id_fkey
         FOREIGN KEY (complex_id) REFERENCES complexes (id) ON DELETE CASCADE,
@@ -419,6 +579,8 @@ CREATE TABLE courts (
 );
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON courts
     FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+CREATE TRIGGER set_version BEFORE UPDATE ON courts
+    FOR EACH ROW EXECUTE FUNCTION trigger_bump_version();
 
 CREATE INDEX idx_courts_complex_id ON courts (complex_id) WHERE deleted_at IS NULL;
 -- A referential-integrity probe from complexes carries no predicate, so it
@@ -557,7 +719,7 @@ CREATE VIEW active_complexes AS
 SELECT id, owner_id, name, slug, address, city, province, country_code, currency,
        phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours,
        latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id,
-       deleted_at, created_at, updated_at, amenities, mp_token_expires_at
+       deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version
 FROM complexes
 WHERE deleted_at IS NULL;
 
@@ -566,7 +728,7 @@ COMMENT ON VIEW active_complexes IS
 
 CREATE VIEW active_courts AS
 SELECT c.id, c.complex_id, c.name, c.sport, c.court_type, c.is_active,
-       c.deleted_at, c.created_at, c.updated_at, c.description
+       c.deleted_at, c.created_at, c.updated_at, c.description, c.version
 FROM courts c
 JOIN complexes cx ON cx.id = c.complex_id
 WHERE c.deleted_at IS NULL
@@ -616,8 +778,13 @@ CREATE TABLE court_prices (
                 '[)'
             )
         ) STORED,
+    -- The optimistic-concurrency counter; see trigger_bump_version above.
+    version     INTEGER NOT NULL DEFAULT 1,
+    -- The tenant, derived from the court by set_complex_id below and held
+    -- honest by the composite foreign key; see set_complex_id_from_court above.
+    complex_id  UUID NOT NULL,
     CONSTRAINT court_prices_court_id_fkey
-        FOREIGN KEY (court_id) REFERENCES courts (id) ON DELETE CASCADE,
+        FOREIGN KEY (court_id, complex_id) REFERENCES courts (id, complex_id) ON DELETE CASCADE,
     CONSTRAINT court_prices_price_check CHECK (price >= 0),
     CONSTRAINT court_prices_band_not_empty CHECK (time_from <> time_to),
     CONSTRAINT court_prices_no_overlapping_rule
@@ -627,10 +794,15 @@ CREATE TABLE court_prices (
             span_min  WITH &&
         )
 );
+CREATE TRIGGER set_complex_id BEFORE INSERT OR UPDATE ON court_prices
+    FOR EACH ROW EXECUTE FUNCTION set_complex_id_from_court();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON court_prices
     FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+CREATE TRIGGER set_version BEFORE UPDATE ON court_prices
+    FOR EACH ROW EXECUTE FUNCTION trigger_bump_version();
 
 CREATE INDEX idx_court_prices_court_id ON court_prices (court_id);
+CREATE INDEX idx_court_prices_complex  ON court_prices (complex_id);
 
 COMMENT ON COLUMN court_prices.price IS
     'Hourly rate in centavos (price per 60 minutes), in effect for [time_from, time_to) on day_type. A booking of any permitted duration is priced by walking it in 30-minute blocks against this rate (internal/pricing.BookingPrice).';
@@ -671,8 +843,11 @@ CREATE TABLE blocked_slots (
                 '[)'
             )
         ) STORED,
+    -- The tenant, derived from the court by set_complex_id below; see
+    -- set_complex_id_from_court above.
+    complex_id  UUID NOT NULL,
     CONSTRAINT blocked_slots_court_id_fkey
-        FOREIGN KEY (court_id) REFERENCES courts (id) ON DELETE CASCADE,
+        FOREIGN KEY (court_id, complex_id) REFERENCES courts (id, complex_id) ON DELETE CASCADE,
     CONSTRAINT blocked_slots_created_by_fkey
         FOREIGN KEY (created_by) REFERENCES users (id),
     -- The name is the one PostgreSQL generated for the original unnamed CHECK;
@@ -684,12 +859,15 @@ CREATE TABLE blocked_slots (
             span     WITH &&
         )
 );
+CREATE TRIGGER set_complex_id BEFORE INSERT OR UPDATE ON blocked_slots
+    FOR EACH ROW EXECUTE FUNCTION set_complex_id_from_court();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON blocked_slots
     FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
 CREATE INDEX idx_blocked_slots_court_date ON blocked_slots (court_id, date);
 CREATE INDEX idx_blocked_slots_date       ON blocked_slots (date);
 CREATE INDEX idx_blocked_slots_created_by ON blocked_slots (created_by);
+CREATE INDEX idx_blocked_slots_complex    ON blocked_slots (complex_id);
 
 -- ==================== CLIENTS ====================
 
@@ -813,8 +991,26 @@ CREATE INDEX idx_clients_complex_id ON clients (complex_id, created_at, id);
 -- as a second copy nobody reads, and turned every product change into a
 -- migration. Terminal-to-terminal stays allowed (a full refund on a completed
 -- booking).
+--
+-- TIME-ORDERED IDS. bookings, payments, audit_log and webhook_events are the
+-- four tables that grow with traffic rather than with the customer count, and
+-- they alone default their key to uuidv7() instead of gen_random_uuid(). A v4
+-- key is sixteen random bytes, so every insert lands at a random point of the
+-- B-tree: the write set is the whole index rather than its tail, the pages that
+-- matter never stay in cache, and the index fragments as it fills — while these
+-- four are read by time ("this week's bookings", "today's payments", "what
+-- happened on the 9th"), an order a random key has nothing to do with. uuidv7()
+-- is the same 128 bits with the first 48 given to a millisecond timestamp:
+-- inserts land at the right-hand edge, adjacent rows are adjacent in time, and
+-- the remaining 74 random bits are still far more than enough that an id is not
+-- guessable. The server guard is at the top of this file.
+--
+-- The rule for whoever adds the next table: nothing whose id is a secret gets
+-- v7, because a v7 id publishes the millisecond it was created. There is none
+-- here — every token in this schema is a hash in its own column, never a
+-- primary key.
 CREATE TABLE bookings (
-    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id                UUID PRIMARY KEY DEFAULT uuidv7(),
     complex_id        UUID NOT NULL,
     court_id          UUID NOT NULL,
     client_id         UUID NOT NULL,
@@ -975,12 +1171,19 @@ CREATE TABLE booking_link_tokens (
     token_hash  BYTEA NOT NULL,
     expires_at  TIMESTAMPTZ NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- The tenant, derived from the booking by set_complex_id below; see
+    -- set_complex_id_from_booking above.
+    complex_id  UUID NOT NULL,
     CONSTRAINT booking_link_tokens_token_hash_key UNIQUE (token_hash),
     CONSTRAINT booking_link_tokens_booking_id_fkey
-        FOREIGN KEY (booking_id) REFERENCES bookings (id) ON DELETE CASCADE
+        FOREIGN KEY (booking_id, complex_id) REFERENCES bookings (id, complex_id) ON DELETE CASCADE
 );
+CREATE TRIGGER set_complex_id BEFORE INSERT OR UPDATE ON booking_link_tokens
+    FOR EACH ROW EXECUTE FUNCTION set_complex_id_from_booking();
+
 CREATE INDEX idx_booking_link_tokens_booking ON booking_link_tokens (booking_id);
 CREATE INDEX idx_booking_link_tokens_expires ON booking_link_tokens (expires_at);
+CREATE INDEX idx_booking_link_tokens_complex ON booking_link_tokens (complex_id);
 
 -- Short-lived holds the storefront takes while a client checks out (Redis is
 -- the primary mechanism; this is the durable fallback).
@@ -994,13 +1197,20 @@ CREATE TABLE slot_locks (
     locked_by   TEXT NOT NULL DEFAULT 'public_booking',
     locked_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at  TIMESTAMPTZ NOT NULL,
+    -- The tenant, derived from the court by set_complex_id below; see
+    -- set_complex_id_from_court above.
+    complex_id  UUID NOT NULL,
     CONSTRAINT slot_locks_court_id_date_start_time_key UNIQUE (court_id, date, start_time),
     CONSTRAINT slot_locks_court_id_fkey
-        FOREIGN KEY (court_id) REFERENCES courts (id) ON DELETE CASCADE,
+        FOREIGN KEY (court_id, complex_id) REFERENCES courts (id, complex_id) ON DELETE CASCADE,
     CONSTRAINT slot_locks_booking_id_fkey
         FOREIGN KEY (booking_id) REFERENCES bookings (id) ON DELETE SET NULL
 );
+CREATE TRIGGER set_complex_id BEFORE INSERT OR UPDATE ON slot_locks
+    FOR EACH ROW EXECUTE FUNCTION set_complex_id_from_court();
+
 CREATE INDEX idx_slot_locks_expires ON slot_locks (expires_at);
+CREATE INDEX idx_slot_locks_complex ON slot_locks (complex_id);
 -- Also serves the FK probe from bookings: `booking_id = $1` implies the
 -- predicate, and the planner proves it, so no unqualified twin is needed.
 CREATE INDEX idx_slot_locks_booking ON slot_locks (booking_id)
@@ -1015,8 +1225,10 @@ CREATE INDEX idx_slot_locks_booking ON slot_locks (booking_id)
 -- write one. It is bounded by amount + service_fee, not amount: a full refund
 -- returns the fee too, because that is what the client actually paid, and a
 -- cap of amount would refuse refunds the product intends to make.
+-- uuidv7() rather than gen_random_uuid(): see the note above the bookings
+-- table for why these four keys are time-ordered.
 CREATE TABLE payments (
-    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id               UUID PRIMARY KEY DEFAULT uuidv7(),
     booking_id       UUID NOT NULL,
     complex_id       UUID NOT NULL,
     amount           INTEGER NOT NULL,
@@ -1128,8 +1340,10 @@ CREATE INDEX idx_failed_refunds_payment_id ON failed_refunds (payment_id);
 -- existence check in internal/payments; this is an inbox and a forensic log,
 -- not an idempotency key. Same status vocabulary and backoff columns as
 -- failed_refunds, so both sweepers read the same way.
+-- uuidv7() rather than gen_random_uuid(): see the note above the bookings
+-- table for why these four keys are time-ordered.
 CREATE TABLE webhook_events (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id            UUID PRIMARY KEY DEFAULT uuidv7(),
     provider      TEXT NOT NULL DEFAULT 'mercadopago',
     external_id   TEXT NOT NULL,
     event_type    TEXT NOT NULL,
@@ -1188,14 +1402,122 @@ CREATE TABLE job_locks (
 -- The release's second clause sweeps leases whose holder died long ago.
 CREATE INDEX idx_job_locks_expires ON job_locks (expires_at);
 
+-- ONE DURABLE WORK QUEUE. There were three, and they said the same thing three
+-- ways (JOB-02): internal/notifier, a Redis list with five keys and five Lua
+-- scripts of its own — a pending list, a processing list, a claims hash, a
+-- delayed sorted set and a dead-letter list, none of it in Postgres, so a Redis
+-- that lost its data lost every queued email; and webhook_events and
+-- failed_refunds above, with the same status vocabulary, the same
+-- retry_count/max_retries/next_retry_at columns and the same backoff written out
+-- twice. They shared a vocabulary because they shared a guarantee. They did not
+-- share a line of code, so every fix to one of them was a fix to one of them:
+-- the jitter this table's writers apply (OUT-02), the dedup key that stops a
+-- redelivered webhook sending a second confirmation (JOB-04), the claim that
+-- does not need a lease table.
+--
+-- THE CLAIM. A worker takes rows with
+--
+--     UPDATE jobs SET status = 'processing', ...
+--     WHERE id IN (SELECT id FROM jobs WHERE status = 'pending'
+--                    AND run_at <= NOW() ORDER BY run_at
+--                  FOR UPDATE SKIP LOCKED LIMIT $n)
+--     RETURNING ...
+--
+-- SKIP LOCKED is the whole design. Every instance runs that statement on the
+-- same tick and they take disjoint rows without one of them ever waiting on
+-- another: a row somebody else has locked is passed over, not queued behind.
+-- The two tables it replaces used a conditional UPDATE per row instead, which is
+-- correct but serialises every instance through the same row on its way to
+-- finding out it lost, and needed a job_locks lease on top to stop the convoy.
+-- job_locks stays — it is a cron mutex, not a queue.
+--
+-- NO TENANT COLUMN AND NO ROW-LEVEL SECURITY, the same posture as job_locks and
+-- webhook_events (see "TABLES THAT GET NOTHING" in the ACCESS section): a job is
+-- the platform's own deferred work, claimed by a background worker that has no
+-- request and therefore no tenant. Anything a job needs to touch a tenant's rows
+-- with is in its payload, and the store it reaches through is under the policies
+-- as usual.
+CREATE TABLE jobs (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- The handler registry's key: 'email:booking_confirmation' and the rest of
+    -- internal/notifications' task types. It is stored, so renaming one strands
+    -- whatever is already queued under the old name.
+    type         TEXT NOT NULL,
+    -- The handler's whole argument. jsonb rather than json so a payload can be
+    -- queried by an operator reading the dead letter without parsing it first.
+    payload      JSONB NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'pending',
+    -- The earliest instant a worker may claim this row: now for an ordinary
+    -- enqueue, and the backoff for every retry.
+    run_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- attempts counts claims, not failures — Claim increments it — so a handler
+    -- that takes the process down with it has still spent one. That is what
+    -- bounds a payload that kills whichever instance reads it.
+    attempts     INT NOT NULL DEFAULT 0,
+    max_attempts INT NOT NULL DEFAULT 5,
+    last_error   TEXT,
+    -- The claim itself. locked_at is what the stale sweep measures the lease
+    -- against; locked_by names the worker for the line that says which one went
+    -- away.
+    locked_at    TIMESTAMPTZ,
+    locked_by    TEXT,
+    -- The idempotency key, nullable because most work does not need one. See
+    -- the unique index below for why it is not a UNIQUE constraint.
+    dedup_key    TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT jobs_type_check CHECK (type <> ''),
+    CONSTRAINT jobs_status_check
+        CHECK (status IN ('pending', 'processing', 'done', 'failed')),
+    CONSTRAINT jobs_attempts_check CHECK (attempts >= 0),
+    CONSTRAINT jobs_max_attempts_check CHECK (max_attempts > 0),
+    -- A dedup key of '' is a caller that meant NULL and got the zero value.
+    -- Every such caller would collide with every other, which is the worst
+    -- possible reading of "no key".
+    CONSTRAINT jobs_dedup_key_check CHECK (dedup_key IS NULL OR dedup_key <> '')
+);
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON jobs
+    FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+-- THE CLAIM INDEX. Exactly the predicate and the order of the inner SELECT
+-- above, and partial on the one status a claim can match — 'done' is where
+-- almost every row ends up, so keeping it out is what stops the index growing
+-- with the table the way the two it replaces did.
+CREATE INDEX idx_jobs_claim ON jobs (run_at) WHERE status = 'pending';
+
+-- The stale sweep: rows claimed longer ago than the lease.
+CREATE INDEX idx_jobs_stale ON jobs (locked_at) WHERE status = 'processing';
+
+-- DEDUP. A partial unique index rather than a UNIQUE constraint, because the
+-- column is nullable and most rows have no key: Postgres treats NULLs as
+-- distinct, so a plain unique index would work, but it would also index every
+-- keyless row for nothing. ON CONFLICT (dedup_key) DO NOTHING infers this index,
+-- which is what makes a second Enqueue under the same key a no-op rather than a
+-- second email.
+CREATE UNIQUE INDEX idx_jobs_dedup_key ON jobs (dedup_key) WHERE dedup_key IS NOT NULL;
+
+-- Retention deletes by the instant a row was closed out, which for a done row is
+-- its last update.
+CREATE INDEX idx_jobs_done ON jobs (updated_at) WHERE status = 'done';
+
+COMMENT ON TABLE jobs IS
+    'The durable work queue. Claimed with SELECT ... FOR UPDATE SKIP LOCKED; see internal/jobs.';
+COMMENT ON COLUMN jobs.dedup_key IS
+    'sha256 of the job type and what identifies the work (recipient, booking, event). A second enqueue under an existing key does nothing.';
+COMMENT ON COLUMN jobs.attempts IS
+    'Claims, not failures: incremented by the claim itself, so a handler that kills the process still spends one.';
+
 -- Append-only and unpruned; the table most likely to grow large. Both foreign
 -- keys are ON DELETE SET NULL because a trail that refuses the deletion of the
 -- account or venue it witnesses is the opposite of a trail: the entry outlives
 -- both, entity_id (no FK) still names the thing acted on, and the actor is
 -- named in the value. CASCADE would delete a departing account's history,
 -- which is what "who cancelled that booking?" is asked about.
+-- uuidv7() rather than gen_random_uuid(): see the note above the bookings
+-- table for why these four keys are time-ordered. audit_log is the table most
+-- likely to grow large, and it is read by time more than by anything else.
 CREATE TABLE audit_log (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id          UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id     UUID,
     complex_id  UUID,
     action      TEXT NOT NULL,
@@ -1455,20 +1777,26 @@ $$;
 -- vibe_app, which can set any custom GUC; the pool's extended protocol is
 -- what keeps a smuggled parameter from appending a SET.
 --
--- TABLES THAT GET NOTHING: users, refresh_tokens, email_verification_tokens,
--- password_reset_tokens (accounts, not tenant data — authentication runs
--- before any tenant is known and a policy here means nobody can log in);
--- job_locks (cluster-wide cron leases with no tenant by design);
--- webhook_events (the raw provider envelope stored before anything parsed it;
--- the tenant boundary for that path is on payments, which the sweep joins
--- through); goose_db_version (revoked above).
+-- TABLES THAT GET NOTHING: users, user_identities, refresh_tokens,
+-- email_verification_tokens, password_reset_tokens (accounts, not tenant data —
+-- authentication runs before any tenant is known and a policy here means nobody
+-- can log in); job_locks (cluster-wide cron leases with no tenant by design);
+-- jobs (the platform's own deferred work, claimed by a worker that has no
+-- request and therefore no tenant); webhook_events (the raw provider envelope
+-- stored before anything parsed it; the tenant boundary for that path is on
+-- payments, which the sweep joins through); goose_db_version (revoked above).
 --
--- TWO-HOP TABLES: court_prices, blocked_slots and slot_locks hang off a court,
--- booking_link_tokens off a booking, and none carries complex_id. A
--- denormalised copy would be a stored derivable value needing a trigger and a
--- composite FK to stay honest; the EXISTS subquery is a primary-key lookup
--- the planner runs as a semi-join. Those inner tables are themselves under
--- RLS, which is redundant and harmless: no policy reads back the other way.
+-- EVERY POLICY BELOW IS ONE COLUMN COMPARISON, INCLUDING THE FOUR CHILD TABLES.
+-- court_prices, blocked_slots and slot_locks hang off a court and
+-- booking_link_tokens off a booking, so each could reach its tenant through its
+-- parent with an EXISTS subquery instead — correct, and a primary-key lookup the
+-- planner runs as a semi-join, but the only policies in the schema that had to
+-- be read twice to be believed, and a semi-join per row where the others cost a
+-- column comparison. They carry their own complex_id (see the four tables and
+-- set_complex_id_from_court / set_complex_id_from_booking above), which is a
+-- stored derivable value and pays the full price of one: a composite foreign key
+-- so it cannot contradict the parent, and a trigger that fills it so no caller
+-- has to and none can get it wrong.
 --
 -- audit_log.complex_id is nullable (ON DELETE SET NULL): such a row belongs to
 -- no tenant, matches no isolation policy, and is the operator's record,
@@ -1550,12 +1878,8 @@ CREATE POLICY tenant_bypass ON audit_log
 ALTER TABLE court_prices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE court_prices FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON court_prices
-    USING (EXISTS (SELECT 1 FROM courts c
-                    WHERE c.id = court_prices.court_id
-                      AND c.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid))
-    WITH CHECK (EXISTS (SELECT 1 FROM courts c
-                         WHERE c.id = court_prices.court_id
-                           AND c.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid));
+    USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
+    WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
 CREATE POLICY tenant_bypass ON court_prices
     USING (current_setting('app.bypass_tenant', true) = 'on')
     WITH CHECK (current_setting('app.bypass_tenant', true) = 'on');
@@ -1563,12 +1887,8 @@ CREATE POLICY tenant_bypass ON court_prices
 ALTER TABLE blocked_slots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blocked_slots FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON blocked_slots
-    USING (EXISTS (SELECT 1 FROM courts c
-                    WHERE c.id = blocked_slots.court_id
-                      AND c.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid))
-    WITH CHECK (EXISTS (SELECT 1 FROM courts c
-                         WHERE c.id = blocked_slots.court_id
-                           AND c.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid));
+    USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
+    WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
 CREATE POLICY tenant_bypass ON blocked_slots
     USING (current_setting('app.bypass_tenant', true) = 'on')
     WITH CHECK (current_setting('app.bypass_tenant', true) = 'on');
@@ -1576,12 +1896,8 @@ CREATE POLICY tenant_bypass ON blocked_slots
 ALTER TABLE slot_locks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE slot_locks FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON slot_locks
-    USING (EXISTS (SELECT 1 FROM courts c
-                    WHERE c.id = slot_locks.court_id
-                      AND c.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid))
-    WITH CHECK (EXISTS (SELECT 1 FROM courts c
-                         WHERE c.id = slot_locks.court_id
-                           AND c.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid));
+    USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
+    WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
 CREATE POLICY tenant_bypass ON slot_locks
     USING (current_setting('app.bypass_tenant', true) = 'on')
     WITH CHECK (current_setting('app.bypass_tenant', true) = 'on');
@@ -1592,12 +1908,8 @@ CREATE POLICY tenant_bypass ON slot_locks
 ALTER TABLE booking_link_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE booking_link_tokens FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON booking_link_tokens
-    USING (EXISTS (SELECT 1 FROM bookings b
-                    WHERE b.id = booking_link_tokens.booking_id
-                      AND b.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid))
-    WITH CHECK (EXISTS (SELECT 1 FROM bookings b
-                         WHERE b.id = booking_link_tokens.booking_id
-                           AND b.complex_id = nullif(current_setting('app.complex_id', true), '')::uuid));
+    USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
+    WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
 CREATE POLICY tenant_bypass ON booking_link_tokens
     USING (current_setting('app.bypass_tenant', true) = 'on')
     WITH CHECK (current_setting('app.bypass_tenant', true) = 'on');
@@ -1630,6 +1942,7 @@ DROP VIEW active_courts;
 DROP VIEW active_complexes;
 
 DROP TABLE audit_log;
+DROP TABLE jobs;
 DROP TABLE job_locks;
 DROP TABLE webhook_events;
 DROP TABLE failed_refunds;
@@ -1646,13 +1959,17 @@ DROP TABLE complexes;
 DROP TABLE password_reset_tokens;
 DROP TABLE email_verification_tokens;
 DROP TABLE refresh_tokens;
+DROP TABLE user_identities;
 DROP TABLE users;
 
+DROP FUNCTION set_complex_id_from_booking();
+DROP FUNCTION set_complex_id_from_court();
 DROP FUNCTION bookings_forbid_status_reversal();
 DROP FUNCTION courts_forbid_live_under_deleted_complex();
 DROP FUNCTION complexes_cascade_soft_delete_to_courts();
 DROP FUNCTION local_day(date);
 DROP FUNCTION booking_starts_at(date, time);
+DROP FUNCTION trigger_bump_version();
 DROP FUNCTION trigger_set_updated_at();
 
 DROP TYPE timerange;

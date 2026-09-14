@@ -196,7 +196,7 @@ type Querier interface {
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
 	// Idempotent: a repeated Google sign-in re-links the same (provider,
 	// subject) or (user_id, provider) pair and this is a silent no-op — see the
-	// unique constraints in db/migrations/002_user_identities.sql.
+	// unique constraints on user_identities in db/migrations/001_init.sql.
 	InsertUserIdentity(ctx context.Context, arg InsertUserIdentityParams) error
 	// Atomic: deletes stale tokens (>3 min), inserts new only if none within 3 min.
 	InsertVerificationTokenWithCooldown(ctx context.Context, arg InsertVerificationTokenWithCooldownParams) (EmailVerificationToken, error)
