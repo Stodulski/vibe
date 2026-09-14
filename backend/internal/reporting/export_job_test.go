@@ -164,6 +164,7 @@ func (f *exportFixture) post(t *testing.T, body string) *httptest.ResponseRecord
 		r = httptest.NewRequestWithContext(t.Context(), http.MethodPost, target, nil)
 	} else {
 		r = httptest.NewRequestWithContext(t.Context(), http.MethodPost, target, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
 	}
 	w := httptest.NewRecorder()
 	f.handler.CreatePaymentsExport(w, httpx.ContextSetComplex(r, f.complex))

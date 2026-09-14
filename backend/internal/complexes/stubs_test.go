@@ -314,6 +314,7 @@ func ownerRequest(t *testing.T, method, target string, ownerID uuid.UUID, comple
 		r = httptest.NewRequestWithContext(t.Context(), method, target, nil)
 	} else {
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
 	}
 
 	r = httpx.ContextSetUser(r, &authstore.User{ID: ownerID, Role: "owner"})

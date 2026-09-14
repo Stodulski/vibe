@@ -87,6 +87,7 @@ func TestReadJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(tt.body))
+			r.Header.Set("Content-Type", "application/json")
 
 			var dst struct {
 				Name string `json:"name"`
@@ -119,6 +120,7 @@ func TestReadJSONBodyTooLarge(t *testing.T) {
 	w := httptest.NewRecorder()
 	oversized := `{"name":"` + strings.Repeat("x", MaxJSONBody) + `"}`
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(oversized))
+	r.Header.Set("Content-Type", "application/json")
 
 	var dst struct {
 		Name string `json:"name"`
@@ -134,6 +136,77 @@ func TestReadJSONBodyTooLarge(t *testing.T) {
 	var tooLarge *BodyTooLargeError
 	if !errors.As(err, &tooLarge) {
 		t.Fatalf("want a *BodyTooLargeError so the Responder answers 413; got %T", err)
+	}
+}
+
+// TestReadJSONContentType pins the security fix for a CSRF-exempt JSON route
+// (e.g. POST /api/v1/auth/google): without an exact Content-Type check, a
+// cross-site <form enctype="text/plain"> submission could drive that route
+// with an attacker-chosen body, since SameSite=Lax still attaches the
+// session cookie to a top-level form navigation. ReadJSON must refuse
+// anything but application/json (a charset parameter aside) before ever
+// reading the body.
+func TestReadJSONContentType(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+		setHeader   bool
+		wantRefused bool
+	}{
+		{"missing header", "", false, true},
+		{"text/plain", "text/plain", true, true},
+		{"form-urlencoded", "application/x-www-form-urlencoded", true, true},
+		{"application/json", "application/json", true, false},
+		{"application/json with charset", "application/json; charset=utf-8", true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(`{"name":"centre"}`))
+			if tt.setHeader {
+				r.Header.Set("Content-Type", tt.contentType)
+			}
+
+			var dst struct {
+				Name string `json:"name"`
+			}
+			err := ReadJSON(w, r, &dst)
+
+			var unsupported *UnsupportedMediaTypeError
+			isUnsupported := errors.As(err, &unsupported)
+
+			if tt.wantRefused && !isUnsupported {
+				t.Fatalf("want a *UnsupportedMediaTypeError; got %v (%T)", err, err)
+			}
+			if !tt.wantRefused && err != nil {
+				t.Fatalf("want no error for a declared application/json body; got %v", err)
+			}
+		})
+	}
+}
+
+// TestBadRequestReportsUnsupportedMediaTypeAs415 checks that the Responder —
+// the helper every ReadJSON call site hands its error to — turns
+// UnsupportedMediaTypeError into 415 with the dedicated kind, the same way
+// it already special-cases BodyTooLargeError and InvalidJSONError.
+func TestBadRequestReportsUnsupportedMediaTypeAs415(t *testing.T) {
+	rs := NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
+	rs.BadRequest(w, r, &UnsupportedMediaTypeError{msg: "Content-Type header must be application/json"})
+
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Errorf("want %d; got %d", http.StatusUnsupportedMediaType, w.Code)
+	}
+
+	var body Problem
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Type != KindUnsupportedMediaType.URI() {
+		t.Errorf("want type %q; got %q", KindUnsupportedMediaType.URI(), body.Type)
 	}
 }
 

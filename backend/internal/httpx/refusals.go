@@ -93,6 +93,14 @@ func TooLarge(message any) Refusal {
 	return Refusal{http.StatusRequestEntityTooLarge, KindTooLarge, message}
 }
 
+// UnsupportedMediaType refuses a request whose Content-Type does not declare
+// application/json: 415. ReadJSON raises this itself (see
+// UnsupportedMediaTypeError in json.go); this constructor exists so a caller
+// that checks the header outside ReadJSON answers the same way.
+func UnsupportedMediaType(message any) Refusal {
+	return Refusal{http.StatusUnsupportedMediaType, KindUnsupportedMediaType, message}
+}
+
 // TooManyRequests refuses a caller who is over a limit: 429.
 func TooManyRequests(message any) Refusal {
 	return Refusal{http.StatusTooManyRequests, KindRateLimited, message}

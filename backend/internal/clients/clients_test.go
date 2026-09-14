@@ -110,6 +110,7 @@ func requestFor(t *testing.T, method, target string, complexID, clientID uuid.UU
 		r = httptest.NewRequestWithContext(t.Context(), method, target, nil)
 	} else {
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
 	}
 
 	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID})

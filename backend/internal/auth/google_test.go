@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/googleid"
+	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 // TestGoogleSignInDisabledConfig covers the 503 a caller gets when no
@@ -500,5 +502,39 @@ func TestGoogleSignInMissingCredential(t *testing.T) {
 	}
 	if len(f.google.calls) != 0 {
 		t.Error("Verify must not be called with no credential")
+	}
+}
+
+// TestGoogleSignInRefusesNonJSONContentType pins the fix for a CSRF-exempt
+// route reachable by a forged cross-site body: POST /api/v1/auth/google
+// mints a session cookie and carries no CSRF token (it is the token's own
+// source), so a plain <form enctype="text/plain"> submission could otherwise
+// drive it with an attacker-chosen "body" that still decodes as the expected
+// JSON shape. Refusing any Content-Type but application/json, before the
+// body is read, closes that without a token check on the route that mints
+// the cookie the token would be derived from — and it must happen before any
+// Set-Cookie is written.
+func TestGoogleSignInRefusesNonJSONContentType(t *testing.T) {
+	f := newFixtureWithGoogle(t)
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/",
+		strings.NewReader(`{"credential":"good-id-token"}`))
+	r.Header.Set("Content-Type", "text/plain")
+
+	w := httptest.NewRecorder()
+	f.handler.GoogleSignIn(w, r)
+
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("want 415; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := decode(t, w)
+	if got := body["type"]; got != httpx.KindUnsupportedMediaType.URI() {
+		t.Errorf("want type %q; got %v", httpx.KindUnsupportedMediaType.URI(), got)
+	}
+	if findCookie(w.Header(), "access_token") != nil || findCookie(w.Header(), "refresh_token") != nil {
+		t.Error("a refused request must not mint a session cookie")
+	}
+	if len(f.google.calls) != 0 {
+		t.Error("Verify must not be called before the Content-Type check passes")
 	}
 }

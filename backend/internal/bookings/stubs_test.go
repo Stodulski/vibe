@@ -765,6 +765,7 @@ func ownerRequest(t *testing.T, method, target string, complexID uuid.UUID, para
 		r = httptest.NewRequestWithContext(t.Context(), method, target, nil)
 	} else {
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
 	}
 
 	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
@@ -781,7 +782,9 @@ func publicRequest(t *testing.T, method, target, body string) *http.Request {
 	if body == "" {
 		return httptest.NewRequestWithContext(t.Context(), method, target, nil)
 	}
-	return httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+	r := httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	return r
 }
 
 func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
