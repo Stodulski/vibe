@@ -18,7 +18,8 @@ import (
 )
 
 // Two things have to hold for the tenant boundary to be worth its name, and
-// until 005_tenant_columns.sql only the first of them did:
+// until the tenant columns landed (TEN-01, now part of 001_init.sql)
+// only the first of them did:
 //
 //  1. Row-level security refuses a cross-tenant read. That is what
 //     rls_integration_test.go proves, and it holds for every table.

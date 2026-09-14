@@ -47,7 +47,7 @@ type Result struct {
 	VersionBefore int64
 	VersionAfter  int64
 	// Applied names the migrations this run put on, in the order it applied
-	// them, as file names ("035_....sql").
+	// them, as file names ("001_init.sql").
 	Applied []string
 }
 

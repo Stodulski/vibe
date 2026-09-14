@@ -251,7 +251,7 @@ const insertBookingAtAFreeHourSQL = `
 // TestABookingOfAnotherTenantIsInvisible is the finding this whole change
 // exists for. The by-id read used to be `WHERE id = $1` with no tenant
 // predicate at all, and twelve handlers compared the row's complex_id by hand
-// afterwards; it carries one now (005_tenant_columns.sql, TEN-01), and this
+// afterwards; it carries one now (TEN-01, in 001_init.sql), and this
 // asks what the policies do when the query runs anyway. The predicate's own
 // half is proved with the policies switched off, in
 // tenant_columns_integration_test.go.
