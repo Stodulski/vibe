@@ -78,7 +78,7 @@ Defined in `.env.example`:
 
 ### Deployment
 
-Vercel with edge middleware (`middleware.ts`) for bot/social-crawler prerendering of public `/:slug` pages. PWA via vite-plugin-pwa with workbox (network-first for the _public_ API only — authenticated responses are never cached — cache-first for fonts and map tiles).
+Vercel, with a `vercel.json` rewrite gated on the `User-Agent` header for bot/social-crawler prerendering of public `/:slug` pages: only requests whose user agent matches a crawler pattern are routed to the backend's prerender endpoint, so humans never invoke a function on those paths. PWA via vite-plugin-pwa with workbox (network-first for the _public_ API only — authenticated responses are never cached — cache-first for fonts and map tiles).
 
 ## Code Principles
 

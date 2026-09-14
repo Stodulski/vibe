@@ -12,6 +12,17 @@
       "destination": "https://api.vibe.com.ar/api/v1/auth/google/redirect"
     },
     {
+      "source": "/:slug((?!(?:login|register|verify-email|verify-email-sent|forgot-password|reset-password|complexes|onboarding|settings|dashboard|bookings|courts|clients|reports|profile|admin)$)[a-z0-9]+(?:-[a-z0-9]+)*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "^.*(?:[Bb]ot|[Cc]rawl|[Ss]pider|[Ss]lurp|[Ff]acebookexternalhit|[Ww]hats[Aa]pp|[Tt]witterbot|[Ll]inked[Ii]n[Bb]ot|[Dd]iscordbot|[Tt]elegrambot|[Gg]ooglebot|[Bb]ingbot|[Yy]andex|[Aa]pplebot|[Pp]interestbot).*$"
+        }
+      ],
+      "destination": "https://api.vibe.com.ar/api/v1/public/prerender/:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

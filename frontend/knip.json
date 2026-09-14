@@ -9,7 +9,6 @@
   "entry": [
     "index.html",
     "e2e/**/*.spec.ts",
-    "middleware.ts",
     // shadcn/radix primitives. Every name in one of these files is part of
     // the primitive's public surface — `Table` without `TableCaption`, or
     // `Select` without `SelectGroup`, is a half-component, and the next

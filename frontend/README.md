@@ -101,7 +101,7 @@ This starts an E2E-only Postgres (`:5433`) and Redis (`:6380`), boots a purpose-
 
 The app deploys to [Vercel](https://vercel.com). `vercel.json` sets the Vite framework preset, `pnpm build` as the build command, `dist` as the output directory, an SPA rewrite (`/(.*) → /index.html`), long-cache headers for static assets, and `X-Robots-Tag: noindex` on authenticated and non-public routes.
 
-`middleware.ts` runs at the edge and rewrites requests from known bot/crawler user agents on public `/:slug` complex pages to the backend's prerender endpoint (`BACKEND_URL` + `/api/v1/public/prerender/:slug`), so social previews and search crawlers see server-rendered HTML instead of the empty SPA shell.
+A `vercel.json` rewrite conditioned on the `User-Agent` header sends known bot/crawler user agents on public `/:slug` complex pages straight to the backend's prerender endpoint (`https://api.vibe.com.ar/api/v1/public/prerender/:slug`), so social previews and search crawlers see server-rendered HTML instead of the empty SPA shell — and, because the condition is on the rewrite itself, human traffic never invokes a function for these paths.
 
 CI runs on GitHub Actions (`.github/workflows/frontend.yml` at the repository root) with four jobs on every push and pull request to `main` that touches `frontend/`: `typecheck` (`tsc -b --force`), `lint` (`pnpm lint`), `format` (`pnpm format:check`), and `test` (`pnpm test`). The end-to-end suite runs from `.github/workflows/e2e.yml`, which is triggered by changes to either `frontend/` or `backend/` and runs `make e2e` from the server package.
 
@@ -113,7 +113,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 - **Port `5173` already in use**: another Vite instance is running. Stop it, or run `pnpm dev -- --port 5174`.
 - **The E2E suite is hitting your running dev API**: `global.setup.ts` truncates its target database. If you ran `pnpm test:e2e` directly while a dev API was up on `:8080`, it just wiped your local development data. Always use `cd ../backend && make e2e` for an isolated stack, see above.
-- **Public complex pages show no preview when shared on WhatsApp or social media locally**: `middleware.ts` only runs on Vercel's edge runtime, not under `pnpm dev`. Bot-only prerendering can only be verified after a Vercel deploy or with `vercel dev`.
+- **Public complex pages show no preview when shared on WhatsApp or social media locally**: the crawler rewrite in `vercel.json` only applies on Vercel, not under `pnpm dev`. Bot-only prerendering can only be verified after a Vercel deploy or with `vercel dev`.
 
 ## License
 

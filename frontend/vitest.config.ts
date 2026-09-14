@@ -15,7 +15,7 @@ export default defineConfig({
     globals: false,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
-    // Root-level `*.test.ts` too: middleware.ts and index.html live outside
+    // Root-level `*.test.ts` too: vercel.json and index.html live outside
     // src but ship with the app, and their tests are the only guard on the
     // contract they hold with the backend's prerender.
     include: ['src/**/*.test.{ts,tsx}', '*.test.ts'],
