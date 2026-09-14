@@ -79,6 +79,25 @@ describe('useOnboardingStep — deriving the step from server data', () => {
   });
 });
 
+describe('useOnboardingStep — pinning the step within a session', () => {
+  it('keeps step 2 when creating the first court refetches courts and would derive step 3', () => {
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useOnboardingStep>[0]) => useOnboardingStep(props),
+      {
+        initialProps: baseArgs({ complexId: 'c1', courts: [], currentComplex: complex }),
+      },
+    );
+    expect(result.current.step).toBe(2);
+
+    // The court was created: the courts query refetches and now has one
+    // court, which on its own would derive step 3. The owner never asked to
+    // move on (that's the "Siguiente" button, tested via `changeStep`), so
+    // the page must stay on step 2.
+    rerender(baseArgs({ complexId: 'c1', courts: [{}], currentComplex: complex }));
+    expect(result.current.step).toBe(2);
+  });
+});
+
 describe('useOnboardingStep — manual overrides', () => {
   it('keeps a manually chosen step even while the server data would derive a different one', () => {
     const { result, rerender } = renderHook(
