@@ -39,7 +39,6 @@ export function PhoneAndEmailFields({ register, control, errors }: PhoneAndEmail
               onBlur={field.onBlur}
               placeholder="11 2345 6789"
               inputClassName="h-12 text-base"
-              selectClassName="h-12"
               aria-invalid={!!errors.client_phone}
               aria-describedby={errors.client_phone ? 'client_phone-error' : undefined}
             />
