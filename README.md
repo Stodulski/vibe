@@ -30,12 +30,19 @@ Both Vercel projects are linked to this one repository, so every push used to st
 of them whatever it touched — a backend-only commit paid for two frontend builds. On 2026-09-14 that
 ran the account into Vercel's daily deployment limit (`Deployment rate limited — retry in 24 hours`),
 which stops production releases, not just previews. The landing now carries an `ignoreCommand` in
-`landing/vercel.json` that skips a build when nothing under `landing/` changed since the last one
-deployed for that branch (`VERCEL_GIT_PREVIOUS_SHA`).
+`landing/vercel.json` that skips a build when nothing under `landing/` changed since the commit last
+deployed for that branch (`VERCEL_GIT_PREVIOUS_SHA`, which spans the whole push — `HEAD^ HEAD` would
+miss a landing change made in any but the last commit).
 
-It is written to fail towards building, because a skipped build that was needed ships nothing and
-says nothing: no previous SHA (the first build of a branch) builds, a SHA git cannot resolve (a
-shallow clone that does not reach it) builds, and only a clean diff of the package directory skips.
+Vercel documents exactly two exit codes for that command: `0` skips the build and `1` runs it.
+Nothing is said about the rest, and `git diff` against a SHA outside a shallow clone exits `128`, so
+the command resolves the SHA first and funnels every other outcome through an explicit `exit 1`. It
+can only ever exit `0` or `1`, and every one of those paths except a clean diff builds: a build
+skipped by mistake ships nothing and reports nothing.
+
+`vibe-frontend` is **not** gated this way — it still builds on commits that touch only `backend/` or
+`landing/`, and still spends the same budget. Gating it the same way is the other half of this fix.
+
 Note that Vercel's checks are not among the required contexts on `main`, so a merge succeeds while
 production stays on the previous build — verify a release by fetching a string the new build
 _removed_, never one it added.
