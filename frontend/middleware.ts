@@ -1,4 +1,4 @@
-import { next } from '@vercel/edge';
+import { next } from '@vercel/functions';
 
 // Bots that need server-rendered HTML for meta tags / OG previews.
 const BOT_PATTERN =
@@ -129,4 +129,8 @@ export const config = {
   // One segment only. The old matcher ran on every request just to call next()
   // on almost all of them.
   matcher: '/:slug',
+  // Vercel deprecated the edge runtime for Routing Middleware. Everything this
+  // file touches (fetch, Request/Response, AbortSignal.timeout, process.env) is
+  // standard in Node, so the move changes where it runs, not what it does.
+  runtime: 'nodejs',
 };
