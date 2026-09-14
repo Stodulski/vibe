@@ -65,7 +65,7 @@ type Complex struct {
 	mpRefreshTokenErr error
 	MPUserID          *string `json:"mp_user_id,omitempty"`
 	// Version is the row's optimistic-concurrency counter, bumped by a trigger
-	// on every UPDATE (db/migrations/003_optimistic_concurrency.sql). A client
+	// on every UPDATE (db/migrations/001_init.sql). A client
 	// that echoes it back on a PUT is told, with 409, when somebody else wrote
 	// the row since it was read; a client that does not is not (API-08).
 	Version int `json:"version"`

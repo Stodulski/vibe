@@ -15,7 +15,7 @@ import (
 
 // googleIdentityProvider is the provider column value every row this module
 // writes to user_identities carries. It is also the CHECK constraint's only
-// allowed value (db/migrations/002_user_identities.sql) — there is exactly
+// allowed value (db/migrations/001_init.sql) — there is exactly
 // one provider today.
 const googleIdentityProvider = "google"
 

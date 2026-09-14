@@ -382,7 +382,7 @@ func (s *Store) ReleaseDedupKey(ctx context.Context, id uuid.UUID) (bool, error)
 // payload names complexID.
 //
 // This table deliberately carries no complex_id column and no row-level
-// security (db/migrations/004_jobs.sql): it is a queue every domain shares,
+// security (db/migrations/001_init.sql): it is a queue every domain shares,
 // and a tenant policy on it would have to be satisfied by every background
 // sweep that legitimately spans tenants. So the tenant lives in the payload,
 // and the predicate here is the readable half of the isolation — the other
