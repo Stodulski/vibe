@@ -20,9 +20,12 @@ import type { TimelineColumnData } from './useTimelineColumns';
 export function StickyCourtNames({
   columns,
   trackRef,
+  columnWidth,
 }: {
   columns: TimelineColumnData[];
   trackRef: RefObject<HTMLDivElement | null>;
+  /** The width the grid settled on for each column, so the names match it. */
+  columnWidth: number;
 }) {
   const { sentinelRef, stuck } = useStuck();
 
@@ -33,7 +36,7 @@ export function StickyCourtNames({
           so parking here would slide the names underneath it. */}
       <div className="sticky top-16 z-20 overflow-hidden" style={{ height: `${String(HEADER_HEIGHT_PX)}px` }}>
         <div ref={trackRef}>
-          <GridHeaderRow columns={columns} stuck={stuck} />
+          <GridHeaderRow columns={columns} stuck={stuck} columnWidth={columnWidth} />
         </div>
       </div>
     </>

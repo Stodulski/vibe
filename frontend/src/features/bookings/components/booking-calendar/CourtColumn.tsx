@@ -4,7 +4,7 @@ import { courtObstacles, isSlotOccupied, upcomingSlots } from './helpers';
 import { FreeSlots } from './FreeSlots';
 import { BlockedBlock } from './BlockedBlock';
 import { BookingBlock } from './BookingBlock';
-import { COLUMN_WIDTH_PX, DAY_START_MIN, DAY_END_MIN } from './gridLayout';
+import { DAY_START_MIN, DAY_END_MIN } from './gridLayout';
 import type { Booking, BlockedSlot, DurationMinutes } from '@/shared/types/api.types';
 import type { TimelineColumnData } from './useTimelineColumns';
 
@@ -22,6 +22,8 @@ import type { TimelineColumnData } from './useTimelineColumns';
  */
 interface CourtColumnProps {
   column: TimelineColumnData;
+  /** The width the grid gave every column — see `resolveColumnWidthPx`. */
+  columnWidth: number;
   isFirst: boolean;
   date: string;
   allBookings: Booking[];
@@ -96,6 +98,7 @@ function ColumnBookings({
 
 function CourtColumnImpl({
   column,
+  columnWidth,
   isFirst,
   date,
   allBookings,
@@ -129,7 +132,7 @@ function CourtColumnImpl({
       // top and bottom borders, so a column pinned to the full pixel figure
       // stuck 2px out the bottom — and a horizontally scrollable box is never
       // `overflow-y: visible`, so those 2px became a vertical scroll axis.
-      style={{ width: `${String(COLUMN_WIDTH_PX)}px`, height: '100%' }}
+      style={{ width: `${String(columnWidth)}px`, height: '100%' }}
     >
       <FreeSlots
         freeSlots={freeSlots}

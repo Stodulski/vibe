@@ -20,11 +20,35 @@ export const DAY_END_MIN = 24 * 60;
  */
 export const GUTTER_CLASS = 'w-10 shrink-0 sm:w-11';
 /**
- * Every court column is this wide, at every viewport. Whatever doesn't fit
- * is reached by scrolling the columns sideways, so a booking occupies the
- * same width on a phone as on a desktop instead of being squeezed.
+ * The narrowest a court column is ever drawn. Whatever doesn't fit at this
+ * width is reached by scrolling the columns sideways, so a booking is never
+ * squeezed below the width that makes its details readable.
+ *
+ * It is a floor, not the width: see `resolveColumnWidthPx`.
  */
-export const COLUMN_WIDTH_PX = 200;
+export const MIN_COLUMN_WIDTH_PX = 200;
+
+/**
+ * How wide each court column is drawn, given the space the columns have.
+ *
+ * A club with one court used to get a 200px strip against the side of a phone
+ * and dead space for the rest of the viewport, because the width was a
+ * constant. Few columns now share the space out between them; many still take
+ * the minimum each and overflow into the horizontal scroller, unchanged.
+ *
+ * `availableWidth` is the plot area's own width — the hour gutter is a sibling
+ * outside it (see `CourtTimeGrid`), so there is nothing to subtract here.
+ * It is 0 before the element is measured, and on a server or in a DOM without
+ * `ResizeObserver`; every one of those falls back to the minimum.
+ *
+ * Floored so the columns can never total more than the space they were given:
+ * a fraction of a pixel over is enough to arm the scroller on a grid that has
+ * nothing more to show.
+ */
+export function resolveColumnWidthPx(availableWidth: number, columnCount: number): number {
+  if (availableWidth <= 0 || columnCount <= 0) return MIN_COLUMN_WIDTH_PX;
+  return Math.max(MIN_COLUMN_WIDTH_PX, Math.floor(availableWidth / columnCount));
+}
 /** Height of the court-name row above the grid. */
 export const HEADER_HEIGHT_PX = 36;
 
