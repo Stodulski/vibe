@@ -97,6 +97,69 @@ func TestCreatePersistsAndAudits(t *testing.T) {
 	}
 }
 
+// TestCreateReportsADuplicateCourtNameAsAFieldErrorNotACrash pins the bug the
+// frontend E2E found: a name already used by a live court in the complex used
+// to reach ServerError unconditionally, because Create's error branch never
+// asked errors.Is at all — any error, including this one, fell through to a
+// bare 500. courtstore.ErrDuplicateCourtName is what courts_active_name_unique
+// (internal/courts/store/courts.go) translates the constraint refusal into;
+// this is the same 422 field shape complexes.ErrSlugTaken earns on its own
+// Create.
+func TestCreateReportsADuplicateCourtNameAsAFieldErrorNotACrash(t *testing.T) {
+	store := &stubStore{insertErr: courtstore.ErrDuplicateCourtName}
+	h, rec := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+
+	w := httptest.NewRecorder()
+	h.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(),
+		nil, `{"name":"Court 1","sport":"padel","court_type":"indoor"}`))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 naming the field; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"name"`) {
+		t.Errorf("the response must name the name field as the problem; got %s", w.Body.String())
+	}
+	// The frontend renders from the code, not from prose.
+	if !strings.Contains(w.Body.String(), "court_name_taken") {
+		t.Errorf("want the court_name_taken code the frontend maps; got %s", w.Body.String())
+	}
+	if len(rec.entries) != 0 {
+		t.Error("a refused create must not be audited")
+	}
+}
+
+// TestUpdateReportsADuplicateCourtNameAsAFieldErrorNotACrash covers renaming
+// onto another LIVE court's name in the same complex — the same collision
+// Create can hit, translated by the same courts_active_name_unique index.
+// Reactivating a soft-deleted court (is_active: true) onto a live court's name
+// collides the same way through this same Update codepath: there is no
+// separate restore endpoint.
+func TestUpdateReportsADuplicateCourtNameAsAFieldErrorNotACrash(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	store := &stubStore{
+		court:     &courtstore.Court{ID: courtID, ComplexID: complexID, Name: "Court 2"},
+		updateErr: courtstore.ErrDuplicateCourtName,
+	}
+	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+
+	w := httptest.NewRecorder()
+	h.Update(w, ownerRequest(t, http.MethodPut, "/", complexID,
+		map[string]string{"courtID": courtID.String()}, `{"name":"Court 1"}`))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 naming the field; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"name"`) {
+		t.Errorf("the response must name the name field as the problem; got %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "court_name_taken") {
+		t.Errorf("want the court_name_taken code the frontend maps; got %s", w.Body.String())
+	}
+	if store.updated != nil {
+		t.Error("a refused rename must not be persisted")
+	}
+}
+
 // A court belonging to another complex reads as missing, not forbidden — a 403
 // would confirm the id exists.
 func TestCourtsOfOtherComplexesAreInvisible(t *testing.T) {
