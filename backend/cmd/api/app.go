@@ -484,8 +484,13 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Turnstile:     turnstileClient,
 		Google:        googleVerifier,
 		Identities:    d.models.UserIdentities,
-		Respond:       respond,
-		Logger:        d.logger,
+		// The redirect-mode one-time codes are minted on whichever instance
+		// Google's post landed on and spent on whichever one the frontend's
+		// exchange reaches, so they have to live in Redis and not in a
+		// process — see auth.GoogleCodes.
+		GoogleCodes: auth.NewGoogleCodes(d.rdb, cfg.Env),
+		Respond:     respond,
+		Logger:      d.logger,
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 

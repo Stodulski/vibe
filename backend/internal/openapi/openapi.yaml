@@ -509,37 +509,7 @@ paths:
         `/auth/google/complete`, since registration requires a phone number Google never
         provides. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
       responses:
-        "200":
-          description: Session established, or a profile token for an address with no account yet.
-          headers:
-            Set-Cookie:
-              description: Sets `access_token` and `refresh_token`, only when a session was established.
-              schema: {type: string}
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - type: object
-                    required: [user, csrf_token]
-                    properties:
-                      user: {$ref: "#/components/schemas/User"}
-                      csrf_token:
-                        type: string
-                        description: Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
-                  - type: object
-                    required: [needs_profile, profile_token, profile]
-                    properties:
-                      needs_profile: {type: boolean, enum: [true]}
-                      profile_token:
-                        type: string
-                        description: Signed, 10-minute token. Send back to `/auth/google/complete`.
-                      profile:
-                        type: object
-                        required: [email, first_name, last_name]
-                        properties:
-                          email: {type: string}
-                          first_name: {type: string}
-                          last_name: {type: string}
+        "200": {$ref: "#/components/responses/GoogleSignInResult"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
@@ -621,6 +591,116 @@ paths:
                   example: "+5491112345678"
                 first_name: {type: string, maxLength: 100, description: "Overrides the profile token's given_name."}
                 last_name: {type: string, maxLength: 100, description: "Overrides the profile token's family_name."}
+
+  /api/v1/auth/google/redirect:
+    post:
+      tags: [auth]
+      operationId: authGoogleRedirect
+      summary: Receive Google's redirect-mode form post and hand back a one-time code
+      description: >-
+        Public, and not called by the frontend's own code: this is the `login_uri` Google posts
+        to when the client asks for `ux_mode: 'redirect'`, which exists because popup mode opens
+        a blank page on many mobile browsers. Google posts
+        `application/x-www-form-urlencoded` with `credential` (the ID token) and `g_csrf_token`,
+        and sets a `g_csrf_token` cookie on the app's origin; the frontend proxies
+        `https://app.vibe.com.ar/auth/google/callback` here with the body and cookies intact.
+
+
+        The request is a top-level cross-site form navigation, so it establishes **nothing**: no
+        session cookie is ever set here. On success the answer is `303` to
+        `<FRONTEND_URL>/auth/google/return?code=<code>`, carrying an opaque, single-use code
+        that expires in 120 seconds and is spent against `/auth/google/exchange` from the app's
+        own origin.
+
+
+        Every failure is a `303` as well, because the response is a page a person sees rather
+        than JSON a client reads. A CSRF cookie/field that is missing or unequal (compared in
+        constant time), a wrong content type, an oversized body, a missing or rejected
+        credential all redirect to `<FRONTEND_URL>/login?error=google_rejected`; Google not
+        being configured and any internal failure redirect to
+        `<FRONTEND_URL>/login?error=google_unavailable`. The reason is logged and never shown.
+        `501` is the one exception: with no `FRONTEND_URL` there is nowhere to redirect to.
+      responses:
+        "303":
+          description: >-
+            Always, on success and on every failure alike. `Location` is
+            `<FRONTEND_URL>/auth/google/return?code=<code>` on success, and
+            `<FRONTEND_URL>/login?error=google_rejected` or
+            `<FRONTEND_URL>/login?error=google_unavailable` otherwise.
+          headers:
+            Location:
+              description: Where the browser continues. Never carries a session or a profile token.
+              schema: {type: string}
+            Cache-Control:
+              description: Always `no-store` — the location carries a one-time code.
+              schema: {type: string}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "501":
+          description: >-
+            `FRONTEND_URL` is not configured, so there is no address to redirect to. The only
+            answer this endpoint gives that is not a redirect.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [credential, g_csrf_token]
+              properties:
+                credential:
+                  type: string
+                  description: The Google Identity Services ID token.
+                g_csrf_token:
+                  type: string
+                  description: >-
+                    Google's double-submit token. Must equal the `g_csrf_token` cookie Google set
+                    on the app's origin.
+                select_by:
+                  type: string
+                  description: How the account was chosen. Sent by Google, ignored here.
+                client_id:
+                  type: string
+                  description: The OAuth client id. Sent by Google, ignored here — the audience is checked on the token itself.
+
+  /api/v1/auth/google/exchange:
+    post:
+      tags: [auth]
+      operationId: authGoogleExchange
+      summary: Spend a redirect-mode one-time code for a session
+      description: >-
+        Public. Consumes the `code` `/auth/google/redirect` put in the URL and answers exactly
+        what `/auth/google` answers: a session with its cookies, or `needs_profile` with a
+        profile token for `/auth/google/complete`. This is where the session cookies are set —
+        the redirect endpoint never sets any.
+
+
+        The code is single-use and expires in 120 seconds. An unknown, expired or already-spent
+        code is `422` on field `code` with "invalid or expired"; which of the three it was is
+        never revealed. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
+      responses:
+        "200": {$ref: "#/components/responses/GoogleSignInResult"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  description: The opaque one-time code from `/auth/google/redirect`'s `Location`.
 
   /api/v1/auth/refresh:
     post:
@@ -3245,6 +3325,41 @@ components:
       content:
         application/problem+json:
           schema: {$ref: "#/components/schemas/Problem"}
+    GoogleSignInResult:
+      description: >-
+        The outcome of a verified Google sign-in: a session established exactly as `/auth/login`
+        does, or a profile token for an address with no account yet. `/auth/google` and
+        `/auth/google/exchange` answer identically — the second is the redirect-mode path to the
+        same place.
+      headers:
+        Set-Cookie:
+          description: Sets `access_token` and `refresh_token`, only when a session was established.
+          schema: {type: string}
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - type: object
+                required: [user, csrf_token]
+                properties:
+                  user: {$ref: "#/components/schemas/User"}
+                  csrf_token:
+                    type: string
+                    description: Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
+              - type: object
+                required: [needs_profile, profile_token, profile]
+                properties:
+                  needs_profile: {type: boolean, enum: [true]}
+                  profile_token:
+                    type: string
+                    description: Signed, 10-minute token. Send back to `/auth/google/complete`.
+                  profile:
+                    type: object
+                    required: [email, first_name, last_name]
+                    properties:
+                      email: {type: string}
+                      first_name: {type: string}
+                      last_name: {type: string}
 
   schemas:
     Problem:

@@ -68,6 +68,8 @@ var routeGuards = map[string]routeGuard{
 	"POST /api/v1/auth/forgot-password":                                {kind: guardPublic},
 	"POST /api/v1/auth/google":                                         {kind: guardPublic},
 	"POST /api/v1/auth/google/complete":                                {kind: guardPublic},
+	"POST /api/v1/auth/google/exchange":                                {kind: guardPublic},
+	"POST /api/v1/auth/google/redirect":                                {kind: guardPublic},
 	"POST /api/v1/auth/login":                                          {kind: guardPublic},
 	"POST /api/v1/auth/logout":                                         {kind: guardPublic},
 	"DELETE /api/v1/auth/me":                                           {kind: guardAuth},

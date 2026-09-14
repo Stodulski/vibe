@@ -173,6 +173,24 @@ type GoogleVerifier interface {
 	Verify(ctx context.Context, credential string) (*googleid.Claims, error)
 }
 
+// GoogleCodeStore holds the one-time codes that carry a redirect-mode Google
+// sign-in between the two requests it is split across: Google's form POST,
+// whose answer is a redirect, and the frontend's exchange, which is where the
+// session is finally established.
+//
+// It is declared here, by the consumer, like every other port in this file.
+// GoogleCodes satisfies it; a nil one means "no store was wired", which
+// NewService turns into a purely in-memory GoogleCodes rather than a nil
+// check at each call site.
+type GoogleCodeStore interface {
+	// Store records payload under code for ttl.
+	Store(ctx context.Context, code string, payload []byte, ttl time.Duration) error
+	// Consume returns what code carries and spends it in the same operation,
+	// so a code is usable exactly once. An unknown, expired or already-spent
+	// code is ErrGoogleCodeInvalid.
+	Consume(ctx context.Context, code string) ([]byte, error)
+}
+
 // Recorder writes the audit trail for what happens to an account.
 //
 // It is declared here, by the consumer, matching internal/bookings,
@@ -266,8 +284,11 @@ type Dependencies struct {
 	// Identities links a local account to the Google account it signed in
 	// with.
 	Identities IdentityStore
-	Respond    *httpx.Responder
-	Logger     *slog.Logger
+	// GoogleCodes holds the one-time codes redirect-mode Google sign-in is
+	// exchanged with. Nil means in-memory — see GoogleCodeStore.
+	GoogleCodes GoogleCodeStore
+	Respond     *httpx.Responder
+	Logger      *slog.Logger
 }
 
 // NewHandler returns a Handler backed by the given service.

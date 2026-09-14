@@ -534,6 +534,16 @@ func newFixtureWithGoogle(t *testing.T) *fixture {
 	return f
 }
 
+// newFixtureWithGoogleCodes is newFixtureWithGoogle with the redirect-mode
+// code store replaced, for the tests that drive the Redis-backed one rather
+// than the in-memory store NewService substitutes.
+func newFixtureWithGoogleCodes(t *testing.T, codes GoogleCodeStore) *fixture {
+	t.Helper()
+	f := newFixtureWithGoogle(t)
+	f.service.googleCodes = codes
+	return f
+}
+
 func postJSON(t *testing.T, body string) *http.Request {
 	t.Helper()
 	return httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(body))

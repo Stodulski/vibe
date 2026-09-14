@@ -31,7 +31,11 @@ var publicRoutes = map[string]string{
 	"POST /api/v1/auth/login":    "establishes the session",
 	"POST /api/v1/auth/google": "verifies a Google Identity Services ID token and either establishes " +
 		"the session or returns a profile token for /auth/google/complete — there is no session yet either way",
-	"POST /api/v1/auth/google/complete":     "creates the account from a profile token; there is no session yet",
+	"POST /api/v1/auth/google/complete": "creates the account from a profile token; there is no session yet",
+	"POST /api/v1/auth/google/redirect": "Google posts the ID token here in redirect mode, through the " +
+		"frontend's proxy; the caller is Google, not a signed-in browser, and the answer is only a redirect",
+	"POST /api/v1/auth/google/exchange": "spends the one-time code the redirect handed the frontend; " +
+		"the session it establishes is the one that did not exist yet",
 	"POST /api/v1/auth/refresh":             "runs on an expired access token by design",
 	"POST /api/v1/auth/logout":              "must succeed even with an already-invalid session",
 	"POST /api/v1/auth/verify-email":        "reached from an emailed link, before first login",

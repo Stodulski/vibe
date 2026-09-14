@@ -613,6 +613,21 @@ func (e Weekday) Valid() bool {
 	}
 }
 
+// Defines values for GoogleSignInResult1NeedsProfile.
+const (
+	GoogleSignInResult1NeedsProfileTrue GoogleSignInResult1NeedsProfile = true
+)
+
+// Valid indicates whether the value is a known member of the GoogleSignInResult1NeedsProfile enum.
+func (e GoogleSignInResult1NeedsProfile) Valid() bool {
+	switch e {
+	case GoogleSignInResult1NeedsProfileTrue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminListUsersParamsRole.
 const (
 	AdminListUsersParamsRoleClient     AdminListUsersParamsRole = "client"
@@ -636,13 +651,28 @@ func (e AdminListUsersParamsRole) Valid() bool {
 
 // Defines values for AuthGoogle200JSONResponseBody1NeedsProfile.
 const (
-	True AuthGoogle200JSONResponseBody1NeedsProfile = true
+	AuthGoogle200JSONResponseBody1NeedsProfileTrue AuthGoogle200JSONResponseBody1NeedsProfile = true
 )
 
 // Valid indicates whether the value is a known member of the AuthGoogle200JSONResponseBody1NeedsProfile enum.
 func (e AuthGoogle200JSONResponseBody1NeedsProfile) Valid() bool {
 	switch e {
-	case True:
+	case AuthGoogle200JSONResponseBody1NeedsProfileTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthGoogleExchange200JSONResponseBody1NeedsProfile.
+const (
+	AuthGoogleExchange200JSONResponseBody1NeedsProfileTrue AuthGoogleExchange200JSONResponseBody1NeedsProfile = true
+)
+
+// Valid indicates whether the value is a known member of the AuthGoogleExchange200JSONResponseBody1NeedsProfile enum.
+func (e AuthGoogleExchange200JSONResponseBody1NeedsProfile) Valid() bool {
+	switch e {
+	case AuthGoogleExchange200JSONResponseBody1NeedsProfileTrue:
 		return true
 	default:
 		return false
@@ -1764,6 +1794,34 @@ type EditConflict = Problem
 // Forbidden An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type Forbidden = Problem
 
+// GoogleSignInResult defines model for GoogleSignInResult.
+type GoogleSignInResult struct {
+	union json.RawMessage
+}
+
+// GoogleSignInResult0 defines model for GoogleSignInResult.0.
+type GoogleSignInResult0 struct {
+	// CsrfToken Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
+	CsrfToken string `json:"csrf_token"`
+	User      User   `json:"user"`
+}
+
+// GoogleSignInResult1 defines model for GoogleSignInResult.1.
+type GoogleSignInResult1 struct {
+	NeedsProfile GoogleSignInResult1NeedsProfile `json:"needs_profile"`
+	Profile      struct {
+		Email     string `json:"email"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+	} `json:"profile"`
+
+	// ProfileToken Signed, 10-minute token. Send back to `/auth/google/complete`.
+	ProfileToken string `json:"profile_token"`
+}
+
+// GoogleSignInResult1NeedsProfile defines model for GoogleSignInResult.1.NeedsProfile.
+type GoogleSignInResult1NeedsProfile bool
+
 // LinkExpired An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type LinkExpired = Problem
 
@@ -1862,11 +1920,6 @@ type AuthGoogle200JSONResponseBody1 struct {
 // AuthGoogle200JSONResponseBody1NeedsProfile defines parameters for AuthGoogle.
 type AuthGoogle200JSONResponseBody1NeedsProfile bool
 
-// AuthGoogle200JSONResponseBody defines parameters for AuthGoogle.
-type AuthGoogle200JSONResponseBody struct {
-	union json.RawMessage
-}
-
 // AuthGoogleCompleteJSONBody defines parameters for AuthGoogleComplete.
 type AuthGoogleCompleteJSONBody struct {
 	// FirstName Overrides the profile token's given_name.
@@ -1878,6 +1931,50 @@ type AuthGoogleCompleteJSONBody struct {
 	// Phone Normalized server-side to E.164.
 	Phone        string `json:"phone"`
 	ProfileToken string `json:"profile_token"`
+}
+
+// AuthGoogleExchangeJSONBody defines parameters for AuthGoogleExchange.
+type AuthGoogleExchangeJSONBody struct {
+	// Code The opaque one-time code from `/auth/google/redirect`'s `Location`.
+	Code string `json:"code"`
+}
+
+// AuthGoogleExchange200JSONResponseBody0 defines parameters for AuthGoogleExchange.
+type AuthGoogleExchange200JSONResponseBody0 struct {
+	// CsrfToken Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
+	CsrfToken string `json:"csrf_token"`
+	User      User   `json:"user"`
+}
+
+// AuthGoogleExchange200JSONResponseBody1 defines parameters for AuthGoogleExchange.
+type AuthGoogleExchange200JSONResponseBody1 struct {
+	NeedsProfile AuthGoogleExchange200JSONResponseBody1NeedsProfile `json:"needs_profile"`
+	Profile      struct {
+		Email     string `json:"email"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+	} `json:"profile"`
+
+	// ProfileToken Signed, 10-minute token. Send back to `/auth/google/complete`.
+	ProfileToken string `json:"profile_token"`
+}
+
+// AuthGoogleExchange200JSONResponseBody1NeedsProfile defines parameters for AuthGoogleExchange.
+type AuthGoogleExchange200JSONResponseBody1NeedsProfile bool
+
+// AuthGoogleRedirectFormdataBody defines parameters for AuthGoogleRedirect.
+type AuthGoogleRedirectFormdataBody struct {
+	// ClientId The OAuth client id. Sent by Google, ignored here — the audience is checked on the token itself.
+	ClientId *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// Credential The Google Identity Services ID token.
+	Credential string `form:"credential" json:"credential"`
+
+	// GCsrfToken Google's double-submit token. Must equal the `g_csrf_token` cookie Google set on the app's origin.
+	GCsrfToken string `form:"g_csrf_token" json:"g_csrf_token"`
+
+	// SelectBy How the account was chosen. Sent by Google, ignored here.
+	SelectBy *string `form:"select_by,omitempty" json:"select_by,omitempty"`
 }
 
 // AuthLoginJSONBody defines parameters for AuthLogin.
@@ -2367,6 +2464,12 @@ type AuthGoogleJSONRequestBody AuthGoogleJSONBody
 // AuthGoogleCompleteJSONRequestBody defines body for AuthGoogleComplete for application/json ContentType.
 type AuthGoogleCompleteJSONRequestBody AuthGoogleCompleteJSONBody
 
+// AuthGoogleExchangeJSONRequestBody defines body for AuthGoogleExchange for application/json ContentType.
+type AuthGoogleExchangeJSONRequestBody AuthGoogleExchangeJSONBody
+
+// AuthGoogleRedirectFormdataRequestBody defines body for AuthGoogleRedirect for application/x-www-form-urlencoded ContentType.
+type AuthGoogleRedirectFormdataRequestBody AuthGoogleRedirectFormdataBody
+
 // AuthLoginJSONRequestBody defines body for AuthLogin for application/json ContentType.
 type AuthLoginJSONRequestBody AuthLoginJSONBody
 
@@ -2448,22 +2551,22 @@ type PaymentsMercadoPagoWebhookJSONRequestBody PaymentsMercadoPagoWebhookJSONBod
 // BookingsWhatsAppWebhookJSONRequestBody defines body for BookingsWhatsAppWebhook for application/json ContentType.
 type BookingsWhatsAppWebhookJSONRequestBody BookingsWhatsAppWebhookJSONBody
 
-// AsAuthGoogle200JSONResponseBody0 returns the union data inside the AuthGoogle200JSONResponseBody as a AuthGoogle200JSONResponseBody0
-func (t AuthGoogle200JSONResponseBody) AsAuthGoogle200JSONResponseBody0() (AuthGoogle200JSONResponseBody0, error) {
-	var body AuthGoogle200JSONResponseBody0
+// AsGoogleSignInResult0 returns the union data inside the GoogleSignInResult as a GoogleSignInResult0
+func (t GoogleSignInResult) AsGoogleSignInResult0() (GoogleSignInResult0, error) {
+	var body GoogleSignInResult0
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromAuthGoogle200JSONResponseBody0 overwrites any union data inside the AuthGoogle200JSONResponseBody as the provided AuthGoogle200JSONResponseBody0
-func (t *AuthGoogle200JSONResponseBody) FromAuthGoogle200JSONResponseBody0(v AuthGoogle200JSONResponseBody0) error {
+// FromGoogleSignInResult0 overwrites any union data inside the GoogleSignInResult as the provided GoogleSignInResult0
+func (t *GoogleSignInResult) FromGoogleSignInResult0(v GoogleSignInResult0) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeAuthGoogle200JSONResponseBody0 performs a merge with any union data inside the AuthGoogle200JSONResponseBody, using the provided AuthGoogle200JSONResponseBody0
-func (t *AuthGoogle200JSONResponseBody) MergeAuthGoogle200JSONResponseBody0(v AuthGoogle200JSONResponseBody0) error {
+// MergeGoogleSignInResult0 performs a merge with any union data inside the GoogleSignInResult, using the provided GoogleSignInResult0
+func (t *GoogleSignInResult) MergeGoogleSignInResult0(v GoogleSignInResult0) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2474,22 +2577,22 @@ func (t *AuthGoogle200JSONResponseBody) MergeAuthGoogle200JSONResponseBody0(v Au
 	return err
 }
 
-// AsAuthGoogle200JSONResponseBody1 returns the union data inside the AuthGoogle200JSONResponseBody as a AuthGoogle200JSONResponseBody1
-func (t AuthGoogle200JSONResponseBody) AsAuthGoogle200JSONResponseBody1() (AuthGoogle200JSONResponseBody1, error) {
-	var body AuthGoogle200JSONResponseBody1
+// AsGoogleSignInResult1 returns the union data inside the GoogleSignInResult as a GoogleSignInResult1
+func (t GoogleSignInResult) AsGoogleSignInResult1() (GoogleSignInResult1, error) {
+	var body GoogleSignInResult1
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromAuthGoogle200JSONResponseBody1 overwrites any union data inside the AuthGoogle200JSONResponseBody as the provided AuthGoogle200JSONResponseBody1
-func (t *AuthGoogle200JSONResponseBody) FromAuthGoogle200JSONResponseBody1(v AuthGoogle200JSONResponseBody1) error {
+// FromGoogleSignInResult1 overwrites any union data inside the GoogleSignInResult as the provided GoogleSignInResult1
+func (t *GoogleSignInResult) FromGoogleSignInResult1(v GoogleSignInResult1) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeAuthGoogle200JSONResponseBody1 performs a merge with any union data inside the AuthGoogle200JSONResponseBody, using the provided AuthGoogle200JSONResponseBody1
-func (t *AuthGoogle200JSONResponseBody) MergeAuthGoogle200JSONResponseBody1(v AuthGoogle200JSONResponseBody1) error {
+// MergeGoogleSignInResult1 performs a merge with any union data inside the GoogleSignInResult, using the provided GoogleSignInResult1
+func (t *GoogleSignInResult) MergeGoogleSignInResult1(v GoogleSignInResult1) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2500,12 +2603,12 @@ func (t *AuthGoogle200JSONResponseBody) MergeAuthGoogle200JSONResponseBody1(v Au
 	return err
 }
 
-func (t AuthGoogle200JSONResponseBody) MarshalJSON() ([]byte, error) {
+func (t GoogleSignInResult) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *AuthGoogle200JSONResponseBody) UnmarshalJSON(b []byte) error {
+func (t *GoogleSignInResult) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -2548,6 +2651,12 @@ type ServerInterface interface {
 	// AuthGoogleComplete Finish a first-time Google sign-in by supplying a phone number
 	// (POST /api/v1/auth/google/complete)
 	AuthGoogleComplete(w http.ResponseWriter, r *http.Request)
+	// AuthGoogleExchange Spend a redirect-mode one-time code for a session
+	// (POST /api/v1/auth/google/exchange)
+	AuthGoogleExchange(w http.ResponseWriter, r *http.Request)
+	// AuthGoogleRedirect Receive Google's redirect-mode form post and hand back a one-time code
+	// (POST /api/v1/auth/google/redirect)
+	AuthGoogleRedirect(w http.ResponseWriter, r *http.Request)
 	// AuthLogin Log in and start a session
 	// (POST /api/v1/auth/login)
 	AuthLogin(w http.ResponseWriter, r *http.Request)
@@ -3124,6 +3233,34 @@ func (siw *ServerInterfaceWrapper) AuthGoogleComplete(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AuthGoogleComplete(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AuthGoogleExchange operation middleware
+func (siw *ServerInterfaceWrapper) AuthGoogleExchange(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthGoogleExchange(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AuthGoogleRedirect operation middleware
+func (siw *ServerInterfaceWrapper) AuthGoogleRedirect(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthGoogleRedirect(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5533,6 +5670,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/login", wrapper.AuthLogin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google", wrapper.AuthGoogle)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/complete", wrapper.AuthGoogleComplete)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/redirect", wrapper.AuthGoogleRedirect)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/exchange", wrapper.AuthGoogleExchange)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/refresh", wrapper.AuthRefresh)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/logout", wrapper.AuthLogout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/verify-email", wrapper.AuthVerifyEmail)
