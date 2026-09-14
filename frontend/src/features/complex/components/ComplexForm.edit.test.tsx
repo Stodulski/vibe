@@ -42,13 +42,19 @@ describe('ComplexForm edit mode and interactions', () => {
     expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeInTheDocument();
   });
 
-  it('shows slug preview when name is entered', async () => {
+  it('derives the public URL field from the name as it is typed', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ComplexForm />);
 
     await user.type(screen.getByLabelText(/nombre/i), 'Mi Club Padel');
 
-    expect(screen.getByText(/mi-club-padel/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/url pública/i)).toHaveValue('mi-club-padel');
+  });
+
+  it('keeps the public URL read-only for an existing complex', () => {
+    renderWithProviders(<ComplexForm complex={complexWithoutCoordinates} />);
+
+    expect(screen.getByLabelText(/url pública/i)).toHaveAttribute('readonly');
   });
 
   it('saves an unrelated field change without re-selecting the address, for a complex with no coordinates', async () => {
