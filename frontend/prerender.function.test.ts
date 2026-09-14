@@ -1,6 +1,7 @@
+import { readdirSync } from 'node:fs';
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET } from './prerender';
+import { GET } from './api/prerender';
 
 function request(slug: string | null): Request {
   const url = new URL('https://app.vibe.com.ar/api/prerender');
@@ -174,5 +175,16 @@ describe('GET /api/prerender, when the backend does not answer', () => {
 
     expect(response.status).toBe(503);
     expect(response.headers.get('retry-after')).toBe('60');
+  });
+});
+
+// Vercel turns every file under api/ into a deployed Function. A test file that
+// lived there shipped as /api/prerender.test and answered 500 in production
+// (it imports vitest at runtime), so tests for functions live outside api/.
+describe('api/ holds deployable functions only', () => {
+  it('has no test or helper files a deploy would expose as endpoints', () => {
+    const files = readdirSync(new URL('./api/', import.meta.url), { recursive: true }).map(String);
+    expect(files.filter((f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f))).toEqual([]);
+    expect(files.sort()).toEqual(['prerender.ts']);
   });
 });
