@@ -10,6 +10,12 @@ interface PhoneInputProps {
   id?: string;
   placeholder?: string;
   inputClassName?: string;
+  /**
+   * Extra classes for the "+54" prefix box. The box has no height class of
+   * its own — it stretches to match the input via `self-stretch` — so this
+   * should never carry a height utility; doing so would override the stretch
+   * and reintroduce the mismatch it fixes.
+   */
   selectClassName?: string;
   disabled?: boolean;
   'aria-invalid'?: boolean;
@@ -35,7 +41,14 @@ export function PhoneInput({
   });
 
   return (
-    <div className="flex">
+    // `items-stretch` (the flex default, made explicit here since it's load-
+    // bearing) is what keeps the prefix box exactly as tall as the input:
+    // neither one carries its own height class, so each stretches to the
+    // row's height instead of two callers having to repeat matching height
+    // classes that can drift apart — which is exactly how this broke before
+    // (some callers overrode the input's height without also updating the
+    // addon's).
+    <div className="flex items-stretch">
       {/* Argentina is the only market this app serves — the prefix is fixed
           and never user-selectable, so this is a static label, not a
           control. `aria-hidden` keeps it out of the accessibility tree; the
@@ -43,7 +56,7 @@ export function PhoneInput({
       <span
         aria-hidden="true"
         className={cn(
-          'border-border-interactive bg-bg-subtle text-text-secondary flex h-10 shrink-0 items-center rounded-l-xl border border-r-0 px-2.5 text-sm select-none',
+          'border-border-interactive bg-bg-subtle text-text-secondary flex shrink-0 items-center self-stretch rounded-l-xl border border-r-0 px-2.5 text-sm select-none',
           disabled && 'opacity-50',
           selectClassName,
         )}
