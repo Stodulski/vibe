@@ -60,7 +60,6 @@ export function RegisterContactFields({ register, control, errors }: RegisterCon
               onBlur={field.onBlur}
               placeholder="11 2345 6789"
               inputClassName="h-11 text-sm sm:h-10"
-              selectClassName="h-11 sm:h-10"
               aria-invalid={!!errors.phone}
               aria-describedby={errors.phone ? 'phone-error' : undefined}
             />
