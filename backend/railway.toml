@@ -1,6 +1,17 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+# Only a change under backend/ redeploys the API. Railway watches the whole
+# repository otherwise, so every frontend or landing commit rebuilt the image,
+# ran preDeployCommand against production Postgres and cycled the replicas for
+# a binary whose inputs had not moved.
+#
+# The patterns are gitignore-style and resolve from the REPOSITORY root, not
+# from this service's root directory — Railway's own documentation spells that
+# out for a service rooted at /app, whose pattern is still /app/**. The build
+# context is backend/ and nothing outside it enters the image, so one pattern
+# covers it; the repository root holds only README.md and CLAUDE.md.
+watchPatterns = ["/backend/**"]
 # TZ=UTC (DOM-01, single-timezone-by-design: docs/adr/0005-single-timezone.md)
 # is fixed in the Dockerfile's final stage, not set here: this schema has no
 # runtime-variables section (https://railway.com/railway.schema.json only
