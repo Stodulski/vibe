@@ -9,6 +9,10 @@
   "entry": [
     "index.html",
     "e2e/**/*.spec.ts",
+    // Vercel loads api/*.ts by filesystem convention (there is no import
+    // site). Its own test file already reaches it, but naming it here keeps
+    // it from being flagged unused if that test is ever removed.
+    "api/prerender.ts",
     // shadcn/radix primitives. Every name in one of these files is part of
     // the primitive's public surface — `Table` without `TableCaption`, or
     // `Select` without `SelectGroup`, is a half-component, and the next
@@ -24,7 +28,7 @@
   ],
   // `.css` is in here so the `@import`s in `src/styles/globals.css` are
   // followed; without it knip hints that it is skipping them.
-  "project": ["src/**/*.{ts,tsx,css}"],
+  "project": ["src/**/*.{ts,tsx,css}", "api/**/*.ts"],
   "ignoreBinaries": [
     // A system Postgres client e2e/setup/global.setup.ts shells out to, not
     // an npm-installed binary.
