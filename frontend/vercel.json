@@ -20,7 +20,7 @@
           "value": "^.*(?:[Bb]ot|[Cc]rawl|[Ss]pider|[Ss]lurp|[Ff]acebookexternalhit|[Ww]hats[Aa]pp|[Tt]witterbot|[Ll]inked[Ii]n[Bb]ot|[Dd]iscordbot|[Tt]elegrambot|[Gg]ooglebot|[Bb]ingbot|[Yy]andex|[Aa]pplebot|[Pp]interestbot).*$"
         }
       ],
-      "destination": "https://api.vibe.com.ar/api/v1/public/prerender/:slug"
+      "destination": "/api/prerender?slug=:slug"
     },
     {
       "source": "/(.*)",

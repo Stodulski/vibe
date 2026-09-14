@@ -15,10 +15,11 @@ export default defineConfig({
     globals: false,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
-    // Root-level `*.test.ts` too: vercel.json and index.html live outside
-    // src but ship with the app, and their tests are the only guard on the
-    // contract they hold with the backend's prerender.
-    include: ['src/**/*.test.{ts,tsx}', '*.test.ts'],
+    // Root-level `*.test.ts` too, plus `api/**/*.test.ts`: vercel.json,
+    // index.html and api/prerender.ts live outside src but ship with the
+    // app, and their tests are the only guard on the contract they hold
+    // with the backend's prerender.
+    include: ['src/**/*.test.{ts,tsx}', '*.test.ts', 'api/**/*.test.ts'],
     css: true,
     // `VITE_APP_URL` is required by src/shared/lib/env.ts (BLD-04): every test
     // file that imports it (directly or transitively) evaluates `parseEnv` at

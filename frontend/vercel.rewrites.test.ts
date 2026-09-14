@@ -85,7 +85,7 @@ const APP_ROUTES = [
   'admin',
 ];
 
-const PRERENDER_DESTINATION = 'https://api.vibe.com.ar/api/v1/public/prerender/:slug';
+const PRERENDER_DESTINATION = '/api/prerender?slug=:slug';
 
 /** Pulls the inner `path-to-regexp` group out of a `/:slug(...)` source. */
 function slugGroup(source: string): string {
@@ -97,7 +97,7 @@ function slugGroup(source: string): string {
 const crawlerRewrite = config.rewrites.find((r) => r.destination === PRERENDER_DESTINATION);
 
 describe('vercel.json rewrites, crawler prerender', () => {
-  it('exists, with the prerender endpoint as its destination', () => {
+  it('exists, pointing at the api/prerender.ts Vercel Function', () => {
     expect(crawlerRewrite).toBeDefined();
   });
 
