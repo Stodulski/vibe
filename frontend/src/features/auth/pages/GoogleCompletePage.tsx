@@ -11,7 +11,7 @@ export default function GoogleCompletePage() {
   const location = useLocation();
 
   // `location.state` carries the profile token and preview handed off by
-  // `useGoogleSignIn`'s `needs_profile` redirect — never the URL, so it
+  // `useGoogleExchange`'s `needs_profile` redirect — never the URL, so it
   // can't be replayed from a bookmark or a shared link. A direct visit or a
   // page reload loses it (browser state doesn't survive a hard reload the
   // way `history.state` normally would across a soft navigation), so it

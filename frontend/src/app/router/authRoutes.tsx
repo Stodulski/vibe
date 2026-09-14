@@ -9,6 +9,7 @@ import { PublicPageLoader } from './loaders';
 const LoginPage = lazyRetry(() => import('@/features/auth/pages/LoginPage'));
 const RegisterPage = lazyRetry(() => import('@/features/auth/pages/RegisterPage'));
 const GoogleCompletePage = lazyRetry(() => import('@/features/auth/pages/GoogleCompletePage'));
+const GoogleReturnPage = lazyRetry(() => import('@/features/auth/pages/GoogleReturnPage'));
 const VerifyEmailSentPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailSentPage'));
 const VerifyEmailPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailPage'));
 const ForgotPasswordPage = lazyRetry(() => import('@/features/auth/pages/ForgotPasswordPage'));
@@ -46,6 +47,21 @@ export const authRoutes: RouteObject[] = [
         <ErrorBoundary>
           <Suspense fallback={<PublicPageLoader />}>
             <GoogleCompletePage />
+          </Suspense>
+        </ErrorBoundary>
+      </GuestRoute>
+    ),
+  },
+  // Where Google's redirect-mode sign-in comes back to, via the backend's
+  // 303 (see `GoogleSignInButton`). Guest-only like the rest: a visitor who
+  // already has a session has nothing to exchange.
+  {
+    path: '/auth/google/return',
+    element: (
+      <GuestRoute>
+        <ErrorBoundary>
+          <Suspense fallback={<PublicPageLoader />}>
+            <GoogleReturnPage />
           </Suspense>
         </ErrorBoundary>
       </GuestRoute>

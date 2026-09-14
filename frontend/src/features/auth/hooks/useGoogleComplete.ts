@@ -9,7 +9,7 @@ import type { GoogleCompleteRequest } from '@/shared/types/api.types';
 /**
  * Handles `POST /auth/google/complete` — the second step of Google sign-up,
  * submitted from `GoogleCompletePage`. Success behaves exactly like a login
- * (same store updates, same redirect logic as `useLogin`/`useGoogleSignIn`).
+ * (same store updates, same redirect logic as `useLogin`/`useGoogleExchange`).
  *
  * A 422 field-validation error is deliberately left un-toasted here: the
  * page itself applies it directly onto the form via a per-call `onError`

@@ -78,4 +78,12 @@ export const auth = {
   googleAccountExists: 'Ya existe una cuenta con ese email. Iniciá sesión.',
   googleSessionExpired: 'El registro con Google venció. Volvé a intentar.',
   googleSignInError: 'No pudimos iniciar sesión con Google. Probá de nuevo.',
+  googleReturnTitle: 'Ingresando con Google',
+  googleReturnLoading: 'Estamos terminando tu ingreso con Google...',
+  // The three `?error=` values `/login` can arrive with after a Google
+  // redirect: two minted by the backend's redirect handler, one by the
+  // code exchange (see `useGoogleExchange`).
+  googleErrorRejected: 'No pudimos validar tu cuenta de Google. Probá de nuevo.',
+  googleErrorUnavailable: 'Google no está disponible en este momento. Probá más tarde o ingresá con tu email.',
+  googleErrorExpired: 'El ingreso con Google expiró. Probá de nuevo.',
 } as const;

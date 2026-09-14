@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { loadGoogleIdentityServices } from '@/shared/lib/googleIdentity';
 import { env } from '@/shared/lib/env';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 import { useOverlayScale } from '../hooks/useOverlayScale';
 import { GoogleMark } from './GoogleMark';
 
@@ -51,13 +50,34 @@ function Decoy() {
  *
  * Deliberately does not enable One Tap: `auto_select: false` and no
  * `prompt()` call anywhere — the rendered button is the only entry point.
+ *
+ * ## Why `ux_mode: 'redirect'`
+ *
+ * In popup mode Google opens its own window and hands the credential back to
+ * this page through a JS `callback`. On mobile Safari (storage partitioning)
+ * and inside in-app webviews that handback never happens: the visitor is left
+ * staring at a blank Google page and the sign-in silently dies. Redirect mode
+ * has no window to talk back to, so it works everywhere — the trade is that
+ * the flow becomes two hops through the app instead of one callback:
+ *
+ * 1. Google POSTs `credential` + `g_csrf_token` (form-encoded) to `login_uri`
+ *    — `/auth/google/callback` on this origin, which Vercel rewrites (and the
+ *    Vite proxy forwards in dev/E2E) to `POST /api/v1/auth/google/redirect`.
+ *    `login_uri` must be on *this* origin, not the API's: the `g_csrf_token`
+ *    Google double-submits is a cookie it sets here.
+ * 2. That endpoint always answers with a 303 back to the app:
+ *    `/auth/google/return?code=…` on success — where `GoogleReturnPage`
+ *    exchanges the single-use code, plus that same cookie read back from
+ *    `document.cookie`, for a session — or `/login?error=…` when it refuses.
+ *
+ * Redirect mode everywhere, not just on mobile: one flow is one thing to keep
+ * working, and the desktop popup was never the part that was broken.
  */
 export function GoogleSignInButton() {
   const clientId = env.VITE_GOOGLE_CLIENT_ID;
   const frameRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
-  const { mutate } = useGoogleSignIn();
   const scale = useOverlayScale(frameRef, GIS_BUTTON_WIDTH, GIS_BUTTON_HEIGHT);
 
   useEffect(() => {
@@ -71,12 +91,15 @@ export function GoogleSignInButton() {
 
         google.accounts.id.initialize({
           client_id: clientId,
-          callback: (response) => {
-            mutate(response.credential);
-          },
-          ux_mode: 'popup',
+          ux_mode: 'redirect',
+          // Built from the live origin so previews and localhost each post to
+          // themselves; production is exactly https://app.vibe.com.ar/auth/google/callback.
+          login_uri: `${window.location.origin}/auth/google/callback`,
           auto_select: false,
-          use_fedcm_for_prompt: true,
+          // No `callback`: in redirect mode Google navigates away and POSTs
+          // the credential to `login_uri`, so nothing here would ever run it.
+          // No `use_fedcm_for_prompt` either — it only governs the One Tap
+          // `prompt()`, which this component deliberately never calls.
         });
 
         google.accounts.id.renderButton(containerRef.current, {
@@ -94,7 +117,7 @@ export function GoogleSignInButton() {
     return () => {
       cancelled = true;
     };
-  }, [clientId, mutate]);
+  }, [clientId]);
 
   if (!clientId) return null;
 

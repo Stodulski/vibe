@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { GoogleIdConfiguration, GoogleButtonConfiguration, GoogleNamespace } from '@/shared/lib/googleIdentity';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { GIS_BUTTON_HEIGHT, GIS_BUTTON_WIDTH, GoogleSignInButton } from './GoogleSignInButton';
-
-const mockMutate = vi.fn();
-vi.mock('../hooks/useGoogleSignIn', () => ({
-  useGoogleSignIn: () => ({ mutate: mockMutate }),
-}));
 
 const mockEnv = vi.hoisted((): { VITE_GOOGLE_CLIENT_ID: string | undefined } => ({
   VITE_GOOGLE_CLIENT_ID: 'test-client-id',
@@ -56,7 +51,10 @@ describe('GoogleSignInButton — rendering', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('initializes Google Identity Services with the configured client id', async () => {
+  // Redirect mode, not popup: a popup cannot hand the credential back on
+  // mobile Safari or inside an in-app webview, which is the whole reason this
+  // flow was moved to `login_uri` + the backend's 303 (see the component).
+  it('initializes Google Identity Services in redirect mode with the configured client id', async () => {
     const google = stubGoogleNamespace();
     loadResult = Promise.resolve(google);
 
@@ -68,11 +66,36 @@ describe('GoogleSignInButton — rendering', () => {
 
     expect(initializeConfig).toMatchObject({
       client_id: 'test-client-id',
-      ux_mode: 'popup',
+      ux_mode: 'redirect',
       auto_select: false,
-      use_fedcm_for_prompt: true,
     });
-    expect(typeof initializeConfig?.callback).toBe('function');
+  });
+
+  it("points login_uri at /auth/google/callback on the page's own origin", async () => {
+    loadResult = Promise.resolve(stubGoogleNamespace());
+
+    render(<GoogleSignInButton />);
+
+    await waitFor(() => {
+      expect(initializeConfig).not.toBeNull();
+    });
+
+    expect(initializeConfig?.login_uri).toBe(`${window.location.origin}/auth/google/callback`);
+  });
+
+  // Google POSTs the credential to `login_uri` instead of calling back into
+  // the page, so a `callback` here would be dead code that reads as a live
+  // second path into sign-in.
+  it('passes no callback, because redirect mode never calls one', async () => {
+    loadResult = Promise.resolve(stubGoogleNamespace());
+
+    render(<GoogleSignInButton />);
+
+    await waitFor(() => {
+      expect(initializeConfig).not.toBeNull();
+    });
+
+    expect(initializeConfig?.callback).toBeUndefined();
   });
 
   it('renders the official button with the expected look and locale', async () => {
@@ -126,7 +149,8 @@ describe('GoogleSignInButton — shape', () => {
   });
 
   // Does not enable One Tap — auto_select is asserted above, and there is
-  // no separate `prompt()` call anywhere in the component to assert on.
+  // no separate `prompt()` call anywhere in the component to assert on. That
+  // is also why `use_fedcm_for_prompt` is gone: it only governs `prompt()`.
   it('never calls a One Tap prompt (no such API is exposed by the stub)', async () => {
     const google = stubGoogleNamespace();
     loadResult = Promise.resolve(google);
@@ -148,23 +172,6 @@ describe('GoogleSignInButton — behavior', () => {
     initializeConfig = null;
     renderButtonOptions = null;
     renderButtonParent = null;
-  });
-
-  it('forwards the credential from the callback to useGoogleSignIn', async () => {
-    const google = stubGoogleNamespace();
-    loadResult = Promise.resolve(google);
-
-    render(<GoogleSignInButton />);
-
-    await waitFor(() => {
-      expect(initializeConfig).not.toBeNull();
-    });
-
-    act(() => {
-      initializeConfig?.callback({ credential: 'google-credential-token' });
-    });
-
-    expect(mockMutate).toHaveBeenCalledWith('google-credential-token');
   });
 
   it('shows a plain fallback message when the script fails to load', async () => {

@@ -8,6 +8,10 @@
       "destination": "https://api.vibe.com.ar/api/v1/sitemap.xml"
     },
     {
+      "source": "/auth/google/callback",
+      "destination": "https://api.vibe.com.ar/api/v1/auth/google/redirect"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
