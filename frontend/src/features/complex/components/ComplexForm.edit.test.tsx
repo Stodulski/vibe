@@ -51,10 +51,19 @@ describe('ComplexForm edit mode and interactions', () => {
     expect(screen.getByLabelText(/url pública/i)).toHaveValue('mi-club-padel');
   });
 
-  it('keeps the public URL read-only for an existing complex', () => {
+  it('lets an existing complex change its public URL and warns while it differs', async () => {
+    const user = userEvent.setup();
     renderWithProviders(<ComplexForm complex={complexWithoutCoordinates} />);
 
-    expect(screen.getByLabelText(/url pública/i)).toHaveAttribute('readonly');
+    const slugInput = screen.getByLabelText(/url pública/i);
+    expect(slugInput).not.toHaveAttribute('readonly');
+    // Untouched: still the complex's own slug, so no warning yet.
+    expect(screen.queryByText(/dejan de funcionar/i)).not.toBeInTheDocument();
+
+    await user.clear(slugInput);
+    await user.type(slugInput, 'club-nuevo');
+
+    expect(screen.getByText(/dejan de funcionar/i)).toBeInTheDocument();
   });
 
   it('saves an unrelated field change without re-selecting the address, for a complex with no coordinates', async () => {
