@@ -264,6 +264,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/google/redirect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive Google's redirect-mode form post and hand back a one-time code
+         * @description Public, and not called by the frontend's own code: this is the `login_uri` Google posts to when the client asks for `ux_mode: 'redirect'`, which exists because popup mode opens a blank page on many mobile browsers. Google posts `application/x-www-form-urlencoded` with `credential` (the ID token) and `g_csrf_token`, and sets a `g_csrf_token` cookie on the app's origin; the frontend proxies `https://app.vibe.com.ar/auth/google/callback` here with the body and cookies intact.
+         *
+         *     The request is a top-level cross-site form navigation, so it establishes **nothing**: no session cookie is ever set here. On success the answer is `303` to `<FRONTEND_URL>/auth/google/return?code=<code>`, carrying an opaque, single-use code that expires in 120 seconds and is spent against `/auth/google/exchange` from the app's own origin.
+         *
+         *     The code is bound to the browser it was issued to: the SHA-256 of the validated `g_csrf_token` is stored beside the verified claims, and the exchange has to present the same value — read back off the cookie Google set on the app's origin — or it establishes nothing. Without that binding the code would be an unbound bearer, and anybody holding a valid Google ID token could mint one and send a victim the return URL, whose browser would spend it and be signed in as the attacker.
+         *
+         *     Every failure is a `303` as well, because the response is a page a person sees rather than JSON a client reads. A CSRF cookie/field that is missing or unequal (compared in constant time), a wrong content type, an oversized body, a missing or rejected credential all redirect to `<FRONTEND_URL>/login?error=google_rejected`; Google not being configured and any internal failure redirect to `<FRONTEND_URL>/login?error=google_unavailable`. The reason is logged and never shown. `501` is the one exception: with no `FRONTEND_URL` there is nowhere to redirect to.
+         */
+        post: operations["authGoogleRedirect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Spend a redirect-mode one-time code for a session
+         * @description Public. Consumes the `code` `/auth/google/redirect` put in the URL and answers exactly what `/auth/google` answers: a session with its cookies, or `needs_profile` with a profile token for `/auth/google/complete`. This is where the session cookies are set — the redirect endpoint never sets any.
+         *
+         *     The code is single-use and expires in 120 seconds, and it is bound to the browser the redirect was delivered to — see `g_csrf_token` below. An unknown code, an expired or already-spent one, and one presented with the wrong `g_csrf_token` all answer `422` on field `code` with "invalid or expired": which it was is never revealed, and the code is consumed either way, so a guessed pairing cannot be retried. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
+         */
+        post: operations["authGoogleExchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -2098,6 +2146,31 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The outcome of a verified Google sign-in: a session established exactly as `/auth/login` does, or a profile token for an address with no account yet. `/auth/google` and `/auth/google/exchange` answer identically — the second is the redirect-mode path to the same place. */
+        GoogleSignInResult: {
+            headers: {
+                /** @description Sets `access_token` and `refresh_token`, only when a session was established. */
+                "Set-Cookie"?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    user: components["schemas"]["User"];
+                    /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
+                    csrf_token: string;
+                } | {
+                    /** @enum {boolean} */
+                    needs_profile: true;
+                    /** @description Signed, 10-minute token. Send back to `/auth/google/complete`. */
+                    profile_token: string;
+                    profile: {
+                        email: string;
+                        first_name: string;
+                        last_name: string;
+                    };
+                };
+            };
+        };
     };
     parameters: {
         /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
@@ -2600,31 +2673,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Session established, or a profile token for an address with no account yet. */
-            200: {
-                headers: {
-                    /** @description Sets `access_token` and `refresh_token`, only when a session was established. */
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                        /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
-                        csrf_token: string;
-                    } | {
-                        /** @enum {boolean} */
-                        needs_profile: true;
-                        /** @description Signed, 10-minute token. Send back to `/auth/google/complete`. */
-                        profile_token: string;
-                        profile: {
-                            email: string;
-                            first_name: string;
-                            last_name: string;
-                        };
-                    };
-                };
-            };
+            200: components["responses"]["GoogleSignInResult"];
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
@@ -2696,6 +2745,84 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    authGoogleRedirect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description The Google Identity Services ID token. */
+                    credential: string;
+                    /** @description Google's double-submit token. Must equal the `g_csrf_token` cookie Google set on the app's origin. */
+                    g_csrf_token: string;
+                    /** @description How the account was chosen. Sent by Google, ignored here. */
+                    select_by?: string;
+                    /** @description The OAuth client id. Sent by Google, ignored here — the audience is checked on the token itself. */
+                    client_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Always, on success and on every failure alike. `Location` is `<FRONTEND_URL>/auth/google/return?code=<code>` on success, and `<FRONTEND_URL>/login?error=google_rejected` or `<FRONTEND_URL>/login?error=google_unavailable` otherwise. */
+            303: {
+                headers: {
+                    /** @description Where the browser continues. Never carries a session or a profile token. */
+                    Location?: string;
+                    /** @description Always `no-store` — the location carries a one-time code. */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            429: components["responses"]["RateLimited"];
+            /** @description `FRONTEND_URL` is not configured, so there is no address to redirect to. The only answer this endpoint gives that is not a redirect. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    authGoogleExchange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The opaque one-time code from `/auth/google/redirect`'s `Location`. */
+                    code: string;
+                    /** @description The value of the `g_csrf_token` cookie Google set on the app's origin, read back by the return page. It binds the code to the browser the redirect was delivered to: the server compares its hash, in constant time, against the one stored when the code was issued. A browser that cannot produce it — because it blocks the cookie — fails closed here. */
+                    g_csrf_token: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["GoogleSignInResult"];
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];

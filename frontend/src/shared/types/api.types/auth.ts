@@ -32,18 +32,11 @@ export type GoogleSignInResponse = Ok<'authGoogle'>;
  * backend stored its hash next to the code and refuses a mismatch, and the
  * attacker cannot set a cookie on this origin in the victim's browser.
  *
- * Hand-written, not generated: the endpoint is not in the backend's OpenAPI
- * document yet, so `api.generated.ts` has no `authGoogleExchange` operation
- * to derive it from. Swap this for `Body<'authGoogleExchange'>` once the
- * backend spec lands and `pnpm gen:api` can see it. Its *response* needs no
- * new type at all: the endpoint answers byte-identically to
- * `POST /auth/google`, so it reuses {@link GoogleSignInResponse} (and
- * `googleSignInResponseSchema`).
+ * The *response* needs no type of its own: the endpoint answers
+ * byte-identically to `POST /auth/google`, so it reuses
+ * {@link GoogleSignInResponse} (and `googleSignInResponseSchema`).
  */
-export interface GoogleExchangeRequest {
-  code: string;
-  g_csrf_token: string;
-}
+export type GoogleExchangeRequest = Body<'authGoogleExchange'>;
 
 export type GoogleCompleteRequest = Body<'authGoogleComplete'>;
 
