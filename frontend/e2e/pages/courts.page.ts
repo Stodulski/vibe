@@ -4,7 +4,7 @@ export class CourtsPage {
   constructor(private page: Page) {}
 
   get createButton() {
-    return this.page.getByRole('button', { name: 'Nueva cancha' });
+    return this.page.getByRole('button', { name: 'Agregar cancha' });
   }
 
   get emptyState() {

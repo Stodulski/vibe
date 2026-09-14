@@ -20,7 +20,7 @@ test.describe('Court Management — Display & Edit', () => {
     await page.goto('/courts');
 
     // Wait for page to load and verify courts exist
-    await expect(page.getByRole('button', { name: 'Nueva cancha' })).toBeVisible({
+    await expect(page.getByRole('button', { name: 'Agregar cancha' })).toBeVisible({
       timeout: 10_000,
     });
 
@@ -49,7 +49,7 @@ test.describe('Court Management — Display & Edit', () => {
     await page.goto('/courts');
 
     // Wait for page to load and courts to appear
-    await expect(page.getByRole('button', { name: 'Nueva cancha' })).toBeVisible({
+    await expect(page.getByRole('button', { name: 'Agregar cancha' })).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByRole('heading', { name: /Cancha/ }).first()).toBeVisible({
@@ -75,7 +75,7 @@ test.describe('Court Management — Display & Edit', () => {
     }, complexId);
     await page.goto('/courts');
 
-    await expect(page.getByRole('button', { name: 'Nueva cancha' })).toBeVisible({
+    await expect(page.getByRole('button', { name: 'Agregar cancha' })).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByRole('heading', { name: /Cancha/ }).first()).toBeVisible({
