@@ -4063,6 +4063,8 @@ export interface operations {
                     latitude?: number;
                     /** Format: double */
                     longitude?: number;
+                    /** @description What the venue offers, from a closed vocabulary. Omitted or `[]` both mean none. */
+                    amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording")[];
                 };
             };
         };
