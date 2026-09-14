@@ -531,8 +531,8 @@ func TestAnUnknownSlugIsStillNotFound(t *testing.T) {
 	if w.Code != http.StatusNotFound {
 		t.Errorf("want 404; got %d (%s)", w.Code, w.Body.String())
 	}
-	// The frontend's edge only passes a 404 through to a crawler when this
-	// header says so; any other 404 becomes a 503 on its side.
+	// The header names the decision for logs and curl; the 404 status is what
+	// the crawler acts on.
 	if got := w.Header().Get("X-Prerender-Result"); got != "venue-not-found" {
 		t.Errorf("X-Prerender-Result = %q, want venue-not-found", got)
 	}
