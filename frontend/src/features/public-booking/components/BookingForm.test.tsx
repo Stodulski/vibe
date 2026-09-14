@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { hasUnsavedWork } from '@/shared/lib/unsavedWork';
 import { STORAGE_KEY } from './booking-form/savedFormData';
 import { BookingForm, type BookingSlotInfo } from './BookingForm';
 
@@ -225,5 +226,37 @@ describe('BookingForm validation', () => {
 
     expect(defaultProps.onSubmit).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/el nombre es requerido/i)).not.toBeInTheDocument();
+  });
+});
+
+// PWA-09: the PWA applies a waiting build when the tab goes to the background.
+// A client typing their details, switching to WhatsApp to check a phone number
+// and coming back must find the form as they left it.
+describe('BookingForm unsaved work', () => {
+  it('reports no unsaved work from merely rendering the empty form', () => {
+    render(<BookingForm {...defaultProps} />);
+
+    expect(hasUnsavedWork()).toBe(false);
+  });
+
+  it('marks the app busy once a field is typed into', async () => {
+    const user = userEvent.setup();
+    render(<BookingForm {...defaultProps} />);
+
+    await user.type(screen.getByLabelText(/nombre/i), 'Juan');
+
+    expect(hasUnsavedWork()).toBe(true);
+  });
+
+  it('clears the registration when the form unmounts', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<BookingForm {...defaultProps} />);
+
+    await user.type(screen.getByLabelText(/nombre/i), 'Juan');
+    expect(hasUnsavedWork()).toBe(true);
+
+    unmount();
+
+    expect(hasUnsavedWork()).toBe(false);
   });
 });

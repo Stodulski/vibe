@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { UnsavedChangesDialog } from '@/shared/components/common/UnsavedChangesDialog';
+import { hasUnsavedWork } from '@/shared/lib/unsavedWork';
 import { useUnsavedChangesBlocker } from './useUnsavedChangesBlocker';
 
 function DirtyForm() {
@@ -35,7 +36,7 @@ function renderAt() {
     ],
     { initialEntries: ['/form'] },
   );
-  render(<RouterProvider router={router} />);
+  return render(<RouterProvider router={router} />);
 }
 
 // FORM-11: nothing in the app used to intercept a navigation, so a mis-clicked
@@ -89,5 +90,40 @@ describe('useUnsavedChangesBlocker', () => {
     await user.click(screen.getByRole('link', { name: 'Otra pestaña' }));
 
     expect(screen.queryByText('Tenés cambios sin guardar')).not.toBeInTheDocument();
+  });
+});
+
+// PWA-09: the same dirty state that holds a navigation also holds back a
+// service worker update, so a new build never reloads a half-filled form away.
+describe('useUnsavedChangesBlocker — unsaved work registry', () => {
+  it('registers the form while it is dirty and clears it once it is clean again', async () => {
+    const user = userEvent.setup();
+    renderAt();
+
+    expect(hasUnsavedWork()).toBe(false);
+
+    await user.type(screen.getByLabelText('Nombre'), 'Club Norte');
+    await waitFor(() => {
+      expect(hasUnsavedWork()).toBe(true);
+    });
+
+    await user.clear(screen.getByLabelText('Nombre'));
+    await waitFor(() => {
+      expect(hasUnsavedWork()).toBe(false);
+    });
+  });
+
+  it('clears the registry when the form unmounts with changes still in it', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderAt();
+
+    await user.type(screen.getByLabelText('Nombre'), 'Club Norte');
+    await waitFor(() => {
+      expect(hasUnsavedWork()).toBe(true);
+    });
+
+    unmount();
+
+    expect(hasUnsavedWork()).toBe(false);
   });
 });

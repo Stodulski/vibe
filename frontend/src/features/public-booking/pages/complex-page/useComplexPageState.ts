@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns/format';
 import type { SelectedSlot } from '@/features/public-booking';
+import { useUnsavedWork } from '@/shared/hooks/useUnsavedWork';
 import type { DurationMinutes, Sport } from '@/shared/types/api.types';
 import { parseDateParam } from './schema';
 
@@ -109,6 +110,14 @@ function useFlowChangeHandlers(setSelectedSlot: (slot: null) => void, patchParam
  * changes `searchParams` without a `patchParams` call) is reflected
  * immediately instead of leaving stale state behind. `selectedSlot` is the
  * only piece that stays in `useState`: it is never written to the URL.
+ *
+ * That asymmetry is exactly what `useUnsavedWork` is told about below. A
+ * reload — including one the PWA decides on to pick up a new build while the
+ * tab is in the background — lands on the same query, so the day, sport,
+ * duration and open hour rebuild themselves and nothing is lost. The chosen
+ * court and slot live only in memory, and a client who picks a court, switches
+ * to WhatsApp to ask a friend and comes back would find the page reset. So the
+ * page counts as busy while, and only while, a slot is selected.
  */
 export function useComplexPageState() {
   const [searchParams] = useSearchParams();
@@ -138,6 +147,7 @@ export function useComplexPageState() {
   const answeredFromUrl = { sport: flow.sport !== null, duration: flow.duration !== null };
 
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
+  useUnsavedWork(selectedSlot !== null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const debouncedDateStr = useDebouncedDateStr(dateStr);

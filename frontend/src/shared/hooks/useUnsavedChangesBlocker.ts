@@ -1,4 +1,5 @@
 import { useBlocker } from 'react-router-dom';
+import { useUnsavedWork } from '@/shared/hooks/useUnsavedWork';
 
 /**
  * What a form needs to render a "you have unsaved changes" confirmation.
@@ -29,11 +30,19 @@ export interface UnsavedChangesBlocker {
  * This covers navigations the router owns. Closing the tab or hitting reload
  * is a different mechanism (`beforeunload`) with its own tradeoffs, and is
  * deliberately not handled here.
+ *
+ * It also publishes the dirty state through `useUnsavedWork`, the registry the
+ * PWA update policy reads before applying a new build (see
+ * `serviceWorkerUpdate.ts`). A reload the app decides on its own would destroy
+ * exactly the work this hook exists to protect, so every form that guards
+ * navigation guards the update too, for free.
  */
 export function useUnsavedChangesBlocker(isDirty: boolean): UnsavedChangesBlocker {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname,
   );
+
+  useUnsavedWork(isDirty);
 
   return {
     isBlocked: blocker.state === 'blocked',
