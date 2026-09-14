@@ -26,26 +26,43 @@ Railway and Vercel each build one package, so every project is configured with i
 - Railway (`backend`): root directory `backend`, Dockerfile and `railway.toml` are read from there.
 - Vercel (`frontend`, `landing`): root directory set to the package; `vercel.json` in the landing applies from there.
 
-Both Vercel projects are linked to this one repository, so every push used to start a build in each
-of them whatever it touched — a backend-only commit paid for two frontend builds. On 2026-09-14 that
-ran the account into Vercel's daily deployment limit (`Deployment rate limited — retry in 24 hours`),
-which stops production releases, not just previews. The landing now carries an `ignoreCommand` in
-`landing/vercel.json` that skips a build when nothing under `landing/` changed since the commit last
-deployed for that branch (`VERCEL_GIT_PREVIOUS_SHA`, which spans the whole push — `HEAD^ HEAD` would
-miss a landing change made in any but the last commit).
+All three projects watch this one repository, so before 2026-09-14 every push built every one of
+them whatever it touched: a backend-only commit rebuilt two frontends, and a copy fix in the app
+rebuilt the Go image and ran `preDeployCommand` against production Postgres. On Vercel that ran the
+account into its daily deployment limit (`Deployment rate limited — retry in 24 hours`), which stops
+production releases and not just previews. Each project now deploys only for its own directory:
 
-Vercel documents exactly two exit codes for that command: `0` skips the build and `1` runs it.
-Nothing is said about the rest, and `git diff` against a SHA outside a shallow clone exits `128`, so
-the command resolves the SHA first and funnels every other outcome through an explicit `exit 1`. It
-can only ever exit `0` or `1`, and every one of those paths except a clean diff builds: a build
-skipped by mistake ships nothing and reports nothing.
+| Project           | Where                  | Gate                              |
+| ----------------- | ---------------------- | --------------------------------- |
+| `vibe-frontend`   | `frontend/vercel.json` | `ignoreCommand`                   |
+| `vibe-landing`    | `landing/vercel.json`  | `ignoreCommand`                   |
+| backend (Railway) | `backend/railway.toml` | `watchPatterns = ["/backend/**"]` |
 
-`vibe-frontend` is **not** gated this way — it still builds on commits that touch only `backend/` or
-`landing/`, and still spends the same budget. Gating it the same way is the other half of this fix.
+Each package is self-contained — its own lockfile, its own `pnpm-workspace.yaml`, its own build
+inputs — and the repository root holds only `README.md` and `CLAUDE.md`, so a directory is the whole
+of what a build depends on.
 
-Note that Vercel's checks are not among the required contexts on `main`, so a merge succeeds while
-production stays on the previous build — verify a release by fetching a string the new build
-_removed_, never one it added.
+The Vercel gate compares against `VERCEL_GIT_PREVIOUS_SHA`, the commit last deployed for that
+branch, so the diff spans the whole push; Vercel's own doc example uses `HEAD^ HEAD`, which sees only
+the tip commit and would skip a build when the change sat in any earlier commit of the same push. It
+is also written to stay inside the two exit codes Vercel documents — `0` skips, `1` builds — because
+nothing is said about the rest and `git diff` against a SHA outside a shallow clone exits `128`. The
+command resolves the SHA first and funnels every other outcome through an explicit `exit 1`, so only
+a clean diff can return `0`: a build skipped by mistake ships nothing and reports nothing.
+
+Railway's patterns are gitignore-style and resolve from the repository root even though the service's
+root directory is `backend` — its documentation spells that out for a service rooted at `/app`, whose
+pattern is still `/app/**`.
+
+Two caveats worth knowing before trusting a green PR:
+
+- Vercel's checks are not among the required contexts on `main`, so a merge succeeds while production
+  stays on the previous build. Verify a release by fetching a string the new build _removed_, never
+  one it added — one it added may already have existed.
+- The GitHub Actions workflows filter by path on `push` but not on `pull_request`, so every PR still
+  runs the backend, frontend and E2E suites. Adding a `paths` filter there would leave the required
+  checks permanently pending on a PR that does not touch them, which blocks the merge; the fix is to
+  filter inside the jobs so the check still reports, and it has not been done.
 
 ## History
 
