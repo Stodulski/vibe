@@ -1,3 +1,7 @@
+// Must stay the first import. This module parses at load, and in the bundle
+// its chunk evaluates before the entry chunk, so Zod has to be configured
+// here, not in main.tsx. See zodConfig.ts.
+import './zodConfig';
 import { z } from 'zod';
 
 /**
