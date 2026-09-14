@@ -41,7 +41,7 @@ import (
 
 // The states a job moves through. They are stored in the jobs.status column
 // and pinned by its CHECK constraint, so the strings here and the ones in
-// db/migrations/004_jobs.sql are one definition in two places.
+// db/migrations/001_init.sql are one definition in two places.
 const (
 	// StatusPending is waiting for its run_at to come round.
 	StatusPending = "pending"

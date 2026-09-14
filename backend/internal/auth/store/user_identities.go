@@ -32,7 +32,7 @@ type Identities struct {
 // Insert records the link between identity.UserID and an external identity.
 // It is idempotent: linking the same (provider, subject) pair or the same
 // (user_id, provider) pair again is a silent no-op
-// (db/migrations/002_user_identities.sql), so a repeated Google sign-in never
+// (db/migrations/001_init.sql), so a repeated Google sign-in never
 // fails on the identity link.
 func (m *Identities) Insert(ctx context.Context, identity *UserIdentity) error {
 	ctx, cancel := data.QueryContext(ctx)

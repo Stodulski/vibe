@@ -31,7 +31,7 @@ type Court struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	// Version is the row's optimistic-concurrency counter, bumped by a trigger
-	// on every UPDATE (db/migrations/003_optimistic_concurrency.sql). It is
+	// on every UPDATE (db/migrations/001_init.sql). It is
 	// also the version of this court's price set, because those rows are
 	// replaced wholesale and a version on one of them does not survive the
 	// replace — see BumpCourtVersion in db/queries/courts.sql.
@@ -65,7 +65,7 @@ type CourtPrice struct {
 	FromMin int `json:"from_min"`
 	ToMin   int `json:"to_min"`
 	// Version is this band's own optimistic-concurrency counter, bumped by the
-	// trigger in db/migrations/003_optimistic_concurrency.sql. It is exposed
+	// trigger in db/migrations/001_init.sql. It is exposed
 	// for completeness and for UpdatePrice, the single-band write; the PUT that
 	// replaces a court's whole price table is guarded by the COURT's version
 	// instead, because these rows are deleted and reinserted and a band's own
@@ -897,7 +897,7 @@ func NewCourtPriceForTest(courtID uuid.UUID, dayType, timeFrom, timeTo string, p
 	}
 	return &CourtPrice{
 		// v7, matching what the growth tables' column defaults now mint
-		// (005_tenant_columns.sql). This is the only place in the repository
+		// (db/migrations/001_init.sql). This is the only place in the repository
 		// where Go mints a row id at all — every other id comes from the
 		// column's own DEFAULT — so it is the only place that could disagree.
 		// uuid.Must: NewV7 fails only if the kernel refuses randomness, which
