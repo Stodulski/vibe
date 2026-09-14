@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -45,6 +46,94 @@ func TestCreatePersistsAndAudits(t *testing.T) {
 	}
 	if len(f.audit.entries) != 1 || f.audit.entries[0].Action != "create" {
 		t.Errorf("the create was not audited; got %+v", f.audit.entries)
+	}
+}
+
+// An explicit empty amenities list must persist and echo back the same as an
+// omitted one: both mean "no amenities", and the client must not have to tell
+// them apart.
+func TestCreateWithEmptyAmenitiesPersistsAnEmptyList(t *testing.T) {
+	f := newFixture(t)
+	body := `{"name":"Vibe Palermo","slug":"vibe-palermo","address":"a","city":"c","province":"p",` +
+		`"phone":"1","cancellation_hours":24,"amenities":[]}`
+
+	w := httptest.NewRecorder()
+	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, body))
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.inserted == nil || len(f.store.inserted.Amenities) != 0 {
+		t.Errorf("want an empty amenities list persisted; got %v", f.store.inserted.Amenities)
+	}
+
+	var resp struct {
+		Complex struct {
+			Amenities []string `json:"amenities"`
+		} `json:"complex"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("could not decode response: %v", err)
+	}
+	if resp.Complex.Amenities == nil || len(resp.Complex.Amenities) != 0 {
+		t.Errorf("want amenities: [] in the response; got %v", resp.Complex.Amenities)
+	}
+}
+
+// An unknown amenity is refused with a field error naming it, the same way
+// Update refuses one: the closed vocabulary is enforced identically on both
+// paths.
+func TestCreateRejectsAnUnknownAmenity(t *testing.T) {
+	f := newFixture(t)
+	body := `{"name":"Vibe Palermo","slug":"vibe-palermo","address":"a","city":"c","province":"p",` +
+		`"phone":"1","cancellation_hours":24,"amenities":["sauna"]}`
+
+	w := httptest.NewRecorder()
+	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, body))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.inserted != nil {
+		t.Error("a complex with an unknown amenity must not be persisted")
+	}
+
+	var resp struct {
+		Errors []struct {
+			Field   string `json:"field"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("could not decode response: %v", err)
+	}
+	found := false
+	for _, e := range resp.Errors {
+		if e.Field == "amenities" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("want a field error on amenities; got %+v", resp.Errors)
+	}
+}
+
+// Two valid amenities plus a duplicate of one of them must persist cleaned:
+// the duplicate dropped, order kept, same as Update.
+func TestCreateDropsDuplicateAmenitiesAndKeepsOrder(t *testing.T) {
+	f := newFixture(t)
+	body := `{"name":"Vibe Palermo","slug":"vibe-palermo","address":"a","city":"c","province":"p",` +
+		`"phone":"1","cancellation_hours":24,"amenities":["wifi","parking","wifi"]}`
+
+	w := httptest.NewRecorder()
+	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, body))
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+	want := []string{"wifi", "parking"}
+	if f.store.inserted == nil || !reflect.DeepEqual(f.store.inserted.Amenities, want) {
+		t.Errorf("want amenities %v persisted, deduplicated and in order; got %v", want, f.store.inserted.Amenities)
 	}
 }
 

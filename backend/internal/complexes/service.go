@@ -171,11 +171,22 @@ type CreateInput struct {
 	CancellationHours int
 	Latitude          *float64
 	Longitude         *float64
+	// Amenities is already deduplicated and checked against the known
+	// vocabulary by the handler. Omitted or `[]` both mean none: the handler
+	// normalises both to a non-nil empty slice before this reaches the
+	// service.
+	Amenities []string
 }
 
 // Create opens a venue for an account, refusing a slug another venue already
 // holds and an account that is already at its cap, and gives the new venue the
 // default 08:00-23:00 week.
+//
+// It is one cohesive write — validate, persist, record, seed schedules — and
+// splitting it would relocate sequential steps into helpers without reducing
+// what a reader holds at once.
+//
+//nolint:funlen // see the cohesion note above
 func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in CreateInput) (*complexstore.Complex, error) {
 	// Ensure slug uniqueness.
 	exists, err := s.slugs.SlugExists(ctx, in.Slug)
@@ -195,6 +206,15 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 		return nil, ErrMaxComplexes
 	}
 
+	// A new venue lists nothing yet unless the caller named some at creation.
+	// Either way this must be an empty list, not nil: the column is NOT NULL
+	// and an explicit NULL parameter does not fall back to the column
+	// default, so a nil slice failed every creation with a 500.
+	amenities := in.Amenities
+	if amenities == nil {
+		amenities = []string{}
+	}
+
 	complex := &complexstore.Complex{
 		OwnerID:           ownerID,
 		Name:              in.Name,
@@ -210,11 +230,7 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 		CancellationHours: in.CancellationHours,
 		Latitude:          in.Latitude,
 		Longitude:         in.Longitude,
-		// A new venue lists nothing yet. This must be an empty list, not nil:
-		// the column is NOT NULL and an explicit NULL parameter does not fall
-		// back to the column default, so a nil slice failed every creation
-		// with a 500.
-		Amenities: []string{},
+		Amenities:         amenities,
 	}
 
 	err = s.venueWrites.Insert(ctx, complex)
