@@ -1,5 +1,6 @@
 {
   "buildCommand": "pnpm install --frozen-lockfile && pnpm build && pnpm seo:gate",
+  "ignoreCommand": "[ -n \"$VERCEL_GIT_PREVIOUS_SHA\" ] && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- ./",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
