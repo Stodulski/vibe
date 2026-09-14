@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted, and implemented for the notification queue: `db/migrations/004_jobs.sql` creates the
-table and `internal/jobs` is the queue. `internal/notifier` is gone. The two payment queues have
+Accepted, and implemented for the notification queue: `db/migrations/001_init.sql` creates the
+table — it was `004_jobs.sql` until the second squash of 2026-09-14, see ADR 0003 — and
+`internal/jobs` is the queue. `internal/notifier` is gone. The two payment queues have
 NOT moved; see "What did not move" below for why, which is the part of this decision that
 changed on contact with the code.
 
