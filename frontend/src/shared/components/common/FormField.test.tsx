@@ -97,3 +97,23 @@ describe('FormField wiring its control (FORM-07)', () => {
     expect(screen.getByText('+54')).toBeInTheDocument();
   });
 });
+
+describe('FormField beside another field', () => {
+  it('aligns to the end of its grid cell so an error above one input does not push it below its neighbour', () => {
+    const { container } = render(
+      <FormField label="Apellido" htmlFor="last_name" error="El apellido es requerido">
+        <input />
+      </FormField>,
+    );
+    expect(container.firstElementChild).toHaveClass('self-end');
+  });
+
+  it('keeps that alignment when a caller overrides the spacing class', () => {
+    const { container } = render(
+      <FormField label="Nombre" htmlFor="first_name" className="space-y-1">
+        <input />
+      </FormField>,
+    );
+    expect(container.firstElementChild).toHaveClass('self-end', 'space-y-1');
+  });
+});

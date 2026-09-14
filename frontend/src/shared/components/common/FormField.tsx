@@ -2,6 +2,7 @@ import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Label } from '@/shared/components/ui/label';
+import { cn } from '@/shared/lib/utils';
 import { IconInput } from './IconInput';
 
 interface FormFieldProps {
@@ -98,6 +99,13 @@ function wireControl(children: ReactNode, htmlFor: string, errorId: string, hasE
  * also reads in the wrong order — the field, then the complaint about the
  * field. Above, with an icon, it is read before the input it is about, and
  * the icon carries the meaning for anyone who does not see the red.
+ *
+ * That placement has one cost: in a two-column row, the field with an error
+ * is one line taller than its neighbour, and since a grid stretches every
+ * cell to the row's height the extra line pushed that field's input below
+ * the other one. `self-end` keeps the inputs on one baseline instead — the
+ * field sits at the bottom of its cell and the error stacks above its own
+ * input only. It is a no-op in the ordinary single-column stack.
  */
 export function FormField({
   label,
@@ -113,7 +121,7 @@ export function FormField({
   const control = wireControl(children, htmlFor, errorId, !!error);
 
   return (
-    <div className={className}>
+    <div className={cn('self-end', className)}>
       {labelSuffix ? (
         <div className="flex items-baseline justify-between">
           <Label htmlFor={htmlFor} className="text-xs">
