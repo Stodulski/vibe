@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { getNowMinutesInBuenosAires } from './nowIndicator';
 import { useTimelineColumns } from './useTimelineColumns';
 import { useColumnScroller } from './useColumnScroller';
+import { useColumnWidth } from './useColumnWidth';
 import { useDragScroll } from './useDragScroll';
 import { cn } from '@/shared/lib/utils';
 import { StickyCourtNames } from './StickyCourtNames';
@@ -14,9 +15,10 @@ import type { CreateBookingPrefill } from './types';
 
 /**
  * Vertical time grid: the whole day runs top-to-bottom in a left gutter, and
- * each court is a fixed-width column — the classic court-booking layout, at
- * every viewport width. Courts that don't fit are reached by dragging the
- * columns sideways.
+ * each court is a column — the classic court-booking layout, at every viewport
+ * width. Columns share the width the grid has, never dropping below
+ * `MIN_COLUMN_WIDTH_PX`; courts that don't fit at that floor are reached by
+ * dragging the columns sideways.
  *
  * Renders at its natural full-day height with no vertical scroll container of
  * its own — the page's own scroll carries it instead of nesting a second
@@ -54,6 +56,12 @@ export function CourtTimeGrid({
   const { ref, trackRef, frameRef } = useColumnScroller();
   const { dragging, dragHandlers } = useDragScroll(ref);
 
+  // One measurement of the plot area feeds the header cells, the grid's total
+  // width, every column and the duration menu's anchor — they are all
+  // positioned by column index, so a second opinion on the width would open
+  // the menu over the wrong court.
+  const { attachFrame, columnWidth } = useColumnWidth(frameRef, columns.length);
+
   return (
     // Full bleed to the right on a phone: `-mr-3` cancels the shell's own
     // `px-3` (AppShell.tsx), so the columns and their edge fade reach the side
@@ -77,11 +85,11 @@ export function CourtTimeGrid({
           and a green wash over a court's own label reads as the label's colour
           rather than as an edge. */}
       <div
-        ref={frameRef}
+        ref={attachFrame}
         className="scroll-edges relative min-w-0 flex-1"
         style={{ '--scroll-edge-top': `${String(HEADER_HEIGHT_PX)}px` } as CSSProperties}
       >
-        <StickyCourtNames columns={columns} trackRef={trackRef} />
+        <StickyCourtNames columns={columns} trackRef={trackRef} columnWidth={columnWidth} />
 
         <div
           ref={ref}
@@ -99,6 +107,7 @@ export function CourtTimeGrid({
         >
           <GridBody
             columns={columns}
+            columnWidth={columnWidth}
             date={date}
             bookings={bookings}
             blockedSlots={blockedSlots}

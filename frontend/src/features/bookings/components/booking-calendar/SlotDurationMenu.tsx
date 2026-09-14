@@ -2,7 +2,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/shared/components/ui/p
 import { formatTime } from '@/shared/lib/utils';
 import { timeToMinutes } from '@/shared/lib/time';
 import { DurationChoices } from './DurationChoices';
-import { COLUMN_WIDTH_PX, minutesToPx, SLOT_HEIGHT_PX } from './gridLayout';
+import { minutesToPx, SLOT_HEIGHT_PX } from './gridLayout';
 import type { DurationMinutes } from '@/shared/types/api.types';
 
 /** The slot whose duration menu is open, and everything needed to place it. */
@@ -28,11 +28,17 @@ export interface OpenSlot {
  */
 export function SlotDurationMenu({
   open,
+  columnWidth,
   onPreview,
   onPick,
   onClose,
 }: {
   open: OpenSlot | null;
+  /**
+   * The width the grid gave every column. The anchor is arithmetic on the
+   * column index, so this has to be the very number the columns were drawn at.
+   */
+  columnWidth: number;
   onPreview: (duration: DurationMinutes | null) => void;
   onPick: (duration: DurationMinutes) => void;
   onClose: () => void;
@@ -45,11 +51,11 @@ export function SlotDurationMenu({
       }}
     >
       {/* An anchor placed on the slot's own cell rather than rendered inside
-          it: the columns lay out in order at a fixed width, so the cell's box
-          is arithmetic the grid already knows. It carries no pointer events —
-          it exists only to tell the popover where to point. */}
+          it: the columns lay out in order at one shared width, so the cell's
+          box is arithmetic the grid already knows. It carries no pointer
+          events — it exists only to tell the popover where to point. */}
       <PopoverAnchor asChild>
-        <div aria-hidden="true" className="pointer-events-none absolute" style={anchorBox(open)} />
+        <div aria-hidden="true" className="pointer-events-none absolute" style={anchorBox(open, columnWidth)} />
       </PopoverAnchor>
       {/* Above, not below: the preview grows downward, so the default bottom
           placement covered exactly the stretch it was meant to show. Above
@@ -69,11 +75,11 @@ export function SlotDurationMenu({
 }
 
 /** The open slot's cell, in the plot area's own coordinates. */
-function anchorBox(open: OpenSlot | null): React.CSSProperties {
+function anchorBox(open: OpenSlot | null, columnWidth: number): React.CSSProperties {
   if (!open) return { left: 0, top: 0, width: 0, height: 0 };
   return {
-    left: `${String(open.columnIndex * COLUMN_WIDTH_PX)}px`,
-    width: `${String(COLUMN_WIDTH_PX)}px`,
+    left: `${String(open.columnIndex * columnWidth)}px`,
+    width: `${String(columnWidth)}px`,
     top: `${String(minutesToPx(timeToMinutes(open.slot)))}px`,
     height: `${String(SLOT_HEIGHT_PX)}px`,
   };
