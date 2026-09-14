@@ -57,8 +57,9 @@ interface UseComplexFormArgs {
 // `UpdateComplexRequest` are absent-or-present, not present-with-`undefined`
 // — only include each when it has a value.
 function cleanComplexPayload(data: CreateComplexDto) {
-  // Destructure slug/formatted_address out — slug is auto-generated on create
-  // and excluded on edit; formatted_address is a UI-only field never sent to the API.
+  // Destructure slug/formatted_address out — slug is sent explicitly by both
+  // callers below (the field is editable in both create and edit mode);
+  // formatted_address is a UI-only field never sent to the API.
   const { slug, formatted_address, email, latitude, longitude, ...rest } = data;
   const cleanEmail = blankToUndefined(email);
   const cleaned = {
@@ -119,15 +120,19 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
     const { slug, cleaned } = cleanComplexPayload(data);
 
     // Branched instead of calling through a `mutation = isEdit ? update : create`
-    // union: create and update take differently-shaped payloads (only create
-    // sends `slug`), and a shared `mutation.mutate(...)` call needed a
+    // union: create and update hit different endpoints with differently-typed
+    // request bodies (create requires most fields, update makes them all
+    // optional), and a shared `mutation.mutate(...)` call needed a
     // `@ts-expect-error` to paper over that mismatch — one that would have
     // stayed silent through a real payload type change in either mutation.
     if (isEdit) {
-      updateMutation.mutate(cleaned, {
-        onSuccess: (result) => onSuccess?.(result.complex),
-        onError: onMutationError,
-      });
+      updateMutation.mutate(
+        { slug, ...cleaned },
+        {
+          onSuccess: (result) => onSuccess?.(result.complex),
+          onError: onMutationError,
+        },
+      );
     } else {
       createMutation.mutate(
         { slug, ...cleaned },

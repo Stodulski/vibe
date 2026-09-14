@@ -30,6 +30,7 @@ export const complex = {
   slugHelp: 'Solo letras minúsculas, números y guiones',
   slugAvailable: 'Disponible',
   slugUseSuggestion: 'Usar',
+  slugChangeWarning: 'Si la cambiás, los links y códigos QR que ya compartiste dejan de funcionar.',
   address: 'Dirección',
   addressSearchError: 'No se pudo buscar la dirección. Probá de nuevo.',
   addressDetailsError: 'No se pudo obtener la dirección seleccionada. Probá de nuevo.',

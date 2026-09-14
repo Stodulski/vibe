@@ -31,15 +31,20 @@ interface SlugSectionProps {
   onSlugManualEdit: () => void;
   availability: SlugState;
   onSlugSuggestion: (slug: string) => void;
+  /** The slug this complex already owns — compared against the live value to show the change warning. */
+  currentSlug?: string | undefined;
 }
 
 // The public address, as a plain field. It is derived from the name, so most
-// owners never touch it, but it is also the ONE chance to choose it: on edit
-// the input is read-only, because changing a slug later breaks every link
-// and printed QR already pointing at the old one. It used to fold into a
-// "Tu página pública: …" preview line with an "Editar" link; on a phone that
-// line truncated the address it was there to show, so the field stays a
-// field and the availability verdict sits right under it.
+// owners never touch it, but it is also the ONE chance to choose it on
+// create. On edit it stays editable too — changing it is a real, if risky,
+// choice an owner sometimes needs to make (a rename, a typo) — but every link
+// and printed QR already pointing at the old slug breaks, so a warning shows
+// under the field while the typed value differs from the one already saved.
+// It used to fold into a "Tu página pública: …" preview line with an
+// "Editar" link; on a phone that line truncated the address it was there to
+// show, so the field stays a field and the availability verdict sits right
+// under it.
 function SlugSection({
   register,
   errors,
@@ -48,7 +53,10 @@ function SlugSection({
   onSlugManualEdit,
   availability,
   onSlugSuggestion,
+  currentSlug,
 }: SlugSectionProps) {
+  const showChangeWarning = isEdit && currentSlug !== undefined && slugValue !== undefined && slugValue !== currentSlug;
+
   return (
     <div className="space-y-2">
       <FormField
@@ -66,15 +74,15 @@ function SlugSection({
           // Capped once the column is wider than a slug needs; on a phone
           // the column is the cap, and a shorter box there reads as broken.
           className="sm:max-w-80"
-          readOnly={isEdit}
           aria-invalid={!!errors.slug}
           {...register('slug', {
             onChange: () => {
-              if (!isEdit) onSlugManualEdit();
+              onSlugManualEdit();
             },
           })}
         />
       </FormField>
+      {showChangeWarning && <p className="text-warning-text text-xs">{t.complex.slugChangeWarning}</p>}
       <AvailabilityNote state={availability} slugValue={slugValue} onUse={onSlugSuggestion} />
     </div>
   );
@@ -125,6 +133,7 @@ export function NameSlugFields({
         onSlugManualEdit={onSlugManualEdit}
         availability={availability}
         onSlugSuggestion={onSlugSuggestion}
+        currentSlug={currentSlug}
       />
     </div>
   );
