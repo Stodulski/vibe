@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useElementWidth } from '@/shared/hooks/useElementWidth';
-import { resolveColumnWidthPx } from './gridLayout';
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
+import { MIN_COLUMN_WIDTH_PX, resolveColumnWidthPx } from './gridLayout';
 import type { RefObject } from 'react';
 
 /**
@@ -20,9 +21,17 @@ import type { RefObject } from 'react';
  * `useElementWidth` reports 0 until a ResizeObserver measures the node —
  * on the server, and in a DOM without one — and `resolveColumnWidthPx` reads
  * that as "fall back to the minimum".
+ *
+ * Only a phone stretches. Below `sm` the frame is the whole viewport and a
+ * lone 200px column beside 40% of dead space reads as broken; from `sm` up
+ * the owner wants one width per court, always — a single court drawn 1500px
+ * wide on a desktop is the same mistake in the other direction, and the
+ * columns are what makes a day with three courts scan as three.
  */
+const STRETCH_BELOW_QUERY = '(max-width: 639.98px)';
 export function useColumnWidth(frameRef: RefObject<HTMLDivElement | null>, columnCount: number) {
   const { ref: measureFrame, width: frameWidth } = useElementWidth();
+  const stretch = useMediaQuery(STRETCH_BELOW_QUERY);
 
   const attachFrame = useCallback(
     (node: HTMLDivElement | null) => {
@@ -32,5 +41,5 @@ export function useColumnWidth(frameRef: RefObject<HTMLDivElement | null>, colum
     [frameRef, measureFrame],
   );
 
-  return { attachFrame, columnWidth: resolveColumnWidthPx(frameWidth, columnCount) };
+  return { attachFrame, columnWidth: stretch ? resolveColumnWidthPx(frameWidth, columnCount) : MIN_COLUMN_WIDTH_PX };
 }

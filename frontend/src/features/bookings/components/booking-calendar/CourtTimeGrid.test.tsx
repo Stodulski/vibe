@@ -15,6 +15,16 @@ vi.mock('@/shared/hooks/useElementWidth', () => ({
   useElementWidth: () => ({ ref: () => undefined, width: mockWidth() }),
 }));
 
+/**
+ * Stretching is a phone-only rule (`useColumnWidth`). happy-dom's viewport is
+ * a desktop's, so the breakpoint is mocked: every test below runs as a phone
+ * unless it says otherwise.
+ */
+const mockStretch = vi.fn(() => true);
+vi.mock('@/shared/hooks/useMediaQuery', () => ({
+  useMediaQuery: () => mockStretch(),
+}));
+
 const PLOT_WIDTH_PX = 600;
 
 function makeCourts(count: number): CourtWithPrices[] {
@@ -69,6 +79,7 @@ function renderGrid(courtCount: number) {
 describe('CourtTimeGrid column width', () => {
   beforeEach(() => {
     mockWidth.mockReturnValue(PLOT_WIDTH_PX);
+    mockStretch.mockReturnValue(true);
   });
 
   it('stretches a lone court across the whole plot area', () => {
@@ -99,6 +110,15 @@ describe('CourtTimeGrid column width', () => {
     expect(column).toHaveStyle({ width: '300px' });
     expect(headerCell).toHaveStyle({ width: '300px' });
     expect(body).toHaveStyle({ width: `${String(PLOT_WIDTH_PX)}px` });
+  });
+
+  it('keeps one fixed width per court from the sm breakpoint up, however wide the plot is', () => {
+    mockStretch.mockReturnValue(false);
+    const { column, headerCell, body } = renderGrid(1);
+
+    expect(column).toHaveStyle({ width: `${String(MIN_COLUMN_WIDTH_PX)}px` });
+    expect(headerCell).toHaveStyle({ width: `${String(MIN_COLUMN_WIDTH_PX)}px` });
+    expect(body).toHaveStyle({ width: `${String(MIN_COLUMN_WIDTH_PX)}px` });
   });
 
   it('falls back to the minimum while the plot area is still unmeasured', () => {
