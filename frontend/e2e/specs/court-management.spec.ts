@@ -17,7 +17,7 @@ test.describe('Court Management — Creation', () => {
     await page.goto('/courts');
 
     // Wait for page content to load (either court cards or empty state or create button)
-    await expect(page.getByRole('button', { name: 'Nueva cancha' })).toBeVisible({
+    await expect(page.getByRole('button', { name: 'Agregar cancha' })).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -30,7 +30,7 @@ test.describe('Court Management — Creation', () => {
     await courtsPage.goto();
 
     // Click the create button in the page header
-    await page.getByRole('button', { name: 'Nueva cancha' }).click();
+    await page.getByRole('button', { name: 'Agregar cancha' }).click();
 
     // Fill the court form in the dialog
     await page.getByLabel('Nombre').fill('Cancha Nueva E2E');
@@ -52,7 +52,7 @@ test.describe('Court Management — Creation', () => {
     await courtsPage.goto();
 
     // Wait for page to load
-    await expect(page.getByRole('button', { name: 'Nueva cancha' })).toBeVisible({
+    await expect(page.getByRole('button', { name: 'Agregar cancha' })).toBeVisible({
       timeout: 10_000,
     });
 
