@@ -41,6 +41,63 @@ const config = JSON.parse(readFileSync(fileURLToPath(new URL('./vercel.json', im
 
 const GOOGLE_CALLBACK = '/auth/google/callback';
 const SPA_CATCH_ALL = '/(.*)';
+const TUNNEL_ENVELOPE = '/_r/e';
+const TUNNEL_SECURITY = '/_r/s';
+
+/**
+ * `Sentry.init({ tunnel: '/_r/e' })` (src/shared/lib/sentry.ts) and the CSP's
+ * `report-uri /_r/s` (vercel.json headers) both point at this app's own
+ * origin instead of straight at ingest.us.sentry.io, because ad blockers
+ * strip requests to that host by name (`ERR_BLOCKED_BY_CLIENT`) — these two
+ * rewrites are what actually forwards the traffic to Sentry. The leading
+ * `_` keeps the path out of the crawler `/:slug(...)` rewrite below: no
+ * slugify output ever produces a leading underscore segment.
+ */
+describe('vercel.json rewrites, Sentry tunnel', () => {
+  it('rewrites the envelope tunnel to the Sentry envelope endpoint', () => {
+    const rewrite = config.rewrites.find((r) => r.source === TUNNEL_ENVELOPE);
+    expect(rewrite?.destination).toBe(
+      'https://o4511023559868416.ingest.us.sentry.io/api/4512086199631872/envelope/?sentry_key=a544aae361b0942642803f08c82eea60',
+    );
+  });
+
+  it('rewrites the CSP report tunnel to the Sentry security endpoint', () => {
+    const rewrite = config.rewrites.find((r) => r.source === TUNNEL_SECURITY);
+    expect(rewrite?.destination).toBe(
+      'https://o4511023559868416.ingest.us.sentry.io/api/4512086199631872/security/?sentry_key=a544aae361b0942642803f08c82eea60',
+    );
+  });
+
+  it('declares both tunnels before the crawler rewrite and the SPA catch-all', () => {
+    const envelope = config.rewrites.findIndex((r) => r.source === TUNNEL_ENVELOPE);
+    const security = config.rewrites.findIndex((r) => r.source === TUNNEL_SECURITY);
+    const crawler = config.rewrites.findIndex((r) => r.destination === '/api/prerender?slug=:slug');
+    const catchAll = config.rewrites.findIndex((r) => r.source === SPA_CATCH_ALL);
+
+    expect(envelope).toBeGreaterThanOrEqual(0);
+    expect(security).toBeGreaterThanOrEqual(0);
+    expect(envelope).toBeLessThan(crawler);
+    expect(security).toBeLessThan(crawler);
+    expect(envelope).toBeLessThan(catchAll);
+    expect(security).toBeLessThan(catchAll);
+  });
+
+  it('points both tunnels at the same Sentry project, with a matching sentry_key', () => {
+    const envelope = config.rewrites.find((r) => r.source === TUNNEL_ENVELOPE);
+    const security = config.rewrites.find((r) => r.source === TUNNEL_SECURITY);
+    const projectPattern = /^https:\/\/o4511023559868416\.ingest\.us\.sentry\.io\/api\/4512086199631872\//;
+
+    expect(envelope?.destination).toMatch(projectPattern);
+    expect(security?.destination).toMatch(projectPattern);
+
+    const keyPattern = /sentry_key=([a-f0-9]{32})/;
+    const envelopeKey = keyPattern.exec(envelope?.destination ?? '')?.[1];
+    const securityKey = keyPattern.exec(security?.destination ?? '')?.[1];
+
+    expect(envelopeKey).toMatch(/^[a-f0-9]{32}$/);
+    expect(envelopeKey).toBe(securityKey);
+  });
+});
 
 describe('vercel.json rewrites', () => {
   it('sends the Google redirect callback to the API', () => {
@@ -134,6 +191,17 @@ describe('vercel.json rewrites, crawler prerender: the slug shape', () => {
 
   it.each(['Foo_Bar', 'a.b', 'two/segments'])('rejects %s, which slugify could not have produced', (value) => {
     expect(slugPattern.test(value)).toBe(false);
+  });
+});
+
+describe('vercel.json rewrites, Sentry tunnel: never shadowed by the crawler slug', () => {
+  // The crawler rewrite matches a single `[a-z0-9]+(?:-[a-z0-9]+)*` segment.
+  // `_r` can never be produced by that pattern (no leading underscore, no
+  // uppercase), so `/_r/e` and `/_r/s` are safe ahead of it regardless of
+  // declaration order — this just proves it rather than assuming it.
+  it.each([TUNNEL_ENVELOPE, TUNNEL_SECURITY])('%s does not match the crawler slug pattern', (source) => {
+    const segment = source.replace(/^\//, '').split('/')[0] ?? '';
+    expect(slugPattern.test(segment)).toBe(false);
   });
 });
 
