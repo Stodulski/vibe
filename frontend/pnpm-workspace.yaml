@@ -8,9 +8,11 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - vite@8.3.0
 # Transitive packages with a Dependabot alert whose direct dependants have not
-# released a fix yet. csv-parse (artillery) is left alone: artillery relies on
-# the v4 default export, which csv-parse 7 removed.
+# released a fix yet. @puppeteer/browsers 3 dropped extract-zip; Lighthouse CI
+# never downloads a browser, so the bump is inert at runtime.
 overrides:
+  '@puppeteer/browsers@2': '>=3.2.2 <4'
+  'qs@<6.16.0': '>=6.16.0 <7'
   'fast-uri@3': '>=3.1.6 <4'
   'brace-expansion@2': '>=2.1.2 <3'
   'tmp@<0.2.6': '>=0.2.6 <0.3'
