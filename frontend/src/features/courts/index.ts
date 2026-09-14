@@ -9,10 +9,6 @@ export { CourtGrid } from './components/CourtGrid';
 export { CourtForm } from './components/CourtForm';
 
 export { useCourts } from './hooks/useCourts';
-export { useCreateCourt } from './hooks/useCreateCourt';
 export { useDeleteCourt } from './hooks/useDeleteCourt';
 export { useDeleteBlockedSlot } from './hooks/useDeleteBlockedSlot';
 export { useBlockedSlots } from './hooks/useBlockedSlots';
-
-export { createCourtSchema } from './schemas/courts.schema';
-export type { CreateCourtDto } from './schemas/courts.schema';

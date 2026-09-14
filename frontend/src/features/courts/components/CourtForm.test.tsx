@@ -32,7 +32,7 @@ describe('CourtForm', () => {
 
   it('renders create title when no court provided', () => {
     renderWithProviders(<CourtForm {...defaultProps} />);
-    expect(screen.getByText(/crear cancha|nueva cancha/i)).toBeInTheDocument();
+    expect(screen.getByText(/agregar cancha/i)).toBeInTheDocument();
   });
 
   it('renders edit title when court is provided', () => {

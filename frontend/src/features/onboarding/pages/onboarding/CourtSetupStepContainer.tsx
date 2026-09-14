@@ -1,4 +1,4 @@
-import { useCreateCourt, useDeleteCourt } from '@/features/courts';
+import { useDeleteCourt } from '@/features/courts';
 import { CourtSetupStep } from './CourtSetupStep';
 import type { Court } from '@/shared/types/api.types';
 
@@ -13,10 +13,14 @@ interface CourtSetupStepContainerProps {
 }
 
 /**
- * Owns the court mutations, taking a resolved `complexId` — only mounted
- * from `OnboardingStepContent` once one exists, so unlike the previous
+ * Owns the delete mutation, taking a resolved `complexId` — only mounted from
+ * `OnboardingStepContent` once one exists, so unlike the previous
  * `useOnboarding()`-level wiring, there's no "no complex yet" state here to
  * fall back for with `?? ''`.
+ *
+ * Creating is not wired here: `CourtForm` runs its own `useCreateCourt`, the
+ * same one the courts page gets, so there is a single create path rather than
+ * two that have to stay in step.
  */
 export function CourtSetupStepContainer({
   complexId,
@@ -25,7 +29,6 @@ export function CourtSetupStepContainer({
   onBack,
   onNext,
 }: CourtSetupStepContainerProps) {
-  const createCourt = useCreateCourt(complexId);
   const deleteCourt = useDeleteCourt(complexId);
 
   return (
@@ -33,7 +36,6 @@ export function CourtSetupStepContainer({
       complexId={complexId}
       courts={courts}
       hasCourts={hasCourts}
-      createCourt={createCourt}
       deleteCourt={deleteCourt}
       onBack={onBack}
       onNext={onNext}

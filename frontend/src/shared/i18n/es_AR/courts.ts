@@ -1,7 +1,10 @@
 export const courts = {
   title: 'Canchas',
   pageDescription: 'Administrá las canchas de tu complejo',
-  create: 'Nueva cancha',
+  // 'Agregar' rather than 'Nueva': the owner is adding a court to a list they
+  // can see, not navigating to a blank one. Same wording as the onboarding
+  // step's own button, so the action is named once across the app.
+  create: 'Agregar cancha',
   edit: 'Editar cancha',
   delete: 'Eliminar cancha',
   deleteConfirm: '¿Estás seguro que querés eliminar esta cancha? Esta acción no se puede deshacer.',
