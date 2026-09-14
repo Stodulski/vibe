@@ -48,7 +48,7 @@ export function CourtCreateForm({
       <div className="flex justify-end">
         <Button type="submit" variant="outline" size="sm" disabled={isPending}>
           {isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          {t.courts.create}
+          {t.complex.addCourtSubmit}
         </Button>
       </div>
     </form>
