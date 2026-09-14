@@ -16,7 +16,10 @@ restore a database, to set the workflow up, or to check whether it is actually w
 
 `.github/workflows/backend-backup.yml`, on a schedule (`cron: "0 6 * * *"`) and on manual dispatch:
 
-1. Installs `postgresql-client-17` from the official PGDG apt repository (the GitHub-hosted
+1. Installs `postgresql-client-18` from the official PGDG apt repository and calls it through
+   `/usr/lib/postgresql/18/bin`, because the runner's own client (and PGDG's `/usr/bin/pg_dump`
+   wrapper) resolved to an older major and a run failed with `server version: 18.6; pg_dump
+   version: 16.15`. A step before the dump compares the two majors and fails naming both. The
    runner's default Postgres client is not pinned to a version that is guaranteed `>=` the
    server's — `pg_dump` can only dump a server at or below its own major version, never above it).
 2. Runs `pg_dump --format=custom --no-owner --no-privileges "$BACKUP_DATABASE_URL"` and fails the
@@ -33,10 +36,11 @@ expires objects under `postgres/` after 30 days. This has to be set in the R2 da
 `aws s3api put-bucket-lifecycle-configuration` against the R2 endpoint) — there is no repository
 config for it, and it is not set yet. Until it is, the bucket grows forever.
 
-**Checking the Railway Postgres version**, needed if `postgresql-client-17` ever stops being
+**Checking the Railway Postgres version**, needed if `postgresql-client-18` ever stops being
 `>=` the server: Railway dashboard → the Postgres service → **Data** tab, or run
-`SELECT version();` against `BACKUP_DATABASE_URL`. Bump the `postgresql-client-17` install step in
-the workflow if Railway upgrades past major version 17.
+`SELECT version();` against `BACKUP_DATABASE_URL`. Bump the `postgresql-client-18` install step in
+the workflow, and the `/usr/lib/postgresql/18/bin` path beside it, if Railway upgrades past major
+version 18; the check step fails first and names both versions.
 
 ## Restore procedure
 
