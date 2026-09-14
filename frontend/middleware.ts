@@ -1,3 +1,8 @@
+// Vercel type-checks this file on its own, outside tsconfig.node.json (which
+// already lists the node types for it), and on the Node.js runtime nothing
+// else declares `process`. Referencing the types here makes the file
+// self-sufficient for whichever compiler reads it.
+/// <reference types="node" />
 import { next } from '@vercel/functions';
 
 // Bots that need server-rendered HTML for meta tags / OG previews.
