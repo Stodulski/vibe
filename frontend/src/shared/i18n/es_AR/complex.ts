@@ -82,6 +82,9 @@ export const complex = {
   onboardingStepShort3: 'Pagos',
   addAnotherCourt: 'Agregar otra cancha',
   addFirstCourt: 'Agregá tu primera cancha',
+  // The submit of an already-open court form: it adds what was typed, it does
+  // not open a new one (that is courts.create, on the courts page).
+  addCourtSubmit: 'Agregar cancha',
 
   onboardingFinish: 'Ir al panel',
   onboardingSkipPayments: 'Lo hago después',

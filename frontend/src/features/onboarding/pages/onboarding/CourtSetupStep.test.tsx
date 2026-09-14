@@ -53,6 +53,12 @@ describe('CourtSetupStep', () => {
     expect(screen.getByPlaceholderText('Ej: Cancha 1')).toBeInTheDocument();
   });
 
+  it('labels the form submit as adding the court, not as opening a new one', () => {
+    render(<CourtSetupStep {...baseProps} />);
+    expect(screen.getByRole('button', { name: 'Agregar cancha' })).toHaveAttribute('type', 'submit');
+    expect(screen.queryByRole('button', { name: 'Nueva cancha' })).not.toBeInTheDocument();
+  });
+
   it('renders back button', () => {
     render(<CourtSetupStep {...baseProps} />);
     expect(screen.getByText('Volver')).toBeInTheDocument();
