@@ -3,14 +3,14 @@ import { useSlotMenu } from './useSlotMenu';
 import { GridHourLines } from './GridHourLines';
 import { NowLine } from './NowLine';
 import { CourtColumn } from './CourtColumn';
-import { COLUMN_WIDTH_PX, GRID_HEIGHT_PX } from './gridLayout';
+import { GRID_HEIGHT_PX } from './gridLayout';
 import type { Booking, BlockedSlot } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 import type { TimelineColumnData } from './useTimelineColumns';
 
 /**
- * The plot area: gridlines, the now line, every court column at its fixed
- * width, and the one duration menu they share.
+ * The plot area: gridlines, the now line, every court column at the width the
+ * grid settled on, and the one duration menu they share.
  *
  * One, not one per slot. Each free slot used to carry its own Radix popover,
  * and a day holds about a hundred and seventy of them — enough that any
@@ -21,6 +21,7 @@ import type { TimelineColumnData } from './useTimelineColumns';
  */
 export function GridBody({
   columns,
+  columnWidth,
   date,
   bookings,
   blockedSlots,
@@ -31,6 +32,13 @@ export function GridBody({
   onSelectBlockedSlot,
 }: {
   columns: TimelineColumnData[];
+  /**
+   * How wide each column is drawn, decided once by the grid from the space it
+   * has (`resolveColumnWidthPx`). Everything positioned by column index —
+   * this box's own width, and the duration menu's anchor — must use this same
+   * number or the menu opens over the wrong court.
+   */
+  columnWidth: number;
   date: string;
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
@@ -51,7 +59,7 @@ export function GridBody({
       className="border-border-subtle bg-bg-base relative flex border-y"
       style={{
         height: `${String(GRID_HEIGHT_PX)}px`,
-        width: `${String(columns.length * COLUMN_WIDTH_PX)}px`,
+        width: `${String(columns.length * columnWidth)}px`,
       }}
     >
       <GridHourLines />
@@ -60,6 +68,7 @@ export function GridBody({
         <CourtColumn
           key={column.courtId}
           column={column}
+          columnWidth={columnWidth}
           isFirst={index === 0}
           nowMin={nowMin}
           date={date}
@@ -74,7 +83,7 @@ export function GridBody({
         />
       ))}
 
-      <SlotDurationMenu open={open} onPreview={setPreview} onPick={pick} onClose={close} />
+      <SlotDurationMenu open={open} columnWidth={columnWidth} onPreview={setPreview} onPick={pick} onClose={close} />
     </div>
   );
 }
