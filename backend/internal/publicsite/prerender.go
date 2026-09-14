@@ -21,9 +21,11 @@ const prerenderCacheHeader = "public, max-age=300, stale-while-revalidate=60"
 // whole-seconds form, when to retry a venue this request could not read.
 const prerenderRetryAfterSeconds = "60"
 
-// prerenderResultHeader tells the frontend's edge middleware what this
-// endpoint decided, because it only passes a 404 through to a crawler when
-// this header says so — any other 404 becomes a 503 on its side.
+// prerenderResultHeader records what this endpoint decided (ok, degraded,
+// venue-not-found). Crawlers now reach this endpoint through a vercel.json
+// rewrite rather than an edge middleware that inspected the answer, so the
+// status code itself is what a crawler acts on; the header stays for logs and
+// for anyone debugging a crawl with curl.
 const prerenderResultHeader = "X-Prerender-Result"
 
 // Prerender handles GET /api/v1/public/prerender/{slug}.
@@ -51,7 +53,13 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Retry-After", prerenderRetryAfterSeconds)
 			h.respond.Refuse(w, r, httpx.Unavailable(nil))
 		default:
-			h.respond.ServerError(w, r, err)
+			// Unreachable today: Service.Prerender only returns the two errors
+			// above. It is a 503 rather than a 500 so that a future error path
+			// cannot hand a crawler the one status it reads as "this URL is
+			// broken" — there is no longer a middleware in front to translate it.
+			h.respond.LogError(r, err)
+			w.Header().Set("Retry-After", prerenderRetryAfterSeconds)
+			h.respond.Refuse(w, r, httpx.Unavailable(nil))
 		}
 		return
 	}
