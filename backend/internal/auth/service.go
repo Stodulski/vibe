@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -1146,6 +1148,20 @@ const (
 	googleCodeBytes = 32
 )
 
+// googleRedirectCode is what a one-time code carries: the identity Google
+// vouched for, and what binds the code to the browser it was issued to.
+type googleRedirectCode struct {
+	// Claims is the verified Google identity. Storing it rather than the ID
+	// token keeps a live bearer token for Google out of Redis, and spares the
+	// exchange a second JWKS round trip for an answer already reached.
+	Claims *googleid.Claims `json:"claims"`
+	// CSRFHash is sha256 of the g_csrf_token this sign-in arrived with — the
+	// value already proved equal to the cookie Google set on the app's origin.
+	// Only the hash: a code is at rest in Redis for two minutes, and what it
+	// holds must not be enough to spend it.
+	CSRFHash []byte `json:"csrf_hash"`
+}
+
 // GoogleRedirectStart verifies a credential that arrived through redirect mode
 // and returns the one-time code the frontend exchanges for a session.
 //
@@ -1153,16 +1169,21 @@ const (
 // Whoever caused this request is not necessarily whoever is about to read the
 // answer, and the sign-in only really happens in GoogleExchange, from the
 // frontend's own origin.
-func (s *Service) GoogleRedirectStart(ctx context.Context, credential string) (string, error) {
+//
+// csrfToken is what binds the code to one browser. Without it the code is an
+// unbound bearer, and holding any valid Google ID token is enough to mint one
+// with curl and send a victim the return URL: their browser spends it and they
+// are signed in as the attacker. Google sets g_csrf_token as a readable cookie
+// on the app's origin, so only the browser that received this redirect can
+// produce the matching value at the exchange.
+func (s *Service) GoogleRedirectStart(ctx context.Context, credential, csrfToken string) (string, error) {
 	claims, err := s.verifyGoogleCredential(ctx, credential)
 	if err != nil {
 		return "", err
 	}
 
-	// The verified claims are what is stored, not the ID token: the exchange
-	// must not re-verify (a second JWKS round trip for an answer already
-	// reached), and Redis must not hold a live bearer token for Google.
-	payload, err := json.Marshal(claims)
+	csrfHash := sha256.Sum256([]byte(csrfToken))
+	payload, err := json.Marshal(googleRedirectCode{Claims: claims, CSRFHash: csrfHash[:]})
 	if err != nil {
 		return "", fmt.Errorf("auth: encoding google claims: %w", err)
 	}
@@ -1185,20 +1206,37 @@ func (s *Service) GoogleRedirectStart(ctx context.Context, credential string) (s
 // GoogleSignIn answers: an established session, or the profile the client
 // still has to complete.
 //
-// The code is consumed whether or not what follows succeeds, which is what
-// makes it single-use.
-func (s *Service) GoogleExchange(ctx context.Context, actor Actor, code string) (*GoogleResult, error) {
+// csrfToken is the g_csrf_token cookie Google set on the app's origin, read
+// back by the return page. It must hash to what GoogleRedirectStart stored, or
+// this is not the browser the code was issued to and nothing is established.
+//
+// The code is consumed before that comparison, and whether or not what follows
+// succeeds: it is what makes the code single-use, and it is what stops a
+// guessed pairing being retried against the same code.
+func (s *Service) GoogleExchange(ctx context.Context, actor Actor, code, csrfToken string) (*GoogleResult, error) {
 	payload, err := s.googleCodes.Consume(ctx, code)
 	if err != nil {
 		return nil, err
 	}
 
-	var claims googleid.Claims
-	if err := json.Unmarshal(payload, &claims); err != nil {
+	var held googleRedirectCode
+	if err := json.Unmarshal(payload, &held); err != nil {
 		return nil, fmt.Errorf("auth: decoding google claims: %w", err)
 	}
+	if held.Claims == nil {
+		return nil, fmt.Errorf("auth: google sign-in code carried no claims")
+	}
 
-	return s.googleSignInWithClaims(ctx, actor, &claims)
+	presented := sha256.Sum256([]byte(csrfToken))
+	if subtle.ConstantTimeCompare(held.CSRFHash, presented[:]) != 1 {
+		// The same refusal an unknown code gets, from the same sentinel: a
+		// caller may not learn whether it guessed a real code and missed the
+		// binding, or guessed nothing at all.
+		s.logger.Warn("google exchange: code presented by a browser it was not issued to")
+		return nil, ErrGoogleCodeInvalid
+	}
+
+	return s.googleSignInWithClaims(ctx, actor, held.Claims)
 }
 
 // GoogleCompleteInput is the validated second half of a first-time Google

@@ -286,7 +286,7 @@ func (h *Handler) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code, err := h.svc.GoogleRedirectStart(r.Context(), credential)
+	code, err := h.svc.GoogleRedirectStart(r.Context(), credential, field)
 	if err != nil {
 		if errors.Is(err, ErrGoogleRejected) {
 			h.googleRedirectFailed(w, r, googleErrorRejected, "credential_rejected", err)
@@ -346,6 +346,14 @@ func (h *Handler) redirect(w http.ResponseWriter, r *http.Request, location stri
 //
 // This is where the cookies are set, and it is the only endpoint of the two
 // that sets any.
+//
+// The code alone is not enough: g_csrf_token, read back off the cookie Google
+// set on the app's origin, has to match what the redirect stored. A code is
+// otherwise an unbound bearer, and anybody holding a valid Google ID token
+// could mint one with curl and send a victim the return URL — whose browser
+// would spend it and be signed in as the attacker. A browser that blocks that
+// cookie cannot produce the value and fails closed here, which is the right
+// way round: it fails at the exchange rather than signing somebody in wrongly.
 func (h *Handler) GoogleExchange(w http.ResponseWriter, r *http.Request) {
 	if !h.svc.GoogleEnabled() {
 		h.respond.Refuse(w, r, googleNotConfigured)
@@ -360,12 +368,13 @@ func (h *Handler) GoogleExchange(w http.ResponseWriter, r *http.Request) {
 
 	v := validator.New()
 	v.Check(body.Code != "", "code", "must be provided")
+	v.Check(body.GCsrfToken != "", "g_csrf_token", "must be provided")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
-	result, err := h.svc.GoogleExchange(r.Context(), h.actor(r), body.Code)
+	result, err := h.svc.GoogleExchange(r.Context(), h.actor(r), body.Code, body.GCsrfToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrGoogleCodeInvalid):

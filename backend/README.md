@@ -163,13 +163,27 @@ steps:
 2. The server verifies the credential and answers `303 See Other` to
    `<FRONTEND_URL>/auth/google/return?code=<code>`. The code is opaque, 256 bits of entropy,
    single-use (consumed with Redis `GETDEL`) and valid for 120 seconds; it is held at
-   `vibe:<env>:gauth:<code>` and carries the verified claims, never the ID token. **No session
-   cookie is ever set by this endpoint** — the request is a top-level cross-site form navigation,
-   and a POST an attacker can cause must not end in a session.
+   `vibe:<env>:gauth:<code>` and carries the verified claims plus `sha256(g_csrf_token)` — never
+   the ID token, and never a value that would be enough to spend it. **No session cookie is ever
+   set by this endpoint** — the request is a top-level cross-site form navigation, and a POST an
+   attacker can cause must not end in a session.
 3. The frontend spends the code from its own origin against `POST /api/v1/auth/google/exchange`
-   (`{"code": "..."}`), which answers exactly what `POST /api/v1/auth/google` answers: the session
-   cookies, or `needs_profile` with a profile token. An unknown, expired or already-spent code is
-   `422` on field `code` with "invalid or expired" — the three are never told apart.
+   (`{"code": "...", "g_csrf_token": "..."}`), which answers exactly what
+   `POST /api/v1/auth/google` answers: the session cookies, or `needs_profile` with a profile
+   token. An unknown code, an expired or already-spent one, and one presented with the wrong
+   `g_csrf_token` all answer `422` on field `code` with "invalid or expired" — never told apart.
+
+**The code is bound to the browser it was issued to.** Google sets `g_csrf_token` as a readable
+cookie on the app's origin, so the return page reads it and sends it back **in the exchange's JSON
+body** — the API is a different origin and never receives that cookie — and the server compares its
+hash in constant time. The redirect endpoint writes no `Set-Cookie` of any kind, so the cookie the
+code is bound to is never cleared or rotated underneath the return page. Without that binding the code would be an unbound bearer:
+anybody holding a valid Google ID token could mint one with `curl` — it supplies both halves of
+Google's double submit itself — and send a victim the return URL, whose browser would spend it and
+be signed in as the attacker. The code is consumed before the comparison, so a wrong pairing burns
+it and cannot be retried. A browser that blocks the cookie cannot produce the value and fails
+closed at the exchange, which is the right way round: it fails rather than signing somebody in
+wrongly.
 
 Every failure of the redirect endpoint is a `303` too, because its caller is a browser
 mid-navigation and a problem document would be a dead-end page. The frontend's login page reads
