@@ -61,7 +61,16 @@ jobs:
           name="vibe-${stamp}-${sha}.dump"
           echo "DUMP_NAME=${name}" >> "$GITHUB_ENV"
 
-          "${PG_BIN}/pg_dump" --format=custom --no-owner --no-privileges "$BACKUP_DATABASE_URL" > "$name"
+          # Ownership and grants stay IN the archive. The application role is
+          # NOBYPASSRLS and owns nothing, so its access comes entirely from the
+          # GRANTs 001_init.sql's ACCESS section issues; a dump taken with
+          # --no-owner --no-privileges restored into a database the API could not
+          # read at all ("permission denied for table complexes"), because nothing
+          # in the recovery path re-runs that section. Keeping them costs nothing:
+          # pg_restore takes --no-owner --no-privileges itself, so a restore into a
+          # cluster without vibe_migrator/vibe_app can still strip them on the way
+          # in. Dropping them at dump time cannot be undone.
+          "${PG_BIN}/pg_dump" --format=custom "$BACKUP_DATABASE_URL" > "$name"
 
           # A dump that is empty or truncated is worse than no dump: it looks
           # like a backup exists until the day it is needed. custom-format
