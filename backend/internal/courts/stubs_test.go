@@ -33,6 +33,7 @@ type stubStore struct {
 
 	getErr    error
 	insertErr error
+	updateErr error
 	blockErr  error
 
 	inserted       *courtstore.Court
@@ -81,6 +82,9 @@ func (s *stubStore) Insert(_ context.Context, c *courtstore.Court) error {
 }
 
 func (s *stubStore) Update(_ context.Context, c *courtstore.Court, _ *int) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
 	s.updated = c
 	return nil
 }

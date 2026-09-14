@@ -110,7 +110,17 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Description: body.Description,
 	})
 	if err != nil {
-		h.respond.ServerError(w, r, err)
+		if errors.Is(err, courtstore.ErrDuplicateCourtName) {
+			// courts_active_name_unique (internal/courts/store/courts.go) is
+			// partial over active courts, so this is a name collision with
+			// another LIVE court in the complex — reusing a deleted court's
+			// name is an ordinary insert, not this. Same shape as
+			// complexes.ErrSlugTaken on Create: a field-scoped 422 the
+			// frontend can localize from the code, not a 500.
+			h.respond.FailedValidation(w, r, map[string]string{"name": httpx.CodeCourtNameTaken})
+			return
+		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 
@@ -191,6 +201,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		switch {
+		case errors.Is(err, courtstore.ErrDuplicateCourtName):
+			// Same collision Create can hit, and the same shape: courts_active_name_unique
+			// is partial over active courts, so this fires both for renaming
+			// onto another live court's name and for reactivating (is_active:
+			// true) a soft-deleted court onto one — Update is the only path a
+			// reactivation takes, there is no separate restore endpoint.
+			h.respond.FailedValidation(w, r, map[string]string{"name": httpx.CodeCourtNameTaken})
 		case errors.Is(err, ErrEditConflict):
 			// courts.ErrEditConflict wraps data.ErrEditConflict for a stale
 			// If-Match/version: its own kind, distinct from the generic
