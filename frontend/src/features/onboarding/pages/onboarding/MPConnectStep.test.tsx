@@ -77,6 +77,18 @@ describe('MPConnectStep', () => {
     expect(screen.getByText('Lo hago después')).toBeInTheDocument();
   });
 
+  it('says what skipping means while payments are not connected, and nothing about defaults', () => {
+    renderStep({ mpConnected: false, mpAuthUrl: 'https://auth.mercadopago.com/x' });
+    expect(screen.getByText(/tu página muestra tu WhatsApp/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Ya podés recibir reservas/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Configuración/i })).not.toBeInTheDocument();
+  });
+
+  it('drops the skip explanation once payments are connected', () => {
+    renderStep({ mpConnected: true, mpAuthUrl: null });
+    expect(screen.queryByText(/tu página muestra tu WhatsApp/i)).not.toBeInTheDocument();
+  });
+
   it('renders back button', () => {
     renderStep();
     expect(screen.getByText('Volver')).toBeInTheDocument();
