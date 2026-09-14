@@ -1,11 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { toast } from 'sonner';
 import type { registerSW } from 'virtual:pwa-register';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { setupServiceWorkerUpdates, SW_UPDATE_INTERVAL_MS, SW_UPDATE_TOAST_ID } from './serviceWorkerUpdate';
+import {
+  applyPendingServiceWorkerUpdate,
+  isUpdatePending,
+  setupServiceWorkerUpdates,
+  SW_UPDATE_INTERVAL_MS,
+  SW_UPDATE_TOAST_ID,
+} from './serviceWorkerUpdate';
 import { API_CACHE_NAME } from './apiCache';
+import { markUnsavedWork } from './unsavedWork';
 
-vi.mock('sonner', () => ({ toast: vi.fn() }));
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { dismiss: vi.fn() }) }));
 
 type RegisterOptions = NonNullable<Parameters<typeof registerSW>[0]>;
 
@@ -27,6 +34,26 @@ function fakeRegister() {
   };
 }
 
+/**
+ * Puts a browser in front of the module: a spy `reload`, a `serviceWorker` that
+ * can dispatch `controllerchange`, and a Cache Storage that records deletes.
+ */
+function stubBrowser() {
+  const reload = vi.fn();
+  vi.stubGlobal('location', { reload });
+  const serviceWorker = new EventTarget();
+  vi.stubGlobal('navigator', { serviceWorker });
+  const deleteCache = vi.fn().mockResolvedValue(true);
+  vi.stubGlobal('caches', { delete: deleteCache });
+  return { reload, serviceWorker, deleteCache };
+}
+
+/** Drives the tab between foreground and background. */
+function setVisibility(state: 'visible' | 'hidden') {
+  Object.defineProperty(document, 'visibilityState', { value: state, configurable: true });
+  document.dispatchEvent(new Event('visibilitychange'));
+}
+
 function lastToastOptions() {
   const call = vi.mocked(toast).mock.calls.at(-1);
   if (!call) throw new Error('toast was not called');
@@ -36,6 +63,11 @@ function lastToastOptions() {
     action?: { label: string; onClick: (event: unknown) => void };
   };
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+});
 
 describe('setupServiceWorkerUpdates', () => {
   beforeEach(() => {
@@ -165,5 +197,134 @@ describe('setupServiceWorkerUpdates update checks', () => {
     expect(() => {
       sw.options().onRegisteredSW?.('/sw.js', undefined);
     }).not.toThrow();
+  });
+});
+
+// PWA-09: a build that waits for a click reaches almost nobody, and a build
+// that reloads on its own interrupts everybody. These pin the two moments
+// where neither is true.
+describe('applyPendingServiceWorkerUpdate', () => {
+  beforeEach(() => {
+    markUnsavedWork('form', false);
+  });
+
+  it('reports nothing pending until a new worker is actually waiting', () => {
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    expect(isUpdatePending()).toBe(false);
+
+    sw.options().onNeedRefresh?.();
+
+    expect(isUpdatePending()).toBe(true);
+  });
+
+  it('does nothing when no new worker is waiting', () => {
+    const browser = stubBrowser();
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+
+    applyPendingServiceWorkerUpdate();
+
+    expect(sw.updateSW).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
+  });
+
+  it('purges the API cache, asks for the takeover and reloads on the controller change', () => {
+    const browser = stubBrowser();
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    sw.options().onNeedRefresh?.();
+
+    applyPendingServiceWorkerUpdate();
+
+    expect(browser.deleteCache).toHaveBeenCalledWith(API_CACHE_NAME);
+    expect(sw.updateSW).toHaveBeenCalledWith(true);
+    expect(browser.reload).not.toHaveBeenCalled();
+
+    browser.serviceWorker.dispatchEvent(new Event('controllerchange'));
+    expect(browser.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('dismisses the fallback toast, so no stale prompt survives the handover', () => {
+    stubBrowser();
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    sw.options().onNeedRefresh?.();
+
+    applyPendingServiceWorkerUpdate();
+
+    expect(toast.dismiss).toHaveBeenCalledWith(SW_UPDATE_TOAST_ID);
+  });
+
+  // Two triggers and a toast can all fire for one waiting worker; a second
+  // handover would stack a second `controllerchange` listener and reload twice.
+  it('is idempotent: a second call while one is in flight does nothing', () => {
+    const browser = stubBrowser();
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    sw.options().onNeedRefresh?.();
+
+    applyPendingServiceWorkerUpdate();
+    applyPendingServiceWorkerUpdate();
+    applyPendingServiceWorkerUpdate();
+
+    expect(sw.updateSW).toHaveBeenCalledTimes(1);
+    expect(browser.deleteCache).toHaveBeenCalledTimes(1);
+
+    browser.serviceWorker.dispatchEvent(new Event('controllerchange'));
+    expect(browser.reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('setupServiceWorkerUpdates background trigger', () => {
+  beforeEach(() => {
+    markUnsavedWork('form', false);
+  });
+
+  it('applies a pending update when the tab goes to the background', () => {
+    const browser = stubBrowser();
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    sw.options().onNeedRefresh?.();
+
+    setVisibility('hidden');
+
+    expect(browser.deleteCache).toHaveBeenCalledWith(API_CACHE_NAME);
+    expect(sw.updateSW).toHaveBeenCalledWith(true);
+
+    browser.serviceWorker.dispatchEvent(new Event('controllerchange'));
+    expect(browser.reload).toHaveBeenCalledTimes(1);
+  });
+
+  // The whole reason prompt mode exists: a half-filled form must not be
+  // reloaded away, not even while nobody is looking at the tab.
+  it('leaves a pending update alone while a form holds unsaved changes', () => {
+    const browser = stubBrowser();
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    sw.options().onNeedRefresh?.();
+    markUnsavedWork('form', true);
+
+    setVisibility('hidden');
+
+    expect(sw.updateSW).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
+    expect(browser.reload).not.toHaveBeenCalled();
+
+    // Once the form is clean the next trip to the background lands it.
+    markUnsavedWork('form', false);
+    setVisibility('hidden');
+    expect(sw.updateSW).toHaveBeenCalledWith(true);
+  });
+
+  it('does nothing on the way to the background when no new worker is waiting', () => {
+    const browser = stubBrowser();
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+
+    setVisibility('hidden');
+
+    expect(sw.updateSW).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
   });
 });
