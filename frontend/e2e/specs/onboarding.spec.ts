@@ -94,11 +94,8 @@ test.describe('Onboarding Flow', () => {
     await expect(nameField).toBeVisible({ timeout: 10_000 });
 
     await nameField.fill('Complejo Onboarding E2E');
-    // The slug ("URL pública") input auto-derives from the name and then
-    // collapses into a read-only preview line — it only stays an editable
-    // input while the slug is still empty. Assert the derived preview instead
-    // of the (by-then-hidden) input.
-    await expect(page.getByText('complejo-onboarding-e2e')).toBeVisible();
+    // The slug ("URL pública") input auto-derives from the name.
+    await expect(page.getByLabel('URL pública')).toHaveValue('complejo-onboarding-e2e');
     // Not exact: the accessible label is "Teléfono * requerido" (RequiredMark
     // appends a screen-reader-only "requerido" after the asterisk).
     await page.getByLabel('Teléfono').fill('1100000044');
