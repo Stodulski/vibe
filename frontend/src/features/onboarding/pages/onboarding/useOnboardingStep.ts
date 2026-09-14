@@ -40,6 +40,12 @@ export function useOnboardingStep(args: UseOnboardingStepArgs) {
   // the step from server data" (see `deriveStep`), which is the default and
   // covers both the initial load and resuming an in-progress complex.
   const [manualStep, setManualStep] = useState<OnboardingStep | null>(null);
+  // The step server data derived when this complex was first seen, pinned so
+  // later refetches (e.g. the courts query after creating the first court)
+  // can't move the page on their own. Server data decides the step only when
+  // the flow is entered or resumed; inside a session, only `changeStep`
+  // (the step's own back/next navigation) moves it.
+  const [pinnedStep, setPinnedStep] = useState<OnboardingStep | null>(null);
 
   const changeStep = useCallback((newStep: OnboardingStep) => {
     setAnimKey((k) => k + 1);
@@ -65,6 +71,7 @@ export function useOnboardingStep(args: UseOnboardingStepArgs) {
   if (complexId !== prevComplexId) {
     setPrevComplexId(complexId);
     setManualStep(null);
+    setPinnedStep(null);
   }
 
   const derivedStep = deriveStep({
@@ -74,6 +81,15 @@ export function useOnboardingStep(args: UseOnboardingStepArgs) {
     complexesLoading,
     courtsLoading,
   });
+
+  // Pin the first step server data derives for this complex (see the
+  // `pinnedStep` declaration above for why). Re-deriving on every render
+  // instead is what let a courts refetch after creating the first court flip
+  // the step out from under the owner while its price dialog was still open.
+  if (pinnedStep === null && derivedStep !== null) {
+    setPinnedStep(derivedStep);
+  }
+
   const isFullyOnboarded =
     !complexesLoading && !courtsLoading && !!complexId && !!courts && courts.length > 0 && !!currentComplex?.mp_user_id;
 
@@ -83,7 +99,7 @@ export function useOnboardingStep(args: UseOnboardingStepArgs) {
     if (isFullyOnboarded && complexId) completeOnboarding(complexId);
   }, [isFullyOnboarded, complexId, completeOnboarding]);
 
-  const step = manualStep ?? derivedStep;
+  const step = manualStep ?? pinnedStep;
 
   return { step, animKey, changeStep, completeOnboarding, navigate };
 }
