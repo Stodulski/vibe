@@ -37,10 +37,23 @@ export function useOnboarding() {
     (created?: Complex) => {
       if (created) {
         setJustCreatedId(created.id);
+        // The new complex also goes into history state, replacing the
+        // `newComplex: true` entry that brought the owner here.
+        //
+        // `justCreatedId` is component state and dies on reload; `location.state`
+        // is part of the history entry and survives one. Without this, pressing
+        // F5 on step 2 of an "Agregar complejo" flow came back with
+        // `isNewComplex` still true (history kept it) and `justCreatedId` gone,
+        // so `useOnboardingComplex` resolved no complex at all, `deriveStep`
+        // read that as "nothing created yet" and offered the create form again
+        // — and filling it in created a second complex for a venue that already
+        // had one. Replacing rather than pushing also keeps Back from returning
+        // to an entry that would repeat the same trick.
+        void navigate('/onboarding', { state: { complexId: created.id }, replace: true });
       }
       changeStep(2);
     },
-    [changeStep],
+    [changeStep, navigate],
   );
 
   const hasCourts = courts && courts.length > 0;
