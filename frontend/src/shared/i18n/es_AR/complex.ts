@@ -73,7 +73,7 @@ export const complex = {
   onboardingTitle: 'Bienvenido',
   onboardingTitleNew: 'Nuevo complejo',
   onboardingStep1: 'Datos del complejo',
-  onboardingStep1Description: 'Cómo se llama tu club y dónde está. Vas a necesitar la dirección.',
+  onboardingStep1Description: 'Cómo se llama tu club, dónde está y qué servicios ofrece. Vas a necesitar la dirección.',
   onboardingStep2: 'Primera cancha',
   onboardingNeedsCourt: 'Creá al menos una cancha para continuar',
   onboardingStep2Description: 'Sin canchas no hay nada que reservar.',

@@ -99,8 +99,12 @@ function BillingGroup({ form }: { form: Form }) {
   );
 }
 
-/** The twelve services, also absent from onboarding — all of them optional. */
-function AmenitiesGroup({ form }: { form: Form }) {
+/**
+ * The twelve services, all optional. Onboarding asks for them in its first
+ * step too: a venue with nothing to declare submits an empty list, which the
+ * API accepts on create.
+ */
+export function AmenitiesGroup({ form }: { form: Form }) {
   return (
     <FieldGroup>
       <AmenitiesFieldset control={form.control} />
