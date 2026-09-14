@@ -5,6 +5,7 @@ export const validation = {
    */
   server: {
     slugTaken: 'Ya existe un complejo con esa URL, elegí otra',
+    courtNameTaken: 'Ya existe una cancha con ese nombre, elegí otro',
     depositOver100: 'La seña no puede superar el 100%',
     depositExceedsPrice: 'La seña no puede superar el precio total',
     monthOutOfRange: 'El mes debe estar entre 1 y 12',

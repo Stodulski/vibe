@@ -13,6 +13,7 @@ import { getProblem } from '@/shared/lib/ApiError';
  */
 const SERVER_ERROR_TEXT: Record<string, string> = {
   slug_taken: ES_AR.validation.server.slugTaken,
+  court_name_taken: ES_AR.validation.server.courtNameTaken,
   deposit_percentage_over_100: ES_AR.validation.server.depositOver100,
   deposit_exceeds_price: ES_AR.validation.server.depositExceedsPrice,
   month_out_of_range: ES_AR.validation.server.monthOutOfRange,
