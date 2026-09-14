@@ -387,6 +387,11 @@ var csrfExemptRoutes = map[string]string{
 		"cookie the token would be derived from, or answers with no session at all",
 	"POST /api/v1/auth/google/complete": "creates the account and mints the cookie; there is no " +
 		"session yet to derive a token from",
+	"POST /api/v1/auth/google/redirect": "posted by Google itself in redirect mode, which cannot " +
+		"carry our header; its own defence is the g_csrf_token double submit, and it mints no " +
+		"session at all — only a redirect carrying a one-time code",
+	"POST /api/v1/auth/google/exchange": "spends that one-time code and mints the cookie the token " +
+		"would be derived from; there is no session yet",
 	"POST /api/v1/auth/logout":              "must succeed even when the session is already invalid",
 	"POST /api/v1/auth/refresh":             "runs on an expired access token by design",
 	"POST /api/v1/auth/verify-email":        "reached from an emailed link, before first login",

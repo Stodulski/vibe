@@ -70,6 +70,8 @@ var apiSurface = map[string]struct{}{
 	"POST /api/v1/auth/forgot-password":                                {},
 	"POST /api/v1/auth/google":                                         {},
 	"POST /api/v1/auth/google/complete":                                {},
+	"POST /api/v1/auth/google/exchange":                                {},
+	"POST /api/v1/auth/google/redirect":                                {},
 	"POST /api/v1/auth/login":                                          {},
 	"POST /api/v1/auth/logout":                                         {},
 	"POST /api/v1/auth/refresh":                                        {},
