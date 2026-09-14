@@ -139,6 +139,60 @@ no longer carries. All three are kept distinct from the generic `conflict` so th
 switch on them without parsing `detail`. `internal/httpx/problem.go` is the one place that builds
 this body — see its `Kind` constants for the full, exact list.
 
+### Sign in with Google
+
+There are two ways in, and they end in the same place. Which one the client uses is the client's
+choice; the server supports both while `GOOGLE_OAUTH_CLIENT_ID` is set.
+
+**Popup mode** is one request: the browser gets an ID token from Google and posts it to
+`POST /api/v1/auth/google`, which answers with the session cookies, or with `needs_profile` and a
+profile token for `POST /api/v1/auth/google/complete` — Google never supplies a phone number, and
+registration needs one.
+
+**Redirect mode** exists because popup mode opens a blank Google page on a good share of mobile
+browsers (storage partitioning, a lost opener, in-app webviews). The client asks Google for
+`ux_mode: 'redirect'` with `login_uri: https://app.vibe.com.ar/auth/google/callback`; Vercel
+proxies that path — POST, body and cookies intact — to `POST /api/v1/auth/google/redirect`. Three
+steps:
+
+1. Google form-POSTs `application/x-www-form-urlencoded` with `credential` (the ID token) and
+   `g_csrf_token`, having set a `g_csrf_token` cookie on the app's origin. Both must be present
+   and equal; they are compared in constant time. This is the double submit from
+   [Google's own guide](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token),
+   and it works because a cross-site forgery can write the form but cannot read the cookie.
+2. The server verifies the credential and answers `303 See Other` to
+   `<FRONTEND_URL>/auth/google/return?code=<code>`. The code is opaque, 256 bits of entropy,
+   single-use (consumed with Redis `GETDEL`) and valid for 120 seconds; it is held at
+   `vibe:<env>:gauth:<code>` and carries the verified claims, never the ID token. **No session
+   cookie is ever set by this endpoint** — the request is a top-level cross-site form navigation,
+   and a POST an attacker can cause must not end in a session.
+3. The frontend spends the code from its own origin against `POST /api/v1/auth/google/exchange`
+   (`{"code": "..."}`), which answers exactly what `POST /api/v1/auth/google` answers: the session
+   cookies, or `needs_profile` with a profile token. An unknown, expired or already-spent code is
+   `422` on field `code` with "invalid or expired" — the three are never told apart.
+
+Every failure of the redirect endpoint is a `303` too, because its caller is a browser
+mid-navigation and a problem document would be a dead-end page. The frontend's login page reads
+two values out of `?error=`:
+
+| `Location` | When |
+|---|---|
+| `<FRONTEND_URL>/login?error=google_rejected` | The CSRF cookie or field is missing or they disagree; the content type is not `application/x-www-form-urlencoded`; the body is over 16 KiB; the credential is missing, or Google refused it. |
+| `<FRONTEND_URL>/login?error=google_unavailable` | `GOOGLE_OAUTH_CLIENT_ID` is not configured, Google's JWKS is unreachable, Redis would not hold the code, or any other internal failure. |
+
+The reason is logged (`reason=csrf_mismatch`, `credential_rejected`, …) and never shown: the
+redirect target is a URL a person can read and share.
+
+The one answer that is not a redirect is `501`, when `FRONTEND_URL` is empty — there is then
+nowhere to send the browser. Set `FRONTEND_URL` on any deployment that offers redirect mode.
+`POST /api/v1/auth/google/exchange` is unaffected by it and still answers `503` while
+`GOOGLE_OAUTH_CLIENT_ID` is unset, like the other Google routes.
+
+Redis is not optional here on more than one instance: the code is minted on whichever instance
+Google's post reached and spent on whichever one the frontend's exchange reaches. Without
+`REDIS_URL` the store falls back to this process's memory, which is correct for a single instance
+and for local development and wrong for anything else.
+
 ## Environment variables
 
 `.env.example` is versioned in this repository and lists every variable with a comment. `.env` is gitignored and never committed. This file's contents are not reproduced here; the tables below list names, purpose, and required/default status as read from `cmd/api/main.go` and `cmd/api/boot_config.go`.
@@ -186,11 +240,11 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 | `JWT_KEY_ID_PREVIOUS` | Name the retired key answers to. Set it to whatever `JWT_KEY_ID` held while that key was active; leave it empty whenever `JWT_KEY_ID` was empty. Get this wrong and the tokens naming the old key stop verifying, which is exactly the outage `JWT_SECRET_PREVIOUS` exists to prevent. | Optional | derived from `JWT_SECRET_PREVIOUS` |
 | `MP_CREDENTIAL_KEYS` | AES-256 keyring encrypting stored MercadoPago credentials, format `kid:base64key[,kid:base64key...]` (each key decodes to 32 bytes). | **Required unconditionally**, even if MercadoPago is unused. | none |
 | `COOKIE_DOMAIN` | Domain scope for auth cookies (e.g. `.example.com`). | Optional | `""` (host-only cookie) |
-| `FRONTEND_URL` | Frontend origin, used for CORS and links in emails. | Optional | `http://localhost:5173` |
+| `FRONTEND_URL` | Frontend origin, used for CORS, links in emails, and every redirect `POST /api/v1/auth/google/redirect` answers with. Set to empty and that endpoint answers `501` — it has nowhere to send the browser; see [Sign in with Google](#sign-in-with-google). | Optional | `http://localhost:5173` |
 | `BACKEND_URL` | Public backend URL, used for MercadoPago OAuth callbacks and webhooks. | **Required when `MP_ACCESS_TOKEN` is set**, must be absolute (https in production). | `""` |
 | `TRUSTED_PROXIES` | Peers allowed to set `X-Forwarded-For`: `false`, `true` (private ranges), or a comma-separated CIDR list. | Optional | `false` |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key. Setting it enables Turnstile verification on register, login and forgot-password; pairs with the client's `VITE_TURNSTILE_SITE_KEY`. | Optional | `""` |
-| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client id. Setting it enables "Sign in with Google" (`POST /api/v1/auth/google`); the same value goes to the client as `VITE_GOOGLE_CLIENT_ID`. Create a **Web application** OAuth client in the Google Cloud console with this app's origin as an authorized JavaScript origin — no redirect URI is needed, Google Identity Services posts the ID token directly. | Optional | `""` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client id. Setting it enables "Sign in with Google" in both modes (`POST /api/v1/auth/google` and `POST /api/v1/auth/google/redirect`); the same value goes to the client as `VITE_GOOGLE_CLIENT_ID`. Create a **Web application** OAuth client in the Google Cloud console with this app's origin as an authorized JavaScript origin. Popup mode needs no redirect URI — Google Identity Services posts the ID token directly — but redirect mode does: add the client's `login_uri` (`https://app.vibe.com.ar/auth/google/callback`) as an authorized redirect URI. See [Sign in with Google](#sign-in-with-google). | Optional | `""` |
 
 ### MercadoPago
 
@@ -385,6 +439,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 - **The client's E2E suite is hitting the dev API instead of an isolated one**: run `make e2e` from this repository rather than `pnpm test:e2e` directly from the client. The Playwright suite truncates its target database on setup, so it must point at the isolated stack (`:8081`/`:5433`/`:6380`), never at the dev API on `:8080`.
 - **WhatsApp notifications never send, with no error**: `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` are both empty, so the feature is disabled at boot (logged once as `whatsapp notifications disabled`). Set both to enable it.
 - **The client shows the Turnstile challenge but register/login/forgot-password answer 422 `turnstile_token: unavailable`**: the server could not confirm the token with Cloudflare — `TURNSTILE_SECRET_KEY` is wrong for the client's `VITE_TURNSTILE_SITE_KEY`, or Cloudflare's siteverify endpoint is unreachable from this deployment. It is not the same as `turnstile_token: invalid`, which means Cloudflare reached a verdict and rejected the token itself.
+- **Google sign-in in redirect mode always lands on `/login?error=google_rejected`**: the `g_csrf_token` cookie Google sets on the app's origin is not reaching the API. The frontend's proxy has to forward the POST body **and** the request cookies to `POST /api/v1/auth/google/redirect`; a proxy that drops either makes the double-submit check fail on every attempt. The server log names which half was missing (`reason=csrf_cookie_missing`, `csrf_field_missing` or `csrf_mismatch`).
 - **Address autocomplete answers 502, and the log shows `places upstream ... PERMISSION_DENIED`**: `GOOGLE_MAPS_API` is set to a key whose Cloud project does not have **Places API (New)** enabled (the legacy Places API being enabled instead is not enough). Enable Places API (New) for that project in the Google Cloud console.
 
 ## License
