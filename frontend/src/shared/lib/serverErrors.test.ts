@@ -16,6 +16,7 @@ function httpError(status: number, body: unknown): HTTPError {
 describe('translateServerError', () => {
   it('turns a known code into its Spanish text', () => {
     expect(translateServerError('slug_taken')).toBe(ES_AR.validation.server.slugTaken);
+    expect(translateServerError('court_name_taken')).toBe(ES_AR.validation.server.courtNameTaken);
   });
 
   // The backend still returns prose for messages that have not been converted
