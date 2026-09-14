@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { loadGoogleIdentityServices } from '@/shared/lib/googleIdentity';
 import { env } from '@/shared/lib/env';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { readIntendedFrom } from '../hooks/authSuccess';
+import { rememberGoogleReturnPath } from '../lib/googleSignInReturn';
 import { useOverlayScale } from '../hooks/useOverlayScale';
 import { GoogleMark } from './GoogleMark';
 
@@ -78,7 +81,18 @@ export function GoogleSignInButton() {
   const frameRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
+  const location = useLocation();
   const scale = useOverlayScale(frameRef, GIS_BUTTON_WIDTH, GIS_BUTTON_HEIGHT);
+
+  // Where this person was heading before they were asked to sign in. It is
+  // read here, on the page that still knows it, because the click that starts
+  // the flow leaves for Google and comes back somewhere else entirely — see
+  // `rememberGoogleReturnPath`. Kept in step with the location rather than
+  // read once on mount: `/login` is a single route instance, so arriving from
+  // one protected page and then another does not remount this button.
+  useEffect(() => {
+    rememberGoogleReturnPath(readIntendedFrom(location.state, location.search));
+  }, [location.state, location.search]);
 
   useEffect(() => {
     if (!clientId) return;

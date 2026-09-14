@@ -18,7 +18,16 @@ const SAFE_PREFIXES = [
   '/admin',
 ];
 
-function isSafeRedirect(path: string | undefined): path is string {
+/**
+ * Whether `path` is somewhere inside this app that a just-authenticated
+ * person may be sent to. Every redirect target passes through here, wherever
+ * it came from, so no caller can turn one into an open redirect.
+ *
+ * Exported for `rememberGoogleReturnPath`, which has to apply the same test
+ * before a destination is parked in `sessionStorage` across the Google
+ * redirect hop — a value that cannot survive that trip is not worth storing.
+ */
+export function isSafeRedirect(path: string | undefined): path is string {
   if (!path) return false;
   // Only the path segment decides. A `?from=` carries the query string the
   // person was on (`/bookings?date=...`), and matching the raw value against
@@ -26,6 +35,27 @@ function isSafeRedirect(path: string | undefined): path is string {
   // not be able to slip past as something other than /bookings.
   const pathname = path.split('?')[0] ?? '';
   return SAFE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
+}
+
+/**
+ * The destination a visitor was heading for before they were sent to sign in,
+ * as the two mechanisms that can carry it state it — unfiltered, because
+ * every caller runs the result through {@link isSafeRedirect} at the point of
+ * use.
+ *
+ * `ProtectedRoute` puts it in router state. The 401 handler in
+ * `src/shared/lib/ky.ts` cannot: it ends the session with
+ * `window.location.href`, and router state does not survive a document load,
+ * so it appends `?from=` instead. Router state wins when both are present.
+ *
+ * `state` is `unknown` on purpose — `history.state` is not guaranteed to be
+ * what this app put there (back/forward, a hand-edited URL, an extension), so
+ * it is parsed rather than cast.
+ */
+export function readIntendedFrom(state: unknown, search: string): string | undefined {
+  const parsedState = loginRedirectStateSchema.safeParse(state);
+  if (parsedState.success) return parsedState.data.from.pathname;
+  return new URLSearchParams(search).get('from') ?? undefined;
 }
 
 /**
@@ -39,6 +69,15 @@ function isSafeRedirect(path: string | undefined): path is string {
  * waits on a second `GET /auth/me`), puts the CSRF token in the store,
  * dismisses any lingering error toast from an earlier failed attempt, and
  * redirects to the safe `location.state.from` path or the role-based default.
+ *
+ * A caller that knows the destination better than the current location does
+ * passes it as `options.from`, and it wins. Exactly one does: the Google
+ * redirect flow signs in on `/auth/google/return`, a page the visitor never
+ * chose and which carries neither the router state nor the `?from=` the
+ * original `/login` had — so `useGoogleExchange` hands back the destination
+ * it parked before leaving for Google. The override is filtered by
+ * {@link isSafeRedirect} exactly like the other two, so an override is not a
+ * way around the allowlist.
  */
 export function useAuthSuccessHandler() {
   const navigate = useNavigate();
@@ -46,7 +85,7 @@ export function useAuthSuccessHandler() {
   const setCsrfToken = useStore((s) => s.setCsrfToken);
   const queryClient = useQueryClient();
 
-  return (data: AuthResponse) => {
+  return (data: AuthResponse, options?: { from?: string | undefined }) => {
     // Sonner's <Toaster> lives above the router (in Providers), so it isn't
     // unmounted by the navigation below — an error toast from an earlier
     // failed attempt in this same session would otherwise still be sitting
@@ -64,16 +103,10 @@ export function useAuthSuccessHandler() {
     // `isSafeRedirect`'s `.startsWith` and threw, which made TanStack Query
     // treat the whole mutation as failed and fire onError's
     // "invalid credentials" toast — on top of a login that had actually just
-    // succeeded.
-    const parsedState = loginRedirectStateSchema.safeParse(location.state);
-    // `?from=` is the same intent arriving the only way it can survive the
-    // hard navigation `ky.ts` does when a session cannot be refreshed:
-    // `window.location.href` discards router state, so an expired token used
-    // to cost the person the page they were on. Both paths are filtered by
-    // `isSafeRedirect` below, so neither can be turned into an open redirect.
-    const from = parsedState.success
-      ? parsedState.data.from.pathname
-      : (new URLSearchParams(location.search).get('from') ?? undefined);
+    // succeeded. `readIntendedFrom` parses both carriers; see its own note on
+    // why `?from=` exists alongside router state. All three candidates are
+    // filtered by `isSafeRedirect` below, so none can become an open redirect.
+    const from = options?.from ?? readIntendedFrom(location.state, location.search);
     const defaultRoute = data.user.role === 'superadmin' ? '/admin' : '/complexes';
     void navigate(isSafeRedirect(from) ? from : defaultRoute, { replace: true });
   };
