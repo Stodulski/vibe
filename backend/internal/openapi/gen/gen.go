@@ -1937,6 +1937,9 @@ type AuthGoogleCompleteJSONBody struct {
 type AuthGoogleExchangeJSONBody struct {
 	// Code The opaque one-time code from `/auth/google/redirect`'s `Location`.
 	Code string `json:"code"`
+
+	// GCsrfToken The value of the `g_csrf_token` cookie Google set on the app's origin, read back by the return page. It binds the code to the browser the redirect was delivered to: the server compares its hash, in constant time, against the one stored when the code was issued. A browser that cannot produce it — because it blocks the cookie — fails closed here.
+	GCsrfToken string `json:"g_csrf_token"`
 }
 
 // AuthGoogleExchange200JSONResponseBody0 defines parameters for AuthGoogleExchange.

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -58,7 +59,8 @@ func googleForm(credential, csrfToken string) url.Values {
 	}
 }
 
-// assertRedirectedTo fails unless w is a 303 to location that set no cookie.
+// assertRedirectedTo fails unless w is a 303 to location that wrote no cookie
+// at all.
 func assertRedirectedTo(t *testing.T, w *httptest.ResponseRecorder, location string) {
 	t.Helper()
 	if w.Code != http.StatusSeeOther {
@@ -67,17 +69,32 @@ func assertRedirectedTo(t *testing.T, w *httptest.ResponseRecorder, location str
 	if got := w.Header().Get("Location"); got != location {
 		t.Errorf("Location = %q, want %q", got, location)
 	}
-	assertNoSession(t, w)
+	assertNoCookiesWritten(t, w)
 }
 
-// assertNoSession fails if the response carries either session cookie. It is
-// the invariant the redirect endpoint exists to keep: the cookies belong to
-// the exchange, which runs on the frontend's own origin.
+// assertNoCookiesWritten fails if the redirect endpoint wrote any Set-Cookie
+// header at all — not merely no session.
+//
+// Two invariants in one assertion. It must not establish a session, because
+// the request that reaches it is a top-level cross-site form navigation. And
+// it must not touch g_csrf_token either: that cookie is what binds the code it
+// just issued to this browser, and clearing, rotating or overwriting it on any
+// path — success or failure — would leave the return page unable to produce
+// the value the exchange needs.
+func assertNoCookiesWritten(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	if written := w.Header().Values("Set-Cookie"); len(written) != 0 {
+		t.Errorf("the redirect endpoint wrote %v; it must set no cookie at all, "+
+			"and must never disturb the g_csrf_token the code is bound to", written)
+	}
+}
+
+// assertNoSession fails if the response carries either session cookie.
 func assertNoSession(t *testing.T, w *httptest.ResponseRecorder) {
 	t.Helper()
 	for _, name := range []string{"access_token", "refresh_token"} {
 		if findCookie(w.Header(), name) != nil {
-			t.Errorf("the redirect endpoint set a %s cookie; it must never establish a session", name)
+			t.Errorf("a %s cookie was set where no session should have been established", name)
 		}
 	}
 }
@@ -98,6 +115,16 @@ func codeFromLocation(t *testing.T, w *httptest.ResponseRecorder) string {
 		t.Fatalf("the code in %q is not a usable query value: %v", location, err)
 	}
 	return unescaped
+}
+
+// exchangeBody is the frontend's exchange request: the one-time code, plus the
+// g_csrf_token it read back off the cookie Google set on the app's origin.
+func exchangeBody(code, csrfToken string) string {
+	body, err := json.Marshal(map[string]string{"code": code, "g_csrf_token": csrfToken})
+	if err != nil {
+		panic(err)
+	}
+	return string(body)
 }
 
 // activeUser is an account that can sign in, for the exchange tests.
@@ -287,7 +314,7 @@ func TestGoogleRedirectHappyPath(t *testing.T) {
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("want 303; got %d (%s)", w.Code, w.Body.String())
 	}
-	assertNoSession(t, w)
+	assertNoCookiesWritten(t, w)
 	if got := w.Header().Get("Cache-Control"); got != "no-store" {
 		t.Errorf("Cache-Control = %q, want no-store: the location carries a one-time code", got)
 	}
@@ -313,7 +340,7 @@ func TestGoogleRedirectThenExchangeEstablishesTheSession(t *testing.T) {
 	code := codeFromLocation(t, redirected)
 
 	w := httptest.NewRecorder()
-	f.handler.GoogleExchange(w, postJSON(t, `{"code":"`+code+`"}`))
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody(code, "csrf-abc")))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
@@ -345,7 +372,7 @@ func TestGoogleExchangeNeedsProfile(t *testing.T) {
 	code := codeFromLocation(t, redirected)
 
 	w := httptest.NewRecorder()
-	f.handler.GoogleExchange(w, postJSON(t, `{"code":"`+code+`"}`))
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody(code, "csrf-abc")))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
@@ -360,6 +387,60 @@ func TestGoogleExchangeNeedsProfile(t *testing.T) {
 	assertNoSession(t, w)
 }
 
+// TestGoogleExchangeReadsNoCookie pins where the exchange gets the binding
+// value from: the JSON field, and only the JSON field.
+//
+// The API is served from api.vibe.com.ar and the app from app.vibe.com.ar, so
+// the g_csrf_token cookie Google set on the app's origin never reaches this
+// endpoint at all. A handler that read it would work in a test that forged one
+// and fail for every real caller. The request below carries no Cookie header
+// whatsoever, which is what a real exchange looks like, and it succeeds.
+func TestGoogleExchangeReadsNoCookie(t *testing.T) {
+	f := newFixtureWithGoogle(t)
+	f.users.add(activeUser(t, "ana@example.com"))
+
+	minted := httptest.NewRecorder()
+	f.handler.GoogleRedirect(minted, postGoogleForm(t, googleForm("good-id-token", "csrf-abc"), "csrf-abc"))
+	code := codeFromLocation(t, minted)
+
+	r := postJSON(t, exchangeBody(code, "csrf-abc"))
+	if len(r.Header.Values("Cookie")) != 0 {
+		t.Fatalf("this test is meaningless with cookies on the request: %v", r.Header.Values("Cookie"))
+	}
+
+	w := httptest.NewRecorder()
+	f.handler.GoogleExchange(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 with no cookie on the request; got %d (%s)", w.Code, w.Body.String())
+	}
+	if findCookie(w.Header(), "access_token") == nil {
+		t.Error("no session was established")
+	}
+}
+
+// TestGoogleExchangeIgnoresACookieThatDisagrees is the same rule from the
+// other side: a cookie on the exchange request decides nothing, because the
+// field is the only thing compared.
+func TestGoogleExchangeIgnoresACookieThatDisagrees(t *testing.T) {
+	f := newFixtureWithGoogle(t)
+	f.users.add(activeUser(t, "ana@example.com"))
+
+	minted := httptest.NewRecorder()
+	f.handler.GoogleRedirect(minted, postGoogleForm(t, googleForm("good-id-token", "csrf-abc"), "csrf-abc"))
+	code := codeFromLocation(t, minted)
+
+	r := postJSON(t, exchangeBody(code, "csrf-abc"))
+	r.AddCookie(&http.Cookie{Name: "g_csrf_token", Value: "something-else-entirely"})
+
+	w := httptest.NewRecorder()
+	f.handler.GoogleExchange(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("the exchange consulted a cookie it must ignore; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
 // TestGoogleExchangeSpendsTheCodeOnce is what makes a leaked return URL worth
 // nothing twice.
 func TestGoogleExchangeSpendsTheCodeOnce(t *testing.T) {
@@ -371,22 +452,87 @@ func TestGoogleExchangeSpendsTheCodeOnce(t *testing.T) {
 	code := codeFromLocation(t, redirected)
 
 	first := httptest.NewRecorder()
-	f.handler.GoogleExchange(first, postJSON(t, `{"code":"`+code+`"}`))
+	f.handler.GoogleExchange(first, postJSON(t, exchangeBody(code, "csrf-abc")))
 	if first.Code != http.StatusOK {
 		t.Fatalf("first exchange: want 200; got %d (%s)", first.Code, first.Body.String())
 	}
 
 	second := httptest.NewRecorder()
-	f.handler.GoogleExchange(second, postJSON(t, `{"code":"`+code+`"}`))
+	f.handler.GoogleExchange(second, postJSON(t, exchangeBody(code, "csrf-abc")))
 
 	assertInvalidCode(t, second)
+}
+
+// TestGoogleExchangeRefusesACodeFromAnotherBrowser is the login-CSRF this
+// binding exists for. An attacker holding any valid Google ID token can mint a
+// code with curl — it sets both halves of Google's double submit itself — and
+// send the victim the return URL. Without the binding the victim's browser
+// spends it and lands in the attacker's account. With it, the victim's own
+// g_csrf_token cookie is a different value, and nothing is established.
+func TestGoogleExchangeRefusesACodeFromAnotherBrowser(t *testing.T) {
+	f := newFixtureWithGoogle(t)
+	f.users.add(activeUser(t, "ana@example.com"))
+
+	// The attacker's own curl: cookie and field agree, so the redirect
+	// endpoint issues a code. It is bound to a browser that does not exist.
+	minted := httptest.NewRecorder()
+	f.handler.GoogleRedirect(minted, postGoogleForm(t,
+		googleForm("attacker-id-token", "attacker-csrf"), "attacker-csrf"))
+	code := codeFromLocation(t, minted)
+
+	// The victim follows the link. Their browser holds whatever g_csrf_token
+	// Google last set for them, which is not the attacker's.
+	w := httptest.NewRecorder()
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody(code, "victim-csrf")))
+
+	assertInvalidCode(t, w)
+}
+
+// TestGoogleExchangeSpendsACodeItRefuses: a code presented with the wrong
+// token is still consumed, so an attacker cannot retry pairings against it.
+func TestGoogleExchangeSpendsACodeItRefuses(t *testing.T) {
+	f := newFixtureWithGoogle(t)
+	f.users.add(activeUser(t, "ana@example.com"))
+
+	minted := httptest.NewRecorder()
+	f.handler.GoogleRedirect(minted, postGoogleForm(t, googleForm("good-id-token", "csrf-abc"), "csrf-abc"))
+	code := codeFromLocation(t, minted)
+
+	wrong := httptest.NewRecorder()
+	f.handler.GoogleExchange(wrong, postJSON(t, exchangeBody(code, "guessed")))
+	assertInvalidCode(t, wrong)
+
+	// The right token now, and it is too late: the code was spent by the
+	// attempt that got it wrong.
+	retried := httptest.NewRecorder()
+	f.handler.GoogleExchange(retried, postJSON(t, exchangeBody(code, "csrf-abc")))
+	assertInvalidCode(t, retried)
+}
+
+func TestGoogleExchangeMissingCSRFToken(t *testing.T) {
+	f := newFixtureWithGoogle(t)
+
+	minted := httptest.NewRecorder()
+	f.handler.GoogleRedirect(minted, postGoogleForm(t, googleForm("good-id-token", "csrf-abc"), "csrf-abc"))
+	code := codeFromLocation(t, minted)
+
+	w := httptest.NewRecorder()
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody(code, "")))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+	}
+	if message, ok := fieldError(decode(t, w), "g_csrf_token"); !ok || message != "must be provided" {
+		t.Errorf("g_csrf_token error = %q (present %v), want %q", message, ok, "must be provided")
+	}
+	assertNoSession(t, w)
 }
 
 func TestGoogleExchangeUnknownCode(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 
 	w := httptest.NewRecorder()
-	f.handler.GoogleExchange(w, postJSON(t, `{"code":"never-minted"}`))
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody("never-minted", "csrf-abc")))
 
 	assertInvalidCode(t, w)
 }
@@ -395,7 +541,7 @@ func TestGoogleExchangeMissingCode(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 
 	w := httptest.NewRecorder()
-	f.handler.GoogleExchange(w, postJSON(t, `{"code":""}`))
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody("", "csrf-abc")))
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
@@ -409,7 +555,7 @@ func TestGoogleExchangeDisabledConfig(t *testing.T) {
 	f := newFixture(t)
 
 	w := httptest.NewRecorder()
-	f.handler.GoogleExchange(w, postJSON(t, `{"code":"whatever"}`))
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody("whatever", "csrf-abc")))
 
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("want 503; got %d (%s)", w.Code, w.Body.String())
@@ -492,7 +638,7 @@ func TestGoogleCodeExpires(t *testing.T) {
 	mr.FastForward(googleCodeTTL + time.Second)
 
 	w := httptest.NewRecorder()
-	f.handler.GoogleExchange(w, postJSON(t, `{"code":"`+code+`"}`))
+	f.handler.GoogleExchange(w, postJSON(t, exchangeBody(code, "csrf-abc")))
 
 	assertInvalidCode(t, w)
 }
@@ -509,7 +655,7 @@ func TestGoogleCodeIsSpentAtomically(t *testing.T) {
 	code := codeFromLocation(t, redirected)
 
 	first := httptest.NewRecorder()
-	f.handler.GoogleExchange(first, postJSON(t, `{"code":"`+code+`"}`))
+	f.handler.GoogleExchange(first, postJSON(t, exchangeBody(code, "csrf-abc")))
 	if first.Code != http.StatusOK {
 		t.Fatalf("first exchange: want 200; got %d (%s)", first.Code, first.Body.String())
 	}
@@ -518,7 +664,7 @@ func TestGoogleCodeIsSpentAtomically(t *testing.T) {
 	}
 
 	second := httptest.NewRecorder()
-	f.handler.GoogleExchange(second, postJSON(t, `{"code":"`+code+`"}`))
+	f.handler.GoogleExchange(second, postJSON(t, exchangeBody(code, "csrf-abc")))
 	assertInvalidCode(t, second)
 }
 

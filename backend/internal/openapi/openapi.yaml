@@ -613,6 +613,14 @@ paths:
         own origin.
 
 
+        The code is bound to the browser it was issued to: the SHA-256 of the validated
+        `g_csrf_token` is stored beside the verified claims, and the exchange has to present the
+        same value — read back off the cookie Google set on the app's origin — or it establishes
+        nothing. Without that binding the code would be an unbound bearer, and anybody holding a
+        valid Google ID token could mint one and send a victim the return URL, whose browser
+        would spend it and be signed in as the attacker.
+
+
         Every failure is a `303` as well, because the response is a page a person sees rather
         than JSON a client reads. A CSRF cookie/field that is missing or unequal (compared in
         constant time), a wrong content type, an oversized body, a missing or rejected
@@ -677,9 +685,12 @@ paths:
         the redirect endpoint never sets any.
 
 
-        The code is single-use and expires in 120 seconds. An unknown, expired or already-spent
-        code is `422` on field `code` with "invalid or expired"; which of the three it was is
-        never revealed. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
+        The code is single-use and expires in 120 seconds, and it is bound to the browser the
+        redirect was delivered to — see `g_csrf_token` below. An unknown code, an expired or
+        already-spent one, and one presented with the wrong `g_csrf_token` all answer `422` on
+        field `code` with "invalid or expired": which it was is never revealed, and the code is
+        consumed either way, so a guessed pairing cannot be retried. `503` when
+        `GOOGLE_OAUTH_CLIENT_ID` is not configured.
       responses:
         "200": {$ref: "#/components/responses/GoogleSignInResult"}
         "422": {$ref: "#/components/responses/ValidationError"}
@@ -696,11 +707,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [code]
+              required: [code, g_csrf_token]
               properties:
                 code:
                   type: string
                   description: The opaque one-time code from `/auth/google/redirect`'s `Location`.
+                g_csrf_token:
+                  type: string
+                  description: >-
+                    The value of the `g_csrf_token` cookie Google set on the app's origin, read
+                    back by the return page. It binds the code to the browser the redirect was
+                    delivered to: the server compares its hash, in constant time, against the one
+                    stored when the code was issued. A browser that cannot produce it — because
+                    it blocks the cookie — fails closed here.
 
   /api/v1/auth/refresh:
     post:
