@@ -56,7 +56,7 @@ export function PersonalInfoForm() {
             // Same 288px as the complex's phone field. A phone number is a
             // known length, and two of them at different widths on two screens
             // of the same app says the two expect different answers.
-            <div className="max-w-72">
+            <div className="sm:max-w-72">
               <PhoneInput
                 id="phone"
                 value={field.value}
