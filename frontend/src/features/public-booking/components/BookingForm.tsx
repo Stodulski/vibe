@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppForm } from '@/shared/lib/form';
+import { useUnsavedWork } from '@/shared/hooks/useUnsavedWork';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { publicBookingSchema, type PublicBookingFormData } from '../schemas/public-booking.schema';
 import { DEFAULT_PHONE_PREFIX } from '@/shared/lib/constants';
@@ -29,7 +30,7 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
     handleSubmit,
     watch,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useAppForm<PublicBookingFormData>({
     resolver: zodResolver(publicBookingSchema),
     defaultValues: {
@@ -45,6 +46,12 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
   });
 
   useSaveFormData(watch);
+  // Half-filled contact details are work a reload would throw away, and this
+  // page is where the PWA is most likely to want one: a client who starts
+  // typing, switches to WhatsApp to check a phone number and comes back must
+  // find the form as they left it, not a fresh one. `isDirty` compares against
+  // the quick-book defaults, so pre-filled values alone do not count.
+  useUnsavedWork(isDirty);
 
   if (quickBookMode) {
     return (

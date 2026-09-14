@@ -3,6 +3,8 @@ import { createElement, type ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { format } from 'date-fns/format';
+import type { SelectedSlot } from '@/features/public-booking';
+import { hasUnsavedWork } from '@/shared/lib/unsavedWork';
 import { useComplexPageState } from './useComplexPageState';
 
 // Plain .ts file (no JSX loader here), so the router wrapper is built with
@@ -92,5 +94,84 @@ describe('useComplexPageState — changing answers after mount', () => {
       result.current.setPendingStartTime('20:00');
     });
     expect(result.current.pendingStartTime).toBe('20:00');
+  });
+});
+
+// PWA-09: the PWA applies a waiting build when the tab goes to the background,
+// and a client who picks a court, switches to WhatsApp and comes back must not
+// find the page reset. Only the in-memory selection counts: the day, sport,
+// duration and open hour are in the query and survive a reload by design.
+describe('useComplexPageState — unsaved work while a slot is selected', () => {
+  const slot = {
+    courtId: 'ct1',
+    courtName: 'Cancha 1',
+    endTime: '11:30',
+    durationMinutes: 90,
+    totalPrice: 1500000,
+    slot: { start_time: '10:00' },
+  } as unknown as SelectedSlot;
+
+  it('reports no unsaved work on a fresh visit', () => {
+    renderHook(() => useComplexPageState(), { wrapper: wrapperFor(['/los-alamos']) });
+
+    expect(hasUnsavedWork()).toBe(false);
+  });
+
+  it('marks the page busy once a slot is picked and clears it when the selection goes', () => {
+    const { result } = renderHook(() => useComplexPageState(), {
+      wrapper: wrapperFor(['/los-alamos']),
+    });
+
+    act(() => {
+      result.current.setSelectedSlot(slot);
+    });
+    expect(hasUnsavedWork()).toBe(true);
+
+    act(() => {
+      result.current.setSelectedSlot(null);
+    });
+    expect(hasUnsavedWork()).toBe(false);
+  });
+
+  // Changing the day, the sport or the duration drops the selection — the
+  // grid it belonged to is gone — so the page stops being busy with it.
+  it('clears the registration when a flow answer drops the selection', () => {
+    const { result } = renderHook(() => useComplexPageState(), {
+      wrapper: wrapperFor(['/los-alamos']),
+    });
+
+    act(() => {
+      result.current.setSelectedSlot(slot);
+    });
+    expect(hasUnsavedWork()).toBe(true);
+
+    act(() => {
+      result.current.handleDurationChange(120);
+    });
+    expect(hasUnsavedWork()).toBe(false);
+  });
+
+  // An answer the URL carries is not work a reload can lose.
+  it('does not mark the page busy for a fully answered query alone', () => {
+    renderHook(() => useComplexPageState(), {
+      wrapper: wrapperFor(['/los-alamos?date=2099-01-05&duration=60&time=08:30&sport=padel']),
+    });
+
+    expect(hasUnsavedWork()).toBe(false);
+  });
+
+  it('clears the registration when the page unmounts with a slot still selected', () => {
+    const { result, unmount } = renderHook(() => useComplexPageState(), {
+      wrapper: wrapperFor(['/los-alamos']),
+    });
+
+    act(() => {
+      result.current.setSelectedSlot(slot);
+    });
+    expect(hasUnsavedWork()).toBe(true);
+
+    unmount();
+
+    expect(hasUnsavedWork()).toBe(false);
   });
 });
