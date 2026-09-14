@@ -12,7 +12,11 @@ FILENAME="backup_${TIMESTAMP}.dump"
 FILEPATH="${BACKUP_DIR}/${FILENAME}"
 
 echo "[backup] Starting database backup..."
-pg_dump "$DB_URL" --format=custom --no-owner --no-acl -f "$FILEPATH"
+# Ownership and grants are kept in the archive on purpose: vibe_app's access is
+# only the GRANTs the ACCESS section of 001_init.sql issues, and a dump without
+# them restores a database the API cannot read. Strip them at restore time with
+# pg_restore --no-owner --no-privileges when the target cluster lacks the roles.
+pg_dump "$DB_URL" --format=custom -f "$FILEPATH"
 echo "[backup] Saved to $FILEPATH ($(du -h "$FILEPATH" | cut -f1))"
 
 # Clean old backups
