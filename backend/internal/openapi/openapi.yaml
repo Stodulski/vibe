@@ -17,6 +17,12 @@ info:
     reset-password) and the two webhook endpoints are exempt from the CSRF check because they
     either establish the session or authenticate by a provider signature instead of a cookie.
 
+    Every request that carries a JSON body must send `Content-Type: application/json` (a
+    `; charset=utf-8` parameter is accepted); any other value, or none at all, answers
+    `415 Unsupported Media Type` before the body is read. This is enforced even on the routes
+    above that are exempt from the CSRF check, since those are exactly the ones a cross-site
+    `<form enctype="text/plain">` submission could otherwise drive with a forged body.
+
     Every JSON error response uses the envelope `{"error": <message>}`. Validation failures
     answer `422 Unprocessable Entity` with `error` as an object mapping field name to message
     or to one of the stable machine codes documented per field. Every other error status uses a

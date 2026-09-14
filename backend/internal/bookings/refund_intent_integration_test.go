@@ -184,6 +184,7 @@ func TestAnOutOfWindowPublicCancelIsNeverFoundByTheSweep(t *testing.T) {
 	// middleware, so the test declares the same scope the route would have.
 	req := httptest.NewRequestWithContext(data.ContextWithTenantBypass(t.Context()), http.MethodPost, "/",
 		strings.NewReader(`{"token":"`+plaintext+`"}`))
+	req.Header.Set("Content-Type", "application/json")
 	f.handler.PublicCancel(w, req)
 
 	if w.Code != http.StatusOK {

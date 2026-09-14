@@ -44,14 +44,18 @@ const (
 	// KindStaleVersion is a 409 distinct from the generic KindConflict: an
 	// optimistic-concurrency write that named an If-Match/version the row no
 	// longer carries, so the frontend can switch on it without parsing Detail.
-	KindStaleVersion     Kind = "stale-version"
-	KindGone             Kind = "gone"
-	KindTooLarge         Kind = "too-large"
-	KindRateLimited      Kind = "rate-limited"
-	KindUnavailable      Kind = "unavailable"
-	KindInternal         Kind = "internal"
-	KindMethodNotAllowed Kind = "method-not-allowed"
-	KindRouteNotFound    Kind = "route-not-found"
+	KindStaleVersion Kind = "stale-version"
+	KindGone         Kind = "gone"
+	// KindUnsupportedMediaType is the 415 ReadJSON answers when a request's
+	// Content-Type does not declare application/json — see
+	// UnsupportedMediaTypeError in json.go for why this exists.
+	KindUnsupportedMediaType Kind = "unsupported-media-type"
+	KindTooLarge             Kind = "too-large"
+	KindRateLimited          Kind = "rate-limited"
+	KindUnavailable          Kind = "unavailable"
+	KindInternal             Kind = "internal"
+	KindMethodNotAllowed     Kind = "method-not-allowed"
+	KindRouteNotFound        Kind = "route-not-found"
 )
 
 // URI returns the stable type URI for k.
@@ -109,23 +113,24 @@ type Problem struct {
 // SlotUnavailable alongside BadRequest/Conflict) get a title of their own so
 // a reader can tell them apart without decoding the type URI.
 var titles = map[Kind]string{
-	KindBadRequest:       "Bad Request",
-	KindInvalidJSON:      "Malformed JSON",
-	KindValidation:       "Validation Failed",
-	KindUnauthorized:     "Unauthorized",
-	KindForbidden:        "Forbidden",
-	KindNotFound:         "Not Found",
-	KindConflict:         "Conflict",
-	KindDuplicateBooking: "Duplicate Booking",
-	KindSlotUnavailable:  "Slot Unavailable",
-	KindStaleVersion:     "Stale Version",
-	KindGone:             "Gone",
-	KindTooLarge:         "Payload Too Large",
-	KindRateLimited:      "Too Many Requests",
-	KindUnavailable:      "Service Unavailable",
-	KindInternal:         "Internal Server Error",
-	KindMethodNotAllowed: "Method Not Allowed",
-	KindRouteNotFound:    "Route Not Found",
+	KindBadRequest:           "Bad Request",
+	KindInvalidJSON:          "Malformed JSON",
+	KindValidation:           "Validation Failed",
+	KindUnauthorized:         "Unauthorized",
+	KindForbidden:            "Forbidden",
+	KindNotFound:             "Not Found",
+	KindConflict:             "Conflict",
+	KindDuplicateBooking:     "Duplicate Booking",
+	KindSlotUnavailable:      "Slot Unavailable",
+	KindStaleVersion:         "Stale Version",
+	KindGone:                 "Gone",
+	KindUnsupportedMediaType: "Unsupported Media Type",
+	KindTooLarge:             "Payload Too Large",
+	KindRateLimited:          "Too Many Requests",
+	KindUnavailable:          "Service Unavailable",
+	KindInternal:             "Internal Server Error",
+	KindMethodNotAllowed:     "Method Not Allowed",
+	KindRouteNotFound:        "Route Not Found",
 }
 
 // writeProblem builds and writes a Problem for status/kind/detail, with the

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"mime"
 	"net/http"
 	"strings"
 	"sync"
@@ -42,6 +43,48 @@ type InvalidJSONError struct {
 
 func (e *InvalidJSONError) Error() string { return e.err.Error() }
 func (e *InvalidJSONError) Unwrap() error { return e.err }
+
+// UnsupportedMediaTypeError marks a ReadJSON failure caused by the request's
+// Content-Type not declaring application/json — a missing header, or a
+// different media type such as text/plain or
+// application/x-www-form-urlencoded.
+//
+// It exists because a JSON route exempted from CSRF
+// (internal/middleware/chain.go's csrfExemptRoutes — an auth route that mints
+// or spends a session cookie before there is a token to derive) has no other
+// defence against a cross-site request: a plain HTML <form
+// method=post enctype="text/plain"> submission carries SameSite=Lax cookies
+// on a top-level navigation, and the browser stores whatever Set-Cookie the
+// response answers with. That form cannot set an arbitrary Content-Type, so
+// requiring the exact media type closes the gap without adding a token check
+// to routes that mint the very cookie a token would be derived from. The
+// Responder recognises this error the same way it recognises
+// InvalidJSONError, so every existing ReadJSON call site needs no change.
+type UnsupportedMediaTypeError struct {
+	msg string
+}
+
+func (e *UnsupportedMediaTypeError) Error() string { return e.msg }
+
+// checkJSONContentType requires the request to declare "application/json" as
+// its media type; a "; charset=utf-8" (or any other) parameter is accepted,
+// since it does not change what bytes the body holds. A missing or
+// mismatched Content-Type is refused before the body is ever read.
+func checkJSONContentType(r *http.Request) error {
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "" {
+		return &UnsupportedMediaTypeError{"Content-Type header must be application/json"}
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil || mediaType != "application/json" {
+		return &UnsupportedMediaTypeError{
+			fmt.Sprintf("Content-Type %q is not supported; must be application/json", contentType),
+		}
+	}
+
+	return nil
+}
 
 var bufPool = sync.Pool{
 	New: func() any {
@@ -100,10 +143,37 @@ func WriteProblemJSON(w http.ResponseWriter, status int, problem Problem) error 
 	return nil
 }
 
-// ReadJSON decodes a single JSON value from the request body into dst. Unknown
-// fields are rejected, the body is capped at MaxJSONBody, and every decoding
-// failure is translated into a message safe to return to the client.
+// ReadJSON decodes a single JSON value from the request body into dst. The
+// request must declare Content-Type: application/json (a charset parameter
+// is fine; anything else, or no header at all, is refused as
+// UnsupportedMediaTypeError before the body is touched). Unknown fields are
+// rejected, the body is capped at MaxJSONBody, and every decoding failure is
+// translated into a message safe to return to the client.
 func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	if err := checkJSONContentType(r); err != nil {
+		return err
+	}
+	return decodeJSON(w, r, dst)
+}
+
+// ReadJSONAnyContentType decodes exactly like ReadJSON, but skips the
+// Content-Type check entirely.
+//
+// It exists for the one route that cannot be held to it:
+// leads.CaptureAbandonedRegistration is reached by navigator.sendBeacon
+// during page unload, which cannot do a CORS preflight and so can only send
+// a cross-origin body under one of the CORS-safelisted content types —
+// never application/json — and sometimes sends no Content-Type at all. That
+// route mints no session cookie and carries no CSRF token for the same
+// reason (see csrfExemptRoutes in internal/middleware/chain.go: "reached
+// before an account exists, so no cookie is in play"), so it has no ambient
+// credential for the Content-Type check to protect, and skipping it here
+// reopens nothing ReadJSON's default closes on the routes that do mint one.
+func ReadJSONAnyContentType(w http.ResponseWriter, r *http.Request, dst any) error {
+	return decodeJSON(w, r, dst)
+}
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxJSONBody)
 
 	dec := json.NewDecoder(r.Body)

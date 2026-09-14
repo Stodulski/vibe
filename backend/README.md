@@ -127,17 +127,27 @@ Every 4xx/5xx response is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) 
 ```
 
 `type` is a stable URI per failure kind (`https://vibe.com.ar/problems/<kind>` — `bad-request`,
-`invalid-json`, `validation`, `not-found`, `route-not-found`, `conflict`, `duplicate-booking`,
-`slot-unavailable`, `stale-version`, `unauthorized`, `forbidden`, `rate-limited`, `too-large`,
-`unavailable`, `gone`, `internal`, `method-not-allowed`) and is the field a client should switch
-on; `title`/`detail` are for humans and may change wording between releases. `errors` is present
-only on a validation problem. `bad-request` is the generic 400; `invalid-json` is reserved for a
-request body that failed to decode as JSON (`httpx.ReadJSON`). `duplicate-booking` and
-`slot-unavailable` are 409s for a booking write that lost a race — a duplicate booking or a court
-slot somebody else now holds. `stale-version` is a 409 for a write whose If-Match/version the row
-no longer carries. All three are kept distinct from the generic `conflict` so the frontend can
-switch on them without parsing `detail`. `internal/httpx/problem.go` is the one place that builds
-this body — see its `Kind` constants for the full, exact list.
+`invalid-json`, `unsupported-media-type`, `validation`, `not-found`, `route-not-found`, `conflict`,
+`duplicate-booking`, `slot-unavailable`, `stale-version`, `unauthorized`, `forbidden`,
+`rate-limited`, `too-large`, `unavailable`, `gone`, `internal`, `method-not-allowed`) and is the
+field a client should switch on; `title`/`detail` are for humans and may change wording between
+releases. `errors` is present only on a validation problem. `bad-request` is the generic 400;
+`invalid-json` is reserved for a request body that failed to decode as JSON (`httpx.ReadJSON`).
+`duplicate-booking` and `slot-unavailable` are 409s for a booking write that lost a race — a
+duplicate booking or a court slot somebody else now holds. `stale-version` is a 409 for a write
+whose If-Match/version the row no longer carries. All three are kept distinct from the generic
+`conflict` so the frontend can switch on them without parsing `detail`.
+`internal/httpx/problem.go` is the one place that builds this body — see its `Kind` constants for
+the full, exact list.
+
+Every JSON request body must carry `Content-Type: application/json` (a `; charset=utf-8`
+parameter is accepted; nothing else is). `httpx.ReadJSON` checks this before it ever reads the
+body and answers `415 Unsupported Media Type` (kind `unsupported-media-type`) otherwise. This
+exists because a handful of auth routes mint or spend a session cookie and are therefore exempt
+from CSRF protection (see `csrfExemptRoutes` in `internal/middleware/chain.go`); without this
+check, a cross-site `<form enctype="text/plain">` submission could drive one of those routes with
+attacker-chosen form-encoded bytes as the body, since the browser attaches `SameSite=Lax` cookies
+to a top-level form navigation and stores whatever `Set-Cookie` the response answers with.
 
 ### Sign in with Google
 

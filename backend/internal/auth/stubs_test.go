@@ -546,7 +546,9 @@ func newFixtureWithGoogleCodes(t *testing.T, codes GoogleCodeStore) *fixture {
 
 func postJSON(t *testing.T, body string) *http.Request {
 	t.Helper()
-	return httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(body))
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	return r
 }
 
 func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {

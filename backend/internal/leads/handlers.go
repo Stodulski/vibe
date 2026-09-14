@@ -131,8 +131,13 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 	// load-bearing for H-24's formula-escaping tests. So Email stays a plain
 	// string decoded here and validated below with the existing EmailRX
 	// regex + length bound; the openapi document is unchanged.
+	// ReadJSONAnyContentType, not ReadJSON: the caller is often
+	// navigator.sendBeacon, which cannot set Content-Type: application/json
+	// across origins (see the doc comment on ReadJSONAnyContentType). This
+	// route mints no session cookie, so the Content-Type check the other
+	// CSRF-exempt routes need has nothing to protect here.
 	var req captureRequest
-	if err := httpx.ReadJSON(w, r, &req); err != nil {
+	if err := httpx.ReadJSONAnyContentType(w, r, &req); err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}

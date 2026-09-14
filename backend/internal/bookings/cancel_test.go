@@ -927,8 +927,10 @@ func TestSlotsAreReleasedEvenWhenTheClientDisconnected(t *testing.T) {
 	f.checkout.err = errCheckoutUnavailable
 
 	w := httptest.NewRecorder()
-	f.handler.PublicBook(w, httptest.NewRequestWithContext(ctx, http.MethodPost, "/",
-		strings.NewReader(publicBookBody(complexID, courtID, 120))))
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/",
+		strings.NewReader(publicBookBody(complexID, courtID, 120)))
+	req.Header.Set("Content-Type", "application/json")
+	f.handler.PublicBook(w, req)
 
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("want 503 when the checkout cannot be created; got %d (%s)", w.Code, w.Body.String())
@@ -965,8 +967,10 @@ func TestCancellingReleasesTheSlotsEvenWhenTheClientDisconnected(t *testing.T) {
 	f.refunds.onRefund = disconnect
 
 	w := httptest.NewRecorder()
-	f.handler.PublicCancel(w, httptest.NewRequestWithContext(ctx, http.MethodPost, "/",
-		strings.NewReader(`{"token":"test-token"}`)))
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/",
+		strings.NewReader(`{"token":"test-token"}`))
+	req.Header.Set("Content-Type", "application/json")
+	f.handler.PublicCancel(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
@@ -1015,8 +1019,10 @@ func TestTheCheckoutLinkIsClosedEvenWhenTheClientDisconnected(t *testing.T) {
 	f.store.onUpdate = disconnect
 
 	w := httptest.NewRecorder()
-	f.handler.PublicCancel(w, httptest.NewRequestWithContext(ctx, http.MethodPost, "/",
-		strings.NewReader(`{"token":"test-token"}`)))
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/",
+		strings.NewReader(`{"token":"test-token"}`))
+	req.Header.Set("Content-Type", "application/json")
+	f.handler.PublicCancel(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())

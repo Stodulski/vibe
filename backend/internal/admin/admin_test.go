@@ -109,6 +109,7 @@ func operatorRequest(t *testing.T, method, target string, operator uuid.UUID, pa
 		r = httptest.NewRequestWithContext(t.Context(), method, target, nil)
 	} else {
 		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
 	}
 
 	r = httpx.ContextSetUser(r, &authstore.User{ID: operator, Role: "superadmin"})
