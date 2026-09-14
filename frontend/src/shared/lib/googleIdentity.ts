@@ -10,8 +10,20 @@ interface GoogleCredentialResponse {
 
 export interface GoogleIdConfiguration {
   client_id: string;
-  callback: (response: GoogleCredentialResponse) => void;
+  /**
+   * Only ever called in `ux_mode: 'popup'`. In `'redirect'` mode Google POSTs
+   * the credential to {@link GoogleIdConfiguration.login_uri} instead and this
+   * page is navigated away from, so the button passes no callback at all.
+   */
+  callback?: (response: GoogleCredentialResponse) => void;
   ux_mode?: 'popup' | 'redirect';
+  /**
+   * Where `ux_mode: 'redirect'` POSTs `credential` + `g_csrf_token` as
+   * `application/x-www-form-urlencoded`. Required in redirect mode, ignored in
+   * popup mode, and must be registered as an authorized redirect URI in the
+   * Google Cloud Console for this client id.
+   */
+  login_uri?: string;
   auto_select?: boolean;
   use_fedcm_for_prompt?: boolean;
 }

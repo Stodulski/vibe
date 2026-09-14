@@ -31,7 +31,7 @@ function isSafeRedirect(path: string | undefined): path is string {
 /**
  * Shared "just authenticated" success handling for every mutation that ends
  * a session the same way a plain login does — `useLogin` and
- * `useGoogleSignIn`/`useGoogleComplete` (an existing-account Google sign-in
+ * `useGoogleExchange`/`useGoogleComplete` (an existing-account Google sign-in
  * or a freshly-completed Google profile is a login in every way that
  * matters here).
  *

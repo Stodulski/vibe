@@ -54,7 +54,7 @@ export const verifyEmailSentStateSchema = z.object({
   email: z.string(),
 });
 
-/** `location.state` on `/register/google`, set by `useGoogleSignIn`'s `needs_profile` redirect. */
+/** `location.state` on `/register/google`, set by `useGoogleExchange`'s `needs_profile` redirect. */
 export const googleCompleteStateSchema = z.object({
   profile_token: z.string(),
   profile: z.object({

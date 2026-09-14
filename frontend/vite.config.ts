@@ -64,10 +64,28 @@ const VENDOR_CHUNKS: Record<string, string> = {
 // Defaults to the dev API (:8080) so `pnpm dev` is unchanged. `make e2e` in
 // backend overrides this to its isolated API instance (:8081) so the E2E
 // suite never talks to the dev API.
+const API_PROXY_TARGET = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080';
+
+/** Where Google's redirect-mode sign-in POSTs the credential, on this origin. */
+const GOOGLE_CALLBACK_PATH = '/auth/google/callback';
+/** The API endpoint that path stands in front of. */
+const GOOGLE_REDIRECT_PATH = '/api/v1/auth/google/redirect';
+
 const apiProxy = {
   '/api': {
-    target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080',
+    target: API_PROXY_TARGET,
     changeOrigin: true,
+  },
+  // Google Identity Services in `ux_mode: 'redirect'` form-POSTs `credential`
+  // and `g_csrf_token` to `login_uri` — an app-origin path, because the
+  // `g_csrf_token` cookie it double-submits is set on the app origin. In
+  // production Vercel rewrites it (see vercel.json); `pnpm dev` and the E2E
+  // stack have no Vercel, so the same hop is a proxy rewrite here. Method,
+  // body and cookies pass through untouched, which is the whole contract.
+  [GOOGLE_CALLBACK_PATH]: {
+    target: API_PROXY_TARGET,
+    changeOrigin: true,
+    rewrite: () => GOOGLE_REDIRECT_PATH,
   },
 };
 
@@ -130,7 +148,19 @@ const config: UserConfig = {
         // shell (PWA-02/PWA-04). Those three prefixes are served by the host
         // (Vercel rewrites /api to the Railway API), never by the router.
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/assets\//],
+        // `/auth/google/callback` joins them for the same reason: it is a path
+        // on this origin that the host (Vercel) rewrites to the API, never a
+        // route the router can render. Google's redirect-mode sign-in reaches
+        // it as a form POST — which the Workbox router ignores, since its
+        // routes are GET-only — but a reload or a retry would arrive as a GET
+        // navigation, and answering that with the SPA shell would swallow the
+        // credential silently in every installed PWA.
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/\.well-known\//,
+          /^\/assets\//,
+          new RegExp(`^${GOOGLE_CALLBACK_PATH}$`),
+        ],
         // index.html stays in the precache, so the navigation route above
         // serves it cache-first rather than network-first. That is deliberate
         // under registerType 'prompt' (PWA-05): a tab keeps the build it

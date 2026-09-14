@@ -7,10 +7,6 @@ vi.mock('../hooks/useLogin', () => ({
   useLogin: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
 }));
 
-vi.mock('../hooks/useGoogleSignIn', () => ({
-  useGoogleSignIn: () => ({ mutate: vi.fn() }),
-}));
-
 // Never resolves — these tests only care about whether the section renders
 // at all, not about the widget itself (see GoogleSignInButton.test.tsx).
 vi.mock('@/shared/lib/googleIdentity', () => ({
