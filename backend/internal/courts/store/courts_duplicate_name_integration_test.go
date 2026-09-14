@@ -29,7 +29,7 @@ func TestIntegration_InsertRefusesADuplicateNameAmongLiveCourts(t *testing.T) {
 	ctx := context.Background()
 
 	// The fixture already seeded "Court 1" as f.CourtID, live.
-	err := f.Stores.Courts.Insert(ctx, &courtstore.Court{
+	err := f.Stores.Courts.Insert(f.Scoped(ctx), &courtstore.Court{
 		ComplexID: f.ComplexID,
 		Name:      "Court 1",
 		Sport:     "padel",
@@ -62,7 +62,7 @@ func TestIntegration_UpdateRefusesRenamingOntoAnotherLiveCourtsName(t *testing.T
 	}
 
 	other.Name = "Court 1"
-	err = f.Stores.Courts.Update(ctx, other, nil)
+	err = f.Stores.Courts.Update(f.Scoped(ctx), other, nil)
 	if !errors.Is(err, courtstore.ErrDuplicateCourtName) {
 		t.Errorf("renaming onto a live court's name must answer ErrDuplicateCourtName; got %v", err)
 	}
@@ -95,7 +95,7 @@ func TestIntegration_UpdateAllowsRenamingOntoADeletedCourtsName(t *testing.T) {
 	}
 
 	other.Name = "Court 1"
-	if err := f.Stores.Courts.Update(ctx, other, nil); err != nil {
+	if err := f.Stores.Courts.Update(f.Scoped(ctx), other, nil); err != nil {
 		t.Errorf("renaming onto a deleted court's name must be allowed; got %v", err)
 	}
 }
