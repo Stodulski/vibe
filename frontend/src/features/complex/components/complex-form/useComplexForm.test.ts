@@ -58,10 +58,10 @@ describe('useComplexForm', () => {
 
   // The old `mutation = isEdit ? updateMutation : createMutation` union
   // needed a `@ts-expect-error` to call `.mutate` at all, because create and
-  // update take differently-shaped payloads — only create sends `slug`. That
-  // suppression would have stayed silent through a real payload mismatch;
-  // branching properly means each call is checked against its own mutation.
-  it('sends slug on create but not on update', () => {
+  // update hit differently-typed endpoints. That suppression would have
+  // stayed silent through a real payload mismatch; branching properly means
+  // each call is checked against its own mutation.
+  it('sends slug on both create and update — the public URL is editable in both modes', () => {
     const { result: createResult } = renderHook(() => useComplexForm({}));
     act(() => {
       createResult.current.onSubmit(baseValues);
@@ -74,11 +74,11 @@ describe('useComplexForm', () => {
     const complex = { id: 'c1', ...baseValues } as unknown as Complex;
     const { result: editResult } = renderHook(() => useComplexForm({ complex }));
     act(() => {
-      editResult.current.onSubmit(baseValues);
+      editResult.current.onSubmit({ ...baseValues, slug: 'club-test-renamed' });
     });
 
     expect(mockUpdateMutate).toHaveBeenCalledTimes(1);
     const updatePayload = mockUpdateMutate.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(updatePayload).not.toHaveProperty('slug');
+    expect(updatePayload.slug).toBe('club-test-renamed');
   });
 });
