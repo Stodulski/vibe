@@ -31,9 +31,11 @@ export function ContactFields({ register, control, errors }: ContactFieldsProps)
           name="phone"
           control={control}
           render={({ field }) => (
-            // Sized for a phone number, not for the column. The width of a
-            // field is a promise about how much is expected in it.
-            <div className="max-w-72">
+            // Sized for a phone number, not for the column, from `sm` up: the
+            // width of a field is a promise about how much is expected in it.
+            // On a phone the column is already that narrow, and a box shorter
+            // than its neighbours reads as broken rather than as a hint.
+            <div className="sm:max-w-72">
               <PhoneInput
                 id="phone"
                 value={field.value}
