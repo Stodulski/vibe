@@ -18,6 +18,11 @@ const (
 	// complex. Only the server can know this: it needs the database.
 	CodeSlugTaken = "slug_taken"
 
+	// CodeCourtNameTaken means the complex already has a live court with the
+	// requested name. Only the server can know this: it needs the database
+	// (courts_active_name_unique, a partial index over active courts).
+	CodeCourtNameTaken = "court_name_taken"
+
 	// CodeDepositOver100 means the complex is configured with a deposit
 	// percentage above 100.
 	CodeDepositOver100 = "deposit_percentage_over_100"
