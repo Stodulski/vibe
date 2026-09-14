@@ -6,6 +6,8 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   googleCompleteSchema,
+  loginRedirectStateSchema,
+  googleCompleteStateSchema,
 } from './auth.schema';
 
 describe('loginSchema', () => {
@@ -103,5 +105,46 @@ describe('googleCompleteSchema', () => {
 
   it('rejects an invalid phone', () => {
     expect(googleCompleteSchema.safeParse({ ...valid, phone: 'not-a-phone' }).success).toBe(false);
+  });
+});
+
+/**
+ * `/register/google` carries one `location.state` that two different readers
+ * parse: `GoogleCompletePage` takes the profile out of it, and
+ * `useAuthSuccessHandler` — after the profile is completed — takes the `from`
+ * `useGoogleExchange` added so a Google sign-up returns to the page the
+ * visitor was originally heading for. Neither may choke on the other's keys,
+ * which is a property of Zod's strip-by-default objects rather than anything
+ * either schema states, so it is pinned here.
+ */
+describe('/register/google router state carries both the profile and the destination', () => {
+  const profileState = {
+    profile_token: 'a-profile-token',
+    profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
+  };
+  const withFrom = { ...profileState, from: { pathname: '/bookings' } };
+
+  it('lets googleCompleteStateSchema read the profile past the extra from', () => {
+    const parsed = googleCompleteStateSchema.safeParse(withFrom);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.profile_token).toBe('a-profile-token');
+  });
+
+  it('lets loginRedirectStateSchema read the destination past the profile keys', () => {
+    const parsed = loginRedirectStateSchema.safeParse(withFrom);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.from.pathname).toBe('/bookings');
+  });
+
+  // No destination to carry: the state is the plain profile hand-off it has
+  // always been, and the redirect reader simply finds nothing.
+  it('reports no destination when the state carries only the profile', () => {
+    expect(googleCompleteStateSchema.safeParse(profileState).success).toBe(true);
+    expect(loginRedirectStateSchema.safeParse(profileState).success).toBe(false);
+  });
+
+  it('reports no destination for a from that is not shaped like one', () => {
+    expect(loginRedirectStateSchema.safeParse({ ...profileState, from: '/bookings' }).success).toBe(false);
+    expect(loginRedirectStateSchema.safeParse({ ...profileState, from: { pathname: 7 } }).success).toBe(false);
   });
 });

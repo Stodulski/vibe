@@ -21,7 +21,7 @@ vi.mock('@/shared/stores', () => ({
 
 const { useAuthSuccessHandler } = await import('./authSuccess');
 
-function login(entry: string, role: 'owner' | 'superadmin' = 'owner') {
+function login(entry: string, role: 'owner' | 'superadmin' = 'owner', options?: { from?: string | undefined }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const { result } = renderHook(() => useAuthSuccessHandler(), {
     wrapper: ({ children }) => (
@@ -30,7 +30,7 @@ function login(entry: string, role: 'owner' | 'superadmin' = 'owner') {
       </QueryClientProvider>
     ),
   });
-  result.current({ user: makeUser({ role }), csrf_token: 'csrf' });
+  result.current({ user: makeUser({ role }), csrf_token: 'csrf' }, options);
   return queryClient;
 }
 
@@ -70,5 +70,40 @@ describe('useAuthSuccessHandler — the ?from= a hard 401 redirect leaves behind
   it('sends a superadmin to /admin when there is no from at all', () => {
     login('/login', 'superadmin');
     expect(mockNavigate).toHaveBeenCalledWith('/admin', { replace: true });
+  });
+});
+
+/**
+ * The Google redirect flow signs in on `/auth/google/return`, a page the
+ * visitor never chose: it carries neither the router state nor the `?from=`
+ * the original `/login` had. `useGoogleExchange` therefore hands the
+ * destination over explicitly, and it has to beat what the location says —
+ * without becoming a way past the allowlist.
+ */
+describe('useAuthSuccessHandler — an explicit destination from the caller', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+  });
+
+  it('uses the destination the caller passed', () => {
+    login('/auth/google/return?code=abc', 'owner', { from: '/complexes/abc/bookings' });
+    expect(mockNavigate).toHaveBeenCalledWith('/complexes/abc/bookings', { replace: true });
+  });
+
+  it('wins over the ?from= on the current location', () => {
+    login('/login?from=%2Fclients', 'owner', { from: '/bookings' });
+    expect(mockNavigate).toHaveBeenCalledWith('/bookings', { replace: true });
+  });
+
+  // An override is a convenience for a page that lost its context, not an
+  // exemption: it goes through exactly the same allowlist.
+  it('is filtered like every other destination', () => {
+    login('/auth/google/return?code=abc', 'owner', { from: 'https://evil.example/steal' });
+    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+  });
+
+  it('falls back to the location when the caller passes nothing', () => {
+    login('/login?from=%2Fclients', 'owner', { from: undefined });
+    expect(mockNavigate).toHaveBeenCalledWith('/clients', { replace: true });
   });
 });

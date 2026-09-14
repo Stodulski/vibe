@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth.api';
 import { useAuthSuccessHandler } from './authSuccess';
+import { takeGoogleReturnPath } from '../lib/googleSignInReturn';
 import { readCookie } from '@/shared/lib/cookies';
 import { getHttpStatus } from '@/shared/lib/utils';
 import type { GoogleExchangeRequest, GoogleNeedsProfileResponse } from '@/shared/types/api.types';
@@ -62,18 +63,33 @@ export function useGoogleExchange(code: string | null) {
   const navigate = useNavigate();
   const handleAuthSuccess = useAuthSuccessHandler();
   const startedRef = useRef(false);
+  // Read out of `sessionStorage` in the effect below and kept here because
+  // `onSuccess` runs long after it, on a page that cannot work the
+  // destination out for itself.
+  const returnPathRef = useRef<string | undefined>(undefined);
 
   const { mutate } = useMutation({
     mutationFn: (data: GoogleExchangeRequest) => authApi.googleExchange(data),
     onSuccess: (data) => {
+      const from = returnPathRef.current;
+
       if (needsProfile(data)) {
+        // The destination rides along in router state rather than being
+        // re-parked: `/register/google` is one more step before there is a
+        // session, and `useGoogleComplete` finishes through the same
+        // `useAuthSuccessHandler`, which reads `from` straight out of
+        // `location.state` (`loginRedirectStateSchema`). Omitted entirely
+        // when there is nothing to carry, so the state still parses as the
+        // plain `{ profile_token, profile }` it was.
         void navigate('/register/google', {
-          state: { profile_token: data.profile_token, profile: data.profile },
+          state: from
+            ? { profile_token: data.profile_token, profile: data.profile, from: { pathname: from } }
+            : { profile_token: data.profile_token, profile: data.profile },
           replace: true,
         });
         return;
       }
-      handleAuthSuccess(data);
+      handleAuthSuccess(data, { from });
     },
     onError: (error: unknown) => {
       // 422 is the only refusal this endpoint has: an invalid, already-spent
@@ -105,6 +121,12 @@ export function useGoogleExchange(code: string | null) {
       void navigate(GOOGLE_EXPIRED, { replace: true });
       return;
     }
+
+    // Taken once, here, and not on every failure exit above: the two early
+    // returns leave `/login`, where a later attempt will park its own
+    // destination anyway, and reading it out on the way past would throw away
+    // a perfectly good one on a transient stumble.
+    returnPathRef.current = takeGoogleReturnPath();
 
     mutate({ code, g_csrf_token: csrfToken });
   }, [code, mutate, navigate]);

@@ -18,7 +18,14 @@ export function useLogin(options?: UseLoginOptions) {
 
   return useMutation({
     mutationFn: (data: LoginRequest) => authApi.login(data),
-    onSuccess: handleAuthSuccess,
+    // Wrapped, not passed by reference: React Query calls `onSuccess` with
+    // `(data, variables, …)`, and the handler's second parameter is now an
+    // options bag — handing it this mutation's variables would be nonsense
+    // that happens to be harmless. Only the Google redirect flow has a
+    // destination the current location cannot supply.
+    onSuccess: (data) => {
+      handleAuthSuccess(data);
+    },
     onError: (error: unknown) => {
       // Turnstile tokens are single-use: any failed submit must get a fresh
       // one before the next attempt, not only a Turnstile-specific failure.

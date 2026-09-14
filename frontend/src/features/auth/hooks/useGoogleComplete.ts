@@ -39,7 +39,13 @@ export function useGoogleComplete(options: UseGoogleCompleteOptions = {}) {
       onAccountCreated?.();
       return response;
     },
-    onSuccess: handleAuthSuccess,
+    // Wrapped for the reason `useLogin` states: React Query would otherwise
+    // pass this mutation's variables as the handler's options bag. The
+    // destination a Google sign-in was carrying reaches the handler through
+    // `location.state.from` here, put there by `useGoogleExchange`.
+    onSuccess: (data) => {
+      handleAuthSuccess(data);
+    },
     onError: (error: unknown) => {
       const status = getHttpStatus(error);
 

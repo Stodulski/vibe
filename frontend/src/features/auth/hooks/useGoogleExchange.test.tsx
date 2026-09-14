@@ -25,6 +25,23 @@ vi.mock('@/shared/stores', () => ({
     selector({ setCsrfToken: mockSetCsrfToken }),
 }));
 
+// Spies on the second argument without mocking the handler away: the real one
+// still runs, so the navigation it performs is asserted as before.
+const mockAuthSuccess = vi.fn();
+vi.mock('./authSuccess', async () => {
+  const actual = await vi.importActual<typeof import('./authSuccess')>('./authSuccess');
+  return {
+    ...actual,
+    useAuthSuccessHandler: () => {
+      const handle = actual.useAuthSuccessHandler();
+      return (data: Parameters<typeof handle>[0], options?: Parameters<typeof handle>[1]) => {
+        mockAuthSuccess(options);
+        handle(data, options);
+      };
+    },
+  };
+});
+
 const CSRF_COOKIE_VALUE = 'a-csrf-cookie';
 
 function setCsrfCookie() {
@@ -60,7 +77,9 @@ afterEach(async () => {
   const { authApi } = await import('../api/auth.api');
   vi.mocked(authApi.googleExchange).mockReset();
   mockNavigate.mockReset();
+  mockAuthSuccess.mockReset();
   document.cookie = 'g_csrf_token=; max-age=0';
+  window.sessionStorage.clear();
 });
 
 describe('useGoogleExchange — success', () => {
@@ -209,5 +228,101 @@ describe('useGoogleExchange — single use', () => {
       expect(mockNavigate).toHaveBeenCalled();
     });
     expect(authApi.googleExchange).toHaveBeenCalledTimes(1);
+  });
+});
+
+// `/auth/google/return?code=…` knows nothing about where the visitor was
+// heading — the button parked it in sessionStorage before leaving for Google.
+describe('useGoogleExchange — the destination parked before the redirect', () => {
+  const KEY = 'vibe.google-signin.from';
+
+  it('returns to the remembered page instead of the role default', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+      csrf_token: 'token',
+      user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
+    });
+    setCsrfCookie();
+    window.sessionStorage.setItem(KEY, '/complexes/abc/bookings');
+
+    await renderExchange('a-code');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/complexes/abc/bookings', { replace: true });
+    });
+    expect(mockAuthSuccess).toHaveBeenCalledWith({ from: '/complexes/abc/bookings' });
+    // Spent, like the code it travelled with.
+    expect(window.sessionStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('falls back to the role default when nothing was remembered', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+      csrf_token: 'token',
+      user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
+    });
+    setCsrfCookie();
+
+    await renderExchange('a-code');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+    });
+    expect(mockAuthSuccess).toHaveBeenCalledWith({ from: undefined });
+  });
+});
+
+// A sibling describe, not nested: max-lines-per-function counts a describe
+// callback's whole body.
+describe('useGoogleExchange — that destination across the profile step', () => {
+  const KEY = 'vibe.google-signin.from';
+
+  // The profile step is one more hop before there is a session, so the
+  // destination rides in router state — `useGoogleComplete` finishes through
+  // the same handler, which reads `from` straight out of `location.state`.
+  it('carries the destination into /register/google router state', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+      needs_profile: true,
+      profile_token: 'a-profile-token',
+      profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
+    });
+    setCsrfCookie();
+    window.sessionStorage.setItem(KEY, '/bookings');
+
+    await renderExchange('a-code');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/register/google', {
+        state: {
+          profile_token: 'a-profile-token',
+          profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
+          from: { pathname: '/bookings' },
+        },
+        replace: true,
+      });
+    });
+  });
+
+  it('leaves /register/google state as it was when there is nothing to carry', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+      needs_profile: true,
+      profile_token: 'a-profile-token',
+      profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
+    });
+    setCsrfCookie();
+
+    await renderExchange('a-code');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/register/google', {
+        state: {
+          profile_token: 'a-profile-token',
+          profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
+        },
+        replace: true,
+      });
+    });
   });
 });

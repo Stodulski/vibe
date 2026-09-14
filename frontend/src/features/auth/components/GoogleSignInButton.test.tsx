@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom';
 import type { GoogleIdConfiguration, GoogleButtonConfiguration, GoogleNamespace } from '@/shared/lib/googleIdentity';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { GIS_BUTTON_HEIGHT, GIS_BUTTON_WIDTH, GoogleSignInButton } from './GoogleSignInButton';
@@ -17,6 +18,16 @@ let loadResult: Promise<GoogleNamespace> = Promise.resolve() as never;
 vi.mock('@/shared/lib/googleIdentity', () => ({
   loadGoogleIdentityServices: () => loadResult,
 }));
+
+/**
+ * The button reads the destination out of the current location (router state
+ * or `?from=`), so every case here needs a real router around it.
+ */
+function renderButton(entry: string | { pathname: string; state?: unknown } = '/login') {
+  const routes: RouteObject[] = [{ path: '*', element: <GoogleSignInButton /> }];
+  const router = createMemoryRouter(routes, { initialEntries: [entry] });
+  return render(<RouterProvider router={router} />);
+}
 
 function stubGoogleNamespace(): GoogleNamespace {
   return {
@@ -46,7 +57,7 @@ describe('GoogleSignInButton — rendering', () => {
   it('renders nothing when no client id is configured', () => {
     mockEnv.VITE_GOOGLE_CLIENT_ID = undefined;
 
-    const { container } = render(<GoogleSignInButton />);
+    const { container } = renderButton();
 
     expect(container).toBeEmptyDOMElement();
   });
@@ -58,7 +69,7 @@ describe('GoogleSignInButton — rendering', () => {
     const google = stubGoogleNamespace();
     loadResult = Promise.resolve(google);
 
-    render(<GoogleSignInButton />);
+    renderButton();
 
     await waitFor(() => {
       expect(initializeConfig).not.toBeNull();
@@ -74,7 +85,7 @@ describe('GoogleSignInButton — rendering', () => {
   it("points login_uri at /auth/google/callback on the page's own origin", async () => {
     loadResult = Promise.resolve(stubGoogleNamespace());
 
-    render(<GoogleSignInButton />);
+    renderButton();
 
     await waitFor(() => {
       expect(initializeConfig).not.toBeNull();
@@ -89,7 +100,7 @@ describe('GoogleSignInButton — rendering', () => {
   it('passes no callback, because redirect mode never calls one', async () => {
     loadResult = Promise.resolve(stubGoogleNamespace());
 
-    render(<GoogleSignInButton />);
+    renderButton();
 
     await waitFor(() => {
       expect(initializeConfig).not.toBeNull();
@@ -102,7 +113,7 @@ describe('GoogleSignInButton — rendering', () => {
     const google = stubGoogleNamespace();
     loadResult = Promise.resolve(google);
 
-    render(<GoogleSignInButton />);
+    renderButton();
 
     await waitFor(() => {
       expect(renderButtonOptions).not.toBeNull();
@@ -135,7 +146,7 @@ describe('GoogleSignInButton — shape', () => {
   it('shows a decoy shaped like the primary button under an invisible Google layer', async () => {
     loadResult = Promise.resolve(stubGoogleNamespace());
 
-    render(<GoogleSignInButton />);
+    renderButton();
 
     const decoy = screen.getByText(ES_AR.auth.continueWithGoogle);
     expect(decoy).toHaveAttribute('aria-hidden', 'true');
@@ -155,7 +166,7 @@ describe('GoogleSignInButton — shape', () => {
     const google = stubGoogleNamespace();
     loadResult = Promise.resolve(google);
 
-    render(<GoogleSignInButton />);
+    renderButton();
 
     await waitFor(() => {
       expect(initializeConfig).not.toBeNull();
@@ -177,10 +188,59 @@ describe('GoogleSignInButton — behavior', () => {
   it('shows a plain fallback message when the script fails to load', async () => {
     loadResult = Promise.reject(new Error('script failed'));
 
-    render(<GoogleSignInButton />);
+    renderButton();
 
     await waitFor(() => {
       expect(screen.getByText(ES_AR.auth.googleUnavailable)).toBeInTheDocument();
     });
+  });
+});
+
+// The redirect hop leaves this page entirely and comes back on
+// `/auth/google/return?code=…`, which knows nothing about where the person
+// was going. Parking it here, while `/login` still knows, is the whole
+// mechanism — see `rememberGoogleReturnPath`.
+describe('GoogleSignInButton — remembering where the visitor was going', () => {
+  const KEY = 'vibe.google-signin.from';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.VITE_GOOGLE_CLIENT_ID = 'test-client-id';
+    loadResult = Promise.resolve(stubGoogleNamespace());
+    window.sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it('remembers the destination ProtectedRoute put in router state', () => {
+    renderButton({ pathname: '/login', state: { from: { pathname: '/complexes/abc/bookings' } } });
+
+    expect(window.sessionStorage.getItem(KEY)).toBe('/complexes/abc/bookings');
+  });
+
+  // `?from=` is how the destination survives the hard navigation `ky.ts` does
+  // when a session cannot be refreshed.
+  it('remembers the destination a hard 401 redirect left in ?from=', () => {
+    renderButton('/login?from=%2Fbookings%3Fdate%3D2026-03-18');
+
+    expect(window.sessionStorage.getItem(KEY)).toBe('/bookings?date=2026-03-18');
+  });
+
+  it('refuses a destination outside the app', () => {
+    renderButton('/login?from=https%3A%2F%2Fevil.example%2Fsteal');
+
+    expect(window.sessionStorage.getItem(KEY)).toBeNull();
+  });
+
+  // A destination left over from an abandoned attempt must not be inherited
+  // by a later sign-in that had none of its own.
+  it('clears a stale destination when this visit carries none', () => {
+    window.sessionStorage.setItem(KEY, '/bookings');
+
+    renderButton('/login');
+
+    expect(window.sessionStorage.getItem(KEY)).toBeNull();
   });
 });
