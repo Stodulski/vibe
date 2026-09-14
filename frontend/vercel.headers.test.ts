@@ -48,16 +48,13 @@ function cspDirective(name: string): string | undefined {
 }
 
 /**
- * The Sentry security endpoint every `report-uri`/`report-to` pair must
- * resolve to now that the Sentry projects exist (SEC-02 follow-up).
- *
- * All three path segments (org id, region, project id) and the query
- * parameter (the DSN's public key) are public by design — the DSN itself is
- * inlined in the production bundle for `Sentry.init({ dsn })` to read — so
- * this is not a secret pattern, only a shape check that catches a typo'd
- * project id or a copy-pasted org from the wrong Sentry account.
+ * `report-uri` is now this app's own `/_r/s` tunnel (vercel.json rewrites it
+ * to the real Sentry security endpoint) rather than the Sentry host
+ * directly — ad blockers strip requests to that host by name, the same
+ * problem the envelope tunnel in `src/shared/lib/sentry.ts` solves. A
+ * relative path is valid for `report-uri` per the CSP spec.
  */
-const REPORT_URI_PATTERN = /^https:\/\/o\d+\.ingest(\.us)?\.sentry\.io\/api\/\d+\/security\/\?sentry_key=[a-f0-9]{32}$/;
+const REPORT_URI = '/_r/s';
 
 describe('vercel.json security headers', () => {
   it('applies a rule to every path', () => {
@@ -185,14 +182,16 @@ describe('vercel.json CSP third-party origins', () => {
     expect(cspDirective(directive)).toContain(origin);
   });
 
-  it('reaches the Sentry SDK at exactly its DSN host, not a region wildcard', () => {
-    // src/shared/lib/sentry.ts passes the DSN straight to `Sentry.init`; the
-    // SDK only ever talks to the ingest host baked into that DSN, so the
-    // broader `*.ingest.sentry.io` / `*.ingest.us.sentry.io` wildcards the
-    // 2026-09-12 draft carried (written before the DSN existed) reported
-    // nothing a narrower, exact host doesn't also cover.
-    expect(cspDirective('connect-src')).toContain('https://o4511023559868416.ingest.us.sentry.io');
-    expect(cspDirective('connect-src')).not.toMatch(/\*\.ingest/);
+  it('never allows the Sentry ingest host directly: the SDK only ever talks to the /_r/e tunnel', () => {
+    // `Sentry.init({ tunnel: '/_r/e' })` (src/shared/lib/sentry.ts) makes the
+    // SDK send every envelope to this app's own origin — already covered by
+    // `'self'` — instead of to ingest.us.sentry.io. Nothing else in src/
+    // fetches that host directly (only the build-time `@sentry/vite-plugin`
+    // in vite.config.ts talks to Sentry's API, and that runs in Node, never
+    // in the browser), so the host does not belong in connect-src at all;
+    // an ad blocker that strips requests to it by name is exactly the
+    // problem the tunnel exists to route around.
+    expect(cspDirective('connect-src')).not.toContain('sentry.io');
   });
 
   it('does not carry origins the app never talks to from the browser', () => {
@@ -227,21 +226,23 @@ describe('vercel.json CSP third-party origins', () => {
 });
 
 /**
- * The reporting endpoint itself: now a real Sentry security endpoint instead
- * of the 2026-09-12 placeholder, so violations land somewhere instead of
- * going into the void. Still Report-Only (see above) — enforcing it is a
- * later, separate deploy after a week of reports.
+ * The reporting endpoint itself: the app's own `/_r/s` tunnel, so violations
+ * land somewhere instead of going into the void — and never straight at
+ * Sentry, where an ad blocker could drop them before they arrive. Still
+ * Report-Only (see above) — enforcing it is a later, separate deploy after a
+ * week of reports.
  */
 describe('vercel.json CSP reporting endpoint', () => {
-  it('points report-uri and report-to at a real Sentry security endpoint', () => {
-    const reportUri = cspDirective('report-uri') ?? '';
-    expect(reportUri).toMatch(REPORT_URI_PATTERN);
+  it('points report-uri and report-to at the /_r/s tunnel', () => {
+    expect(cspDirective('report-uri')).toBe(REPORT_URI);
     expect(cspDirective('report-to')).toBe('csp-endpoint');
   });
 
-  it('declares the same endpoint on Reporting-Endpoints, for report-to', () => {
+  it('declares Reporting-Endpoints as an absolute URL to the same tunnel, for report-to', () => {
+    // `Reporting-Endpoints` requires an absolute URL (unlike `report-uri`,
+    // which accepts a relative one) — a preview deployment posting its
+    // reports to the production origin is an accepted tradeoff, not a bug.
     const reportingEndpoints = headerValue('Reporting-Endpoints') ?? '';
-    const reportUri = cspDirective('report-uri');
-    expect(reportingEndpoints).toBe(`csp-endpoint="${String(reportUri)}"`);
+    expect(reportingEndpoints).toBe(`csp-endpoint="https://app.vibe.com.ar${REPORT_URI}"`);
   });
 });

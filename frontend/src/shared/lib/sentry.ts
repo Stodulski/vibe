@@ -97,6 +97,12 @@ export function initSentry() {
 
   Sentry.init({
     dsn,
+    // Routes every envelope through this app's own origin instead of
+    // straight to ingest.us.sentry.io: ad blockers strip requests to the
+    // Sentry host by name, so without a tunnel every error from a visitor
+    // running one never reaches Sentry. `vercel.json` rewrites `/_r/e` to
+    // the real envelope endpoint.
+    tunnel: '/_r/e',
     // `MODE` is Vite's own built-in env var, not a custom `VITE_*` one, so it
     // stays outside the `env` module and its no-bare-`import.meta.env` rule.
     environment: import.meta.env.MODE,

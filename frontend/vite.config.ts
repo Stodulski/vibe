@@ -160,6 +160,11 @@ const config: UserConfig = {
           /^\/\.well-known\//,
           /^\/assets\//,
           new RegExp(`^${GOOGLE_CALLBACK_PATH}$`),
+          // The Sentry envelope/CSP-report tunnel (vercel.json): a POST
+          // target the Workbox router already ignores (GET-only routes),
+          // but a GET navigation there — a reload, someone pasting the
+          // URL — must never be answered with the SPA shell either.
+          /^\/_r\//,
         ],
         // index.html stays in the precache, so the navigation route above
         // serves it cache-first rather than network-first. That is deliberate

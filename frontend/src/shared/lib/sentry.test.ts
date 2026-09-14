@@ -66,6 +66,7 @@ describe('initSentry', () => {
     expect(mockInit).toHaveBeenCalledWith(
       expect.objectContaining({
         dsn: 'https://test@sentry.io/123',
+        tunnel: '/_r/e',
         tracesSampleRate: 0.1,
         release: 'test', // stubbed via vitest.config.ts's `define`
         sendDefaultPii: false,
