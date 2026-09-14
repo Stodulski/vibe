@@ -1,46 +1,39 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { CourtSetupStep } from './CourtSetupStep';
 
 vi.mock('@/shared/components/ui/button', async () => {
   const { passthrough } = await import('@/test/ui-mocks');
   return { Button: passthrough('button') };
 });
-vi.mock('@/shared/components/ui/input', async () => {
-  const { passthrough } = await import('@/test/ui-mocks');
-  return { Input: passthrough('input') };
-});
-vi.mock('@/shared/components/ui/label', async () => {
-  const { passthrough } = await import('@/test/ui-mocks');
-  return { Label: passthrough('label') };
-});
-vi.mock('@/shared/components/ui/select', async () => {
-  const { passthrough } = await import('@/test/ui-mocks');
-  return {
-    Select: passthrough('div'),
-    SelectContent: passthrough('div'),
-    SelectItem: passthrough('div'),
-    SelectTrigger: passthrough('div'),
-    SelectValue: () => null,
-  };
-});
-vi.mock('@/features/courts/components/PriceConfig', () => ({ PriceConfig: () => null }));
-vi.mock('@/features/courts/schemas/courts.schema', () => ({
-  createCourtSchema: { parse: vi.fn() },
+
+// The court dialog and the price dialog are exercised by their own tests. Here
+// they stand in as markers, so these cases can say when the step opens each one
+// without dragging Radix, react-hook-form and two mutations into every render.
+const courtFormProps = vi.fn();
+vi.mock('@/features/courts/components/CourtForm', () => ({
+  CourtForm: (props: { open: boolean; onCreated?: (court: unknown) => void }) => {
+    courtFormProps(props);
+    return props.open ? <div data-testid="court-form" /> : null;
+  },
 }));
-vi.mock('@hookform/resolvers/zod', () => ({ zodResolver: () => vi.fn() }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('@/features/courts/components/PriceConfig', () => ({
+  PriceConfig: () => <div data-testid="price-config" />,
+}));
 
 const baseProps = {
   complexId: 'c1',
   courts: [],
   hasCourts: false,
-  createCourt: { mutate: vi.fn(), isPending: false },
   deleteCourt: { mutate: vi.fn(), isPending: false },
   onBack: vi.fn(),
   onNext: vi.fn(),
 };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('CourtSetupStep', () => {
   it('says why the step exists, without repeating its name from the indicator', () => {
@@ -48,17 +41,54 @@ describe('CourtSetupStep', () => {
     expect(screen.getByText(/nada que reservar/i)).toBeInTheDocument();
   });
 
-  it('renders court name input', () => {
+  // The form is behind a button rather than filling the step: the owner sees
+  // what they have and one thing to do, instead of a form for a court they may
+  // already have added.
+  it('offers one button and no inline form until it is pressed', () => {
     render(<CourtSetupStep {...baseProps} />);
-    expect(screen.getByPlaceholderText('Ej: Cancha 1')).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'Agregá tu primera cancha' })).toBeInTheDocument();
+    expect(screen.queryByTestId('court-form')).not.toBeInTheDocument();
   });
 
-  it('labels the form submit as adding the court, not as opening a new one', () => {
+  it('opens the court dialog on press', async () => {
+    const user = userEvent.setup();
     render(<CourtSetupStep {...baseProps} />);
-    expect(screen.getByRole('button', { name: 'Agregar cancha' })).toHaveAttribute('type', 'submit');
-    expect(screen.queryByRole('button', { name: 'Nueva cancha' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Agregá tu primera cancha' }));
+
+    expect(screen.getByTestId('court-form')).toBeInTheDocument();
   });
 
+  it('names the button for what it adds once a court exists', () => {
+    render(
+      <CourtSetupStep
+        {...baseProps}
+        hasCourts={true}
+        courts={[{ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor' }]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Agregar otra cancha' })).toBeInTheDocument();
+  });
+
+  // A court with no price is not bookable, so the price dialog follows the
+  // court dialog rather than waiting to be found on the courts page.
+  it('chains into pricing the court it just created', () => {
+    render(<CourtSetupStep {...baseProps} />);
+
+    expect(screen.queryByTestId('price-config')).not.toBeInTheDocument();
+
+    const { onCreated } = courtFormProps.mock.calls.at(-1)?.[0] as { onCreated: (c: unknown) => void };
+    act(() => {
+      onCreated({ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor', prices: [] });
+    });
+
+    expect(screen.getByTestId('price-config')).toBeInTheDocument();
+  });
+});
+
+describe('CourtSetupStep navigation', () => {
   it('renders back button', () => {
     render(<CourtSetupStep {...baseProps} />);
     expect(screen.getByText('Volver')).toBeInTheDocument();
