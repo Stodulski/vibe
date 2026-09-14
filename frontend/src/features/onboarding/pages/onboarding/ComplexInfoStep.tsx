@@ -1,4 +1,4 @@
-import { ComplexForm, IdentityGroup, LocationGroup } from '@/features/complex';
+import { ComplexForm, IdentityGroup, LocationGroup, AmenitiesGroup } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { Complex } from '@/shared/types/api.types';
 
@@ -44,6 +44,7 @@ export function ComplexInfoStep({ currentComplex, onComplexCreated }: ComplexInf
           <>
             <IdentityGroup {...props} />
             <LocationGroup form={props.form} />
+            <AmenitiesGroup form={props.form} />
           </>
         )}
       />
