@@ -1797,6 +1797,26 @@ paths:
                 cancellation_hours: {type: integer, minimum: 1, maximum: 168}
                 latitude: {type: number, format: double}
                 longitude: {type: number, format: double}
+                amenities:
+                  type: array
+                  description: >-
+                    What the venue offers, from a closed vocabulary. Omitted or `[]` both mean
+                    none.
+                  items:
+                    type: string
+                    enum:
+                      - parking
+                      - changing_rooms
+                      - showers
+                      - bar
+                      - racket_rental
+                      - pro_shop
+                      - wifi
+                      - lockers
+                      - lessons
+                      - tournaments
+                      - accessible
+                      - match_recording
 
   /api/v1/complexes/{id}:
     get:

@@ -88,6 +88,20 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if email != nil {
 		v.Check(validator.Matches(*email, validator.EmailRX), "email", "must be a valid email address")
 	}
+
+	// Omitted or `[]` both mean none: cleanAmenities on a nil/empty slice
+	// returns an empty, non-nil slice, so both shapes end up identical by the
+	// time they reach the service.
+	amenities := make([]string, 0)
+	if input.Amenities != nil {
+		amenities = make([]string, len(*input.Amenities))
+		for i, a := range *input.Amenities {
+			amenities[i] = string(a)
+		}
+	}
+	cleaned, unknown := cleanAmenities(amenities)
+	v.Check(unknown == "", "amenities", "unknown amenity: "+unknown)
+
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -111,6 +125,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		CancellationHours: input.CancellationHours,
 		Latitude:          input.Latitude,
 		Longitude:         input.Longitude,
+		Amenities:         cleaned,
 	})
 	if err != nil {
 		if errors.Is(err, ErrSlugTaken) {

@@ -679,48 +679,96 @@ func (e AuthGoogleExchange200JSONResponseBody1NeedsProfile) Valid() bool {
 	}
 }
 
+// Defines values for ComplexesCreateJSONBodyAmenities.
+const (
+	ComplexesCreateJSONBodyAmenitiesAccessible     ComplexesCreateJSONBodyAmenities = "accessible"
+	ComplexesCreateJSONBodyAmenitiesBar            ComplexesCreateJSONBodyAmenities = "bar"
+	ComplexesCreateJSONBodyAmenitiesChangingRooms  ComplexesCreateJSONBodyAmenities = "changing_rooms"
+	ComplexesCreateJSONBodyAmenitiesLessons        ComplexesCreateJSONBodyAmenities = "lessons"
+	ComplexesCreateJSONBodyAmenitiesLockers        ComplexesCreateJSONBodyAmenities = "lockers"
+	ComplexesCreateJSONBodyAmenitiesMatchRecording ComplexesCreateJSONBodyAmenities = "match_recording"
+	ComplexesCreateJSONBodyAmenitiesParking        ComplexesCreateJSONBodyAmenities = "parking"
+	ComplexesCreateJSONBodyAmenitiesProShop        ComplexesCreateJSONBodyAmenities = "pro_shop"
+	ComplexesCreateJSONBodyAmenitiesRacketRental   ComplexesCreateJSONBodyAmenities = "racket_rental"
+	ComplexesCreateJSONBodyAmenitiesShowers        ComplexesCreateJSONBodyAmenities = "showers"
+	ComplexesCreateJSONBodyAmenitiesTournaments    ComplexesCreateJSONBodyAmenities = "tournaments"
+	ComplexesCreateJSONBodyAmenitiesWifi           ComplexesCreateJSONBodyAmenities = "wifi"
+)
+
+// Valid indicates whether the value is a known member of the ComplexesCreateJSONBodyAmenities enum.
+func (e ComplexesCreateJSONBodyAmenities) Valid() bool {
+	switch e {
+	case ComplexesCreateJSONBodyAmenitiesAccessible:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesBar:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesChangingRooms:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesLessons:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesLockers:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesMatchRecording:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesParking:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesProShop:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesRacketRental:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesShowers:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesTournaments:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesWifi:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ComplexesUpdateJSONBodyAmenities.
 const (
-	Accessible     ComplexesUpdateJSONBodyAmenities = "accessible"
-	Bar            ComplexesUpdateJSONBodyAmenities = "bar"
-	ChangingRooms  ComplexesUpdateJSONBodyAmenities = "changing_rooms"
-	Lessons        ComplexesUpdateJSONBodyAmenities = "lessons"
-	Lockers        ComplexesUpdateJSONBodyAmenities = "lockers"
-	MatchRecording ComplexesUpdateJSONBodyAmenities = "match_recording"
-	Parking        ComplexesUpdateJSONBodyAmenities = "parking"
-	ProShop        ComplexesUpdateJSONBodyAmenities = "pro_shop"
-	RacketRental   ComplexesUpdateJSONBodyAmenities = "racket_rental"
-	Showers        ComplexesUpdateJSONBodyAmenities = "showers"
-	Tournaments    ComplexesUpdateJSONBodyAmenities = "tournaments"
-	Wifi           ComplexesUpdateJSONBodyAmenities = "wifi"
+	ComplexesUpdateJSONBodyAmenitiesAccessible     ComplexesUpdateJSONBodyAmenities = "accessible"
+	ComplexesUpdateJSONBodyAmenitiesBar            ComplexesUpdateJSONBodyAmenities = "bar"
+	ComplexesUpdateJSONBodyAmenitiesChangingRooms  ComplexesUpdateJSONBodyAmenities = "changing_rooms"
+	ComplexesUpdateJSONBodyAmenitiesLessons        ComplexesUpdateJSONBodyAmenities = "lessons"
+	ComplexesUpdateJSONBodyAmenitiesLockers        ComplexesUpdateJSONBodyAmenities = "lockers"
+	ComplexesUpdateJSONBodyAmenitiesMatchRecording ComplexesUpdateJSONBodyAmenities = "match_recording"
+	ComplexesUpdateJSONBodyAmenitiesParking        ComplexesUpdateJSONBodyAmenities = "parking"
+	ComplexesUpdateJSONBodyAmenitiesProShop        ComplexesUpdateJSONBodyAmenities = "pro_shop"
+	ComplexesUpdateJSONBodyAmenitiesRacketRental   ComplexesUpdateJSONBodyAmenities = "racket_rental"
+	ComplexesUpdateJSONBodyAmenitiesShowers        ComplexesUpdateJSONBodyAmenities = "showers"
+	ComplexesUpdateJSONBodyAmenitiesTournaments    ComplexesUpdateJSONBodyAmenities = "tournaments"
+	ComplexesUpdateJSONBodyAmenitiesWifi           ComplexesUpdateJSONBodyAmenities = "wifi"
 )
 
 // Valid indicates whether the value is a known member of the ComplexesUpdateJSONBodyAmenities enum.
 func (e ComplexesUpdateJSONBodyAmenities) Valid() bool {
 	switch e {
-	case Accessible:
+	case ComplexesUpdateJSONBodyAmenitiesAccessible:
 		return true
-	case Bar:
+	case ComplexesUpdateJSONBodyAmenitiesBar:
 		return true
-	case ChangingRooms:
+	case ComplexesUpdateJSONBodyAmenitiesChangingRooms:
 		return true
-	case Lessons:
+	case ComplexesUpdateJSONBodyAmenitiesLessons:
 		return true
-	case Lockers:
+	case ComplexesUpdateJSONBodyAmenitiesLockers:
 		return true
-	case MatchRecording:
+	case ComplexesUpdateJSONBodyAmenitiesMatchRecording:
 		return true
-	case Parking:
+	case ComplexesUpdateJSONBodyAmenitiesParking:
 		return true
-	case ProShop:
+	case ComplexesUpdateJSONBodyAmenitiesProShop:
 		return true
-	case RacketRental:
+	case ComplexesUpdateJSONBodyAmenitiesRacketRental:
 		return true
-	case Showers:
+	case ComplexesUpdateJSONBodyAmenitiesShowers:
 		return true
-	case Tournaments:
+	case ComplexesUpdateJSONBodyAmenitiesTournaments:
 		return true
-	case Wifi:
+	case ComplexesUpdateJSONBodyAmenitiesWifi:
 		return true
 	default:
 		return false
@@ -2071,9 +2119,12 @@ type BookingsPublicStatusParams struct {
 
 // ComplexesCreateJSONBody defines parameters for ComplexesCreate.
 type ComplexesCreateJSONBody struct {
-	Address           string `json:"address"`
-	CancellationHours int    `json:"cancellation_hours"`
-	City              string `json:"city"`
+	Address string `json:"address"`
+
+	// Amenities What the venue offers, from a closed vocabulary. Omitted or `[]` both mean none.
+	Amenities         *[]ComplexesCreateJSONBodyAmenities `json:"amenities,omitempty"`
+	CancellationHours int                                 `json:"cancellation_hours"`
+	City              string                              `json:"city"`
 
 	// DepositPercentage Defaults to 0 (no deposit required) when omitted.
 	DepositPercentage *int     `json:"deposit_percentage,omitempty"`
@@ -2085,6 +2136,9 @@ type ComplexesCreateJSONBody struct {
 	Province          string   `json:"province"`
 	Slug              string   `json:"slug"`
 }
+
+// ComplexesCreateJSONBodyAmenities defines parameters for ComplexesCreate.
+type ComplexesCreateJSONBodyAmenities string
 
 // ComplexesUpdateJSONBody defines parameters for ComplexesUpdate.
 type ComplexesUpdateJSONBody struct {
