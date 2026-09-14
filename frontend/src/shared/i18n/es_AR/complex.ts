@@ -89,9 +89,9 @@ export const complex = {
 
   onboardingFinish: 'Ir al panel',
   onboardingSkipPayments: 'Lo hago después',
-  onboardingDefaultsTitle: 'Ya podés recibir reservas',
-  onboardingDefaultsBody: 'Dejamos seña del 30% y cancelación hasta 24 h antes. Cambialo cuando quieras.',
-  onboardingDefaultsLink: 'Ir a Configuración',
+  // Said next to the choice, because skipping has a visible consequence: the
+  // public page stops taking online bookings and shows the club's WhatsApp.
+  onboardingPaymentsLater: 'Si lo dejás para después, tu página muestra tu WhatsApp para que te escriban.',
   changeComplex: 'Cambiar complejo',
   selectComplexTitle: 'Tus complejos',
   needsCourts: 'Falta agregar canchas',

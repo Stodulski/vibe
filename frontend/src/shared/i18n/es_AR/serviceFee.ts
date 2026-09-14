@@ -5,6 +5,6 @@ export const serviceFee = {
   // button, which said the same thing further from the row it was about.
   notDeductedFromCourtPrice: 'No se descuenta del precio de la cancha.',
   ownerInfo:
-    'Tus clientes pagan un cargo de servicio (7%, mín. $1.000). Vos solo absorbés el costo de procesamiento de MercadoPago.',
+    'Tus clientes pagan un cargo de servicio del 7% (mínimo $1.000) al reservar. A vos MercadoPago solo te descuenta su comisión.',
   zeroCost: 'Sin cargos adicionales de la plataforma',
 } as const;
