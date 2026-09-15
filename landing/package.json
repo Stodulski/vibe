@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/build-markdown.mjs",
+    "build": "node scripts/build-api-catalog.mjs && astro build && node scripts/build-markdown.mjs",
     "preview": "astro preview",
     "test": "node tests/smoke.mjs",
     "check:mp": "node scripts/check-mercadopago.mjs",
@@ -19,7 +19,8 @@
   },
   "devDependencies": {
     "playwright": "^1.63.0",
-    "turndown": "^7.2.4"
+    "turndown": "^7.2.4",
+    "yaml": "^2.9.1"
   },
   "packageManager": "pnpm@11.25.0"
 }

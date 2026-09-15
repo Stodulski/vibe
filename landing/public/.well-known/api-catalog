@@ -18,14 +18,14 @@
         {
           "href": "https://api.vibe.com.ar/api/v1/docs",
           "type": "text/html",
-          "title": "Vibe API - interactive reference"
+          "title": "Vibe API - Interactive reference"
         }
       ],
       "status": [
         {
           "href": "https://api.vibe.com.ar/api/v1/healthcheck",
           "type": "application/json",
-          "title": "Vibe API - health check"
+          "title": "Vibe API - Health check"
         }
       ],
       "author": [
