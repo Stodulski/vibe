@@ -1,0 +1,46 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://api.vibe.com.ar/api/v1",
+      "service-desc": [
+        {
+          "href": "https://api.vibe.com.ar/api/v1/openapi.json",
+          "type": "application/openapi+json",
+          "title": "Vibe API - OpenAPI 3.1 description (JSON)"
+        },
+        {
+          "href": "https://api.vibe.com.ar/api/v1/openapi.yaml",
+          "type": "application/openapi+yaml",
+          "title": "Vibe API - OpenAPI 3.1 description (YAML)"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://api.vibe.com.ar/api/v1/docs",
+          "type": "text/html",
+          "title": "Vibe API - interactive reference"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://api.vibe.com.ar/api/v1/healthcheck",
+          "type": "application/json",
+          "title": "Vibe API - health check"
+        }
+      ],
+      "author": [
+        {
+          "href": "https://vibe.com.ar",
+          "title": "Vibe"
+        }
+      ],
+      "describedby": [
+        {
+          "href": "https://vibe.com.ar/llms.txt",
+          "type": "text/plain",
+          "title": "Vibe - plain-text overview for agents"
+        }
+      ]
+    }
+  ]
+}
