@@ -45,7 +45,7 @@ jobs:
       # against fixture trees first. A regex that quietly matches the wrong
       # text would otherwise pass here forever.
       - name: Test the checker itself
-        run: node --test .github/scripts/
+        run: node --test .github/scripts/check-service-fee.test.mjs
 
       - name: Compare the service fee across packages
         run: node .github/scripts/check-service-fee.mjs
