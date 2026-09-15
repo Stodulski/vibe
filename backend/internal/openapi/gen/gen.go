@@ -2672,6 +2672,9 @@ func (t *GoogleSignInResult) UnmarshalJSON(b []byte) error {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// OpenapiGetCatalog RFC 9727 API catalog
+	// (GET /.well-known/api-catalog)
+	OpenapiGetCatalog(w http.ResponseWriter, r *http.Request)
 	// PublicsiteSitemapMoved Platform sitemap (moved)
 	// (GET /api/sitemap.xml)
 	PublicsiteSitemapMoved(w http.ResponseWriter, r *http.Request)
@@ -2933,6 +2936,20 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// OpenapiGetCatalog operation middleware
+func (siw *ServerInterfaceWrapper) OpenapiGetCatalog(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenapiGetCatalog(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // PublicsiteSitemapMoved operation middleware
 func (siw *ServerInterfaceWrapper) PublicsiteSitemapMoved(w http.ResponseWriter, r *http.Request) {
@@ -5797,6 +5814,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/openapi.json", wrapper.OpenapiGetJSON)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/openapi.yaml", wrapper.OpenapiGetYAML)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/docs", wrapper.OpenapiGetDocs)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/.well-known/api-catalog", wrapper.OpenapiGetCatalog)
 
 	return m
 }

@@ -18,6 +18,7 @@ import (
 // Regenerate after an intentional change by running the audit and copying the
 // reported differences.
 var apiSurface = map[string]struct{}{
+	"GET /.well-known/api-catalog":                                     {},
 	"DELETE /api/v1/auth/me":                                           {},
 	"DELETE /api/v1/complexes/{id}":                                    {},
 	"DELETE /api/v1/complexes/{id}/blocked-slots/{slotID}":             {},

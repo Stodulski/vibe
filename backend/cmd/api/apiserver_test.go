@@ -41,6 +41,57 @@ func TestRouteGuardsMatchesInventory(t *testing.T) {
 	}
 }
 
+// TestAPICatalogRoute proves GET /.well-known/api-catalog answers through
+// the whole production chain — guards, spec validation, the app's CORS
+// policy included — not just the openapi package's own unit test.
+//
+// The Origin header here deliberately does NOT match
+// newTestApplicationWith's FrontendURL ("http://localhost:5173"): rs/cors
+// would refuse to set Access-Control-Allow-Origin for it (see
+// routes.go's corsOptions, a single allowed origin), so seeing "*" anyway
+// proves the header comes from openapi.Handler.Catalog itself, set after
+// rs/cors has already run and declined to touch it — the discovery-document
+// exception routes.go's own comment describes, not a broadened app-wide
+// CORS policy.
+func TestAPICatalogRoute(t *testing.T) {
+	app := newTestApplication(t)
+	ts := newTestServer(t, app)
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL+"/.well-known/api-catalog", nil)
+	if err != nil {
+		t.Fatalf("building the request: %v", err)
+	}
+	req.Header.Set("Origin", "https://some-agent.example")
+
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("GET /.well-known/api-catalog: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/linkset+json" {
+		t.Errorf("Content-Type = %q, want application/linkset+json", ct)
+	}
+	if got := resp.Header.Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want *", got)
+	}
+
+	var body struct {
+		Linkset []struct {
+			Anchor string `json:"anchor"`
+		} `json:"linkset"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decoding the response body: %v", err)
+	}
+	if len(body.Linkset) != 1 || body.Linkset[0].Anchor != "https://api.vibe.com.ar/api/v1" {
+		t.Errorf("linkset = %+v, want one entry anchored at https://api.vibe.com.ar/api/v1", body.Linkset)
+	}
+}
+
 // TestApiServerParamErrorAnswersAMalformedQueryParamAs422 pins
 // apiServerParamError's mapping of oapi-codegen's own parameter binding: a
 // malformed "date" never reaches courtsPublicAvailability at all, so this is

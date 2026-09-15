@@ -56,6 +56,7 @@ type routeGuard struct {
 // set is exactly apiSurface: every registered route has an entry, and no
 // entry survives a route that was renamed or removed.
 var routeGuards = map[string]routeGuard{
+	"GET /.well-known/api-catalog":                                     {kind: guardPublic},
 	"GET /api/sitemap.xml":                                             {kind: guardPublic},
 	"GET /api/v1/admin/audit-log":                                      {kind: guardSuperAdmin},
 	"GET /api/v1/admin/complexes":                                      {kind: guardSuperAdmin},

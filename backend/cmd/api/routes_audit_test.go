@@ -55,6 +55,8 @@ var publicRoutes = map[string]string{
 	"GET /api/v1/openapi.json": "this API's own machine-readable contract, read by tooling before any session exists",
 	"GET /api/v1/openapi.yaml": "same document, raw bytes",
 	"GET /api/v1/docs":         "the interactive reference built from the document above",
+
+	"GET /.well-known/api-catalog": "RFC 9727 discovery document, read by an agent before any session exists",
 }
 
 type recordedRoute struct {

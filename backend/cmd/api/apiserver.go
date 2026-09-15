@@ -455,6 +455,12 @@ func (s *apiServer) OpenapiGetDocs(w http.ResponseWriter, r *http.Request) {
 	s.app.openapi.Docs(w, r)
 }
 
+// OpenapiGetCatalog implements gen.ServerInterface for openapiGetCatalog
+// (GET /.well-known/api-catalog). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) OpenapiGetCatalog(w http.ResponseWriter, r *http.Request) {
+	s.app.openapi.Catalog(w, r)
+}
+
 // HealthCheck implements gen.ServerInterface for healthCheck
 // (GET /api/v1/healthcheck). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) HealthCheck(w http.ResponseWriter, r *http.Request) {

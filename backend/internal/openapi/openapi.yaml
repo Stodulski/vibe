@@ -3233,6 +3233,29 @@ paths:
               schema: {type: string}
         "429": {$ref: "#/components/responses/RateLimited"}
 
+  /.well-known/api-catalog:
+    get:
+      tags: [openapi]
+      operationId: openapiGetCatalog
+      summary: RFC 9727 API catalog
+      description: >-
+        Public. General rate-limit tier. A linkset pointing an agent at this API's machine-readable
+        description, interactive reference and health check, without requiring it to already know
+        this API's URLs. Derived at boot from this same document's `servers` list and paths, so it
+        cannot point at a route this API does not serve. The landing site publishes an equivalent
+        copy at https://vibe.com.ar/.well-known/api-catalog, derived from the same document.
+      security: []
+      responses:
+        "200":
+          description: The API catalog, as a linkset.
+          headers:
+            Access-Control-Allow-Origin:
+              schema: {type: string, example: "*"}
+          content:
+            application/linkset+json:
+              schema: {type: object}
+        "429": {$ref: "#/components/responses/RateLimited"}
+
 components:
   securitySchemes:
     cookieAuth:
