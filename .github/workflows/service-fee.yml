@@ -1,0 +1,43 @@
+name: Service fee
+
+# The service fee is one commercial fact stated in four places across three
+# packages that cannot import one another. This fails a change that moves one
+# copy without the others — the failure it prevents is a landing page
+# advertising a price the checkout does not charge.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - backend/internal/pricing/pricing.go
+      - frontend/src/features/public-booking/components/booking-form/pricing.ts
+      - frontend/src/shared/i18n/es_AR/serviceFee.ts
+      - landing/src/data/precio.ts
+      - .github/scripts/check-service-fee.mjs
+      - .github/workflows/service-fee.yml
+
+# Deliberately unfiltered on pull_request, unlike `push` above. A required
+# check that is skipped by a paths filter never reports at all, and the pull
+# request waits for it forever; this job reads four files and takes seconds, so
+# it runs on every pull request and can safely be made a required context.
+
+concurrency:
+  group: service-fee-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agree:
+    name: Every package states the same fee
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+
+      # No install step: the script has no dependencies, on purpose. Reading
+      # four files should not need a Go toolchain, a bundler and an Astro
+      # resolver in one job.
+      - name: Compare the service fee across packages
+        run: node .github/scripts/check-service-fee.mjs

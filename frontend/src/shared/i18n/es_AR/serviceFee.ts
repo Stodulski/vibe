@@ -1,3 +1,6 @@
+// The rate and the floor here restate backend/internal/pricing/pricing.go.
+// Changing it alone fails CI: .github/scripts/check-service-fee.mjs compares this against the other three copies.
+//
 // Two sentences, two facts: what the client pays, and what the owner pays. The
 // onboarding step sets them on their own lines so the owner reads them as two
 // answers rather than one paragraph; the compact cards, which have room for a

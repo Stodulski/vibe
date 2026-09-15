@@ -12,12 +12,21 @@ Each package keeps its own toolchain, lockfile, environment file and README. The
 
 ## CI
 
-Workflows live in `.github/workflows/` and are filtered by path, so a push that only touches one package runs only that package's checks:
+Workflows live in `.github/workflows/`. Their `push` triggers are filtered by path, so a push to `main`
+that only touches one package runs only that package's checks. Their `pull_request` triggers are not:
+a required check that a paths filter skips never reports, and the pull request then waits for it
+forever, so every pull request runs everything.
 
 - `backend.yml` — lint, unit tests, build, vulnerability audit and integration tests for `backend/`.
 - `frontend.yml` — typecheck, lint, format check and unit tests for `frontend/`.
 - `e2e.yml` — the client's Playwright suite against an isolated API, triggered by changes to either `backend/` or `frontend/`.
 - `landing-costos-mercadopago.yml` — daily check that the MercadoPago fees published by the landing match the source.
+- `service-fee.yml` — fails when the four places that state Vibe's own service fee stop agreeing with
+  `backend/internal/pricing/pricing.go`, which is what a client is actually charged. The fee is written
+  in Go, in a client-side fallback, in the owner-facing copy and on the landing, and none of them can
+  import another; the failure it prevents is the landing advertising a price the checkout does not
+  charge. It has no paths filter on pull requests so it always reports, which is what lets it be made a
+  required check.
 
 ## Deployment
 

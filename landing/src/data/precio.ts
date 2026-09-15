@@ -17,7 +17,13 @@
  */
 import { GRUPO_DE_REFERENCIA, PLAZOS } from './mercadopago-costos.ts';
 
-/** Se le suma al cliente que reserva, sobre la seña, nunca sobre el total. */
+/**
+ * Se le suma al cliente que reserva, sobre la seña, nunca sobre el total.
+ *
+ * Repite backend/internal/pricing/pricing.go, que es lo que se cobra de verdad.
+ * Cambiarlo solo hace fallar CI: .github/scripts/check-service-fee.mjs compara
+ * esta copia contra las otras tres.
+ */
 export const CARGO_SERVICIO = 0.07;
 
 /** Piso del cargo, en pesos. */
