@@ -1,4 +1,3 @@
-import { Shield } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { MPConnectStatus } from './mp-connect-step/MPConnectStatus';
 import { MPConnectBottomNav } from './mp-connect-step/MPConnectBottomNav';
@@ -22,20 +21,18 @@ export function MPConnectStep({ mpConnected, mpAuthUrl, onConnectClick, onBack, 
           {/* No heading — the step indicator above names this step. */}
           <p className="text-text-secondary text-sm">{t.complex.onboardingStep3Description}</p>
 
-          {/* The fee, in one line instead of a boxed pair. The box was a
-              container around two sentences that belong together anyway, and
-              the second one restated the first: "no extra platform charges" IS
-              "your clients pay the service fee, you only absorb MP's". */}
-          <p className="text-text-secondary flex items-start gap-2 text-sm">
-            <Shield className="text-primary-400 mt-0.5 size-4 shrink-0" />
-            {/* One line per fact. Run together, the two sentences read as a
-                single paragraph about charges and the owner has to find their
-                own half in it; apart, the answer to "what does this cost me" is
-                on its own line. */}
-            <span>
-              <span className="block">{t.serviceFee.ownerInfoClients}</span>
-              <span className="block">{t.serviceFee.ownerInfoYou}</span>
-            </span>
+          {/* The fee, plainly, with no box and no icon around it. The box was a
+              container around two sentences that belong together anyway, and the
+              second one restated the first: "no extra platform charges" IS "your
+              clients pay the service fee, you only absorb MP's".
+
+              One line per fact. Run together, the two sentences read as a single
+              paragraph about charges and the owner has to find their own half in
+              it; apart, the answer to "what does this cost me" is on its own
+              line. */}
+          <p className="text-text-secondary text-sm">
+            <span className="block">{t.serviceFee.ownerInfoClients}</span>
+            <span className="block">{t.serviceFee.ownerInfoYou}</span>
           </p>
 
           <MPConnectStatus mpConnected={mpConnected} mpAuthUrl={mpAuthUrl} onConnectClick={onConnectClick} />

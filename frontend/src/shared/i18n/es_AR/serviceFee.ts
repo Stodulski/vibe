@@ -6,8 +6,8 @@
 // answers rather than one paragraph; the compact cards, which have room for a
 // sentence and not for a block, use the joined `ownerInfo` below. Composed
 // rather than written twice, so the two forms cannot drift apart.
-const ownerInfoClients = 'Tus clientes pagan un cargo de servicio del 7% (mínimo $1.000) al reservar.';
-const ownerInfoYou = 'A vos MercadoPago solo te descuenta su comisión.';
+const ownerInfoClients = 'Tus clientes pagan un cargo de servicio del 7% (mínimo $1.000).';
+const ownerInfoYou = 'Vos solo pagás la comisión de MercadoPago.';
 
 export const serviceFee = {
   label: 'Cargo de servicio',
