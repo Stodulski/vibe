@@ -1,0 +1,69 @@
+# Proves the committed API catalog still matches the OpenAPI document it is
+# derived from.
+#
+# The catalog at https://vibe.com.ar/.well-known/api-catalog is generated from
+# backend/internal/openapi/openapi.yaml by landing/scripts/build-api-catalog.mjs
+# and committed, so the landing builds where backend/ is not in the checkout.
+# That leaves one gap this job closes: landing/vercel.json only deploys when
+# landing/ changes, so renaming a route in the backend does not rebuild the
+# landing, and the committed catalog keeps advertising the old URL until
+# something unrelated triggers a landing deploy. Nothing fails in between; the
+# catalog just quietly points agents at a 404.
+#
+# Regenerating here and refusing a diff moves that discovery to the pull request
+# that renames the route, which is the only place where somebody can still
+# decide what the catalog should say instead.
+name: Landing API catalog
+
+on:
+  pull_request:
+    # No `paths` filter on pull requests, for the reason spelled out in
+    # frontend.yml: every job is a required status check on main, and one that
+    # never runs because the PR touched another package blocks the merge
+    # forever. This job in particular must run on backend-only PRs — those are
+    # exactly the ones that can invalidate the catalog.
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: landing
+
+jobs:
+  catalog-is-current:
+    name: API catalog matches the spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: landing/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: landing/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The generator fails on its own when a path it advertises is no longer a
+      # GET in the spec, which covers the rename. This step additionally catches
+      # the quieter case: the spec still has every path, but something else the
+      # catalog copies — the production server URL, the API title — has moved.
+      - name: Regenerate the catalog
+        run: node scripts/build-api-catalog.mjs
+
+      - name: Fail if the committed catalog is stale
+        run: |
+          if ! git diff --exit-code public/.well-known/api-catalog; then
+            echo "::error file=landing/public/.well-known/api-catalog::The committed API catalog no longer matches backend/internal/openapi/openapi.yaml. Run 'pnpm --dir landing exec node scripts/build-api-catalog.mjs' and commit the result."
+            exit 1
+          fi
