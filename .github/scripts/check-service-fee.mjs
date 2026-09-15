@@ -21,7 +21,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+// Overridable so the test can point the same code at a fixture tree. Nothing
+// else sets it, and CI runs the script with it unset.
+const REPO = process.env.SERVICE_FEE_REPO_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * Reads one capture group from EVERY place the pattern matches, and returns it

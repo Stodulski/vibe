@@ -13,9 +13,10 @@ Each package keeps its own toolchain, lockfile, environment file and README. The
 ## CI
 
 Workflows live in `.github/workflows/`. Their `push` triggers are filtered by path, so a push to `main`
-that only touches one package runs only that package's checks. Their `pull_request` triggers are not:
-a required check that a paths filter skips never reports, and the pull request then waits for it
-forever, so every pull request runs everything.
+that only touches one package runs only that package's checks. The ones that also run on
+`pull_request` — `backend.yml`, `frontend.yml`, `e2e.yml` and `service-fee.yml` — do so without a path
+filter: a required check that a paths filter skips never reports, and the pull request then waits for
+it forever. (`landing-costos-mercadopago.yml` has no pull-request trigger at all; it is a daily cron.)
 
 - `backend.yml` — lint, unit tests, build, vulnerability audit and integration tests for `backend/`.
 - `frontend.yml` — typecheck, lint, format check and unit tests for `frontend/`.

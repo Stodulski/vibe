@@ -14,6 +14,7 @@ on:
       - frontend/src/shared/i18n/es_AR/serviceFee.ts
       - landing/src/data/precio.ts
       - .github/scripts/check-service-fee.mjs
+      - .github/scripts/check-service-fee.test.mjs
       - .github/workflows/service-fee.yml
 
 # Deliberately unfiltered on pull_request, unlike `push` above. A required
@@ -39,5 +40,12 @@ jobs:
       # No install step: the script has no dependencies, on purpose. Reading
       # four files should not need a Go toolchain, a bundler and an Astro
       # resolver in one job.
+      # The checker runs green whenever the copies agree, which is every day
+      # until the one that matters — so its own failure paths are tested
+      # against fixture trees first. A regex that quietly matches the wrong
+      # text would otherwise pass here forever.
+      - name: Test the checker itself
+        run: node --test .github/scripts/
+
       - name: Compare the service fee across packages
         run: node .github/scripts/check-service-fee.mjs
