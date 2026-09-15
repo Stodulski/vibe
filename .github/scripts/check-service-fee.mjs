@@ -23,10 +23,19 @@ import { dirname, join } from 'node:path';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Reads one capture group, or explains what it could not find. */
+/**
+ * Reads one capture group from EVERY place the pattern matches, and returns it
+ * only when they all say the same thing.
+ *
+ * Reading the first match would be the silent pass this script exists to
+ * prevent: a file is free to state the fee more than once — the owner copy
+ * already splits it across two sentences and rejoins them — and a second
+ * mention that drifts while the first stays right would sail through.
+ */
 function capture(source, file, pattern, what) {
-  const m = pattern.exec(source);
-  if (!m) {
+  const found = [...source.matchAll(new RegExp(pattern, pattern.flags.replace('g', '') + 'g'))].map((m) => m[1]);
+
+  if (found.length === 0) {
     throw new Error(
       `could not read ${what} in ${file}\n` +
         `      pattern: ${pattern}\n` +
@@ -34,7 +43,16 @@ function capture(source, file, pattern, what) {
         `do not delete the case.`,
     );
   }
-  return m[1];
+
+  const distinct = [...new Set(found)];
+  if (distinct.length > 1) {
+    throw new Error(
+      `${file} states ${what} ${found.length} times and they disagree: ${distinct.join(', ')}\n` +
+        `      One file contradicting itself is the same bug as two files contradicting each other.`,
+    );
+  }
+
+  return distinct[0];
 }
 
 /** Percent as an integer (7), from a rate written as a fraction (0.07). */
@@ -54,12 +72,19 @@ const SITES = [
   {
     label: 'frontend — client-side estimate before the backend quotes',
     file: 'frontend/src/features/public-booking/components/booking-form/pricing.ts',
-    read: (s, f) => {
-      const p = /Math\.max\(Math\.round\(\(mpAmount \* (\d+)\) \/ 100\), ([\d_]+)\)/;
-      const m = p.exec(s);
-      if (!m) capture(s, f, p, 'the service-fee fallback');
-      return { ratePercent: Number(m[1]), floorCentavos: Number(m[2].replaceAll('_', '')) };
-    },
+    read: (s, f) => ({
+      ratePercent: Number(
+        capture(s, f, /Math\.max\(Math\.round\(\(mpAmount \* (\d+)\) \/ 100\), [\d_]+\)/, 'the fallback rate'),
+      ),
+      floorCentavos: Number(
+        capture(
+          s,
+          f,
+          /Math\.max\(Math\.round\(\(mpAmount \* \d+\) \/ 100\), ([\d_]+)\)/,
+          'the fallback floor',
+        ).replaceAll('_', ''),
+      ),
+    }),
   },
   {
     label: 'frontend — what the owner reads when connecting payments',
