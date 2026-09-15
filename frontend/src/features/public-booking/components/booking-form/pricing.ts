@@ -16,6 +16,9 @@ export interface BookingPricing {
  * estimate (7% of the online amount, floored at 100000 centavos) only when
  * the backend value is not yet available (no quote endpoint exists at this
  * stage).
+ *
+ * The 7 and the 100_000 below restate backend/internal/pricing/pricing.go.
+ * Changing it alone fails CI: .github/scripts/check-service-fee.mjs compares this against the other three copies.
  */
 export function computeBookingPricing(slotInfo: BookingSlotInfo): BookingPricing {
   const depositAmount = Math.round((slotInfo.price * slotInfo.depositPercentage) / 100);

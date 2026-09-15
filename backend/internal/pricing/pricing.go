@@ -3,6 +3,11 @@
 package pricing
 
 // feeRatePercent is the share of the deposit taken as a service fee.
+//
+// This is the source of truth: it is what a client is actually charged. The
+// same number is restated in the frontend fallback, in the owner-facing copy
+// and on the landing, none of which can import it.
+// Changing it alone fails CI: .github/scripts/check-service-fee.mjs compares this against the other three copies.
 const feeRatePercent = 7
 
 // feeMinCentavos is the floor for the service fee: 1000 ARS, in centavos.
