@@ -54,6 +54,18 @@ Railway's patterns are gitignore-style and resolve from the repository root even
 root directory is `backend` — its documentation spells that out for a service rooted at `/app`, whose
 pattern is still `/app/**`.
 
+Vercel also builds **only `main`**: `git.deploymentEnabled` in each `vercel.json` maps `main` to
+`true` and `**` to `false`. Two things about those patterns. They are minimatch, and `*` does not
+cross a `/` — with `*` every `fix/…`, `ci/…` and Dependabot branch would have kept deploying, so it
+has to be `**`. And overlapping rules deploy when at least one matching rule is `true`, which is why
+`main` keeps its own explicit entry: if `**` ever behaved differently than expected the cost is extra
+branch builds, never a `main` that silently stops shipping.
+
+The cost is real and worth stating: **there are no preview deployments any more.** A pull request can
+no longer be opened on a URL and clicked through before merge, so anything that only shows up in a
+real deployment — a rewrite, a header, a CSP, a crawler path — is now verified on production after
+the merge, or not at all.
+
 Two caveats worth knowing before trusting a green PR:
 
 - Vercel's checks are not among the required contexts on `main`, so a merge succeeds while production
