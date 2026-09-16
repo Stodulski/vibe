@@ -39,6 +39,16 @@ export const CARGO_SERVICIO_TEXTO = `${Number((CARGO_SERVICIO * 100).toFixed(2))
 /** 1218 -> "$1.218". */
 export const pesos = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`;
 
+/**
+ * 50 -> "50 USD". 1.25 -> "1,25 USD".
+ *
+ * Sin redondear a entero: a diferencia de `pesos`, esto formatea precios de
+ * competencia (competencia.ts) que ya vienen en dólares, incluidos cocientes
+ * como "por reserva" que dan centavos. Redondear ahí perdería la diferencia
+ * entre volúmenes que es justo lo que esas cuentas quieren mostrar.
+ */
+export const dolares = (n: number) => `${Number(n.toFixed(2)).toLocaleString('es-AR')} USD`;
+
 /** Lo que se le suma al cliente por una seña dada, con el mínimo aplicado. */
 export const cargoDeServicio = (sena: number) =>
   Math.max(CARGO_MINIMO, Math.round(sena * CARGO_SERVICIO));

@@ -23,12 +23,12 @@ import {
   tasaDe, fechaEnTexto, BRECHA_INMEDIATA, IVA, RECARGO_TARJETA_EXTRANJERA,
   RANGO_NACIONAL,
 } from './mercadopago-costos.ts';
-import { ejemplo, pesos } from './precio.ts';
+import { ejemplo, pesos, dolares } from './precio.ts';
 import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
 import { ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO } from './competencia.ts';
 import {
   filasDeCostoPorReserva, columnasDeCostoPorReserva, cargoPorReserva,
-  porReservaConAbono, POR_RESERVA_POCAS, POR_RESERVA_MUCHAS, VECES, VOLUMENES,
+  POR_RESERVA_POCAS, POR_RESERVA_MUCHAS, VECES, VOLUMENES,
 } from './costo-por-reserva.ts';
 import { CARGO_MINIMO, CARGO_SERVICIO_TEXTO, SENA_DE_EJEMPLO } from './precio.ts';
 
@@ -215,17 +215,17 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     title: 'Cuánto cuesta un sistema de reservas para canchas',
     seoTitle: 'Cuánto cuesta un sistema de reservas de canchas | Precios reales',
     metaDescription:
-      `Abono fijo desde ${pesos(ATC_PLANES[0].mensual)} por mes, o un cargo por reserva: comparamos `
+      `Abono fijo desde ${dolares(ATC_PLANES[0].mensual)} por mes, o un cargo por reserva: comparamos `
       + 'ambos modelos con números reales para saber cuál conviene.',
     excerpt:
       'El precio de lista no dice nada sin el volumen. La misma cuota sale '
-      + `${pesos(POR_RESERVA_POCAS)} o ${pesos(POR_RESERVA_MUCHAS)} por reserva según cuántas hagas.`,
+      + `${dolares(POR_RESERVA_POCAS)} o ${dolares(POR_RESERVA_MUCHAS)} por reserva según cuántas hagas.`,
     respuesta:
-      `En Argentina hay dos modelos. Un abono mensual fijo, que arranca en ${pesos(ATC_PLANES[0].mensual)} `
-      + `y llega a ${pesos(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, y se paga haya reservas o no. `
+      `En Argentina hay dos modelos. Un abono mensual fijo, que arranca en ${dolares(ATC_PLANES[0].mensual)} `
+      + `y llega a ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, y se paga haya reservas o no. `
       + `O un cargo por reserva, que no cobra nada fijo. Cuál conviene depende de una sola cosa: cuántos `
-      + `turnos hacés por mes. El mismo abono de ${pesos(ATC_PLANES[0].mensual)} sale ${pesos(POR_RESERVA_POCAS)} `
-      + `por reserva si hacés ${VOLUMENES[0]} al mes, y ${pesos(POR_RESERVA_MUCHAS)} si hacés ${VOLUMENES.at(-1)}.`,
+      + `turnos hacés por mes. El mismo abono de ${dolares(ATC_PLANES[0].mensual)} sale ${dolares(POR_RESERVA_POCAS)} `
+      + `por reserva si hacés ${VOLUMENES[0]} al mes, y ${dolares(POR_RESERVA_MUCHAS)} si hacés ${VOLUMENES.at(-1)}.`,
     datePublished: '2026-08-24',
     fuente: { nombre: 'ATC Sports, precios y planes', url: ATC_FUENTE, nofollow: true },
     bloques: [
@@ -236,7 +236,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'La cuota dividida por la cantidad de turnos del mes. Es la cuenta que no aparece en '
           + 'ninguna página de precios, y es la única que te dice si te conviene.',
         nota:
-          `Precios de lista de ATC Sports, pagando mes a mes, verificados el ${ATC_VERIFICADO}. `
+          `Precios de lista de ATC Sports en dólares —así los publican fuera de Argentina, y es el precio `
+          + `que no se mueve solo con el tipo de cambio—, pagando mes a mes, verificados el ${ATC_VERIFICADO}. `
           + 'Los publican ellos y los pueden cambiar cuando quieran.',
         columnas: columnasDeCostoPorReserva,
         filas: filasDeCostoPorReserva,
@@ -259,22 +260,32 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'El otro modelo, y quién paga qué',
         parrafos: [
-          `Vibe no cobra abono: el complejo paga $0 fijo. Lo que hay es un cargo de servicio del `
-          + `${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)}, que se le suma al cliente que reserva. Sobre una seña de `
-          + `${pesos(SENA_DE_EJEMPLO)} son ${pesos(cargoPorReserva())}, y los paga él, no el complejo.`,
-          'Para comparar los dos modelos sin marearse hay que separar los bolsillos, porque no es el mismo el '
-          + 'que paga cada cosa.',
-          `Del lado del complejo: con los dos modelos se paga la comisión de MercadoPago (mirá `
+          `Vibe no cobra abono: el complejo no le paga nada fijo a Vibe, haya reservas o no. Lo que hay es un `
+          + `cargo de servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)}, `
+          + `que se le suma al cliente que reserva. Sobre una seña de ${pesos(SENA_DE_EJEMPLO)} son `
+          + `${pesos(cargoPorReserva())}, y los paga él, no el complejo.`,
+          'Los dos modelos ni siquiera están en la misma moneda: ATC publica en dólares y el cargo de servicio '
+          + 'de Vibe se cobra en pesos. Convertir uno al otro metería un tipo de cambio en el medio, y un tipo '
+          + 'de cambio es un número más que se desactualiza solo, que es justo lo que esta página evita en todo '
+          + 'lo demás. Así que lo que sigue compara cómo se reparte el costo entre complejo y cliente en cada '
+          + 'modelo, no resta un número contra el otro.',
+          'Del lado del complejo: con los dos modelos se paga la comisión de MercadoPago (mirá '
           + '<a href="/guias/cuanto-cobra-mercadopago-por-una-sena">cuánto cobra MercadoPago por una seña</a> '
-          + `según tu provincia), y en los dos casos es `
-          + `sobre la seña, no sobre el precio total de la cancha. Esa parte se cancela. Lo que queda de `
-          + `diferencia es exactamente el abono: a ${VOLUMENES[2]} reservas por mes, `
-          + `${pesos(porReservaConAbono(ATC_PLANES[0].mensual, VOLUMENES[2]))} por reserva de más con el plan más barato.`,
+          + 'según tu provincia), y en los dos casos es sobre la seña, no sobre el precio total de la cancha. '
+          + 'Esa parte se cancela. Lo que queda de diferencia es el abono en sí: con ATC es una cuota fija en '
+          + 'dólares que se paga haya reservas o no; con Vibe es cero, siempre.',
           `Del lado del cliente es al revés: con un abono paga el precio de la cancha y nada más, y con un cargo `
           + `por reserva paga el precio más ${pesos(cargoPorReserva())}. Ahí el abono le sale más barato a él.`,
+          'Y la salvedad, que hay que decirla porque esta página no está para que gane Vibe: una cuota fija '
+          + 'dividida por reservas —como el abono de ATC en la tabla de arriba— se abarata sola con el volumen, '
+          + 'tendiendo a cero. Un cargo por reserva, en cambio, no baja nunca, porque es un porcentaje fijo de '
+          + 'la seña. A partir de cierto volumen, cualquier cuota fija termina saliendo más barata por turno que '
+          + 'cualquier cargo por reserva, sea cual sea la empresa y sea cual sea la moneda: es aritmética, no '
+          + 'una opinión.',
           'Resumido sin vueltas: el modelo de cargo por reserva le saca el costo fijo al complejo y se lo pasa a '
-          + 'quien reserva. Si estás del lado del mostrador te conviene siempre; si estás del otro, depende de '
-          + 'cuánto valga para vos reservar y pagar desde el celular en vez de por teléfono.',
+          + 'quien reserva. Eso conviene siempre del lado del mostrador —pagar cero es menos que pagar cualquier '
+          + 'abono, a cualquier volumen—. Del lado del cliente depende de cuánto valga para él reservar y pagar '
+          + 'desde el celular en vez de por teléfono.',
         ],
       },
       {
@@ -295,8 +306,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿Conviene pagar el año por adelantado?',
         answer:
-          `Sale más barato por mes, sí: en ATC el Plan Base pasa de ${pesos(ATC_PLANES[0].mensual)} a `
-          + `${pesos(ATC_PLANES[0].anual)} pagando los doce juntos. Lo que estás comprando con ese descuento es `
+          `Sale más barato por mes, sí: en ATC el Plan Base pasa de ${dolares(ATC_PLANES[0].mensual)} a `
+          + `${dolares(ATC_PLANES[0].anual)} pagando los doce juntos. Lo que estás comprando con ese descuento es `
           + 'quedarte un año, así que la pregunta real no es el precio sino qué pasa si a los tres meses te das '
           + 'cuenta de que no era para vos.',
       },

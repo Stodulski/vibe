@@ -14,7 +14,7 @@
  * fuente y fecha) y nuestro propio cargo (precio.ts). Ninguno se escribe acá.
  */
 import { ATC_PLANES } from './competencia.ts';
-import { CARGO_SERVICIO, CARGO_MINIMO, SENA_DE_EJEMPLO, pesos } from './precio.ts';
+import { CARGO_SERVICIO, CARGO_MINIMO, SENA_DE_EJEMPLO, dolares } from './precio.ts';
 
 /** Los volúmenes de la tabla. Un complejo chico y uno grande, y el medio. */
 export const VOLUMENES = [50, 100, 200, 400, 800];
@@ -29,7 +29,7 @@ export const cargoPorReserva = (sena: number = SENA_DE_EJEMPLO) =>
 /** La tabla: una fila por volumen, una columna por plan. */
 export const filasDeCostoPorReserva = VOLUMENES.map(n => [
   `${n} reservas`,
-  ...ATC_PLANES.map(p => pesos(porReservaConAbono(p.mensual, n))),
+  ...ATC_PLANES.map(p => dolares(porReservaConAbono(p.mensual, n))),
 ]);
 
 export const columnasDeCostoPorReserva = [
