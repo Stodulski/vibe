@@ -89,6 +89,17 @@ export type Guia = {
    * buscando una respuesta nunca ve el producto funcionando.
    */
   tutorial?: { slug: string; texto: string };
+  /**
+   * Marca las guías que comparan Vibe con un competidor concreto.
+   *
+   * La página las usa para enlazarlas entre sí sin que nadie mantenga la lista:
+   * quien está evaluando una alternativa casi siempre está mirando dos o tres a
+   * la vez, y hasta ahora tenía que volver al índice para pasar de una a otra.
+   * Una comparación nueva se suma sola.
+   */
+  comparacion?: boolean;
+  /** Para la guía que habla del tema y conviene que ofrezca las comparaciones. */
+  verComparaciones?: boolean;
   bloques: Bloque[];
   faq: GuiaFaq[];
 };
@@ -104,6 +115,7 @@ const filasDeCostos = COSTOS.map(g => [
 const contenido: Omit<Guia, 'dateModified'>[] = [
   {
     slug: 'vibe-o-turnito-para-un-complejo-de-canchas',
+    comparacion: true,
     tutorial: { slug: 'grilla-de-reservas', texto: 'Cómo se ve la grilla de reservas de Vibe' },
     title: 'Vibe o Turnito para un complejo de canchas',
     seoTitle: 'Vibe o Turnito para un complejo de canchas',
@@ -197,6 +209,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
   },
   {
     slug: 'vibe-o-canchafija-en-que-se-diferencian',
+    comparacion: true,
     tutorial: { slug: 'panel-de-control', texto: 'El panel de control de Vibe, por dentro' },
     title: 'Vibe o CanchaFija: en qué se diferencian',
     seoTitle: 'Vibe o CanchaFija: en qué se diferencian',
@@ -295,6 +308,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
   },
   {
     slug: 'vibe-o-atc-sports-en-que-se-diferencian',
+    comparacion: true,
     tutorial: { slug: 'grilla-de-reservas', texto: 'Cómo se ve la grilla de reservas de Vibe' },
     title: 'Vibe o ATC Sports: en qué se diferencian',
     seoTitle: 'Vibe o ATC Sports: en qué se diferencian',
@@ -520,6 +534,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
   },
   {
     slug: 'cuanto-cuesta-un-sistema-de-reservas-para-canchas',
+    verComparaciones: true,
     tutorial: { slug: 'precios-por-horario', texto: 'Cómo se cargan los precios por horario en el panel' },
     title: 'Cuánto cuesta un sistema de reservas para canchas',
     seoTitle: 'Cuánto cuesta un sistema de reservas de canchas',
@@ -828,6 +843,10 @@ export const guias: Guia[] = contenido.map(g => {
 guardarFechas();
 
 export const getGuia = (slug: string) => guias.find(g => g.slug === slug);
+
+/** Las comparaciones con competidores, menos la que se está leyendo. */
+export const comparaciones = (excepto?: string) =>
+  guias.filter(g => g.comparacion && g.slug !== excepto);
 
 /** Fecha de la guía más nueva, para el índice. */
 export const ULTIMA_ACTUALIZACION = guias

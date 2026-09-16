@@ -10,7 +10,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { guias } from '../../data/guias';
+import { guias, comparaciones } from '../../data/guias';
 import { guiaJsonLd } from '../../data/jsonld';
 
 export function getStaticPaths() {
@@ -121,6 +121,20 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
           </div>
         </section>
       </article>
+
+      {(guia.comparacion || guia.verComparaciones) && comparaciones(guia.slug).length > 0 && (
+        <aside class="guia-comparaciones">
+          <h2>{guia.comparacion ? 'Otras comparaciones' : 'Comparaciones con otras plataformas'}</h2>
+          <ul>
+            {comparaciones(guia.slug).map(otra => (
+              <li>
+                <a href={`/guias/${otra.slug}`}>{otra.title}</a>
+                <span>{otra.excerpt}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
 
       {guia.tutorial && (
         <aside class="guia-tutorial">
