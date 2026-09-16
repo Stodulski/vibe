@@ -153,6 +153,37 @@ describe('scrubEvent', () => {
     } as Parameters<typeof scrubEvent>[0]);
     expect(event.request?.url).toBe('https://api.vibe.com.ar/v1/bookings/abc123');
   });
+
+  // SEC-04: `uploadApi.uploadToR2` PUTs straight to a presigned R2 URL with
+  // its own raw `fetch()`, bypassing the shared `ky` client — its
+  // AWS SigV4 query params (the actual upload credential) reached Sentry
+  // request data intact until `isSensitiveParam` learned to redact them.
+  it('redacts every X-Amz-* param in a presigned R2 upload URL, case-insensitively', () => {
+    const event = scrubEvent({
+      request: {
+        url:
+          'https://bucket.r2.cloudflarestorage.com/logo.webp' +
+          '?X-Amz-Algorithm=AWS4-HMAC-SHA256' +
+          '&X-Amz-Credential=AKIDEXAMPLE%2F20260101%2Fauto%2Fs3%2Faws4_request' +
+          '&x-amz-date=20260101T000000Z' +
+          '&X-Amz-Expires=3600' +
+          '&X-Amz-SignedHeaders=host' +
+          '&X-Amz-Signature=deadbeefcafef00d' +
+          '&complex=club-padel',
+      },
+    } as Parameters<typeof scrubEvent>[0]);
+
+    expect(event.request?.url).toBe(
+      'https://bucket.r2.cloudflarestorage.com/logo.webp' +
+        '?X-Amz-Algorithm=%5Bredacted%5D' +
+        '&X-Amz-Credential=%5Bredacted%5D' +
+        '&x-amz-date=%5Bredacted%5D' +
+        '&X-Amz-Expires=%5Bredacted%5D' +
+        '&X-Amz-SignedHeaders=%5Bredacted%5D' +
+        '&X-Amz-Signature=%5Bredacted%5D' +
+        '&complex=club-padel',
+    );
+  });
 });
 
 describe('scrubBreadcrumb', () => {
@@ -178,5 +209,18 @@ describe('scrubBreadcrumb', () => {
   it('leaves a breadcrumb with no url and no PII untouched', () => {
     const breadcrumb = scrubBreadcrumb({ message: 'Navigation change' });
     expect(breadcrumb.message).toBe('Navigation change');
+  });
+
+  it('redacts X-Amz-Signature in a presigned R2 upload URL fetch breadcrumb, leaving other params', () => {
+    const breadcrumb = scrubBreadcrumb({
+      category: 'fetch',
+      data: {
+        url: 'https://bucket.r2.cloudflarestorage.com/logo.webp?X-Amz-Signature=deadbeefcafef00d&X-Amz-Expires=3600&complex=club-padel',
+        method: 'PUT',
+      },
+    });
+    expect(breadcrumb.data?.url).toBe(
+      'https://bucket.r2.cloudflarestorage.com/logo.webp?X-Amz-Signature=%5Bredacted%5D&X-Amz-Expires=%5Bredacted%5D&complex=club-padel',
+    );
   });
 });
