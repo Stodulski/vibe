@@ -95,7 +95,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	v := validator.New()
 	v.Check(body.Name != "", "name", "must be provided")
 	v.Check(len(body.Name) <= 100, "name", "must not be more than 100 characters")
-	v.Check(validator.PermittedValue(body.Sport, "padel", "tennis", "soccer", "basketball"), "sport", "must be one of: padel, tennis, soccer, basketball")
+	v.Check(validator.PermittedValue(body.Sport, "padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"), "sport", "must be one of: padel, tennis, soccer, basketball, volleyball, hockey, pickleball")
 	v.Check(validator.PermittedValue(body.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
 	v.Check(body.Description == nil || len(*body.Description) <= descriptionMaxLen, "description", descriptionMessage)
 	if !v.Valid() {
@@ -162,7 +162,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		v.Check(len(*body.Name) <= 100, "name", "must not be more than 100 characters")
 	}
 	if body.Sport != nil {
-		v.Check(validator.PermittedValue(*body.Sport, "padel", "tennis", "soccer", "basketball"), "sport", "must be one of: padel, tennis, soccer, basketball")
+		v.Check(validator.PermittedValue(*body.Sport, "padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"), "sport", "must be one of: padel, tennis, soccer, basketball, volleyball, hockey, pickleball")
 	}
 	if body.CourtType != nil {
 		v.Check(validator.PermittedValue(*body.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")

@@ -30,7 +30,10 @@ export function ComplexLogo({ logoUrl, name }: ComplexLogoProps) {
           className="border-bg-subtle size-20 rounded-2xl border-2 object-cover shadow-md sm:size-24"
         />
       ) : (
-        <div className="border-bg-subtle bg-primary-500/10 text-primary-500 flex size-20 items-center justify-center rounded-2xl border-2 text-2xl font-bold shadow-md sm:size-24 sm:text-3xl">
+        // Opaque on purpose: a translucent tint let the cover show through the
+        // part of the tile that overlaps it. This is the same 10% green, mixed
+        // into the surface colour instead of into transparency.
+        <div className="border-bg-subtle text-primary-500 flex size-20 items-center justify-center rounded-2xl border-2 bg-[color-mix(in_oklab,var(--color-primary-500)_10%,var(--color-bg-subtle))] text-2xl font-bold shadow-md sm:size-24 sm:text-3xl">
           {name.charAt(0).toUpperCase()}
         </div>
       )}

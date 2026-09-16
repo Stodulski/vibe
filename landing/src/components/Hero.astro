@@ -1,46 +1,41 @@
 <section class="hero" id="inicio">
  <div class="hero-inner">
+  <!-- Decorative sport emojis drifting around the centered copy. Purely
+       presentational (the hero copy already names the sports), so it is hidden
+       from assistive tech and sits behind the content.
+
+       Images, not emoji characters: each platform draws emoji with its own
+       font, so the same character looked different on iPhone, Android and
+       Windows. These are Microsoft's Fluent Emoji 3D (MIT, license beside the
+       files in /emoji), resized to 160px WebP — twice the largest rendered
+       size, so they stay sharp on 2x screens. Low fetch priority: they are
+       decoration and must not compete with the headline for first paint. -->
+  <div class="hero-orbit" aria-hidden="true">
+   <div class="hero-orbit-glow"></div>
+   <span class="orbit-item orbit-item-1"><span class="orbit-path"><img class="sport-emoji" src="/emoji/soccer-ball.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-2"><span class="orbit-path"><img class="sport-emoji" src="/emoji/basketball.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-3"><span class="orbit-path"><img class="sport-emoji" src="/emoji/tennis.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-4"><span class="orbit-path"><img class="sport-emoji" src="/emoji/volleyball.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-5"><span class="orbit-path"><img class="sport-emoji" src="/emoji/field-hockey.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-6"><span class="orbit-path"><img class="sport-emoji" src="/emoji/rugby-football.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-7"><span class="orbit-path"><img class="sport-emoji" src="/emoji/trophy.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-8"><span class="orbit-path"><img class="sport-emoji" src="/emoji/goal-net.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-9"><span class="orbit-path"><img class="sport-emoji" src="/emoji/running-shoe.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+  </div>
   <div class="hero-content">
-   <div class="section-label anim anim-d1">Reservas online para tu complejo deportivo</div>
-   <h1 class="anim anim-d2">Tus clientes reservan y pagan solos.<br><em>Vos cobrás sin mover un dedo.</em></h1>
-   <p class="hero-subtitle anim anim-d3">Cancha, horario, seña con MercadoPago, todo desde el celular de tu cliente. Vos recibís la plata, gestionás desde el panel. Sin WhatsApp, sin Excel, sin llamadas.</p>
+   <div class="section-label anim anim-d1">Reservas online y cobro de señas</div>
+   <h1 class="anim anim-d2">Digitalización de<br><em>complejos deportivos</em></h1>
+   <p class="hero-subtitle anim anim-d3">Tu cliente elige cancha y horario, y paga la seña con MercadoPago. La plata entra directo a tu cuenta, sin costo fijo para el complejo.</p>
    <div class="hero-ctas anim anim-d4">
     <a class="btn-primary" href="https://app.vibe.com.ar/register" rel="noopener">Crear mi cuenta<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
     <a class="hero-link-secondary" href="#como-funciona">Ver cómo funciona</a>
    </div>
    <div class="hero-proof anim anim-d5">
-    <span class="hero-proof-text">Diseñado para complejos de pádel, tenis, fútbol y básquet en <strong>Argentina</strong></span>
+    <span class="hero-proof-text">Para complejos de pádel, fútbol, tenis y otros deportes en <strong>Argentina</strong></span>
    </div>
    <div class="integration-bar anim anim-d5">
     <div class="integration-label">Cobros procesados por</div>
     <div class="mp-logo"><img src="/mercado-pago-logo.svg" alt="MercadoPago" width="160" height="36" loading="lazy"></div>
-   </div>
-  </div>
-  <div class="hero-visual anim anim-d5">
-   <div class="hero-visual-glow" aria-hidden="true"></div>
-   <div class="phone-frame">
-    <div class="phone-notch" aria-hidden="true"></div>
-    <div class="phone-screen">
-     <!-- muted + playsinline are what make phones allow autoplay at all, and
-          `muted` is repeated as a property because Safari reads the attribute too
-          late on a hydrated element. MP4 goes first: H.264 is the one codec every
-          phone decodes in hardware, and it's the smaller file here anyway. -->
-     <video
-      class="phone-video"
-      autoplay
-      loop
-      muted
-      playsinline
-      webkit-playsinline
-      disablepictureinpicture
-      preload="auto"
-      poster="/video/hero-reserva-poster.jpg"
-      aria-label="Un cliente reserva una cancha desde el celular: elige el horario, deja sus datos y paga la seña"
-     >
-      <source src="/video/hero-reserva.mp4" type="video/mp4" />
-      <source src="/video/hero-reserva.webm" type="video/webm" />
-     </video>
-    </div>
    </div>
   </div>
  </div>

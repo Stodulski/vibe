@@ -4,7 +4,15 @@ import type { Sport, CourtType } from '@/shared/types/api.types';
 // Tied to the shared `Sport`/`CourtType` unions with `satisfies` rather than
 // re-declared blind: if either shared union ever changes, this array stops
 // compiling instead of silently drifting out of sync.
-const SPORTS = ['padel', 'tennis', 'soccer', 'basketball'] as const satisfies readonly Sport[];
+const SPORTS = [
+  'padel',
+  'tennis',
+  'soccer',
+  'basketball',
+  'volleyball',
+  'hockey',
+  'pickleball',
+] as const satisfies readonly Sport[];
 const COURT_TYPES = ['indoor', 'outdoor', 'semi_covered'] as const satisfies readonly CourtType[];
 
 /**

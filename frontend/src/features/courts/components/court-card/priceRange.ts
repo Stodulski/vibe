@@ -23,6 +23,23 @@ export function getPriceRange(prices: CourtPrice[]): PriceRange {
   };
 }
 
+export interface OverallPriceRange {
+  min: number | null;
+  max: number | null;
+  hasPrices: boolean;
+}
+
+/**
+ * One range across every band, regardless of day — what the `xl` table's
+ * single "Precio" column shows instead of the card's separate weekday/weekend
+ * lines. A dense row has room for one figure, not four.
+ */
+export function getOverallPriceRange(prices: CourtPrice[]): OverallPriceRange {
+  if (prices.length === 0) return { min: null, max: null, hasPrices: false };
+  const values = prices.map((p) => p.price);
+  return { min: Math.min(...values), max: Math.max(...values), hasPrices: true };
+}
+
 export function formatPriceLabel(
   min: number | null,
   max: number | null,

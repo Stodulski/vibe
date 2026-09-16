@@ -1,6 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
-import { useUpdateCourt } from '../hooks/useUpdateCourt';
-import { useDeleteCourt } from '../hooks/useDeleteCourt';
+import { useMemo } from 'react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -8,6 +6,7 @@ import { CardHeader } from './court-card/CardHeader';
 import { PriceSummary } from './court-card/PriceSummary';
 import { CardActions } from './court-card/CardActions';
 import { getPriceRange } from './court-card/priceRange';
+import { useCourtRowActions } from './court-card/useCourtRowActions';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -20,26 +19,9 @@ interface CourtCardProps {
 }
 
 export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps) {
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const updateCourt = useUpdateCourt(complexId);
-  const deleteCourt = useDeleteCourt(complexId);
-
   const priceRange = useMemo(() => getPriceRange(court.prices), [court.prices]);
-
-  const handleToggleActive = useCallback(() => {
-    updateCourt.mutate({
-      courtId: court.id,
-      data: { is_active: !court.is_active },
-    });
-  }, [updateCourt, court.id, court.is_active]);
-
-  const handleDelete = useCallback(() => {
-    deleteCourt.mutate(court.id, {
-      onSuccess: () => {
-        setDeleteOpen(false);
-      },
-    });
-  }, [deleteCourt, court.id]);
+  const { deleteOpen, setDeleteOpen, handleToggleActive, isTogglePending, handleDelete, isDeleting } =
+    useCourtRowActions(court, complexId);
 
   return (
     <>
@@ -54,7 +36,7 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
         )}
       >
         <div className="flex-1 p-4 sm:p-5">
-          <CardHeader court={court} onToggleActive={handleToggleActive} isTogglePending={updateCourt.isPending} />
+          <CardHeader court={court} onToggleActive={handleToggleActive} isTogglePending={isTogglePending} />
           <div className="mt-4">
             <PriceSummary {...priceRange} />
           </div>
@@ -84,7 +66,7 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
         description={t.courts.deleteConfirm}
         confirmLabel={t.common.delete}
         variant="destructive"
-        isLoading={deleteCourt.isPending}
+        isLoading={isDeleting}
       />
     </>
   );

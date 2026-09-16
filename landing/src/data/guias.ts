@@ -21,6 +21,7 @@
 import {
   COSTOS, PLAZOS, VIGENTE_DESDE, FUENTE, MINIMO, MAXIMO, porcentaje,
   tasaDe, fechaEnTexto, BRECHA_INMEDIATA, IVA, RECARGO_TARJETA_EXTRANJERA,
+  RANGO_NACIONAL,
 } from './mercadopago-costos.ts';
 import { ejemplo, pesos } from './precio.ts';
 import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
@@ -29,7 +30,7 @@ import {
   filasDeCostoPorReserva, columnasDeCostoPorReserva, cargoPorReserva,
   porReservaConAbono, POR_RESERVA_POCAS, POR_RESERVA_MUCHAS, VECES, VOLUMENES,
 } from './costo-por-reserva.ts';
-import { CARGO_SERVICIO_TEXTO, SENA_DE_EJEMPLO } from './precio.ts';
+import { CARGO_MINIMO, CARGO_SERVICIO_TEXTO, SENA_DE_EJEMPLO } from './precio.ts';
 
 /* Los extremos de la banda, buscados por provincia en vez de tipeados. */
 const BA_INMEDIATA = tasaDe('Buenos Aires', 'Al instante');
@@ -68,7 +69,7 @@ export type Guia = {
      agravante de que ademas viaja en el JSON-LD, donde la frescura se mira. */
   dateModified: string;
   /** De dónde salen los datos, si la guía afirma números que no son propios. */
-  fuente?: { nombre: string; url: string };
+  fuente?: { nombre: string; url: string; nofollow?: boolean };
   bloques: Bloque[];
   faq: GuiaFaq[];
 };
@@ -85,13 +86,13 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
   {
     slug: 'cuanto-cobra-mercadopago-por-una-sena',
     title: 'Cuánto cobra MercadoPago por cobrar una seña',
-    seoTitle: 'Cuánto cobra MercadoPago por una seña | Tabla por provincia',
+    seoTitle: 'Cuánto cobra MercadoPago por una seña | Con fuente oficial',
     /* Medida en pixeles, no en caracteres: 772px sobre un limite de 920. El margen
        importa porque el texto se arma desde el dataset, asi que si MercadoPago
        mueve una tasa cambia el largo. */
     metaDescription:
-      `MercadoPago cobra de ${porcentaje(MINIMO)} a ${porcentaje(MAXIMO)} más IVA por una seña. `
-      + 'La tabla completa por provincia y plazo, con su fuente oficial.',
+      `MercadoPago cobra de ${porcentaje(MINIMO)} a ${porcentaje(MAXIMO)} más IVA por una seña, según tu provincia. `
+      + 'Tabla completa y actualizada, con fuente oficial.',
     excerpt:
       'El costo cambia según la provincia y según cuántos días esperes la plata. '
       + 'Los nueve grupos de tarifas, y lo que la tabla oficial no te dice.',
@@ -140,7 +141,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           + 'inscripto, ese IVA es crédito fiscal y lo recuperás. Si sos monotributista, no lo recuperás y es '
           + 'costo real: la comisión te termina saliendo alrededor de un quinto más de lo que dice la tabla.',
           'Es la parte que casi ninguna comparación de plataformas incluye, y es la que explica por qué el '
-          + 'número que te cierra en la cuenta nunca coincide con el porcentaje que leíste.',
+          + 'número que te cierra en la cuenta nunca coincide con el porcentaje que leíste. Si además estás '
+          + 'evaluando qué plataforma usar, conviene mirar '
+          + '<a href="/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas">cuánto cuesta un sistema de reservas para canchas</a> '
+          + 'con números reales.',
         ],
       },
       {
@@ -194,10 +198,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
   {
     slug: 'cuanto-cuesta-un-sistema-de-reservas-para-canchas',
     title: 'Cuánto cuesta un sistema de reservas para canchas',
-    seoTitle: 'Cuánto cuesta un sistema de reservas de canchas | Argentina',
+    seoTitle: 'Cuánto cuesta un sistema de reservas de canchas | Precios reales',
     metaDescription:
-      `Abono fijo desde ${pesos(ATC_PLANES[0].mensual)} por mes, o un cargo por reserva. `
-      + 'Cuál conviene según cuántos turnos hacés, con la cuenta hecha.',
+      `Abono fijo desde ${pesos(ATC_PLANES[0].mensual)} por mes, o un cargo por reserva: comparamos `
+      + 'ambos modelos con números reales para saber cuál conviene.',
     excerpt:
       'El precio de lista no dice nada sin el volumen. La misma cuota sale '
       + `${pesos(POR_RESERVA_POCAS)} o ${pesos(POR_RESERVA_MUCHAS)} por reserva según cuántas hagas.`,
@@ -208,7 +212,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       + `turnos hacés por mes. El mismo abono de ${pesos(ATC_PLANES[0].mensual)} sale ${pesos(POR_RESERVA_POCAS)} `
       + `por reserva si hacés ${VOLUMENES[0]} al mes, y ${pesos(POR_RESERVA_MUCHAS)} si hacés ${VOLUMENES.at(-1)}.`,
     datePublished: '2026-08-24',
-    fuente: { nombre: 'ATC Sports, precios y planes', url: ATC_FUENTE },
+    fuente: { nombre: 'ATC Sports, precios y planes', url: ATC_FUENTE, nofollow: true },
     bloques: [
       {
         tipo: 'tabla',
@@ -229,7 +233,9 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           `Entre el volumen más bajo y el más alto de esa tabla hay ${VECES} veces de diferencia por reserva, `
           + 'con exactamente la misma cuota. El abono no sabe si tuviste un mes bueno o uno malo: se paga igual.',
           'Eso pega más fuerte de lo que parece, porque los meses malos son justo cuando menos margen tenés. '
-          + 'Un enero flojo o dos semanas de lluvia no bajan la cuota.',
+          + 'Un enero flojo o dos semanas de lluvia no bajan la cuota, y del lado de los ingresos lo único que '
+          + 'mueve la aguja es '
+          + '<a href="/guias/como-llenar-los-horarios-vacios-de-un-complejo">llenar los horarios que quedan vacíos</a>.',
           'La contracara, que es real y conviene decirla: el abono es previsible. Sabés exactamente cuánto vas '
           + 'a pagar el mes que viene, y para presupuestar eso vale. Un cargo por reserva sube cuando te va bien.',
         ],
@@ -239,11 +245,13 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         heading: 'El otro modelo, y quién paga qué',
         parrafos: [
           `Vibe no cobra abono: el complejo paga $0 fijo. Lo que hay es un cargo de servicio del `
-          + `${CARGO_SERVICIO_TEXTO} sobre la seña, que se le suma al cliente que reserva. Sobre una seña de `
+          + `${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)}, que se le suma al cliente que reserva. Sobre una seña de `
           + `${pesos(SENA_DE_EJEMPLO)} son ${pesos(cargoPorReserva())}, y los paga él, no el complejo.`,
           'Para comparar los dos modelos sin marearse hay que separar los bolsillos, porque no es el mismo el '
           + 'que paga cada cosa.',
-          `Del lado del complejo: con los dos modelos se paga la comisión de MercadoPago, y en los dos casos es `
+          `Del lado del complejo: con los dos modelos se paga la comisión de MercadoPago (mirá `
+          + '<a href="/guias/cuanto-cobra-mercadopago-por-una-sena">cuánto cobra MercadoPago por una seña</a> '
+          + `según tu provincia), y en los dos casos es `
           + `sobre la seña, no sobre el precio total de la cancha. Esa parte se cancela. Lo que queda de `
           + `diferencia es exactamente el abono: a ${VOLUMENES[2]} reservas por mes, `
           + `${pesos(porReservaConAbono(ATC_PLANES[0].mensual, VOLUMENES[2]))} por reserva de más con el plan más barato.`,
@@ -297,6 +305,178 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'Hay planes gratuitos con límites de canchas o de reservas, y pruebas por tiempo limitado. Antes de '
           + 'contarlos como gratis conviene mirar dos cosas: qué pasa cuando pasás el límite, y si el cobro de '
           + 'señas online está incluido o es un extra, porque suele ser lo primero que queda afuera.',
+      },
+    ],
+  },
+  {
+    slug: 'como-llenar-los-horarios-vacios-de-un-complejo',
+    title: 'Cómo llenar los horarios vacíos de un complejo',
+    seoTitle: 'Cómo llenar los horarios vacíos de tu complejo deportivo',
+    /* Esta guía es el género donde se inventan estadísticas ("+30% de ocupación
+       en 60 días"). No hay ninguna: Vibe no abrió y no tiene datos propios que
+       mostrar, así que lo único que se afirma es el mecanismo. Los porcentajes
+       que sí aparecen son los del cargo y los de MercadoPago, y salen de las
+       constantes, no del teclado. */
+    metaDescription:
+      'Las horas muertas se llenan con diagnóstico, reserva sin teléfono y seña, no con promociones. '
+      + 'Cinco pasos concretos, sin estadísticas inventadas.',
+    excerpt:
+      'La ocupación promedio es el número que menos te sirve. Qué mirar, en qué orden, '
+      + 'y qué hacer hoy con cada franja que quedó vacía.',
+    respuesta:
+      'No se llenan con una promoción: se llenan sacando de encima, una por una, las cosas que impiden que '
+      + 'entre una reserva. Primero mirás una semana de datos reales para saber qué horas están vacías de '
+      + 'verdad y en qué cancha. Después hacés que se pueda reservar sin hablar con nadie, a la hora que sea. '
+      + 'Después pedís seña, que es lo que convierte un "te aviso" en un turno. Después ponés ese link donde '
+      + 'la gente ya te busca. Y por último volvés sobre los clientes que ya vinieron, que son los más baratos '
+      + 'de traer. Ninguno de los cinco pasos necesita Vibe: necesitan estar hechos.',
+    datePublished: '2026-09-15',
+    bloques: [
+      {
+        tipo: 'parrafos',
+        heading: 'Primero: cuáles son las horas muertas de verdad',
+        parrafos: [
+          '"A la mañana está vacío" es una impresión, no un dato, y casi siempre es media verdad: lo que está '
+          + 'vacío es el martes a las diez, no la mañana. La diferencia no es un detalle. Una promoción para '
+          + 'toda la mañana regala descuento en los turnos que se vendían igual, y deja el martes como estaba.',
+          'Lo que hace falta es una semana entera, anotada hora por hora y cancha por cancha. Sirve un cuaderno. '
+          + 'Lo que no sirve es el recuerdo, porque el recuerdo guarda los sábados llenos y no guarda los martes.',
+          'Después hay que separar dos cosas que se mezclan siempre: los días de semana y el fin de semana. Un '
+          + 'complejo puede tener el sábado casi lleno y el miércoles casi vacío, y dar un promedio decente que '
+          + 'no describe ninguno de los dos. La ocupación promedio es el número que menos te sirve de todos.',
+          'Si usás Vibe, el panel ya arma parte de eso: el mapa de calor cruza hora del día contra día de la '
+          + 'semana y marca el pico, el calendario de reservas muestra el día cancha por cancha, y el reporte '
+          + 'mensual abre las reservas y la plata por cancha. Nada de eso te dice qué hacer; te dice dónde mirar.',
+          'Qué hacer hoy: anotá una semana completa, hora por hora y cancha por cancha, y marcá las franjas que '
+          + 'quedaron vacías. Esas franjas son el problema, no "la mañana".',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Que se pueda reservar sin que nadie atienda',
+        parrafos: [
+          'Una parte de los turnos vacíos no está vacía porque nadie los quiera: está vacía porque cuando '
+          + 'alguien quiso reservarlos no había con quién hablar. El mensaje entra a las once de la noche, se '
+          + 'contesta a las nueve de la mañana, y a las nueve de la mañana esa persona ya jugó en otro lado.',
+          'Qué proporción de reservas se pierde así no lo sabemos y no lo vamos a inventar: depende de tu '
+          + 'complejo y de tu horario de atención. Lo que sí es medible, y en tu propio teléfono, es cuántos '
+          + 'mensajes de reserva te entraron fuera del horario en el que contestás.',
+          'El mecanismo no tiene vuelta. Si hay una página donde se ve la grilla libre y se reserva sin esperar '
+          + 'respuesta, la reserva entra a la hora que entra y el turno deja de depender de que vos estés '
+          + 'despierto. El trabajo real no es el software: es que la grilla esté cargada de verdad, con los '
+          + 'horarios y los precios al día. Una página que muestra libre un horario que no lo está hace más '
+          + 'daño que no tener página.',
+          'Qué hacer hoy: contá en tu WhatsApp los mensajes de reserva que entraron fuera de tu horario de '
+          + 'atención esta semana. Ese número es tuyo, es real, y es el tamaño de lo que estás perdiendo.',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'La seña es lo que separa un turno de un "te aviso"',
+        parrafos: [
+          'Reservar sin pagar nada no cuesta nada, y lo que no cuesta nada se cancela sin avisar. El que puso '
+          + 'plata se presenta. Esa es toda la función de la seña: no es financiamiento, es un filtro.',
+          'Y filtra en los dos sentidos. Al que iba a ir no lo espanta, porque ya pensaba pagar. Al que estaba '
+          + 'tanteando lo saca de la grilla ahora, que es cuando todavía podés vender ese turno, en vez de a '
+          + 'las ocho de la noche, cuando ya no se lo vendés a nadie.',
+          `En Vibe el complejo no paga abono. Al cliente que reserva se le suma un cargo de servicio del `
+          + `${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)}: sobre una seña de `
+          + `${pesos(SENA_DE_EJEMPLO)} son ${pesos(cargoPorReserva())}, y los paga él, no vos. Se ve antes de `
+          + `pagar, no después. Si la reserva se cancela dentro de la ventana de cancelación que configuró el `
+          + `complejo, la seña se reembolsa automáticamente por MercadoPago y el cargo de servicio se devuelve `
+          + `junto con ella.`,
+          `Aparte está la comisión de MercadoPago, que esa sí la paga el complejo: se descuenta de la seña antes `
+          + `de que el dinero llegue a tu cuenta, y va ${RANGO_NACIONAL} más IVA según tu provincia y el plazo `
+          + `de acreditación que elijas. La tabla completa está en `
+          + '<a href="/guias/cuanto-cobra-mercadopago-por-una-sena">cuánto cobra MercadoPago por una seña</a>.',
+          'Qué hacer hoy: definí un porcentaje de seña y una ventana de cancelación, y escribilos en el mismo '
+          + 'lugar donde la gente reserva. Una regla escrita se discute mucho menos que una regla que hay que '
+          + 'explicar por teléfono cada vez.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Dónde te tienen que encontrar',
+        intro:
+          'El que busca cancha un viernes a la tarde no entra a tu web: busca en Google, mira Instagram o '
+          + 'manda un WhatsApp. En esos tres lugares tiene que estar el mismo link, y tiene que llevar a la '
+          + 'grilla donde se reserva, no a una portada.',
+        items: [
+          'La ficha de Google de tu complejo. Es lo que aparece cuando alguien busca canchas más el nombre del '
+          + 'barrio, y suele estar cargada a medias: sin horarios, sin fotos y con el teléfono como único '
+          + 'contacto. El campo del sitio web tiene que apuntar a donde se reserva.',
+          'La bio de Instagram. Un link, el de reservar. Si hay cinco, el que importa se pierde; y si el único '
+          + 'llamado a la acción es "mandanos un DM", volviste a depender de que alguien conteste.',
+          'El WhatsApp del complejo. El mensaje automático de bienvenida es el lugar más barato que existe para '
+          + 'poner el link: contesta solo, a cualquier hora, y le contesta a alguien que ya te está escribiendo.',
+          'El mismo link en los tres. Si Google, Instagram y WhatsApp llevan a tres lugares distintos, vos no '
+          + 'sabés cuál funciona y el que reserva no sabe cuál es el oficial.',
+          'Qué hacer hoy: abrí los tres y fijate si llevan al mismo lado. El que no tenga link es, hoy, el que '
+          + 'te está mandando la gente al teléfono.',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Los que ya vinieron son los más baratos de traer',
+        parrafos: [
+          'Conseguir un cliente nuevo cuesta plata o cuesta tiempo. Volver a traer a uno que ya jugó en tu '
+          + 'cancha, que sabe dónde queda y cuánto sale, cuesta un mensaje.',
+          'La lista ya la tenés, aunque esté repartida entre el cuaderno y el historial de WhatsApp. Lo que '
+          + 'falta es ordenarla en tres montones: el que viene todas las semanas, el que vino varias veces y '
+          + 'hace rato que no aparece, y el que reservó y no se presentó. Son tres conversaciones distintas y '
+          + 'merecen tres mensajes distintos.',
+          'Al habitué no hay que venderle nada: hay que ofrecerle el turno fijo. Al que dejó de venir se le '
+          + 'escribe una vez, sin promoción, preguntando si pasó algo, y la respuesta suele explicar algo de '
+          + 'tu complejo que no sabías. Al que no se presentó se le pide seña la próxima vez, y listo.',
+          'En Vibe la ficha de cada cliente guarda sus reservas, sus ausencias y su asistencia, y el panel '
+          + 'separa a los nuevos de los recurrentes y muestra los que más vienen. Sin Vibe, la misma '
+          + 'información está en tu cuaderno: da más trabajo sacarla, no es imposible.',
+          'Si estás evaluando con qué herramienta hacer todo esto, los dos modelos de precio que hay en '
+          + 'Argentina están abiertos con números en '
+          + '<a href="/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas">cuánto cuesta un sistema de '
+          + 'reservas para canchas</a>.',
+          'Qué hacer hoy: sacá de tu historial los clientes que venían seguido y hace rato que no aparecen, y '
+          + 'escribiles uno por uno. Sin lista de difusión: un mensaje reenviado se nota y no se contesta.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Cuánto tiempo hay que medir antes de tocar algo?',
+        answer:
+          'Una semana entera y de corrido, como mínimo, porque necesitás que entren los siete días. Si podés '
+          + 'anotar un mes, mejor: recién ahí se ve si el martes flojo es todos los martes o fue ese martes. '
+          + 'Lo que no sirve es medir tres días buenos y decidir con eso.',
+      },
+      {
+        question: '¿Pedir seña no me hace perder reservas?',
+        answer:
+          'Pierde las que se iban a caer igual, que es distinto. No tenemos datos propios para ponerle un '
+          + 'número: Vibe todavía no abrió. Lo que sí se puede decir es cuándo se entera uno de que el turno '
+          + 'se cayó: con seña, al momento de reservar; sin seña, cuando el turno ya pasó.',
+      },
+      {
+        question: '¿Esto sirve si no uso ningún sistema de reservas?',
+        answer:
+          'Sí. Los cinco pasos son de gestión, no de software: medir una semana, tener una forma de reservar '
+          + 'que no dependa de que alguien conteste, pedir seña, poner el mismo link en los tres lugares donde '
+          + 'te buscan, y volver sobre los clientes que ya vinieron. Un sistema los hace más rápido y te evita '
+          + 'transcribir; ninguno de los cinco lo inventa.',
+      },
+      {
+        question: '¿Por dónde empiezo si tengo una sola cancha?',
+        answer:
+          'Por el segundo paso. Con una cancha el diagnóstico lo tenés en la cabeza y no te vas a equivocar '
+          + 'demasiado, así que lo que más rinde es que se pueda reservar sin que atiendas: con una sola '
+          + 'cancha, cada turno que se pierde por un mensaje sin contestar es un porcentaje grande de tu día.',
+      },
+      {
+        question: '¿Cómo sé si lo que hice funcionó?',
+        answer:
+          'Comparando las mismas franjas contra la semana que anotaste antes de tocar nada, no la ocupación '
+          + 'general. Si moviste el martes a la mañana, mirá el martes a la mañana. El promedio del complejo '
+          + 'se mueve por el clima, por un feriado y por el mes del año, así que sirve para todo menos para '
+          + 'saber si tu cambio hizo algo.',
       },
     ],
   },

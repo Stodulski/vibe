@@ -259,7 +259,9 @@ function rasterImages(html) {
     .map(m => m[1].split(',')[0].trim().split(/\s+/)[0]);
   const fromImgs = [...html.matchAll(/<img[^>]*\bsrc="([^"]+)"/gi)].map(m => m[1]);
 
-  const all = [...fromSources, ...fromImgs].filter(u => /\.(png|jpe?g|webp)$/i.test(u));
+  /* /emoji/ holds the hero's decorative sport emojis: not content anyone
+     searches for, so they stay out of the image sitemap. */
+  const all = [...fromSources, ...fromImgs].filter(u => /\.(png|jpe?g|webp)$/i.test(u) && !u.startsWith('/emoji/'));
   /* Drop a PNG when the same picture is also offered as WebP. */
   const stems = new Set(all.filter(u => /\.webp$/i.test(u)).map(u => u.replace(/\.webp$/i, '')));
   return [...new Set(all.filter(u => /\.webp$/i.test(u) || !stems.has(u.replace(/\.(png|jpe?g)$/i, ''))))];

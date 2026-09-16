@@ -56,7 +56,7 @@ if (typeof document !== 'undefined') {
     sessionStorage.clear();
   });
 
-  // Polyfill ResizeObserver for components that depend on it (e.g. cmdk)
+  // Polyfill ResizeObserver for components that depend on it
   if (typeof globalThis.ResizeObserver === 'undefined') {
     globalThis.ResizeObserver = class ResizeObserver {
       observe() {
@@ -71,7 +71,7 @@ if (typeof document !== 'undefined') {
     };
   }
 
-  // Polyfill Element.scrollIntoView for the test DOM (used by cmdk)
+  // Polyfill Element.scrollIntoView for the test DOM
   if (typeof Element.prototype.scrollIntoView === 'undefined') {
     Element.prototype.scrollIntoView = function () {
       /* noop polyfill */

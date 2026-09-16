@@ -29,9 +29,6 @@ export interface Props {
   skipLink?: boolean;
   /** GA4/Contentsquare lazy loader + WhatsApp FAB. Homepage only. */
   tracking?: boolean;
-  /** Image behind the hero mockup. It is the page's LCP element, so it is
-      preloaded at high priority instead of being found once the CSS resolves. */
-  heroPoster?: string;
   robots?: string;
 }
 
@@ -58,7 +55,6 @@ const {
   blobs = 2,
   skipLink = false,
   tracking = false,
-  heroPoster,
 } = Astro.props;
 
 const blobList = Array.from({ length: blobs });
@@ -99,7 +95,6 @@ const blobList = Array.from({ length: blobs });
   <meta content={twitterImageAlt} name="twitter:image:alt"/>
   {jsonLd.map((block) => <script type="application/ld+json" is:inline set:html={block} />)}
   <link as="font" crossorigin="" href="/fonts/dm-sans-latin.woff2" rel="preload" type="font/woff2"/>
-  {heroPoster && <link as="image" fetchpriority="high" href={heroPoster} rel="preload"/>}
   <slot name="head" />
  </head>
  <body>

@@ -6,6 +6,14 @@
  * desktop one — a desktop panel shrunk to 264px is unreadable. WebP comes first
  * and the PNG stays as the fallback; the same pixels weigh about a third.
  *
+ * The mobile sources carry two widths (860w original, 430w half-size) via `srcset`
+ * so phones don't download a 2x-oversized asset. The original is listed first
+ * because build-markdown.mjs puts the first candidate in the image sitemap, and
+ * the browser ignores candidate order. `sizes` is a fixed 240px, not a
+ * vw formula: `.browser-frame` on mobile is capped at max-width:264px (border-box,
+ * 264 - 20px padding - 4px border = 240px content), so the rendered width never
+ * scales with the viewport within the mobile breakpoint.
+ *
  * width/height are always set so the browser reserves the box before the image
  * arrives and nothing below it jumps.
  */
@@ -18,10 +26,22 @@ export interface Props {
 
 const { name, alt } = Astro.props;
 const MOBILE = '(max-width: 768px)';
+const MOBILE_SIZES = '240px';
 ---
 <picture>
- <source media={MOBILE} type="image/webp" srcset={`/screenshots/mobile/${name}.webp`} width="860" height="1400" />
- <source media={MOBILE} srcset={`/screenshots/mobile/${name}.png`} width="860" height="1400" />
+ <source
+  media={MOBILE}
+  type="image/webp"
+  srcset={`/screenshots/mobile/${name}.webp 860w, /screenshots/mobile/${name}-430.webp 430w`}
+  sizes={MOBILE_SIZES}
+  width="860" height="1400"
+ />
+ <source
+  media={MOBILE}
+  srcset={`/screenshots/mobile/${name}.png 860w, /screenshots/mobile/${name}-430.png 430w`}
+  sizes={MOBILE_SIZES}
+  width="860" height="1400"
+ />
  <source type="image/webp" srcset={`/screenshots/${name}.webp`} width="1669" height="869" />
  <img src={`/screenshots/${name}.png`} width="1669" height="869" alt={alt} loading="lazy" />
 </picture>

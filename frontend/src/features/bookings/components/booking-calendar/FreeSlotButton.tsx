@@ -92,7 +92,14 @@ export function FreeSlotButton({
       <span
         aria-hidden="true"
         className={cn(
-          'group-hover:border-primary-400/60 group-hover:bg-primary-400/10 group-focus-visible:border-primary-400 group-focus-visible:bg-primary-400/15 group-data-[open]:border-primary-400 group-data-[open]:bg-primary-400/15 pointer-events-none absolute inset-x-px top-0 rounded-md border border-transparent transition-all',
+          // Scoped to the two properties that actually change here (group-hover/
+          // focus-visible/data-[open]: border-color and background-color) instead of the
+          // broad "all" variant, since this overlay renders ~170 times per day in the
+          // booking grid. Neither `.transition-input` nor `.transition-card` in globals.css
+          // matches the implied default timing (150ms, cubic-bezier(0.4,0,0.2,1)) exactly,
+          // so this spells out the properties and keeps that default rather than reusing a
+          // scoped utility with different timing.
+          'group-hover:border-primary-400/60 group-hover:bg-primary-400/10 group-focus-visible:border-primary-400 group-focus-visible:bg-primary-400/15 group-data-[open]:border-primary-400 group-data-[open]:bg-primary-400/15 pointer-events-none absolute inset-x-px top-0 rounded-md border border-transparent transition-[border-color,background-color]',
           runsPastToday && 'rounded-b-none border-b-0',
         )}
         style={{ height: `${String(highlightPx)}px` }}

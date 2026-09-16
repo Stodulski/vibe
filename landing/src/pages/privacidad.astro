@@ -36,7 +36,7 @@ import { privacidadJsonLd } from '../data/jsonld';
  />
  <main class="legal-page">
   <h1>Política de Privacidad</h1>
-  <p class="legal-date">Última actualización: <time datetime="2026-08-24">24 de agosto de 2026</time></p>
+  <p class="legal-date">Última actualización: <time datetime="2026-09-15">15 de septiembre de 2026</time></p>
   <p><strong>Vibe</strong> ("nosotros", "la plataforma") opera el sitio web <a href="https://vibe.com.ar">vibe.com.ar</a> y desarrolla la aplicación web <a href="https://app.vibe.com.ar">app.vibe.com.ar</a>. Esta política describe cómo recopilamos, usamos y protegemos la información personal de los usuarios.</p>
   <h2>1. Correos de la lista de espera</h2>
   <p>Antes del lanzamiento, quienes querían anotarse dejaban su correo en un formulario de este sitio. Guardábamos la dirección de correo, la fecha y hora del alta, y la página desde la que se envió, en una planilla de Google Sheets alojada en Google Workspace.</p>
@@ -46,7 +46,8 @@ import { privacidadJsonLd } from '../data/jsonld';
   <p><strong>Dueños de complejos deportivos:</strong></p>
   <ul>
    <li>Nombre, email y teléfono al registrarse</li>
-   <li>Datos del complejo: nombre, dirección, canchas, horarios y precios</li>
+   <li>Si se registran o inician sesión con Google: nombre, apellido y email de su cuenta de Google</li>
+   <li>Datos del complejo: nombre, dirección, canchas, horarios y precios, y el logo y la portada que suban</li>
    <li>Credenciales de MercadoPago al conectar su cuenta para cobrar señas</li>
   </ul>
   <p><strong>Clientes que reservan:</strong></p>
@@ -86,6 +87,8 @@ import { privacidadJsonLd } from '../data/jsonld';
    <li><strong>MercadoPago:</strong> para procesar pagos y reembolsos</li>
    <li><strong>Meta (WhatsApp Business API):</strong> para enviar notificaciones transaccionales</li>
    <li><strong>Brevo (email):</strong> para enviar notificaciones por correo electrónico</li>
+   <li><strong>Cloudflare R2:</strong> para almacenar el logo y la portada de cada complejo y los reportes financieros que se exportan</li>
+   <li><strong>Google (inicio de sesión):</strong> para que los dueños de complejos puedan registrarse e iniciar sesión con su cuenta de Google</li>
    <li><strong>Sentry:</strong> para monitoreo de errores y estabilidad de la plataforma (puede incluir dirección IP y contexto del error, sin datos personales identificables)</li>
    <li><strong>OpenStreetMap (Nominatim):</strong> para geocodificar la dirección del complejo y mostrarla en el mapa</li>
    <li><strong>Google (Workspace):</strong> aloja la planilla donde se guardaron los correos de la lista de espera descrita en la sección 1</li>
@@ -100,8 +103,7 @@ import { privacidadJsonLd } from '../data/jsonld';
   </ul>
   <p>Para ejercer cualquiera de estos derechos, contactanos por email a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>.</p>
   <h2>9. Cookies y analytics</h2>
-  <p>Utilizamos <strong>Google Analytics</strong> en el sitio web vibe.com.ar (landing page) para entender cómo los visitantes interactúan con el sitio. Google Analytics recopila información anónima sobre las visitas, incluyendo páginas vistas, tiempo de permanencia y origen del tráfico. No recopilamos información que identifique personalmente a los visitantes. La aplicación web (app.vibe.com.ar) no utiliza Google Analytics.</p>
-  <h2>10. Retención de datos</h2>
+  <p>Utilizamos <strong>Google Analytics</strong> en el sitio web vibe.com.ar (landing page) para entender cómo los visitantes interactúan con el sitio. Google Analytics recopila información anónima sobre las visitas, incluyendo páginas vistas, tiempo de permanencia y origen del tráfico. No recopilamos información que identifique personalmente a los visitantes. La aplicación web (app.vibe.com.ar) no utiliza Google Analytics.</p>  <h2>10. Retención de datos</h2>
   <p>Los correos de la lista de espera se conservan según lo indicado en la sección 1: hasta que se envía el aviso de lanzamiento, o hasta que pidas la baja.</p>
   <p>Los datos de reservas y clientes se conservan mientras el complejo mantenga su cuenta activa. Si un dueño de complejo elimina su cuenta, todos los datos asociados (incluyendo reservas y clientes) se eliminan de forma permanente. Los datos de pago se conservan según los plazos legales y fiscales aplicables.</p>
   <h2>11. Cambios en esta política</h2>

@@ -10,7 +10,6 @@ import { mp } from './es_AR/mp';
 import { publicBooking } from './es_AR/publicBooking';
 import { placeholders } from './es_AR/placeholders';
 import { validation } from './es_AR/validation';
-import { commandPalette } from './es_AR/commandPalette';
 import { navigation } from './es_AR/navigation';
 import { profile } from './es_AR/profile';
 import { layout } from './es_AR/layout';
@@ -30,7 +29,6 @@ export const ES_AR = {
   publicBooking,
   placeholders,
   validation,
-  commandPalette,
   navigation,
   profile,
   layout,
