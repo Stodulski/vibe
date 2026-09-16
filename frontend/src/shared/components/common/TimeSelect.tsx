@@ -14,10 +14,15 @@ function generateTimeOptions(): string[] {
 const TIME_OPTIONS = generateTimeOptions();
 
 /**
- * An opening or closing time.
+ * One end of a time range: an opening hour, a closing hour, a price band's edge.
  *
- * A native `<select>`, wearing the app's input styles. This screen tried the
- * three alternatives and each lost something the browser gives away:
+ * It lives in `shared/` rather than beside the schedule form that first needed
+ * it because the court price editor asks the same question — "which half-hour?"
+ * — and two controls for one question is how an app ends up rendering "08:00"
+ * on one tab and "8:00 AM" on the next.
+ *
+ * A native `<select>`, wearing the app's input styles. The schedule screen tried
+ * the three alternatives and each lost something the browser gives away:
  *
  * - The app's Radix Select matched visually, but fourteen of them mount on
  *   this tab — seven days, open and close — and entering it froze for about a
@@ -42,11 +47,23 @@ export function TimeSelect({
   value,
   onChange,
   disabled,
+  className,
+  compact,
   'aria-label': ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
+  /** Overrides the default width pair; see the comment on the wrapper below. */
+  className?: string;
+  /**
+   * Tighter padding, smaller text and a smaller chevron below `sm`, restoring
+   * the exact default chrome at `sm:` and up — opt-in, so the schedule tab's
+   * own selects (one per row, room to spare) render exactly as before. Only
+   * the price editor's differentiated-row select, packed onto one line with
+   * another select, a price field and a delete button down to 320px, sets it.
+   */
+  compact?: boolean;
   'aria-label'?: string;
 }) {
   return (
@@ -54,7 +71,12 @@ export function TimeSelect({
     // there and nothing else to spend it on, and two boxes stretched to the
     // edge read as the pair they are; at 108px they sat in the left third with
     // the rest of the row blank.
-    <div className="relative min-w-0 flex-1 sm:w-[6.75rem] sm:flex-none">
+    //
+    // `className` overrides that pair of widths where the row is tighter than a
+    // schedule row — the price editor's bands sit inside a dialog column that
+    // also carries a price field and a delete button, and cannot give a select
+    // the whole line.
+    <div className={cn('relative min-w-0 flex-1 sm:w-[6.75rem] sm:flex-none', className)}>
       <select
         value={value}
         onChange={(e) => {
@@ -68,6 +90,7 @@ export function TimeSelect({
           'hover:border-border-interactive-hover hover:bg-bg-base/80',
           'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-primary-500/15 focus-visible:ring-[3px]',
           'disabled:cursor-not-allowed disabled:opacity-50',
+          compact && 'pr-5 pl-2 text-xs sm:pr-8 sm:pl-3.5 sm:text-sm',
         )}
       >
         {TIME_OPTIONS.map((time) => (
@@ -78,7 +101,10 @@ export function TimeSelect({
       </select>
       <ChevronDown
         aria-hidden="true"
-        className="text-text-tertiary pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2"
+        className={cn(
+          'text-text-tertiary pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2',
+          compact && 'right-1.5 size-3 sm:right-3 sm:size-4',
+        )}
       />
     </div>
   );

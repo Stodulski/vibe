@@ -46,8 +46,33 @@ export const courts = {
   descriptionOptional: 'Descripción (opcional)',
   noDescription: 'Sin descripción',
   pricesAppliedToAll: 'Precios aplicados a todos los días',
-  pricesHourlyHint:
-    'Los precios son por hora. Una reserva de otra duración se cobra proporcionalmente, por bloques de 30 minutos.',
+  // Down from two paragraphs (the proportional-charging explanation and a
+  // sentence about differentiated prices) to this one line: the owner does
+  // not want a wall of text above a table that is otherwise self-explanatory,
+  // and "Nuevo precio" already explains what it does when the owner meets it.
+  pricesHourlyHint: 'Los precios son por hora.',
+  // The button that adds a differentiated row under a day's full-day price —
+  // quoted this way by the owner: a NEW price, not another "franja" like the
+  // rows themselves are still called once they exist (see `bandOrdinal`
+  // below), because this button is offering to price an exception, not to
+  // grow a list.
+  newPrice: 'Nuevo precio',
+  removeBand: 'Eliminar franja',
+  // Only ever read aloud, never drawn: it builds the accessible name that tells
+  // one of a day's rows from the next ("Jueves, franja 2: desde").
+  bandOrdinal: 'franja',
+  bandFrom: 'Desde',
+  bandTo: 'Hasta',
+  // Only ever read aloud now — the visible "Día sig." marker beside a row
+  // whose hours cross midnight was removed everywhere it rendered (owner
+  // instruction); this is where that fact still reaches a screen reader,
+  // folded into the "Hasta" select's own accessible name in `BandRow`.
+  bandEndsNextDay: 'Termina al día siguiente',
+  // The disclosure button's accessible name, per day and per direction —
+  // seven of these sit in the dialog, so "Mostrar franjas" alone does not
+  // say which day is about to open, or whether it already is.
+  showBandsFor: 'Mostrar franjas de',
+  hideBandsFor: 'Ocultar franjas de',
   durations: {
     60: '60 min',
     90: '90 min',

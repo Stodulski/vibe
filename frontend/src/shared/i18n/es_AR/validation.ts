@@ -35,6 +35,34 @@ export const validation = {
   dayInvalid: 'Día inválido',
   timeRequired: 'Horario requerido',
   timeRangeNotEmpty: 'El fin no puede ser igual al inicio',
+  // The band-row-scoped twin of `timeRangeNotEmpty` above, not a replacement
+  // for it: `blockSlotForm.schema.ts` still uses the long form in a field
+  // with room for it. This one renders in `BandRow`'s own compact price
+  // field slot (see `PriceField`), which at a 320px dialog is roughly 70–90px
+  // wide — the 35-character original wrapped there. Kept to one line at that
+  // width is the whole reason this exists as its own key.
+  bandTimeRangeNotEmpty: 'Rango inválido',
+  // Named for what the owner did, not for the constraint: they put two franjas
+  // over the same hour, and the hour cannot have two rates. Shortened from
+  // "Esta franja se superpone con otra del mismo día" (49 chars, two lines in
+  // `BandRow`'s compact price field at 320px) to fit that field on one line;
+  // only ever reachable from `bandsOverlap`'s own path (`bands.N.time_from`),
+  // so nothing else needed the longer wording.
+  bandsOverlap: 'Se superpone',
+  // Only reachable once a day has a differentiated row — a day with none is
+  // simply unpriced, which is a valid answer. See `dayPriceSchema`. Shortened
+  // from "Poné un precio para esta franja" (32 chars) for the same reason as
+  // `bandsOverlap` above — one line in the same narrow field.
+  priceRequiredForBand: 'Falta el precio',
+  // Only reachable once a day HAS a differentiated row: that row carves an
+  // exception out of the full-day price, which then has to cover the rest of
+  // the day and can no longer be left blank. See `dayPriceSchema`. Shortened
+  // from "Poné un precio para el día" for the same one-line-at-320px reason,
+  // even though this one renders in the day-level `PriceField` (`w-24`,
+  // unshrunk) rather than `BandRow`'s compact one — kept short and distinct
+  // from `priceRequiredForBand` rather than reused, since the two name
+  // different things (the day's own price vs. a row's).
+  priceRequiredForDay: 'Poné un precio',
   closeNotEqualOpen: 'El horario de cierre no puede ser igual al de apertura',
   selectCourt: 'Seleccioná una cancha',
   dateRequired: 'La fecha es requerida',

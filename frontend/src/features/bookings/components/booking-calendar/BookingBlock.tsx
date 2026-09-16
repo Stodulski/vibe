@@ -1,6 +1,6 @@
 import { minutesInto, toSpan } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
-import { cn, formatHourRange } from '@/shared/lib/utils';
+import { cn, endsOnALaterDay, formatHourRange } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { STATUS_BAR_STYLES } from '../BookingStatusBadge';
 import { barPosition } from './timelineGeometry';
@@ -41,9 +41,18 @@ function spanMinutes(booking: Booking, date: string): { startMin: number; endMin
 // label produced "Cancha Cancha 1, Cliente Juan Perez" — the courts are
 // already named "Cancha N", and a person's name needs no announcement.
 function bookingAriaLabel(booking: Booking, courtName: string): string {
+  const hours = formatHourRange(booking.starts_at, booking.ends_at, '–');
+  // `formatHourRange` no longer appends "Día sig." to its own output (removed
+  // dialog-wide, and range-wide, by owner instruction) — this is the one place
+  // that fact still has to reach someone, since the visible block only shows
+  // the plain range beneath it. Read straight from `endsOnALaterDay` rather
+  // than re-deriving it, so the two never disagree about the same booking.
+  const hoursWithNote = endsOnALaterDay(booking.starts_at, booking.ends_at)
+    ? `${hours}, ${t.bookings.endsNextDay}`
+    : hours;
   return [
     courtName,
-    formatHourRange(booking.starts_at, booking.ends_at, '–'),
+    hoursWithNote,
     booking.client_name,
     `${t.bookings.status}: ${t.bookings.statuses[booking.status]}`,
     `${t.bookings.paymentStatus}: ${t.bookings.paymentStatuses[paymentDisplayStatus(booking)]}`,

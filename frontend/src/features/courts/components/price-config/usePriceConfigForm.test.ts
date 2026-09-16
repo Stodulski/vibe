@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createElement, type ReactNode } from 'react';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { makeConsumedHttpError, makeComplex } from '@/test/factories';
+import { act } from '@testing-library/react';
+import { makePrice } from '@/test/factories';
 import { courtsApi } from '../../api/courts.api';
-import { usePriceConfigForm } from './usePriceConfigForm';
-import { EMPTY_PRICE_FORM_VALUES } from './days';
-import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';
+import { makeCourt, renderForm, schedule, submit } from './priceConfigHarness';
 
 vi.mock('../../api/courts.api', () => ({
   courtsApi: { updatePrices: vi.fn() },
@@ -15,172 +10,102 @@ vi.mock('../../api/courts.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-let mockSchedules: Schedule[] = [];
-
-vi.mock('@/features/complex/hooks/useComplex', () => ({
-  useComplex: () => ({ data: makeComplex({ id: 'c1', slug: 'los-alamos' }) }),
-}));
-
-vi.mock('@/features/complex/hooks/useSchedules', () => ({
-  useSchedules: () => ({ data: mockSchedules }),
-}));
-
-function schedule(overrides: Partial<Schedule>): Schedule {
-  return {
-    id: 's1',
-    complex_id: 'c1',
-    day: 'monday',
-    open_time: '08:00',
-    close_time: '23:00',
-    is_closed: false,
-    ...overrides,
-  };
-}
-
-const court: CourtWithPrices = {
-  id: 'ct1',
-  complex_id: 'c1',
-  name: 'Cancha 1',
-  sport: 'padel',
-  court_type: 'outdoor',
-  is_active: true,
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
-  prices: [],
-};
-
-function wrapper({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
-async function renderForm(onClose = vi.fn()) {
-  const rendered = renderHook(() => usePriceConfigForm('c1', court, onClose), { wrapper });
-  await waitFor(() => {
-    expect(rendered.result.current.form.getValues()).toEqual(EMPTY_PRICE_FORM_VALUES);
-  });
-  // react-hook-form's formState is a proxy that only re-renders for the keys
-  // something has read; the dialog reads `errors` on every render, so the
-  // test reads it once up front to subscribe the same way.
-  expect(rendered.result.current.form.formState.errors).toEqual({});
-  return { ...rendered, onClose };
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
-  mockSchedules = [];
 });
 
-describe('usePriceConfigForm — building the request', () => {
-  it("converts pesos to cents and builds each day's band from that day's schedule", async () => {
-    vi.mocked(courtsApi.updatePrices).mockResolvedValueOnce({ prices: [] });
-    mockSchedules = [schedule({ day: 'monday', open_time: '08:00', close_time: '23:00' })];
-    const { result } = await renderForm();
-
-    act(() => {
-      result.current.form.setValue('monday', 120);
-    });
-    act(() => {
-      result.current.onSubmit(result.current.form.getValues());
+describe('usePriceConfigForm — defaults', () => {
+  it('seeds a court with no prices as a blank full-day price with no rows', () => {
+    const { result } = renderForm({
+      schedules: [schedule({ day: 'monday', open_time: '09:00', close_time: '22:00' })],
     });
 
-    await waitFor(() => {
-      expect(courtsApi.updatePrices).toHaveBeenCalledWith('c1', 'ct1', {
-        prices: [{ price: 12000, day_type: 'monday', time_from: '08:00', time_to: '23:00' }],
-      });
-    });
+    expect(result.current.form.getValues('monday')).toEqual({ price: Number.NaN, bands: [] });
+    // A day with no schedule row still gets an entry — the schedule only
+    // matters again at submit time, when the full-day price's hours are
+    // filled in.
+    expect(result.current.form.getValues('sunday')).toEqual({ price: Number.NaN, bands: [] });
   });
 
-  // The complex closing after midnight (Thursday 08:00-01:30) is exactly the
-  // scenario QA reported: the dialog must build a payload the server accepts
-  // (time_to <= time_from means "runs into the next day", the span_min generated column)
-  // instead of one it rejects with a silent 422.
-  it('builds a valid payload for a day whose schedule crosses midnight', async () => {
-    vi.mocked(courtsApi.updatePrices).mockResolvedValueOnce({ prices: [] });
-    mockSchedules = [schedule({ day: 'thursday', open_time: '08:00', close_time: '01:30' })];
-    const { result } = await renderForm();
+  it("reads a single stored band as the day's full-day price", () => {
+    const court = makeCourt([makePrice({ day_type: 'friday', time_from: '08:00', time_to: '23:00', price: 20000 })]);
+    const { result } = renderForm({ court, schedules: [schedule({ day: 'friday' })] });
 
-    act(() => {
-      result.current.form.setValue('thursday', 150);
-    });
-    act(() => {
-      result.current.onSubmit(result.current.form.getValues());
-    });
-
-    await waitFor(() => {
-      expect(courtsApi.updatePrices).toHaveBeenCalledWith('c1', 'ct1', {
-        prices: [{ price: 15000, day_type: 'thursday', time_from: '08:00', time_to: '01:30' }],
-      });
-    });
+    expect(result.current.form.getValues('friday')).toEqual({ price: 200, bands: [] });
   });
 
-  it('rejects a negative price on the field, client-side, without sending a request', async () => {
-    const { result } = await renderForm();
+  it('reconstructs several stored bands as a full-day price plus rows', () => {
+    const court = makeCourt([
+      makePrice({ day_type: 'friday', time_from: '19:00', time_to: '23:00', price: 20000 }),
+      makePrice({ day_type: 'friday', time_from: '08:00', time_to: '19:00', price: 12000 }),
+    ]);
+    const { result } = renderForm({ court, schedules: [schedule({ day: 'friday' })] });
 
-    act(() => {
-      result.current.form.setValue('monday', -50);
+    expect(result.current.form.getValues('friday')).toEqual({
+      price: 120,
+      bands: [{ time_from: '19:00', time_to: '23:00', price: 200 }],
     });
-    await act(async () => {
-      await result.current.form.handleSubmit(result.current.onSubmit)();
-    });
-
-    await waitFor(() => {
-      expect(result.current.form.formState.errors.monday?.message).toBe('El precio no puede ser negativo');
-    });
-    expect(courtsApi.updatePrices).not.toHaveBeenCalled();
   });
 });
 
-describe('usePriceConfigForm — server errors', () => {
-  // A server 422 field error is keyed by array index ("prices[0].time_to"),
-  // not by day name — the form has to trace that index back to the row it
-  // came from and put the message there instead of leaving the dialog to
-  // fail silently, which is the other half of the QA-reported bug.
-  it('maps a server field error back onto the row it came from', async () => {
-    const serverError = await makeConsumedHttpError(422, {
-      title: 'Validation Failed',
-      errors: [{ field: 'prices[0].time_to', message: 'must be after time_from' }],
-    });
-    vi.mocked(courtsApi.updatePrices).mockRejectedValueOnce(serverError);
-    mockSchedules = [schedule({ day: 'thursday', open_time: '08:00', close_time: '01:30' })];
-    const { result, onClose } = await renderForm();
-
-    act(() => {
-      result.current.form.setValue('thursday', 150);
-    });
-    act(() => {
-      result.current.onSubmit(result.current.form.getValues());
+describe('usePriceConfigForm — a day charging one rate', () => {
+  it("converts pesos to cents and sends the day's window as its one band", async () => {
+    vi.mocked(courtsApi.updatePrices).mockResolvedValueOnce({ prices: [] });
+    const { result } = renderForm({
+      schedules: [schedule({ day: 'monday', open_time: '08:00', close_time: '23:00' })],
     });
 
-    await waitFor(() => {
-      expect(result.current.form.formState.errors.thursday?.message).toBe('must be after time_from');
+    act(() => {
+      result.current.form.setValue('monday.price', 120);
     });
-    expect(onClose).not.toHaveBeenCalled();
-    // useUpdatePrices stays quiet on a mappable field error so it is not shown
-    // twice — once on the row and once as a toast.
-    expect(toast.error).not.toHaveBeenCalled();
+    await submit(result);
+
+    expect(courtsApi.updatePrices).toHaveBeenCalledWith('c1', 'ct1', {
+      prices: [{ price: 12000, day_type: 'monday', time_from: '08:00', time_to: '23:00' }],
+    });
+  });
+});
+
+describe('usePriceConfigForm — a day with a differentiated row', () => {
+  it('sends the row as its own band and fills the rest of the window at the full-day rate', async () => {
+    vi.mocked(courtsApi.updatePrices).mockResolvedValueOnce({ prices: [] });
+    const { result } = renderForm({
+      schedules: [schedule({ day: 'friday', open_time: '08:00', close_time: '23:00' })],
+    });
+
+    act(() => {
+      result.current.form.setValue('friday', {
+        price: 100,
+        bands: [{ time_from: '20:00', time_to: '23:00', price: 200 }],
+      });
+    });
+    await submit(result);
+
+    expect(courtsApi.updatePrices).toHaveBeenCalledWith('c1', 'ct1', {
+      prices: [
+        { price: 10000, day_type: 'friday', time_from: '08:00', time_to: '20:00' },
+        { price: 20000, day_type: 'friday', time_from: '20:00', time_to: '23:00' },
+      ],
+    });
   });
 
-  it('falls back to a toast for an error it cannot place on a row', async () => {
-    const serverError = await makeConsumedHttpError(422, {
-      title: 'Validation Failed',
-      errors: [{ field: 'prices', message: 'must contain at least one price' }],
-    });
-    vi.mocked(courtsApi.updatePrices).mockRejectedValueOnce(serverError);
-    mockSchedules = [schedule({ day: 'monday' })];
-    const { result } = await renderForm();
-
-    act(() => {
-      result.current.form.setValue('monday', 100);
-    });
-    act(() => {
-      result.current.onSubmit(result.current.form.getValues());
+  it('drops a day entirely once every row is deleted and the full-day price is left blank', async () => {
+    vi.mocked(courtsApi.updatePrices).mockResolvedValueOnce({ prices: [] });
+    const { result } = renderForm({
+      schedules: [
+        schedule({ day: 'monday', open_time: '08:00', close_time: '23:00' }),
+        schedule({ day: 'friday', open_time: '08:00', close_time: '23:00' }),
+      ],
     });
 
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('must contain at least one price');
+    act(() => {
+      result.current.form.setValue('monday.price', 100);
+      result.current.form.setValue('friday', { price: Number.NaN, bands: [] });
+    });
+    await submit(result);
+
+    expect(courtsApi.updatePrices).toHaveBeenCalledWith('c1', 'ct1', {
+      prices: [{ price: 10000, day_type: 'monday', time_from: '08:00', time_to: '23:00' }],
     });
   });
 });

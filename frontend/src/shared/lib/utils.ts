@@ -182,15 +182,20 @@ export function endsOnALaterDay(startsAt: string, endsAt: string): boolean {
 }
 
 /**
- * A booking's hours as a person reads them: `21:00 – 22:30`, and
- * `23:00 – 01:00 Día sig.` when the end is on the following day.
+ * A booking's hours as a person reads them: `21:00 – 22:30`, or
+ * `23:00 – 01:00` for one ending the following day — no marker on the range
+ * itself any more. There used to be one ("Día sig.") here; the owner had it
+ * removed everywhere it rendered, visible text included. The fact it named
+ * is not gone, only no longer printed by this function: a caller that needs
+ * it for an accessible name reads `endsOnALaterDay` directly instead — see
+ * `BookingBlock`'s `bookingAriaLabel`.
  *
- * The marker is the whole reason this function exists. Until the server
- * stopped sending `end_time` these ranges were built from two clock readings,
- * and `bookings.end_time` was produced by modular arithmetic — a 23:00 booking
- * of two hours read "23:00 – 01:00", an end two hours before its own start, on
- * the owner's calendar, in the booking detail, in the cancel modal and on the
- * public cancel page. Nothing anywhere said which 01:00.
+ * Built from real instants, not clock readings, for a real bug: until the
+ * server stopped sending `end_time`, `bookings.end_time` was produced by
+ * modular arithmetic — a 23:00 booking of two hours read "23:00 – 01:00", an
+ * end two hours before its own start, on the owner's calendar, in the booking
+ * detail, in the cancel modal and on the public cancel page. Nothing anywhere
+ * said which 01:00.
  *
  * `separator` defaults to an en dash with non-breaking spaces so the range
  * never wraps mid-way; the public pages pass their own joiner word.
@@ -200,8 +205,7 @@ export function formatHourRange(startsAt: string, endsAt: string, separator = '\
   const end = formatInstantTime(endsAt);
   if (!start || !end) return start || end;
 
-  const range = `${start}${separator}${end}`;
-  return endsOnALaterDay(startsAt, endsAt) ? `${range}\u00A0${t.complex.nextDay}` : range;
+  return `${start}${separator}${end}`;
 }
 
 /**

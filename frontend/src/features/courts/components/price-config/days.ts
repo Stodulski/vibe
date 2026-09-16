@@ -15,15 +15,7 @@ export const ALL_DAYS: { value: DayType; label: string; short: string }[] = [
 ];
 
 // Derived from the zod schema (`courts.schemas.ts`) instead of hand-written,
-// so the two can't drift the way a parallel `Record<DayType, number>` could.
+// so the two can't drift the way a parallel `Record<DayType, DayPriceValues>`
+// could. One full-day price plus its differentiated rows per weekday: the day
+// is the key, so neither carries its own `day_type` the way the wire shape does.
 export type PriceFormValues = PriceFormSchema;
-
-export const EMPTY_PRICE_FORM_VALUES: PriceFormValues = {
-  monday: 0,
-  tuesday: 0,
-  wednesday: 0,
-  thursday: 0,
-  friday: 0,
-  saturday: 0,
-  sunday: 0,
-};

@@ -101,6 +101,15 @@ export const bookings = {
   },
   previousDay: 'Día anterior',
   nextDay: 'Día siguiente',
+  // A full phrase, not the calendar arrow's "Día siguiente" above (a
+  // different thing: that names a button, this augments a booking's
+  // accessible name) — spoken alone as one item in a comma-joined list of
+  // facts, "Día siguiente" reads as a command; "Termina al día siguiente"
+  // reads as the fact it is. Only ever read aloud: the visible time range no
+  // longer carries a "Día sig." marker of its own (`formatHourRange`), so
+  // this is the one place a screen reader still learns a booking crosses
+  // midnight. See `BookingBlock`'s `bookingAriaLabel`.
+  endsNextDay: 'Termina al día siguiente',
   goToToday: 'Ir a hoy',
   chargeType: 'Tipo de cobro',
   fullPayment: 'Pago completo',

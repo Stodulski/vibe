@@ -66,8 +66,8 @@ interface OpeningWindow {
 
 /**
  * One weekday's opening window in minutes, with a close at or before the open
- * read as closing after midnight — the same reading `complex_schedules` has had
- * since the schedule form began labelling such a day "Día sig.".
+ * read as closing after midnight — the same reading `complex_schedules` has
+ * always used for a venue trading past midnight.
  *
  * A closed day has no window, and a weekday with no row at all is the same
  * fact: nothing says the venue opens.

@@ -6,6 +6,9 @@ import { GRID_HEIGHT_PX } from './gridLayout';
 import { makeBooking } from '@/test/factories';
 import { VENUE_TIME_ZONE, venueInstant } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
+import { ES_AR } from '@/shared/i18n/es_AR';
+
+const t = ES_AR;
 
 const DAY = '2026-08-28';
 
@@ -188,29 +191,36 @@ describe('BookingBlock time display and instant fallback', () => {
 });
 
 describe('BookingBlock hours', () => {
-  // The marker, on the screen an owner actually looks at. Until the server
-  // stopped sending a clock reading this block said "23:00 – 01:00" — an end
-  // two hours before its own start, with nothing saying which 01:00.
+  // The visible range carries no "Día sig." marker any more (removed
+  // dialog-wide, and range-wide, by owner instruction) — `formatHourRange`
+  // itself no longer prints one. The fact still has to reach a screen reader
+  // somehow, so the block's own accessible name states it in full instead
+  // (`t.bookings.endsNextDay`), read straight from `endsOnALaterDay` rather
+  // than re-derived, so the visible block and the announced one can never
+  // disagree about the same booking.
   //
   // Viewed from the day the booking ends on rather than the day it starts:
-  // the marker text itself (`formatHourRange`) never depends on which day's
-  // grid renders it, but the visible height backing `showBoth` does, and an
+  // whether the accessible name says so never depends on which day's grid
+  // renders it, but the visible height backing `showBoth` does, and an
   // evening-to-early-morning booking is only guaranteed a visible sliver on
   // the *later* day once its instants are read in the venue zone on a test
   // process running in some other one — the exact case `atVenue` exists for.
-  it('marks a booking whose hours end on the following day', () => {
+  it('marks a booking whose hours end on the following day, in its accessible name only', () => {
     const el = renderBlock(atVenue(DAY, '23:00'), atVenue('2026-08-29', '01:00'), '2026-08-29');
 
-    expect(el.textContent).toContain('Día sig.');
-    expect(el.getAttribute('aria-label')).toContain('Día sig.');
+    expect(el.textContent).not.toContain('Día sig.');
+    expect(el.getAttribute('aria-label')).not.toContain('Día sig.');
+    expect(el.getAttribute('aria-label')).toContain(t.bookings.endsNextDay);
   });
 
-  // The control: an ordinary booking carries no marker, so the assertion above
-  // is not passing on a helper that appends the words to everything.
+  // The control: an ordinary booking carries no marker anywhere, so the
+  // assertion above is not passing on a helper that appends the note to
+  // everything.
   it('leaves an ordinary booking unmarked', () => {
     const el = renderBlock(atVenue(DAY, '10:00'), atVenue(DAY, '11:30'));
 
     expect(el.textContent).not.toContain('Día sig.');
+    expect(el.getAttribute('aria-label')).not.toContain(t.bookings.endsNextDay);
     expect(el.textContent).toContain('10:00');
     expect(el.textContent).toContain('11:30');
   });

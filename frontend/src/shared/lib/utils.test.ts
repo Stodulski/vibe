@@ -162,12 +162,13 @@ describe('formatHourRange', () => {
     expect(formatHourRange('2026-03-18T18:00:00-03:00', '2026-03-18T19:30:00-03:00')).toBe('18:00\u00A0–\u00A019:30');
   });
 
-  it('marks a booking whose hours end on the following day', () => {
-    // This is the string the product could not produce at all while the end
-    // was a clock reading: "23:00 – 01:00" with nothing saying which 01:00.
-    expect(formatHourRange('2026-03-18T23:00:00-03:00', '2026-03-19T01:00:00-03:00')).toBe(
-      '23:00\u00A0–\u00A001:00\u00A0Día sig.',
-    );
+  // No "Día sig." (or any other) marker any more — removed dialog-wide, and
+  // range-wide, by owner instruction. This is the same instant pair that used
+  // to read "23:00 – 01:00 Día sig."; a caller that still needs to say the
+  // booking crosses midnight reads `endsOnALaterDay` directly instead (see
+  // `BookingBlock`'s `bookingAriaLabel`, tested separately).
+  it('renders a booking whose hours end on the following day the same plain way', () => {
+    expect(formatHourRange('2026-03-18T23:00:00-03:00', '2026-03-19T01:00:00-03:00')).toBe('23:00\u00A0–\u00A001:00');
   });
 
   it('takes the separator the caller renders with', () => {

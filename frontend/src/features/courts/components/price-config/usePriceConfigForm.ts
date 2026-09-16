@@ -1,38 +1,59 @@
+import { useCallback } from 'react';
 import { useAppForm } from '@/shared/lib/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { useUpdatePrices } from '../../hooks/useUpdatePrices';
-import { useComplex, useSchedules } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getFieldErrors } from '@/shared/lib/serverErrors';
-import { priceFormSchema } from '../../schemas/courts.schema';
-import { ALL_DAYS, EMPTY_PRICE_FORM_VALUES, type PriceFormValues } from './days';
-import type { CourtWithPrices, DayType, Schedule } from '@/shared/types/api.types';
+import { priceFormSchema, type PriceBandValues } from '../../schemas/courts.schema';
+import { ALL_DAYS, type PriceFormValues } from './days';
+import { bandField, buildDayBands, dayPriceField, nextDifferentiatedBand, priceFormValues } from './bands';
+import type { UseFormSetError } from 'react-hook-form';
+import type { CourtWithPrices, DayType, Schedule, UpdatePricesRequest } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
 // A failed-validation body keys its errors "prices[3].time_to" — the array
-// index the server refused, not a day name. This picks that index back out
-// so it can be mapped onto the row it came from.
-const PRICE_INDEX_RX = /^prices\[(\d+)\]/;
+// index the server refused, not a day name, and not a row within one. This
+// picks that index and the field name back out so both can be mapped onto the
+// row they came from. The field group is optional because a whole-item error
+// ("prices[3]") carries no field at all, and lands on the row's price.
+const PRICE_INDEX_RX = /^prices\[(\d+)\](?:\.(\w+))?$/;
 
-/** The form's `defaultValues`: each day's stored price, in pesos. */
-function priceFormValues(court: CourtWithPrices): PriceFormValues {
-  const values: PriceFormValues = { ...EMPTY_PRICE_FORM_VALUES };
-  for (const p of court.prices) {
-    if (p.day_type in values) {
-      values[p.day_type] = p.price / 100;
-    }
-  }
-  return values;
+// Which of a differentiated row's fields a server error may be steered onto.
+// Anything else the server might name (a column this form does not render)
+// falls through to the toast rather than being forced onto an unrelated input.
+const MAPPABLE_FIELDS = new Set<keyof PriceBandValues>(['time_from', 'time_to', 'price']);
+
+function isMappableField(field: string | undefined): field is keyof PriceBandValues {
+  return field !== undefined && MAPPABLE_FIELDS.has(field as keyof PriceBandValues);
 }
 
-export function usePriceConfigForm(complexId: string, court: CourtWithPrices, onClose: () => void) {
+/**
+ * Which form control a wire `prices[i]` entry came from: either a
+ * differentiated row (its own `desde`/`hasta`/`precio`), or a gap `buildDayBands`
+ * filled in at the full-day rate — which has no row of its own, only the
+ * day's price field, so `time_from`/`time_to` have nowhere to land for one of
+ * these (see `placeFieldErrors`).
+ */
+type SentBand = { day: DayType } & ({ kind: 'day' } | { kind: 'band'; index: number });
+
+/**
+ * `schedules` is a parameter rather than a query read in here because the
+ * opening hours are now `defaultValues` — the times the owner SEES and edits,
+ * not something derived at submit time from whatever had loaded by then. A
+ * form seeded from an unresolved query shows fabricated hours and saves them,
+ * which is the bug the schedule tab already fixed by refusing to mount its
+ * form until the real data exists (`ScheduleConfig`). `PriceConfig` gates this
+ * one the same way, so by the time this runs the hours are the venue's.
+ */
+export function usePriceConfigForm(
+  complexId: string,
+  court: CourtWithPrices,
+  schedules: Schedule[],
+  onClose: () => void,
+) {
   const updatePrices = useUpdatePrices(complexId);
-  // Both are cached queries the app has already run; reading them here beats
-  // threading opening hours through the three screens that mount this form.
-  const { data: complex } = useComplex(complexId);
-  const { data: schedules = [] } = useSchedules(complexId, complex?.slug);
 
   // `defaultValues` computed once at mount, not synced back in with a
   // `reset()` effect: `PriceConfig` is keyed by court id (see `CourtGrid`),
@@ -44,16 +65,15 @@ export function usePriceConfigForm(complexId: string, court: CourtWithPrices, on
   });
   const { setError } = form;
 
+  // Handed down to every `DayRow` so "Nuevo precio" does not have to know
+  // about schedules. Stable so a row's re-render does not churn its button.
+  const nextBand = useCallback(
+    (day: DayType, bands: PriceBandValues[]) => nextDifferentiatedBand(bands, schedules, day),
+    [schedules],
+  );
+
   const onSubmit = (data: PriceFormValues) => {
-    // Kept alongside `prices` below so a server error naming "prices[i]" can
-    // be traced back to the day it came from: includedDays[i] is the day that
-    // became prices[i] on the wire, in the same order.
-    const includedDays = ALL_DAYS.filter(({ value }) => data[value] > 0);
-    const prices = includedDays.map(({ value }) => ({
-      price: Math.round(data[value] * 100),
-      day_type: value,
-      ...bandFor(schedules, value),
-    }));
+    const { prices, sent } = buildPrices(data, schedules);
 
     if (prices.length === 0) {
       toast.error(t.courts.atLeastOnePrice);
@@ -67,26 +87,17 @@ export function usePriceConfigForm(complexId: string, court: CourtWithPrices, on
           onClose();
         },
         // Server-side field errors land ON their row, not only in a toast —
-        // this is the same "overlaps another band" or "invalid time" a stub
-        // day's schedule can still produce even though the owner never typed
-        // a time themselves (see usePriceConfigForm's bandFor). Anything the
-        // index can't be traced back to a day (a malformed body, or a
-        // whole-array error like "must contain at least one price") falls
-        // back to a toast instead of vanishing silently — see
+        // this is the same "overlaps another band" or "invalid time" the
+        // client-side schema already checks, kept because the server is the one
+        // that decides and because a stub day's schedule can still produce one
+        // even though the owner never typed a time themselves (see
+        // `openingBandFor`). Anything the index can't be traced back to a row (a
+        // malformed body, or a whole-array error like "must contain at least
+        // one price") falls back to a toast instead of vanishing silently — see
         // useUpdatePrices, which stays quiet on a mappable field error so the
         // two don't both fire for the same failure.
         onError: (error: unknown) => {
-          const fieldErrors = getFieldErrors(error);
-          const unmapped: string[] = [];
-          for (const [key, message] of Object.entries(fieldErrors)) {
-            const match = PRICE_INDEX_RX.exec(key);
-            const day = match ? includedDays[Number(match[1])]?.value : undefined;
-            if (day) {
-              setError(day, { type: 'server', message });
-            } else {
-              unmapped.push(message);
-            }
-          }
+          const unmapped = placeFieldErrors(getFieldErrors(error), sent, setError);
           if (unmapped.length > 0) {
             toast.error(unmapped.join('. '));
           }
@@ -95,33 +106,80 @@ export function usePriceConfigForm(complexId: string, court: CourtWithPrices, on
     );
   };
 
-  return { form, onSubmit, isPending: updatePrices.isPending };
+  return { form, onSubmit, nextBand, isPending: updatePrices.isPending };
 }
 
 /**
- * The hours one day's price covers: that day's own opening window.
+ * The wire payload, and the map back from it to the form controls it was
+ * built from.
  *
- * This form asks for one rate per day, so the band it writes has to be the day.
- * It used to write 00:00–23:59 for every day, which stops at the minute before
- * midnight — so a venue trading Thursday 08:00 to 01:30 had its last four hours
- * unpriced no matter what the owner typed, and an unpriced hour is not for sale.
- * Writing the window instead makes the two agree by construction: whatever is
- * open is priced, and nothing else is.
- *
- * A closed day still gets a band, covering its calendar day. Staff book days
- * the venue is shut, and the rate they are charged comes from that day's card.
- *
- * A window that runs past midnight (open_time > close_time, e.g. "08:00" to
- * "01:30") is sent as-is rather than split or clamped: the server reads
- * time_to <= time_from as "this band ends the next day" (the span_min generated column),
- * the same rule complex_schedules has always used for opening hours, so a band
- * built straight from the schedule already lands in the shape
- * the server expects.
+ * `sent[i]` is where `prices[i]` came from, in the same order, so a server
+ * error naming "prices[3]" can be traced to the control the owner is looking
+ * at. The wire index counts across days, which is why the map has to carry
+ * the day as well as the position within it.
  */
-function bandFor(schedules: Schedule[], day: DayType): { time_from: string; time_to: string } {
-  const row = schedules.find((s) => s.day === day);
-  if (!row || row.is_closed || row.open_time === row.close_time) {
-    return { time_from: '00:00', time_to: '23:59' };
+function buildPrices(
+  data: PriceFormValues,
+  schedules: Schedule[],
+): { prices: UpdatePricesRequest['prices']; sent: SentBand[] } {
+  const sent: SentBand[] = [];
+  const prices: UpdatePricesRequest['prices'] = [];
+  for (const { value: day } of ALL_DAYS) {
+    const dayValues = data[day];
+    // A day with no full-day price and no differentiated rows has no rate at
+    // all — the state this dialog has always used for "I do not price this
+    // day" — so nothing is sent for it. Once there is a row, the schema has
+    // already insisted on a full-day price to fill the rest, so nothing is
+    // silently lost from a day the owner did describe.
+    if (!(dayValues.price > 0) && dayValues.bands.length === 0) continue;
+
+    for (const built of buildDayBands(dayValues, schedules, day)) {
+      sent.push(built.source.kind === 'day' ? { day, kind: 'day' } : { day, kind: 'band', index: built.source.index });
+      prices.push({
+        price: Math.round(built.price * 100),
+        day_type: day,
+        time_from: built.time_from,
+        time_to: built.time_to,
+      });
+    }
   }
-  return { time_from: row.open_time, time_to: row.close_time };
+  return { prices, sent };
+}
+
+/**
+ * Puts each server field error on the control it came from, and returns the
+ * messages that had nowhere to go.
+ */
+function placeFieldErrors(
+  fieldErrors: Record<string, string>,
+  sent: SentBand[],
+  setError: UseFormSetError<PriceFormValues>,
+): string[] {
+  const unmapped: string[] = [];
+  for (const [key, message] of Object.entries(fieldErrors)) {
+    const match = PRICE_INDEX_RX.exec(key);
+    if (!match) {
+      unmapped.push(message);
+      continue;
+    }
+    const source = sent[Number(match[1])];
+    if (!source) {
+      unmapped.push(message);
+      continue;
+    }
+    if (source.kind === 'day') {
+      // A gap `buildDayBands` filled at the full-day rate has no row of its
+      // own — only `price` has anywhere to land; a server complaint about
+      // ITS hours would be about hours the owner never typed.
+      if (isMappableField(match[2]) && match[2] !== 'price') {
+        unmapped.push(message);
+      } else {
+        setError(dayPriceField(source.day), { type: 'server', message });
+      }
+      continue;
+    }
+    const field = isMappableField(match[2]) ? match[2] : 'price';
+    setError(bandField(source.day, source.index, field), { type: 'server', message });
+  }
+  return unmapped;
 }

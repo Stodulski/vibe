@@ -106,7 +106,6 @@ export const complex = {
   closed: 'Cerrado',
   closedAllDay: 'Cerrado todo el día',
   timeRangeJoiner: 'a',
-  nextDay: 'Día sig.',
   openTime: 'Apertura',
   closeTime: 'Cierre',
   schedulesUpdated: 'Horarios actualizados',
