@@ -41,3 +41,13 @@ export function hasCompleteSavedData(data: SavedClientData): boolean {
     data.client_email?.trim()
   );
 }
+
+/**
+ * Forgets a saved identity — "No, soy otra persona" in `QuickBookView`.
+ * Quick-book only ever reuses what is here, so the next visit (or the empty
+ * form this same visit switches to, see `BookingForm`) starts from nothing
+ * instead of a previous person's name, phone and email.
+ */
+export function clearSavedFormData(): void {
+  safeLocalStorage.remove(STORAGE_KEY);
+}

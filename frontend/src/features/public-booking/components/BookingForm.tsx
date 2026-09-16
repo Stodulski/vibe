@@ -4,7 +4,7 @@ import { useUnsavedWork } from '@/shared/hooks/useUnsavedWork';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { publicBookingSchema, type PublicBookingFormData } from '../schemas/public-booking.schema';
 import { DEFAULT_PHONE_PREFIX } from '@/shared/lib/constants';
-import { getSavedFormData, hasCompleteSavedData } from './booking-form/savedFormData';
+import { getSavedFormData, hasCompleteSavedData, clearSavedFormData } from './booking-form/savedFormData';
 import { useSaveFormData } from './booking-form/useSaveFormData';
 import { computeBookingPricing } from './booking-form/pricing';
 import { QuickBookView } from './booking-form/QuickBookView';
@@ -19,6 +19,20 @@ interface BookingFormProps {
   isLoading: boolean;
 }
 
+/**
+ * What `reset()` hands the (shared) form back to for "No, soy otra persona".
+ * `useAppForm`'s own `defaultValues` were captured once, from `saved`, at
+ * this form's first mount — switching to `FullFormView` alone would still
+ * show the person who just said this isn't them.
+ */
+const EMPTY_QUICK_BOOK_VALUES: PublicBookingFormData = {
+  client_first_name: '',
+  client_last_name: '',
+  client_phone: '',
+  client_email: '',
+  client_notes: '',
+};
+
 export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps) {
   const saved = getSavedFormData();
   const [quickBookMode, setQuickBookMode] = useState(() => hasCompleteSavedData(saved));
@@ -30,6 +44,7 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
     handleSubmit,
     watch,
     control,
+    reset,
     formState: { errors, isDirty },
   } = useAppForm<PublicBookingFormData>({
     resolver: zodResolver(publicBookingSchema),
@@ -62,6 +77,11 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
         isLoading={isLoading}
         onSubmit={onSubmit}
         onEdit={() => {
+          setQuickBookMode(false);
+        }}
+        onNotMe={() => {
+          clearSavedFormData();
+          reset(EMPTY_QUICK_BOOK_VALUES);
           setQuickBookMode(false);
         }}
       />
