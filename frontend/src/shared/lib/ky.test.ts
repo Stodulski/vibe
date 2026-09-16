@@ -169,7 +169,7 @@ describe('refreshAccessToken — malformed refresh body', () => {
 // so the 401 hook's logout-and-redirect never runs for an anonymous visitor.
 describe('bootstrapSession', () => {
   const user = makeUser();
-  const session = { user, csrf_token: 'from-me' };
+  const session = { user, csrf_token: 'from-me', pending_email: null };
   // The mocked constructor above takes a status, unlike the real one.
   const MockedHTTPError = HTTPError as unknown as new (status: number) => HTTPError;
   const status401 = () => new MockedHTTPError(401);

@@ -152,13 +152,18 @@ func (app *application) cronReleaseExpiredPayments(ctx context.Context) {
 	app.bookingsService.ReleaseExpiredPayments(ctx)
 }
 
-// cronCleanExpiredTokens deletes expired refresh and verification tokens.
+// cronCleanExpiredTokens deletes expired refresh, verification and pending
+// email-change tokens — every single-use token this module issues that is
+// not already swept by its own dedicated job.
 func (app *application) cronCleanExpiredTokens(ctx context.Context) {
 	if err := app.models.Tokens.DeleteExpired(ctx); err != nil {
 		app.logger.Error("cron_clean_tokens: failed to clean refresh tokens", "error", err)
 	}
 	if err := app.models.EmailVerification.DeleteExpired(ctx); err != nil {
 		app.logger.Error("cron_clean_tokens: failed to clean verification tokens", "error", err)
+	}
+	if err := app.models.EmailChange.DeleteExpired(ctx); err != nil {
+		app.logger.Error("cron_clean_tokens: failed to clean email-change requests", "error", err)
 	}
 	app.logger.Info("cron_clean_tokens: completed")
 }

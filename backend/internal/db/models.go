@@ -515,6 +515,15 @@ type CourtPrice struct {
 	ComplexID pgtype.UUID               `json:"complex_id"`
 }
 
+type EmailChangeRequest struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	NewEmail  string             `json:"new_email"`
+	TokenHash []byte             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type EmailVerificationToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`

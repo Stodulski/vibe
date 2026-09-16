@@ -40,11 +40,18 @@ import (
 // The one deliberate omission inside the set is a reason on actionLoginFailed:
 // see record's comment on why every failed attempt is recorded identically.
 const (
-	actionLogin                = "login"
-	actionLoginFailed          = "login_failed"
-	actionLogout               = "logout"
-	actionEmailChange          = "email_change"
-	actionPasswordChange       = "password_change"
+	actionLogin              = "login"
+	actionLoginFailed        = "login_failed"
+	actionLogout             = "logout"
+	actionEmailChangeRequest = "email_change_request"
+	actionEmailChange        = "email_change"
+	actionPasswordChange     = "password_change"
+	// actionPasswordResetRequest and actionPasswordReset name the flow this
+	// module was written to name — a forgotten password, reached by an
+	// unauthenticated caller. actionEmailChangeRequest and actionEmailChange
+	// follow the same request/confirm split for the same reason, but the
+	// request half is authenticated (a live session asked for it) where
+	// ForgotPassword's is not — see requestEmailChange's own comment.
 	actionPasswordResetRequest = "password_reset_request"
 	actionPasswordReset        = "password_reset"
 	actionAccountDelete        = "account_delete"

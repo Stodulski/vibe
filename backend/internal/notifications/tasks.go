@@ -17,6 +17,7 @@ const (
 	TaskEmailVerification          = "email:verification"
 	TaskEmailPasswordReset         = "email:password_reset"
 	TaskEmailDuplicateRegistration = "email:duplicate_registration"
+	TaskEmailChangeRequested       = "email:change_requested"
 	TaskWABookingConfirmation      = "wa:booking_confirmation"
 	TaskWAReminder2h               = "wa:reminder_2h"
 	TaskWABookingCancelled         = "wa:booking_cancelled"
@@ -215,6 +216,24 @@ type DuplicateRegistrationEmail struct {
 	FirstName string `json:"first_name"`
 	LoginURL  string `json:"login_url"`
 	ResetURL  string `json:"reset_url"`
+}
+
+// EmailChangeRequestedEmail tells the account's CURRENT address that a
+// session asked to move it to NewEmail. It is the confirmation step that
+// keeps a hijacked session from moving the account's recovery channel
+// unnoticed — see auth.Service.UpdateCurrentUser.
+type EmailChangeRequestedEmail struct {
+	To         string `json:"to"`
+	FirstName  string `json:"first_name"`
+	NewEmail   string `json:"new_email"`
+	ConfirmURL string `json:"confirm_url"`
+	// ExpiresIn is the link's TTL, already rendered to Spanish (SpanishDuration)
+	// by the enqueue site (auth.Service.requestEmailChange) and carried in the
+	// payload rather than recomputed by the mailer — the same "render once at
+	// enqueue" rule this file's own copy.go documents for CancellationLine, so
+	// a queued-but-not-yet-delivered email cannot end up quoting a TTL the
+	// constant has since changed.
+	ExpiresIn string `json:"expires_in"`
 }
 
 // bookingConfirmationEmail is what the email worker needs, and nothing else.

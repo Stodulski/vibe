@@ -429,6 +429,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/confirm-email-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a pending email change using an emailed token
+         * @description Public, token-authenticated — the same posture as `POST /auth/reset-password`. The token proves control of the account's CURRENT address: the link is emailed there by `PUT /auth/me`, never to the new one. A session cookie cannot substitute for that, which is what stops a hijacked session from moving the account's recovery channel unnoticed. This request does NOT itself prove control of the new address — only the ordinary verification email sent to it afterward does. On success sets `users.email` to the address the token was issued for, clears `email_verified`, re-sends that ordinary verification email to the new address, and revokes every existing session for the account, exactly as a password reset does. Cross-tenant bypass reason `platform`.
+         */
+        post: operations["authConfirmEmailChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me": {
         parameters: {
             query?: never;
@@ -443,7 +463,7 @@ export interface paths {
         get: operations["authGetCurrentUser"];
         /**
          * Update the current account
-         * @description All body fields are optional pointers, omitted means unchanged. Changing `email` clears `email_verified` and re-triggers verification. Changing `phone` to a non-normalizing value is refused unless it is byte-identical to the value already stored (grandfathers pre-existing bad numbers). Changing the password requires both `current_password` and `new_password`, and revokes every other session. Cross-tenant bypass reason `platform`.
+         * @description All body fields are optional pointers, omitted means unchanged. Changing `email` does NOT change the account's address: it creates a pending email-change request and emails a confirmation link to the CURRENT address (see `POST /auth/confirm-email-change`), because the address is the account's password-recovery channel and a session alone is not proof of control over the new one. `email_change` reports what happened to that request: `none` when the body did not ask for a different address (a missing `email`, or the same address modulo case), `requested` when the pending request was saved and the confirmation email enqueued, `failed` when saving or enqueueing it failed after every other field in this PUT had already committed — the response still reports success, and `pending_email` still reflects whatever request (if any) is actually stored, never a request this call failed to save. Changing `phone` to a non-normalizing value is refused unless it is byte-identical to the value already stored (grandfathers pre-existing bad numbers). Changing the password requires both `current_password` and `new_password`, and revokes every other session. Cross-tenant bypass reason `platform`.
          */
         put: operations["authUpdateCurrentUser"];
         post?: never;
@@ -3080,6 +3100,47 @@ export interface operations {
             500: components["responses"]["ServerError"];
         };
     };
+    authConfirmEmailChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Email address updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example email address updated */
+                        message: string;
+                    };
+                };
+            };
+            /** @description The token is invalid, expired, or already used. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
     authGetCurrentUser: {
         parameters: {
             query?: never;
@@ -3089,7 +3150,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The authenticated user and the CSRF token bound to this access token. */
+            /** @description The authenticated user and the CSRF token bound to this access token. `pending_email` is the address of a not-yet-confirmed email change (see `PUT /auth/me`), or null when there is none. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3098,6 +3159,7 @@ export interface operations {
                     "application/json": {
                         user: components["schemas"]["User"];
                         csrf_token: string;
+                        pending_email: string | null;
                     };
                 };
             };
@@ -3115,6 +3177,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    /** @description A value different from the current address creates a pending email-change request instead of changing it; see this operation's description. */
                     email?: string;
                     first_name?: string;
                     last_name?: string;
@@ -3125,7 +3188,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The updated user. */
+            /** @description The account as it stands right after this request. `pending_email` is the address named by the just-created (or a still-live earlier) email-change request, or null. `email_change` is `none`, `requested`, or `failed` — see this operation's description. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3133,6 +3196,9 @@ export interface operations {
                 content: {
                     "application/json": {
                         user: components["schemas"]["User"];
+                        pending_email: string | null;
+                        /** @enum {string} */
+                        email_change: "none" | "requested" | "failed";
                     };
                 };
             };

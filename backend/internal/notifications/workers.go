@@ -81,6 +81,10 @@ func (s *Service) RegisterWorkers() {
 		return s.mailer.SendDuplicateRegistration(ctx, p.To, p.FirstName, p.LoginURL, p.ResetURL)
 	}))
 
+	s.queue.RegisterHandler(handle(TaskEmailChangeRequested, func(ctx context.Context, p EmailChangeRequestedEmail) error {
+		return s.mailer.SendEmailChangeRequested(ctx, p.To, p.FirstName, p.NewEmail, p.ConfirmURL, p.ExpiresIn)
+	}))
+
 	s.queue.RegisterHandler(handle(TaskWABookingConfirmation, func(ctx context.Context, p waBookingConfirmation) error {
 		tmpl := whatsapp.BookingConfirmationTemplate(p.CourtName, p.ComplexName, p.Date, p.StartTime,
 			p.DepositAmount, p.BalanceAmount, p.CancellationLine, p.MapsQuery, p.CancelPath)

@@ -139,6 +139,12 @@ func (s *apiServer) AuthLogout(w http.ResponseWriter, r *http.Request) {
 	s.app.auth.Logout(w, r)
 }
 
+// AuthConfirmEmailChange implements gen.ServerInterface for authConfirmEmailChange
+// (POST /api/v1/auth/confirm-email-change). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) AuthConfirmEmailChange(w http.ResponseWriter, r *http.Request) {
+	s.app.auth.ConfirmEmailChange(w, r)
+}
+
 // AuthDeleteAccount implements gen.ServerInterface for authDeleteAccount
 // (DELETE /api/v1/auth/me). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) AuthDeleteAccount(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,7 @@ import { parseWith } from '@/shared/lib/apiParse';
 import {
   authResponseSchema,
   currentUserResponseSchema,
-  userEnvelopeSchema,
+  updateMeResponseSchema,
   googleSignInResponseSchema,
 } from '@/shared/schemas/auth.schema';
 import { messageResponseSchema } from '@/shared/schemas/envelope.schema';
@@ -13,7 +13,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   UpdateMeRequest,
-  User,
+  UpdateMeResponse,
   GoogleSignInResponse,
   GoogleExchangeRequest,
   GoogleCompleteRequest,
@@ -75,9 +75,25 @@ export const authApi = {
   getMe: (signal?: AbortSignal): Promise<CurrentUserResponse> =>
     api.get('auth/me', withSignal(signal)).json().then(parseWith(currentUserResponseSchema, 'authApi.getMe')),
 
-  updateMe: (data: UpdateMeRequest): Promise<{ user: User }> =>
-    api.put('auth/me', { json: data }).json().then(parseWith(userEnvelopeSchema, 'authApi.updateMe')),
+  updateMe: (data: UpdateMeRequest): Promise<UpdateMeResponse> =>
+    api.put('auth/me', { json: data }).json().then(parseWith(updateMeResponseSchema, 'authApi.updateMe')),
 
   deleteAccount: (): Promise<{ message: string }> =>
     api.delete('auth/me').json().then(parseWith(messageResponseSchema, 'authApi.deleteAccount')),
+
+  /**
+   * Public, token-authenticated — same posture as `resetPassword`. The token
+   * proves control of the account's CURRENT address: `PUT /auth/me` emails
+   * the link there, never to the new one, so a session cookie cannot
+   * substitute for it. Confirming does not itself prove control of the new
+   * address — only the ordinary verification email the backend sends there
+   * afterward does. On success the backend also revokes every session for
+   * the account, so this tab must sign in again too — see
+   * `useConfirmEmailChange`.
+   */
+  confirmEmailChange: (token: string, signal?: AbortSignal): Promise<{ message: string }> =>
+    api
+      .post('auth/confirm-email-change', { json: { token }, ...withSignal(signal) })
+      .json()
+      .then(parseWith(messageResponseSchema, 'authApi.confirmEmailChange')),
 };

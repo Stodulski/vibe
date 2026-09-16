@@ -61,7 +61,7 @@ describe('useAuth', () => {
   // could never speak for the session; now it is the only thing that does.
   it('reports the user the session cache already holds, before any fetch resolves', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(['auth', 'me'], bootUser);
+    queryClient.setQueryData(['auth', 'me'], { user: bootUser, pendingEmail: null });
 
     const { useAuth } = await import('./useAuth');
     const { result } = renderHook(() => useAuth(), {
@@ -84,7 +84,9 @@ describe('useAuth', () => {
     const ky = await import('@/shared/lib/ky');
     const refreshAccessToken = vi.spyOn(ky, 'refreshAccessToken');
     mockSetCsrfToken.mockClear();
-    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: bootUser, csrf_token: 'from-me' })));
+    server.use(
+      http.get('*/auth/me', () => HttpResponse.json({ user: bootUser, csrf_token: 'from-me', pending_email: null })),
+    );
 
     const { useAuth } = await import('./useAuth');
     const { result } = renderHook(() => useAuth(), { wrapper: createQueryWrapper() });
@@ -103,7 +105,9 @@ describe('useAuth', () => {
   // ordinary cache entry, and invalidating it re-reads it.
   it('re-reads the session when its cache entry is invalidated', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: bootUser, csrf_token: 'from-me' })));
+    server.use(
+      http.get('*/auth/me', () => HttpResponse.json({ user: bootUser, csrf_token: 'from-me', pending_email: null })),
+    );
 
     const { useAuth } = await import('./useAuth');
     const { result } = renderHook(() => useAuth(), {
@@ -114,7 +118,9 @@ describe('useAuth', () => {
     });
 
     const renamed = makeUser({ id: 'u1', first_name: 'Juana' });
-    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: renamed, csrf_token: 'from-me' })));
+    server.use(
+      http.get('*/auth/me', () => HttpResponse.json({ user: renamed, csrf_token: 'from-me', pending_email: null })),
+    );
     await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
 
     await waitFor(() => {

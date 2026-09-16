@@ -106,6 +106,9 @@ func (m *stubMailer) SendPasswordReset(_ context.Context, to, firstName, resetUR
 func (m *stubMailer) SendDuplicateRegistration(_ context.Context, to, firstName, loginURL, resetURL string) error {
 	return m.record("duplicate_registration", to, firstName, loginURL, resetURL)
 }
+func (m *stubMailer) SendEmailChangeRequested(_ context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error {
+	return m.record("email_change_requested", to, firstName, newEmail, confirmURL, expiresIn)
+}
 
 type sentWA struct {
 	to   string
@@ -405,7 +408,7 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 	for _, taskType := range []string{
 		TaskEmailBookingConfirmation, TaskEmailReminder2h, TaskEmailBookingCancelled,
 		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailVerification,
-		TaskEmailPasswordReset, TaskEmailDuplicateRegistration,
+		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
 		TaskWABookingConfirmation, TaskWAReminder2h,
 		TaskWABookingCancelled, TaskWADepositRefunded,
 	} {
@@ -633,6 +636,18 @@ func TestAccountEmailsCarryTheirOwnLink(t *testing.T) {
 			wantKey:  "login_url",
 			wantURL:  "https://vibe.test/login",
 		},
+		{
+			name: "email change requested",
+			send: func(s *Service) {
+				s.EmailChangeRequested(EmailChangeRequestedEmail{
+					To: "ana@example.com", FirstName: "Ana",
+					NewEmail: "ana-new@example.com", ConfirmURL: "https://vibe.test/confirm-email-change?t=3",
+				})
+			},
+			taskType: TaskEmailChangeRequested,
+			wantKey:  "confirm_url",
+			wantURL:  "https://vibe.test/confirm-email-change?t=3",
+		},
 	}
 
 	for _, tt := range tests {
@@ -673,6 +688,14 @@ func TestAccountEmailWorkersDeliver(t *testing.T) {
 		{TaskEmailVerification, VerificationEmail{To: "ana@example.com", FirstName: "Ana", VerifyURL: "https://v"}, "verification"},
 		{TaskEmailPasswordReset, PasswordResetEmail{To: "ana@example.com", FirstName: "Ana", ResetURL: "https://r"}, "password_reset"},
 		{TaskEmailDuplicateRegistration, DuplicateRegistrationEmail{To: "ana@example.com", FirstName: "Ana", LoginURL: "https://l", ResetURL: "https://r"}, "duplicate_registration"},
+		{
+			TaskEmailChangeRequested,
+			EmailChangeRequestedEmail{
+				To: "ana@example.com", FirstName: "Ana", NewEmail: "ana-new@example.com",
+				ConfirmURL: "https://c", ExpiresIn: "1 hora",
+			},
+			"email_change_requested",
+		},
 	}
 
 	for _, c := range cases {
@@ -749,6 +772,7 @@ func TestEachDeliveryCarriesADeduplicationKey(t *testing.T) {
 	s.EmailVerification(VerificationEmail{To: "ana@example.com", VerifyURL: "https://vibe.test/v/tok"})
 	s.PasswordReset(PasswordResetEmail{To: "ana@example.com", ResetURL: "https://vibe.test/r/tok"})
 	s.DuplicateRegistration(DuplicateRegistrationEmail{To: "ana@example.com", ResetURL: "https://vibe.test/r/tok"})
+	s.EmailChangeRequested(EmailChangeRequestedEmail{To: "ana@example.com", NewEmail: "ana-new@example.com", ConfirmURL: "https://vibe.test/confirm-email-change?t=tok"})
 
 	for _, taskType := range q.types() {
 		key, ok := q.keyOf(taskType)

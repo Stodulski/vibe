@@ -72,7 +72,15 @@ describe('the session cache (DATA-11)', () => {
   it('is written through by a profile update, so the screen shows the new name at once', async () => {
     const queryClient = makeClient();
     setSessionUser(queryClient, makeUser({ id: 'u-1', first_name: 'Ana' }));
-    server.use(http.put('*/auth/me', () => HttpResponse.json({ user: makeUser({ id: 'u-1', first_name: 'Anabel' }) })));
+    server.use(
+      http.put('*/auth/me', () =>
+        HttpResponse.json({
+          user: makeUser({ id: 'u-1', first_name: 'Anabel' }),
+          pending_email: null,
+          email_change: 'none',
+        }),
+      ),
+    );
 
     const wrapper = wrapperFor(queryClient);
     const { result } = renderHook(() => ({ auth: useAuth(), update: useUpdateProfile() }), { wrapper });
@@ -87,6 +95,45 @@ describe('the session cache (DATA-11)', () => {
     await waitFor(() => {
       expect(result.current.auth.user?.first_name).toBe('Anabel');
     });
+  });
+});
+
+// A sibling describe, not nested in the one above: max-lines-per-function
+// counts a describe callback's whole body.
+describe('the session cache (DATA-11), email change and logout', () => {
+  // SEC-01: `PUT /auth/me` with a different `email` never changes it — it
+  // creates a pending confirmation request instead. The cache must reflect
+  // that: the user's `email` stays put, and `pendingEmail` carries the
+  // requested address so the profile screen can show it.
+  it('keeps the user email unchanged and exposes pending_email when an email change is requested', async () => {
+    const queryClient = makeClient();
+    const currentUser = makeUser({ id: 'u-1', email: 'ana@test.com' });
+    setSessionUser(queryClient, currentUser);
+    server.use(
+      http.put('*/auth/me', () =>
+        HttpResponse.json({ user: currentUser, pending_email: 'new@test.com', email_change: 'requested' }),
+      ),
+    );
+
+    const wrapper = wrapperFor(queryClient);
+    const { result } = renderHook(() => ({ auth: useAuth(), update: useUpdateProfile() }), { wrapper });
+
+    result.current.update.mutate({
+      first_name: currentUser.first_name,
+      last_name: currentUser.last_name,
+      email: 'new@test.com',
+      phone: currentUser.phone,
+    });
+
+    await waitFor(() => {
+      expect(result.current.auth.pendingEmail).toBe('new@test.com');
+    });
+    expect(result.current.auth.user?.email).toBe('ana@test.com');
+
+    const { toast } = await import('sonner');
+    expect(toast.success).toHaveBeenCalledWith(
+      'Te enviamos un enlace de confirmación a tu email actual. El cambio se aplicará cuando lo confirmes.',
+    );
   });
 
   // `queryClient.clear()` alone would leave the `useAuth` still mounted on the
@@ -109,7 +156,7 @@ describe('the session cache (DATA-11)', () => {
     await waitFor(() => {
       expect(result.current.auth.isAuthenticated).toBe(false);
     });
-    expect(queryClient.getQueryData(queryKeys.auth.me)).toBeNull();
+    expect(queryClient.getQueryData(queryKeys.auth.me)).toEqual({ user: null, pendingEmail: null });
     expect(mockSentrySetUser).toHaveBeenLastCalledWith(null);
 
     // The default MSW handler for GET /auth/me answers with a user. Nothing

@@ -112,6 +112,7 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize fun
 		Payments:          &mockPaymentStore{},
 		EmailVerification: &mockEmailVerificationStore{},
 		PasswordReset:     &mockPasswordResetStore{},
+		EmailChange:       &mockEmailChangeStore{},
 		FailedRefunds:     &mockFailedRefundStore{},
 		WebhookEvents:     &mockWebhookEventStore{},
 		SlotLocks:         &mockSlotLockStore{},

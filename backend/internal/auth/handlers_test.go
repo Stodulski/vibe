@@ -897,6 +897,564 @@ func TestUpdateCurrentUserRequiresADeliverablePhoneNumber(t *testing.T) {
 	})
 }
 
+// PUT /auth/me with a new email must not change users.email: it has to queue a
+// request and tell the CURRENT address, because that address is the account's
+// password-recovery channel and a live session is not proof of control over
+// the new one.
+func TestUpdateCurrentUserQueuesAnEmailChangeInsteadOfApplyingIt(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	r := withUser(postJSON(t, `{"email":"ana-new@example.com"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.users.updated == nil || f.users.updated.Email != "ana@example.com" {
+		t.Fatalf("users.email must stay put until the link is confirmed; got %+v", f.users.updated)
+	}
+	if len(f.notify.emailChanges) != 1 {
+		t.Fatalf("want one queued confirmation email; got %d", len(f.notify.emailChanges))
+	}
+	if got := f.notify.emailChanges[0].To; got != "ana@example.com" {
+		t.Errorf("the confirmation must go to the CURRENT address, not the requested one; got %q", got)
+	}
+	if got := f.notify.emailChanges[0].NewEmail; got != "ana-new@example.com" {
+		t.Errorf("the email must name the requested address; got %q", got)
+	}
+
+	body := decode(t, w)
+	if got, _ := body["pending_email"].(string); got != "ana-new@example.com" {
+		t.Errorf(`want pending_email "ana-new@example.com"; got %v`, body["pending_email"])
+	}
+	if got, _ := body["email_change"].(string); got != "requested" {
+		t.Errorf(`want email_change "requested"; got %v`, body["email_change"])
+	}
+}
+
+// A second request for a different address replaces the first: only one
+// pending request survives, and it is the most recent one — the stub's Put
+// reproduces the real store's ON CONFLICT (user_id) DO UPDATE.
+func TestASecondEmailChangeRequestReplacesTheFirst(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"first@example.com"}`), user))
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, withUser(postJSON(t, `{"email":"second@example.com"}`), user))
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	pending, err := f.service.PendingEmail(t.Context(), user.ID)
+	if err != nil {
+		t.Fatalf("PendingEmail: %v", err)
+	}
+	if pending == nil || *pending != "second@example.com" {
+		t.Fatalf("want the second request to win; got %v", pending)
+	}
+
+	firstToken := tokenFromURL(t, f.notify.emailChanges[0].ConfirmURL)
+	confirmW := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(confirmW, postJSON(t, `{"token":"`+firstToken+`"}`))
+	if confirmW.Code == http.StatusOK {
+		t.Error("the first request's link must not still work once a second one replaced it")
+	}
+}
+
+// Asking to change to an address another account already uses is refused up
+// front, the same 422 shape as any other validation failure — and without
+// creating a pending request or sending mail, so the caller does not get a
+// confirmation link for an address they do not own.
+func TestUpdateCurrentUserRefusesAnEmailAlreadyTaken(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.users.add(verifiedUser(t, "taken@example.com", "some-other-password"))
+
+	r := withUser(postJSON(t, `{"email":"taken@example.com"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.emailChanges) != 0 {
+		t.Error("no confirmation email may be sent for an address the caller does not own")
+	}
+	if len(f.audit.entries) != 0 {
+		t.Errorf("a refused request must not be recorded as one: %+v", f.audit.entries)
+	}
+}
+
+// A PUT that asks for both an email change and a password change must not
+// queue the email request — mail a live link, write the audit entry — when
+// the password half fails: requestEmailChange used to run before the
+// password check, so a wrong current_password still left a confirmation link
+// mailed for a PUT the response reported as failed.
+func TestUpdateCurrentUserWithWrongPasswordQueuesNoEmailChange(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	body := `{"email":"ana-new@example.com","current_password":"wrong-password","new_password":"another-battery"}`
+	r := withUser(postJSON(t, body), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("want 401 for a wrong current password; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.emailChanges) != 0 {
+		t.Error("a failed password change must not leave a live email-change link mailed")
+	}
+	if len(f.audit.entries) != 0 {
+		t.Errorf("a failed PUT must not record anything: %+v", f.audit.entries)
+	}
+	if f.users.updated != nil {
+		t.Errorf("a failed PUT must not write the account at all; got %+v", f.users.updated)
+	}
+}
+
+// The same guarantee when the failure is the store write itself rather than a
+// validation check: requestEmailChange's mail and audit entry must not
+// survive a losing Update.
+func TestUpdateCurrentUserWithFailingUpdateQueuesNoEmailChange(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.users.updateErr = errors.New("connection reset")
+
+	r := withUser(postJSON(t, `{"email":"ana-new@example.com","first_name":"Renamed"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500 for a failing Update; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.emailChanges) != 0 {
+		t.Error("a failing Update must not leave a live email-change link mailed")
+	}
+	if len(f.audit.entries) != 0 {
+		t.Errorf("a failing Update must not record anything: %+v", f.audit.entries)
+	}
+}
+
+// requestEmailChange's own store write can fail too — Put, not the write to
+// users. By the time it runs, the rest of the PUT has already committed, so a
+// failing Put must not be reported as though the whole request failed: the
+// response is still 200 with the fields that did save, pending_email
+// truthfully reports nothing pending because Put never durably stored it, and
+// email_change says "failed" so the caller does not have to infer that from
+// pending_email being empty.
+func TestUpdateCurrentUserReportsSuccessWhenTheEmailChangeStoreWriteFails(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.emailChanges.putErr = errors.New("connection reset")
+
+	r := withUser(postJSON(t, `{"email":"ana-new@example.com","first_name":"Renamed"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("a failing Put must not fail the rest of the PUT; want 200, got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.emailChanges) != 0 {
+		t.Error("no confirmation email may be sent for a request that was never durably stored")
+	}
+	if f.users.updated == nil || f.users.updated.FirstName != "Renamed" {
+		t.Errorf("the rest of the PUT must still be saved; got %+v", f.users.updated)
+	}
+
+	body := decode(t, w)
+	if body["pending_email"] != nil {
+		t.Errorf("pending_email must reflect reality (nothing was stored); got %v", body["pending_email"])
+	}
+	if got, _ := body["email_change"].(string); got != "failed" {
+		t.Errorf(`want email_change "failed"; got %v`, body["email_change"])
+	}
+}
+
+// The same failing Put, but with an older pending request already on file:
+// unlike the case above, pending_email must NOT be empty here — it still
+// names the older, still-live request, because a failing Put never replaced
+// it. email_change must still say "failed", not "requested": the response
+// must not be read as though a new confirmation link went out for the
+// address just submitted.
+func TestUpdateCurrentUserReportsFailedWhenPutFailsWithAnOlderPendingRequestOnFile(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	// First request succeeds and leaves a pending change to "first@example.com".
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"first@example.com"}`), user))
+	if len(f.notify.emailChanges) != 1 {
+		t.Fatalf("the first request must have queued one confirmation email; got %d", len(f.notify.emailChanges))
+	}
+
+	// A second request, to a different address, fails at Put.
+	f.emailChanges.putErr = errors.New("connection reset")
+	r := withUser(postJSON(t, `{"email":"second@example.com"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("a failing Put must not fail the rest of the PUT; want 200, got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.emailChanges) != 1 {
+		t.Errorf("the failed second request must not have sent a confirmation email; got %d", len(f.notify.emailChanges))
+	}
+
+	body := decode(t, w)
+	if got, _ := body["email_change"].(string); got != "failed" {
+		t.Errorf(`want email_change "failed"; got %v — a failed request must never read as "requested"`, body["email_change"])
+	}
+	if got, _ := body["pending_email"].(string); got != "first@example.com" {
+		t.Errorf(`want the untouched older request "first@example.com" to still be reported; got %v`, body["pending_email"])
+	}
+}
+
+// A taken email, a name change and a password change all in the same PUT: the
+// availability check runs before any write, so the whole request is rejected
+// with nothing persisted — no name, no password, no pending request.
+func TestUpdateCurrentUserWithTakenEmailPersistsNothing(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.users.add(verifiedUser(t, "taken@example.com", "some-other-password"))
+
+	body := `{"email":"taken@example.com","first_name":"Renamed","current_password":"correct-horse-battery","new_password":"another-battery"}`
+	r := withUser(postJSON(t, body), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 for a taken email; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.users.updated != nil {
+		t.Errorf("a taken email must persist nothing — no name, no password; got %+v", f.users.updated)
+	}
+	if len(f.notify.emailChanges) != 0 {
+		t.Error("no confirmation email may be sent for an address the caller does not own")
+	}
+	if len(f.audit.entries) != 0 {
+		t.Errorf("a rejected PUT must not record anything: %+v", f.audit.entries)
+	}
+}
+
+// Requesting the account's own current address again — unchanged — is simply
+// not a change, the same as any other untouched field.
+func TestUpdateCurrentUserWithTheSameEmailIsNotARequest(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	r := withUser(postJSON(t, `{"email":"ana@example.com"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.emailChanges) != 0 {
+		t.Error("re-submitting the current address must not queue a request")
+	}
+
+	body := decode(t, w)
+	if got, _ := body["email_change"].(string); got != "none" {
+		t.Errorf(`want email_change "none"; got %v`, body["email_change"])
+	}
+}
+
+// users.email is CITEXT: the account's current address with different
+// capitalization is the same address, so it must be as much a no-op as
+// resubmitting it byte-for-byte — no pending request, no mail.
+func TestUpdateCurrentUserWithDifferentCaseOfTheSameEmailIsNotARequest(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	r := withUser(postJSON(t, `{"email":"ANA@EXAMPLE.COM"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.emailChanges) != 0 {
+		t.Error("a case-only resubmission of the current address must not queue a request")
+	}
+	if len(f.audit.entries) != 0 {
+		t.Errorf("a case-only resubmission must not be recorded as a request: %+v", f.audit.entries)
+	}
+
+	body := decode(t, w)
+	if body["pending_email"] != nil {
+		t.Errorf("want no pending_email; got %v", body["pending_email"])
+	}
+	if got, _ := body["email_change"].(string); got != "none" {
+		t.Errorf(`want email_change "none"; got %v`, body["email_change"])
+	}
+}
+
+// Confirming the emailed link is the only thing that moves the address: it
+// writes users.email, clears verification, sends the ordinary verification
+// email to the NEW address, and revokes every existing session — the same
+// posture ResetPassword takes on the account's other recovery channel.
+func TestConfirmingAnEmailChangeMovesTheAddress(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"ana-new@example.com"}`), user))
+	if len(f.notify.emailChanges) != 1 {
+		t.Fatalf("no confirmation email was queued (%d)", len(f.notify.emailChanges))
+	}
+	token := tokenFromURL(t, f.notify.emailChanges[0].ConfirmURL)
+
+	w := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(w, postJSON(t, `{"token":"`+token+`"}`))
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	if f.users.updated == nil || f.users.updated.Email != "ana-new@example.com" {
+		t.Fatalf("confirming the link must move users.email; got %+v", f.users.updated)
+	}
+	if f.users.updated.EmailVerified {
+		t.Error("the new address starts unverified")
+	}
+	if len(f.notify.verifications) != 1 || f.notify.verifications[0].To != "ana-new@example.com" {
+		t.Errorf("the ordinary verification email must go to the NEW address; got %+v", f.notify.verifications)
+	}
+	if len(f.tokens.allWiped) == 0 {
+		t.Error("confirming an email change must revoke every refresh token")
+	}
+	if len(f.blacklist.invalidated) == 0 {
+		t.Error("confirming an email change must revoke the outstanding access tokens")
+	}
+
+	e := findEntry(t, f.audit.entries, actionEmailChange)
+	if e.UserID != nil {
+		t.Errorf("this route is public and nothing authenticated the caller, yet the entry names actor %v", *e.UserID)
+	}
+	if e.EntityID == nil || *e.EntityID != user.ID {
+		t.Errorf("the entry names account %v, want %v", e.EntityID, user.ID)
+	}
+}
+
+// The confirmation token is single-use: a second attempt with the same link
+// fails, the same shape as a reused password-reset link.
+func TestConfirmEmailChangeTokenIsSingleUse(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"ana-new@example.com"}`), user))
+	token := tokenFromURL(t, f.notify.emailChanges[0].ConfirmURL)
+	body := `{"token":"` + token + `"}`
+
+	first := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(first, postJSON(t, body))
+	if first.Code != http.StatusOK {
+		t.Fatalf("the first confirmation should succeed; got %d (%s)", first.Code, first.Body.String())
+	}
+
+	second := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(second, postJSON(t, body))
+	if second.Code != http.StatusBadRequest {
+		t.Errorf("a reused confirmation link must be refused as invalid; want 400, got %d (%s)", second.Code, second.Body.String())
+	}
+}
+
+// An unknown or expired token answers exactly the same as a reused one — one
+// outcome for all three, so a caller cannot tell them apart.
+func TestConfirmEmailChangeRejectsAnUnknownToken(t *testing.T) {
+	f := newFixture(t)
+	w := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(w, postJSON(t, `{"token":"never-issued"}`))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("want 400 for a token that was never issued; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.users.updated != nil {
+		t.Error("no account may be changed for an unknown token")
+	}
+}
+
+// The address can be claimed by someone else between the request and the
+// click — a fresh registration, or another account's own confirmation. The
+// race is caught at confirm time even though requestEmailChange already
+// checked once at request time.
+func TestConfirmEmailChangeRejectsADuplicateEmailRaceAtConfirmTime(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"ana-new@example.com"}`), user))
+	token := tokenFromURL(t, f.notify.emailChanges[0].ConfirmURL)
+
+	// The address is claimed by someone else after the request but before the
+	// link is used.
+	f.users.add(verifiedUser(t, "ana-new@example.com", "someone-elses-password"))
+
+	w := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(w, postJSON(t, `{"token":"`+token+`"}`))
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("want 422 for an address claimed since the request; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.users.updated != nil && f.users.updated.Email == "ana-new@example.com" {
+		t.Error("an address claimed by another account must not be applied")
+	}
+}
+
+// The token is no longer consumed up front: a transient failure writing the
+// new address must leave the link usable for a retry, rather than burning a
+// single-use token on a change that never actually happened.
+func TestConfirmEmailChangeLeavesTheTokenUsableWhenUpdateFails(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"ana-new@example.com"}`), user))
+	token := tokenFromURL(t, f.notify.emailChanges[0].ConfirmURL)
+
+	f.users.updateErr = errors.New("connection reset")
+	first := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(first, postJSON(t, `{"token":"`+token+`"}`))
+	if first.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500 for a failing Update; got %d (%s)", first.Code, first.Body.String())
+	}
+	if f.users.updated != nil && f.users.updated.Email == "ana-new@example.com" {
+		t.Errorf("a failing Update must not be observed as having moved the address; got %+v", f.users.updated)
+	}
+
+	// The store recovers, and the same token — never consumed by the failed
+	// attempt above — still works.
+	f.users.updateErr = nil
+	second := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(second, postJSON(t, `{"token":"`+token+`"}`))
+	if second.Code != http.StatusOK {
+		t.Fatalf("the token must still be usable after a transient store failure; got %d (%s)", second.Code, second.Body.String())
+	}
+	if f.users.updated == nil || f.users.updated.Email != "ana-new@example.com" {
+		t.Errorf("the retry must move the address; got %+v", f.users.updated)
+	}
+}
+
+// A store failure reading the token is not the same outcome as an unknown
+// one: a Peek failure answers 500, while an unknown token answers 400 via
+// ErrInvalidToken, and a Peek failure must not be mistaken for ErrInvalidToken
+// by any future change to this path — pinned here the same way ResetPassword's
+// identical split is pinned.
+func TestConfirmEmailChangeReportsAFailingTokenLookup(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"ana-new@example.com"}`), user))
+	token := tokenFromURL(t, f.notify.emailChanges[0].ConfirmURL)
+
+	f.emailChanges.peekErr = errors.New("connection reset")
+	w := httptest.NewRecorder()
+	f.handler.ConfirmEmailChange(w, postJSON(t, `{"token":"`+token+`"}`))
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 for a store failure reading the token; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+// GET /auth/me answers pending_email the same way PUT does, so a page
+// reloaded after the request still shows "check your inbox".
+func TestCurrentUserReportsAPendingEmailChange(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.handler.UpdateCurrentUser(httptest.NewRecorder(), withUser(postJSON(t, `{"email":"ana-new@example.com"}`), user))
+
+	r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), user)
+	w := httptest.NewRecorder()
+	f.handler.CurrentUser(w, r)
+
+	body := decode(t, w)
+	if got, _ := body["pending_email"].(string); got != "ana-new@example.com" {
+		t.Errorf(`want pending_email "ana-new@example.com"; got %v`, body["pending_email"])
+	}
+}
+
+// No pending request at all answers null, not an absent field or an error.
+func TestCurrentUserReportsNoPendingEmailChangeAsNull(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+
+	r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), user)
+	w := httptest.NewRecorder()
+	f.handler.CurrentUser(w, r)
+
+	body := decode(t, w)
+	if v, ok := body["pending_email"]; !ok {
+		t.Error("pending_email must be present, even when null")
+	} else if v != nil {
+		t.Errorf("want pending_email null; got %v", v)
+	}
+}
+
+// A failing PendingEmail lookup must never break session bootstrap: this is a
+// side feature riding on GET /auth/me, which every page load depends on, and
+// a store error on this one read must not turn that into a 500.
+func TestCurrentUserPendingEmailLookupFailureStillReturnsSession(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.emailChanges.pendingErr = errors.New("db unavailable")
+
+	r := withUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), user)
+	w := httptest.NewRecorder()
+	f.handler.CurrentUser(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 even when the pending-email lookup fails; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := decode(t, w)
+	if v, ok := body["pending_email"]; !ok || v != nil {
+		t.Errorf("want pending_email null on a lookup failure; got %v (present=%v)", v, ok)
+	}
+	returned, _ := body["user"].(map[string]any)
+	if returned["email"] != "ana@example.com" {
+		t.Errorf("the session itself must still be returned; got %v", returned)
+	}
+	if !strings.Contains(f.logs.String(), "db unavailable") {
+		t.Errorf("the failure must be logged, not silently dropped: %s", f.logs.String())
+	}
+}
+
+// The same guarantee on PUT /auth/me: by the time pending_email is read for
+// the response, the write this request asked for has already committed, and
+// a failure reading an unrelated table must not report the whole PUT as
+// failed.
+func TestUpdateCurrentUserPendingEmailLookupFailureStillReturnsUpdated(t *testing.T) {
+	f := newFixture(t)
+	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
+	f.users.add(user)
+	f.emailChanges.pendingErr = errors.New("db unavailable")
+
+	r := withUser(postJSON(t, `{"first_name":"Renamed"}`), user)
+	w := httptest.NewRecorder()
+	f.handler.UpdateCurrentUser(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 even when the pending-email lookup fails; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := decode(t, w)
+	if v, ok := body["pending_email"]; !ok || v != nil {
+		t.Errorf("want pending_email null on a lookup failure; got %v (present=%v)", v, ok)
+	}
+	if f.users.updated == nil || f.users.updated.FirstName != "Renamed" {
+		t.Errorf("the write itself must still have committed; got %+v", f.users.updated)
+	}
+}
+
 // Every InsertWithCooldown error returned the generic success and wrote nothing
 // anywhere. During a database problem every password reset silently failed while
 // each user was told their mail was on its way — an outage in the one flow

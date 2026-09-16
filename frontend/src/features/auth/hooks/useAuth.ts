@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@/shared/stores';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { bootstrapSession } from '@/shared/lib/ky';
-import { identifySession } from './session';
+import { identifySession, type SessionData } from './session';
 import type { User } from '@/shared/types/api.types';
 
 interface AuthState {
   user: User | null;
+  /** The address of a not-yet-confirmed email change, or `null`. See `PersonalInfoForm`. */
+  pendingEmail: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
@@ -29,7 +31,7 @@ interface AuthState {
 export function useAuth(): AuthState {
   const query = useQuery({
     queryKey: queryKeys.auth.me,
-    queryFn: async ({ signal }) => {
+    queryFn: async ({ signal }): Promise<SessionData> => {
       // On reload the cookies are still there but the in-memory CSRF token is
       // gone. GET /auth/me hands it back for the access token the cookie
       // carries, so the page load rotates nothing; the refresh token is only
@@ -40,15 +42,15 @@ export function useAuth(): AuthState {
       } catch {
         // The session could not be read at all — treated as signed out, as a
         // failed refresh always was; the next guarded request retries.
-        return identifySession(null);
+        return { user: identifySession(null), pendingEmail: null };
       }
       if (!session) {
         // No valid session — user needs to log in.
-        return identifySession(null);
+        return { user: identifySession(null), pendingEmail: null };
       }
 
       useStore.getState().setCsrfToken(session.csrf_token);
-      return identifySession(session.user);
+      return { user: identifySession(session.user), pendingEmail: session.pending_email };
     },
     staleTime: 5 * 60 * 1000,
     retry: false,
@@ -58,11 +60,12 @@ export function useAuth(): AuthState {
     throwOnError: false,
   });
 
-  const user = query.data ?? null;
+  const data = query.data;
 
   return {
-    user,
+    user: data?.user ?? null,
+    pendingEmail: data?.pendingEmail ?? null,
     isLoading: query.isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!data?.user,
   };
 }

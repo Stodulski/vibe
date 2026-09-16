@@ -128,6 +128,7 @@ const APP_ROUTES = [
   'register',
   'verify-email',
   'verify-email-sent',
+  'confirm-email-change',
   'forgot-password',
   'reset-password',
   'complexes',

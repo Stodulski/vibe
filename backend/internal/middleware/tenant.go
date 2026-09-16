@@ -64,7 +64,9 @@ var crossTenantRoutes = map[string]string{
 	"POST /api/v1/auth/resend-verification": "platform: reached before the account can log in",
 	"POST /api/v1/auth/forgot-password":     "platform: the caller cannot log in, that is the point",
 	"POST /api/v1/auth/reset-password":      "platform: authenticated by the emailed token, not by a complex",
-	"PUT /api/v1/auth/me":                   "platform: edits the account, and its audit row belongs to no complex",
+	"POST /api/v1/auth/confirm-email-change": "platform: authenticated by the emailed token, not by a complex, " +
+		"the same posture as /auth/reset-password",
+	"PUT /api/v1/auth/me": "platform: edits the account, and its audit row belongs to no complex",
 	"DELETE /api/v1/auth/me": "by-owner: reads every complex of the account and deletes the user, " +
 		"whose cascade reaches every tenant table under it",
 

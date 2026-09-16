@@ -27,9 +27,12 @@ export const handlers = [
   http.post('*/auth/forgot-password', () => HttpResponse.json({ message: 'ok' })),
   http.post('*/auth/reset-password', () => HttpResponse.json({ message: 'ok' })),
   http.post('*/auth/refresh', () => HttpResponse.json({ csrf_token: 'test-csrf-token' })),
-  http.get('*/auth/me', () => HttpResponse.json({ user: makeUser(), csrf_token: 'test-csrf-token' })),
-  http.put('*/auth/me', () => HttpResponse.json({ user: makeUser() })),
+  http.get('*/auth/me', () =>
+    HttpResponse.json({ user: makeUser(), csrf_token: 'test-csrf-token', pending_email: null }),
+  ),
+  http.put('*/auth/me', () => HttpResponse.json({ user: makeUser(), pending_email: null, email_change: 'none' })),
   http.delete('*/auth/me', () => HttpResponse.json({ message: 'ok' })),
+  http.post('*/auth/confirm-email-change', () => HttpResponse.json({ message: 'ok' })),
 
   // ─── public leads ───
   http.post('*/public/leads/abandoned-registration', () => HttpResponse.json({})),

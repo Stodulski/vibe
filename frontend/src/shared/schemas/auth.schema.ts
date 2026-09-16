@@ -5,6 +5,7 @@ import type {
   AuthResponse,
   RefreshResponse,
   CurrentUserResponse,
+  UpdateMeResponse,
   GoogleProfilePreview,
   GoogleNeedsProfileResponse,
   GoogleSignInResponse,
@@ -48,23 +49,33 @@ export const refreshResponseSchema = z
   .loose() satisfies z.ZodType<RefreshResponse>;
 
 /**
- * `{ user, csrf_token }` — `authApi.getMe`. A page load bootstraps the session
- * from this answer instead of rotating the refresh token, so a missing
- * `csrf_token` is a malformed session, not an optional extra.
+ * `{ user, csrf_token, pending_email }` — `authApi.getMe`. A page load
+ * bootstraps the session from this answer instead of rotating the refresh
+ * token, so a missing `csrf_token` is a malformed session, not an optional
+ * extra. `pending_email` is required too: the backend always sends it
+ * (`null` when there is no pending change), never omits it.
  */
 export const currentUserResponseSchema = z
   .object({
     user: userSchema,
     csrf_token: z.string(),
+    pending_email: z.string().nullable(),
   })
   .loose() satisfies z.ZodType<CurrentUserResponse>;
 
-/** `{ user: User }` — `authApi.updateMe`. */
-export const userEnvelopeSchema = z
+/**
+ * `{ user, pending_email, email_change }` — `authApi.updateMe`. `email_change`
+ * is required: the backend always says what happened to a requested email
+ * change (`none`, `requested`, or `failed`), even when the body did not ask
+ * for one at all (`none`).
+ */
+export const updateMeResponseSchema = z
   .object({
     user: userSchema,
+    pending_email: z.string().nullable(),
+    email_change: z.enum(['none', 'requested', 'failed']),
   })
-  .loose() satisfies z.ZodType<{ user: User }>;
+  .loose() satisfies z.ZodType<UpdateMeResponse>;
 
 const googleProfilePreviewSchema = z
   .object({

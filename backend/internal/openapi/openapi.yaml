@@ -919,6 +919,50 @@ paths:
                 token: {type: string}
                 password: {type: string, minLength: 8, maxLength: 72}
 
+  /api/v1/auth/confirm-email-change:
+    post:
+      tags: [auth]
+      operationId: authConfirmEmailChange
+      summary: Confirm a pending email change using an emailed token
+      description: >-
+        Public, token-authenticated — the same posture as `POST /auth/reset-password`. The token
+        proves control of the account's CURRENT address: the link is emailed there by `PUT /auth/me`,
+        never to the new one. A session cookie cannot substitute for that, which is what stops a
+        hijacked session from moving the account's recovery channel unnoticed. This request does
+        NOT itself prove control of the new address — only the ordinary verification email sent to
+        it afterward does. On success sets `users.email` to the address the token was issued for,
+        clears `email_verified`, re-sends that ordinary verification email to the new address, and
+        revokes every existing session for the account, exactly as a password reset does.
+        Cross-tenant bypass reason `platform`.
+      security: []
+      responses:
+        "200":
+          description: Email address updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: {type: string, example: "email address updated"}
+        "400":
+          description: The token is invalid, expired, or already used.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string}
+
   /api/v1/auth/me:
     get:
       tags: [auth]
@@ -932,15 +976,19 @@ paths:
       security: [{cookieAuth: []}]
       responses:
         "200":
-          description: The authenticated user and the CSRF token bound to this access token.
+          description: >-
+            The authenticated user and the CSRF token bound to this access token. `pending_email`
+            is the address of a not-yet-confirmed email change (see `PUT /auth/me`), or null when
+            there is none.
           content:
             application/json:
               schema:
                 type: object
-                required: [user, csrf_token]
+                required: [user, csrf_token, pending_email]
                 properties:
                   user: {$ref: "#/components/schemas/User"}
                   csrf_token: {type: string}
+                  pending_email: {type: string, nullable: true}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "429": {$ref: "#/components/responses/RateLimited"}
     put:
@@ -948,22 +996,38 @@ paths:
       operationId: authUpdateCurrentUser
       summary: Update the current account
       description: >-
-        All body fields are optional pointers, omitted means unchanged. Changing `email` clears
-        `email_verified` and re-triggers verification. Changing `phone` to a non-normalizing
-        value is refused unless it is byte-identical to the value already stored (grandfathers
-        pre-existing bad numbers). Changing the password requires both `current_password` and
-        `new_password`, and revokes every other session. Cross-tenant bypass reason `platform`.
+        All body fields are optional pointers, omitted means unchanged. Changing `email` does NOT
+        change the account's address: it creates a pending email-change request and emails a
+        confirmation link to the CURRENT address (see `POST /auth/confirm-email-change`), because
+        the address is the account's password-recovery channel and a session alone is not proof of
+        control over the new one. `email_change` reports what happened to that request: `none`
+        when the body did not ask for a different address (a missing `email`, or the same address
+        modulo case), `requested` when the pending request was saved and the confirmation email
+        enqueued, `failed` when saving or enqueueing it failed after every other field in this PUT
+        had already committed — the response still reports success, and `pending_email` still
+        reflects whatever request (if any) is actually stored, never a request this call failed to
+        save. Changing `phone` to a non-normalizing value is refused unless it is byte-identical to
+        the value already stored (grandfathers pre-existing bad numbers). Changing the password
+        requires both `current_password` and `new_password`, and revokes every other session.
+        Cross-tenant bypass reason `platform`.
       security: [{cookieAuth: [], csrfHeader: []}]
       responses:
         "200":
-          description: The updated user.
+          description: >-
+            The account as it stands right after this request. `pending_email` is the address
+            named by the just-created (or a still-live earlier) email-change request, or null.
+            `email_change` is `none`, `requested`, or `failed` — see this operation's description.
           content:
             application/json:
               schema:
                 type: object
-                required: [user]
+                required: [user, pending_email, email_change]
                 properties:
                   user: {$ref: "#/components/schemas/User"}
+                  pending_email: {type: string, nullable: true}
+                  email_change:
+                    type: string
+                    enum: [none, requested, failed]
         "401":
           description: Unauthenticated, or `current_password` did not match.
           content:
@@ -979,7 +1043,11 @@ paths:
             schema:
               type: object
               properties:
-                email: {type: string}
+                email:
+                  type: string
+                  description: >-
+                    A value different from the current address creates a pending email-change
+                    request instead of changing it; see this operation's description.
                 first_name: {type: string, maxLength: 100}
                 last_name: {type: string, maxLength: 100}
                 phone: {type: string}

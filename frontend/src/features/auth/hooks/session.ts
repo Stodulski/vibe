@@ -15,6 +15,19 @@ import type { User } from '@/shared/types/api.types';
  */
 
 /**
+ * What `queryKeys.auth.me` actually holds.
+ *
+ * `pendingEmail` travels alongside `user` rather than as a cache entry of its
+ * own: both come from the same `GET`/`PUT /auth/me` answer, and a second key
+ * populated as a side effect of the first query's `queryFn` would be one more
+ * place for the two to drift out of sync.
+ */
+export interface SessionData {
+  user: User | null;
+  pendingEmail: string | null;
+}
+
+/**
  * Tells Sentry who is using the app, by id only — never an email or a name.
  *
  * Kept next to the cache write (and called by the store's `logout`) so every
@@ -30,7 +43,12 @@ export function identifySession(user: User | null): User | null {
  * Seeds the session cache from a response that already carries the user —
  * a login, a Google sign-in, a profile update — so the screen updates without
  * a second round-trip to `GET /auth/me`.
+ *
+ * `pendingEmail` defaults to `null`: only `GET`/`PUT /auth/me` ever answer
+ * with one, so a login or a logout (the other two callers) leaves the cache
+ * at `null` until the next `/auth/me` refetch reports whatever is actually
+ * pending for the signed-in account.
  */
-export function setSessionUser(queryClient: QueryClient, user: User | null): void {
-  queryClient.setQueryData(queryKeys.auth.me, identifySession(user));
+export function setSessionUser(queryClient: QueryClient, user: User | null, pendingEmail: string | null = null): void {
+  queryClient.setQueryData<SessionData>(queryKeys.auth.me, { user: identifySession(user), pendingEmail });
 }

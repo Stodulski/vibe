@@ -12,6 +12,7 @@ const GoogleCompletePage = lazyRetry(() => import('@/features/auth/pages/GoogleC
 const GoogleReturnPage = lazyRetry(() => import('@/features/auth/pages/GoogleReturnPage'));
 const VerifyEmailSentPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailSentPage'));
 const VerifyEmailPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailPage'));
+const ConfirmEmailChangePage = lazyRetry(() => import('@/features/auth/pages/ConfirmEmailChangePage'));
 const ForgotPasswordPage = lazyRetry(() => import('@/features/auth/pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazyRetry(() => import('@/features/auth/pages/ResetPasswordPage'));
 
@@ -83,6 +84,19 @@ export const authRoutes: RouteObject[] = [
       <ErrorBoundary>
         <Suspense fallback={<PublicPageLoader />}>
           <VerifyEmailPage />
+        </Suspense>
+      </ErrorBoundary>
+    ),
+  },
+  // Public, token-authenticated — not wrapped in GuestRoute: the backend
+  // revokes every session on confirmation, so a signed-in visitor who
+  // clicks this link must land here too, not be bounced away by the guard.
+  {
+    path: '/confirm-email-change',
+    element: (
+      <ErrorBoundary>
+        <Suspense fallback={<PublicPageLoader />}>
+          <ConfirmEmailChangePage />
         </Suspense>
       </ErrorBoundary>
     ),

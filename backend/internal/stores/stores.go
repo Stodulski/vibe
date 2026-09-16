@@ -96,6 +96,21 @@ type PasswordResetStore interface {
 }
 
 // ---------------------------------------------------------------------------
+// EmailChangeStore — already well-sized
+// ---------------------------------------------------------------------------
+
+// EmailChangeStore manages pending email-change requests: at most one per
+// account, created by PUT /auth/me and consumed by POST
+// /auth/confirm-email-change.
+type EmailChangeStore interface {
+	Put(ctx context.Context, userID uuid.UUID, newEmail string, tokenHash []byte) error
+	Peek(ctx context.Context, tokenHash []byte) (*authstore.EmailChangeRequest, error)
+	Consume(ctx context.Context, tokenHash []byte) error
+	GetPendingByUser(ctx context.Context, userID uuid.UUID) (*authstore.EmailChangeRequest, error)
+	DeleteExpired(ctx context.Context) error
+}
+
+// ---------------------------------------------------------------------------
 // BookingLinkTokenStore — a credential's lifecycle, not a booking's
 // ---------------------------------------------------------------------------
 
@@ -559,6 +574,7 @@ type Stores struct {
 	Payments          PaymentStore
 	EmailVerification EmailVerificationStore
 	PasswordReset     PasswordResetStore
+	EmailChange       EmailChangeStore
 	FailedRefunds     FailedRefundStore
 	WebhookEvents     WebhookEventStore
 	SlotLocks         SlotLockStore
@@ -604,6 +620,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Payments:          &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		EmailVerification: &authstore.EmailVerifications{DB: pooled, Q: q},
 		PasswordReset:     &authstore.PasswordResets{DB: pooled},
+		EmailChange:       &authstore.EmailChanges{DB: pooled},
 		FailedRefunds:     &paymentstore.FailedRefunds{DB: pooled},
 		WebhookEvents:     &paymentstore.WebhookEvents{DB: pooled},
 		Reports:           &reportstore.Store{DB: pooled},

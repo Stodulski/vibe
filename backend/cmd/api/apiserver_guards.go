@@ -66,6 +66,7 @@ var routeGuards = map[string]routeGuard{
 	"GET /api/v1/admin/users":                                          {kind: guardSuperAdmin},
 	"GET /api/v1/admin/users/{id}":                                     {kind: guardSuperAdmin},
 	"PATCH /api/v1/admin/users/{id}/toggle-active":                     {kind: guardSuperAdmin},
+	"POST /api/v1/auth/confirm-email-change":                           {kind: guardPublic},
 	"POST /api/v1/auth/forgot-password":                                {kind: guardPublic},
 	"POST /api/v1/auth/google":                                         {kind: guardPublic},
 	"POST /api/v1/auth/google/complete":                                {kind: guardPublic},

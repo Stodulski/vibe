@@ -25,6 +25,24 @@ export const auth = {
   newPassword: 'Nueva contraseña',
   confirmNewPassword: 'Confirmar nueva contraseña',
   profileUpdated: 'Perfil actualizado',
+  emailChangeConfirmationSent:
+    'Te enviamos un enlace de confirmación a tu email actual. El cambio se aplicará cuando lo confirmes.',
+  emailChangeRequestFailed: 'Guardamos tus datos, pero no pudimos iniciar el cambio de email. Probá de nuevo.',
+  emailChangePending: 'Cambio pendiente a',
+  confirmEmailChangeVerifying: 'Confirmando el cambio de email...',
+  confirmEmailChangeSuccess: 'Tu email fue actualizado',
+  confirmEmailChangeSuccessDesc:
+    'Te enviamos un email para verificar tu nueva dirección — hacelo cuando puedas. Por seguridad, cerramos todas tus sesiones: iniciá sesión de nuevo.',
+  confirmEmailChangeExpired:
+    'El enlace de confirmación es inválido, expiró o ya fue utilizado. Solicitá el cambio de email nuevamente desde tu perfil.',
+  confirmEmailChangeTaken: 'Esa dirección de email ya está en uso por otra cuenta.',
+  confirmEmailChangeConfirmTitle: 'Confirmar cambio de email',
+  confirmEmailChangeExplain:
+    'Vas a mover el email de tu cuenta a la dirección que solicitaste y vamos a cerrar todas tus sesiones activas. Confirmá solo si fuiste vos quien pidió el cambio.',
+  confirmEmailChangeConfirmButton: 'Confirmar cambio de email',
+  confirmEmailChangeRetryButton: 'Reintentar',
+  confirmEmailChangeRateLimited: 'Demasiados intentos. Probá de nuevo en unos minutos.',
+  confirmEmailChangeGenericError: 'No pudimos confirmar el cambio en este momento. Probá de nuevo.',
   passwordChanged: 'Contraseña actualizada. Inicia sesión nuevamente.',
   passwordMismatch: 'Las contraseñas no coinciden',
   changePassword: 'Cambiar contraseña',

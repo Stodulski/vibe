@@ -113,13 +113,13 @@ func CancellationLine(cancellationHours int, gracePeriod time.Duration, inStanda
 			return "con devolución hasta el inicio del turno."
 		}
 		return fmt.Sprintf("con devolución hasta %s antes del turno.",
-			spanishDuration(time.Duration(cancellationHours)*time.Hour))
+			SpanishDuration(time.Duration(cancellationHours)*time.Hour))
 	}
 	if gracePeriod <= 0 {
 		return "sin devolución."
 	}
 	return fmt.Sprintf("con devolución hasta %s después de la reserva.",
-		spanishDuration(gracePeriod))
+		SpanishDuration(gracePeriod))
 }
 
 // ExpiredUnpaidRefundLine is what a booking cancelled by the payment-expiry
@@ -134,13 +134,19 @@ func CancellationLine(cancellationHours int, gracePeriod time.Duration, inStanda
 // is a value substituted after the template's fixed "Devolución: ".
 const ExpiredUnpaidRefundLine = "reserva vencida por falta de pago, no hay pagos a devolver."
 
-// spanishDuration renders a duration the way a client reads it.
+// SpanishDuration renders a duration the way a client reads it.
 //
 // The zero value is the caller's problem, not this function's: a complex
 // configured with no grace period should not be told it has "0 minutos" to
 // cancel, and CancellationLine above is what decides that sentence is never
 // reached.
-func spanishDuration(d time.Duration) string {
+//
+// Exported so a caller outside this package can render the same copy from its
+// own duration constant instead of hand-writing an equivalent string that can
+// drift from it — see auth.Service.requestEmailChange, which renders
+// EmailChangeRequestedEmail.ExpiresIn from authstore.EmailChangeTokenExpiry
+// this way.
+func SpanishDuration(d time.Duration) string {
 	minutes := int(d.Round(time.Minute).Minutes())
 	switch {
 	case minutes >= 120 && minutes%60 == 0:

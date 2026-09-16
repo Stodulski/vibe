@@ -279,7 +279,14 @@ func generateRefreshToken() (plaintext string, hash []byte) {
 	return plaintext, hash
 }
 
-func hashRefreshToken(plaintext string) []byte {
+// hashToken hashes a single-use token's plaintext before it is stored or
+// looked up — SHA-256, no salt, because looking up an unsalted hash by exact
+// match is what turns GetByHash/GetRefreshToken/Peek and friends into a single
+// index lookup instead of a table scan. Named for what it does rather than
+// for the one token kind it started with (a refresh token): this same
+// function also hashes an email-verification, password-reset and
+// email-change token.
+func hashToken(plaintext string) []byte {
 	sum := sha256.Sum256([]byte(plaintext))
 	return sum[:]
 }

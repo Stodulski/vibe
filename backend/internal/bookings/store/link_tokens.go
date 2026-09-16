@@ -16,7 +16,7 @@ import (
 
 // linkTokenByteLength is how much entropy MintLinkToken draws for a plaintext
 // token: 32 random bytes, base64.RawURLEncoding-encoded to 43 characters —
-// the same shape generateRefreshToken/hashRefreshToken (internal/auth/tokens.go)
+// the same shape generateRefreshToken/hashToken (internal/auth/tokens.go)
 // use for a refresh token, duplicated here rather than imported —
 // internal/data must not depend on internal/auth. Chosen over the house
 // uuid.New() idiom deliberately: a UUID-shaped token would be
@@ -25,7 +25,9 @@ import (
 const linkTokenByteLength = 32
 
 // HashLinkToken hashes a plaintext booking link token the same way
-// hashRefreshToken hashes a refresh token: SHA-256, stored raw.
+// hashToken (internal/auth/tokens.go) hashes every single-use token —
+// a refresh token, an email verification, a password reset, an email
+// change: SHA-256, stored raw.
 func HashLinkToken(plaintext string) []byte {
 	sum := sha256.Sum256([]byte(plaintext))
 	return sum[:]

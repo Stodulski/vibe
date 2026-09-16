@@ -62,26 +62,87 @@ describe('authApi', () => {
     await expect(authApi.resetPassword('tok', 'newpass')).resolves.toEqual({ message: 'ok' });
   });
 
-  it('updateMe parses a user envelope', async () => {
-    server.use(http.put('*/auth/me', () => HttpResponse.json({ user: makeUser() })));
-    await expect(authApi.updateMe({ first_name: 'Juan' })).resolves.toEqual({ user: makeUser() });
-  });
-
   it('deleteAccount parses a message response', async () => {
     await expect(authApi.deleteAccount()).resolves.toEqual({ message: 'ok' });
   });
 });
 
-// A sibling describe, not nested in the one above: max-lines-per-function
+// Sibling describes, not nested in the one above: max-lines-per-function
 // counts a describe callback's whole body.
+describe('authApi.updateMe', () => {
+  it('parses the account envelope, including a null pending_email and email_change "none"', async () => {
+    server.use(
+      http.put('*/auth/me', () => HttpResponse.json({ user: makeUser(), pending_email: null, email_change: 'none' })),
+    );
+    await expect(authApi.updateMe({ first_name: 'Juan' })).resolves.toEqual({
+      user: makeUser(),
+      pending_email: null,
+      email_change: 'none',
+    });
+  });
+
+  it('parses a non-null pending_email and email_change "requested", when the change hits a still-unconfirmed request', async () => {
+    server.use(
+      http.put('*/auth/me', () =>
+        HttpResponse.json({ user: makeUser(), pending_email: 'new@test.com', email_change: 'requested' }),
+      ),
+    );
+    await expect(authApi.updateMe({ email: 'new@test.com' })).resolves.toEqual({
+      user: makeUser(),
+      pending_email: 'new@test.com',
+      email_change: 'requested',
+    });
+  });
+
+  it('parses email_change "failed" alongside the untouched older pending_email', async () => {
+    server.use(
+      http.put('*/auth/me', () =>
+        HttpResponse.json({ user: makeUser(), pending_email: 'old@test.com', email_change: 'failed' }),
+      ),
+    );
+    await expect(authApi.updateMe({ email: 'new@test.com' })).resolves.toEqual({
+      user: makeUser(),
+      pending_email: 'old@test.com',
+      email_change: 'failed',
+    });
+  });
+
+  it('rejects an answer with no email_change field', async () => {
+    server.use(http.put('*/auth/me', () => HttpResponse.json({ user: makeUser(), pending_email: null })));
+    await expect(authApi.updateMe({ first_name: 'Juan' })).rejects.toThrow(ApiResponseError);
+  });
+});
+
 describe('authApi.getMe', () => {
-  it('parses the user and the CSRF token the session boots from', async () => {
-    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: makeUser(), csrf_token: 'tok' })));
-    await expect(authApi.getMe()).resolves.toEqual({ user: makeUser(), csrf_token: 'tok' });
+  it('parses the user, the CSRF token the session boots from, and pending_email', async () => {
+    server.use(
+      http.get('*/auth/me', () => HttpResponse.json({ user: makeUser(), csrf_token: 'tok', pending_email: null })),
+    );
+    await expect(authApi.getMe()).resolves.toEqual({ user: makeUser(), csrf_token: 'tok', pending_email: null });
   });
 
   it('rejects an answer with no csrf_token, since the boot path cannot run without one', async () => {
-    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: makeUser() })));
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: makeUser(), pending_email: null })));
     await expect(authApi.getMe()).rejects.toThrow(ApiResponseError);
+  });
+
+  it('rejects an answer with no pending_email field', async () => {
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ user: makeUser(), csrf_token: 'tok' })));
+    await expect(authApi.getMe()).rejects.toThrow(ApiResponseError);
+  });
+});
+
+describe('authApi.confirmEmailChange', () => {
+  it('posts the token and parses a message response', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post('*/auth/confirm-email-change', async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ message: 'email address updated' });
+      }),
+    );
+
+    await expect(authApi.confirmEmailChange('tok')).resolves.toEqual({ message: 'email address updated' });
+    expect(receivedBody).toEqual({ token: 'tok' });
   });
 });

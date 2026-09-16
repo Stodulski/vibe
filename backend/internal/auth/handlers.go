@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
@@ -312,8 +314,28 @@ func (h *Handler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 	if accessToken := rawAccessToken(r); accessToken != "" {
 		envelope["csrf_token"] = h.svc.tokenService.GenerateCSRFToken(accessToken)
 	}
+	envelope["pending_email"] = h.pendingEmailOrNil(r, user.ID)
 
 	h.respond.JSON(w, r, http.StatusOK, envelope)
+}
+
+// pendingEmailOrNil answers the pending_email field both GET and PUT
+// /auth/me carry, reporting nil rather than failing the whole request when
+// the lookup itself fails.
+//
+// This is a side feature riding on two requests that matter far more than it
+// does: GET bootstraps every session, and PUT has, by the time this is
+// called, already committed the write the caller asked for. A failed read of
+// an unrelated table must never turn either of those into a 500 — the
+// failure is logged instead, and the caller sees "no pending request" until
+// the next successful read tells it otherwise.
+func (h *Handler) pendingEmailOrNil(r *http.Request, userID uuid.UUID) *string {
+	pending, err := h.svc.PendingEmail(r.Context(), userID)
+	if err != nil {
+		h.logger.Error("pending-email: lookup failed, reporting none", "error", err, "user_id", userID)
+		return nil
+	}
+	return pending
 }
 
 // rawAccessToken returns the access token the request authenticated with: the
@@ -457,7 +479,7 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		in.NewPassword = input.NewPassword
 	}
 
-	updated, err := h.svc.UpdateCurrentUser(r.Context(), h.actor(r), user, in)
+	updated, emailChange, err := h.svc.UpdateCurrentUser(r.Context(), h.actor(r), user, in)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
@@ -473,7 +495,11 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"user": toGenUser(updated)})
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
+		"user":          toGenUser(updated),
+		"pending_email": h.pendingEmailOrNil(r, updated.ID),
+		"email_change":  string(emailChange),
+	})
 }
 
 // ForgotPassword handles POST /api/v1/auth/forgot-password. It answers the same
@@ -527,4 +553,38 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"message": "password reset successfully"})
+}
+
+// ConfirmEmailChange handles POST /api/v1/auth/confirm-email-change. The link
+// is single-use, is what actually moves the account's email (UpdateCurrentUser
+// only ever queued the request), and ends every session the account had open —
+// see auth.Service.ConfirmEmailChange.
+func (h *Handler) ConfirmEmailChange(w http.ResponseWriter, r *http.Request) {
+	var body gen.AuthConfirmEmailChangeJSONBody
+	err := httpx.ReadJSON(w, r, &body)
+	if err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+
+	v := validator.New()
+	v.Check(body.Token != "", "token", "must be provided")
+	if !v.Valid() {
+		h.respond.FailedValidation(w, r, v.Errors)
+		return
+	}
+
+	err = h.svc.ConfirmEmailChange(r.Context(), h.actor(r), body.Token)
+	if err != nil {
+		switch {
+		case errors.Is(err, authstore.ErrDuplicateEmail):
+			v.AddError("token", "the requested email address is no longer available")
+			h.respond.FailedValidation(w, r, v.Errors)
+		default:
+			h.respond.DomainErrorWith(w, r, err, "invalid or expired email change token")
+		}
+		return
+	}
+
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"message": "email address updated"})
 }
