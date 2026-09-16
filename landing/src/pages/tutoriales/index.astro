@@ -81,11 +81,15 @@ const BAJADA = 'Siete videos cortos del panel de Vibe, cada uno una sola pantall
                 height="180"
                 loading="lazy"
               />
-              <div class="tutorial-index-text">
+              <div class="index-texto">
                 <h2>{t.title}</h2>
                 <p>{t.excerpt}</p>
                 <span class="tutorial-index-meta">{t.duracion} segundos · Actualizado el {t.dateModified}</span>
               </div>
+              <span class="index-cta">
+                Ver el video
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </span>
             </a>
           </li>
         ))}

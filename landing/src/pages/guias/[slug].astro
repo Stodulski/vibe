@@ -122,6 +122,16 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
         </section>
       </article>
 
+      {guia.tutorial && (
+        <aside class="guia-tutorial">
+          <h2>Vas a querer verlo</h2>
+          <p>
+            <a href={`/tutoriales/${guia.tutorial.slug}`}>{guia.tutorial.texto}</a>, en un video corto
+            del panel. También está el <a href="/tutoriales">resto de los tutoriales</a>.
+          </p>
+        </aside>
+      )}
+
       <aside class="guia-cta">
         <h2>Cargá tu complejo en Vibe</h2>
         <p>

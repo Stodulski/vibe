@@ -94,9 +94,15 @@ const BAJADA = 'Respuestas concretas, con números y fuente, a lo que se pregunt
         {guias.map(guia => (
           <li class="guia-index-item">
             <a href={`/guias/${guia.slug}`}>
-              <h2>{guia.title}</h2>
-              <p>{guia.excerpt}</p>
-              <span class="guia-index-fecha">Actualizado el {guia.dateModified}</span>
+              <div class="index-texto">
+                <h2>{guia.title}</h2>
+                <p>{guia.excerpt}</p>
+                <span class="guia-index-fecha">Actualizado el {guia.dateModified}</span>
+              </div>
+              <span class="index-cta">
+                Leer la guía
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </span>
             </a>
           </li>
         ))}

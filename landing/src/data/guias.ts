@@ -70,6 +70,19 @@ export type Guia = {
   dateModified: string;
   /** De dónde salen los datos, si la guía afirma números que no son propios. */
   fuente?: { nombre: string; url: string; nofollow?: boolean };
+  /**
+   * El tutorial que muestra en el panel lo que esta guía explica.
+   *
+   * Es el recíproco del campo `guia` de un tutorial, y va escrito a mano en vez
+   * de importado: `tutoriales.ts` ya importa el tipo `Bloque` de acá, así que
+   * importar de vuelta cerraría el ciclo. El día que un slug cambie, el chequeo
+   * de huérfanas del seo-gate lo caza.
+   *
+   * Importa que exista: las guías son las únicas páginas con impresiones
+   * propias, así que son la puerta de entrada. Sin esta salida, el que llega
+   * buscando una respuesta nunca ve el producto funcionando.
+   */
+  tutorial?: { slug: string; texto: string };
   bloques: Bloque[];
   faq: GuiaFaq[];
 };
@@ -85,6 +98,7 @@ const filasDeCostos = COSTOS.map(g => [
 const contenido: Omit<Guia, 'dateModified'>[] = [
   {
     slug: 'cuanto-cobra-mercadopago-por-una-sena',
+    tutorial: { slug: 'configuracion-del-complejo', texto: 'Dónde se conecta Mercado Pago y se define la seña' },
     title: 'Cuánto cobra MercadoPago por cobrar una seña',
     seoTitle: 'Cuánto cobra MercadoPago por una seña | Con fuente oficial',
     /* Medida en pixeles, no en caracteres: 772px sobre un limite de 920. El margen
@@ -197,6 +211,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
   },
   {
     slug: 'cuanto-cuesta-un-sistema-de-reservas-para-canchas',
+    tutorial: { slug: 'precios-por-horario', texto: 'Cómo se cargan los precios por horario en el panel' },
     title: 'Cuánto cuesta un sistema de reservas para canchas',
     seoTitle: 'Cuánto cuesta un sistema de reservas de canchas | Precios reales',
     metaDescription:
@@ -310,6 +325,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
   },
   {
     slug: 'como-llenar-los-horarios-vacios-de-un-complejo',
+    tutorial: { slug: 'panel-de-control', texto: 'El mapa de ocupación que muestra tus horas muertas' },
     title: 'Cómo llenar los horarios vacíos de un complejo',
     seoTitle: 'Cómo llenar los horarios vacíos de tu complejo deportivo',
     /* Esta guía es el género donde se inventan estadísticas ("+30% de ocupación

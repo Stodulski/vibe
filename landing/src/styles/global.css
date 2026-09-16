@@ -927,6 +927,14 @@ body {
   opacity: 0.8;
 }
 
+/* Cierra el carrusel de capturas: es el único lugar del home donde un enlace a
+   los videos sigue el hilo de lo que el visitante está mirando. */
+.ft-tutoriales {
+  margin-top: 26px; text-align: center;
+  font-size: 0.875rem; color: var(--muted); line-height: 1.6;
+}
+.ft-tutoriales a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+
 /* The note is muted on purpose, so the link needs its own underline to read as
    one instead of dissolving into the paragraph. */
 .mp-fees-link {
@@ -1579,6 +1587,20 @@ body {
 .guia-faq { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .guia-faq-item { width: 100%; }
 
+/* Más liviano que .guia-cta a propósito: son dos bloques seguidos y el que
+   pide la cuenta tiene que pesar más que el que ofrece un video. */
+.guia-tutorial {
+  margin-top: 56px; padding: 22px 24px;
+  border-left: 2px solid var(--green); border-radius: 0 12px 12px 0;
+  background: color-mix(in oklab, var(--green) 6%, transparent);
+}
+.guia-tutorial h2 { font-weight: 700; font-size: 1.0625rem; margin-bottom: 6px; }
+.guia-tutorial p { font-size: 0.9375rem; color: var(--muted); line-height: 1.7; }
+
+/* Solo cuando viene detrás del bloque de tutorial: una guía sin tutorial
+   conserva su separación completa. */
+.guia-tutorial + .guia-cta { margin-top: 32px; }
+
 .guia-cta {
   margin-top: 72px; padding: 32px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
@@ -1586,15 +1608,35 @@ body {
 .guia-cta h2 { font-weight: 700; font-size: 1.25rem; margin-bottom: 10px; }
 .guia-cta p { font-size: 0.9375rem; color: var(--muted); line-height: 1.7; margin-bottom: 20px; }
 
-.guia-index { list-style: none; padding: 0; margin: 44px 0 0; display: flex; flex-direction: column; gap: 14px; }
-.guia-index-item a {
-  display: block; padding: 24px; text-decoration: none;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  transition: border-color 0.2s ease, transform 0.2s var(--ease);
+/* Filas separadas por una línea, no tarjetas.
+   Una tarjeta dice "objeto suelto" y las repite a todas con el mismo peso; acá
+   lo que hay es una lista que se lee de arriba hacia abajo, y el borde de cada
+   caja competía con esa lectura. El CTA reemplaza lo que la tarjeta insinuaba:
+   ahora dice adónde lleva en vez de sugerirlo con una sombra. */
+.guia-index, .tutorial-index {
+  list-style: none; padding: 0; margin: 40px 0 0;
+  border-top: 1px solid var(--border);
 }
-.guia-index-item a:hover, .guia-index-item a:focus-visible {
-  border-color: var(--border-hover); transform: translateY(-2px);
+.guia-index-item, .tutorial-index-item { border-bottom: 1px solid var(--border); }
+.guia-index-item a, .tutorial-index-item a {
+  display: flex; align-items: center; gap: 28px;
+  padding: 28px 4px; text-decoration: none;
+  transition: background-color 0.2s ease, padding-left 0.2s var(--ease);
 }
+.guia-index-item a:hover, .guia-index-item a:focus-visible,
+.tutorial-index-item a:hover, .tutorial-index-item a:focus-visible {
+  background: color-mix(in oklab, var(--green) 4%, transparent);
+  padding-left: 14px;
+}
+.index-texto { flex: 1; min-width: 0; }
+.index-cta {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px;
+  font-size: 0.875rem; font-weight: 700; color: var(--green); white-space: nowrap;
+}
+.index-cta svg { transition: transform 0.2s var(--ease); }
+.guia-index-item a:hover .index-cta svg,
+.tutorial-index-item a:hover .index-cta svg { transform: translateX(4px); }
+
 .guia-index-item h2 { font-weight: 700; font-size: 1.125rem; margin-bottom: 8px; color: var(--text); }
 .guia-index-item p { font-size: 0.9375rem; color: var(--muted); line-height: 1.7; margin-bottom: 12px; }
 .guia-index-fecha { font-size: 0.75rem; color: var(--muted); opacity: 0.7; }
@@ -1602,7 +1644,10 @@ body {
 @media (max-width: 640px) {
   .guia { padding: 110px 20px 64px; }
   .guia-cta { padding: 24px; }
-  .guia-index-item a { padding: 20px; }
+  .guia-index-item a, .tutorial-index-item a {
+    flex-direction: column; align-items: flex-start; gap: 14px; padding: 24px 0;
+  }
+  .guia-index-item a:hover, .tutorial-index-item a:hover { padding-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1707,15 +1752,6 @@ body {
 .tutorial-volver { color: var(--muted); font-size: 0.875rem; text-decoration: underline; text-underline-offset: 2px; }
 .tutorial-volver:hover, .tutorial-volver:focus-visible { color: var(--green); }
 
-.tutorial-index { list-style: none; padding: 0; margin: 44px 0 0; display: flex; flex-direction: column; gap: 14px; }
-.tutorial-index-item a {
-  display: flex; gap: 20px; align-items: center; padding: 20px; text-decoration: none;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  transition: border-color 0.2s ease, transform 0.2s var(--ease);
-}
-.tutorial-index-item a:hover, .tutorial-index-item a:focus-visible {
-  border-color: var(--border-hover); transform: translateY(-2px);
-}
 .tutorial-index-item img {
   width: 160px; height: 90px; flex-shrink: 0; object-fit: cover;
   border-radius: 10px; background: var(--surface-solid);
@@ -1727,7 +1763,7 @@ body {
 @media (max-width: 640px) {
   .tutorial { padding: 110px 20px 64px; }
   .tutorial-cta { padding: 24px; }
-  .tutorial-index-item a { flex-direction: column; align-items: stretch; padding: 16px; }
+  .tutorial-index-item img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
   .tutorial-index-item img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
 }
 
