@@ -522,7 +522,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     slug: 'cuanto-cuesta-un-sistema-de-reservas-para-canchas',
     tutorial: { slug: 'precios-por-horario', texto: 'Cómo se cargan los precios por horario en el panel' },
     title: 'Cuánto cuesta un sistema de reservas para canchas',
-    seoTitle: 'Cuánto cuesta un sistema de reservas de canchas | Precios reales',
+    seoTitle: 'Cuánto cuesta un sistema de reservas de canchas',
     metaDescription:
       `Abono fijo desde ${dolares(ATC_PLANES[0].mensual)} por mes, o un cargo por reserva: comparamos `
       + 'ambos modelos con números reales para saber cuál conviene.',

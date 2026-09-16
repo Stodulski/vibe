@@ -462,4 +462,52 @@ ${INDEXED.filter(r => pages.has(r)).map(urlEntry).join('\n')}
 
 await writeFile(join(DIST, 'sitemap.xml'), sitemap, 'utf8');
 console.log('  sitemap.xml');
+/* ------------------------------------------------- headers de vercel.json */
+
+/**
+ * Que ninguna página quede sin su header `Link` en vercel.json.
+ *
+ * El sitemap, los gemelos en Markdown y llms.txt salen de recorrer dist/, así
+ * que una página nueva entra sola. Los headers no: esa lista se escribe a mano,
+ * y una página sin su entrada sirve el .md como HTML sin que nada falle. Ya
+ * pasó dos veces, y las dos las encontró un test y no el build.
+ *
+ * Por eso esto rompe el build en vez de avisar. Corre dentro del buildCommand
+ * de Vercel, así que una página sin header no llega a producción.
+ *
+ * `--fix-headers` escribe las que falten, para no tipearlas: se corre local,
+ * se commitea el resultado. En Vercel no sirve, porque vercel.json ya se leyó
+ * cuando este script arranca.
+ */
+const VERCEL = new URL('../vercel.json', import.meta.url);
+
+function headerDe(route) {
+  const md = fileNameOf(route);
+  return {
+    source: route,
+    headers: [{
+      key: 'Link',
+      value: `<${SITE}/${md}>; rel="alternate"; type="text/markdown", `
+        + `<${SITE}/llms.txt>; rel="describedby"; type="text/plain"`,
+    }],
+  };
+}
+
+const vercel = JSON.parse(await readFile(VERCEL, 'utf8'));
+const declaradas = new Set(vercel.headers.map(h => h.source));
+const faltantes = INDEXED.filter(r => !declaradas.has(r));
+
+if (faltantes.length && process.argv.includes('--fix-headers')) {
+  const i = vercel.headers.findLastIndex(h => h.source.startsWith('/guias'));
+  vercel.headers.splice(i + 1, 0, ...faltantes.map(headerDe));
+  await writeFile(VERCEL, JSON.stringify(vercel, null, 2) + '\n', 'utf8');
+  console.log(`  vercel.json  ${faltantes.length} header(s) agregado(s): ${faltantes.join(', ')}`);
+} else if (faltantes.length) {
+  console.error(`\nvercel.json no declara el header Link de: ${faltantes.join(', ')}`);
+  console.error('Corré `node scripts/build-markdown.mjs --fix-headers` y commiteá el cambio.\n');
+  process.exit(1);
+} else {
+  console.log(`  vercel.json  ${INDEXED.length} header(s) declarado(s)`);
+}
+
 console.log(`[agents] ${pages.size} page(s), last modified ${LAST_MODIFIED}`);
