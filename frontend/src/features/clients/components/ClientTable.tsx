@@ -22,8 +22,11 @@ export function ClientTable({
   onSelectClient: (client: Client) => void;
   onBlockClient: (client: Client) => void;
 }) {
+  // The cells carry the table's own side padding: `TableCell`'s default `p-2`
+  // leaves the first and last columns almost touching the rounded border,
+  // which reads as text falling out of the panel.
   return (
-    <div className="border-border-default bg-bg-subtle w-full overflow-hidden rounded-2xl border">
+    <div className="border-border-default bg-bg-subtle w-full overflow-hidden rounded-2xl border [&_td]:px-4 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6 [&_th]:px-4 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6">
       <Table>
         <TableHeader className="bg-bg-elevated">
           <TableRow className="border-border-subtle hover:bg-transparent">
