@@ -160,6 +160,78 @@
           "value": "<https://vibe.com.ar/guias-como-llenar-los-horarios-vacios-de-un-complejo.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
         }
       ]
+    },
+    {
+      "source": "/tutoriales",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/grilla-de-reservas",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-grilla-de-reservas.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/precios-por-horario",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-precios-por-horario.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/base-de-clientes",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-base-de-clientes.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/panel-de-control",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-panel-de-control.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/reportes-de-facturacion",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-reportes-de-facturacion.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/configuracion-del-complejo",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-configuracion-del-complejo.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/varios-complejos",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-varios-complejos.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
     }
   ],
   "build": {

@@ -1,0 +1,151 @@
+---
+/**
+ * Un tutorial por URL, generado desde src/data/tutoriales.ts.
+ *
+ * El orden del DOM tampoco es negociable acá, y es distinto al de una guía a
+ * propósito: H1, el video, y recién después la respuesta. La respuesta va
+ * justo después del video, no antes, porque es la que contesta lo mismo que
+ * el video sin depender de que se reproduzca — es la unidad que un motor
+ * generativo puede citar entera.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { tutoriales, getRelacionados, CDN, VIDEO_ANCHO, VIDEO_ALTO } from '../../data/tutoriales';
+import { tutorialJsonLd } from '../../data/jsonld';
+
+export function getStaticPaths() {
+  return tutoriales.map(t => ({ params: { slug: t.slug }, props: { t } }));
+}
+
+const { t } = Astro.props;
+const canonical = `https://vibe.com.ar/tutoriales/${t.slug}`;
+const relacionados = getRelacionados(t);
+const youtubeUrl = `https://www.youtube.com/watch?v=${t.youtube}`;
+---
+<BaseLayout
+  title={t.seoTitle}
+  description={t.metaDescription}
+  canonical={canonical}
+  date={t.dateModified}
+  ogTitle={t.title}
+  ogDescription={t.metaDescription}
+  ogUrl={canonical}
+  ogImage="https://vibe.com.ar/og-image.png"
+  ogImageWidth="1200"
+  ogImageHeight="630"
+  ogImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  twitterCard="summary_large_image"
+  twitterTitle={t.title}
+  twitterDescription={t.metaDescription}
+  twitterImage="https://vibe.com.ar/og-image.png"
+  twitterImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  jsonLd={tutorialJsonLd(t)}
+  blobs={4}
+  skipLink={true}
+>
+  <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
+  <main class="tutorial" id="inicio">
+    <div class="container tutorial-inner">
+      <nav aria-label="Ubicación" class="tutorial-breadcrumb">
+        <a href="/">Inicio</a>
+        <span aria-hidden="true">/</span>
+        <a href="/tutoriales">Tutoriales</a>
+      </nav>
+
+      <article class="tutorial-article">
+        <header class="tutorial-header">
+          <h1>{t.title}</h1>
+        </header>
+
+        {/* controls + preload="none": no autoplay, nada se descarga hasta que
+            alguien toca play. El fallback adentro es para el navegador que no
+            entiende <video>, no una alternativa decorativa. */}
+        <video
+          class="tutorial-video"
+          controls
+          preload="none"
+          poster={`${CDN}/${t.slug}.webp`}
+          width={VIDEO_ANCHO}
+          height={VIDEO_ALTO}
+          playsinline
+        >
+          <source src={`${CDN}/${t.slug}.mp4`} type="video/mp4" />
+          Tu navegador no puede reproducir este video. Podés verlo en
+          {' '}<a href={youtubeUrl} rel="noopener" target="_blank">YouTube</a>.
+        </video>
+
+        {/* La respuesta va después del video, no antes: dice lo mismo que
+            muestra la pantalla, sin depender de que el video se reproduzca. */}
+        <p class="tutorial-respuesta">{t.respuesta}</p>
+        <p class="tutorial-meta">
+          <span>Actualizado el {t.dateModified}</span>
+        </p>
+
+        {t.bloques.map((bloque) => (
+          <section class="tutorial-bloque">
+            <h2>{bloque.heading}</h2>
+
+            {bloque.tipo === 'parrafos' && bloque.parrafos.map(p => <p set:html={p} />)}
+
+            {bloque.tipo === 'lista' && (
+              <>
+                {bloque.intro && <p>{bloque.intro}</p>}
+                <ul class="tutorial-lista">{bloque.items.map(i => <li>{i}</li>)}</ul>
+              </>
+            )}
+
+            {bloque.tipo === 'tabla' && (
+              <>
+                {bloque.intro && <p>{bloque.intro}</p>}
+                <div class="tutorial-tabla-scroll">
+                  <table class="tutorial-tabla">
+                    <thead>
+                      <tr>{bloque.columnas.map(c => <th scope="col">{c}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {bloque.filas.map(fila => (
+                        <tr>
+                          {fila.map((celda, i) => (
+                            i === 0 ? <th scope="row">{celda}</th> : <td>{celda}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {bloque.nota && <p class="tutorial-nota">{bloque.nota}</p>}
+              </>
+            )}
+          </section>
+        ))}
+
+        <section class="tutorial-bloque" id="preguntas">
+          <h2>Preguntas frecuentes</h2>
+          <div class="tutorial-faq">
+            {t.faq.map((item, i) => (
+              <details class="faq-item tutorial-faq-item" open={i === 0}>
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      </article>
+
+      <aside class="tutorial-cta">
+        <h2>Seguí con</h2>
+        <ul class="tutorial-relacionados">
+          {relacionados.map(r => (
+            <li><a href={`/tutoriales/${r.slug}`}>{r.title}</a></li>
+          ))}
+          {t.guia && (
+            <li><a href={`/guias/${t.guia.slug}`}>{t.guia.texto}</a></li>
+          )}
+        </ul>
+        <a class="tutorial-volver" href="/tutoriales">Volver a todos los tutoriales</a>
+      </aside>
+    </div>
+  </main>
+  <Footer linkPrefix="/" logoHref="/" />
+</BaseLayout>
