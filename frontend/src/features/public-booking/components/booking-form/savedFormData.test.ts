@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getSavedFormData, hasCompleteSavedData, STORAGE_KEY } from './savedFormData';
+import { getSavedFormData, hasCompleteSavedData, clearSavedFormData, STORAGE_KEY } from './savedFormData';
 
 describe('getSavedFormData', () => {
   beforeEach(() => {
@@ -68,5 +68,27 @@ describe('hasCompleteSavedData', () => {
         client_email: 'juan@example.com',
       }),
     ).toBe(false);
+  });
+});
+
+describe('clearSavedFormData', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('removes the saved identity from localStorage', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ client_first_name: 'Juan' }));
+
+    clearSavedFormData();
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(getSavedFormData()).toEqual({});
+  });
+
+  it('does nothing when there is nothing saved', () => {
+    expect(() => {
+      clearSavedFormData();
+    }).not.toThrow();
+    expect(getSavedFormData()).toEqual({});
   });
 });

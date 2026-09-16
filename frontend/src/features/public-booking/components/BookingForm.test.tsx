@@ -2,8 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { hasUnsavedWork } from '@/shared/lib/unsavedWork';
-import { STORAGE_KEY } from './booking-form/savedFormData';
+import { STORAGE_KEY, getSavedFormData, hasCompleteSavedData } from './booking-form/savedFormData';
 import { BookingForm, type BookingSlotInfo } from './BookingForm';
+
+const SAVED_IDENTITY = {
+  client_first_name: 'Juan',
+  client_last_name: 'Perez',
+  client_phone: '1123456789',
+  client_email: 'juan@example.com',
+};
 
 // Clear localStorage before each test
 beforeEach(() => {
@@ -226,6 +233,36 @@ describe('BookingForm validation', () => {
 
     expect(defaultProps.onSubmit).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/el nombre es requerido/i)).not.toBeInTheDocument();
+  });
+});
+
+// SEC-05: quick-book's "No, soy otra persona" must forget the saved identity
+// (not just hide it) and hand the visitor a genuinely empty form — the two
+// views share one react-hook-form instance, whose `defaultValues` are
+// captured once at mount, from whatever was saved.
+describe('BookingForm quick-book "No, soy otra persona"', () => {
+  it('enters quick-book with a complete saved identity', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(SAVED_IDENTITY));
+    render(<BookingForm {...defaultProps} />);
+
+    expect(screen.getByText(/juan perez/i)).toBeInTheDocument();
+  });
+
+  it('clears storage and shows an empty full form after "No, soy otra persona"', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(SAVED_IDENTITY));
+    render(<BookingForm {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /no, soy otra persona/i }));
+
+    // The autosave hook (`useSaveFormData`) persists the now-empty fields
+    // right after `reset()`, so the key is not simply gone — what matters is
+    // that Juan's identity is: a fresh visit reading this back would find it
+    // incomplete and never quick-book with it again.
+    expect(hasCompleteSavedData(getSavedFormData())).toBe(false);
+    expect(screen.getByLabelText(/nombre/i)).toHaveValue('');
+    expect(screen.getByLabelText(/apellido/i)).toHaveValue('');
+    expect(screen.getByLabelText(/email/i)).toHaveValue('');
   });
 });
 
