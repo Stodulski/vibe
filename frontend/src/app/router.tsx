@@ -7,6 +7,7 @@ import { lazyShell } from './router/routeHelpers';
 import { PublicPageLoader } from './router/loaders';
 import { RootRedirect } from './router/RootRedirect';
 import { ScrollToTop } from './router/ScrollToTop';
+import { CrossTabLogout } from './router/CrossTabLogout';
 import { RouteErrorPage } from './router/RouteErrorPage';
 
 // Every route lives under one pathless parent so that a single
@@ -49,5 +50,14 @@ const routes: RouteObject[] = [
 // `GuestRoute`, `RootRedirect`, `NotFoundPage`, `ScrollToTop` — instead of
 // leaving a blank screen (see `RouteErrorPage`).
 export const router = createBrowserRouter([
-  { element: <ScrollToTop />, errorElement: <RouteErrorPage />, children: routes },
+  {
+    element: (
+      <>
+        <CrossTabLogout />
+        <ScrollToTop />
+      </>
+    ),
+    errorElement: <RouteErrorPage />,
+    children: routes,
+  },
 ]);

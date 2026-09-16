@@ -99,6 +99,50 @@ describe('authSlice', () => {
   });
 });
 
+// A sibling describe, not nested in the one above: max-lines-per-function
+// counts a describe callback's whole body.
+describe('authSlice, cross-tab logout broadcast (SEC-03)', () => {
+  beforeEach(() => {
+    mockSetUser.mockClear();
+  });
+
+  // Other open tabs learn a logout happened by reacting to this key's
+  // `storage` event (never fired in the writing tab itself) — see
+  // `useCrossTabLogout`.
+  it('logout writes a changing value to the cross-tab broadcast key', () => {
+    localStorage.removeItem(STORAGE_KEYS.SESSION_LOGOUT_BROADCAST);
+    const store = createStore();
+
+    store.logout();
+    const first = localStorage.getItem(STORAGE_KEYS.SESSION_LOGOUT_BROADCAST);
+    expect(first).not.toBeNull();
+
+    store.logout();
+    const second = localStorage.getItem(STORAGE_KEYS.SESSION_LOGOUT_BROADCAST);
+    expect(second).not.toBe(first);
+  });
+
+  it('logoutLocal does not write the broadcast key, so a reacting tab cannot bounce it back', () => {
+    localStorage.removeItem(STORAGE_KEYS.SESSION_LOGOUT_BROADCAST);
+    const store = createStore();
+
+    store.logoutLocal();
+
+    expect(localStorage.getItem(STORAGE_KEYS.SESSION_LOGOUT_BROADCAST)).toBeNull();
+  });
+
+  it('logoutLocal clears the csrfToken and the same storage keys as logout', () => {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_COMPLEX_ID, 'complex-123');
+    const store = createStore();
+    store.setCsrfToken('test-csrf-token');
+
+    store.logoutLocal();
+
+    expect(store.getState().csrfToken).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_COMPLEX_ID)).toBeNull();
+  });
+});
+
 // OBS-05: every place session identity changes must also tell Sentry, so
 // reported events carry the id of who was signed in when they happened. The
 // signing-in half moved to `identifySession` (see session.test.ts); ending the
