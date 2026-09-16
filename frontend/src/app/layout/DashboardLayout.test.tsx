@@ -58,10 +58,6 @@ vi.mock('@/shared/components/ui/alert-dialog', () => ({
   AlertDialogAction: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
 }));
 
-vi.mock('@/shared/components/common/CommandPalette', () => ({
-  CommandPalette: () => null,
-}));
-
 vi.mock('react-router-dom', () => ({
   Outlet: () => <div data-testid="outlet">Outlet Content</div>,
   Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
