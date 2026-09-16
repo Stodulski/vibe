@@ -145,9 +145,14 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'Vibe no tiene abono. El complejo no le paga nada a la plataforma; lo que se cobra es un cargo de '
             + 'servicio sobre la seña, y lo paga el cliente que reserva. Eso significa que un mes sin reservas '
             + 'no te cuesta nada, y también que tu cliente ve un importe un poco más alto al reservar.',
-          'Ninguno de los dos modelos es mejor en abstracto. El abono conviene cuando el volumen es alto y '
-            + 'previsible, porque se reparte entre muchas reservas. El cargo por reserva conviene cuando el '
-            + 'volumen es bajo o irregular, porque no hay nada que pagar cuando no pasa nada.',
+          'Ninguno de los dos modelos es mejor en abstracto, pero conviene tener claro de qué bolsillo sale '
+            + 'cada peso. Con Vibe el complejo no le paga nada a la plataforma, tenga cinco reservas en el mes '
+            + 'o quinientas: lo que crece con el volumen no es tu costo, es lo que pagan tus clientes en total. '
+            + 'Con un abono es al revés: el costo es tuyo y es fijo, y tus clientes no pagan ningún cargo extra '
+            + 'sobre el precio de la cancha.',
+          'Por eso la pregunta no es cuál sale más barato, sino quién querés que soporte el costo. Si te importa '
+            + 'que el importe que ve tu cliente sea exactamente el de la cancha y nada más, ese es un motivo '
+            + 'real para preferir un abono, y pesa más cuanto más volumen tenés.',
         ],
       },
       {
@@ -169,10 +174,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         parrafos: [
           'Si vendés en el bar, manejás stock o querés grabar los partidos, la decisión ya está tomada y no '
             + 'es Vibe. Ese es el corte más limpio.',
-          'Si lo que necesitás es que la gente reserve y pague la seña sola, la pregunta pasa a ser cuánto '
-            + 'volumen tenés y quién querés que soporte el costo. Un abono fijo dividido por muchas reservas '
-            + 'termina siendo barato por turno; dividido por pocas, caro. Esa cuenta está hecha, con la tabla '
-            + 'completa, en la guía de cuánto cuesta un sistema de reservas.',
+          'Si lo que necesitás es que la gente reserve y pague la seña sola, la decisión se reduce a quién '
+            + 'soporta el costo: vos con una cuota fija, o tu cliente con un cargo sobre la seña. Cuánto sale '
+            + 'un abono por turno según el volumen que tengas está calculado, con la tabla completa, en la '
+            + 'guía de cuánto cuesta un sistema de reservas.',
           'Y si estás arrancando o tu temporada baja es muy baja, el argumento más fuerte a favor de no tener '
             + 'abono no es el precio: es que no tenés que acertar el pronóstico. Podés equivocarte con la '
             + 'demanda sin que eso te cueste plata todos los meses.',
