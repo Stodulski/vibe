@@ -5,6 +5,21 @@ import { getSharedSetup } from '../helpers/shared-setup';
 // decomposition) — read/edit/display checks on existing court cards are a
 // distinct concern from the court-creation flow that remains in
 // `court-management.spec.ts`.
+/**
+ * The actions live in different places depending on width: a card shows
+ * "Editar"/"Eliminar" as buttons, and from `xl` the table puts all three
+ * behind a per-row "Más acciones" menu. The suite runs at desktop widths, so
+ * open the menu when it is the one on screen.
+ */
+async function openCourtAction(page: import('@playwright/test').Page, name: RegExp) {
+  const rowMenu = page.getByRole('button', { name: /Más acciones/ }).first();
+  if (await rowMenu.isVisible().catch(() => false)) {
+    await rowMenu.click();
+    return page.getByRole('menuitem', { name });
+  }
+  return page.getByRole('button', { name }).first();
+}
+
 test.describe('Court Management — Display & Edit', () => {
   let complexId: string;
 
@@ -28,8 +43,8 @@ test.describe('Court Management — Display & Edit', () => {
     const courtHeading = page.getByRole('heading', { name: /Cancha/ }).first();
     await expect(courtHeading).toBeVisible({ timeout: 5_000 });
 
-    // Find and click the edit button on the first court card
-    const editButton = page.getByRole('button', { name: 'Editar' }).first();
+    // Find and click the edit action for the first court
+    const editButton = await openCourtAction(page, /^Editar$/);
     await expect(editButton).toBeVisible({ timeout: 5_000 });
     await editButton.click();
 
@@ -69,7 +84,7 @@ test.describe('Court Management — Display & Edit', () => {
     });
   });
 
-  test('court cards have delete button', async ({ authenticatedPage: page }) => {
+  test('a court can be deleted from its actions', async ({ authenticatedPage: page }) => {
     await page.evaluate((id) => {
       localStorage.setItem('selectedComplexId', id);
     }, complexId);
@@ -82,9 +97,8 @@ test.describe('Court Management — Display & Edit', () => {
       timeout: 5_000,
     });
 
-    // Verify delete buttons exist on court cards
-    await expect(page.getByRole('button', { name: 'Eliminar' }).first()).toBeVisible({
-      timeout: 5_000,
-    });
+    // Verify a delete action is reachable for a court
+    const deleteAction = await openCourtAction(page, /^Eliminar$/);
+    await expect(deleteAction).toBeVisible({ timeout: 5_000 });
   });
 });

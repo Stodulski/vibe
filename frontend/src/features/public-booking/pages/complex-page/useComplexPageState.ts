@@ -13,15 +13,7 @@ import { parseDateParam } from './schema';
 // `selectedDuration` below, which is what the picker actually uses.
 const DEFAULT_DURATION: DurationMinutes = 90;
 
-const SPORTS: readonly Sport[] = [
-  'padel',
-  'tennis',
-  'soccer',
-  'basketball',
-  'volleyball',
-  'hockey',
-  'pickleball',
-];
+const SPORTS: readonly Sport[] = ['padel', 'tennis', 'soccer', 'basketball', 'volleyball', 'hockey', 'pickleball'];
 const DURATIONS: readonly DurationMinutes[] = [60, 90, 120];
 
 /** The flow's answers as the URL carries them; anything malformed is unanswered. */
