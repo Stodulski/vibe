@@ -162,15 +162,6 @@
       ]
     },
     {
-      "source": "/guias/vibe-o-canchafija-en-que-se-diferencian",
-      "headers": [
-        {
-          "key": "Link",
-          "value": "<https://vibe.com.ar/guias-vibe-o-canchafija-en-que-se-diferencian.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
-        }
-      ]
-    },
-    {
       "source": "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas",
       "headers": [
         {
@@ -185,6 +176,15 @@
         {
           "key": "Link",
           "value": "<https://vibe.com.ar/guias-como-llenar-los-horarios-vacios-de-un-complejo.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/guias/vibe-o-canchafija-en-que-se-diferencian",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias-vibe-o-canchafija-en-que-se-diferencian.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
         }
       ]
     },
