@@ -393,14 +393,39 @@ CREATE TABLE password_reset_tokens (
 CREATE INDEX idx_password_reset_tokens_user    ON password_reset_tokens (user_id);
 CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens (expires_at);
 
+-- One pending email-change request per account. PUT /auth/me no longer writes
+-- users.email directly when the caller asks to change it: the address is the
+-- account's password-recovery channel (ForgotPassword gates only on
+-- email_verified && is_active), so a hijacked session moving it would be a
+-- durable account takeover with no proof beyond a live session. Instead a row
+-- goes here and a confirmation link goes to the CURRENT address; only
+-- confirming that link (POST /auth/confirm-email-change) moves users.email.
+-- UNIQUE on user_id, unlike refresh_tokens' one-row-per-session shape,
+-- because a new request replaces any previous pending one (auth.Service.
+-- UpdateCurrentUser upserts on it) rather than accumulating.
+CREATE TABLE email_change_requests (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL,
+    new_email   CITEXT NOT NULL,
+    token_hash  BYTEA NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT email_change_requests_user_id_key UNIQUE (user_id),
+    CONSTRAINT email_change_requests_token_hash_key UNIQUE (token_hash),
+    CONSTRAINT email_change_requests_user_id_fkey
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+CREATE INDEX idx_email_change_requests_expires ON email_change_requests (expires_at);
+
 -- EXTERNAL IDENTITY LINKS. One row per external identity linked to a local
 -- account — today, one Google account behind Sign in with Google. Not
 -- tenant-scoped: like users itself, an identity link belongs to the platform
 -- account and not to any one complex, so it carries no row-level security
 -- policy — the same posture as users, refresh_tokens,
--- email_verification_tokens and password_reset_tokens above, and for the same
--- reason (authentication runs before any tenant is known). Its DML grant comes
--- from the blanket GRANT in the ACCESS section, like every other table here.
+-- email_verification_tokens, password_reset_tokens and email_change_requests
+-- above, and for the same reason (authentication runs before any tenant is
+-- known). Its DML grant comes from the blanket GRANT in the ACCESS section,
+-- like every other table here.
 CREATE TABLE user_identities (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    UUID NOT NULL,
@@ -1782,9 +1807,10 @@ $$;
 -- what keeps a smuggled parameter from appending a SET.
 --
 -- TABLES THAT GET NOTHING: users, user_identities, refresh_tokens,
--- email_verification_tokens, password_reset_tokens (accounts, not tenant data —
--- authentication runs before any tenant is known and a policy here means nobody
--- can log in); job_locks (cluster-wide cron leases with no tenant by design);
+-- email_verification_tokens, password_reset_tokens, email_change_requests
+-- (accounts, not tenant data — authentication runs before any tenant is known
+-- and a policy here means nobody can log in); job_locks (cluster-wide cron
+-- leases with no tenant by design);
 -- jobs (the platform's own deferred work, claimed by a worker that has no
 -- request and therefore no tenant); webhook_events (the raw provider envelope
 -- stored before anything parsed it; the tenant boundary for that path is on
@@ -1960,6 +1986,7 @@ DROP TABLE court_prices;
 DROP TABLE courts;
 DROP TABLE complex_schedules;
 DROP TABLE complexes;
+DROP TABLE email_change_requests;
 DROP TABLE password_reset_tokens;
 DROP TABLE email_verification_tokens;
 DROP TABLE refresh_tokens;

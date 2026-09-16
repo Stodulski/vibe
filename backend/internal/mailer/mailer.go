@@ -788,6 +788,28 @@ func (m *Mailer) SendPasswordReset(ctx context.Context, to, firstName, resetURL 
 	return m.send(ctx, to, subject, m.wrap("Restablecer contraseña", "Siga el link para restablecer su contraseña.", content))
 }
 
+// SendEmailChangeRequested emails the account's CURRENT address that a
+// session asked to move it to newEmail, valid for expiresIn — the same TTL
+// convention as a password reset link, and the same reason: an old link
+// recovers nothing once its window has passed. expiresIn is already rendered
+// Spanish copy (see notifications.EmailChangeRequestedEmail.ExpiresIn), not a
+// second hardcoded "1 hora" that could drift from the actual TTL. Ignoring the
+// email leaves the account's address untouched; only following it and
+// completing the confirmation moves it.
+func (m *Mailer) SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error {
+	const subject = "Confirme el cambio de email · Vibe"
+
+	content := title("Confirme el cambio de email.") +
+		p(fmt.Sprintf("%s Alguien con acceso a su cuenta solicitó cambiar el email a <strong>%s</strong>.",
+			greeting(firstName), html.EscapeString(newEmail)), 16, 16) +
+		button(confirmURL, "Confirmar cambio de email") +
+		muted(fmt.Sprintf("El link expira en %s. Si no fue usted, ignore este email: su email actual no cambiará.",
+			html.EscapeString(expiresIn))) +
+		fallback(confirmURL)
+
+	return m.send(ctx, to, subject, m.wrap("Confirme el cambio de email", "Confirme el cambio de email de su cuenta Vibe.", content))
+}
+
 // SendDuplicateRegistration emails the account owner that someone tried to
 // register with their already-registered email, offering login and password
 // reset links.

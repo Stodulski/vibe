@@ -41,6 +41,7 @@ describe('GuestRoute', () => {
   it('shows the page to a visitor who is not signed in', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: null,
+      pendingEmail: null,
       isAuthenticated: false,
       isLoading: false,
     });
@@ -53,6 +54,7 @@ describe('GuestRoute', () => {
   it('sends a signed-in user away from the sign-in page', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: makeUser({ role: 'owner' }),
+      pendingEmail: null,
       isAuthenticated: true,
       isLoading: false,
     });
@@ -66,6 +68,7 @@ describe('GuestRoute', () => {
   it('sends a signed-in superadmin away too', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: makeUser({ role: 'superadmin' }),
+      pendingEmail: null,
       isAuthenticated: true,
       isLoading: false,
     });
@@ -81,6 +84,7 @@ describe('GuestRoute', () => {
   it('waits rather than guessing while the session is loading', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: null,
+      pendingEmail: null,
       isAuthenticated: false,
       isLoading: true,
     });

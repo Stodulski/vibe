@@ -724,6 +724,27 @@ func (e AuthGoogleExchange200JSONResponseBody1NeedsProfile) Valid() bool {
 	}
 }
 
+// Defines values for AuthUpdateCurrentUser200JSONResponseBodyEmailChange.
+const (
+	AuthUpdateCurrentUser200JSONResponseBodyEmailChangeFailed    AuthUpdateCurrentUser200JSONResponseBodyEmailChange = "failed"
+	AuthUpdateCurrentUser200JSONResponseBodyEmailChangeNone      AuthUpdateCurrentUser200JSONResponseBodyEmailChange = "none"
+	AuthUpdateCurrentUser200JSONResponseBodyEmailChangeRequested AuthUpdateCurrentUser200JSONResponseBodyEmailChange = "requested"
+)
+
+// Valid indicates whether the value is a known member of the AuthUpdateCurrentUser200JSONResponseBodyEmailChange enum.
+func (e AuthUpdateCurrentUser200JSONResponseBodyEmailChange) Valid() bool {
+	switch e {
+	case AuthUpdateCurrentUser200JSONResponseBodyEmailChangeFailed:
+		return true
+	case AuthUpdateCurrentUser200JSONResponseBodyEmailChangeNone:
+		return true
+	case AuthUpdateCurrentUser200JSONResponseBodyEmailChangeRequested:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ComplexesCreateJSONBodyAmenities.
 const (
 	ComplexesCreateJSONBodyAmenitiesAccessible     ComplexesCreateJSONBodyAmenities = "accessible"
@@ -1995,6 +2016,11 @@ type AdminToggleUserActiveJSONBody struct {
 	IsActive *bool `json:"is_active,omitempty"`
 }
 
+// AuthConfirmEmailChangeJSONBody defines parameters for AuthConfirmEmailChange.
+type AuthConfirmEmailChangeJSONBody struct {
+	Token string `json:"token"`
+}
+
 // AuthForgotPasswordJSONBody defines parameters for AuthForgotPassword.
 type AuthForgotPasswordJSONBody struct {
 	// Email Omitting it, or an unknown address, still answers the same 200 message.
@@ -2101,12 +2127,17 @@ type AuthLoginJSONBody struct {
 // AuthUpdateCurrentUserJSONBody defines parameters for AuthUpdateCurrentUser.
 type AuthUpdateCurrentUserJSONBody struct {
 	CurrentPassword *string `json:"current_password,omitempty"`
-	Email           *string `json:"email,omitempty"`
-	FirstName       *string `json:"first_name,omitempty"`
-	LastName        *string `json:"last_name,omitempty"`
-	NewPassword     *string `json:"new_password,omitempty"`
-	Phone           *string `json:"phone,omitempty"`
+
+	// Email A value different from the current address creates a pending email-change request instead of changing it; see this operation's description.
+	Email       *string `json:"email,omitempty"`
+	FirstName   *string `json:"first_name,omitempty"`
+	LastName    *string `json:"last_name,omitempty"`
+	NewPassword *string `json:"new_password,omitempty"`
+	Phone       *string `json:"phone,omitempty"`
 }
+
+// AuthUpdateCurrentUser200JSONResponseBodyEmailChange defines parameters for AuthUpdateCurrentUser.
+type AuthUpdateCurrentUser200JSONResponseBodyEmailChange string
 
 // AuthRegisterJSONBody defines parameters for AuthRegister.
 type AuthRegisterJSONBody struct {
@@ -2575,6 +2606,9 @@ type BookingsWhatsAppWebhookJSONBody map[string]interface{}
 // AdminToggleUserActiveJSONRequestBody defines body for AdminToggleUserActive for application/json ContentType.
 type AdminToggleUserActiveJSONRequestBody AdminToggleUserActiveJSONBody
 
+// AuthConfirmEmailChangeJSONRequestBody defines body for AuthConfirmEmailChange for application/json ContentType.
+type AuthConfirmEmailChangeJSONRequestBody AuthConfirmEmailChangeJSONBody
+
 // AuthForgotPasswordJSONRequestBody defines body for AuthForgotPassword for application/json ContentType.
 type AuthForgotPasswordJSONRequestBody AuthForgotPasswordJSONBody
 
@@ -2765,6 +2799,9 @@ type ServerInterface interface {
 	// AdminToggleUserActive Activate or deactivate a platform user
 	// (PATCH /api/v1/admin/users/{id}/toggle-active)
 	AdminToggleUserActive(w http.ResponseWriter, r *http.Request, id PathID)
+	// AuthConfirmEmailChange Confirm a pending email change using an emailed token
+	// (POST /api/v1/auth/confirm-email-change)
+	AuthConfirmEmailChange(w http.ResponseWriter, r *http.Request)
 	// AuthForgotPassword Request a password reset email
 	// (POST /api/v1/auth/forgot-password)
 	AuthForgotPassword(w http.ResponseWriter, r *http.Request)
@@ -3328,6 +3365,20 @@ func (siw *ServerInterfaceWrapper) AdminToggleUserActive(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminToggleUserActive(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AuthConfirmEmailChange operation middleware
+func (siw *ServerInterfaceWrapper) AuthConfirmEmailChange(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthConfirmEmailChange(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5815,6 +5866,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/resend-verification", wrapper.AuthResendVerification)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/forgot-password", wrapper.AuthForgotPassword)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/reset-password", wrapper.AuthResetPassword)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/confirm-email-change", wrapper.AuthConfirmEmailChange)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/auth/me", wrapper.AuthDeleteAccount)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/auth/me", wrapper.AuthGetCurrentUser)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/auth/me", wrapper.AuthUpdateCurrentUser)

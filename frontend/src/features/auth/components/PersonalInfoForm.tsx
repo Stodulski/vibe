@@ -1,8 +1,8 @@
 import { Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
 import { PhoneInput } from '@/shared/components/common/PhoneInput';
+import { FormField } from '@/shared/components/common/FormField';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useAppForm, submitHandler } from '@/shared/lib/form';
@@ -14,7 +14,7 @@ import { PersonalInfoNameFields } from './personal-info-form/PersonalInfoNameFie
 const t = ES_AR;
 
 export function PersonalInfoForm() {
-  const { user } = useAuth();
+  const { user, pendingEmail } = useAuth();
 
   const form = useAppForm<PersonalInfoFormData>({
     resolver: zodResolver(personalInfoSchema),
@@ -36,19 +36,21 @@ export function PersonalInfoForm() {
       className="max-w-xl space-y-4"
     >
       <PersonalInfoNameFields register={form.register} errors={form.formState.errors} />
-      <div className="space-y-1.5">
-        <Label htmlFor="email" className="text-xs">
-          {t.auth.email}
-        </Label>
+      <FormField
+        label={t.auth.email}
+        htmlFor="email"
+        error={form.formState.errors.email?.message}
+        helpText={
+          pendingEmail && (
+            <>
+              {t.auth.emailChangePending} <span className="text-text-secondary font-medium">{pendingEmail}</span>
+            </>
+          )
+        }
+      >
         <Input id="email" type="email" placeholder={t.placeholders.email} {...form.register('email')} />
-        {form.formState.errors.email && (
-          <p className="text-error-text text-xs">{form.formState.errors.email.message}</p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="phone" className="text-xs">
-          {t.auth.phone}
-        </Label>
+      </FormField>
+      <FormField label={t.auth.phone} htmlFor="phone" error={form.formState.errors.phone?.message}>
         <Controller
           name="phone"
           control={form.control}
@@ -67,10 +69,7 @@ export function PersonalInfoForm() {
             </div>
           )}
         />
-        {form.formState.errors.phone && (
-          <p className="text-error-text text-xs">{form.formState.errors.phone.message}</p>
-        )}
-      </div>
+      </FormField>
       <SectionFooter submitLabel={t.common.save} pending={mutation.isPending} align="start" />
     </form>
   );

@@ -46,10 +46,28 @@ export type RefreshResponse = Ok<'authRefresh'>;
  * `GET /auth/me`: the user plus the CSRF token bound to the access token the
  * request authenticated with. The same shape sign-in answers with, named for
  * what it is on the boot path: the session a page load starts from.
+ *
+ * `pending_email` is the address of a not-yet-confirmed email change (see
+ * `UpdateMeResponse`), or `null` when there is none.
  */
 export type CurrentUserResponse = Ok<'authGetCurrentUser'>;
 
 export type UpdateMeRequest = Body<'authUpdateCurrentUser'>;
+
+/**
+ * `PUT /auth/me`: the account as it stands right after the request.
+ * `pending_email` is the address named by a just-created (or still-live
+ * earlier) email-change request, or `null` — see `PersonalInfoForm` and
+ * `useUpdateProfile`. Changing `email` never applies it immediately: `user`
+ * still carries the old address here, and a confirmation link goes to it.
+ *
+ * `email_change` is `"none"` when the body did not ask for a different
+ * address, `"requested"` when the pending request was saved and its
+ * confirmation email enqueued, or `"failed"` when that save failed after
+ * every other field in the request had already committed — `useUpdateProfile`
+ * reads this instead of comparing the submitted and returned addresses.
+ */
+export type UpdateMeResponse = Ok<'authUpdateCurrentUser'>;
 
 /**
  * No `version`: the server dropped the optimistic-concurrency counter

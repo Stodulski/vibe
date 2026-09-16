@@ -35,6 +35,7 @@ func validTestDeps(t *testing.T) deps {
 			Payments:          &mockPaymentStore{},
 			EmailVerification: &mockEmailVerificationStore{},
 			PasswordReset:     &mockPasswordResetStore{},
+			EmailChange:       &mockEmailChangeStore{},
 			FailedRefunds:     &mockFailedRefundStore{},
 			WebhookEvents:     &mockWebhookEventStore{},
 			SlotLocks:         &mockSlotLockStore{},
@@ -63,7 +64,7 @@ func TestNewApplicationRejectsAMissingStore(t *testing.T) {
 }
 
 // TestNewApplicationRejectsEveryMissingStore is the same check for every one
-// of the 17 stores, not just PasswordReset — each is a leaf a caller could
+// of the 18 stores, not just PasswordReset — each is a leaf a caller could
 // leave nil independently.
 func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 	cases := []struct {
@@ -81,6 +82,7 @@ func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 		{"Payments", func(m *stores.Stores) { m.Payments = nil }},
 		{"EmailVerification", func(m *stores.Stores) { m.EmailVerification = nil }},
 		{"PasswordReset", func(m *stores.Stores) { m.PasswordReset = nil }},
+		{"EmailChange", func(m *stores.Stores) { m.EmailChange = nil }},
 		{"FailedRefunds", func(m *stores.Stores) { m.FailedRefunds = nil }},
 		{"WebhookEvents", func(m *stores.Stores) { m.WebhookEvents = nil }},
 		{"SlotLocks", func(m *stores.Stores) { m.SlotLocks = nil }},

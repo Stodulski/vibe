@@ -1339,6 +1339,55 @@ func (m *mockPasswordResetStore) DeleteExpired(ctx context.Context) error {
 }
 
 // ---------------------------------------------------------------------------
+// mockEmailChangeStore
+// ---------------------------------------------------------------------------
+
+// mockEmailChangeStore stands in for stores.EmailChangeStore, the same shape
+// and the same reason as mockPasswordResetStore above.
+type mockEmailChangeStore struct {
+	PutFn              func(ctx context.Context, userID uuid.UUID, newEmail string, tokenHash []byte) error
+	PeekFn             func(ctx context.Context, tokenHash []byte) (*authstore.EmailChangeRequest, error)
+	ConsumeFn          func(ctx context.Context, tokenHash []byte) error
+	GetPendingByUserFn func(ctx context.Context, userID uuid.UUID) (*authstore.EmailChangeRequest, error)
+	DeleteExpiredFn    func(ctx context.Context) error
+}
+
+func (m *mockEmailChangeStore) Put(ctx context.Context, userID uuid.UUID, newEmail string, tokenHash []byte) error {
+	if m.PutFn != nil {
+		return m.PutFn(ctx, userID, newEmail, tokenHash)
+	}
+	return nil
+}
+
+func (m *mockEmailChangeStore) Peek(ctx context.Context, tokenHash []byte) (*authstore.EmailChangeRequest, error) {
+	if m.PeekFn != nil {
+		return m.PeekFn(ctx, tokenHash)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockEmailChangeStore) Consume(ctx context.Context, tokenHash []byte) error {
+	if m.ConsumeFn != nil {
+		return m.ConsumeFn(ctx, tokenHash)
+	}
+	return nil
+}
+
+func (m *mockEmailChangeStore) GetPendingByUser(ctx context.Context, userID uuid.UUID) (*authstore.EmailChangeRequest, error) {
+	if m.GetPendingByUserFn != nil {
+		return m.GetPendingByUserFn(ctx, userID)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockEmailChangeStore) DeleteExpired(ctx context.Context) error {
+	if m.DeleteExpiredFn != nil {
+		return m.DeleteExpiredFn(ctx)
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
 // mockLockStore
 // ---------------------------------------------------------------------------
 

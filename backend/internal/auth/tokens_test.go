@@ -167,8 +167,8 @@ func TestGenerateRefreshToken(t *testing.T) {
 func TestHashRefreshToken(t *testing.T) {
 	t.Run("consistent hashing", func(t *testing.T) {
 		plaintext := "test-refresh-token-value"
-		hash1 := hashRefreshToken(plaintext)
-		hash2 := hashRefreshToken(plaintext)
+		hash1 := hashToken(plaintext)
+		hash2 := hashToken(plaintext)
 		if !bytes.Equal(hash1, hash2) {
 			t.Error("hash is not consistent for the same input")
 		}
@@ -177,9 +177,9 @@ func TestHashRefreshToken(t *testing.T) {
 	t.Run("matches generateRefreshToken hash", func(t *testing.T) {
 		plaintext, hash := generateRefreshToken()
 
-		computed := hashRefreshToken(plaintext)
+		computed := hashToken(plaintext)
 		if !bytes.Equal(hash, computed) {
-			t.Error("hashRefreshToken does not match hash from generateRefreshToken")
+			t.Error("hashToken does not match hash from generateRefreshToken")
 		}
 	})
 }

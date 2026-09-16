@@ -25,6 +25,7 @@ func TestCronCleanExpiredTokens(t *testing.T) {
 	app := newTestApplication(t)
 
 	refreshDeleted := false
+	emailChangeDeleted := false
 
 	app.models.Tokens = &mockTokenStore{
 		DeleteExpiredFn: func(ctx context.Context) error {
@@ -35,6 +36,12 @@ func TestCronCleanExpiredTokens(t *testing.T) {
 	// The mockEmailVerificationStore.DeleteExpired always returns nil,
 	// which is enough to test the happy path. We rely on the mock not panicking.
 	verificationDeleted := true
+	app.models.EmailChange = &mockEmailChangeStore{
+		DeleteExpiredFn: func(ctx context.Context) error {
+			emailChangeDeleted = true
+			return nil
+		},
+	}
 
 	app.cronCleanExpiredTokens(context.Background())
 
@@ -43,6 +50,9 @@ func TestCronCleanExpiredTokens(t *testing.T) {
 	}
 	if !verificationDeleted {
 		t.Error("expected DeleteExpired to be called on verification tokens")
+	}
+	if !emailChangeDeleted {
+		t.Error("expected DeleteExpired to be called on pending email-change requests")
 	}
 }
 

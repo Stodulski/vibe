@@ -42,6 +42,8 @@ var publicRoutes = map[string]string{
 	"POST /api/v1/auth/resend-verification": "reached before the account can log in",
 	"POST /api/v1/auth/forgot-password":     "the user cannot log in, that is the point",
 	"POST /api/v1/auth/reset-password":      "authenticated by the emailed token, not a session",
+	"POST /api/v1/auth/confirm-email-change": "authenticated by the emailed token, not a session, " +
+		"the same posture as /auth/reset-password",
 
 	"POST /api/v1/book":            "public booking: clients book without an account",
 	"GET /api/v1/book/status":      "clients check their booking by token, without an account",

@@ -89,6 +89,26 @@ type PasswordResetStore interface {
 	DeleteByUser(ctx context.Context, userID uuid.UUID) error
 }
 
+// EmailChangeStore holds the account's pending email-change request: at most
+// one per account, created by UpdateCurrentUser and consumed by
+// ConfirmEmailChange. See authstore.EmailChangeRequest for why creating one is
+// not itself the change.
+type EmailChangeStore interface {
+	// Put creates the pending request, replacing any previous one.
+	Put(ctx context.Context, userID uuid.UUID, newEmail string, tokenHash []byte) error
+	// Peek reads the pending request the token names without consuming it —
+	// see auth.Service.ConfirmEmailChange for why validation and the email
+	// write both run before the token is spent.
+	Peek(ctx context.Context, tokenHash []byte) (*authstore.EmailChangeRequest, error)
+	// Consume deletes the request by its token hash once the caller has
+	// already validated and applied it. data.ErrRecordNotFound means it was
+	// already consumed or replaced by a race — see ConfirmEmailChange.
+	Consume(ctx context.Context, tokenHash []byte) error
+	// GetPendingByUser returns the account's live pending request, or
+	// data.ErrRecordNotFound when it has none.
+	GetPendingByUser(ctx context.Context, userID uuid.UUID) (*authstore.EmailChangeRequest, error)
+}
+
 // OwnershipReader is what account deletion needs: an account with a complex
 // still trading cannot simply vanish.
 type OwnershipReader interface {
@@ -127,6 +147,9 @@ type Notifier interface {
 	EmailVerification(e notifications.VerificationEmail)
 	PasswordReset(e notifications.PasswordResetEmail)
 	DuplicateRegistration(e notifications.DuplicateRegistrationEmail)
+	// EmailChangeRequested tells the account's CURRENT address that a session
+	// asked to move it elsewhere, with a link to confirm.
+	EmailChangeRequested(e notifications.EmailChangeRequestedEmail)
 }
 
 // UserCache is the cached-user invalidation this module triggers when an
@@ -269,6 +292,7 @@ type Dependencies struct {
 	Tokens        TokenStore
 	Verifications VerificationStore
 	Resets        PasswordResetStore
+	EmailChanges  EmailChangeStore
 	Complexes     OwnershipReader
 	Bookings      BookingReader
 	Blacklist     Blacklist

@@ -279,9 +279,11 @@ func TestARefusedDeletionIsNotRecorded(t *testing.T) {
 	}
 }
 
-// Changing the address moves the account's recovery channel, and overwrites the
-// only record of where it used to point.
-func TestChangingTheAddressRecordsBothOfThem(t *testing.T) {
+// Asking to change the address does not move it: it queues a request and
+// mails the CURRENT address a link, and both addresses are recorded on the
+// request entry so the account's owner can tell what was asked even before
+// anyone confirms it.
+func TestChangingTheAddressRecordsBothOfThemButDoesNotMoveIt(t *testing.T) {
 	f := newFixture(t)
 	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
 	f.users.add(user)
@@ -293,12 +295,29 @@ func TestChangingTheAddressRecordsBothOfThem(t *testing.T) {
 		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
 	}
 
-	e := findEntry(t, f.audit.entries, actionEmailChange)
+	if f.users.updated == nil {
+		t.Fatal("the account was never persisted")
+	}
+	if f.users.updated.Email != "ana@example.com" {
+		t.Errorf("a request alone must not move the address; users.email is %q", f.users.updated.Email)
+	}
+	if len(f.notify.emailChanges) != 1 || f.notify.emailChanges[0].To != "ana@example.com" {
+		t.Fatalf("the confirmation link must go to the CURRENT address; got %+v", f.notify.emailChanges)
+	}
+
+	e := findEntry(t, f.audit.entries, actionEmailChangeRequest)
 	if got := encodedValue(t, e.OldValue); !strings.Contains(got, "ana@example.com") {
-		t.Errorf("the address the account is leaving is nowhere else after this request, and not in the entry either: %s", got)
+		t.Errorf("the address a move was requested away from is missing from the entry: %s", got)
 	}
 	if got := encodedValue(t, e.NewValue); !strings.Contains(got, "someone-else@example.com") {
-		t.Errorf("the new address is missing from the entry: %s", got)
+		t.Errorf("the requested address is missing from the entry: %s", got)
+	}
+
+	// Only confirming the emailed link moves the address, and that is the
+	// step actionEmailChange now names — see
+	// TestConfirmingAnEmailChangeMovesTheAddress in handlers_test.go.
+	if len(f.audit.entries) != 1 {
+		t.Errorf("a request alone must not also write an %q entry: %+v", actionEmailChange, f.audit.entries)
 	}
 }
 
@@ -583,7 +602,8 @@ func everyAuditedFlow(t *testing.T) auditRun {
 	failed.handler.Login(httptest.NewRecorder(), postJSON(t, `{"email":"ana@example.com","password":"`+newPassword+`"}`))
 	collect(failed)
 
-	// An address change and a password change, from a session.
+	// An address change request, a password change, and the confirmation that
+	// actually moves the address, from a session and then from the emailed link.
 	edited := newFixture(t)
 	editUser := verifiedUser(t, "ana@example.com", password)
 	edited.users.add(editUser)
@@ -592,6 +612,13 @@ func everyAuditedFlow(t *testing.T) auditRun {
 		`{"email":"moved@example.com","current_password":"`+password+`","new_password":"`+newPassword+`"}`), editUser))
 	if editW.Code != http.StatusOK {
 		t.Fatalf("the edit failed: %d (%s)", editW.Code, editW.Body.String())
+	}
+	changeToken := tokenFromURL(t, edited.notify.emailChanges[0].ConfirmURL)
+	run.secrets["email change token"] = changeToken
+	confirmW := httptest.NewRecorder()
+	edited.handler.ConfirmEmailChange(confirmW, postJSON(t, `{"token":"`+changeToken+`"}`))
+	if confirmW.Code != http.StatusOK {
+		t.Fatalf("the confirmation failed: %d (%s)", confirmW.Code, confirmW.Body.String())
 	}
 	collect(edited)
 
@@ -637,7 +664,8 @@ func everyAuditedFlow(t *testing.T) auditRun {
 		seen[e.Action] = true
 	}
 	for _, action := range []string{
-		actionLogin, actionLoginFailed, actionLogout, actionEmailChange, actionPasswordChange,
+		actionLogin, actionLoginFailed, actionLogout,
+		actionEmailChangeRequest, actionEmailChange, actionPasswordChange,
 		actionPasswordResetRequest, actionPasswordReset, actionAccountDelete, actionRefreshReuse,
 	} {
 		if !seen[action] {

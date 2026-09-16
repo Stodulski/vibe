@@ -27,7 +27,7 @@
       "destination": "https://api.vibe.com.ar/api/v1/auth/google/redirect"
     },
     {
-      "source": "/:slug((?!(?:login|register|verify-email|verify-email-sent|forgot-password|reset-password|complexes|onboarding|settings|dashboard|bookings|courts|clients|reports|profile|admin)$)[a-z0-9]+(?:-[a-z0-9]+)*)",
+      "source": "/:slug((?!(?:login|register|verify-email|verify-email-sent|confirm-email-change|forgot-password|reset-password|complexes|onboarding|settings|dashboard|bookings|courts|clients|reports|profile|admin)$)[a-z0-9]+(?:-[a-z0-9]+)*)",
       "has": [
         {
           "type": "header",
@@ -168,6 +168,15 @@
     },
     {
       "source": "/verify-email-sent",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    },
+    {
+      "source": "/confirm-email-change",
       "headers": [
         {
           "key": "X-Robots-Tag",

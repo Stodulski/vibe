@@ -87,16 +87,23 @@ describe('GET /api/prerender, re-validating the slug before fetching', () => {
 
   // A direct hit on /api/prerender?slug=login must not proxy: the rewrite's
   // own `source` exclusion is bypassed by calling the function directly.
-  it.each(['login', 'register', 'dashboard', 'profile', 'reports', 'admin', 'settings', 'complexes'])(
-    'answers 404 without fetching for the app route %s',
-    async (slug) => {
-      const response = await GET(request(slug));
+  it.each([
+    'login',
+    'register',
+    'dashboard',
+    'profile',
+    'reports',
+    'admin',
+    'settings',
+    'complexes',
+    'confirm-email-change',
+  ])('answers 404 without fetching for the app route %s', async (slug) => {
+    const response = await GET(request(slug));
 
-      expect(response.status).toBe(404);
-      expect(response.headers.get('cache-control')).toBe('no-store');
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
   it.each(['Foo_Bar', 'a.b', 'two/segments', 'Los-Alamos', 'los_alamos', '-los-alamos', 'los--alamos'])(
     'answers 404 without fetching for %s, which slugify could not have produced',

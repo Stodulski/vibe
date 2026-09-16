@@ -68,6 +68,7 @@ var apiSurface = map[string]struct{}{
 	"GET /api/v1/public/prerender/{slug}":                              {},
 	"GET /api/v1/webhooks/whatsapp":                                    {},
 	"PATCH /api/v1/admin/users/{id}/toggle-active":                     {},
+	"POST /api/v1/auth/confirm-email-change":                           {},
 	"POST /api/v1/auth/forgot-password":                                {},
 	"POST /api/v1/auth/google":                                         {},
 	"POST /api/v1/auth/google/complete":                                {},

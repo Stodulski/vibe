@@ -38,6 +38,10 @@ type stubUsers struct {
 	// deleteErr fails the account delete, the way a foreign key that still
 	// points at one of the owner's complexes did in production.
 	deleteErr error
+	// updateErr fails the account write PUT /auth/me and ConfirmEmailChange
+	// both make, so a test can drive a transient store failure on exactly
+	// that step rather than only on the read that precedes it.
+	updateErr error
 
 	inserted *authstore.User
 	// updated is the account as Update was asked to persist it. The stub used to
@@ -96,6 +100,9 @@ func (s *stubUsers) Insert(_ context.Context, u *authstore.User) error {
 }
 
 func (s *stubUsers) Update(_ context.Context, u *authstore.User) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
 	// Copy, so a later mutation by the handler cannot rewrite what the test
 	// observes as having been persisted.
 	stored := *u
@@ -289,6 +296,79 @@ func (s *stubResets) DeleteByUser(_ context.Context, userID uuid.UUID) error {
 	return nil
 }
 
+type stubEmailChanges struct {
+	tokens map[string]*authstore.EmailChangeRequest
+	byUser map[uuid.UUID]*authstore.EmailChangeRequest
+
+	// putErr, peekErr, consumeErr and pendingErr let a test drive a store
+	// failure on exactly one method — matching stubResets.getErr, without
+	// which no test could tell "this link is invalid" apart from "the
+	// database is down" for each step in isolation.
+	putErr     error
+	peekErr    error
+	consumeErr error
+	pendingErr error
+}
+
+func newStubEmailChanges() *stubEmailChanges {
+	return &stubEmailChanges{
+		tokens: map[string]*authstore.EmailChangeRequest{},
+		byUser: map[uuid.UUID]*authstore.EmailChangeRequest{},
+	}
+}
+
+func (s *stubEmailChanges) Put(_ context.Context, userID uuid.UUID, newEmail string, hash []byte) error {
+	if s.putErr != nil {
+		return s.putErr
+	}
+	// A new request replaces any previous one for this user — the real
+	// store's ON CONFLICT (user_id) DO UPDATE, reproduced here by dropping
+	// the old token first.
+	if old, ok := s.byUser[userID]; ok {
+		delete(s.tokens, string(old.TokenHash))
+	}
+	req := &authstore.EmailChangeRequest{UserID: userID, NewEmail: newEmail, TokenHash: hash, ExpiresAt: time.Now().Add(time.Hour)}
+	s.tokens[string(hash)] = req
+	s.byUser[userID] = req
+	return nil
+}
+
+func (s *stubEmailChanges) Peek(_ context.Context, hash []byte) (*authstore.EmailChangeRequest, error) {
+	if s.peekErr != nil {
+		return nil, s.peekErr
+	}
+	t, ok := s.tokens[string(hash)]
+	if !ok {
+		return nil, data.ErrRecordNotFound
+	}
+	return t, nil
+}
+
+func (s *stubEmailChanges) Consume(_ context.Context, hash []byte) error {
+	if s.consumeErr != nil {
+		return s.consumeErr
+	}
+	t, ok := s.tokens[string(hash)]
+	if !ok {
+		return data.ErrRecordNotFound
+	}
+	delete(s.tokens, string(hash))
+	if s.byUser[t.UserID] == t {
+		delete(s.byUser, t.UserID)
+	}
+	return nil
+}
+
+func (s *stubEmailChanges) GetPendingByUser(_ context.Context, userID uuid.UUID) (*authstore.EmailChangeRequest, error) {
+	if s.pendingErr != nil {
+		return nil, s.pendingErr
+	}
+	if t, ok := s.byUser[userID]; ok {
+		return t, nil
+	}
+	return nil, data.ErrRecordNotFound
+}
+
 type stubComplexes struct{ owned []*complexstore.Complex }
 
 func (s *stubComplexes) GetByOwner(context.Context, uuid.UUID) ([]*complexstore.Complex, error) {
@@ -323,6 +403,7 @@ type stubNotifier struct {
 	verifications []notifications.VerificationEmail
 	resets        []notifications.PasswordResetEmail
 	duplicates    []notifications.DuplicateRegistrationEmail
+	emailChanges  []notifications.EmailChangeRequestedEmail
 }
 
 func (s *stubNotifier) EmailVerification(e notifications.VerificationEmail) {
@@ -335,6 +416,10 @@ func (s *stubNotifier) PasswordReset(e notifications.PasswordResetEmail) {
 
 func (s *stubNotifier) DuplicateRegistration(e notifications.DuplicateRegistrationEmail) {
 	s.duplicates = append(s.duplicates, e)
+}
+
+func (s *stubNotifier) EmailChangeRequested(e notifications.EmailChangeRequestedEmail) {
+	s.emailChanges = append(s.emailChanges, e)
 }
 
 // stubTurnstile is a TurnstileVerifier double. A nil err from Verify (the
@@ -431,6 +516,7 @@ type fixture struct {
 	tokens        *stubTokens
 	verifications *stubVerifications
 	resets        *stubResets
+	emailChanges  *stubEmailChanges
 	complexes     *stubComplexes
 	bookings      *stubBookings
 	blacklist     *stubBlacklist
@@ -455,6 +541,7 @@ func newFixture(t *testing.T) *fixture {
 		tokens:        newStubTokens(),
 		verifications: newStubVerifications(),
 		resets:        newStubResets(),
+		emailChanges:  newStubEmailChanges(),
 		complexes:     &stubComplexes{},
 		bookings:      &stubBookings{},
 		blacklist:     &stubBlacklist{},
@@ -490,6 +577,7 @@ func newFixture(t *testing.T) *fixture {
 		Tokens:        f.tokens,
 		Verifications: f.verifications,
 		Resets:        f.resets,
+		EmailChanges:  f.emailChanges,
 		Complexes:     f.complexes,
 		Bookings:      f.bookings,
 		Blacklist:     f.blacklist,

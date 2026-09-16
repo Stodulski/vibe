@@ -89,6 +89,7 @@ type Service struct {
 	tokenService  *TokenService
 	verifications VerificationStore
 	resets        PasswordResetStore
+	emailChanges  EmailChangeStore
 	complexes     OwnershipReader
 	bookings      BookingReader
 	blacklist     Blacklist
@@ -156,6 +157,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		}),
 		verifications: d.Verifications,
 		resets:        d.Resets,
+		emailChanges:  d.EmailChanges,
 		complexes:     d.Complexes,
 		bookings:      d.Bookings,
 		blacklist:     d.Blacklist,
@@ -250,7 +252,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) error {
 	}
 
 	plaintext := uuid.New().String()
-	hash := hashRefreshToken(plaintext)
+	hash := hashToken(plaintext)
 
 	if err := s.verifications.Insert(ctx, user.ID, hash); err != nil {
 		return err
@@ -423,7 +425,7 @@ func (s *Service) loginFailed(actor Actor, attempted string) error {
 
 // VerifyEmail consumes the token from the emailed link.
 func (s *Service) VerifyEmail(ctx context.Context, token string) error {
-	tokenHash := hashRefreshToken(token)
+	tokenHash := hashToken(token)
 
 	vToken, err := s.verifications.GetByHash(ctx, tokenHash)
 	if err != nil {
@@ -464,7 +466,7 @@ func (s *Service) ResendVerification(ctx context.Context, email string) error {
 	}
 
 	plaintext := uuid.New().String()
-	hash := hashRefreshToken(plaintext)
+	hash := hashToken(plaintext)
 
 	// Atomic: deletes stale tokens (>3 min) and inserts a new one only if the
 	// cooldown has passed.
@@ -492,7 +494,7 @@ func (s *Service) ResendVerification(ctx context.Context, email string) error {
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) Refresh(ctx context.Context, actor Actor, presented string) (accessToken, refreshToken string, err error) {
-	oldHash := hashRefreshToken(presented)
+	oldHash := hashToken(presented)
 
 	storedToken, err := s.tokens.GetRefreshToken(ctx, oldHash)
 	if err != nil {
@@ -619,7 +621,7 @@ func (s *Service) handleUnknownRefreshToken(ctx context.Context, actor Actor, ol
 // otherwise — see the note below on why only the former is recorded.
 func (s *Service) Logout(ctx context.Context, actor Actor, refreshToken, accessToken string, user *authstore.User) {
 	if refreshToken != "" {
-		if delErr := s.tokens.DeleteRefreshToken(ctx, hashRefreshToken(refreshToken)); delErr != nil {
+		if delErr := s.tokens.DeleteRefreshToken(ctx, hashToken(refreshToken)); delErr != nil {
 			s.logger.Error("failed to delete refresh token on logout", "error", delErr)
 		}
 	}
@@ -744,26 +746,56 @@ type UpdateInput struct {
 	NewPassword     *string
 }
 
+// EmailChangeOutcome is what UpdateCurrentUser did about an email change the
+// request asked for. The handler reports it as PUT /auth/me's `email_change`
+// field, so the frontend never has to infer it from comparing addresses.
+type EmailChangeOutcome string
+
+const (
+	// EmailChangeNone means the body did not ask for a different address —
+	// no `email` field, or one naming the account's current address (see the
+	// case-insensitive check below).
+	EmailChangeNone EmailChangeOutcome = "none"
+	// EmailChangeRequested means the pending request was saved and its
+	// confirmation email enqueued.
+	EmailChangeRequested EmailChangeOutcome = "requested"
+	// EmailChangeFailed means saving the pending request or enqueueing its
+	// confirmation email failed — see the comment on requestEmailChange's
+	// call site below for why the rest of the PUT still commits and the
+	// response still reports success.
+	EmailChangeFailed EmailChangeOutcome = "failed"
+)
+
 // UpdateCurrentUser applies a change to the caller's own account. Changing the
-// email address resets verification, and changing the password ends every open
-// session.
+// password ends every open session. Changing the email address does not
+// change users.email at all: it creates a pending email-change request and
+// mails a confirmation link to the CURRENT address, because that address is
+// the account's password-recovery channel (ForgotPassword gates only on
+// EmailVerified && IsActive) and a live session is not proof of control over
+// the new one — see db/migrations/001_init.sql and ConfirmEmailChange, which
+// is what actually moves the address.
 //
 // It is one cohesive write and splitting it would relocate sequential steps
 // into helpers without reducing what a reader holds at once.
 //
 //nolint:funlen // see the cohesion note above
-func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *authstore.User, in UpdateInput) (*authstore.User, error) {
-	// Captured before the change is applied: after it the previous address
-	// exists nowhere. It is the one thing an email change destroys, and the one
-	// thing the account's owner needs to name if the change was not theirs.
-	previousEmail := user.Email
-
-	if in.Email != nil && *in.Email != user.Email {
-		// Changing email requires re-verification to prevent claiming unowned
-		// addresses.
-		user.Email = *in.Email
-		user.EmailVerified = false
+func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *authstore.User, in UpdateInput) (*authstore.User, EmailChangeOutcome, error) {
+	// Checked before anything else runs or commits: users.email and new_email
+	// are CITEXT, so this is case-insensitive too — resubmitting the current
+	// address with different capitalization is a no-op, not a request. A taken
+	// address must reject the whole PUT with nothing persisted, rather than
+	// surfacing after names/phone/password have already been written; see the
+	// "Deliberately last" comment below for what still runs at the end.
+	requestingEmailChange := in.Email != nil &&
+		!strings.EqualFold(strings.TrimSpace(*in.Email), strings.TrimSpace(user.Email))
+	var newEmail string
+	if requestingEmailChange {
+		newEmail = *in.Email
+		if err := s.emailAvailableFor(ctx, user.ID, newEmail); err != nil {
+			return nil, EmailChangeNone, err
+		}
 	}
+
 	if in.FirstName != nil {
 		user.FirstName = *in.FirstName
 	}
@@ -778,52 +810,27 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *auth
 	if passwordChange {
 		match, err := user.PasswordMatches(*in.CurrentPassword)
 		if err != nil {
-			return nil, err
+			return nil, EmailChangeNone, err
 		}
 		if !match {
-			return nil, ErrInvalidCredentials
+			return nil, EmailChangeNone, ErrInvalidCredentials
 		}
 	}
 
 	if err := s.userWrites.Update(ctx, user); err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			return nil, ErrEditConflict
+			return nil, EmailChangeNone, ErrEditConflict
 		}
-		return nil, err
+		return nil, EmailChangeNone, err
 	}
 	s.cache.InvalidateUser(ctx, user.ID)
 
-	// The address is the account's recovery channel: reset links go wherever it
-	// points. Someone holding a stolen session can move it to an address they
-	// control, verify that address, and reset the password from it — and the
-	// entries below would then show the reset without showing the redirect that
-	// made it possible, on an account whose owner can no longer say what their
-	// address used to be. The other profile fields are not recorded; a surname
-	// is data about a person, not control over an account.
-	if user.Email != previousEmail {
-		s.record(actor, audit.Entry{
-			UserID:   accountID(user.ID),
-			Action:   actionEmailChange,
-			EntityID: accountID(user.ID),
-			OldValue: accountEvent{Email: recordedAddress(previousEmail)},
-			NewValue: accountEvent{Email: recordedAddress(user.Email)},
-		})
-	}
-
-	// If the email changed, send a verification email for the new address.
-	if !user.EmailVerified && in.Email != nil {
-		//nolint:contextcheck // autoResendVerification intentionally uses its own detached
-		// 10s timeout so the cooldown-checked resend still completes even though the rest
-		// of this method continues independently of it.
-		s.autoResendVerification(user)
-	}
-
 	if passwordChange {
 		if err := user.SetPassword(*in.NewPassword, s.cfg.PasswordHashCost); err != nil {
-			return nil, err
+			return nil, EmailChangeNone, err
 		}
 		if err := s.credentials.UpdatePassword(ctx, user.ID, user.PasswordHash); err != nil {
-			return nil, err
+			return nil, EmailChangeNone, err
 		}
 
 		// Recorded the moment the credential changed, not after the sessions are
@@ -839,7 +846,7 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *auth
 		})
 
 		if err := s.tokens.DeleteAllForUser(ctx, user.ID); err != nil {
-			return nil, err
+			return nil, EmailChangeNone, err
 		}
 		if blErr := s.blacklist.InvalidateUserTokens(ctx, user.ID); blErr != nil {
 			s.revocationFailed("password change", user.ID.String(), blErr)
@@ -847,14 +854,245 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *auth
 		s.cache.InvalidateUser(ctx, user.ID)
 	}
 
-	return user, nil
+	// Deliberately last: requestEmailChange mails a live confirmation link and
+	// writes an audit entry. Running it only once every other part of this PUT
+	// has already committed means a failure here can never be blamed on the
+	// rest of the request.
+	//
+	// The availability check above already keeps a taken address from getting
+	// this far, so what can still fail here is the store write itself (Put) —
+	// a transient failure, after names/phone/password have already been saved.
+	// Reporting the whole PUT as failed at that point would be wrong: it
+	// suggests nothing was saved when everything except the email request was.
+	// So this failure is logged, not returned as an error — the response still
+	// reports success (200) with the fields that did commit, and the
+	// `email_change` outcome tells the caller plainly that this particular
+	// request did not go through, rather than leaving it to infer that from
+	// `pending_email`, which (read fresh by the handler) reports whatever
+	// request is actually stored: none, if there was no earlier one, or a
+	// still-live earlier request that this failed attempt did not replace.
+	emailChangeOutcome := EmailChangeNone
+	if requestingEmailChange {
+		if err := s.requestEmailChange(ctx, actor, user, newEmail); err != nil {
+			s.logger.Error("update-current-user: email-change request failed after the rest of the update committed",
+				"error", err, "user_id", user.ID)
+			emailChangeOutcome = EmailChangeFailed
+		} else {
+			emailChangeOutcome = EmailChangeRequested
+		}
+	}
+
+	return user, emailChangeOutcome, nil
+}
+
+// emailAvailableFor reports whether email is free for userID to claim: nil
+// when it is, authstore.ErrDuplicateEmail when another account already holds
+// it. Both UpdateCurrentUser and ConfirmEmailChange call it — the former
+// gates the request before anything else in the PUT is written, the latter
+// re-checks at confirm time because the window between the two is however
+// long it takes someone to click an emailed link, during which the address
+// could have been claimed by a fresh registration or by another account's own
+// confirmation. Neither call is the actual backstop — the unique index on
+// users.email (authstore.ErrDuplicateEmail from userWrites.Update) is — this
+// is the same courtesy check repeated at both gates.
+func (s *Service) emailAvailableFor(ctx context.Context, userID uuid.UUID, email string) error {
+	existing, err := s.users.GetByEmail(ctx, email)
+	switch {
+	case err == nil && existing.ID != userID:
+		return authstore.ErrDuplicateEmail
+	case err != nil && !errors.Is(err, data.ErrRecordNotFound):
+		return err
+	}
+	return nil
+}
+
+// requestEmailChange is UpdateCurrentUser's email half: it stores the pending
+// request, mails the confirmation link to the account's CURRENT address, and
+// records the request — but never touches user.Email. Only ConfirmEmailChange
+// does that. The availability check that guards this ran up front, in
+// UpdateCurrentUser, before any part of the PUT was written; this call writes
+// to email_change_requests, keyed on user_id, not on the new address, so the
+// database has nothing of its own to reject a taken email with. A concurrent
+// registration or another account's own confirmation can still win the race
+// against a pending request already queued here; ConfirmEmailChange
+// re-checks at the point that actually matters.
+func (s *Service) requestEmailChange(ctx context.Context, actor Actor, user *authstore.User, newEmail string) error {
+	plaintext := uuid.New().String()
+	hash := hashToken(plaintext)
+	if err := s.emailChanges.Put(ctx, user.ID, newEmail, hash); err != nil {
+		return err
+	}
+
+	confirmURL := s.cfg.FrontendURL + "/confirm-email-change?token=" + plaintext
+	s.notify.EmailChangeRequested(notifications.EmailChangeRequestedEmail{
+		To: user.Email, FirstName: user.FirstName, NewEmail: newEmail, ConfirmURL: confirmURL,
+		ExpiresIn: notifications.SpanishDuration(authstore.EmailChangeTokenExpiry),
+	})
+
+	// The pending request is itself a durable row until it is confirmed or
+	// expires, but the act of asking — from an authenticated session, against
+	// an account that may not be the requester's own if the session was
+	// stolen — is worth a trace of its own, the same reason
+	// actionPasswordResetRequest is unconditional. UserID names this session's
+	// account because the request, unlike ForgotPassword, is authenticated.
+	s.record(actor, audit.Entry{
+		UserID:   accountID(user.ID),
+		Action:   actionEmailChangeRequest,
+		EntityID: accountID(user.ID),
+		OldValue: accountEvent{Email: recordedAddress(user.Email)},
+		NewValue: accountEvent{Email: recordedAddress(newEmail)},
+	})
+
+	return nil
+}
+
+// PendingEmail returns the account's pending email-change request, if any —
+// nil when it has none. GET and PUT /auth/me both read it so the frontend can
+// tell the caller to check their current inbox until the address it names is
+// confirmed or the request expires.
+func (s *Service) PendingEmail(ctx context.Context, userID uuid.UUID) (*string, error) {
+	req, err := s.emailChanges.GetPendingByUser(ctx, userID)
+	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) {
+			return nil, nil //nolint:nilnil // "no pending request" is not an error the caller must handle
+		}
+		return nil, err
+	}
+	return &req.NewEmail, nil
+}
+
+// ConfirmEmailChange validates the token from the emailed link and, only
+// once every check and the write itself have succeeded, moves users.email. It
+// is public and token-authenticated — the same posture as ResetPassword —
+// because what authorizes this write is proof of control over the account's
+// CURRENT address (the link is emailed there, by requestEmailChange, never to
+// the new one): a session cookie can never guarantee that, which is exactly
+// what stops a hijacked session from moving the account's recovery channel
+// unnoticed. Confirming does not itself prove control of the new address —
+// only the ordinary re-verification email this method triggers afterward
+// (autoResendVerification) does that.
+//
+// Unlike ResetPassword, the token is not consumed up front: Peek reads the
+// pending request without spending it, every check and the email write itself
+// run next, and Consume only deletes the row once all of that has already
+// succeeded. Consuming the token before those steps run would mean a
+// transient failure anywhere after it — the user lookup, the duplicate-email
+// check, userWrites.Update — burns the link for a change that never actually
+// happened, with no way for the caller to finish it. There is no shared
+// transaction available here: Peek/Consume and userWrites live in stores kept
+// deliberately narrow by this module's own interface segregation (see
+// auth.go), and opening one across them would mean widening those interfaces
+// for a single caller. So the fix is ordering instead of atomicity. Consume
+// can still lose a race to a second click of the same link, or to a newer
+// request replacing this one (EmailChanges.Consume, EmailChanges.Peek) —
+// that race is otherwise idempotent (both attempts land the same address, or
+// the older address stays applied while the newer request stays pending) and
+// is not worth failing a response that already applied the change, so it is
+// logged, not returned.
+//
+// It is one cohesive write and splitting it would relocate sequential steps
+// into helpers without reducing what a reader holds at once.
+//
+//nolint:funlen // see the cohesion note above
+func (s *Service) ConfirmEmailChange(ctx context.Context, actor Actor, token string) error {
+	tokenHash := hashToken(token)
+
+	req, err := s.emailChanges.Peek(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) {
+			return ErrInvalidToken
+		}
+		// A store failure is not a bad token; see ResetPassword's identical
+		// split for why the two must not be confused in the response.
+		return err
+	}
+
+	user, err := s.users.GetByID(ctx, req.UserID)
+	if err != nil {
+		return err
+	}
+
+	// Re-checked here, atomically-enough for what is at stake: the window
+	// between requestEmailChange's check and this line is whatever it takes
+	// someone to click an emailed link, during which the address could have
+	// been claimed by a fresh registration or by another account's own
+	// confirmation. The unique index on users.email (authstore.ErrDuplicateEmail)
+	// is the actual backstop; this is the same courtesy check as before,
+	// repeated because the first one is now request-time and stale.
+	if err := s.emailAvailableFor(ctx, user.ID, req.NewEmail); err != nil {
+		return err
+	}
+
+	previousEmail := user.Email
+	user.Email = req.NewEmail
+	user.EmailVerified = false
+
+	if err := s.userWrites.Update(ctx, user); err != nil {
+		// authstore.ErrDuplicateEmail (the database's own unique-index
+		// refusal, the narrower race the check above cannot close) passes
+		// through unchanged — the handler already maps it the same way
+		// UpdateCurrentUser's does. Either way the token is still untouched:
+		// nothing has been consumed, so the link is still usable for a retry.
+		if errors.Is(err, data.ErrRecordNotFound) {
+			return ErrEditConflict
+		}
+		return err
+	}
+	s.cache.InvalidateUser(ctx, user.ID)
+
+	// From here the change is committed. Consuming the token is best effort —
+	// see the doc comment above for why a race here is expected and benign,
+	// including when a newer request already replaced this one — and
+	// everything that follows is best effort too: none of it can undo the
+	// write that already succeeded.
+	if consumeErr := s.emailChanges.Consume(ctx, tokenHash); consumeErr != nil && !errors.Is(consumeErr, data.ErrRecordNotFound) {
+		s.logger.Error("confirm-email-change: failed to consume token — link may remain usable",
+			"error", consumeErr, "user_id", user.ID)
+	}
+
+	// The takeover step, mirroring ResetPassword's own comment: whoever holds
+	// this link moved the account's recovery channel without ever presenting
+	// a session. UserID stays nil for the same reason ResetPassword's does —
+	// the caller here proved control of the CURRENT address, not of the
+	// account's session — while EntityID still names the account.
+	s.record(actor, audit.Entry{
+		Action:   actionEmailChange,
+		EntityID: accountID(user.ID),
+		OldValue: accountEvent{Email: recordedAddress(previousEmail)},
+		NewValue: accountEvent{Email: recordedAddress(user.Email)},
+	})
+
+	// The address just changed and is unverified again — the same
+	// re-verification UpdateCurrentUser used to trigger synchronously; now it
+	// runs once the new address is actually in place. This is also the step
+	// that proves control of the NEW address — see the doc comment above.
+	//
+	//nolint:contextcheck // autoResendVerification intentionally uses its own detached
+	// 10s timeout (not the request's) so the cooldown-checked resend still completes even
+	// though the response is written immediately after — same reasoning as Login's own call.
+	s.autoResendVerification(user)
+
+	// Every session on the account is revoked, the same as ResetPassword and
+	// for the same reason: whatever process just moved the account's recovery
+	// channel is treated as security-equivalent to a password reset, and
+	// nothing issued before it may keep working.
+	if delErr := s.tokens.DeleteAllForUser(ctx, user.ID); delErr != nil {
+		s.logger.Error("confirm-email-change: failed to invalidate sessions — old sessions may remain active",
+			"error", delErr, "user_id", user.ID)
+	}
+	if blErr := s.blacklist.InvalidateUserTokens(ctx, user.ID); blErr != nil {
+		s.revocationFailed("email change", user.ID.String(), blErr)
+	}
+	s.cache.InvalidateUser(ctx, user.ID)
+
+	return nil
 }
 
 // autoResendVerification sends another verification link on its own detached
 // timeout, and says nothing when the store's cooldown refuses.
 func (s *Service) autoResendVerification(user *authstore.User) {
 	plaintext := uuid.New().String()
-	hash := hashRefreshToken(plaintext)
+	hash := hashToken(plaintext)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -895,7 +1133,7 @@ func (s *Service) ForgotPassword(ctx context.Context, actor Actor, email string)
 	}
 
 	plaintext := uuid.New().String()
-	hash := hashRefreshToken(plaintext)
+	hash := hashToken(plaintext)
 
 	if err := s.resets.InsertWithCooldown(ctx, user.ID, hash); err != nil {
 		// The caller sees the same generic success either way, and deliberately
@@ -931,7 +1169,7 @@ func (s *Service) ForgotPassword(ctx context.Context, actor Actor, email string)
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) ResetPassword(ctx context.Context, actor Actor, token, password string) error {
-	resetToken, err := s.resets.GetByHash(ctx, hashRefreshToken(token))
+	resetToken, err := s.resets.GetByHash(ctx, hashToken(token))
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
 			return ErrInvalidToken

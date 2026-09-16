@@ -35,6 +35,7 @@ type Mailer interface {
 	SendEmailVerification(ctx context.Context, to, firstName, verifyURL string) error
 	SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error
 	SendDuplicateRegistration(ctx context.Context, to, firstName, loginURL, resetURL string) error
+	SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error
 }
 
 // WhatsAppSender is the WhatsApp side of delivery.
@@ -227,6 +228,13 @@ func (s *Service) PasswordReset(e PasswordResetEmail) {
 // is taken: telling the caller would make the endpoint an account oracle.
 func (s *Service) DuplicateRegistration(e DuplicateRegistrationEmail) {
 	s.queue.Enqueue(TaskEmailDuplicateRegistration, e, dedup(TaskEmailDuplicateRegistration, e.To, e.ResetURL))
+}
+
+// EmailChangeRequested tells the account's current address that a session
+// asked to move it to e.NewEmail, with a link to confirm — or ignore, if this
+// was not them.
+func (s *Service) EmailChangeRequested(e EmailChangeRequestedEmail) {
+	s.queue.Enqueue(TaskEmailChangeRequested, e, dedup(TaskEmailChangeRequested, e.To, e.ConfirmURL))
 }
 
 // dedup builds the key that makes one delivery idempotent: the task type, the
