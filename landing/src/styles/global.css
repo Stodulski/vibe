@@ -1537,6 +1537,19 @@ body {
 .guia-bloque p { font-size: 0.9375rem; color: var(--muted); line-height: 1.8; }
 .guia-bloque p + p { margin-top: 14px; }
 
+/* A link inside the prose. Without this it falls back to the browser's own
+   blue-on-visited-purple, which on this dark page reads as a broken default
+   rather than part of the page. */
+.guia-bloque a, .guia-lista a, .guia-faq a {
+  color: var(--green); text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+  transition: color 0.2s ease;
+}
+.guia-bloque a:hover, .guia-lista a:hover, .guia-faq a:hover,
+.guia-bloque a:focus-visible, .guia-lista a:focus-visible, .guia-faq a:focus-visible {
+  color: var(--text);
+}
+
 .guia-lista { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 10px; }
 .guia-lista li {
   font-size: 0.9375rem; color: var(--muted); line-height: 1.7;
