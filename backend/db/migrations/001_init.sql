@@ -140,7 +140,11 @@ CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'cancelled', 'comple
 CREATE TYPE payment_status AS ENUM ('unpaid', 'deposit_paid', 'fully_paid', 'refunded', 'refund_pending', 'partial_refund');
 CREATE TYPE payment_method AS ENUM ('mercadopago', 'cash', 'transfer');
 CREATE TYPE court_type     AS ENUM ('indoor', 'outdoor', 'semi_covered');
-CREATE TYPE sport_type     AS ENUM ('padel', 'tennis', 'soccer', 'basketball');
+-- 2026-09-15: volleyball, hockey and pickleball folded in directly (not a new
+-- numbered migration) per docs/adr/0003-goose-migrations.md's still-open
+-- direct-edit allowance; databases are recreated from scratch, not migrated
+-- forward, so there is nothing an ADD VALUE migration would need to reach.
+CREATE TYPE sport_type     AS ENUM ('padel', 'tennis', 'soccer', 'basketball', 'volleyball', 'hockey', 'pickleball');
 CREATE TYPE day_of_week    AS ENUM ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday');
 
 -- A range over time-of-day. PostgreSQL ships daterange/tsrange/tstzrange but

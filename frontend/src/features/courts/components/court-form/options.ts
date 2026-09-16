@@ -8,6 +8,9 @@ export const SPORTS: { value: Sport; label: string }[] = [
   { value: 'tennis', label: t.courts.sportTypes.tennis },
   { value: 'soccer', label: t.courts.sportTypes.soccer },
   { value: 'basketball', label: t.courts.sportTypes.basketball },
+  { value: 'volleyball', label: t.courts.sportTypes.volleyball },
+  { value: 'hockey', label: t.courts.sportTypes.hockey },
+  { value: 'pickleball', label: t.courts.sportTypes.pickleball },
 ];
 
 export const COURT_TYPES: { value: CourtType; label: string }[] = [

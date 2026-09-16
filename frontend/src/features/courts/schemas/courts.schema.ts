@@ -5,7 +5,7 @@ const t = ES_AR;
 
 export const createCourtSchema = z.object({
   name: z.string().min(1, t.validation.nameRequired).max(100, t.validation.maxChars100),
-  sport: z.enum(['padel', 'tennis', 'soccer', 'basketball'], {
+  sport: z.enum(['padel', 'tennis', 'soccer', 'basketball', 'volleyball', 'hockey', 'pickleball'], {
     message: t.validation.sportInvalid,
   }),
   court_type: z.enum(['indoor', 'outdoor', 'semi_covered'], {

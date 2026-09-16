@@ -61,9 +61,12 @@ func (e AvailabilityCourtCourtType) Valid() bool {
 // Defines values for AvailabilityCourtSport.
 const (
 	AvailabilityCourtSportBasketball AvailabilityCourtSport = "basketball"
+	AvailabilityCourtSportHockey     AvailabilityCourtSport = "hockey"
 	AvailabilityCourtSportPadel      AvailabilityCourtSport = "padel"
+	AvailabilityCourtSportPickleball AvailabilityCourtSport = "pickleball"
 	AvailabilityCourtSportSoccer     AvailabilityCourtSport = "soccer"
 	AvailabilityCourtSportTennis     AvailabilityCourtSport = "tennis"
+	AvailabilityCourtSportVolleyball AvailabilityCourtSport = "volleyball"
 )
 
 // Valid indicates whether the value is a known member of the AvailabilityCourtSport enum.
@@ -71,11 +74,17 @@ func (e AvailabilityCourtSport) Valid() bool {
 	switch e {
 	case AvailabilityCourtSportBasketball:
 		return true
+	case AvailabilityCourtSportHockey:
+		return true
 	case AvailabilityCourtSportPadel:
+		return true
+	case AvailabilityCourtSportPickleball:
 		return true
 	case AvailabilityCourtSportSoccer:
 		return true
 	case AvailabilityCourtSportTennis:
+		return true
+	case AvailabilityCourtSportVolleyball:
 		return true
 	default:
 		return false
@@ -154,9 +163,12 @@ func (e CourtCourtType) Valid() bool {
 // Defines values for CourtSport.
 const (
 	CourtSportBasketball CourtSport = "basketball"
+	CourtSportHockey     CourtSport = "hockey"
 	CourtSportPadel      CourtSport = "padel"
+	CourtSportPickleball CourtSport = "pickleball"
 	CourtSportSoccer     CourtSport = "soccer"
 	CourtSportTennis     CourtSport = "tennis"
+	CourtSportVolleyball CourtSport = "volleyball"
 )
 
 // Valid indicates whether the value is a known member of the CourtSport enum.
@@ -164,11 +176,17 @@ func (e CourtSport) Valid() bool {
 	switch e {
 	case CourtSportBasketball:
 		return true
+	case CourtSportHockey:
+		return true
 	case CourtSportPadel:
+		return true
+	case CourtSportPickleball:
 		return true
 	case CourtSportSoccer:
 		return true
 	case CourtSportTennis:
+		return true
+	case CourtSportVolleyball:
 		return true
 	default:
 		return false
@@ -199,9 +217,12 @@ func (e CourtWithPricesCourtType) Valid() bool {
 // Defines values for CourtWithPricesSport.
 const (
 	CourtWithPricesSportBasketball CourtWithPricesSport = "basketball"
+	CourtWithPricesSportHockey     CourtWithPricesSport = "hockey"
 	CourtWithPricesSportPadel      CourtWithPricesSport = "padel"
+	CourtWithPricesSportPickleball CourtWithPricesSport = "pickleball"
 	CourtWithPricesSportSoccer     CourtWithPricesSport = "soccer"
 	CourtWithPricesSportTennis     CourtWithPricesSport = "tennis"
+	CourtWithPricesSportVolleyball CourtWithPricesSport = "volleyball"
 )
 
 // Valid indicates whether the value is a known member of the CourtWithPricesSport enum.
@@ -209,11 +230,17 @@ func (e CourtWithPricesSport) Valid() bool {
 	switch e {
 	case CourtWithPricesSportBasketball:
 		return true
+	case CourtWithPricesSportHockey:
+		return true
 	case CourtWithPricesSportPadel:
+		return true
+	case CourtWithPricesSportPickleball:
 		return true
 	case CourtWithPricesSportSoccer:
 		return true
 	case CourtWithPricesSportTennis:
+		return true
+	case CourtWithPricesSportVolleyball:
 		return true
 	default:
 		return false
@@ -418,9 +445,12 @@ func (e PublicBookingStatusCourtType) Valid() bool {
 // Defines values for PublicBookingStatusSport.
 const (
 	PublicBookingStatusSportBasketball PublicBookingStatusSport = "basketball"
+	PublicBookingStatusSportHockey     PublicBookingStatusSport = "hockey"
 	PublicBookingStatusSportPadel      PublicBookingStatusSport = "padel"
+	PublicBookingStatusSportPickleball PublicBookingStatusSport = "pickleball"
 	PublicBookingStatusSportSoccer     PublicBookingStatusSport = "soccer"
 	PublicBookingStatusSportTennis     PublicBookingStatusSport = "tennis"
+	PublicBookingStatusSportVolleyball PublicBookingStatusSport = "volleyball"
 )
 
 // Valid indicates whether the value is a known member of the PublicBookingStatusSport enum.
@@ -428,11 +458,17 @@ func (e PublicBookingStatusSport) Valid() bool {
 	switch e {
 	case PublicBookingStatusSportBasketball:
 		return true
+	case PublicBookingStatusSportHockey:
+		return true
 	case PublicBookingStatusSportPadel:
+		return true
+	case PublicBookingStatusSportPickleball:
 		return true
 	case PublicBookingStatusSportSoccer:
 		return true
 	case PublicBookingStatusSportTennis:
+		return true
+	case PublicBookingStatusSportVolleyball:
 		return true
 	default:
 		return false
@@ -463,9 +499,12 @@ func (e PublicCancelInfoBookingCourtType) Valid() bool {
 // Defines values for PublicCancelInfoBookingSport.
 const (
 	PublicCancelInfoBookingSportBasketball PublicCancelInfoBookingSport = "basketball"
+	PublicCancelInfoBookingSportHockey     PublicCancelInfoBookingSport = "hockey"
 	PublicCancelInfoBookingSportPadel      PublicCancelInfoBookingSport = "padel"
+	PublicCancelInfoBookingSportPickleball PublicCancelInfoBookingSport = "pickleball"
 	PublicCancelInfoBookingSportSoccer     PublicCancelInfoBookingSport = "soccer"
 	PublicCancelInfoBookingSportTennis     PublicCancelInfoBookingSport = "tennis"
+	PublicCancelInfoBookingSportVolleyball PublicCancelInfoBookingSport = "volleyball"
 )
 
 // Valid indicates whether the value is a known member of the PublicCancelInfoBookingSport enum.
@@ -473,11 +512,17 @@ func (e PublicCancelInfoBookingSport) Valid() bool {
 	switch e {
 	case PublicCancelInfoBookingSportBasketball:
 		return true
+	case PublicCancelInfoBookingSportHockey:
+		return true
 	case PublicCancelInfoBookingSportPadel:
+		return true
+	case PublicCancelInfoBookingSportPickleball:
 		return true
 	case PublicCancelInfoBookingSportSoccer:
 		return true
 	case PublicCancelInfoBookingSportTennis:
+		return true
+	case PublicCancelInfoBookingSportVolleyball:
 		return true
 	default:
 		return false
@@ -862,9 +907,12 @@ func (e CourtsCreateJSONBodyCourtType) Valid() bool {
 // Defines values for CourtsCreateJSONBodySport.
 const (
 	CourtsCreateJSONBodySportBasketball CourtsCreateJSONBodySport = "basketball"
+	CourtsCreateJSONBodySportHockey     CourtsCreateJSONBodySport = "hockey"
 	CourtsCreateJSONBodySportPadel      CourtsCreateJSONBodySport = "padel"
+	CourtsCreateJSONBodySportPickleball CourtsCreateJSONBodySport = "pickleball"
 	CourtsCreateJSONBodySportSoccer     CourtsCreateJSONBodySport = "soccer"
 	CourtsCreateJSONBodySportTennis     CourtsCreateJSONBodySport = "tennis"
+	CourtsCreateJSONBodySportVolleyball CourtsCreateJSONBodySport = "volleyball"
 )
 
 // Valid indicates whether the value is a known member of the CourtsCreateJSONBodySport enum.
@@ -872,11 +920,17 @@ func (e CourtsCreateJSONBodySport) Valid() bool {
 	switch e {
 	case CourtsCreateJSONBodySportBasketball:
 		return true
+	case CourtsCreateJSONBodySportHockey:
+		return true
 	case CourtsCreateJSONBodySportPadel:
+		return true
+	case CourtsCreateJSONBodySportPickleball:
 		return true
 	case CourtsCreateJSONBodySportSoccer:
 		return true
 	case CourtsCreateJSONBodySportTennis:
+		return true
+	case CourtsCreateJSONBodySportVolleyball:
 		return true
 	default:
 		return false
@@ -907,9 +961,12 @@ func (e CourtsUpdateJSONBodyCourtType) Valid() bool {
 // Defines values for CourtsUpdateJSONBodySport.
 const (
 	CourtsUpdateJSONBodySportBasketball CourtsUpdateJSONBodySport = "basketball"
+	CourtsUpdateJSONBodySportHockey     CourtsUpdateJSONBodySport = "hockey"
 	CourtsUpdateJSONBodySportPadel      CourtsUpdateJSONBodySport = "padel"
+	CourtsUpdateJSONBodySportPickleball CourtsUpdateJSONBodySport = "pickleball"
 	CourtsUpdateJSONBodySportSoccer     CourtsUpdateJSONBodySport = "soccer"
 	CourtsUpdateJSONBodySportTennis     CourtsUpdateJSONBodySport = "tennis"
+	CourtsUpdateJSONBodySportVolleyball CourtsUpdateJSONBodySport = "volleyball"
 )
 
 // Valid indicates whether the value is a known member of the CourtsUpdateJSONBodySport enum.
@@ -917,11 +974,17 @@ func (e CourtsUpdateJSONBodySport) Valid() bool {
 	switch e {
 	case CourtsUpdateJSONBodySportBasketball:
 		return true
+	case CourtsUpdateJSONBodySportHockey:
+		return true
 	case CourtsUpdateJSONBodySportPadel:
+		return true
+	case CourtsUpdateJSONBodySportPickleball:
 		return true
 	case CourtsUpdateJSONBodySportSoccer:
 		return true
 	case CourtsUpdateJSONBodySportTennis:
+		return true
+	case CourtsUpdateJSONBodySportVolleyball:
 		return true
 	default:
 		return false

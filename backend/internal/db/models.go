@@ -243,6 +243,9 @@ const (
 	SportTypeTennis     SportType = "tennis"
 	SportTypeSoccer     SportType = "soccer"
 	SportTypeBasketball SportType = "basketball"
+	SportTypeVolleyball SportType = "volleyball"
+	SportTypeHockey     SportType = "hockey"
+	SportTypePickleball SportType = "pickleball"
 )
 
 func (e *SportType) Scan(src interface{}) error {

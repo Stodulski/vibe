@@ -101,3 +101,18 @@ them dangerous is a future migration numbered 2 through 5 — which cannot happe
 `make migrate-create` numbers from a timestamp. A rollback is the other direction and is not
 covered: `001_init.sql`'s Down drops the whole schema, and on such a database goose would then
 still hold four rows for files that do not exist.
+
+## 2026-09-15 — three sport values added directly
+
+`sport_type` grew `volleyball`, `hockey` and `pickleball` (courts already supported `padel`,
+`tennis`, `soccer`, `basketball`) by editing the `CREATE TYPE sport_type` line in `001_init.sql`
+in place rather than adding a new `ALTER TYPE ... ADD VALUE` migration. This is the same
+direct-edit allowance the Decision section describes, not an exception to it: every database this
+product runs today — developer machines, the e2e database, throwaway agent databases — is
+rebuilt from `001_init.sql` from zero, never migrated forward, so there is no already-applied
+`ADD VALUE` step an incremental migration would need to reach. Schema equivalence is trivial
+here (an enum literal gained three members; nothing else in the file changed) and was checked by
+applying the edited file to a fresh throwaway database and confirming
+`SELECT enum_range(NULL::sport_type)` returns all seven values in declaration order. The same
+expiry as every other direct edit in this ADR applies: the day a real deployed database exists,
+adding a sport becomes a new numbered `ALTER TYPE ... ADD VALUE` migration instead.

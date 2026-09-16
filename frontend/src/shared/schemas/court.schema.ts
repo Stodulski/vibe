@@ -14,7 +14,15 @@ import { exact } from '@/shared/lib/apiParse';
 
 // ─── Court ───
 
-export const sportSchema = z.enum(['padel', 'tennis', 'soccer', 'basketball']) satisfies z.ZodType<Sport>;
+export const sportSchema = z.enum([
+  'padel',
+  'tennis',
+  'soccer',
+  'basketball',
+  'volleyball',
+  'hockey',
+  'pickleball',
+]) satisfies z.ZodType<Sport>;
 
 export const courtTypeSchema = z.enum(['indoor', 'outdoor', 'semi_covered']) satisfies z.ZodType<CourtType>;
 

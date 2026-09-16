@@ -2287,7 +2287,7 @@ paths:
               required: [name, sport, court_type]
               properties:
                 name: {type: string, maxLength: 100}
-                sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+                sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
                 description: {type: string, maxLength: 200}
 
@@ -2331,7 +2331,7 @@ paths:
                     The row version the client read before it edited. Same meaning as `If-Match`,
                     which wins where both are sent; omitting both is last-write-wins.
                 name: {type: string, maxLength: 100}
-                sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+                sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
                 description: {type: string, maxLength: 200}
                 is_active: {type: boolean}
@@ -3627,7 +3627,7 @@ components:
         id: {type: string, format: uuid}
         complex_id: {type: string, format: uuid}
         name: {type: string}
-        sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
         is_active: {type: boolean}
         description: {type: [string, "null"]}
@@ -3818,7 +3818,7 @@ components:
         complex_address: {type: string}
         complex_phone: {type: string}
         court_name: {type: string}
-        sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
         date: {type: string, format: date}
         start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
@@ -3853,7 +3853,7 @@ components:
             ends_at: {type: string, format: date-time}
             duration_minutes: {type: integer}
             court_name: {type: string}
-            sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+            sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
             court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
             complex_name: {type: string}
             complex_address: {type: string}
@@ -3953,7 +3953,7 @@ components:
       properties:
         court_id: {type: string, format: uuid}
         court_name: {type: string}
-        sport: {type: string, enum: [padel, tennis, soccer, basketball]}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
         description: {type: string}
         slots:

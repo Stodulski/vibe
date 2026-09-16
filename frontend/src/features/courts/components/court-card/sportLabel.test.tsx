@@ -8,7 +8,7 @@ import type { CourtWithPrices, Sport } from '@/shared/types/api.types';
 // Dingbats blocks, which is where 🎾 ⚽ 🏀 and their neighbours live.
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
-const SPORTS: Sport[] = ['padel', 'tennis', 'soccer', 'basketball'];
+const SPORTS: Sport[] = ['padel', 'tennis', 'soccer', 'basketball', 'volleyball', 'hockey', 'pickleball'];
 
 function courtOf(sport: Sport): CourtWithPrices {
   return {

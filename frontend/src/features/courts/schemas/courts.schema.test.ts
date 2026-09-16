@@ -43,14 +43,14 @@ describe('createCourtSchema - name', () => {
 
 describe('createCourtSchema - sport and court type', () => {
   it('accepts all valid sport types', () => {
-    for (const sport of ['padel', 'tennis', 'soccer', 'basketball']) {
+    for (const sport of ['padel', 'tennis', 'soccer', 'basketball', 'volleyball', 'hockey', 'pickleball']) {
       const result = createCourtSchema.safeParse({ ...validData, sport });
       expect(result.success).toBe(true);
     }
   });
 
   it('rejects invalid sport type', () => {
-    const result = createCourtSchema.safeParse({ ...validData, sport: 'volleyball' });
+    const result = createCourtSchema.safeParse({ ...validData, sport: 'rugby' });
     expect(result.success).toBe(false);
   });
 

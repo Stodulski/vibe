@@ -1418,6 +1418,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/.well-known/api-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * RFC 9727 API catalog
+         * @description Public. General rate-limit tier. A linkset pointing an agent at this API's machine-readable description, interactive reference and health check, without requiring it to already know this API's URLs. Derived at boot from this same document's `servers` list and paths, so it cannot point at a route this API does not serve. The landing site publishes an equivalent copy at https://vibe.com.ar/.well-known/api-catalog, derived from the same document.
+         */
+        get: operations["openapiGetCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1582,7 +1602,7 @@ export interface components {
             complex_id: string;
             name: string;
             /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball";
+            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
             /** @enum {string} */
             court_type: "indoor" | "outdoor" | "semi_covered";
             is_active: boolean;
@@ -1773,7 +1793,7 @@ export interface components {
             complex_phone?: string;
             court_name: string;
             /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball";
+            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
             /** @enum {string} */
             court_type: "indoor" | "outdoor" | "semi_covered";
             /** Format: date */
@@ -1813,7 +1833,7 @@ export interface components {
                 duration_minutes: number;
                 court_name: string;
                 /** @enum {string} */
-                sport: "padel" | "tennis" | "soccer" | "basketball";
+                sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
                 /** @enum {string} */
                 court_type: "indoor" | "outdoor" | "semi_covered";
                 complex_name: string;
@@ -1907,7 +1927,7 @@ export interface components {
             court_id: string;
             court_name: string;
             /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball";
+            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
             /** @enum {string} */
             court_type: "indoor" | "outdoor" | "semi_covered";
             description?: string;
@@ -4604,7 +4624,7 @@ export interface operations {
                 "application/json": {
                     name: string;
                     /** @enum {string} */
-                    sport: "padel" | "tennis" | "soccer" | "basketball";
+                    sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
                     /** @enum {string} */
                     court_type: "indoor" | "outdoor" | "semi_covered";
                     description?: string;
@@ -4651,7 +4671,7 @@ export interface operations {
                     version?: number;
                     name?: string;
                     /** @enum {string} */
-                    sport?: "padel" | "tennis" | "soccer" | "basketball";
+                    sport?: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
                     /** @enum {string} */
                     court_type?: "indoor" | "outdoor" | "semi_covered";
                     description?: string;
@@ -5659,6 +5679,28 @@ export interface operations {
                 };
                 content: {
                     "text/html": string;
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    openapiGetCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The API catalog, as a linkset. */
+            200: {
+                headers: {
+                    "Access-Control-Allow-Origin"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/linkset+json": Record<string, never>;
                 };
             };
             429: components["responses"]["RateLimited"];
