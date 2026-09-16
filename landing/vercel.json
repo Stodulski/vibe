@@ -153,6 +153,24 @@
       ]
     },
     {
+      "source": "/guias/vibe-o-turnito-para-un-complejo-de-canchas",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias-vibe-o-turnito-para-un-complejo-de-canchas.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/guias/vibe-o-canchafija-en-que-se-diferencian",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias-vibe-o-canchafija-en-que-se-diferencian.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
       "source": "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas",
       "headers": [
         {

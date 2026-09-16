@@ -28,6 +28,9 @@ import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
 import {
   ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO, ATC_PRUEBA_GRATIS_DIAS,
   ATC_DESCUENTO_ANUAL_PORCENTAJE,
+  CF_PLANES, CF_FUENTE, CF_VERIFICADO, CF_FEE_AL_JUGADOR, CF_SOPORTE_HORARIO,
+  CF_MINUTOS_DE_CONFIGURACION, CF_REEMBOLSO_DIAS_HABILES,
+  TU_PLANES, TU_FUENTE, TU_VERIFICADO,
 } from './competencia.ts';
 import {
   filasDeCostoPorReserva, columnasDeCostoPorReserva, cargoPorReserva,
@@ -99,6 +102,197 @@ const filasDeCostos = COSTOS.map(g => [
 ]);
 
 const contenido: Omit<Guia, 'dateModified'>[] = [
+  {
+    slug: 'vibe-o-turnito-para-un-complejo-de-canchas',
+    tutorial: { slug: 'grilla-de-reservas', texto: 'Cómo se ve la grilla de reservas de Vibe' },
+    title: 'Vibe o Turnito para un complejo de canchas',
+    seoTitle: 'Vibe o Turnito para un complejo de canchas',
+    metaDescription:
+      'Turnito es una agenda de turnos que también apunta a clubes. Qué cambia cuando lo usás '
+      + 'para varias canchas, y cuándo conviene igual.',
+    excerpt:
+      'Turnito no está hecho para canchas, y eso no lo hace malo. Se nota en un solo lugar, '
+      + 'y es el que más vas a mirar.',
+    respuesta:
+      'Turnito es una agenda de turnos para peluquerías, consultorios, gimnasios y clubes, y no un '
+      + 'software de canchas. La diferencia se ve en la pantalla de reserva: un enlace de Turnito es '
+      + 'una agenda, y el que reserva elige una fecha y ve una lista plana de horarios, sin nada que '
+      + 'nombre una cancha. No hay una vista con todas las canchas del día en paralelo. Del lado del '
+      + `precio, el negocio paga un plan desde ${pesos(TU_PLANES[1].mensual)} por mes más una comisión `
+      + `sobre lo que cobra online, que baja de ${TU_PLANES[0].comision} por ciento a cero según el plan, `
+      + 'y esa comisión la absorbe el complejo, no el cliente.',
+    datePublished: '2026-09-16',
+    fuente: { nombre: 'Turnito, planes de Argentina', url: TU_FUENTE, nofollow: true },
+    bloques: [
+      {
+        tipo: 'parrafos',
+        heading: 'Lo que cambia cuando tenés más de una cancha',
+        parrafos: [
+          'Con una cancha, una agenda alcanza y el producto funciona. Con cuatro, cada cancha es una '
+            + 'agenda distinta: el que reserva entra a una, ve sus horarios, y si no hay lugar tiene que '
+            + 'salir y entrar a otra. No puede mirar el día completo y elegir.',
+          'Del lado tuyo pasa lo mismo al revés: para saber cómo viene el sábado mirás una agenda por '
+            + 'cancha en vez de una pantalla. Es la diferencia entre una lista y una grilla, y aparece '
+            + 'todos los días.',
+          'Hay además un tope que conviene mirar antes que el precio. El plan gratuito permite tres '
+            + `agendas y el segundo plan cinco. Si cada cancha es una agenda, un complejo de seis `
+            + `canchas empieza recién en el tercer plan, que sale ${pesos(TU_PLANES[2].mensual)} por mes.`,
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Lo que Turnito hace bien',
+        intro:
+          'Conviene decirlo porque es cierto y porque son cosas que a un complejo le sirven:',
+        items: [
+          'Un plan gratis que no vence, con cien reservas por mes',
+          'Turnos recurrentes flexibles: diarios, semanales o mensuales, cada uno o varios períodos, con fecha de fin o sin ella',
+          'Calendario embebido, para que la reserva viva adentro de tu propia web',
+          'Bloqueo automático del cliente que acumula faltas',
+          'Recordatorios por WhatsApp, Telegram y mail',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Cuándo Turnito es la mejor opción',
+        parrafos: [
+          'Si tenés una o dos canchas y el presupuesto es cero, el plan gratis de Turnito es gratis de '
+            + 'verdad y Vibe no compite con eso en funciones: ellos hacen más cosas.',
+          'Si además de alquilar canchas das clases, tenés profes con agenda propia o alquilás otros '
+            + 'espacios, una agenda genérica te cubre todo eso con una sola herramienta. Vibe solo '
+            + 'entiende de canchas.',
+          'Y si lo que te molesta es sumarle un cargo al cliente, Turnito va en la dirección contraria '
+            + 'a la nuestra: la comisión la pagás vos y el que reserva ve el precio de la cancha y nada '
+            + 'más.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Turnito sirve para un complejo de pádel?',
+        answer:
+          'Sirve para tomar reservas. Lo que no tiene es una vista de todas las canchas del día juntas: '
+          + 'cada cancha se maneja como una agenda separada, y el que reserva entra a una por vez.',
+      },
+      {
+        question: '¿Qué pasa si me paso de las cien reservas del plan gratis?',
+        answer:
+          'No está publicado. Ni la página de planes ni los términos dicen si se bloquea, si se cobra '
+          + 'un excedente o si simplemente se corta. Conviene preguntarlo antes de apoyarse en ese plan.',
+      },
+      {
+        question: '¿La comisión la paga el complejo o el cliente?',
+        answer:
+          'El complejo. El dinero va directo a la cuenta del negocio y el que reserva ve un total sin '
+          + 'línea de comisión. En Vibe es al revés: no hay comisión para el complejo y el cargo de '
+          + 'servicio lo paga quien reserva.',
+      },
+      {
+        question: '¿Esta comparación está actualizada?',
+        answer:
+          `Los planes se leyeron de su página el ${TU_VERIFICADO} y el enlace está arriba. Los precios `
+          + 'de Turnito cambian por país, así que los de acá son los de Argentina.',
+      },
+    ],
+  },
+  {
+    slug: 'vibe-o-canchafija-en-que-se-diferencian',
+    tutorial: { slug: 'panel-de-control', texto: 'El panel de control de Vibe, por dentro' },
+    title: 'Vibe o CanchaFija: en qué se diferencian',
+    seoTitle: 'Vibe o CanchaFija: en qué se diferencian',
+    metaDescription:
+      'CanchaFija hace bastante más que Vibe: turnos fijos, torneos, escuelitas, socios y cantina. '
+      + 'Qué cuesta cada uno y quién paga qué.',
+    excerpt:
+      'Hacen cosas distintas y cobran distinto. Uno cubre casi todo lo que pasa en un club; el otro '
+      + 'solo la reserva y el cobro.',
+    respuesta:
+      'CanchaFija es una plataforma de gestión bastante más amplia que Vibe: además de reservas tiene '
+      + 'turnos fijos semanales, torneos, escuelitas con cuotas, socios con cobro automático e '
+      + 'inventario de cantina. El complejo paga un abono mensual en pesos según cuántas canchas '
+      + `tenga, desde ${pesos(CF_PLANES[0].mensual)} hasta ${pesos(CF_PLANES.at(-1)!.mensual)}, con el `
+      + 'primer mes gratis y sin permanencia. Vibe hace menos: reserva, cobro de seña y la '
+      + 'administración alrededor de eso, y no le cobra abono al complejo.',
+    datePublished: '2026-09-16',
+    fuente: { nombre: 'CanchaFija, planes y precios', url: CF_FUENTE, nofollow: true },
+    bloques: [
+      {
+        tipo: 'lista',
+        heading: 'Lo que CanchaFija hace y Vibe no',
+        intro:
+          'Esta lista es larga y conviene leerla antes que cualquier otra cosa. Si necesitás algo de '
+          + 'acá, la decisión ya está tomada:',
+        items: [
+          'Turnos fijos: la reserva recurrente semanal, con la opción de cancelar una semana sin romper la serie',
+          'Torneos, con fixture, inscripciones y premios',
+          'Escuelitas con cuotas mensuales generadas solas',
+          'Socios, con cobro automático y control de asistencia',
+          'Cantina: compras, ventas y arqueo de caja por turno',
+          'Tienda online, incluida en todos los planes',
+          'Canchas combinables, para partir una de fútbol 7 en dos de fútbol 5',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Dos formas de cobrarle al que reserva',
+        parrafos: [
+          'Las dos plataformas le cobran al jugador y no al complejo, pero lo muestran distinto. '
+            + `CanchaFija lo dice así en sus términos: "${CF_FEE_AL_JUGADOR}". El cargo existe y está `
+            + 'adentro del número que ve el jugador, sin desglosar.',
+          'Vibe lo muestra aparte: el cliente ve el precio de la cancha y abajo el cargo de servicio. '
+            + 'Ninguna de las dos formas es la correcta. Meterlo adentro hace la compra más simple y '
+            + 'esconde de dónde sale; mostrarlo aparte es más transparente y expone un número que '
+            + 'alguien puede resistir.',
+          'Lo que sí conviene saber es que CanchaFija no publica el porcentaje de ese fee. No está en '
+            + 'su página de precios ni en sus términos, así que no se puede calcular de antemano '
+            + 'cuánto le va a costar la reserva a tu cliente.',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Cómo elegir',
+        parrafos: [
+          'Si tu complejo es un club —con socios, escuelitas, torneos y cantina— CanchaFija está hecho '
+            + 'para eso y Vibe no. Es el corte más limpio y no hay mucho más que discutir.',
+          'Si lo tuyo es alquilar canchas por hora y cobrar la seña, la diferencia pasa a ser el abono. '
+            + 'CanchaFija cobra un plan mensual según canchas, haya reservas o no; Vibe no le cobra al '
+            + 'complejo. En un enero flojo eso se nota.',
+          `Un detalle operativo: el alta de un complejo en CanchaFija no es automática, se completa un `
+            + `formulario y ellos mandan las credenciales. Dicen que configurarlo lleva unos `
+            + `${CF_MINUTOS_DE_CONFIGURACION} minutos una vez adentro. El soporte es el mismo en todos `
+            + `los planes, de ${CF_SOPORTE_HORARIO}.`,
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Vibe tiene turnos fijos?',
+        answer:
+          'No. Hoy la reserva recurrente hay que cargarla semana a semana desde la grilla. Es la '
+          + 'diferencia más concreta entre las dos plataformas para un complejo que vive de los '
+          + 'habitués.',
+      },
+      {
+        question: '¿Cuánto le cobra CanchaFija al jugador por reserva?',
+        answer:
+          'No está publicado. Sus términos dicen que el fee está incluido en el precio mostrado, pero '
+          + 'no dicen de cuánto es, y sus páginas públicas no muestran el precio de un turno.',
+      },
+      {
+        question: '¿Cómo funcionan las cancelaciones?',
+        answer:
+          `La política la fija cada complejo, no la plataforma. Fuera del plazo que el complejo define, `
+          + `y ante una inasistencia, no hay reembolso. Cuando corresponde, puede demorar hasta `
+          + `${CF_REEMBOLSO_DIAS_HABILES} días hábiles.`,
+      },
+      {
+        question: '¿Esta comparación está actualizada?',
+        answer:
+          `Los planes se leyeron de su página el ${CF_VERIFICADO} y el enlace está arriba. Son precios `
+          + 'en pesos, así que conviene confirmarlos antes de hacer cuentas finas.',
+      },
+    ],
+  },
   {
     slug: 'vibe-o-atc-sports-en-que-se-diferencian',
     tutorial: { slug: 'grilla-de-reservas', texto: 'Cómo se ve la grilla de reservas de Vibe' },

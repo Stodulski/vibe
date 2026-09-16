@@ -69,3 +69,120 @@ export const ATC_DESCUENTO_ANUAL_PORCENTAJE = 33;
 
 /** No mencionan comisión por reserva en ninguna parte de esa página. */
 export const ATC_MENCIONA_COMISION_POR_RESERVA = false;
+
+/* ─────────────────────────── CanchaFija ─────────────────────────── */
+
+/**
+ * CanchaFija cotiza en pesos, y ahí los pesos SÍ son la unidad real: es el
+ * precio que ellos fijan, no una conversión. Por eso acá se guardan en pesos y
+ * no en dólares como los de ATC.
+ *
+ * Lo que no se arregla con la moneda es la inflación: una lista en pesos se
+ * actualiza sola del lado de ellos y en silencio del nuestro. `VERIFICADO` es
+ * lo único que avisa. Si pasaron meses, hay que releer antes de publicar.
+ */
+export const CF_FUENTE = 'https://canchafija.com.ar/precios';
+export const CF_FUENTE_TERMINOS = 'https://canchafija.com.ar/terminos';
+export const CF_VERIFICADO = '2026-09-16';
+
+/** Planes publicados, en pesos por mes. */
+export const CF_PLANES = [
+  { nombre: 'Lite', canchas: 1, mensual: 10000 },
+  { nombre: 'Inicial', canchas: 3, mensual: 18000 },
+  { nombre: 'Pro', canchas: 6, mensual: 25000 },
+  { nombre: 'Club', canchas: 10, mensual: 50000 },
+  { nombre: 'Premium', canchas: 15, mensual: 60000 },
+];
+
+export const CF_PRIMER_MES_GRATIS = true;
+export const CF_SIN_COSTO_DE_ALTA = true;
+export const CF_SIN_PERMANENCIA = true;
+
+/**
+ * Cómo cobran del lado del jugador, citado textual de sus términos.
+ *
+ * Es el mismo modelo que Vibe —lo paga el que reserva, no el complejo— con una
+ * diferencia que vale un párrafo: ellos lo meten adentro del precio mostrado y
+ * nosotros lo mostramos aparte. Ninguna de las dos formas es la correcta, y por
+ * eso la comparación lo cuenta en vez de puntuarlo.
+ */
+export const CF_FEE_AL_JUGADOR =
+  'Todos los precios mostrados en la plataforma incluyen el fee de uso de la plataforma';
+
+/**
+ * No publican el porcentaje del fee. Se buscó en precios y en términos y no
+ * está, y tampoco se pudo inferir mirando sus páginas públicas de complejos,
+ * porque ninguna muestra el precio de un turno. Afirmar un número acá sería
+ * inventarlo.
+ */
+export const CF_PORCENTAJE_DEL_FEE_PUBLICADO = false;
+
+/**
+ * El alta del complejo no es self-service: se completa un formulario y ellos
+ * mandan las credenciales. El jugador sí se registra solo.
+ */
+export const CF_ALTA_ASISTIDA = true;
+/** Lo que ellos dicen que tarda configurar el complejo una vez que entrás. */
+export const CF_MINUTOS_DE_CONFIGURACION = 15;
+/** Mismo soporte en los cinco planes, en días hábiles. */
+export const CF_SOPORTE_EN_TODOS_LOS_PLANES = true;
+export const CF_SOPORTE_HORARIO = 'lunes a viernes de 9 a 18';
+/** Viene incluida en todos los planes, con tope de productos. No es un extra pago. */
+export const CF_TIENDA_INCLUIDA = true;
+export const CF_TIENDA_TOPE_DE_PRODUCTOS = 50;
+/** La política de cancelación la fija cada complejo, no la plataforma. */
+export const CF_CANCELACION_LA_FIJA_EL_COMPLEJO = true;
+export const CF_REEMBOLSO_DIAS_HABILES = 10;
+
+/* ──────────────────────────── Turnito ───────────────────────────── */
+
+/**
+ * Turnito no es software de canchas: es una agenda de turnos para peluquerías,
+ * consultorios y gimnasios, que también apunta a clubes. Maneja "agendas", no
+ * canchas, y eso es lo que la comparación tiene que explicar antes que el
+ * precio.
+ *
+ * Los montos son de la página de Argentina. Cada país tiene la suya y México
+ * cotiza en dólares, así que un precio de acá no vale para allá.
+ */
+export const TU_FUENTE = 'https://turnito.app/ar/planes/';
+export const TU_VERIFICADO = '2026-09-16';
+
+/** Planes de Argentina. `mensual` es con IVA, que es lo que termina pagando. */
+export const TU_PLANES = [
+  { nombre: 'Gratuito', mensual: 0, comision: 5, reservas: '100 por mes' },
+  { nombre: 'Plus', mensual: 12000, comision: 3.5, reservas: '200 por mes' },
+  { nombre: 'Advance', mensual: 24500, comision: 1, reservas: 'sin límite' },
+  { nombre: 'Pro', mensual: 42000, comision: 0, reservas: 'sin límite' },
+];
+
+export const TU_PLAN_GRATIS_NO_VENCE = true;
+export const TU_SIN_PERMANENCIA = true;
+/** La comisión corre solo sobre lo que se cobra online por Turnito, no sobre efectivo. */
+export const TU_COMISION_SOLO_ONLINE = true;
+/**
+ * La comisión la absorbe el negocio, no el cliente.
+ *
+ * No hay una frase que lo diga, así que sale de dos hechos: "El dinero va
+ * directo a tu cuenta, no pasa por Turnito", y que en una reserva real el que
+ * paga ve un total sin ninguna línea de comisión. Es el modelo inverso al
+ * nuestro, donde el cargo lo paga quien reserva.
+ */
+export const TU_LA_COMISION_LA_ABSORBE_EL_NEGOCIO = true;
+
+/**
+ * Cuántas agendas permite cada plan, en el orden de TU_PLANES.
+ *
+ * Importa más que el precio. En su producto un enlace de reserva es UNA agenda:
+ * elegís fecha y te aparece una lista plana de horarios, sin nada que nombre
+ * una cancha. Si cada cancha es una agenda —y todo indica que sí, aunque ellos
+ * no lo escriban con esas palabras— un complejo de seis canchas no entra en los
+ * dos planes más baratos.
+ */
+export const TU_AGENDAS_POR_PLAN = [3, 5, Infinity, Infinity];
+/** Verificado entrando a tres páginas de reserva reales, una de ellas un pádel. */
+export const TU_SIN_GRILLA_DE_CANCHAS = true;
+/** Recurrentes activas por plan; en los dos primeros no figuran. */
+export const TU_RECURRENTES_POR_PLAN = [0, 0, 15, Infinity];
+/** Qué pasa al pasarse del tope de reservas no está publicado en ningún lado. */
+export const TU_QUE_PASA_AL_PASARSE_DEL_TOPE_PUBLICADO = false;
