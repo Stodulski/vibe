@@ -24,7 +24,14 @@ function scrubText(value: string): string {
 }
 
 function isSensitiveParam(key: string): boolean {
-  return SENSITIVE_PARAMS.includes(key.toLowerCase());
+  const lower = key.toLowerCase();
+  // R2 presigned PUT URLs (`uploadApi.uploadToR2` in
+  // src/features/complex/api/upload.api.ts) carry the AWS SigV4 query
+  // params — `X-Amz-Signature` chief among them — that are the actual
+  // upload credential. They were reaching Sentry breadcrumbs/events intact
+  // through the raw `fetch()` call there, since it bypasses the shared `ky`
+  // client entirely and its URL is still logged as request/breadcrumb data.
+  return SENSITIVE_PARAMS.includes(lower) || lower.startsWith('x-amz-');
 }
 
 /**
