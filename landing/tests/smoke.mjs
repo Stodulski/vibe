@@ -25,7 +25,7 @@
 import { chromium, devices } from 'playwright';
 import { guias } from '../src/data/guias.ts';
 import {
-  COSTOS, GRUPO_DE_REFERENCIA, PLAZOS, porcentaje, IVA, RECARGO_TARJETA_EXTRANJERA,
+  COSTOS, PLAZOS, porcentaje, IVA, RECARGO_TARJETA_EXTRANJERA,
   BRECHA_INMEDIATA, VIGENTE_DESDE, FUENTE,
 } from '../src/data/mercadopago-costos.ts';
 import { ejemplo, pesos, CARGO_SERVICIO, CARGO_MINIMO } from '../src/data/precio.ts';
@@ -49,7 +49,7 @@ async function newPage(deviceName) {
   page.on('pageerror', e => page.__errors.push(e.message));
   page.on('requestfailed', r => {
     /* Analytics is loaded lazily and may be blocked; it is not the site's job. */
-    if (!/googletagmanager|contentsquare|google-analytics/.test(r.url())) {
+    if (!/googletagmanager|google-analytics/.test(r.url())) {
       page.__failed.push(r.url());
     }
   });
@@ -227,18 +227,21 @@ async function testCarousel() {
 }
 
 async function testVideo() {
-  console.log('\nVIDEO DEL HERO');
+  console.log('\nVISUAL DEL HERO');
   const p = await newPage();
   await p.goto(BASE + '/', { waitUntil: 'load' });
-  await p.waitForTimeout(3500);
   const v = await p.evaluate(() => {
-    const el = document.querySelector('.phone-video');
-    return el && { paused: el.paused, t: el.currentTime, muted: el.muted, src: el.currentSrc };
+    const el = document.querySelector('.hero-orbit');
+    return el && {
+      hidden: el.getAttribute('aria-hidden') === 'true',
+      chips: el.querySelectorAll('.orbit-item').length,
+      emojis: el.querySelectorAll('.orbit-item .sport-emoji').length,
+    };
   });
-  check('el video existe', !!v);
-  check('reproduce solo', v && !v.paused && v.t > 0, v ? `t=${v.t.toFixed(1)}s` : '');
-  check('está silenciado (requisito para autoplay)', v && v.muted);
-  check('sirve el MP4', v && /\.mp4$/.test(v.src), v?.src.split('/').pop());
+  check('la órbita de deportes existe', !!v);
+  check('es decorativo (aria-hidden)', v && v.hidden);
+  check('renderiza los emojis de deporte', v && v.chips >= 6, v ? `chips=${v.chips}` : '');
+  check('cada chip trae su emoji', v && v.emojis === v.chips, v ? `emojis=${v.emojis}` : '');
   await p.context().close();
 }
 
@@ -643,20 +646,16 @@ async function testCostosMercadoPago() {
       (tabla[i] || []).join(' '));
   });
 
+  /* El detalle por plazo y provincia vive en la guia, no en la home: la home
+     solo tiene que enlazarla y no repetir la tabla ni el ejemplo. */
   await p.goto(BASE + '/#precio', { waitUntil: 'load' });
-  const enLaHome = await p.evaluate(() => [...document.querySelectorAll('.mp-fees-list li')]
-    .map(li => li.querySelector('.mp-fees-rate').textContent.trim()));
-  const esperadoHome = GRUPO_DE_REFERENCIA.tasas.map(porcentaje);
-  check('la home muestra las tarifas del dataset',
-    JSON.stringify(enLaHome) === JSON.stringify(esperadoHome),
-    `${enLaHome.join(' ')} vs ${esperadoHome.join(' ')}`);
-  check('la home tiene una fila por plazo', enLaHome.length === PLAZOS.length, `${enLaHome.length}`);
-
-  /* La aclaracion del IVA no es un detalle de redaccion: sin ella el porcentaje
-     publicado se lee como el costo final, y no lo es. */
-  const nota = await p.evaluate(() => document.querySelector('.mp-fees-note')?.textContent || '');
-  check('la home aclara que no incluye IVA', /no incluyen IVA/i.test(nota));
-  check('la home aclara que cambia por provincia', /provincia/i.test(nota));
+  const link = await p.evaluate(() =>
+    document.querySelector('a[href="/guias/cuanto-cobra-mercadopago-por-una-sena"]')?.textContent.trim());
+  check('la home enlaza la guia de costos de MercadoPago', !!link, link ?? 'no esta');
+  check('la home ya no repite la tabla de tarifas por plazo',
+    await p.locator('.mp-fees-list').count() === 0);
+  check('la home ya no repite el ejemplo con montos',
+    await p.locator('.mp-fees-example').count() === 0);
 
   await p.context().close();
 }
@@ -705,14 +704,16 @@ async function testDatosMercadoPagoJson() {
     JSON.stringify(datos.grupos) === JSON.stringify(esperado),
     JSON.stringify(datos.grupos).slice(0, 120));
 
-  /* El JSON y la home no pueden decir dos cosas distintas del mismo número: la
-     tasa de "Acreditación inmediata" del primer grupo tiene que ser la misma. */
-  await p.goto(BASE + '/#precio', { waitUntil: 'load' });
-  const primeraTasaHome = await p.evaluate(() =>
-    document.querySelector('.mp-fees-list li .mp-fees-rate')?.textContent.trim());
+  /* El JSON y la guia no pueden decir dos cosas distintas del mismo número: la
+     tasa de "Acreditación inmediata" del primer grupo tiene que ser la misma.
+     La home ya no repite esta tabla, asi que la comparacion se hace contra la
+     guia, que es donde vive el detalle por plazo y provincia. */
+  await p.goto(BASE + '/guias/cuanto-cobra-mercadopago-por-una-sena', { waitUntil: 'load' });
+  const primeraTasaGuia = await p.evaluate(() =>
+    document.querySelector('.guia-tabla tbody tr:first-child td:first-child')?.textContent.trim());
   const primeraTasaJson = porcentaje(datos.grupos[0].tasas[0]);
-  check('la primera tasa del JSON es la "Acreditación inmediata" que muestra la home',
-    primeraTasaHome === primeraTasaJson, `${primeraTasaHome} vs ${primeraTasaJson}`);
+  check('la primera tasa del JSON es la "Acreditación inmediata" que muestra la guia',
+    primeraTasaGuia === primeraTasaJson, `${primeraTasaGuia} vs ${primeraTasaJson}`);
 
   await p.context().close();
 }

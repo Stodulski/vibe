@@ -121,6 +121,9 @@ const statsObserver = new IntersectionObserver((entries) => {
 
       if (text === '24/7') {
         animateCounter(el, 24, '', '/7');
+      } else if (text.startsWith('$')) {
+        /* "$0" has nothing to count up to, and the counter below would
+           rebuild it with the symbol after the number. */
       } else if (text.startsWith('<') || text.startsWith('\u003c')) {
         const num = parseInt(text.replace(/[^0-9]/g, ''));
         const suffix = text.replace(/[0-9<\u003c]/g, '');
@@ -372,74 +375,5 @@ if (ftViewport && ftStack && ftBlocks.length) {
     clearTimeout(ftResizeTimer);
     ftResizeTimer = setTimeout(updateFeatureCarousel, 150);
   });
-}
-
-/* Hero video — it carries the product story, so it plays for everyone. Visitors
-   who asked for less motion still get it, but with a control to stop it. */
-const heroVideo = document.querySelector('.phone-video');
-if (heroVideo) {
-  /* Phones refuse the autoplay attribute more often than desktops do — Low Power
-     Mode and data-saver both block it, and Safari wants `muted` set as a property,
-     not just an attribute. So ask for playback explicitly, and if the browser still
-     says no, start on the first thing the visitor does: that counts as the user
-     gesture these policies are waiting for. */
-  heroVideo.muted = true;
-
-  /* A deliberate pause has to outrank every automatic retry below, or the visitor
-     presses the button and the next scroll starts the video again. */
-  let heroPausedByVisitor = false;
-
-  function playHeroVideo() {
-    if (heroPausedByVisitor) return;
-    const attempt = heroVideo.play();
-    if (attempt) attempt.catch(() => { /* blocked — the listeners below retry */ });
-  }
-
-  const gestures = ['touchstart', 'pointerdown', 'scroll'];
-  function playOnGesture() {
-    playHeroVideo();
-    gestures.forEach(e => window.removeEventListener(e, playOnGesture));
-  }
-  gestures.forEach(e => window.addEventListener(e, playOnGesture, { once: true, passive: true }));
-
-  playHeroVideo();
-  heroVideo.addEventListener('canplay', playHeroVideo, { once: true });
-
-  /* Some mobile browsers drop playback once the element scrolls away and never
-     resume it, leaving a frozen frame when the visitor scrolls back up. */
-  new IntersectionObserver((entries) => {
-    entries.forEach(entry => { if (entry.isIntersecting && heroVideo.paused) playHeroVideo(); });
-  }, { threshold: 0.25 }).observe(heroVideo);
-
-  /* Built in JS so the button only exists for the visitors it serves — everyone
-     else keeps the mockup clean. */
-  if (reduceMotion) {
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'phone-video-toggle';
-
-    function paintToggle() {
-      const paused = heroVideo.paused;
-      toggle.textContent = paused ? 'Reproducir' : 'Pausar';
-      toggle.setAttribute('aria-label', paused
-        ? 'Reproducir el video de demostración'
-        : 'Pausar el video de demostración');
-    }
-
-    toggle.addEventListener('click', () => {
-      if (heroVideo.paused) {
-        heroPausedByVisitor = false;
-        playHeroVideo();
-      } else {
-        heroPausedByVisitor = true;
-        heroVideo.pause();
-      }
-    });
-
-    heroVideo.addEventListener('play', paintToggle);
-    heroVideo.addEventListener('pause', paintToggle);
-    paintToggle();
-    heroVideo.closest('.phone-frame').appendChild(toggle);
-  }
 }
 

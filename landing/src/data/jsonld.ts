@@ -44,7 +44,7 @@ export const homeJsonLd: string[] = [
     },
     "audience": {
       "@type": "BusinessAudience",
-      "name": "Complejos deportivos de pádel, tenis, fútbol y básquet"
+      "name": "Complejos deportivos de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball"
     },
     "datePublished": "${PUBLISHED}",
     "dateModified": "${LAST_MODIFIED}"
@@ -62,25 +62,6 @@ JSON.stringify({
     acceptedAnswer: { '@type': 'Answer', text: item.answer },
   })),
 }, null, 2),
-`   {
-    "@context": "https://schema.org",
-    "@type": "VideoObject",
-    "name": "Cómo un cliente reserva y paga una cancha en Vibe",
-    "description": "Un cliente abre la página pública del complejo desde el celular, elige cancha y horario, deja sus datos y paga la seña con MercadoPago. La reserva queda confirmada sin que el complejo tenga que intervenir.",
-    "thumbnailUrl": "https://vibe.com.ar/video/hero-reserva-poster.jpg",
-    "contentUrl": "https://vibe.com.ar/video/hero-reserva.mp4",
-    "uploadDate": "2026-08-21",
-    "duration": "PT17S",
-    "width": 430,
-    "height": 986,
-    "inLanguage": "es-AR",
-    "isFamilyFriendly": true,
-    "publisher": {
-      "@type": "Organization",
-      "name": "Vibe",
-      "url": "https://vibe.com.ar"
-    }
-  }`,
 `   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png","description":"Plataforma de gestión de complejos deportivos y reservas online en Argentina.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/"]}`,
 `   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar","description":"Plataforma de gestión de complejos deportivos y reservas online.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
 ];
