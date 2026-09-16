@@ -1,20 +1,8 @@
 ---
-/* Los porcentajes salen del dataset, no del teclado. Estaban transcriptos a mano
-   y dos de los cuatro habian quedado mal (4,60 y 3,55 cuando MercadoPago publica
-   4,61 y 3,56), ademas de presentarse como nacionales cuando cambian por
-   provincia y sin aclarar que no incluyen IVA. */
-import { GRUPO_DE_REFERENCIA, PLAZOS, porcentaje, RANGO_NACIONAL } from '../data/mercadopago-costos';
-import { ejemplo, pesos, CARGO_SERVICIO_TEXTO, CARGO_MINIMO } from '../data/precio';
-
-const filas = PLAZOS.map((plazo, i) => ({
-  plazo: plazo === 'Al instante' ? 'Acreditación inmediata' : `Acreditación en ${plazo}`,
-  tasa: porcentaje(GRUPO_DE_REFERENCIA.tasas[i]),
-}));
-
-/* Los montos del ejemplo se calculan desde la seña y las tasas. Estaban
-   tipeados, y son derivados: bastaba que MercadoPago moviera una tasa para que
-   el ejemplo contradijera a la tabla que tiene tres centimetros mas arriba. */
-const e = ejemplo();
+/* El cargo y su minimo salen de precio.ts, nunca tipeados a mano: el 7% y el
+   $1.000 se repiten en la FAQ y en los terminos, y una copia escrita aparte es
+   la que ya quedo mal una vez. */
+import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from '../data/precio';
 ---
 <section class="pricing" id="precio">
  <div class="container">
@@ -27,8 +15,8 @@ const e = ejemplo();
      <div class="pricing-period">por mes, para siempre</div>
     </div>
     <div class="pricing-body">
-     <p class="pricing-desc">Para el complejo, Vibe es gratis: $0 de costo fijo, siempre. Lo único que se descuenta de tu seña es la comisión de MercadoPago ({RANGO_NACIONAL} más IVA, según tu provincia y cuándo elijas acreditar el dinero).</p>
-     <p class="pricing-desc">Vibe se cobra del otro lado: al cliente que reserva se le suma un <strong>cargo de servicio del {CARGO_SERVICIO_TEXTO} sobre la seña</strong>, con un mínimo de {pesos(CARGO_MINIMO)}. Se calcula sobre la seña, no sobre el precio total de la cancha. No sale de lo que cobrás vos, y si cancela dentro del plazo se le reembolsa junto con la seña.</p>
+     <p class="pricing-desc">Para el complejo, Vibe es gratis: $0 de costo fijo, siempre. Lo único que se descuenta de tu seña es la comisión de MercadoPago, que depende de tu provincia y de cuándo elijas acreditar el dinero.</p>
+     <p class="pricing-desc">Vibe se cobra del lado del cliente: un <strong>cargo de servicio del {CARGO_SERVICIO_TEXTO} sobre la seña</strong>, con un mínimo de {pesos(CARGO_MINIMO)}, reembolsado junto con la seña si cancela a tiempo.</p>
      <div class="pricing-trust">
       <div class="trust-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg><span>Seña segura</span></div>
       <div class="trust-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Datos encriptados</span></div>
@@ -40,15 +28,7 @@ const e = ejemplo();
   </div>
 
   <div class="mp-fees anim anim-d4">
-   <h3 class="mp-fees-label">¿Cuánto cobra MercadoPago sobre la seña?</h3>
-   <p class="mp-fees-intro">MercadoPago descuenta su propia comisión al procesar la seña. Vos elegís cuándo se acredita el dinero en tu cuenta, y eso define el porcentaje. Este descuento es de MercadoPago. El cargo de servicio de Vibe corre por cuenta del cliente.</p>
-   <ul class="mp-fees-list">
-    {filas.map(f => (
-     <li><span class="mp-fees-term">{f.plazo}</span><span class="mp-fees-rate">{f.tasa}</span></li>
-    ))}
-   </ul>
-   <p class="mp-fees-example">Ejemplo con una seña de {pesos(e.sena)}: tu cliente paga {pesos(e.totalCliente)} ({pesos(e.sena)} de seña más {pesos(e.cargo)} de cargo de servicio, que es el {CARGO_SERVICIO_TEXTO} de la seña). De los {pesos(e.sena)}, MercadoPago te descuenta entre {pesos(e.masLenta.descuento)} (acreditación en {e.masLenta.plazo}) y {pesos(e.inmediata.descuento)} (acreditación inmediata), según la opción que elijas. El resto se acredita a tu cuenta.</p>
-   <p class="mp-fees-note">Estos son los costos de Buenos Aires y no incluyen IVA. MercadoPago los fija por provincia, no a nivel nacional, y los cambia sin aviso. Están <a class="mp-fees-link" href="/guias/cuanto-cobra-mercadopago-por-una-sena">los nueve grupos de tarifas, provincia por provincia</a>, con la fuente oficial.</p>
+   <p class="mp-fees-note"><a class="mp-fees-link" href="/guias/cuanto-cobra-mercadopago-por-una-sena">¿Cuánto cobra MercadoPago según tu provincia?</a> · <a class="mp-fees-link" href="/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas">¿Cuánto cuesta un sistema de reservas para canchas?</a></p>
   </div>
  </div>
 </section>
