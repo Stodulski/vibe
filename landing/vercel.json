@@ -144,6 +144,15 @@
       ]
     },
     {
+      "source": "/guias/vibe-o-atc-sports-en-que-se-diferencian",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias-vibe-o-atc-sports-en-que-se-diferencian.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
       "source": "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas",
       "headers": [
         {

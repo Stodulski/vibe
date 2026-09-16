@@ -23,12 +23,15 @@ import {
   tasaDe, fechaEnTexto, BRECHA_INMEDIATA, IVA, RECARGO_TARJETA_EXTRANJERA,
   RANGO_NACIONAL,
 } from './mercadopago-costos.ts';
-import { ejemplo, pesos } from './precio.ts';
+import { ejemplo, pesos, dolares } from './precio.ts';
 import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
-import { ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO } from './competencia.ts';
+import {
+  ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO, ATC_PRUEBA_GRATIS_DIAS,
+  ATC_DESCUENTO_ANUAL_PORCENTAJE,
+} from './competencia.ts';
 import {
   filasDeCostoPorReserva, columnasDeCostoPorReserva, cargoPorReserva,
-  porReservaConAbono, POR_RESERVA_POCAS, POR_RESERVA_MUCHAS, VECES, VOLUMENES,
+  POR_RESERVA_POCAS, POR_RESERVA_MUCHAS, VECES, VOLUMENES,
 } from './costo-por-reserva.ts';
 import { CARGO_MINIMO, CARGO_SERVICIO_TEXTO, SENA_DE_EJEMPLO } from './precio.ts';
 
@@ -96,6 +99,113 @@ const filasDeCostos = COSTOS.map(g => [
 ]);
 
 const contenido: Omit<Guia, 'dateModified'>[] = [
+  {
+    slug: 'vibe-o-atc-sports-en-que-se-diferencian',
+    tutorial: { slug: 'grilla-de-reservas', texto: 'Cómo se ve la grilla de reservas de Vibe' },
+    title: 'Vibe o ATC Sports: en qué se diferencian',
+    seoTitle: 'Vibe o ATC Sports: en qué se diferencian',
+    metaDescription:
+      'Comparación honesta entre Vibe y ATC Sports para complejos deportivos: modelo de cobro, '
+      + 'qué trae cada uno y en qué casos conviene cada uno.',
+    excerpt:
+      'Los dos resuelven la reserva online. La diferencia está en quién paga, cuándo, y en '
+      + 'cuánto abarca cada uno fuera de la cancha.',
+    respuesta:
+      'La diferencia principal no está en las funciones de reserva, que las dos plataformas cubren: '
+      + `está en el modelo de cobro. ATC Sports cobra un abono mensual fijo en dólares, desde ${dolares(ATC_PLANES[0].mensual)} `
+      + `hasta ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, y se paga haya reservas o no. `
+      + 'Vibe no cobra abono: el complejo no le paga nada a la plataforma, y el cargo de servicio lo paga el '
+      + 'cliente sobre la seña. La segunda diferencia es el alcance: ATC publica funciones que Vibe no tiene, '
+      + 'como control de caja e inventario, integración con grabación de partidos y banners QR.',
+    datePublished: '2026-09-16',
+    fuente: { nombre: 'ATC Sports, software de gestión deportiva', url: ATC_FUENTE, nofollow: true },
+    bloques: [
+      {
+        tipo: 'lista',
+        heading: 'Lo que hacen las dos',
+        intro:
+          'Conviene empezar por acá, porque es la mayor parte. En estas cosas elegir una u otra no cambia '
+          + 'lo que vas a poder hacer:',
+        items: [
+          'Reserva online, sin que tengas que contestar un mensaje',
+          'Grilla de turnos con todas las canchas del día',
+          'Datos de cada cancha y de cada cliente',
+          'Reportes de lo que facturaste',
+          'Varios usuarios y acceso desde el celular',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'La diferencia real: quién paga y cuándo',
+        parrafos: [
+          'ATC cobra un abono mensual por complejo, en dólares, escalonado por cantidad de canchas. Es un costo '
+            + 'previsible: sabés lo que vas a pagar el mes que viene, tengas un enero flojo o un agosto lleno. '
+            + `También ofrece ${ATC_PRUEBA_GRATIS_DIAS} días de prueba gratis y un ${ATC_DESCUENTO_ANUAL_PORCENTAJE} por ciento `
+            + 'de descuento si pagás el año por adelantado.',
+          'Vibe no tiene abono. El complejo no le paga nada a la plataforma; lo que se cobra es un cargo de '
+            + 'servicio sobre la seña, y lo paga el cliente que reserva. Eso significa que un mes sin reservas '
+            + 'no te cuesta nada, y también que tu cliente ve un importe un poco más alto al reservar.',
+          'Ninguno de los dos modelos es mejor en abstracto. El abono conviene cuando el volumen es alto y '
+            + 'previsible, porque se reparte entre muchas reservas. El cargo por reserva conviene cuando el '
+            + 'volumen es bajo o irregular, porque no hay nada que pagar cuando no pasa nada.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Lo que ATC hace y Vibe no',
+        intro:
+          'Está publicado en su página y es cierto. Si necesitás alguna de estas cosas, Vibe no te sirve y '
+          + 'ATC sí:',
+        items: [
+          'Control de caja e inventario, para el bar o la venta de artículos',
+          'Integración con grabación de partidos',
+          'Banners QR y paquetes digitales personalizados',
+          'Sitio web propio del complejo, más allá de la página de reservas',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Cómo elegir sin probar los dos',
+        parrafos: [
+          'Si vendés en el bar, manejás stock o querés grabar los partidos, la decisión ya está tomada y no '
+            + 'es Vibe. Ese es el corte más limpio.',
+          'Si lo que necesitás es que la gente reserve y pague la seña sola, la pregunta pasa a ser cuánto '
+            + 'volumen tenés y quién querés que soporte el costo. Un abono fijo dividido por muchas reservas '
+            + 'termina siendo barato por turno; dividido por pocas, caro. Esa cuenta está hecha, con la tabla '
+            + 'completa, en la guía de cuánto cuesta un sistema de reservas.',
+          'Y si estás arrancando o tu temporada baja es muy baja, el argumento más fuerte a favor de no tener '
+            + 'abono no es el precio: es que no tenés que acertar el pronóstico. Podés equivocarte con la '
+            + 'demanda sin que eso te cueste plata todos los meses.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Puedo migrar de ATC a Vibe sin perder mis reservas?',
+        answer:
+          'Las reservas futuras se cargan a mano desde la grilla, igual que una reserva telefónica. El '
+          + 'historial viejo no se importa: la base de clientes de Vibe se arma sola con las reservas nuevas.',
+      },
+      {
+        question: '¿Vibe tiene prueba gratis?',
+        answer:
+          'No hace falta: como no hay abono, no hay nada que probar antes de pagar. Cargás el complejo y el '
+          + 'único costo aparece cuando alguien reserva y paga una seña.',
+      },
+      {
+        question: '¿El cargo de servicio lo puedo absorber yo en vez del cliente?',
+        answer:
+          'El cargo se le suma al cliente al pagar la seña. Si preferís que no lo vea, lo que podés hacer es '
+          + 'ajustar el precio de la cancha para compensarlo, pero eso es una decisión de precio tuya.',
+      },
+      {
+        question: '¿Esta comparación está actualizada?',
+        answer:
+          `Los datos de ATC se leyeron de su página el ${ATC_VERIFICADO} y el enlace a la fuente está arriba. `
+          + 'Si ves algo que no coincide con lo que ellos publican hoy, escribinos y lo corregimos.',
+      },
+    ],
+  },
   {
     slug: 'cuanto-cobra-mercadopago-por-una-sena',
     tutorial: { slug: 'configuracion-del-complejo', texto: 'Dónde se conecta Mercado Pago y se define la seña' },
@@ -215,17 +325,17 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     title: 'Cuánto cuesta un sistema de reservas para canchas',
     seoTitle: 'Cuánto cuesta un sistema de reservas de canchas | Precios reales',
     metaDescription:
-      `Abono fijo desde ${pesos(ATC_PLANES[0].mensual)} por mes, o un cargo por reserva: comparamos `
+      `Abono fijo desde ${dolares(ATC_PLANES[0].mensual)} por mes, o un cargo por reserva: comparamos `
       + 'ambos modelos con números reales para saber cuál conviene.',
     excerpt:
       'El precio de lista no dice nada sin el volumen. La misma cuota sale '
-      + `${pesos(POR_RESERVA_POCAS)} o ${pesos(POR_RESERVA_MUCHAS)} por reserva según cuántas hagas.`,
+      + `${dolares(POR_RESERVA_POCAS)} o ${dolares(POR_RESERVA_MUCHAS)} por reserva según cuántas hagas.`,
     respuesta:
-      `En Argentina hay dos modelos. Un abono mensual fijo, que arranca en ${pesos(ATC_PLANES[0].mensual)} `
-      + `y llega a ${pesos(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, y se paga haya reservas o no. `
+      `En Argentina hay dos modelos. Un abono mensual fijo, que arranca en ${dolares(ATC_PLANES[0].mensual)} `
+      + `y llega a ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, y se paga haya reservas o no. `
       + `O un cargo por reserva, que no cobra nada fijo. Cuál conviene depende de una sola cosa: cuántos `
-      + `turnos hacés por mes. El mismo abono de ${pesos(ATC_PLANES[0].mensual)} sale ${pesos(POR_RESERVA_POCAS)} `
-      + `por reserva si hacés ${VOLUMENES[0]} al mes, y ${pesos(POR_RESERVA_MUCHAS)} si hacés ${VOLUMENES.at(-1)}.`,
+      + `turnos hacés por mes. El mismo abono de ${dolares(ATC_PLANES[0].mensual)} sale ${dolares(POR_RESERVA_POCAS)} `
+      + `por reserva si hacés ${VOLUMENES[0]} al mes, y ${dolares(POR_RESERVA_MUCHAS)} si hacés ${VOLUMENES.at(-1)}.`,
     datePublished: '2026-08-24',
     fuente: { nombre: 'ATC Sports, precios y planes', url: ATC_FUENTE, nofollow: true },
     bloques: [
@@ -236,7 +346,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'La cuota dividida por la cantidad de turnos del mes. Es la cuenta que no aparece en '
           + 'ninguna página de precios, y es la única que te dice si te conviene.',
         nota:
-          `Precios de lista de ATC Sports, pagando mes a mes, verificados el ${ATC_VERIFICADO}. `
+          `Precios de lista de ATC Sports en dólares —así los publican fuera de Argentina, y es el precio `
+          + `que no se mueve solo con el tipo de cambio—, pagando mes a mes, verificados el ${ATC_VERIFICADO}. `
           + 'Los publican ellos y los pueden cambiar cuando quieran.',
         columnas: columnasDeCostoPorReserva,
         filas: filasDeCostoPorReserva,
@@ -259,22 +370,32 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'El otro modelo, y quién paga qué',
         parrafos: [
-          `Vibe no cobra abono: el complejo paga $0 fijo. Lo que hay es un cargo de servicio del `
-          + `${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)}, que se le suma al cliente que reserva. Sobre una seña de `
-          + `${pesos(SENA_DE_EJEMPLO)} son ${pesos(cargoPorReserva())}, y los paga él, no el complejo.`,
-          'Para comparar los dos modelos sin marearse hay que separar los bolsillos, porque no es el mismo el '
-          + 'que paga cada cosa.',
-          `Del lado del complejo: con los dos modelos se paga la comisión de MercadoPago (mirá `
+          `Vibe no cobra abono: el complejo no le paga nada fijo a Vibe, haya reservas o no. Lo que hay es un `
+          + `cargo de servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)}, `
+          + `que se le suma al cliente que reserva. Sobre una seña de ${pesos(SENA_DE_EJEMPLO)} son `
+          + `${pesos(cargoPorReserva())}, y los paga él, no el complejo.`,
+          'Los dos modelos ni siquiera están en la misma moneda: ATC publica en dólares y el cargo de servicio '
+          + 'de Vibe se cobra en pesos. Convertir uno al otro metería un tipo de cambio en el medio, y un tipo '
+          + 'de cambio es un número más que se desactualiza solo, que es justo lo que esta página evita en todo '
+          + 'lo demás. Así que lo que sigue compara cómo se reparte el costo entre complejo y cliente en cada '
+          + 'modelo, no resta un número contra el otro.',
+          'Del lado del complejo: con los dos modelos se paga la comisión de MercadoPago (mirá '
           + '<a href="/guias/cuanto-cobra-mercadopago-por-una-sena">cuánto cobra MercadoPago por una seña</a> '
-          + `según tu provincia), y en los dos casos es `
-          + `sobre la seña, no sobre el precio total de la cancha. Esa parte se cancela. Lo que queda de `
-          + `diferencia es exactamente el abono: a ${VOLUMENES[2]} reservas por mes, `
-          + `${pesos(porReservaConAbono(ATC_PLANES[0].mensual, VOLUMENES[2]))} por reserva de más con el plan más barato.`,
+          + 'según tu provincia), y en los dos casos es sobre la seña, no sobre el precio total de la cancha. '
+          + 'Esa parte se cancela. Lo que queda de diferencia es el abono en sí: con ATC es una cuota fija en '
+          + 'dólares que se paga haya reservas o no; con Vibe es cero, siempre.',
           `Del lado del cliente es al revés: con un abono paga el precio de la cancha y nada más, y con un cargo `
           + `por reserva paga el precio más ${pesos(cargoPorReserva())}. Ahí el abono le sale más barato a él.`,
+          'Y la salvedad, que hay que decirla porque esta página no está para que gane Vibe: una cuota fija '
+          + 'dividida por reservas —como el abono de ATC en la tabla de arriba— se abarata sola con el volumen, '
+          + 'tendiendo a cero. Un cargo por reserva, en cambio, no baja nunca, porque es un porcentaje fijo de '
+          + 'la seña. A partir de cierto volumen, cualquier cuota fija termina saliendo más barata por turno que '
+          + 'cualquier cargo por reserva, sea cual sea la empresa y sea cual sea la moneda: es aritmética, no '
+          + 'una opinión.',
           'Resumido sin vueltas: el modelo de cargo por reserva le saca el costo fijo al complejo y se lo pasa a '
-          + 'quien reserva. Si estás del lado del mostrador te conviene siempre; si estás del otro, depende de '
-          + 'cuánto valga para vos reservar y pagar desde el celular en vez de por teléfono.',
+          + 'quien reserva. Eso conviene siempre del lado del mostrador —pagar cero es menos que pagar cualquier '
+          + 'abono, a cualquier volumen—. Del lado del cliente depende de cuánto valga para él reservar y pagar '
+          + 'desde el celular en vez de por teléfono.',
         ],
       },
       {
@@ -295,8 +416,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿Conviene pagar el año por adelantado?',
         answer:
-          `Sale más barato por mes, sí: en ATC el Plan Base pasa de ${pesos(ATC_PLANES[0].mensual)} a `
-          + `${pesos(ATC_PLANES[0].anual)} pagando los doce juntos. Lo que estás comprando con ese descuento es `
+          `Sale más barato por mes, sí: en ATC el Plan Base pasa de ${dolares(ATC_PLANES[0].mensual)} a `
+          + `${dolares(ATC_PLANES[0].anual)} pagando los doce juntos. Lo que estás comprando con ese descuento es `
           + 'quedarte un año, así que la pregunta real no es el precio sino qué pasa si a los tres meses te das '
           + 'cuenta de que no era para vos.',
       },
