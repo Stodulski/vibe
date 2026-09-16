@@ -25,7 +25,10 @@ import {
 } from './mercadopago-costos.ts';
 import { ejemplo, pesos, dolares } from './precio.ts';
 import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
-import { ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO } from './competencia.ts';
+import {
+  ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO, ATC_PRUEBA_GRATIS_DIAS,
+  ATC_DESCUENTO_ANUAL_PORCENTAJE,
+} from './competencia.ts';
 import {
   filasDeCostoPorReserva, columnasDeCostoPorReserva, cargoPorReserva,
   POR_RESERVA_POCAS, POR_RESERVA_MUCHAS, VECES, VOLUMENES,
@@ -96,6 +99,113 @@ const filasDeCostos = COSTOS.map(g => [
 ]);
 
 const contenido: Omit<Guia, 'dateModified'>[] = [
+  {
+    slug: 'vibe-o-atc-sports-en-que-se-diferencian',
+    tutorial: { slug: 'grilla-de-reservas', texto: 'Cómo se ve la grilla de reservas de Vibe' },
+    title: 'Vibe o ATC Sports: en qué se diferencian',
+    seoTitle: 'Vibe o ATC Sports: en qué se diferencian',
+    metaDescription:
+      'Comparación honesta entre Vibe y ATC Sports para complejos deportivos: modelo de cobro, '
+      + 'qué trae cada uno y en qué casos conviene cada uno.',
+    excerpt:
+      'Los dos resuelven la reserva online. La diferencia está en quién paga, cuándo, y en '
+      + 'cuánto abarca cada uno fuera de la cancha.',
+    respuesta:
+      'La diferencia principal no está en las funciones de reserva, que las dos plataformas cubren: '
+      + `está en el modelo de cobro. ATC Sports cobra un abono mensual fijo en dólares, desde ${dolares(ATC_PLANES[0].mensual)} `
+      + `hasta ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, y se paga haya reservas o no. `
+      + 'Vibe no cobra abono: el complejo no le paga nada a la plataforma, y el cargo de servicio lo paga el '
+      + 'cliente sobre la seña. La segunda diferencia es el alcance: ATC publica funciones que Vibe no tiene, '
+      + 'como control de caja e inventario, integración con grabación de partidos y banners QR.',
+    datePublished: '2026-09-16',
+    fuente: { nombre: 'ATC Sports, software de gestión deportiva', url: ATC_FUENTE, nofollow: true },
+    bloques: [
+      {
+        tipo: 'lista',
+        heading: 'Lo que hacen las dos',
+        intro:
+          'Conviene empezar por acá, porque es la mayor parte. En estas cosas elegir una u otra no cambia '
+          + 'lo que vas a poder hacer:',
+        items: [
+          'Reserva online, sin que tengas que contestar un mensaje',
+          'Grilla de turnos con todas las canchas del día',
+          'Datos de cada cancha y de cada cliente',
+          'Reportes de lo que facturaste',
+          'Varios usuarios y acceso desde el celular',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'La diferencia real: quién paga y cuándo',
+        parrafos: [
+          'ATC cobra un abono mensual por complejo, en dólares, escalonado por cantidad de canchas. Es un costo '
+            + 'previsible: sabés lo que vas a pagar el mes que viene, tengas un enero flojo o un agosto lleno. '
+            + `También ofrece ${ATC_PRUEBA_GRATIS_DIAS} días de prueba gratis y un ${ATC_DESCUENTO_ANUAL_PORCENTAJE} por ciento `
+            + 'de descuento si pagás el año por adelantado.',
+          'Vibe no tiene abono. El complejo no le paga nada a la plataforma; lo que se cobra es un cargo de '
+            + 'servicio sobre la seña, y lo paga el cliente que reserva. Eso significa que un mes sin reservas '
+            + 'no te cuesta nada, y también que tu cliente ve un importe un poco más alto al reservar.',
+          'Ninguno de los dos modelos es mejor en abstracto. El abono conviene cuando el volumen es alto y '
+            + 'previsible, porque se reparte entre muchas reservas. El cargo por reserva conviene cuando el '
+            + 'volumen es bajo o irregular, porque no hay nada que pagar cuando no pasa nada.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Lo que ATC hace y Vibe no',
+        intro:
+          'Está publicado en su página y es cierto. Si necesitás alguna de estas cosas, Vibe no te sirve y '
+          + 'ATC sí:',
+        items: [
+          'Control de caja e inventario, para el bar o la venta de artículos',
+          'Integración con grabación de partidos',
+          'Banners QR y paquetes digitales personalizados',
+          'Sitio web propio del complejo, más allá de la página de reservas',
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Cómo elegir sin probar los dos',
+        parrafos: [
+          'Si vendés en el bar, manejás stock o querés grabar los partidos, la decisión ya está tomada y no '
+            + 'es Vibe. Ese es el corte más limpio.',
+          'Si lo que necesitás es que la gente reserve y pague la seña sola, la pregunta pasa a ser cuánto '
+            + 'volumen tenés y quién querés que soporte el costo. Un abono fijo dividido por muchas reservas '
+            + 'termina siendo barato por turno; dividido por pocas, caro. Esa cuenta está hecha, con la tabla '
+            + 'completa, en la guía de cuánto cuesta un sistema de reservas.',
+          'Y si estás arrancando o tu temporada baja es muy baja, el argumento más fuerte a favor de no tener '
+            + 'abono no es el precio: es que no tenés que acertar el pronóstico. Podés equivocarte con la '
+            + 'demanda sin que eso te cueste plata todos los meses.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Puedo migrar de ATC a Vibe sin perder mis reservas?',
+        answer:
+          'Las reservas futuras se cargan a mano desde la grilla, igual que una reserva telefónica. El '
+          + 'historial viejo no se importa: la base de clientes de Vibe se arma sola con las reservas nuevas.',
+      },
+      {
+        question: '¿Vibe tiene prueba gratis?',
+        answer:
+          'No hace falta: como no hay abono, no hay nada que probar antes de pagar. Cargás el complejo y el '
+          + 'único costo aparece cuando alguien reserva y paga una seña.',
+      },
+      {
+        question: '¿El cargo de servicio lo puedo absorber yo en vez del cliente?',
+        answer:
+          'El cargo se le suma al cliente al pagar la seña. Si preferís que no lo vea, lo que podés hacer es '
+          + 'ajustar el precio de la cancha para compensarlo, pero eso es una decisión de precio tuya.',
+      },
+      {
+        question: '¿Esta comparación está actualizada?',
+        answer:
+          `Los datos de ATC se leyeron de su página el ${ATC_VERIFICADO} y el enlace a la fuente está arriba. `
+          + 'Si ves algo que no coincide con lo que ellos publican hoy, escribinos y lo corregimos.',
+      },
+    ],
+  },
   {
     slug: 'cuanto-cobra-mercadopago-por-una-sena',
     tutorial: { slug: 'configuracion-del-complejo', texto: 'Dónde se conecta Mercado Pago y se define la seña' },
