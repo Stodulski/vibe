@@ -124,6 +124,42 @@
           "value": "<https://vibe.com.ar/terminos.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
         }
       ]
+    },
+    {
+      "source": "/guias",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/guias/cuanto-cobra-mercadopago-por-una-sena",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias-cuanto-cobra-mercadopago-por-una-sena.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias-cuanto-cuesta-un-sistema-de-reservas-para-canchas.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/guias/como-llenar-los-horarios-vacios-de-un-complejo",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/guias-como-llenar-los-horarios-vacios-de-un-complejo.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
     }
   ],
   "build": {

@@ -60,7 +60,7 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
             {guia.fuente && (
               <>
                 <span aria-hidden="true">·</span>
-                <span>Fuente: <a href={guia.fuente.url} rel="noopener" target="_blank">{guia.fuente.nombre}</a></span>
+                <span>Fuente: <a href={guia.fuente.url} rel={guia.fuente.nofollow ? 'nofollow noopener' : 'noopener'} target="_blank">{guia.fuente.nombre}</a></span>
               </>
             )}
           </p>
@@ -70,7 +70,10 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
           <section class="guia-bloque">
             <h2>{bloque.heading}</h2>
 
-            {bloque.tipo === 'parrafos' && bloque.parrafos.map(p => <p>{p}</p>)}
+            {/* set:html, no {p}: un parrafo puede traer un link de cruce a la otra
+                guia (ver guias.ts), y el texto interpolado ahi ya viene autorizado
+                por nosotros, nunca de un usuario. */}
+            {bloque.tipo === 'parrafos' && bloque.parrafos.map(p => <p set:html={p} />)}
 
             {bloque.tipo === 'lista' && (
               <>

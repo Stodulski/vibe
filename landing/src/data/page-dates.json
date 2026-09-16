@@ -1,26 +1,30 @@
 {
   "/": {
-    "hash": "b4104ce64a098539",
-    "date": "2026-09-08"
+    "hash": "3115fc0c9b71af83",
+    "date": "2026-09-15"
   },
   "/privacidad": {
-    "hash": "d5904fc25558d817",
-    "date": "2026-09-08"
+    "hash": "f98d10e79dedbfca",
+    "date": "2026-09-15"
   },
   "/terminos": {
-    "hash": "2510e8f64addcf1d",
-    "date": "2026-09-08"
+    "hash": "e59acf8bde379f36",
+    "date": "2026-09-15"
   },
   "/guias": {
-    "hash": "34ef78f8560fdef2",
-    "date": "2026-09-08"
+    "hash": "72eda5dbe11f4bdd",
+    "date": "2026-09-15"
   },
   "/guias/cuanto-cobra-mercadopago-por-una-sena": {
-    "hash": "5d93af22f4710dc4",
-    "date": "2026-09-08"
+    "hash": "d8d9f076d2bbbc2d",
+    "date": "2026-09-15"
   },
   "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "58ffef62d841626b",
-    "date": "2026-09-08"
+    "hash": "087e599900c69d95",
+    "date": "2026-09-15"
+  },
+  "/guias/como-llenar-los-horarios-vacios-de-un-complejo": {
+    "hash": "572d23ddec6f3224",
+    "date": "2026-09-15"
   }
 }
