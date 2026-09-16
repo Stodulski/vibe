@@ -605,15 +605,24 @@ body {
 
 /* Arrows are offset from the centered slide's own edges, not the full-bleed carousel's, so
    they stay near the main slide instead of way out over the dimmed neighbors. */
+/* Era un carácter '‹' de 1,25rem adentro de un círculo verde sólido al 75% de
+   opacidad: el glifo quedaba fino y descentrado, y el relleno competía con los
+   botones de acción, que son el único verde que debería pedir un clic. Ahora el
+   círculo es del fondo con borde fino, y el verde aparece recién al pasar por
+   encima. El chevron es SVG como las demás flechas del sitio. */
 .ft-arrow {
   position: absolute; top: 40%; transform: translateY(-50%); z-index: 2;
   width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
-  border: 1px solid var(--green); background: var(--green); color: var(--bg);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.25rem; cursor: pointer; opacity: 0.75;
-  transition: transform 0.2s, opacity 0.2s;
+  cursor: pointer; backdrop-filter: blur(8px);
+  transition: transform 0.2s var(--ease), background-color 0.2s ease,
+              border-color 0.2s ease, color 0.2s ease;
 }
-.ft-arrow:hover { opacity: 1; transform: translateY(-50%) scale(1.08); }
+.ft-arrow:hover, .ft-arrow:focus-visible {
+  background: var(--green); border-color: var(--green); color: var(--bg);
+  transform: translateY(-50%) scale(1.08);
+}
 .ft-arrow-prev { left: calc((100vw - var(--ft-slide)) / 2 - 52px); }
 .ft-arrow-next { right: calc((100vw - var(--ft-slide)) / 2 - 52px); }
 
@@ -918,14 +927,26 @@ body {
 .mp-logo img { height: 24px; width: auto; display: block; }
 
 /* MercadoPago fee link — the per-timing breakdown moved to the dedicated guide */
-.mp-fees {
-  max-width: 480px; margin: 64px auto 0;
-  padding-top: 40px;
+/* Eran dos preguntas largas pegadas con un punto medio, en gris y a 480px:
+   partían por la mitad y se leían como sobras del pie. Una por línea, con
+   separador y flecha, es el mismo lenguaje que las listas de guías. */
+.mp-fees { max-width: 620px; margin: 72px auto 0; padding-top: 40px; }
+.mp-fees-label {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); margin-bottom: 4px;
 }
-.mp-fees-note {
-  font-size: 0.75rem; color: var(--muted); line-height: 1.5;
-  opacity: 0.8;
+.mp-fees-links { list-style: none; padding: 0; margin: 0; }
+.mp-fees-links li { border-bottom: 1px solid var(--border); }
+.mp-fees-links li:last-child { border-bottom: 0; }
+.mp-fees-links a {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 16px 0; text-decoration: none;
+  font-size: 0.9375rem; color: var(--text); line-height: 1.5;
+  transition: color 0.2s ease;
 }
+.mp-fees-links a:hover, .mp-fees-links a:focus-visible { color: var(--green); }
+.mp-fees-links svg { flex-shrink: 0; color: var(--green); transition: transform 0.2s var(--ease); }
+.mp-fees-links a:hover svg { transform: translateX(4px); }
 
 /* Cierra el carrusel de capturas: es el único lugar del home donde un enlace a
    los videos sigue el hilo de lo que el visitante está mirando. */
@@ -937,13 +958,6 @@ body {
 
 /* The note is muted on purpose, so the link needs its own underline to read as
    one instead of dissolving into the paragraph. */
-.mp-fees-link {
-  color: inherit; text-decoration: underline;
-  text-underline-offset: 2px; text-decoration-thickness: 1px;
-  transition: color 0.2s ease;
-}
-.mp-fees-link:hover, .mp-fees-link:focus-visible { color: var(--green); }
-
 /* ========== FAQ ========== */
 .faq { padding: 120px 24px; position: relative; }
 
