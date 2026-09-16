@@ -10,5 +10,33 @@
   "como-llenar-los-horarios-vacios-de-un-complejo": {
     "hash": "5bb35ee9b50a32fe",
     "date": "2026-09-15"
+  },
+  "tutorial:grilla-de-reservas": {
+    "hash": "ce049fd923454a9d",
+    "date": "2026-09-16"
+  },
+  "tutorial:precios-por-horario": {
+    "hash": "d924545a57ba4941",
+    "date": "2026-09-16"
+  },
+  "tutorial:base-de-clientes": {
+    "hash": "a5052de82b3ea92a",
+    "date": "2026-09-16"
+  },
+  "tutorial:panel-de-control": {
+    "hash": "55b62b3d5e11faf4",
+    "date": "2026-09-16"
+  },
+  "tutorial:reportes-de-facturacion": {
+    "hash": "cc4f8fb3db5ee133",
+    "date": "2026-09-16"
+  },
+  "tutorial:configuracion-del-complejo": {
+    "hash": "39f25156d84f1ff0",
+    "date": "2026-09-16"
+  },
+  "tutorial:varios-complejos": {
+    "hash": "95f577645c2242e7",
+    "date": "2026-09-16"
   }
 }

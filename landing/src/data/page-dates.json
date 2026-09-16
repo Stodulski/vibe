@@ -1,30 +1,62 @@
 {
   "/": {
-    "hash": "d84eb47a0ee52442",
-    "date": "2026-09-15"
+    "hash": "9c5a96bbf33cde62",
+    "date": "2026-09-16"
   },
   "/privacidad": {
-    "hash": "d26ab59bd03d4b5a",
-    "date": "2026-09-15"
+    "hash": "2304f373c4210705",
+    "date": "2026-09-16"
   },
   "/terminos": {
-    "hash": "92df9d7b50de1b4d",
-    "date": "2026-09-15"
+    "hash": "da32e05a8df4ef24",
+    "date": "2026-09-16"
   },
   "/guias": {
-    "hash": "0cacd7ef5ecc277f",
-    "date": "2026-09-15"
+    "hash": "0e0b16355e202c60",
+    "date": "2026-09-16"
   },
   "/guias/cuanto-cobra-mercadopago-por-una-sena": {
-    "hash": "f6ad399525af4beb",
-    "date": "2026-09-15"
+    "hash": "e146851ed06c0563",
+    "date": "2026-09-16"
   },
   "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "5d68144e193748b4",
-    "date": "2026-09-15"
+    "hash": "9fc06c20135d4ec8",
+    "date": "2026-09-16"
   },
   "/guias/como-llenar-los-horarios-vacios-de-un-complejo": {
-    "hash": "385b13971037edf6",
-    "date": "2026-09-15"
+    "hash": "6bb8a6f0eabec9da",
+    "date": "2026-09-16"
+  },
+  "/tutoriales": {
+    "hash": "c019b14d9ad75e5f",
+    "date": "2026-09-16"
+  },
+  "/tutoriales/base-de-clientes": {
+    "hash": "278533c88bab13e3",
+    "date": "2026-09-16"
+  },
+  "/tutoriales/configuracion-del-complejo": {
+    "hash": "fdb5e6c303821956",
+    "date": "2026-09-16"
+  },
+  "/tutoriales/grilla-de-reservas": {
+    "hash": "91fbce2d78bdcce1",
+    "date": "2026-09-16"
+  },
+  "/tutoriales/panel-de-control": {
+    "hash": "409904ff876b7c8f",
+    "date": "2026-09-16"
+  },
+  "/tutoriales/precios-por-horario": {
+    "hash": "73e66c80e74de0cb",
+    "date": "2026-09-16"
+  },
+  "/tutoriales/reportes-de-facturacion": {
+    "hash": "3e16cb7cc25ce3dd",
+    "date": "2026-09-16"
+  },
+  "/tutoriales/varios-complejos": {
+    "hash": "c9eb9f91cdddb8f4",
+    "date": "2026-09-16"
   }
 }

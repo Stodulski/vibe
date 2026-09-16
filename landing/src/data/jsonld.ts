@@ -2,6 +2,8 @@
    modification dates wired to the last commit so they cannot go stale again. */
 import { LAST_MODIFIED, PUBLISHED } from './site-dates.ts';
 import type { Guia } from './guias.ts';
+import type { Tutorial } from './tutoriales.ts';
+import { CDN, ULTIMA_ACTUALIZACION as TUTORIALES_ULTIMA_ACTUALIZACION } from './tutoriales.ts';
 import { faq } from './faq.ts';
 import { RANGO_NACIONAL } from './mercadopago-costos.ts';
 import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from './precio.ts';
@@ -170,6 +172,106 @@ export function guiasIndexJsonLd(lista: Guia[]): string[] {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar' },
         { '@type': 'ListItem', position: 2, name: 'Guías', item: 'https://vibe.com.ar/guias' },
+      ],
+    }, null, 2),
+  ];
+}
+
+/* -------------------------------------------------------------- tutoriales */
+
+/**
+ * "30" -> "PT30S". Los tutoriales de hoy duran todos menos de un minuto, pero
+ * la conversión es general para que un video más largo no rompa el schema el
+ * día que aparezca.
+ */
+function duracionIso(segundos: number): string {
+  const minutos = Math.floor(segundos / 60);
+  const resto = segundos % 60;
+  return `PT${minutos ? `${minutos}M` : ''}${resto || !minutos ? `${resto}S` : ''}`;
+}
+
+/**
+ * Un tutorial declara que es un video (con su propio archivo, no el de
+ * YouTube, que va en `sameAs`), que las preguntas del final son preguntas, y
+ * dónde vive dentro del sitio. No lleva `citation`: a diferencia de una guía,
+ * no afirma un número de un tercero, así que no hay fuente que citar.
+ */
+export function tutorialJsonLd(t: Tutorial): string[] {
+  const url = `https://vibe.com.ar/tutoriales/${t.slug}`;
+  const editor = {
+    '@type': 'Organization',
+    name: 'Vibe',
+    url: 'https://vibe.com.ar',
+    logo: 'https://vibe.com.ar/logo.png',
+  };
+
+  const video: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    /* El título SEO trae el sufijo " | Vibe" para el <title>; el schema
+       describe el video en sí, así que se saca. */
+    name: t.seoTitle.replace(/ \| Vibe$/, ''),
+    description: t.metaDescription,
+    thumbnailUrl: `${CDN}/${t.slug}.webp`,
+    uploadDate: t.datePublished,
+    duration: duracionIso(t.duracion),
+    contentUrl: `${CDN}/${t.slug}.mp4`,
+    sameAs: `https://www.youtube.com/watch?v=${t.youtube}`,
+    inLanguage: 'es-AR',
+    publisher: editor,
+    isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar' },
+  };
+
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: t.faq.map(f => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+    })),
+  };
+
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar' },
+      { '@type': 'ListItem', position: 2, name: 'Tutoriales', item: 'https://vibe.com.ar/tutoriales' },
+      { '@type': 'ListItem', position: 3, name: t.title, item: url },
+    ],
+  };
+
+  return [video, faqSchema, breadcrumb].map(o => JSON.stringify(o, null, 2));
+}
+
+/** El índice: una lista de los tutoriales, en orden. */
+export function tutorialesIndexJsonLd(lista: Tutorial[]): string[] {
+  return [
+    JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Tutoriales de Vibe',
+      description: 'Videos cortos del panel de Vibe, una pantalla por video.',
+      url: 'https://vibe.com.ar/tutoriales',
+      inLanguage: 'es-AR',
+      dateModified: TUTORIALES_ULTIMA_ACTUALIZACION,
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: lista.map((t, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: t.title,
+          url: `https://vibe.com.ar/tutoriales/${t.slug}`,
+        })),
+      },
+    }, null, 2),
+    JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar' },
+        { '@type': 'ListItem', position: 2, name: 'Tutoriales', item: 'https://vibe.com.ar/tutoriales' },
       ],
     }, null, 2),
   ];
