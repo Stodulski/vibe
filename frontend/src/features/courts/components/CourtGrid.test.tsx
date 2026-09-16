@@ -127,3 +127,36 @@ describe('CourtGrid', () => {
     expect(await within(dialog).findByText(/Cancha Renombrada/)).toBeInTheDocument();
   });
 });
+
+/** Stubs `window.matchMedia` so `useMediaQuery` reads `matches` without touching the real viewport. */
+function mockViewport(matches: boolean) {
+  const spy = vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches,
+    media: '',
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as unknown as MediaQueryList);
+  return () => {
+    spy.mockRestore();
+  };
+}
+
+describe('CourtGrid — xl layout switch', () => {
+  it('renders the dense table at the xl breakpoint instead of the card grid', () => {
+    const restore = mockViewport(true);
+    renderWithProviders(<CourtGrid courts={mockCourts} complexId="c1" />);
+
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.queryAllByRole('button', { name: /^editar$/i })).toHaveLength(0);
+    restore();
+  });
+
+  it('renders the card grid below the xl breakpoint', () => {
+    const restore = mockViewport(false);
+    renderWithProviders(<CourtGrid courts={mockCourts} complexId="c1" />);
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^editar$/i })).toHaveLength(2);
+    restore();
+  });
+});

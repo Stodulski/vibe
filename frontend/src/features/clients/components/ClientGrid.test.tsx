@@ -92,3 +92,35 @@ describe('the clients grid', () => {
     expect(await screen.findByText(ES_AR.clients.unblock)).toBeInTheDocument();
   });
 });
+
+/** Stubs `window.matchMedia` so `useMediaQuery` reads `matches` without touching the real viewport. */
+function mockViewport(matches: boolean) {
+  const spy = vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches,
+    media: '',
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as unknown as MediaQueryList);
+  return () => {
+    spy.mockRestore();
+  };
+}
+
+describe('ClientGrid — xl layout switch', () => {
+  it('renders the dense table at the xl breakpoint instead of the card grid', () => {
+    const restore = mockViewport(true);
+    renderGrid([makeClient()]);
+
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    restore();
+  });
+
+  it('renders the card grid below the xl breakpoint', () => {
+    const restore = mockViewport(false);
+    renderGrid([makeClient()]);
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Juan Perez' })).toBeInTheDocument();
+    restore();
+  });
+});

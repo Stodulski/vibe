@@ -4,6 +4,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { TappableCard } from '@/shared/components/common/TappableCard';
 import { ClientActionsMenu } from '../ClientActionsMenu';
+import { AttendanceMeter } from './AttendanceMeter';
 import { attendancePct, attendanceTone } from './attendance';
 import type { Client } from '@/shared/types/api.types';
 
@@ -67,12 +68,7 @@ export const ClientCard = memo(function ClientCard({
           <span className="score-text text-text-primary text-lg font-bold">{client.total_bookings}</span>
         </Figure>
         <Figure label={t.clients.attendanceLabel}>
-          <div className="flex items-center gap-2">
-            <span className={cn('score-text text-sm font-bold', tone.text)}>{pct}%</span>
-            <div className="bg-bg-base h-1 min-w-0 flex-1 overflow-hidden rounded-full">
-              <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${String(pct)}%` }} />
-            </div>
-          </div>
+          <AttendanceMeter pct={pct} tone={tone} />
         </Figure>
       </div>
     </TappableCard>

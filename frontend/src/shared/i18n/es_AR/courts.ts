@@ -32,6 +32,9 @@ export const courts = {
     tennis: 'Tenis',
     soccer: 'Fútbol',
     basketball: 'Básquet',
+    volleyball: 'Vóley',
+    hockey: 'Hockey',
+    pickleball: 'Pickleball',
   },
   courtTypes: {
     indoor: 'Techada',
@@ -74,5 +77,13 @@ export const courts = {
     friday: 'Vie',
     saturday: 'Sáb',
     sunday: 'Dom',
+  },
+  // Column headers for the `xl` table layout. `price` above already reads
+  // 'Precio', so it's reused for the general min–max range column.
+  table: {
+    court: 'Cancha',
+    type: 'Tipo',
+    description: 'Descripción',
+    status: 'Estado',
   },
 } as const;

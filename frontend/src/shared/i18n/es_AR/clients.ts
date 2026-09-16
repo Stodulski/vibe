@@ -32,4 +32,11 @@ export const clients = {
   whatsapp: 'WhatsApp',
   bookingsLabel: 'Reservas',
   attendanceLabel: 'Asistencia',
+  // Column headers for the `xl` table layout. Most reuse the strings above
+  // (phone, email, noShows, attendanceLabel) — only the two below have no
+  // equivalent yet: `name` is 'Nombre', not the column's own 'Cliente'.
+  table: {
+    client: 'Cliente',
+    since: 'Cliente desde',
+  },
 } as const;
