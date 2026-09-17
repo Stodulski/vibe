@@ -383,44 +383,47 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   {
     slug: 'varios-complejos',
     title: 'Varios complejos con una sola cuenta',
-    seoTitle: 'Administrar varias sedes con una cuenta | Vibe',
+    seoTitle: 'Administrar varios complejos con una cuenta | Vibe',
     metaDescription:
-      'Varias sedes desde la misma cuenta: cada una con sus canchas, sus precios y su propio '
+      'Hasta 4 complejos desde la misma cuenta: cada uno con sus canchas, sus precios y su propio '
       + 'enlace de reservas, sin mezclarse.',
-    excerpt: 'Cuatro sedes, una cuenta, y cada una con sus canchas y sus números aparte.',
+    excerpt: 'Hasta 4 complejos, una cuenta, y cada uno con sus canchas y sus números aparte.',
     duracion: 26,
     youtube: 'WlB2BoiVy30',
     datePublished: '2026-09-16',
     respuesta:
-      'Una misma cuenta puede administrar varias sedes. Se cambia de una a otra desde el selector de '
-      + 'arriba, sin cerrar sesión. Cada sede mantiene sus propias canchas, sus precios, sus horarios '
-      + 'y su propio enlace público de reservas, y los datos no se mezclan entre ellas: la '
-      + 'facturación, los clientes y la ocupación son de la sede en la que estás parado.',
+      'Una misma cuenta puede administrar hasta 4 complejos. Se cambia de uno a otro desde el '
+      + 'selector de arriba, sin cerrar sesión. Cada complejo mantiene sus propias canchas, sus '
+      + 'precios, sus horarios y su propio enlace público de reservas, y los datos no se mezclan '
+      + 'entre ellos: la facturación, los clientes y la ocupación son del complejo en el que estás '
+      + 'parado.',
     bloques: [
       {
         tipo: 'parrafos',
         heading: 'Por qué los datos van separados',
         parrafos: [
-          'Dos sedes en ciudades distintas tienen precios distintos, horarios distintos y clientes '
-            + 'distintos. Un total que las sume oculta exactamente lo que hay que mirar, que es cuál de '
-            + 'las dos está funcionando.',
-          'Cada sede tiene además su propio enlace de reservas, así que el cliente que entra por la '
-            + 'sede de su barrio ve las canchas de esa sede y no las de la otra punta de la provincia.',
+          'Dos complejos en ciudades distintas tienen precios distintos, horarios distintos y '
+            + 'clientes distintos. Un total que los sume oculta exactamente lo que hay que mirar, que '
+            + 'es cuál de los dos está funcionando.',
+          'Cada complejo tiene además su propio enlace de reservas, así que el cliente que entra por '
+            + 'el complejo de su barrio ve las canchas de ese complejo y no las de la otra punta de la '
+            + 'provincia.',
         ],
       },
     ],
     faq: [
       {
-        question: '¿Puedo tener un empleado que vea solo una sede?',
+        question: '¿Puedo tener un empleado que vea solo un complejo?',
         answer:
-          'El selector muestra las sedes de la cuenta con la que se entró. Para separar accesos por '
-          + 'sede, lo que corresponde es una cuenta por sede, con su propio usuario.',
+          'El selector muestra los complejos de la cuenta con la que se entró. Para separar accesos '
+          + 'por complejo, lo que corresponde es una cuenta por complejo, con su propio usuario.',
       },
       {
-        question: '¿Cuántas sedes puedo cargar?',
+        question: '¿Cuántos complejos puedo cargar?',
         answer:
-          'No hay un tope. El costo de Vibe es por reserva cobrada, no por cantidad de sedes ni de '
-          + 'canchas, así que sumar una sede no cambia lo que pagás por tenerla cargada.',
+          'Hasta 4 por cuenta. El costo de Vibe es por reserva cobrada, no por cantidad de complejos '
+          + 'ni de canchas, así que sumar un complejo no cambia lo que '
+          + 'pagás por tenerlo cargado.',
       },
     ],
     relacionados: ['panel-de-control', 'configuracion-del-complejo'],
