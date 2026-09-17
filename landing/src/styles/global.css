@@ -1801,13 +1801,32 @@ body {
   .tutorial-cta { padding: 24px; }
   .tutorial-index-item img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
   /* El video sangra a los dos bordes de la pantalla: se saca del padding del
-     contenedor con el mismo margen negativo, y pierde el marco de tarjeta que
-     tiene en desktop porque a sangre completa un borde redondeado se corta
-     contra el viewport en vez de leerse como esquina. */
+     contenedor con margen negativo, y pierde el marco de tarjeta que tiene en
+     desktop porque a sangre completa un borde redondeado se corta contra el
+     viewport en vez de leerse como esquina.
+     El .tutorial-inner que lo envuelve es también un .container, y .container
+     cambia de padding en SUS PROPIOS breakpoints (24 en desktop, 12 hasta
+     768px, 8 desde 360px), que no coinciden con los de .tutorial (24 en
+     desktop, 20 desde 640px). El margen que cancela los dos no es un número
+     fijo: acá, con .tutorial en 20 y .container en 12, el total es 32, no 44.
+     Verificado midiendo el x real del elemento, no calculado de memoria —
+     confiar en la suma de dos reglas escritas en momentos distintos fue
+     justo el error que dejó el video 12px corto de cada borde. */
   .tutorial-video {
-    width: 100vw; margin-left: -20px; margin-right: -20px;
+    width: 100vw; margin-left: -32px; margin-right: -32px;
     border-radius: 0; border-left: none; border-right: none;
   }
+}
+
+/* Va DESPUÉS del bloque de arriba a propósito: los dos @media aplican a la vez
+   bajo 360px, y en CSS dos reglas con la misma especificidad las decide el
+   orden en el archivo, no cuál @media es más angosto. Puesta antes, esta regla
+   perdía contra la de arriba aunque su condición fuera más específica. El
+   valor en sí (28) es el mismo de siempre — .tutorial en 20 más el .container
+   de acá en 8 — medido directo con getBoundingClientRect, no de memoria: fue
+   justo sumar de memoria lo que dio el número mal la primera vez. */
+@media (max-width: 360px) {
+  .tutorial-video { margin-left: -28px; margin-right: -28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

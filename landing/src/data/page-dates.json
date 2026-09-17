@@ -1,74 +1,74 @@
 {
   "/": {
-    "hash": "59f9286954dee222",
+    "hash": "7d2ce5ec1fbf4436",
     "date": "2026-09-16"
   },
   "/privacidad": {
-    "hash": "e2eca72e45f0b18e",
+    "hash": "eb20d7c97d31a589",
     "date": "2026-09-16"
   },
   "/terminos": {
-    "hash": "827771bf05d2370e",
+    "hash": "325ff38a09a460f0",
     "date": "2026-09-16"
   },
   "/guias": {
-    "hash": "4d86c621210a35e2",
+    "hash": "ff80f23b907cb8dd",
     "date": "2026-09-16"
   },
   "/guias/cuanto-cobra-mercadopago-por-una-sena": {
-    "hash": "197de5b483497318",
+    "hash": "aa302fb8fb581460",
     "date": "2026-09-16"
   },
   "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "d9754f781916781b",
+    "hash": "eb6d3417d4587bad",
     "date": "2026-09-16"
   },
   "/guias/como-llenar-los-horarios-vacios-de-un-complejo": {
-    "hash": "32036d0913075a07",
+    "hash": "76e59c068aaa2bb1",
     "date": "2026-09-16"
   },
   "/tutoriales": {
-    "hash": "aecf46be42fff9c9",
+    "hash": "fcd13fab763dc37e",
     "date": "2026-09-16"
   },
   "/tutoriales/base-de-clientes": {
-    "hash": "9c32cf224c4f0b92",
+    "hash": "0b0571af8bbd27a8",
     "date": "2026-09-16"
   },
   "/tutoriales/configuracion-del-complejo": {
-    "hash": "7d781b37339070e3",
+    "hash": "730d891d96e56f18",
     "date": "2026-09-16"
   },
   "/tutoriales/grilla-de-reservas": {
-    "hash": "89039dcb62446358",
+    "hash": "8728defc7b15e37f",
     "date": "2026-09-16"
   },
   "/tutoriales/panel-de-control": {
-    "hash": "109013d93e6c244b",
+    "hash": "e84425dd0b3df5b2",
     "date": "2026-09-16"
   },
   "/tutoriales/precios-por-horario": {
-    "hash": "776ccb9831372b59",
+    "hash": "c485440a212b3e65",
     "date": "2026-09-16"
   },
   "/tutoriales/reportes-de-facturacion": {
-    "hash": "34d3cf0239c9f651",
+    "hash": "e587bad01ed515b6",
     "date": "2026-09-16"
   },
   "/tutoriales/varios-complejos": {
-    "hash": "00f735fdff553385",
+    "hash": "d57a26cd7e499ef9",
     "date": "2026-09-16"
   },
   "/guias/vibe-o-atc-sports-en-que-se-diferencian": {
-    "hash": "35f64b545fc22801",
+    "hash": "8e638e48243f6e39",
     "date": "2026-09-16"
   },
   "/guias/vibe-o-canchafija-en-que-se-diferencian": {
-    "hash": "9897f921c472152a",
+    "hash": "9853599b9aa4893e",
     "date": "2026-09-16"
   },
   "/guias/vibe-o-turnito-para-un-complejo-de-canchas": {
-    "hash": "b3febf6721fc22f6",
+    "hash": "c93cdc55202e76c7",
     "date": "2026-09-16"
   }
 }
