@@ -1800,7 +1800,14 @@ body {
   .tutorial { padding: 110px 20px 64px; }
   .tutorial-cta { padding: 24px; }
   .tutorial-index-item img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
-  .tutorial-index-item img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+  /* El video sangra a los dos bordes de la pantalla: se saca del padding del
+     contenedor con el mismo margen negativo, y pierde el marco de tarjeta que
+     tiene en desktop porque a sangre completa un borde redondeado se corta
+     contra el viewport en vez de leerse como esquina. */
+  .tutorial-video {
+    width: 100vw; margin-left: -20px; margin-right: -20px;
+    border-radius: 0; border-left: none; border-right: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
