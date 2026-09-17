@@ -214,6 +214,13 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           `Los planes se leyeron de su página el ${TU_VERIFICADO} y el enlace está arriba. Los precios `
           + 'de Turnito cambian por país, así que los de acá son los de Argentina.',
       },
+      {
+        question: '¿Si mi complejo crece a más canchas, tengo que cambiar de plan en Vibe?',
+        answer:
+          'No. Vibe no tiene planes por cantidad de canchas ni cobra abono, así que sumar una cancha no te '
+          + 'mueve a un plan más caro. En Turnito en cambio cada cancha ocupa una agenda, y el plan que '
+          + 'necesitás depende de cuántas agendas sumás.',
+      },
     ],
   },
   {
@@ -318,6 +325,12 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         answer:
           `Los planes se leyeron de su página el ${CF_VERIFICADO} y el enlace está arriba. Son precios `
           + 'en pesos, así que conviene confirmarlos antes de hacer cuentas finas.',
+      },
+      {
+        question: '¿Vibe me cobra algo si un mes no tengo reservas?',
+        answer:
+          'No. Vibe no cobra abono ni un mínimo mensual: sin reservas no hay cargo para el complejo. '
+          + 'CanchaFija en cambio cobra su plan mensual haya reservas ese mes o no.',
       },
     ],
   },
@@ -438,6 +451,12 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         answer:
           `Los datos de ATC se leyeron de su página el ${ATC_VERIFICADO} y el enlace a la fuente está arriba. `
           + 'Si ves algo que no coincide con lo que ellos publican hoy, escribinos y lo corregimos.',
+      },
+      {
+        question: '¿El cargo de servicio de Vibe se cobra en pesos o en dólares?',
+        answer:
+          'En pesos, como porcentaje de la seña. El abono de ATC se cobra en dólares, así que los dos '
+          + 'números no se restan directo sin meter un tipo de cambio en el medio.',
       },
     ],
   },
@@ -678,6 +697,12 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'Hay planes gratuitos con límites de canchas o de reservas, y pruebas por tiempo limitado. Antes de '
           + 'contarlos como gratis conviene mirar dos cosas: qué pasa cuando pasás el límite, y si el cobro de '
           + 'señas online está incluido o es un extra, porque suele ser lo primero que queda afuera.',
+      },
+      {
+        question: '¿El cargo por reserva de Vibe baja si tengo mucho volumen de reservas?',
+        answer:
+          'No, es un porcentaje fijo de la seña con un mínimo en pesos, así que no cambia con el volumen. Un '
+          + 'abono fijo en cambio se abarata por reserva cuanto más turnos hacés, que es justo lo contrario.',
       },
     ],
   },

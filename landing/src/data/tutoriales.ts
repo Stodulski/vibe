@@ -116,6 +116,26 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           'Sí. La reserva cargada a mano ocupa el turno igual que una reserva online, y queda en el '
           + 'historial del cliente. La diferencia es que no pasa por el cobro de la seña.',
       },
+      {
+        question: '¿Qué pasa si dos personas intentan reservar el mismo horario y la misma cancha a la vez?',
+        answer:
+          'Antes de confirmar la reserva, el sistema chequea que ese horario siga libre. Si las dos '
+          + 'reservas llegan casi juntas, se acepta la primera que se procesa y la segunda se rechaza, así '
+          + 'que nunca queda una cancha doble reservada.',
+      },
+      {
+        question: '¿Puedo cambiarle la cancha o el horario a una reserva que ya cargué?',
+        answer:
+          'No desde la misma reserva. Lo que se puede cambiar es el estado (confirmada, cancelada, '
+          + 'completada, ausente) y las notas; para moverla de cancha u horario hay que cancelarla y '
+          + 'cargar una nueva.',
+      },
+      {
+        question: 'Si entra una reserva nueva mientras tengo la grilla abierta, ¿tengo que actualizar la página para verla?',
+        answer:
+          'No. El panel recibe los cambios en tiempo real, así que una reserva nueva o una cancelación '
+          + 'aparece sola en la grilla sin que tengas que recargar.',
+      },
     ],
     relacionados: ['precios-por-horario', 'base-de-clientes'],
   },
@@ -176,6 +196,26 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           + 'distinto al mediodía puede cargar esa también. Lo que no se puede es superponer dos '
           + 'franjas en el mismo horario.',
       },
+      {
+        question: '¿Qué pasa si dos personas editan el precio de la misma cancha al mismo tiempo?',
+        answer:
+          'El sistema detecta el conflicto: si alguien ya guardó un cambio en esa cancha, tu edición se '
+          + 'rechaza con un aviso de que hay una versión más nueva, para que la vuelvas a cargar sobre '
+          + 'los datos actualizados en vez de pisarlos.',
+      },
+      {
+        question: '¿Puedo eliminar una cancha que todavía tiene reservas futuras?',
+        answer:
+          'No. Mientras tenga una reserva confirmada o pendiente que no pasó todavía, el sistema no deja '
+          + 'borrarla. Hay que esperar a que esas reservas se completen o cancelarlas antes de eliminar '
+          + 'la cancha.',
+      },
+      {
+        question: '¿Puede una cancha techada costar distinto que una descubierta a la misma hora?',
+        answer:
+          'Sí. El precio se carga por cancha, así que a las nueve de la noche la techada puede salir más '
+          + 'y la descubierta menos, y el que reserva ve el precio de cada una antes de elegir.',
+      },
     ],
     relacionados: ['grilla-de-reservas', 'reportes-de-facturacion'],
     guia: {
@@ -226,6 +266,26 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           'No es obligatorio. Con el nombre y el teléfono alcanza para reservar. El email, si lo deja, '
           + 'se usa para mandarle la confirmación y el recordatorio del turno.',
       },
+      {
+        question: '¿Puedo editar a mano los datos de un cliente?',
+        answer:
+          'Solo las notas y el bloqueo. El nombre, el teléfono y el email salen de sus reservas y no se escriben '
+          + 'desde la ficha. Lo que sí podés agregar son notas propias, por ejemplo que prefiere '
+          + 'cierta cancha o cierto horario.',
+      },
+      {
+        question: '¿Se puede bloquear a un cliente para que no vuelva a reservar?',
+        answer:
+          'Sí. Cada cliente tiene un estado de bloqueado que se activa desde su ficha, y una vez '
+          + 'bloqueado no puede volver a reservar online.',
+      },
+      {
+        question: '¿El porcentaje de asistencia cuenta las reservas que cargué por teléfono, o solo las que se pagaron online?',
+        answer:
+          'Cuenta todas. El porcentaje sale de las reservas completadas y las ausencias reales del '
+          + 'cliente, sea que la reserva se haya pagado online o la hayas cargado vos a mano por un turno '
+          + 'telefónico.',
+      },
     ],
     relacionados: ['grilla-de-reservas', 'panel-de-control'],
   },
@@ -272,6 +332,24 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         answer:
           'El gráfico del panel muestra la tendencia reciente. Para el detalle de un mes cerrado, con '
           + 'el desglose por método de pago y por cancha, está la pantalla de reportes.',
+      },
+      {
+        question: '¿Cuántos clientes muestra el ranking de los que más reservaron?',
+        answer:
+          'Los diez que más reservaron en los últimos 30 días. Si tenés menos de diez clientes activos en '
+          + 'ese período, el resto de los lugares queda vacío en vez de completarse con cualquiera.',
+      },
+      {
+        question: '¿El gráfico de ingresos por semana muestra los últimos 7 días corridos?',
+        answer:
+          'Sí. La vista semanal suma los últimos 7 días contando hoy, y la vista mensual los últimos 30, '
+          + 'así que las dos son una ventana móvil y no el calendario del mes.',
+      },
+      {
+        question: '¿El porcentaje de ocupación del panel cuenta las canchas que desactivé?',
+        answer:
+          'No. La ocupación se calcula solo sobre las canchas activas, así que desactivar una cancha en '
+          + 'mantenimiento no te baja el porcentaje por horas que de entrada no estaban a la venta.',
       },
     ],
     relacionados: ['reportes-de-facturacion', 'base-de-clientes'],
@@ -321,6 +399,25 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         answer:
           'Sí. El neto que muestra el reporte ya tiene los reembolsos restados, así que no hay que '
           + 'hacer la cuenta aparte.',
+      },
+      {
+        question: '¿El reporte muestra cuánto facturó cada cancha por separado?',
+        answer:
+          'Sí. Además del total del mes, el reporte abre un desglose por cancha con lo cobrado, lo '
+          + 'reembolsado y el neto de cada una, para ver cuáles rinden y cuáles no.',
+      },
+      {
+        question: '¿Hay un límite de pagos que se pueden exportar en un mismo reporte?',
+        answer:
+          'Sí, hay un tope de filas por exportación. Si un mes tiene más pagos que ese tope la '
+          + 'exportación se rechaza, y lo que corresponde es achicar el rango de fechas o pedirla en '
+          + 'partes.',
+      },
+      {
+        question: '¿Puedo exportar el reporte de un mes que ya pasó, no solo el actual?',
+        answer:
+          'Sí. La exportación pide el mes y el año como cualquier otro filtro, así que sirve igual para '
+          + 'el mes en curso que para uno cerrado hace tiempo.',
       },
     ],
     relacionados: ['panel-de-control', 'precios-por-horario'],
@@ -373,6 +470,24 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           'Sí, los horarios de atención se definen día por día. El sábado puede abrir y cerrar a otra '
           + 'hora que el lunes, y la página pública respeta cada uno.',
       },
+      {
+        question: '¿Qué rango de horas puedo configurar para la ventana de cancelación?',
+        answer:
+          'Entre 1 y 168 horas, es decir hasta una semana entera antes del turno. No se puede dejar en '
+          + 'cero, porque eso equivaldría a reembolsar siempre sin ninguna ventana real.',
+      },
+      {
+        question: '¿Puedo pedir el 100% de seña, o solo un porcentaje parcial?',
+        answer:
+          'Podés poner cualquier valor entre 0% y 100%. Un complejo que quiere cobrar la cancha completa '
+          + 'por adelantado puede pedir el 100% de seña sin que el sistema se lo impida.',
+      },
+      {
+        question: 'Si cambio el porcentaje de seña, ¿cambia el monto de las reservas que ya están cargadas?',
+        answer:
+          'No. Cada reserva guarda el monto de seña que correspondía el día que se cargó, así que un '
+          + 'cambio en la configuración solo afecta a las reservas nuevas de ahí en adelante.',
+      },
     ],
     relacionados: ['precios-por-horario', 'varios-complejos'],
     guia: {
@@ -424,6 +539,25 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           'Hasta 4 por cuenta. El costo de Vibe es por reserva cobrada, no por cantidad de complejos '
           + 'ni de canchas, así que sumar un complejo no cambia lo que '
           + 'pagás por tenerlo cargado.',
+      },
+      {
+        question: '¿Un complejo nuevo arranca con horarios ya cargados, o hay que configurarlo todo de cero?',
+        answer:
+          'Arranca con un horario por defecto de lunes a domingo de 8 a 23, para que puedas recibir '
+          + 'reservas apenas lo creás. Después lo ajustás día por día desde Configuración.',
+      },
+      {
+        question: '¿Puedo eliminar un complejo que todavía tiene reservas activas?',
+        answer:
+          'No. Mientras tenga alguna reserva confirmada o pendiente que no pasó todavía, el sistema '
+          + 'rechaza la baja del complejo hasta que esas reservas se resuelvan.',
+      },
+      {
+        question: 'Si tengo dos complejos, ¿uso la misma cuenta de MercadoPago para los dos o conecto una por complejo?',
+        answer:
+          'Conectás una cuenta de MercadoPago por complejo. Cada uno guarda su propia conexión, así que '
+          + 'la plata de las señas de un complejo entra a la cuenta que conectaste para ese complejo y '
+          + 'no se mezcla con la del otro.',
       },
     ],
     relacionados: ['panel-de-control', 'configuracion-del-complejo'],
