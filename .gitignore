@@ -15,3 +15,6 @@ dist/
 .vercel/
 # Local env files the Vercel CLI writes
 .env*.local
+
+# Local task tracking for in-progress work, never shared
+odd/
