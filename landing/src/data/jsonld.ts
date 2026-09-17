@@ -64,7 +64,7 @@ JSON.stringify({
     acceptedAnswer: { '@type': 'Answer', text: item.answer },
   })),
 }, null, 2),
-`   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png","description":"Plataforma de gestión de complejos deportivos y reservas online en Argentina.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/"]}`,
+`   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png","description":"Plataforma de gestión de complejos deportivos y reservas online en Argentina.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/144714896/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
 `   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar","description":"Plataforma de gestión de complejos deportivos y reservas online.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
 ];
 

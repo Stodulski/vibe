@@ -114,11 +114,13 @@ async function testLinks() {
     check(`enlace interno ${href}`, r.status() === 200, `${r.status()}`);
   }
 
-  /* Un 403 al request pelado no significa que el enlace este roto: algunos
-     hosts (MercadoPago, por ejemplo) rechazan cualquier cliente que no parezca
-     un navegador. Antes de darlo por muerto se reintenta navegando de verdad,
-     que es lo que hace la persona que hace click. Cualquier otro codigo >= 400
-     sigue fallando, y una navegacion que tampoco llega tambien. */
+  /* Un 403 o un 400 al request pelado no significa que el enlace este roto:
+     algunos hosts rechazan cualquier cliente que no parezca un navegador
+     (MercadoPago contesta 403, Facebook 400). Antes de darlo por muerto se
+     reintenta navegando de verdad, que es lo que hace la persona que hace
+     click. Cualquier otro codigo >= 400 sigue fallando, y una navegacion que
+     tampoco llega tambien. */
+  const RECHAZO_A_BOTS = [400, 403];
   const external = hrefs.filter(h => /^https?:/.test(h));
   for (const href of external) {
     const host = new URL(href).host;
@@ -131,7 +133,7 @@ async function testLinks() {
       check(`enlace externo ${host}`, true, `${status}`);
       continue;
     }
-    if (status !== null && status !== 403) {
+    if (status !== null && !RECHAZO_A_BOTS.includes(status)) {
       check(`enlace externo ${host}`, false, `${status}`);
       continue;
     }

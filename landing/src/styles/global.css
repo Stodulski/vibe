@@ -1101,19 +1101,25 @@ body {
 
 /* Contact strip: its own row under the footer, so the three-column flex above
    keeps its spacing instead of squeezing a fourth item in. */
-.footer-contact {
+/* Contact on the left, social profiles on the right. They are two lists, not
+   one: the contact strip is asserted to hold exactly the mail and the phone. */
+.footer-bottom {
   max-width: 1140px; margin: 24px auto 0; padding-top: 24px;
   border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 28px;
+}
+.footer-contact, .footer-social {
   display: flex; flex-wrap: wrap; gap: 12px 28px;
   list-style: none;
 }
-.footer-contact a {
+.footer-social { order: 2; }
+.footer-contact a, .footer-social a {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 0.875rem; color: var(--muted); text-decoration: none;
   transition: color 0.3s;
 }
-.footer-contact a:hover { color: var(--green); }
-.footer-contact svg { flex-shrink: 0; }
+.footer-contact a:hover, .footer-social a:hover { color: var(--green); }
+.footer-contact svg, .footer-social svg { flex-shrink: 0; }
 
 /* Underlined, not just green: a link inside a paragraph has to be
    distinguishable without relying on colour alone. */
@@ -1214,6 +1220,8 @@ body {
   /* Centred to match the stacked footer above it. The extra bottom padding clears
      the fixed WhatsApp button (56px tall, 24px from the bottom), which otherwise
      sits on top of the phone number once the page is scrolled to the end. */
+  .footer-bottom { flex-direction: column; align-items: center; }
+  .footer-social { order: 0; justify-content: center; gap: 12px 24px; }
   .footer-contact { justify-content: center; gap: 12px 24px; padding-bottom: 72px; }
   .cursor-blob { display: none; }
   .section-title { font-size: clamp(1.75rem, 5vw, 2.5rem); }
