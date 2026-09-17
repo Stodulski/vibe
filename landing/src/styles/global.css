@@ -475,6 +475,7 @@ body {
 /* Frame for owner-dashboard screenshots — subtle border and brand glow, no fake window chrome */
 .browser-frame {
   border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 0 48px -12px var(--green-glow);
 }
 .browser-frame img { display: block; width: 100%; height: auto; }
