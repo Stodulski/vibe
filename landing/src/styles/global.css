@@ -1640,20 +1640,25 @@ body {
    lo que hay es una lista que se lee de arriba hacia abajo, y el borde de cada
    caja competía con esa lectura. El CTA reemplaza lo que la tarjeta insinuaba:
    ahora dice adónde lleva en vez de sugerirlo con una sombra. */
+/* El margen negativo es lo que hace que el fondo del hover respire: la fila se
+   ensancha --index-aire a cada lado y el texto queda donde estaba, alineado con
+   el resto de la página. Sin eso el fondo arranca pegado a la primera letra. */
 .guia-index, .tutorial-index {
-  list-style: none; padding: 0; margin: 40px 0 0;
+  --index-aire: 20px;
+  list-style: none; padding: 0;
+  margin: 40px calc(var(--index-aire) * -1) 0;
   border-top: 1px solid var(--border);
 }
 .guia-index-item, .tutorial-index-item { border-bottom: 1px solid var(--border); }
 .guia-index-item a, .tutorial-index-item a {
   display: flex; align-items: center; gap: 28px;
-  padding: 28px 4px; text-decoration: none;
+  padding: 28px var(--index-aire); text-decoration: none; border-radius: 10px;
   transition: background-color 0.2s ease, padding-left 0.2s var(--ease);
 }
 .guia-index-item a:hover, .guia-index-item a:focus-visible,
 .tutorial-index-item a:hover, .tutorial-index-item a:focus-visible {
   background: color-mix(in oklab, var(--green) 4%, transparent);
-  padding-left: 14px;
+  padding-left: calc(var(--index-aire) + 10px);
 }
 .index-texto { flex: 1; min-width: 0; }
 .index-cta {
@@ -1671,10 +1676,12 @@ body {
 @media (max-width: 640px) {
   .guia { padding: 110px 20px 64px; }
   .guia-cta { padding: 24px; }
+  .guia-index, .tutorial-index { --index-aire: 14px; }
   .guia-index-item a, .tutorial-index-item a {
-    flex-direction: column; align-items: flex-start; gap: 14px; padding: 24px 0;
+    flex-direction: column; align-items: flex-start; gap: 14px;
+    padding: 24px var(--index-aire);
   }
-  .guia-index-item a:hover, .tutorial-index-item a:hover { padding-left: 0; }
+  .guia-index-item a:hover, .tutorial-index-item a:hover { padding-left: var(--index-aire); }
 }
 
 @media (prefers-reduced-motion: reduce) {
