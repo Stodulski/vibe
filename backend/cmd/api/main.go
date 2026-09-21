@@ -181,11 +181,12 @@ func main() {
 
 	if cfg.Sentry.DSN != "" {
 		err := sentry.Init(sentry.ClientOptions{
-			Dsn:              cfg.Sentry.DSN,
-			Environment:      cfg.Env,
-			Release:          sentryRelease(cfg),
-			TracesSampleRate: 0.1,
-			EnableTracing:    true,
+			Dsn:         cfg.Sentry.DSN,
+			Environment: cfg.Env,
+			Release:     sentryRelease(cfg),
+			// No tracing. Nothing in the tree starts a span, and transactions
+			// skip BeforeSend: turning it on needs a BeforeSendTransaction that
+			// scrubs them first.
 			// Everything below leaves the building. See scrubEvent.
 			BeforeSend:       scrubEvent,
 			BeforeBreadcrumb: scrubBreadcrumb,
