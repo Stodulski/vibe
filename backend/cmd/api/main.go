@@ -196,6 +196,8 @@ func main() {
 			logger.Info("sentry initialized")
 			defer sentry.Flush(2 * time.Second)
 		}
+	} else {
+		logger.Info("sentry disabled (no SENTRY_DSN)")
 	}
 
 	// -migrate-only is what a Railway pre-deploy command runs: apply the
@@ -478,6 +480,17 @@ func main() {
 	} else {
 		logger.Info("google sign-in disabled (no GOOGLE_OAUTH_CLIENT_ID)")
 	}
+
+	// One event per boot, so that a deploy proves its own Sentry wiring: an
+	// empty project is otherwise indistinguishable from a DSN that was never
+	// set. Here rather than next to sentry.Init because -migrate-only passes
+	// through that and is not a boot. The message is constant so every boot
+	// groups into one issue; the release is already on the event. No-op when
+	// Sentry was never initialised.
+	sentry.WithScope(func(scope *sentry.Scope) {
+		scope.SetLevel(sentry.LevelInfo)
+		sentry.CaptureMessage("backend booted")
+	})
 
 	app.startCronJobs()
 
