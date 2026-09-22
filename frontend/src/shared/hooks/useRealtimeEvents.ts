@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '@/shared/lib/queryKeys';
-import { refreshAccessToken } from '@/shared/lib/ky';
+import { bootstrapSession, refreshAccessToken } from '@/shared/lib/ky';
 import { env } from '@/shared/lib/env';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
@@ -21,7 +21,18 @@ const RETRY_DELAY = 3_000;
  */
 type StreamCloseReason = 'expired' | 'unauthorized' | null;
 
-/** Closes the failed connection and schedules a reconnect after a token refresh. */
+/**
+ * Closes the failed connection and schedules a reconnect.
+ *
+ * An ordinary drop (the proxy cut the stream, the network blinked, the
+ * server restarted) says nothing about the session, so it must not spend
+ * the refresh token: `bootstrapSession` reads `/auth/me` and rotates only
+ * if that answers 401. Refreshing unconditionally here rotated the token on
+ * every drop while the access token was still valid; a rotation the page
+ * never got to store (a drop right before it closed) then left the next
+ * document presenting a spent token, which the server treats as theft
+ * after its concurrent-refresh grace and revokes every session on it.
+ */
 function handleSSEError(
   es: EventSource,
   esRef: RefObject<EventSource | null>,
@@ -35,14 +46,16 @@ function handleSSEError(
   if (retriesRef.current >= MAX_RETRIES) return;
   retriesRef.current++;
 
-  refreshAccessToken()
-    .then(() => {
+  bootstrapSession()
+    .then((session) => {
+      // No session left — signed out, stop retrying.
+      if (!session) return;
       retryTimerRef.current = setTimeout(() => {
         connectRef.current();
       }, RETRY_DELAY);
     })
     .catch(() => {
-      // Refresh failed — session expired, stop retrying.
+      // The session could not be read at all — stop retrying.
     });
 }
 

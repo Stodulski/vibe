@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { toast } from 'sonner';
+import { http, HttpResponse } from 'msw';
 import * as ky from '@/shared/lib/ky';
+import { server } from '@/test/msw/server';
 import { useRealtimeEvents } from './useRealtimeEvents';
 import { createQueryWrapper } from '@/test/test-utils';
 
@@ -214,6 +216,74 @@ describe('useRealtimeEvents — server-closed streams', () => {
 
     expect(refreshAccessToken).toHaveBeenCalledTimes(1);
     expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('useRealtimeEvents — ordinary stream drops', () => {
+  // `bootstrapSession` reaches `refreshAccessToken` through the module's own
+  // binding, which a spy on the export cannot see; the wire is the proof.
+  let refreshHits = 0;
+
+  beforeEach(() => {
+    MockEventSource.reset();
+    vi.stubGlobal('EventSource', MockEventSource);
+    Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
+    refreshHits = 0;
+    server.use(
+      http.post('*/auth/refresh', () => {
+        refreshHits++;
+        return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reconnects after a plain drop without spending the refresh token while the session is alive', async () => {
+    renderHook(
+      () => {
+        useRealtimeEvents('complex-1');
+      },
+      { wrapper: createQueryWrapper() },
+    );
+    const es = firstInstance();
+
+    // No named terminal event first: the proxy cut the stream, the network
+    // blinked. `/auth/me` (the MSW default) still answers 200.
+    es.onerror?.(new Event('error'));
+
+    expect(es.closed).toBe(true);
+    await waitFor(
+      () => {
+        expect(MockEventSource.instances).toHaveLength(2);
+      },
+      { timeout: 5_000 },
+    );
+    expect(refreshHits).toBe(0);
+  });
+
+  it('refreshes after a plain drop only when /auth/me says the access token is gone', async () => {
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ error: 'unauthorized' }, { status: 401 })));
+    renderHook(
+      () => {
+        useRealtimeEvents('complex-1');
+      },
+      { wrapper: createQueryWrapper() },
+    );
+    const es = firstInstance();
+
+    es.onerror?.(new Event('error'));
+
+    await waitFor(() => {
+      expect(refreshHits).toBeGreaterThanOrEqual(1);
+    });
+    // The refresh failed too: signed out, no reconnect is scheduled.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+    expect(MockEventSource.instances).toHaveLength(1);
   });
 });
 
