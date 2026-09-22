@@ -250,15 +250,13 @@
           "value": "<https://vibe.com.ar/tutoriales-configuracion-del-complejo.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
         }
       ]
-    },
+    }
+  ],
+  "redirects": [
     {
       "source": "/tutoriales/varios-complejos",
-      "headers": [
-        {
-          "key": "Link",
-          "value": "<https://vibe.com.ar/tutoriales-varios-complejos.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
-        }
-      ]
+      "destination": "/tutoriales/configuracion-del-complejo",
+      "permanent": true
     }
   ],
   "build": {

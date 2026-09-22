@@ -14,9 +14,28 @@ import Screenshot from './Screenshot.astro';
    <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
    <div class="ft-viewport">
     <div class="ft-stack">
-     <!-- Decorative-only clone of Reportes (2nd-to-last), so the Multi-sede wrap-target clone
+     <!-- Decorative-only clone of Clientes (2nd-to-last), so the Reportes wrap-target clone
           right after it has something to peek at on its own left during the transition. -->
-     <div class="ft-block ft-block--clone" aria-hidden="true">
+     <div class="ft-block ft-block--reverse ft-block--clone" aria-hidden="true">
+      <div class="ft-block-text">
+       <h3>Historial completo de cada cliente</h3>
+       <p>Toda tu base de clientes en un solo lugar.</p>
+       <ul class="ft-bullets">
+        <li>Reservas, ausencias y asistencia</li>
+        <li>Bloqueá clientes problemáticos con un click</li>
+        <li>Buscá por nombre, email o teléfono</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="historial-de-clientes" alt="" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Loop clone of the last slide (Reportes), peeks on the left of slide 1 — this is
+          the one goToFeature actually animates onto when wrapping backward from slide 1. -->
+     <div class="ft-block ft-block--clone" data-clone="before" aria-hidden="true">
       <div class="ft-block-text">
        <h3>Reportes de facturación al día</h3>
        <p>Total facturado por mes, listo para descargar.</p>
@@ -29,25 +48,6 @@ import Screenshot from './Screenshot.astro';
       <div class="ft-block-visual">
        <div class="browser-frame">
         <Screenshot name="reporte-de-facturacion" alt="" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Loop clone of the last slide (Multi-sede), peeks on the left of slide 1 — this is
-          the one goToFeature actually animates onto when wrapping backward from slide 1. -->
-     <div class="ft-block ft-block--reverse ft-block--clone" data-clone="before" aria-hidden="true">
-      <div class="ft-block-text">
-       <h3>Varios complejos, una sola cuenta</h3>
-       <p>Administrá hasta 4 complejos desde el mismo login.</p>
-       <ul class="ft-bullets">
-        <li>Hasta 4 complejos por cuenta</li>
-        <li>Cada complejo con URL y precios propios</li>
-        <li>Un solo login para todo</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="varios-complejos-una-cuenta" alt="" />
        </div>
       </div>
      </div>
@@ -142,24 +142,6 @@ import Screenshot from './Screenshot.astro';
       </div>
      </div>
 
-     <!-- Feature 6: Multi-sede (reversed) -->
-     <div class="ft-block ft-block--reverse">
-      <div class="ft-block-text">
-       <h3>Varios complejos, una sola cuenta</h3>
-       <p>Administrá hasta 4 complejos desde el mismo login.</p>
-       <ul class="ft-bullets">
-        <li>Hasta 4 complejos por cuenta</li>
-        <li>Cada complejo con URL y precios propios</li>
-        <li>Un solo login para todo</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="varios-complejos-una-cuenta" alt="Selector real de complejos de Vibe mostrando varios complejos administrados desde la misma cuenta" />
-       </div>
-      </div>
-     </div>
-
      <!-- Loop clone of the first slide (Reservas), peeks on the right of the last slide — the
           one goToFeature actually animates onto when wrapping forward from the last slide. -->
      <div class="ft-block ft-block--clone" data-clone="after" aria-hidden="true">
@@ -208,7 +190,6 @@ import Screenshot from './Screenshot.astro';
    <button type="button" class="ft-dot" aria-label="Ir a: Precios por cancha, día y horario"></button>
    <button type="button" class="ft-dot" aria-label="Ir a: Historial completo de cada cliente"></button>
    <button type="button" class="ft-dot" aria-label="Ir a: Reportes de facturación al día"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: Varios complejos, una sola cuenta"></button>
   </div>
 
   <p class="ft-tutoriales anim anim-d4">

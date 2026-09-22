@@ -1,7 +1,7 @@
 {
   "/": {
-    "hash": "1ffb4533ad0ce80c",
-    "date": "2026-09-17"
+    "hash": "cc773eae4334247d",
+    "date": "2026-09-22"
   },
   "/privacidad": {
     "hash": "903daaa8bce469bd",
@@ -28,16 +28,16 @@
     "date": "2026-09-17"
   },
   "/tutoriales": {
-    "hash": "731d5e3c75d16388",
-    "date": "2026-09-17"
+    "hash": "faf104b10c261b46",
+    "date": "2026-09-22"
   },
   "/tutoriales/base-de-clientes": {
     "hash": "b749fda25ece9b05",
     "date": "2026-09-17"
   },
   "/tutoriales/configuracion-del-complejo": {
-    "hash": "5a945e6a935a5573",
-    "date": "2026-09-17"
+    "hash": "f96e2ea626eef8eb",
+    "date": "2026-09-22"
   },
   "/tutoriales/grilla-de-reservas": {
     "hash": "08745d87759c60ec",
@@ -53,10 +53,6 @@
   },
   "/tutoriales/reportes-de-facturacion": {
     "hash": "184037b79d8b68d5",
-    "date": "2026-09-17"
-  },
-  "/tutoriales/varios-complejos": {
-    "hash": "dd0bed7b0a4fc65c",
     "date": "2026-09-17"
   },
   "/guias/vibe-o-atc-sports-en-que-se-diferencian": {
