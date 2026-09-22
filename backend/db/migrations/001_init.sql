@@ -542,7 +542,11 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON complexes
 CREATE TRIGGER set_version BEFORE UPDATE ON complexes
     FOR EACH ROW EXECUTE FUNCTION trigger_bump_version();
 
-CREATE INDEX idx_complexes_owner_id   ON complexes (owner_id);
+-- One account owns exactly one LIVE complex. Partial, unlike
+-- complexes_slug_key above: a soft-deleted complex frees its owner's slot, so
+-- the owner may open a new one, while a soft-deleted complex's slug stays
+-- reserved forever.
+CREATE UNIQUE INDEX complexes_owner_id_key ON complexes (owner_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_complexes_slug       ON complexes (slug) WHERE deleted_at IS NULL;
 CREATE INDEX idx_complexes_city       ON complexes (city) WHERE deleted_at IS NULL;
 CREATE INDEX idx_complexes_created_at ON complexes (created_at DESC) WHERE deleted_at IS NULL;

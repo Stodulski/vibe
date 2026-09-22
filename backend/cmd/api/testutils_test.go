@@ -97,7 +97,6 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize fun
 			SlotLockTTL:     20 * time.Minute,
 			LinkTokenBuffer: 24 * time.Hour,
 		},
-		Limits: config.Limits{MaxComplexes: 4},
 	}
 
 	models := stores.Stores{

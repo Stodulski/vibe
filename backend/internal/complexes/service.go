@@ -27,9 +27,10 @@ var (
 	// ErrSlugTaken reports that the public URL an owner asked for is already
 	// serving another venue, or is one of the client's own reserved routes.
 	ErrSlugTaken = errors.New("slug is already taken")
-	// ErrMaxComplexes reports that the account already owns as many venues as
-	// its plan allows.
-	ErrMaxComplexes = errors.New("maximum complexes per account reached")
+	// ErrAlreadyOwnsComplex reports that the account already owns a live
+	// complex: one account owns exactly one complex, enforced by the
+	// database's partial unique index on complexes.owner_id.
+	ErrAlreadyOwnsComplex = errors.New("account already owns a complex")
 	// ErrActiveBookings reports that an operation was refused because the venue
 	// still has live bookings. Both deletion and disconnecting MercadoPago
 	// raise it; they answer with different sentences because they are different
@@ -197,13 +198,16 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 		return nil, ErrSlugTaken
 	}
 
-	// Check complex limit per account.
+	// One account owns exactly one complex. This is the fast-path check; the
+	// database's partial unique index on complexes.owner_id is the authority
+	// (see the ErrDuplicateOwner mapping below), the same split Insert already
+	// has between SlugExists and complexes_slug_key.
 	owned, err := s.venues.GetByOwner(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
-	if len(owned) >= s.cfg.MaxComplexes {
-		return nil, ErrMaxComplexes
+	if len(owned) >= 1 {
+		return nil, ErrAlreadyOwnsComplex
 	}
 
 	// A new venue lists nothing yet unless the caller named some at creation.
@@ -241,6 +245,9 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 		// change instead of being handed a 500.
 		if errors.Is(err, complexstore.ErrDuplicateSlug) {
 			return nil, ErrSlugTaken
+		}
+		if errors.Is(err, complexstore.ErrDuplicateOwner) {
+			return nil, ErrAlreadyOwnsComplex
 		}
 		return nil, err
 	}

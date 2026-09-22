@@ -124,7 +124,6 @@ func newIntegrationApp(t *testing.T, pool *platformdb.Pool, opts ...func(*config
 			AppSecret:   "test",
 		},
 		Limiter:     config.Limiter{Enabled: false},
-		Limits:      config.Limits{MaxComplexes: 4},
 		FrontendURL: "http://localhost:5173",
 	}
 
