@@ -23,6 +23,12 @@ const (
 	// (courts_active_name_unique, a partial index over active courts).
 	CodeCourtNameTaken = "court_name_taken"
 
+	// CodeProductNameTaken means the complex already has an active product
+	// with the requested name (case-insensitive). Only the server can know
+	// this: it needs the database (idx_products_active_name_unique, a
+	// partial index over active products).
+	CodeProductNameTaken = "product_name_taken"
+
 	// CodeDepositOver100 means the complex is configured with a deposit
 	// percentage above 100.
 	CodeDepositOver100 = "deposit_percentage_over_100"

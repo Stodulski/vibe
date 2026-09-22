@@ -30,6 +30,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/platform/config"
 	platformdb "github.com/stodulski/vibe-server/internal/platform/db"
 	platformredis "github.com/stodulski/vibe-server/internal/platform/redis"
+	"github.com/stodulski/vibe-server/internal/products"
 	"github.com/stodulski/vibe-server/internal/publicsite"
 	"github.com/stodulski/vibe-server/internal/realtime"
 	"github.com/stodulski/vibe-server/internal/reporting"
@@ -455,6 +456,14 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	cashboxService := cashbox.NewService(d.models.Cashbox, d.models.Reports, auditor)
 	cashboxHandler := cashbox.NewHandler(cashboxService, respond, d.trustedProxies.Any())
 
+	// products' own Restock writes directly to cash_movements (the shared
+	// generated *db.Queries, not a call into cashbox's service or store) so
+	// that the restock and its cash expense commit in one transaction — see
+	// internal/products/store.Store.Restock's own comment for why that
+	// crosses domain tables without crossing Go package boundaries.
+	productsService := products.NewService(d.models.Products, auditor)
+	productsHandler := products.NewHandler(productsService, respond, d.trustedProxies.Any())
+
 	// The one edge that cannot be a constructor argument, closed the moment the
 	// other side exists: before any handler is built, before the router is
 	// built, and therefore before a request can reach the public venue page
@@ -636,6 +645,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.specValidator = specValidator
 	app.courts = courtsHandler
 	app.cashbox = cashboxHandler
+	app.products = productsHandler
 	app.tokens = tokens
 	app.middleware = mw
 	app.notify = notify

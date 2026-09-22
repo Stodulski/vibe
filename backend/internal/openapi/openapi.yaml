@@ -69,6 +69,8 @@ tags:
     description: The MercadoPago payment-provider webhook.
   - name: places
     description: A pass-through proxy to Google Places so the API key never reaches the browser.
+  - name: products
+    description: The counter's product catalog and its append-only stock ledger (restock, adjustment).
   - name: publicsite
     description: The public storefront's sitemap and crawler-facing prerendered pages.
   - name: realtime
@@ -3151,6 +3153,313 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
 
   # ---------------------------------------------------------------------
+  # products
+  # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/products:
+    get:
+      tags: [products]
+      operationId: productsList
+      summary: List this complex's product catalog
+      description: >-
+        Unpaginated (a shop's catalog is bounded). Each product carries a computed `low_stock`
+        flag (tracks_stock, a threshold is set, and stock is at or below it) and
+        `needs_stock_review` (stock went below zero).
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ActiveFilter"}
+      responses:
+        "200":
+          description: Every matching product.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [products]
+                properties:
+                  products:
+                    type: array
+                    items: {$ref: "#/components/schemas/Product"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [products]
+      operationId: productsCreate
+      summary: Add a product to the catalog
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The created product.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product]
+                properties:
+                  product: {$ref: "#/components/schemas/Product"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price]
+              properties:
+                name: {type: string, maxLength: 120}
+                category: {type: string, maxLength: 60}
+                price:
+                  type: [integer, "null"]
+                  minimum: 0
+                  maximum: 2000000000
+                  description: >-
+                    Centavos ARS. Nullable only so a request that omits it decodes to a Go nil
+                    rather than a valid-looking 0 — the request validator that would otherwise
+                    catch a missing required field never runs in production
+                    (internal/middleware/openapi.go), so the handler is the only place this is
+                    actually enforced.
+                tracks_stock: {type: boolean, default: true}
+                low_stock_threshold: {type: integer, minimum: 0}
+
+  /api/v1/complexes/{id}/products/{productID}:
+    get:
+      tags: [products]
+      operationId: productsGet
+      summary: Get one product
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ProductID"}
+      responses:
+        "200":
+          description: The product.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product]
+                properties:
+                  product: {$ref: "#/components/schemas/Product"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    patch:
+      tags: [products]
+      operationId: productsUpdate
+      summary: Update a product
+      description: >-
+        Every field is optional; an omitted one keeps its current value. Sending `category` as
+        an empty string clears it. Turning `tracks_stock` off while `stock_on_hand` is not zero
+        is refused with 409 — adjust the count to zero first.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ProductID"}
+        - {$ref: "#/components/parameters/IfMatchVersion"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "200":
+          description: The updated product.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product]
+                properties:
+                  product: {$ref: "#/components/schemas/Product"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/EditConflict"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                  minimum: 1
+                  description: >-
+                    The row version the client read before it edited. Same meaning as `If-Match`,
+                    which wins where both are sent; omitting both is last-write-wins.
+                name: {type: string, maxLength: 120}
+                category: {type: string, maxLength: 60}
+                price: {type: integer, minimum: 0, maximum: 2000000000}
+                low_stock_threshold: {type: integer, minimum: 0}
+                active: {type: boolean}
+                tracks_stock: {type: boolean}
+
+  /api/v1/complexes/{id}/products/{productID}/restock:
+    post:
+      tags: [products]
+      operationId: productsRestock
+      summary: Record a stock delivery
+      description: >-
+        Requires an open cash session (409 otherwise). In one transaction, writes the `restock`
+        cash expense (amount = total_cost) and the linked stock movement, and applies the
+        delivered quantity to `stock_on_hand`. Refused with 409 for a product that is inactive
+        or does not track stock.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ProductID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The updated product and the recorded stock movement.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product, stock_movement]
+                properties:
+                  product: {$ref: "#/components/schemas/Product"}
+                  stock_movement: {$ref: "#/components/schemas/StockMovement"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: >-
+            No cash session is open, the product is not active, or the product does not track
+            stock.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity, total_cost, method]
+              properties:
+                quantity:
+                  type: [integer, "null"]
+                  minimum: 1
+                  maximum: 100000
+                  description: Nullable for the same missing-vs-zero reason productsCreate's price is.
+                total_cost:
+                  type: [integer, "null"]
+                  minimum: 1
+                  maximum: 2000000000
+                  description: >-
+                    Centavos ARS. A free restock is an adjustment, not a restock, so this is at
+                    least 1. Nullable for the same reason quantity is.
+                method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
+                note: {type: string, maxLength: 500}
+
+  /api/v1/complexes/{id}/products/{productID}/adjustments:
+    post:
+      tags: [products]
+      operationId: productsAdjust
+      summary: Correct a product's stock by hand
+      description: >-
+        No money involved, no cash session required. Refused with 409 for a product that does
+        not track stock. Stock may go negative — an owner may adjust past zero on purpose (a
+        recount that finds less than the system expects).
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ProductID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The updated product and the recorded stock movement.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product, stock_movement]
+                properties:
+                  product: {$ref: "#/components/schemas/Product"}
+                  stock_movement: {$ref: "#/components/schemas/StockMovement"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The product does not track stock.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity, reason]
+              properties:
+                quantity:
+                  type: [integer, "null"]
+                  minimum: -100000
+                  maximum: 100000
+                  description: >-
+                    Signed, non-zero: negative removes stock, positive adds it. Nullable for the
+                    same missing-vs-zero reason productsCreate's price is (zero itself is refused
+                    by the handler as not a real adjustment, so nullability only protects the
+                    already-invalid value 0 from being confused with "not sent").
+                reason: {type: string, enum: [breakage, expired, own_consumption, count_correction, other]}
+                note: {type: string, maxLength: 500}
+
+  /api/v1/complexes/{id}/products/{productID}/stock-movements:
+    get:
+      tags: [products]
+      operationId: productsListStockMovements
+      summary: A product's stock-movement history
+      description: Newest first. Paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/ProductID"}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of this product's stock movements.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stock_movements, metadata]
+                properties:
+                  stock_movements:
+                    type: array
+                    items: {$ref: "#/components/schemas/StockMovement"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Invalid cursor value.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
   # publicsite
   # ---------------------------------------------------------------------
   /api/v1/sitemap.xml:
@@ -3693,6 +4002,16 @@ components:
       required: true
       description: Cash movement id.
       schema: {type: string, format: uuid}
+    ProductID:
+      name: productID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    ActiveFilter:
+      name: active
+      in: query
+      description: Restrict the list to active or inactive products. Omit to return both.
+      schema: {type: boolean}
     ClientID:
       name: clientID
       in: path
@@ -4160,6 +4479,68 @@ components:
         booking_payments:
           type: array
           items: {$ref: "#/components/schemas/CashBookingPaymentTotal"}
+
+    Product:
+      type: object
+      required:
+        [id, complex_id, name, price, tracks_stock, stock_on_hand, active, low_stock, needs_stock_review,
+         created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        name: {type: string}
+        category: {type: [string, "null"], description: "Free text, owner-defined (e.g. \"Bebidas\")."}
+        price: {type: integer, description: "Centavos ARS."}
+        tracks_stock: {type: boolean}
+        stock_on_hand:
+          type: integer
+          description: >-
+            May be negative: selling (T4b) or adjusting past zero is allowed, and a negative
+            value is exactly what needs_stock_review flags.
+        low_stock_threshold: {type: [integer, "null"]}
+        active: {type: boolean, description: "A product is deactivated, never deleted."}
+        low_stock:
+          type: boolean
+          description: "Computed: tracks_stock && low_stock_threshold is set && stock_on_hand <= low_stock_threshold."
+        needs_stock_review:
+          type: boolean
+          description: "Computed: stock_on_hand < 0."
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version:
+          type: integer
+          minimum: 1
+          description: >-
+            Optimistic-concurrency counter, bumped on every write. Echo it back on a PATCH — as
+            `If-Match: "<version>"` or as a `version` body field — and the write is refused with
+            409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
+
+    StockMovement:
+      type: object
+      required: [id, complex_id, product_id, kind, quantity, created_at, created_by]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        kind: {type: string, enum: [sale, restock, adjustment, sale_void]}
+        quantity:
+          type: integer
+          description: "Signed. Negative removes stock, positive adds it — see StockMovement's own CHECK by kind."
+        reason:
+          type: [string, "null"]
+          enum: [breakage, expired, own_consumption, count_correction, other, null]
+          description: "Set iff kind = adjustment."
+        note: {type: [string, "null"]}
+        cash_movement_id:
+          type: [string, "null"]
+          format: uuid
+          description: "The linked cash expense. Set iff kind = restock."
+        sale_id:
+          type: [string, "null"]
+          format: uuid
+          description: "Set for kind = sale or sale_void, from delivery 4 (T4b) on."
+        created_at: {type: string, format: date-time}
+        created_by: {type: string, format: uuid}
 
     BlockedSlot:
       type: object

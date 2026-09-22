@@ -106,6 +106,7 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize fun
 		Complexes:         &mockComplexStore{},
 		Courts:            &mockCourtStore{},
 		Cashbox:           &mockCashboxStore{},
+		Products:          &mockProductStore{},
 		Bookings:          &mockBookingStore{},
 		BookingLinkTokens: &mockBookingLinkTokenStore{},
 		Clients:           &mockClientStore{},
