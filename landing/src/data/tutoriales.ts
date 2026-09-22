@@ -489,78 +489,11 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           + 'cambio en la configuración solo afecta a las reservas nuevas de ahí en adelante.',
       },
     ],
-    relacionados: ['precios-por-horario', 'varios-complejos'],
+    relacionados: ['precios-por-horario'],
     guia: {
       slug: 'cuanto-cobra-mercadopago-por-una-sena',
       texto: 'Cuánto cobra MercadoPago por cobrar una seña',
     },
-  },
-  {
-    slug: 'varios-complejos',
-    title: 'Varios complejos con una sola cuenta',
-    seoTitle: 'Administrar varios complejos con una cuenta | Vibe',
-    metaDescription:
-      'Hasta 4 complejos desde la misma cuenta: cada uno con sus canchas, sus precios y su propio '
-      + 'enlace de reservas, sin mezclarse.',
-    excerpt: 'Hasta 4 complejos, una cuenta, y cada uno con sus canchas y sus números aparte.',
-    duracion: 26,
-    youtube: 'WlB2BoiVy30',
-    datePublished: '2026-09-16',
-    respuesta:
-      'Una misma cuenta puede administrar hasta 4 complejos. Se cambia de uno a otro desde el '
-      + 'selector de arriba, sin cerrar sesión. Cada complejo mantiene sus propias canchas, sus '
-      + 'precios, sus horarios y su propio enlace público de reservas, y los datos no se mezclan '
-      + 'entre ellos: la facturación, los clientes y la ocupación son del complejo en el que estás '
-      + 'parado.',
-    bloques: [
-      {
-        tipo: 'parrafos',
-        heading: 'Por qué los datos van separados',
-        parrafos: [
-          'Dos complejos en ciudades distintas tienen precios distintos, horarios distintos y '
-            + 'clientes distintos. Un total que los sume oculta exactamente lo que hay que mirar, que '
-            + 'es cuál de los dos está funcionando.',
-          'Cada complejo tiene además su propio enlace de reservas, así que el cliente que entra por '
-            + 'el complejo de su barrio ve las canchas de ese complejo y no las de la otra punta de la '
-            + 'provincia.',
-        ],
-      },
-    ],
-    faq: [
-      {
-        question: '¿Puedo tener un empleado que vea solo un complejo?',
-        answer:
-          'El selector muestra los complejos de la cuenta con la que se entró. Para separar accesos '
-          + 'por complejo, lo que corresponde es una cuenta por complejo, con su propio usuario.',
-      },
-      {
-        question: '¿Cuántos complejos puedo cargar?',
-        answer:
-          'Hasta 4 por cuenta. El costo de Vibe es por reserva cobrada, no por cantidad de complejos '
-          + 'ni de canchas, así que sumar un complejo no cambia lo que '
-          + 'pagás por tenerlo cargado.',
-      },
-      {
-        question: '¿Un complejo nuevo arranca con horarios ya cargados, o hay que configurarlo todo de cero?',
-        answer:
-          'Arranca con un horario por defecto de lunes a domingo de 8 a 23, para que puedas recibir '
-          + 'reservas apenas lo creás. Después lo ajustás día por día desde Configuración.',
-      },
-      {
-        question: '¿Puedo eliminar un complejo que todavía tiene reservas activas?',
-        answer:
-          'No. Mientras tenga alguna reserva confirmada o pendiente que no pasó todavía, el sistema '
-          + 'rechaza la baja del complejo hasta que esas reservas se resuelvan.',
-      },
-      {
-        question: 'Si tengo dos complejos, ¿uso la misma cuenta de MercadoPago para los dos o conecto una por complejo?',
-        answer:
-          'Conectás una cuenta de MercadoPago por complejo. Cada uno guarda su propia conexión, así que '
-          + 'la plata de las señas de un complejo entra a la cuenta que conectaste para ese complejo y '
-          + 'no se mezcla con la del otro.',
-      },
-    ],
-    relacionados: ['panel-de-control', 'configuracion-del-complejo'],
   },
 ];
 
