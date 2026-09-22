@@ -37,7 +37,8 @@ const (
 	// account it was paid from.
 	refundByMercadoPago = "mercadopago"
 	// refundByHand: money was paid, and only a person at the complex can return
-	// it — cash, a transfer, or a MercadoPago payment carrying no payment id.
+	// it — any counter method (cash, transfer, card, QR/wallet), or a
+	// MercadoPago payment carrying no payment id.
 	refundByHand = "manual"
 	// refundNotApplicable: nothing was paid, or it is already back.
 	refundNotApplicable = "none"

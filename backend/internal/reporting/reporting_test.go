@@ -541,6 +541,15 @@ func TestKnownLabelsAreTranslated(t *testing.T) {
 	if got := methodLabel("cash"); got != "Efectivo" {
 		t.Errorf(`want "Efectivo"; got %q`, got)
 	}
+	if got := methodLabel("debit_card"); got != "Débito" {
+		t.Errorf(`want "Débito"; got %q`, got)
+	}
+	if got := methodLabel("credit_card"); got != "Crédito" {
+		t.Errorf(`want "Crédito"; got %q`, got)
+	}
+	if got := methodLabel("qr_wallet"); got != "QR / billetera" {
+		t.Errorf(`want "QR / billetera"; got %q`, got)
+	}
 	if got := paymentStatusLabel("deposit_paid"); got != "Seña pagada" {
 		t.Errorf(`want "Seña pagada"; got %q`, got)
 	}

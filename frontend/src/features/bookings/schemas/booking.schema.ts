@@ -3,6 +3,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { phoneField, firstNameField, lastNameField, optionalEmailField } from '@/shared/lib/validations';
 import { parseHhMm, parseYmd } from '@/shared/lib/time';
 import { nowInArgentina } from '../lib/today';
+import { COUNTER_PAYMENT_METHODS } from '../lib/paymentMethods';
 
 const t = ES_AR;
 
@@ -22,7 +23,7 @@ export const createBookingSchema = z
     }),
     payment_option: z.enum(['unpaid', 'deposit', 'full']).optional(),
     deposit_amount: z.number().positive(t.validation.amountPositive).optional(),
-    payment_method: z.enum(['cash', 'transfer']).optional(),
+    payment_method: z.enum(COUNTER_PAYMENT_METHODS).optional(),
     notes: z.string().max(500, t.validation.maxChars500).optional().or(z.literal('')),
     // Pesos, converted to centavos in `cleanBookingPayload`. Required exactly
     // when no price rule covers the booking's span — see `PriceOrManualPriceField`
@@ -70,7 +71,7 @@ export const createBookingSchema = z
   );
 
 export const confirmPaymentSchema = z.object({
-  method: z.enum(['cash', 'transfer'], {
+  method: z.enum(COUNTER_PAYMENT_METHODS, {
     message: t.validation.selectPaymentMethod,
   }),
   amount: z.number().positive(t.validation.amountPositive),

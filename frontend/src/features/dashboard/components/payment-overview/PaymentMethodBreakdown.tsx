@@ -3,11 +3,9 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
 
-const METHOD_CONFIG: Record<string, string> = {
-  cash: t.bookings.paymentMethods.cash,
-  transfer: t.bookings.paymentMethods.transfer,
-  mercadopago: t.bookings.paymentMethods.mercadopago,
-};
+// Every method a stored payment can carry, not only the counter ones: a
+// dashboard covering past periods still shows mercadopago rows.
+const METHOD_CONFIG: Record<string, string> = t.bookings.paymentMethods;
 
 export function PaymentMethodBreakdown({ methodEntries }: { methodEntries: [string, number][] }) {
   if (methodEntries.length === 0) return null;

@@ -185,6 +185,57 @@ func TestGetRendersAnEmptyLedgerAsAnEmptyArray(t *testing.T) {
 	}
 }
 
+// Every counter method must be accepted, and confirmed with the method the
+// owner actually took — not silently coerced into cash or transfer.
+func TestConfirmPaymentAcceptsEveryCounterMethod(t *testing.T) {
+	for _, method := range counterPaymentMethods {
+		t.Run(method, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking := futureBooking(complexID)
+			booking.Status = "pending"
+			f.store.booking = booking
+			f.linkResolver.booking = booking
+
+			w := httptest.NewRecorder()
+			body := fmt.Sprintf(`{"method":%q,"amount":100000}`, method)
+			f.handler.ConfirmPayment(w, ownerRequest(t, http.MethodPost, "/", complexID,
+				map[string]string{"bookingID": booking.ID.String()}, body))
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("want 200 for method %q; got %d (%s)", method, w.Code, w.Body.String())
+			}
+			if len(f.payments.confirmed) != 1 || f.payments.confirmed[0].Method != method {
+				t.Errorf("want a payment confirmed with method %q; got %+v", method, f.payments.confirmed)
+			}
+		})
+	}
+}
+
+// mercadopago carries mp_payment_id and drives an automatic MercadoPago
+// refund; a counter payment recorded through this endpoint never has one, so
+// it must never be accepted here — the online checkout is the only path
+// allowed to produce a mercadopago row.
+func TestConfirmPaymentRefusesMercadopago(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking := futureBooking(complexID)
+	booking.Status = "pending"
+	f.store.booking = booking
+	f.linkResolver.booking = booking
+
+	w := httptest.NewRecorder()
+	f.handler.ConfirmPayment(w, ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"bookingID": booking.ID.String()}, `{"method":"mercadopago","amount":100000}`))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("mercadopago must be refused as a counter payment method; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.payments.confirmed) != 0 {
+		t.Error("no payment may be confirmed for a refused method")
+	}
+}
+
 func TestConfirmPaymentRejectsInvalidInput(t *testing.T) {
 	tests := []struct {
 		name string
@@ -687,6 +738,56 @@ func TestStaffCreateRefusesADurationThatIsNotPermitted(t *testing.T) {
 	}
 	if len(f2.store.inserted) != 0 {
 		t.Error("no booking may be created for an unpermitted duration")
+	}
+}
+
+// Every counter method must be accepted when the owner records a payment at
+// booking time, and the payment inserted must carry the method actually
+// chosen — not a value coerced into whichever two methods used to be legal.
+func TestStaffCreateAcceptsEveryCounterMethod(t *testing.T) {
+	for _, method := range counterPaymentMethods {
+		t.Run(method, func(t *testing.T) {
+			f, complexID, courtID := staffFixture(t)
+			date, _ := bookableDate()
+			body := fmt.Sprintf(`{"court_id":%q,"date":%q,"start_time":%q,"duration_minutes":90,`+
+				`"client_first_name":"Ana","client_last_name":"Perez","client_phone":"+541100000000",`+
+				`"payment_option":"full","payment_method":%q}`,
+				courtID, date.Format("2006-01-02"), onGrid, method)
+
+			w := httptest.NewRecorder()
+			f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", complexID,
+				map[string]string{"id": complexID.String()}, body))
+
+			if w.Code != http.StatusCreated {
+				t.Fatalf("want 201 for payment_method %q; got %d (%s)", method, w.Code, w.Body.String())
+			}
+			if len(f.payments.inserted) != 1 || f.payments.inserted[0].Method != method {
+				t.Errorf("want a payment inserted with method %q; got %+v", method, f.payments.inserted)
+			}
+		})
+	}
+}
+
+// mercadopago is the online checkout's own method; a staff booking created
+// straight from the dashboard has no checkout behind it, so it must never be
+// accepted as the payment_method of a booking created here.
+func TestStaffCreateRefusesMercadopagoAsPaymentMethod(t *testing.T) {
+	f, complexID, courtID := staffFixture(t)
+	date, _ := bookableDate()
+	body := fmt.Sprintf(`{"court_id":%q,"date":%q,"start_time":%q,"duration_minutes":90,`+
+		`"client_first_name":"Ana","client_last_name":"Perez","client_phone":"+541100000000",`+
+		`"payment_option":"full","payment_method":"mercadopago"}`,
+		courtID, date.Format("2006-01-02"), onGrid)
+
+	w := httptest.NewRecorder()
+	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"id": complexID.String()}, body))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("mercadopago must be refused as a counter payment method; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.payments.inserted) != 0 {
+		t.Error("no payment may be inserted for a refused method")
 	}
 }
 

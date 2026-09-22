@@ -153,6 +153,9 @@ const (
 	PaymentMethodMercadopago PaymentMethod = "mercadopago"
 	PaymentMethodCash        PaymentMethod = "cash"
 	PaymentMethodTransfer    PaymentMethod = "transfer"
+	PaymentMethodDebitCard   PaymentMethod = "debit_card"
+	PaymentMethodCreditCard  PaymentMethod = "credit_card"
+	PaymentMethodQrWallet    PaymentMethod = "qr_wallet"
 )
 
 func (e *PaymentMethod) Scan(src interface{}) error {

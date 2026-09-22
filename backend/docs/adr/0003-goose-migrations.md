@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted. The "no production users" condition below is what makes this safe, and it will stop
-being true the day the product has a real deployment with real data — see Consequences.
+Accepted. The "no production users" condition below made this safe, and stopped being true on
+2026-09-22 — see the dated section at the end. Every direct edit recorded above that date was made
+under the condition; every change from that date on is a new numbered migration instead.
 
 ## Context
 
@@ -116,3 +117,26 @@ applying the edited file to a fresh throwaway database and confirming
 `SELECT enum_range(NULL::sport_type)` returns all seven values in declaration order. The same
 expiry as every other direct edit in this ADR applies: the day a real deployed database exists,
 adding a sport becomes a new numbered `ALTER TYPE ... ADD VALUE` migration instead.
+
+## 2026-09-22 — the expiry: production deployed, `001_init.sql` now immutable
+
+The "no production users" condition this ADR's Decision runs on has ended: Vibe has a production
+deployment on Railway with a real database outside any developer's machine or CI. Every direct
+edit recorded above this line — the 2026-09-14 and 2026-09-15 squashes — was made while that
+condition held and stays as it is; nothing about them is retroactively wrong. From this point on,
+the general rule the Decision section already named as the fallback applies: `001_init.sql` is
+immutable, and every schema change is a new numbered migration on top of it.
+
+`db/migrations/002_counter_payment_methods.sql` (`ALTER TYPE payment_method ADD VALUE`, three
+times, for `debit_card`, `credit_card` and `qr_wallet` — see the pos-cashbox feature document) is
+the first migration written under that rule. It is a plain forward migration, not a squash, and
+its Down cannot undo it: PostgreSQL has no `ALTER TYPE ... DROP VALUE`, so once a production
+database has run it, rolling back means restoring from a backup taken before it ran, not running
+this migration's Down (which only raises, loudly, rather than pretending to succeed). See that
+file's own header for the ADD VALUE-inside-a-transaction reasoning this ADR's PostgreSQL 18
+capability guard already covers for `001_init.sql`.
+
+Nothing in tooling enforces this either, same as the original expiry: it is still whoever ships a
+schema change's own responsibility to add a new file here rather than reach for a direct edit,
+now that one would silently disagree with the production database that already ran `001_init.sql`
+as it stood before this date.

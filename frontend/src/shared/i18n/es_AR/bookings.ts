@@ -97,6 +97,9 @@ export const bookings = {
   paymentMethods: {
     cash: 'Efectivo',
     transfer: 'Transferencia',
+    debit_card: 'Débito',
+    credit_card: 'Crédito',
+    qr_wallet: 'QR / billetera',
     mercadopago: 'MercadoPago',
   },
   previousDay: 'Día anterior',
