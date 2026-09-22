@@ -1,8 +1,10 @@
 package cashbox
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/stodulski/vibe-server/internal/data"
@@ -18,6 +20,21 @@ const defaultPageLimit = 50
 // noteMaxLen bounds every free-text note this module accepts — the same cap
 // courts' BlockSlot reason uses.
 const noteMaxLen = 500
+
+// maxSessionCash caps opening_cash and counted_cash, which land in BIGINT
+// columns (003_cashbox.sql). A till at the end of a busy day in pesos is
+// routinely past a million, so the ceiling only has to stop an absurd
+// keystroke, not a real count: about 1,000 million ARS.
+const maxSessionCash = 99_999_999_999
+
+const maxSessionCashMessage = "must not exceed 99999999999"
+
+// maxMovementAmount caps cash_movements.amount, which stays INTEGER like
+// payments.amount: 20 million ARS covers a payroll or a large supplier
+// payment and stays under the int32 range the column allows.
+const maxMovementAmount = 2_000_000_000
+
+const maxMovementAmountMessage = "must not exceed 2000000000"
 
 // Open handles POST /api/v1/complexes/{id}/cash-sessions.
 func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +56,17 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	v.Check(body.OpeningCash >= 0, "opening_cash", "must not be negative")
+	// OpeningCash is a pointer (internal/openapi/openapi.yaml's cashSessionsOpen
+	// requestBody makes it nullable) specifically so a request that omits it
+	// decodes to nil rather than a valid-looking 0: the OpenAPI request
+	// validator that would otherwise catch a missing required field never runs
+	// in production (internal/middleware/openapi.go), and 0 is itself a
+	// legitimate opening float, so the handler has to check presence itself.
+	v.Check(body.OpeningCash != nil, "opening_cash", "must be provided")
+	if body.OpeningCash != nil {
+		v.Check(*body.OpeningCash >= 0, "opening_cash", "must not be negative")
+		v.Check(*body.OpeningCash <= maxSessionCash, "opening_cash", maxSessionCashMessage)
+	}
 	if body.Note != nil {
 		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
@@ -49,7 +76,7 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session, err := h.svc.Open(r.Context(), complex.ID, h.actor(r), user.ID, OpenInput{
-		OpeningCash: body.OpeningCash,
+		OpeningCash: int64(*body.OpeningCash),
 		OpeningNote: body.Note,
 	})
 	if err != nil {
@@ -63,7 +90,7 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 // noteMaxTooLong is the message every note field's length check answers with.
 const noteMaxTooLong = "must not be more than 500 characters"
 
-// Current handles GET /api/v1/complexes/{id}/cash-sessions/current.
+// Current handles GET /api/v1/complexes/{id}/cash-session.
 //
 // No session open answers 404, the same as any other single-resource read
 // this API has none of: the feature document leaves the exact shape to
@@ -191,7 +218,14 @@ func (h *Handler) Close(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	v.Check(body.CountedCash >= 0, "counted_cash", "must not be negative")
+	// CountedCash is a pointer for the same reason CashSessionsOpen's
+	// OpeningCash is (see Open above): 0 is a legitimate count, so a missing
+	// field has to decode to nil rather than a valid-looking 0.
+	v.Check(body.CountedCash != nil, "counted_cash", "must be provided")
+	if body.CountedCash != nil {
+		v.Check(*body.CountedCash >= 0, "counted_cash", "must not be negative")
+		v.Check(*body.CountedCash <= maxSessionCash, "counted_cash", maxSessionCashMessage)
+	}
 	if body.Note != nil {
 		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
@@ -201,7 +235,7 @@ func (h *Handler) Close(w http.ResponseWriter, r *http.Request) {
 	}
 
 	closed, err := h.svc.Close(r.Context(), complex.ID, sessionID, h.actor(r), user.ID, CloseInput{
-		CountedCash: body.CountedCash,
+		CountedCash: int64(*body.CountedCash),
 		ClosingNote: body.Note,
 	})
 	if err != nil {
@@ -252,6 +286,7 @@ func (h *Handler) CreateMovement(w http.ResponseWriter, r *http.Request) {
 	}
 	v.Check(paymentmethod.IsCounter(string(body.Method)), "method", paymentmethod.Message)
 	v.Check(body.Amount > 0, "amount", "must be greater than 0")
+	v.Check(body.Amount <= maxMovementAmount, "amount", maxMovementAmountMessage)
 	if body.Note != nil {
 		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
@@ -304,10 +339,23 @@ func (h *Handler) VoidMovement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The request body is optional in the document (cashMovementsVoid carries
+	// no `required: true`, and its schema requires no property): an owner
+	// voiding a movement usually sends no note at all. ReadJSON refuses an
+	// empty body outright — rightly, for every route whose body IS required —
+	// so emptiness has to be checked first rather than treating that refusal
+	// as this route's own 400.
 	var body gen.CashMovementsVoidJSONBody
-	if err := httpx.ReadJSON(w, r, &body); err != nil {
+	empty, err := bodyIsEmpty(r)
+	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
+	}
+	if !empty {
+		if err := httpx.ReadJSON(w, r, &body); err != nil {
+			h.respond.BadRequest(w, r, err)
+			return
+		}
 	}
 
 	v := validator.New()
@@ -326,4 +374,40 @@ func (h *Handler) VoidMovement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{"cash_movement": toGenCashMovement(void)})
+}
+
+// bodyIsEmpty reports whether r carries no body worth decoding: an absent
+// body (r.ContentLength == 0), the http.NoBody sentinel, or a chunked body
+// (r.ContentLength == -1, whose length is unknown until read) that turns out
+// to hold zero bytes. A positive ContentLength is trusted without reading
+// ahead. A chunked body found to be non-empty has its first byte read back
+// onto r.Body, unconsumed, so a later httpx.ReadJSON(r) still decodes the
+// whole thing.
+//
+// Same shape as internal/reporting/export_handlers.go's own bodyIsEmpty,
+// which VoidMovement cannot reuse directly (that one is unexported to its own
+// package) — see that copy's comment for why the check cannot stop at
+// r.ContentLength == 0 alone.
+func bodyIsEmpty(r *http.Request) (bool, error) {
+	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 {
+		return true, nil
+	}
+	if r.ContentLength > 0 {
+		return false, nil
+	}
+
+	var first [1]byte
+	n, err := r.Body.Read(first[:])
+	if n == 0 {
+		if err != nil && !errors.Is(err, io.EOF) {
+			return false, fmt.Errorf("cashbox: read request body: %w", err)
+		}
+		return true, nil
+	}
+
+	r.Body = struct {
+		io.Reader
+		io.Closer
+	}{io.MultiReader(bytes.NewReader(first[:n]), r.Body), r.Body}
+	return false, nil
 }

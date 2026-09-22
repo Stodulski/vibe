@@ -38,17 +38,34 @@ SET LOCAL lock_timeout = '3s';
 --
 -- uuidv7() rather than gen_random_uuid(): see the note above the bookings
 -- table in 001_init.sql for why the money tables use time-ordered ids.
+-- opening_cash/counted_cash/expected_cash/difference are BIGINT, not INTEGER
+-- like every other money column in this schema (payments.amount,
+-- cash_movements.amount below): they are SESSION-level aggregates, not one
+-- payment or one movement. expected_cash in particular is opening_cash plus
+-- a SUM of this session's own cash movements plus a SUM of booking payments
+-- collected in the session's window (Store.Close) — three Go-computed
+-- accumulators added together — and an INTEGER column silently wraps once
+-- their total exceeds 2,147,483,647 centavos (~21.4 million ARS): a busy
+-- complex over a long open shift is not a hypothetical here, and a wrapped
+-- expected_cash is worse than merely wrong, because cash_sessions_
+-- forbid_update_after_close (below) makes a closed session's snapshot
+-- permanent — there is no second write that could ever correct it. Movement
+-- amount itself (cash_movements.amount, below) stays INTEGER on purpose: it
+-- is one entry a person typed at the counter, the same bound as
+-- payments.amount, and request validation caps it well under int32 range
+-- (internal/cashbox/handlers.go) — this migration only widens the columns
+-- that SUM many such entries together.
 CREATE TABLE cash_sessions (
     id             UUID PRIMARY KEY DEFAULT uuidv7(),
     complex_id     UUID NOT NULL,
     opened_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     opened_by      UUID NOT NULL,
-    opening_cash   INTEGER NOT NULL,
+    opening_cash   BIGINT NOT NULL,
     closed_at      TIMESTAMPTZ,
     closed_by      UUID,
-    counted_cash   INTEGER,
-    expected_cash  INTEGER,
-    difference     INTEGER GENERATED ALWAYS AS (counted_cash - expected_cash) STORED,
+    counted_cash   BIGINT,
+    expected_cash  BIGINT,
+    difference     BIGINT GENERATED ALWAYS AS (counted_cash - expected_cash) STORED,
     -- Two columns, not one: the closer must never be able to erase what the
     -- opener recorded (owner correction, pos-cashbox T2 review). opening_note
     -- is written once, by Open; closing_note is written once, by Close;

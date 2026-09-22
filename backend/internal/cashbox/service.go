@@ -60,7 +60,7 @@ func (s *Service) record(complexID uuid.UUID, actor Actor, action, entityType st
 
 // OpenInput is a validated request to start a shift.
 type OpenInput struct {
-	OpeningCash int
+	OpeningCash int64
 	OpeningNote *string
 }
 
@@ -84,11 +84,15 @@ func (s *Service) Open(ctx context.Context, complexID uuid.UUID, actor Actor, op
 // Summary is a session's reconciliation view: opening, expected cash, the
 // movement breakdown, and the booking-payment breakdown over the session's
 // own window. CountedCash and Difference are nil until the session closes.
+//
+// OpeningCash, ExpectedCash, CountedCash and Difference are int64, matching
+// cashboxstore.CashSession's own fields — see that type's comment for why
+// (BIGINT session-level aggregates, db/migrations/003_cashbox.sql).
 type Summary struct {
-	OpeningCash     int                                `json:"opening_cash"`
-	ExpectedCash    int                                `json:"expected_cash"`
-	CountedCash     *int                               `json:"counted_cash,omitempty"`
-	Difference      *int                               `json:"difference,omitempty"`
+	OpeningCash     int64                              `json:"opening_cash"`
+	ExpectedCash    int64                              `json:"expected_cash"`
+	CountedCash     *int64                             `json:"counted_cash,omitempty"`
+	Difference      *int64                             `json:"difference,omitempty"`
 	MovementTotals  []cashboxstore.MovementTotal       `json:"movement_totals"`
 	BookingPayments []reportstore.PaymentMethodSummary `json:"booking_payments"`
 }
@@ -159,7 +163,7 @@ func (s *Service) buildSummary(ctx context.Context, session *cashboxstore.CashSe
 		// entirely — the drawer will show LESS than expected by exactly that
 		// amount, which the difference on close will surface for the owner to
 		// explain, rather than being silently absorbed into a wrong number.
-		summary.ExpectedCash = session.OpeningCash + cashIncome - cashExpense + sumCashBookingPayments(bookingPayments)
+		summary.ExpectedCash = session.OpeningCash + int64(cashIncome) - int64(cashExpense) + int64(sumCashBookingPayments(bookingPayments))
 	}
 
 	return summary, nil
@@ -220,19 +224,27 @@ func (s *Service) Get(ctx context.Context, complexID, sessionID uuid.UUID) (*Ses
 
 // CloseInput is a validated request to close a session.
 type CloseInput struct {
-	CountedCash int
+	CountedCash int64
 	// ClosingNote is its own column (db/migrations/003_cashbox.sql): it never
 	// touches OpeningNote, so the closer can never erase what the opener
 	// recorded.
 	ClosingNote *string
 }
 
-// Close closes a session: reads the booking-payments side of the
-// reconciliation (a plain, unlocked read — nothing races a booking payment
-// against this specific close, see cashboxstore.Store.Close's own comment),
-// then hands the count and that figure to the store, which locks the session
-// row and computes the cash-movements side of expected cash under that same
-// lock before writing the snapshot.
+// Close closes a session: picks ONE instant (now) to be both the end of the
+// booking-payments window it reads (a plain, unlocked read — nothing races a
+// booking payment against this specific close, see cashboxstore.Store.Close's
+// own comment) and the closed_at this session will carry, then hands the
+// count and that figure to the store, which locks the session row, computes
+// the cash-movements side of expected cash under that same lock, and writes
+// closed_at as EXACTLY the instant given here rather than its own NOW().
+//
+// Those two have to be the same instant: a session's summary is always
+// rebuilt over [opened_at, closed_at) (buildSummary above), so a booking
+// payment landing between this read and a later, different closed_at would
+// be missing from the snapshot Close wrote here yet appear the next time
+// anyone opens this session's detail — the count would look wrong forever
+// for a reason nobody could see.
 //
 // cashboxstore.ErrSessionNotOpen answers a session that is already closed —
 // including the race where a concurrent close won between this method's own
@@ -246,13 +258,14 @@ func (s *Service) Close(ctx context.Context, complexID, sessionID uuid.UUID, act
 		return nil, cashboxstore.ErrSessionNotOpen
 	}
 
-	bookingPayments, err := s.payments.PaymentSummaryByMethodWindow(ctx, complexID, session.OpenedAt, time.Now())
+	now := time.Now()
+	bookingPayments, err := s.payments.PaymentSummaryByMethodWindow(ctx, complexID, session.OpenedAt, now)
 	if err != nil {
 		return nil, err
 	}
-	cashBookingPayments := sumCashBookingPayments(bookingPayments)
+	cashBookingPayments := int64(sumCashBookingPayments(bookingPayments))
 
-	closed, err := s.sessions.Close(ctx, complexID, sessionID, closedBy, in.CountedCash, cashBookingPayments, in.ClosingNote)
+	closed, err := s.sessions.Close(ctx, complexID, sessionID, closedBy, in.CountedCash, cashBookingPayments, now, in.ClosingNote)
 	if err != nil {
 		return nil, err
 	}

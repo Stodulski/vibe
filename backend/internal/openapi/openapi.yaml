@@ -1691,7 +1691,17 @@ paths:
               type: object
               required: [opening_cash]
               properties:
-                opening_cash: {type: integer, minimum: 0, description: "Centavos ARS."}
+                opening_cash:
+                  type: [integer, "null"]
+                  minimum: 0
+                  maximum: 99999999999
+                  description: >-
+                    Centavos ARS. Nullable only so a request that omits it decodes to a Go nil
+                    rather than a valid-looking 0 — 0 is itself a legitimate opening float — and
+                    the handler can tell "not sent" from "sent as zero" and refuse the former.
+                    The request validator that would otherwise catch a missing required field
+                    never runs in production (internal/middleware/openapi.go), so the handler is
+                    the only place this is actually enforced (pos-cashbox T2 review).
                 note: {type: string, maxLength: 500, description: Stored as the session's opening_note.}
 
   /api/v1/complexes/{id}/cash-session:
@@ -1798,7 +1808,15 @@ paths:
               type: object
               required: [counted_cash]
               properties:
-                counted_cash: {type: integer, minimum: 0, description: "Centavos ARS, physically counted."}
+                counted_cash:
+                  type: [integer, "null"]
+                  minimum: 0
+                  maximum: 99999999999
+                  description: >-
+                    Centavos ARS, physically counted. Nullable for the same reason
+                    CashSessionsOpen's opening_cash is: 0 is a legitimate count (an empty
+                    drawer), so a missing field has to decode to nil, not a valid-looking 0, for
+                    the handler to tell the two apart and refuse the former.
                 note:
                   type: string
                   maxLength: 500
@@ -1850,7 +1868,7 @@ paths:
                   enum: [other_income, supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense]
                   description: "other_income for income; one of the rest for expense."
                 method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
-                amount: {type: integer, minimum: 1, description: "Centavos ARS."}
+                amount: {type: integer, minimum: 1, maximum: 2000000000, description: "Centavos ARS."}
                 note: {type: string, maxLength: 500}
 
   /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void:
@@ -4048,15 +4066,20 @@ components:
         complex_id: {type: string, format: uuid}
         opened_at: {type: string, format: date-time}
         opened_by: {type: string, format: uuid}
-        opening_cash: {type: integer, description: "Centavos ARS."}
+        opening_cash: {type: integer, format: int64, description: "Centavos ARS. A session-level sum, not one entry — BIGINT (db/migrations/003_cashbox.sql)."}
         closed_at: {type: [string, "null"], format: date-time}
         closed_by: {type: [string, "null"], format: uuid}
-        counted_cash: {type: [integer, "null"], description: "Centavos ARS, physically counted. Null until closed."}
+        counted_cash:
+          type: [integer, "null"]
+          format: int64
+          description: "Centavos ARS, physically counted. Null until closed."
         expected_cash:
           type: [integer, "null"]
+          format: int64
           description: "Centavos ARS, the close-time snapshot. Null until closed."
         difference:
           type: [integer, "null"]
+          format: int64
           description: "counted_cash minus expected_cash. Null until closed."
         opening_note:
           type: [string, "null"]
@@ -4116,14 +4139,21 @@ components:
       type: object
       required: [opening_cash, expected_cash, movement_totals, booking_payments]
       properties:
-        opening_cash: {type: integer, description: "Centavos ARS."}
+        opening_cash: {type: integer, format: int64, description: "Centavos ARS."}
         expected_cash:
           type: integer
+          format: int64
           description: >-
             Live projection through now() for an open session; the exact close-time snapshot for
             a closed one.
-        counted_cash: {type: [integer, "null"], description: "Centavos ARS. Present only when closed."}
-        difference: {type: [integer, "null"], description: "Centavos ARS. Present only when closed."}
+        counted_cash:
+          type: [integer, "null"]
+          format: int64
+          description: "Centavos ARS. Present only when closed."
+        difference:
+          type: [integer, "null"]
+          format: int64
+          description: "Centavos ARS. Present only when closed."
         movement_totals:
           type: array
           items: {$ref: "#/components/schemas/CashMovementTotal"}

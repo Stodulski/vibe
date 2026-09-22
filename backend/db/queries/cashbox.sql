@@ -45,9 +45,16 @@ LIMIT sqlc.arg(page_limit)::int;
 -- name: CloseCashSession :one
 -- closing_note is its own column: it never touches opening_note, so a
 -- closing note can never erase what Open recorded.
+--
+-- closed_at is a PARAMETER, not NOW(): the service reads booking payments
+-- over a window ending at one instant it picked itself, and that same
+-- instant has to be what lands in closed_at, or a payment landing between
+-- the service's read and this UPDATE's own NOW() would be missing from the
+-- stored expected_cash yet appear in a summary later rebuilt over
+-- [opened_at, closed_at) — see Service.Close's own comment.
 UPDATE cash_sessions
-SET closed_at = NOW(), closed_by = $1, counted_cash = $2, expected_cash = $3, closing_note = $4
-WHERE id = $5 AND complex_id = $6
+SET closed_at = $1, closed_by = $2, counted_cash = $3, expected_cash = $4, closing_note = $5
+WHERE id = $6 AND complex_id = $7
 RETURNING *;
 
 -- name: InsertCashMovement :one

@@ -452,12 +452,12 @@ type CashSession struct {
 	ComplexID    pgtype.UUID        `json:"complex_id"`
 	OpenedAt     pgtype.Timestamptz `json:"opened_at"`
 	OpenedBy     pgtype.UUID        `json:"opened_by"`
-	OpeningCash  int32              `json:"opening_cash"`
+	OpeningCash  int64              `json:"opening_cash"`
 	ClosedAt     pgtype.Timestamptz `json:"closed_at"`
 	ClosedBy     pgtype.UUID        `json:"closed_by"`
-	CountedCash  pgtype.Int4        `json:"counted_cash"`
-	ExpectedCash pgtype.Int4        `json:"expected_cash"`
-	Difference   pgtype.Int4        `json:"difference"`
+	CountedCash  pgtype.Int8        `json:"counted_cash"`
+	ExpectedCash pgtype.Int8        `json:"expected_cash"`
+	Difference   pgtype.Int8        `json:"difference"`
 	OpeningNote  pgtype.Text        `json:"opening_note"`
 	ClosingNote  pgtype.Text        `json:"closing_note"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`

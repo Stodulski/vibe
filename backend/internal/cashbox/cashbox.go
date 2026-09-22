@@ -35,7 +35,7 @@ type SessionStore interface {
 	GetOpenByComplex(ctx context.Context, complexID uuid.UUID) (*cashboxstore.CashSession, error)
 	GetByID(ctx context.Context, complexID, sessionID uuid.UUID) (*cashboxstore.CashSession, error)
 	ListByComplex(ctx context.Context, complexID uuid.UUID, filters data.Filters) ([]*cashboxstore.CashSession, data.Metadata, error)
-	Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int, note *string) (*cashboxstore.CashSession, error)
+	Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, note *string) (*cashboxstore.CashSession, error)
 }
 
 // MovementStore is the cash-movement half.

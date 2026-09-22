@@ -550,6 +550,23 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	cashbox.GetByIDFn = func(_ context.Context, _, _ uuid.UUID) (*cashboxstore.CashSession, error) {
 		return cashSession, nil
 	}
+	// VoidMovement looks the original movement up by id before touching the
+	// session; without this, an entitled caller gets ErrRecordNotFound (404)
+	// for the same reason every other seed in this method exists — see this
+	// method's own comment.
+	cashMovement := &cashboxstore.CashMovement{
+		ID:        id,
+		ComplexID: target.ID,
+		SessionID: id,
+		Kind:      "income",
+		Category:  "other_income",
+		Method:    "cash",
+		Amount:    1000,
+		CreatedBy: target.OwnerID,
+	}
+	cashbox.GetMovementByIDFn = func(_ context.Context, _, _ uuid.UUID) (*cashboxstore.CashMovement, error) {
+		return cashMovement, nil
+	}
 
 	court := &courtstore.Court{
 		ID:        id,
