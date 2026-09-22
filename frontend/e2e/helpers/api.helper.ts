@@ -61,6 +61,25 @@ export class ApiHelper {
   }
 
   /**
+   * Throws `${action} failed: <status> <body>` for a non-2xx response,
+   * otherwise parses and returns the JSON body — the "check ok, then unwrap
+   * the envelope" pair every method below used to repeat inline.
+   */
+  private async unwrapOk<T>(res: APIResponse, action: string): Promise<T> {
+    if (!res.ok()) {
+      throw new Error(`${action} failed: ${String(res.status())} ${await res.text()}`);
+    }
+    return typedJson<T>(res);
+  }
+
+  /** Same check as `unwrapOk`, for calls with no response body worth parsing. */
+  private async assertOk(res: APIResponse, action: string): Promise<void> {
+    if (!res.ok()) {
+      throw new Error(`${action} failed: ${String(res.status())} ${await res.text()}`);
+    }
+  }
+
+  /**
    * Typed GET accessor for test-support code that needs a raw request
    * outside the helper's dedicated methods (e.g. shared-setup's "find the
    * already-existing complex" fallback). Replaces reaching into `private
@@ -69,10 +88,7 @@ export class ApiHelper {
    */
   async get<T>(path: string): Promise<T> {
     const res = await this.request.get(`${API}${path}`, { headers: this.headers() });
-    if (!res.ok()) {
-      throw new Error(`GET ${path} failed: ${String(res.status())} ${await res.text()}`);
-    }
-    return typedJson<T>(res);
+    return this.unwrapOk<T>(res, `GET ${path}`);
   }
 
   async createComplex(overrides: Record<string, unknown> = {}): Promise<ApiComplex> {
@@ -80,10 +96,7 @@ export class ApiHelper {
       headers: this.headers(),
       data: { ...TEST_COMPLEX, ...overrides },
     });
-    if (!res.ok()) {
-      throw new Error(`createComplex failed: ${String(res.status())} ${await res.text()}`);
-    }
-    const body = await typedJson<{ complex: ApiComplex }>(res);
+    const body = await this.unwrapOk<{ complex: ApiComplex }>(res, 'createComplex');
     return body.complex;
   }
 
@@ -92,10 +105,7 @@ export class ApiHelper {
       headers: this.headers(),
       data: { ...TEST_COURT, ...overrides },
     });
-    if (!res.ok()) {
-      throw new Error(`createCourt failed: ${String(res.status())} ${await res.text()}`);
-    }
-    const body = await typedJson<{ court: ApiCourt }>(res);
+    const body = await this.unwrapOk<{ court: ApiCourt }>(res, 'createCourt');
     return body.court;
   }
 
@@ -104,9 +114,7 @@ export class ApiHelper {
       headers: this.headers(),
       data: { schedules },
     });
-    if (!res.ok()) {
-      throw new Error(`setSchedules failed: ${String(res.status())} ${await res.text()}`);
-    }
+    await this.assertOk(res, 'setSchedules');
   }
 
   async setCourtPrices(complexId: string, courtId: string, prices = DEFAULT_PRICES) {
@@ -114,9 +122,7 @@ export class ApiHelper {
       headers: this.headers(),
       data: { prices },
     });
-    if (!res.ok()) {
-      throw new Error(`setCourtPrices failed: ${String(res.status())} ${await res.text()}`);
-    }
+    await this.assertOk(res, 'setCourtPrices');
   }
 
   async createBooking(
@@ -153,10 +159,7 @@ export class ApiHelper {
         ...data,
       },
     });
-    if (!res.ok()) {
-      throw new Error(`createBooking failed: ${String(res.status())} ${await res.text()}`);
-    }
-    const body = await typedJson<{ booking: ApiBooking }>(res);
+    const body = await this.unwrapOk<{ booking: ApiBooking }>(res, 'createBooking');
     return body.booking;
   }
 
@@ -174,10 +177,7 @@ export class ApiHelper {
       headers: this.headers(),
       data,
     });
-    if (!res.ok()) {
-      throw new Error(`blockSlot failed: ${String(res.status())} ${await res.text()}`);
-    }
-    const body = await typedJson<{ blocked_slot: ApiBlockedSlot }>(res);
+    const body = await this.unwrapOk<{ blocked_slot: ApiBlockedSlot }>(res, 'blockSlot');
     return body.blocked_slot;
   }
 
@@ -188,10 +188,7 @@ export class ApiHelper {
         headers: this.headers(),
       },
     );
-    if (!res.ok()) {
-      throw new Error(`listBlockedSlots failed: ${String(res.status())} ${await res.text()}`);
-    }
-    const body = await typedJson<{ blocked_slots: ApiBlockedSlot[] }>(res);
+    const body = await this.unwrapOk<{ blocked_slots: ApiBlockedSlot[] }>(res, 'listBlockedSlots');
     return body.blocked_slots;
   }
 
@@ -199,19 +196,33 @@ export class ApiHelper {
     const res = await this.request.delete(`${API}/complexes/${complexId}/blocked-slots/${slotId}`, {
       headers: this.headers(),
     });
-    if (!res.ok()) {
-      throw new Error(`deleteBlockedSlot failed: ${String(res.status())} ${await res.text()}`);
-    }
+    await this.assertOk(res, 'deleteBlockedSlot');
   }
 
-  /** `null` when no session is open (the API answers 404) — never throws for that case. */
+  /**
+   * `null` when no session is open — never throws for that case.
+   *
+   * `/cash-session` (singular): the currently open session, or a 404 that IS
+   * the answer (`backend/internal/cashbox/handlers.go`'s `Current`, kind
+   * `not-found`). `/cash-sessions` (plural, `list`/`openCashSession`/
+   * `closeCashSession` below) is the paginated history and the
+   * open/close/movement write endpoints — the two are easy to typo into each
+   * other, hence spelling both out here.
+   *
+   * A domain 404 (kind `not-found`, "no session open") and a *misrouted* 404
+   * (kind `route-not-found` — a bad path segment, e.g. a stale/garbage
+   * `complexId`) both answer status 404, but only the former means "closed";
+   * silently treating the latter as "closed" too would hide a real bug in
+   * this helper as a false "the till is shut".
+   */
   async getCurrentCashSession(complexId: string): Promise<ApiCashSession | null> {
     const res = await this.request.get(`${API}/complexes/${complexId}/cash-session`, { headers: this.headers() });
-    if (res.status() === 404) return null;
-    if (!res.ok()) {
-      throw new Error(`getCurrentCashSession failed: ${String(res.status())} ${await res.text()}`);
+    if (res.status() === 404) {
+      const problem = await typedJson<{ type?: string }>(res);
+      if (problem.type?.endsWith('/not-found')) return null;
+      throw new Error(`getCurrentCashSession: unexpected 404 (${problem.type ?? 'unknown'}) — likely misrouted`);
     }
-    const body = await typedJson<{ cash_session: ApiCashSession }>(res);
+    const body = await this.unwrapOk<{ cash_session: ApiCashSession }>(res, 'getCurrentCashSession');
     return body.cash_session;
   }
 
@@ -220,22 +231,26 @@ export class ApiHelper {
       headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
       data: { opening_cash: openingCash },
     });
-    if (!res.ok()) {
-      throw new Error(`openCashSession failed: ${String(res.status())} ${await res.text()}`);
-    }
-    const body = await typedJson<{ cash_session: ApiCashSession }>(res);
+    const body = await this.unwrapOk<{ cash_session: ApiCashSession }>(res, 'openCashSession');
     return body.cash_session;
   }
 
-  async closeCashSession(complexId: string, sessionId: string, countedCash: number): Promise<ApiCashSession> {
+  /**
+   * `idempotencyKey` defaults to a fresh one per call (an ordinary,
+   * once-only close in a test body); `closeAnyOpenCashSession` below passes
+   * a stable one instead, so its own retries replay the same close.
+   */
+  async closeCashSession(
+    complexId: string,
+    sessionId: string,
+    countedCash: number,
+    idempotencyKey: string = randomUUID(),
+  ): Promise<ApiCashSession> {
     const res = await this.request.post(`${API}/complexes/${complexId}/cash-sessions/${sessionId}/close`, {
-      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
+      headers: { ...this.headers(), 'Idempotency-Key': idempotencyKey },
       data: { counted_cash: countedCash },
     });
-    if (!res.ok()) {
-      throw new Error(`closeCashSession failed: ${String(res.status())} ${await res.text()}`);
-    }
-    const body = await typedJson<{ cash_session: ApiCashSession }>(res);
+    const body = await this.unwrapOk<{ cash_session: ApiCashSession }>(res, 'closeCashSession');
     return body.cash_session;
   }
 
@@ -244,11 +259,18 @@ export class ApiHelper {
    * cash session is exactly as shared as its bookings (TST-07), so a spec
    * that leaves one open corrupts every later run and every later spec.
    * `counted_cash: 0` is fine for cleanup: nothing downstream reads it.
+   *
+   * The key is derived from the session id rather than freshly minted: this
+   * cleanup can run more than once for the very same still-open session (an
+   * `afterAll` following a failed test, then the next spec's `beforeAll`),
+   * and a fresh key each time would ask the backend to close an
+   * already-closed session as if it were a brand new request instead of
+   * replaying the first close.
    */
   async closeAnyOpenCashSession(complexId: string): Promise<void> {
     const current = await this.getCurrentCashSession(complexId);
     if (!current) return;
-    await this.closeCashSession(complexId, current.id, 0);
+    await this.closeCashSession(complexId, current.id, 0, `cleanup-close:${current.id}`);
   }
 
   /**
