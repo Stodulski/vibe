@@ -1273,6 +1273,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List this complex's product catalog
+         * @description Unpaginated (a shop's catalog is bounded). Each product carries a computed `low_stock` flag (tracks_stock, a threshold is set, and stock is at or below it) and `needs_stock_review` (stock went below zero).
+         */
+        get: operations["productsList"];
+        put?: never;
+        /** Add a product to the catalog */
+        post: operations["productsCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/products/{productID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one product */
+        get: operations["productsGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a product
+         * @description Every field is optional; an omitted one keeps its current value. Sending `category` as an empty string clears it. Turning `tracks_stock` off while `stock_on_hand` is not zero is refused with 409 — adjust the count to zero first.
+         */
+        patch: operations["productsUpdate"];
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/products/{productID}/restock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a stock delivery
+         * @description Requires an open cash session (409 otherwise). In one transaction, writes the `restock` cash expense (amount = total_cost) and the linked stock movement, and applies the delivered quantity to `stock_on_hand`. Refused with 409 for a product that is inactive or does not track stock.
+         */
+        post: operations["productsRestock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/products/{productID}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct a product's stock by hand
+         * @description No money involved, no cash session required. Refused with 409 for a product that does not track stock. Stock may go negative — an owner may adjust past zero on purpose (a recount that finds less than the system expects).
+         */
+        post: operations["productsAdjust"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/products/{productID}/stock-movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A product's stock-movement history
+         * @description Newest first. Paginated.
+         */
+        get: operations["productsListStockMovements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sitemap.xml": {
         parameters: {
             query?: never;
@@ -1894,6 +1996,65 @@ export interface components {
             movement_totals: components["schemas"]["CashMovementTotal"][];
             booking_payments: components["schemas"]["CashBookingPaymentTotal"][];
         };
+        Product: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            name: string;
+            /** @description Free text, owner-defined (e.g. "Bebidas"). */
+            category?: string | null;
+            /** @description Centavos ARS. */
+            price: number;
+            tracks_stock: boolean;
+            /** @description May be negative: selling (T4b) or adjusting past zero is allowed, and a negative value is exactly what needs_stock_review flags. */
+            stock_on_hand: number;
+            low_stock_threshold?: number | null;
+            /** @description A product is deactivated, never deleted. */
+            active: boolean;
+            /** @description Computed: tracks_stock && low_stock_threshold is set && stock_on_hand <= low_stock_threshold. */
+            low_stock: boolean;
+            /** @description Computed: stock_on_hand < 0. */
+            needs_stock_review: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PATCH — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
+            version?: number;
+        };
+        StockMovement: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            kind: "sale" | "restock" | "adjustment" | "sale_void";
+            /** @description Signed. Negative removes stock, positive adds it — see StockMovement's own CHECK by kind. */
+            quantity: number;
+            /**
+             * @description Set iff kind = adjustment.
+             * @enum {string|null}
+             */
+            reason?: "breakage" | "expired" | "own_consumption" | "count_correction" | "other" | null;
+            note?: string | null;
+            /**
+             * Format: uuid
+             * @description The linked cash expense. Set iff kind = restock.
+             */
+            cash_movement_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Set for kind = sale or sale_void, from delivery 4 (T4b) on.
+             */
+            sale_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+        };
         BlockedSlot: {
             /** Format: uuid */
             id: string;
@@ -2465,6 +2626,9 @@ export interface components {
         SessionID: string;
         /** @description Cash movement id. */
         MovementID: string;
+        ProductID: string;
+        /** @description Restrict the list to active or inactive products. Omit to return both. */
+        ActiveFilter: boolean;
         ClientID: string;
         ExportID: string;
         /** @description The opaque booking-link token, never the booking's primary key. */
@@ -5815,6 +5979,324 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    productsList: {
+        parameters: {
+            query?: {
+                /** @description Restrict the list to active or inactive products. Omit to return both. */
+                active?: components["parameters"]["ActiveFilter"];
+            };
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every matching product. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        products: components["schemas"]["Product"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    productsCreate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    category?: string;
+                    /** @description Centavos ARS. Nullable only so a request that omits it decodes to a Go nil rather than a valid-looking 0 — the request validator that would otherwise catch a missing required field never runs in production (internal/middleware/openapi.go), so the handler is the only place this is actually enforced. */
+                    price: number | null;
+                    /** @default true */
+                    tracks_stock?: boolean;
+                    low_stock_threshold?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The created product. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        product: components["schemas"]["Product"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    productsGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                productID: components["parameters"]["ProductID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The product. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        product: components["schemas"]["Product"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    productsUpdate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
+                "If-Match"?: components["parameters"]["IfMatchVersion"];
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                productID: components["parameters"]["ProductID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
+                    version?: number;
+                    name?: string;
+                    category?: string;
+                    price?: number;
+                    low_stock_threshold?: number;
+                    active?: boolean;
+                    tracks_stock?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The updated product. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        product: components["schemas"]["Product"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EditConflict"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    productsRestock: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                productID: components["parameters"]["ProductID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Nullable for the same missing-vs-zero reason productsCreate's price is. */
+                    quantity: number | null;
+                    /** @description Centavos ARS. A free restock is an adjustment, not a restock, so this is at least 1. Nullable for the same reason quantity is. */
+                    total_cost: number | null;
+                    /** @enum {string} */
+                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The updated product and the recorded stock movement. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        product: components["schemas"]["Product"];
+                        stock_movement: components["schemas"]["StockMovement"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description No cash session is open, the product is not active, or the product does not track stock. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    productsAdjust: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                productID: components["parameters"]["ProductID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Signed, non-zero: negative removes stock, positive adds it. Nullable for the same missing-vs-zero reason productsCreate's price is (zero itself is refused by the handler as not a real adjustment, so nullability only protects the already-invalid value 0 from being confused with "not sent"). */
+                    quantity: number | null;
+                    /** @enum {string} */
+                    reason: "breakage" | "expired" | "own_consumption" | "count_correction" | "other";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The updated product and the recorded stock movement. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        product: components["schemas"]["Product"];
+                        stock_movement: components["schemas"]["StockMovement"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The product does not track stock. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    productsListStockMovements: {
+        parameters: {
+            query?: {
+                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. Default 50, maximum 200. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                productID: components["parameters"]["ProductID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of this product's stock movements. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stock_movements: components["schemas"]["StockMovement"][];
+                        metadata: components["schemas"]["Metadata"];
+                    };
+                };
+            };
+            /** @description Invalid cursor value. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
         };
     };
     publicsiteSitemap: {
