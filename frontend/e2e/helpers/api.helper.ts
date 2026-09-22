@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { request as apiRequest } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 import {
@@ -39,6 +40,11 @@ export interface ApiBooking {
 interface ApiBlockedSlot {
   id: string;
   court_name: string;
+}
+export interface ApiCashSession {
+  id: string;
+  opening_cash: number;
+  closed_at: string | null;
 }
 
 export class ApiHelper {
@@ -196,6 +202,53 @@ export class ApiHelper {
     if (!res.ok()) {
       throw new Error(`deleteBlockedSlot failed: ${String(res.status())} ${await res.text()}`);
     }
+  }
+
+  /** `null` when no session is open (the API answers 404) — never throws for that case. */
+  async getCurrentCashSession(complexId: string): Promise<ApiCashSession | null> {
+    const res = await this.request.get(`${API}/complexes/${complexId}/cash-session`, { headers: this.headers() });
+    if (res.status() === 404) return null;
+    if (!res.ok()) {
+      throw new Error(`getCurrentCashSession failed: ${String(res.status())} ${await res.text()}`);
+    }
+    const body = await typedJson<{ cash_session: ApiCashSession }>(res);
+    return body.cash_session;
+  }
+
+  async openCashSession(complexId: string, openingCash = 0): Promise<ApiCashSession> {
+    const res = await this.request.post(`${API}/complexes/${complexId}/cash-sessions`, {
+      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
+      data: { opening_cash: openingCash },
+    });
+    if (!res.ok()) {
+      throw new Error(`openCashSession failed: ${String(res.status())} ${await res.text()}`);
+    }
+    const body = await typedJson<{ cash_session: ApiCashSession }>(res);
+    return body.cash_session;
+  }
+
+  async closeCashSession(complexId: string, sessionId: string, countedCash: number): Promise<ApiCashSession> {
+    const res = await this.request.post(`${API}/complexes/${complexId}/cash-sessions/${sessionId}/close`, {
+      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
+      data: { counted_cash: countedCash },
+    });
+    if (!res.ok()) {
+      throw new Error(`closeCashSession failed: ${String(res.status())} ${await res.text()}`);
+    }
+    const body = await typedJson<{ cash_session: ApiCashSession }>(res);
+    return body.cash_session;
+  }
+
+  /**
+   * Closes whatever session is currently open, if any — the shared complex's
+   * cash session is exactly as shared as its bookings (TST-07), so a spec
+   * that leaves one open corrupts every later run and every later spec.
+   * `counted_cash: 0` is fine for cleanup: nothing downstream reads it.
+   */
+  async closeAnyOpenCashSession(complexId: string): Promise<void> {
+    const current = await this.getCurrentCashSession(complexId);
+    if (!current) return;
+    await this.closeCashSession(complexId, current.id, 0);
   }
 
   /**
