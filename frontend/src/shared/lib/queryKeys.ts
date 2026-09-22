@@ -65,6 +65,14 @@ export const queryKeys = {
   reportsExport: {
     status: (complexId: string, exportId: string) => ['reportsExport', complexId, exportId] as const,
   },
+  cash: {
+    // The currently open session (or 404) — its own key, not nested under
+    // `sessions`, because it is invalidated by every write (open/close/
+    // movement/void) while the history list only changes on open/close.
+    current: (complexId: string) => ['cash', 'current', complexId] as const,
+    sessions: (complexId: string) => ['cash', 'sessions', complexId] as const,
+    detail: (complexId: string, sessionId: string) => ['cash', 'detail', complexId, sessionId] as const,
+  },
   admin: {
     stats: ['admin', 'stats'] as const,
     usersBase: ['admin', 'users'] as const,
