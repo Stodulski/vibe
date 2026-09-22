@@ -320,7 +320,7 @@ func (s *apiServer) CashSessionsOpen(w http.ResponseWriter, r *http.Request, id 
 }
 
 // CashSessionsCurrent implements gen.ServerInterface for cashSessionsCurrent
-// (GET /api/v1/complexes/{id}/cash-sessions/current). Guarded by routeGuards; see the type comment above.
+// (GET /api/v1/complexes/{id}/cash-session). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) CashSessionsCurrent(w http.ResponseWriter, r *http.Request, id gen.PathID) {
 	s.app.cashbox.Current(w, r)
 }

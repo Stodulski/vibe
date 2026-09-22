@@ -136,6 +136,33 @@ func TestClosePassesTheCashPortionOfBookingPaymentsOnly(t *testing.T) {
 	}
 }
 
+// TestCloseWritesTheSameInstantItReadTheBookingPaymentsWindowThrough pins the
+// close-snapshot-skew fix: the window Close reads booking payments over must
+// end at EXACTLY the instant it asks the store to write as closed_at, or a
+// payment landing between two different "now" reads would be missing from
+// the stored expected_cash while still falling inside a summary later
+// rebuilt over [opened_at, closed_at) — see Service.Close's own comment.
+func TestCloseWritesTheSameInstantItReadTheBookingPaymentsWindowThrough(t *testing.T) {
+	store := &stubStore{
+		byID:          &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now()},
+		closedSession: &cashboxstore.CashSession{},
+	}
+	payments := &stubPayments{}
+	svc := newTestService(store, payments, &stubRecorder{})
+
+	_, err := svc.Close(t.Context(), uuid.New(), uuid.New(), testActor(), uuid.New(), CloseInput{CountedCash: 1000})
+	if err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if store.closeArgs == nil {
+		t.Fatal("want the store's Close to have been called")
+	}
+	if !payments.lastTo.Equal(store.closeArgs.closedAt) {
+		t.Errorf("want the booking-payments window end (%v) to equal the closed_at written to the store (%v)",
+			payments.lastTo, store.closeArgs.closedAt)
+	}
+}
+
 // --- VoidMovement --------------------------------------------------------
 
 func TestVoidMovementCarriesTheOppositeKindAndTheOriginalsFields(t *testing.T) {
@@ -228,7 +255,7 @@ func TestCurrentComputesALiveExpectedCashFromCashMovementsAndCashBookingPayments
 	}
 
 	// 10000 (opening) + 2000 (cash income) - 500 (cash expense) + 8000 (cash booking payments) = 19500
-	want := 19500
+	var want int64 = 19500
 	if current.Summary.ExpectedCash != want {
 		t.Errorf("want expected_cash=%d; got %d", want, current.Summary.ExpectedCash)
 	}
@@ -238,7 +265,7 @@ func TestCurrentComputesALiveExpectedCashFromCashMovementsAndCashBookingPayments
 }
 
 func TestGetOnAClosedSessionEchoesTheStoredSnapshotRatherThanRecomputing(t *testing.T) {
-	countedCash, expectedCash, difference := 5000, 4500, 500
+	var countedCash, expectedCash, difference int64 = 5000, 4500, 500
 	closedAt := time.Now()
 	session := &cashboxstore.CashSession{
 		ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: closedAt.Add(-time.Hour),

@@ -23,23 +23,31 @@ func TestIntegration_PaymentSummaryByMethodWindowFiltersByPreciseTimestamps(t *t
 
 	booking := f.CreateBooking(t, datatest.BookingOptions{})
 
-	// One payment inside the window, one before it, one at-or-after the
-	// window's end (the window is half-open: [from, to)).
+	// One payment inside the window, one before it, one exactly at `from` and
+	// one exactly at `to` — the window is half-open, [from, to), so the first
+	// three must be counted and the fourth must not.
 	inWindow := f.CreatePayment(t, booking.ID, 30000, 0, nil)
 	beforeWindow := f.CreatePayment(t, booking.ID, 40000, 0, nil)
+	atStart := f.CreatePayment(t, booking.ID, 7000, 0, nil)
 	atEnd := f.CreatePayment(t, booking.ID, 50000, 0, nil)
 
 	from := time.Now().Add(-1 * time.Hour)
 	to := time.Now().Add(1 * time.Hour)
 
-	backdate := func(id string, delta time.Duration) {
-		if _, err := f.DB.Exec(ctx, `UPDATE payments SET created_at = $2 WHERE id = $1`, id, time.Now().Add(delta)); err != nil {
+	// Fixed instants, not time.Now() plus a duration computed after from/to
+	// were: two separate time.Now() calls a moment apart used to make
+	// "exactly at `to`" actually land a few microseconds past it, which
+	// happened to still be excluded but for the wrong reason — this pins the
+	// boundary itself, not a coincidence next to it.
+	backdate := func(id string, at time.Time) {
+		if _, err := f.DB.Exec(ctx, `UPDATE payments SET created_at = $2 WHERE id = $1`, id, at); err != nil {
 			t.Fatalf("backdating payment %s: %v", id, err)
 		}
 	}
-	backdate(inWindow.ID.String(), 0)
-	backdate(beforeWindow.ID.String(), -2*time.Hour)
-	backdate(atEnd.ID.String(), 1*time.Hour) // exactly at `to`, which must be excluded
+	backdate(inWindow.ID.String(), time.Now())
+	backdate(beforeWindow.ID.String(), from.Add(-time.Hour))
+	backdate(atStart.ID.String(), from) // exactly at `from`, which must be included
+	backdate(atEnd.ID.String(), to)     // exactly at `to`, which must be excluded
 
 	store := &reportstore.Store{DB: f.DB}
 	summaries, err := store.PaymentSummaryByMethodWindow(f.Scoped(ctx), f.ComplexID, from, to)
@@ -54,10 +62,10 @@ func TestIntegration_PaymentSummaryByMethodWindowFiltersByPreciseTimestamps(t *t
 	if got.Method != "cash" {
 		t.Fatalf("want method=cash; got %s", got.Method)
 	}
-	if got.Count != 1 {
-		t.Errorf("want count=1 (only the in-window payment); got %d", got.Count)
+	if got.Count != 2 {
+		t.Errorf("want count=2 (the in-window payment and the one exactly at `from`); got %d", got.Count)
 	}
-	if got.Amount != 30000 {
-		t.Errorf("want amount=30000 (the in-window payment only, not before or at-end); got %d", got.Amount)
+	if got.Amount != 30000+7000 {
+		t.Errorf("want amount=37000 (in-window plus at-`from`, not before or at-`to`); got %d", got.Amount)
 	}
 }

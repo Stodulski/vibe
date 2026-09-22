@@ -179,6 +179,37 @@ func PgToInt(n pgtype.Int4) int {
 	return int(n.Int32)
 }
 
+// Int8ToPg wraps an int64 as a valid pgtype.Int8. Unlike Int4ToPg this takes
+// no narrowing cast: a BIGINT column's Go value already is an int64, so there
+// is nothing to validate a call site's range against.
+func Int8ToPg(n int64) pgtype.Int8 {
+	return pgtype.Int8{Int64: n, Valid: true}
+}
+
+// Int8PtrToPg wraps an optional int64 as a pgtype.Int8; a nil becomes SQL
+// NULL — the int64 counterpart of Int4PtrToPg, for a nullable BIGINT column.
+func Int8PtrToPg(n *int64) pgtype.Int8 {
+	if n == nil {
+		return pgtype.Int8{}
+	}
+	return Int8ToPg(*n)
+}
+
+// PgToInt8Ptr unwraps a pgtype.Int8 into an optional int64; a NULL becomes
+// nil. The pointer-returning counterpart to Int8PtrToPg, for a column whose
+// NULL and zero are different facts — cash_sessions' close-state columns
+// (counted_cash, expected_cash, difference) are NULL while a session is open
+// and set once it closes, the same reasoning PgToInt4Ptr's own comment gives,
+// just BIGINT rather than INTEGER (see db/migrations/003_cashbox.sql for why
+// this trio needed the wider column).
+func PgToInt8Ptr(n pgtype.Int8) *int64 {
+	if !n.Valid {
+		return nil
+	}
+	v := n.Int64
+	return &v
+}
+
 // PgToTimeStr renders a pgtype.Time as the "HH:MM" wall-clock string the
 // domain types carry; a NULL becomes the empty string.
 func PgToTimeStr(t pgtype.Time) string {

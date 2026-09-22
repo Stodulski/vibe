@@ -25,6 +25,13 @@ type Querier interface {
 	BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error)
 	// closing_note is its own column: it never touches opening_note, so a
 	// closing note can never erase what Open recorded.
+	//
+	// closed_at is a PARAMETER, not NOW(): the service reads booking payments
+	// over a window ending at one instant it picked itself, and that same
+	// instant has to be what lands in closed_at, or a payment landing between
+	// the service's read and this UPDATE's own NOW() would be missing from the
+	// stored expected_cash yet appear in a summary later rebuilt over
+	// [opened_at, closed_at) — see Service.Close's own comment.
 	CloseCashSession(ctx context.Context, arg CloseCashSessionParams) (CashSession, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error

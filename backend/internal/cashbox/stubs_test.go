@@ -3,13 +3,20 @@ package cashbox
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/audit"
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	cashboxstore "github.com/stodulski/vibe-server/internal/cashbox/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
@@ -49,7 +56,8 @@ type stubStore struct {
 
 type closeCall struct {
 	complexID, sessionID, closedBy   uuid.UUID
-	countedCash, cashBookingPayments int
+	countedCash, cashBookingPayments int64
+	closedAt                         time.Time
 	closingNote                      *string
 }
 
@@ -84,10 +92,10 @@ func (s *stubStore) ListByComplex(_ context.Context, _ uuid.UUID, _ data.Filters
 	return s.listSessions, s.listMetadata, nil
 }
 
-func (s *stubStore) Close(_ context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int, closingNote *string) (*cashboxstore.CashSession, error) {
+func (s *stubStore) Close(_ context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, closingNote *string) (*cashboxstore.CashSession, error) {
 	s.closeArgs = &closeCall{
 		complexID: complexID, sessionID: sessionID, closedBy: closedBy,
-		countedCash: countedCash, cashBookingPayments: cashBookingPaymentsInWindow, closingNote: closingNote,
+		countedCash: countedCash, cashBookingPayments: cashBookingPaymentsInWindow, closedAt: closedAt, closingNote: closingNote,
 	}
 	if s.closeErr != nil {
 		return nil, s.closeErr
@@ -154,4 +162,58 @@ func newTestHandler(store *stubStore, payments *stubPayments) (*Handler, *stubRe
 	rec := &stubRecorder{}
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	return NewHandler(NewService(store, payments, rec), responder, false), rec
+}
+
+// ownerRequest builds a request from the complex's authenticated owner, with
+// the given path parameters bound. Same shape as courts' own ownerRequest
+// (internal/courts/stubs_test.go): a body of "" produces a request with no
+// body and no Content-Type header at all, which is what an actually-empty
+// request looks like (as opposed to a body of "{}"), for the void-with-no-
+// body case.
+func ownerRequest(t *testing.T, method, target string, complexID uuid.UUID, params map[string]string, body string) *http.Request {
+	t.Helper()
+
+	var r *http.Request
+	if body == "" {
+		r = httptest.NewRequestWithContext(t.Context(), method, target, nil)
+	} else {
+		r = httptest.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+	}
+
+	r = httpx.ContextSetUser(r, &authstore.User{ID: uuid.New(), Role: "owner"})
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{ID: complexID})
+
+	for k, v := range params {
+		r.SetPathValue(k, v)
+	}
+	return r
+}
+
+// decode parses a recorded JSON response body, following courts' own decode.
+func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body is not valid JSON: %v\n%s", err, w.Body.String())
+	}
+	return body
+}
+
+// fieldError looks up one field's validation message from a decoded Problem
+// body's "errors" array (internal/httpx/problem.go's FieldError), following
+// internal/auth's own fieldError.
+func fieldError(body map[string]any, field string) (string, bool) {
+	errs, _ := body["errors"].([]any)
+	for _, e := range errs {
+		entry, ok := e.(map[string]any)
+		if !ok {
+			continue
+		}
+		if entry["field"] == field {
+			msg, _ := entry["message"].(string)
+			return msg, true
+		}
+	}
+	return "", false
 }

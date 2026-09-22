@@ -87,23 +87,29 @@ func translateMovementWrite(err error) error {
 // CashSession is one cash shift: an owner's opening float, everything
 // recorded against it, and — once closed — the count and the reconciliation
 // snapshot.
+//
+// OpeningCash, CountedCash, ExpectedCash and Difference are int64, not int:
+// they are BIGINT columns (db/migrations/003_cashbox.sql), unlike every
+// per-entry money field in this codebase (a movement's own Amount below
+// stays int/INTEGER), because they are Go-computed SUMs that must never wrap
+// the way an INTEGER column silently did before that migration.
 type CashSession struct {
 	ID          uuid.UUID
 	ComplexID   uuid.UUID
 	OpenedAt    time.Time
 	OpenedBy    uuid.UUID
-	OpeningCash int
+	OpeningCash int64
 	// ClosedAt, ClosedBy, CountedCash and ExpectedCash are all nil while the
 	// session is open and all set once Close succeeds — cash_sessions'
 	// close-state CHECK enforces the same all-or-nothing rule at the database.
 	ClosedAt     *time.Time
 	ClosedBy     *uuid.UUID
-	CountedCash  *int
-	ExpectedCash *int
+	CountedCash  *int64
+	ExpectedCash *int64
 	// Difference is counted minus expected. A generated column
 	// (db/migrations/003_cashbox.sql): the database computes it, this field
 	// only ever carries what came back on a read.
-	Difference *int
+	Difference *int64
 	// OpeningNote is written once, by Open. ClosingNote is written once, by
 	// Close. Two columns, not one: the closer must never be able to erase
 	// what the opener recorded.
@@ -179,10 +185,9 @@ func (m *Store) OpenSession(ctx context.Context, s *CashSession) error {
 	}
 
 	row, err := m.Q.InsertCashSession(ctx, db.InsertCashSessionParams{
-		ComplexID: data.UUIDToPg(s.ComplexID),
-		OpenedBy:  data.UUIDToPg(s.OpenedBy),
-		//nolint:gosec // G115: opening_cash is a validated currency amount (centavos), far below int32 range.
-		OpeningCash: int32(s.OpeningCash),
+		ComplexID:   data.UUIDToPg(s.ComplexID),
+		OpenedBy:    data.UUIDToPg(s.OpenedBy),
+		OpeningCash: s.OpeningCash,
 		OpeningNote: data.TextToPg(s.OpeningNote),
 	})
 	if err != nil {
@@ -278,7 +283,15 @@ func (m *Store) ListByComplex(ctx context.Context, complexID uuid.UUID, filters 
 // this store CAN compute from its own tables (opening_cash, this session's
 // cash movements), it does, inside the lock, rather than trusting a value the
 // caller read earlier and might now be stale.
-func (m *Store) Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int, closingNote *string) (*CashSession, error) {
+//
+// closedAt is likewise the service's, not this store's: it is the exact
+// instant Service.Close used as the end of the booking-payments window it
+// read cashBookingPaymentsInWindow over, and it must be the exact value
+// written to the closed_at column — not a fresh NOW() taken here — or a
+// booking payment landing between that read and this write would be missing
+// from the stored expected_cash snapshot while still falling inside
+// [opened_at, closed_at) the next time a summary is rebuilt from it.
+func (m *Store) Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, closingNote *string) (*CashSession, error) {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -307,12 +320,13 @@ func (m *Store) Close(ctx context.Context, complexID, sessionID, closedBy uuid.U
 			return err
 		}
 		cashIncome, cashExpense := CashIncomeAndExpense(totals)
-		expectedCash := int(locked.OpeningCash) + cashIncome - cashExpense + cashBookingPaymentsInWindow
+		expectedCash := locked.OpeningCash + int64(cashIncome) - int64(cashExpense) + cashBookingPaymentsInWindow
 
 		row, err := qtx.CloseCashSession(ctx, db.CloseCashSessionParams{
+			ClosedAt:     data.TimeToPg(closedAt),
 			ClosedBy:     data.UUIDToPg(closedBy),
-			CountedCash:  data.Int4ToPg(countedCash),
-			ExpectedCash: data.Int4ToPg(expectedCash),
+			CountedCash:  data.Int8ToPg(countedCash),
+			ExpectedCash: data.Int8ToPg(expectedCash),
 			ClosingNote:  data.TextToPg(closingNote),
 			ID:           data.UUIDToPg(sessionID),
 			ComplexID:    data.UUIDToPg(complexID),
@@ -489,12 +503,12 @@ func cashSessionFromDB(s db.CashSession) *CashSession {
 		ComplexID:    data.PgToUUID(s.ComplexID),
 		OpenedAt:     data.PgToTime(s.OpenedAt),
 		OpenedBy:     data.PgToUUID(s.OpenedBy),
-		OpeningCash:  int(s.OpeningCash),
+		OpeningCash:  s.OpeningCash,
 		ClosedAt:     data.PgToTimePtr(s.ClosedAt),
 		ClosedBy:     data.PgToUUIDPtr(s.ClosedBy),
-		CountedCash:  data.PgToInt4Ptr(s.CountedCash),
-		ExpectedCash: data.PgToInt4Ptr(s.ExpectedCash),
-		Difference:   data.PgToInt4Ptr(s.Difference),
+		CountedCash:  data.PgToInt8Ptr(s.CountedCash),
+		ExpectedCash: data.PgToInt8Ptr(s.ExpectedCash),
+		Difference:   data.PgToInt8Ptr(s.Difference),
 		OpeningNote:  data.PgToTextPtr(s.OpeningNote),
 		ClosingNote:  data.PgToTextPtr(s.ClosingNote),
 		CreatedAt:    data.PgToTime(s.CreatedAt),

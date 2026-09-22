@@ -1602,20 +1602,20 @@ type CashSession struct {
 	ComplexId   openapi_types.UUID `json:"complex_id"`
 
 	// CountedCash Centavos ARS, physically counted. Null until closed.
-	CountedCash *int      `json:"counted_cash,omitempty"`
+	CountedCash *int64    `json:"counted_cash,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 
 	// Difference counted_cash minus expected_cash. Null until closed.
-	Difference *int `json:"difference,omitempty"`
+	Difference *int64 `json:"difference,omitempty"`
 
 	// ExpectedCash Centavos ARS, the close-time snapshot. Null until closed.
-	ExpectedCash *int               `json:"expected_cash,omitempty"`
+	ExpectedCash *int64             `json:"expected_cash,omitempty"`
 	Id           openapi_types.UUID `json:"id"`
 	OpenedAt     time.Time          `json:"opened_at"`
 	OpenedBy     openapi_types.UUID `json:"opened_by"`
 
-	// OpeningCash Centavos ARS.
-	OpeningCash int `json:"opening_cash"`
+	// OpeningCash Centavos ARS. A session-level sum, not one entry — BIGINT (db/migrations/003_cashbox.sql).
+	OpeningCash int64 `json:"opening_cash"`
 
 	// OpeningNote Written once, by open. Never changed by close.
 	OpeningNote *string   `json:"opening_note,omitempty"`
@@ -1627,17 +1627,17 @@ type CashSessionSummary struct {
 	BookingPayments []CashBookingPaymentTotal `json:"booking_payments"`
 
 	// CountedCash Centavos ARS. Present only when closed.
-	CountedCash *int `json:"counted_cash,omitempty"`
+	CountedCash *int64 `json:"counted_cash,omitempty"`
 
 	// Difference Centavos ARS. Present only when closed.
-	Difference *int `json:"difference,omitempty"`
+	Difference *int64 `json:"difference,omitempty"`
 
 	// ExpectedCash Live projection through now() for an open session; the exact close-time snapshot for a closed one.
-	ExpectedCash   int                 `json:"expected_cash"`
+	ExpectedCash   int64               `json:"expected_cash"`
 	MovementTotals []CashMovementTotal `json:"movement_totals"`
 
 	// OpeningCash Centavos ARS.
-	OpeningCash int `json:"opening_cash"`
+	OpeningCash int64 `json:"opening_cash"`
 }
 
 // Client defines model for Client.
@@ -2762,8 +2762,8 @@ type CashSessionsOpenJSONBody struct {
 	// Note Stored as the session's opening_note.
 	Note *string `json:"note,omitempty"`
 
-	// OpeningCash Centavos ARS.
-	OpeningCash int `json:"opening_cash"`
+	// OpeningCash Centavos ARS. Nullable only so a request that omits it decodes to a Go nil rather than a valid-looking 0 — 0 is itself a legitimate opening float — and the handler can tell "not sent" from "sent as zero" and refuse the former. The request validator that would otherwise catch a missing required field never runs in production (internal/middleware/openapi.go), so the handler is the only place this is actually enforced (pos-cashbox T2 review).
+	OpeningCash *int `json:"opening_cash"`
 }
 
 // CashSessionsOpenParams defines parameters for CashSessionsOpen.
@@ -2774,8 +2774,8 @@ type CashSessionsOpenParams struct {
 
 // CashSessionsCloseJSONBody defines parameters for CashSessionsClose.
 type CashSessionsCloseJSONBody struct {
-	// CountedCash Centavos ARS, physically counted.
-	CountedCash int `json:"counted_cash"`
+	// CountedCash Centavos ARS, physically counted. Nullable for the same reason CashSessionsOpen's opening_cash is: 0 is a legitimate count (an empty drawer), so a missing field has to decode to nil, not a valid-looking 0, for the handler to tell the two apart and refuse the former.
+	CountedCash *int `json:"counted_cash"`
 
 	// Note Stored as the session's closing_note. Never touches opening_note.
 	Note *string `json:"note,omitempty"`

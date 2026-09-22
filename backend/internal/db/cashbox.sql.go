@@ -13,24 +13,33 @@ import (
 
 const closeCashSession = `-- name: CloseCashSession :one
 UPDATE cash_sessions
-SET closed_at = NOW(), closed_by = $1, counted_cash = $2, expected_cash = $3, closing_note = $4
-WHERE id = $5 AND complex_id = $6
+SET closed_at = $1, closed_by = $2, counted_cash = $3, expected_cash = $4, closing_note = $5
+WHERE id = $6 AND complex_id = $7
 RETURNING id, complex_id, opened_at, opened_by, opening_cash, closed_at, closed_by, counted_cash, expected_cash, difference, opening_note, closing_note, created_at, updated_at
 `
 
 type CloseCashSessionParams struct {
-	ClosedBy     pgtype.UUID `json:"closed_by"`
-	CountedCash  pgtype.Int4 `json:"counted_cash"`
-	ExpectedCash pgtype.Int4 `json:"expected_cash"`
-	ClosingNote  pgtype.Text `json:"closing_note"`
-	ID           pgtype.UUID `json:"id"`
-	ComplexID    pgtype.UUID `json:"complex_id"`
+	ClosedAt     pgtype.Timestamptz `json:"closed_at"`
+	ClosedBy     pgtype.UUID        `json:"closed_by"`
+	CountedCash  pgtype.Int8        `json:"counted_cash"`
+	ExpectedCash pgtype.Int8        `json:"expected_cash"`
+	ClosingNote  pgtype.Text        `json:"closing_note"`
+	ID           pgtype.UUID        `json:"id"`
+	ComplexID    pgtype.UUID        `json:"complex_id"`
 }
 
 // closing_note is its own column: it never touches opening_note, so a
 // closing note can never erase what Open recorded.
+//
+// closed_at is a PARAMETER, not NOW(): the service reads booking payments
+// over a window ending at one instant it picked itself, and that same
+// instant has to be what lands in closed_at, or a payment landing between
+// the service's read and this UPDATE's own NOW() would be missing from the
+// stored expected_cash yet appear in a summary later rebuilt over
+// [opened_at, closed_at) — see Service.Close's own comment.
 func (q *Queries) CloseCashSession(ctx context.Context, arg CloseCashSessionParams) (CashSession, error) {
 	row := q.db.QueryRow(ctx, closeCashSession,
+		arg.ClosedAt,
 		arg.ClosedBy,
 		arg.CountedCash,
 		arg.ExpectedCash,
@@ -277,7 +286,7 @@ RETURNING id, complex_id, opened_at, opened_by, opening_cash, closed_at, closed_
 type InsertCashSessionParams struct {
 	ComplexID   pgtype.UUID `json:"complex_id"`
 	OpenedBy    pgtype.UUID `json:"opened_by"`
-	OpeningCash int32       `json:"opening_cash"`
+	OpeningCash int64       `json:"opening_cash"`
 	OpeningNote pgtype.Text `json:"opening_note"`
 }
 
