@@ -7,15 +7,7 @@ import { loginRedirectStateSchema } from '../schemas/auth.schema';
 import type { AuthResponse } from '@/shared/types/api.types';
 
 // Allowed redirect destinations after a successful login to prevent open redirect.
-const SAFE_PREFIXES = [
-  '/dashboard',
-  '/bookings',
-  '/courts',
-  '/clients',
-  '/settings',
-  '/onboarding',
-  '/admin',
-];
+const SAFE_PREFIXES = ['/dashboard', '/bookings', '/courts', '/clients', '/settings', '/onboarding', '/admin'];
 
 /**
  * Whether `path` is somewhere inside this app that a just-authenticated
