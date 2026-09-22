@@ -13,6 +13,7 @@ import (
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	booklinkstore "github.com/stodulski/vibe-server/internal/booklink/store"
+	cashboxstore "github.com/stodulski/vibe-server/internal/cashbox/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -561,12 +562,41 @@ func (c Config) linkTokenBuffer() time.Duration {
 	return c.LinkTokenBuffer
 }
 
+// ---------------------------------------------------------------------------
+// CashboxStore — segregated by responsibility (sessions vs. movements)
+// ---------------------------------------------------------------------------
+
+// CashSessionStore manages a complex's cash shifts.
+type CashSessionStore interface {
+	OpenSession(ctx context.Context, s *cashboxstore.CashSession) error
+	GetOpenByComplex(ctx context.Context, complexID uuid.UUID) (*cashboxstore.CashSession, error)
+	GetByID(ctx context.Context, complexID, sessionID uuid.UUID) (*cashboxstore.CashSession, error)
+	ListByComplex(ctx context.Context, complexID uuid.UUID, filters data.Filters) ([]*cashboxstore.CashSession, data.Metadata, error)
+	Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int, note *string) (*cashboxstore.CashSession, error)
+}
+
+// CashMovementStore manages the append-only ledger against a session.
+type CashMovementStore interface {
+	InsertMovement(ctx context.Context, m *cashboxstore.CashMovement) error
+	GetMovementByID(ctx context.Context, complexID, movementID uuid.UUID) (*cashboxstore.CashMovement, error)
+	ListMovementsBySession(ctx context.Context, complexID, sessionID uuid.UUID) ([]*cashboxstore.CashMovement, error)
+	SumBySession(ctx context.Context, complexID, sessionID uuid.UUID) ([]cashboxstore.MovementTotal, error)
+}
+
+// CashboxStore composes both — one concrete store (internal/cashbox/store)
+// satisfies both halves, the same shape courts' three-port Store does.
+type CashboxStore interface {
+	CashSessionStore
+	CashMovementStore
+}
+
 // Stores aggregates every store interface used by the application.
 type Stores struct {
 	Users             UserStore
 	UserIdentities    UserIdentityStore
 	Complexes         ComplexStore
 	Courts            CourtStore
+	Cashbox           CashboxStore
 	Bookings          BookingStore
 	BookingLinkTokens BookingLinkTokenStore
 	Tokens            TokenStore
@@ -629,5 +659,6 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Admin:             &adminstore.Store{DB: pooled},
 		Audit:             &auditstore.Store{DB: pooled},
 		Jobs:              &jobs.Store{DB: pooled},
+		Cashbox:           &cashboxstore.Store{DB: pooled, Q: q},
 	}
 }
