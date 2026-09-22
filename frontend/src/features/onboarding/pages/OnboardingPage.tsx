@@ -14,13 +14,16 @@ export default function OnboardingPage() {
   usePageTitle(t.complex.onboardingTitle);
 
   const state = useOnboarding();
-  const { step, animKey, logout, complexesError, refetchComplexes } = state;
+  const { step, animKey, logout, complexesError, complexesFetching, refetchComplexes, currentComplex } = state;
 
   // The complexes query failed rather than resolving to "no complex yet" —
   // `deriveStep` reads a failed query the same as `complexId === null` and
-  // would otherwise offer step 1's create form again.
-  if (complexesError) {
-    return <ComplexLoadError onRetry={() => void refetchComplexes()} />;
+  // would otherwise offer step 1's create form again. Only blanks the page
+  // when nothing is cached: a background refetch failure keeps
+  // `currentComplex` populated, and the flow should keep going through that
+  // instead of interrupting an owner mid-step.
+  if (complexesError && !currentComplex) {
+    return <ComplexLoadError onRetry={() => void refetchComplexes()} isFetching={complexesFetching} />;
   }
 
   // Show a brief loading state while deriving initial step from server data.

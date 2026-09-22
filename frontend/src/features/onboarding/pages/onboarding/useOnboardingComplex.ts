@@ -17,6 +17,7 @@ export function useOnboardingComplex({ stateComplexId, justCreatedId }: UseOnboa
   const {
     data: complexes,
     isLoading: complexesLoading,
+    isFetching: complexesFetching,
     isError: complexesError,
     refetch: refetchComplexes,
   } = useComplexes();
@@ -27,5 +28,14 @@ export function useOnboardingComplex({ stateComplexId, justCreatedId }: UseOnboa
   // Fetch courts for the complex to determine if step 2 is complete.
   const { data: courts, isLoading: courtsLoading } = useCourts(complexId);
 
-  return { complexId, currentComplex, courts, complexesLoading, courtsLoading, complexesError, refetchComplexes };
+  return {
+    complexId,
+    currentComplex,
+    courts,
+    complexesLoading,
+    courtsLoading,
+    complexesError,
+    complexesFetching,
+    refetchComplexes,
+  };
 }

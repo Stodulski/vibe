@@ -81,6 +81,7 @@ function mockSelectedComplex(overrides: Partial<ReturnType<typeof useSelectedCom
     selectedComplexId: null,
     needsOnboarding: false,
     isLoading: false,
+    isFetching: false,
     isError: false,
     error: null,
     refetch: vi.fn(),
@@ -135,5 +136,22 @@ describe('DashboardLayout', () => {
 
     screen.getByRole('button', { name: 'retry' }).click();
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it('keeps rendering the dashboard when a background refetch fails but a complex is still cached', async () => {
+    const complex = makeComplex({ id: 'complex-1', name: 'Test' });
+    mockSelectedComplex({
+      selectedComplexId: 'complex-1',
+      complex,
+      complexes: [complex],
+      isError: true,
+      error: new Error('Network error'),
+    });
+    const { DashboardLayout } = await import('./DashboardLayout');
+    render(<DashboardLayout />);
+
+    expect(screen.queryByTestId('complex-load-error')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('navigate')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('sidebar').length).toBeGreaterThanOrEqual(1);
   });
 });

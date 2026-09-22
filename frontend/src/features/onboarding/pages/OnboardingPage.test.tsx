@@ -63,4 +63,22 @@ describe('OnboardingPage', () => {
     expect(screen.queryByTestId('complex-load-error')).not.toBeInTheDocument();
     expect(screen.getByTestId('step-content')).toBeInTheDocument();
   });
+
+  it('keeps rendering step content when a background refetch fails but a complex is still cached', async () => {
+    useOnboardingMock.mockReturnValue({
+      step: 2,
+      animKey: 0,
+      logout: { mutate: vi.fn() },
+      complexesError: true,
+      complexesFetching: false,
+      refetchComplexes: vi.fn(),
+      currentComplex: { id: 'c1', mp_user_id: null },
+    });
+
+    const OnboardingPage = (await import('./OnboardingPage')).default;
+    render(<OnboardingPage />);
+
+    expect(screen.queryByTestId('complex-load-error')).not.toBeInTheDocument();
+    expect(screen.getByTestId('step-content')).toBeInTheDocument();
+  });
 });
