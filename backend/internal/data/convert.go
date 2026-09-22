@@ -157,6 +157,20 @@ func Int4PtrToPg(n *int) pgtype.Int4 {
 	return Int4ToPg(*n)
 }
 
+// PgToInt4Ptr unwraps a pgtype.Int4 into an optional int; a NULL becomes nil.
+// The pointer-returning counterpart to Int4PtrToPg, for a column whose NULL
+// and zero are different facts — cash_sessions' close-state columns
+// (counted_cash, expected_cash, difference) are NULL while a session is open
+// and set once it closes, so PgToInt's zero-for-invalid would read a still-open
+// session as "counted 0" instead of "not counted yet".
+func PgToInt4Ptr(n pgtype.Int4) *int {
+	if !n.Valid {
+		return nil
+	}
+	v := int(n.Int32)
+	return &v
+}
+
 // PgToInt unwraps a pgtype.Int4; a NULL becomes zero.
 func PgToInt(n pgtype.Int4) int {
 	if !n.Valid {
