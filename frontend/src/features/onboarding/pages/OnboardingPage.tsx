@@ -6,6 +6,7 @@ import { OnboardingStepIndicator } from './onboarding/OnboardingStepIndicator';
 import { OnboardingHeaderNav } from './onboarding/OnboardingHeaderNav';
 import { OnboardingStepContent } from './onboarding/OnboardingStepContent';
 import { MeshBackdrop } from '@/shared/components/layout/MeshBackdrop';
+import { ComplexLoadError } from '@/shared/components/common/ComplexLoadError';
 
 const t = ES_AR;
 
@@ -13,7 +14,14 @@ export default function OnboardingPage() {
   usePageTitle(t.complex.onboardingTitle);
 
   const state = useOnboarding();
-  const { step, animKey, logout } = state;
+  const { step, animKey, logout, complexesError, refetchComplexes } = state;
+
+  // The complexes query failed rather than resolving to "no complex yet" —
+  // `deriveStep` reads a failed query the same as `complexId === null` and
+  // would otherwise offer step 1's create form again.
+  if (complexesError) {
+    return <ComplexLoadError onRetry={() => void refetchComplexes()} />;
+  }
 
   // Show a brief loading state while deriving initial step from server data.
   if (step === null) {

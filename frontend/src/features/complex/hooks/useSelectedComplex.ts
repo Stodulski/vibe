@@ -7,6 +7,9 @@ interface SelectedComplexState {
   selectedComplexId: string | null;
   needsOnboarding: boolean;
   isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  refetch: () => void;
 }
 
 /**
@@ -16,11 +19,16 @@ interface SelectedComplexState {
  * name so the many consumers destructuring it don't need to change.
  */
 export function useSelectedComplex(): SelectedComplexState {
-  const { data: complexes, isLoading } = useComplexes();
+  const { data: complexes, isLoading, isSuccess, isError, error, refetch: refetchComplexes } = useComplexes();
 
   const complex = complexes?.[0] ?? null;
   const selectedComplexId = complex?.id ?? null;
-  const needsOnboarding = !isLoading && (!complexes || complexes.length === 0);
+  // Only a *successful* empty list means the account has no complex yet.
+  // A failed query (network, 5xx, timeout) also leaves `complexes`
+  // undefined, and used to read the same as "needs onboarding" — sending
+  // the owner to the create-complex form, where submitting it 403'd with
+  // "the account already owns a complex".
+  const needsOnboarding = isSuccess && complexes.length === 0;
 
   return {
     complex,
@@ -28,5 +36,12 @@ export function useSelectedComplex(): SelectedComplexState {
     selectedComplexId,
     needsOnboarding,
     isLoading,
+    isError,
+    error,
+    // Widened to `() => void`: consumers trigger a retry and re-render off
+    // `isLoading`/`isError` — none of them need the refetch promise itself.
+    refetch: () => {
+      void refetchComplexes();
+    },
   };
 }

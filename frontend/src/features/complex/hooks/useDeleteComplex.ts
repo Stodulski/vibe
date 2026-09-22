@@ -13,8 +13,15 @@ export function useDeleteComplex() {
 
   return useMutation({
     mutationFn: (complexId: string) => complexApi.delete(complexId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.complexes.all });
+    onSuccess: async () => {
+      // Write the known result into the cache synchronously, then await the
+      // invalidation, before navigating. `useOnboardingComplex` reads
+      // `complexes?.[0]` right after this mutation settles — navigating
+      // straight after firing `invalidateQueries` (without awaiting it) let
+      // the onboarding page mount and read the still-stale, still-deleted
+      // complex from the cache before the refetch had landed.
+      queryClient.setQueryData(queryKeys.complexes.all, { complexes: [] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.complexes.all });
       toast.success(t.complex.deletedSuccess);
       // The account owns at most one complex — deleting it leaves none, so
       // there is nothing to fall back to but creating a new one.

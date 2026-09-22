@@ -118,6 +118,9 @@ describe('BookingsPage', () => {
       complexes: [],
       needsOnboarding: false,
       isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
     });
     const BookingsPage = (await import('./BookingsPage')).default;
     const { container } = renderWithProviders(<BookingsPage />);
