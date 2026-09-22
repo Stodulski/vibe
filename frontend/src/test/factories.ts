@@ -1,6 +1,15 @@
 import { HTTPError } from 'ky';
 import type { NormalizedOptions } from 'ky';
-import type { Booking, Client, Complex, Court, CourtPrice, User } from '@/shared/types/api.types';
+import type {
+  Booking,
+  CashMovement,
+  CashSession,
+  Client,
+  Complex,
+  Court,
+  CourtPrice,
+  User,
+} from '@/shared/types/api.types';
 
 const defaultUser: User = {
   id: 'u1',
@@ -197,4 +206,45 @@ const defaultClient: Client = {
 /** Builds a typed `Client` fixture with sensible defaults, overridable per-field. */
 export function makeClient(overrides: Partial<Client> = {}): Client {
   return { ...defaultClient, ...overrides };
+}
+
+const defaultCashSession: CashSession = {
+  id: 'cs1',
+  complex_id: 'c1',
+  opened_at: '2026-01-01T13:00:00Z',
+  opened_by: 'u1',
+  opening_cash: 500000,
+  closed_at: null,
+  closed_by: null,
+  counted_cash: null,
+  expected_cash: null,
+  difference: null,
+  opening_note: null,
+  closing_note: null,
+  created_at: '2026-01-01T13:00:00Z',
+  updated_at: '2026-01-01T13:00:00Z',
+};
+
+/** Builds a typed `CashSession` fixture with sensible defaults, overridable per-field. */
+export function makeCashSession(overrides: Partial<CashSession> = {}): CashSession {
+  return { ...defaultCashSession, ...overrides };
+}
+
+const defaultCashMovement: CashMovement = {
+  id: 'cm1',
+  complex_id: 'c1',
+  session_id: 'cs1',
+  kind: 'expense',
+  category: 'supplies',
+  method: 'cash',
+  amount: 150000,
+  note: null,
+  voids_movement_id: null,
+  created_at: '2026-01-01T14:00:00Z',
+  created_by: 'u1',
+};
+
+/** Builds a typed `CashMovement` fixture with sensible defaults, overridable per-field. */
+export function makeCashMovement(overrides: Partial<CashMovement> = {}): CashMovement {
+  return { ...defaultCashMovement, ...overrides };
 }
