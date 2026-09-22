@@ -44,6 +44,14 @@ export const ownerDashboardRoutes: RouteObject[] = [
         element: ownerPage(() => import('@/features/bookings/pages/BookingsPage'), <SkeletonBookings />),
       },
       {
+        path: '/cash',
+        element: ownerPage(() => import('@/features/cash/pages/CashPage')),
+      },
+      {
+        path: '/cash/sessions/:sessionId',
+        element: ownerPage(() => import('@/features/cash/pages/CashSessionDetailPage')),
+      },
+      {
         path: '/courts',
         element: ownerPage(() => import('@/features/courts/pages/CourtsPage')),
       },

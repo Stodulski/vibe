@@ -26,6 +26,7 @@ export const PROTECTED_PATH_PREFIXES = [
   '/settings',
   '/dashboard',
   '/bookings',
+  '/cash',
   '/courts',
   '/clients',
   '/reports',
