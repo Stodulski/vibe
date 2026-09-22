@@ -155,6 +155,14 @@ func TestCreateMovementRejectsInvalidInput(t *testing.T) {
 		body string
 	}{
 		{"category does not match kind", `{"kind":"income","category":"supplies","method":"cash","amount":1000}`},
+		// 'sale' and 'restock' are SYSTEM categories db/migrations/004_pos_catalog_stock.sql
+		// added to cash_movements — only internal/products' own Restock ever
+		// writes 'restock', and only T4b's sales flow will ever write 'sale'.
+		// Manual movement creation must keep rejecting both: IncomeCategories/
+		// ExpenseCategories (service.go) were not widened to include them, and
+		// this pins that they stay that way.
+		{"sale is a system-only income category", `{"kind":"income","category":"sale","method":"cash","amount":1000}`},
+		{"restock is a system-only expense category", `{"kind":"expense","category":"restock","method":"cash","amount":1000}`},
 		{"mercadopago is not a counter method", `{"kind":"income","category":"other_income","method":"mercadopago","amount":1000}`},
 		{"amount is zero", `{"kind":"income","category":"other_income","method":"cash","amount":0}`},
 		{"amount is negative", `{"kind":"income","category":"other_income","method":"cash","amount":-500}`},
