@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { http, HttpResponse } from 'msw';
 import * as ky from '@/shared/lib/ky';
 import { server } from '@/test/msw/server';
+import { makeUser } from '@/test/factories';
 import { useRealtimeEvents } from './useRealtimeEvents';
 import { createQueryWrapper } from '@/test/test-utils';
 
@@ -219,40 +220,45 @@ describe('useRealtimeEvents — server-closed streams', () => {
   });
 });
 
-describe('useRealtimeEvents — ordinary stream drops', () => {
-  // `bootstrapSession` reaches `refreshAccessToken` through the module's own
-  // binding, which a spy on the export cannot see; the wire is the proof.
-  let refreshHits = 0;
+// `bootstrapSession` reaches `refreshAccessToken` through the module's own
+// binding, which a spy on the export cannot see; the wire is the proof.
+let refreshHits = 0;
 
-  beforeEach(() => {
-    MockEventSource.reset();
-    vi.stubGlobal('EventSource', MockEventSource);
-    Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
-    refreshHits = 0;
-    server.use(
-      http.post('*/auth/refresh', () => {
-        refreshHits++;
-        return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
-      }),
-    );
-  });
+/** A drop-test's shared setup: a fresh mock stream and a refused refresh counted on the wire. */
+function setupDropTest() {
+  MockEventSource.reset();
+  vi.stubGlobal('EventSource', MockEventSource);
+  Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
+  refreshHits = 0;
+  server.use(
+    http.post('*/auth/refresh', () => {
+      refreshHits++;
+      return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }),
+  );
+}
 
+/** Mounts the hook on `complex-1`, drops its stream with no named event first, and returns that stream. */
+function dropFirstStream(): MockEventSource {
+  renderHook(
+    () => {
+      useRealtimeEvents('complex-1');
+    },
+    { wrapper: createQueryWrapper() },
+  );
+  const es = firstInstance();
+  es.onerror?.(new Event('error'));
+  return es;
+}
+
+describe('useRealtimeEvents — ordinary stream drops, session alive', () => {
+  beforeEach(setupDropTest);
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it('reconnects after a plain drop without spending the refresh token while the session is alive', async () => {
-    renderHook(
-      () => {
-        useRealtimeEvents('complex-1');
-      },
-      { wrapper: createQueryWrapper() },
-    );
-    const es = firstInstance();
-
-    // No named terminal event first: the proxy cut the stream, the network
-    // blinked. `/auth/me` (the MSW default) still answers 200.
-    es.onerror?.(new Event('error'));
+    const es = dropFirstStream();
 
     expect(es.closed).toBe(true);
     await waitFor(
@@ -264,26 +270,65 @@ describe('useRealtimeEvents — ordinary stream drops', () => {
     expect(refreshHits).toBe(0);
   });
 
-  it('refreshes after a plain drop only when /auth/me says the access token is gone', async () => {
-    server.use(http.get('*/auth/me', () => HttpResponse.json({ error: 'unauthorized' }, { status: 401 })));
-    renderHook(
-      () => {
-        useRealtimeEvents('complex-1');
-      },
-      { wrapper: createQueryWrapper() },
+  it('refreshes after a plain drop when /auth/me says the access token is gone, then reconnects', async () => {
+    let meCalls = 0;
+    server.use(
+      // Expired before the rotation, alive after it.
+      http.get('*/auth/me', () => {
+        meCalls++;
+        return meCalls === 1
+          ? HttpResponse.json({ error: 'unauthorized' }, { status: 401 })
+          : HttpResponse.json({ user: makeUser(), pending_email: null, csrf_token: 'csrf-2' });
+      }),
+      http.post('*/auth/refresh', () => {
+        refreshHits++;
+        return HttpResponse.json({ csrf_token: 'csrf-2' });
+      }),
     );
-    const es = firstInstance();
+    dropFirstStream();
 
-    es.onerror?.(new Event('error'));
+    await waitFor(
+      () => {
+        expect(MockEventSource.instances).toHaveLength(2);
+      },
+      { timeout: 5_000 },
+    );
+    expect(refreshHits).toBe(1);
+  });
+});
+
+describe('useRealtimeEvents — ordinary stream drops, session gone or probe failing', () => {
+  beforeEach(setupDropTest);
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('stops for good when /auth/me says the access token is gone and the refresh is refused', async () => {
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ error: 'unauthorized' }, { status: 401 })));
+    dropFirstStream();
 
     await waitFor(() => {
       expect(refreshHits).toBeGreaterThanOrEqual(1);
     });
-    // The refresh failed too: signed out, no reconnect is scheduled.
+    // A wrongly scheduled reconnect would only fire after RETRY_DELAY, so
+    // the check has to outlast it.
     await new Promise((resolve) => {
-      setTimeout(resolve, 50);
+      setTimeout(resolve, 3_500);
     });
     expect(MockEventSource.instances).toHaveLength(1);
+  }, 10_000);
+
+  it('keeps retrying when the probe itself fails for a reason unrelated to the session', async () => {
+    server.use(http.get('*/auth/me', () => HttpResponse.json({ error: 'boom' }, { status: 503 })));
+    dropFirstStream();
+
+    await waitFor(
+      () => {
+        expect(MockEventSource.instances).toHaveLength(2);
+      },
+      { timeout: 5_000 },
+    );
+    expect(refreshHits).toBe(0);
   });
 });
 

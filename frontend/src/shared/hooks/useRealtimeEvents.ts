@@ -46,16 +46,24 @@ function handleSSEError(
   if (retriesRef.current >= MAX_RETRIES) return;
   retriesRef.current++;
 
+  const scheduleReconnect = () => {
+    retryTimerRef.current = setTimeout(() => {
+      connectRef.current();
+    }, RETRY_DELAY);
+  };
+
   bootstrapSession()
     .then((session) => {
-      // No session left — signed out, stop retrying.
+      // `null` is definitive: the access token is gone and the refresh was
+      // refused. Signed out, stop retrying.
       if (!session) return;
-      retryTimerRef.current = setTimeout(() => {
-        connectRef.current();
-      }, RETRY_DELAY);
+      scheduleReconnect();
     })
     .catch(() => {
-      // The session could not be read at all — stop retrying.
+      // The probe itself failed (a 5xx, a network error): that says nothing
+      // about the session, and it is the same blip that dropped the stream.
+      // Keep retrying within the budget above.
+      scheduleReconnect();
     });
 }
 
