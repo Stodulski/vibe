@@ -105,13 +105,14 @@ type Store struct {
 }
 
 // Insert creates a new complex and populates c with its generated ID and
-// defaults, returning ErrDuplicateSlug when the public slug is already taken.
+// defaults, returning ErrDuplicateSlug when the public slug is already taken
+// or ErrDuplicateOwner when the account already owns a live complex.
 //
-// The unique constraint is the authority on whether a slug is free, not the
-// SlugExists check a handler runs first: that check is a fast path, and
-// between it and this insert another request can take the name. Translating
-// the violation here is what makes the losing request a 422 naming the field
-// rather than a 500.
+// The unique constraints are the authority on both, not the SlugExists check
+// or the owned-count check a caller runs first: those are fast paths, and
+// between either of them and this insert another request can take the slug or
+// the slot. Translating the violation here is what makes the losing request a
+// 4xx naming the field rather than a 500.
 func (m *Store) Insert(ctx context.Context, c *Complex) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -140,7 +141,12 @@ func (m *Store) Insert(ctx context.Context, c *Complex) error {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return ErrDuplicateSlug
+			switch pgErr.ConstraintName {
+			case "complexes_slug_key":
+				return ErrDuplicateSlug
+			case "complexes_owner_id_key":
+				return ErrDuplicateOwner
+			}
 		}
 		return err
 	}

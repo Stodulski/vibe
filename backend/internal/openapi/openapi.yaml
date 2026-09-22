@@ -156,7 +156,7 @@ paths:
         - {$ref: "#/components/parameters/PathID"}
       responses:
         "200":
-          description: The user and the complexes they own.
+          description: The user and the complex they own, at most one.
           content:
             application/json:
               schema:
@@ -166,6 +166,7 @@ paths:
                   user: {$ref: "#/components/schemas/User"}
                   complexes:
                     type: array
+                    description: At most one item, since one account owns at most one complex.
                     items: {$ref: "#/components/schemas/Complex"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
@@ -1796,12 +1797,13 @@ paths:
       operationId: complexesList
       summary: List the complexes the caller owns
       description: >-
-        Not paginated, owners have few venues, capped by a configured maximum. Cross-tenant
-        bypass reason `by-owner` (filtered by `owner_id` in SQL).
+        Not paginated: one account owns at most one complex, so the array holds either the
+        caller's single complex or is empty. Cross-tenant bypass reason `by-owner` (filtered
+        by `owner_id` in SQL).
       security: [{cookieAuth: []}]
       responses:
         "200":
-          description: Every complex owned by the caller.
+          description: The caller's complex, as a single-item array, or an empty array if the account owns none.
           content:
             application/json:
               schema:
@@ -1819,8 +1821,9 @@ paths:
       operationId: complexesCreate
       summary: Create a new complex
       description: >-
-        Cross-tenant bypass reason `bootstrap`. Refused past the account's configured maximum
-        complex count. Seeds 7 default schedule rows (Monday through Sunday, 08:00 to 23:00).
+        Cross-tenant bypass reason `bootstrap`. Refused if the account already owns a complex:
+        one account owns exactly one. Seeds 7 default schedule rows (Monday through Sunday,
+        08:00 to 23:00).
       security: [{cookieAuth: [], csrfHeader: []}]
       responses:
         "201":
@@ -1834,7 +1837,7 @@ paths:
                   complex: {$ref: "#/components/schemas/Complex"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403":
-          description: The account already owns the maximum number of complexes.
+          description: The account already owns a complex.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

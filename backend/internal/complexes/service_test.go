@@ -10,8 +10,9 @@ import (
 )
 
 // TestServiceCreate covers the rules that moved out of the handler: a venue may
-// not take a public URL another venue holds, an account may not exceed its cap,
-// and a venue that is created starts with a full week of opening hours.
+// not take a public URL another venue holds, an account may not own more than
+// one live complex, and a venue that is created starts with a full week of
+// opening hours.
 func TestServiceCreate(t *testing.T) {
 	valid := CreateInput{
 		Name:              "Club Norte",
@@ -29,24 +30,21 @@ func TestServiceCreate(t *testing.T) {
 		slugTaken bool
 		insertErr error
 		owned     int
-		maxOwned  int
 		wantErr   error
 	}{
-		{name: "a free slug under the cap is created", maxOwned: 4},
-		{name: "a slug another venue holds is refused", slugTaken: true, maxOwned: 4, wantErr: ErrSlugTaken},
+		{name: "an account that owns nothing yet is created"},
+		{name: "a slug another venue holds is refused", slugTaken: true, wantErr: ErrSlugTaken},
 		{
 			name:      "a slug taken between the check and the insert is still refused as a slug",
 			insertErr: complexstore.ErrDuplicateSlug,
-			maxOwned:  4,
 			wantErr:   ErrSlugTaken,
 		},
-		{name: "an account at its cap is refused", owned: 4, maxOwned: 4, wantErr: ErrMaxComplexes},
+		{name: "an account that already owns a complex is refused", owned: 1, wantErr: ErrAlreadyOwnsComplex},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
-			f.service.cfg.MaxComplexes = tt.maxOwned
 			f.store.slugTaken = tt.slugTaken
 			f.store.insertErr = tt.insertErr
 			f.store.owned = make([]*complexstore.Complex, tt.owned)

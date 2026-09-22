@@ -173,8 +173,6 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 		"TTL for slot locks during payment flow (BOOKING_SLOT_LOCK_TTL)")
 	fs.DurationVar(&cfg.Booking.LinkTokenBuffer, "booking-link-token-buffer", 24*time.Hour,
 		"How long past a booking's end its access token stays valid (BOOKING_LINK_TOKEN_BUFFER)")
-	fs.IntVar(&cfg.Limits.MaxComplexes, "limits-max-complexes", 4,
-		"Maximum complexes per user account (LIMITS_MAX_COMPLEXES)")
 
 	fs.StringVar(&cfg.Google.PlacesAPIKey, "google-places-api-key", "", "Google Places API key (GOOGLE_MAPS_API)")
 	fs.StringVar(&cfg.Google.OAuthClientID, "google-oauth-client-id", "",
@@ -268,7 +266,6 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.durVal("BOOKING_CANCELLATION_WINDOW", &cfg.Booking.CancellationWindow, nonNegativeDur)
 	env.durVal("BOOKING_SLOT_LOCK_TTL", &cfg.Booking.SlotLockTTL, nonNegativeDur)
 	env.durVal("BOOKING_LINK_TOKEN_BUFFER", &cfg.Booking.LinkTokenBuffer, nonNegativeDur)
-	env.intVal("LIMITS_MAX_COMPLEXES", &cfg.Limits.MaxComplexes, positive)
 
 	env.strVal("REDIS_URL", &cfg.Redis.URL)
 	env.strVal("SENTRY_DSN", &cfg.Sentry.DSN)

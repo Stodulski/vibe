@@ -55,7 +55,6 @@ type Config struct {
 	RequestLogSample int
 
 	Booking Booking
-	Limits  Limits
 	Redis   Redis
 	Sentry  Sentry
 	Google  Google
@@ -271,11 +270,6 @@ type Booking struct {
 	// LinkTokenBuffer is added to a booking's end time to compute a booking
 	// link token's expires_at (specs/booking-link-credential).
 	LinkTokenBuffer time.Duration
-}
-
-// Limits are the per-account product ceilings.
-type Limits struct {
-	MaxComplexes int
 }
 
 // Redis is the cache, queue and shared-state backend.

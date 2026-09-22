@@ -126,9 +126,8 @@ type Querier interface {
 	// not serve a page. See the soft-delete cascade in db/migrations/001_init.sql.
 	GetComplexBySlug(ctx context.Context, slug string) (ActiveComplex, error)
 	//
-	// Carries a court count, because the list is where an owner decides which club
-	// to work on and a club with no courts can take no booking at all — it looked
-	// identical to a finished one.
+	// Carries a court count, because a complex with no courts can take no booking
+	// at all — it looked identical to a finished one.
 	//
 	// A COUNT, not a "complete" flag: complete is a policy that moves every time a
 	// step is added to onboarding, and a flag would put that policy in the server

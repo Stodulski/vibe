@@ -421,7 +421,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// reporting) reads bookings through bookingsFacade for the same reason:
 	// the booking service is built last, because it depends on all of them.
 	complexesConfig := complexes.Config{
-		MaxComplexes: cfg.Limits.MaxComplexes,
 		FrontendURL:  cfg.FrontendURL,
 		TrustProxies: d.trustedProxies.Any(),
 		MPAppID:      cfg.MP.AppID,

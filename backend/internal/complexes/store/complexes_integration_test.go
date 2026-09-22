@@ -339,3 +339,43 @@ func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
 		t.Errorf("Insert on a taken slug returned %v; want ErrDuplicateSlug", err)
 	}
 }
+
+// TestIntegration_OwnerAlreadyHasAComplexIsRefused proves the database side of
+// "one account owns exactly one complex": complexes_owner_id_key is a PARTIAL
+// unique index, WHERE deleted_at IS NULL, so it refuses a second live complex
+// for f.UserID (who already owns f.ComplexID from the fixture) as a named
+// domain error rather than a raw constraint violation — the same shape as
+// TestIntegration_SlugOfASoftDeletedComplexStaysTaken above, but the opposite
+// outcome once the owner's complex is soft-deleted: a soft-deleted complex
+// frees the owner's slot, unlike a slug, which stays reserved.
+func TestIntegration_OwnerAlreadyHasAComplexIsRefused(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+
+	second := &complexstore.Complex{
+		OwnerID:           f.UserID,
+		Name:              "Second venue, same owner",
+		Slug:              "second-venue-same-owner",
+		Address:           "Av. Siempreviva 742",
+		City:              "Rosario",
+		Province:          "Santa Fe",
+		CountryCode:       "AR",
+		Currency:          "ARS",
+		Phone:             "+5491100000003",
+		CancellationHours: 24,
+	}
+
+	err := f.Stores.Complexes.Insert(ctx, second)
+	if !errors.Is(err, complexstore.ErrDuplicateOwner) {
+		t.Fatalf("Insert for an owner who already owns a live complex returned %v; want ErrDuplicateOwner", err)
+	}
+
+	// Soft-deleting the owner's existing complex frees the slot: the same
+	// insert that was just refused now succeeds.
+	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
+		t.Fatalf("SoftDeleteCascade: %v", err)
+	}
+	if err := f.Stores.Complexes.Insert(ctx, second); err != nil {
+		t.Fatalf("Insert after the owner's live complex was soft-deleted: %v", err)
+	}
+}

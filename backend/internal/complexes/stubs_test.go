@@ -284,7 +284,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	logger := slog.New(slog.NewTextHandler(f.logs, nil))
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	cfg := Config{MaxComplexes: 4, FrontendURL: "https://vibe.test", MPAppID: "app-123"}
+	cfg := Config{FrontendURL: "https://vibe.test", MPAppID: "app-123"}
 	f.service = NewService(Dependencies{
 		Store: f.store,
 		// Left nil and closed by SetCourts below, exactly as cmd/api does it:

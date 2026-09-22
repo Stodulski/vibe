@@ -8,7 +8,6 @@ package complexes
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -108,8 +107,6 @@ type Recorder interface {
 
 // Config is what this module needs from application configuration.
 type Config struct {
-	// MaxComplexes caps how many venues one account may own.
-	MaxComplexes int
 	// FrontendURL is the origin the MercadoPago OAuth redirect returns to.
 	FrontendURL string
 	// TrustProxies decides which address the audit trail records.
@@ -134,17 +131,13 @@ type Handler struct {
 // earns. Everything absent from it — data.ErrRecordNotFound above all — is
 // answered by internal/httpx.
 //
-// It is a function rather than a variable because the ceiling in the
-// ErrMaxComplexes message is a configured number, not a constant.
-//
 // ErrActiveBookings is the one entry whose message is not the whole story: the
 // MercadoPago disconnect refuses on the same sentinel and has to say so in its
 // own words, so that handler overrides the message through DomainErrorWith and
 // keeps this status.
-func refusals(cfg Config) httpx.Refusals {
+func refusals() httpx.Refusals {
 	return httpx.Refusals{
-		ErrMaxComplexes: httpx.Forbidden(
-			fmt.Sprintf("maximum of %d complexes per account reached", cfg.MaxComplexes)),
+		ErrAlreadyOwnsComplex: httpx.Forbidden("the account already owns a complex"),
 		ErrActiveBookings: httpx.Conflict(
 			"cannot delete complex while it has active bookings, cancel them first"),
 		ErrUploadsNotConfigured: httpx.NotImplemented("image uploads are not configured"),
@@ -156,7 +149,7 @@ func refusals(cfg Config) httpx.Refusals {
 func NewHandler(svc *Service, respond *httpx.Responder, cfg Config) *Handler {
 	return &Handler{
 		svc:     svc,
-		respond: respond.WithRefusals(refusals(cfg)),
+		respond: respond.WithRefusals(refusals()),
 		cfg:     cfg,
 	}
 }

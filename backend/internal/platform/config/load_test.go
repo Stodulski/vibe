@@ -45,9 +45,6 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SMTP.Port != 587 {
 		t.Errorf("SMTP.Port = %d, want 587", cfg.SMTP.Port)
 	}
-	if cfg.Limits.MaxComplexes != 4 {
-		t.Errorf("MaxComplexes = %d, want 4", cfg.Limits.MaxComplexes)
-	}
 	if cfg.Booking.SlotLockTTL != 15*time.Minute || cfg.Booking.LinkTokenBuffer != 24*time.Hour {
 		t.Errorf("booking windows = %s/%s", cfg.Booking.SlotLockTTL, cfg.Booking.LinkTokenBuffer)
 	}
@@ -220,7 +217,6 @@ func TestAnUnparseableValueIsAnErrorNotADefault(t *testing.T) {
 		{"BOOKING_CANCELLATION_WINDOW", "1 day"},
 		{"BOOKING_SLOT_LOCK_TTL", "-5m"},
 		{"BOOKING_LINK_TOKEN_BUFFER", "24"},
-		{"LIMITS_MAX_COMPLEXES", "four"},
 		{"PPROF_ENABLED", "enabled"},
 		{"FEATURE_FLAGS", "checkout=maybe"},
 	}
@@ -283,13 +279,13 @@ func TestRequestLogSampleZeroLoadsAsZero(t *testing.T) {
 // it rather than one variable at a time.
 func TestEveryBadValueIsReported(t *testing.T) {
 	_, err := config.Load(nil, env(map[string]string{
-		"PORT":                 "eighty",
-		"LIMITS_MAX_COMPLEXES": "four",
+		"PORT":              "eighty",
+		"DB_MAX_OPEN_CONNS": "lots",
 	}))
 	if err == nil {
 		t.Fatal("Load: want an error")
 	}
-	if !strings.Contains(err.Error(), "PORT") || !strings.Contains(err.Error(), "LIMITS_MAX_COMPLEXES") {
+	if !strings.Contains(err.Error(), "PORT") || !strings.Contains(err.Error(), "DB_MAX_OPEN_CONNS") {
 		t.Errorf("error %q does not name both variables", err)
 	}
 }

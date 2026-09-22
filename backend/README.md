@@ -339,7 +339,6 @@ Message templates and their exact parameter order are documented in [`docs/whats
 | `GOOGLE_MAPS_API` | Google Places API key, for address autocomplete. Must have **Places API (New)** enabled — the legacy Places API is marked legacy and cannot be enabled on new Cloud projects. | Optional | `""` |
 | `LEADS_ABANDONED_WEBHOOK_URL` | Google Apps Script webhook URL for abandoned-registration email capture. | Optional | `""` |
 | `LEADS_ABANDONED_WEBHOOK_TOKEN` | Shared token the abandoned-registration webhook expects. | Optional | `""` |
-| `LIMITS_MAX_COMPLEXES` | Maximum complexes per user account. | Optional | `4` |
 | `BOOKING_GRACE_PERIOD` | Grace period for refund after booking creation. | Optional | `15m` |
 | `BOOKING_PAYMENT_EXPIRY` | Time before an unpaid booking is auto-cancelled. | Optional | `15m` |
 | `BOOKING_CANCELLATION_WINDOW` | Default cancellation window before game start. | Optional | `24h` |
