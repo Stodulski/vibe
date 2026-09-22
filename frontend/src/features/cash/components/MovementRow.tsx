@@ -8,7 +8,7 @@ const t = ES_AR;
 
 interface MovementRowProps {
   movement: CashMovement;
-  /** The full ledger of the session `movement` belongs to — void linkage never crosses sessions (see `MovementList`). */
+  /** The full ledger of the session `movement` belongs to — void linkage never crosses sessions (see `useVoidCashMovement`: voiding is only ever offered for the currently open session's own movements). */
   movements: CashMovement[];
   /** Omitted on a read-only view (a past, closed session's detail page). */
   onVoid?: ((movement: CashMovement) => void) | undefined;
@@ -34,7 +34,7 @@ export function MovementRow({ movement, movements, onVoid }: MovementRowProps) {
         <p className="text-text-tertiary text-xs">
           {formatInstantTime(movement.created_at)}
           {isVoid &&
-            ` · ${t.cash.voidOfPrefix} ${original ? t.cash.categories[original.category] : t.cash.movementsTitle}`}
+            ` · ${t.cash.voidOfPrefix} ${original ? t.cash.categories[original.category] : t.cash.voidOfUnknownMovement}`}
         </p>
         {movement.note && <p className="text-text-tertiary text-xs italic">{movement.note}</p>}
       </div>

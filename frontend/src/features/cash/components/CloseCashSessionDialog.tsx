@@ -43,7 +43,6 @@ export function CloseCashSessionDialog({
       <DialogContent className="sm:max-w-md">
         {open && (
           <CloseCashSessionDialogBody
-            key="close-cash"
             onClose={onClose}
             complexId={complexId}
             sessionId={sessionId}
@@ -113,7 +112,7 @@ function CloseCashSessionDialogBody({
 
       <CashHintRow label={t.cash.closeExpectedHint} value={expectedCash} emphasize />
 
-      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
+      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4" noValidate>
         <MoneyPesosField
           id="close-cash-counted"
           label={t.cash.countedCash}

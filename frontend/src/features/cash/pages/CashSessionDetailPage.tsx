@@ -11,6 +11,7 @@ import { ExpectedCashCard } from '../components/ExpectedCashCard';
 import { MovementTotalsBreakdown } from '../components/MovementTotalsBreakdown';
 import { BookingPaymentsBreakdown } from '../components/BookingPaymentsBreakdown';
 import { MovementList } from '../components/MovementList';
+import { StaleDataNotice } from '../components/StaleDataNotice';
 
 const t = ES_AR;
 
@@ -37,7 +38,10 @@ export default function CashSessionDetailPage() {
 
       {query.isLoading ? (
         <SkeletonTable rows={4} />
-      ) : query.isError || !query.data ? (
+      ) : !query.data ? (
+        // Only the full-screen error when there is nothing cached — a
+        // background refetch failure with `data` still around keeps
+        // rendering it, with a non-blocking notice instead (T3 review).
         <EmptyState
           icon={AlertTriangle}
           title={t.cash.loadError}
@@ -49,6 +53,13 @@ export default function CashSessionDetailPage() {
         />
       ) : (
         <>
+          {query.isError && (
+            <StaleDataNotice
+              onRetry={() => {
+                void query.refetch();
+              }}
+            />
+          )}
           <ExpectedCashCard session={query.data.cash_session} summary={query.data.summary} />
           <MovementTotalsBreakdown movementTotals={query.data.summary.movement_totals} />
           <BookingPaymentsBreakdown bookingPayments={query.data.summary.booking_payments} />

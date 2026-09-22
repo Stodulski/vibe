@@ -32,11 +32,13 @@ interface MoneyPesosFieldProps {
  * browser's native number-input step validation compares the typed value
  * against `step` in floating point, and `0.01` cannot be represented
  * exactly in IEEE754 — an ordinary value like `1500.5` failed that check as a
- * false "step mismatch" and the browser silently refused to submit the
- * `<form>` at all, before React's `onSubmit`/react-hook-form ever ran (no
- * validation error rendered, no `mutate` call — just nothing). Omitting
- * `step` falls back to its default of `1`, which every typed integer
- * satisfies exactly.
+ * false "step mismatch". Omitting `step` falls back to its default of `1`,
+ * which every typed integer satisfies, but a genuinely fractional amount
+ * (`1500.5`) is still a real step mismatch under that default — and every
+ * form using this field sets `noValidate` precisely so that never silently
+ * blocks the `<form>` submit before React ever runs: the schemas in
+ * `../schemas/cash.schema` reject a non-integer amount themselves
+ * (`amountMustBeWhole`), which is the message the person actually sees.
  */
 export function MoneyPesosField({ id, label, value, onChange, error, placeholder }: MoneyPesosFieldProps) {
   return (

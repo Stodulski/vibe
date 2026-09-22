@@ -16,7 +16,13 @@
 export const MAX_SESSION_CASH_CENTAVOS = 99_999_999_999;
 export const MAX_MOVEMENT_AMOUNT_CENTAVOS = 2_000_000_000;
 
-export const MAX_SESSION_CASH_PESOS = MAX_SESSION_CASH_CENTAVOS / 100;
+// `Math.floor`, not a plain `/ 100`: 99,999,999,999 centavos is not an even
+// number of pesos (999,999,999.99), and the cashbox works in whole pesos
+// only (see MoneyPesosField, `cash.schema.ts`'s `.int()` checks) — a plain
+// division would make this cap itself fail its own "whole pesos" rule.
+// Trimming 99 centavos off an arbitrary safety ceiling changes nothing in
+// practice.
+export const MAX_SESSION_CASH_PESOS = Math.floor(MAX_SESSION_CASH_CENTAVOS / 100);
 export const MAX_MOVEMENT_AMOUNT_PESOS = MAX_MOVEMENT_AMOUNT_CENTAVOS / 100;
 
 /** Pesos (possibly with cents) to integer centavos — same rounding as `cleanBookingPayload`. */

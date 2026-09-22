@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CashPage from './CashPage';
@@ -73,6 +74,36 @@ function mockOpen() {
   } as unknown as ReturnType<typeof useCashSessionDetail>);
 }
 
+/**
+ * A background refetch failed (5xx, reconnect) but `detailQuery` still
+ * carries the last good data — same shape a real failed React Query
+ * background refetch leaves behind (T3 review: "background refetch error
+ * wipes the view").
+ */
+function mockOpenWithStaleDetailError() {
+  const session = makeCashSession();
+  const summary: CashSessionSummary = {
+    opening_cash: session.opening_cash,
+    expected_cash: 650000,
+    movement_totals: [],
+    booking_payments: [],
+  };
+  vi.mocked(useCashSession).mockReturnValue({
+    data: { cash_session: session, summary },
+    isLoading: false,
+    isError: false,
+    isClosed: false,
+    isRealError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSession>);
+  vi.mocked(useCashSessionDetail).mockReturnValue({
+    data: { cash_session: session, summary, movements: [makeCashMovement()] },
+    isLoading: false,
+    isError: true,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSessionDetail>);
+}
+
 function renderPage() {
   // `VoidMovementDialog` (always mounted inside the open-session view, even
   // with no target) calls `useVoidCashMovement`, which reaches for a real
@@ -130,5 +161,45 @@ describe('CashPage — empty vs open state', () => {
     renderPage();
     expect(screen.getByRole('status')).toBeInTheDocument();
     expect(screen.queryByText('La caja está cerrada')).not.toBeInTheDocument();
+  });
+});
+
+describe('CashPage — background refetch failure with cached data', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useSelectedComplex).mockReturnValue({
+      complex: { id: 'c1' },
+      selectedComplexId: 'c1',
+    } as unknown as ReturnType<typeof useSelectedComplex>);
+    vi.mocked(useCashSessions).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      isFetchingNextPage: false,
+    } as unknown as ReturnType<typeof useCashSessions>);
+  });
+
+  it('keeps the open view, and an open dialog with typed input, mounted instead of the full-screen error', async () => {
+    const user = userEvent.setup();
+    mockOpenWithStaleDetailError();
+    renderPage();
+
+    // The view itself kept rendering off the cached data...
+    expect(screen.getByText('Efectivo esperado')).toBeInTheDocument();
+    // ...with a non-blocking notice instead of the full-screen error.
+    expect(screen.getByText('No pudimos actualizar. Mostrando los últimos datos guardados.')).toBeInTheDocument();
+    expect(screen.queryByText('No pudimos cargar la caja')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Ingreso/ }));
+    const incomeDialog = screen.getByRole('dialog');
+    await user.type(within(incomeDialog).getByLabelText('Monto'), '1234');
+
+    // The dialog, and what was typed into it, are still mounted — the stale
+    // notice never unmounted them.
+    expect(incomeDialog).toBeVisible();
+    expect(within(incomeDialog).getByLabelText('Monto')).toHaveValue(1234);
   });
 });

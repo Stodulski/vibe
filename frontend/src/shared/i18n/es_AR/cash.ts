@@ -41,6 +41,11 @@ export const cash = {
   voidNotePlaceholder: 'Motivo de la anulación (opcional)...',
   voidedBadge: 'Anulado',
   voidOfPrefix: 'Anulación de',
+  // Composed after `voidOfPrefix` ("Anulación de ...") when a void's original
+  // movement isn't in the currently-loaded list. Its own key instead of
+  // reusing `movementsTitle` ("Movimientos"), which read as the nonsensical
+  // "Anulación de Movimientos" for one row.
+  voidOfUnknownMovement: 'un movimiento',
   voidSuccess: 'Movimiento anulado',
   voidError: 'Error al anular el movimiento',
   categories: {

@@ -3,15 +3,14 @@ import { ChevronRight } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice, cn } from '@/shared/lib/utils';
 import { formatSessionInstant } from '../lib/formatCashInstant';
+import { cashDifferenceLabel } from '../lib/cashDifferenceLabel';
 import type { CashSession } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
 export function CashSessionHistoryRow({ session }: { session: CashSession }) {
   const difference = session.difference ?? 0;
-  const diffColorClass =
-    difference > 0 ? 'text-success-text' : difference < 0 ? 'text-error-text' : 'text-text-tertiary';
-  const diffLabel = difference > 0 ? t.cash.surplus : difference < 0 ? t.cash.shortfall : t.cash.noDifference;
+  const { label: diffLabel, colorClass: diffColorClass } = cashDifferenceLabel(difference);
 
   return (
     <Link

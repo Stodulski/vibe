@@ -16,7 +16,8 @@ const t = ES_AR;
 const sessionCashSchema = z
   .number({ message: t.validation.amountRequired })
   .min(0, t.validation.amountNonNegative)
-  .max(MAX_SESSION_CASH_PESOS, t.validation.cashSessionTooLarge);
+  .max(MAX_SESSION_CASH_PESOS, t.validation.cashSessionTooLarge)
+  .int(t.validation.amountMustBeWhole);
 
 const optionalNoteSchema = z.string().max(500, t.validation.maxChars500).optional().or(z.literal(''));
 
@@ -38,7 +39,8 @@ export const cashMovementSchema = z
     amount: z
       .number({ message: t.validation.amountRequired })
       .positive(t.validation.amountPositive)
-      .max(MAX_MOVEMENT_AMOUNT_PESOS, t.validation.movementAmountTooLarge),
+      .max(MAX_MOVEMENT_AMOUNT_PESOS, t.validation.movementAmountTooLarge)
+      .int(t.validation.amountMustBeWhole),
     note: optionalNoteSchema,
   })
   // A category belongs to exactly one kind (see `categoriesFor`) — the select

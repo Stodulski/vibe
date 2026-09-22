@@ -66,4 +66,10 @@ describe('MovementRow — void eligibility in isolation', () => {
     render(<MovementRow movement={voidRow} movements={[voidRow]} onVoid={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
   });
+
+  it('falls back to "Anulación de un movimiento" when the void\'s original is not in the given ledger', () => {
+    const voidRow = makeCashMovement({ id: 'm2', voids_movement_id: 'm1' });
+    render(<MovementRow movement={voidRow} movements={[voidRow]} onVoid={vi.fn()} />);
+    expect(screen.getByText(/Anulación de un movimiento/)).toBeInTheDocument();
+  });
 });

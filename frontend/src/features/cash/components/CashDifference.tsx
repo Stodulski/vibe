@@ -1,6 +1,7 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice } from '@/shared/lib/utils';
 import { cn } from '@/shared/lib/utils';
+import { cashDifferenceLabel } from '../lib/cashDifferenceLabel';
 
 const t = ES_AR;
 
@@ -10,8 +11,7 @@ const t = ES_AR;
  * result's final, server-committed number.
  */
 export function CashDifference({ difference }: { difference: number }) {
-  const label = difference > 0 ? t.cash.surplus : difference < 0 ? t.cash.shortfall : t.cash.noDifference;
-  const colorClass = difference > 0 ? 'text-success-text' : difference < 0 ? 'text-error-text' : 'text-text-tertiary';
+  const { label, colorClass } = cashDifferenceLabel(difference);
 
   return (
     <div className="bg-bg-base flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm">
