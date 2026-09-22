@@ -633,6 +633,21 @@ type Payment struct {
 	StatusDetail   pgtype.Text        `json:"status_detail"`
 }
 
+type Product struct {
+	ID                pgtype.UUID        `json:"id"`
+	ComplexID         pgtype.UUID        `json:"complex_id"`
+	Name              string             `json:"name"`
+	Category          pgtype.Text        `json:"category"`
+	Price             int32              `json:"price"`
+	TracksStock       bool               `json:"tracks_stock"`
+	StockOnHand       int32              `json:"stock_on_hand"`
+	LowStockThreshold pgtype.Int4        `json:"low_stock_threshold"`
+	Active            bool               `json:"active"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	Version           int32              `json:"version"`
+}
+
 type RefreshToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
@@ -653,6 +668,20 @@ type SlotLock struct {
 	LockedAt  pgtype.Timestamptz `json:"locked_at"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	ComplexID pgtype.UUID        `json:"complex_id"`
+}
+
+type StockMovement struct {
+	ID             pgtype.UUID        `json:"id"`
+	ComplexID      pgtype.UUID        `json:"complex_id"`
+	ProductID      pgtype.UUID        `json:"product_id"`
+	Kind           string             `json:"kind"`
+	Quantity       int32              `json:"quantity"`
+	Reason         pgtype.Text        `json:"reason"`
+	Note           pgtype.Text        `json:"note"`
+	CashMovementID pgtype.UUID        `json:"cash_movement_id"`
+	SaleID         pgtype.UUID        `json:"sale_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
 }
 
 type User struct {

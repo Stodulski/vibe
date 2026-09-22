@@ -198,6 +198,11 @@ type Querier interface {
 	// predicate is optional.
 	GetPaymentByIDForUpdate(ctx context.Context, arg GetPaymentByIDForUpdateParams) (Payment, error)
 	GetPaymentByMPID(ctx context.Context, mpPaymentID pgtype.Text) (Payment, error)
+	GetProductByID(ctx context.Context, arg GetProductByIDParams) (Product, error)
+	// Every write against a product (an update, a restock, an adjustment) locks
+	// the row first, in the same transaction as the write, so stock_on_hand can
+	// never be read-modify-written by two requests at once.
+	GetProductByIDForUpdate(ctx context.Context, arg GetProductByIDForUpdateParams) (Product, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
 	GetSchedulesByComplex(ctx context.Context, complexID pgtype.UUID) ([]ComplexSchedule, error)
 	// Kept for backwards compatibility with generated code. No longer used by business logic.
@@ -222,7 +227,9 @@ type Querier interface {
 	InsertCourtPrice(ctx context.Context, arg InsertCourtPriceParams) (CourtPrice, error)
 	InsertEmailVerificationToken(ctx context.Context, arg InsertEmailVerificationTokenParams) (EmailVerificationToken, error)
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (Payment, error)
+	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (RefreshToken, error)
+	InsertStockMovement(ctx context.Context, arg InsertStockMovementParams) (StockMovement, error)
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
 	// Idempotent: a repeated Google sign-in re-links the same (provider,
 	// subject) or (user_id, provider) pair and this is a silent no-op — see the
@@ -249,6 +256,14 @@ type Querier interface {
 	// sums money and the booking detail shows each payment; GetPaymentByBookingID's
 	// single MercadoPago-preferred row is for callers that need that one row.
 	ListPaymentsByBookingID(ctx context.Context, bookingID pgtype.UUID) ([]Payment, error)
+	// Not paginated — a shop's catalog is bounded the same way a complex's court
+	// list is (internal/courts/store's GetByComplex). has_active_filter is false
+	// when the caller asked for every product regardless of active state; the OR's
+	// left side short-circuits instead of comparing against a meaningless
+	// active_filter value.
+	ListProductsByComplex(ctx context.Context, arg ListProductsByComplexParams) ([]Product, error)
+	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
+	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
 	SetEmailVerified(ctx context.Context, id pgtype.UUID) error
@@ -301,6 +316,19 @@ type Querier interface {
 	UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court, error)
 	UpdateCourtPrice(ctx context.Context, arg UpdateCourtPriceParams) (CourtPrice, error)
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (Payment, error)
+	// expected_version is the caller's optimistic-concurrency precondition and is
+	// optional (API-08): NULL is last-write-wins. Zero rows means either the
+	// product is gone or somebody else wrote it first; products/store.Store.Update
+	// tells those apart the same way courtstore.Store.Update does (a prior read
+	// already proved existence, so a zero-row result here can only be the second
+	// case).
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
+	// Applies a stock movement's signed quantity to the product's own running
+	// total, in the same transaction as the movement insert
+	// (internal/products/store.Store.Restock / .Adjust), under the FOR UPDATE lock
+	// GetProductByIDForUpdate already took. stock_on_hand may go negative — see
+	// that column's own comment in db/migrations/004_pos_catalog_stock.sql.
+	UpdateProductStock(ctx context.Context, arg UpdateProductStockParams) (Product, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpsertSchedule(ctx context.Context, arg UpsertScheduleParams) (ComplexSchedule, error)
 }
