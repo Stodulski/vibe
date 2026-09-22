@@ -1,0 +1,134 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import CashPage from './CashPage';
+import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
+import { useCashSession } from '../hooks/useCashSession';
+import { useCashSessionDetail } from '../hooks/useCashSessionDetail';
+import { useCashSessions } from '../hooks/useCashSessions';
+import { makeCashSession, makeCashMovement } from '@/test/factories';
+import type { CashSessionSummary } from '@/shared/types/api.types';
+
+vi.mock('@/features/complex/hooks/useSelectedComplex', () => ({ useSelectedComplex: vi.fn() }));
+vi.mock('../hooks/useCashSession', () => ({ useCashSession: vi.fn() }));
+vi.mock('../hooks/useCashSessionDetail', () => ({ useCashSessionDetail: vi.fn() }));
+vi.mock('../hooks/useCashSessions', () => ({ useCashSessions: vi.fn() }));
+
+function mockClosed() {
+  vi.mocked(useCashSession).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: true,
+    isClosed: true,
+    isRealError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSession>);
+  vi.mocked(useCashSessionDetail).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSessionDetail>);
+}
+
+function mockLoading() {
+  vi.mocked(useCashSession).mockReturnValue({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+    isClosed: false,
+    isRealError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSession>);
+  vi.mocked(useCashSessionDetail).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSessionDetail>);
+}
+
+function mockOpen() {
+  const session = makeCashSession();
+  const summary: CashSessionSummary = {
+    opening_cash: session.opening_cash,
+    expected_cash: 650000,
+    movement_totals: [],
+    booking_payments: [],
+  };
+  vi.mocked(useCashSession).mockReturnValue({
+    data: { cash_session: session, summary },
+    isLoading: false,
+    isError: false,
+    isClosed: false,
+    isRealError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSession>);
+  vi.mocked(useCashSessionDetail).mockReturnValue({
+    data: { cash_session: session, summary, movements: [makeCashMovement()] },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSessionDetail>);
+}
+
+function renderPage() {
+  // `VoidMovementDialog` (always mounted inside the open-session view, even
+  // with no target) calls `useVoidCashMovement`, which reaches for a real
+  // `useQueryClient()` — not itself mocked here, since it's exercised by its
+  // own dedicated tests, but it still needs a provider to mount at all.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <CashPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe('CashPage — empty vs open state', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useSelectedComplex).mockReturnValue({
+      complex: { id: 'c1' },
+      selectedComplexId: 'c1',
+    } as unknown as ReturnType<typeof useSelectedComplex>);
+    vi.mocked(useCashSessions).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      isFetchingNextPage: false,
+    } as unknown as ReturnType<typeof useCashSessions>);
+  });
+
+  it('shows the closed empty state when no session is open', () => {
+    mockClosed();
+    renderPage();
+    expect(screen.getByText('La caja está cerrada')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir caja' })).toBeInTheDocument();
+    expect(screen.queryByText('Efectivo esperado')).not.toBeInTheDocument();
+  });
+
+  it('shows the open session view with the expected cash figure when a session is open', () => {
+    mockOpen();
+    renderPage();
+    expect(screen.getByText('Efectivo esperado')).toBeInTheDocument();
+    expect(screen.getByText('$6.500')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ingreso/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Egreso/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cerrar caja/ })).toBeInTheDocument();
+    expect(screen.queryByText('La caja está cerrada')).not.toBeInTheDocument();
+  });
+
+  it('shows a loading skeleton while the session query is in flight', () => {
+    mockLoading();
+    renderPage();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByText('La caja está cerrada')).not.toBeInTheDocument();
+  });
+});
