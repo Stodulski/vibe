@@ -98,7 +98,7 @@ describe('useDeleteComplex', () => {
     expect(typeof result.current.mutate).toBe('function');
   });
 
-  it('writes the cache to an empty list, and awaits the invalidation, before navigating away', async () => {
+  it('writes the cache to an empty list before navigating away', async () => {
     navigateMock.mockClear();
     const { useDeleteComplex } = await import('./useDeleteComplex');
     const { queryKeys } = await import('@/shared/lib/queryKeys');
@@ -109,8 +109,8 @@ describe('useDeleteComplex', () => {
     queryClient.setQueryData(queryKeys.complexes.all, { complexes: [{ id: 'c1', name: 'Club' }] });
 
     // Snapshot the cache at the moment navigation fires — this is what would
-    // have still shown the deleted complex if the cache write and the
-    // invalidation weren't both settled first.
+    // have still shown the deleted complex if the cache write hadn't
+    // happened first.
     let cacheAtNavigate: unknown;
     navigateMock.mockImplementationOnce(() => {
       cacheAtNavigate = queryClient.getQueryData(queryKeys.complexes.all);
@@ -125,6 +125,53 @@ describe('useDeleteComplex', () => {
 
     expect(cacheAtNavigate).toEqual({ complexes: [] });
     expect(queryClient.getQueryData(queryKeys.complexes.all)).toEqual({ complexes: [] });
+    expect(navigateMock).toHaveBeenCalledWith('/onboarding', { replace: true });
+  });
+
+  it('really awaits the invalidation — navigation waits for an in-flight refetch triggered by it', async () => {
+    navigateMock.mockClear();
+    const { useDeleteComplex } = await import('./useDeleteComplex');
+    const { useComplexes } = await import('./useComplexes');
+    const { queryKeys } = await import('@/shared/lib/queryKeys');
+    const { complexApi } = await import('../api/complex.api');
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(queryKeys.complexes.all, { complexes: [{ id: 'c1', name: 'Club' }] });
+
+    // `invalidateQueries` only awaits a real refetch when something is
+    // actively observing the query — hold that refetch open on purpose so a
+    // premature `navigate` (fired before the `await` actually resolves)
+    // would be caught red-handed.
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- reassigned below before it's ever called
+    let resolveRefetch = () => {};
+    vi.mocked(complexApi.list).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = () => {
+            resolve({ complexes: [] });
+          };
+        }),
+    );
+
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    // The active observer whose refetch `invalidateQueries` waits on.
+    renderHook(() => useComplexes(), { wrapper });
+
+    const { result } = renderHook(() => useDeleteComplex(), { wrapper });
+
+    const mutatePromise = result.current.mutateAsync('c1');
+    await waitFor(() => {
+      expect(complexApi.list).toHaveBeenCalled();
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    resolveRefetch();
+    await mutatePromise;
+
     expect(navigateMock).toHaveBeenCalledWith('/onboarding', { replace: true });
   });
 });

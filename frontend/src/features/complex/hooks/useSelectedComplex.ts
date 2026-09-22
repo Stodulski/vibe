@@ -7,6 +7,7 @@ interface SelectedComplexState {
   selectedComplexId: string | null;
   needsOnboarding: boolean;
   isLoading: boolean;
+  isFetching: boolean;
   isError: boolean;
   error: Error | null;
   refetch: () => void;
@@ -19,7 +20,15 @@ interface SelectedComplexState {
  * name so the many consumers destructuring it don't need to change.
  */
 export function useSelectedComplex(): SelectedComplexState {
-  const { data: complexes, isLoading, isSuccess, isError, error, refetch: refetchComplexes } = useComplexes();
+  const {
+    data: complexes,
+    isLoading,
+    isFetching,
+    isSuccess,
+    isError,
+    error,
+    refetch: refetchComplexes,
+  } = useComplexes();
 
   const complex = complexes?.[0] ?? null;
   const selectedComplexId = complex?.id ?? null;
@@ -36,6 +45,7 @@ export function useSelectedComplex(): SelectedComplexState {
     selectedComplexId,
     needsOnboarding,
     isLoading,
+    isFetching,
     isError,
     error,
     // Widened to `() => void`: consumers trigger a retry and re-render off

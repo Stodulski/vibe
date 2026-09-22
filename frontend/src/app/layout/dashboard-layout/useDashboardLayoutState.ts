@@ -2,8 +2,9 @@ import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex'
 import { useRealtimeEvents } from '@/shared/hooks/useRealtimeEvents';
 
 export function useDashboardLayoutState() {
-  const { needsOnboarding, isLoading, selectedComplexId, isError, error, refetch } = useSelectedComplex();
+  const { needsOnboarding, isLoading, isFetching, selectedComplexId, isError, error, refetch, complexes } =
+    useSelectedComplex();
   useRealtimeEvents(selectedComplexId);
 
-  return { needsOnboarding, isLoading, selectedComplexId, isError, error, refetch };
+  return { needsOnboarding, isLoading, isFetching, selectedComplexId, isError, error, refetch, complexes };
 }

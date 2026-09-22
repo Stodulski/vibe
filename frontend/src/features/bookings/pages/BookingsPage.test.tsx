@@ -119,6 +119,7 @@ describe('BookingsPage', () => {
       needsOnboarding: false,
       isLoading: false,
       isError: false,
+      isFetching: false,
       error: null,
       refetch: vi.fn(),
     });

@@ -16,11 +16,19 @@ export function useOnboarding() {
   // Track the complexId created during this session (step 1 -> step 2 transition).
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
 
-  const { complexId, currentComplex, courts, complexesLoading, courtsLoading, complexesError, refetchComplexes } =
-    useOnboardingComplex({
-      stateComplexId,
-      justCreatedId,
-    });
+  const {
+    complexId,
+    currentComplex,
+    courts,
+    complexesLoading,
+    courtsLoading,
+    complexesError,
+    complexesFetching,
+    refetchComplexes,
+  } = useOnboardingComplex({
+    stateComplexId,
+    justCreatedId,
+  });
 
   const { step, animKey, changeStep, completeOnboarding, navigate } = useOnboardingStep({
     complexId,
@@ -65,6 +73,7 @@ export function useOnboarding() {
     courts: courts ?? [],
     hasCourts: !!hasCourts,
     complexesError,
+    complexesFetching,
     refetchComplexes,
 
     // Step navigation

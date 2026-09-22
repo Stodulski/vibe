@@ -23,10 +23,14 @@ export function DashboardLayout() {
 
   // The complexes query failed rather than succeeding with an empty list —
   // redirecting to /onboarding here would 403 on submit ("the account
-  // already owns a complex").
-  if (state.isError) {
+  // already owns a complex"). Only blanks the page when there is nothing
+  // cached to fall back on: a background refetch failure (window focus,
+  // reconnect) keeps `complexes` populated with the last good data, and the
+  // dashboard should keep working through that instead of going blank.
+  if (state.isError && state.complexes.length === 0) {
     return (
       <ComplexLoadError
+        isFetching={state.isFetching}
         onRetry={() => {
           state.refetch();
         }}

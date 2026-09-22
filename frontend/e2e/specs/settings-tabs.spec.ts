@@ -59,7 +59,18 @@ test.describe('Settings — Other Tabs', () => {
     await gotoSettings(page);
     const oldLink = new URL(page.url());
     oldLink.search = 'tab=mercadopago';
+    // A full navigation reboots the app, and the boot refreshes the session.
+    // Asserting before that refresh has answered races the token rotation:
+    // the refresh aborts, the page is signed out, and the session file this
+    // spec hands back is dead for every later spec in the pool (see
+    // `withPersistedSession` in auth.fixture.ts). A successful `/auth/me` is
+    // the boot's last step, so wait for it exactly as the fixture does.
+    const rebooted = page.waitForResponse(
+      (r) => r.url().includes('/auth/me') && r.request().method() === 'GET' && r.status() === 200,
+      { timeout: 15_000 },
+    );
     await page.goto(oldLink.toString());
+    await rebooted;
 
     await expect(
       page.getByText(/Conectar MercadoPago|MercadoPago conectado|MercadoPago no conectado/).first(),

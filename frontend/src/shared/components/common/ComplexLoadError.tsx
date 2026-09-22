@@ -1,4 +1,4 @@
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { StatusHero } from './StatusHero';
@@ -7,6 +7,8 @@ const t = ES_AR;
 
 interface ComplexLoadErrorProps {
   onRetry: () => void;
+  /** Disables the button and swaps in a spinner while a retry is in flight, so it can't be spammed. */
+  isFetching?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface ComplexLoadErrorProps {
  * create-complex form, where submitting it 403'd with "the account already
  * owns a complex".
  */
-export function ComplexLoadError({ onRetry }: ComplexLoadErrorProps) {
+export function ComplexLoadError({ onRetry, isFetching = false }: ComplexLoadErrorProps) {
   return (
     <div className="bg-bg-base flex min-h-dvh items-center justify-center px-4">
       <StatusHero
@@ -26,8 +28,17 @@ export function ComplexLoadError({ onRetry }: ComplexLoadErrorProps) {
         title={t.complex.loadError}
         description={t.complex.loadErrorDescription}
       >
-        <Button size="lg" className="mt-4 min-h-12 rounded-xl" onClick={onRetry}>
-          {t.complex.retry}
+        <Button size="lg" className="mt-4 min-h-12 rounded-xl" onClick={onRetry} disabled={isFetching}>
+          {isFetching ? (
+            <>
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              <span className="sr-only" aria-live="polite">
+                {t.complex.retrying}
+              </span>
+            </>
+          ) : (
+            t.complex.retry
+          )}
         </Button>
       </StatusHero>
     </div>

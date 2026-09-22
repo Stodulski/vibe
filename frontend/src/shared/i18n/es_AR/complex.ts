@@ -74,6 +74,7 @@ export const complex = {
   loadError: 'No pudimos cargar tu complejo',
   loadErrorDescription: 'Hubo un problema de conexión. Probá de nuevo.',
   retry: 'Reintentar',
+  retrying: 'Reintentando...',
   onboardingStepProgress: 'Progreso de configuración',
   onboardingTitle: 'Bienvenido',
   onboardingStep1: 'Datos del complejo',
