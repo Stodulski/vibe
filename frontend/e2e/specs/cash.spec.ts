@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
-import { createApiHelper } from '../helpers/api.helper';
+import { createApiHelper, typedJson } from '../helpers/api.helper';
 
 /**
  * The shared complex's cash session is exactly as shared as its bookings and
@@ -19,15 +19,19 @@ import { createApiHelper } from '../helpers/api.helper';
  * strict mode then refuses to resolve it) or silently match a stale prior
  * row instead of this run's own session. Every assertion below is scoped to
  * the specific region it is about instead: the open-session summary card,
- * the close dialog, and the newest (first) history row.
+ * the close dialog, and the history row that links to this run's session id.
  */
 async function openCashPage(page: Page) {
   await page.goto('/cash');
   await expect(page.getByRole('heading', { name: 'Caja', exact: true })).toBeVisible({ timeout: 10_000 });
 }
 
-/** Opens the till and records a $2.000 expense against a $10.000 float, ending at $8.000 expected cash. */
-async function openTillAndRecordExpense(page: Page) {
+/**
+ * Opens the till and records a $2.000 expense against a $10.000 float, ending
+ * at $8.000 expected cash. Returns the opened session's id, which is what ties
+ * the history assertion to this run rather than to an earlier identical one.
+ */
+async function openTillAndRecordExpense(page: Page): Promise<string> {
   await page.getByRole('button', { name: 'Abrir caja' }).click();
   const openDialog = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Abrir caja' }) });
   await expect(openDialog).toBeVisible({ timeout: 5_000 });
@@ -37,7 +41,9 @@ async function openTillAndRecordExpense(page: Page) {
     (res) => res.url().endsWith('/cash-sessions') && res.request().method() === 'POST',
   );
   await openDialog.getByRole('button', { name: 'Abrir caja' }).click();
-  expect((await openResponse).ok()).toBe(true);
+  const opened = await openResponse;
+  expect(opened.ok()).toBe(true);
+  const { cash_session: session } = await typedJson<{ cash_session: { id: string } }>(opened);
   await expect(openDialog).toBeHidden({ timeout: 5_000 });
 
   const summary = page.getByTestId('cash-expected-card');
@@ -58,6 +64,7 @@ async function openTillAndRecordExpense(page: Page) {
   // Scoped to the summary card — a closed history row can carry the same
   // figure ($8.000, or the same shortfall) from a previous run.
   await expect(summary.getByText('$8.000')).toBeVisible({ timeout: 5_000 });
+  return session.id;
 }
 
 /** Closes with a $500 shortfall (7500 counted - 8000 expected) and asserts the committed result. */
@@ -108,12 +115,15 @@ test.describe('Cash', () => {
     await openCashPage(page);
     await expect(page.getByText('La caja está cerrada')).toBeVisible();
 
-    await openTillAndRecordExpense(page);
+    const sessionId = await openTillAndRecordExpense(page);
     await closeWithShortfall(page);
 
     // ─── Back to the closed state, with the session now in history ───
     await expect(page.getByText('La caja está cerrada')).toBeVisible();
+    // Newest first, and it must be this run's session: every earlier run left
+    // a row with the same shortfall, so the text alone proves nothing.
     const newestHistoryEntry = page.getByTestId('cash-history-list').getByRole('link').first();
+    await expect(newestHistoryEntry).toHaveAttribute('href', `/cash/sessions/${sessionId}`);
     await expect(newestHistoryEntry).toContainText('Faltante: $500');
   });
 });

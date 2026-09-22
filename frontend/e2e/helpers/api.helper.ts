@@ -66,9 +66,7 @@ export class ApiHelper {
    * the envelope" pair every method below used to repeat inline.
    */
   private async unwrapOk<T>(res: APIResponse, action: string): Promise<T> {
-    if (!res.ok()) {
-      throw new Error(`${action} failed: ${String(res.status())} ${await res.text()}`);
-    }
+    await this.assertOk(res, action);
     return typedJson<T>(res);
   }
 
@@ -218,9 +216,17 @@ export class ApiHelper {
   async getCurrentCashSession(complexId: string): Promise<ApiCashSession | null> {
     const res = await this.request.get(`${API}/complexes/${complexId}/cash-session`, { headers: this.headers() });
     if (res.status() === 404) {
-      const problem = await typedJson<{ type?: string }>(res);
-      if (problem.type?.endsWith('/not-found')) return null;
-      throw new Error(`getCurrentCashSession: unexpected 404 (${problem.type ?? 'unknown'}) — likely misrouted`);
+      // Read as text first: a misrouted 404 is the one most likely to carry
+      // no JSON at all, and its error must still name the endpoint.
+      const raw = await res.text();
+      let type: string | undefined;
+      try {
+        type = (JSON.parse(raw) as { type?: string }).type;
+      } catch {
+        type = undefined;
+      }
+      if (type?.endsWith('/not-found')) return null;
+      throw new Error(`getCurrentCashSession: unexpected 404 (${type ?? raw.slice(0, 200)}) — likely misrouted`);
     }
     const body = await this.unwrapOk<{ cash_session: ApiCashSession }>(res, 'getCurrentCashSession');
     return body.cash_session;
@@ -235,19 +241,9 @@ export class ApiHelper {
     return body.cash_session;
   }
 
-  /**
-   * `idempotencyKey` defaults to a fresh one per call (an ordinary,
-   * once-only close in a test body); `closeAnyOpenCashSession` below passes
-   * a stable one instead, so its own retries replay the same close.
-   */
-  async closeCashSession(
-    complexId: string,
-    sessionId: string,
-    countedCash: number,
-    idempotencyKey: string = randomUUID(),
-  ): Promise<ApiCashSession> {
+  async closeCashSession(complexId: string, sessionId: string, countedCash: number): Promise<ApiCashSession> {
     const res = await this.request.post(`${API}/complexes/${complexId}/cash-sessions/${sessionId}/close`, {
-      headers: { ...this.headers(), 'Idempotency-Key': idempotencyKey },
+      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
       data: { counted_cash: countedCash },
     });
     const body = await this.unwrapOk<{ cash_session: ApiCashSession }>(res, 'closeCashSession');
@@ -260,17 +256,15 @@ export class ApiHelper {
    * that leaves one open corrupts every later run and every later spec.
    * `counted_cash: 0` is fine for cleanup: nothing downstream reads it.
    *
-   * The key is derived from the session id rather than freshly minted: this
-   * cleanup can run more than once for the very same still-open session (an
-   * `afterAll` following a failed test, then the next spec's `beforeAll`),
-   * and a fresh key each time would ask the backend to close an
-   * already-closed session as if it were a brand new request instead of
-   * replaying the first close.
+   * Each call uses a fresh Idempotency-Key. It re-reads the current session
+   * first, so it only ever closes a session that is still open, and the
+   * idempotency middleware stores 4xx answers: a fixed key that once got a
+   * 409 would replay that 409 forever and the session could never be closed.
    */
   async closeAnyOpenCashSession(complexId: string): Promise<void> {
     const current = await this.getCurrentCashSession(complexId);
     if (!current) return;
-    await this.closeCashSession(complexId, current.id, 0, `cleanup-close:${current.id}`);
+    await this.closeCashSession(complexId, current.id, 0);
   }
 
   /**
