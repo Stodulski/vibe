@@ -23,6 +23,9 @@ type Querier interface {
 	// nothing: the trigger on this table fires on any UPDATE, which is the whole
 	// effect wanted here.
 	BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error)
+	// closing_note is its own column: it never touches opening_note, so a
+	// closing note can never erase what Open recorded.
+	CloseCashSession(ctx context.Context, arg CloseCashSessionParams) (CashSession, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteCourtPrice(ctx context.Context, id pgtype.UUID) error
@@ -112,6 +115,13 @@ type Querier interface {
 	// A window keyed to whenever the test suite happened to run is a window nobody
 	// can test at 23:00.
 	GetBookingsForReminder2h(ctx context.Context, now pgtype.Timestamptz) ([]Booking, error)
+	GetCashMovementByID(ctx context.Context, arg GetCashMovementByIDParams) (CashMovement, error)
+	GetCashSessionByID(ctx context.Context, arg GetCashSessionByIDParams) (CashSession, error)
+	// Every write against a session (a movement, a void, the close itself) takes
+	// this lock first, in the same transaction as the write, so a movement
+	// cannot land in a session that is being closed concurrently and a session
+	// cannot be closed twice.
+	GetCashSessionByIDForUpdate(ctx context.Context, arg GetCashSessionByIDForUpdateParams) (CashSession, error)
 	// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
 	// predicate is optional.
 	GetClientByID(ctx context.Context, arg GetClientByIDParams) (GetClientByIDRow, error)
@@ -164,6 +174,14 @@ type Querier interface {
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
 	// Kept for backwards compatibility with generated code. No longer used by business logic.
 	GetNextBookingByClientPhone(ctx context.Context) (Booking, error)
+	// The read-only "current session" lookup — GET /current — never locks.
+	GetOpenCashSessionByComplex(ctx context.Context, complexID pgtype.UUID) (CashSession, error)
+	// Locks the row (if any) so a second open cannot race the check-then-insert:
+	// the caller still relies on idx_cash_sessions_one_open for the actual
+	// guarantee (this SELECT can only lock a row that already committed), but
+	// taking the lock here means a concurrent close sees this transaction's
+	// intent before either commits.
+	GetOpenCashSessionForUpdate(ctx context.Context, complexID pgtype.UUID) (CashSession, error)
 	// A booking can legitimately have more than one payment row (the checkout row plus a
 	// cash row inserted by ConfirmPayment), and idx_payments_booking is not unique, so
 	// without an explicit order the driver returns an arbitrary row. Prefer the MercadoPago
@@ -185,6 +203,12 @@ type Querier interface {
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
 	InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error)
+	// Serves both an ordinary movement (voids_movement_id NULL) and a void
+	// (voids_movement_id set): cash_movements_check_void (003_cashbox.sql)
+	// enforces every void invariant that needs to read the original row, so this
+	// query is deliberately the same one call for both.
+	InsertCashMovement(ctx context.Context, arg InsertCashMovementParams) (CashMovement, error)
+	InsertCashSession(ctx context.Context, arg InsertCashSessionParams) (CashSession, error)
 	InsertClient(ctx context.Context, arg InsertClientParams) (Client, error)
 	InsertComplex(ctx context.Context, arg InsertComplexParams) (Complex, error)
 	InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error)
@@ -199,6 +223,14 @@ type Querier interface {
 	InsertUserIdentity(ctx context.Context, arg InsertUserIdentityParams) error
 	// Atomic: deletes stale tokens (>3 min), inserts new only if none within 3 min.
 	InsertVerificationTokenWithCooldown(ctx context.Context, arg InsertVerificationTokenWithCooldownParams) (EmailVerificationToken, error)
+	// Oldest first: a session's ledger reads top to bottom like a receipt tape.
+	// Not paginated — a shift's movement count is bounded by a business day at
+	// the counter, the same reasoning ListBlockedSlots' unpaginated call applies.
+	ListCashMovementsBySession(ctx context.Context, arg ListCashMovementsBySessionParams) ([]CashMovement, error)
+	// Keyset pagination, same shape as audit_log's listAuditLogsSQL: has_cursor
+	// is false on the first page, so the OR's left side short-circuits instead of
+	// comparing against a zero-value timestamp.
+	ListCashSessionsByComplex(ctx context.Context, arg ListCashSessionsByComplexParams) ([]CashSession, error)
 	// Connected complexes whose OAuth token has no known expiry (never recorded
 	// one, e.g. rows connected before this column existed) or expires within 30
 	// days. cronRefreshMPTokens used to refresh every connected complex on every
@@ -219,6 +251,14 @@ type Querier interface {
 	// soft-delete cascade trigger closes.
 	SoftDeleteComplex(ctx context.Context, id pgtype.UUID) (int64, error)
 	SoftDeleteCourt(ctx context.Context, id pgtype.UUID) error
+	// One row per (method, kind, category) combination actually used in the
+	// session. The service derives two different things from this same result:
+	// the summary's full breakdown (every row, every method), and the cash
+	// reconciliation's own income/expense totals (the rows whose method is
+	// 'cash' — "Cash reconciliation counts only cash" is a Go-side filter over
+	// this query's rows, not a WHERE clause here, because the summary needs the
+	// other methods' rows too).
+	SumCashMovementsBySession(ctx context.Context, arg SumCashMovementsBySessionParams) ([]SumCashMovementsBySessionRow, error)
 	// Unconditional on the row's prior state. What refuses an illegitimate write is
 	// the bookings_forbid_status_reversal trigger, which is enforced for every
 	// writer rather than for the one query that remembered to check a counter —

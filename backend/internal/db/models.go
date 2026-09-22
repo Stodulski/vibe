@@ -433,6 +433,37 @@ type BookingLinkToken struct {
 	ComplexID pgtype.UUID        `json:"complex_id"`
 }
 
+type CashMovement struct {
+	ID              pgtype.UUID        `json:"id"`
+	ComplexID       pgtype.UUID        `json:"complex_id"`
+	SessionID       pgtype.UUID        `json:"session_id"`
+	Kind            string             `json:"kind"`
+	Category        string             `json:"category"`
+	Method          PaymentMethod      `json:"method"`
+	Amount          int32              `json:"amount"`
+	Note            pgtype.Text        `json:"note"`
+	VoidsMovementID pgtype.UUID        `json:"voids_movement_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	CreatedBy       pgtype.UUID        `json:"created_by"`
+}
+
+type CashSession struct {
+	ID           pgtype.UUID        `json:"id"`
+	ComplexID    pgtype.UUID        `json:"complex_id"`
+	OpenedAt     pgtype.Timestamptz `json:"opened_at"`
+	OpenedBy     pgtype.UUID        `json:"opened_by"`
+	OpeningCash  int32              `json:"opening_cash"`
+	ClosedAt     pgtype.Timestamptz `json:"closed_at"`
+	ClosedBy     pgtype.UUID        `json:"closed_by"`
+	CountedCash  pgtype.Int4        `json:"counted_cash"`
+	ExpectedCash pgtype.Int4        `json:"expected_cash"`
+	Difference   pgtype.Int4        `json:"difference"`
+	OpeningNote  pgtype.Text        `json:"opening_note"`
+	ClosingNote  pgtype.Text        `json:"closing_note"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Client struct {
 	ID            pgtype.UUID        `json:"id"`
 	ComplexID     pgtype.UUID        `json:"complex_id"`
