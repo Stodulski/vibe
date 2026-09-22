@@ -545,6 +545,48 @@ func (s *apiServer) PlacesDetails(w http.ResponseWriter, r *http.Request, params
 	s.app.places.Details(w, r)
 }
 
+// ProductsList implements gen.ServerInterface for productsList
+// (GET /api/v1/complexes/{id}/products). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ProductsList(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.ProductsListParams) {
+	s.app.products.List(w, r)
+}
+
+// ProductsCreate implements gen.ServerInterface for productsCreate
+// (POST /api/v1/complexes/{id}/products). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ProductsCreate(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.ProductsCreateParams) {
+	s.app.products.Create(w, r)
+}
+
+// ProductsGet implements gen.ServerInterface for productsGet
+// (GET /api/v1/complexes/{id}/products/{productID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ProductsGet(w http.ResponseWriter, r *http.Request, id gen.PathID, productID gen.ProductID) {
+	s.app.products.Get(w, r)
+}
+
+// ProductsUpdate implements gen.ServerInterface for productsUpdate
+// (PATCH /api/v1/complexes/{id}/products/{productID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ProductsUpdate(w http.ResponseWriter, r *http.Request, id gen.PathID, productID gen.ProductID, params gen.ProductsUpdateParams) {
+	s.app.products.Update(w, r)
+}
+
+// ProductsRestock implements gen.ServerInterface for productsRestock
+// (POST /api/v1/complexes/{id}/products/{productID}/restock). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ProductsRestock(w http.ResponseWriter, r *http.Request, id gen.PathID, productID gen.ProductID, params gen.ProductsRestockParams) {
+	s.app.products.Restock(w, r)
+}
+
+// ProductsAdjust implements gen.ServerInterface for productsAdjust
+// (POST /api/v1/complexes/{id}/products/{productID}/adjustments). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ProductsAdjust(w http.ResponseWriter, r *http.Request, id gen.PathID, productID gen.ProductID, params gen.ProductsAdjustParams) {
+	s.app.products.Adjust(w, r)
+}
+
+// ProductsListStockMovements implements gen.ServerInterface for productsListStockMovements
+// (GET /api/v1/complexes/{id}/products/{productID}/stock-movements). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ProductsListStockMovements(w http.ResponseWriter, r *http.Request, id gen.PathID, productID gen.ProductID, params gen.ProductsListStockMovementsParams) {
+	s.app.products.ListStockMovements(w, r)
+}
+
 // ComplexesGetPublic implements gen.ServerInterface for complexesGetPublic
 // (GET /api/v1/public/complexes/{slug}). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ComplexesGetPublic(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {

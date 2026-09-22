@@ -20,6 +20,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/middleware"
+	productstore "github.com/stodulski/vibe-server/internal/products/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -224,6 +225,13 @@ var routePolicies = map[string]policy{
 	"GET /api/v1/complexes/{id}/clients/{clientID}":                                     complexOwner,
 	"PUT /api/v1/complexes/{id}/clients/{clientID}":                                     complexOwner,
 	"GET /api/v1/complexes/{id}/events":                                                 complexOwner,
+	"GET /api/v1/complexes/{id}/products":                                               complexOwner,
+	"POST /api/v1/complexes/{id}/products":                                              complexOwner,
+	"GET /api/v1/complexes/{id}/products/{productID}":                                   complexOwner,
+	"PATCH /api/v1/complexes/{id}/products/{productID}":                                 complexOwner,
+	"POST /api/v1/complexes/{id}/products/{productID}/restock":                          complexOwner,
+	"POST /api/v1/complexes/{id}/products/{productID}/adjustments":                      complexOwner,
+	"GET /api/v1/complexes/{id}/products/{productID}/stock-movements":                   complexOwner,
 	"GET /api/v1/complexes/{id}/stats":                                                  complexOwner,
 	"GET /api/v1/complexes/{id}/stats/revenue":                                          complexOwner,
 	"GET /api/v1/complexes/{id}/stats/occupancy":                                        complexOwner,
@@ -533,6 +541,10 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	if !ok {
 		t.Fatalf("cashbox store is %T, not *mockCashboxStore", fx.app.models.Cashbox)
 	}
+	products, ok := fx.app.models.Products.(*mockProductStore)
+	if !ok {
+		t.Fatalf("product store is %T, not *mockProductStore", fx.app.models.Products)
+	}
 
 	id := fx.subResourceID
 	tomorrow := time.Now().AddDate(0, 0, 1)
@@ -566,6 +578,18 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	}
 	cashbox.GetMovementByIDFn = func(_ context.Context, _, _ uuid.UUID) (*cashboxstore.CashMovement, error) {
 		return cashMovement, nil
+	}
+
+	product := &productstore.Product{
+		ID:          id,
+		ComplexID:   target.ID,
+		Name:        "Coca Cola",
+		Price:       500,
+		TracksStock: true,
+	}
+	products.GetByIDFn = func(_ context.Context, _, _ uuid.UUID) (*productstore.Product, error) { return product, nil }
+	products.ListByComplexFn = func(_ context.Context, _ uuid.UUID, _ *bool) ([]*productstore.Product, error) {
+		return []*productstore.Product{product}, nil
 	}
 
 	court := &courtstore.Court{
