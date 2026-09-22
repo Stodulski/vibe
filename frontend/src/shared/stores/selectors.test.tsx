@@ -27,25 +27,25 @@ describe('an atomic store selector', () => {
     const before = renders();
 
     act(() => {
-      useStore.getState().setSelectedComplexId('complex-9');
+      useStore.getState().setCsrfToken('csrf-9');
     });
 
-    expect(useStore.getState().selectedComplexId).toBe('complex-9');
+    expect(useStore.getState().csrfToken).toBe('csrf-9');
     expect(renders()).toBe(before);
   });
 
   it('still re-renders when the selected value itself changes', () => {
     let renders = 0;
-    function SelectedComplex() {
-      useStore((s) => s.selectedComplexId);
+    function CsrfToken() {
+      useStore((s) => s.csrfToken);
       renders += 1;
       return null;
     }
-    render(<SelectedComplex />);
+    render(<CsrfToken />);
     const before = renders;
 
     act(() => {
-      useStore.getState().setSelectedComplexId('complex-10');
+      useStore.getState().setCsrfToken('csrf-10');
     });
 
     expect(renders).toBeGreaterThan(before);

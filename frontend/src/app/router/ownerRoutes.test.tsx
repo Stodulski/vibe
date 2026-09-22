@@ -13,7 +13,7 @@ vi.mock('@/features/auth/hooks/useAuth', () => ({
 import { ownerStandaloneRoutes } from './ownerRoutes';
 import { ProtectedRoute } from './ProtectedRoute';
 
-const STANDALONE_PATHS = ['/complexes', '/onboarding', '/settings/mp/callback'];
+const STANDALONE_PATHS = ['/onboarding', '/settings/mp/callback'];
 
 function renderAt(path: string) {
   const router = createMemoryRouter([...ownerStandaloneRoutes, { path: '/login', element: <div>Login Page</div> }], {

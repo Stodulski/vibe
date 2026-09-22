@@ -17,19 +17,11 @@ async function expectNoSeriousViolations(page: Page): Promise<void> {
   expect(severe, `serious/critical axe violations:\n${summary.join('\n')}`).toEqual([]);
 }
 
-async function selectComplex(page: Page, complexId: string): Promise<void> {
-  await page.evaluate((id) => {
-    localStorage.setItem('selectedComplexId', id);
-  }, complexId);
-}
-
 test.describe('Accessibility — serious/critical axe violations', () => {
-  let complexId: string;
   let complexSlug: string;
 
   test.beforeAll(async () => {
     const setup = await getSharedSetup();
-    complexId = setup.complexId;
     complexSlug = setup.complexSlug;
   });
 
@@ -40,21 +32,18 @@ test.describe('Accessibility — serious/critical axe violations', () => {
   });
 
   test('/dashboard has no serious/critical violations', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/dashboard');
     await expect(page.locator('h1:visible').first()).toBeVisible({ timeout: 10_000 });
     await expectNoSeriousViolations(page);
   });
 
   test('/bookings has no serious/critical violations', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/bookings');
     await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({ timeout: 10_000 });
     await expectNoSeriousViolations(page);
   });
 
   test('/settings has no serious/critical violations', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/settings');
     await expect(page.getByLabel('Nombre del complejo')).toBeVisible({ timeout: 10_000 });
     await expectNoSeriousViolations(page);

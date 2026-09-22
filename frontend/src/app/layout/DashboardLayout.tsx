@@ -20,9 +20,9 @@ export function DashboardLayout() {
     );
   }
 
-  // No complex at all -> go to complex selector
+  // No complex at all -> go create one
   if (state.needsOnboarding || !state.selectedComplexId) {
-    return <Navigate to="/complexes" replace />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (

@@ -2,17 +2,11 @@ import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
 
 test.describe('Dashboard', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexId = setup.complexId;
+    await getSharedSetup();
   });
 
   test('dashboard page loads and shows title', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/dashboard');
 
     // "Dashboard" renders as two <h1>s: PageHeader's (mobile-only, md:hidden,
@@ -31,9 +25,6 @@ test.describe('Dashboard', () => {
   // -- see PaymentOverview.tsx's comment. Assert what that panel actually
   // shows today.
   test('displays payment overview panel', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/dashboard');
 
     await expect(page.getByText('Reservas hoy', { exact: true })).toBeVisible({ timeout: 15_000 });
@@ -43,9 +34,6 @@ test.describe('Dashboard', () => {
   });
 
   test('displays revenue section', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/dashboard');
 
     await expect(page.getByText('Ingresos')).toBeVisible({ timeout: 15_000 });
@@ -57,9 +45,6 @@ test.describe('Dashboard', () => {
   // plus a desktop-only "Tendencias" section (revenue chart, client insights,
   // occupancy heatmap). Assert that section instead of the removed one.
   test('shows the desktop trends section with the occupancy heatmap', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/dashboard');
 
     await expect(page.getByText('Reservas hoy', { exact: true })).toBeVisible({ timeout: 15_000 });

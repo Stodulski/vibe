@@ -33,7 +33,7 @@ function renderPage(search: string) {
     [
       { path: '/auth/google/return', element: <GoogleReturnPage /> },
       { path: '/login', element: <div>Login page</div> },
-      { path: '/complexes', element: <div>Complexes page</div> },
+      { path: '/dashboard', element: <div>Dashboard page</div> },
     ],
     { initialEntries: [`/auth/google/return${search}`] },
   );
@@ -77,7 +77,7 @@ describe('GoogleReturnPage', () => {
     renderPage('?code=an-opaque-code');
 
     await waitFor(() => {
-      expect(screen.getByText('Complexes page')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard page')).toBeInTheDocument();
     });
   });
 

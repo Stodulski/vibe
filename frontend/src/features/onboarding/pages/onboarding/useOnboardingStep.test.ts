@@ -4,17 +4,11 @@ import { useOnboardingStep } from './useOnboardingStep';
 import type { Complex } from '@/shared/types/api.types';
 
 const navigateMock = vi.fn();
-const setSelectedComplexIdMock = vi.fn();
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return { ...actual, useNavigate: () => navigateMock };
 });
-
-vi.mock('@/shared/stores', () => ({
-  useStore: (selector: (s: { setSelectedComplexId: typeof setSelectedComplexIdMock }) => unknown) =>
-    selector({ setSelectedComplexId: setSelectedComplexIdMock }),
-}));
 
 const complex = { id: 'c1', mp_user_id: null } as unknown as Complex;
 const connectedComplex = { id: 'c1', mp_user_id: 'mp1' } as unknown as Complex;
@@ -74,7 +68,6 @@ describe('useOnboardingStep — deriving the step from server data', () => {
         }),
       ),
     );
-    expect(setSelectedComplexIdMock).toHaveBeenCalledWith('c1');
     expect(navigateMock).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 });

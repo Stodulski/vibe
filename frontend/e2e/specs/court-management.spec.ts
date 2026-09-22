@@ -3,17 +3,11 @@ import { getSharedSetup } from '../helpers/shared-setup';
 import { CourtsPage } from '../pages/courts.page';
 
 test.describe('Court Management — Creation', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexId = setup.complexId;
+    await getSharedSetup();
   });
 
   test('courts page loads', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/courts');
 
     // Wait for page content to load (either court cards or empty state or create button)
@@ -23,9 +17,6 @@ test.describe('Court Management — Creation', () => {
   });
 
   test('can create a court', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     const courtsPage = new CourtsPage(page);
     await courtsPage.goto();
 
@@ -45,9 +36,6 @@ test.describe('Court Management — Creation', () => {
   });
 
   test('can create court with different sport', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     const courtsPage = new CourtsPage(page);
     await courtsPage.goto();
 

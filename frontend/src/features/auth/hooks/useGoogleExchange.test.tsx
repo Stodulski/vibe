@@ -99,7 +99,7 @@ describe('useGoogleExchange — success', () => {
     });
     expect(authApi.googleExchange).toHaveBeenCalledWith({ code: 'a-code', g_csrf_token: CSRF_COOKIE_VALUE });
     expect(mockSetSessionUser).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   it('hands off to /register/google with the profile in router state when the email is unknown', async () => {
@@ -243,14 +243,14 @@ describe('useGoogleExchange — the destination parked before the redirect', () 
       user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
     });
     setCsrfCookie();
-    window.sessionStorage.setItem(KEY, '/complexes/abc/bookings');
+    window.sessionStorage.setItem(KEY, '/bookings/abc');
 
     await renderExchange('a-code');
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/complexes/abc/bookings', { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith('/bookings/abc', { replace: true });
     });
-    expect(mockAuthSuccess).toHaveBeenCalledWith({ from: '/complexes/abc/bookings' });
+    expect(mockAuthSuccess).toHaveBeenCalledWith({ from: '/bookings/abc' });
     // Spent, like the code it travelled with.
     expect(window.sessionStorage.getItem(KEY)).toBeNull();
   });
@@ -266,7 +266,7 @@ describe('useGoogleExchange — the destination parked before the redirect', () 
     await renderExchange('a-code');
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
     });
     expect(mockAuthSuccess).toHaveBeenCalledWith({ from: undefined });
   });

@@ -3,18 +3,12 @@ import { getSharedSetup } from '../helpers/shared-setup';
 import { createTestClients } from '../helpers/client-fixtures';
 
 test.describe('Client Management', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
     const setup = await getSharedSetup();
-    complexId = setup.complexId;
     await createTestClients(setup);
   });
 
   test('clients page loads', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/clients');
 
     await expect(page.getByRole('heading', { name: 'Clientes', exact: true })).toBeVisible({
@@ -23,9 +17,6 @@ test.describe('Client Management', () => {
   });
 
   test('shows clients or empty state', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/clients');
 
     await expect(page.getByRole('heading', { name: 'Clientes', exact: true })).toBeVisible({

@@ -40,7 +40,6 @@ let broadcastSequence = 0;
 
 export const createAuthSlice: StateCreator<AuthSlice> = (set) => {
   const teardown = () => {
-    safeLocalStorage.remove(STORAGE_KEYS.SELECTED_COMPLEX_ID);
     safeSessionStorage.remove(STORAGE_KEYS.MP_CODE_VERIFIER);
     safeSessionStorage.remove(STORAGE_KEYS.MP_RETURN_PATH);
     setUser(null);

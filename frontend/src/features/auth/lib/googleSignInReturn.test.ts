@@ -19,9 +19,9 @@ describe('googleSignInReturn', () => {
   // belongs to a different sign-in, which parks its own destination or has
   // none at all.
   it('removes the destination as it reads it', () => {
-    rememberGoogleReturnPath('/complexes/abc/bookings');
+    rememberGoogleReturnPath('/bookings/abc');
 
-    expect(takeGoogleReturnPath()).toBe('/complexes/abc/bookings');
+    expect(takeGoogleReturnPath()).toBe('/bookings/abc');
     expect(takeGoogleReturnPath()).toBeUndefined();
     expect(window.sessionStorage.getItem(KEY)).toBeNull();
   });

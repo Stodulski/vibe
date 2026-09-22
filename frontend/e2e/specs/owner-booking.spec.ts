@@ -3,14 +3,11 @@ import { getSharedSetup } from '../helpers/shared-setup';
 import type { Page } from '@playwright/test';
 
 /**
- * Select the shared test complex and land on the (loaded) bookings page.
+ * Land on the (loaded) bookings page.
  * Extracted from 6 duplicated call sites (slice 10, max-lines decomposition
  * — also removes a DRY violation per this repo's own principles).
  */
-async function gotoBookings(page: Page, complexId: string): Promise<void> {
-  await page.evaluate((id) => {
-    localStorage.setItem('selectedComplexId', id);
-  }, complexId);
+async function gotoBookings(page: Page): Promise<void> {
   await page.goto('/bookings');
   await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({
     timeout: 10_000,
@@ -18,17 +15,15 @@ async function gotoBookings(page: Page, complexId: string): Promise<void> {
 }
 
 test.describe('Owner Booking Management', () => {
-  let complexId: string;
   let courtName: string;
 
   test.beforeAll(async () => {
     const setup = await getSharedSetup();
-    complexId = setup.complexId;
     courtName = setup.courtName;
   });
 
   test('bookings page loads', async ({ authenticatedPage: page }) => {
-    await gotoBookings(page, complexId);
+    await gotoBookings(page);
   });
 
   // The create-booking modal is now a 3-step wizard (Cuándo y dónde -> Cliente
@@ -38,7 +33,7 @@ test.describe('Owner Booking Management', () => {
   // day; pick a court and a time slot) into step 2 and asserts the real label
   // ("Datos del cliente", not the old literal-uppercase "DATOS DEL CLIENTE").
   test('can open create booking modal and reach client step', async ({ authenticatedPage: page }) => {
-    await gotoBookings(page, complexId);
+    await gotoBookings(page);
 
     // The modal's date defaults to the calendar's day, and for today the time
     // list omits hours already past, so a fixed "10:00" only existed while the
@@ -91,7 +86,7 @@ test.describe('Owner Booking Management', () => {
   // with no tab role anywhere in the page). Assert the calendar renders
   // instead of a "Lista" tab that no longer exists.
   test('calendar view renders with no list-view toggle', async ({ authenticatedPage: page }) => {
-    await gotoBookings(page, complexId);
+    await gotoBookings(page);
 
     // The court-time grid actually rendered, not just "the page loaded".
     await expect(page.getByText(courtName, { exact: true })).toBeVisible({ timeout: 10_000 });
@@ -100,7 +95,7 @@ test.describe('Owner Booking Management', () => {
   });
 
   test('can navigate between dates', async ({ authenticatedPage: page }) => {
-    await gotoBookings(page, complexId);
+    await gotoBookings(page);
 
     await page.getByRole('button', { name: 'Día siguiente' }).click();
     await page.waitForTimeout(500);

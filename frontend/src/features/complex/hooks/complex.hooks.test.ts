@@ -39,17 +39,6 @@ vi.mock('@/shared/lib/queryKeys', () => ({
   },
 }));
 
-vi.mock('@/shared/stores', () => {
-  const state = { selectedComplexId: 'c1', setSelectedComplexId: vi.fn() };
-  return {
-    // Selector-aware, like the real zustand store: hooks under test call
-    // `useStore((s) => s.x)` rather than reading the whole state.
-    useStore: Object.assign((selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state), {
-      getState: () => state,
-    }),
-  };
-});
-
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
 }));

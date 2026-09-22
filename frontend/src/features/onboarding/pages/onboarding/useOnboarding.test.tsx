@@ -11,67 +11,48 @@ const courtsMock = vi.fn();
 vi.mock('@/features/complex', () => ({ useComplexes: () => complexesMock() as unknown }));
 vi.mock('@/features/courts', () => ({ useCourts: () => courtsMock() as unknown }));
 vi.mock('@/features/auth', () => ({ useLogout: () => vi.fn() }));
-vi.mock('@/shared/stores', () => ({
-  useStore: (selector: (s: { setSelectedComplexId: () => void }) => unknown) =>
-    selector({ setSelectedComplexId: vi.fn() }),
-}));
 
 const created = { id: 'c-new', mp_user_id: null, created_at: '2026-09-14T10:00:00Z' } as unknown as Complex;
-// Newer than the one being onboarded, and listed first: whichever complex the
-// resolver's own fallback would reach for, it is this one and not `created`.
-const other = { id: 'c-other', mp_user_id: null, created_at: '2026-09-14T12:00:00Z' } as unknown as Complex;
-
-/** Renders the hook inside a router entered the way "Agregar complejo" enters it. */
-function renderInNewComplexFlow() {
-  let location: ReturnType<typeof useLocation> | null = null;
-
-  function Probe() {
-    location = useLocation();
-    return null;
-  }
-
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <MemoryRouter initialEntries={[{ pathname: '/onboarding', state: { newComplex: true } }]}>
-      {children}
-      <Probe />
-    </MemoryRouter>
-  );
-
-  const rendered = renderHook(() => useOnboarding(), { wrapper });
-  return { ...rendered, getLocation: () => location };
-}
+const existing = { id: 'c-existing', mp_user_id: null, created_at: '2026-09-14T12:00:00Z' } as unknown as Complex;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  complexesMock.mockReturnValue({ data: [other, created], isLoading: false });
+  complexesMock.mockReturnValue({ data: [], isLoading: false });
   courtsMock.mockReturnValue({ data: [], isLoading: false });
 });
 
 describe('useOnboarding — surviving a reload after the complex is created', () => {
-  // The bug: `justCreatedId` is component state and a reload wipes it, while
-  // `newComplex: true` lives in the history entry and does not. The owner came
-  // back to step 1, filled the form again, and ended up with two complexes for
-  // one venue. The created id has to travel in the history entry too.
-  it('writes the created complex into history state, replacing the newComplex entry', () => {
-    const { result, getLocation } = renderInNewComplexFlow();
+  // The bug: `justCreatedId` is component state and a reload wipes it. The
+  // created id has to travel in the history entry too.
+  it('writes the created complex into history state', () => {
+    let location: ReturnType<typeof useLocation> | null = null;
 
-    expect((getLocation()?.state as { newComplex?: boolean } | null)?.newComplex).toBe(true);
+    function Probe() {
+      location = useLocation();
+      return null;
+    }
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MemoryRouter initialEntries={['/onboarding']}>
+        {children}
+        <Probe />
+      </MemoryRouter>
+    );
+
+    const { result } = renderHook(() => useOnboarding(), { wrapper });
 
     act(() => {
       result.current.handleComplexCreated(created);
     });
 
-    const state = getLocation()?.state as { complexId?: string; newComplex?: boolean } | null;
-    expect(state?.complexId).toBe('c-new');
-    expect(state?.newComplex).toBeUndefined();
+    const state = location as unknown as { state?: { complexId?: string } } | null;
+    expect(state?.state?.complexId).toBe('c-new');
   });
 
   it('resolves the complex from history state alone, the way a reload would', () => {
     // A fresh mount with only what the history entry carries — no component
-    // state left over from the create — still knows which complex is being set
-    // up. The owner has two complexes and `c-new` is neither the first in the
-    // list nor the most recently created, so the resolver's fallback would
-    // answer `c-other`: passing this means the history entry was read.
+    // state left over from the create, and the complexes query hasn't caught
+    // up yet either — still knows which complex is being set up.
     const wrapper = ({ children }: { children: ReactNode }) => (
       <MemoryRouter initialEntries={[{ pathname: '/onboarding', state: { complexId: 'c-new' } }]}>
         {children}
@@ -84,16 +65,14 @@ describe('useOnboarding — surviving a reload after the complex is created', ()
     expect(result.current.step).not.toBe(1);
   });
 
-  // The control for the case above: with nothing in the history entry the
-  // fallback does answer `c-other`, so the assertion there is not passing by
-  // accident of there being only one complex to pick.
-  it('falls back to the newest complex when the history entry names none', () => {
+  it('resolves the account single complex once the complexes query has it, with nothing in history', () => {
+    complexesMock.mockReturnValue({ data: [existing], isLoading: false });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <MemoryRouter initialEntries={['/onboarding']}>{children}</MemoryRouter>
     );
 
     const { result } = renderHook(() => useOnboarding(), { wrapper });
 
-    expect(result.current.complexId).toBe('c-other');
+    expect(result.current.complexId).toBe('c-existing');
   });
 });

@@ -1,23 +1,12 @@
-import type { Page } from '@playwright/test';
 import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
 
-async function selectComplex(page: Page, complexId: string): Promise<void> {
-  await page.evaluate((id) => {
-    localStorage.setItem('selectedComplexId', id);
-  }, complexId);
-}
-
 test.describe('Profile', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexId = setup.complexId;
+    await getSharedSetup();
   });
 
   test('profile page loads with personal info tab', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/profile');
 
     await expect(page.locator('h1:visible').filter({ hasText: 'Mi perfil' })).toBeVisible({
@@ -33,7 +22,6 @@ test.describe('Profile', () => {
   });
 
   test('can update personal info', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/profile');
 
     const nameInput = page.getByLabel('Nombre', { exact: true });
@@ -47,7 +35,6 @@ test.describe('Profile', () => {
   });
 
   test('can navigate to security tab', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/profile');
 
     await expect(page.locator('h1:visible').filter({ hasText: 'Mi perfil' })).toBeVisible({
@@ -64,7 +51,6 @@ test.describe('Profile', () => {
   });
 
   test('security tab shows password hint', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/profile?tab=security');
 
     await expect(

@@ -87,9 +87,6 @@ test.describe('Confirm Payment', () => {
     );
     expect(booking.collection_status).toBe('unpaid');
 
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await openBookingsForDate(page, date);
 
     // Open the booking detail sheet for the client we just created. Scoped

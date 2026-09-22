@@ -6,19 +6,14 @@ import { createTestClients } from '../helpers/client-fixtures';
 // search-box scenarios are a distinct concern from the page-load/empty-state
 // checks that remain in `clients.spec.ts`.
 test.describe('Client Search', () => {
-  let complexId: string;
   let hasClients = false;
 
   test.beforeAll(async () => {
     const setup = await getSharedSetup();
-    complexId = setup.complexId;
     hasClients = await createTestClients(setup);
   });
 
   test('search input is functional', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/clients');
 
     await expect(page.getByRole('heading', { name: 'Clientes', exact: true })).toBeVisible({
@@ -39,9 +34,6 @@ test.describe('Client Search', () => {
 
   test('search with no results shows appropriate state', async ({ authenticatedPage: page }) => {
     test.skip(!hasClients, 'No clients were created in beforeAll');
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/clients');
 
     await expect(page.getByRole('heading', { name: 'Clientes', exact: true })).toBeVisible({

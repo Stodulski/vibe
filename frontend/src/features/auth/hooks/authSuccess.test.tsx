@@ -59,12 +59,12 @@ describe('useAuthSuccessHandler — the ?from= a hard 401 redirect leaves behind
 
   it('ignores a destination outside the app and uses the role default instead', () => {
     login('/login?from=https%3A%2F%2Fevil.example%2Fsteal');
-    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   it('ignores a protocol-relative destination', () => {
     login('/login?from=%2F%2Fevil.example');
-    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   it('sends a superadmin to /admin when there is no from at all', () => {
@@ -86,8 +86,8 @@ describe('useAuthSuccessHandler — an explicit destination from the caller', ()
   });
 
   it('uses the destination the caller passed', () => {
-    login('/auth/google/return?code=abc', 'owner', { from: '/complexes/abc/bookings' });
-    expect(mockNavigate).toHaveBeenCalledWith('/complexes/abc/bookings', { replace: true });
+    login('/auth/google/return?code=abc', 'owner', { from: '/bookings/abc' });
+    expect(mockNavigate).toHaveBeenCalledWith('/bookings/abc', { replace: true });
   });
 
   it('wins over the ?from= on the current location', () => {
@@ -99,7 +99,7 @@ describe('useAuthSuccessHandler — an explicit destination from the caller', ()
   // exemption: it goes through exactly the same allowlist.
   it('is filtered like every other destination', () => {
     login('/auth/google/return?code=abc', 'owner', { from: 'https://evil.example/steal' });
-    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   it('falls back to the location when the caller passes nothing', () => {

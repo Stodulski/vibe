@@ -8,7 +8,6 @@ import type { AuthResponse } from '@/shared/types/api.types';
 
 // Allowed redirect destinations after a successful login to prevent open redirect.
 const SAFE_PREFIXES = [
-  '/complexes',
   '/dashboard',
   '/bookings',
   '/courts',
@@ -107,7 +106,7 @@ export function useAuthSuccessHandler() {
     // why `?from=` exists alongside router state. All three candidates are
     // filtered by `isSafeRedirect` below, so none can become an open redirect.
     const from = options?.from ?? readIntendedFrom(location.state, location.search);
-    const defaultRoute = data.user.role === 'superadmin' ? '/admin' : '/complexes';
+    const defaultRoute = data.user.role === 'superadmin' ? '/admin' : '/dashboard';
     void navigate(isSafeRedirect(from) ? from : defaultRoute, { replace: true });
   };
 }

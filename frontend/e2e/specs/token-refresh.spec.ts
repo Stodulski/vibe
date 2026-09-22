@@ -37,7 +37,7 @@ test.describe('Access token refresh', () => {
     await page.getByLabel('Email').fill(email);
     await page.locator('#password').fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    await page.waitForURL('**/complexes', { timeout: 15_000 });
+    await page.waitForURL('**/onboarding', { timeout: 15_000 });
 
     // Simulates the access token having expired: it's HttpOnly, so this is
     // as close as a test can get to "time passed" without actually waiting

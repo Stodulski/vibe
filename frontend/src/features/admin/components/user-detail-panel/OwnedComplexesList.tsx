@@ -12,39 +12,36 @@ interface OwnedComplexesListProps {
 }
 
 export function OwnedComplexesList({ complexes }: OwnedComplexesListProps) {
+  const complex = complexes[0] ?? null;
+
   return (
     <div>
       <h3 className="text-text-primary mb-3 flex items-center gap-2 text-base font-semibold">
         <Building2 className="size-4" />
-        {t.admin.detail.ownedComplexes} ({complexes.length})
+        {t.admin.detail.ownedComplexes}
       </h3>
-      {complexes.length === 0 ? (
+      {!complex ? (
         <Panel size="md">
           <p className="text-text-tertiary text-center text-sm">{t.admin.detail.noComplexes}</p>
         </Panel>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {complexes.map((complex) => (
-            <Link
-              key={complex.id}
-              to={`/admin/complexes/${complex.id}`}
-              className="focus-visible:ring-primary-500/50 block rounded-2xl focus-visible:ring-2 focus-visible:outline-none"
-            >
-              <Panel size="sm" className="hover:border-border-default p-3.5 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-text-primary font-medium">{complex.name}</p>
-                    <p className="text-text-tertiary text-xs">
-                      {complex.city}, {complex.province}
-                    </p>
-                    <p className="text-text-tertiary mt-1 text-xs">/{complex.slug}</p>
-                  </div>
-                  <ActiveStatusBadge isActive={complex.is_active} className="text-xs" />
-                </div>
-              </Panel>
-            </Link>
-          ))}
-        </div>
+        <Link
+          to={`/admin/complexes/${complex.id}`}
+          className="focus-visible:ring-primary-500/50 block rounded-2xl focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Panel size="sm" className="hover:border-border-default p-3.5 transition-colors">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-text-primary font-medium">{complex.name}</p>
+                <p className="text-text-tertiary text-xs">
+                  {complex.city}, {complex.province}
+                </p>
+                <p className="text-text-tertiary mt-1 text-xs">/{complex.slug}</p>
+              </div>
+              <ActiveStatusBadge isActive={complex.is_active} className="text-xs" />
+            </div>
+          </Panel>
+        </Link>
       )}
     </div>
   );

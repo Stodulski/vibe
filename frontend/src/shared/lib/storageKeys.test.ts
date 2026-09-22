@@ -3,10 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { STORAGE_KEYS } from './storageKeys';
 
 describe('STORAGE_KEYS', () => {
-  it('has SELECTED_COMPLEX_ID key', () => {
-    expect(STORAGE_KEYS.SELECTED_COMPLEX_ID).toBe('selectedComplexId');
-  });
-
   it('has BOOKING_CLIENT_DATA key', () => {
     expect(STORAGE_KEYS.BOOKING_CLIENT_DATA).toBe('vibe_booking_client');
   });
@@ -17,7 +13,6 @@ describe('STORAGE_KEYS', () => {
 
   it('has all expected keys defined', () => {
     const keys = Object.keys(STORAGE_KEYS);
-    expect(keys).toContain('SELECTED_COMPLEX_ID');
     expect(keys).toContain('BOOKING_CLIENT_DATA');
     expect(keys).toContain('THEME');
   });
