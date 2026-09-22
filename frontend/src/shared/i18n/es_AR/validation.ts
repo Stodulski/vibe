@@ -74,6 +74,10 @@ export const validation = {
   amountNonNegative: 'El monto no puede ser negativo',
   cashSessionTooLarge: 'El monto es demasiado grande',
   movementAmountTooLarge: 'El monto es demasiado grande',
+  // The cashbox works in whole pesos (see MoneyPesosField) — this is the
+  // app's own message for a decimal amount, shown instead of letting the
+  // number input's native step-mismatch silently block the submit.
+  amountMustBeWhole: 'El monto debe ser en pesos enteros, sin centavos',
   selectCategory: 'Seleccioná una categoría',
   selectPaymentMethod: 'Seleccioná un método de pago',
   manualPriceRequired: 'Ingresá un precio: no hay una tarifa configurada para este horario',

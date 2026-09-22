@@ -30,9 +30,15 @@ describe('centavosToPesos', () => {
 });
 
 describe('caps', () => {
-  it('matches the API session cash cap (BIGINT column, db/migrations/003_cashbox.sql)', () => {
+  it('matches the API session cash cap (BIGINT column, db/migrations/003_cashbox.sql), rounded down to a whole peso', () => {
     expect(MAX_SESSION_CASH_CENTAVOS).toBe(99_999_999_999);
-    expect(pesosToCentavos(MAX_SESSION_CASH_PESOS)).toBe(MAX_SESSION_CASH_CENTAVOS);
+    // 99,999,999,999 centavos is not an even number of pesos
+    // (999,999,999.99) — the pesos-side cap floors to the nearest whole peso
+    // (the cashbox works in whole pesos only), so converting it back is 99
+    // centavos short of the raw BIGINT cap. That gap is an arbitrary safety
+    // ceiling losing 99 centavos, not a real limitation.
+    expect(MAX_SESSION_CASH_PESOS).toBe(999_999_999);
+    expect(pesosToCentavos(MAX_SESSION_CASH_PESOS)).toBe(MAX_SESSION_CASH_CENTAVOS - 99);
   });
 
   it('matches the API movement amount cap (INTEGER column)', () => {

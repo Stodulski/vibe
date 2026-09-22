@@ -57,4 +57,7 @@ export const common = {
   // over the same row meanwhile. The affected query is invalidated right
   // before this toasts, so "recargamos los datos" is true by the time it's read.
   versionConflict: 'Alguien más modificó esto. Recargamos los datos, revisá y volvé a guardar.',
+  // Non-blocking notice shown over cached data when a background refetch
+  // fails — the view itself keeps rendering (see StaleDataNotice).
+  staleDataNotice: 'No pudimos actualizar. Mostrando los últimos datos guardados.',
 } as const;

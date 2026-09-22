@@ -7,6 +7,7 @@ import { MovementTotalsBreakdown } from '../../components/MovementTotalsBreakdow
 import { BookingPaymentsBreakdown } from '../../components/BookingPaymentsBreakdown';
 import { MovementList } from '../../components/MovementList';
 import { CashActionButtons } from '../../components/CashActionButtons';
+import { StaleDataNotice } from '../../components/StaleDataNotice';
 import { OpenCashDialogs } from './OpenCashDialogs';
 import type { useCashPage } from './useCashPage';
 import type { CashMovement } from '@/shared/types/api.types';
@@ -18,9 +19,7 @@ interface OpenCashViewProps {
   movementDialog: 'income' | 'expense' | null;
   onOpenMovementDialog: (kind: 'income' | 'expense') => void;
   onCloseMovementDialog: () => void;
-  closeDialogOpen: boolean;
   onOpenCloseDialog: () => void;
-  onCloseCloseDialog: () => void;
   voidTarget: CashMovement | null;
   onVoidTarget: (movement: CashMovement) => void;
   onClearVoidTarget: () => void;
@@ -35,16 +34,18 @@ export function OpenCashView({
   movementDialog,
   onOpenMovementDialog,
   onCloseMovementDialog,
-  closeDialogOpen,
   onOpenCloseDialog,
-  onCloseCloseDialog,
   voidTarget,
   onVoidTarget,
   onClearVoidTarget,
 }: OpenCashViewProps) {
   if (detailQuery.isLoading) return <SkeletonTable rows={4} />;
 
-  if (detailQuery.isError || !detailQuery.data) {
+  // Only the full-screen error when there is nothing cached to show — a
+  // background refetch failure with `data` still around keeps rendering the
+  // summary/dialogs, with a non-blocking notice instead, so an open dialog or
+  // typed input is never unmounted by a transient failure (T3 review).
+  if (!detailQuery.data) {
     return (
       <EmptyState
         icon={AlertTriangle}
@@ -62,6 +63,14 @@ export function OpenCashView({
 
   return (
     <div className="space-y-4">
+      {detailQuery.isError && (
+        <StaleDataNotice
+          onRetry={() => {
+            void detailQuery.refetch();
+          }}
+        />
+      )}
+
       <ExpectedCashCard session={session} summary={summary} />
 
       <CashActionButtons
@@ -81,11 +90,8 @@ export function OpenCashView({
       <OpenCashDialogs
         complexId={complexId}
         sessionId={sessionId}
-        expectedCash={summary.expected_cash}
         movementDialog={movementDialog}
         onCloseMovementDialog={onCloseMovementDialog}
-        closeDialogOpen={closeDialogOpen}
-        onCloseCloseDialog={onCloseCloseDialog}
         voidTarget={voidTarget}
         onClearVoidTarget={onClearVoidTarget}
       />

@@ -35,6 +35,11 @@ describe('openCashSessionSchema', () => {
     const result = openCashSessionSchema.safeParse({ opening_cash: 0, note: 'a'.repeat(501) });
     expect(result.success).toBe(false);
   });
+
+  it('rejects a decimal amount — whole pesos only', () => {
+    const result = openCashSessionSchema.safeParse({ opening_cash: 1500.5, note: '' });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('closeCashSessionSchema', () => {
@@ -88,6 +93,10 @@ describe('cashMovementSchema', () => {
 
   it('rejects an unlisted payment method', () => {
     expect(cashMovementSchema.safeParse({ ...base, method: 'mercadopago' }).success).toBe(false);
+  });
+
+  it('rejects a decimal amount — whole pesos only', () => {
+    expect(cashMovementSchema.safeParse({ ...base, amount: 1500.5 }).success).toBe(false);
   });
 });
 

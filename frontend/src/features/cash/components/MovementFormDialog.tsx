@@ -101,6 +101,7 @@ function MovementFormDialogBody({ onClose, complexId, sessionId, kind }: Omit<Mo
   } = form;
   const amount = watch('amount');
   const category = watch('category');
+  const method = watch('method');
   const actionLabel = kind === 'income' ? t.cash.incomeAction : t.cash.expenseAction;
 
   return (
@@ -109,7 +110,7 @@ function MovementFormDialogBody({ onClose, complexId, sessionId, kind }: Omit<Mo
         <DialogTitle>{actionLabel}</DialogTitle>
       </DialogHeader>
 
-      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
+      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4" noValidate>
         <MovementCategoryField
           categories={categories}
           value={category}
@@ -120,8 +121,9 @@ function MovementFormDialogBody({ onClose, complexId, sessionId, kind }: Omit<Mo
         />
 
         <MovementMethodField
-          onChange={(method) => {
-            setValue('method', method, { shouldValidate: true });
+          value={method}
+          onChange={(m) => {
+            setValue('method', m, { shouldValidate: true });
           }}
           error={errors.method?.message}
         />

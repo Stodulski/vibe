@@ -6,16 +6,18 @@ import { COUNTER_PAYMENT_METHODS, type CounterPaymentMethod } from '@/shared/lib
 const t = ES_AR;
 
 export function MovementMethodField({
+  value,
   onChange,
   error,
 }: {
+  value: CounterPaymentMethod;
   onChange: (method: CounterPaymentMethod) => void;
   error?: string | undefined;
 }) {
   return (
     <FormField label={t.cash.movementMethod} htmlFor="movement-method" error={error}>
       <Select
-        defaultValue="cash"
+        value={value}
         onValueChange={(v) => {
           onChange(v as CounterPaymentMethod);
         }}

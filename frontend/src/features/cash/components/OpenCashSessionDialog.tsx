@@ -28,10 +28,10 @@ export function OpenCashSessionDialog({ open, onClose, complexId }: OpenCashSess
       }}
     >
       <DialogContent className="sm:max-w-md">
-        {/* Remounted per open, same "key instead of a reset effect" pattern as
-            `ConfirmPaymentModal` — a fresh form instance instead of an effect
-            resetting a stale one. */}
-        {open && <OpenCashSessionDialogBody key="open-cash" onClose={onClose} complexId={complexId} />}
+        {/* Remounted per open: the body only exists in the tree while `open`
+            is true, so each open starts a fresh form instance instead of an
+            effect resetting a stale one. */}
+        {open && <OpenCashSessionDialogBody onClose={onClose} complexId={complexId} />}
       </DialogContent>
     </Dialog>
   );
@@ -77,7 +77,7 @@ function OpenCashSessionDialogBody({ onClose, complexId }: { onClose: () => void
         <DialogTitle>{t.cash.openAction}</DialogTitle>
       </DialogHeader>
 
-      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
+      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4" noValidate>
         <MoneyPesosField
           id="open-cash-opening"
           label={t.cash.openingCash}

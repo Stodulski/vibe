@@ -23,7 +23,11 @@ export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
   const closed = !!session.closed_at;
 
   return (
-    <Panel size="sm" className="space-y-3">
+    // `data-testid`: the open-session summary and a closed session's history
+    // row can show the same peso figures, and e2e needs to assert this
+    // card's own expected-cash value without matching a history row's (see
+    // cash.spec.ts).
+    <Panel size="sm" className="space-y-3" data-testid="cash-expected-card">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
         <span className="text-text-tertiary">
           {t.cash.openedAt}: {formatSessionInstant(session.opened_at)}

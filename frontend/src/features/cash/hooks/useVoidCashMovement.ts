@@ -32,7 +32,12 @@ export function useVoidCashMovement(complexId: string, sessionId: string) {
     onError: (error: unknown) => {
       // 409: no session open, the original is already voided, or the
       // original is itself a void — any of these means the list shown is
-      // stale, so refetch alongside the toast.
+      // stale, so refetch alongside the toast. Also invalidate `current`
+      // (same as the create-movement and close hooks' 409 handling): "no
+      // session open" is one of the three causes, and without this the page
+      // would keep showing the now-stale open-session view instead of
+      // falling out of it.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cash.current(complexId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.cash.detail(complexId, sessionId) });
       toast.error(getHttpErrorMessage(error, t.cash.voidError));
     },

@@ -31,5 +31,11 @@ export function useCashSession(complexId: string | null) {
   const isClosed = query.error instanceof HTTPError && query.error.response.status === 404;
   const isRealError = query.isError && !isClosed;
 
-  return { ...query, isClosed, isRealError };
+  // One unambiguous state: React Query keeps serving the last successful
+  // `data` through a failed background refetch, so a session that was open
+  // and then closed (404 on refetch) used to report `isClosed: true`
+  // alongside the stale open session's own fields — every consumer happened
+  // to check `isClosed` before reading `data`, but the contract itself was
+  // ambiguous. Closed means no data, full stop.
+  return { ...query, data: isClosed ? undefined : query.data, isClosed, isRealError };
 }
