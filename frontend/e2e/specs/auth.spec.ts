@@ -43,7 +43,7 @@ test.describe('Auth Flow', () => {
     await expect(page.getByText('Email o contraseña incorrectos')).toBeVisible();
   });
 
-  test('login with valid credentials redirects to complexes', async ({ page }) => {
+  test('login with valid credentials redirects to onboarding for a new account', async ({ page }) => {
     // First register a user
     await page.request.post(`${API}/auth/register`, {
       data: {
@@ -60,7 +60,8 @@ test.describe('Auth Flow', () => {
     await loginPage.goto();
     await loginPage.login('auth-test@test.com', 'TestPassword123!');
 
-    await expect(page).toHaveURL(/complexes/, { timeout: 10_000 });
+    // A freshly registered owner has no complex yet, so the dashboard guard sends it to onboarding.
+    await expect(page).toHaveURL(/onboarding/, { timeout: 10_000 });
   });
 
   test('unauthenticated access to /dashboard redirects to /login', async ({ page }) => {
