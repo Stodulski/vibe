@@ -17,6 +17,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/bookings"
+	"github.com/stodulski/vibe-server/internal/cashbox"
 	"github.com/stodulski/vibe-server/internal/clients"
 	"github.com/stodulski/vibe-server/internal/complexes"
 	"github.com/stodulski/vibe-server/internal/courts"
@@ -71,6 +72,7 @@ type application struct {
 	queues    health.QueueReporter
 	notify    *notifications.Service
 	courts    *courts.Handler
+	cashbox   *cashbox.Handler
 	complexes *complexes.Handler
 	// complexesService is held separately from the handler because the
 	// scheduler calls it directly: the MercadoPago OAuth refresh sweep is the

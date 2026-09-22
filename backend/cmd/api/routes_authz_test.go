@@ -15,6 +15,7 @@ import (
 	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	cashboxstore "github.com/stodulski/vibe-server/internal/cashbox/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -187,43 +188,50 @@ var routePolicies = map[string]policy{
 
 	// Tenant data. Every one of these names a complex in the path and must be
 	// readable only by that complex's owner.
-	"GET /api/v1/complexes/{id}":                                       complexOwner,
-	"PUT /api/v1/complexes/{id}":                                       complexOwner,
-	"DELETE /api/v1/complexes/{id}":                                    complexOwner,
-	"PUT /api/v1/complexes/{id}/schedules":                             complexOwner,
-	"POST /api/v1/complexes/{id}/uploads/presign":                      complexOwner,
-	"DELETE /api/v1/complexes/{id}/uploads":                            complexOwner,
-	"POST /api/v1/complexes/{id}/mp/connect":                           complexOwner,
-	"DELETE /api/v1/complexes/{id}/mp/connect":                         complexOwner,
-	"GET /api/v1/complexes/{id}/mp/status":                             complexOwner,
-	"GET /api/v1/complexes/{id}/courts":                                complexOwner,
-	"POST /api/v1/complexes/{id}/courts":                               complexOwner,
-	"PUT /api/v1/complexes/{id}/courts/{courtID}":                      complexOwner,
-	"DELETE /api/v1/complexes/{id}/courts/{courtID}":                   complexOwner,
-	"PUT /api/v1/complexes/{id}/courts/{courtID}/prices":               complexOwner,
-	"POST /api/v1/complexes/{id}/courts/{courtID}/block":               complexOwner,
-	"GET /api/v1/complexes/{id}/audit-log":                             complexOwner,
-	"GET /api/v1/complexes/{id}/blocked-slots":                         complexOwner,
-	"DELETE /api/v1/complexes/{id}/blocked-slots/{slotID}":             complexOwner,
-	"GET /api/v1/complexes/{id}/bookings":                              complexOwner,
-	"POST /api/v1/complexes/{id}/bookings":                             complexOwner,
-	"GET /api/v1/complexes/{id}/bookings/{bookingID}":                  complexOwner,
-	"PUT /api/v1/complexes/{id}/bookings/{bookingID}":                  complexOwner,
-	"POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel":          complexOwner,
-	"POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment": complexOwner,
-	"POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund":   complexOwner,
-	"GET /api/v1/complexes/{id}/clients":                               complexOwner,
-	"GET /api/v1/complexes/{id}/clients/{clientID}":                    complexOwner,
-	"PUT /api/v1/complexes/{id}/clients/{clientID}":                    complexOwner,
-	"GET /api/v1/complexes/{id}/events":                                complexOwner,
-	"GET /api/v1/complexes/{id}/stats":                                 complexOwner,
-	"GET /api/v1/complexes/{id}/stats/revenue":                         complexOwner,
-	"GET /api/v1/complexes/{id}/stats/occupancy":                       complexOwner,
-	"GET /api/v1/complexes/{id}/stats/clients":                         complexOwner,
-	"GET /api/v1/complexes/{id}/reports/monthly":                       complexOwner,
-	"GET /api/v1/complexes/{id}/reports/export":                        complexOwner,
-	"POST /api/v1/complexes/{id}/reports/exports":                      complexOwner,
-	"GET /api/v1/complexes/{id}/reports/exports/{exportID}":            complexOwner,
+	"GET /api/v1/complexes/{id}":                                                        complexOwner,
+	"PUT /api/v1/complexes/{id}":                                                        complexOwner,
+	"DELETE /api/v1/complexes/{id}":                                                     complexOwner,
+	"PUT /api/v1/complexes/{id}/schedules":                                              complexOwner,
+	"POST /api/v1/complexes/{id}/uploads/presign":                                       complexOwner,
+	"DELETE /api/v1/complexes/{id}/uploads":                                             complexOwner,
+	"POST /api/v1/complexes/{id}/mp/connect":                                            complexOwner,
+	"DELETE /api/v1/complexes/{id}/mp/connect":                                          complexOwner,
+	"GET /api/v1/complexes/{id}/mp/status":                                              complexOwner,
+	"GET /api/v1/complexes/{id}/cash-session":                                           complexOwner,
+	"GET /api/v1/complexes/{id}/cash-sessions":                                          complexOwner,
+	"POST /api/v1/complexes/{id}/cash-sessions":                                         complexOwner,
+	"GET /api/v1/complexes/{id}/cash-sessions/{sessionID}":                              complexOwner,
+	"POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/close":                       complexOwner,
+	"POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements":                   complexOwner,
+	"POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void": complexOwner,
+	"GET /api/v1/complexes/{id}/courts":                                                 complexOwner,
+	"POST /api/v1/complexes/{id}/courts":                                                complexOwner,
+	"PUT /api/v1/complexes/{id}/courts/{courtID}":                                       complexOwner,
+	"DELETE /api/v1/complexes/{id}/courts/{courtID}":                                    complexOwner,
+	"PUT /api/v1/complexes/{id}/courts/{courtID}/prices":                                complexOwner,
+	"POST /api/v1/complexes/{id}/courts/{courtID}/block":                                complexOwner,
+	"GET /api/v1/complexes/{id}/audit-log":                                              complexOwner,
+	"GET /api/v1/complexes/{id}/blocked-slots":                                          complexOwner,
+	"DELETE /api/v1/complexes/{id}/blocked-slots/{slotID}":                              complexOwner,
+	"GET /api/v1/complexes/{id}/bookings":                                               complexOwner,
+	"POST /api/v1/complexes/{id}/bookings":                                              complexOwner,
+	"GET /api/v1/complexes/{id}/bookings/{bookingID}":                                   complexOwner,
+	"PUT /api/v1/complexes/{id}/bookings/{bookingID}":                                   complexOwner,
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel":                           complexOwner,
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment":                  complexOwner,
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund":                    complexOwner,
+	"GET /api/v1/complexes/{id}/clients":                                                complexOwner,
+	"GET /api/v1/complexes/{id}/clients/{clientID}":                                     complexOwner,
+	"PUT /api/v1/complexes/{id}/clients/{clientID}":                                     complexOwner,
+	"GET /api/v1/complexes/{id}/events":                                                 complexOwner,
+	"GET /api/v1/complexes/{id}/stats":                                                  complexOwner,
+	"GET /api/v1/complexes/{id}/stats/revenue":                                          complexOwner,
+	"GET /api/v1/complexes/{id}/stats/occupancy":                                        complexOwner,
+	"GET /api/v1/complexes/{id}/stats/clients":                                          complexOwner,
+	"GET /api/v1/complexes/{id}/reports/monthly":                                        complexOwner,
+	"GET /api/v1/complexes/{id}/reports/export":                                         complexOwner,
+	"POST /api/v1/complexes/{id}/reports/exports":                                       complexOwner,
+	"GET /api/v1/complexes/{id}/reports/exports/{exportID}":                             complexOwner,
 
 	// Platform-wide: every tenant's data, plus the audit log that records who
 	// did what, from which address, to which entity.
@@ -521,9 +529,27 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	if !ok {
 		t.Fatalf("admin store is %T, not *mockAdminStore", fx.app.models.Admin)
 	}
+	cashbox, ok := fx.app.models.Cashbox.(*mockCashboxStore)
+	if !ok {
+		t.Fatalf("cashbox store is %T, not *mockCashboxStore", fx.app.models.Cashbox)
+	}
 
 	id := fx.subResourceID
 	tomorrow := time.Now().AddDate(0, 0, 1)
+
+	cashSession := &cashboxstore.CashSession{
+		ID:          id,
+		ComplexID:   target.ID,
+		OpenedAt:    time.Now(),
+		OpenedBy:    target.OwnerID,
+		OpeningCash: 10000,
+	}
+	cashbox.GetOpenByComplexFn = func(_ context.Context, _ uuid.UUID) (*cashboxstore.CashSession, error) {
+		return cashSession, nil
+	}
+	cashbox.GetByIDFn = func(_ context.Context, _, _ uuid.UUID) (*cashboxstore.CashSession, error) {
+		return cashSession, nil
+	}
 
 	court := &courtstore.Court{
 		ID:        id,

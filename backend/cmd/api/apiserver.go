@@ -307,6 +307,48 @@ func (s *apiServer) BookingsManualRefund(w http.ResponseWriter, r *http.Request,
 	s.app.bookings.ManualRefund(w, r)
 }
 
+// CashSessionsList implements gen.ServerInterface for cashSessionsList
+// (GET /api/v1/complexes/{id}/cash-sessions). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CashSessionsList(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.CashSessionsListParams) {
+	s.app.cashbox.List(w, r)
+}
+
+// CashSessionsOpen implements gen.ServerInterface for cashSessionsOpen
+// (POST /api/v1/complexes/{id}/cash-sessions). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CashSessionsOpen(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.CashSessionsOpenParams) {
+	s.app.cashbox.Open(w, r)
+}
+
+// CashSessionsCurrent implements gen.ServerInterface for cashSessionsCurrent
+// (GET /api/v1/complexes/{id}/cash-sessions/current). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CashSessionsCurrent(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.cashbox.Current(w, r)
+}
+
+// CashSessionsGet implements gen.ServerInterface for cashSessionsGet
+// (GET /api/v1/complexes/{id}/cash-sessions/{sessionID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CashSessionsGet(w http.ResponseWriter, r *http.Request, id gen.PathID, sessionID gen.SessionID) {
+	s.app.cashbox.Get(w, r)
+}
+
+// CashSessionsClose implements gen.ServerInterface for cashSessionsClose
+// (POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/close). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CashSessionsClose(w http.ResponseWriter, r *http.Request, id gen.PathID, sessionID gen.SessionID, params gen.CashSessionsCloseParams) {
+	s.app.cashbox.Close(w, r)
+}
+
+// CashMovementsCreate implements gen.ServerInterface for cashMovementsCreate
+// (POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CashMovementsCreate(w http.ResponseWriter, r *http.Request, id gen.PathID, sessionID gen.SessionID, params gen.CashMovementsCreateParams) {
+	s.app.cashbox.CreateMovement(w, r)
+}
+
+// CashMovementsVoid implements gen.ServerInterface for cashMovementsVoid
+// (POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CashMovementsVoid(w http.ResponseWriter, r *http.Request, id gen.PathID, sessionID gen.SessionID, movementID gen.MovementID, params gen.CashMovementsVoidParams) {
+	s.app.cashbox.VoidMovement(w, r)
+}
+
 // ClientsList implements gen.ServerInterface for clientsList
 // (GET /api/v1/complexes/{id}/clients). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ClientsList(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.ClientsListParams) {
