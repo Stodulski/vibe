@@ -22,6 +22,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/db"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 )
 
@@ -590,6 +591,32 @@ type CashboxStore interface {
 	CashMovementStore
 }
 
+// ---------------------------------------------------------------------------
+// ProductStore — segregated by responsibility (catalog vs. stock ledger)
+// ---------------------------------------------------------------------------
+
+// ProductCatalog manages a complex's product catalog.
+type ProductCatalog interface {
+	Insert(ctx context.Context, p *productstore.Product) error
+	GetByID(ctx context.Context, complexID, productID uuid.UUID) (*productstore.Product, error)
+	ListByComplex(ctx context.Context, complexID uuid.UUID, activeFilter *bool) ([]*productstore.Product, error)
+	Update(ctx context.Context, p *productstore.Product, expectedVersion *int) error
+}
+
+// ProductStockLedger manages a product's append-only stock ledger.
+type ProductStockLedger interface {
+	Restock(ctx context.Context, complexID, productID, actorID uuid.UUID, quantity, totalCost int, method string, note *string) (*productstore.Product, *productstore.StockMovement, error)
+	Adjust(ctx context.Context, complexID, productID, actorID uuid.UUID, quantity int, reason string, note *string) (*productstore.Product, *productstore.StockMovement, error)
+	ListStockMovements(ctx context.Context, complexID, productID uuid.UUID, filters data.Filters) ([]*productstore.StockMovement, data.Metadata, error)
+}
+
+// ProductStore composes both — one concrete store (internal/products/store)
+// satisfies both halves, the same shape CashboxStore does.
+type ProductStore interface {
+	ProductCatalog
+	ProductStockLedger
+}
+
 // Stores aggregates every store interface used by the application.
 type Stores struct {
 	Users             UserStore
@@ -597,6 +624,7 @@ type Stores struct {
 	Complexes         ComplexStore
 	Courts            CourtStore
 	Cashbox           CashboxStore
+	Products          ProductStore
 	Bookings          BookingStore
 	BookingLinkTokens BookingLinkTokenStore
 	Tokens            TokenStore
@@ -660,5 +688,6 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Audit:             &auditstore.Store{DB: pooled},
 		Jobs:              &jobs.Store{DB: pooled},
 		Cashbox:           &cashboxstore.Store{DB: pooled, Q: q},
+		Products:          &productstore.Store{DB: pooled, Q: q},
 	}
 }

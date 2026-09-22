@@ -18,6 +18,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 )
 
@@ -1384,6 +1385,73 @@ func (m *mockCashboxStore) SumBySession(ctx context.Context, complexID, sessionI
 		return m.SumBySessionFn(ctx, complexID, sessionID)
 	}
 	return nil, nil
+}
+
+// ---------------------------------------------------------------------------
+// mockProductStore
+// ---------------------------------------------------------------------------
+
+// mockProductStore stands in for stores.ProductStore (a product-catalog store
+// and a stock-ledger store in one, the same shape mockCashboxStore is for
+// stores.CashboxStore).
+type mockProductStore struct {
+	InsertFn             func(ctx context.Context, p *productstore.Product) error
+	GetByIDFn            func(ctx context.Context, complexID, productID uuid.UUID) (*productstore.Product, error)
+	ListByComplexFn      func(ctx context.Context, complexID uuid.UUID, activeFilter *bool) ([]*productstore.Product, error)
+	UpdateFn             func(ctx context.Context, p *productstore.Product, expectedVersion *int) error
+	RestockFn            func(ctx context.Context, complexID, productID, actorID uuid.UUID, quantity, totalCost int, method string, note *string) (*productstore.Product, *productstore.StockMovement, error)
+	AdjustFn             func(ctx context.Context, complexID, productID, actorID uuid.UUID, quantity int, reason string, note *string) (*productstore.Product, *productstore.StockMovement, error)
+	ListStockMovementsFn func(ctx context.Context, complexID, productID uuid.UUID, filters data.Filters) ([]*productstore.StockMovement, data.Metadata, error)
+}
+
+func (m *mockProductStore) Insert(ctx context.Context, p *productstore.Product) error {
+	if m.InsertFn != nil {
+		return m.InsertFn(ctx, p)
+	}
+	p.ID = uuid.New()
+	return nil
+}
+
+func (m *mockProductStore) GetByID(ctx context.Context, complexID, productID uuid.UUID) (*productstore.Product, error) {
+	if m.GetByIDFn != nil {
+		return m.GetByIDFn(ctx, complexID, productID)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockProductStore) ListByComplex(ctx context.Context, complexID uuid.UUID, activeFilter *bool) ([]*productstore.Product, error) {
+	if m.ListByComplexFn != nil {
+		return m.ListByComplexFn(ctx, complexID, activeFilter)
+	}
+	return nil, nil
+}
+
+func (m *mockProductStore) Update(ctx context.Context, p *productstore.Product, expectedVersion *int) error {
+	if m.UpdateFn != nil {
+		return m.UpdateFn(ctx, p, expectedVersion)
+	}
+	return nil
+}
+
+func (m *mockProductStore) Restock(ctx context.Context, complexID, productID, actorID uuid.UUID, quantity, totalCost int, method string, note *string) (*productstore.Product, *productstore.StockMovement, error) {
+	if m.RestockFn != nil {
+		return m.RestockFn(ctx, complexID, productID, actorID, quantity, totalCost, method, note)
+	}
+	return nil, nil, data.ErrRecordNotFound
+}
+
+func (m *mockProductStore) Adjust(ctx context.Context, complexID, productID, actorID uuid.UUID, quantity int, reason string, note *string) (*productstore.Product, *productstore.StockMovement, error) {
+	if m.AdjustFn != nil {
+		return m.AdjustFn(ctx, complexID, productID, actorID, quantity, reason, note)
+	}
+	return nil, nil, data.ErrRecordNotFound
+}
+
+func (m *mockProductStore) ListStockMovements(ctx context.Context, complexID, productID uuid.UUID, filters data.Filters) ([]*productstore.StockMovement, data.Metadata, error) {
+	if m.ListStockMovementsFn != nil {
+		return m.ListStockMovementsFn(ctx, complexID, productID, filters)
+	}
+	return nil, data.Metadata{}, nil
 }
 
 // ---------------------------------------------------------------------------
