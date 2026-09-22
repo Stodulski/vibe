@@ -785,8 +785,8 @@ func (s *Service) Cancel(ctx context.Context, complex *complexstore.Complex, act
 	return CancelResult{Booking: booking, Outcome: outcome}, nil
 }
 
-// ConfirmPaymentInput is a validated record of money the owner took in cash or
-// by transfer.
+// ConfirmPaymentInput is a validated record of money the owner took at the
+// counter, by any method but MercadoPago.
 type ConfirmPaymentInput struct {
 	Method string
 	Amount int

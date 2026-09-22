@@ -68,8 +68,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if input.ClientEmail != "" {
 		v.Check(validator.Matches(input.ClientEmail, validator.EmailRX), "client_email", "must be a valid email address")
 	}
-	v.Check(input.PaymentMethod == "" || input.PaymentMethod == "cash" || input.PaymentMethod == "transfer",
-		"payment_method", "must be cash or transfer")
+	v.Check(input.PaymentMethod == "" || isCounterPaymentMethod(input.PaymentMethod),
+		"payment_method", counterPaymentMethodsMessage)
 	v.Check(input.PaymentOption == "" || input.PaymentOption == "unpaid" || input.PaymentOption == "deposit" || input.PaymentOption == "full",
 		"payment_option", "must be unpaid, deposit, or full")
 	v.Check(validator.PermittedValue(input.DurationMinutes, slots.PermittedDurations()...), "duration_minutes", durationMessage)

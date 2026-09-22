@@ -1355,7 +1355,7 @@ paths:
       tags: [bookings]
       operationId: bookingsCreate
       summary: Create a staff booking, confirmed immediately
-      description: No payment step. Optionally records a cash or transfer payment in the same call.
+      description: No payment step. Optionally records a counter payment (any method but MercadoPago) in the same call.
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
@@ -1397,7 +1397,7 @@ paths:
                 client_email: {type: string}
                 client_first_name: {type: string}
                 client_last_name: {type: string}
-                payment_method: {type: string, enum: ["", cash, transfer]}
+                payment_method: {type: string, enum: ["", cash, transfer, debit_card, credit_card, qr_wallet]}
                 payment_option: {type: string, enum: ["", unpaid, deposit, full]}
                 notes: {type: string}
                 deposit_amount: {type: integer, description: "Centavos ARS."}
@@ -1525,7 +1525,7 @@ paths:
     post:
       tags: [bookings]
       operationId: bookingsConfirmPayment
-      summary: Record a cash or transfer payment taken by staff
+      summary: Record a counter payment taken by staff
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
@@ -1566,7 +1566,7 @@ paths:
               type: object
               required: [method, amount]
               properties:
-                method: {type: string, enum: [cash, transfer]}
+                method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
                 amount: {type: integer, minimum: 1, maximum: 99999999, description: "Centavos ARS."}
 
   /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund:
@@ -1577,7 +1577,7 @@ paths:
       description: >-
         Only legal when the booking reads `status: cancelled` and `refund_status: partial`,
         meaning an automatic refund covered part of the payment and the rest must be handed
-        back by hand (cash or transfer).
+        back by hand (any counter method).
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
@@ -3820,7 +3820,7 @@ components:
         complex_id: {type: string, format: uuid}
         amount: {type: integer, description: "Centavos ARS."}
         service_fee: {type: integer, description: "Centavos ARS."}
-        method: {type: string, enum: [mercadopago, cash, transfer]}
+        method: {type: string, enum: [mercadopago, cash, transfer, debit_card, credit_card, qr_wallet]}
         status:
           type: string
           description: >-

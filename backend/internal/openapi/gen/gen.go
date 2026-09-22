@@ -349,7 +349,10 @@ func (e HealthStatusStatus) Valid() bool {
 // Defines values for PaymentMethod.
 const (
 	PaymentMethodCash        PaymentMethod = "cash"
+	PaymentMethodCreditCard  PaymentMethod = "credit_card"
+	PaymentMethodDebitCard   PaymentMethod = "debit_card"
 	PaymentMethodMercadopago PaymentMethod = "mercadopago"
+	PaymentMethodQrWallet    PaymentMethod = "qr_wallet"
 	PaymentMethodTransfer    PaymentMethod = "transfer"
 )
 
@@ -358,7 +361,13 @@ func (e PaymentMethod) Valid() bool {
 	switch e {
 	case PaymentMethodCash:
 		return true
+	case PaymentMethodCreditCard:
+		return true
+	case PaymentMethodDebitCard:
+		return true
 	case PaymentMethodMercadopago:
+		return true
+	case PaymentMethodQrWallet:
 		return true
 	case PaymentMethodTransfer:
 		return true
@@ -843,9 +852,12 @@ func (e ComplexesUpdateJSONBodyAmenities) Valid() bool {
 
 // Defines values for BookingsCreateJSONBodyPaymentMethod.
 const (
-	BookingsCreateJSONBodyPaymentMethodCash     BookingsCreateJSONBodyPaymentMethod = "cash"
-	BookingsCreateJSONBodyPaymentMethodEmpty    BookingsCreateJSONBodyPaymentMethod = ""
-	BookingsCreateJSONBodyPaymentMethodTransfer BookingsCreateJSONBodyPaymentMethod = "transfer"
+	BookingsCreateJSONBodyPaymentMethodCash       BookingsCreateJSONBodyPaymentMethod = "cash"
+	BookingsCreateJSONBodyPaymentMethodCreditCard BookingsCreateJSONBodyPaymentMethod = "credit_card"
+	BookingsCreateJSONBodyPaymentMethodDebitCard  BookingsCreateJSONBodyPaymentMethod = "debit_card"
+	BookingsCreateJSONBodyPaymentMethodEmpty      BookingsCreateJSONBodyPaymentMethod = ""
+	BookingsCreateJSONBodyPaymentMethodQrWallet   BookingsCreateJSONBodyPaymentMethod = "qr_wallet"
+	BookingsCreateJSONBodyPaymentMethodTransfer   BookingsCreateJSONBodyPaymentMethod = "transfer"
 )
 
 // Valid indicates whether the value is a known member of the BookingsCreateJSONBodyPaymentMethod enum.
@@ -853,7 +865,13 @@ func (e BookingsCreateJSONBodyPaymentMethod) Valid() bool {
 	switch e {
 	case BookingsCreateJSONBodyPaymentMethodCash:
 		return true
+	case BookingsCreateJSONBodyPaymentMethodCreditCard:
+		return true
+	case BookingsCreateJSONBodyPaymentMethodDebitCard:
+		return true
 	case BookingsCreateJSONBodyPaymentMethodEmpty:
+		return true
+	case BookingsCreateJSONBodyPaymentMethodQrWallet:
 		return true
 	case BookingsCreateJSONBodyPaymentMethodTransfer:
 		return true
@@ -888,14 +906,23 @@ func (e BookingsCreateJSONBodyPaymentOption) Valid() bool {
 
 // Defines values for BookingsConfirmPaymentJSONBodyMethod.
 const (
-	BookingsConfirmPaymentJSONBodyMethodCash     BookingsConfirmPaymentJSONBodyMethod = "cash"
-	BookingsConfirmPaymentJSONBodyMethodTransfer BookingsConfirmPaymentJSONBodyMethod = "transfer"
+	BookingsConfirmPaymentJSONBodyMethodCash       BookingsConfirmPaymentJSONBodyMethod = "cash"
+	BookingsConfirmPaymentJSONBodyMethodCreditCard BookingsConfirmPaymentJSONBodyMethod = "credit_card"
+	BookingsConfirmPaymentJSONBodyMethodDebitCard  BookingsConfirmPaymentJSONBodyMethod = "debit_card"
+	BookingsConfirmPaymentJSONBodyMethodQrWallet   BookingsConfirmPaymentJSONBodyMethod = "qr_wallet"
+	BookingsConfirmPaymentJSONBodyMethodTransfer   BookingsConfirmPaymentJSONBodyMethod = "transfer"
 )
 
 // Valid indicates whether the value is a known member of the BookingsConfirmPaymentJSONBodyMethod enum.
 func (e BookingsConfirmPaymentJSONBodyMethod) Valid() bool {
 	switch e {
 	case BookingsConfirmPaymentJSONBodyMethodCash:
+		return true
+	case BookingsConfirmPaymentJSONBodyMethodCreditCard:
+		return true
+	case BookingsConfirmPaymentJSONBodyMethodDebitCard:
+		return true
+	case BookingsConfirmPaymentJSONBodyMethodQrWallet:
 		return true
 	case BookingsConfirmPaymentJSONBodyMethodTransfer:
 		return true
@@ -2898,7 +2925,7 @@ type ServerInterface interface {
 	// BookingsCancel Staff-cancel a booking, refunding if money was collected
 	// (POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel)
 	BookingsCancel(w http.ResponseWriter, r *http.Request, id PathID, bookingID BookingID)
-	// BookingsConfirmPayment Record a cash or transfer payment taken by staff
+	// BookingsConfirmPayment Record a counter payment taken by staff
 	// (POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment)
 	BookingsConfirmPayment(w http.ResponseWriter, r *http.Request, id PathID, bookingID BookingID, params BookingsConfirmPaymentParams)
 	// BookingsManualRefund Close out the manual half of a split refund

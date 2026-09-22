@@ -395,6 +395,17 @@ func TestCancelInfoDoesNotPromiseARefundItCannotIssue(t *testing.T) {
 			wantMethod:       refundByHand,
 		},
 		{
+			// A counter QR/wallet payment carries no MercadoPago id — the
+			// online checkout never touched it — so it must take exactly the
+			// same manual path as cash or a transfer, never the automatic one.
+			name:             "paid by a new counter method (qr_wallet)",
+			collectionStatus: bookingstore.CollectionStatusDepositPaid,
+			refundStatus:     bookingstore.RefundStatusNone,
+			payment:          &paymentstore.Payment{Status: "deposit_paid", Method: "qr_wallet"},
+			wantRefund:       true,
+			wantMethod:       refundByHand,
+		},
+		{
 			name:             "never paid",
 			collectionStatus: bookingstore.CollectionStatusUnpaid,
 			refundStatus:     bookingstore.RefundStatusNone,

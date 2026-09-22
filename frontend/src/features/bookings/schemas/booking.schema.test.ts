@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createBookingSchema } from './booking.schema';
+import { createBookingSchema, confirmPaymentSchema } from './booking.schema';
+import { COUNTER_PAYMENT_METHODS } from '../lib/paymentMethods';
 
 const validBase = {
   court_id: 'court-1',
@@ -54,5 +55,41 @@ describe('createBookingSchema — time-in-past refine', () => {
       const dateRequiredIssue = result.error.issues.find((i) => i.path.includes('date') && i.path.length === 1);
       expect(dateRequiredIssue).toBeDefined();
     }
+  });
+});
+
+describe('payment_method / method — counter payments accept every method but mercadopago', () => {
+  it.each(COUNTER_PAYMENT_METHODS)('createBookingSchema accepts payment_method %s', (method) => {
+    const result = createBookingSchema.safeParse({
+      ...validBase,
+      date: '2099-01-01',
+      start_time: '10:00',
+      payment_option: 'full',
+      payment_method: method,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('createBookingSchema refuses mercadopago as a counter payment_method', () => {
+    const result = createBookingSchema.safeParse({
+      ...validBase,
+      date: '2099-01-01',
+      start_time: '10:00',
+      payment_option: 'full',
+      payment_method: 'mercadopago',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each(COUNTER_PAYMENT_METHODS)('confirmPaymentSchema accepts method %s', (method) => {
+    const result = confirmPaymentSchema.safeParse({ method, amount: 100 });
+    expect(result.success).toBe(true);
+  });
+
+  it('confirmPaymentSchema refuses mercadopago as a method', () => {
+    const result = confirmPaymentSchema.safeParse({ method: 'mercadopago', amount: 100 });
+    expect(result.success).toBe(false);
   });
 });

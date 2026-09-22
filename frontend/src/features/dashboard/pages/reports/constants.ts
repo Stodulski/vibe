@@ -17,8 +17,4 @@ export const MONTH_NAMES = [
   'Diciembre',
 ] as const;
 
-export const METHOD_LABELS: Record<string, string> = {
-  mercadopago: t.bookings.paymentMethods.mercadopago,
-  cash: t.bookings.paymentMethods.cash,
-  transfer: t.bookings.paymentMethods.transfer,
-};
+export const METHOD_LABELS: Record<string, string> = t.bookings.paymentMethods;

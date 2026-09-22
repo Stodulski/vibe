@@ -587,7 +587,7 @@ export interface paths {
         put?: never;
         /**
          * Create a staff booking, confirmed immediately
-         * @description No payment step. Optionally records a cash or transfer payment in the same call.
+         * @description No payment step. Optionally records a counter payment (any method but MercadoPago) in the same call.
          */
         post: operations["bookingsCreate"];
         delete?: never;
@@ -646,7 +646,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Record a cash or transfer payment taken by staff */
+        /** Record a counter payment taken by staff */
         post: operations["bookingsConfirmPayment"];
         delete?: never;
         options?: never;
@@ -665,7 +665,7 @@ export interface paths {
         put?: never;
         /**
          * Close out the manual half of a split refund
-         * @description Only legal when the booking reads `status: cancelled` and `refund_status: partial`, meaning an automatic refund covered part of the payment and the rest must be handed back by hand (cash or transfer).
+         * @description Only legal when the booking reads `status: cancelled` and `refund_status: partial`, meaning an automatic refund covered part of the payment and the rest must be handed back by hand (any counter method).
          */
         post: operations["bookingsManualRefund"];
         delete?: never;
@@ -764,13 +764,13 @@ export interface paths {
         };
         /**
          * List the complexes the caller owns
-         * @description Not paginated, owners have few venues, capped by a configured maximum. Cross-tenant bypass reason `by-owner` (filtered by `owner_id` in SQL).
+         * @description Not paginated: one account owns at most one complex, so the array holds either the caller's single complex or is empty. Cross-tenant bypass reason `by-owner` (filtered by `owner_id` in SQL).
          */
         get: operations["complexesList"];
         put?: never;
         /**
          * Create a new complex
-         * @description Cross-tenant bypass reason `bootstrap`. Refused past the account's configured maximum complex count. Seeds 7 default schedule rows (Monday through Sunday, 08:00 to 23:00).
+         * @description Cross-tenant bypass reason `bootstrap`. Refused if the account already owns a complex: one account owns exactly one. Seeds 7 default schedule rows (Monday through Sunday, 08:00 to 23:00).
          */
         post: operations["complexesCreate"];
         delete?: never;
@@ -1746,7 +1746,7 @@ export interface components {
             /** @description Centavos ARS. */
             service_fee: number;
             /** @enum {string} */
-            method: "mercadopago" | "cash" | "transfer";
+            method: "mercadopago" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
             /**
              * @description The payments table's own, wider status vocabulary. Distinct from Booking.collection_status/refund_status, which were split off it at the booking level.
              * @enum {string}
@@ -2319,7 +2319,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The user and the complexes they own. */
+            /** @description The user and the complex they own, at most one. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2327,6 +2327,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         user: components["schemas"]["User"];
+                        /** @description At most one item, since one account owns at most one complex. */
                         complexes: components["schemas"]["Complex"][];
                     };
                 };
@@ -3610,7 +3611,7 @@ export interface operations {
                     client_first_name: string;
                     client_last_name: string;
                     /** @enum {string} */
-                    payment_method?: "" | "cash" | "transfer";
+                    payment_method?: "" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
                     /** @enum {string} */
                     payment_option?: "" | "unpaid" | "deposit" | "full";
                     notes?: string;
@@ -3808,7 +3809,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    method: "cash" | "transfer";
+                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
                     /** @description Centavos ARS. */
                     amount: number;
                 };
@@ -4106,7 +4107,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Every complex owned by the caller. */
+            /** @description The caller's complex, as a single-item array, or an empty array if the account owns none. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4167,7 +4168,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description The account already owns the maximum number of complexes. */
+            /** @description The account already owns a complex. */
             403: {
                 headers: {
                     [name: string]: unknown;

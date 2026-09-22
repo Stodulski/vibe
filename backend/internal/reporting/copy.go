@@ -68,6 +68,12 @@ func methodLabel(method string) string {
 		return "Efectivo"
 	case "transfer":
 		return "Transferencia"
+	case "debit_card":
+		return "Débito"
+	case "credit_card":
+		return "Crédito"
+	case "qr_wallet":
+		return "QR / billetera"
 	default:
 		return method
 	}

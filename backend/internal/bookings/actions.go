@@ -69,7 +69,8 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 const confirmPaymentRaceMessage = "this booking's status changed before the payment could be confirmed, refresh and check it"
 
 // ConfirmPayment handles POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment,
-// recording a payment the owner took in cash or by transfer.
+// recording a payment the owner took at the counter, by any method but
+// MercadoPago.
 func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	complex, ok := httpx.ContextGetComplex(r)
 	if !ok {
@@ -91,7 +92,7 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	v.Check(string(input.Method) == "cash" || string(input.Method) == "transfer", "method", "must be cash or transfer")
+	v.Check(isCounterPaymentMethod(string(input.Method)), "method", counterPaymentMethodsMessage)
 	v.Check(input.Amount > 0, "amount", "must be greater than 0")
 	v.Check(input.Amount <= 99_999_999, "amount", "amount too large")
 	if !v.Valid() {
