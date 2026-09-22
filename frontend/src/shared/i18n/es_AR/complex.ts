@@ -68,6 +68,12 @@ export const complex = {
   deleteComplexConfirmLabel: 'Eliminar complejo',
   deletedSuccess: 'Complejo eliminado',
   deleteError: 'Error al eliminar el complejo',
+  // Shown instead of the onboarding form when the complexes query fails
+  // (network, 5xx, timeout) — a failed load is not the same as owning zero
+  // complexes.
+  loadError: 'No pudimos cargar tu complejo',
+  loadErrorDescription: 'Hubo un problema de conexión. Probá de nuevo.',
+  retry: 'Reintentar',
   onboardingStepProgress: 'Progreso de configuración',
   onboardingTitle: 'Bienvenido',
   onboardingStep1: 'Datos del complejo',

@@ -14,7 +14,12 @@ interface UseOnboardingComplexArgs {
  * the gap.
  */
 export function useOnboardingComplex({ stateComplexId, justCreatedId }: UseOnboardingComplexArgs) {
-  const { data: complexes, isLoading: complexesLoading } = useComplexes();
+  const {
+    data: complexes,
+    isLoading: complexesLoading,
+    isError: complexesError,
+    refetch: refetchComplexes,
+  } = useComplexes();
 
   const complexId = complexes?.[0]?.id ?? stateComplexId ?? justCreatedId ?? null;
   const currentComplex = complexes?.[0] ?? null;
@@ -22,5 +27,5 @@ export function useOnboardingComplex({ stateComplexId, justCreatedId }: UseOnboa
   // Fetch courts for the complex to determine if step 2 is complete.
   const { data: courts, isLoading: courtsLoading } = useCourts(complexId);
 
-  return { complexId, currentComplex, courts, complexesLoading, courtsLoading };
+  return { complexId, currentComplex, courts, complexesLoading, courtsLoading, complexesError, refetchComplexes };
 }

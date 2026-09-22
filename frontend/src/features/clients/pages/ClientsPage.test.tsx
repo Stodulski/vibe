@@ -71,6 +71,9 @@ describe('ClientsPage', () => {
       complexes: [],
       needsOnboarding: false,
       isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
     });
     const ClientsPage = (await import('./ClientsPage')).default;
     const { container } = renderClientsPage(ClientsPage);
@@ -86,6 +89,9 @@ describe('ClientsPage', () => {
       complexes: [],
       needsOnboarding: false,
       isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
     });
     const ClientsPage = (await import('./ClientsPage')).default;
     renderClientsPage(ClientsPage, ['/clients?q=juan']);

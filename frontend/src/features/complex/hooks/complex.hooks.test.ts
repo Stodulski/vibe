@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import { createElement, type ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createQueryWrapper } from '@/test/test-utils';
 
 vi.mock('../api/complex.api', () => ({
@@ -39,8 +41,9 @@ vi.mock('@/shared/lib/queryKeys', () => ({
   },
 }));
 
+const navigateMock = vi.fn();
 vi.mock('react-router-dom', () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateMock,
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -93,6 +96,36 @@ describe('useDeleteComplex', () => {
     const { useDeleteComplex } = await import('./useDeleteComplex');
     const { result } = renderHook(() => useDeleteComplex(), { wrapper: createQueryWrapper() });
     expect(typeof result.current.mutate).toBe('function');
+  });
+
+  it('writes the cache to an empty list, and awaits the invalidation, before navigating away', async () => {
+    navigateMock.mockClear();
+    const { useDeleteComplex } = await import('./useDeleteComplex');
+    const { queryKeys } = await import('@/shared/lib/queryKeys');
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(queryKeys.complexes.all, { complexes: [{ id: 'c1', name: 'Club' }] });
+
+    // Snapshot the cache at the moment navigation fires — this is what would
+    // have still shown the deleted complex if the cache write and the
+    // invalidation weren't both settled first.
+    let cacheAtNavigate: unknown;
+    navigateMock.mockImplementationOnce(() => {
+      cacheAtNavigate = queryClient.getQueryData(queryKeys.complexes.all);
+    });
+
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useDeleteComplex(), { wrapper });
+
+    await result.current.mutateAsync('c1');
+
+    expect(cacheAtNavigate).toEqual({ complexes: [] });
+    expect(queryClient.getQueryData(queryKeys.complexes.all)).toEqual({ complexes: [] });
+    expect(navigateMock).toHaveBeenCalledWith('/onboarding', { replace: true });
   });
 });
 

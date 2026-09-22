@@ -48,6 +48,14 @@ vi.mock('@/shared/components/common/LoadingSpinner', () => ({
   LoadingSpinner: () => <div role="status">Loading</div>,
 }));
 
+vi.mock('@/shared/components/common/ComplexLoadError', () => ({
+  ComplexLoadError: ({ onRetry }: { onRetry: () => void }) => (
+    <div data-testid="complex-load-error">
+      <button onClick={onRetry}>retry</button>
+    </div>
+  ),
+}));
+
 vi.mock('@/shared/components/ui/alert-dialog', () => ({
   AlertDialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AlertDialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -67,15 +75,24 @@ vi.mock('react-router-dom', () => ({
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
 import { makeComplex } from '@/test/factories';
 
+// Trims each test's mock to only what it varies.
+function mockSelectedComplex(overrides: Partial<ReturnType<typeof useSelectedComplex>>) {
+  vi.mocked(useSelectedComplex).mockReturnValue({
+    selectedComplexId: null,
+    needsOnboarding: false,
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+    complex: null,
+    complexes: [],
+    ...overrides,
+  });
+}
+
 describe('DashboardLayout', () => {
   beforeEach(() => {
-    vi.mocked(useSelectedComplex).mockReturnValue({
-      selectedComplexId: 'complex-1',
-      needsOnboarding: false,
-      isLoading: false,
-      complex: makeComplex({ id: 'complex-1', name: 'Test' }),
-      complexes: [],
-    });
+    mockSelectedComplex({ selectedComplexId: 'complex-1', complex: makeComplex({ id: 'complex-1', name: 'Test' }) });
   });
 
   it('renders the sidebar and outlet when complex is selected', async () => {
@@ -94,28 +111,29 @@ describe('DashboardLayout', () => {
   });
 
   it('shows loading spinner when isLoading is true', async () => {
-    vi.mocked(useSelectedComplex).mockReturnValue({
-      selectedComplexId: null,
-      needsOnboarding: false,
-      isLoading: true,
-      complex: null,
-      complexes: [],
-    });
+    mockSelectedComplex({ isLoading: true });
     const { DashboardLayout } = await import('./DashboardLayout');
     render(<DashboardLayout />);
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
   it('redirects to /onboarding when needsOnboarding is true', async () => {
-    vi.mocked(useSelectedComplex).mockReturnValue({
-      selectedComplexId: null,
-      needsOnboarding: true,
-      isLoading: false,
-      complex: null,
-      complexes: [],
-    });
+    mockSelectedComplex({ needsOnboarding: true });
     const { DashboardLayout } = await import('./DashboardLayout');
     render(<DashboardLayout />);
     expect(screen.getByTestId('navigate')).toHaveTextContent('/onboarding');
+  });
+
+  it('shows a retryable error instead of redirecting when the complexes query errored', async () => {
+    const refetch = vi.fn();
+    mockSelectedComplex({ isError: true, error: new Error('Network error'), refetch });
+    const { DashboardLayout } = await import('./DashboardLayout');
+    render(<DashboardLayout />);
+
+    expect(screen.getByTestId('complex-load-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('navigate')).not.toBeInTheDocument();
+
+    screen.getByRole('button', { name: 'retry' }).click();
+    expect(refetch).toHaveBeenCalled();
   });
 });

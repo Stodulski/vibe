@@ -5,6 +5,7 @@ import { Header } from '@/shared/components/layout/Header';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { PageHeadingProvider } from '@/shared/components/layout/page-heading/PageHeadingProvider';
 import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
+import { ComplexLoadError } from '@/shared/components/common/ComplexLoadError';
 import { useDashboardLayoutState } from './dashboard-layout/useDashboardLayoutState';
 import { useNoIndex } from '@/shared/hooks/useNoIndex';
 
@@ -17,6 +18,19 @@ export function DashboardLayout() {
       <div className="bg-bg-base flex min-h-dvh items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
+    );
+  }
+
+  // The complexes query failed rather than succeeding with an empty list —
+  // redirecting to /onboarding here would 403 on submit ("the account
+  // already owns a complex").
+  if (state.isError) {
+    return (
+      <ComplexLoadError
+        onRetry={() => {
+          state.refetch();
+        }}
+      />
     );
   }
 

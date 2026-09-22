@@ -55,6 +55,9 @@ describe('SettingsPage', () => {
       selectedComplexId: null,
       needsOnboarding: false,
       isLoading: true,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
     });
     const SettingsPage = (await import('./SettingsPage')).default;
     render(<SettingsPage />, { wrapper: createWrapper() });
@@ -69,6 +72,9 @@ describe('SettingsPage', () => {
       selectedComplexId: complex.id,
       needsOnboarding: false,
       isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
     });
     const SettingsPage = (await import('./SettingsPage')).default;
     render(<SettingsPage />, { wrapper: createWrapper() });
@@ -83,6 +89,9 @@ function mockNoComplexSelected() {
     selectedComplexId: null,
     needsOnboarding: false,
     isLoading: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
   });
 }
 

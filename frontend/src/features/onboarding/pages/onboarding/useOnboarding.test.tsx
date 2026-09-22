@@ -76,3 +76,25 @@ describe('useOnboarding — surviving a reload after the complex is created', ()
     expect(result.current.complexId).toBe('c-existing');
   });
 });
+
+describe('useOnboarding — a failed complexes query is not "no complex yet"', () => {
+  // The bug: a failed complexes query also leaves `data` undefined, which
+  // `deriveStep` reads exactly like an account that owns no complex yet —
+  // offering step 1's create form again would 403 on submit since the
+  // account already owns one.
+  it('surfaces the query error instead of resolving to step 1', () => {
+    const refetch = vi.fn();
+    complexesMock.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MemoryRouter initialEntries={['/onboarding']}>{children}</MemoryRouter>
+    );
+
+    const { result } = renderHook(() => useOnboarding(), { wrapper });
+
+    expect(result.current.complexesError).toBe(true);
+    expect(result.current.step).toBe(1);
+
+    void result.current.refetchComplexes();
+    expect(refetch).toHaveBeenCalled();
+  });
+});

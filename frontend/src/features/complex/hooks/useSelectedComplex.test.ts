@@ -9,13 +9,28 @@ vi.mock('./useComplexes', () => ({
   useComplexes: () => useComplexesMock() as unknown,
 }));
 
+// Trims each test's mock to only what it varies — `useComplexes` always
+// returns this full shape, and every test below overrides just the fields
+// its scenario cares about.
+function mockComplexesQuery(overrides: Record<string, unknown>) {
+  useComplexesMock.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isSuccess: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+    ...overrides,
+  });
+}
+
 describe('useSelectedComplex', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('derives the account single complex from the complexes query', () => {
-    useComplexesMock.mockReturnValue({ data: [makeComplex({ id: 'c1' })], isLoading: false });
+    mockComplexesQuery({ data: [makeComplex({ id: 'c1' })], isSuccess: true });
 
     const { result } = renderHook(() => useSelectedComplex());
 
@@ -25,8 +40,8 @@ describe('useSelectedComplex', () => {
     expect(result.current.needsOnboarding).toBe(false);
   });
 
-  it('needs onboarding once loaded with no complex at all', () => {
-    useComplexesMock.mockReturnValue({ data: [], isLoading: false });
+  it('needs onboarding once loaded successfully with no complex at all', () => {
+    mockComplexesQuery({ data: [], isSuccess: true });
 
     const { result } = renderHook(() => useSelectedComplex());
 
@@ -36,11 +51,22 @@ describe('useSelectedComplex', () => {
   });
 
   it('does not claim onboarding is needed while still loading', () => {
-    useComplexesMock.mockReturnValue({ data: undefined, isLoading: true });
+    mockComplexesQuery({ isLoading: true });
 
     const { result } = renderHook(() => useSelectedComplex());
 
     expect(result.current.needsOnboarding).toBe(false);
     expect(result.current.isLoading).toBe(true);
+  });
+
+  it('does not claim onboarding is needed when the query errored', () => {
+    const error = new Error('Network error');
+    mockComplexesQuery({ isError: true, error });
+
+    const { result } = renderHook(() => useSelectedComplex());
+
+    expect(result.current.needsOnboarding).toBe(false);
+    expect(result.current.isError).toBe(true);
+    expect(result.current.error).toBe(error);
   });
 });
