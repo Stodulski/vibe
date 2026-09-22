@@ -1,23 +1,23 @@
 package bookings
 
-import "slices"
+import paymentmethod "github.com/stodulski/vibe-server/internal/paymentmethod"
 
 // counterPaymentMethods lists every payment_method value staff may record
-// directly at the counter — every method except "mercadopago", which the
-// online checkout owns exclusively: it carries mp_payment_id and drives an
-// automatic MercadoPago API refund, and a counter QR payment has no id for
-// that call to use. Expressed once here rather than as a hand-copied
-// "== cash || == transfer" check per call site, so a new counter method (or a
-// tightened list) is one edit, not one per handler.
-var counterPaymentMethods = []string{"cash", "transfer", "debit_card", "credit_card", "qr_wallet"}
+// directly at the counter — sourced from internal/paymentmethod, the shared
+// home for this rule since internal/cashbox needed the identical list for
+// cash_movements.method. Kept as a package-level var here, rather than
+// switching every call site to paymentmethod.IsCounter directly, only because
+// handlers_test.go and payment_method_test.go range over the values
+// themselves, not just the predicate.
+var counterPaymentMethods = paymentmethod.CounterMethods()
 
 // counterPaymentMethodsMessage is the validation error every call site shows,
 // naming every accepted value so a caller does not have to guess which ones
 // changed.
-const counterPaymentMethodsMessage = "must be one of: cash, transfer, debit_card, credit_card, qr_wallet"
+const counterPaymentMethodsMessage = paymentmethod.Message
 
 // isCounterPaymentMethod reports whether method is one Create and
 // ConfirmPayment may record — see counterPaymentMethods.
 func isCounterPaymentMethod(method string) bool {
-	return slices.Contains(counterPaymentMethods, method)
+	return paymentmethod.IsCounter(method)
 }
