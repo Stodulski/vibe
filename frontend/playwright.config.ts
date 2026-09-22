@@ -55,6 +55,7 @@ export default defineConfig({
         'reports.spec.ts',
         'confirm-payment.spec.ts',
         'blocked-slots.spec.ts',
+        'cash.spec.ts',
         // Four owner specs that were in no project and therefore never ran.
         'blocked-slots-availability.spec.ts',
         'clients-search.spec.ts',
