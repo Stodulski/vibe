@@ -263,6 +263,44 @@ func (f *Fixture) seed(t *testing.T) {
 	}
 }
 
+// InsertOwner inserts one more user with the 'owner' role and a unique
+// email, and returns its id.
+//
+// complexes now carries complexes_owner_id_key, a UNIQUE index on
+// (owner_id) WHERE deleted_at IS NULL: one live complex per owner. Any test
+// that inserts a second complex row directly (bypassing complexstore, which
+// itself must respect the same rule) needs a second owner to insert it
+// under, or it hits 23505 on that index. This is that owner.
+//
+// In Shared mode the caller must arrange cleanup for both the user and any
+// complex it owns — see insertSecondComplex in complexes_integration_test.go
+// for the pattern. In Isolated mode the fixture's transaction rollback
+// covers it, same as every other row.
+func (f *Fixture) InsertOwner(t *testing.T) uuid.UUID {
+	t.Helper()
+
+	var id uuid.UUID
+	err := f.DB.QueryRow(context.Background(), `
+		INSERT INTO users (email, password_hash, first_name, last_name, phone, role, email_verified)
+		VALUES ($1, $2, 'Owner', 'Test', '+5491100000000', 'owner', true)
+		RETURNING id`,
+		"owner-"+uuid.NewString()+"@example.test", []byte("not-a-real-hash"),
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("creating a second owner: %v", err)
+	}
+
+	if f.Pool != nil {
+		t.Cleanup(func() {
+			if _, err := f.DB.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, id); err != nil {
+				t.Errorf("deleting second owner: %v", err)
+			}
+		})
+	}
+
+	return id
+}
+
 // deleteComplexData removes every row this fixture's complex owns, child tables first.
 //
 // Shared mode only: an Isolated fixture's rollback undoes all of this and more.

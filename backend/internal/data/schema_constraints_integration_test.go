@@ -251,10 +251,16 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 	// so the DEFAULT 24 never applies.
 	for _, hours := range []int{-1, 0, 169} {
 		t.Run(fmt.Sprintf("insert/hours=%d", hours), func(t *testing.T) {
+			// f.UserID already owns f.ComplexID and complexes_owner_id_key
+			// permits only one live complex per owner, so this insert needs
+			// its own owner — reusing f.UserID would risk failing on the
+			// unique index rather than proving anything about
+			// cancellation_hours.
+			ownerID := f.InsertOwner(t)
 			err := exec(f, `
 				INSERT INTO complexes (owner_id, name, slug, address, city, province, phone, cancellation_hours)
 				VALUES ($1, 'Zero Window', $2, 'Av. Siempreviva 742', 'Rosario', 'Santa Fe', '+5491100000009', $3)`,
-				f.UserID, fmt.Sprintf("zero-window-%d-%s", hours, uuid.NewString()), hours)
+				ownerID, fmt.Sprintf("zero-window-%d-%s", hours, uuid.NewString()), hours)
 			refusedByConstraint(t, err, checkViolation, complexesCancellationHoursRange)
 		})
 	}
@@ -275,6 +281,11 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 	// accepted() ends in t.Fatalf and a cleanup registered afterwards would
 	// never run on the failing path — leaving a stray complex behind for every
 	// later test in a suite that shares one database.
+	// complexes_owner_id_key allows only one live complex per owner, and
+	// f.UserID already owns f.ComplexID, so this insert needs its own owner
+	// or it would hit 23505 rather than prove anything about
+	// cancellation_hours.
+	defaultOwnerID := f.InsertOwner(t)
 	defaultSlug := "default-window-" + uuid.NewString()
 	t.Cleanup(func() {
 		if err := exec(f, `DELETE FROM complexes WHERE slug = $1`, defaultSlug); err != nil {
@@ -284,7 +295,7 @@ func TestACancellationWindowMustBeAWindow(t *testing.T) {
 	accepted(t, exec(f, `
 		INSERT INTO complexes (owner_id, name, slug, address, city, province, phone)
 		VALUES ($1, 'Default Window', $2, 'Av. Siempreviva 742', 'Rosario', 'Santa Fe', '+5491100000009')`,
-		f.UserID, defaultSlug),
+		defaultOwnerID, defaultSlug),
 		"a complex that lets cancellation_hours take its DEFAULT of 24")
 }
 

@@ -1,4 +1,5 @@
 import { Building2 } from 'lucide-react';
+import { VisuallyHidden } from '@/shared/components/common/VisuallyHidden';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import type { Complex } from '@/shared/types/api.types';
@@ -20,11 +21,9 @@ export function SidebarComplexHeader({ complex, collapsed, isMobile }: SidebarCo
       {collapsed && !isMobile ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <div
-              className="border-border-subtle bg-bg-elevated/40 flex w-full items-center justify-center rounded-lg border p-2.5"
-              aria-label={complex.name}
-            >
+            <div className="border-border-subtle bg-bg-elevated/40 flex w-full items-center justify-center rounded-lg border p-2.5">
               <Building2 className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
+              <VisuallyHidden>{complex.name}</VisuallyHidden>
             </div>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>

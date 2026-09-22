@@ -28,6 +28,25 @@ export const TEST_OWNER_B = {
 };
 
 /**
+ * A third, distinct owner — used only by blocked-slots-availability.spec.ts,
+ * which needs a whole complex with exactly one court (see that file's
+ * comment) rather than a dedicated court on the shared complex. Since an
+ * account now owns at most one complex, that dedicated complex can no
+ * longer live on TEST_OWNER (already the shared complex's owner) without
+ * `POST /complexes` 403-ing with "the account already owns a complex"; a
+ * separate owner sidesteps that. Never shared with TEST_OWNER's or
+ * TEST_OWNER_B's storageState/session pool, for the same reason TEST_OWNER_B
+ * isn't.
+ */
+export const TEST_OWNER_C = {
+  email: 'e2e-owner-c@test.com',
+  password: 'TestPassword123!',
+  firstName: 'Camila',
+  lastName: 'Ibáñez',
+  phone: '+5491112345681',
+};
+
+/**
  * A platform admin (`role: superadmin`) for e2e specs that exercise
  * `/admin/*`. The public register endpoint always creates `owner` accounts
  * (internal/auth/handlers.go), so `auth.setup.ts` registers this one the

@@ -79,7 +79,7 @@ func TestIntegration_GetWithMPConnectedSurfacesUnreadableRows(t *testing.T) {
 		t.Fatalf("UpdateMPCredentials (readable complex): %v", err)
 	}
 
-	unreadableID := insertSecondComplex(f, t, "gwmc-unreadable")
+	unreadableID := insertComplexForNewOwner(f, t, "gwmc-unreadable")
 	sealUnderForeignKey(f, t, unreadableID)
 
 	complexes, err := f.Stores.Complexes.GetWithMPConnected(ctx)
@@ -127,12 +127,12 @@ func TestIntegration_ListComplexesNeedingMPRefresh(t *testing.T) {
 		t.Fatalf("UpdateMPCredentials (null expiry): %v", err)
 	}
 
-	soonID := insertSecondComplex(f, t, "lcnmr-soon")
+	soonID := insertComplexForNewOwner(f, t, "lcnmr-soon")
 	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, soonID, "soon-access", "soon-refresh", "mp-user-soon", 10*24*3600); err != nil {
 		t.Fatalf("UpdateMPCredentials (expires in 10 days): %v", err)
 	}
 
-	freshID := insertSecondComplex(f, t, "lcnmr-fresh")
+	freshID := insertComplexForNewOwner(f, t, "lcnmr-fresh")
 	if err := f.Stores.Complexes.UpdateMPCredentials(ctx, freshID, "fresh-access", "fresh-refresh", "mp-user-fresh", 100*24*3600); err != nil {
 		t.Fatalf("UpdateMPCredentials (expires in 100 days): %v", err)
 	}
@@ -214,17 +214,24 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 	}
 }
 
-// insertSecondComplex creates one more complex under the fixture's owner,
-// with no MercadoPago credential yet — sealUnderForeignKey fills that in.
-// Registered for cleanup the same way newTestFixture's own complex is.
-func insertSecondComplex(f *datatest.Fixture, t *testing.T, slugSuffix string) (id uuid.UUID) {
+// insertComplexForNewOwner creates one more complex, under a freshly
+// inserted owner rather than the fixture's own f.UserID, with no
+// MercadoPago credential yet — sealUnderForeignKey fills that in.
+//
+// complexes_owner_id_key (a UNIQUE index on owner_id WHERE deleted_at IS
+// NULL) allows only one live complex per owner, so a second complex needs a
+// second owner — inserting it under f.UserID would hit 23505. Registered
+// for cleanup the same way newTestFixture's own complex is.
+func insertComplexForNewOwner(f *datatest.Fixture, t *testing.T, slugSuffix string) (id uuid.UUID) {
 	t.Helper()
+
+	ownerID := f.InsertOwner(t)
 
 	err := f.DB.QueryRow(context.Background(), `
 		INSERT INTO complexes (owner_id, name, slug, address, city, province, phone)
 		VALUES ($1, 'Second Complex', $2, 'Av. Siempreviva 743', 'Rosario', 'Santa Fe', '+5491100000002')
 		RETURNING id`,
-		f.UserID, "test-complex-"+slugSuffix,
+		ownerID, "test-complex-"+slugSuffix,
 	).Scan(&id)
 	if err != nil {
 		t.Fatalf("creating second complex: %v", err)
