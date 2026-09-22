@@ -4,10 +4,7 @@ import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
 import { createApiHelper } from '../helpers/api.helper';
 
-async function openBookingsForDate(page: Page, complexId: string, date: string): Promise<void> {
-  await page.evaluate((id) => {
-    localStorage.setItem('selectedComplexId', id);
-  }, complexId);
+async function openBookingsForDate(page: Page, date: string): Promise<void> {
   await page.goto(`/bookings?date=${date}`);
   await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({
     timeout: 10_000,
@@ -52,7 +49,7 @@ test.describe('Owner cancels a booking', () => {
     });
     expect(booking.collection_status).toBe('unpaid');
 
-    await openBookingsForDate(page, complexId, date);
+    await openBookingsForDate(page, date);
 
     await page.getByText(`Cancelar ${clientLastName}`).first().click();
     const detailSheet = page.getByRole('dialog').filter({ hasText: 'Reserva' });

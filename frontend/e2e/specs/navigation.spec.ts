@@ -18,16 +18,7 @@ function visibleHeading(page: Page, text: string) {
  * itself is `aria-hidden`), so its links carry no accessible name at this
  * viewport — the label only ever reaches a sighted user via a hover
  * tooltip. Locate by `href` instead of role+name.
- *
- * Extracted out of the test body to keep the describe callback under the
- * repo's max-lines-per-function cap.
  */
-async function selectComplex(page: Page, complexId: string): Promise<void> {
-  await page.evaluate((id) => {
-    localStorage.setItem('selectedComplexId', id);
-  }, complexId);
-}
-
 async function walkSidebarNav(page: Page): Promise<void> {
   await page.locator('a[href="/bookings"]').click();
   await expect(page).toHaveURL(/bookings/);
@@ -45,15 +36,11 @@ async function walkSidebarNav(page: Page): Promise<void> {
 }
 
 test.describe('Navigation Flows', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexId = setup.complexId;
+    await getSharedSetup();
   });
 
   test('sidebar navigation between pages', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/dashboard');
     await expect(visibleHeading(page, 'Dashboard')).toBeVisible({ timeout: 10_000 });
 
@@ -61,7 +48,6 @@ test.describe('Navigation Flows', () => {
   });
 
   test('deep link to dashboard loads correctly', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/dashboard');
 
     await expect(visibleHeading(page, 'Dashboard')).toBeVisible({ timeout: 10_000 });
@@ -69,21 +55,18 @@ test.describe('Navigation Flows', () => {
   });
 
   test('deep link to bookings loads correctly', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/bookings');
 
     await expect(visibleHeading(page, 'Reservas')).toBeVisible({ timeout: 10_000 });
   });
 
   test('deep link to settings loads correctly', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/settings');
 
     await expect(page.getByLabel('Nombre del complejo')).toBeVisible({ timeout: 10_000 });
   });
 
   test('browser back button works between pages', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/dashboard');
     await expect(visibleHeading(page, 'Dashboard')).toBeVisible({ timeout: 10_000 });
 
@@ -97,7 +80,6 @@ test.describe('Navigation Flows', () => {
   });
 
   test('page refresh preserves authenticated state', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/dashboard');
     await expect(visibleHeading(page, 'Dashboard')).toBeVisible({ timeout: 10_000 });
 
@@ -109,7 +91,6 @@ test.describe('Navigation Flows', () => {
   });
 
   test('navigate to profile page', async ({ authenticatedPage: page }) => {
-    await selectComplex(page, complexId);
     await page.goto('/profile');
 
     // Profile page should load

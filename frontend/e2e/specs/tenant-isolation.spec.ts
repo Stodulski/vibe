@@ -47,15 +47,14 @@ async function getOwnerBComplexId(): Promise<string> {
 // `request` context, so it carries TEST_OWNER's real session cookies)
 // rather than clicking through the UI to reach these URLs: the app never
 // exposes another owner's complex id to navigate to in the first place —
-// `useSelectedComplex` (src/features/complex/hooks/useSelectedComplex.ts)
-// silently falls back to the caller's own first complex whenever the stored
-// `selectedComplexId` isn't among the complexes the `/complexes` list
-// (itself scoped to the caller) returned, so writing owner B's id into
-// localStorage and navigating never actually requests owner B's complex —
-// it silently renders owner A's own. The real boundary this finding is
-// about is `RequireComplexOwner` (backend/internal/middleware/chain.go),
-// enforced per-request server-side, and that is what a direct request with
-// owner A's cookies against owner B's complex id proves.
+// an account owns at most one complex, so `useSelectedComplex`
+// (src/features/complex/hooks/useSelectedComplex.ts) always derives owner
+// A's own complex from the `GET /complexes` response (itself scoped to the
+// caller), and there is no other complex id in the UI to switch to. The
+// real boundary this finding is about is `RequireComplexOwner`
+// (backend/internal/middleware/chain.go), enforced per-request
+// server-side, and that is what a direct request with owner A's cookies
+// against owner B's complex id proves.
 //
 // Expects 404, not 403: `RequireComplexOwner` answers a complex the caller
 // does not own as missing, so a foreign id is never confirmed to exist; 404

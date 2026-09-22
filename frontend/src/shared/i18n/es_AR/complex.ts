@@ -70,7 +70,6 @@ export const complex = {
   deleteError: 'Error al eliminar el complejo',
   onboardingStepProgress: 'Progreso de configuración',
   onboardingTitle: 'Bienvenido',
-  onboardingTitleNew: 'Nuevo complejo',
   onboardingStep1: 'Datos del complejo',
   onboardingStep1Description: 'Cómo se llama tu club, dónde está y qué servicios ofrece. Vas a necesitar la dirección.',
   onboardingStep2: 'Primera cancha',
@@ -89,10 +88,6 @@ export const complex = {
   // Said next to the choice, because skipping has a visible consequence: the
   // public page stops taking online bookings and shows the club's WhatsApp.
   onboardingPaymentsLater: 'Si lo dejás para después, tu página muestra tu WhatsApp para que te escriban.',
-  changeComplex: 'Cambiar complejo',
-  selectComplexTitle: 'Tus complejos',
-  needsCourts: 'Falta agregar canchas',
-  addComplex: 'Agregar complejo',
   noComplexes: 'Todavía no tenés complejos',
   days: {
     monday: 'Lunes',

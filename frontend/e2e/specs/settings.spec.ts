@@ -3,19 +3,16 @@ import { getSharedSetup } from '../helpers/shared-setup';
 import { gotoSettings } from '../helpers/settings-fixtures';
 
 test.describe('Settings — General', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexId = setup.complexId;
+    await getSharedSetup();
   });
 
   test('settings page loads with general tab', async ({ authenticatedPage: page }) => {
-    await gotoSettings(page, complexId);
+    await gotoSettings(page);
   });
 
   test('can update complex name', async ({ authenticatedPage: page }) => {
-    await gotoSettings(page, complexId);
+    await gotoSettings(page);
 
     const nameInput = page.getByLabel('Nombre del complejo');
     await nameInput.clear();
@@ -26,7 +23,7 @@ test.describe('Settings — General', () => {
   });
 
   test('general tab shows all form fields', async ({ authenticatedPage: page }) => {
-    await gotoSettings(page, complexId);
+    await gotoSettings(page);
 
     // Verify key form fields using labels (more specific than getByText).
     // The address used to be split into Dirección/Ciudad/Provincia inputs;

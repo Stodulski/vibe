@@ -2,11 +2,8 @@ import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
 import type { Page } from '@playwright/test';
 
-/** Selects the shared test complex and lands on the (loaded) bookings page. */
-async function gotoBookings(page: Page, complexId: string): Promise<void> {
-  await page.evaluate((id) => {
-    localStorage.setItem('selectedComplexId', id);
-  }, complexId);
+/** Lands on the (loaded) bookings page. */
+async function gotoBookings(page: Page): Promise<void> {
   await page.goto('/bookings');
   await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({
     timeout: 10_000,
@@ -49,7 +46,7 @@ test.describe('Owner creates a booking end-to-end', () => {
     // kind of flow public-booking.spec.ts's own `test.slow()` comment
     // describes ("well past the default 30s test timeout under `make e2e`").
     test.slow();
-    await gotoBookings(page, complexId);
+    await gotoBookings(page);
 
     // Tomorrow, not today: the time list omits hours already past, so a slot
     // near the end of the priced window can vanish depending on the time of

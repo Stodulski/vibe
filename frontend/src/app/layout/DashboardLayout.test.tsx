@@ -106,7 +106,7 @@ describe('DashboardLayout', () => {
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
-  it('redirects to /complexes when needsOnboarding is true', async () => {
+  it('redirects to /onboarding when needsOnboarding is true', async () => {
     vi.mocked(useSelectedComplex).mockReturnValue({
       selectedComplexId: null,
       needsOnboarding: true,
@@ -116,6 +116,6 @@ describe('DashboardLayout', () => {
     });
     const { DashboardLayout } = await import('./DashboardLayout');
     render(<DashboardLayout />);
-    expect(screen.getByTestId('navigate')).toHaveTextContent('/complexes');
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/onboarding');
   });
 });

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '@/shared/stores';
 import type { Complex } from '@/shared/types/api.types';
 
 export type OnboardingStep = 1 | 2 | 3;
@@ -32,7 +31,6 @@ function deriveStep({
 export function useOnboardingStep(args: UseOnboardingStepArgs) {
   const { complexId, currentComplex, courts, complexesLoading, courtsLoading } = args;
   const navigate = useNavigate();
-  const setSelectedComplexId = useStore((s) => s.setSelectedComplexId);
 
   // Animation key for step transitions
   const [animKey, setAnimKey] = useState(0);
@@ -54,11 +52,10 @@ export function useOnboardingStep(args: UseOnboardingStepArgs) {
 
   // Consolidated onboarding completion -- single source of truth.
   const completeOnboarding = useCallback(
-    (id: string) => {
-      setSelectedComplexId(id);
+    (_id: string) => {
       void navigate('/dashboard', { replace: true });
     },
-    [navigate, setSelectedComplexId],
+    [navigate],
   );
 
   // A manual override from a previous complex (e.g. "Agregar otro complejo"

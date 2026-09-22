@@ -67,7 +67,7 @@ async function withPersistedSession(
 export const test = base.extend<{ authenticatedPage: Page; adminPage: Page }>({
   authenticatedPage: async ({ browser }, use, testInfo) => {
     const sessionIndex = testInfo.parallelIndex % OWNER_SESSION_POOL_SIZE;
-    await withPersistedSession(browser, `e2e/.auth/owner-${String(sessionIndex)}.json`, '/complexes', use);
+    await withPersistedSession(browser, `e2e/.auth/owner-${String(sessionIndex)}.json`, '/dashboard', use);
   },
 
   // The single TEST_ADMIN (superadmin) session — one file is enough since

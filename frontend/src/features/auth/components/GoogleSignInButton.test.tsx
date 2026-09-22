@@ -215,9 +215,9 @@ describe('GoogleSignInButton — remembering where the visitor was going', () =>
   });
 
   it('remembers the destination ProtectedRoute put in router state', () => {
-    renderButton({ pathname: '/login', state: { from: { pathname: '/complexes/abc/bookings' } } });
+    renderButton({ pathname: '/login', state: { from: { pathname: '/bookings/abc' } } });
 
-    expect(window.sessionStorage.getItem(KEY)).toBe('/complexes/abc/bookings');
+    expect(window.sessionStorage.getItem(KEY)).toBe('/bookings/abc');
   });
 
   // `?from=` is how the destination survives the hard navigation `ky.ts` does

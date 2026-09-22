@@ -115,7 +115,7 @@ describe('useGoogleComplete — onSuccess', () => {
 
     expect(mockSetCsrfToken).toHaveBeenCalledWith('token');
     expect(mockSetSessionUser).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   afterEach(async () => {
@@ -148,7 +148,7 @@ describe('useGoogleComplete — onAccountCreated', () => {
     });
 
     expect(onAccountCreated).toHaveBeenCalledTimes(1);
-    expect(mockNavigate).toHaveBeenCalledWith('/complexes', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   it('does not run when the server refused', async () => {

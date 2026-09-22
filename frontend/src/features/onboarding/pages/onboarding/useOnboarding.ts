@@ -12,14 +12,11 @@ export function useOnboarding() {
 
   // Accept complexId from location state (for MP connect of existing complex).
   const stateComplexId = (location.state as { complexId?: string } | null)?.complexId ?? null;
-  // When coming from "Add complex", start fresh.
-  const isNewComplex = (location.state as { newComplex?: boolean } | null)?.newComplex ?? false;
 
   // Track the complexId created during this session (step 1 -> step 2 transition).
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
 
   const { complexId, currentComplex, courts, complexesLoading, courtsLoading } = useOnboardingComplex({
-    isNewComplex,
     stateComplexId,
     justCreatedId,
   });
@@ -37,16 +34,14 @@ export function useOnboarding() {
     (created?: Complex) => {
       if (created) {
         setJustCreatedId(created.id);
-        // The new complex also goes into history state, replacing the
-        // `newComplex: true` entry that brought the owner here.
+        // The new complex also goes into history state.
         //
         // `justCreatedId` is component state and dies on reload; `location.state`
         // is part of the history entry and survives one. Without this, pressing
-        // F5 on step 2 of an "Agregar complejo" flow came back with
-        // `isNewComplex` still true (history kept it) and `justCreatedId` gone,
-        // so `useOnboardingComplex` resolved no complex at all, `deriveStep`
-        // read that as "nothing created yet" and offered the create form again
-        // — and filling it in created a second complex for a venue that already
+        // F5 on step 2 came back with `justCreatedId` gone, so
+        // `useOnboardingComplex` resolved no complex at all, `deriveStep` read
+        // that as "nothing created yet" and offered the create form again —
+        // and filling it in created a second complex for a venue that already
         // had one. Replacing rather than pushing also keeps Back from returning
         // to an entry that would repeat the same trick.
         void navigate('/onboarding', { state: { complexId: created.id }, replace: true });
@@ -64,7 +59,6 @@ export function useOnboarding() {
     // State
     step,
     animKey,
-    isNewComplex,
     complexId,
     currentComplex,
     courts: courts ?? [],

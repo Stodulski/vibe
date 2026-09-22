@@ -13,7 +13,7 @@ export default function OnboardingPage() {
   usePageTitle(t.complex.onboardingTitle);
 
   const state = useOnboarding();
-  const { step, animKey, isNewComplex, logout, navigate } = state;
+  const { step, animKey, logout } = state;
 
   // Show a brief loading state while deriving initial step from server data.
   if (step === null) {
@@ -32,10 +32,6 @@ export default function OnboardingPage() {
     <div className="bg-bg-base relative flex min-h-[100dvh] flex-col overflow-x-hidden">
       <MeshBackdrop />
       <OnboardingHeaderNav
-        step={step}
-        onBack={() => {
-          void navigate('/complexes', { state: { from: '/onboarding' } });
-        }}
         onLogout={() => {
           logout.mutate();
         }}
@@ -47,7 +43,7 @@ export default function OnboardingPage() {
             telling anyone anything they can do, and the step indicator right
             below already says where they are and how far. */}
         <h1 className="font-display text-text-primary mb-6 text-center text-2xl font-bold tracking-tight sm:mb-8 sm:text-3xl">
-          {isNewComplex ? t.complex.onboardingTitleNew : t.complex.onboardingTitle}
+          {t.complex.onboardingTitle}
         </h1>
 
         {/* Step indicator */}

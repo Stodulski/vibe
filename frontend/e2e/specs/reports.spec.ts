@@ -2,17 +2,11 @@ import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
 
 test.describe('Reports', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexId = setup.complexId;
+    await getSharedSetup();
   });
 
   test('reports page loads', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/reports');
 
     await expect(page.locator('h1:visible').filter({ hasText: 'Reportes' })).toBeVisible({
@@ -21,9 +15,6 @@ test.describe('Reports', () => {
   });
 
   test('displays month and year selectors', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/reports');
 
     await expect(page.locator('h1:visible').filter({ hasText: 'Reportes' })).toBeVisible({
@@ -34,9 +25,6 @@ test.describe('Reports', () => {
   });
 
   test('shows export button', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/reports');
 
     await expect(page.getByRole('button', { name: /Descargar Excel/ })).toBeVisible({
@@ -45,9 +33,6 @@ test.describe('Reports', () => {
   });
 
   test('shows report content or error state', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/reports');
 
     await expect(page.getByText('Reporte mensual')).toBeVisible({ timeout: 10_000 });

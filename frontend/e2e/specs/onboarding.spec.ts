@@ -31,7 +31,7 @@ async function registerAndLogin(page: Page): Promise<void> {
   await page.locator('#password').fill(ONBOARDING_USER.password);
   await submitBtn.click();
 
-  await page.waitForURL(/\/(complexes|onboarding|dashboard)/, { timeout: 15_000 });
+  await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 15_000 });
 }
 
 function isOnOnboarding(page: Page): boolean {
@@ -48,7 +48,7 @@ function isOnOnboarding(page: Page): boolean {
 async function ensureOnOnboardingOrSkip(page: Page): Promise<void> {
   if (!isOnOnboarding(page)) {
     await page.goto('/onboarding');
-    await page.waitForURL(/\/(onboarding|dashboard|complexes)/, { timeout: 10_000 });
+    await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 10_000 });
   }
 
   if (!isOnOnboarding(page)) {
@@ -61,7 +61,7 @@ test.describe('Onboarding Flow', () => {
     await registerAndLogin(page);
 
     const url = page.url();
-    expect(url.includes('/complexes') || url.includes('/onboarding') || url.includes('/dashboard')).toBe(true);
+    expect(url.includes('/onboarding') || url.includes('/dashboard')).toBe(true);
   });
 
   test('step 1 form is accessible on onboarding', async ({ page }) => {

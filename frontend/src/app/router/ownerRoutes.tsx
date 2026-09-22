@@ -16,10 +16,6 @@ export const ownerStandaloneRoutes: RouteObject[] = [
     ),
     children: [
       {
-        path: '/complexes',
-        element: lazyPage(() => import('@/features/complex/pages/ComplexSelectorPage'), <PageLoader />),
-      },
-      {
         path: '/onboarding',
         element: lazyPage(() => import('@/features/onboarding/pages/OnboardingPage'), <PageLoader />),
       },

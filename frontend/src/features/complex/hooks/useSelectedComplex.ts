@@ -1,5 +1,4 @@
 import { useComplexes } from './useComplexes';
-import { useStore } from '@/shared/stores';
 import type { Complex } from '@/shared/types/api.types';
 
 interface SelectedComplexState {
@@ -11,25 +10,16 @@ interface SelectedComplexState {
 }
 
 /**
- * The effective complex id: whatever is stored, if it still names a complex
- * the owner actually has, otherwise the first one. Derived every render
- * instead of written back into the store by an effect — the effect used to
- * leave one render where `complexes` had arrived but the store's id hadn't
- * been corrected yet, which `isLoading` had to paper over as "still loading"
- * even though the query itself was done. A stale or absent id resolving to
- * the first complex in the same render removes that gap outright.
+ * An account owns at most one complex (`GET /complexes` returns 0 or 1
+ * items), so there is nothing to select between — this derives the single
+ * complex, if any, straight from the query. `selectedComplexId` keeps its
+ * name so the many consumers destructuring it don't need to change.
  */
-function effectiveComplexId(complexes: Complex[] | undefined, storedId: string | null): string | null {
-  if (complexes?.some((c) => c.id === storedId)) return storedId;
-  return complexes?.[0]?.id ?? null;
-}
-
 export function useSelectedComplex(): SelectedComplexState {
-  const storedId = useStore((s) => s.selectedComplexId);
   const { data: complexes, isLoading } = useComplexes();
 
-  const selectedComplexId = effectiveComplexId(complexes, storedId);
-  const complex = complexes?.find((c) => c.id === selectedComplexId) ?? null;
+  const complex = complexes?.[0] ?? null;
+  const selectedComplexId = complex?.id ?? null;
   const needsOnboarding = !isLoading && (!complexes || complexes.length === 0);
 
   return {

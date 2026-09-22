@@ -30,9 +30,6 @@ async function expectBlockedSlotOnCalendar(page: Page, complexId: string, courtI
   });
 
   try {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     // The selected day lives in the URL (`?date=`, see useDateNav), so the
     // page is opened on the slot's day directly: 21 rapid clicks on "next
     // day" dropped some of their URL updates and landed short of it.

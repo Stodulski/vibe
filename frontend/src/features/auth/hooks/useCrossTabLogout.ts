@@ -22,7 +22,6 @@ import type { SessionData } from './session';
  * Exported for exactly that test.
  */
 export const PROTECTED_PATH_PREFIXES = [
-  '/complexes',
   '/onboarding',
   '/settings',
   '/dashboard',

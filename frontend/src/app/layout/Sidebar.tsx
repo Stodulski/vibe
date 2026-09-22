@@ -1,11 +1,10 @@
 import { useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { usePrefetch } from './usePrefetch';
 import { cn } from '@/shared/lib/utils';
-import { SidebarComplexSelector } from '@/shared/components/layout/sidebar/SidebarComplexSelector';
+import { SidebarComplexHeader } from '@/shared/components/layout/sidebar/SidebarComplexHeader';
 import { SidebarNav } from '@/shared/components/layout/sidebar/SidebarNav';
 import { SidebarUserMenu } from './sidebar/SidebarUserMenu';
 
@@ -21,8 +20,6 @@ interface SidebarProps {
 export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
   const { complex } = useSelectedComplex();
   const { user } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
   const prefetch = usePrefetch(complex?.id ?? null);
   const handlePrefetch = useCallback(
     (to: string) => () => {
@@ -45,17 +42,7 @@ export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
       )}
       aria-label={t.layout.sidebar}
     >
-      {complex && (
-        <SidebarComplexSelector
-          complex={complex}
-          collapsed={collapsed}
-          isMobile={isMobile}
-          onSelect={() => {
-            onNavigate?.();
-            void navigate('/complexes', { state: { from: location.pathname } });
-          }}
-        />
-      )}
+      {complex && <SidebarComplexHeader complex={complex} collapsed={collapsed} isMobile={isMobile} />}
 
       <SidebarNav collapsed={collapsed} isMobile={isMobile} onNavigate={onNavigate} onPrefetch={handlePrefetch} />
 

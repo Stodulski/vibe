@@ -62,10 +62,10 @@ async function loginAndSaveState(
   credentials: Pick<Credentials, 'email' | 'password'>,
   storageStatePath: string,
   // RootRedirect (src/app/router/RootRedirect.tsx) sends a superadmin to
-  // /admin and everyone else to /complexes — waiting on the wrong one hangs
+  // /admin and everyone else to /dashboard — waiting on the wrong one hangs
   // until this call's own timeout regardless of how long the real
   // navigation took.
-  postLoginUrlPattern: string | RegExp = '**/complexes',
+  postLoginUrlPattern: string | RegExp = '**/dashboard',
 ): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('Email').fill(credentials.email);

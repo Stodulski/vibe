@@ -74,15 +74,13 @@ describe('authSlice', () => {
     expect(store.getState()).not.toHaveProperty('setUser');
   });
 
-  it('logout removes the persisted complex selection and MercadoPago OAuth state', () => {
-    localStorage.setItem(STORAGE_KEYS.SELECTED_COMPLEX_ID, 'complex-123');
+  it('logout removes the MercadoPago OAuth state', () => {
     sessionStorage.setItem(STORAGE_KEYS.MP_CODE_VERIFIER, 'verifier');
     sessionStorage.setItem(STORAGE_KEYS.MP_RETURN_PATH, '/dashboard');
     const store = createStore();
 
     store.logout();
 
-    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_COMPLEX_ID)).toBeNull();
     expect(sessionStorage.getItem(STORAGE_KEYS.MP_CODE_VERIFIER)).toBeNull();
     expect(sessionStorage.getItem(STORAGE_KEYS.MP_RETURN_PATH)).toBeNull();
   });
@@ -132,14 +130,14 @@ describe('authSlice, cross-tab logout broadcast (SEC-03)', () => {
   });
 
   it('logoutLocal clears the csrfToken and the same storage keys as logout', () => {
-    localStorage.setItem(STORAGE_KEYS.SELECTED_COMPLEX_ID, 'complex-123');
+    sessionStorage.setItem(STORAGE_KEYS.MP_CODE_VERIFIER, 'verifier');
     const store = createStore();
     store.setCsrfToken('test-csrf-token');
 
     store.logoutLocal();
 
     expect(store.getState().csrfToken).toBeNull();
-    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_COMPLEX_ID)).toBeNull();
+    expect(sessionStorage.getItem(STORAGE_KEYS.MP_CODE_VERIFIER)).toBeNull();
   });
 });
 

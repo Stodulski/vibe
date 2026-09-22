@@ -65,7 +65,7 @@ export const admin = {
     backToUsers: 'Volver a usuarios',
     backToComplexes: 'Volver a complejos',
     userInfo: 'Información del usuario',
-    ownedComplexes: 'Complejos del usuario',
+    ownedComplexes: 'Complejo del usuario',
     complexInfo: 'Información del complejo',
     ownerInfo: 'Propietario',
     viewPublicPage: 'Ver página pública',

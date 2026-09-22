@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useStore } from '@/shared/stores';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
 import { complexApi } from '../../api/complex.api';
@@ -29,14 +28,12 @@ function readOAuthParams(searchParams: URLSearchParams): OAuthParams {
 
 function useConnectMutation({
   queryClient,
-  setSelectedComplexId,
   setStatus,
   redirectTimeoutRef,
   navigate,
   returnPath,
 }: {
   queryClient: ReturnType<typeof useQueryClient>;
-  setSelectedComplexId: (id: string) => void;
   setStatus: (status: 'processing' | 'success' | 'error') => void;
   redirectTimeoutRef: React.RefObject<ReturnType<typeof setTimeout> | null>;
   navigate: ReturnType<typeof useNavigate>;
@@ -54,7 +51,6 @@ function useConnectMutation({
         queryKey: queryKeys.complexes.mpStatus(variables.complexId),
       });
       void queryClient.invalidateQueries({ queryKey: queryKeys.complexes.all });
-      setSelectedComplexId(variables.complexId);
       setStatus('success');
       safeSessionStorage.remove(STORAGE_KEYS.MP_RETURN_PATH);
       redirectTimeoutRef.current = setTimeout(() => {
@@ -75,7 +71,6 @@ export function useMPCallback() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const setSelectedComplexId = useStore((s) => s.setSelectedComplexId);
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -97,7 +92,6 @@ export function useMPCallback() {
 
   const connectMutation = useConnectMutation({
     queryClient,
-    setSelectedComplexId,
     setStatus,
     redirectTimeoutRef,
     navigate,

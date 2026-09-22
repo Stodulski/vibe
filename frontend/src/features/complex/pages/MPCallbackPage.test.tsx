@@ -3,10 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { createWrapper } from '@/test/test-utils';
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
-vi.mock('@/shared/stores', () => ({
-  useStore: (selector: (s: { setSelectedComplexId: () => void }) => unknown) =>
-    selector({ setSelectedComplexId: vi.fn() }),
-}));
 vi.mock('@/shared/components/layout/AppHeader', () => ({
   AppHeader: () => <header data-testid="app-header">Header</header>,
 }));

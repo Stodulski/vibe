@@ -21,17 +21,11 @@ async function openCourtAction(page: import('@playwright/test').Page, name: RegE
 }
 
 test.describe('Court Management — Display & Edit', () => {
-  let complexId: string;
-
   test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexId = setup.complexId;
+    await getSharedSetup();
   });
 
   test('can edit a court name', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/courts');
 
     // Wait for page to load and verify courts exist
@@ -58,9 +52,6 @@ test.describe('Court Management — Display & Edit', () => {
   });
 
   test('court cards show sport and type info', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/courts');
 
     // Wait for page to load and courts to appear
@@ -85,9 +76,6 @@ test.describe('Court Management — Display & Edit', () => {
   });
 
   test('a court can be deleted from its actions', async ({ authenticatedPage: page }) => {
-    await page.evaluate((id) => {
-      localStorage.setItem('selectedComplexId', id);
-    }, complexId);
     await page.goto('/courts');
 
     await expect(page.getByRole('button', { name: 'Agregar cancha' })).toBeVisible({
