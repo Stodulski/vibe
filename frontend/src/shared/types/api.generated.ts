@@ -674,6 +674,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/cash-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List this complex's cash session history
+         * @description Newest (most recently opened) first. Paginated.
+         */
+        get: operations["cashSessionsList"];
+        put?: never;
+        /**
+         * Open a cash session
+         * @description Refused with 409 if this complex already has one open.
+         */
+        post: operations["cashSessionsOpen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/cash-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the currently open cash session
+         * @description 404 when no session is open. Deliberately its own singular path — not nested under /cash-sessions/ as .../current — because a literal path segment sitting next to /cash-sessions/{sessionID}'s wildcard is an unresolvable route conflict for this API's router (net/http's ServeMux refuses to decide between a specific literal path that matches every method and a method-qualified pattern on a wildcard sibling).
+         */
+        get: operations["cashSessionsCurrent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/cash-sessions/{sessionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one cash session, open or closed
+         * @description Includes its reconciliation summary and its full movement ledger.
+         */
+        get: operations["cashSessionsGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/cash-sessions/{sessionID}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a cash session
+         * @description counted_cash is what the owner physically counted in the drawer. expected_cash is computed and snapshotted at close time; difference is counted minus expected. A closed session is immutable and can never be reopened.
+         */
+        post: operations["cashSessionsClose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a cash movement (income or expense)
+         * @description sessionID must be the currently open session.
+         */
+        post: operations["cashMovementsCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void an earlier movement
+         * @description Creates a new movement with the opposite kind and the same amount/method/category as the one sessionID/movementID names, always in the CURRENTLY open session — which may not be sessionID, when correcting a movement from an earlier, already-closed shift. Refused with 409 if the original is already voided or is itself a void.
+         */
+        post: operations["cashMovementsVoid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/complexes/{id}/clients": {
         parameters: {
             query?: never;
@@ -1655,6 +1779,121 @@ export interface components {
             /** @description This band's own counter. The PUT that saves a court's price table is guarded by the COURT's version instead: these rows are replaced wholesale, so a band's counter does not survive the save. */
             version?: number;
         };
+        CashSession: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            /** Format: date-time */
+            opened_at: string;
+            /** Format: uuid */
+            opened_by: string;
+            /**
+             * Format: int64
+             * @description Centavos ARS. A session-level sum, not one entry — BIGINT (db/migrations/003_cashbox.sql).
+             */
+            opening_cash: number;
+            /** Format: date-time */
+            closed_at?: string | null;
+            /** Format: uuid */
+            closed_by?: string | null;
+            /**
+             * Format: int64
+             * @description Centavos ARS, physically counted. Null until closed.
+             */
+            counted_cash?: number | null;
+            /**
+             * Format: int64
+             * @description Centavos ARS, the close-time snapshot. Null until closed.
+             */
+            expected_cash?: number | null;
+            /**
+             * Format: int64
+             * @description counted_cash minus expected_cash. Null until closed.
+             */
+            difference?: number | null;
+            /** @description Written once, by open. Never changed by close. */
+            opening_note?: string | null;
+            /** @description Written once, by close. Never overwrites opening_note. */
+            closing_note?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CashMovement: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** @enum {string} */
+            kind: "income" | "expense";
+            /** @enum {string} */
+            category: "other_income" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense";
+            /** @enum {string} */
+            method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+            /** @description Centavos ARS. */
+            amount: number;
+            note?: string | null;
+            /**
+             * Format: uuid
+             * @description The movement this one corrects, when this row is a void.
+             */
+            voids_movement_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+        };
+        /** @description One (method, kind, category) bucket's total within a session. */
+        CashMovementTotal: {
+            /** @enum {string} */
+            method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+            /** @enum {string} */
+            kind: "income" | "expense";
+            category: string;
+            /** @description Centavos ARS. */
+            total: number;
+            count: number;
+        };
+        /** @description One payment method's booking-payment total within the session's window. Informational for every method except cash, which also feeds expected_cash. */
+        CashBookingPaymentTotal: {
+            /** @enum {string} */
+            method: "mercadopago" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+            count: number;
+            /** @description Centavos ARS. */
+            amount: number;
+            /** @description Centavos ARS. */
+            service_fee: number;
+            /** @description Centavos ARS. */
+            refunded: number;
+        };
+        CashSessionSummary: {
+            /**
+             * Format: int64
+             * @description Centavos ARS.
+             */
+            opening_cash: number;
+            /**
+             * Format: int64
+             * @description Live projection through now() for an open session; the exact close-time snapshot for a closed one.
+             */
+            expected_cash: number;
+            /**
+             * Format: int64
+             * @description Centavos ARS. Present only when closed.
+             */
+            counted_cash?: number | null;
+            /**
+             * Format: int64
+             * @description Centavos ARS. Present only when closed.
+             */
+            difference?: number | null;
+            movement_totals: components["schemas"]["CashMovementTotal"][];
+            booking_payments: components["schemas"]["CashBookingPaymentTotal"][];
+        };
         BlockedSlot: {
             /** Format: uuid */
             id: string;
@@ -2222,6 +2461,10 @@ export interface components {
         PathSlug: string;
         BookingID: string;
         CourtID: string;
+        /** @description Cash session id. */
+        SessionID: string;
+        /** @description Cash movement id. */
+        MovementID: string;
         ClientID: string;
         ExportID: string;
         /** @description The opaque booking-link token, never the booking's primary key. */
@@ -3905,6 +4148,336 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    cashSessionsList: {
+        parameters: {
+            query?: {
+                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. Default 50, maximum 200. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of this complex's cash sessions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cash_sessions: components["schemas"]["CashSession"][];
+                        metadata: components["schemas"]["Metadata"];
+                    };
+                };
+            };
+            /** @description Invalid cursor value. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    cashSessionsOpen: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Centavos ARS. Nullable only so a request that omits it decodes to a Go nil rather than a valid-looking 0 — 0 is itself a legitimate opening float — and the handler can tell "not sent" from "sent as zero" and refuse the former. The request validator that would otherwise catch a missing required field never runs in production (internal/middleware/openapi.go), so the handler is the only place this is actually enforced (pos-cashbox T2 review). */
+                    opening_cash: number | null;
+                    /** @description Stored as the session's opening_note. */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The opened session. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cash_session: components["schemas"]["CashSession"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description This complex already has an open cash session. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    cashSessionsCurrent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The open session and its live reconciliation summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cash_session: components["schemas"]["CashSession"];
+                        summary: components["schemas"]["CashSessionSummary"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    cashSessionsGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                /** @description Cash session id. */
+                sessionID: components["parameters"]["SessionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session, its summary and its movements. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cash_session: components["schemas"]["CashSession"];
+                        summary: components["schemas"]["CashSessionSummary"];
+                        movements: components["schemas"]["CashMovement"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    cashSessionsClose: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                /** @description Cash session id. */
+                sessionID: components["parameters"]["SessionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Centavos ARS, physically counted. Nullable for the same reason CashSessionsOpen's opening_cash is: 0 is a legitimate count (an empty drawer), so a missing field has to decode to nil, not a valid-looking 0, for the handler to tell the two apart and refuse the former. */
+                    counted_cash: number | null;
+                    /** @description Stored as the session's closing_note. Never touches opening_note. */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The closed session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cash_session: components["schemas"]["CashSession"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description This session is not open (already closed, or closed by a concurrent request). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    cashMovementsCreate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                /** @description Cash session id. */
+                sessionID: components["parameters"]["SessionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "income" | "expense";
+                    /**
+                     * @description other_income for income; one of the rest for expense.
+                     * @enum {string}
+                     */
+                    category: "other_income" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense";
+                    /** @enum {string} */
+                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+                    /** @description Centavos ARS. */
+                    amount: number;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The recorded movement. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cash_movement: components["schemas"]["CashMovement"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description This session is not open. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    cashMovementsVoid: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                /** @description Cash session id. */
+                sessionID: components["parameters"]["SessionID"];
+                /** @description Cash movement id. */
+                movementID: components["parameters"]["MovementID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The void movement. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cash_movement: components["schemas"]["CashMovement"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description No session is open, the original is already voided, or the original is itself a void. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
         };
