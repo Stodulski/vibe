@@ -53,6 +53,8 @@ tags:
     description: Registration, session cookies, email verification, password reset and account self-service.
   - name: bookings
     description: Reservation lifecycle, both the owner-facing and the public no-account booking flow.
+  - name: cashbox
+    description: The counter's cash shifts (open/close/reconcile) and append-only cash movements.
   - name: clients
     description: The client roster a complex accumulates from its bookings.
   - name: complexes
@@ -1614,6 +1616,287 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
+
+  # ---------------------------------------------------------------------
+  # cashbox
+  # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/cash-sessions:
+    get:
+      tags: [cashbox]
+      operationId: cashSessionsList
+      summary: List this complex's cash session history
+      description: Newest (most recently opened) first. Paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of this complex's cash sessions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cash_sessions, metadata]
+                properties:
+                  cash_sessions:
+                    type: array
+                    items: {$ref: "#/components/schemas/CashSession"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Invalid cursor value.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [cashbox]
+      operationId: cashSessionsOpen
+      summary: Open a cash session
+      description: Refused with 409 if this complex already has one open.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The opened session.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cash_session]
+                properties:
+                  cash_session: {$ref: "#/components/schemas/CashSession"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409":
+          description: This complex already has an open cash session.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [opening_cash]
+              properties:
+                opening_cash: {type: integer, minimum: 0, description: "Centavos ARS."}
+                note: {type: string, maxLength: 500, description: Stored as the session's opening_note.}
+
+  /api/v1/complexes/{id}/cash-session:
+    get:
+      tags: [cashbox]
+      operationId: cashSessionsCurrent
+      summary: Get the currently open cash session
+      description: >-
+        404 when no session is open. Deliberately its own singular path — not nested under
+        /cash-sessions/ as .../current — because a literal path segment sitting next to
+        /cash-sessions/{sessionID}'s wildcard is an unresolvable route conflict for this API's
+        router (net/http's ServeMux refuses to decide between a specific literal path that
+        matches every method and a method-qualified pattern on a wildcard sibling).
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The open session and its live reconciliation summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cash_session, summary]
+                properties:
+                  cash_session: {$ref: "#/components/schemas/CashSession"}
+                  summary: {$ref: "#/components/schemas/CashSessionSummary"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/cash-sessions/{sessionID}:
+    get:
+      tags: [cashbox]
+      operationId: cashSessionsGet
+      summary: Get one cash session, open or closed
+      description: Includes its reconciliation summary and its full movement ledger.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SessionID"}
+      responses:
+        "200":
+          description: The session, its summary and its movements.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cash_session, summary, movements]
+                properties:
+                  cash_session: {$ref: "#/components/schemas/CashSession"}
+                  summary: {$ref: "#/components/schemas/CashSessionSummary"}
+                  movements:
+                    type: array
+                    items: {$ref: "#/components/schemas/CashMovement"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/cash-sessions/{sessionID}/close:
+    post:
+      tags: [cashbox]
+      operationId: cashSessionsClose
+      summary: Close a cash session
+      description: >-
+        counted_cash is what the owner physically counted in the drawer. expected_cash is
+        computed and snapshotted at close time; difference is counted minus expected. A closed
+        session is immutable and can never be reopened.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SessionID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "200":
+          description: The closed session.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cash_session]
+                properties:
+                  cash_session: {$ref: "#/components/schemas/CashSession"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: This session is not open (already closed, or closed by a concurrent request).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [counted_cash]
+              properties:
+                counted_cash: {type: integer, minimum: 0, description: "Centavos ARS, physically counted."}
+                note:
+                  type: string
+                  maxLength: 500
+                  description: Stored as the session's closing_note. Never touches opening_note.
+
+  /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements:
+    post:
+      tags: [cashbox]
+      operationId: cashMovementsCreate
+      summary: Record a cash movement (income or expense)
+      description: sessionID must be the currently open session.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SessionID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The recorded movement.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cash_movement]
+                properties:
+                  cash_movement: {$ref: "#/components/schemas/CashMovement"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: This session is not open.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, category, method, amount]
+              properties:
+                kind: {type: string, enum: [income, expense]}
+                category:
+                  type: string
+                  enum: [other_income, supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense]
+                  description: "other_income for income; one of the rest for expense."
+                method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
+                amount: {type: integer, minimum: 1, description: "Centavos ARS."}
+                note: {type: string, maxLength: 500}
+
+  /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void:
+    post:
+      tags: [cashbox]
+      operationId: cashMovementsVoid
+      summary: Void an earlier movement
+      description: >-
+        Creates a new movement with the opposite kind and the same amount/method/category as the
+        one sessionID/movementID names, always in the CURRENTLY open session — which may not be
+        sessionID, when correcting a movement from an earlier, already-closed shift. Refused with
+        409 if the original is already voided or is itself a void.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SessionID"}
+        - {$ref: "#/components/parameters/MovementID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The void movement.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cash_movement]
+                properties:
+                  cash_movement: {$ref: "#/components/schemas/CashMovement"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: No session is open, the original is already voided, or the original is itself a void.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: {type: string, maxLength: 500}
 
   # ---------------------------------------------------------------------
   # clients
@@ -3380,6 +3663,18 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    SessionID:
+      name: sessionID
+      in: path
+      required: true
+      description: Cash session id.
+      schema: {type: string, format: uuid}
+    MovementID:
+      name: movementID
+      in: path
+      required: true
+      description: Cash movement id.
+      schema: {type: string, format: uuid}
     ClientID:
       name: clientID
       in: path
@@ -3744,6 +4039,97 @@ components:
             This band's own counter. The PUT that saves a court's price table is guarded by the
             COURT's version instead: these rows are replaced wholesale, so a band's counter does
             not survive the save.
+
+    CashSession:
+      type: object
+      required: [id, complex_id, opened_at, opened_by, opening_cash, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        opened_at: {type: string, format: date-time}
+        opened_by: {type: string, format: uuid}
+        opening_cash: {type: integer, description: "Centavos ARS."}
+        closed_at: {type: [string, "null"], format: date-time}
+        closed_by: {type: [string, "null"], format: uuid}
+        counted_cash: {type: [integer, "null"], description: "Centavos ARS, physically counted. Null until closed."}
+        expected_cash:
+          type: [integer, "null"]
+          description: "Centavos ARS, the close-time snapshot. Null until closed."
+        difference:
+          type: [integer, "null"]
+          description: "counted_cash minus expected_cash. Null until closed."
+        opening_note:
+          type: [string, "null"]
+          description: Written once, by open. Never changed by close.
+        closing_note:
+          type: [string, "null"]
+          description: Written once, by close. Never overwrites opening_note.
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+
+    CashMovement:
+      type: object
+      required: [id, complex_id, session_id, kind, category, method, amount, created_at, created_by]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        session_id: {type: string, format: uuid}
+        kind: {type: string, enum: [income, expense]}
+        category:
+          type: string
+          enum: [other_income, supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense]
+        method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
+        amount: {type: integer, description: "Centavos ARS."}
+        note: {type: [string, "null"]}
+        voids_movement_id:
+          type: [string, "null"]
+          format: uuid
+          description: The movement this one corrects, when this row is a void.
+        created_at: {type: string, format: date-time}
+        created_by: {type: string, format: uuid}
+
+    CashMovementTotal:
+      type: object
+      description: One (method, kind, category) bucket's total within a session.
+      required: [method, kind, category, total, count]
+      properties:
+        method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
+        kind: {type: string, enum: [income, expense]}
+        category: {type: string}
+        total: {type: integer, description: "Centavos ARS."}
+        count: {type: integer}
+
+    CashBookingPaymentTotal:
+      type: object
+      description: >-
+        One payment method's booking-payment total within the session's window. Informational
+        for every method except cash, which also feeds expected_cash.
+      required: [method, count, amount, service_fee, refunded]
+      properties:
+        method: {type: string, enum: [mercadopago, cash, transfer, debit_card, credit_card, qr_wallet]}
+        count: {type: integer}
+        amount: {type: integer, description: "Centavos ARS."}
+        service_fee: {type: integer, description: "Centavos ARS."}
+        refunded: {type: integer, description: "Centavos ARS."}
+
+    CashSessionSummary:
+      type: object
+      required: [opening_cash, expected_cash, movement_totals, booking_payments]
+      properties:
+        opening_cash: {type: integer, description: "Centavos ARS."}
+        expected_cash:
+          type: integer
+          description: >-
+            Live projection through now() for an open session; the exact close-time snapshot for
+            a closed one.
+        counted_cash: {type: [integer, "null"], description: "Centavos ARS. Present only when closed."}
+        difference: {type: [integer, "null"], description: "Centavos ARS. Present only when closed."}
+        movement_totals:
+          type: array
+          items: {$ref: "#/components/schemas/CashMovementTotal"}
+        booking_payments:
+          type: array
+          items: {$ref: "#/components/schemas/CashBookingPaymentTotal"}
 
     BlockedSlot:
       type: object

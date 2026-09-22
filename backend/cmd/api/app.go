@@ -10,6 +10,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/bookings"
+	"github.com/stodulski/vibe-server/internal/cashbox"
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/clients"
 	"github.com/stodulski/vibe-server/internal/complexes"
@@ -446,6 +447,14 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor)
 	courtsHandler := courts.NewHandler(courtsService, respond, d.trustedProxies.Any())
 
+	// cashbox reads booking payments through d.models.Reports (the same
+	// aggregate store the monthly report uses), not through payments or
+	// bookings directly: reportstore.Store.PaymentSummaryByMethodWindow is
+	// what already owns "what counts as collected money", and cashbox's cash
+	// reconciliation must never disagree with the monthly report about that.
+	cashboxService := cashbox.NewService(d.models.Cashbox, d.models.Reports, auditor)
+	cashboxHandler := cashbox.NewHandler(cashboxService, respond, d.trustedProxies.Any())
+
 	// The one edge that cannot be a constructor argument, closed the moment the
 	// other side exists: before any handler is built, before the router is
 	// built, and therefore before a request can reach the public venue page
@@ -626,6 +635,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.openapi = openapiHandler
 	app.specValidator = specValidator
 	app.courts = courtsHandler
+	app.cashbox = cashboxHandler
 	app.tokens = tokens
 	app.middleware = mw
 	app.notify = notify

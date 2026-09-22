@@ -118,6 +118,162 @@ func (e BookingStatus) Valid() bool {
 	}
 }
 
+// Defines values for CashBookingPaymentTotalMethod.
+const (
+	CashBookingPaymentTotalMethodCash        CashBookingPaymentTotalMethod = "cash"
+	CashBookingPaymentTotalMethodCreditCard  CashBookingPaymentTotalMethod = "credit_card"
+	CashBookingPaymentTotalMethodDebitCard   CashBookingPaymentTotalMethod = "debit_card"
+	CashBookingPaymentTotalMethodMercadopago CashBookingPaymentTotalMethod = "mercadopago"
+	CashBookingPaymentTotalMethodQrWallet    CashBookingPaymentTotalMethod = "qr_wallet"
+	CashBookingPaymentTotalMethodTransfer    CashBookingPaymentTotalMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the CashBookingPaymentTotalMethod enum.
+func (e CashBookingPaymentTotalMethod) Valid() bool {
+	switch e {
+	case CashBookingPaymentTotalMethodCash:
+		return true
+	case CashBookingPaymentTotalMethodCreditCard:
+		return true
+	case CashBookingPaymentTotalMethodDebitCard:
+		return true
+	case CashBookingPaymentTotalMethodMercadopago:
+		return true
+	case CashBookingPaymentTotalMethodQrWallet:
+		return true
+	case CashBookingPaymentTotalMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CashMovementCategory.
+const (
+	CashMovementCategoryCleaning     CashMovementCategory = "cleaning"
+	CashMovementCategoryMaintenance  CashMovementCategory = "maintenance"
+	CashMovementCategoryOtherExpense CashMovementCategory = "other_expense"
+	CashMovementCategoryOtherIncome  CashMovementCategory = "other_income"
+	CashMovementCategorySalaries     CashMovementCategory = "salaries"
+	CashMovementCategoryServices     CashMovementCategory = "services"
+	CashMovementCategorySupplies     CashMovementCategory = "supplies"
+	CashMovementCategoryWithdrawal   CashMovementCategory = "withdrawal"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementCategory enum.
+func (e CashMovementCategory) Valid() bool {
+	switch e {
+	case CashMovementCategoryCleaning:
+		return true
+	case CashMovementCategoryMaintenance:
+		return true
+	case CashMovementCategoryOtherExpense:
+		return true
+	case CashMovementCategoryOtherIncome:
+		return true
+	case CashMovementCategorySalaries:
+		return true
+	case CashMovementCategoryServices:
+		return true
+	case CashMovementCategorySupplies:
+		return true
+	case CashMovementCategoryWithdrawal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CashMovementKind.
+const (
+	CashMovementKindExpense CashMovementKind = "expense"
+	CashMovementKindIncome  CashMovementKind = "income"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementKind enum.
+func (e CashMovementKind) Valid() bool {
+	switch e {
+	case CashMovementKindExpense:
+		return true
+	case CashMovementKindIncome:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CashMovementMethod.
+const (
+	CashMovementMethodCash       CashMovementMethod = "cash"
+	CashMovementMethodCreditCard CashMovementMethod = "credit_card"
+	CashMovementMethodDebitCard  CashMovementMethod = "debit_card"
+	CashMovementMethodQrWallet   CashMovementMethod = "qr_wallet"
+	CashMovementMethodTransfer   CashMovementMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementMethod enum.
+func (e CashMovementMethod) Valid() bool {
+	switch e {
+	case CashMovementMethodCash:
+		return true
+	case CashMovementMethodCreditCard:
+		return true
+	case CashMovementMethodDebitCard:
+		return true
+	case CashMovementMethodQrWallet:
+		return true
+	case CashMovementMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CashMovementTotalKind.
+const (
+	CashMovementTotalKindExpense CashMovementTotalKind = "expense"
+	CashMovementTotalKindIncome  CashMovementTotalKind = "income"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementTotalKind enum.
+func (e CashMovementTotalKind) Valid() bool {
+	switch e {
+	case CashMovementTotalKindExpense:
+		return true
+	case CashMovementTotalKindIncome:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CashMovementTotalMethod.
+const (
+	CashMovementTotalMethodCash       CashMovementTotalMethod = "cash"
+	CashMovementTotalMethodCreditCard CashMovementTotalMethod = "credit_card"
+	CashMovementTotalMethodDebitCard  CashMovementTotalMethod = "debit_card"
+	CashMovementTotalMethodQrWallet   CashMovementTotalMethod = "qr_wallet"
+	CashMovementTotalMethodTransfer   CashMovementTotalMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementTotalMethod enum.
+func (e CashMovementTotalMethod) Valid() bool {
+	switch e {
+	case CashMovementTotalMethodCash:
+		return true
+	case CashMovementTotalMethodCreditCard:
+		return true
+	case CashMovementTotalMethodDebitCard:
+		return true
+	case CashMovementTotalMethodQrWallet:
+		return true
+	case CashMovementTotalMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CollectionStatus.
 const (
 	CollectionStatusDepositPaid CollectionStatus = "deposit_paid"
@@ -931,6 +1087,87 @@ func (e BookingsConfirmPaymentJSONBodyMethod) Valid() bool {
 	}
 }
 
+// Defines values for CashMovementsCreateJSONBodyCategory.
+const (
+	CashMovementsCreateJSONBodyCategoryCleaning     CashMovementsCreateJSONBodyCategory = "cleaning"
+	CashMovementsCreateJSONBodyCategoryMaintenance  CashMovementsCreateJSONBodyCategory = "maintenance"
+	CashMovementsCreateJSONBodyCategoryOtherExpense CashMovementsCreateJSONBodyCategory = "other_expense"
+	CashMovementsCreateJSONBodyCategoryOtherIncome  CashMovementsCreateJSONBodyCategory = "other_income"
+	CashMovementsCreateJSONBodyCategorySalaries     CashMovementsCreateJSONBodyCategory = "salaries"
+	CashMovementsCreateJSONBodyCategoryServices     CashMovementsCreateJSONBodyCategory = "services"
+	CashMovementsCreateJSONBodyCategorySupplies     CashMovementsCreateJSONBodyCategory = "supplies"
+	CashMovementsCreateJSONBodyCategoryWithdrawal   CashMovementsCreateJSONBodyCategory = "withdrawal"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementsCreateJSONBodyCategory enum.
+func (e CashMovementsCreateJSONBodyCategory) Valid() bool {
+	switch e {
+	case CashMovementsCreateJSONBodyCategoryCleaning:
+		return true
+	case CashMovementsCreateJSONBodyCategoryMaintenance:
+		return true
+	case CashMovementsCreateJSONBodyCategoryOtherExpense:
+		return true
+	case CashMovementsCreateJSONBodyCategoryOtherIncome:
+		return true
+	case CashMovementsCreateJSONBodyCategorySalaries:
+		return true
+	case CashMovementsCreateJSONBodyCategoryServices:
+		return true
+	case CashMovementsCreateJSONBodyCategorySupplies:
+		return true
+	case CashMovementsCreateJSONBodyCategoryWithdrawal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CashMovementsCreateJSONBodyKind.
+const (
+	CashMovementsCreateJSONBodyKindExpense CashMovementsCreateJSONBodyKind = "expense"
+	CashMovementsCreateJSONBodyKindIncome  CashMovementsCreateJSONBodyKind = "income"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementsCreateJSONBodyKind enum.
+func (e CashMovementsCreateJSONBodyKind) Valid() bool {
+	switch e {
+	case CashMovementsCreateJSONBodyKindExpense:
+		return true
+	case CashMovementsCreateJSONBodyKindIncome:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CashMovementsCreateJSONBodyMethod.
+const (
+	CashMovementsCreateJSONBodyMethodCash       CashMovementsCreateJSONBodyMethod = "cash"
+	CashMovementsCreateJSONBodyMethodCreditCard CashMovementsCreateJSONBodyMethod = "credit_card"
+	CashMovementsCreateJSONBodyMethodDebitCard  CashMovementsCreateJSONBodyMethod = "debit_card"
+	CashMovementsCreateJSONBodyMethodQrWallet   CashMovementsCreateJSONBodyMethod = "qr_wallet"
+	CashMovementsCreateJSONBodyMethodTransfer   CashMovementsCreateJSONBodyMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the CashMovementsCreateJSONBodyMethod enum.
+func (e CashMovementsCreateJSONBodyMethod) Valid() bool {
+	switch e {
+	case CashMovementsCreateJSONBodyMethodCash:
+		return true
+	case CashMovementsCreateJSONBodyMethodCreditCard:
+		return true
+	case CashMovementsCreateJSONBodyMethodDebitCard:
+		return true
+	case CashMovementsCreateJSONBodyMethodQrWallet:
+		return true
+	case CashMovementsCreateJSONBodyMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CourtsCreateJSONBodyCourtType.
 const (
 	CourtsCreateJSONBodyCourtTypeIndoor      CourtsCreateJSONBodyCourtType = "indoor"
@@ -1293,6 +1530,115 @@ type Booking struct {
 
 // BookingStatus defines model for BookingStatus.
 type BookingStatus string
+
+// CashBookingPaymentTotal One payment method's booking-payment total within the session's window. Informational for every method except cash, which also feeds expected_cash.
+type CashBookingPaymentTotal struct {
+	// Amount Centavos ARS.
+	Amount int                           `json:"amount"`
+	Count  int                           `json:"count"`
+	Method CashBookingPaymentTotalMethod `json:"method"`
+
+	// Refunded Centavos ARS.
+	Refunded int `json:"refunded"`
+
+	// ServiceFee Centavos ARS.
+	ServiceFee int `json:"service_fee"`
+}
+
+// CashBookingPaymentTotalMethod defines model for CashBookingPaymentTotal.Method.
+type CashBookingPaymentTotalMethod string
+
+// CashMovement defines model for CashMovement.
+type CashMovement struct {
+	// Amount Centavos ARS.
+	Amount    int                  `json:"amount"`
+	Category  CashMovementCategory `json:"category"`
+	ComplexId openapi_types.UUID   `json:"complex_id"`
+	CreatedAt time.Time            `json:"created_at"`
+	CreatedBy openapi_types.UUID   `json:"created_by"`
+	Id        openapi_types.UUID   `json:"id"`
+	Kind      CashMovementKind     `json:"kind"`
+	Method    CashMovementMethod   `json:"method"`
+	Note      *string              `json:"note,omitempty"`
+	SessionId openapi_types.UUID   `json:"session_id"`
+
+	// VoidsMovementId The movement this one corrects, when this row is a void.
+	VoidsMovementId *openapi_types.UUID `json:"voids_movement_id,omitempty"`
+}
+
+// CashMovementCategory defines model for CashMovement.Category.
+type CashMovementCategory string
+
+// CashMovementKind defines model for CashMovement.Kind.
+type CashMovementKind string
+
+// CashMovementMethod defines model for CashMovement.Method.
+type CashMovementMethod string
+
+// CashMovementTotal One (method, kind, category) bucket's total within a session.
+type CashMovementTotal struct {
+	Category string                  `json:"category"`
+	Count    int                     `json:"count"`
+	Kind     CashMovementTotalKind   `json:"kind"`
+	Method   CashMovementTotalMethod `json:"method"`
+
+	// Total Centavos ARS.
+	Total int `json:"total"`
+}
+
+// CashMovementTotalKind defines model for CashMovementTotal.Kind.
+type CashMovementTotalKind string
+
+// CashMovementTotalMethod defines model for CashMovementTotal.Method.
+type CashMovementTotalMethod string
+
+// CashSession defines model for CashSession.
+type CashSession struct {
+	ClosedAt *time.Time          `json:"closed_at,omitempty"`
+	ClosedBy *openapi_types.UUID `json:"closed_by,omitempty"`
+
+	// ClosingNote Written once, by close. Never overwrites opening_note.
+	ClosingNote *string            `json:"closing_note,omitempty"`
+	ComplexId   openapi_types.UUID `json:"complex_id"`
+
+	// CountedCash Centavos ARS, physically counted. Null until closed.
+	CountedCash *int      `json:"counted_cash,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+
+	// Difference counted_cash minus expected_cash. Null until closed.
+	Difference *int `json:"difference,omitempty"`
+
+	// ExpectedCash Centavos ARS, the close-time snapshot. Null until closed.
+	ExpectedCash *int               `json:"expected_cash,omitempty"`
+	Id           openapi_types.UUID `json:"id"`
+	OpenedAt     time.Time          `json:"opened_at"`
+	OpenedBy     openapi_types.UUID `json:"opened_by"`
+
+	// OpeningCash Centavos ARS.
+	OpeningCash int `json:"opening_cash"`
+
+	// OpeningNote Written once, by open. Never changed by close.
+	OpeningNote *string   `json:"opening_note,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// CashSessionSummary defines model for CashSessionSummary.
+type CashSessionSummary struct {
+	BookingPayments []CashBookingPaymentTotal `json:"booking_payments"`
+
+	// CountedCash Centavos ARS. Present only when closed.
+	CountedCash *int `json:"counted_cash,omitempty"`
+
+	// Difference Centavos ARS. Present only when closed.
+	Difference *int `json:"difference,omitempty"`
+
+	// ExpectedCash Live projection through now() for an open session; the exact close-time snapshot for a closed one.
+	ExpectedCash   int                 `json:"expected_cash"`
+	MovementTotals []CashMovementTotal `json:"movement_totals"`
+
+	// OpeningCash Centavos ARS.
+	OpeningCash int `json:"opening_cash"`
+}
 
 // Client defines model for Client.
 type Client struct {
@@ -1941,11 +2287,17 @@ type IfMatchVersion = string
 // Limit defines model for Limit.
 type Limit = int
 
+// MovementID defines model for MovementID.
+type MovementID = openapi_types.UUID
+
 // PathID defines model for PathID.
 type PathID = openapi_types.UUID
 
 // PathSlug defines model for PathSlug.
 type PathSlug = string
+
+// SessionID defines model for SessionID.
+type SessionID = openapi_types.UUID
 
 // EditConflict An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type EditConflict = Problem
@@ -2396,6 +2748,83 @@ type BookingsManualRefundParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// CashSessionsListParams defines parameters for CashSessionsList.
+type CashSessionsListParams struct {
+	// Cursor Opaque pagination cursor from a previous page's `metadata.next_cursor`.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Page size. Default 50, maximum 200.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// CashSessionsOpenJSONBody defines parameters for CashSessionsOpen.
+type CashSessionsOpenJSONBody struct {
+	// Note Stored as the session's opening_note.
+	Note *string `json:"note,omitempty"`
+
+	// OpeningCash Centavos ARS.
+	OpeningCash int `json:"opening_cash"`
+}
+
+// CashSessionsOpenParams defines parameters for CashSessionsOpen.
+type CashSessionsOpenParams struct {
+	// IdempotencyKey A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CashSessionsCloseJSONBody defines parameters for CashSessionsClose.
+type CashSessionsCloseJSONBody struct {
+	// CountedCash Centavos ARS, physically counted.
+	CountedCash int `json:"counted_cash"`
+
+	// Note Stored as the session's closing_note. Never touches opening_note.
+	Note *string `json:"note,omitempty"`
+}
+
+// CashSessionsCloseParams defines parameters for CashSessionsClose.
+type CashSessionsCloseParams struct {
+	// IdempotencyKey A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CashMovementsCreateJSONBody defines parameters for CashMovementsCreate.
+type CashMovementsCreateJSONBody struct {
+	// Amount Centavos ARS.
+	Amount int `json:"amount"`
+
+	// Category other_income for income; one of the rest for expense.
+	Category CashMovementsCreateJSONBodyCategory `json:"category"`
+	Kind     CashMovementsCreateJSONBodyKind     `json:"kind"`
+	Method   CashMovementsCreateJSONBodyMethod   `json:"method"`
+	Note     *string                             `json:"note,omitempty"`
+}
+
+// CashMovementsCreateParams defines parameters for CashMovementsCreate.
+type CashMovementsCreateParams struct {
+	// IdempotencyKey A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CashMovementsCreateJSONBodyCategory defines parameters for CashMovementsCreate.
+type CashMovementsCreateJSONBodyCategory string
+
+// CashMovementsCreateJSONBodyKind defines parameters for CashMovementsCreate.
+type CashMovementsCreateJSONBodyKind string
+
+// CashMovementsCreateJSONBodyMethod defines parameters for CashMovementsCreate.
+type CashMovementsCreateJSONBodyMethod string
+
+// CashMovementsVoidJSONBody defines parameters for CashMovementsVoid.
+type CashMovementsVoidJSONBody struct {
+	Note *string `json:"note,omitempty"`
+}
+
+// CashMovementsVoidParams defines parameters for CashMovementsVoid.
+type CashMovementsVoidParams struct {
+	// IdempotencyKey A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ClientsListParams defines parameters for ClientsList.
 type ClientsListParams struct {
 	// Search Matched against client name and phone.
@@ -2693,6 +3122,18 @@ type BookingsCancelJSONRequestBody BookingsCancelJSONBody
 // BookingsConfirmPaymentJSONRequestBody defines body for BookingsConfirmPayment for application/json ContentType.
 type BookingsConfirmPaymentJSONRequestBody BookingsConfirmPaymentJSONBody
 
+// CashSessionsOpenJSONRequestBody defines body for CashSessionsOpen for application/json ContentType.
+type CashSessionsOpenJSONRequestBody CashSessionsOpenJSONBody
+
+// CashSessionsCloseJSONRequestBody defines body for CashSessionsClose for application/json ContentType.
+type CashSessionsCloseJSONRequestBody CashSessionsCloseJSONBody
+
+// CashMovementsCreateJSONRequestBody defines body for CashMovementsCreate for application/json ContentType.
+type CashMovementsCreateJSONRequestBody CashMovementsCreateJSONBody
+
+// CashMovementsVoidJSONRequestBody defines body for CashMovementsVoid for application/json ContentType.
+type CashMovementsVoidJSONRequestBody CashMovementsVoidJSONBody
+
 // ClientsUpdateJSONRequestBody defines body for ClientsUpdate for application/json ContentType.
 type ClientsUpdateJSONRequestBody ClientsUpdateJSONBody
 
@@ -2931,6 +3372,27 @@ type ServerInterface interface {
 	// BookingsManualRefund Close out the manual half of a split refund
 	// (POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund)
 	BookingsManualRefund(w http.ResponseWriter, r *http.Request, id PathID, bookingID BookingID, params BookingsManualRefundParams)
+	// CashSessionsCurrent Get the currently open cash session
+	// (GET /api/v1/complexes/{id}/cash-session)
+	CashSessionsCurrent(w http.ResponseWriter, r *http.Request, id PathID)
+	// CashSessionsList List this complex's cash session history
+	// (GET /api/v1/complexes/{id}/cash-sessions)
+	CashSessionsList(w http.ResponseWriter, r *http.Request, id PathID, params CashSessionsListParams)
+	// CashSessionsOpen Open a cash session
+	// (POST /api/v1/complexes/{id}/cash-sessions)
+	CashSessionsOpen(w http.ResponseWriter, r *http.Request, id PathID, params CashSessionsOpenParams)
+	// CashSessionsGet Get one cash session, open or closed
+	// (GET /api/v1/complexes/{id}/cash-sessions/{sessionID})
+	CashSessionsGet(w http.ResponseWriter, r *http.Request, id PathID, sessionID SessionID)
+	// CashSessionsClose Close a cash session
+	// (POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/close)
+	CashSessionsClose(w http.ResponseWriter, r *http.Request, id PathID, sessionID SessionID, params CashSessionsCloseParams)
+	// CashMovementsCreate Record a cash movement (income or expense)
+	// (POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements)
+	CashMovementsCreate(w http.ResponseWriter, r *http.Request, id PathID, sessionID SessionID, params CashMovementsCreateParams)
+	// CashMovementsVoid Void an earlier movement
+	// (POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void)
+	CashMovementsVoid(w http.ResponseWriter, r *http.Request, id PathID, sessionID SessionID, movementID MovementID, params CashMovementsVoidParams)
 	// ClientsList List a complex's clients
 	// (GET /api/v1/complexes/{id}/clients)
 	ClientsList(w http.ResponseWriter, r *http.Request, id PathID, params ClientsListParams)
@@ -4392,6 +4854,358 @@ func (siw *ServerInterfaceWrapper) BookingsManualRefund(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.BookingsManualRefund(w, r, id, bookingID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CashSessionsCurrent operation middleware
+func (siw *ServerInterfaceWrapper) CashSessionsCurrent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CashSessionsCurrent(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CashSessionsList operation middleware
+func (siw *ServerInterfaceWrapper) CashSessionsList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CashSessionsListParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CashSessionsList(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CashSessionsOpen operation middleware
+func (siw *ServerInterfaceWrapper) CashSessionsOpen(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CashSessionsOpenParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CashSessionsOpen(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CashSessionsGet operation middleware
+func (siw *ServerInterfaceWrapper) CashSessionsGet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionID" -------------
+	var sessionID SessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionID", r.PathValue("sessionID"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CashSessionsGet(w, r, id, sessionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CashSessionsClose operation middleware
+func (siw *ServerInterfaceWrapper) CashSessionsClose(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionID" -------------
+	var sessionID SessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionID", r.PathValue("sessionID"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CashSessionsCloseParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CashSessionsClose(w, r, id, sessionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CashMovementsCreate operation middleware
+func (siw *ServerInterfaceWrapper) CashMovementsCreate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionID" -------------
+	var sessionID SessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionID", r.PathValue("sessionID"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CashMovementsCreateParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CashMovementsCreate(w, r, id, sessionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CashMovementsVoid operation middleware
+func (siw *ServerInterfaceWrapper) CashMovementsVoid(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionID" -------------
+	var sessionID SessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionID", r.PathValue("sessionID"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "movementID" -------------
+	var movementID MovementID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "movementID", r.PathValue("movementID"), &movementID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "movementID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CashMovementsVoidParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CashMovementsVoid(w, r, id, sessionID, movementID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5910,6 +6724,13 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/cancel", wrapper.BookingsCancel)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment", wrapper.BookingsConfirmPayment)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/manual-refund", wrapper.BookingsManualRefund)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions", wrapper.CashSessionsList)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions", wrapper.CashSessionsOpen)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-session", wrapper.CashSessionsCurrent)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions/{sessionID}", wrapper.CashSessionsGet)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions/{sessionID}/close", wrapper.CashSessionsClose)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements", wrapper.CashMovementsCreate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void", wrapper.CashMovementsVoid)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/clients", wrapper.ClientsList)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/clients/{clientID}", wrapper.ClientsGet)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/clients/{clientID}", wrapper.ClientsUpdate)
