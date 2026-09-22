@@ -12,6 +12,7 @@ import (
 	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	cashboxstore "github.com/stodulski/vibe-server/internal/cashbox/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
@@ -1267,14 +1268,22 @@ func (m *mockSlotLockStore) CleanExpired(ctx context.Context) (int64, error) {
 // nothing reported it — TestRouteAuthorizationMatrix is what surfaced it, by
 // being the first test to call those routes as a caller entitled to them.
 type mockReportStore struct {
-	PaymentSummaryByMethodFn func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
-	PaymentSummaryByCourtFn  func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
-	PaymentDetailsFn         func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
+	PaymentSummaryByMethodFn       func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
+	PaymentSummaryByMethodWindowFn func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
+	PaymentSummaryByCourtFn        func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
+	PaymentDetailsFn               func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
 }
 
 func (m *mockReportStore) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
 	if m.PaymentSummaryByMethodFn != nil {
 		return m.PaymentSummaryByMethodFn(ctx, complexID, from, to)
+	}
+	return nil, nil
+}
+
+func (m *mockReportStore) PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
+	if m.PaymentSummaryByMethodWindowFn != nil {
+		return m.PaymentSummaryByMethodWindowFn(ctx, complexID, from, to)
 	}
 	return nil, nil
 }
@@ -1289,6 +1298,90 @@ func (m *mockReportStore) PaymentSummaryByCourt(ctx context.Context, complexID u
 func (m *mockReportStore) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error) {
 	if m.PaymentDetailsFn != nil {
 		return m.PaymentDetailsFn(ctx, complexID, from, to)
+	}
+	return nil, nil
+}
+
+// ---------------------------------------------------------------------------
+// mockCashboxStore
+// ---------------------------------------------------------------------------
+
+// mockCashboxStore stands in for stores.CashboxStore (a cash session store
+// and a cash movement store in one, the same shape internal/cashbox/store's
+// real one is).
+type mockCashboxStore struct {
+	OpenSessionFn         func(ctx context.Context, s *cashboxstore.CashSession) error
+	GetOpenByComplexFn    func(ctx context.Context, complexID uuid.UUID) (*cashboxstore.CashSession, error)
+	GetByIDFn             func(ctx context.Context, complexID, sessionID uuid.UUID) (*cashboxstore.CashSession, error)
+	ListByComplexFn       func(ctx context.Context, complexID uuid.UUID, filters data.Filters) ([]*cashboxstore.CashSession, data.Metadata, error)
+	CloseFn               func(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int, note *string) (*cashboxstore.CashSession, error)
+	InsertMovementFn      func(ctx context.Context, m *cashboxstore.CashMovement) error
+	GetMovementByIDFn     func(ctx context.Context, complexID, movementID uuid.UUID) (*cashboxstore.CashMovement, error)
+	ListMovementsBySessFn func(ctx context.Context, complexID, sessionID uuid.UUID) ([]*cashboxstore.CashMovement, error)
+	SumBySessionFn        func(ctx context.Context, complexID, sessionID uuid.UUID) ([]cashboxstore.MovementTotal, error)
+}
+
+func (m *mockCashboxStore) OpenSession(ctx context.Context, s *cashboxstore.CashSession) error {
+	if m.OpenSessionFn != nil {
+		return m.OpenSessionFn(ctx, s)
+	}
+	s.ID = uuid.New()
+	return nil
+}
+
+func (m *mockCashboxStore) GetOpenByComplex(ctx context.Context, complexID uuid.UUID) (*cashboxstore.CashSession, error) {
+	if m.GetOpenByComplexFn != nil {
+		return m.GetOpenByComplexFn(ctx, complexID)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockCashboxStore) GetByID(ctx context.Context, complexID, sessionID uuid.UUID) (*cashboxstore.CashSession, error) {
+	if m.GetByIDFn != nil {
+		return m.GetByIDFn(ctx, complexID, sessionID)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockCashboxStore) ListByComplex(ctx context.Context, complexID uuid.UUID, filters data.Filters) ([]*cashboxstore.CashSession, data.Metadata, error) {
+	if m.ListByComplexFn != nil {
+		return m.ListByComplexFn(ctx, complexID, filters)
+	}
+	return nil, data.Metadata{}, nil
+}
+
+func (m *mockCashboxStore) Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int, note *string) (*cashboxstore.CashSession, error) {
+	if m.CloseFn != nil {
+		return m.CloseFn(ctx, complexID, sessionID, closedBy, countedCash, cashBookingPaymentsInWindow, note)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockCashboxStore) InsertMovement(ctx context.Context, movement *cashboxstore.CashMovement) error {
+	if m.InsertMovementFn != nil {
+		return m.InsertMovementFn(ctx, movement)
+	}
+	movement.ID = uuid.New()
+	return nil
+}
+
+func (m *mockCashboxStore) GetMovementByID(ctx context.Context, complexID, movementID uuid.UUID) (*cashboxstore.CashMovement, error) {
+	if m.GetMovementByIDFn != nil {
+		return m.GetMovementByIDFn(ctx, complexID, movementID)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockCashboxStore) ListMovementsBySession(ctx context.Context, complexID, sessionID uuid.UUID) ([]*cashboxstore.CashMovement, error) {
+	if m.ListMovementsBySessFn != nil {
+		return m.ListMovementsBySessFn(ctx, complexID, sessionID)
+	}
+	return nil, nil
+}
+
+func (m *mockCashboxStore) SumBySession(ctx context.Context, complexID, sessionID uuid.UUID) ([]cashboxstore.MovementTotal, error) {
+	if m.SumBySessionFn != nil {
+		return m.SumBySessionFn(ctx, complexID, sessionID)
 	}
 	return nil, nil
 }

@@ -51,6 +51,7 @@ type PaymentDetail struct {
 // spreadsheet export.
 type ReportReader interface {
 	PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error)
+	PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error)
 	PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentCourtSummary, error)
 	PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentDetail, error)
 }
@@ -110,6 +111,49 @@ func (m *Store) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID,
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("reporting: payment summary by method: %w", err)
+	}
+	return summaries, nil
+}
+
+// PaymentSummaryByMethodWindow is PaymentSummaryByMethod over a precise
+// timestamp window rather than a calendar period — what a cash session's
+// reconciliation needs (its own opened_at to closed_at-or-now, which almost
+// never lines up with local midnight). Same countedPaymentStatuses filter,
+// so a session's "cash booking payments collected" and the monthly report's
+// "money that came in" can never disagree about what counts.
+func (m *Store) PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.DB.Query(ctx, `
+		SELECT p.method::text,
+		       COUNT(*)::int,
+		       COALESCE(SUM(p.amount), 0)::bigint,
+		       COALESCE(SUM(p.service_fee), 0)::bigint,
+		       COALESCE(SUM(p.refund_amount), 0)::bigint
+		FROM payments p
+		WHERE p.complex_id = $1
+		  AND p.status IN `+countedPaymentStatuses+`
+		  AND p.created_at >= $2
+		  AND p.created_at < $3
+		GROUP BY p.method`,
+		complexID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []PaymentMethodSummary
+	for rows.Next() {
+		var s PaymentMethodSummary
+		if err := rows.Scan(&s.Method, &s.Count, &s.Amount, &s.ServiceFee, &s.Refunded); err != nil {
+			return nil, fmt.Errorf("reporting: scan payment summary by method window row: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reporting: payment summary by method window: %w", err)
 	}
 	return summaries, nil
 }
