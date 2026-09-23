@@ -55,10 +55,10 @@ type stubStore struct {
 }
 
 type closeCall struct {
-	complexID, sessionID, closedBy   uuid.UUID
-	countedCash, cashBookingPayments int64
-	closedAt                         time.Time
-	closingNote                      *string
+	complexID, sessionID, closedBy                      uuid.UUID
+	countedCash, cashBookingPayments, cashManualRefunds int64
+	closedAt                                            time.Time
+	closingNote                                         *string
 }
 
 func (s *stubStore) OpenSession(_ context.Context, session *cashboxstore.CashSession) error {
@@ -92,10 +92,11 @@ func (s *stubStore) ListByComplex(_ context.Context, _ uuid.UUID, _ data.Filters
 	return s.listSessions, s.listMetadata, nil
 }
 
-func (s *stubStore) Close(_ context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, closingNote *string) (*cashboxstore.CashSession, error) {
+func (s *stubStore) Close(_ context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow, cashManualRefundsInWindow int64, closedAt time.Time, closingNote *string) (*cashboxstore.CashSession, error) {
 	s.closeArgs = &closeCall{
 		complexID: complexID, sessionID: sessionID, closedBy: closedBy,
-		countedCash: countedCash, cashBookingPayments: cashBookingPaymentsInWindow, closedAt: closedAt, closingNote: closingNote,
+		countedCash: countedCash, cashBookingPayments: cashBookingPaymentsInWindow,
+		cashManualRefunds: cashManualRefundsInWindow, closedAt: closedAt, closingNote: closingNote,
 	}
 	if s.closeErr != nil {
 		return nil, s.closeErr
@@ -137,6 +138,14 @@ type stubPayments struct {
 	err       error
 	// lastFrom/lastTo capture the window Close/buildSummary asked for.
 	lastFrom, lastTo time.Time
+
+	// manualRefunds/manualRefundsErr back ManualRefundSummaryByMethodWindow;
+	// lastManualFrom/lastManualTo capture its own window, separately from
+	// PaymentSummaryByMethodWindow's, so a test can assert both calls used
+	// the same session window without conflating the two.
+	manualRefunds                []reportstore.ManualRefundMethodSummary
+	manualRefundsErr             error
+	lastManualFrom, lastManualTo time.Time
 }
 
 func (p *stubPayments) PaymentSummaryByMethodWindow(_ context.Context, _ uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
@@ -145,6 +154,14 @@ func (p *stubPayments) PaymentSummaryByMethodWindow(_ context.Context, _ uuid.UU
 		return nil, p.err
 	}
 	return p.summaries, nil
+}
+
+func (p *stubPayments) ManualRefundSummaryByMethodWindow(_ context.Context, _ uuid.UUID, from, to time.Time) ([]reportstore.ManualRefundMethodSummary, error) {
+	p.lastManualFrom, p.lastManualTo = from, to
+	if p.manualRefundsErr != nil {
+		return nil, p.manualRefundsErr
+	}
+	return p.manualRefunds, nil
 }
 
 // stubRecorder is a double for Recorder.

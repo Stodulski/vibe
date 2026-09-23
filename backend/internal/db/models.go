@@ -618,19 +618,21 @@ type PasswordResetToken struct {
 }
 
 type Payment struct {
-	ID             pgtype.UUID        `json:"id"`
-	BookingID      pgtype.UUID        `json:"booking_id"`
-	ComplexID      pgtype.UUID        `json:"complex_id"`
-	Amount         int32              `json:"amount"`
-	ServiceFee     int32              `json:"service_fee"`
-	Method         PaymentMethod      `json:"method"`
-	Status         PaymentStatus      `json:"status"`
-	MpPaymentID    pgtype.Text        `json:"mp_payment_id"`
-	MpPreferenceID pgtype.Text        `json:"mp_preference_id"`
-	RefundAmount   int32              `json:"refund_amount"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	StatusDetail   pgtype.Text        `json:"status_detail"`
+	ID                 pgtype.UUID        `json:"id"`
+	BookingID          pgtype.UUID        `json:"booking_id"`
+	ComplexID          pgtype.UUID        `json:"complex_id"`
+	Amount             int32              `json:"amount"`
+	ServiceFee         int32              `json:"service_fee"`
+	Method             PaymentMethod      `json:"method"`
+	Status             PaymentStatus      `json:"status"`
+	MpPaymentID        pgtype.Text        `json:"mp_payment_id"`
+	MpPreferenceID     pgtype.Text        `json:"mp_preference_id"`
+	RefundAmount       int32              `json:"refund_amount"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	StatusDetail       pgtype.Text        `json:"status_detail"`
+	ManualRefundAmount pgtype.Int4        `json:"manual_refund_amount"`
+	ManualRefundedAt   pgtype.Timestamptz `json:"manual_refunded_at"`
 }
 
 type Product struct {

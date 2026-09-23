@@ -4646,9 +4646,22 @@ components:
         service_fee: {type: integer, description: "Centavos ARS."}
         refunded: {type: integer, description: "Centavos ARS."}
 
+    CashManualRefundTotal:
+      type: object
+      description: >-
+        One payment method's manual-refund total within the session's window — money handed back
+        by hand (internal/payments.RecordManualRefund), read off payments.manual_refunded_at
+        rather than created_at. Informational for every method except cash, which also feeds
+        expected_cash (subtracted, not added).
+      required: [method, count, amount]
+      properties:
+        method: {type: string, enum: [mercadopago, cash, transfer, debit_card, credit_card, qr_wallet]}
+        count: {type: integer}
+        amount: {type: integer, description: "Centavos ARS."}
+
     CashSessionSummary:
       type: object
-      required: [opening_cash, expected_cash, movement_totals, booking_payments]
+      required: [opening_cash, expected_cash, movement_totals, booking_payments, manual_refunds, cash_manual_refunds]
       properties:
         opening_cash: {type: integer, format: int64, description: "Centavos ARS."}
         expected_cash:
@@ -4656,7 +4669,7 @@ components:
           format: int64
           description: >-
             Live projection through now() for an open session; the exact close-time snapshot for
-            a closed one.
+            a closed one. Already has cash_manual_refunds subtracted.
         counted_cash:
           type: [integer, "null"]
           format: int64
@@ -4665,12 +4678,21 @@ components:
           type: [integer, "null"]
           format: int64
           description: "Centavos ARS. Present only when closed."
+        cash_manual_refunds:
+          type: integer
+          format: int64
+          description: >-
+            Centavos ARS. The cash this window already subtracted from expected_cash — the cash
+            row(s) of manual_refunds totalled.
         movement_totals:
           type: array
           items: {$ref: "#/components/schemas/CashMovementTotal"}
         booking_payments:
           type: array
           items: {$ref: "#/components/schemas/CashBookingPaymentTotal"}
+        manual_refunds:
+          type: array
+          items: {$ref: "#/components/schemas/CashManualRefundTotal"}
 
     Product:
       type: object
