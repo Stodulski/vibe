@@ -46,6 +46,11 @@ export interface ApiCashSession {
   opening_cash: number;
   closed_at: string | null;
 }
+export interface ApiProduct {
+  id: string;
+  name: string;
+  stock_on_hand: number;
+}
 
 export class ApiHelper {
   private csrfToken: string;
@@ -265,6 +270,42 @@ export class ApiHelper {
     const current = await this.getCurrentCashSession(complexId);
     if (!current) return;
     await this.closeCashSession(complexId, current.id, 0);
+  }
+
+  /** Creates a product directly (skips the "Productos" UI — `sell.spec.ts` only cares about selling it). Stock tracking on by default. */
+  async createProduct(
+    complexId: string,
+    data: { name: string; price: number; tracks_stock?: boolean },
+  ): Promise<ApiProduct> {
+    const res = await this.request.post(`${API}/complexes/${complexId}/products`, {
+      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
+      data: { tracks_stock: true, ...data },
+    });
+    const body = await this.unwrapOk<{ product: ApiProduct }>(res, 'createProduct');
+    return body.product;
+  }
+
+  /** Requires an open cash session, same as the real restock flow. */
+  async restockProduct(
+    complexId: string,
+    productId: string,
+    quantity: number,
+    totalCostCentavos: number,
+  ): Promise<void> {
+    const res = await this.request.post(`${API}/complexes/${complexId}/products/${productId}/restock`, {
+      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
+      data: { quantity, total_cost: totalCostCentavos, method: 'cash' },
+    });
+    await this.assertOk(res, 'restockProduct');
+  }
+
+  /** Cleanup helper — takes the run's own product out of the shared catalog once the spec is done with it. */
+  async deactivateProduct(complexId: string, productId: string): Promise<void> {
+    const res = await this.request.patch(`${API}/complexes/${complexId}/products/${productId}`, {
+      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
+      data: { active: false },
+    });
+    await this.assertOk(res, 'deactivateProduct');
   }
 
   /**
