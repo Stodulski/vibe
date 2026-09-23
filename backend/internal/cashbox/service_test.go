@@ -215,6 +215,21 @@ func TestVoidMovementWithNoOpenSessionAnswersErrSessionNotOpen(t *testing.T) {
 	}
 }
 
+// TestVoidMovementRefusesASaleIncome pins the pos-cashbox T4b rule: a 'sale'
+// category income can only be voided by voiding the sale
+// (internal/sales.Service.Void), never through this endpoint directly —
+// otherwise the sale's stock would never be restored.
+func TestVoidMovementRefusesASaleIncome(t *testing.T) {
+	original := &cashboxstore.CashMovement{ID: uuid.New(), SessionID: uuid.New(), Kind: "income", Category: "sale", Method: "cash", Amount: 1500}
+	store := &stubStore{movementByID: original}
+	svc := newTestService(store, &stubPayments{}, &stubRecorder{})
+
+	_, err := svc.VoidMovement(t.Context(), uuid.New(), original.SessionID, original.ID, testActor(), uuid.New(), nil)
+	if !errors.Is(err, cashboxstore.ErrCannotVoidSaleManually) {
+		t.Fatalf("want ErrCannotVoidSaleManually; got %v", err)
+	}
+}
+
 func TestVoidMovementOfAnIncomeMovementIsAnExpense(t *testing.T) {
 	original := &cashboxstore.CashMovement{ID: uuid.New(), SessionID: uuid.New(), Kind: "income", Category: "other_income", Method: "transfer", Amount: 2000}
 	openSession := &cashboxstore.CashSession{ID: uuid.New()}

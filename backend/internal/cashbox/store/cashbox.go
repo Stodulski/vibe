@@ -35,6 +35,11 @@ var (
 	// cash_movements_check_void (003_cashbox.sql) is the actual enforcement;
 	// this is its Go-side name.
 	ErrVoidOfVoid = errors.New("cash movement: cannot void a movement that is itself a void")
+	// ErrCannotVoidSaleManually reports an attempt to void a 'sale' category
+	// income movement through the ordinary cash-movement void endpoint.
+	// internal/sales.Service.Void is the only path allowed to void one — see
+	// cashbox.Service.VoidMovement's own comment for why.
+	ErrCannotVoidSaleManually = errors.New("cash movement: a sale's income can only be voided by voiding the sale")
 )
 
 // Constraint names from db/migrations/003_cashbox.sql, matched by name for
