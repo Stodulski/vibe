@@ -51,6 +51,10 @@ type PaymentReportReader interface {
 	PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
 	PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
 	PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
+	// CashSalesByMethod and CashMovementsByCategory back the monthly export's
+	// "Caja" section — see reportstore.Store's own comments.
+	CashSalesByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashSalesSummary, error)
+	CashMovementsByCategory(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashCategorySummary, error)
 }
 
 // Handler serves the reporting routes. It decodes, validates, and maps the

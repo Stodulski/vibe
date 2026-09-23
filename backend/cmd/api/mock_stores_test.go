@@ -1274,6 +1274,8 @@ type mockReportStore struct {
 	PaymentSummaryByMethodWindowFn func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
 	PaymentSummaryByCourtFn        func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
 	PaymentDetailsFn               func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
+	CashSalesByMethodFn            func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashSalesSummary, error)
+	CashMovementsByCategoryFn      func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashCategorySummary, error)
 }
 
 func (m *mockReportStore) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
@@ -1300,6 +1302,20 @@ func (m *mockReportStore) PaymentSummaryByCourt(ctx context.Context, complexID u
 func (m *mockReportStore) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error) {
 	if m.PaymentDetailsFn != nil {
 		return m.PaymentDetailsFn(ctx, complexID, from, to)
+	}
+	return nil, nil
+}
+
+func (m *mockReportStore) CashSalesByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashSalesSummary, error) {
+	if m.CashSalesByMethodFn != nil {
+		return m.CashSalesByMethodFn(ctx, complexID, from, to)
+	}
+	return nil, nil
+}
+
+func (m *mockReportStore) CashMovementsByCategory(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashCategorySummary, error) {
+	if m.CashMovementsByCategoryFn != nil {
+		return m.CashMovementsByCategoryFn(ctx, complexID, from, to)
 	}
 	return nil, nil
 }

@@ -57,6 +57,16 @@ func (r *tenantWatchingReports) PaymentDetails(ctx context.Context, complexID uu
 	return r.inner.PaymentDetails(ctx, complexID, from, to)
 }
 
+func (r *tenantWatchingReports) CashSalesByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashSalesSummary, error) {
+	r.record(ctx)
+	return r.inner.CashSalesByMethod(ctx, complexID, from, to)
+}
+
+func (r *tenantWatchingReports) CashMovementsByCategory(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashCategorySummary, error) {
+	r.record(ctx)
+	return r.inner.CashMovementsByCategory(ctx, complexID, from, to)
+}
+
 // detailRows returns the payment sheet of an uploaded workbook.
 func detailRows(t *testing.T, body []byte) [][]string {
 	t.Helper()

@@ -31,6 +31,8 @@ type stubReports struct {
 	summaries      []reportstore.PaymentMethodSummary
 	courtSummaries []reportstore.PaymentCourtSummary
 	details        []reportstore.PaymentDetail
+	cashSales      []reportstore.CashSalesSummary
+	cashByCategory []reportstore.CashCategorySummary
 	err            error
 
 	// lastFrom and lastTo record the FIRST period the handler asked for,
@@ -64,6 +66,14 @@ func (s *stubReports) PaymentSummaryByCourt(_ context.Context, _ uuid.UUID, from
 func (s *stubReports) PaymentDetails(_ context.Context, _ uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error) {
 	s.lastFrom, s.lastTo = from, to
 	return s.details, s.err
+}
+
+func (s *stubReports) CashSalesByMethod(context.Context, uuid.UUID, time.Time, time.Time) ([]reportstore.CashSalesSummary, error) {
+	return s.cashSales, s.err
+}
+
+func (s *stubReports) CashMovementsByCategory(context.Context, uuid.UUID, time.Time, time.Time) ([]reportstore.CashCategorySummary, error) {
+	return s.cashByCategory, s.err
 }
 
 // The remaining readers are unused by the report endpoints under test; they
@@ -795,6 +805,17 @@ func (f *failAfterDetails) PaymentSummaryByCourt(context.Context, uuid.UUID, tim
 	return nil, errors.New("the summary query failed")
 }
 
+// CashSalesByMethod and CashMovementsByCategory are never reached in the
+// tests this double serves: PaymentSummaryByMethod already fails first, and
+// readExportSummaries returns on the first error.
+func (f *failAfterDetails) CashSalesByMethod(context.Context, uuid.UUID, time.Time, time.Time) ([]reportstore.CashSalesSummary, error) {
+	return nil, nil
+}
+
+func (f *failAfterDetails) CashMovementsByCategory(context.Context, uuid.UUID, time.Time, time.Time) ([]reportstore.CashCategorySummary, error) {
+	return nil, nil
+}
+
 // The export declares its length, which is what lets a client tell a complete
 // download from a connection that dropped halfway. Without it the transfer is
 // chunked and a truncated archive looks finished.
@@ -874,6 +895,96 @@ func TestTheExportCarriesTheCourtBreakdownAndThePreviousMonth(t *testing.T) {
 	for _, want := range []string{courtBlockTitle, "Cancha 1", deletedCourtLabel, previousBlockTitle} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("the summary sheet must carry %q; got:\n%s", want, joined)
+		}
+	}
+}
+
+// TestTheExportCarriesTheCashboxSection pins the "Caja" section: POS sales by
+// method, manual income/expenses by category (restock included), and a net
+// line that is sales plus income minus expenses.
+func TestTheExportCarriesTheCashboxSection(t *testing.T) {
+	reports := &stubReports{
+		details: []reportstore.PaymentDetail{{ClientName: "Cliente 0"}},
+		cashSales: []reportstore.CashSalesSummary{
+			{Method: "cash", Count: 3, Total: 9_000},
+			{Method: "debit_card", Count: 1, Total: 2_000},
+		},
+		cashByCategory: []reportstore.CashCategorySummary{
+			{Kind: "income", Category: "other_income", Count: 1, Total: 1_000},
+			{Kind: "expense", Category: "restock", Count: 2, Total: 4_000},
+			{Kind: "expense", Category: "supplies", Count: 1, Total: 500},
+		},
+	}
+	h := newTestHandler(reports)
+
+	w := httptest.NewRecorder()
+	h.ExportPaymentsExcel(w, reportRequest(t, "?month=3&year=2026"))
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	f, err := excelize.OpenReader(bytes.NewReader(w.Body.Bytes()))
+	if err != nil {
+		t.Fatalf("opening the workbook: %v", err)
+	}
+	summary, err := f.GetRows("Resumen")
+	if err != nil {
+		t.Fatalf("reading the summary sheet: %v", err)
+	}
+
+	var flat []string
+	for _, row := range summary {
+		flat = append(flat, strings.Join(row, "|"))
+	}
+	joined := strings.Join(flat, "\n")
+
+	// 9_000 + 2_000 cash sales, "Reposición" (restock) as an expense category
+	// label, and net = (9_000+2_000) sales + 1_000 income - (4_000+500) expenses.
+	wantNet := centavosToARS(9_000 + 2_000 + 1_000 - 4_000 - 500)
+	for _, want := range []string{
+		cashboxBlockTitle, "Débito", cashboxSalesTotalLabel, centavosToARS(11_000),
+		"Reposición", "Otros ingresos", "Insumos", cashboxNetLabel, wantNet,
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("the summary sheet must carry %q; got:\n%s", want, joined)
+		}
+	}
+	// The system 'sale' category is never printed on its own row in the
+	// categories table — CashSalesByMethod already reports that money, by
+	// payment method, in the block above it.
+	if strings.Contains(joined, "Ventas|") {
+		t.Errorf("the categories table must not carry a bare 'Ventas' row (sale income is reported by method); got:\n%s", joined)
+	}
+}
+
+// TestTheExportOmitsTheCashboxSectionWhenThereIsNoPOSActivity matches the
+// precedent writeCourtBlock already sets for a complex with nothing to show
+// in a block: omit it, rather than print a section of zeros nobody asked to
+// reconcile.
+func TestTheExportOmitsTheCashboxSectionWhenThereIsNoPOSActivity(t *testing.T) {
+	reports := &stubReports{details: []reportstore.PaymentDetail{{ClientName: "Cliente 0"}}}
+	h := newTestHandler(reports)
+
+	w := httptest.NewRecorder()
+	h.ExportPaymentsExcel(w, reportRequest(t, "?month=3&year=2026"))
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	f, err := excelize.OpenReader(bytes.NewReader(w.Body.Bytes()))
+	if err != nil {
+		t.Fatalf("opening the workbook: %v", err)
+	}
+	summary, err := f.GetRows("Resumen")
+	if err != nil {
+		t.Fatalf("reading the summary sheet: %v", err)
+	}
+
+	for _, row := range summary {
+		for _, cell := range row {
+			if cell == cashboxBlockTitle {
+				t.Fatalf("want the Caja section omitted with no POS activity; got it in the summary sheet: %v", summary)
+			}
 		}
 	}
 }

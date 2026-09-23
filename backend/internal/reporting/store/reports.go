@@ -47,6 +47,26 @@ type PaymentDetail struct {
 	BookingStatus string
 }
 
+// CashSalesSummary is one row of the monthly export's "Caja" section: every
+// POS sale taken through a single payment method over the period.
+type CashSalesSummary struct {
+	Method string
+	Count  int
+	Total  int
+}
+
+// CashCategorySummary is one row of the monthly export's "Caja" section: a
+// manual cash movement category (income or expense) totalled over the
+// period. It excludes the system 'sale' category — CashSalesByMethod already
+// reports that money, by payment method — and every voided movement and void
+// row (see CashMovementsByCategory).
+type CashCategorySummary struct {
+	Kind     string
+	Category string
+	Count    int
+	Total    int
+}
+
 // ReportReader provides the aggregate reads behind the monthly report and its
 // spreadsheet export.
 type ReportReader interface {
@@ -54,6 +74,8 @@ type ReportReader interface {
 	PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error)
 	PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentCourtSummary, error)
 	PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentDetail, error)
+	CashSalesByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]CashSalesSummary, error)
+	CashMovementsByCategory(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]CashCategorySummary, error)
 }
 
 // ReportStore is the full reporting interface.
@@ -154,6 +176,102 @@ func (m *Store) PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("reporting: payment summary by method window: %w", err)
+	}
+	return summaries, nil
+}
+
+// CashSalesByMethod totals the period's POS sales per payment method, for the
+// monthly export's "Caja" section.
+//
+// voided_at IS NULL excludes voided sales entirely — a void never counts as
+// income, whichever method it was made in. Ranged the same way
+// PaymentSummaryByMethod is (a calendar date in the venue's time zone), so
+// the two blocks of the export describe the same month.
+func (m *Store) CashSalesByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]CashSalesSummary, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.DB.Query(ctx, `
+		SELECT s.method::text,
+		       COUNT(*)::int,
+		       COALESCE(SUM(s.total), 0)::bigint
+		FROM sales s
+		WHERE s.complex_id = $1
+		  AND s.voided_at IS NULL
+		  AND (s.created_at AT TIME ZONE '`+argentinaTZ+`')::date
+		      BETWEEN $2 AND $3
+		GROUP BY s.method`,
+		complexID, from.Format("2006-01-02"), to.Format("2006-01-02"))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []CashSalesSummary
+	for rows.Next() {
+		var s CashSalesSummary
+		if err := rows.Scan(&s.Method, &s.Count, &s.Total); err != nil {
+			return nil, fmt.Errorf("reporting: scan cash sales by method row: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reporting: cash sales by method: %w", err)
+	}
+	return summaries, nil
+}
+
+// CashMovementsByCategory totals the period's manual cash movements per
+// (kind, category), for the monthly export's "Caja" section: manual income
+// (excluding the system 'sale' category, which CashSalesByMethod already
+// reports by payment method) and expenses (including the system 'restock'
+// category).
+//
+// Two things are excluded together, deliberately, and both by the same
+// self-join rather than a stored "is this voided" flag: a void row itself
+// (m.voids_movement_id IS NULL keeps only ordinary rows) and any row that has
+// been voided (the NOT EXISTS subquery). A voided movement and its void
+// carry opposite kinds and would otherwise cancel out in the SUM anyway, but
+// leaving them in would still double the Count and — for a movement voided
+// in one period and made in another — misplace the money in whichever
+// period the void landed in.
+func (m *Store) CashMovementsByCategory(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]CashCategorySummary, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.DB.Query(ctx, `
+		SELECT cm.kind,
+		       cm.category,
+		       COUNT(*)::int,
+		       COALESCE(SUM(cm.amount), 0)::bigint
+		FROM cash_movements cm
+		WHERE cm.complex_id = $1
+		  AND cm.category <> 'sale'
+		  AND cm.voids_movement_id IS NULL
+		  AND NOT EXISTS (
+		      SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = cm.id
+		  )
+		  AND (cm.created_at AT TIME ZONE '`+argentinaTZ+`')::date
+		      BETWEEN $2 AND $3
+		GROUP BY cm.kind, cm.category`,
+		complexID, from.Format("2006-01-02"), to.Format("2006-01-02"))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []CashCategorySummary
+	for rows.Next() {
+		var s CashCategorySummary
+		if err := rows.Scan(&s.Kind, &s.Category, &s.Count, &s.Total); err != nil {
+			return nil, fmt.Errorf("reporting: scan cash movements by category row: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reporting: cash movements by category: %w", err)
 	}
 	return summaries, nil
 }
