@@ -235,9 +235,11 @@ func (h *Handler) ExportPaymentsExcel(w http.ResponseWriter, r *http.Request) {
 // They travel together because they are always needed together, always for the
 // same complex, and always for the same period.
 type exportSummaries struct {
-	byMethod []reportstore.PaymentMethodSummary
-	byCourt  []reportstore.PaymentCourtSummary
-	previous []reportstore.PaymentMethodSummary
+	byMethod       []reportstore.PaymentMethodSummary
+	byCourt        []reportstore.PaymentCourtSummary
+	previous       []reportstore.PaymentMethodSummary
+	cashSales      []reportstore.CashSalesSummary
+	cashByCategory []reportstore.CashCategorySummary
 }
 
 // readExportSummaries runs the same aggregate queries the JSON report runs, so
@@ -264,7 +266,23 @@ func (s *Service) readExportSummaries(ctx context.Context, complexID uuid.UUID, 
 		return exportSummaries{}, err
 	}
 
-	return exportSummaries{byMethod: byMethod, byCourt: byCourt, previous: previous}, nil
+	cashSales, err := s.reports.CashSalesByMethod(ctx, complexID, from, to)
+	if err != nil {
+		return exportSummaries{}, err
+	}
+
+	cashByCategory, err := s.reports.CashMovementsByCategory(ctx, complexID, from, to)
+	if err != nil {
+		return exportSummaries{}, err
+	}
+
+	return exportSummaries{
+		byMethod:       byMethod,
+		byCourt:        byCourt,
+		previous:       previous,
+		cashSales:      cashSales,
+		cashByCategory: cashByCategory,
+	}, nil
 }
 
 // buildExportWorkbook assembles the whole workbook and serialises it, returning
@@ -278,6 +296,8 @@ func buildExportWorkbook(
 	summaries []reportstore.PaymentMethodSummary,
 	courts []reportstore.PaymentCourtSummary,
 	previous []reportstore.PaymentMethodSummary,
+	cashSales []reportstore.CashSalesSummary,
+	cashByCategory []reportstore.CashCategorySummary,
 ) (*bytes.Buffer, error) {
 	f := excelize.NewFile()
 	// In-memory workbook cleanup; a close error here (e.g. stale sheet references) cannot
@@ -288,7 +308,7 @@ func buildExportWorkbook(
 	if err := writePaymentSheet(ctx, f, details); err != nil {
 		return nil, err
 	}
-	if err := writeSummarySheet(f, title, summaries, courts, previous); err != nil {
+	if err := writeSummarySheet(f, title, summaries, courts, previous, cashSales, cashByCategory); err != nil {
 		return nil, err
 	}
 
@@ -463,6 +483,8 @@ func writeSummarySheet(
 	summaries []reportstore.PaymentMethodSummary,
 	courts []reportstore.PaymentCourtSummary,
 	previous []reportstore.PaymentMethodSummary,
+	cashSales []reportstore.CashSalesSummary,
+	cashByCategory []reportstore.CashCategorySummary,
 ) error {
 	if _, err := f.NewSheet(summarySheetName); err != nil {
 		return fmt.Errorf("creating the summary sheet: %w", err)
@@ -497,7 +519,10 @@ func writeSummarySheet(
 	if row, err = writeCourtBlock(f, row, courts, styles); err != nil {
 		return err
 	}
-	if err := writePreviousBlock(f, row, previous, styles); err != nil {
+	if row, err = writePreviousBlock(f, row, previous, styles); err != nil {
+		return err
+	}
+	if _, err := writeCashboxBlock(f, row, cashSales, cashByCategory, styles); err != nil {
 		return err
 	}
 
@@ -586,8 +611,9 @@ func writeCourtBlock(f *excelize.File, row int, courts []reportstore.PaymentCour
 
 // writePreviousBlock adds the month before's totals, so the file carries the
 // same baseline the screen shows rather than a figure with nothing to read it
-// against.
-func writePreviousBlock(f *excelize.File, row int, previous []reportstore.PaymentMethodSummary, styles summaryStyles) error {
+// against, and returns the next free row — the same shape as writeMethodBlock
+// and writeCourtBlock.
+func writePreviousBlock(f *excelize.File, row int, previous []reportstore.PaymentMethodSummary, styles summaryStyles) (int, error) {
 	var count, amount, serviceFees, refunded int
 	for _, s := range previous {
 		count += s.Count
@@ -597,15 +623,112 @@ func writePreviousBlock(f *excelize.File, row int, previous []reportstore.Paymen
 	}
 
 	if err := writeSummaryRow(f, row, []string{previousBlockTitle}, styles.bold); err != nil {
-		return err
+		return 0, err
 	}
-	return writeSummaryRow(f, row+1, []string{
+	if err := writeSummaryRow(f, row+1, []string{
 		previousBlockTitle,
 		strconv.Itoa(count),
 		centavosToARS(amount),
 		centavosToARS(refunded),
 		centavosToARS(amount + serviceFees - refunded),
-	}, 0)
+	}, 0); err != nil {
+		return 0, err
+	}
+
+	return row + 3, nil
+}
+
+// writeCashboxBlock adds the monthly export's "Caja" section under the
+// previous-month block: POS sales by payment method, manual cash income and
+// expenses by category, and a net line. It is omitted entirely — the same
+// precedent writeCourtBlock sets for a complex with no courts to report —
+// when the complex had no POS activity in the month at all, rather than
+// printing a section of zeros nobody asked to reconcile.
+func writeCashboxBlock(
+	f *excelize.File,
+	row int,
+	sales []reportstore.CashSalesSummary,
+	categories []reportstore.CashCategorySummary,
+	styles summaryStyles,
+) (int, error) {
+	if len(sales) == 0 && len(categories) == 0 {
+		return row, nil
+	}
+
+	if err := writeSummaryRow(f, row, []string{cashboxBlockTitle}, styles.bold); err != nil {
+		return 0, err
+	}
+	row++
+
+	row, salesTotal, err := writeCashboxSalesRows(f, row, sales, styles)
+	if err != nil {
+		return 0, err
+	}
+
+	return writeCashboxCategoryRows(f, row, categories, salesTotal, styles)
+}
+
+// writeCashboxSalesRows writes the "Caja" section's POS-sales-by-method
+// table and its total row, returning the next free row and the total taken
+// (salesTotal feeds the net line writeCashboxCategoryRows writes below it).
+func writeCashboxSalesRows(f *excelize.File, row int, sales []reportstore.CashSalesSummary, styles summaryStyles) (int, int, error) {
+	if err := writeSummaryRow(f, row, cashboxSalesHeaders, styles.header); err != nil {
+		return 0, 0, err
+	}
+	row++
+
+	var salesCount, salesTotal int
+	for _, s := range sales {
+		salesCount += s.Count
+		salesTotal += s.Total
+		values := []string{methodLabel(s.Method), strconv.Itoa(s.Count), centavosToARS(s.Total)}
+		if err := writeSummaryRow(f, row, values, 0); err != nil {
+			return 0, 0, err
+		}
+		row++
+	}
+	if err := writeSummaryRow(f, row, []string{cashboxSalesTotalLabel, strconv.Itoa(salesCount), centavosToARS(salesTotal)}, styles.bold); err != nil {
+		return 0, 0, err
+	}
+
+	return row + 2, salesTotal, nil
+}
+
+// writeCashboxCategoryRows writes the "Caja" section's manual income/expense
+// table and its net line (salesTotal plus manual income minus manual
+// expenses), returning the next free row.
+//
+// Income and expense totals are accumulated from exactly the rows written
+// here — the same discipline writeMethodBlock's own comment describes, so
+// the net line can never disagree with the categories printed above it.
+func writeCashboxCategoryRows(f *excelize.File, row int, categories []reportstore.CashCategorySummary, salesTotal int, styles summaryStyles) (int, error) {
+	if err := writeSummaryRow(f, row, cashboxCategoryHeaders, styles.header); err != nil {
+		return 0, err
+	}
+	row++
+
+	var incomeTotal, expenseTotal int
+	for _, c := range categories {
+		values := []string{cashCategoryLabel(c.Category), strconv.Itoa(c.Count), centavosToARS(c.Total)}
+		if err := writeSummaryRow(f, row, values, 0); err != nil {
+			return 0, err
+		}
+		row++
+		switch c.Kind {
+		case "income":
+			incomeTotal += c.Total
+		case "expense":
+			expenseTotal += c.Total
+		}
+	}
+	row++
+
+	net := salesTotal + incomeTotal - expenseTotal
+	if err := writeSummaryRow(f, row, []string{cashboxNetLabel, "", centavosToARS(net)}, styles.bold); err != nil {
+		return 0, err
+	}
+
+	return row + 2, nil
 }
 
 // setSummaryColumnWidths applies the fixed widths to the summary sheet.

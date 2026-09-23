@@ -394,7 +394,8 @@ func (s *Service) buildPaymentsExport(ctx context.Context, complexID uuid.UUID, 
 		return nil, len(details), err
 	}
 
-	buf, err := buildExportWorkbook(ctx, reportTitle(complexName, month, year), details, sums.byMethod, sums.byCourt, sums.previous)
+	buf, err := buildExportWorkbook(ctx, reportTitle(complexName, month, year), details,
+		sums.byMethod, sums.byCourt, sums.previous, sums.cashSales, sums.cashByCategory)
 	if err != nil {
 		return nil, len(details), err
 	}

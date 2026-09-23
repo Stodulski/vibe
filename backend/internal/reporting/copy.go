@@ -36,6 +36,12 @@ var (
 	// renamed, so a reader who has just read the method table already knows
 	// how to read this one.
 	courtSummaryHeaders = []string{"Cancha", "Cantidad", "Total", "Reembolsado", "Neto"}
+	// cashboxSalesHeaders and cashboxCategoryHeaders are the "Caja" section's
+	// two sub-tables. No Reembolsado/Neto column: a voided sale is excluded
+	// outright (there is no refund concept for a counter sale), and a voided
+	// cash movement is excluded the same way — see CashMovementsByCategory.
+	cashboxSalesHeaders    = []string{"Método", "Cantidad", "Total"}
+	cashboxCategoryHeaders = []string{"Categoría", "Cantidad", "Total"}
 )
 
 // Labels for the blocks the summary sheet carries below the method table.
@@ -43,6 +49,11 @@ const (
 	courtBlockTitle    = "Por cancha"
 	previousBlockTitle = "Mes anterior"
 	deletedCourtLabel  = "Cancha eliminada"
+	// cashboxBlockTitle, cashboxSalesTotalLabel and cashboxNetLabel are the
+	// "Caja" section's own labels — see writeCashboxBlock.
+	cashboxBlockTitle      = "Caja"
+	cashboxSalesTotalLabel = "Total ventas POS"
+	cashboxNetLabel        = "Neto caja"
 )
 
 // Sheet names in the exported workbook.
@@ -95,6 +106,40 @@ func paymentStatusLabel(status string) string {
 		return "Reembolsado"
 	default:
 		return status
+	}
+}
+
+// cashCategoryLabel names a cash_movements category for the "Caja" section —
+// the same ten values db/migrations/004_pos_catalog_stock.sql's
+// cash_movements_category_check accepts: 'sale' and 'other_income' (income),
+// and 'supplies' through 'restock' (expense). The Go list here is the one
+// place these labels live; the frontend has its own copy for the cashbox
+// screens (src/shared/i18n/es_AR.ts) because this package cannot be imported
+// from TypeScript.
+func cashCategoryLabel(category string) string {
+	switch category {
+	case "sale":
+		return "Ventas"
+	case "other_income":
+		return "Otros ingresos"
+	case "supplies":
+		return "Insumos"
+	case "salaries":
+		return "Sueldos"
+	case "services":
+		return "Servicios"
+	case "maintenance":
+		return "Mantenimiento"
+	case "cleaning":
+		return "Limpieza"
+	case "withdrawal":
+		return "Retiro"
+	case "other_expense":
+		return "Otros egresos"
+	case "restock":
+		return "Reposición"
+	default:
+		return category
 	}
 }
 
