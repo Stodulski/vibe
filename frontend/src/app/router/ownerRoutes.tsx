@@ -48,8 +48,20 @@ export const ownerDashboardRoutes: RouteObject[] = [
         element: ownerPage(() => import('@/features/cash/pages/CashPage')),
       },
       {
+        path: '/cash/sell',
+        element: ownerPage(() => import('@/features/cash/pages/CashSellPage')),
+      },
+      {
         path: '/cash/sessions/:sessionId',
         element: ownerPage(() => import('@/features/cash/pages/CashSessionDetailPage')),
+      },
+      {
+        path: '/cash/products',
+        element: ownerPage(() => import('@/features/products/pages/ProductsPage')),
+      },
+      {
+        path: '/cash/products/:productId',
+        element: ownerPage(() => import('@/features/products/pages/ProductDetailPage')),
       },
       {
         path: '/courts',
