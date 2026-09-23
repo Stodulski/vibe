@@ -29,7 +29,9 @@ async function sellThreeUnits(page: Page, name: string) {
   await expect(page.getByRole('heading', { name: 'Vender', exact: true })).toBeVisible({ timeout: 10_000 });
 
   await page.getByLabel('Buscar por nombre...').fill(name);
-  const tile = page.getByRole('button', { name });
+  // exact: the cart line's "Quitar/Restar/Sumar: <name>" buttons contain the
+  // product name too, so a substring match turns ambiguous after the first tap.
+  const tile = page.getByRole('button', { name, exact: true });
   await expect(tile).toBeVisible({ timeout: 5_000 });
 
   await tile.click();
@@ -52,7 +54,8 @@ async function sellThreeUnits(page: Page, name: string) {
   await expect(confirmDialog).toBeVisible({ timeout: 5_000 });
   await expect(confirmDialog.getByText('$3.000')).toBeVisible();
   await expect(confirmDialog.getByText('Revisar stock')).toBeVisible();
-  await expect(confirmDialog.getByText(name)).toBeVisible();
+  // 1 unit in stock, 3 sold: the warning must carry the resulting -2.
+  await expect(confirmDialog.getByText(`${name}: -2`)).toBeVisible();
   await confirmDialog.getByRole('button', { name: 'Listo' }).click();
   await expect(confirmDialog).toBeHidden({ timeout: 5_000 });
 }
