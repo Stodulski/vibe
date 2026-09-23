@@ -11,6 +11,12 @@ export const validation = {
     monthOutOfRange: 'El mes debe estar entre 1 y 12',
     reportPeriodInFuture: 'No se puede generar un reporte de un período futuro',
     reportPeriodBeforeComplex: 'El complejo no existía en ese período, no hay datos',
+    // The backend answers this same prose from both `products` (restock) and
+    // `sales` (POS) when the till is closed — see `serverErrors.ts`'s own
+    // comment. Kept neutral here on purpose: the restock-specific
+    // "necesitás la caja abierta" wording lives only in `RestockDialog`,
+    // which already knows the till state independently of this mapping.
+    cashClosed: 'La caja está cerrada. Abrila para continuar.',
   },
 
   nameRequired: 'El nombre es requerido',

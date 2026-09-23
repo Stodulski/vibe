@@ -27,6 +27,31 @@ describe('translateServerError', () => {
       'cannot delete court while it has active bookings',
     );
   });
+
+  // The products API's own 409 prose (pos-cashbox T5a), matched by exact
+  // text rather than a code — see `serverErrors.ts`'s own comment.
+  it('turns "cannot stop tracking stock..." into the stock-not-zero copy', () => {
+    expect(translateServerError('cannot stop tracking stock while stock_on_hand is not zero')).toBe(
+      ES_AR.products.stockNotZero,
+    );
+  });
+
+  it('turns "this product is not active" into the product-inactive copy', () => {
+    expect(translateServerError('this product is not active')).toBe(ES_AR.products.productInactive);
+  });
+
+  it('turns "this product does not track stock" into the not-tracking-stock copy', () => {
+    expect(translateServerError('this product does not track stock')).toBe(ES_AR.products.productNotTrackingStock);
+  });
+
+  // Shared prose: both `products` (restock) and `sales` (POS) answer a
+  // closed till with this exact text, so the global mapping stays neutral —
+  // never the restock-specific "Para reponer necesitás..." copy, which only
+  // `RestockDialog` shows, driven by the till state it reads itself.
+  it('turns "no cash session is open" into the neutral cash-closed copy, not the restock-specific one', () => {
+    expect(translateServerError('no cash session is open')).toBe(ES_AR.validation.server.cashClosed);
+    expect(translateServerError('no cash session is open')).not.toBe(ES_AR.products.restockNeedsOpenTill);
+  });
 });
 
 describe('getFieldErrors', () => {

@@ -3,11 +3,13 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Panel } from '@/shared/components/common/Panel';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { SkeletonTable } from '@/shared/components/common/Skeletons';
+import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { Button } from '@/shared/components/ui/button';
 import { useIntersectionObserver } from '@/shared/hooks/useIntersectionObserver';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useProductStockMovements } from '../hooks/useProductStockMovements';
 import { StockMovementRow } from './StockMovementRow';
+import type { StockMovement } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -40,6 +42,54 @@ function NextPageFooter({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+interface LoadedMovementsProps {
+  movements: StockMovement[];
+  isError: boolean;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  isFetchNextPageError: boolean;
+  sentinelRef: RefObject<HTMLDivElement | null>;
+  onRetry: () => void;
+  onRetryNextPage: () => void;
+}
+
+/**
+ * The loaded-history view: the rows themselves, the next-page footer, and —
+ * separately from a next-page failure — the shared stale-data notice for a
+ * background refetch that failed while rows are still cached (same
+ * non-blocking guard as `ProductDetailPage`'s own header, instead of wiping
+ * the already-loaded list).
+ */
+function LoadedMovements({
+  movements,
+  isError,
+  hasNextPage,
+  isFetchingNextPage,
+  isFetchNextPageError,
+  sentinelRef,
+  onRetry,
+  onRetryNextPage,
+}: LoadedMovementsProps) {
+  return (
+    <>
+      {isError && <StaleDataNotice onRetry={onRetry} />}
+      <Panel size="sm" className="p-0">
+        {movements.map((movement) => (
+          <StockMovementRow key={movement.id} movement={movement} />
+        ))}
+        {hasNextPage && (
+          <NextPageFooter
+            sentinelRef={sentinelRef}
+            isFetchingNextPage={isFetchingNextPage}
+            isFetchNextPageError={isFetchNextPageError}
+            onRetry={onRetryNextPage}
+          />
+        )}
+      </Panel>
+    </>
   );
 }
 
@@ -76,21 +126,20 @@ export function StockMovementList({ complexId, productId }: { complexId: string;
           <p className="text-text-tertiary py-6 text-center text-sm">{t.products.noHistory}</p>
         </Panel>
       ) : (
-        <Panel size="sm" className="p-0">
-          {movements.map((movement) => (
-            <StockMovementRow key={movement.id} movement={movement} />
-          ))}
-          {hasNextPage && (
-            <NextPageFooter
-              sentinelRef={sentinelRef}
-              isFetchingNextPage={isFetchingNextPage}
-              isFetchNextPageError={isFetchNextPageError}
-              onRetry={() => {
-                void fetchNextPage();
-              }}
-            />
-          )}
-        </Panel>
+        <LoadedMovements
+          movements={movements}
+          isError={isError}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          isFetchNextPageError={isFetchNextPageError}
+          sentinelRef={sentinelRef}
+          onRetry={() => {
+            void refetch();
+          }}
+          onRetryNextPage={() => {
+            void fetchNextPage();
+          }}
+        />
       )}
     </div>
   );

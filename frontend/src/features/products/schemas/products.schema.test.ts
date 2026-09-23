@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { ES_AR } from '@/shared/i18n/es_AR';
+import { MAX_STOCK_QUANTITY } from '../lib/money';
 import { productFormSchema, restockSchema, adjustSchema } from './products.schema';
 
 describe('productFormSchema', () => {
@@ -47,6 +49,26 @@ describe('productFormSchema', () => {
   it('accepts a replaced (not removed) threshold when locked', () => {
     expect(productFormSchema(true).safeParse({ ...base, low_stock_threshold: 5 }).success).toBe(true);
   });
+
+  // A cleared `QuantityField` reports `NaN` (see `QuantityField`'s own
+  // comment) — treated as "not set", the same as never having typed
+  // anything, not as an invalid number.
+  it('treats a NaN threshold (cleared input) as not set when unlocked', () => {
+    const result = productFormSchema(false).safeParse({ ...base, low_stock_threshold: Number.NaN });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.low_stock_threshold).toBeUndefined();
+    }
+  });
+
+  it('rejects a NaN threshold (cleared input) with the Spanish required-once-set error when locked', () => {
+    const result = productFormSchema(true).safeParse({ ...base, low_stock_threshold: Number.NaN });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['low_stock_threshold']);
+      expect(result.error.issues[0]?.message).toBe(ES_AR.products.thresholdRequiredOnceSet);
+    }
+  });
 });
 
 describe('restockSchema', () => {
@@ -75,18 +97,52 @@ describe('restockSchema', () => {
 
 describe('adjustSchema', () => {
   it('accepts a valid counted quantity and reason', () => {
-    expect(adjustSchema.safeParse({ counted: 12, reason: 'count_correction' }).success).toBe(true);
+    expect(adjustSchema(0).safeParse({ counted: 12, reason: 'count_correction' }).success).toBe(true);
   });
 
   it('accepts a counted quantity of 0 (the schema does not enforce non-zero difference — the dialog does)', () => {
-    expect(adjustSchema.safeParse({ counted: 0, reason: 'breakage' }).success).toBe(true);
+    expect(adjustSchema(0).safeParse({ counted: 0, reason: 'breakage' }).success).toBe(true);
   });
 
   it('rejects a negative counted quantity', () => {
-    expect(adjustSchema.safeParse({ counted: -1, reason: 'breakage' }).success).toBe(false);
+    expect(adjustSchema(0).safeParse({ counted: -1, reason: 'breakage' }).success).toBe(false);
   });
 
   it('rejects an unknown reason', () => {
-    expect(adjustSchema.safeParse({ counted: 5, reason: 'lost' }).success).toBe(false);
+    expect(adjustSchema(0).safeParse({ counted: 5, reason: 'lost' }).success).toBe(false);
+  });
+
+  // The signed difference the API receives is `counted - currentStock`, not
+  // `counted` alone — capped at the API's own ±100000 (`MAX_STOCK_QUANTITY`,
+  // shared with `restockSchema`'s own quantity cap).
+  it('accepts a counted quantity exactly at the +100000 difference boundary', () => {
+    const currentStock = 0;
+    const counted = currentStock + MAX_STOCK_QUANTITY;
+    expect(adjustSchema(currentStock).safeParse({ counted, reason: 'count_correction' }).success).toBe(true);
+  });
+
+  it('rejects a counted quantity one over the +100000 difference boundary', () => {
+    const currentStock = 0;
+    const counted = currentStock + MAX_STOCK_QUANTITY + 1;
+    const result = adjustSchema(currentStock).safeParse({ counted, reason: 'count_correction' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['counted']);
+      expect(result.error.issues[0]?.message).toBe(ES_AR.validation.quantityTooLarge);
+    }
+  });
+
+  it('accepts a counted quantity exactly at the -100000 difference boundary', () => {
+    const currentStock = MAX_STOCK_QUANTITY;
+    expect(adjustSchema(currentStock).safeParse({ counted: 0, reason: 'count_correction' }).success).toBe(true);
+  });
+
+  it('rejects a counted quantity one over the -100000 difference boundary', () => {
+    const currentStock = MAX_STOCK_QUANTITY + 1;
+    const result = adjustSchema(currentStock).safeParse({ counted: 0, reason: 'count_correction' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['counted']);
+    }
   });
 });

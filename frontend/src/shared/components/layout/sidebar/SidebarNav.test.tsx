@@ -37,4 +37,11 @@ describe('SidebarNav — active path resolution', () => {
     expect(screen.getByRole('link', { name: 'Caja' })).not.toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
   });
+
+  // A plain `startsWith('/cash')` would wrongly match this sibling route,
+  // which only shares the text prefix, not the `/cash` section.
+  it('does not mark Caja active on /cashflow, which only shares the text prefix', () => {
+    renderAt('/cashflow');
+    expect(screen.getByRole('link', { name: 'Caja' })).not.toHaveAttribute('aria-current', 'page');
+  });
 });

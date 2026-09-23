@@ -24,11 +24,17 @@ const SERVER_ERROR_TEXT: Record<string, string> = {
   // The products API answers these 409s with English prose (`httpx.Conflict`,
   // `backend/internal/products/products.go`) rather than a stable code —
   // matched here by exact text, the same mechanism as the codes above, so the
-  // dialogs that mean something specific by each one (`ProductFormDialog`'s
-  // "turn off stock tracking", `RestockDialog`'s "till is closed") get the
-  // owner-specified Spanish copy instead of raw English.
+  // dialog that means something specific by it (`ProductFormDialog`'s "turn
+  // off stock tracking") gets the owner-specified Spanish copy instead of raw
+  // English.
   'cannot stop tracking stock while stock_on_hand is not zero': ES_AR.products.stockNotZero,
-  'no cash session is open': ES_AR.products.restockNeedsOpenTill,
+  // Also returned, verbatim, by `sales` (POS) when the till is closed
+  // (`backend/internal/sales/sales.go`) — this map is global, so it must stay
+  // neutral rather than restock-flavored, or a closed-till sale would toast
+  // "Para reponer necesitás...". `RestockDialog` shows its own
+  // restock-specific wording independently, from the till state it already
+  // reads, not from this mapping.
+  'no cash session is open': ES_AR.validation.server.cashClosed,
   'this product is not active': ES_AR.products.productInactive,
   'this product does not track stock': ES_AR.products.productNotTrackingStock,
 };

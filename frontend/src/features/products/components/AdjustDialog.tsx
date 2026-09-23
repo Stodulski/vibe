@@ -41,7 +41,7 @@ export function AdjustDialog({ open, onClose, complexId, product }: AdjustDialog
 function useAdjustForm(complexId: string, productId: string, currentStock: number, onDone: () => void) {
   const adjustProduct = useAdjustProduct(complexId, productId);
   const form = useAppForm<AdjustDto>({
-    resolver: zodResolver(adjustSchema),
+    resolver: zodResolver(adjustSchema(currentStock)),
     // `ADJUSTMENT_REASONS[0]` ("Rotura"), not `undefined` — same reasoning as
     // `MovementFormDialog`'s `categories[0]` default: `reason` is a required
     // enum, so the select always shows a real, changeable choice rather than

@@ -28,7 +28,11 @@ export function DeactivateProductDialog({ product, onClose, complexId }: Deactiv
       onConfirm={() => {
         if (!product) return;
         updateProduct.mutate(
-          { productId: product.id, data: { version: product.version, active: !product.active } },
+          {
+            productId: product.id,
+            data: { version: product.version, active: !product.active },
+            toggledActive: !product.active,
+          },
           { onSuccess: onClose },
         );
       }}
