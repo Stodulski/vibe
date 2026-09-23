@@ -134,6 +134,4 @@ export const cash = {
   saleVoidNotePlaceholder: 'Motivo de la anulación (opcional)...',
   saleVoidSuccess: 'Venta anulada',
   saleVoidError: 'Error al anular la venta',
-  sellComingSoonTitle: 'Vender',
-  sellComingSoonDescription: 'Esta pantalla todavía no está lista. Muy pronto vas a poder vender desde acá.',
 } as const;
