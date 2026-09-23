@@ -95,6 +95,8 @@ var refusals = httpx.Refusals{
 	cashboxstore.ErrSessionNotOpen:     httpx.Conflict("no cash session is open, or it was just closed"),
 	cashboxstore.ErrAlreadyVoided:      httpx.Conflict("this movement has already been voided"),
 	cashboxstore.ErrVoidOfVoid:         httpx.Conflict("cannot void a movement that is itself a void"),
+	cashboxstore.ErrCannotVoidSaleManually: httpx.Conflict(
+		"a sale's income can only be voided by voiding the sale"),
 }
 
 // NewHandler returns a Handler backed by the given service.

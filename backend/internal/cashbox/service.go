@@ -325,6 +325,16 @@ func (s *Service) VoidMovement(ctx context.Context, complexID, sessionID, moveme
 	if original.SessionID != sessionID {
 		return nil, data.ErrRecordNotFound
 	}
+	// A 'sale' category income is system-written (internal/sales.Store.Create,
+	// the same way 'restock' is products.Store.Restock's own), and its void is
+	// system-written too: internal/sales.Store.Void restores the sale's stock
+	// AND voids its income in the same transaction, something this endpoint
+	// has no way to do. Refusing it here — rather than letting it through and
+	// leaving stock silently unrestored — means a sale's income can only ever
+	// be voided by voiding the sale, so the two can never drift apart.
+	if original.Category == "sale" {
+		return nil, cashboxstore.ErrCannotVoidSaleManually
+	}
 
 	current, err := s.sessions.GetOpenByComplex(ctx, complexID)
 	if err != nil {
