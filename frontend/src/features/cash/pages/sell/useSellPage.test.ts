@@ -39,9 +39,7 @@ function mockProducts(products = [PRODUCT]) {
 
 function mockSalesList() {
   server.use(
-    http.get('*/complexes/:complexId/sales', () =>
-      HttpResponse.json({ sales: [], metadata: { has_more: false } }),
-    ),
+    http.get('*/complexes/:complexId/sales', () => HttpResponse.json({ sales: [], metadata: { has_more: false } })),
   );
 }
 

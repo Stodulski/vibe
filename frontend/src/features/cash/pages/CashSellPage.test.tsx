@@ -78,9 +78,7 @@ function mockViewport(matches: boolean) {
 
 function renderPage() {
   server.use(
-    http.get('*/complexes/:complexId/sales', () =>
-      HttpResponse.json({ sales: [], metadata: { has_more: false, } }),
-    ),
+    http.get('*/complexes/:complexId/sales', () => HttpResponse.json({ sales: [], metadata: { has_more: false } })),
   );
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
