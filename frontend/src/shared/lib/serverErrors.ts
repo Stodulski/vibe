@@ -37,6 +37,12 @@ const SERVER_ERROR_TEXT: Record<string, string> = {
   'no cash session is open': ES_AR.validation.server.cashClosed,
   'this product is not active': ES_AR.products.productInactive,
   'this product does not track stock': ES_AR.products.productNotTrackingStock,
+  // `salesCreate`'s 422 item errors and `salesVoid`'s 409s
+  // (`backend/internal/sales/handlers.go`/`sales.go`) — also raw English
+  // prose rather than stable codes, same mechanism as the products ones above.
+  'product not found or not active': ES_AR.cash.saleItemNotSellable,
+  'this sale has already been voided': ES_AR.cash.saleAlreadyVoided,
+  "this sale's income movement was already voided and cannot be voided again": ES_AR.cash.saleAlreadyVoided,
 };
 
 /**

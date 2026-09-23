@@ -1,18 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { productsApi } from '../api/products.api';
-import { queryKeys } from '@/shared/lib/queryKeys';
-
-/**
- * The complex's product catalog for one Activos/Inactivos filter value.
- * Unpaginated — `productsList`'s own doc comment: a shop's catalog is
- * bounded. `active` undefined asks for both.
- */
-export function useProducts(complexId: string | null, active?: boolean) {
-  const id = complexId ?? '';
-  return useQuery({
-    queryKey: queryKeys.products.byComplex(id, active),
-    queryFn: ({ signal }) => productsApi.list(id, { active }, signal),
-    enabled: !!complexId,
-    staleTime: 60 * 1000,
-  });
-}
+// Moved to `shared/hooks/useProducts.ts` (pos-cashbox T5b): `features/cash`'s
+// "Vender" screen needs the same active-only catalog query and features
+// never import from one another. Re-exported here so existing imports from
+// `../../hooks/useProducts` keep working.
+export { useProducts } from '@/shared/hooks/useProducts';

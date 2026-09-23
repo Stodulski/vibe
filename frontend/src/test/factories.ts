@@ -9,6 +9,8 @@ import type {
   Court,
   CourtPrice,
   Product,
+  Sale,
+  SaleItem,
   StockMovement,
   User,
 } from '@/shared/types/api.types';
@@ -290,4 +292,40 @@ const defaultStockMovement: StockMovement = {
 /** Builds a typed `StockMovement` fixture with sensible defaults, overridable per-field. */
 export function makeStockMovement(overrides: Partial<StockMovement> = {}): StockMovement {
   return { ...defaultStockMovement, ...overrides };
+}
+
+const defaultSaleItem: SaleItem = {
+  id: 'si1',
+  complex_id: 'c1',
+  sale_id: 'sale1',
+  product_id: 'p1',
+  product_name: 'Agua mineral',
+  unit_price: 150000,
+  quantity: 2,
+  line_total: 300000,
+};
+
+/** Builds a typed `SaleItem` fixture with sensible defaults, overridable per-field. */
+export function makeSaleItem(overrides: Partial<SaleItem> = {}): SaleItem {
+  return { ...defaultSaleItem, ...overrides };
+}
+
+const defaultSale: Sale = {
+  id: 'sale1',
+  complex_id: 'c1',
+  session_id: 'cs1',
+  method: 'cash',
+  total: 300000,
+  cash_movement_id: 'cm1',
+  voided_at: null,
+  voided_by: null,
+  void_cash_movement_id: null,
+  items: [defaultSaleItem],
+  created_at: '2026-01-01T15:00:00Z',
+  created_by: 'u1',
+};
+
+/** Builds a typed `Sale` fixture with sensible defaults, overridable per-field. */
+export function makeSale(overrides: Partial<Sale> = {}): Sale {
+  return { ...defaultSale, ...overrides };
 }

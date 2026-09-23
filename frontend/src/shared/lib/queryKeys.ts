@@ -90,6 +90,12 @@ export const queryKeys = {
     stockMovements: (complexId: string, productId: string) =>
       ['products', 'stock-movements', complexId, productId] as const,
   },
+  sales: {
+    // Always scoped to one session — the "Vender" screen only ever shows the
+    // currently open session's own sales (`odd/tasks/pos-cashbox.md` T5b), so
+    // there is no unscoped `byComplex` entry to invalidate alongside this one.
+    bySession: (complexId: string, sessionId: string) => ['sales', complexId, sessionId] as const,
+  },
   admin: {
     stats: ['admin', 'stats'] as const,
     usersBase: ['admin', 'users'] as const,
