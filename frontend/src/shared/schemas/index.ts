@@ -11,3 +11,4 @@ export * from './dashboard.schema';
 export * from './reports.schema';
 export * from './admin.schema';
 export * from './cash.schema';
+export * from './products.schema';

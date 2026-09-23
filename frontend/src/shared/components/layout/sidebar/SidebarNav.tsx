@@ -13,11 +13,18 @@ interface SidebarNavProps {
   onPrefetch: (to: string) => () => void;
 }
 
+// Nav items whose section owns more than one route: `/settings` also covers
+// its own sub-pages, and `/cash` covers Vender/Productos plus the read-only
+// session/product detail routes (T5a: tabs and detail pages under `/cash`
+// with no new sidebar item — "Caja" stays the active nav item on all of
+// them). Every other item matches its own path exactly.
+const PREFIX_MATCHED_ROOTS = ['/settings', '/cash'];
+
 export function SidebarNav({ collapsed, isMobile, onNavigate, onPrefetch }: SidebarNavProps) {
   const location = useLocation();
 
   const isItemActive = (to: string) =>
-    to === '/settings' ? location.pathname.startsWith('/settings') : location.pathname === to;
+    PREFIX_MATCHED_ROOTS.includes(to) ? location.pathname.startsWith(to) : location.pathname === to;
 
   return (
     <nav className="flex-1 overflow-x-hidden overflow-y-auto px-3 pt-1" aria-label={t.layout.mainNav}>

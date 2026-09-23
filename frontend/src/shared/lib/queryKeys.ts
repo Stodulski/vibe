@@ -72,6 +72,23 @@ export const queryKeys = {
     current: (complexId: string) => ['cash', 'current', complexId] as const,
     sessions: (complexId: string) => ['cash', 'sessions', complexId] as const,
     detail: (complexId: string, sessionId: string) => ['cash', 'detail', complexId, sessionId] as const,
+    // Matches every `detail` entry for the complex regardless of session id —
+    // for a write that affects the currently open session's ledger (a
+    // restock's cash expense) without knowing that session's id at the call
+    // site (`features/products`' `useRestockProduct`, which never fetches it).
+    detailBase: (complexId: string) => ['cash', 'detail', complexId] as const,
+  },
+  products: {
+    // Split by `active` so switching the Activos/Inactivos filter never
+    // serves the other bucket's cached list, and both stay independently
+    // cacheable — the same reasoning as `admin.complexes`'s params key.
+    byComplex: (complexId: string, active?: boolean) => ['products', complexId, active] as const,
+    // Matches every `byComplex` entry regardless of `active`, for
+    // invalidating the whole catalog after a write.
+    byComplexAll: (complexId: string) => ['products', complexId] as const,
+    detail: (complexId: string, productId: string) => ['products', 'detail', complexId, productId] as const,
+    stockMovements: (complexId: string, productId: string) =>
+      ['products', 'stock-movements', complexId, productId] as const,
   },
   admin: {
     stats: ['admin', 'stats'] as const,

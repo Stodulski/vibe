@@ -12,8 +12,8 @@ import {
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { blankToUndefined } from '@/shared/lib/blankToUndefined';
 import { useVoidCashMovement } from '../hooks/useVoidCashMovement';
-import { blankNoteToUndefined } from '../lib/blankNoteToUndefined';
 import type { CashMovement } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -77,10 +77,7 @@ export function VoidMovementDialog({ movement, onClose, complexId, sessionId }: 
             onClick={(e) => {
               e.preventDefault();
               if (!movement) return;
-              voidMovement.mutate(
-                { movementId: movement.id, note: blankNoteToUndefined(note) },
-                { onSuccess: onClose },
-              );
+              voidMovement.mutate({ movementId: movement.id, note: blankToUndefined(note) }, { onSuccess: onClose });
             }}
             disabled={voidMovement.isPending}
             className="bg-destructive hover:bg-destructive/90 text-white"

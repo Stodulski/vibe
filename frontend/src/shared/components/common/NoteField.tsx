@@ -1,11 +1,21 @@
 import type { UseFormRegisterReturn } from 'react-hook-form';
-import { FormField } from '@/shared/components/common/FormField';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { FormField } from './FormField';
 
 const t = ES_AR;
 
-/** The "nota (opcional)" textarea shared by every cashbox form (open/close/movement/void). */
+/**
+ * The "nota (opcional)" textarea shared by every cashbox form
+ * (open/close/movement/void) and the product catalog's restock/adjust
+ * dialogs.
+ *
+ * Moved here from `features/cash/components/` (pos-products-screen T5a):
+ * `features/products` had duplicated this verbatim on the "features never
+ * import from one another" reasoning, but the repo's rule for that case is to
+ * move the shared piece to `shared/` instead — same move as
+ * `shared/lib/paymentMethods.ts`.
+ */
 export function NoteField({
   id,
   label,

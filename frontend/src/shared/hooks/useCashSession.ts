@@ -1,10 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { HTTPError } from 'ky';
-import { cashApi } from '../api/cash.api';
+import { getCurrentCashSession } from '@/shared/api/cashSession.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 
 /**
  * The complex's currently open cash session, if any.
+ *
+ * Moved here from `features/cash/hooks/` (pos-cashbox T5a): `features/products`'
+ * restock dialog needs to know whether the till is open before it lets
+ * someone submit, and features never import from one another — same move as
+ * `shared/lib/paymentMethods.ts`. `features/cash`'s own `cashApi.current`
+ * delegates to `shared/api/cashSession.api`, so this stays the one query
+ * both features observe against the same cache entry (`queryKeys.cash.current`).
  *
  * `GET /complexes/:id/cash-session` answers 404 when the till is closed — that
  * is a legitimate, expected outcome (see `useComplexBySlug` for the same
@@ -15,7 +22,7 @@ export function useCashSession(complexId: string | null) {
   const id = complexId ?? '';
   const query = useQuery({
     queryKey: queryKeys.cash.current(id),
-    queryFn: ({ signal }) => cashApi.current(id, signal),
+    queryFn: ({ signal }) => getCurrentCashSession(id, signal),
     enabled: !!complexId,
     throwOnError: false,
     retry: (failureCount, error) => {

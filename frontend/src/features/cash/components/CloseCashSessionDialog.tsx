@@ -5,14 +5,14 @@ import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getFieldErrors } from '@/shared/lib/serverErrors';
-import { MoneyPesosField } from './MoneyPesosField';
-import { NoteField } from './NoteField';
+import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
+import { NoteField } from '@/shared/components/common/NoteField';
+import { pesosToCentavos } from '@/shared/lib/money';
+import { blankToUndefined } from '@/shared/lib/blankToUndefined';
 import { CashHintRow } from './CashHintRow';
 import { CashDifference } from './CashDifference';
 import { ClosedSessionResult } from './ClosedSessionResult';
 import { closeCashSessionSchema, type CloseCashSessionDto } from '../schemas/cash.schema';
-import { pesosToCentavos } from '../lib/money';
-import { blankNoteToUndefined } from '../lib/blankNoteToUndefined';
 import { useCloseCashSession } from '../hooks/useCloseCashSession';
 import type { CashSession } from '@/shared/types/api.types';
 
@@ -64,7 +64,7 @@ function useCloseForm(complexId: string, sessionId: string, onClosed: (session: 
 
   const onSubmit = (data: CloseCashSessionDto) => {
     closeSession.mutate(
-      { counted_cash: pesosToCentavos(data.counted_cash), note: blankNoteToUndefined(data.note) },
+      { counted_cash: pesosToCentavos(data.counted_cash), note: blankToUndefined(data.note) },
       {
         onSuccess: (result) => {
           onClosed(result.cash_session);

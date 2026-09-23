@@ -32,9 +32,12 @@ async function reportsClosedWithNoDataAndNoRetry() {
   });
   expect(result.current.isRealError).toBe(false);
   expect(result.current.data).toBeUndefined();
-
-  // Give a would-be retry a beat to fire, then confirm it never did.
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  // The query's own `retry` callback returns `false` for a 404 synchronously
+  // — nothing is ever scheduled, so settling on `isClosed` already proves no
+  // retry will follow; no real-time wait needed to "give a retry a beat"
+  // (the lesson from the cash review: a timed wait for a non-event proves
+  // nothing and only slows the suite down).
+  expect(result.current.isFetching).toBe(false);
   expect(requests).toBe(1);
 }
 

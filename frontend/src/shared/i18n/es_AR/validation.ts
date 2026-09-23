@@ -88,4 +88,12 @@ export const validation = {
   min1Hour: 'Mínimo 1 hora',
   max168Hours: 'Máximo 168 horas',
   max168HoursWeek: 'Máximo 168 horas (1 semana)',
+  maxChars60: 'Máximo 60 caracteres',
+  maxChars120: 'Máximo 120 caracteres',
+  quantityRequired: 'Ingresá una cantidad',
+  quantityPositive: 'La cantidad debe ser mayor a 0',
+  quantityTooLarge: 'La cantidad es demasiado grande',
+  quantityNonNegative: 'La cantidad no puede ser negativa',
+  countedMustBeWhole: 'La cantidad contada debe ser un número entero',
+  selectReason: 'Seleccioná un motivo',
 } as const;

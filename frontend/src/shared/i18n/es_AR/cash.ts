@@ -82,4 +82,15 @@ export const cash = {
   countedCashLabel: 'Contado',
   closedAt: 'Cerrada',
   loadError: 'No pudimos cargar la caja',
+  // ─── Section tabs (pos-cashbox T5a) ───
+  // "Turno" names the existing `/cash` screen from here on — the page's own
+  // `PageHeader` keeps the "Caja" title, this is only the tab label, next to
+  // "Vender" (T5b, a placeholder until then) and "Productos".
+  tabs: {
+    turno: 'Turno',
+    vender: 'Vender',
+    productos: 'Productos',
+  },
+  sellComingSoonTitle: 'Vender',
+  sellComingSoonDescription: 'Esta pantalla todavía no está lista. Muy pronto vas a poder vender desde acá.',
 } as const;

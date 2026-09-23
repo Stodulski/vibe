@@ -12,12 +12,12 @@ import type {
 } from '@/shared/types/api.types';
 import {
   cashSessionsListResponseSchema,
-  cashSessionCurrentResponseSchema,
   cashSessionDetailResponseSchema,
   cashSessionEnvelopeSchema,
   cashMovementEnvelopeSchema,
 } from '@/shared/schemas';
 import { parseWith } from '@/shared/lib/apiParse';
+import { getCurrentCashSession } from '@/shared/api/cashSession.api';
 
 export const cashApi = {
   list: (
@@ -34,12 +34,15 @@ export const cashApi = {
       .then(parseWith(cashSessionsListResponseSchema, 'cashApi.list'));
   },
 
-  /** Rejects with a ky `HTTPError` (status 404) when no session is open — callers treat that as "closed". */
+  /**
+   * Rejects with a ky `HTTPError` (status 404) when no session is open —
+   * callers treat that as "closed". Delegates to `shared/api/cashSession.api`
+   * — `features/products`' restock dialog needs the same check and features
+   * never import from one another, so the implementation lives in `shared/`
+   * and this stays the single call site every other cashbox method sits next to.
+   */
   current: (complexId: string, signal?: AbortSignal): Promise<CashSessionCurrentResponse> =>
-    api
-      .get(`complexes/${complexId}/cash-session`, withSignal(signal))
-      .json()
-      .then(parseWith(cashSessionCurrentResponseSchema, 'cashApi.current')),
+    getCurrentCashSession(complexId, signal),
 
   getById: (complexId: string, sessionId: string, signal?: AbortSignal): Promise<CashSessionDetailResponse> =>
     api

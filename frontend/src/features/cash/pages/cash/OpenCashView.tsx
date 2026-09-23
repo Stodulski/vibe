@@ -7,7 +7,7 @@ import { MovementTotalsBreakdown } from '../../components/MovementTotalsBreakdow
 import { BookingPaymentsBreakdown } from '../../components/BookingPaymentsBreakdown';
 import { MovementList } from '../../components/MovementList';
 import { CashActionButtons } from '../../components/CashActionButtons';
-import { StaleDataNotice } from '../../components/StaleDataNotice';
+import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { OpenCashDialogs } from './OpenCashDialogs';
 import type { useCashPage } from './useCashPage';
 import type { CashMovement } from '@/shared/types/api.types';

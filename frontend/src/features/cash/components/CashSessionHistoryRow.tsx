@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice, cn } from '@/shared/lib/utils';
-import { formatSessionInstant } from '../lib/formatCashInstant';
+import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { cashDifferenceLabel } from '../lib/cashDifferenceLabel';
 import type { CashSession } from '@/shared/types/api.types';
 
@@ -19,7 +19,7 @@ export function CashSessionHistoryRow({ session }: { session: CashSession }) {
     >
       <div className="min-w-0 space-y-0.5">
         <p className="text-text-primary text-sm font-medium">
-          {formatSessionInstant(session.opened_at)} — {formatSessionInstant(session.closed_at)}
+          {formatVenueDayTime(session.opened_at)} — {formatVenueDayTime(session.closed_at)}
         </p>
         <p className="text-text-tertiary text-xs">
           {t.cash.expectedCash}: {formatPrice(session.expected_cash ?? 0)} · {t.cash.countedCashLabel}:{' '}

@@ -1,6 +1,6 @@
 import { Banknote } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
-import { FormField } from '@/shared/components/common/FormField';
+import { FormField } from './FormField';
 
 interface MoneyPesosFieldProps {
   id: string;
@@ -12,14 +12,23 @@ interface MoneyPesosFieldProps {
 }
 
 /**
- * A pesos money input, shared by every cashbox form (open/close/movement).
+ * A pesos money input, shared by every cashbox form (open/close/movement) and
+ * the product catalog's own forms (price, restock total cost).
+ *
+ * Moved here from `features/cash/components/` (pos-products-screen T5a):
+ * `features/products` had duplicated this verbatim on the "features never
+ * import from one another" reasoning, but the repo's actual rule for that
+ * case is to move the shared piece to `shared/` instead — same move as
+ * `shared/lib/paymentMethods.ts` and `shared/hooks/useCashSession.ts`. Two
+ * copies of a money input drift; caps and labels stay feature-specific and
+ * are passed in by the caller (`../schemas/*.schema`), not hardcoded here.
  *
  * Controlled via `value`/`onChange` (react-hook-form's `setValue`), not
  * `register` — same shape as `DepositAmountInput`/`ManualPriceField` in
  * `features/bookings`: a bare number input round-trips a blank field as `''`
  * under `register`'s default coercion, while `valueAsNumber` here reports it
- * as `NaN`, which the Zod schemas in `../schemas/cash.schema` turn into the
- * "ingresá un monto" message instead of a value silently reset to 0.
+ * as `NaN`, turned into `undefined` so a Zod schema reports "ingresá un
+ * monto" instead of a value silently reset to 0.
  *
  * `h-12` (taller than the shared `Input`'s default `h-10`) and `text-base`:
  * the counter workflow this feature exists for is used on a phone, one-handed,
@@ -36,9 +45,9 @@ interface MoneyPesosFieldProps {
  * which every typed integer satisfies, but a genuinely fractional amount
  * (`1500.5`) is still a real step mismatch under that default — and every
  * form using this field sets `noValidate` precisely so that never silently
- * blocks the `<form>` submit before React ever runs: the schemas in
- * `../schemas/cash.schema` reject a non-integer amount themselves
- * (`amountMustBeWhole`), which is the message the person actually sees.
+ * blocks the `<form>` submit before React ever runs: the caller's own Zod
+ * schema rejects a non-integer amount itself, which is the message the
+ * person actually sees.
  */
 export function MoneyPesosField({ id, label, value, onChange, error, placeholder }: MoneyPesosFieldProps) {
   return (
@@ -51,7 +60,7 @@ export function MoneyPesosField({ id, label, value, onChange, error, placeholder
           inputMode="numeric"
           min={0}
           className="h-12 pl-9 text-base"
-          // `NaN` (an untouched required field, see the schemas' `Number.NaN`
+          // `NaN` (an untouched required field, see a schema's `Number.NaN`
           // default) renders as the literal string "NaN" if handed straight
           // to a controlled input's `value` — guarded the same as the
           // `undefined`/absent case.
