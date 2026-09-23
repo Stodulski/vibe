@@ -52,6 +52,19 @@ describe('translateServerError', () => {
     expect(translateServerError('no cash session is open')).toBe(ES_AR.validation.server.cashClosed);
     expect(translateServerError('no cash session is open')).not.toBe(ES_AR.products.restockNeedsOpenTill);
   });
+
+  // `salesCreate`'s per-line 422 (pos-cashbox T5b), also matched by exact
+  // English prose rather than a code.
+  it('turns "product not found or not active" into the sale-item-not-sellable copy', () => {
+    expect(translateServerError('product not found or not active')).toBe(ES_AR.cash.saleItemNotSellable);
+  });
+
+  it('turns both of salesVoid\'s "already voided" 409s into the same copy', () => {
+    expect(translateServerError('this sale has already been voided')).toBe(ES_AR.cash.saleAlreadyVoided);
+    expect(translateServerError("this sale's income movement was already voided and cannot be voided again")).toBe(
+      ES_AR.cash.saleAlreadyVoided,
+    );
+  });
 });
 
 describe('getFieldErrors', () => {

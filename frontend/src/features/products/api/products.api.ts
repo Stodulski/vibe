@@ -10,27 +10,26 @@ import type {
   AdjustProductRequest,
 } from '@/shared/types/api.types';
 import {
-  productsListResponseSchema,
   productEnvelopeSchema,
   productStockMovementsResponseSchema,
   productStockWriteResponseSchema,
 } from '@/shared/schemas';
 import { parseWith } from '@/shared/lib/apiParse';
+import { listProducts } from '@/shared/api/products.api';
 
 export const productsApi = {
-  /** Unpaginated — a shop's catalog is bounded (`productsList`'s own doc comment). */
+  /**
+   * Unpaginated — a shop's catalog is bounded (`productsList`'s own doc
+   * comment). Delegates to `shared/api/products.api.ts` — `features/cash`'s
+   * "Vender" screen needs the same call and features never import from one
+   * another, so the implementation lives in `shared/` and this stays the one
+   * call site every other products method sits next to.
+   */
   list: (
     complexId: string,
     params?: { active?: boolean | undefined },
     signal?: AbortSignal,
-  ): Promise<ProductsListResponse> => {
-    const searchParams: Record<string, string> = {};
-    if (params?.active !== undefined) searchParams.active = String(params.active);
-    return api
-      .get(`complexes/${complexId}/products`, { searchParams, ...withSignal(signal) })
-      .json()
-      .then(parseWith(productsListResponseSchema, 'productsApi.list'));
-  },
+  ): Promise<ProductsListResponse> => listProducts(complexId, params, signal),
 
   getById: (complexId: string, productId: string, signal?: AbortSignal): Promise<ProductEnvelopeResponse> =>
     api
