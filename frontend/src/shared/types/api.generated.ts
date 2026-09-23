@@ -2052,7 +2052,7 @@ export interface components {
             opening_cash: number;
             /**
              * Format: int64
-             * @description Live projection through now() for an open session; the exact close-time snapshot for a closed one. Already has cash_manual_refunds subtracted.
+             * @description Live projection through now() for an open session; the exact close-time snapshot for a closed one. Already has cash_manual_refunds subtracted — but for a closed session, that subtraction is the amount known at close time, and cash_manual_refunds below can since have grown (see its own description); the two are not guaranteed to agree.
              */
             expected_cash: number;
             /**
@@ -2067,7 +2067,7 @@ export interface components {
             difference?: number | null;
             /**
              * Format: int64
-             * @description Centavos ARS. The cash this window already subtracted from expected_cash — the cash row(s) of manual_refunds totalled.
+             * @description Centavos ARS. The cash row(s) of manual_refunds totalled, over the session's own window (opened_at to closed_at-or-now). For an OPEN session this is exactly what was subtracted from expected_cash above. For a CLOSED session it is recomputed fresh on every read and can be larger than what expected_cash actually subtracted at close time: a manual refund is timestamped by its own transaction's start, so one that started before the session closed but only committed afterwards is invisible to the close-time snapshot yet still falls inside the window on a later read.
              */
             cash_manual_refunds: number;
             movement_totals: components["schemas"]["CashMovementTotal"][];

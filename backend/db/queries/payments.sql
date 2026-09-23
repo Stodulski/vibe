@@ -44,12 +44,21 @@ RETURNING *;
 -- UpdatePayment's other callers — the automatic MercadoPago refund and
 -- checkout paths — never have to pass manual_refund_amount/
 -- manual_refunded_at at all.
+--
+-- refund_amount and manual_refund_amount are NOT the same number whenever
+-- this row already carried a partial refund_amount: refund_amount is set to
+-- the row's full amount + service_fee (the whole payment is now refunded,
+-- same as an automatic full refund would record), while manual_refund_amount
+-- is only the OWED difference the manual refund actually handed back — what
+-- applyManualRefundRows already computed as `owed` before calling this query
+-- — so the cashbox never double-subtracts money a previous refund already
+-- took out of the till.
 UPDATE payments
 SET status = 'refunded',
     refund_amount = $1,
-    manual_refund_amount = $1,
+    manual_refund_amount = $2,
     manual_refunded_at = NOW()
-WHERE id = $2
+WHERE id = $3
 RETURNING *;
 
 -- name: GetPaymentByIDForUpdate :one

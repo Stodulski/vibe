@@ -340,6 +340,60 @@ func TestClosePassesCashManualRefundsSubtracted(t *testing.T) {
 	}
 }
 
+// TestCurrentReturnsTheManualRefundSummaryError pins that buildSummary does
+// not swallow a ManualRefundSummaryByMethodWindow failure: Current must
+// surface it rather than answering with a summary computed on partial data.
+func TestCurrentReturnsTheManualRefundSummaryError(t *testing.T) {
+	wantErr := errors.New("manual refund summary boom")
+	session := &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now()}
+	store := &stubStore{openSession: session}
+	payments := &stubPayments{manualRefundsErr: wantErr}
+	svc := newTestService(store, payments, &stubRecorder{})
+
+	_, err := svc.Current(t.Context(), session.ComplexID)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("want the ManualRefundSummaryByMethodWindow error; got %v", err)
+	}
+}
+
+// TestGetReturnsTheManualRefundSummaryError is Current's sibling for Get,
+// which also rebuilds the summary through buildSummary.
+func TestGetReturnsTheManualRefundSummaryError(t *testing.T) {
+	wantErr := errors.New("manual refund summary boom")
+	session := &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now()}
+	store := &stubStore{byID: session}
+	payments := &stubPayments{manualRefundsErr: wantErr}
+	svc := newTestService(store, payments, &stubRecorder{})
+
+	_, err := svc.Get(t.Context(), session.ComplexID, session.ID)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("want the ManualRefundSummaryByMethodWindow error; got %v", err)
+	}
+}
+
+// TestCloseReturnsTheManualRefundSummaryErrorWithoutClosingTheStore pins that
+// Close reads ManualRefundSummaryByMethodWindow before ever calling the
+// store's own Close: a read failure here must never let a session close on
+// an expected-cash figure computed without knowing what was manually
+// refunded.
+func TestCloseReturnsTheManualRefundSummaryErrorWithoutClosingTheStore(t *testing.T) {
+	wantErr := errors.New("manual refund summary boom")
+	store := &stubStore{
+		byID:          &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now()},
+		closedSession: &cashboxstore.CashSession{},
+	}
+	payments := &stubPayments{manualRefundsErr: wantErr}
+	svc := newTestService(store, payments, &stubRecorder{})
+
+	_, err := svc.Close(t.Context(), uuid.New(), uuid.New(), testActor(), uuid.New(), CloseInput{CountedCash: 1000})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("want the ManualRefundSummaryByMethodWindow error; got %v", err)
+	}
+	if store.closeArgs != nil {
+		t.Errorf("want the store's Close never called when the manual-refund read fails; got %+v", store.closeArgs)
+	}
+}
+
 func TestGetOnAClosedSessionEchoesTheStoredSnapshotRatherThanRecomputing(t *testing.T) {
 	var countedCash, expectedCash, difference int64 = 5000, 4500, 500
 	closedAt := time.Now()
