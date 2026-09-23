@@ -57,6 +57,8 @@ function mockOpen() {
     expected_cash: 650000,
     movement_totals: [],
     booking_payments: [],
+    manual_refunds: [],
+    cash_manual_refunds: 0,
   };
   vi.mocked(useCashSession).mockReturnValue({
     data: { cash_session: session, summary },
@@ -87,6 +89,8 @@ function mockOpenWithStaleDetailError() {
     expected_cash: 650000,
     movement_totals: [],
     booking_payments: [],
+    manual_refunds: [],
+    cash_manual_refunds: 0,
   };
   vi.mocked(useCashSession).mockReturnValue({
     data: { cash_session: session, summary },

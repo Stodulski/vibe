@@ -15,8 +15,10 @@ import {
 const summary = {
   opening_cash: 500000,
   expected_cash: 650000,
+  cash_manual_refunds: 20000,
   movement_totals: [{ method: 'cash', kind: 'expense', category: 'supplies', total: 150000, count: 1 }],
   booking_payments: [{ method: 'mercadopago', count: 2, amount: 800000, service_fee: 32000, refunded: 0 }],
+  manual_refunds: [{ method: 'cash', count: 1, amount: 20000 }],
 };
 
 describe('cashSessionSchema', () => {

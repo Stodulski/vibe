@@ -6,6 +6,7 @@ export type CashSession = Spec<'CashSession'>;
 export type CashMovement = Spec<'CashMovement'>;
 export type CashMovementTotal = Spec<'CashMovementTotal'>;
 export type CashBookingPaymentTotal = Spec<'CashBookingPaymentTotal'>;
+export type CashManualRefundTotal = Spec<'CashManualRefundTotal'>;
 export type CashSessionSummary = Spec<'CashSessionSummary'>;
 
 export type CashSessionsListResponse = Ok<'cashSessionsList'>;

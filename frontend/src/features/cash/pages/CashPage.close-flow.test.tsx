@@ -22,8 +22,10 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 const summary = (expected: number) => ({
   opening_cash: 1000000,
   expected_cash: expected,
+  cash_manual_refunds: 0,
   movement_totals: [],
   booking_payments: [],
+  manual_refunds: [],
 });
 
 function renderPage() {
