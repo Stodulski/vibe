@@ -188,6 +188,23 @@ func TestVoidRecordsAnAuditEntry(t *testing.T) {
 	}
 }
 
+// TestVoidIsAuditedEvenWhenTheItemReadFails pins the audit ordering: the void
+// has committed before its items are read, and a retry would only answer
+// ErrAlreadyVoided, so the audit entry must not depend on that read.
+func TestVoidIsAuditedEvenWhenTheItemReadFails(t *testing.T) {
+	before := &salestore.Sale{ID: uuid.New()}
+	store := &stubStore{byID: before, voidSale: &salestore.Sale{ID: before.ID}, itemsBySaleErr: errors.New("read failed")}
+	rec := &stubRecorder{}
+	svc := newTestService(store, rec)
+
+	if _, err := svc.Void(t.Context(), uuid.New(), before.ID, testActor(), uuid.New(), nil); err == nil {
+		t.Fatal("want the read error to surface")
+	}
+	if len(rec.entries) != 1 || rec.entries[0].Action != "void" {
+		t.Fatalf("want 1 audit entry action=void; got %+v", rec.entries)
+	}
+}
+
 func TestVoidRefusesAnUnknownSale(t *testing.T) {
 	store := &stubStore{getByIDErr: data.ErrRecordNotFound}
 	svc := newTestService(store, &stubRecorder{})

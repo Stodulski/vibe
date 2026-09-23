@@ -119,11 +119,14 @@ func (s *Service) Void(ctx context.Context, complexID, saleID uuid.UUID, actor A
 		return nil, err
 	}
 
+	// Recorded before the read below: the void has already committed, and a
+	// failed read must not leave it without an audit entry that no retry
+	// could write (a retry answers ErrAlreadyVoided).
+	s.record(complexID, actor, "void", &voided.ID, map[string]any{"before": before, "after": voided})
+
 	items, err := s.store.ListItemsBySale(ctx, complexID, saleID)
 	if err != nil {
 		return nil, err
 	}
-
-	s.record(complexID, actor, "void", &voided.ID, map[string]any{"before": before, "after": voided})
 	return &SaleWithItems{Sale: voided, Items: items}, nil
 }

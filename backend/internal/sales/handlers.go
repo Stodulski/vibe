@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -97,7 +98,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	v.Check(paymentmethod.IsCounter(string(body.Method)), "method", paymentmethod.Message)
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -250,7 +251,7 @@ func (h *Handler) Void(w http.ResponseWriter, r *http.Request) {
 
 	v := validator.New()
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)

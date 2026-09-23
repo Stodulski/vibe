@@ -193,6 +193,24 @@ func TestCreateMovementRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+// TestCreateMovementCountsTheNoteInCharacters pins the note cap in
+// characters, as the spec's maxLength does: 500 letters with accents are
+// 1,000 bytes and must still be accepted.
+func TestCreateMovementCountsTheNoteInCharacters(t *testing.T) {
+	store := &stubStore{}
+	h, _ := newTestHandler(store, &stubPayments{})
+
+	note := strings.Repeat("ñ", noteMaxLen)
+	w := httptest.NewRecorder()
+	h.CreateMovement(w, ownerRequest(t, http.MethodPost, "/", uuid.New(),
+		map[string]string{"sessionID": uuid.New().String()},
+		`{"kind":"income","category":"other_income","method":"cash","amount":1000,"note":"`+note+`"}`))
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
 // --- VoidMovement --------------------------------------------------------
 
 // TestVoidMovementWithAnEmptyBodyIs201 pins the optional-body fix: the void
