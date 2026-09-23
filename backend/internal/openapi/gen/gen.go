@@ -769,24 +769,51 @@ func (e RefundStatus) Valid() bool {
 	}
 }
 
+// Defines values for SaleMethod.
+const (
+	SaleMethodCash       SaleMethod = "cash"
+	SaleMethodCreditCard SaleMethod = "credit_card"
+	SaleMethodDebitCard  SaleMethod = "debit_card"
+	SaleMethodQrWallet   SaleMethod = "qr_wallet"
+	SaleMethodTransfer   SaleMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the SaleMethod enum.
+func (e SaleMethod) Valid() bool {
+	switch e {
+	case SaleMethodCash:
+		return true
+	case SaleMethodCreditCard:
+		return true
+	case SaleMethodDebitCard:
+		return true
+	case SaleMethodQrWallet:
+		return true
+	case SaleMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StockMovementKind.
 const (
-	Adjustment StockMovementKind = "adjustment"
-	Restock    StockMovementKind = "restock"
-	Sale       StockMovementKind = "sale"
-	SaleVoid   StockMovementKind = "sale_void"
+	StockMovementKindAdjustment StockMovementKind = "adjustment"
+	StockMovementKindRestock    StockMovementKind = "restock"
+	StockMovementKindSale       StockMovementKind = "sale"
+	StockMovementKindSaleVoid   StockMovementKind = "sale_void"
 )
 
 // Valid indicates whether the value is a known member of the StockMovementKind enum.
 func (e StockMovementKind) Valid() bool {
 	switch e {
-	case Adjustment:
+	case StockMovementKindAdjustment:
 		return true
-	case Restock:
+	case StockMovementKindRestock:
 		return true
-	case Sale:
+	case StockMovementKindSale:
 		return true
-	case SaleVoid:
+	case StockMovementKindSaleVoid:
 		return true
 	default:
 		return false
@@ -1402,6 +1429,33 @@ func (e ReportingCreatePaymentsExport202JSONResponseBodyExportStatus) Valid() bo
 	case ReportingCreatePaymentsExport202JSONResponseBodyExportStatusPending:
 		return true
 	case ReportingCreatePaymentsExport202JSONResponseBodyExportStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SalesCreateJSONBodyMethod.
+const (
+	SalesCreateJSONBodyMethodCash       SalesCreateJSONBodyMethod = "cash"
+	SalesCreateJSONBodyMethodCreditCard SalesCreateJSONBodyMethod = "credit_card"
+	SalesCreateJSONBodyMethodDebitCard  SalesCreateJSONBodyMethod = "debit_card"
+	SalesCreateJSONBodyMethodQrWallet   SalesCreateJSONBodyMethod = "qr_wallet"
+	SalesCreateJSONBodyMethodTransfer   SalesCreateJSONBodyMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the SalesCreateJSONBodyMethod enum.
+func (e SalesCreateJSONBodyMethod) Valid() bool {
+	switch e {
+	case SalesCreateJSONBodyMethodCash:
+		return true
+	case SalesCreateJSONBodyMethodCreditCard:
+		return true
+	case SalesCreateJSONBodyMethodDebitCard:
+		return true
+	case SalesCreateJSONBodyMethodQrWallet:
+		return true
+	case SalesCreateJSONBodyMethodTransfer:
 		return true
 	default:
 		return false
@@ -2348,6 +2402,55 @@ type RevenueDataPoint struct {
 	Date   openapi_types.Date `json:"date"`
 }
 
+// Sale defines model for Sale.
+type Sale struct {
+	// CashMovementId The sale's own 'sale' category income movement.
+	CashMovementId openapi_types.UUID `json:"cash_movement_id"`
+	ComplexId      openapi_types.UUID `json:"complex_id"`
+	CreatedAt      time.Time          `json:"created_at"`
+	CreatedBy      openapi_types.UUID `json:"created_by"`
+	Id             openapi_types.UUID `json:"id"`
+	Items          []SaleItem         `json:"items"`
+	Method         SaleMethod         `json:"method"`
+	SessionId      openapi_types.UUID `json:"session_id"`
+
+	// Total Centavos ARS. Always the server-computed sum of the sale's own line totals.
+	Total int `json:"total"`
+
+	// VoidCashMovementId The movement that voided the sale's income, when this sale is voided.
+	VoidCashMovementId *openapi_types.UUID `json:"void_cash_movement_id,omitempty"`
+	VoidedAt           *time.Time          `json:"voided_at,omitempty"`
+	VoidedBy           *openapi_types.UUID `json:"voided_by,omitempty"`
+}
+
+// SaleMethod defines model for Sale.Method.
+type SaleMethod string
+
+// SaleItem defines model for SaleItem.
+type SaleItem struct {
+	ComplexId openapi_types.UUID `json:"complex_id"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// LineTotal unit_price * quantity.
+	LineTotal int                `json:"line_total"`
+	ProductId openapi_types.UUID `json:"product_id"`
+
+	// ProductName Snapshot of the product's name at sale time.
+	ProductName string             `json:"product_name"`
+	Quantity    int                `json:"quantity"`
+	SaleId      openapi_types.UUID `json:"sale_id"`
+
+	// UnitPrice Centavos ARS, snapshot of the product's price at sale time.
+	UnitPrice int `json:"unit_price"`
+}
+
+// SaleStockWarning One tracked product whose stock_on_hand ended at zero or below after the sale — never a reason the sale was refused (selling past zero stock is allowed), only a flag that it needs a count.
+type SaleStockWarning struct {
+	ProductId   openapi_types.UUID `json:"product_id"`
+	ProductName string             `json:"product_name"`
+	StockOnHand int                `json:"stock_on_hand"`
+}
+
 // Schedule defines model for Schedule.
 type Schedule struct {
 	CloseTime string             `json:"close_time"`
@@ -2386,7 +2489,7 @@ type StockMovement struct {
 	// Reason Set iff kind = adjustment.
 	Reason *StockMovementReason `json:"reason,omitempty"`
 
-	// SaleId Set for kind = sale or sale_void, from delivery 4 (T4b) on.
+	// SaleId Set iff kind = sale or sale_void.
 	SaleId *openapi_types.UUID `json:"sale_id,omitempty"`
 }
 
@@ -2468,6 +2571,12 @@ type PathSlug = string
 
 // ProductID defines model for ProductID.
 type ProductID = openapi_types.UUID
+
+// SaleID defines model for SaleID.
+type SaleID = openapi_types.UUID
+
+// SaleSessionIDFilter defines model for SaleSessionIDFilter.
+type SaleSessionIDFilter = openapi_types.UUID
 
 // SessionID defines model for SessionID.
 type SessionID = openapi_types.UUID
@@ -3204,6 +3313,52 @@ type ReportingGetMonthlyReportParams struct {
 	Year  *int `form:"year,omitempty" json:"year,omitempty"`
 }
 
+// SalesListParams defines parameters for SalesList.
+type SalesListParams struct {
+	// SessionId Restrict the list to sales recorded against this cash session. Omit to return every session's.
+	SessionId *SaleSessionIDFilter `form:"session_id,omitempty" json:"session_id,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous page's `metadata.next_cursor`.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Page size. Default 50, maximum 200.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SalesCreateJSONBody defines parameters for SalesCreate.
+type SalesCreateJSONBody struct {
+	Items []struct {
+		ProductId openapi_types.UUID `json:"product_id"`
+
+		// Quantity Nullable for the same missing-vs-zero reason productsCreate's price is.
+		Quantity *int `json:"quantity"`
+	} `json:"items"`
+	Method SalesCreateJSONBodyMethod `json:"method"`
+
+	// Note Appended to the sale income movement's own note.
+	Note *string `json:"note,omitempty"`
+}
+
+// SalesCreateParams defines parameters for SalesCreate.
+type SalesCreateParams struct {
+	// IdempotencyKey A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// SalesCreateJSONBodyMethod defines parameters for SalesCreate.
+type SalesCreateJSONBodyMethod string
+
+// SalesVoidJSONBody defines parameters for SalesVoid.
+type SalesVoidJSONBody struct {
+	Note *string `json:"note,omitempty"`
+}
+
+// SalesVoidParams defines parameters for SalesVoid.
+type SalesVoidParams struct {
+	// IdempotencyKey A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ComplexesUpdateSchedulesJSONBody defines parameters for ComplexesUpdateSchedules.
 type ComplexesUpdateSchedulesJSONBody struct {
 	Schedules []struct {
@@ -3432,6 +3587,12 @@ type ProductsRestockJSONRequestBody ProductsRestockJSONBody
 
 // ReportingCreatePaymentsExportJSONRequestBody defines body for ReportingCreatePaymentsExport for application/json ContentType.
 type ReportingCreatePaymentsExportJSONRequestBody ReportingCreatePaymentsExportJSONBody
+
+// SalesCreateJSONRequestBody defines body for SalesCreate for application/json ContentType.
+type SalesCreateJSONRequestBody SalesCreateJSONBody
+
+// SalesVoidJSONRequestBody defines body for SalesVoid for application/json ContentType.
+type SalesVoidJSONRequestBody SalesVoidJSONBody
 
 // ComplexesUpdateSchedulesJSONRequestBody defines body for ComplexesUpdateSchedules for application/json ContentType.
 type ComplexesUpdateSchedulesJSONRequestBody ComplexesUpdateSchedulesJSONBody
@@ -3745,6 +3906,18 @@ type ServerInterface interface {
 	// ReportingGetMonthlyReport Monthly payments report
 	// (GET /api/v1/complexes/{id}/reports/monthly)
 	ReportingGetMonthlyReport(w http.ResponseWriter, r *http.Request, id PathID, params ReportingGetMonthlyReportParams)
+	// SalesList List this complex's sales
+	// (GET /api/v1/complexes/{id}/sales)
+	SalesList(w http.ResponseWriter, r *http.Request, id PathID, params SalesListParams)
+	// SalesCreate Sell a set of products
+	// (POST /api/v1/complexes/{id}/sales)
+	SalesCreate(w http.ResponseWriter, r *http.Request, id PathID, params SalesCreateParams)
+	// SalesGet Get one sale
+	// (GET /api/v1/complexes/{id}/sales/{saleID})
+	SalesGet(w http.ResponseWriter, r *http.Request, id PathID, saleID SaleID)
+	// SalesVoid Void a sale
+	// (POST /api/v1/complexes/{id}/sales/{saleID}/void)
+	SalesVoid(w http.ResponseWriter, r *http.Request, id PathID, saleID SaleID, params SalesVoidParams)
 	// ComplexesUpdateSchedules Replace a complex's weekly opening hours
 	// (PUT /api/v1/complexes/{id}/schedules)
 	ComplexesUpdateSchedules(w http.ResponseWriter, r *http.Request, id PathID)
@@ -6554,6 +6727,218 @@ func (siw *ServerInterfaceWrapper) ReportingGetMonthlyReport(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// SalesList operation middleware
+func (siw *ServerInterfaceWrapper) SalesList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SalesListParams
+
+	// ------------- Optional query parameter "session_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "session_id", r.URL.Query(), &params.SessionId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "session_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "session_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SalesList(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SalesCreate operation middleware
+func (siw *ServerInterfaceWrapper) SalesCreate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SalesCreateParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SalesCreate(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SalesGet operation middleware
+func (siw *ServerInterfaceWrapper) SalesGet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "saleID" -------------
+	var saleID SaleID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "saleID", r.PathValue("saleID"), &saleID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "saleID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SalesGet(w, r, id, saleID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SalesVoid operation middleware
+func (siw *ServerInterfaceWrapper) SalesVoid(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "saleID" -------------
+	var saleID SaleID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "saleID", r.PathValue("saleID"), &saleID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "saleID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SalesVoidParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SalesVoid(w, r, id, saleID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ComplexesUpdateSchedules operation middleware
 func (siw *ServerInterfaceWrapper) ComplexesUpdateSchedules(w http.ResponseWriter, r *http.Request) {
 
@@ -7455,6 +7840,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/products/{productID}/restock", wrapper.ProductsRestock)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/products/{productID}/adjustments", wrapper.ProductsAdjust)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/products/{productID}/stock-movements", wrapper.ProductsListStockMovements)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/sales", wrapper.SalesList)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/sales", wrapper.SalesCreate)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/sales/{saleID}", wrapper.SalesGet)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/sales/{saleID}/void", wrapper.SalesVoid)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/sitemap.xml", wrapper.PublicsiteSitemap)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/sitemap.xml", wrapper.PublicsiteSitemapMoved)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/prerender/{slug}", wrapper.PublicsitePrerender)
