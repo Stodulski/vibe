@@ -1,5 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { TodayBookings, PaymentOverview } from '@/features/dashboard';
+import { CashboxPanel } from '../../components/CashboxPanel';
+import { LowStockAlert } from '../../components/LowStockAlert';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { DashboardStats, ClientInsights } from '@/shared/types/api.types';
 
@@ -37,6 +39,15 @@ export function DashboardContent({
       <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
         <PaymentOverview stats={stats} />
         <TodayBookings bookings={stats.upcoming_bookings} complexId={selectedComplexId} />
+      </div>
+
+      {/* 1b. Cashbox status + low-stock alert (pos-cashbox T6) — same grid
+          shape as the operational row above, one column on mobile, two on
+          desktop. LowStockAlert hides itself when there is nothing to flag,
+          so this row can render as a single card. */}
+      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
+        <CashboxPanel complexId={selectedComplexId} />
+        <LowStockAlert complexId={selectedComplexId} />
       </div>
 
       {/* 2. Trends — revenue chart, client insights, occupancy heatmap

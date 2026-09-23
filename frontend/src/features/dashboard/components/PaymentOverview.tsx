@@ -1,5 +1,5 @@
 import type { DashboardStats } from '@/shared/types/api.types';
-import { CashControlHeader } from './payment-overview/CashControlHeader';
+import { TodayRevenueHeader } from './payment-overview/TodayRevenueHeader';
 import { TodayMetrics } from './payment-overview/TodayMetrics';
 import { PaymentStatusBreakdown } from './payment-overview/PaymentStatusBreakdown';
 import { PaymentMethodBreakdown } from './payment-overview/PaymentMethodBreakdown';
@@ -35,7 +35,7 @@ export function PaymentOverview({ stats }: PaymentOverviewProps) {
 
   return (
     <Panel as="section" size="sm" className="flex h-full flex-col p-4">
-      <CashControlHeader todayRevenue={today_revenue} yesterdayRevenue={yesterday_revenue} />
+      <TodayRevenueHeader todayRevenue={today_revenue} yesterdayRevenue={yesterday_revenue} />
       <TodayMetrics
         todayBookings={today_bookings}
         yesterdayBookings={yesterday_bookings}
