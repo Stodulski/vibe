@@ -1375,6 +1375,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List this complex's sales
+         * @description Newest first. Paginated. Optionally restricted to one cash session.
+         */
+        get: operations["salesList"];
+        put?: never;
+        /**
+         * Sell a set of products
+         * @description The client sends product ids and quantities only; prices and the total always come from the server. Requires an open cash session (409 otherwise). In one transaction: writes the 'sale' cash income (amount = total), the sale and its items, and one 'sale' stock movement per tracked item. Never refused for lack of stock — the response's `stock_warnings` names every tracked product that ended at zero or below. 1 to 50 items; each product id may appear once (422 on a duplicate); every product must exist in this complex and be active, or the request is refused with 422 naming the offending item's index (`items[N].product_id`); the computed total must be greater than zero (a sale where every priced item is free is refused, not silently recorded as a zero-amount income) and must not exceed 2000000000 centavos.
+         */
+        post: operations["salesCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/sales/{saleID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one sale
+         * @description Includes its items.
+         */
+        get: operations["salesGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/sales/{saleID}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a sale
+         * @description Once only (409 on a second void). Requires an open cash session (409 otherwise): the void's own cash movement always lands in whichever session is open right now, which may not be the sale's own. In one transaction: restores stock for every tracked item this sale originally moved (even if the product is now inactive or no longer tracks stock), and voids the sale's own income movement (opposite kind, same amount/method/category, landing in the currently open session) — the same shape cashMovementsVoid gives an ordinary cash movement. A 'sale' category income movement can only be voided through this endpoint, never through cashMovementsVoid directly.
+         */
+        post: operations["salesVoid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sitemap.xml": {
         parameters: {
             query?: never;
@@ -2047,13 +2111,68 @@ export interface components {
             cash_movement_id?: string | null;
             /**
              * Format: uuid
-             * @description Set for kind = sale or sale_void, from delivery 4 (T4b) on.
+             * @description Set iff kind = sale or sale_void.
              */
             sale_id?: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: uuid */
             created_by: string;
+        };
+        Sale: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** @enum {string} */
+            method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+            /** @description Centavos ARS. Always the server-computed sum of the sale's own line totals. */
+            total: number;
+            /**
+             * Format: uuid
+             * @description The sale's own 'sale' category income movement.
+             */
+            cash_movement_id: string;
+            /** Format: date-time */
+            voided_at?: string | null;
+            /** Format: uuid */
+            voided_by?: string | null;
+            /**
+             * Format: uuid
+             * @description The movement that voided the sale's income, when this sale is voided.
+             */
+            void_cash_movement_id?: string | null;
+            items: components["schemas"]["SaleItem"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+        };
+        SaleItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            /** Format: uuid */
+            sale_id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** @description Snapshot of the product's name at sale time. */
+            product_name: string;
+            /** @description Centavos ARS, snapshot of the product's price at sale time. */
+            unit_price: number;
+            quantity: number;
+            /** @description unit_price * quantity. */
+            line_total: number;
+        };
+        /** @description One tracked product whose stock_on_hand ended at zero or below after the sale — never a reason the sale was refused (selling past zero stock is allowed), only a flag that it needs a count. */
+        SaleStockWarning: {
+            /** Format: uuid */
+            product_id: string;
+            product_name: string;
+            stock_on_hand: number;
         };
         BlockedSlot: {
             /** Format: uuid */
@@ -2629,6 +2748,10 @@ export interface components {
         ProductID: string;
         /** @description Restrict the list to active or inactive products. Omit to return both. */
         ActiveFilter: boolean;
+        /** @description Sale id. */
+        SaleID: string;
+        /** @description Restrict the list to sales recorded against this cash session. Omit to return every session's. */
+        SaleSessionIDFilter: string;
         ClientID: string;
         ExportID: string;
         /** @description The opaque booking-link token, never the booking's primary key. */
@@ -6294,6 +6417,194 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    salesList: {
+        parameters: {
+            query?: {
+                /** @description Restrict the list to sales recorded against this cash session. Omit to return every session's. */
+                session_id?: components["parameters"]["SaleSessionIDFilter"];
+                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. Default 50, maximum 200. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of this complex's sales, each with its items. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sales: components["schemas"]["Sale"][];
+                        metadata: components["schemas"]["Metadata"];
+                    };
+                };
+            };
+            /** @description Invalid cursor value. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    salesCreate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    items: {
+                        /** Format: uuid */
+                        product_id: string;
+                        /** @description Nullable for the same missing-vs-zero reason productsCreate's price is. */
+                        quantity: number | null;
+                    }[];
+                    /** @enum {string} */
+                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+                    /** @description Appended to the sale income movement's own note. */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The recorded sale, its items, and any stock warnings. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sale: components["schemas"]["Sale"];
+                        stock_warnings: components["schemas"]["SaleStockWarning"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description No cash session is open. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    salesGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                /** @description Sale id. */
+                saleID: components["parameters"]["SaleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sale and its items. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sale: components["schemas"]["Sale"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    salesVoid: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                /** @description Sale id. */
+                saleID: components["parameters"]["SaleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The voided sale. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sale: components["schemas"]["Sale"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description No cash session is open, or this sale has already been voided. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
