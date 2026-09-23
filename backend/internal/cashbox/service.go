@@ -95,10 +95,25 @@ type Summary struct {
 	ExpectedCash int64  `json:"expected_cash"`
 	CountedCash  *int64 `json:"counted_cash,omitempty"`
 	Difference   *int64 `json:"difference,omitempty"`
-	// CashManualRefunds is the cash this session's window already subtracted
-	// from ExpectedCash — informational, so the Caja screen can show the
-	// "Devoluciones en efectivo" line without recomputing it from
-	// ManualRefunds itself.
+	// CashManualRefunds is, for an OPEN session, exactly what buildSummary
+	// subtracted from the live ExpectedCash projection below it — informational,
+	// so the Caja screen can show the "Devoluciones en efectivo" line without
+	// recomputing it from ManualRefunds itself.
+	//
+	// For a CLOSED session it is NOT that guarantee: ExpectedCash for a closed
+	// session is the immutable snapshot Close wrote (see buildSummary and
+	// Close's own comment), but CashManualRefunds/ManualRefunds are always
+	// recomputed fresh, over [opened_at, closed_at), every time the summary is
+	// rebuilt. manual_refunded_at is written as the manual refund's own
+	// transaction's NOW() — its start time, not its commit time
+	// (db/queries/payments.sql, MarkPaymentManuallyRefunded) — so a manual
+	// refund whose transaction started before closed_at but only committed
+	// after Close already read the window can be absent from the stored
+	// ExpectedCash snapshot yet still show up here, in a later rebuild, because
+	// its manual_refunded_at still falls inside the window. This mirrors the
+	// closed_at/app-clock note on Service.Close: the two numbers are not
+	// guaranteed to agree once a session is closed, and this field never tries
+	// to make them.
 	CashManualRefunds int64                                   `json:"cash_manual_refunds"`
 	MovementTotals    []cashboxstore.MovementTotal            `json:"movement_totals"`
 	BookingPayments   []reportstore.PaymentMethodSummary      `json:"booking_payments"`

@@ -475,6 +475,83 @@ func TestRecordManualRefund(t *testing.T) {
 	}
 }
 
+// TestRecordManualRefundOwedAmountWithPriorPartialRefund pins the exact
+// arithmetic applyManualRefundRows (internal/payments/store/refunds.go)
+// writes to manual_refund_amount when the cash row it is closing out
+// already carries its own non-zero refund_amount from before this call —
+// the case TestRecordManualRefund above cannot catch, because its cash row
+// starts at refund_amount = 0, where "owed" and "amount + service_fee" are
+// the same number and a bug that writes the wrong one is invisible.
+//
+// There is no store method that leaves a manual (non-MercadoPago) payment
+// row with a partial, pre-existing refund_amount on its own — only
+// applyManualRefundRows ever writes refund_amount for a manual row, and it
+// always writes the full amount+service_fee. The raw UPDATE below stands in
+// for state this schema allows (payments_manual_refund_consistent has no
+// opinion on refund_amount alone) but no current code path produces; it
+// only prepares the fixture, and RecordManualRefund — the function under
+// test — is still what performs and is asserted against the write.
+func TestRecordManualRefundOwedAmountWithPriorPartialRefund(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	mpPaymentID := "mp-" + uuid.NewString()
+	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+	cashPayment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)
+
+	// The cash row already has 15_000 refunded by some earlier event, and is
+	// not yet 'refunded' — 35_000 is still owed by hand.
+	const priorRefundAmount = 15_000
+	if _, err := f.DB.Exec(ctx,
+		`UPDATE payments SET refund_amount = $2 WHERE id = $1`, cashPayment.ID, priorRefundAmount,
+	); err != nil {
+		t.Fatalf("seeding prior partial refund on the cash row: %v", err)
+	}
+
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, mpPayment.ID)
+	if err != nil {
+		t.Fatalf("ClaimRefund: %v", err)
+	}
+	manualOwed := cashPayment.Amount + cashPayment.ServiceFee - priorRefundAmount
+	if _, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, manualOwed); err != nil {
+		t.Fatalf("RecordRefundSuccess: %v", err)
+	}
+
+	if _, _, refundStatus := f.ReadBookingState(t, booking.ID); refundStatus != bookingstore.RefundStatusPartial {
+		t.Fatalf("setup: booking must read refund_status 'partial' before RecordManualRefund runs; got %q", refundStatus)
+	}
+
+	returned, err := f.Stores.Payments.RecordManualRefund(ctx, booking.ID)
+	if err != nil {
+		t.Fatalf("RecordManualRefund: %v", err)
+	}
+	if returned != manualOwed {
+		t.Errorf("the returned amount must be the cash row's own remaining balance; want %d, got %d", manualOwed, returned)
+	}
+
+	cashStatus, cashRefundAmount := f.ReadPaymentState(t, cashPayment.ID)
+	if cashStatus != "refunded" {
+		t.Errorf("the cash row must now read as refunded; got %q", cashStatus)
+	}
+	if want := cashPayment.Amount + cashPayment.ServiceFee; cashRefundAmount != want {
+		t.Errorf("the cash row's refund_amount must be its amount plus service fee; want %d, got %d", want, cashRefundAmount)
+	}
+
+	var manualRefundAmount int
+	if err := f.DB.QueryRow(ctx,
+		`SELECT manual_refund_amount FROM payments WHERE id = $1`, cashPayment.ID,
+	).Scan(&manualRefundAmount); err != nil {
+		t.Fatalf("reading manual_refund_amount: %v", err)
+	}
+	// This is the assertion a bug that writes amount+service_fee (instead of
+	// owed = amount+service_fee-prior refund_amount) into manual_refund_amount
+	// would fail: want 35_000, a buggy write would leave 50_000.
+	if want := cashPayment.Amount + cashPayment.ServiceFee - priorRefundAmount; manualRefundAmount != want {
+		t.Errorf("want manual_refund_amount=%d (amount+service_fee-prior refund_amount, the owed balance); got %d", want, manualRefundAmount)
+	}
+}
+
 // TestPaymentsManualRefundConsistentCheck pins
 // payments_manual_refund_consistent (db/migrations/006_payment_manual_refunds.sql):
 // manual_refund_amount and manual_refunded_at are null or set together, by

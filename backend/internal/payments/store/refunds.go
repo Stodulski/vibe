@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -528,9 +529,10 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 // one screen; the loop itself is the one step that touches more than one row.
 //
 // Alongside status and refund_amount, each row also gets manual_refund_amount
-// (the owed amount actually handed back) and manual_refunded_at (this
-// transaction's own NOW(), not the caller's clock) — see
-// MarkPaymentManuallyRefunded (db/queries/payments.sql) and
+// (the owed amount actually handed back — owed below, NOT the same as
+// refund_amount whenever this row already carried a prior partial refund)
+// and manual_refunded_at (this transaction's own NOW(), not the caller's
+// clock) — see MarkPaymentManuallyRefunded (db/queries/payments.sql) and
 // db/migrations/006_payment_manual_refunds.sql. Those two columns are what
 // lets the cashbox tell a manual refund apart from any other update to the
 // row (internal/cashbox/service.go).
@@ -549,7 +551,9 @@ func applyManualRefundRows(ctx context.Context, qtx *db.Queries, rows []db.Payme
 		if _, err := qtx.MarkPaymentManuallyRefunded(ctx, db.MarkPaymentManuallyRefundedParams{
 			//nolint:gosec // G115: currency amount (cents), bounded by payments_refund_within_amount_paid; far below int32 range.
 			RefundAmount: row.Amount + row.ServiceFee,
-			ID:           row.ID,
+			//nolint:gosec // G115: currency amount (cents), bounded by owed <= amount+service_fee-refund_amount; far below int32 range.
+			ManualRefundAmount: pgtype.Int4{Int32: int32(owed), Valid: true},
+			ID:                 row.ID,
 		}); err != nil {
 			return 0, fmt.Errorf("record manual refund of payment %s: %w", data.PgToUUID(row.ID), err)
 		}

@@ -284,11 +284,24 @@ func (m *Store) ListByComplex(ctx context.Context, complexID uuid.UUID, filters 
 // cashBookingPaymentsInWindow and cashManualRefundsInWindow are the two parts
 // of expected cash this store cannot compute itself — both booking payments
 // and manual refunds live in another domain's table (payments) — so the
-// service reads them (a plain, unlocked read: nothing else races a booking
-// payment or a manual refund against this specific close) and passes them
-// in. Everything this store CAN compute from its own tables (opening_cash,
-// this session's cash movements), it does, inside the lock, rather than
-// trusting a value the caller read earlier and might now be stale.
+// service reads them (a plain, unlocked read) and passes them in. Everything
+// this store CAN compute from its own tables (opening_cash, this session's
+// cash movements), it does, inside the lock, rather than trusting a value the
+// caller read earlier and might now be stale.
+//
+// That unlocked read is not race-free for manual refunds. A manual refund's
+// manual_refunded_at is its own transaction's start time (NOW(), see
+// MarkPaymentManuallyRefunded in db/queries/payments.sql), not its commit
+// time, so a manual refund whose transaction started before this window's
+// end but committed after the service's read is simply invisible to this
+// read — the row is not there to see yet, and cashManualRefundsInWindow (and
+// therefore the ExpectedCash snapshot this method writes) is short by
+// exactly that amount. A later rebuild of this same closed session's summary
+// (buildSummary, internal/cashbox/service.go) recomputes the manual-refund
+// side fresh over the same window and WILL pick that refund up, because its
+// manual_refunded_at still falls inside [opened_at, closed_at) — see
+// Summary.CashManualRefunds' own comment for why that divergence is accepted
+// rather than eliminated.
 //
 // closedAt is likewise the service's, not this store's: it is the exact
 // instant Service.Close used as the end of the booking-payments window it

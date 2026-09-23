@@ -17,7 +17,7 @@ SET LOCAL lock_timeout = '3s';
 -- expected_cash never subtracted the cash an owner hands back by hand — a
 -- documented gap in internal/cashbox/service.go.
 --
--- This is the third migration on top of 001_init.sql written as a new
+-- This is the fifth migration on top of 001_init.sql written as a new
 -- numbered file rather than folded into it directly (docs/adr/0003 records
 -- why: Vibe now has a production deployment, so 001_init.sql is immutable
 -- from here on). It follows 002_counter_payment_methods.sql and
@@ -42,6 +42,24 @@ ALTER TABLE payments
 -- bound reuses payments_refund_within_amount_paid's own bound (amount +
 -- service_fee) since a manual refund can never hand back more than the
 -- payment ever collected.
+--
+-- Added NOT VALID: a plain ADD CONSTRAINT ... CHECK takes ACCESS EXCLUSIVE on
+-- payments for the whole statement, including the full-table scan that
+-- proves every existing row already satisfies it — on a table this hot
+-- (every booking payment and refund writes it) that scan can hold the lock
+-- long enough to back up the connection pool behind it. NOT VALID skips the
+-- scan and takes ACCESS EXCLUSIVE only for the instant it takes to record
+-- the constraint's existence.
+--
+-- The validating scan does NOT run here. Goose applies one migration file in
+-- a single transaction, so a VALIDATE CONSTRAINT run in this same file would
+-- still execute under the ACCESS EXCLUSIVE lock the ADD CONSTRAINT above
+-- took — held until this transaction commits — which defeats NOT VALID
+-- entirely. The scan runs in 007_validate_payment_manual_refunds.sql, its
+-- own goose transaction, where it takes only SHARE UPDATE EXCLUSIVE and
+-- does not block ordinary reads/writes. Until 007 runs, the constraint
+-- exists but is not yet proven to hold for pre-existing rows; PostgreSQL
+-- still enforces it against every new write in the meantime.
 ALTER TABLE payments
     ADD CONSTRAINT payments_manual_refund_consistent CHECK (
         (manual_refund_amount IS NULL AND manual_refunded_at IS NULL)
@@ -49,7 +67,7 @@ ALTER TABLE payments
         (manual_refund_amount IS NOT NULL AND manual_refunded_at IS NOT NULL
          AND manual_refund_amount > 0
          AND manual_refund_amount <= amount + service_fee)
-    );
+    ) NOT VALID;
 
 -- +goose Down
 
