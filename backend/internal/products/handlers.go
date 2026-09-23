@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -58,9 +59,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	v := validator.New()
 	v.Check(name != "", "name", "must be provided")
-	v.Check(len(name) <= nameMaxLen, "name", "must not be more than 120 characters")
+	v.Check(utf8.RuneCountInString(name) <= nameMaxLen, "name", "must not be more than 120 characters")
 	if category != nil {
-		v.Check(len(*category) <= categoryMaxLen, "category", "must not be more than 60 characters")
+		v.Check(utf8.RuneCountInString(*category) <= categoryMaxLen, "category", "must not be more than 60 characters")
 	}
 	// Price is a pointer (openapi.yaml's productsCreate requestBody makes it
 	// nullable) for the same reason cashbox's opening_cash is: a request that
@@ -195,7 +196,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if body.Name != nil {
 		trimmed := strings.TrimSpace(*body.Name)
 		v.Check(trimmed != "", "name", "must not be empty")
-		v.Check(len(trimmed) <= nameMaxLen, "name", "must not be more than 120 characters")
+		v.Check(utf8.RuneCountInString(trimmed) <= nameMaxLen, "name", "must not be more than 120 characters")
 		name = &trimmed
 	}
 	// Trimmed like Create's category, so a whitespace-only value clears the
@@ -203,7 +204,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	var category *string
 	if body.Category != nil {
 		trimmed := strings.TrimSpace(*body.Category)
-		v.Check(len(trimmed) <= categoryMaxLen, "category", "must not be more than 60 characters")
+		v.Check(utf8.RuneCountInString(trimmed) <= categoryMaxLen, "category", "must not be more than 60 characters")
 		category = &trimmed
 	}
 	if body.Price != nil {
@@ -290,7 +291,7 @@ func (h *Handler) Restock(w http.ResponseWriter, r *http.Request) {
 	}
 	v.Check(paymentmethod.IsCounter(string(body.Method)), "method", paymentmethod.Message)
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -353,7 +354,7 @@ func (h *Handler) Adjust(w http.ResponseWriter, r *http.Request) {
 	v.Check(validator.PermittedValue(string(body.Reason), AdjustmentReasons...), "reason",
 		"must be one of: breakage, expired, own_consumption, count_correction, other")
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)

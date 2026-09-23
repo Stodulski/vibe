@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -68,7 +69,7 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 		v.Check(*body.OpeningCash <= maxSessionCash, "opening_cash", maxSessionCashMessage)
 	}
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -227,7 +228,7 @@ func (h *Handler) Close(w http.ResponseWriter, r *http.Request) {
 		v.Check(*body.CountedCash <= maxSessionCash, "counted_cash", maxSessionCashMessage)
 	}
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -288,7 +289,7 @@ func (h *Handler) CreateMovement(w http.ResponseWriter, r *http.Request) {
 	v.Check(body.Amount > 0, "amount", "must be greater than 0")
 	v.Check(body.Amount <= maxMovementAmount, "amount", maxMovementAmountMessage)
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -360,7 +361,7 @@ func (h *Handler) VoidMovement(w http.ResponseWriter, r *http.Request) {
 
 	v := validator.New()
 	if body.Note != nil {
-		v.Check(len(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
+		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
 	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
