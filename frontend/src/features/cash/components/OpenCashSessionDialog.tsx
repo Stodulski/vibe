@@ -3,11 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/compo
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { MoneyPesosField } from './MoneyPesosField';
-import { NoteField } from './NoteField';
+import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
+import { NoteField } from '@/shared/components/common/NoteField';
+import { pesosToCentavos } from '@/shared/lib/money';
+import { blankToUndefined } from '@/shared/lib/blankToUndefined';
 import { openCashSessionSchema, type OpenCashSessionDto } from '../schemas/cash.schema';
-import { pesosToCentavos } from '../lib/money';
-import { blankNoteToUndefined } from '../lib/blankNoteToUndefined';
 import { getFieldErrors } from '@/shared/lib/serverErrors';
 import { useOpenCashSession } from '../hooks/useOpenCashSession';
 
@@ -59,7 +59,7 @@ function OpenCashSessionDialogBody({ onClose, complexId }: { onClose: () => void
 
   const onSubmit = (data: OpenCashSessionDto) => {
     openSession.mutate(
-      { opening_cash: pesosToCentavos(data.opening_cash), note: blankNoteToUndefined(data.note) },
+      { opening_cash: pesosToCentavos(data.opening_cash), note: blankToUndefined(data.note) },
       {
         onSuccess: onClose,
         onError: (error: unknown) => {

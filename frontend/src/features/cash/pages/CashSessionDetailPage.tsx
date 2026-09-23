@@ -11,7 +11,7 @@ import { ExpectedCashCard } from '../components/ExpectedCashCard';
 import { MovementTotalsBreakdown } from '../components/MovementTotalsBreakdown';
 import { BookingPaymentsBreakdown } from '../components/BookingPaymentsBreakdown';
 import { MovementList } from '../components/MovementList';
-import { StaleDataNotice } from '../components/StaleDataNotice';
+import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 
 const t = ES_AR;
 

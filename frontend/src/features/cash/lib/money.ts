@@ -1,7 +1,6 @@
 /**
- * Pesos <-> centavos conversion for the cashbox, plus the API's own caps for
- * its two kinds of money field (`backend/internal/openapi/openapi.yaml`,
- * `db/migrations/003_cashbox.sql`):
+ * The API's own caps for the cashbox's two kinds of money field
+ * (`backend/internal/openapi/openapi.yaml`, `db/migrations/003_cashbox.sql`):
  *
  * - Session cash (`opening_cash`, `counted_cash`) is `BIGINT`, capped at
  *   99,999,999,999 centavos — the backend originally capped it at the
@@ -12,6 +11,11 @@
  *
  * Enforced client-side too so the form reports the same "too large" error the
  * server would answer with a 422, instead of only finding out on submit.
+ *
+ * The pesos<->centavos conversion itself (`pesosToCentavos`/
+ * `centavosToPesos`) moved to `shared/lib/money.ts` (pos-products-screen
+ * T5a): it is not cash-specific, and `features/products` needs the same
+ * conversion. These caps stay here — they are cash-specific.
  */
 export const MAX_SESSION_CASH_CENTAVOS = 99_999_999_999;
 export const MAX_MOVEMENT_AMOUNT_CENTAVOS = 2_000_000_000;
@@ -24,13 +28,3 @@ export const MAX_MOVEMENT_AMOUNT_CENTAVOS = 2_000_000_000;
 // practice.
 export const MAX_SESSION_CASH_PESOS = Math.floor(MAX_SESSION_CASH_CENTAVOS / 100);
 export const MAX_MOVEMENT_AMOUNT_PESOS = MAX_MOVEMENT_AMOUNT_CENTAVOS / 100;
-
-/** Pesos (possibly with cents) to integer centavos — same rounding as `cleanBookingPayload`. */
-export function pesosToCentavos(pesos: number): number {
-  return Math.round(pesos * 100);
-}
-
-/** Centavos to pesos, for seeding a form field from a value the API returned. */
-export function centavosToPesos(centavos: number): number {
-  return centavos / 100;
-}

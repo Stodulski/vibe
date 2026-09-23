@@ -2,13 +2,14 @@ import { AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/shared/components/common/PageHeader';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { SkeletonTable } from '@/shared/components/common/Skeletons';
+import { CashSectionTabs } from '@/shared/components/common/CashSectionTabs';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useCashPage } from './cash/useCashPage';
 import { ClosedCashView } from './cash/ClosedCashView';
 import { OpenCashView } from './cash/OpenCashView';
 import { CloseCashSessionDialog } from '../components/CloseCashSessionDialog';
-import { StaleDataNotice } from '../components/StaleDataNotice';
+import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 
 const t = ES_AR;
 
@@ -21,6 +22,7 @@ export default function CashPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title={t.cash.title} />
+      <CashSectionTabs />
       <CashPageBody complexId={state.complexId} state={state} />
     </div>
   );

@@ -5,14 +5,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CashPage from './CashPage';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
-import { useCashSession } from '../hooks/useCashSession';
+import { useCashSession } from '@/shared/hooks/useCashSession';
 import { useCashSessionDetail } from '../hooks/useCashSessionDetail';
 import { useCashSessions } from '../hooks/useCashSessions';
 import { makeCashSession, makeCashMovement } from '@/test/factories';
 import type { CashSessionSummary } from '@/shared/types/api.types';
 
 vi.mock('@/features/complex/hooks/useSelectedComplex', () => ({ useSelectedComplex: vi.fn() }));
-vi.mock('../hooks/useCashSession', () => ({ useCashSession: vi.fn() }));
+vi.mock('@/shared/hooks/useCashSession', () => ({ useCashSession: vi.fn() }));
 vi.mock('../hooks/useCashSessionDetail', () => ({ useCashSessionDetail: vi.fn() }));
 vi.mock('../hooks/useCashSessions', () => ({ useCashSessions: vi.fn() }));
 

@@ -14,6 +14,13 @@ const t = ES_AR;
  * failure that was often transient (T3 review: "background refetch error
  * wipes the view"). Same "keep the last good render, don't blank the page"
  * shape as `DashboardLayout`'s `ComplexLoadError` guard (PR #119).
+ *
+ * Moved here from `features/cash/components/` (pos-products-screen T5a):
+ * `ProductDetailPage` needed the identical guard (T3/T5a review: "a failed
+ * background refetch must not wipe cached views") and had duplicated it
+ * verbatim rather than importing across features — the repo's rule for that
+ * is to move the shared piece to `shared/` instead, same as
+ * `shared/lib/paymentMethods.ts`.
  */
 export function StaleDataNotice({ onRetry }: { onRetry: () => void }) {
   return (

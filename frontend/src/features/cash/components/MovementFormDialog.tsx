@@ -4,14 +4,14 @@ import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getFieldErrors } from '@/shared/lib/serverErrors';
-import { MoneyPesosField } from './MoneyPesosField';
-import { NoteField } from './NoteField';
+import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
+import { NoteField } from '@/shared/components/common/NoteField';
+import { pesosToCentavos } from '@/shared/lib/money';
+import { blankToUndefined } from '@/shared/lib/blankToUndefined';
 import { MovementCategoryField } from './MovementCategoryField';
 import { MovementMethodField } from './MovementMethodField';
 import { cashMovementSchema, type CashMovementDto } from '../schemas/cash.schema';
 import { categoriesFor } from '../lib/movementCategories';
-import { pesosToCentavos } from '../lib/money';
-import { blankNoteToUndefined } from '../lib/blankNoteToUndefined';
 import { useCreateCashMovement } from '../hooks/useCreateCashMovement';
 
 const t = ES_AR;
@@ -73,7 +73,7 @@ function useMovementForm(complexId: string, sessionId: string, kind: 'income' | 
         category: data.category,
         method: data.method,
         amount: pesosToCentavos(data.amount),
-        note: blankNoteToUndefined(data.note),
+        note: blankToUndefined(data.note),
       },
       {
         onSuccess: onDone,

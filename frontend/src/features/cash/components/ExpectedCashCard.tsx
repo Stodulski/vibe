@@ -1,7 +1,7 @@
 import { Panel } from '@/shared/components/common/Panel';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice } from '@/shared/lib/utils';
-import { formatSessionInstant } from '../lib/formatCashInstant';
+import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { CashDifference } from './CashDifference';
 import type { CashSession, CashSessionSummary } from '@/shared/types/api.types';
 
@@ -30,11 +30,11 @@ export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
     <Panel size="sm" className="space-y-3" data-testid="cash-expected-card">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
         <span className="text-text-tertiary">
-          {t.cash.openedAt}: {formatSessionInstant(session.opened_at)}
+          {t.cash.openedAt}: {formatVenueDayTime(session.opened_at)}
         </span>
         {closed && (
           <span className="text-text-tertiary">
-            {t.cash.closedAt}: {formatSessionInstant(session.closed_at)}
+            {t.cash.closedAt}: {formatVenueDayTime(session.closed_at)}
           </span>
         )}
       </div>

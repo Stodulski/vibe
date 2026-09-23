@@ -16,6 +16,7 @@ import { layout } from './es_AR/layout';
 import { admin } from './es_AR/admin';
 import { reports } from './es_AR/reports';
 import { cash } from './es_AR/cash';
+import { products } from './es_AR/products';
 
 export const ES_AR = {
   common,
@@ -36,4 +37,5 @@ export const ES_AR = {
   admin,
   reports,
   cash,
+  products,
 } as const;

@@ -21,6 +21,16 @@ const SERVER_ERROR_TEXT: Record<string, string> = {
   report_period_before_complex_existed: ES_AR.validation.server.reportPeriodBeforeComplex,
   report_export_too_large: ES_AR.dashboard.exportTooLarge,
   report_export_timed_out: ES_AR.dashboard.exportTimedOut,
+  // The products API answers these 409s with English prose (`httpx.Conflict`,
+  // `backend/internal/products/products.go`) rather than a stable code —
+  // matched here by exact text, the same mechanism as the codes above, so the
+  // dialogs that mean something specific by each one (`ProductFormDialog`'s
+  // "turn off stock tracking", `RestockDialog`'s "till is closed") get the
+  // owner-specified Spanish copy instead of raw English.
+  'cannot stop tracking stock while stock_on_hand is not zero': ES_AR.products.stockNotZero,
+  'no cash session is open': ES_AR.products.restockNeedsOpenTill,
+  'this product is not active': ES_AR.products.productInactive,
+  'this product does not track stock': ES_AR.products.productNotTrackingStock,
 };
 
 /**

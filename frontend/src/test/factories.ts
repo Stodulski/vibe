@@ -8,6 +8,8 @@ import type {
   Complex,
   Court,
   CourtPrice,
+  Product,
+  StockMovement,
   User,
 } from '@/shared/types/api.types';
 
@@ -247,4 +249,45 @@ const defaultCashMovement: CashMovement = {
 /** Builds a typed `CashMovement` fixture with sensible defaults, overridable per-field. */
 export function makeCashMovement(overrides: Partial<CashMovement> = {}): CashMovement {
   return { ...defaultCashMovement, ...overrides };
+}
+
+const defaultProduct: Product = {
+  id: 'p1',
+  complex_id: 'c1',
+  name: 'Agua mineral',
+  category: 'Bebidas',
+  price: 150000,
+  tracks_stock: true,
+  stock_on_hand: 20,
+  low_stock_threshold: null,
+  active: true,
+  low_stock: false,
+  needs_stock_review: false,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+  version: 1,
+};
+
+/** Builds a typed `Product` fixture with sensible defaults, overridable per-field. */
+export function makeProduct(overrides: Partial<Product> = {}): Product {
+  return { ...defaultProduct, ...overrides };
+}
+
+const defaultStockMovement: StockMovement = {
+  id: 'sm1',
+  complex_id: 'c1',
+  product_id: 'p1',
+  kind: 'restock',
+  quantity: 10,
+  reason: null,
+  note: null,
+  cash_movement_id: 'cm1',
+  sale_id: null,
+  created_at: '2026-01-01T14:00:00Z',
+  created_by: 'u1',
+};
+
+/** Builds a typed `StockMovement` fixture with sensible defaults, overridable per-field. */
+export function makeStockMovement(overrides: Partial<StockMovement> = {}): StockMovement {
+  return { ...defaultStockMovement, ...overrides };
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
-import { useCashSession } from '../../hooks/useCashSession';
+import { useCashSession } from '@/shared/hooks/useCashSession';
 import { useCashSessionDetail } from '../../hooks/useCashSessionDetail';
 import type { CashMovement } from '@/shared/types/api.types';
 
