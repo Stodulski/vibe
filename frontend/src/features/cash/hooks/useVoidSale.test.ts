@@ -40,7 +40,9 @@ describe('useVoidSale', () => {
     expect(body).toEqual({ note: 'roto' });
     expect(key).toMatch(/^[0-9a-f-]{36}$/);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.sales.bySession('c1', 's1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.products.byComplexAll('c1') });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.cash.current('c1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.cash.detailBase('c1') });
   });
 
   it('refetches on a 409 (already voided, or no session open)', async () => {

@@ -40,6 +40,11 @@ export function useCreateSale(complexId: string, sessionId: string | null) {
       // needs the current-session cache to fall out of the open view — same
       // reasoning as `useRestockProduct`'s own 409 handling.
       void queryClient.invalidateQueries({ queryKey: queryKeys.cash.current(complexId) });
+      // A 422 for an inactive or unknown product line needs the catalog
+      // itself invalidated too, not just the session — `useSellCart`'s
+      // render-time reconcile only drops a stale line (and shows its notice)
+      // once `products` no longer contains it.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.products.byComplexAll(complexId) });
     },
   });
 }
