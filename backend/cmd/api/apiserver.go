@@ -587,6 +587,30 @@ func (s *apiServer) ProductsListStockMovements(w http.ResponseWriter, r *http.Re
 	s.app.products.ListStockMovements(w, r)
 }
 
+// SalesList implements gen.ServerInterface for salesList
+// (GET /api/v1/complexes/{id}/sales). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) SalesList(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.SalesListParams) {
+	s.app.sales.List(w, r)
+}
+
+// SalesCreate implements gen.ServerInterface for salesCreate
+// (POST /api/v1/complexes/{id}/sales). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) SalesCreate(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.SalesCreateParams) {
+	s.app.sales.Create(w, r)
+}
+
+// SalesGet implements gen.ServerInterface for salesGet
+// (GET /api/v1/complexes/{id}/sales/{saleID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) SalesGet(w http.ResponseWriter, r *http.Request, id gen.PathID, saleID gen.SaleID) {
+	s.app.sales.Get(w, r)
+}
+
+// SalesVoid implements gen.ServerInterface for salesVoid
+// (POST /api/v1/complexes/{id}/sales/{saleID}/void). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) SalesVoid(w http.ResponseWriter, r *http.Request, id gen.PathID, saleID gen.SaleID, params gen.SalesVoidParams) {
+	s.app.sales.Void(w, r)
+}
+
 // ComplexesGetPublic implements gen.ServerInterface for complexesGetPublic
 // (GET /api/v1/public/complexes/{slug}). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ComplexesGetPublic(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {

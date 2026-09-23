@@ -21,6 +21,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/middleware"
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
+	salestore "github.com/stodulski/vibe-server/internal/sales/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -232,6 +233,10 @@ var routePolicies = map[string]policy{
 	"POST /api/v1/complexes/{id}/products/{productID}/restock":                          complexOwner,
 	"POST /api/v1/complexes/{id}/products/{productID}/adjustments":                      complexOwner,
 	"GET /api/v1/complexes/{id}/products/{productID}/stock-movements":                   complexOwner,
+	"GET /api/v1/complexes/{id}/sales":                                                  complexOwner,
+	"POST /api/v1/complexes/{id}/sales":                                                 complexOwner,
+	"GET /api/v1/complexes/{id}/sales/{saleID}":                                         complexOwner,
+	"POST /api/v1/complexes/{id}/sales/{saleID}/void":                                   complexOwner,
 	"GET /api/v1/complexes/{id}/stats":                                                  complexOwner,
 	"GET /api/v1/complexes/{id}/stats/revenue":                                          complexOwner,
 	"GET /api/v1/complexes/{id}/stats/occupancy":                                        complexOwner,
@@ -545,6 +550,10 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	if !ok {
 		t.Fatalf("product store is %T, not *mockProductStore", fx.app.models.Products)
 	}
+	sales, ok := fx.app.models.Sales.(*mockSalesStore)
+	if !ok {
+		t.Fatalf("sales store is %T, not *mockSalesStore", fx.app.models.Sales)
+	}
 
 	id := fx.subResourceID
 	tomorrow := time.Now().AddDate(0, 0, 1)
@@ -622,6 +631,21 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 		Phone:     "+5492211234567",
 	}
 	clients.GetByIDFn = func(_ context.Context, _ uuid.UUID) (*clientstore.Client, error) { return client, nil }
+
+	// salesVoid looks the sale up by id, then voids it; without both, an
+	// entitled caller gets ErrRecordNotFound (404) for the same reason every
+	// other seed in this method exists — see this method's own comment.
+	sale := &salestore.Sale{
+		ID:             id,
+		ComplexID:      target.ID,
+		SessionID:      id,
+		Method:         "cash",
+		Total:          500,
+		CashMovementID: id,
+		CreatedBy:      target.OwnerID,
+	}
+	sales.GetByIDFn = func(_ context.Context, _, _ uuid.UUID) (*salestore.Sale, error) { return sale, nil }
+	sales.VoidFn = func(_ context.Context, _, _, _ uuid.UUID, _ *string) (*salestore.Sale, error) { return sale, nil }
 
 	// The admin detail routes read the platform store rather than the tenant
 	// stores, so they need their own records.

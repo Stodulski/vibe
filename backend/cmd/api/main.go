@@ -41,6 +41,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/publicsite"
 	"github.com/stodulski/vibe-server/internal/realtime"
 	"github.com/stodulski/vibe-server/internal/reporting"
+	"github.com/stodulski/vibe-server/internal/sales"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
@@ -75,6 +76,7 @@ type application struct {
 	courts    *courts.Handler
 	cashbox   *cashbox.Handler
 	products  *products.Handler
+	sales     *sales.Handler
 	complexes *complexes.Handler
 	// complexesService is held separately from the handler because the
 	// scheduler calls it directly: the MercadoPago OAuth refresh sweep is the

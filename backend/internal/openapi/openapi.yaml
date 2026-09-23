@@ -77,6 +77,8 @@ tags:
     description: Server-Sent Events feed for an owner dashboard's live booking updates.
   - name: reporting
     description: Read-only, one-complex-scoped analytics and exports.
+  - name: sales
+    description: Selling products from the catalog — snapshot pricing, stock movement, and a void that reverses both.
   - name: openapi
     description: This document and the interactive reference built from it.
 
@@ -3460,6 +3462,185 @@ paths:
         "500": {$ref: "#/components/responses/ServerError"}
 
   # ---------------------------------------------------------------------
+  # sales
+  # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/sales:
+    get:
+      tags: [sales]
+      operationId: salesList
+      summary: List this complex's sales
+      description: Newest first. Paginated. Optionally restricted to one cash session.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SaleSessionIDFilter"}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/Limit"}
+      responses:
+        "200":
+          description: A page of this complex's sales, each with its items.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sales, metadata]
+                properties:
+                  sales:
+                    type: array
+                    items: {$ref: "#/components/schemas/Sale"}
+                  metadata: {$ref: "#/components/schemas/Metadata"}
+        "400":
+          description: Invalid cursor value.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [sales]
+      operationId: salesCreate
+      summary: Sell a set of products
+      description: >-
+        The client sends product ids and quantities only; prices and the total always come from
+        the server. Requires an open cash session (409 otherwise). In one transaction: writes the
+        'sale' cash income (amount = total), the sale and its items, and one 'sale' stock
+        movement per tracked item. Never refused for lack of stock — the response's
+        `stock_warnings` names every tracked product that ended at zero or below. 1 to 50 items;
+        each product id may appear once (422 on a duplicate); every product must exist in this
+        complex and be active, or the request is refused with 422 naming the offending item's
+        index (`items[N].product_id`); the computed total must be greater than zero (a sale where
+        every priced item is free is refused, not silently recorded as a zero-amount income) and
+        must not exceed 2000000000 centavos.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The recorded sale, its items, and any stock warnings.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sale, stock_warnings]
+                properties:
+                  sale: {$ref: "#/components/schemas/Sale"}
+                  stock_warnings:
+                    type: array
+                    items: {$ref: "#/components/schemas/SaleStockWarning"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409":
+          description: No cash session is open.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, method]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id: {type: string, format: uuid}
+                      quantity:
+                        type: [integer, "null"]
+                        minimum: 1
+                        maximum: 1000
+                        description: Nullable for the same missing-vs-zero reason productsCreate's price is.
+                method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
+                note: {type: string, maxLength: 500, description: "Appended to the sale income movement's own note."}
+
+  /api/v1/complexes/{id}/sales/{saleID}:
+    get:
+      tags: [sales]
+      operationId: salesGet
+      summary: Get one sale
+      description: Includes its items.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SaleID"}
+      responses:
+        "200":
+          description: The sale and its items.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sale]
+                properties:
+                  sale: {$ref: "#/components/schemas/Sale"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/sales/{saleID}/void:
+    post:
+      tags: [sales]
+      operationId: salesVoid
+      summary: Void a sale
+      description: >-
+        Once only (409 on a second void). Requires an open cash session (409 otherwise): the
+        void's own cash movement always lands in whichever session is open right now, which may
+        not be the sale's own. In one transaction: restores stock for every tracked item this
+        sale originally moved (even if the product is now inactive or no longer tracks stock),
+        and voids the sale's own income movement (opposite kind, same amount/method/category,
+        landing in the currently open session) — the same shape cashMovementsVoid gives an
+        ordinary cash movement. A 'sale' category income movement can only be voided through this
+        endpoint, never through cashMovementsVoid directly.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SaleID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The voided sale.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sale]
+                properties:
+                  sale: {$ref: "#/components/schemas/Sale"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: No cash session is open, or this sale has already been voided.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: {type: string, maxLength: 500}
+
+  # ---------------------------------------------------------------------
   # publicsite
   # ---------------------------------------------------------------------
   /api/v1/sitemap.xml:
@@ -4012,6 +4193,17 @@ components:
       in: query
       description: Restrict the list to active or inactive products. Omit to return both.
       schema: {type: boolean}
+    SaleID:
+      name: saleID
+      in: path
+      required: true
+      description: Sale id.
+      schema: {type: string, format: uuid}
+    SaleSessionIDFilter:
+      name: session_id
+      in: query
+      description: Restrict the list to sales recorded against this cash session. Omit to return every session's.
+      schema: {type: string, format: uuid}
     ClientID:
       name: clientID
       in: path
@@ -4538,9 +4730,57 @@ components:
         sale_id:
           type: [string, "null"]
           format: uuid
-          description: "Set for kind = sale or sale_void, from delivery 4 (T4b) on."
+          description: "Set iff kind = sale or sale_void."
         created_at: {type: string, format: date-time}
         created_by: {type: string, format: uuid}
+
+    Sale:
+      type: object
+      required:
+        [id, complex_id, session_id, method, total, cash_movement_id, items, created_at, created_by]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        session_id: {type: string, format: uuid}
+        method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
+        total: {type: integer, description: "Centavos ARS. Always the server-computed sum of the sale's own line totals."}
+        cash_movement_id: {type: string, format: uuid, description: "The sale's own 'sale' category income movement."}
+        voided_at: {type: [string, "null"], format: date-time}
+        voided_by: {type: [string, "null"], format: uuid}
+        void_cash_movement_id:
+          type: [string, "null"]
+          format: uuid
+          description: "The movement that voided the sale's income, when this sale is voided."
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/SaleItem"}
+        created_at: {type: string, format: date-time}
+        created_by: {type: string, format: uuid}
+
+    SaleItem:
+      type: object
+      required: [id, complex_id, sale_id, product_id, product_name, unit_price, quantity, line_total]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        sale_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        product_name: {type: string, description: "Snapshot of the product's name at sale time."}
+        unit_price: {type: integer, description: "Centavos ARS, snapshot of the product's price at sale time."}
+        quantity: {type: integer, minimum: 1, maximum: 1000}
+        line_total: {type: integer, description: "unit_price * quantity."}
+
+    SaleStockWarning:
+      type: object
+      description: >-
+        One tracked product whose stock_on_hand ended at zero or below after the sale — never a
+        reason the sale was refused (selling past zero stock is allowed), only a flag that it
+        needs a count.
+      required: [product_id, product_name, stock_on_hand]
+      properties:
+        product_id: {type: string, format: uuid}
+        product_name: {type: string}
+        stock_on_hand: {type: integer}
 
     BlockedSlot:
       type: object

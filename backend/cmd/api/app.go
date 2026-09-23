@@ -34,6 +34,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/publicsite"
 	"github.com/stodulski/vibe-server/internal/realtime"
 	"github.com/stodulski/vibe-server/internal/reporting"
+	"github.com/stodulski/vibe-server/internal/sales"
 	"github.com/stodulski/vibe-server/internal/scheduler"
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
@@ -464,6 +465,14 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	productsService := products.NewService(d.models.Products, auditor)
 	productsHandler := products.NewHandler(productsService, respond, d.trustedProxies.Any())
 
+	// sales writes directly to cash_movements and stock_movements (the
+	// shared generated queries, not a call into cashbox's or products' own
+	// service or store) so that a sale and its income and stock movements
+	// commit in one transaction — see internal/sales/store.Store.Create's
+	// own comment, the same reasoning products' own Restock gives.
+	salesService := sales.NewService(d.models.Sales, auditor)
+	salesHandler := sales.NewHandler(salesService, respond, d.trustedProxies.Any())
+
 	// The one edge that cannot be a constructor argument, closed the moment the
 	// other side exists: before any handler is built, before the router is
 	// built, and therefore before a request can reach the public venue page
@@ -646,6 +655,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.courts = courtsHandler
 	app.cashbox = cashboxHandler
 	app.products = productsHandler
+	app.sales = salesHandler
 	app.tokens = tokens
 	app.middleware = mw
 	app.notify = notify
