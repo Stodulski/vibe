@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { server } from '@/test/msw/server';
 import { makeProduct } from '@/test/factories';
+import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -17,7 +18,8 @@ async function renderUpdateProduct(complexId: string) {
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children);
   const { useUpdateProduct } = await import('./useUpdateProduct');
-  return renderHook(() => useUpdateProduct(complexId), { wrapper });
+  const rendered = renderHook(() => useUpdateProduct(complexId), { wrapper });
+  return { ...rendered, queryClient };
 }
 
 afterEach(() => {
@@ -33,7 +35,7 @@ describe('useUpdateProduct — deactivate/reactivate toasts', () => {
     );
 
     const { result } = await renderUpdateProduct('c1');
-    result.current.mutate({ productId: 'p1', data: { version: 1, active: false } });
+    result.current.mutate({ productId: 'p1', data: { version: 1, active: false }, toggledActive: false });
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -51,7 +53,7 @@ describe('useUpdateProduct — deactivate/reactivate toasts', () => {
     );
 
     const { result } = await renderUpdateProduct('c1');
-    result.current.mutate({ productId: 'p1', data: { version: 1, active: true } });
+    result.current.mutate({ productId: 'p1', data: { version: 1, active: true }, toggledActive: true });
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -64,7 +66,7 @@ describe('useUpdateProduct — deactivate/reactivate toasts', () => {
     server.use(http.patch('*/complexes/:complexId/products/:productId', () => HttpResponse.json({}, { status: 500 })));
 
     const { result } = await renderUpdateProduct('c1');
-    result.current.mutate({ productId: 'p1', data: { version: 1, active: false } });
+    result.current.mutate({ productId: 'p1', data: { version: 1, active: false }, toggledActive: false });
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
@@ -72,7 +74,9 @@ describe('useUpdateProduct — deactivate/reactivate toasts', () => {
 
     expect(toast.error).toHaveBeenCalledWith(ES_AR.products.deactivateError);
   });
+});
 
+describe('useUpdateProduct — toast intent, not payload shape', () => {
   it('keeps the generic update toast for an ordinary content edit (no active field)', async () => {
     server.use(
       http.patch('*/complexes/:complexId/products/:productId', () =>
@@ -88,5 +92,52 @@ describe('useUpdateProduct — deactivate/reactivate toasts', () => {
     });
 
     expect(toast.success).toHaveBeenCalledWith(ES_AR.products.updateSuccess);
+  });
+
+  // Reproduces the bug the intent field fixes: the toast is picked by the
+  // explicit `toggledActive` intent, never by `data.active`'s mere presence —
+  // an ordinary edit that happens to include `active` in its payload (with no
+  // `toggledActive`) must still get the generic toast, not the
+  // deactivate/reactivate one.
+  it('keeps the generic update toast for an edit whose payload includes active but no toggledActive intent', async () => {
+    server.use(
+      http.patch('*/complexes/:complexId/products/:productId', () =>
+        HttpResponse.json({ product: makeProduct({ id: 'p1', active: false }) }),
+      ),
+    );
+
+    const { result } = await renderUpdateProduct('c1');
+    result.current.mutate({ productId: 'p1', data: { version: 1, name: 'Agua con gas', active: false } });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(toast.success).toHaveBeenCalledWith(ES_AR.products.updateSuccess);
+    expect(toast.success).not.toHaveBeenCalledWith(ES_AR.products.deactivateSuccess);
+  });
+});
+
+describe('useUpdateProduct — settled invalidation', () => {
+  it('invalidates the product list and the product detail once the mutation settles', async () => {
+    server.use(
+      http.patch('*/complexes/:complexId/products/:productId', () =>
+        HttpResponse.json({ product: makeProduct({ id: 'p1' }) }),
+      ),
+    );
+
+    const { result, queryClient } = await renderUpdateProduct('c1');
+
+    queryClient.setQueryData(queryKeys.products.byComplex('c1', true), { products: [] });
+    queryClient.setQueryData(queryKeys.products.detail('c1', 'p1'), { product: makeProduct({ id: 'p1' }) });
+
+    result.current.mutate({ productId: 'p1', data: { version: 1, name: 'Agua con gas' } });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(queryClient.getQueryState(queryKeys.products.byComplex('c1', true))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(queryKeys.products.detail('c1', 'p1'))?.isInvalidated).toBe(true);
   });
 });

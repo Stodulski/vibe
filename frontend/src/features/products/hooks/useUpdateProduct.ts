@@ -13,6 +13,14 @@ const t = ES_AR;
 interface UpdateProductVars {
   productId: string;
   data: UpdateProductRequest;
+  /**
+   * Set only by `DeactivateProductDialog`, to pick the deactivate/reactivate
+   * toast explicitly instead of inferring it from `data.active`'s mere
+   * presence — an ordinary content edit that happens to include `active` in
+   * its payload (e.g. round-tripping the current product) must still get the
+   * generic "producto actualizado" toast.
+   */
+  toggledActive?: boolean;
 }
 
 /**
@@ -32,11 +40,11 @@ export function useUpdateProduct(complexId: string) {
     mutationFn: ({ attemptKey, productId, data }: WithAttemptKey<UpdateProductVars>) =>
       productsApi.update(complexId, productId, data, attemptKey),
     onSuccess: (_data, variables) => {
-      // `DeactivateProductDialog` sends only `{version, active}` — its own
+      // `DeactivateProductDialog` sets `toggledActive` explicitly — its own
       // Spanish copy instead of the generic "producto actualizado", the same
       // way `useCreateCashMovement` picks Ingreso/Egreso off its variables.
-      if (variables.data.active !== undefined) {
-        toast.success(variables.data.active ? t.products.reactivateSuccess : t.products.deactivateSuccess);
+      if (variables.toggledActive !== undefined) {
+        toast.success(variables.toggledActive ? t.products.reactivateSuccess : t.products.deactivateSuccess);
         return;
       }
       toast.success(t.products.updateSuccess);
@@ -47,9 +55,9 @@ export function useUpdateProduct(complexId: string) {
         return;
       }
       const fallback =
-        variables.data.active === undefined
+        variables.toggledActive === undefined
           ? t.products.updateError
-          : variables.data.active
+          : variables.toggledActive
             ? t.products.reactivateError
             : t.products.deactivateError;
       toast.error(getHttpErrorMessage(error, fallback));

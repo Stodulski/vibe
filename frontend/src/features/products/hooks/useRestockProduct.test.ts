@@ -48,6 +48,10 @@ describe('useRestockProduct — invalidation', () => {
       pageParams: [''],
     });
     queryClient.setQueryData(queryKeys.cash.current('c1'), { cash_session: null });
+    // `cash.detailBase` covers a session's own detail page — the restock's
+    // expense shows up in that session's movement ledger too, not only the
+    // "current session" summary.
+    queryClient.setQueryData(queryKeys.cash.detailBase('c1'), { cash_session: null });
 
     result.current.mutate({ quantity: 10, total_cost: 500000, method: 'cash' });
 
@@ -60,11 +64,16 @@ describe('useRestockProduct — invalidation', () => {
     expect(queryClient.getQueryState(queryKeys.products.detail('c1', 'p1'))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(queryKeys.products.stockMovements('c1', 'p1'))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(queryKeys.cash.current('c1'))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(queryKeys.cash.detailBase('c1'))?.isInvalidated).toBe(true);
   });
 });
 
 describe('useRestockProduct — error handling', () => {
-  it('shows the closed-till Spanish copy on a 409 and invalidates the current session', async () => {
+  // The toast now shows the neutral global copy (T5a review fix), not the
+  // restock-specific "Para reponer necesitás..." wording — that one lives
+  // only in `RestockDialog`'s own `ClosedTillNotice`, driven by the till
+  // state it already reads, not by this mapping (see `serverErrors.ts`).
+  it('shows the neutral cash-closed copy on a 409, not the restock-specific one, and invalidates the current session', async () => {
     server.use(
       http.post('*/complexes/:complexId/products/:productId/restock', () =>
         HttpResponse.json(
@@ -87,7 +96,8 @@ describe('useRestockProduct — error handling', () => {
       expect(result.current.isError).toBe(true);
     });
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.products.restockNeedsOpenTill);
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.validation.server.cashClosed);
+    expect(toast.error).not.toHaveBeenCalledWith(ES_AR.products.restockNeedsOpenTill);
     expect(queryClient.getQueryState(queryKeys.cash.current('c1'))?.isInvalidated).toBe(true);
   });
 

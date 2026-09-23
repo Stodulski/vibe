@@ -45,6 +45,7 @@ describe('useAdjustProduct', () => {
     const { result, queryClient } = await renderAdjustProduct('c1', 'p1');
     // `invalidateQueries` only flips `isInvalidated` on a query that already
     // has cache state — seed one so the assertions below observe something.
+    queryClient.setQueryData(queryKeys.products.byComplex('c1', true), { products: [] });
     queryClient.setQueryData(queryKeys.products.detail('c1', 'p1'), { product: makeProduct({ id: 'p1' }) });
     queryClient.setQueryData(queryKeys.products.stockMovements('c1', 'p1'), {
       pages: [{ stock_movements: [], metadata: { has_more: false } }],
@@ -59,6 +60,7 @@ describe('useAdjustProduct', () => {
     expect(toast.success).toHaveBeenCalledWith(ES_AR.products.adjustSuccess);
     expect(body).toMatchObject({ quantity: -3, reason: 'breakage' });
     expect(body).not.toHaveProperty('attemptKey');
+    expect(queryClient.getQueryState(queryKeys.products.byComplex('c1', true))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(queryKeys.products.detail('c1', 'p1'))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(queryKeys.products.stockMovements('c1', 'p1'))?.isInvalidated).toBe(true);
   });

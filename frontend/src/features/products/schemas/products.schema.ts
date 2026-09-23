@@ -31,11 +31,25 @@ export function productFormSchema(thresholdLocked: boolean) {
       category: z.string().max(60, t.validation.maxChars60).optional().or(z.literal('')),
       price: priceSchema,
       tracks_stock: z.boolean(),
+      // Same NaN-from-a-blank-input concern as `priceSchema` above, but this
+      // field is optional rather than required: `QuantityField` already turns
+      // a cleared input into `undefined` on its own change handler, but this
+      // is the defensive backstop at the schema boundary — without it, a
+      // stray NaN reaching `z.number()` fails with Zod's own English
+      // "invalid_type" default instead of either Spanish outcome below.
+      // `z.union([z.number(), z.nan()])` (not `z.preprocess`) so the field
+      // keeps a concrete `number | undefined` type on both sides of the
+      // pipe — a `preprocess` widens its input to `unknown`, which breaks
+      // `zodResolver`'s type against `ProductFormDto` under
+      // `exactOptionalPropertyTypes`. Cleared and unset are the same case: no
+      // threshold. Cleared while `thresholdLocked` (the `.refine` below)
+      // still reports the Spanish "no se puede borrar" error, since the
+      // value is `undefined` either way.
       low_stock_threshold: z
-        .number()
-        .min(0, t.validation.amountNonNegative)
-        .int(t.validation.amountMustBeWhole)
-        .optional(),
+        .union([z.number(), z.nan()])
+        .optional()
+        .transform((value) => (value === undefined || Number.isNaN(value) ? undefined : value))
+        .pipe(z.number().min(0, t.validation.amountNonNegative).int(t.validation.amountMustBeWhole).optional()),
     })
     .refine((data) => !thresholdLocked || data.low_stock_threshold !== undefined, {
       message: t.products.thresholdRequiredOnceSet,
@@ -67,14 +81,26 @@ export type RestockDto = z.infer<typeof restockSchema>;
  * `AdjustDialog` computes `quantity` (`counted - currentStock`) itself and
  * disables submit at 0, since a real zero-difference is not a valid
  * adjustment (the API's own `quantity` is "signed, non-zero").
+ *
+ * A factory, not a fixed schema constant, the same reason as
+ * `productFormSchema`: capping `counted` on its own can't keep the signed
+ * difference the API actually receives (`counted - currentStock`) inside its
+ * own ±{@link MAX_STOCK_QUANTITY} range without knowing `currentStock`.
  */
-export const adjustSchema = z.object({
-  counted: z
-    .number({ message: t.validation.quantityRequired })
-    .min(0, t.validation.quantityNonNegative)
-    .int(t.validation.countedMustBeWhole),
-  reason: z.enum(ADJUSTMENT_REASONS, { message: t.validation.selectReason }),
-  note: optionalNoteSchema,
-});
+export function adjustSchema(currentStock: number) {
+  return z
+    .object({
+      counted: z
+        .number({ message: t.validation.quantityRequired })
+        .min(0, t.validation.quantityNonNegative)
+        .int(t.validation.countedMustBeWhole),
+      reason: z.enum(ADJUSTMENT_REASONS, { message: t.validation.selectReason }),
+      note: optionalNoteSchema,
+    })
+    .refine((data) => Math.abs(data.counted - currentStock) <= MAX_STOCK_QUANTITY, {
+      message: t.validation.quantityTooLarge,
+      path: ['counted'],
+    });
+}
 
-export type AdjustDto = z.infer<typeof adjustSchema>;
+export type AdjustDto = z.infer<ReturnType<typeof adjustSchema>>;
