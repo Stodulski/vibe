@@ -24,7 +24,7 @@ export const dashboard = {
   trends: 'Tendencias',
   week: 'Semana',
   month: 'Mes',
-  cashControl: 'Control de caja',
+  todayRevenue: 'Ingresos de hoy',
   paymentStatus: 'Estado de cobro',
   noBookingsToday: 'Sin reservas hoy',
   paymentMethodLabel: 'Método de pago',
@@ -61,4 +61,14 @@ export const dashboard = {
   exportExpired: 'El archivo generado ya venció. Volvé a exportarlo.',
   realtimeAccessEnded:
     'Se dejaron de recibir actualizaciones en vivo de este complejo. Recargá la página si creés que es un error.',
+  // ─── Caja panel (pos-cashbox T6) ───
+  // Open/closed labels and the "Abrir caja" action reuse `t.cash`'s own
+  // strings (openSuccess/closeSuccess/openAction) so the dashboard never
+  // drifts from the Caja screen's own copy for the same states.
+  cashboxOpen: 'Caja abierta',
+  cashboxClosed: 'Caja cerrada',
+  cashboxGoToShift: 'Ir a la caja',
+  // ─── Low-stock alert (pos-cashbox T6) ───
+  lowStockTitle: 'Stock bajo',
+  lowStockViewProducts: 'Ver productos',
 } as const;
