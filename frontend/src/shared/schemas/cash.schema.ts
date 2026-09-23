@@ -4,6 +4,7 @@ import type {
   CashMovement,
   CashMovementTotal,
   CashBookingPaymentTotal,
+  CashManualRefundTotal,
   CashSessionSummary,
   CashSessionsListResponse,
   CashSessionCurrentResponse,
@@ -101,6 +102,17 @@ const cashBookingPaymentTotalSchema = exact<CashBookingPaymentTotal>(
     .loose(),
 );
 
+/** One payment method's manual-refund total within the session's window — cash subtracts from expected_cash; only consumed by `cashSessionSummarySchema` below. */
+const cashManualRefundTotalSchema = exact<CashManualRefundTotal>(
+  z
+    .object({
+      method: z.enum(['mercadopago', 'cash', 'transfer', 'debit_card', 'credit_card', 'qr_wallet']),
+      count: z.number(),
+      amount: z.number(),
+    })
+    .loose(),
+);
+
 export const cashSessionSummarySchema = exact<CashSessionSummary>(
   z
     .object({
@@ -108,8 +120,10 @@ export const cashSessionSummarySchema = exact<CashSessionSummary>(
       expected_cash: z.number(),
       counted_cash: z.number().nullable().optional(),
       difference: z.number().nullable().optional(),
+      cash_manual_refunds: z.number(),
       movement_totals: z.array(cashMovementTotalSchema),
       booking_payments: z.array(cashBookingPaymentTotalSchema),
+      manual_refunds: z.array(cashManualRefundTotalSchema),
     })
     .loose(),
 );

@@ -36,6 +36,8 @@ function mockOpen(overrides: { expectedCash?: number; openedAt?: string } = {}) 
     expected_cash: overrides.expectedCash ?? 650000,
     movement_totals: [],
     booking_payments: [],
+    manual_refunds: [],
+    cash_manual_refunds: 0,
   };
   vi.mocked(useCashSession).mockReturnValue({
     data: { cash_session: session, summary },
@@ -63,6 +65,8 @@ function mockRealErrorWithCachedData() {
     expected_cash: 200000,
     movement_totals: [],
     booking_payments: [],
+    manual_refunds: [],
+    cash_manual_refunds: 0,
   };
   vi.mocked(useCashSession).mockReturnValue({
     data: { cash_session: session, summary },

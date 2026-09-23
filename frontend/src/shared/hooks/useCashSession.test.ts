@@ -13,7 +13,14 @@ function createWrapper() {
     createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
-const SUMMARY = { opening_cash: 500000, expected_cash: 650000, movement_totals: [], booking_payments: [] };
+const SUMMARY = {
+  opening_cash: 500000,
+  expected_cash: 650000,
+  cash_manual_refunds: 0,
+  movement_totals: [],
+  booking_payments: [],
+  manual_refunds: [],
+};
 const NOT_FOUND_PROBLEM = { type: 'https://vibe.com.ar/problems/not-found', title: 'Not Found', status: 404 };
 
 async function reportsClosedWithNoDataAndNoRetry() {

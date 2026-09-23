@@ -19,6 +19,10 @@ export const cash = {
   bookingPaymentsOnlineNote:
     'Solo el efectivo forma parte del efectivo esperado; el resto se muestra a modo informativo.',
   informational: 'Informativo',
+  // Cash handed back by hand for a cancelled booking, subtracted from
+  // expected cash — shown only when there was at least one during the
+  // session's window (cash-manual-refunds).
+  cashManualRefunds: 'Devoluciones en efectivo',
   // ─── Actions ───
   incomeAction: 'Ingreso',
   expenseAction: 'Egreso',

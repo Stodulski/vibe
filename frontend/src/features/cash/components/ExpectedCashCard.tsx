@@ -44,6 +44,15 @@ export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
         <span className="font-medium">{formatPrice(session.opening_cash)}</span>
       </div>
 
+      {/* Only shown when the session actually handed cash back by hand — a
+          session with no manual refund never renders this line. */}
+      {summary.cash_manual_refunds > 0 && (
+        <div className="flex items-center justify-between text-sm" data-testid="cash-manual-refunds-row">
+          <span className="text-text-tertiary">{t.cash.cashManualRefunds}</span>
+          <span className="font-medium">-{formatPrice(summary.cash_manual_refunds)}</span>
+        </div>
+      )}
+
       <div className="border-border-subtle flex items-center justify-between border-t pt-3">
         <span className="text-text-secondary text-sm font-semibold">{t.cash.expectedCash}</span>
         <span className="font-display text-text-primary text-2xl font-bold tracking-tight">

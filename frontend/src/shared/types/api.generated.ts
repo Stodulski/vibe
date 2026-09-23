@@ -2036,6 +2036,14 @@ export interface components {
             /** @description Centavos ARS. */
             refunded: number;
         };
+        /** @description One payment method's manual-refund total within the session's window — money handed back by hand (internal/payments.RecordManualRefund), read off payments.manual_refunded_at rather than created_at. Informational for every method except cash, which also feeds expected_cash (subtracted, not added). */
+        CashManualRefundTotal: {
+            /** @enum {string} */
+            method: "mercadopago" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+            count: number;
+            /** @description Centavos ARS. */
+            amount: number;
+        };
         CashSessionSummary: {
             /**
              * Format: int64
@@ -2044,7 +2052,7 @@ export interface components {
             opening_cash: number;
             /**
              * Format: int64
-             * @description Live projection through now() for an open session; the exact close-time snapshot for a closed one.
+             * @description Live projection through now() for an open session; the exact close-time snapshot for a closed one. Already has cash_manual_refunds subtracted.
              */
             expected_cash: number;
             /**
@@ -2057,8 +2065,14 @@ export interface components {
              * @description Centavos ARS. Present only when closed.
              */
             difference?: number | null;
+            /**
+             * Format: int64
+             * @description Centavos ARS. The cash this window already subtracted from expected_cash — the cash row(s) of manual_refunds totalled.
+             */
+            cash_manual_refunds: number;
             movement_totals: components["schemas"]["CashMovementTotal"][];
             booking_payments: components["schemas"]["CashBookingPaymentTotal"][];
+            manual_refunds: components["schemas"]["CashManualRefundTotal"][];
         };
         Product: {
             /** Format: uuid */
