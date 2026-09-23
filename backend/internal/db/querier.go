@@ -291,6 +291,14 @@ type Querier interface {
 	ListSalesByComplex(ctx context.Context, arg ListSalesByComplexParams) ([]Sale, error)
 	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
+	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
+	// once per unrefunded cash/transfer row a manual refund closes out, in the
+	// same transaction as the booking's own move off refund_status 'partial'.
+	// Separate from UpdatePayment (rather than widening it) so that
+	// UpdatePayment's other callers — the automatic MercadoPago refund and
+	// checkout paths — never have to pass manual_refund_amount/
+	// manual_refunded_at at all.
+	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
 	SetEmailVerified(ctx context.Context, id pgtype.UUID) error

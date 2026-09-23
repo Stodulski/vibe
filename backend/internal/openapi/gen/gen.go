@@ -148,6 +148,36 @@ func (e CashBookingPaymentTotalMethod) Valid() bool {
 	}
 }
 
+// Defines values for CashManualRefundTotalMethod.
+const (
+	CashManualRefundTotalMethodCash        CashManualRefundTotalMethod = "cash"
+	CashManualRefundTotalMethodCreditCard  CashManualRefundTotalMethod = "credit_card"
+	CashManualRefundTotalMethodDebitCard   CashManualRefundTotalMethod = "debit_card"
+	CashManualRefundTotalMethodMercadopago CashManualRefundTotalMethod = "mercadopago"
+	CashManualRefundTotalMethodQrWallet    CashManualRefundTotalMethod = "qr_wallet"
+	CashManualRefundTotalMethodTransfer    CashManualRefundTotalMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the CashManualRefundTotalMethod enum.
+func (e CashManualRefundTotalMethod) Valid() bool {
+	switch e {
+	case CashManualRefundTotalMethodCash:
+		return true
+	case CashManualRefundTotalMethodCreditCard:
+		return true
+	case CashManualRefundTotalMethodDebitCard:
+		return true
+	case CashManualRefundTotalMethodMercadopago:
+		return true
+	case CashManualRefundTotalMethodQrWallet:
+		return true
+	case CashManualRefundTotalMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CashMovementCategory.
 const (
 	CashMovementCategoryCleaning     CashMovementCategory = "cleaning"
@@ -1710,6 +1740,17 @@ type CashBookingPaymentTotal struct {
 // CashBookingPaymentTotalMethod defines model for CashBookingPaymentTotal.Method.
 type CashBookingPaymentTotalMethod string
 
+// CashManualRefundTotal One payment method's manual-refund total within the session's window — money handed back by hand (internal/payments.RecordManualRefund), read off payments.manual_refunded_at rather than created_at. Informational for every method except cash, which also feeds expected_cash (subtracted, not added).
+type CashManualRefundTotal struct {
+	// Amount Centavos ARS.
+	Amount int                         `json:"amount"`
+	Count  int                         `json:"count"`
+	Method CashManualRefundTotalMethod `json:"method"`
+}
+
+// CashManualRefundTotalMethod defines model for CashManualRefundTotal.Method.
+type CashManualRefundTotalMethod string
+
 // CashMovement defines model for CashMovement.
 type CashMovement struct {
 	// Amount Centavos ARS.
@@ -1788,15 +1829,19 @@ type CashSession struct {
 type CashSessionSummary struct {
 	BookingPayments []CashBookingPaymentTotal `json:"booking_payments"`
 
+	// CashManualRefunds Centavos ARS. The cash this window already subtracted from expected_cash — the cash row(s) of manual_refunds totalled.
+	CashManualRefunds int64 `json:"cash_manual_refunds"`
+
 	// CountedCash Centavos ARS. Present only when closed.
 	CountedCash *int64 `json:"counted_cash,omitempty"`
 
 	// Difference Centavos ARS. Present only when closed.
 	Difference *int64 `json:"difference,omitempty"`
 
-	// ExpectedCash Live projection through now() for an open session; the exact close-time snapshot for a closed one.
-	ExpectedCash   int64               `json:"expected_cash"`
-	MovementTotals []CashMovementTotal `json:"movement_totals"`
+	// ExpectedCash Live projection through now() for an open session; the exact close-time snapshot for a closed one. Already has cash_manual_refunds subtracted.
+	ExpectedCash   int64                   `json:"expected_cash"`
+	ManualRefunds  []CashManualRefundTotal `json:"manual_refunds"`
+	MovementTotals []CashMovementTotal     `json:"movement_totals"`
 
 	// OpeningCash Centavos ARS.
 	OpeningCash int64 `json:"opening_cash"`

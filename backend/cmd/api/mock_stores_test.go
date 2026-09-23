@@ -1270,12 +1270,13 @@ func (m *mockSlotLockStore) CleanExpired(ctx context.Context) (int64, error) {
 // nothing reported it — TestRouteAuthorizationMatrix is what surfaced it, by
 // being the first test to call those routes as a caller entitled to them.
 type mockReportStore struct {
-	PaymentSummaryByMethodFn       func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
-	PaymentSummaryByMethodWindowFn func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
-	PaymentSummaryByCourtFn        func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
-	PaymentDetailsFn               func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
-	CashSalesByMethodFn            func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashSalesSummary, error)
-	CashMovementsByCategoryFn      func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashCategorySummary, error)
+	PaymentSummaryByMethodFn            func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
+	PaymentSummaryByMethodWindowFn      func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
+	ManualRefundSummaryByMethodWindowFn func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.ManualRefundMethodSummary, error)
+	PaymentSummaryByCourtFn             func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentCourtSummary, error)
+	PaymentDetailsFn                    func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentDetail, error)
+	CashSalesByMethodFn                 func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashSalesSummary, error)
+	CashMovementsByCategoryFn           func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.CashCategorySummary, error)
 }
 
 func (m *mockReportStore) PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
@@ -1288,6 +1289,13 @@ func (m *mockReportStore) PaymentSummaryByMethod(ctx context.Context, complexID 
 func (m *mockReportStore) PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error) {
 	if m.PaymentSummaryByMethodWindowFn != nil {
 		return m.PaymentSummaryByMethodWindowFn(ctx, complexID, from, to)
+	}
+	return nil, nil
+}
+
+func (m *mockReportStore) ManualRefundSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.ManualRefundMethodSummary, error) {
+	if m.ManualRefundSummaryByMethodWindowFn != nil {
+		return m.ManualRefundSummaryByMethodWindowFn(ctx, complexID, from, to)
 	}
 	return nil, nil
 }
@@ -1332,7 +1340,7 @@ type mockCashboxStore struct {
 	GetOpenByComplexFn    func(ctx context.Context, complexID uuid.UUID) (*cashboxstore.CashSession, error)
 	GetByIDFn             func(ctx context.Context, complexID, sessionID uuid.UUID) (*cashboxstore.CashSession, error)
 	ListByComplexFn       func(ctx context.Context, complexID uuid.UUID, filters data.Filters) ([]*cashboxstore.CashSession, data.Metadata, error)
-	CloseFn               func(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, note *string) (*cashboxstore.CashSession, error)
+	CloseFn               func(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow, cashManualRefundsInWindow int64, closedAt time.Time, note *string) (*cashboxstore.CashSession, error)
 	InsertMovementFn      func(ctx context.Context, m *cashboxstore.CashMovement) error
 	GetMovementByIDFn     func(ctx context.Context, complexID, movementID uuid.UUID) (*cashboxstore.CashMovement, error)
 	ListMovementsBySessFn func(ctx context.Context, complexID, sessionID uuid.UUID) ([]*cashboxstore.CashMovement, error)
@@ -1368,9 +1376,9 @@ func (m *mockCashboxStore) ListByComplex(ctx context.Context, complexID uuid.UUI
 	return nil, data.Metadata{}, nil
 }
 
-func (m *mockCashboxStore) Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, note *string) (*cashboxstore.CashSession, error) {
+func (m *mockCashboxStore) Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow, cashManualRefundsInWindow int64, closedAt time.Time, note *string) (*cashboxstore.CashSession, error) {
 	if m.CloseFn != nil {
-		return m.CloseFn(ctx, complexID, sessionID, closedBy, countedCash, cashBookingPaymentsInWindow, closedAt, note)
+		return m.CloseFn(ctx, complexID, sessionID, closedBy, countedCash, cashBookingPaymentsInWindow, cashManualRefundsInWindow, closedAt, note)
 	}
 	return nil, data.ErrRecordNotFound
 }

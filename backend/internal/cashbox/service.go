@@ -82,19 +82,27 @@ func (s *Service) Open(ctx context.Context, complexID uuid.UUID, actor Actor, op
 }
 
 // Summary is a session's reconciliation view: opening, expected cash, the
-// movement breakdown, and the booking-payment breakdown over the session's
-// own window. CountedCash and Difference are nil until the session closes.
+// movement breakdown, the booking-payment breakdown, and the manual-refund
+// breakdown, all over the session's own window. CountedCash and Difference
+// are nil until the session closes.
 //
-// OpeningCash, ExpectedCash, CountedCash and Difference are int64, matching
-// cashboxstore.CashSession's own fields — see that type's comment for why
-// (BIGINT session-level aggregates, db/migrations/003_cashbox.sql).
+// OpeningCash, ExpectedCash, CashManualRefunds, CountedCash and Difference
+// are int64, matching cashboxstore.CashSession's own fields — see that
+// type's comment for why (BIGINT session-level aggregates,
+// db/migrations/003_cashbox.sql).
 type Summary struct {
-	OpeningCash     int64                              `json:"opening_cash"`
-	ExpectedCash    int64                              `json:"expected_cash"`
-	CountedCash     *int64                             `json:"counted_cash,omitempty"`
-	Difference      *int64                             `json:"difference,omitempty"`
-	MovementTotals  []cashboxstore.MovementTotal       `json:"movement_totals"`
-	BookingPayments []reportstore.PaymentMethodSummary `json:"booking_payments"`
+	OpeningCash  int64  `json:"opening_cash"`
+	ExpectedCash int64  `json:"expected_cash"`
+	CountedCash  *int64 `json:"counted_cash,omitempty"`
+	Difference   *int64 `json:"difference,omitempty"`
+	// CashManualRefunds is the cash this session's window already subtracted
+	// from ExpectedCash — informational, so the Caja screen can show the
+	// "Devoluciones en efectivo" line without recomputing it from
+	// ManualRefunds itself.
+	CashManualRefunds int64                                   `json:"cash_manual_refunds"`
+	MovementTotals    []cashboxstore.MovementTotal            `json:"movement_totals"`
+	BookingPayments   []reportstore.PaymentMethodSummary      `json:"booking_payments"`
+	ManualRefunds     []reportstore.ManualRefundMethodSummary `json:"manual_refunds"`
 }
 
 // SessionWithSummary is what GET /current answers with.
@@ -132,38 +140,28 @@ func (s *Service) buildSummary(ctx context.Context, session *cashboxstore.CashSe
 		return Summary{}, err
 	}
 
+	manualRefunds, err := s.payments.ManualRefundSummaryByMethodWindow(ctx, session.ComplexID, session.OpenedAt, windowEnd)
+	if err != nil {
+		return Summary{}, err
+	}
+	cashManualRefunds := int64(sumCashManualRefunds(manualRefunds))
+
 	summary := Summary{
-		OpeningCash:     session.OpeningCash,
-		MovementTotals:  totals,
-		BookingPayments: bookingPayments,
-		CountedCash:     session.CountedCash,
-		Difference:      session.Difference,
+		OpeningCash:       session.OpeningCash,
+		MovementTotals:    totals,
+		BookingPayments:   bookingPayments,
+		ManualRefunds:     manualRefunds,
+		CashManualRefunds: cashManualRefunds,
+		CountedCash:       session.CountedCash,
+		Difference:        session.Difference,
 	}
 
 	if session.ClosedAt != nil && session.ExpectedCash != nil {
 		summary.ExpectedCash = *session.ExpectedCash
 	} else {
 		cashIncome, cashExpense := cashboxstore.CashIncomeAndExpense(totals)
-		// DOCUMENTED GAP: the feature document's formula also subtracts "cash
-		// handed back by manual refunds within the window", and this
-		// deliberately does not. internal/payments.RecordManualRefund is the
-		// only path that returns cash for a booking (a MercadoPago refund is
-		// automatic and never touches the drawer), and it carries no
-		// dedicated timestamp of its own: it UPDATEs the existing payment
-		// row's refund_amount, so the only candidate is payments.updated_at —
-		// which trigger_set_updated_at bumps on ANY update to that row (a
-		// status_detail change from a later webhook retry, for instance), not
-		// only a manual refund. Filtering the payments window on it would
-		// sometimes count an unrelated update as a refund and sometimes miss
-		// a real one, which is worse than the gap it would close. There is no
-		// other table or column that records when a manual refund happened
-		// (failed_refunds is the automatic MercadoPago claim queue, not this
-		// path). Until the refund path grows its own timestamp, a manual
-		// refund inside a session's window is left out of expected_cash
-		// entirely — the drawer will show LESS than expected by exactly that
-		// amount, which the difference on close will surface for the owner to
-		// explain, rather than being silently absorbed into a wrong number.
-		summary.ExpectedCash = session.OpeningCash + int64(cashIncome) - int64(cashExpense) + int64(sumCashBookingPayments(bookingPayments))
+		summary.ExpectedCash = session.OpeningCash + int64(cashIncome) - int64(cashExpense) +
+			int64(sumCashBookingPayments(bookingPayments)) - cashManualRefunds
 	}
 
 	return summary, nil
@@ -180,6 +178,20 @@ func sumCashBookingPayments(payments []reportstore.PaymentMethodSummary) int {
 	for _, p := range payments {
 		if p.Method == "cash" {
 			total += p.Amount + p.ServiceFee
+		}
+	}
+	return total
+}
+
+// sumCashManualRefunds totals the cash-method row(s) of a
+// ManualRefundSummaryByMethodWindow result — the amount actually handed back,
+// which subtracts from expected cash the same way sumCashBookingPayments'
+// total adds to it. Every other method's row is informational only.
+func sumCashManualRefunds(refunds []reportstore.ManualRefundMethodSummary) int {
+	total := 0
+	for _, r := range refunds {
+		if r.Method == "cash" {
+			total += r.Amount
 		}
 	}
 	return total
@@ -265,7 +277,13 @@ func (s *Service) Close(ctx context.Context, complexID, sessionID uuid.UUID, act
 	}
 	cashBookingPayments := int64(sumCashBookingPayments(bookingPayments))
 
-	closed, err := s.sessions.Close(ctx, complexID, sessionID, closedBy, in.CountedCash, cashBookingPayments, now, in.ClosingNote)
+	manualRefunds, err := s.payments.ManualRefundSummaryByMethodWindow(ctx, complexID, session.OpenedAt, now)
+	if err != nil {
+		return nil, err
+	}
+	cashManualRefunds := int64(sumCashManualRefunds(manualRefunds))
+
+	closed, err := s.sessions.Close(ctx, complexID, sessionID, closedBy, in.CountedCash, cashBookingPayments, cashManualRefunds, now, in.ClosingNote)
 	if err != nil {
 		return nil, err
 	}

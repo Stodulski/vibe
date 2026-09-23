@@ -307,7 +307,7 @@ func TestIntegration_VoidRestoresStockAndVoidsTheIncome(t *testing.T) {
 
 	// Close the original session and open a new one — the void must land in
 	// the NEW one, not the sale's own.
-	if _, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, firstSession.ID, f.UserID, 5000, 0, time.Now(), nil); err != nil {
+	if _, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, firstSession.ID, f.UserID, 5000, 0, 0, time.Now(), nil); err != nil {
 		t.Fatalf("closing the original session: %v", err)
 	}
 	newSession := openSession(t, f, 1000)
@@ -384,7 +384,7 @@ func TestIntegration_VoidRefusesWithNoOpenSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if _, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, session.ID, f.UserID, 5000, 0, time.Now(), nil); err != nil {
+	if _, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, session.ID, f.UserID, 5000, 0, 0, time.Now(), nil); err != nil {
 		t.Fatalf("closing session: %v", err)
 	}
 

@@ -12,7 +12,7 @@ import (
 )
 
 const getPaymentByBookingID = `-- name: GetPaymentByBookingID :one
-SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail FROM payments
+SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at FROM payments
 WHERE booking_id = $1
 ORDER BY (mp_payment_id IS NOT NULL) DESC, created_at DESC
 LIMIT 1
@@ -39,12 +39,14 @@ func (q *Queries) GetPaymentByBookingID(ctx context.Context, bookingID pgtype.UU
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
 	)
 	return i, err
 }
 
 const getPaymentByIDForUpdate = `-- name: GetPaymentByIDForUpdate :one
-SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail FROM payments
+SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at FROM payments
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -75,12 +77,14 @@ func (q *Queries) GetPaymentByIDForUpdate(ctx context.Context, arg GetPaymentByI
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
 	)
 	return i, err
 }
 
 const getPaymentByMPID = `-- name: GetPaymentByMPID :one
-SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail FROM payments
+SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at FROM payments
 WHERE mp_payment_id = $1
 `
 
@@ -101,6 +105,8 @@ func (q *Queries) GetPaymentByMPID(ctx context.Context, mpPaymentID pgtype.Text)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
 	)
 	return i, err
 }
@@ -108,7 +114,7 @@ func (q *Queries) GetPaymentByMPID(ctx context.Context, mpPaymentID pgtype.Text)
 const insertPayment = `-- name: InsertPayment :one
 INSERT INTO payments (booking_id, complex_id, amount, method, status, service_fee, mp_payment_id, mp_preference_id, status_detail)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail
+RETURNING id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at
 `
 
 type InsertPaymentParams struct {
@@ -150,12 +156,14 @@ func (q *Queries) InsertPayment(ctx context.Context, arg InsertPaymentParams) (P
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
 	)
 	return i, err
 }
 
 const listPaymentsByBookingID = `-- name: ListPaymentsByBookingID :many
-SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail FROM payments
+SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at FROM payments
 WHERE booking_id = $1
 ORDER BY created_at ASC
 `
@@ -187,6 +195,8 @@ func (q *Queries) ListPaymentsByBookingID(ctx context.Context, bookingID pgtype.
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StatusDetail,
+			&i.ManualRefundAmount,
+			&i.ManualRefundedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -198,6 +208,51 @@ func (q *Queries) ListPaymentsByBookingID(ctx context.Context, bookingID pgtype.
 	return items, nil
 }
 
+const markPaymentManuallyRefunded = `-- name: MarkPaymentManuallyRefunded :one
+UPDATE payments
+SET status = 'refunded',
+    refund_amount = $1,
+    manual_refund_amount = $1,
+    manual_refunded_at = NOW()
+WHERE id = $2
+RETURNING id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at
+`
+
+type MarkPaymentManuallyRefundedParams struct {
+	RefundAmount int32       `json:"refund_amount"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+// Written by applyManualRefundRows (internal/payments/store/refunds.go),
+// once per unrefunded cash/transfer row a manual refund closes out, in the
+// same transaction as the booking's own move off refund_status 'partial'.
+// Separate from UpdatePayment (rather than widening it) so that
+// UpdatePayment's other callers — the automatic MercadoPago refund and
+// checkout paths — never have to pass manual_refund_amount/
+// manual_refunded_at at all.
+func (q *Queries) MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, markPaymentManuallyRefunded, arg.RefundAmount, arg.ID)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.ComplexID,
+		&i.Amount,
+		&i.ServiceFee,
+		&i.Method,
+		&i.Status,
+		&i.MpPaymentID,
+		&i.MpPreferenceID,
+		&i.RefundAmount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
+	)
+	return i, err
+}
+
 const updatePayment = `-- name: UpdatePayment :one
 UPDATE payments
 SET status = $1,
@@ -206,7 +261,7 @@ SET status = $1,
     refund_amount = $4,
     status_detail = $5
 WHERE id = $6
-RETURNING id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail
+RETURNING id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at
 `
 
 type UpdatePaymentParams struct {
@@ -242,6 +297,8 @@ func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (P
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
 	)
 	return i, err
 }

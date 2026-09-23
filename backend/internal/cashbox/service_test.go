@@ -279,6 +279,67 @@ func TestCurrentComputesALiveExpectedCashFromCashMovementsAndCashBookingPayments
 	}
 }
 
+// TestCurrentSubtractsOnlyTheCashPortionOfManualRefunds pins the
+// cash-manual-refunds arithmetic (internal/cashbox/service.go's
+// sumCashManualRefunds): a live summary's expected cash subtracts the cash
+// row(s) of ManualRefundSummaryByMethodWindow, and a transfer row must not
+// touch it.
+func TestCurrentSubtractsOnlyTheCashPortionOfManualRefunds(t *testing.T) {
+	session := &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now(), OpeningCash: 10000}
+	store := &stubStore{openSession: session}
+	payments := &stubPayments{
+		summaries: []reportstore.PaymentMethodSummary{
+			{Method: "cash", Amount: 8000, ServiceFee: 0},
+		},
+		manualRefunds: []reportstore.ManualRefundMethodSummary{
+			{Method: "cash", Amount: 3000, Count: 1},
+			{Method: "transfer", Amount: 99999, Count: 1},
+		},
+	}
+	svc := newTestService(store, payments, &stubRecorder{})
+
+	current, err := svc.Current(t.Context(), session.ComplexID)
+	if err != nil {
+		t.Fatalf("Current: %v", err)
+	}
+
+	// 10000 (opening) + 8000 (cash booking payments) - 3000 (cash manual
+	// refund; the transfer row excluded) = 15000
+	var want int64 = 15000
+	if current.Summary.ExpectedCash != want {
+		t.Errorf("want expected_cash=%d; got %d", want, current.Summary.ExpectedCash)
+	}
+	if current.Summary.CashManualRefunds != 3000 {
+		t.Errorf("want CashManualRefunds=3000; got %d", current.Summary.CashManualRefunds)
+	}
+}
+
+func TestClosePassesCashManualRefundsSubtracted(t *testing.T) {
+	store := &stubStore{
+		byID:          &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now()},
+		closedSession: &cashboxstore.CashSession{},
+	}
+	payments := &stubPayments{
+		manualRefunds: []reportstore.ManualRefundMethodSummary{
+			{Method: "cash", Amount: 4500, Count: 1},
+			{Method: "transfer", Amount: 999, Count: 1},
+		},
+	}
+	svc := newTestService(store, payments, &stubRecorder{})
+
+	_, err := svc.Close(t.Context(), uuid.New(), uuid.New(), testActor(), uuid.New(), CloseInput{CountedCash: 1000})
+	if err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if store.closeArgs == nil || store.closeArgs.cashManualRefunds != 4500 {
+		t.Errorf("want cashManualRefunds=4500 (transfer excluded); got %+v", store.closeArgs)
+	}
+	if !payments.lastManualTo.Equal(store.closeArgs.closedAt) {
+		t.Errorf("want the manual-refund window end (%v) to equal the closed_at written to the store (%v)",
+			payments.lastManualTo, store.closeArgs.closedAt)
+	}
+}
+
 func TestGetOnAClosedSessionEchoesTheStoredSnapshotRatherThanRecomputing(t *testing.T) {
 	var countedCash, expectedCash, difference int64 = 5000, 4500, 500
 	closedAt := time.Now()

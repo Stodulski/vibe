@@ -68,6 +68,16 @@ func toGenCashBookingPaymentTotal(p reportstore.PaymentMethodSummary) gen.CashBo
 	}
 }
 
+// toGenCashManualRefundTotal maps one manual-refund method breakdown row onto
+// the generated wire type.
+func toGenCashManualRefundTotal(r reportstore.ManualRefundMethodSummary) gen.CashManualRefundTotal {
+	return gen.CashManualRefundTotal{
+		Method: gen.CashManualRefundTotalMethod(r.Method),
+		Count:  r.Count,
+		Amount: r.Amount,
+	}
+}
+
 // toGenCashSessionSummary maps a session's reconciliation view onto the
 // generated wire type.
 func toGenCashSessionSummary(s Summary) gen.CashSessionSummary {
@@ -81,12 +91,19 @@ func toGenCashSessionSummary(s Summary) gen.CashSessionSummary {
 		bookingPayments[i] = toGenCashBookingPaymentTotal(p)
 	}
 
+	manualRefunds := make([]gen.CashManualRefundTotal, len(s.ManualRefunds))
+	for i, r := range s.ManualRefunds {
+		manualRefunds[i] = toGenCashManualRefundTotal(r)
+	}
+
 	return gen.CashSessionSummary{
-		OpeningCash:     s.OpeningCash,
-		ExpectedCash:    s.ExpectedCash,
-		CountedCash:     s.CountedCash,
-		Difference:      s.Difference,
-		MovementTotals:  movementTotals,
-		BookingPayments: bookingPayments,
+		OpeningCash:       s.OpeningCash,
+		ExpectedCash:      s.ExpectedCash,
+		CountedCash:       s.CountedCash,
+		Difference:        s.Difference,
+		CashManualRefunds: s.CashManualRefunds,
+		MovementTotals:    movementTotals,
+		BookingPayments:   bookingPayments,
+		ManualRefunds:     manualRefunds,
 	}
 }

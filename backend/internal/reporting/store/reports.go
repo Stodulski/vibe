@@ -24,6 +24,18 @@ type PaymentMethodSummary struct {
 	Refunded   int    `json:"refunded"`
 }
 
+// ManualRefundMethodSummary is one method's manual-refund total within a
+// window — the cash reconciliation's counterpart to PaymentMethodSummary,
+// read off payments.manual_refund_amount/manual_refunded_at
+// (db/migrations/006_payment_manual_refunds.sql) rather than created_at, so
+// it reports when the money actually left the till, not when the payment was
+// originally taken.
+type ManualRefundMethodSummary struct {
+	Method string `json:"method"`
+	Count  int    `json:"count"`
+	Amount int    `json:"amount"`
+}
+
 // PaymentDetail is one payment as it appears in the exported spreadsheet,
 // joined to the booking it paid for.
 type PaymentDetail struct {
@@ -72,6 +84,7 @@ type CashCategorySummary struct {
 type ReportReader interface {
 	PaymentSummaryByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error)
 	PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentMethodSummary, error)
+	ManualRefundSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]ManualRefundMethodSummary, error)
 	PaymentSummaryByCourt(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentCourtSummary, error)
 	PaymentDetails(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]PaymentDetail, error)
 	CashSalesByMethod(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]CashSalesSummary, error)
@@ -176,6 +189,50 @@ func (m *Store) PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("reporting: payment summary by method window: %w", err)
+	}
+	return summaries, nil
+}
+
+// ManualRefundSummaryByMethodWindow totals, per method, the manual refunds
+// confirmed within [from, to) — a cash session's own window
+// (opened_at to closed_at-or-now). Filtered on manual_refunded_at, the
+// transaction time applyManualRefundRows writes
+// (internal/payments/store/refunds.go), not created_at: a refund confirmed
+// today against a payment taken last month belongs in TODAY's window, the
+// same way the cash actually left the till today. Only 'cash' feeds a
+// session's expected cash (sumCashManualRefunds, internal/cashbox/service.go);
+// every other method's row is informational, the same split
+// PaymentSummaryByMethodWindow's own rows get.
+func (m *Store) ManualRefundSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]ManualRefundMethodSummary, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.DB.Query(ctx, `
+		SELECT p.method::text,
+		       COUNT(*)::int,
+		       COALESCE(SUM(p.manual_refund_amount), 0)::bigint
+		FROM payments p
+		WHERE p.complex_id = $1
+		  AND p.manual_refunded_at >= $2
+		  AND p.manual_refunded_at < $3
+		GROUP BY p.method`,
+		complexID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []ManualRefundMethodSummary
+	for rows.Next() {
+		var s ManualRefundMethodSummary
+		if err := rows.Scan(&s.Method, &s.Count, &s.Amount); err != nil {
+			return nil, fmt.Errorf("reporting: scan manual refund summary by method window row: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reporting: manual refund summary by method window: %w", err)
 	}
 	return summaries, nil
 }

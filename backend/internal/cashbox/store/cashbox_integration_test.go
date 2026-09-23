@@ -64,10 +64,10 @@ func openSession(t *testing.T, f *datatest.Fixture, openingCash int64) *cashboxs
 // any other value, since none of them assert against it. See
 // TestIntegration_CloseWritesTheExactClosedAtItWasGiven for the one test that
 // does care.
-func closeSession(t *testing.T, f *datatest.Fixture, ctx context.Context, sessionID uuid.UUID, countedCash, cashBookingPayments int64, note *string) *cashboxstore.CashSession {
+func closeSession(t *testing.T, f *datatest.Fixture, ctx context.Context, sessionID uuid.UUID, countedCash, cashBookingPayments, cashManualRefunds int64, note *string) *cashboxstore.CashSession {
 	t.Helper()
 
-	closed, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, sessionID, f.UserID, countedCash, cashBookingPayments, time.Now(), note)
+	closed, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, sessionID, f.UserID, countedCash, cashBookingPayments, cashManualRefunds, time.Now(), note)
 	if err != nil {
 		t.Fatalf("closing session: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestIntegration_MovementRequiresAnOpenSession(t *testing.T) {
 	ctx := f.Scoped(context.Background())
 
 	session := openSession(t, f, 10000)
-	closeSession(t, f, ctx, session.ID, 10000, 0, nil)
+	closeSession(t, f, ctx, session.ID, 10000, 0, 0, nil)
 
 	movement := &cashboxstore.CashMovement{
 		ComplexID: f.ComplexID, SessionID: session.ID, Kind: "income",
@@ -136,9 +136,9 @@ func TestIntegration_ClosedSessionCannotBeUpdated(t *testing.T) {
 	ctx := f.Scoped(context.Background())
 
 	session := openSession(t, f, 10000)
-	closeSession(t, f, ctx, session.ID, 10000, 0, nil)
+	closeSession(t, f, ctx, session.ID, 10000, 0, 0, nil)
 
-	_, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, session.ID, f.UserID, 9999, 0, time.Now(), nil)
+	_, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, session.ID, f.UserID, 9999, 0, 0, time.Now(), nil)
 	if !errors.Is(err, cashboxstore.ErrSessionNotOpen) {
 		t.Fatalf("want ErrSessionNotOpen for closing an already-closed session; got %v", err)
 	}
@@ -155,7 +155,7 @@ func TestIntegration_RawUpdateOfAClosedSessionIsRefusedByTheTrigger(t *testing.T
 	ctx := f.Scoped(context.Background())
 
 	session := openSession(t, f, 10000)
-	closeSession(t, f, ctx, session.ID, 10000, 0, nil)
+	closeSession(t, f, ctx, session.ID, 10000, 0, 0, nil)
 
 	_, err := f.DB.Exec(context.Background(),
 		`UPDATE cash_sessions SET closing_note = 'tampered' WHERE id = $1`, session.ID)
@@ -178,7 +178,7 @@ func TestIntegration_OpeningNoteSurvivesACloseWithItsOwnNote(t *testing.T) {
 	}
 
 	closingNote := "left 500 for tomorrow"
-	closed := closeSession(t, f, ctx, session.ID, 10000, 0, &closingNote)
+	closed := closeSession(t, f, ctx, session.ID, 10000, 0, 0, &closingNote)
 
 	if closed.OpeningNote == nil || *closed.OpeningNote != opening {
 		t.Errorf("want the opening note %q to survive the close; got %+v", opening, closed.OpeningNote)
@@ -353,7 +353,7 @@ func TestIntegration_CloseComputesExpectedCashFromOpeningPlusCashMovements(t *te
 	insert("income", "other_income", "transfer", 500000)
 
 	const cashBookingPayments = 12000
-	closed := closeSession(t, f, ctx, session.ID, 24200, cashBookingPayments, nil)
+	closed := closeSession(t, f, ctx, session.ID, 24200, cashBookingPayments, 0, nil)
 
 	// 10000 (opening) + 3000 (cash income) - 800 (cash expense) + 12000 (booking payments) = 24200
 	var wantExpected int64 = 24200
@@ -362,6 +362,32 @@ func TestIntegration_CloseComputesExpectedCashFromOpeningPlusCashMovements(t *te
 	}
 	if closed.Difference == nil || *closed.Difference != 0 {
 		t.Errorf("counted_cash was set equal to expected_cash; want difference=0, got %+v", closed.Difference)
+	}
+}
+
+// TestIntegration_CloseSubtractsCashManualRefundsInWindow pins the other half
+// of Store.Close's arithmetic (cash-manual-refunds): opening_cash + cash
+// income - cash expense + cashBookingPaymentsInWindow -
+// cashManualRefundsInWindow, the caller-supplied figure the service reads
+// through reportstore.Store.ManualRefundSummaryByMethodWindow.
+func TestIntegration_CloseSubtractsCashManualRefundsInWindow(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+
+	session := openSession(t, f, 10000)
+
+	const cashBookingPayments = 12000
+	const cashManualRefunds = 5000
+	closed, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, session.ID, f.UserID,
+		7000, cashBookingPayments, cashManualRefunds, time.Now(), nil)
+	if err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// 10000 (opening) + 12000 (booking payments) - 5000 (manual refunds) = 17000
+	var wantExpected int64 = 17000
+	if closed.ExpectedCash == nil || *closed.ExpectedCash != wantExpected {
+		t.Fatalf("want expected_cash=%d; got %+v", wantExpected, closed.ExpectedCash)
 	}
 }
 
@@ -387,7 +413,7 @@ func TestIntegration_ExpectedCashAboveInt32RangeIsStoredAndReadBackExactly(t *te
 	const bigOpeningCash int64 = 3_000_000_000
 	session := openSession(t, f, bigOpeningCash)
 
-	closed := closeSession(t, f, ctx, session.ID, bigOpeningCash, 0, nil)
+	closed := closeSession(t, f, ctx, session.ID, bigOpeningCash, 0, 0, nil)
 
 	if closed.ExpectedCash == nil || *closed.ExpectedCash != bigOpeningCash {
 		t.Fatalf("want expected_cash=%d stored exactly; got %+v (an INTEGER column would have wrapped this)",
@@ -441,7 +467,7 @@ func TestIntegration_CloseWritesTheExactClosedAtItWasGiven(t *testing.T) {
 	// actually used it, never by coincidence with a live NOW().
 	closedAt := time.Date(2030, time.January, 2, 3, 4, 5, 123456000, time.UTC)
 
-	closed, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, session.ID, f.UserID, 10000, 0, closedAt, nil)
+	closed, err := f.Stores.Cashbox.Close(ctx, f.ComplexID, session.ID, f.UserID, 10000, 0, 0, closedAt, nil)
 	if err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -480,7 +506,7 @@ func TestIntegration_ExpectedCashExcludesANonCashMovementEvenAloneInTheSession(t
 		t.Fatalf("inserting movement: %v", err)
 	}
 
-	closed := closeSession(t, f, ctx, session.ID, 5000, 0, nil)
+	closed := closeSession(t, f, ctx, session.ID, 5000, 0, 0, nil)
 	if closed.ExpectedCash == nil || *closed.ExpectedCash != 5000 {
 		t.Fatalf("want expected_cash=5000 (opening only, the QR wallet movement excluded); got %+v", closed.ExpectedCash)
 	}
@@ -527,9 +553,9 @@ func TestIntegration_ListByComplexPagination(t *testing.T) {
 		`UPDATE cash_sessions SET opened_at = opened_at - INTERVAL '2 seconds' WHERE id = $1`, first.ID); err != nil {
 		t.Fatalf("backdating first session: %v", err)
 	}
-	closeSession(t, f, ctx, first.ID, 1000, 0, nil)
+	closeSession(t, f, ctx, first.ID, 1000, 0, 0, nil)
 	second := openSession(t, f, 2000)
-	closeSession(t, f, ctx, second.ID, 2000, 0, nil)
+	closeSession(t, f, ctx, second.ID, 2000, 0, 0, nil)
 
 	page, meta, err := f.Stores.Cashbox.ListByComplex(ctx, f.ComplexID, data.Filters{Limit: 1})
 	if err != nil {

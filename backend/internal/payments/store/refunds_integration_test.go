@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -438,6 +439,25 @@ func TestRecordManualRefund(t *testing.T) {
 		t.Errorf("the cash row's refund amount must be its amount plus service fee; want %d, got %d", want, cashRefundAmount)
 	}
 
+	// applyManualRefundRows also writes manual_refund_amount (the owed amount)
+	// and manual_refunded_at (this transaction's own NOW()) — the two columns
+	// that let the cashbox tell this refund apart from any other update to
+	// the row (db/migrations/006_payment_manual_refunds.sql).
+	before := time.Now().Add(-time.Minute)
+	var manualRefundAmount int
+	var manualRefundedAt time.Time
+	if err := f.DB.QueryRow(ctx,
+		`SELECT manual_refund_amount, manual_refunded_at FROM payments WHERE id = $1`, cashPayment.ID,
+	).Scan(&manualRefundAmount, &manualRefundedAt); err != nil {
+		t.Fatalf("reading manual refund columns: %v", err)
+	}
+	if manualRefundAmount != manualOwed {
+		t.Errorf("want manual_refund_amount=%d (the owed amount); got %d", manualOwed, manualRefundAmount)
+	}
+	if manualRefundedAt.Before(before) || manualRefundedAt.After(time.Now()) {
+		t.Errorf("want manual_refunded_at set to this transaction's own time; got %s", manualRefundedAt)
+	}
+
 	bookingStatus, bookingCollection, bookingRefund := f.ReadBookingState(t, booking.ID)
 	if bookingStatus != "cancelled" {
 		t.Errorf("the booking must stay cancelled; got %q", bookingStatus)
@@ -452,6 +472,51 @@ func TestRecordManualRefund(t *testing.T) {
 	// A second call finds nothing left to close out.
 	if _, err := f.Stores.Payments.RecordManualRefund(ctx, booking.ID); !errors.Is(err, paymentstore.ErrNoManualRefundOwed) {
 		t.Errorf("a booking that no longer reads refund_status 'partial' must be refused; got %v", err)
+	}
+}
+
+// TestPaymentsManualRefundConsistentCheck pins
+// payments_manual_refund_consistent (db/migrations/006_payment_manual_refunds.sql):
+// manual_refund_amount and manual_refunded_at are null or set together, by
+// exact constraint name, not merely "some 23514".
+func TestPaymentsManualRefundConsistentCheck(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	payment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)
+
+	_, err := f.DB.Exec(ctx,
+		`UPDATE payments SET manual_refund_amount = 1000 WHERE id = $1`, payment.ID)
+	wantPgCheckViolation(t, err, "payments_manual_refund_consistent")
+
+	_, err = f.DB.Exec(ctx,
+		`UPDATE payments SET manual_refunded_at = NOW() WHERE id = $1`, payment.ID)
+	wantPgCheckViolation(t, err, "payments_manual_refund_consistent")
+
+	_, err = f.DB.Exec(ctx,
+		`UPDATE payments SET manual_refund_amount = 0, manual_refunded_at = NOW() WHERE id = $1`, payment.ID)
+	wantPgCheckViolation(t, err, "payments_manual_refund_consistent")
+
+	// Both set, positive, and within amount+service_fee: allowed.
+	if _, err := f.DB.Exec(ctx,
+		`UPDATE payments SET manual_refund_amount = 50000, manual_refunded_at = NOW() WHERE id = $1`, payment.ID,
+	); err != nil {
+		t.Fatalf("want a consistent pair of columns to be accepted; got %v", err)
+	}
+}
+
+// wantPgCheckViolation fails the test unless err is a *pgconn.PgError
+// refused by exactly this CHECK constraint (SQLSTATE 23514).
+func wantPgCheckViolation(t *testing.T, err error, constraint string) {
+	t.Helper()
+
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		t.Fatalf("want a *pgconn.PgError refused by %s; got %T: %v", constraint, err, err)
+	}
+	if pgErr.Code != "23514" || pgErr.ConstraintName != constraint {
+		t.Fatalf("want %s (23514); got %q (%s): %s", constraint, pgErr.ConstraintName, pgErr.Code, pgErr.Message)
 	}
 }
 

@@ -36,6 +36,22 @@ SET status = $1,
 WHERE id = $6
 RETURNING *;
 
+-- name: MarkPaymentManuallyRefunded :one
+-- Written by applyManualRefundRows (internal/payments/store/refunds.go),
+-- once per unrefunded cash/transfer row a manual refund closes out, in the
+-- same transaction as the booking's own move off refund_status 'partial'.
+-- Separate from UpdatePayment (rather than widening it) so that
+-- UpdatePayment's other callers — the automatic MercadoPago refund and
+-- checkout paths — never have to pass manual_refund_amount/
+-- manual_refunded_at at all.
+UPDATE payments
+SET status = 'refunded',
+    refund_amount = $1,
+    manual_refund_amount = $1,
+    manual_refunded_at = NOW()
+WHERE id = $2
+RETURNING *;
+
 -- name: GetPaymentByIDForUpdate :one
 -- Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
 -- predicate is optional.

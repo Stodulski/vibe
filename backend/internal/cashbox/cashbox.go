@@ -9,10 +9,12 @@
 // correction is a new movement (a "void") pointing back at the one it
 // corrects, never an edit.
 //
-// Known gap: expected cash does not subtract manual refunds (cash handed
-// back through internal/payments.RecordManualRefund) — see the comment in
-// buildSummary (service.go) for why no column in this schema can tell a
-// manual refund's timestamp apart from an unrelated payment update.
+// Expected cash also subtracts cash handed back by hand through
+// internal/payments.RecordManualRefund, confirmed within the session's own
+// window: payments.manual_refund_amount and manual_refunded_at
+// (db/migrations/006_payment_manual_refunds.sql) are what let this package
+// tell a manual refund apart from an unrelated payment update — see
+// buildSummary (service.go).
 package cashbox
 
 import (
@@ -35,7 +37,7 @@ type SessionStore interface {
 	GetOpenByComplex(ctx context.Context, complexID uuid.UUID) (*cashboxstore.CashSession, error)
 	GetByID(ctx context.Context, complexID, sessionID uuid.UUID) (*cashboxstore.CashSession, error)
 	ListByComplex(ctx context.Context, complexID uuid.UUID, filters data.Filters) ([]*cashboxstore.CashSession, data.Metadata, error)
-	Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, note *string) (*cashboxstore.CashSession, error)
+	Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow, cashManualRefundsInWindow int64, closedAt time.Time, note *string) (*cashboxstore.CashSession, error)
 }
 
 // MovementStore is the cash-movement half.
@@ -53,13 +55,15 @@ type Store interface {
 	MovementStore
 }
 
-// PaymentWindowReader is the booking-payments side of a session's
-// reconciliation: what came in through the booking flow, per method, during
-// the session's own window (opened_at to closed_at-or-now). Satisfied by
-// reportstore.Store, which already owns the "what counts as collected money"
-// rule the monthly report uses — see PaymentSummaryByMethodWindow.
+// PaymentWindowReader is the payments side of a session's reconciliation:
+// what came in through the booking flow, and what went back out by hand,
+// per method, during the session's own window (opened_at to
+// closed_at-or-now). Satisfied by reportstore.Store, which already owns the
+// "what counts as collected money" rule the monthly report uses — see
+// PaymentSummaryByMethodWindow and ManualRefundSummaryByMethodWindow.
 type PaymentWindowReader interface {
 	PaymentSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.PaymentMethodSummary, error)
+	ManualRefundSummaryByMethodWindow(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]reportstore.ManualRefundMethodSummary, error)
 }
 
 // Recorder writes the audit trail for a session's lifecycle and a session's

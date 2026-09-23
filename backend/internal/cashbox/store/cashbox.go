@@ -281,13 +281,14 @@ func (m *Store) ListByComplex(ctx context.Context, complexID uuid.UUID, filters 
 // InsertMovement's own lock on this row — never half-landed), and writes the
 // count and the expected-cash snapshot.
 //
-// cashBookingPaymentsInWindow is the one part of expected cash this store
-// cannot compute itself — booking payments live in another domain's table —
-// so the service reads it (a plain, unlocked read: nothing else races a
-// booking payment against this specific close) and passes it in. Everything
-// this store CAN compute from its own tables (opening_cash, this session's
-// cash movements), it does, inside the lock, rather than trusting a value the
-// caller read earlier and might now be stale.
+// cashBookingPaymentsInWindow and cashManualRefundsInWindow are the two parts
+// of expected cash this store cannot compute itself — both booking payments
+// and manual refunds live in another domain's table (payments) — so the
+// service reads them (a plain, unlocked read: nothing else races a booking
+// payment or a manual refund against this specific close) and passes them
+// in. Everything this store CAN compute from its own tables (opening_cash,
+// this session's cash movements), it does, inside the lock, rather than
+// trusting a value the caller read earlier and might now be stale.
 //
 // closedAt is likewise the service's, not this store's: it is the exact
 // instant Service.Close used as the end of the booking-payments window it
@@ -296,7 +297,7 @@ func (m *Store) ListByComplex(ctx context.Context, complexID uuid.UUID, filters 
 // booking payment landing between that read and this write would be missing
 // from the stored expected_cash snapshot while still falling inside
 // [opened_at, closed_at) the next time a summary is rebuilt from it.
-func (m *Store) Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow int64, closedAt time.Time, closingNote *string) (*CashSession, error) {
+func (m *Store) Close(ctx context.Context, complexID, sessionID, closedBy uuid.UUID, countedCash, cashBookingPaymentsInWindow, cashManualRefundsInWindow int64, closedAt time.Time, closingNote *string) (*CashSession, error) {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -325,7 +326,8 @@ func (m *Store) Close(ctx context.Context, complexID, sessionID, closedBy uuid.U
 			return err
 		}
 		cashIncome, cashExpense := CashIncomeAndExpense(totals)
-		expectedCash := locked.OpeningCash + int64(cashIncome) - int64(cashExpense) + cashBookingPaymentsInWindow
+		expectedCash := locked.OpeningCash + int64(cashIncome) - int64(cashExpense) +
+			cashBookingPaymentsInWindow - cashManualRefundsInWindow
 
 		row, err := qtx.CloseCashSession(ctx, db.CloseCashSessionParams{
 			ClosedAt:     data.TimeToPg(closedAt),

@@ -526,6 +526,14 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 // returns the total moved. It is split out from RecordManualRefund only to
 // keep that function's own shape — lock, list, write, commit — readable in
 // one screen; the loop itself is the one step that touches more than one row.
+//
+// Alongside status and refund_amount, each row also gets manual_refund_amount
+// (the owed amount actually handed back) and manual_refunded_at (this
+// transaction's own NOW(), not the caller's clock) — see
+// MarkPaymentManuallyRefunded (db/queries/payments.sql) and
+// db/migrations/006_payment_manual_refunds.sql. Those two columns are what
+// lets the cashbox tell a manual refund apart from any other update to the
+// row (internal/cashbox/service.go).
 func applyManualRefundRows(ctx context.Context, qtx *db.Queries, rows []db.Payment) (int, error) {
 	returned := 0
 	for _, row := range rows {
@@ -538,10 +546,7 @@ func applyManualRefundRows(ctx context.Context, qtx *db.Queries, rows []db.Payme
 		if string(row.Status) == "refunded" || owed <= 0 {
 			continue
 		}
-		if _, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
-			Status:         db.PaymentStatus("refunded"),
-			MpPaymentID:    row.MpPaymentID,
-			MpPreferenceID: row.MpPreferenceID,
+		if _, err := qtx.MarkPaymentManuallyRefunded(ctx, db.MarkPaymentManuallyRefundedParams{
 			//nolint:gosec // G115: currency amount (cents), bounded by payments_refund_within_amount_paid; far below int32 range.
 			RefundAmount: row.Amount + row.ServiceFee,
 			ID:           row.ID,
