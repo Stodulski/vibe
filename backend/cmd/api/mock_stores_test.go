@@ -20,6 +20,7 @@ import (
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
+	salestore "github.com/stodulski/vibe-server/internal/sales/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -1452,6 +1453,63 @@ func (m *mockProductStore) ListStockMovements(ctx context.Context, complexID, pr
 		return m.ListStockMovementsFn(ctx, complexID, productID, filters)
 	}
 	return nil, data.Metadata{}, nil
+}
+
+// ---------------------------------------------------------------------------
+// mockSalesStore
+// ---------------------------------------------------------------------------
+
+// mockSalesStore stands in for stores.SalesStore, the same shape
+// mockProductStore is for stores.ProductStore.
+type mockSalesStore struct {
+	CreateFn             func(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, method string, note *string) (*salestore.Sale, []*salestore.SaleItem, []salestore.StockWarning, error)
+	GetByIDFn            func(ctx context.Context, complexID, saleID uuid.UUID) (*salestore.Sale, error)
+	ListItemsBySaleFn    func(ctx context.Context, complexID, saleID uuid.UUID) ([]*salestore.SaleItem, error)
+	ListItemsBySaleIDsFn func(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) ([]*salestore.SaleItem, error)
+	ListByComplexFn      func(ctx context.Context, complexID uuid.UUID, sessionID *uuid.UUID, filters data.Filters) ([]*salestore.Sale, data.Metadata, error)
+	VoidFn               func(ctx context.Context, complexID, saleID, actorID uuid.UUID, note *string) (*salestore.Sale, error)
+}
+
+func (m *mockSalesStore) Create(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, method string, note *string) (*salestore.Sale, []*salestore.SaleItem, []salestore.StockWarning, error) {
+	if m.CreateFn != nil {
+		return m.CreateFn(ctx, complexID, actorID, items, method, note)
+	}
+	return nil, nil, nil, data.ErrRecordNotFound
+}
+
+func (m *mockSalesStore) GetByID(ctx context.Context, complexID, saleID uuid.UUID) (*salestore.Sale, error) {
+	if m.GetByIDFn != nil {
+		return m.GetByIDFn(ctx, complexID, saleID)
+	}
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockSalesStore) ListItemsBySale(ctx context.Context, complexID, saleID uuid.UUID) ([]*salestore.SaleItem, error) {
+	if m.ListItemsBySaleFn != nil {
+		return m.ListItemsBySaleFn(ctx, complexID, saleID)
+	}
+	return nil, nil
+}
+
+func (m *mockSalesStore) ListItemsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) ([]*salestore.SaleItem, error) {
+	if m.ListItemsBySaleIDsFn != nil {
+		return m.ListItemsBySaleIDsFn(ctx, complexID, saleIDs)
+	}
+	return nil, nil
+}
+
+func (m *mockSalesStore) ListByComplex(ctx context.Context, complexID uuid.UUID, sessionID *uuid.UUID, filters data.Filters) ([]*salestore.Sale, data.Metadata, error) {
+	if m.ListByComplexFn != nil {
+		return m.ListByComplexFn(ctx, complexID, sessionID, filters)
+	}
+	return nil, data.Metadata{}, nil
+}
+
+func (m *mockSalesStore) Void(ctx context.Context, complexID, saleID, actorID uuid.UUID, note *string) (*salestore.Sale, error) {
+	if m.VoidFn != nil {
+		return m.VoidFn(ctx, complexID, saleID, actorID, note)
+	}
+	return nil, data.ErrRecordNotFound
 }
 
 // ---------------------------------------------------------------------------

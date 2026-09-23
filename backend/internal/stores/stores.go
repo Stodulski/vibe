@@ -24,6 +24,7 @@ import (
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
+	salestore "github.com/stodulski/vibe-server/internal/sales/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -617,6 +618,21 @@ type ProductStore interface {
 	ProductStockLedger
 }
 
+// ---------------------------------------------------------------------------
+// SalesStore
+// ---------------------------------------------------------------------------
+
+// SalesStore manages a complex's sales and their line items — one concrete
+// store (internal/sales/store), the same as every other domain here.
+type SalesStore interface {
+	Create(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, method string, note *string) (*salestore.Sale, []*salestore.SaleItem, []salestore.StockWarning, error)
+	GetByID(ctx context.Context, complexID, saleID uuid.UUID) (*salestore.Sale, error)
+	ListItemsBySale(ctx context.Context, complexID, saleID uuid.UUID) ([]*salestore.SaleItem, error)
+	ListItemsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) ([]*salestore.SaleItem, error)
+	ListByComplex(ctx context.Context, complexID uuid.UUID, sessionID *uuid.UUID, filters data.Filters) ([]*salestore.Sale, data.Metadata, error)
+	Void(ctx context.Context, complexID, saleID, actorID uuid.UUID, note *string) (*salestore.Sale, error)
+}
+
 // Stores aggregates every store interface used by the application.
 type Stores struct {
 	Users             UserStore
@@ -625,6 +641,7 @@ type Stores struct {
 	Courts            CourtStore
 	Cashbox           CashboxStore
 	Products          ProductStore
+	Sales             SalesStore
 	Bookings          BookingStore
 	BookingLinkTokens BookingLinkTokenStore
 	Tokens            TokenStore
@@ -689,5 +706,6 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Jobs:              &jobs.Store{DB: pooled},
 		Cashbox:           &cashboxstore.Store{DB: pooled, Q: q},
 		Products:          &productstore.Store{DB: pooled, Q: q},
+		Sales:             &salestore.Store{DB: pooled, Q: q},
 	}
 }

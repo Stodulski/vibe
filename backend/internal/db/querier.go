@@ -204,6 +204,12 @@ type Querier interface {
 	// never be read-modify-written by two requests at once.
 	GetProductByIDForUpdate(ctx context.Context, arg GetProductByIDForUpdateParams) (Product, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
+	GetSaleByID(ctx context.Context, arg GetSaleByIDParams) (Sale, error)
+	// Void locks the row first, in the same transaction as the write, so two
+	// concurrent void attempts on the same sale cannot both read voided_at IS
+	// NULL and both proceed — the same reasoning
+	// GetCashSessionByIDForUpdate's own comment gives for cash_sessions.
+	GetSaleByIDForUpdate(ctx context.Context, arg GetSaleByIDForUpdateParams) (Sale, error)
 	GetSchedulesByComplex(ctx context.Context, complexID pgtype.UUID) ([]ComplexSchedule, error)
 	// Kept for backwards compatibility with generated code. No longer used by business logic.
 	GetUnconfirmedAfterReminder(ctx context.Context) ([]Booking, error)
@@ -229,6 +235,8 @@ type Querier interface {
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (Payment, error)
 	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (RefreshToken, error)
+	InsertSale(ctx context.Context, arg InsertSaleParams) (Sale, error)
+	InsertSaleItem(ctx context.Context, arg InsertSaleItemParams) (SaleItem, error)
 	InsertStockMovement(ctx context.Context, arg InsertStockMovementParams) (StockMovement, error)
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
 	// Idempotent: a repeated Google sign-in re-links the same (provider,
@@ -262,6 +270,25 @@ type Querier interface {
 	// left side short-circuits instead of comparing against a meaningless
 	// active_filter value.
 	ListProductsByComplex(ctx context.Context, arg ListProductsByComplexParams) ([]Product, error)
+	// One sale's own line items, in the order they were inserted — used by Get
+	// and by Void (to know which tracked products to restore stock for is a
+	// separate query, ListSaleStockMovements, below; this one is for the
+	// response shape).
+	ListSaleItemsBySale(ctx context.Context, arg ListSaleItemsBySaleParams) ([]SaleItem, error)
+	// The batched counterpart to ListSaleItemsBySale, for a page of sales at
+	// once (List): one query instead of one per sale on the page.
+	ListSaleItemsBySaleIDs(ctx context.Context, arg ListSaleItemsBySaleIDsParams) ([]SaleItem, error)
+	// Every stock-tracked line item's original debit for one sale — exactly the
+	// set Store.Void must reverse with a 'sale_void' row and a stock_on_hand
+	// update. Filtered to kind = 'sale' deliberately: a void's own 'sale_void'
+	// rows are inserted, in the same call, against this exact sale_id, and must
+	// never be read back by this query as something still needing reversal.
+	ListSaleStockMovements(ctx context.Context, arg ListSaleStockMovementsParams) ([]StockMovement, error)
+	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
+	// has_session_filter is false when the caller asked for every session's
+	// sales; the OR's left side short-circuits instead of comparing against a
+	// zero-value uuid.
+	ListSalesByComplex(ctx context.Context, arg ListSalesByComplexParams) ([]Sale, error)
 	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
@@ -331,6 +358,14 @@ type Querier interface {
 	UpdateProductStock(ctx context.Context, arg UpdateProductStockParams) (Product, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpsertSchedule(ctx context.Context, arg UpsertScheduleParams) (ComplexSchedule, error)
+	// WHERE voided_at IS NULL is a second, cheap guard against the same race
+	// GetSaleByIDForUpdate's lock already closes — see that query's comment and
+	// sales_forbid_update_after_void (db/migrations/005_pos_sales.sql) for the
+	// third, database-level guard. Zero rows means either the sale is gone (it
+	// never is, once inserted) or it was already voided; Store.Void tells those
+	// apart the same way cashboxstore.Store.Close does for cash_sessions,
+	// because the lock above already proved the row exists moments earlier.
+	VoidSale(ctx context.Context, arg VoidSaleParams) (Sale, error)
 }
 
 var _ Querier = (*Queries)(nil)

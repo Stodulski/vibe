@@ -657,6 +657,32 @@ type RefreshToken struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Sale struct {
+	ID                 pgtype.UUID        `json:"id"`
+	ComplexID          pgtype.UUID        `json:"complex_id"`
+	SessionID          pgtype.UUID        `json:"session_id"`
+	Method             PaymentMethod      `json:"method"`
+	Total              int32              `json:"total"`
+	CashMovementID     pgtype.UUID        `json:"cash_movement_id"`
+	VoidedAt           pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy           pgtype.UUID        `json:"voided_by"`
+	VoidCashMovementID pgtype.UUID        `json:"void_cash_movement_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	CreatedBy          pgtype.UUID        `json:"created_by"`
+}
+
+type SaleItem struct {
+	ID          pgtype.UUID        `json:"id"`
+	ComplexID   pgtype.UUID        `json:"complex_id"`
+	SaleID      pgtype.UUID        `json:"sale_id"`
+	ProductID   pgtype.UUID        `json:"product_id"`
+	ProductName string             `json:"product_name"`
+	UnitPrice   int32              `json:"unit_price"`
+	Quantity    int32              `json:"quantity"`
+	LineTotal   int32              `json:"line_total"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type SlotLock struct {
 	ID        pgtype.UUID        `json:"id"`
 	CourtID   pgtype.UUID        `json:"court_id"`
