@@ -21,14 +21,14 @@ test.describe('Dashboard', () => {
   });
 
   // The four standalone stat cards (Reservas hoy / Ingreso hoy / Ocupación /
-  // Pendientes) were folded into the "Control de caja" payment-overview panel
-  // -- see PaymentOverview.tsx's comment. Assert what that panel actually
-  // shows today.
+  // Pendientes) were folded into the payment-overview panel, now titled
+  // "Ingresos de hoy" (it is booking revenue, not the till) -- see
+  // PaymentOverview.tsx's comment. Assert what that panel actually shows today.
   test('displays payment overview panel', async ({ authenticatedPage: page }) => {
     await page.goto('/dashboard');
 
     await expect(page.getByText('Reservas hoy', { exact: true })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Control de caja', { exact: true })).toBeVisible();
+    await expect(page.getByText('Ingresos de hoy', { exact: true })).toBeVisible();
     await expect(page.getByText('Ocupación', { exact: true })).toBeVisible();
     await expect(page.getByText('Estado de cobro', { exact: true })).toBeVisible();
   });
