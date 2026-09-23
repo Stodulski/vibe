@@ -25,6 +25,8 @@ import (
 // internal/cashbox/stubs_test.go): plain fields the test sets up front, a
 // handful of "last call" captures, no mocking framework.
 type stubStore struct {
+	listCalled   bool
+	listActive   *bool
 	insertErr    error
 	insertedProd *productstore.Product
 
@@ -86,7 +88,9 @@ func (s *stubStore) GetByID(_ context.Context, _, _ uuid.UUID) (*productstore.Pr
 	return s.byID, nil
 }
 
-func (s *stubStore) ListByComplex(_ context.Context, _ uuid.UUID, _ *bool) ([]*productstore.Product, error) {
+func (s *stubStore) ListByComplex(_ context.Context, _ uuid.UUID, active *bool) ([]*productstore.Product, error) {
+	s.listCalled = true
+	s.listActive = active
 	if s.listErr != nil {
 		return nil, s.listErr
 	}

@@ -356,3 +356,55 @@ func TestListStockMovementsWithAMalformedCursorIs400(t *testing.T) {
 		t.Fatalf("want 400; got %d (%s)", w.Code, w.Body.String())
 	}
 }
+
+func TestListParsesActiveLikeTheGeneratedWrapper(t *testing.T) {
+	for _, tc := range []struct {
+		query string
+		want  bool
+	}{{"1", true}, {"t", true}, {"0", false}, {"FALSE", false}} {
+		store := &stubStore{}
+		h, _ := newTestHandler(store)
+
+		w := httptest.NewRecorder()
+		h.List(w, ownerRequest(t, http.MethodGet, "/?active="+tc.query, uuid.New(), nil, ""))
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("active=%s: want 200; got %d (%s)", tc.query, w.Code, w.Body.String())
+		}
+		if store.listActive == nil || *store.listActive != tc.want {
+			t.Fatalf("active=%s: want filter %v; got %v", tc.query, tc.want, store.listActive)
+		}
+	}
+}
+
+func TestListWithAnUnparseableActiveIs400(t *testing.T) {
+	store := &stubStore{}
+	h, _ := newTestHandler(store)
+
+	w := httptest.NewRecorder()
+	h.List(w, ownerRequest(t, http.MethodGet, "/?active=maybe", uuid.New(), nil, ""))
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400; got %d (%s)", w.Code, w.Body.String())
+	}
+	if store.listCalled {
+		t.Fatal("an unparseable filter must not reach the store")
+	}
+}
+
+func TestUpdateClearsAWhitespaceOnlyCategory(t *testing.T) {
+	productID := uuid.New()
+	category := "Bebidas"
+	store := &stubStore{byID: &productstore.Product{ID: productID, ComplexID: uuid.New(), Name: "Coca", Category: &category}}
+	h, _ := newTestHandler(store)
+
+	w := httptest.NewRecorder()
+	h.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), map[string]string{"productID": productID.String()}, `{"category":"   "}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if store.updateArgs == nil || store.updateArgs.Category != nil {
+		t.Fatalf("a whitespace-only category must clear the field; got %v", store.updateArgs)
+	}
+}

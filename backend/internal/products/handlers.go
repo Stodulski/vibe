@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/stodulski/vibe-server/internal/data"
@@ -116,14 +117,17 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parsed with strconv.ParseBool, the same rule the generated wrapper
+	// validated the parameter with, so active=1 or active=f filter instead of
+	// silently returning every product.
 	var activeFilter *bool
-	switch r.URL.Query().Get("active") {
-	case "true":
-		v := true
-		activeFilter = &v
-	case "false":
-		v := false
-		activeFilter = &v
+	if raw := r.URL.Query().Get("active"); raw != "" {
+		active, err := strconv.ParseBool(raw)
+		if err != nil {
+			h.respond.BadRequest(w, r, fmt.Errorf("active must be a boolean"))
+			return
+		}
+		activeFilter = &active
 	}
 
 	products, err := h.svc.List(r.Context(), complex.ID, activeFilter)
@@ -194,8 +198,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		v.Check(len(trimmed) <= nameMaxLen, "name", "must not be more than 120 characters")
 		name = &trimmed
 	}
+	// Trimmed like Create's category, so a whitespace-only value clears the
+	// field instead of being stored.
+	var category *string
 	if body.Category != nil {
-		v.Check(len(*body.Category) <= categoryMaxLen, "category", "must not be more than 60 characters")
+		trimmed := strings.TrimSpace(*body.Category)
+		v.Check(len(trimmed) <= categoryMaxLen, "category", "must not be more than 60 characters")
+		category = &trimmed
 	}
 	if body.Price != nil {
 		v.Check(*body.Price >= 0, "price", "must not be negative")
@@ -217,7 +226,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	product, err := h.svc.Update(r.Context(), complex.ID, h.actor(r), productID, UpdateInput{
 		Name:              name,
-		Category:          body.Category,
+		Category:          category,
 		Price:             body.Price,
 		LowStockThreshold: body.LowStockThreshold,
 		Active:            body.Active,
