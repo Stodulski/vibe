@@ -38,5 +38,6 @@ describe('VoidSaleDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(mutate).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 });

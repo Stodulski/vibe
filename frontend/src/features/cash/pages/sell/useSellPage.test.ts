@@ -72,6 +72,48 @@ describe('useSellPage — cart building', () => {
     expect(result.current.lines).toEqual([{ productId: 'p1', quantity: 1 }]);
     expect(result.current.total).toBe(100000);
   });
+
+  it('two quick taps in the same batch both land — a functional updater, not the render-time lines closure', async () => {
+    const { result } = renderHook(() => useSellPage(), { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(result.current.visibleProducts).toHaveLength(1);
+    });
+
+    // Both calls happen before React commits a re-render — the exact "two
+    // quick taps before a re-render" shape that loses an increment when
+    // `add()` computes the next lines from this render's closed-over `lines`
+    // instead of the latest committed state.
+    act(() => {
+      result.current.addProduct(PRODUCT);
+      result.current.addProduct(PRODUCT);
+    });
+
+    expect(result.current.lines).toEqual([{ productId: 'p1', quantity: 2 }]);
+  });
+});
+
+describe('useSellPage — complex switch', () => {
+  it('replaces the cart with the new complex’s own cart, never carrying lines across complexes', async () => {
+    const { result, rerender } = renderHook(() => useSellPage(), { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(result.current.visibleProducts).toHaveLength(1);
+    });
+
+    act(() => {
+      result.current.addProduct(PRODUCT);
+    });
+    expect(result.current.lines).toEqual([{ productId: 'p1', quantity: 1 }]);
+
+    vi.mocked(useSelectedComplex).mockReturnValue({
+      complex: { id: 'c2' },
+      selectedComplexId: 'c2',
+    } as unknown as ReturnType<typeof useSelectedComplex>);
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.lines).toEqual([]);
+    });
+  });
 });
 
 describe('useSellPage — sessionStorage persistence', () => {
@@ -194,5 +236,50 @@ describe('useSellPage — charge success', () => {
     await waitFor(() => {
       expect(window.sessionStorage.getItem('vibe_pos_cart_c1')).toBeNull();
     });
+  });
+});
+
+describe('useSellPage — charge success while the cart keeps changing', () => {
+  it('keeps a line added while the charge is in flight — only what was actually sent is removed on success', async () => {
+    let resolveSale!: () => void;
+    const salePromise = new Promise<void>((resolve) => {
+      resolveSale = resolve;
+    });
+    server.use(
+      http.post('*/complexes/:complexId/sales', async () => {
+        await salePromise;
+        return HttpResponse.json({ sale: makeSale(), stock_warnings: [] }, { status: 201 });
+      }),
+    );
+    const { result } = renderHook(() => useSellPage(), { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(result.current.visibleProducts).toHaveLength(1);
+    });
+
+    act(() => {
+      result.current.addProduct(PRODUCT);
+    });
+    act(() => {
+      result.current.charge();
+    });
+    await waitFor(() => {
+      expect(result.current.isCharging).toBe(true);
+    });
+
+    // The charge button is disabled while pending, but nothing else stops
+    // this — a stepper tap, or another tap on the same tile, landing before
+    // the response does.
+    act(() => {
+      result.current.incrementCartLine('p1');
+    });
+    expect(result.current.lines).toEqual([{ productId: 'p1', quantity: 2 }]);
+
+    resolveSale();
+    await waitFor(() => {
+      expect(result.current.saleResult).not.toBeNull();
+    });
+
+    // 2 in the cart at completion time minus the 1 that was actually charged.
+    expect(result.current.lines).toEqual([{ productId: 'p1', quantity: 1 }]);
   });
 });

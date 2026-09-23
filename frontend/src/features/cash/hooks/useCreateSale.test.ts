@@ -86,10 +86,11 @@ describe('useCreateSale — cache invalidation', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.products.byComplexAll('c1') });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.cash.current('c1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.cash.detailBase('c1') });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.sales.bySession('c1', 's1') });
   });
 
-  it('invalidates the current session on a 409 (closed till) too', async () => {
+  it('invalidates the current session and the products catalog on a 409 (closed till) too', async () => {
     server.use(
       http.post('*/complexes/:complexId/sales', () =>
         HttpResponse.json({ title: 'no cash session is open' }, { status: 409 }),
@@ -105,5 +106,24 @@ describe('useCreateSale — cache invalidation', () => {
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.cash.current('c1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.products.byComplexAll('c1') });
+  });
+
+  it('invalidates the products catalog on a 422 (an inactive/unknown product line), so a stale line gets dropped on the next reconcile', async () => {
+    server.use(
+      http.post('*/complexes/:complexId/sales', () =>
+        HttpResponse.json({ title: 'invalid item', errors: { 'items[0].product_id': 'not found' } }, { status: 422 }),
+      ),
+    );
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useCreateSale('c1', 's1'), { wrapper });
+
+    result.current.mutate(CART);
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.products.byComplexAll('c1') });
   });
 });

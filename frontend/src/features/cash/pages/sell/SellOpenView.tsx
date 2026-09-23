@@ -1,5 +1,7 @@
+import { XIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/shared/components/ui/sheet';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
+import { Button } from '@/shared/components/ui/button';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { SellProductGrid } from '../../components/sell/SellProductGrid';
@@ -47,10 +49,12 @@ function SellOpenViewNotices({
   isError,
   onRetry,
   droppedStaleNotice,
+  onDismissDroppedStaleNotice,
 }: {
   isError: boolean;
   onRetry: () => void;
   droppedStaleNotice: boolean;
+  onDismissDroppedStaleNotice: () => void;
 }) {
   return (
     <>
@@ -58,9 +62,12 @@ function SellOpenViewNotices({
       {droppedStaleNotice && (
         <div
           role="status"
-          className="border-warning-border bg-warning-bg text-warning-text rounded-xl border px-3.5 py-2.5 text-sm"
+          className="border-warning-border bg-warning-bg text-warning-text flex items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-sm"
         >
-          {t.cash.cartDroppedStaleLines}
+          <span>{t.cash.cartDroppedStaleLines}</span>
+          <Button variant="ghost" size="icon-sm" aria-label={t.common.close} onClick={onDismissDroppedStaleNotice}>
+            <XIcon className="size-4" />
+          </Button>
         </div>
       )}
     </>
@@ -109,6 +116,7 @@ export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps)
           void state.productsQuery.refetch();
         }}
         droppedStaleNotice={state.droppedStaleNotice}
+        onDismissDroppedStaleNotice={state.dismissDroppedStaleNotice}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">

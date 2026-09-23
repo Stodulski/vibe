@@ -50,25 +50,29 @@ export function useSellCharge(
     setLineErrors((prev) => withoutLineError(prev, productId));
   };
 
-  const onChargeSuccess = (data: SaleCreateResponse) => {
-    setSaleResult({ sale: data.sale, stockWarnings: data.stock_warnings });
-    cart.clear();
-    setNote('');
-    setMethod(COUNTER_PAYMENT_METHODS[0]);
-    setMobileCartOpen(false);
-  };
-
   const charge = () => {
     if (!complexId || cart.lines.length === 0) return;
     setLineErrors({});
+    // Snapshotting the lines the payload is built from — not re-reading
+    // `cart.lines` in `onSuccess` — is what lets `removeCharged` below
+    // subtract only what was actually sent: anything added or bumped after
+    // this point (the mutation is in flight; only the charge button is
+    // disabled) must survive the success handler.
+    const chargedLines = cart.lines;
     createSale.mutate(
       {
-        items: cart.lines.map((line) => ({ product_id: line.productId, quantity: line.quantity })),
+        items: chargedLines.map((line) => ({ product_id: line.productId, quantity: line.quantity })),
         method,
         note: blankToUndefined(note),
       },
       {
-        onSuccess: onChargeSuccess,
+        onSuccess: (data: SaleCreateResponse) => {
+          setSaleResult({ sale: data.sale, stockWarnings: data.stock_warnings });
+          cart.removeCharged(chargedLines);
+          setNote('');
+          setMethod(COUNTER_PAYMENT_METHODS[0]);
+          setMobileCartOpen(false);
+        },
         onError: (error: unknown) => {
           setLineErrors(mapItemFieldErrors(error, cart.lines));
         },

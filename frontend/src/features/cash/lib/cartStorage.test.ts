@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { makeProduct } from '@/test/factories';
+import { MAX_CART_LINES, MAX_LINE_QUANTITY } from './cart';
 import { loadCart, saveCart, clearCart, reconcileCartAgainstProducts } from './cartStorage';
 
 /**
@@ -80,11 +81,40 @@ describe('loadCart / saveCart / clearCart', () => {
 
   it('never throws when sessionStorage itself throws (private browsing, quota, disabled storage)', () => {
     const restore = stubThrowingSessionStorage();
-    expect(() => {
-      saveCart('c1', [{ productId: 'p1', quantity: 1 }]);
-    }).not.toThrow();
-    expect(loadCart('c1')).toEqual([]);
-    restore();
+    try {
+      expect(() => {
+        saveCart('c1', [{ productId: 'p1', quantity: 1 }]);
+      }).not.toThrow();
+      expect(loadCart('c1')).toEqual([]);
+    } finally {
+      // Restoring the real `sessionStorage` unconditionally — even if an
+      // assertion above throws — matters because this stub replaces the
+      // global itself (see the comment on `stubThrowingSessionStorage`): a
+      // failed assertion used to leave every later test in this file running
+      // against a storage that always throws.
+      restore();
+    }
+  });
+});
+
+describe('loadCart — clamping a stored cart', () => {
+  it('respects MAX_CART_LINES, MAX_LINE_QUANTITY, and unique product ids on a cart written by an older/corrupted build', () => {
+    const overLimitLines = Array.from({ length: MAX_CART_LINES + 5 }, (_, i) => ({
+      productId: `p${String(i)}`,
+      quantity: 1,
+    }));
+    // A duplicate id (merged) and a quantity past the per-line cap (clamped).
+    overLimitLines.push({ productId: 'p0', quantity: 3 });
+    overLimitLines[1] = { productId: 'p1', quantity: MAX_LINE_QUANTITY + 10 };
+    window.sessionStorage.setItem('vibe_pos_cart_c1', JSON.stringify(overLimitLines));
+
+    const result = loadCart('c1');
+
+    expect(result.length).toBeLessThanOrEqual(MAX_CART_LINES);
+    expect(new Set(result.map((l) => l.productId)).size).toBe(result.length);
+    for (const line of result) expect(line.quantity).toBeLessThanOrEqual(MAX_LINE_QUANTITY);
+    expect(result.find((l) => l.productId === 'p0')?.quantity).toBe(4);
+    expect(result.find((l) => l.productId === 'p1')?.quantity).toBe(MAX_LINE_QUANTITY);
   });
 });
 
