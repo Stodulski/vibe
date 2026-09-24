@@ -220,11 +220,14 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     uploadDate: t.datePublished,
     duration: duracionIso(t.duracion),
     contentUrl: `${CDN}/${t.slug}.mp4`,
-    sameAs: `https://www.youtube.com/watch?v=${t.youtube}`,
     inLanguage: 'es-AR',
     publisher: editor,
     isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar' },
   };
+  /* `sameAs` solo declara la copia en YouTube cuando existe de verdad: un
+     tutorial recién grabado que todavía no se subió ahí no lleva un enlace
+     a un video que no está. */
+  if (t.youtube) video.sameAs = `https://www.youtube.com/watch?v=${t.youtube}`;
 
   const faqSchema = {
     '@context': 'https://schema.org',

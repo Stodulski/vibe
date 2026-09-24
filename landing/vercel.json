@@ -189,6 +189,51 @@
       ]
     },
     {
+      "source": "/tutoriales/abrir-y-cerrar-la-caja",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-abrir-y-cerrar-la-caja.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/cobrar-una-reserva-en-el-mostrador",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-cobrar-una-reserva-en-el-mostrador.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/ingresos-egresos-y-anulaciones",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-ingresos-egresos-y-anulaciones.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/productos-y-stock",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-productos-y-stock.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/vender-desde-el-mostrador",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-vender-desde-el-mostrador.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
       "source": "/tutoriales",
       "headers": [
         {

@@ -28,7 +28,7 @@
     "date": "2026-09-24"
   },
   "/tutoriales": {
-    "hash": "be1d04b6161b5cdb",
+    "hash": "df47d4aec39050f1",
     "date": "2026-09-24"
   },
   "/tutoriales/base-de-clientes": {
@@ -65,6 +65,26 @@
   },
   "/guias/vibe-o-turnito-para-un-complejo-de-canchas": {
     "hash": "4915fca8c708a003",
+    "date": "2026-09-24"
+  },
+  "/tutoriales/abrir-y-cerrar-la-caja": {
+    "hash": "6e3d851c9c309068",
+    "date": "2026-09-24"
+  },
+  "/tutoriales/cobrar-una-reserva-en-el-mostrador": {
+    "hash": "e3ce6756828f9e15",
+    "date": "2026-09-24"
+  },
+  "/tutoriales/ingresos-egresos-y-anulaciones": {
+    "hash": "5b9f3b264ed39aa3",
+    "date": "2026-09-24"
+  },
+  "/tutoriales/productos-y-stock": {
+    "hash": "e7b7e0a9708162e5",
+    "date": "2026-09-24"
+  },
+  "/tutoriales/vender-desde-el-mostrador": {
+    "hash": "bd5d69b45d078821",
     "date": "2026-09-24"
   }
 }
