@@ -42,8 +42,8 @@ describe('LowStockAlert', () => {
 
   it('shows a loading skeleton while the products query is in flight', () => {
     mockLoading();
-    const { container } = renderWithProviders(<LowStockAlert complexId="c1" />);
-    expect(container.querySelector('[class*="animate-pulse"]')).toBeInTheDocument();
+    renderWithProviders(<LowStockAlert complexId="c1" />);
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
   });
 
   it('renders nothing when there are no low-stock products', () => {

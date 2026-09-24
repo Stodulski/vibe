@@ -14,8 +14,8 @@ import { ChartBody } from './ChartBody';
 
 describe('ChartBody', () => {
   it('shows the skeleton while loading', () => {
-    const { container } = render(<ChartBody state={{ status: 'loading' }} period="week" />);
-    expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+    render(<ChartBody state={{ status: 'loading' }} period="week" />);
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByTestId('canvas-chart')).not.toBeInTheDocument();
   });
 
