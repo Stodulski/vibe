@@ -36,8 +36,15 @@ describe('openCashSessionSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects a decimal amount — whole pesos only', () => {
-    const result = openCashSessionSchema.safeParse({ opening_cash: 1500.5, note: '' });
+  // money-centavos change: centavos are accepted everywhere now, up to 2
+  // decimal digits.
+  it('accepts an amount with up to 2 decimal digits (centavos)', () => {
+    expect(openCashSessionSchema.safeParse({ opening_cash: 1500.5, note: '' }).success).toBe(true);
+    expect(openCashSessionSchema.safeParse({ opening_cash: 1500.55, note: '' }).success).toBe(true);
+  });
+
+  it('rejects a 3rd decimal digit', () => {
+    const result = openCashSessionSchema.safeParse({ opening_cash: 1500.555, note: '' });
     expect(result.success).toBe(false);
   });
 });
@@ -108,6 +115,20 @@ describe('cashMovementSchema', () => {
     expect(cashMovementSchema.safeParse({ ...base, kind: 'income', category }).success).toBe(false);
   });
 
+  it('rejects an unlisted payment method', () => {
+    expect(cashMovementSchema.safeParse({ ...base, method: 'mercadopago' }).success).toBe(false);
+  });
+});
+
+describe('cashMovementSchema — amount', () => {
+  const base = {
+    kind: 'expense' as const,
+    category: 'supplies' as const,
+    method: 'cash' as const,
+    amount: 1000,
+    note: '',
+  };
+
   it('rejects an amount of 0 (must be positive)', () => {
     expect(cashMovementSchema.safeParse({ ...base, amount: 0 }).success).toBe(false);
   });
@@ -120,12 +141,14 @@ describe('cashMovementSchema', () => {
     expect(cashMovementSchema.safeParse({ ...base, amount: MAX_MOVEMENT_AMOUNT_PESOS + 1 }).success).toBe(false);
   });
 
-  it('rejects an unlisted payment method', () => {
-    expect(cashMovementSchema.safeParse({ ...base, method: 'mercadopago' }).success).toBe(false);
+  // money-centavos change: centavos are accepted everywhere now, up to 2
+  // decimal digits.
+  it('accepts an amount with up to 2 decimal digits (centavos)', () => {
+    expect(cashMovementSchema.safeParse({ ...base, amount: 1500.5 }).success).toBe(true);
   });
 
-  it('rejects a decimal amount — whole pesos only', () => {
-    expect(cashMovementSchema.safeParse({ ...base, amount: 1500.5 }).success).toBe(false);
+  it('rejects a 3rd decimal digit', () => {
+    expect(cashMovementSchema.safeParse({ ...base, amount: 1500.555 }).success).toBe(false);
   });
 });
 

@@ -4,6 +4,7 @@ import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
+import { pesosToCentavos } from '@/shared/lib/money';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { ConfirmPaymentDto } from '../../schemas/booking.schema';
 import type { Booking } from '@/shared/types/api.types';
@@ -49,7 +50,10 @@ export function DepositAmountInput({
       if (v === undefined || v <= 0) {
         setValue('amount', 0);
       } else {
-        setValue('amount', Math.min(v, maxPesos) * 100);
+        // `pesosToCentavos` (Math.round), not a plain `* 100` — a decimal
+        // amount (e.g. 1500.5) truncated instead of rounded would drop
+        // centavos rather than reporting the exact amount typed.
+        setValue('amount', pesosToCentavos(Math.min(v, maxPesos)));
       }
     },
   });

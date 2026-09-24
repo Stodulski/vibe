@@ -1,3 +1,4 @@
+import { pesosToCentavos } from '@/shared/lib/money';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { CreateBookingRequest } from '@/shared/types/api.types';
 
@@ -25,11 +26,11 @@ export function cleanBookingPayload(data: CreateBookingDto): CreateBookingReques
   const cleanNotes = blankToUndefined(notes);
   const cleanPaymentMethod = blankToUndefined(payment_method);
   const cleanDepositAmount =
-    data.payment_option === 'deposit' && deposit_amount ? Math.round(deposit_amount * 100) : undefined;
+    data.payment_option === 'deposit' && deposit_amount ? pesosToCentavos(deposit_amount) : undefined;
   // The manual-price field only ever renders (and gets a value) when
   // there's no server-computed estimate for this span — `price` stays
   // undefined here otherwise, whether or not it was ever briefly populated.
-  const cleanPrice = typeof price === 'number' ? Math.round(price * 100) : undefined;
+  const cleanPrice = typeof price === 'number' ? pesosToCentavos(price) : undefined;
 
   // `CreateBookingRequest`'s optional fields are absent-or-present, not
   // present-with-`undefined` (source of truth: `src/shared/types`) — spread

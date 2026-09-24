@@ -44,12 +44,12 @@ interface MoneyPesosFieldProps {
  * `step` in floating point, and `0.01` (tried first, to allow centavos)
  * cannot be represented exactly in IEEE754 — an ordinary value like `1500.5`
  * failed that check as a false "step mismatch". A `type="text"` input has no
- * step at all; a typed/pasted decimal comma ("1500,50") is instead caught by
- * `useMoneyInput` itself, which shows it back exactly as typed and reports
- * the real fractional number so this field's own Zod schema — whole pesos
- * only, same convention as `DepositAmountInput`/`ManualPriceField` — rejects
- * it with a visible message, never by silently rounding or (the bug
- * `useMoneyInput`'s own doc comment covers) multiplying the amount away.
+ * step at all; a typed/pasted decimal comma ("1500,50") is caught by
+ * `useMoneyInput` itself, which shows it back grouped ("1.500,50") and
+ * reports the real fractional pesos number — centavos are an accepted amount
+ * everywhere in the app now (money-centavos change), converted with
+ * `pesosToCentavos` by the caller, and the schema's own "hasta 2 decimales"
+ * rule is only the backstop for a value that reaches the form another way.
  * Every form using this field still sets `noValidate` for the same reason as
  * always: the caller's own Zod schema is what reports a validation problem,
  * never a browser-native block before React runs.

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { pesosToCentavos } from '@/shared/lib/money';
 import { findTotalPrice } from './pricing';
 import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';
 
@@ -63,7 +64,7 @@ export function useBookingPricing({
   // Cents, from the manual-price field (pesos) — only meaningful when there's
   // no server-computed estimate for this span.
   const manualPriceCents = useMemo(
-    () => (typeof price === 'number' && !Number.isNaN(price) ? Math.round(price * 100) : null),
+    () => (typeof price === 'number' && !Number.isNaN(price) ? pesosToCentavos(price) : null),
     [price],
   );
 

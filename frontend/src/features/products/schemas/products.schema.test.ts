@@ -24,8 +24,14 @@ describe('productFormSchema', () => {
     expect(productFormSchema(false).safeParse({ ...base, price: 0 }).success).toBe(true);
   });
 
-  it('rejects a non-integer price (whole pesos only)', () => {
-    const result = productFormSchema(false).safeParse({ ...base, price: 1500.5 });
+  // money-centavos change: centavos are accepted everywhere now, up to 2
+  // decimal digits.
+  it('accepts a price with up to 2 decimal digits (centavos)', () => {
+    expect(productFormSchema(false).safeParse({ ...base, price: 1500.5 }).success).toBe(true);
+  });
+
+  it('rejects a 3rd decimal digit', () => {
+    const result = productFormSchema(false).safeParse({ ...base, price: 1500.555 });
     expect(result.success).toBe(false);
   });
 
@@ -90,8 +96,14 @@ describe('restockSchema', () => {
     expect(restockSchema.safeParse({ ...base, total_cost: 0 }).success).toBe(false);
   });
 
-  it('rejects a non-integer total cost', () => {
-    expect(restockSchema.safeParse({ ...base, total_cost: 5000.5 }).success).toBe(false);
+  // money-centavos change: centavos are accepted everywhere now, up to 2
+  // decimal digits.
+  it('accepts a total cost with up to 2 decimal digits (centavos)', () => {
+    expect(restockSchema.safeParse({ ...base, total_cost: 5000.5 }).success).toBe(true);
+  });
+
+  it('rejects a 3rd decimal digit', () => {
+    expect(restockSchema.safeParse({ ...base, total_cost: 5000.555 }).success).toBe(false);
   });
 });
 

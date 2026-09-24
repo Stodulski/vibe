@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useUpdatePrices } from '../../hooks/useUpdatePrices';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getFieldErrors } from '@/shared/lib/serverErrors';
+import { pesosToCentavos } from '@/shared/lib/money';
 import { priceFormSchema, type PriceBandValues } from '../../schemas/courts.schema';
 import { ALL_DAYS, type PriceFormValues } from './days';
 import { bandField, buildDayBands, dayPriceField, nextDifferentiatedBand, priceFormValues } from './bands';
@@ -136,7 +137,7 @@ function buildPrices(
     for (const built of buildDayBands(dayValues, schedules, day)) {
       sent.push(built.source.kind === 'day' ? { day, kind: 'day' } : { day, kind: 'band', index: built.source.index });
       prices.push({
-        price: Math.round(built.price * 100),
+        price: pesosToCentavos(built.price),
         day_type: day,
         time_from: built.time_from,
         time_to: built.time_to,

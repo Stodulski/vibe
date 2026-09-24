@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   pesosToCentavos,
   centavosToPesos,
+  hasAtMostTwoDecimals,
   extractMoneyDigits,
   parseMoneyDigits,
   formatMoneyDigits,
@@ -9,6 +10,7 @@ import {
   countDigits,
   caretPositionForDigitCount,
   analyzeMoneyInput,
+  composeMoneyDisplay,
   fractionalMoneyValue,
   MAX_MONEY_DIGITS,
 } from './money';
@@ -38,6 +40,28 @@ describe('centavosToPesos', () => {
   });
 });
 
+describe('hasAtMostTwoDecimals', () => {
+  it('accepts whole amounts', () => {
+    expect(hasAtMostTwoDecimals(1500)).toBe(true);
+    expect(hasAtMostTwoDecimals(0)).toBe(true);
+  });
+
+  it('accepts amounts with 1 or 2 decimal digits', () => {
+    expect(hasAtMostTwoDecimals(1500.5)).toBe(true);
+    expect(hasAtMostTwoDecimals(1500.55)).toBe(true);
+  });
+
+  it('accepts a value with floating-point noise from an exact centavos amount', () => {
+    // 1500.1 * 100 is 150009.99999999999 in IEEE754, not 150010.
+    expect(hasAtMostTwoDecimals(1500.1)).toBe(true);
+  });
+
+  it('rejects a 3rd decimal digit', () => {
+    expect(hasAtMostTwoDecimals(1500.555)).toBe(false);
+    expect(hasAtMostTwoDecimals(1500.001)).toBe(false);
+  });
+});
+
 describe('extractMoneyDigits', () => {
   it('keeps plain typed digits', () => {
     expect(extractMoneyDigits('150000')).toBe('150000');
@@ -51,7 +75,7 @@ describe('extractMoneyDigits', () => {
     expect(extractMoneyDigits('1.500')).toBe('1500');
   });
 
-  it('drops everything from the first "," onward — a pasted decimal never inflates the amount', () => {
+  it('drops everything from the first "," onward — analyzeMoneyInput handles the decimal part', () => {
     expect(extractMoneyDigits('1.500,50')).toBe('1500');
     expect(extractMoneyDigits('1500,99')).toBe('1500');
   });
@@ -96,8 +120,14 @@ describe('formatMoneyDigits / formatMoneyValue', () => {
     expect(formatMoneyValue(Number.NaN)).toBe('');
   });
 
-  it('truncates a fractional value to whole pesos before formatting', () => {
-    expect(formatMoneyValue(1500.9)).toBe('1.500');
+  it('shows no decimal part for a whole amount, even one that used to carry a fractional float', () => {
+    expect(formatMoneyValue(1500)).toBe('1.500');
+  });
+
+  it('shows exactly 2 decimal digits for an amount with centavos, never truncated', () => {
+    expect(formatMoneyValue(1500.5)).toBe('1.500,50');
+    expect(formatMoneyValue(1500.05)).toBe('1.500,05');
+    expect(formatMoneyValue(1500.55)).toBe('1.500,55');
   });
 });
 
@@ -122,6 +152,12 @@ describe('caretPositionForDigitCount', () => {
 
   it('clamps to the end when asked for more digits than exist', () => {
     expect(caretPositionForDigitCount('150', 10)).toBe(3);
+  });
+
+  it('skips a decimal comma the same way it skips a thousands dot', () => {
+    // "1.500,50" has 6 digits total ('1','5','0','0','5','0'); the 6th (last)
+    // one is the final '0', so the caret lands at the very end of the string.
+    expect(caretPositionForDigitCount('1.500,50', 6)).toBe(8);
   });
 });
 
@@ -159,19 +195,55 @@ describe('analyzeMoneyInput', () => {
     });
   });
 
-  it('reports "invalid" for a comma followed by a non-zero digit — never silently dropped', () => {
+  it('reports "decimal" for a comma followed by a non-zero digit — a real, accepted centavos amount', () => {
     expect(analyzeMoneyInput('1500,5')).toEqual({
       hasComma: true,
       integerDigits: '1500',
       decimalDigits: '5',
-      kind: 'invalid',
+      kind: 'decimal',
     });
     expect(analyzeMoneyInput('1.500,50')).toEqual({
       hasComma: true,
       integerDigits: '1500',
       decimalDigits: '50',
-      kind: 'invalid',
+      kind: 'decimal',
     });
+  });
+
+  // Regression coverage for the money-centavos change: a 3rd decimal digit is
+  // capped away here, before anything downstream ever sees it — never
+  // appended to the reported value, never shown.
+  it('caps decimalDigits at 2 — a 3rd typed/pasted decimal digit is dropped, not appended', () => {
+    expect(analyzeMoneyInput('1.500,505')).toEqual({
+      hasComma: true,
+      integerDigits: '1500',
+      decimalDigits: '50',
+      kind: 'decimal',
+    });
+    expect(analyzeMoneyInput('1500,007')).toEqual({
+      hasComma: true,
+      integerDigits: '1500',
+      decimalDigits: '00',
+      kind: 'zero',
+    });
+  });
+});
+
+describe('composeMoneyDisplay', () => {
+  it('groups the integer part alone when there is no comma', () => {
+    expect(composeMoneyDisplay(analyzeMoneyInput('150000'))).toBe('150.000');
+  });
+
+  it('keeps the comma and decimal digits exactly as captured, with the integer part grouped', () => {
+    expect(composeMoneyDisplay(analyzeMoneyInput('1500,'))).toBe('1.500,');
+    expect(composeMoneyDisplay(analyzeMoneyInput('1500,0'))).toBe('1.500,0');
+    expect(composeMoneyDisplay(analyzeMoneyInput('1500,5'))).toBe('1.500,5');
+    expect(composeMoneyDisplay(analyzeMoneyInput('1500,50'))).toBe('1.500,50');
+  });
+
+  // A pasted "1.500,505" must never show the dropped 3rd decimal digit.
+  it('never shows a dropped 3rd decimal digit', () => {
+    expect(composeMoneyDisplay(analyzeMoneyInput('1.500,505'))).toBe('1.500,50');
   });
 });
 
@@ -183,5 +255,22 @@ describe('fractionalMoneyValue', () => {
 
   it('defaults a missing integer part to 0', () => {
     expect(fractionalMoneyValue(analyzeMoneyInput(',5'))).toBe(0.5);
+  });
+
+  it('reports the plain integer for a pending or all-zero decimal — never 10x/100x from the comma', () => {
+    expect(fractionalMoneyValue(analyzeMoneyInput('1500,'))).toBe(1500);
+    expect(fractionalMoneyValue(analyzeMoneyInput('1500,0'))).toBe(1500);
+    expect(fractionalMoneyValue(analyzeMoneyInput('1500,00'))).toBe(1500);
+  });
+
+  it('reports undefined for an empty field with only a stray comma', () => {
+    expect(fractionalMoneyValue(analyzeMoneyInput(','))).toBeUndefined();
+  });
+
+  // The exact regression PR #135 fixed: typing "1500,50" must never report
+  // 150050 (comma dropped, decimals read as extra integer digits).
+  it('never reports the 100x amount a dropped comma used to produce', () => {
+    expect(fractionalMoneyValue(analyzeMoneyInput('1500,50'))).not.toBe(150050);
+    expect(fractionalMoneyValue(analyzeMoneyInput('1500,00'))).not.toBe(150000);
   });
 });

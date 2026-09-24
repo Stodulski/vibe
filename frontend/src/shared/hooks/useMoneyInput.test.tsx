@@ -95,20 +95,21 @@ describe('useMoneyInput — formatting as you type', () => {
     await user.type(input, '9', { initialSelectionStart: 1, initialSelectionEnd: 1 });
 
     expect(input).toHaveValue('1.950.000');
-    // Right after the "9" that was just typed ("1.9|50.000") — the digit
+    // Right after the "9" that was just typed ("1.9|50.000") - the digit
     // count before the caret (2: "1" and "9") landed after the same two
     // digits in the reformatted string.
     expect(input.selectionStart).toBe(3);
   });
 });
 
-describe('useMoneyInput — a decimal comma is never silently dropped', () => {
-  // Regression coverage for a real bug: typing "1.500,50" one keystroke at a
-  // time used to reformat away the comma the instant it landed, so the
-  // following "5" and "0" silently read as two more thousands digits of the
-  // INTEGER part — "1.500,50" ended up 150050 pesos, a 100x amount, with no
-  // error anywhere. `analyzeMoneyInput`'s 'invalid' case is what this whole
-  // describe block is pinning down.
+describe('useMoneyInput - a decimal comma is a real, accepted amount, never silently dropped or corrupted', () => {
+  // Regression coverage for a real bug fixed in PR #135: typing "1.500,50"
+  // one keystroke at a time used to reformat away the comma the instant it
+  // landed, so the following "5" and "0" silently read as two more
+  // thousands digits of the INTEGER part - "1.500,50" ended up 150050 pesos,
+  // a 100x amount, with no error anywhere. Centavos are now a real, accepted
+  // amount (not an error to reject), but the same 100x/10x corruption must
+  // still never happen at any point while typing.
 
   it('typing a decimal comma one keystroke at a time never inflates the amount', async () => {
     const user = userEvent.setup();
@@ -117,15 +118,26 @@ describe('useMoneyInput — a decimal comma is never silently dropped', () => {
     await user.type(input, '1500,50');
 
     // The integer part was already grouped ("1.500") by the time the comma
-    // landed — that grouping is harmless and stays. What matters is what
-    // does NOT happen: it is not reformatted into "1.500" alone (losing the
-    // ",50"), and it is NOT the corrupted "150.050" the original bug produced.
+    // landed. What matters is what does NOT happen: it is not reformatted
+    // into "1.500" alone (losing the ",50"), and it is NOT the corrupted
+    // "150.050"/150050 the original bug produced.
     expect(input).toHaveValue('1.500,50');
     expect(onChange).toHaveBeenLastCalledWith(1500.5);
     expect(onChange).not.toHaveBeenCalledWith(150050);
   });
 
-  it('pasting a real decimal amount is shown verbatim and reported as a fraction, never rounded away', async () => {
+  it('typing "1500,00" key by key never reports the 10x amount at any point', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,00');
+
+    expect(input).toHaveValue('1.500,00');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+    expect(onChange).not.toHaveBeenCalledWith(15000);
+  });
+
+  it('pastes a real decimal amount, shown grouped and reported as the exact fraction', async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();
 
@@ -135,13 +147,50 @@ describe('useMoneyInput — a decimal comma is never silently dropped', () => {
     expect(input).toHaveValue('1.500,50');
     expect(onChange).toHaveBeenLastCalledWith(1500.5);
   });
+
+  it('pastes "$ 1.500,50" as 1500.5, shown grouped', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.click(input);
+    await user.paste('$ 1.500,50');
+
+    expect(input).toHaveValue('1.500,50');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+  });
+
+  // Regression coverage for the money-centavos change: a 3rd decimal digit
+  // is never appended anywhere, typed or pasted.
+  it('drops a 3rd decimal digit typed past the cap, without changing the reported amount', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,50');
+    expect(input).toHaveValue('1.500,50');
+
+    await user.type(input, '5');
+
+    expect(input).toHaveValue('1.500,50');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+  });
+
+  it('pasting "1.500,505" drops the 3rd decimal digit and reports 1500.5', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.click(input);
+    await user.paste('1.500,505');
+
+    expect(input).toHaveValue('1.500,50');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+  });
 });
 
-describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collapsed mid-typing either', () => {
+describe('useMoneyInput - a zero decimal ("," / ",0" / ",00") is never collapsed mid-typing either', () => {
   // Regression coverage, one digit later than the block above: ",0"/",00" is
   // unambiguous ("no centavos") once the person is DONE typing, but
   // collapsing it the instant it lands is the same 100x bug one digit
-  // further along — the comma disappears from the DOM, and the next typed
+  // further along - the comma disappears from the DOM, and the next typed
   // digit is then read as another thousands digit instead of a centavos
   // digit. "1500,00" typed one keystroke at a time must never become 15000
   // mid-typing (or 150000 counted in cents downstream).
@@ -153,11 +202,7 @@ describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collaps
     await user.click(input);
     await user.paste('$ 1.500,00');
 
-    // NOT collapsed immediately, and shown exactly as pasted (same as the
-    // 'invalid' case) — see the "typing ',00' one keystroke at a time" test
-    // below for why an immediate collapse here is the same 100x bug, one
-    // digit later than the lone-trailing-comma case.
-    expect(input).toHaveValue('$ 1.500,00');
+    expect(input).toHaveValue('1.500,00');
     expect(onChange).toHaveBeenLastCalledWith(1500);
 
     await user.tab();
@@ -169,11 +214,6 @@ describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collaps
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();
 
-    // Regression coverage, one digit later than the lone-comma case above: a
-    // ",0"/",00" decimal is unambiguous ("no centavos") once the person is
-    // DONE typing, but collapsing it the instant the second "0" lands still
-    // drops the comma from the DOM — a still-in-progress "1500,00" typed one
-    // keystroke at a time must never become 15000 at any point along the way.
     await user.type(input, '1500,');
     expect(onChange).not.toHaveBeenCalledWith(15000);
 
@@ -194,7 +234,7 @@ describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collaps
     expect(onChange).not.toHaveBeenCalledWith(15000);
   });
 
-  it('a non-zero digit after a zero decimal turns it invalid, shown verbatim', async () => {
+  it('a non-zero digit after a zero decimal is read as the real centavos amount', async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();
 
@@ -208,7 +248,11 @@ describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collaps
     expect(onChange).toHaveBeenLastCalledWith(1500.05);
   });
 
-  it('a non-zero digit landing three keystrokes after a trailing comma is still caught', async () => {
+  // Replaces the old "3 keystrokes after a trailing comma" case, which used
+  // to accept an unbounded number of decimal digits ("1500,007" -> 1500.007).
+  // The money-centavos change caps decimals at 2: a 3rd digit typed after two
+  // zeros is dropped entirely, not appended as a 3rd decimal place.
+  it('a 3rd digit typed after two zero decimals is dropped, staying at ",00"', async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();
 
@@ -217,19 +261,20 @@ describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collaps
     await user.type(input, '0');
     await user.type(input, '7');
 
-    expect(input).toHaveValue('1.500,007');
-    expect(onChange).toHaveBeenLastCalledWith(1500.007);
+    expect(input).toHaveValue('1.500,00');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+    expect(onChange).not.toHaveBeenCalledWith(1500.007);
   });
 });
 
-describe('useMoneyInput — a lone trailing comma ("pending") is never collapsed mid-typing', () => {
+describe('useMoneyInput - a lone trailing comma ("pending") is never collapsed mid-typing', () => {
   it('a lone trailing comma is left visible while typing, and reports the integer part', async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();
 
     await user.type(input, '1500,');
 
-    // The comma itself is NOT dropped — the integer part was already grouped
+    // The comma itself is NOT dropped - the integer part was already grouped
     // ("1.500") before it landed, but the trailing "," stays visible: see
     // this hook's own doc comment for why collapsing it away now is exactly
     // the bug above, one keystroke earlier.
@@ -262,13 +307,31 @@ describe('useMoneyInput — a lone trailing comma ("pending") is never collapsed
     expect(onChange).toHaveBeenLastCalledWith(1500);
   });
 
-  it('leaves an invalid fractional amount visible on blur, so its error stays visible', async () => {
+  // Replaces the old "stays visible, shows a centavos error" expectation: a
+  // decimal amount is now accepted, and blur pads it to its canonical 2
+  // decimal digits rather than leaving it at whatever the person happened to
+  // type ("hasta 2 decimales" behavior, see `formatMoneyValue`).
+  it('a single decimal digit is padded to 2 on blur, the amount itself unchanged', async () => {
     const user = userEvent.setup();
-    const { input } = renderHarness();
+    const { input, onChange } = renderHarness();
 
     await user.type(input, '1500,5');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+
     await user.tab();
 
-    expect(input).toHaveValue('1.500,5');
+    expect(input).toHaveValue('1.500,50');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+  });
+
+  it('an already-2-digit decimal is unchanged on blur', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,05');
+    await user.tab();
+
+    expect(input).toHaveValue('1.500,05');
+    expect(onChange).toHaveBeenLastCalledWith(1500.05);
   });
 });
