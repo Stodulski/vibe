@@ -117,3 +117,23 @@ describe('FormField beside another field', () => {
     expect(container.firstElementChild).toHaveClass('self-end', 'space-y-1');
   });
 });
+
+describe('FormField full width (modal inputs)', () => {
+  it('stretches its wrapper to the full width of its container', () => {
+    const { container } = render(
+      <FormField label="Monto" htmlFor="amount">
+        <input id="amount" />
+      </FormField>,
+    );
+    expect(container.firstElementChild).toHaveClass('w-full');
+  });
+
+  it('keeps full width even when a caller overrides the spacing class', () => {
+    const { container } = render(
+      <FormField label="Monto" htmlFor="amount" className="space-y-2">
+        <input id="amount" />
+      </FormField>,
+    );
+    expect(container.firstElementChild).toHaveClass('w-full', 'space-y-2');
+  });
+});
