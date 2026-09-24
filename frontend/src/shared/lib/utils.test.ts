@@ -65,6 +65,20 @@ describe('formatPrice', () => {
     expect(result).toContain('$');
     expect(result).toContain('15');
   });
+
+  // money-centavos change: a whole amount never shows a decimal part, and an
+  // amount with centavos always shows exactly 2 digits, never 1.
+  it('shows no decimal part for a whole amount', () => {
+    expect(formatPrice(150000)).toBe('$1.500');
+  });
+
+  it('shows exactly 2 decimal digits for an amount with centavos', () => {
+    expect(formatPrice(150050)).toBe('$1.500,50');
+  });
+
+  it('never truncates centavos to a single decimal digit', () => {
+    expect(formatPrice(150005)).toBe('$1.500,05');
+  });
 });
 
 describe('formatDate', () => {
