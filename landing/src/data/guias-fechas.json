@@ -46,5 +46,25 @@
   "vibe-o-canchafija-en-que-se-diferencian": {
     "hash": "9a03ff87d3e22ab8",
     "date": "2026-09-23"
+  },
+  "tutorial:abrir-y-cerrar-la-caja": {
+    "hash": "7c5c248553d752e5",
+    "date": "2026-09-24"
+  },
+  "tutorial:ingresos-egresos-y-anulaciones": {
+    "hash": "be2b40f2bf6cc5d8",
+    "date": "2026-09-24"
+  },
+  "tutorial:vender-desde-el-mostrador": {
+    "hash": "8a23506a6b1144e1",
+    "date": "2026-09-24"
+  },
+  "tutorial:productos-y-stock": {
+    "hash": "e8869d2c3df982d7",
+    "date": "2026-09-24"
+  },
+  "tutorial:cobrar-una-reserva-en-el-mostrador": {
+    "hash": "0d4b3990030083c5",
+    "date": "2026-09-24"
   }
 }

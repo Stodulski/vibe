@@ -494,6 +494,368 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       texto: 'Cuánto cobra MercadoPago por cobrar una seña',
     },
   },
+  {
+    slug: 'abrir-y-cerrar-la-caja',
+    title: 'Abrí la caja del turno, cerrala con la cuenta hecha',
+    seoTitle: 'Cómo abrir y cerrar la caja de tu complejo | Vibe',
+    metaDescription:
+      'Abrís la caja con el efectivo del cajón. Al cerrar, cargás lo que contaste y ves si sobra o falta, '
+      + 'sin sacar la cuenta a mano.',
+    excerpt: 'Abrís con el efectivo del cajón; al cerrar, Vibe ya hizo la cuenta.',
+    duracion: 54,
+    youtube: '',
+    datePublished: '2026-09-24',
+    respuesta:
+      'Abrís la caja cargando el efectivo con el que arrancás el turno. Mientras está abierta, ves el '
+      + 'efectivo esperado en cualquier momento: lo que debería haber en el cajón según lo que entró y '
+      + 'salió. Al cerrar, contás el efectivo real y lo cargás; Vibe lo compara contra lo esperado y te '
+      + 'muestra la diferencia, sobrante o faltante. Una caja cerrada no se puede reabrir ni editar: es el '
+      + 'corte del turno.',
+    bloques: [
+      {
+        tipo: 'parrafos',
+        heading: 'El cuaderno que a la noche no cerraba',
+        parrafos: [
+          'Contar el cajón a mano al final del día y no saber si lo que sobra es un error tuyo o de la '
+            + 'persona que atendió antes es una pelea que se repite todas las noches.',
+          'Acá la cuenta la hace Vibe: cada cobro en efectivo, cada venta y cada ingreso o egreso que '
+            + 'cargás durante el turno ya está sumado al efectivo esperado. Vos solo contás el cajón y '
+            + 'comparás.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Qué pasa entre que abrís y cerrás',
+        items: [
+          'Cargás el efectivo inicial una sola vez, al abrir',
+          'Cada cobro en efectivo de una reserva se suma solo al esperado',
+          'Cada venta del mostrador también entra sola, con su método',
+          'Al cerrar, contás el cajón y Vibe te muestra sobrante o faltante',
+          'La caja cerrada queda en el historial, con lo esperado y lo contado',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Puedo tener dos cajas abiertas a la vez?',
+        answer:
+          'No. Un complejo tiene una sola caja abierta por vez. Cerrás la de un turno antes de abrir la '
+          + 'del siguiente.',
+      },
+      {
+        question: '¿Qué pasa si me equivoco al contar el efectivo?',
+        answer:
+          'Una vez que cerraste la caja con ese conteo, no se puede reabrir ni editar. La diferencia que '
+          + 'haya quedado registrada.',
+      },
+      {
+        question: '¿Los cobros con tarjeta o QR también entran al efectivo esperado?',
+        answer:
+          'No, solo el efectivo. Los demás métodos se muestran a modo informativo en el resumen del '
+          + 'turno, pero no forman parte de lo que contás en el cajón.',
+      },
+      {
+        question: '¿Necesito la caja abierta para cobrar una reserva?',
+        answer:
+          'No para cualquier cobro, pero sí para que ese cobro en efectivo entre al esperado, y para '
+          + 'vender productos o reponer stock, que sí necesitan un turno abierto.',
+      },
+      {
+        question: '¿Puedo ver las cajas de turnos anteriores?',
+        answer:
+          'Sí. El historial guarda cada cierre, con la fecha, el efectivo esperado y el contado de ese '
+          + 'turno.',
+      },
+    ],
+    relacionados: ['ingresos-egresos-y-anulaciones', 'panel-de-control'],
+  },
+  {
+    slug: 'ingresos-egresos-y-anulaciones',
+    title: 'Ingresos, egresos y cómo anular un movimiento',
+    seoTitle: 'Ingresos y egresos de caja en tu complejo | Vibe',
+    metaDescription:
+      'Cargá lo que entra o sale de la caja por categoría, desde clases hasta el alquiler del local, y '
+      + 'anulá un movimiento sin perder el historial.',
+    excerpt: 'Todo lo que entra o sale de la caja, por categoría, con su anulación si hace falta.',
+    duracion: 54,
+    youtube: '',
+    datePublished: '2026-09-24',
+    respuesta:
+      'Con la caja abierta, cargás un ingreso o un egreso eligiendo su categoría —clases, torneos, '
+      + 'alquiler del local, sueldos, insumos, entre otras—, el método y el monto. Cada uno queda en el '
+      + 'historial del turno. Si cargaste algo mal, no lo borrás: lo anulás, y Vibe registra un movimiento '
+      + 'contrario por el mismo monto, así el historial completo queda a la vista.',
+    bloques: [
+      {
+        tipo: 'parrafos',
+        heading: 'Categorías, no un cajón de "otros"',
+        parrafos: [
+          'Anotar todo como "varios" en un cuaderno sirve el mismo día y no sirve nunca más: a fin de '
+            + 'mes no hay forma de saber cuánto entró por clases o cuánto salió en sueldos.',
+          'Cada movimiento se carga con su categoría propia, así que el desglose por categoría de la caja '
+            + '—y del reporte del mes— sale solo, sin tener que releer cada nota.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Categorías disponibles',
+        items: [
+          'Ingresos: clases, torneos, eventos, cuotas y abonos, publicidad y sponsors, aporte o cambio, y otros ingresos',
+          'Egresos: insumos, sueldos, servicios, mantenimiento, limpieza, retiro, alquiler del local, impuestos, honorarios, marketing, comisiones bancarias, y otros egresos',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Qué pasa cuando anulo un movimiento?',
+        answer:
+          'Se registra un movimiento contrario por el mismo monto, no se borra nada. El original y su '
+          + 'anulación quedan los dos en el historial.',
+      },
+      {
+        question: '¿Puedo anular una venta o un cobro de reserva desde acá?',
+        answer:
+          'No de la misma forma: una venta se anula desde Vender, y devuelve el stock además del ingreso. '
+          + 'Este botón es para los movimientos que cargaste a mano.',
+      },
+      {
+        question: '¿Necesito la caja abierta para cargar un ingreso o un egreso?',
+        answer:
+          'Sí. Los movimientos manuales pertenecen a un turno de caja abierto, igual que las ventas.',
+      },
+      {
+        question: '¿Puedo agregar una nota a un movimiento?',
+        answer:
+          'Sí, es opcional. Sirve para aclarar algo que la categoría sola no cuenta, por ejemplo a quién '
+          + 'se le pagó un servicio.',
+      },
+      {
+        question: '¿Los ingresos y egresos manuales entran al efectivo esperado de la caja?',
+        answer:
+          'Los que registrás en efectivo, sí. Los que cargás con otro método se muestran igual en el '
+          + 'historial, pero no suman al efectivo del cajón.',
+      },
+    ],
+    relacionados: ['abrir-y-cerrar-la-caja', 'reportes-de-facturacion'],
+  },
+  {
+    slug: 'vender-desde-el-mostrador',
+    title: 'Vender desde el mostrador, como una caja registradora',
+    seoTitle: 'Vender productos desde el mostrador | Vibe',
+    metaDescription:
+      'Tocás un producto, se suma al carrito, elegís el método y cobrás. La venta descuenta el stock y '
+      + 'entra a la caja del turno sola.',
+    excerpt: 'Tocás un producto, elegís el método, cobrás. El stock se descuenta solo.',
+    duracion: 44,
+    youtube: '',
+    datePublished: '2026-09-24',
+    respuesta:
+      'La pantalla de vender muestra tu catálogo en tarjetas: tocás un producto y se suma una unidad al '
+      + 'carrito. Sumás o restás desde el carrito mismo, elegís el método de cobro y cobrás. La venta '
+      + 'descuenta el stock de cada producto y registra un ingreso en la caja del turno, en el mismo paso. '
+      + 'Vender por encima del stock disponible está permitido, con un aviso.',
+    bloques: [
+      {
+        tipo: 'parrafos',
+        heading: 'El sábado sin gaseosas, resuelto antes de que pase',
+        parrafos: [
+          'Vender en el mostrador a mano —anotar en un papel, descontar el stock después, sumar la caja '
+            + 'al final— es donde más se pierde: un producto que se vendió y nunca se cargó, o una caja '
+            + 'que no cierra porque faltó anotar una venta.',
+          'Acá la venta hace las tres cosas en el mismo toque: cobra, descuenta stock y entra a la caja. '
+            + 'No hay un paso aparte que te puedas olvidar.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Qué hacés desde Vender',
+        items: [
+          'Tocar un producto para sumarlo al carrito',
+          'Sumar o restar unidades, o quitar una línea entera',
+          'Elegir el método: efectivo, transferencia, débito, crédito o QR',
+          'Cobrar y ver la confirmación con el total',
+          'Anular una venta ya cobrada, si hace falta',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Puedo vender un producto sin stock?',
+        answer:
+          'Sí, queda permitido igual, pero el carrito te avisa que no hay stock suficiente antes de '
+          + 'cobrar.',
+      },
+      {
+        question: '¿Qué pasa si anulo una venta?',
+        answer:
+          'El stock vendido se restaura y el ingreso de esa venta se anula. Queda marcada como anulada en '
+          + 'el historial del turno, no desaparece.',
+      },
+      {
+        question: '¿Necesito la caja abierta para vender?',
+        answer:
+          'Sí. Vender requiere un turno de caja abierto, porque cada venta registra su ingreso ahí.',
+      },
+      {
+        question: '¿Puedo cobrar una venta con MercadoPago?',
+        answer:
+          'No desde acá: Vibe registra el cobro en efectivo, transferencia, débito, crédito o QR que vos '
+          + 'ya recibiste en el mostrador, no procesa el pago con tarjeta.',
+      },
+      {
+        question: '¿Puedo buscar un producto por categoría?',
+        answer:
+          'Sí, el catálogo se filtra por categoría o por nombre, para encontrar rápido lo que buscás.',
+      },
+    ],
+    relacionados: ['productos-y-stock', 'abrir-y-cerrar-la-caja'],
+  },
+  {
+    slug: 'productos-y-stock',
+    title: 'Tu catálogo, con stock y sin sorpresas',
+    seoTitle: 'Productos y control de stock en tu complejo | Vibe',
+    metaDescription:
+      'Cargá cada producto con su precio y, si querés, su stock. Un aviso solo cuando queda poco, y la '
+      + 'reposición entra a la caja como cualquier gasto.',
+    excerpt: 'Cada producto con su precio y su stock, con aviso cuando queda poco.',
+    duracion: 42,
+    youtube: '',
+    datePublished: '2026-09-24',
+    respuesta:
+      'Cada producto se carga con su nombre, categoría y precio. El control de stock es opcional: un '
+      + 'servicio como el alquiler de una paleta no lo necesita, y queda marcado sin control de stock. '
+      + 'A los que sí lo controlás les definís un aviso de stock bajo: cuando baja de ese número, aparece '
+      + 'marcado en el catálogo y en el panel de control. Reponer stock carga la cantidad y el costo '
+      + 'total, y ese gasto entra a la caja del turno abierto.',
+    bloques: [
+      {
+        tipo: 'parrafos',
+        heading: 'El stock que se entera solo, no cuando ya faltó',
+        parrafos: [
+          'Enterarte que no quedan pelotas cuando un cliente ya las está pidiendo es tarde. El aviso de '
+            + 'stock bajo lo dice antes, mientras todavía hay margen para reponer.',
+          'Y como la reposición se carga con su costo, ese gasto queda en la caja del turno igual que '
+            + 'cualquier otro egreso: no hace falta anotarlo dos veces.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Qué hacés desde Productos',
+        items: [
+          'Crear un producto con su precio, categoría y control de stock opcional',
+          'Definir a partir de qué cantidad avisa stock bajo',
+          'Reponer stock cargando cantidad y costo total',
+          'Ajustar el stock a mano tras un conteo físico o una rotura',
+          'Desactivar un producto que dejaste de vender, sin borrar su historial',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Todos los productos necesitan control de stock?',
+        answer:
+          'No. Un servicio como el alquiler de una paleta puede quedar sin control de stock, y se vende '
+          + 'igual desde Vender.',
+      },
+      {
+        question: '¿Necesito la caja abierta para reponer stock?',
+        answer:
+          'Sí, porque el costo de la reposición sale de la caja y se registra como un egreso del turno '
+          + 'abierto.',
+      },
+      {
+        question: '¿Puedo sacar el control de stock a un producto que ya lo tenía?',
+        answer:
+          'Solo si su stock está en cero. Si todavía tiene stock cargado, primero lo ajustás a cero y '
+          + 'después lo desactivás.',
+      },
+      {
+        question: '¿Qué diferencia hay entre reponer y ajustar?',
+        answer:
+          'Reponer es una compra: suma stock y su costo entra a la caja. Ajustar corrige el número sin '
+          + 'plata de por medio, por ejemplo tras un conteo físico o una rotura.',
+      },
+      {
+        question: '¿Puedo desactivar un producto sin borrar sus ventas anteriores?',
+        answer:
+          'Sí. Desactivarlo lo saca de Vender, pero su historial de stock y sus ventas ya registradas '
+          + 'quedan igual.',
+      },
+    ],
+    relacionados: ['vender-desde-el-mostrador', 'panel-de-control'],
+  },
+  {
+    slug: 'cobrar-una-reserva-en-el-mostrador',
+    title: 'Cobrar una reserva en el mostrador',
+    seoTitle: 'Cómo cobrar una reserva en el mostrador | Vibe',
+    metaDescription:
+      'Un turno confirmado sin cobrar todavía se cobra igual desde el panel: elegís el método real y '
+      + 'queda registrado, sin pasar por MercadoPago.',
+    excerpt: 'Un turno sin cobrar se cobra igual desde el panel, con el método que uses en el momento.',
+    duracion: 34,
+    youtube: '',
+    datePublished: '2026-09-24',
+    respuesta:
+      'No todos los clientes pagan la seña online: un turno cargado por teléfono, o uno al que todavía le '
+      + 'falta el resto después de la seña, se cobra desde el mismo detalle de la reserva. Tocás Confirmar '
+      + 'pago, elegís el método real —efectivo, transferencia, débito, crédito o QR— y confirmás. El turno '
+      + 'pasa a cobrado sin que MercadoPago intervenga en ningún momento.',
+    bloques: [
+      {
+        tipo: 'parrafos',
+        heading: 'Lo que no pasó por MercadoPago, igual queda registrado',
+        parrafos: [
+          'La reserva que te pidieron por teléfono, o el resto de una seña que te pagan en cancha, no '
+            + 'tienen por qué quedar afuera de tus números solo porque no pasaron por un link de pago.',
+          'Confirmando el pago desde el mismo turno, ese cobro entra a tu facturación y a tu reporte del '
+            + 'mes exactamente igual que uno pagado online.',
+        ],
+      },
+      {
+        tipo: 'lista',
+        heading: 'Qué ves al confirmar el pago',
+        items: [
+          'El monto que falta cobrar de ese turno',
+          'Si querés cobrar el total o solo la seña',
+          'El método real: efectivo, transferencia, débito, crédito o QR',
+          'El turno pasando de sin cobrar a pagado, al toque',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿Este cobro pasa por MercadoPago?',
+        answer:
+          'No. Confirmar pago registra que vos cobraste en el mostrador; MercadoPago solo interviene en '
+          + 'el cobro online de la seña.',
+      },
+      {
+        question: '¿Puedo cobrar solo la seña y dejar el resto pendiente?',
+        answer:
+          'Sí. Elegís si confirmás el pago completo o solo la seña, y el turno queda con el saldo '
+          + 'restante a la vista hasta que lo cobres.',
+      },
+      {
+        question: '¿Este cobro entra a la caja del turno?',
+        answer:
+          'Si lo cobraste en efectivo, sí, suma al efectivo esperado. Con otro método queda igual '
+          + 'registrado en el resumen de cobros de reservas.',
+      },
+      {
+        question: '¿Puedo elegir cualquier método al confirmar el pago?',
+        answer:
+          'Sí: efectivo, transferencia, débito, crédito o QR, el que el cliente haya usado en el '
+          + 'momento.',
+      },
+      {
+        question: '¿Qué pasa si el cliente ya había pagado la seña online?',
+        answer:
+          'Confirmar pago te pide entonces solo el resto: la seña ya cobrada por MercadoPago no se '
+          + 'vuelve a pedir.',
+      },
+    ],
+    relacionados: ['grilla-de-reservas', 'ingresos-egresos-y-anulaciones'],
+  },
 ];
 
 /* La fecha sale del contenido, igual que en las guías. Las claves se prefijan
