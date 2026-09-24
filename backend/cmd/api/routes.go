@@ -43,6 +43,21 @@ func (app *application) routes() http.Handler {
 // corsOptions is the browser-facing CORS policy: one allowed origin, the
 // methods the API answers, and the headers a request may carry.
 //
+// AllowedHeaders must name every header parameter openapi.yaml declares
+// (Idempotency-Key and If-Match from components.parameters; X-Signature and
+// X-Request-Id from the MercadoPago webhook operation), plus Authorization,
+// Content-Type and X-CSRF-Token, which the document carries as security
+// schemes rather than parameters and so are named here by hand. rs/cors
+// applies one global policy to every route, so a header the webhook accepts
+// is CORS-checked the same as one the frontend sends, even though a
+// server-to-server webhook call is never actually preflighted by a browser.
+// TestEveryDeclaredHeaderParameterIsAllowedByCORS (cors_test.go) walks the
+// document and fails if a future header parameter is added here without a
+// matching entry, instead of that only surfacing as a preflight rejection in
+// production — Idempotency-Key did exactly that: see Sentry
+// VIBE-FRONTEND-5, "Failed to fetch" on every cross-origin POST that carried
+// it.
+//
 // ExposedHeaders is the one that is not about the request. Without it a browser
 // hides every response header outside the CORS-safelist from the page's own
 // JavaScript, X-Request-ID included — so the correlation id the server puts on
@@ -50,9 +65,12 @@ func (app *application) routes() http.Handler {
 // invisible to the app that would have to show it.
 func corsOptions(frontendURL string) cors.Options {
 	return cors.Options{
-		AllowedOrigins:   []string{frontendURL},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedOrigins: []string{frontendURL},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Authorization", "Content-Type", "X-CSRF-Token",
+			"Idempotency-Key", "If-Match", "X-Signature", "X-Request-Id",
+		},
 		ExposedHeaders:   []string{"X-Request-ID"},
 		AllowCredentials: true,
 		MaxAge:           86400,
