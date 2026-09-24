@@ -2,9 +2,9 @@ import type { Ref } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
-import { Loader2, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { forgotPasswordSchema, type ForgotPasswordDto } from '@/features/auth';
-import { Button } from '@/shared/components/ui/button';
+import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { TurnstileField, type TurnstileFieldHandle } from '@/shared/components/common/TurnstileField';
@@ -59,20 +59,15 @@ export function ForgotPasswordForm({
 
       <TurnstileField ref={turnstileRef} onTokenChange={onTurnstileTokenChange} />
 
-      <Button
+      <LoadingButton
         type="submit"
         className="h-11 w-full rounded-full font-semibold transition-colors hover:brightness-110"
         disabled={submitDisabled}
+        loading={loading}
+        loadingText={t.auth.forgotPasswordSending}
       >
-        {loading ? (
-          <>
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            {t.auth.forgotPasswordSending}
-          </>
-        ) : (
-          t.auth.forgotPasswordSend
-        )}
-      </Button>
+        {t.auth.forgotPasswordSend}
+      </LoadingButton>
 
       <p className="text-text-tertiary !mt-4 text-center text-sm">
         <Link

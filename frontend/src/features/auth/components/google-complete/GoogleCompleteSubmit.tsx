@@ -1,5 +1,4 @@
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/shared/components/ui/button';
+import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -10,21 +9,13 @@ interface GoogleCompleteSubmitProps {
 
 export function GoogleCompleteSubmit({ isPending }: GoogleCompleteSubmitProps) {
   return (
-    <Button
+    <LoadingButton
       type="submit"
       className="h-11 w-full rounded-full font-semibold transition-colors hover:brightness-110"
-      disabled={isPending}
+      loading={isPending}
+      loadingText={t.auth.creatingAccount}
     >
-      {isPending ? (
-        <>
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          <span className="sr-only" aria-live="polite">
-            {t.auth.creatingAccount}
-          </span>
-        </>
-      ) : (
-        t.auth.googleCompleteSubmit
-      )}
-    </Button>
+      {t.auth.googleCompleteSubmit}
+    </LoadingButton>
   );
 }

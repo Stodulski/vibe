@@ -2,9 +2,9 @@ import { useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
-import { Loader2, Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 import { resetPasswordSchema, type ResetPasswordDto } from '@/features/auth';
-import { Button } from '@/shared/components/ui/button';
+import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -56,20 +56,14 @@ export function ResetPasswordForm({ loading, onSubmit }: ResetPasswordFormProps)
         </button>
       </FormField>
 
-      <Button
+      <LoadingButton
         type="submit"
         className="h-11 w-full rounded-full font-semibold transition-colors hover:brightness-110"
-        disabled={loading}
+        loading={loading}
+        loadingText={t.auth.resetPasswordSubmitting}
       >
-        {loading ? (
-          <>
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            {t.auth.resetPasswordSubmitting}
-          </>
-        ) : (
-          t.auth.resetPasswordSubmit
-        )}
-      </Button>
+        {t.auth.resetPasswordSubmit}
+      </LoadingButton>
 
       <p className="text-text-tertiary !mt-4 text-center text-sm">
         <Link

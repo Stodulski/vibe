@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/shared/components/ui/button';
+import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { GoogleSignInSection } from '../GoogleSignInSection';
 
@@ -25,22 +24,15 @@ export function LoginFormFooter({ isPending, submitDisabled = isPending }: Login
       </div>
 
       <div className="auth-stagger-3">
-        <Button
+        <LoadingButton
           type="submit"
           className="h-11 w-full rounded-full font-semibold transition-colors hover:brightness-110"
           disabled={submitDisabled}
+          loading={isPending}
+          loadingText={t.auth.loggingIn}
         >
-          {isPending ? (
-            <>
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              <span className="sr-only" aria-live="polite">
-                {t.auth.loggingIn}
-              </span>
-            </>
-          ) : (
-            t.auth.login
-          )}
-        </Button>
+          {t.auth.login}
+        </LoadingButton>
       </div>
 
       <GoogleSignInSection />
