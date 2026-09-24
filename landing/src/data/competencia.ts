@@ -29,7 +29,7 @@
 export const ATC_FUENTE = 'https://atcsports.io/software-gestion-deportiva';
 
 /** Cuándo se leyeron por última vez de esa página. */
-export const ATC_VERIFICADO = '2026-09-16';
+export const ATC_VERIFICADO = '2026-09-23';
 
 /**
  * Los planes que publica ATC Sports, en dólares por mes.
@@ -83,7 +83,7 @@ export const ATC_MENCIONA_COMISION_POR_RESERVA = false;
  */
 export const CF_FUENTE = 'https://canchafija.com.ar/precios';
 export const CF_FUENTE_TERMINOS = 'https://canchafija.com.ar/terminos';
-export const CF_VERIFICADO = '2026-09-16';
+export const CF_VERIFICADO = '2026-09-23';
 
 /** Planes publicados, en pesos por mes. */
 export const CF_PLANES = [

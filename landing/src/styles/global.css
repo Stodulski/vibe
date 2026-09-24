@@ -378,6 +378,14 @@ body {
 }
 .hero-link-secondary:hover { color: var(--text); border-color: var(--border-hover); }
 
+/* Small clarifying note under the hero CTAs: who actually pays */
+.hero-note {
+  font-size: 0.8125rem; color: var(--muted); line-height: 1.6;
+  max-width: 480px; margin: 0 auto 32px;
+}
+.hero-note a { color: var(--green); text-decoration: underline; text-underline-offset: 2px; }
+.hero-note a:hover { color: var(--text); }
+
 /* Social proof — sport tags */
 .hero-proof {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
@@ -762,8 +770,9 @@ body {
 .how-step[data-step="3"] .how-step-card .how-step-icon {
   margin-left: auto;
 }
-/* Step 2: card on right */
-.how-step[data-step="2"] .how-step-card {
+/* Step 2 & 4: card on right */
+.how-step[data-step="2"] .how-step-card,
+.how-step[data-step="4"] .how-step-card {
   grid-column: 3; grid-row: 1;
   text-align: left; margin-left: 24px;
   transform: translateX(50px); opacity: 0;
@@ -783,7 +792,8 @@ body {
 }
 .how-step[data-step="1"] .how-step-big,
 .how-step[data-step="3"] .how-step-big { right: 40px; }
-.how-step[data-step="2"] .how-step-big { left: 40px; }
+.how-step[data-step="2"] .how-step-big,
+.how-step[data-step="4"] .how-step-big { left: 40px; }
 
 /* Card content */
 .how-step-card h3 {
@@ -1792,6 +1802,8 @@ body {
   background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
 }
 .tutorial-cta h2 { font-weight: 700; font-size: 1.25rem; margin-bottom: 16px; }
+.tutorial-cta-registro { margin-top: 32px; }
+.tutorial-cta-registro p { font-size: 0.9375rem; color: var(--muted); line-height: 1.7; margin-bottom: 20px; }
 .tutorial-relacionados { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 10px; }
 .tutorial-relacionados li { font-size: 0.9375rem; line-height: 1.6; }
 .tutorial-volver { color: var(--muted); font-size: 0.875rem; text-decoration: underline; text-underline-offset: 2px; }
