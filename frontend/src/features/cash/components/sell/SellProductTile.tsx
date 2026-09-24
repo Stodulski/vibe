@@ -30,8 +30,10 @@ export const SellProductTile = memo(function SellProductTile({ product, onTap }:
       buttonClassName="focus-self flex w-full flex-col items-start gap-2 rounded-2xl border border-border-subtle bg-bg-subtle p-4 text-left transition-colors hover:border-border-default hover:bg-bg-elevated focus-visible:border-primary-400 focus-visible:bg-bg-elevated active:scale-[0.98] min-h-24"
     >
       <p className="text-text-primary line-clamp-2 text-sm font-semibold">{product.name}</p>
-      <div className="mt-auto flex w-full items-end justify-between gap-2">
-        <span className="score-text text-text-primary text-base font-bold">{formatPrice(product.price)}</span>
+      <div className="mt-auto flex w-full flex-wrap items-end justify-between gap-x-2 gap-y-1">
+        <span className="score-text text-text-primary text-base font-bold whitespace-nowrap">
+          {formatPrice(product.price)}
+        </span>
         {outOfStock ? (
           <Tag tone="error">{t.cash.sellOutOfStock}</Tag>
         ) : (
