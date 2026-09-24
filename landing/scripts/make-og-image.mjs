@@ -21,9 +21,16 @@ const RAIZ = process.cwd();
 const LOGO = readFileSync(join(RAIZ, 'public', 'logo.svg'), 'utf8');
 const SALIDA = join(RAIZ, 'public', 'og-image.png');
 
-/* El mismo titular que el h1 del home, con el mismo quiebre. */
-const TITULAR = 'Digitalización de';
-const RESALTADO = 'complejos deportivos';
+/*
+ * El mismo eyebrow y el mismo h1 del home (landing-integral-positioning,
+ * deck v2 §2.3), con el mismo quiebre de línea: la categoría arriba
+ * ("sistema de gestión", no "reservas online"), después la promesa central
+ * de la reescritura (orden + 100% gratis), en vez del viejo "Digitalización
+ * de complejos deportivos" que todavía encuadraba el producto como reservas.
+ */
+const EYEBROW = 'Sistema de gestión para complejos deportivos';
+const TITULAR = 'Tu complejo en orden.';
+const RESALTADO = '100% gratis para vos.';
 
 /**
  * Los mismos iconos que orbitan en el hero, quietos y del lado que el texto
@@ -70,7 +77,9 @@ const html = `<!doctype html>
   .caja{position:relative;height:100%;padding:80px;display:flex;flex-direction:column;
         justify-content:center;gap:34px}
   .logo svg{width:92px;height:92px;display:block}
-  h1{font-size:76px;line-height:1.06;font-weight:700;letter-spacing:-.02em;max-width:930px}
+  .eyebrow{font-size:24px;font-weight:600;letter-spacing:.01em;color:rgba(255,255,255,.78);
+           text-transform:uppercase}
+  h1{font-size:72px;line-height:1.08;font-weight:700;letter-spacing:-.02em;max-width:930px}
   h1 em{font-style:italic;color:#1DB954;display:block}
   .pie{position:absolute;left:80px;bottom:76px;display:flex;align-items:center;gap:14px;
        font-size:26px;color:rgba(255,255,255,.62)}
@@ -86,6 +95,7 @@ const html = `<!doctype html>
   ${iconosHtml}
   <div class="caja">
     <div class="logo">${LOGO}</div>
+    <p class="eyebrow">${EYEBROW}</p>
     <h1>${TITULAR}<em>${RESALTADO}</em></h1>
   </div>
   <div class="pie"><span class="punto"></span>vibe.com.ar</div>
