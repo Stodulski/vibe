@@ -1,34 +1,34 @@
 ---
 import Screenshot from './Screenshot.astro';
 ---
-<!-- ========== FUNCIONALIDADES ========== -->
+<!-- ========== MÓDULOS ========== -->
 <section class="features" id="funcionalidades">
  <div class="container">
   <div class="features-header">
-   <div class="section-label anim">Funcionalidades</div>
-   <h2 class="section-title anim anim-d1">Lo que usás todos los días<br>para manejar el complejo</h2>
-   <p class="section-desc anim anim-d2">Cada funcionalidad resuelve un problema real que tienen los complejos deportivos todos los días.</p>
+   <div class="section-label anim">Módulos</div>
+   <h2 class="section-title anim anim-d1">Cinco módulos. Un panel.<br><em>$0 para tu complejo.</em></h2>
+   <p class="section-desc anim anim-d2">De la reserva al cierre de caja, todo pasa en el mismo lugar. Y lo que hoy hacés a mano, pasa solo.</p>
   </div>
 
   <div class="ft-carousel">
    <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
    <div class="ft-viewport">
     <div class="ft-stack">
-     <!-- Decorative-only clone of Clientes (2nd-to-last), so the Reportes wrap-target clone
+     <!-- Decorative-only clone of Vender (2nd-to-last), so the Reportes wrap-target clone
           right after it has something to peek at on its own left during the transition. -->
      <div class="ft-block ft-block--reverse ft-block--clone" aria-hidden="true">
       <div class="ft-block-text">
-       <h3>Historial completo de cada cliente</h3>
-       <p>Toda tu base de clientes en un solo lugar.</p>
+       <h3>El bar, con stock y sin memoria</h3>
+       <p>Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.</p>
        <ul class="ft-bullets">
-        <li>Reservas, ausencias y asistencia</li>
-        <li>Bloqueá clientes problemáticos con un click</li>
-        <li>Buscá por nombre, email o teléfono</li>
+        <li>Carrito y cobro con el método que elija el cliente</li>
+        <li>Si un producto quedó en cero, te avisa y la venta sale igual</li>
+        <li>Aviso de stock bajo en el dashboard, con el mínimo que vos definís</li>
        </ul>
       </div>
       <div class="ft-block-visual">
        <div class="browser-frame">
-        <Screenshot name="historial-de-clientes" alt="" />
+        <Screenshot name="vender-mostrador" alt="" />
        </div>
       </div>
      </div>
@@ -37,17 +37,17 @@ import Screenshot from './Screenshot.astro';
           the one goToFeature actually animates onto when wrapping backward from slide 1. -->
      <div class="ft-block ft-block--clone" data-clone="before" aria-hidden="true">
       <div class="ft-block-text">
-       <h3>Reportes de facturación al día</h3>
-       <p>Total facturado por mes, listo para descargar.</p>
+       <h3>El mes, cerrado solo</h3>
+       <p>El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.</p>
        <ul class="ft-bullets">
-        <li>Reporte mensual por método de pago</li>
-        <li>Total, reembolsado y neto de un vistazo</li>
-        <li>Descarga en Excel con un click</li>
+        <li>Ingresos, ocupación por horario y la caja abierta</li>
+        <li>Reporte mensual por método de pago y por cancha</li>
+        <li>Excel con los pagos y la caja del mes</li>
        </ul>
       </div>
       <div class="ft-block-visual">
        <div class="browser-frame">
-        <Screenshot name="reporte-de-facturacion" alt="" />
+        <Screenshot name="dashboard-complejo-deportivo" alt="" />
        </div>
       </div>
      </div>
@@ -55,12 +55,12 @@ import Screenshot from './Screenshot.astro';
      <!-- Feature 1: Reservas -->
      <div class="ft-block active">
       <div class="ft-block-text">
-       <h3>Reservas online que funcionan solas</h3>
-       <p>Tu cliente reserva y paga la seña desde el celular, sin que vos intervengas.</p>
+       <h3>Reservan solos. Vos dormís.</h3>
+       <p>Tu cliente elige cancha y horario desde el celular y paga la seña con MercadoPago. A las tres de la mañana, también.</p>
        <ul class="ft-bullets">
-        <li>Sin descarga de app ni registro</li>
-        <li>Pago instantáneo con MercadoPago</li>
-        <li>Reembolso automático en cancelación</li>
+        <li>Sin app ni registro para el que reserva</li>
+        <li>Nunca dos reservas en el mismo turno</li>
+        <li>Si cancela a tiempo, la seña vuelve sola</li>
        </ul>
       </div>
       <div class="ft-block-visual">
@@ -70,15 +70,69 @@ import Screenshot from './Screenshot.astro';
       </div>
      </div>
 
-     <!-- Feature 2: Dashboard (reversed) -->
+     <!-- Feature 2: Cobros (reversed) -->
      <div class="ft-block ft-block--reverse">
       <div class="ft-block-text">
-       <h3>Tu negocio, de un vistazo</h3>
-       <p>Reservas, ingresos y ocupación del día, en una sola pantalla.</p>
+       <h3>Lo que falta, cobralo en el mostrador</h3>
+       <p>Cada turno te muestra la seña que entró y lo que queda por cobrar. Sin cruzar planillas.</p>
        <ul class="ft-bullets">
-        <li>Ingresos y reservas del día</li>
-        <li>Ocupación y tendencia semanal</li>
-        <li>Ranking de clientes más fieles</li>
+        <li>Efectivo, transferencia, débito, crédito o QR/billetera</li>
+        <li>La reserva telefónica, con su pago registrado</li>
+        <li>Vibe no cobra nada sobre lo que cobrás en el mostrador</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="cobros-mostrador" alt="Cobro de una reserva en el mostrador de Vibe, con efectivo, transferencia, débito, crédito y QR como métodos" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 3: Caja -->
+     <div class="ft-block">
+      <div class="ft-block-text">
+       <h3>Una caja que cierra</h3>
+       <p>Abrís el turno con el efectivo del cajón. Al cerrar, Vibe ya hizo la cuenta.</p>
+       <ul class="ft-bullets">
+        <li>Ingresos y egresos por categoría: insumos, sueldos, servicios, retiros</li>
+        <li>Los cobros en efectivo y las ventas entran solos</li>
+        <li>Al cerrar: esperado contra contado, con sobrante o faltante</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="caja-turno" alt="Caja abierta en Vibe con el efectivo inicial, los movimientos del turno y el efectivo esperado" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 4: Vender (reversed) -->
+     <div class="ft-block ft-block--reverse">
+      <div class="ft-block-text">
+       <h3>El bar, con stock y sin memoria</h3>
+       <p>Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.</p>
+       <ul class="ft-bullets">
+        <li>Carrito y cobro con el método que elija el cliente</li>
+        <li>Si un producto quedó en cero, te avisa y la venta sale igual</li>
+        <li>Aviso de stock bajo en el dashboard, con el mínimo que vos definís</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="vender-mostrador" alt="Pantalla Vender de Vibe con el catálogo, el carrito y un aviso de stock" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 5: Reportes -->
+     <div class="ft-block">
+      <div class="ft-block-text">
+       <h3>El mes, cerrado solo</h3>
+       <p>El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.</p>
+       <ul class="ft-bullets">
+        <li>Ingresos, ocupación por horario y la caja abierta</li>
+        <li>Reporte mensual por método de pago y por cancha</li>
+        <li>Excel con los pagos y la caja del mes</li>
        </ul>
       </div>
       <div class="ft-block-visual">
@@ -88,70 +142,16 @@ import Screenshot from './Screenshot.astro';
       </div>
      </div>
 
-     <!-- Feature 3: Precios -->
-     <div class="ft-block">
-      <div class="ft-block-text">
-       <h3>Precios por cancha, día y horario</h3>
-       <p>Configurá cada cancha con su propio horario y tarifas.</p>
-       <ul class="ft-bullets">
-        <li>Precio por franja horaria y día</li>
-        <li>Tarifa especial fin de semana</li>
-        <li>Turnos de 60, 90 o 120 minutos</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="precios-por-cancha-y-horario" alt="Panel real de canchas de Vibe con tarifas distintas para Lun-Vie y Sáb-Dom" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Feature 4: Clientes (reversed) -->
-     <div class="ft-block ft-block--reverse">
-      <div class="ft-block-text">
-       <h3>Historial completo de cada cliente</h3>
-       <p>Toda tu base de clientes en un solo lugar.</p>
-       <ul class="ft-bullets">
-        <li>Reservas, ausencias y asistencia</li>
-        <li>Bloqueá clientes problemáticos con un click</li>
-        <li>Buscá por nombre, email o teléfono</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="historial-de-clientes" alt="Lista real de clientes de Vibe con cantidad de reservas, ausencias y porcentaje de asistencia de cada uno" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Feature 5: Reportes -->
-     <div class="ft-block">
-      <div class="ft-block-text">
-       <h3>Reportes de facturación al día</h3>
-       <p>Total facturado por mes, listo para descargar.</p>
-       <ul class="ft-bullets">
-        <li>Reporte mensual por método de pago</li>
-        <li>Total, reembolsado y neto de un vistazo</li>
-        <li>Descarga en Excel con un click</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="reporte-de-facturacion" alt="Reporte mensual real de Vibe con facturación desglosada por efectivo y transferencia" />
-       </div>
-      </div>
-     </div>
-
      <!-- Loop clone of the first slide (Reservas), peeks on the right of the last slide — the
           one goToFeature actually animates onto when wrapping forward from the last slide. -->
      <div class="ft-block ft-block--clone" data-clone="after" aria-hidden="true">
       <div class="ft-block-text">
-       <h3>Reservas online que funcionan solas</h3>
-       <p>Tu cliente reserva y paga la seña desde el celular, sin que vos intervengas.</p>
+       <h3>Reservan solos. Vos dormís.</h3>
+       <p>Tu cliente elige cancha y horario desde el celular y paga la seña con MercadoPago. A las tres de la mañana, también.</p>
        <ul class="ft-bullets">
-        <li>Sin descarga de app ni registro</li>
-        <li>Pago instantáneo con MercadoPago</li>
-        <li>Reembolso automático en cancelación</li>
+        <li>Sin app ni registro para el que reserva</li>
+        <li>Nunca dos reservas en el mismo turno</li>
+        <li>Si cancela a tiempo, la seña vuelve sola</li>
        </ul>
       </div>
       <div class="ft-block-visual">
@@ -161,21 +161,21 @@ import Screenshot from './Screenshot.astro';
       </div>
      </div>
 
-     <!-- Decorative-only clone of Dashboard (2nd slide), so the Reservas wrap-target clone
+     <!-- Decorative-only clone of Cobros (2nd slide), so the Reservas wrap-target clone
           right before it has something to peek at on its own right during the transition. -->
      <div class="ft-block ft-block--reverse ft-block--clone" aria-hidden="true">
       <div class="ft-block-text">
-       <h3>Tu negocio, de un vistazo</h3>
-       <p>Reservas, ingresos y ocupación del día, en una sola pantalla.</p>
+       <h3>Lo que falta, cobralo en el mostrador</h3>
+       <p>Cada turno te muestra la seña que entró y lo que queda por cobrar. Sin cruzar planillas.</p>
        <ul class="ft-bullets">
-        <li>Ingresos y reservas del día</li>
-        <li>Ocupación y tendencia semanal</li>
-        <li>Ranking de clientes más fieles</li>
+        <li>Efectivo, transferencia, débito, crédito o QR/billetera</li>
+        <li>La reserva telefónica, con su pago registrado</li>
+        <li>Vibe no cobra nada sobre lo que cobrás en el mostrador</li>
        </ul>
       </div>
       <div class="ft-block-visual">
        <div class="browser-frame">
-        <Screenshot name="dashboard-complejo-deportivo" alt="" />
+        <Screenshot name="cobros-mostrador" alt="" />
        </div>
       </div>
      </div>
@@ -185,15 +185,15 @@ import Screenshot from './Screenshot.astro';
   </div>
 
   <div class="ft-dots">
-   <button type="button" class="ft-dot active" aria-label="Ir a: Reservas online que funcionan solas"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: Tu negocio, de un vistazo"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: Precios por cancha, día y horario"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: Historial completo de cada cliente"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: Reportes de facturación al día"></button>
+   <button type="button" class="ft-dot active" aria-label="Ir a: Reservan solos. Vos dormís."></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Lo que falta, cobralo en el mostrador"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Una caja que cierra"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: El bar, con stock y sin memoria"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: El mes, cerrado solo"></button>
   </div>
 
   <p class="ft-tutoriales anim anim-d4">
-   Estas son capturas. Cada pantalla también está <a href="/tutoriales">en video, funcionando</a>.
+   Estas son capturas. Reservas, precios, clientes y reportes también están <a href="/tutoriales">en video, funcionando</a>.
   </p>
  </div>
 </section>

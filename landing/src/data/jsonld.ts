@@ -13,7 +13,7 @@ export const homeJsonLd: string[] = [
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Vibe",
-    "description": "Plataforma de gestión de complejos deportivos y reservas online. Administrá tus canchas, recibí reservas y cobrá señas de forma automática.",
+    "description": "Sistema de gestión gratis para complejos deportivos: reservas online con seña, cobros en el mostrador, caja por turno con arqueo, venta de productos con stock y reportes.",
     "url": "https://vibe.com.ar",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -22,17 +22,21 @@ export const homeJsonLd: string[] = [
       "price": "0",
       "priceCurrency": "ARS",
       "availability": "https://schema.org/InStock",
-      "description": "Gratis para el complejo deportivo: $0 de costo fijo, sin suscripción. Al cliente que reserva se le suma un cargo de servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)} ARS. La comisión de MercadoPago sobre la seña la fija MercadoPago y va ${RANGO_NACIONAL} más IVA, según la provincia del complejo y cuándo se acredite el dinero."
+      "description": "100% gratis para el complejo deportivo: sin costo fijo, sin suscripción y sin cargo sobre los cobros en el mostrador ni las ventas. Al cliente que reserva online se le suma un cargo de servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)} ARS. MercadoPago descuenta su comisión del pago online, ${RANGO_NACIONAL} más IVA, según la provincia del complejo y cuándo se acredite el dinero."
     },
     "featureList": [
-      "Reservas online 24/7",
-      "Panel de administración",
-      "Cobro automático con MercadoPago",
-      "Precios flexibles",
-      "Recordatorios automáticos",
-      "Gestión de clientes",
-      "Estadísticas y métricas",
-      "Múltiples complejos"
+      "Reservas online 24/7 con página pública del complejo",
+      "Cobro de señas con MercadoPago y reembolso automático",
+      "Precios por cancha, día y franja horaria",
+      "Cobros en el mostrador: efectivo, transferencia, débito, crédito y QR",
+      "Caja por turno con arqueo de efectivo",
+      "Ingresos y egresos por categoría",
+      "Venta de productos con control de stock",
+      "Aviso de stock bajo",
+      "Recordatorio automático 2 horas antes del turno",
+      "Base de clientes con asistencia y bloqueo",
+      "Dashboard con ocupación por horario",
+      "Reporte mensual con exportación a Excel"
     ],
     "author": {
       "@type": "Organization",
@@ -51,7 +55,7 @@ export const homeJsonLd: string[] = [
     "datePublished": "${PUBLISHED}",
     "dateModified": "${LAST_MODIFIED}"
   }`,
-`   {"@context":"https://schema.org","@type":"HowTo","name":"Cómo funciona Vibe en tu complejo deportivo","description":"Así se configura, en menos de 5 minutos, para recibir reservas y cobros automáticos.","totalTime":"PT5M","step":[{"@type":"HowToStep","position":1,"name":"Configurá tu complejo","text":"Cargá tus canchas, horarios y precios paso a paso, y conectá MercadoPago para cobrar señas online."},{"@type":"HowToStep","position":2,"name":"Compartí tu link","text":"Tu complejo tiene su página pública. Compartila en Instagram, Google Maps o donde quieras."},{"@type":"HowToStep","position":3,"name":"Recibí reservas","text":"Tus clientes reservan y pagan solos. Vos gestionás todo desde el panel sin levantar el teléfono."}]}`,
+`   {"@context":"https://schema.org","@type":"HowTo","name":"Cómo ordenar tu complejo deportivo con Vibe","description":"De cero a ordenado en cuatro pasos: cargás el complejo, compartís tu link, recibís reservas con seña y abrís la caja.","step":[{"@type":"HowToStep","position":1,"name":"Cargá tu complejo","text":"Canchas, horarios y precios. Conectás MercadoPago y las señas online quedan andando."},{"@type":"HowToStep","position":2,"name":"Compartí tu link","text":"Tu complejo tiene su propia página. Pegala en Instagram, en Google Maps y en el WhatsApp."},{"@type":"HowToStep","position":3,"name":"Dejá que reserven solos","text":"Entran reservas con seña, a cualquier hora. Las ves en la grilla, con lo que falta cobrar."},{"@type":"HowToStep","position":4,"name":"Abrí la caja y vendé","text":"Cobrás lo que falta, vendés lo del bar y al cerrar el turno la cuenta ya está hecha."}]}`,
 /* El FAQPage se arma desde la misma fuente que renderiza la FAQ visible. Antes
    estaban las nueve respuestas escritas de nuevo acá, y Google descuenta el
    structured data que no coincide con lo que dice la pagina. */
@@ -64,17 +68,17 @@ JSON.stringify({
     acceptedAnswer: { '@type': 'Answer', text: item.answer },
   })),
 }, null, 2),
-`   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png","description":"Plataforma de gestión de complejos deportivos y reservas online en Argentina.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
-`   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar","description":"Plataforma de gestión de complejos deportivos y reservas online.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
+`   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, cobros, caja, ventas y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
+`   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar","description":"Sistema de gestión para complejos deportivos, 100% gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
 ];
 
 export const privacidadJsonLd: string[] = [
-`   {"@context":"https://schema.org","@type":"WebPage","name":"Política de Privacidad","description":"Política de privacidad de Vibe. Cómo recopilamos, usamos y protegemos datos personales.","url":"https://vibe.com.ar/privacidad","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png"}}`,
+`   {"@context":"https://schema.org","@type":"WebPage","name":"Política de Privacidad","description":"Cómo Vibe recopila, usa y protege los datos de los dueños de complejos y de quienes reservan, y cómo pedir que los corrijamos o borremos.","url":"https://vibe.com.ar/privacidad","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png"}}`,
 `   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar"},{"@type":"ListItem","position":2,"name":"Política de Privacidad","item":"https://vibe.com.ar/privacidad"}]}`,
 ];
 
 export const terminosJsonLd: string[] = [
-`   {"@context":"https://schema.org","@type":"WebPage","name":"Términos y Condiciones","description":"Términos y condiciones de uso de Vibe. Reglas que rigen el uso de la plataforma de gestión de reservas.","url":"https://vibe.com.ar/terminos","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png"}}`,
+`   {"@context":"https://schema.org","@type":"WebPage","name":"Términos y Condiciones","description":"Los términos de uso de Vibe, el sistema de gestión para complejos deportivos: reservas, cobros, caja, ventas y reportes, y qué hace cada parte.","url":"https://vibe.com.ar/terminos","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png"}}`,
 `   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar"},{"@type":"ListItem","position":2,"name":"Términos y Condiciones","item":"https://vibe.com.ar/terminos"}]}`,
 ];
 
@@ -152,7 +156,7 @@ export function guiasIndexJsonLd(lista: Guia[]): string[] {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: 'Guías de Vibe',
-      description: 'Respuestas concretas a lo que se pregunta antes de digitalizar un complejo deportivo.',
+      description: 'Respuestas directas, con números y fuente, a lo que te preguntás antes de ordenar la gestión de tu complejo deportivo.',
       url: 'https://vibe.com.ar/guias',
       inLanguage: 'es-AR',
       dateModified: LAST_MODIFIED,
@@ -252,7 +256,7 @@ export function tutorialesIndexJsonLd(lista: Tutorial[]): string[] {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: 'Tutoriales de Vibe',
-      description: 'Videos cortos del panel de Vibe, una pantalla por video.',
+      description: 'Videos cortos del panel de Vibe, una pantalla por video: la grilla, los precios, los clientes, el panel, los reportes y la configuración.',
       url: 'https://vibe.com.ar/tutoriales',
       inLanguage: 'es-AR',
       dateModified: TUTORIALES_ULTIMA_ACTUALIZACION,
