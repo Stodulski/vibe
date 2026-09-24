@@ -20,7 +20,7 @@ interface UseMoneyInputResult {
   inputRef: React.RefObject<HTMLInputElement | null>;
   /** The input's `onChange` — parses what was typed/pasted and calls the caller's `onChange`. */
   handleChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  /** The input's `onBlur` — resolves a still-pending trailing comma (see `analyzeMoneyInput`'s `'pending'`). */
+  /** The input's `onBlur` — resolves a still-pending trailing comma or zero decimal (see `analyzeMoneyInput`'s `'pending'`/`'zero'`). */
   handleBlur: () => void;
 }
 
@@ -47,21 +47,30 @@ interface UseMoneyInputResult {
  * removed around the edit point never move where the person is actually
  * looking.
  *
- * A decimal comma (',') is the other hard part, and the one a real bug lived
- * in: this app's money fields are whole pesos only, but that does NOT mean a
- * typed ',' can simply be dropped. Live, per-keystroke typing of "1.500,50"
- * used to collapse to "1.500" the instant the ',' landed (reformatting drops
- * the comma from the DOM), and the very next digit ("5") then read as just
- * another thousands digit of the INTEGER part instead of a centavos digit —
- * "1.500,50" silently became 150050 pesos, a 100x amount, with no error
- * anywhere. `analyzeMoneyInput` is what prevents that: while a ',' is
- * followed by nothing yet ("pending") or only zeros ("zero"), the field
- * behaves as before; the moment it is followed by a real, non-zero decimal
- * digit ("invalid"), the field STOPS reformatting — it shows exactly what was
- * typed/pasted, verbatim, and reports the real fractional pesos number
+ * A decimal comma (',') is the other hard part, and the one two real bugs
+ * lived in: this app's money fields are whole pesos only, but that does NOT
+ * mean a typed ',' can simply be dropped WHILE THE PERSON IS STILL TYPING.
+ * Live, per-keystroke typing of "1.500,50" used to collapse to "1.500" the
+ * instant the ',' landed (reformatting drops the comma from the DOM), and the
+ * very next digit ("5") then read as just another thousands digit of the
+ * INTEGER part instead of a centavos digit — "1.500,50" silently became
+ * 150050 pesos, a 100x amount, with no error anywhere. The same thing then
+ * happened one digit later for an EXPLICIT zero decimal: collapsing ",0" or
+ * ",00" immediately (they are unambiguous — "no centavos" — so it seemed
+ * safe) still drops the comma from the DOM, and a still-in-progress "1500,00"
+ * typed one keystroke at a time silently became 15000 the moment the second
+ * "0" landed. `analyzeMoneyInput` is what prevents both: while a ',' is
+ * followed by nothing yet ("pending") or only zeros so far ("zero"), the
+ * field shows exactly what was typed, verbatim, and reports only the
+ * INTEGER part — never reformatted while editing is still possibly in
+ * progress. Only `handleBlur`, once the person is done with the field,
+ * resolves either case to the grouped integer. The moment a ',' is followed
+ * by a real, non-zero decimal digit ("invalid"), the field also shows exactly
+ * what was typed/pasted, but reports the real fractional pesos number
  * (`fractionalMoneyValue`) instead of an integer, so the caller's own
  * whole-pesos Zod rule (an `.int()`, where the schema has one) rejects it
- * with a visible message. Wrong or corrupted, never silent.
+ * with a visible message — and stays visible on blur too, so the error does
+ * not vanish before the person fixes it. Wrong or corrupted, never silent.
  */
 export function useMoneyInput({ value, onChange }: UseMoneyInputArgs): UseMoneyInputResult {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -98,21 +107,16 @@ export function useMoneyInput({ value, onChange }: UseMoneyInputArgs): UseMoneyI
       return;
     }
 
-    if (analysis.kind === 'pending') {
-      // A lone trailing comma, nothing after it yet — left exactly as typed
-      // (see this hook's own doc comment for why reformatting now would be
-      // the bug). `handleBlur` resolves it once the person moves on.
+    if (analysis.kind === 'pending' || analysis.kind === 'zero') {
+      // A trailing comma with nothing after it yet, OR only zeros so far
+      // (",0", ",00") — left exactly as typed EITHER way while the person is
+      // still editing. Collapsing a ",0"/",00" the instant it lands is the
+      // same bug one digit further along: the comma disappears from the DOM,
+      // and the next typed digit ("1500,00" + "0") is then silently read as
+      // another thousands digit of the integer part, not a third centavos
+      // digit — "1500,00" -> "15.000" instead of staying 1500. Only
+      // `handleBlur`, once the person is done editing, resolves either case.
       setRawOverride(raw);
-      onChange(parseMoneyDigits(analysis.integerDigits));
-      return;
-    }
-
-    if (analysis.kind === 'zero') {
-      // An explicit, unambiguous "no centavos" (",0", ",00") — unlike
-      // `'pending'` there is nothing left to wait for, so this collapses
-      // immediately, same as the no-comma path.
-      setRawOverride(null);
-      pendingCaretDigits.current = analysis.integerDigits.length;
       onChange(parseMoneyDigits(analysis.integerDigits));
       return;
     }
@@ -126,10 +130,11 @@ export function useMoneyInput({ value, onChange }: UseMoneyInputArgs): UseMoneyI
 
   const handleBlur = () => {
     if (rawOverride === null) return;
-    // Only a still-'pending' trailing comma resolves on blur — an 'invalid'
+    const kind = analyzeMoneyInput(rawOverride).kind;
+    // Only a still-'pending'/'zero' comma resolves on blur — an 'invalid'
     // fractional amount stays exactly as typed so its validation error stays
     // visible until the person actually fixes it.
-    if (analyzeMoneyInput(rawOverride).kind !== 'pending') return;
+    if (kind !== 'pending' && kind !== 'zero') return;
     setRawOverride(null);
   };
 
