@@ -27,7 +27,9 @@ const TABS = [
  */
 export function CashSectionTabs() {
   return (
-    <nav className="-mx-4 mb-3 px-4 sm:mb-4" aria-label={t.cash.title}>
+    // Bleeds exactly the layout's own gutter (px-3, sm:px-6 on <main>) so the
+    // underline reaches the edges without widening the page on phones.
+    <nav className="-mx-3 mb-3 px-3 sm:-mx-4 sm:mb-4 sm:px-4" aria-label={t.cash.title}>
       <div className="border-border-subtle flex gap-1 border-b">
         {TABS.map((tab) => (
           <NavLink
