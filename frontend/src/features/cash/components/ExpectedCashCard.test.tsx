@@ -44,6 +44,6 @@ describe('ExpectedCashCard', () => {
     render(<ExpectedCashCard session={session} summary={makeSummary()} />);
 
     const amount = screen.getByText('$6.500');
-    expect(amount).toHaveClass('text-xl', 'sm:text-2xl', 'tabular-nums');
+    expect(amount).toHaveClass('text-lg', 'sm:text-2xl', 'tabular-nums');
   });
 });
