@@ -4,7 +4,7 @@
  *
  * Misma razón que el índice de guías: le da a los tutoriales un padre al que
  * enlazar desde el footer, y le da a un rastreador un solo lugar del que
- * salgan los siete. Un tutorial enlazado desde ningún lado depende del
+ * salgan los seis. Un tutorial enlazado desde ningún lado depende del
  * sitemap y nada más, que es la forma más frágil de que lo encuentren.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
@@ -13,27 +13,27 @@ import Footer from '../../components/Footer.astro';
 import { tutoriales, CDN, ULTIMA_ACTUALIZACION } from '../../data/tutoriales';
 import { tutorialesIndexJsonLd } from '../../data/jsonld';
 
-const TITULO = 'Tutoriales en video del panel de Vibe | Vibe';
-const BAJADA = 'Siete videos cortos del panel de Vibe, cada uno una sola pantalla: '
-  + 'la grilla, los precios, los clientes, los reportes y la configuración del complejo.';
+const TITULO = 'Tutoriales en video: el panel de Vibe funcionando | Vibe';
+const BAJADA = 'Videos cortos del panel de Vibe, una pantalla por video: la grilla, los precios, '
+  + 'los clientes, el panel, los reportes y la configuración.';
 ---
 <BaseLayout
   title={TITULO}
   description={BAJADA}
   canonical="https://vibe.com.ar/tutoriales"
   date={ULTIMA_ACTUALIZACION}
-  ogTitle="Tutoriales en video del panel de Vibe"
+  ogTitle="Tutoriales en video: el panel de Vibe funcionando"
   ogDescription={BAJADA}
   ogUrl="https://vibe.com.ar/tutoriales"
   ogImage="https://vibe.com.ar/og-image.png"
   ogImageWidth="1200"
   ogImageHeight="630"
-  ogImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  ogImageAlt="Vibe - Sistema de gestión para complejos deportivos"
   twitterCard="summary_large_image"
-  twitterTitle="Tutoriales en video del panel de Vibe"
+  twitterTitle="Tutoriales en video: el panel de Vibe funcionando"
   twitterDescription={BAJADA}
   twitterImage="https://vibe.com.ar/og-image.png"
-  twitterImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  twitterImageAlt="Vibe - Sistema de gestión para complejos deportivos"
   jsonLd={tutorialesIndexJsonLd(tutoriales)}
   blobs={4}
   skipLink={true}
@@ -55,18 +55,17 @@ const BAJADA = 'Siete videos cortos del panel de Vibe, cada uno una sola pantall
       <section class="tutorial-bloque">
         <h2>Qué muestra cada video</h2>
         <p>
-          Cada tutorial es una sola pantalla del panel de Vibe, grabada directamente
-          sobre el producto real: sin guión leído y sin pantallas armadas para la
-          cámara. Si estás evaluando Vibe y querés ver cómo se usa antes de cargar tu
-          complejo, esta es la forma más rápida de hacerlo sin crear una cuenta.
+          Cada tutorial es una pantalla del panel de Vibe, grabada sobre el producto
+          real: sin guion leído y sin pantallas armadas para la cámara. Si estás
+          evaluando Vibe y querés verlo andar antes de cargar tu complejo, es la
+          forma más rápida, y no hace falta crear una cuenta.
         </p>
         <p>
-          Son distintos de las <a href="/guias">guías</a>. Una guía contesta algo que
-          se busca antes de saber que Vibe existe, con un número y una fuente. Un
-          tutorial muestra una pantalla del panel funcionando, y su fuente es el
-          producto mismo. Si lo que buscás es cuánto cuesta un sistema de reservas o
-          cuánto cobra la pasarela de pago por una seña, esa respuesta está en las
-          guías, no acá.
+          No son <a href="/guias">guías</a>. Una guía contesta algo que se busca
+          antes de saber que Vibe existe, con un número y una fuente. Un tutorial
+          muestra una pantalla funcionando, y su fuente es el producto. Si lo que
+          buscás es cuánto cuesta un sistema de reservas o cuánto se queda la
+          pasarela de pago de una seña, eso está en las guías.
         </p>
       </section>
 
