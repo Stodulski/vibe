@@ -67,7 +67,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Todas tus canchas del día en una pantalla, cada turno con su seña y lo que falta cobrar, y '
       + 'cómo bloquear un horario desde el panel de Vibe.',
     excerpt: 'Todas tus canchas del día en una pantalla, y cada turno con su cliente y su pago.',
-    duracion: 30,
+    duracion: 50,
     youtube: 'S7PUkxm8lu0',
     datePublished: '2026-09-16',
     respuesta:
@@ -144,7 +144,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Cargá un precio base por día y una franja nocturna más cara. Cómo cobra Vibe un turno que '
       + 'cruza de una tarifa a la otra, por media hora.',
     excerpt: 'Un precio base por día y, arriba, las franjas que cobrás distinto.',
-    duracion: 41,
+    duracion: 50,
     youtube: 'Zn91DlIh2rs',
     datePublished: '2026-09-16',
     respuesta:
@@ -226,7 +226,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Cada persona que reserva queda guardada con su teléfono, su historial y su asistencia. Sin '
       + 'fichas a mano ni planillas: la base se llena sola.',
     excerpt: 'Cada persona que reserva queda guardada, con su historial y su asistencia.',
-    duracion: 38,
+    duracion: 54,
     youtube: 'c5QQGWhU3Es',
     datePublished: '2026-09-16',
     respuesta:
@@ -291,7 +291,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Lo que facturaste hoy, las reservas, la ocupación y el mapa de horas muertas: qué ves apenas '
       + 'entrás al panel de Vibe, con la caja incluida.',
     excerpt: 'Cuánto facturaste, cuántas reservas tenés y qué canchas están vacías, apenas entrás.',
-    duracion: 33,
+    duracion: 54,
     youtube: 'EfSBAkqQHCk',
     datePublished: '2026-09-16',
     respuesta:
@@ -366,7 +366,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'El mes cerrado solo: comparado con el anterior, abierto por método de pago y por cancha, y '
       + 'en Excel para el contador, con la caja incluida.',
     excerpt: 'El cierre del mes armado solo, comparado con el anterior y listo para el contador.',
-    duracion: 27,
+    duracion: 44,
     youtube: 'n4h7--y2sd4',
     datePublished: '2026-09-16',
     respuesta:
@@ -434,7 +434,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Los datos del complejo, hasta qué hora se reserva cada día, cuánta seña pedís y el estado de '
       + 'MercadoPago: todo se define en una sola pantalla.',
     excerpt: 'Los datos del complejo, los horarios de atención y cuánta seña pedís.',
-    duracion: 25,
+    duracion: 38,
     youtube: '05OH3m9ZJxM',
     datePublished: '2026-09-16',
     respuesta:
