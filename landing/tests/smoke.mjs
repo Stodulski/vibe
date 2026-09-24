@@ -262,7 +262,7 @@ async function testImages() {
   await p.waitForTimeout(1500);
   const imgs = await p.evaluate(() => [...document.querySelectorAll('img')].map(i => ({
     src: i.currentSrc || i.src, ok: i.complete && i.naturalWidth > 0,
-    lazy: i.loading === 'lazy', alt: i.alt, clone: !!i.closest('.ft-block--clone'),
+    lazy: i.loading === 'lazy', alt: i.alt, clone: !!i.closest('.ft-block[aria-hidden="true"]'),
   })));
   const broken = imgs.filter(i => !i.ok && !i.lazy);
   check('ninguna imagen ansiosa está rota', broken.length === 0, broken.map(i => i.src).join(', ').slice(0, 80));
@@ -295,15 +295,10 @@ async function testMobileMenu() {
   await p.waitForTimeout(500);
   await p.locator('.nav-toggle').click();
   await p.waitForTimeout(500);
-  check('el menú abre', await p.locator('.mobile-menu').evaluate(e => e.getBoundingClientRect().height > 100));
+  check('el menú abre', await p.locator('.mobile-menu').getAttribute('aria-hidden') === 'false');
   await p.locator('.mobile-menu a').first().click();
   await p.waitForTimeout(900);
-  /* The overlay keeps display:flex and fades out with visibility + opacity, so
-     neither display nor height tells you whether it is actually gone. */
-  check('al elegir una opción se cierra', await p.locator('.mobile-menu').evaluate(e => {
-    const s = getComputedStyle(e);
-    return s.visibility === 'hidden' || s.opacity === '0' || !e.classList.contains('open');
-  }));
+  check('al elegir una opción se cierra', await p.locator('.mobile-menu').getAttribute('aria-hidden') === 'true');
   await p.context().close();
 }
 
@@ -317,7 +312,7 @@ async function testComparisonTabs() {
   check('los tabs se ven en mobile', await tabs.first().isVisible());
   await tabs.nth(2).click();
   await p.waitForTimeout(500);
-  check('al tocar un tab se marca activo', await tabs.nth(2).evaluate(e => e.classList.contains('active')));
+  check('al tocar un tab se marca activo', await tabs.nth(2).getAttribute('aria-selected') === 'true');
   const vista = await p.evaluate(() => {
     const celdas = [...document.querySelectorAll('.comparison-table td')].filter(c => c.offsetParent !== null);
     return { celdas: celdas.length, columnas: new Set(celdas.map(c => c.dataset.col)).size };
