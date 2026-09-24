@@ -53,6 +53,10 @@ export const cashMovementSchema = exact<CashMovement>(
       complex_id: z.string(),
       session_id: z.string(),
       kind: cashMovementKindSchema,
+      // The 8 manual categories, plus `sale`/`restock`: system categories
+      // written by the sales and restock flows (never accepted on manual
+      // movement creation — see `features/cash/schemas/cash.schema.ts`'s
+      // `cashMovementSchema`, which keeps the 8-value manual-only enum).
       category: z.enum([
         'other_income',
         'supplies',
@@ -62,6 +66,8 @@ export const cashMovementSchema = exact<CashMovement>(
         'cleaning',
         'withdrawal',
         'other_expense',
+        'sale',
+        'restock',
       ]),
       method: cashCounterMethodSchema,
       amount: z.number(),

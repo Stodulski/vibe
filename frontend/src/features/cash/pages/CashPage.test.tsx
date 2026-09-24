@@ -108,6 +108,33 @@ function mockOpenWithStaleDetailError() {
   } as unknown as ReturnType<typeof useCashSessionDetail>);
 }
 
+/** Same open-session shape as `mockOpen`, but with a caller-supplied movement list. */
+function mockOpenWithMovements(movements: ReturnType<typeof makeCashMovement>[]) {
+  const session = makeCashSession();
+  const summary: CashSessionSummary = {
+    opening_cash: session.opening_cash,
+    expected_cash: 650000,
+    movement_totals: [],
+    booking_payments: [],
+    manual_refunds: [],
+    cash_manual_refunds: 0,
+  };
+  vi.mocked(useCashSession).mockReturnValue({
+    data: { cash_session: session, summary },
+    isLoading: false,
+    isError: false,
+    isClosed: false,
+    isRealError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSession>);
+  vi.mocked(useCashSessionDetail).mockReturnValue({
+    data: { cash_session: session, summary, movements },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCashSessionDetail>);
+}
+
 function renderPage() {
   // `VoidMovementDialog` (always mounted inside the open-session view, even
   // with no target) calls `useVoidCashMovement`, which reaches for a real
@@ -165,6 +192,45 @@ describe('CashPage — empty vs open state', () => {
     renderPage();
     expect(screen.getByRole('status')).toBeInTheDocument();
     expect(screen.queryByText('La caja está cerrada')).not.toBeInTheDocument();
+  });
+});
+
+// System categories the products/sales delivery writes (never through the
+// manual movement form): a session detail carrying a `sale`/`restock`
+// movement used to fail schema parsing entirely and show the full-screen
+// "No pudimos cargar la caja" error (see cash.schema.test.ts).
+describe('CashPage — system categories (sale, restock)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useSelectedComplex).mockReturnValue({
+      complex: { id: 'c1' },
+      selectedComplexId: 'c1',
+    } as unknown as ReturnType<typeof useSelectedComplex>);
+    vi.mocked(useCashSessions).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      isFetchingNextPage: false,
+    } as unknown as ReturnType<typeof useCashSessions>);
+  });
+
+  it('renders a sale and a restock movement in the open session, with Anular offered only for the restock', () => {
+    mockOpenWithMovements([
+      makeCashMovement({ id: 'sale-1', kind: 'income', category: 'sale' }),
+      makeCashMovement({ id: 'restock-1', kind: 'expense', category: 'restock' }),
+    ]);
+
+    renderPage();
+
+    expect(screen.getByText('Efectivo esperado')).toBeInTheDocument();
+    expect(screen.getByText('Venta')).toBeInTheDocument();
+    expect(screen.getByText('Reposición')).toBeInTheDocument();
+    // Exactly one Anular action offered among the two movements: the sale
+    // income is refused with 409 by the backend on a manual void.
+    expect(screen.getAllByRole('button', { name: 'Anular' })).toHaveLength(1);
   });
 });
 

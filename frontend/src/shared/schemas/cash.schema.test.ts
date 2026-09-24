@@ -53,6 +53,21 @@ describe('cashMovementSchema', () => {
     const invalid = { ...makeCashMovement(), category: 'not_a_category' };
     expect(cashMovementSchema.safeParse(invalid).success).toBe(false);
   });
+
+  // System categories written by the sales and restock flows (never offered
+  // on the manual movement form, see `features/cash/schemas/cash.schema.ts`),
+  // but present on GET responses — a session with one POS sale used to fail
+  // client-side parsing entirely because these two values were missing from
+  // this enum.
+  it('validates a sale income movement', () => {
+    const sale = makeCashMovement({ kind: 'income', category: 'sale' });
+    expect(cashMovementSchema.safeParse(sale).success).toBe(true);
+  });
+
+  it('validates a restock expense movement', () => {
+    const restock = makeCashMovement({ kind: 'expense', category: 'restock' });
+    expect(cashMovementSchema.safeParse(restock).success).toBe(true);
+  });
 });
 
 describe('cashSessionSummarySchema', () => {
