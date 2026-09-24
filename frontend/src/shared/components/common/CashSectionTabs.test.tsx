@@ -21,18 +21,18 @@ describe('CashSectionTabs', () => {
 
   it('marks only Turno active on the exact /cash route', () => {
     renderAt('/cash');
-    expect(screen.getByRole('link', { name: 'Turno' })).toHaveClass('border-primary-500');
-    expect(screen.getByRole('link', { name: 'Productos' })).not.toHaveClass('border-primary-500');
+    expect(screen.getByRole('link', { name: 'Turno' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Productos' })).not.toHaveAttribute('aria-current');
   });
 
   it('marks Productos active on /cash/products', () => {
     renderAt('/cash/products');
-    expect(screen.getByRole('link', { name: 'Productos' })).toHaveClass('border-primary-500');
-    expect(screen.getByRole('link', { name: 'Turno' })).not.toHaveClass('border-primary-500');
+    expect(screen.getByRole('link', { name: 'Productos' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Turno' })).not.toHaveAttribute('aria-current');
   });
 
   it('marks Vender active on /cash/sell', () => {
     renderAt('/cash/sell');
-    expect(screen.getByRole('link', { name: 'Vender' })).toHaveClass('border-primary-500');
+    expect(screen.getByRole('link', { name: 'Vender' })).toHaveAttribute('aria-current', 'page');
   });
 });

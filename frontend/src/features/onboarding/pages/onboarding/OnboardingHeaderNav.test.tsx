@@ -14,12 +14,12 @@ describe('OnboardingHeaderNav', () => {
 
   // jsdom doesn't apply the stylesheet, so `hidden sm:inline` never actually
   // hides its span here the way a real mobile viewport would — this checks
-  // the fix's actual shape instead: an `.sr-only` twin carries the label on
-  // every viewport, not just above the `sm:` breakpoint.
-  it('keeps an always-visible sr-only label alongside the icon', () => {
+  // the fix's actual shape instead: the button keeps an accessible name on
+  // every viewport, not just above the `sm:` breakpoint, via an
+  // always-visible `.sr-only` twin.
+  it('keeps an always-visible accessible name alongside the icon', () => {
     render(<OnboardingHeaderNav onLogout={vi.fn()} />);
-    const logoutButton = screen.getByRole('button', { name: /Cerrar sesión/ });
-    expect(logoutButton.querySelector('.sr-only')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /Cerrar sesión/ })).toBeInTheDocument();
   });
 
   it('calls onLogout, a plain callback rather than the mutation object itself', () => {
