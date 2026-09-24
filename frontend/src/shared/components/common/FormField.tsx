@@ -106,6 +106,14 @@ function wireControl(children: ReactNode, htmlFor: string, errorId: string, hasE
  * the other one. `self-end` keeps the inputs on one baseline instead — the
  * field sits at the bottom of its cell and the error stacks above its own
  * input only. It is a no-op in the ordinary single-column stack.
+ *
+ * `w-full` on the wrapper: every control this wraps (`Input`/`Select`
+ * trigger/`Textarea`) already fills its own box, but that box is only ever
+ * as wide as THIS wrapper — a plain block `div` stretches to its parent by
+ * default, but a future caller placing a field in an unstretched flex row
+ * (rather than the grid every current two-column caller uses) would silently
+ * shrink it to the label's width. Spelling it out here keeps every field
+ * inside a Dialog/Sheet full width regardless of the parent's layout mode.
  */
 export function FormField({
   label,
@@ -121,7 +129,7 @@ export function FormField({
   const control = wireControl(children, htmlFor, errorId, !!error);
 
   return (
-    <div className={cn('self-end', className)}>
+    <div className={cn('w-full self-end', className)}>
       {labelSuffix ? (
         <div className="flex items-baseline justify-between">
           <Label htmlFor={htmlFor} className="text-xs">
