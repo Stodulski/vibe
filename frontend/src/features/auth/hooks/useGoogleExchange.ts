@@ -22,14 +22,18 @@ function needsProfile(data: unknown): data is GoogleNeedsProfileResponse {
 
 /**
  * Every way this page can end up back on `/login`. The backend's redirect
- * handler mints the first two itself (it never renders a problem page — it
- * always 303s to the app), and the exchange below adds `google_expired`; they
- * share one mechanism, the `?error=` query string, because the backend can
- * only speak through the URL. `LoginPage` turns each into one line of copy.
+ * handler mints `google_rejected`, `google_unavailable` and
+ * `google_rate_limited` itself (it never renders a problem page — it always
+ * 303s to the app), and the exchange below adds `google_expired` and its own
+ * `google_rate_limited` for the same reason (a 429 straight from this
+ * endpoint, not relayed through the redirect handler); they share one
+ * mechanism, the `?error=` query string, because the backend can only speak
+ * through the URL. `LoginPage` turns each into one line of copy.
  */
 const GOOGLE_REJECTED = '/login?error=google_rejected';
 const GOOGLE_EXPIRED = '/login?error=google_expired';
 const GOOGLE_UNAVAILABLE = '/login?error=google_unavailable';
+const GOOGLE_RATE_LIMITED = '/login?error=google_rate_limited';
 
 /**
  * Second hop of the Google redirect flow: trades the single-use `code` the
@@ -92,11 +96,21 @@ export function useGoogleExchange(code: string | null) {
       handleAuthSuccess(data, { from });
     },
     onError: (error: unknown) => {
-      // 422 is the only refusal this endpoint has: an invalid, already-spent
+      const status = getHttpStatus(error);
+
+      // 429 means the exchange itself was throttled, distinct from
+      // `google_unavailable`: the sign-in almost worked, and the copy says so
+      // rather than implying Google is down.
+      if (status === 429) {
+        void navigate(GOOGLE_RATE_LIMITED, { replace: true });
+        return;
+      }
+
+      // 422 is the other refusal this endpoint has: an invalid, already-spent
       // or expired code (RFC 9457 `validation`, `errors[0].field === 'code'`).
       // Everything else — a 5xx, a dropped connection, a body that failed its
       // schema — is the API being unreachable as far as the visitor cares.
-      void navigate(getHttpStatus(error) === 422 ? GOOGLE_EXPIRED : GOOGLE_UNAVAILABLE, { replace: true });
+      void navigate(status === 422 ? GOOGLE_EXPIRED : GOOGLE_UNAVAILABLE, { replace: true });
     },
   });
 

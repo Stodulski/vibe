@@ -98,10 +98,13 @@ export const auth = {
   googleSignInError: 'No pudimos iniciar sesión con Google. Probá de nuevo.',
   googleReturnTitle: 'Ingresando con Google',
   googleReturnLoading: 'Estamos terminando tu ingreso con Google...',
-  // The three `?error=` values `/login` can arrive with after a Google
-  // redirect: two minted by the backend's redirect handler, one by the
-  // code exchange (see `useGoogleExchange`).
+  // The `?error=` values `/login` can arrive with after a Google redirect:
+  // some minted by the backend's redirect handler, others by the code
+  // exchange (see `useGoogleExchange`). `google_rate_limited` is minted by
+  // both — a rate-limited redirect-mode post and a rate-limited exchange
+  // land on the same message.
   googleErrorRejected: 'No pudimos validar tu cuenta de Google. Probá de nuevo.',
   googleErrorUnavailable: 'Google no está disponible en este momento. Probá más tarde o ingresá con tu email.',
   googleErrorExpired: 'El ingreso con Google expiró. Probá de nuevo.',
+  googleErrorRateLimited: 'Demasiados intentos. Esperá un minuto y volvé a probar.',
 } as const;

@@ -18,6 +18,7 @@ const GOOGLE_ERRORS: Record<string, string> = {
   google_rejected: t.auth.googleErrorRejected,
   google_unavailable: t.auth.googleErrorUnavailable,
   google_expired: t.auth.googleErrorExpired,
+  google_rate_limited: t.auth.googleErrorRateLimited,
 };
 
 /**
