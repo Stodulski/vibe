@@ -211,6 +211,69 @@ func TestCreateMovementCountsTheNoteInCharacters(t *testing.T) {
 	}
 }
 
+// TestCreateMovementCategoryPairing pins
+// db/migrations/008_cash_movement_categories.sql's
+// cash_movements_category_kind_consistent for the 11 categories it added:
+// each new income category is accepted for 'income' and refused for
+// 'expense', and each new expense category is accepted for 'expense' and
+// refused for 'income'. IncomeCategories/ExpenseCategories
+// (internal/cashbox/service.go) are the Go mirror of that constraint.
+func TestCreateMovementCategoryPairing(t *testing.T) {
+	tests := []struct {
+		category string
+		kind     string
+	}{
+		{"classes", "income"},
+		{"tournaments", "income"},
+		{"events", "income"},
+		{"memberships", "income"},
+		{"sponsorship", "income"},
+		{"cash_contribution", "income"},
+		{"rent", "expense"},
+		{"taxes", "expense"},
+		{"professional_fees", "expense"},
+		{"marketing", "expense"},
+		{"bank_fees", "expense"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.category+"/"+tt.kind, func(t *testing.T) {
+			store := &stubStore{}
+			h, _ := newTestHandler(store, &stubPayments{})
+
+			w := httptest.NewRecorder()
+			h.CreateMovement(w, ownerRequest(t, http.MethodPost, "/", uuid.New(),
+				map[string]string{"sessionID": uuid.New().String()},
+				`{"kind":"`+tt.kind+`","category":"`+tt.category+`","method":"cash","amount":1000}`))
+
+			if w.Code != http.StatusCreated {
+				t.Errorf("%s as %s: want 201; got %d (%s)", tt.category, tt.kind, w.Code, w.Body.String())
+			}
+		})
+
+		otherKind := "expense"
+		if tt.kind == "expense" {
+			otherKind = "income"
+		}
+		t.Run(tt.category+"/"+otherKind+" refused", func(t *testing.T) {
+			store := &stubStore{}
+			h, _ := newTestHandler(store, &stubPayments{})
+
+			w := httptest.NewRecorder()
+			h.CreateMovement(w, ownerRequest(t, http.MethodPost, "/", uuid.New(),
+				map[string]string{"sessionID": uuid.New().String()},
+				`{"kind":"`+otherKind+`","category":"`+tt.category+`","method":"cash","amount":1000}`))
+
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Errorf("%s as %s: want 422; got %d (%s)", tt.category, otherKind, w.Code, w.Body.String())
+			}
+			if len(store.insertedMovements) != 0 {
+				t.Error("a mismatched kind/category must not be persisted")
+			}
+		})
+	}
+}
+
 // --- VoidMovement --------------------------------------------------------
 
 // TestVoidMovementWithAnEmptyBodyIs201 pins the optional-body fix: the void

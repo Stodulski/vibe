@@ -180,28 +180,55 @@ func (e CashManualRefundTotalMethod) Valid() bool {
 
 // Defines values for CashMovementCategory.
 const (
-	CashMovementCategoryCleaning     CashMovementCategory = "cleaning"
-	CashMovementCategoryMaintenance  CashMovementCategory = "maintenance"
-	CashMovementCategoryOtherExpense CashMovementCategory = "other_expense"
-	CashMovementCategoryOtherIncome  CashMovementCategory = "other_income"
-	CashMovementCategoryRestock      CashMovementCategory = "restock"
-	CashMovementCategorySalaries     CashMovementCategory = "salaries"
-	CashMovementCategorySale         CashMovementCategory = "sale"
-	CashMovementCategoryServices     CashMovementCategory = "services"
-	CashMovementCategorySupplies     CashMovementCategory = "supplies"
-	CashMovementCategoryWithdrawal   CashMovementCategory = "withdrawal"
+	CashMovementCategoryBankFees         CashMovementCategory = "bank_fees"
+	CashMovementCategoryCashContribution CashMovementCategory = "cash_contribution"
+	CashMovementCategoryClasses          CashMovementCategory = "classes"
+	CashMovementCategoryCleaning         CashMovementCategory = "cleaning"
+	CashMovementCategoryEvents           CashMovementCategory = "events"
+	CashMovementCategoryMaintenance      CashMovementCategory = "maintenance"
+	CashMovementCategoryMarketing        CashMovementCategory = "marketing"
+	CashMovementCategoryMemberships      CashMovementCategory = "memberships"
+	CashMovementCategoryOtherExpense     CashMovementCategory = "other_expense"
+	CashMovementCategoryOtherIncome      CashMovementCategory = "other_income"
+	CashMovementCategoryProfessionalFees CashMovementCategory = "professional_fees"
+	CashMovementCategoryRent             CashMovementCategory = "rent"
+	CashMovementCategoryRestock          CashMovementCategory = "restock"
+	CashMovementCategorySalaries         CashMovementCategory = "salaries"
+	CashMovementCategorySale             CashMovementCategory = "sale"
+	CashMovementCategoryServices         CashMovementCategory = "services"
+	CashMovementCategorySponsorship      CashMovementCategory = "sponsorship"
+	CashMovementCategorySupplies         CashMovementCategory = "supplies"
+	CashMovementCategoryTaxes            CashMovementCategory = "taxes"
+	CashMovementCategoryTournaments      CashMovementCategory = "tournaments"
+	CashMovementCategoryWithdrawal       CashMovementCategory = "withdrawal"
 )
 
 // Valid indicates whether the value is a known member of the CashMovementCategory enum.
 func (e CashMovementCategory) Valid() bool {
 	switch e {
+	case CashMovementCategoryBankFees:
+		return true
+	case CashMovementCategoryCashContribution:
+		return true
+	case CashMovementCategoryClasses:
+		return true
 	case CashMovementCategoryCleaning:
 		return true
+	case CashMovementCategoryEvents:
+		return true
 	case CashMovementCategoryMaintenance:
+		return true
+	case CashMovementCategoryMarketing:
+		return true
+	case CashMovementCategoryMemberships:
 		return true
 	case CashMovementCategoryOtherExpense:
 		return true
 	case CashMovementCategoryOtherIncome:
+		return true
+	case CashMovementCategoryProfessionalFees:
+		return true
+	case CashMovementCategoryRent:
 		return true
 	case CashMovementCategoryRestock:
 		return true
@@ -211,7 +238,13 @@ func (e CashMovementCategory) Valid() bool {
 		return true
 	case CashMovementCategoryServices:
 		return true
+	case CashMovementCategorySponsorship:
+		return true
 	case CashMovementCategorySupplies:
+		return true
+	case CashMovementCategoryTaxes:
+		return true
+	case CashMovementCategoryTournaments:
 		return true
 	case CashMovementCategoryWithdrawal:
 		return true
@@ -1206,32 +1239,65 @@ func (e BookingsConfirmPaymentJSONBodyMethod) Valid() bool {
 
 // Defines values for CashMovementsCreateJSONBodyCategory.
 const (
-	CashMovementsCreateJSONBodyCategoryCleaning     CashMovementsCreateJSONBodyCategory = "cleaning"
-	CashMovementsCreateJSONBodyCategoryMaintenance  CashMovementsCreateJSONBodyCategory = "maintenance"
-	CashMovementsCreateJSONBodyCategoryOtherExpense CashMovementsCreateJSONBodyCategory = "other_expense"
-	CashMovementsCreateJSONBodyCategoryOtherIncome  CashMovementsCreateJSONBodyCategory = "other_income"
-	CashMovementsCreateJSONBodyCategorySalaries     CashMovementsCreateJSONBodyCategory = "salaries"
-	CashMovementsCreateJSONBodyCategoryServices     CashMovementsCreateJSONBodyCategory = "services"
-	CashMovementsCreateJSONBodyCategorySupplies     CashMovementsCreateJSONBodyCategory = "supplies"
-	CashMovementsCreateJSONBodyCategoryWithdrawal   CashMovementsCreateJSONBodyCategory = "withdrawal"
+	CashMovementsCreateJSONBodyCategoryBankFees         CashMovementsCreateJSONBodyCategory = "bank_fees"
+	CashMovementsCreateJSONBodyCategoryCashContribution CashMovementsCreateJSONBodyCategory = "cash_contribution"
+	CashMovementsCreateJSONBodyCategoryClasses          CashMovementsCreateJSONBodyCategory = "classes"
+	CashMovementsCreateJSONBodyCategoryCleaning         CashMovementsCreateJSONBodyCategory = "cleaning"
+	CashMovementsCreateJSONBodyCategoryEvents           CashMovementsCreateJSONBodyCategory = "events"
+	CashMovementsCreateJSONBodyCategoryMaintenance      CashMovementsCreateJSONBodyCategory = "maintenance"
+	CashMovementsCreateJSONBodyCategoryMarketing        CashMovementsCreateJSONBodyCategory = "marketing"
+	CashMovementsCreateJSONBodyCategoryMemberships      CashMovementsCreateJSONBodyCategory = "memberships"
+	CashMovementsCreateJSONBodyCategoryOtherExpense     CashMovementsCreateJSONBodyCategory = "other_expense"
+	CashMovementsCreateJSONBodyCategoryOtherIncome      CashMovementsCreateJSONBodyCategory = "other_income"
+	CashMovementsCreateJSONBodyCategoryProfessionalFees CashMovementsCreateJSONBodyCategory = "professional_fees"
+	CashMovementsCreateJSONBodyCategoryRent             CashMovementsCreateJSONBodyCategory = "rent"
+	CashMovementsCreateJSONBodyCategorySalaries         CashMovementsCreateJSONBodyCategory = "salaries"
+	CashMovementsCreateJSONBodyCategoryServices         CashMovementsCreateJSONBodyCategory = "services"
+	CashMovementsCreateJSONBodyCategorySponsorship      CashMovementsCreateJSONBodyCategory = "sponsorship"
+	CashMovementsCreateJSONBodyCategorySupplies         CashMovementsCreateJSONBodyCategory = "supplies"
+	CashMovementsCreateJSONBodyCategoryTaxes            CashMovementsCreateJSONBodyCategory = "taxes"
+	CashMovementsCreateJSONBodyCategoryTournaments      CashMovementsCreateJSONBodyCategory = "tournaments"
+	CashMovementsCreateJSONBodyCategoryWithdrawal       CashMovementsCreateJSONBodyCategory = "withdrawal"
 )
 
 // Valid indicates whether the value is a known member of the CashMovementsCreateJSONBodyCategory enum.
 func (e CashMovementsCreateJSONBodyCategory) Valid() bool {
 	switch e {
+	case CashMovementsCreateJSONBodyCategoryBankFees:
+		return true
+	case CashMovementsCreateJSONBodyCategoryCashContribution:
+		return true
+	case CashMovementsCreateJSONBodyCategoryClasses:
+		return true
 	case CashMovementsCreateJSONBodyCategoryCleaning:
 		return true
+	case CashMovementsCreateJSONBodyCategoryEvents:
+		return true
 	case CashMovementsCreateJSONBodyCategoryMaintenance:
+		return true
+	case CashMovementsCreateJSONBodyCategoryMarketing:
+		return true
+	case CashMovementsCreateJSONBodyCategoryMemberships:
 		return true
 	case CashMovementsCreateJSONBodyCategoryOtherExpense:
 		return true
 	case CashMovementsCreateJSONBodyCategoryOtherIncome:
 		return true
+	case CashMovementsCreateJSONBodyCategoryProfessionalFees:
+		return true
+	case CashMovementsCreateJSONBodyCategoryRent:
+		return true
 	case CashMovementsCreateJSONBodyCategorySalaries:
 		return true
 	case CashMovementsCreateJSONBodyCategoryServices:
 		return true
+	case CashMovementsCreateJSONBodyCategorySponsorship:
+		return true
 	case CashMovementsCreateJSONBodyCategorySupplies:
+		return true
+	case CashMovementsCreateJSONBodyCategoryTaxes:
+		return true
+	case CashMovementsCreateJSONBodyCategoryTournaments:
 		return true
 	case CashMovementsCreateJSONBodyCategoryWithdrawal:
 		return true
@@ -1762,7 +1828,7 @@ type CashMovement struct {
 	// Amount Centavos ARS.
 	Amount int `json:"amount"`
 
-	// Category The 8 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
+	// Category The 19 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
 	Category  CashMovementCategory `json:"category"`
 	ComplexId openapi_types.UUID   `json:"complex_id"`
 	CreatedAt time.Time            `json:"created_at"`
@@ -1777,7 +1843,7 @@ type CashMovement struct {
 	VoidsMovementId *openapi_types.UUID `json:"voids_movement_id,omitempty"`
 }
 
-// CashMovementCategory The 8 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
+// CashMovementCategory The 19 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
 type CashMovementCategory string
 
 // CashMovementKind defines model for CashMovement.Kind.
@@ -3127,7 +3193,7 @@ type CashMovementsCreateJSONBody struct {
 	// Amount Centavos ARS.
 	Amount int `json:"amount"`
 
-	// Category other_income for income; one of the rest for expense.
+	// Category The first 7 values for income; the rest for expense.
 	Category CashMovementsCreateJSONBodyCategory `json:"category"`
 	Kind     CashMovementsCreateJSONBodyKind     `json:"kind"`
 	Method   CashMovementsCreateJSONBodyMethod   `json:"method"`

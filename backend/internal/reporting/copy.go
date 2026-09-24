@@ -109,38 +109,43 @@ func paymentStatusLabel(status string) string {
 	}
 }
 
-// cashCategoryLabel names a cash_movements category for the "Caja" section —
-// the same ten values db/migrations/004_pos_catalog_stock.sql's
-// cash_movements_category_check accepts: 'sale' and 'other_income' (income),
-// and 'supplies' through 'restock' (expense). The Go list here is the one
-// place these labels live; the frontend has its own copy for the cashbox
-// screens (src/shared/i18n/es_AR.ts) because this package cannot be imported
-// from TypeScript.
+// cashCategoryLabels names every cash_movements category for the "Caja"
+// section — the same 21 values
+// db/migrations/008_cash_movement_categories.sql's
+// cash_movements_category_check accepts: 'sale' plus the 7 income categories
+// (income), and 'restock' plus the 12 expense categories (expense). The map
+// here is the one place these labels live; the frontend has its own copy for
+// the cashbox screens (src/shared/i18n/es_AR/cash.ts) because this package
+// cannot be imported from TypeScript.
+var cashCategoryLabels = map[string]string{
+	"sale":              "Ventas",
+	"other_income":      "Otros ingresos",
+	"classes":           "Clases",
+	"tournaments":       "Torneos",
+	"events":            "Eventos",
+	"memberships":       "Cuotas y abonos",
+	"sponsorship":       "Publicidad y sponsors",
+	"cash_contribution": "Aporte / cambio",
+	"supplies":          "Insumos",
+	"salaries":          "Sueldos",
+	"services":          "Servicios",
+	"maintenance":       "Mantenimiento",
+	"cleaning":          "Limpieza",
+	"withdrawal":        "Retiro",
+	"other_expense":     "Otros egresos",
+	"restock":           "Reposición",
+	"rent":              "Alquiler del local",
+	"taxes":             "Impuestos",
+	"professional_fees": "Honorarios",
+	"marketing":         "Marketing",
+	"bank_fees":         "Comisiones bancarias",
+}
+
 func cashCategoryLabel(category string) string {
-	switch category {
-	case "sale":
-		return "Ventas"
-	case "other_income":
-		return "Otros ingresos"
-	case "supplies":
-		return "Insumos"
-	case "salaries":
-		return "Sueldos"
-	case "services":
-		return "Servicios"
-	case "maintenance":
-		return "Mantenimiento"
-	case "cleaning":
-		return "Limpieza"
-	case "withdrawal":
-		return "Retiro"
-	case "other_expense":
-		return "Otros egresos"
-	case "restock":
-		return "Reposición"
-	default:
-		return category
+	if label, ok := cashCategoryLabels[category]; ok {
+		return label
 	}
+	return category
 }
 
 func bookingStatusLabel(status string) string {

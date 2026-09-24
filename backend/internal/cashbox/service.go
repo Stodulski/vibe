@@ -15,13 +15,20 @@ import (
 
 // IncomeCategories and ExpenseCategories are the category values valid for a
 // non-void movement of each kind — mirrors
-// cash_movements_category_kind_consistent (db/migrations/003_cashbox.sql). A
-// void reuses the ORIGINAL's category under the opposite kind (see
-// VoidMovement), so these lists apply only to an ordinary write; the handler
-// never asks a void request for a category.
+// cash_movements_category_kind_consistent (db/migrations/003_cashbox.sql,
+// widened by db/migrations/008_cash_movement_categories.sql). A void reuses
+// the ORIGINAL's category under the opposite kind (see VoidMovement), so
+// these lists apply only to an ordinary write; the handler never asks a void
+// request for a category. 'sale' and 'restock' are system-only
+// (db/migrations/004_pos_catalog_stock.sql) and never appear here.
 var (
-	IncomeCategories  = []string{"other_income"}
-	ExpenseCategories = []string{"supplies", "salaries", "services", "maintenance", "cleaning", "withdrawal", "other_expense"}
+	IncomeCategories = []string{
+		"other_income", "classes", "tournaments", "events", "memberships", "sponsorship", "cash_contribution",
+	}
+	ExpenseCategories = []string{
+		"supplies", "salaries", "services", "maintenance", "cleaning", "withdrawal", "other_expense",
+		"rent", "taxes", "professional_fees", "marketing", "bank_fees",
+	}
 )
 
 // Service holds this module's rules: what a session may be, what a movement
