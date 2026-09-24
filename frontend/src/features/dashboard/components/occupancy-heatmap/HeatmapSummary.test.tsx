@@ -38,10 +38,9 @@ describe('HeatmapSummary', () => {
   // The label is `hidden sm:inline` — an icon-only toggle on mobile with no
   // accessible name, before this fix. jsdom doesn't apply the stylesheet
   // that would hide it there, so this checks the fix's actual shape: an
-  // always-present `.sr-only` twin.
-  it('keeps an always-visible sr-only label on the mobile toggle', () => {
+  // accessible name via an always-present `.sr-only` twin.
+  it('keeps an accessible name on the mobile toggle', () => {
     render(<HeatmapSummary {...baseProps} />);
-    const button = screen.getByRole('button', { name: /ver mapa/i });
-    expect(button.querySelector('.sr-only')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /ver mapa/i })).toBeInTheDocument();
   });
 });

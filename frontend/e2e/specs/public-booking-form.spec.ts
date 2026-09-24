@@ -42,8 +42,8 @@ test.describe('Public Booking Form Submission', () => {
     await publicPage.goto(SLUG);
     await availabilityPromise;
 
-    // Date buttons are inside the scrollable container with class "scrollbar-none"
-    const dateBtns = page.locator('.scrollbar-none button:not([disabled])');
+    // Date buttons are the enabled radios in the "Fecha" radiogroup.
+    const dateBtns = page.getByRole('radiogroup', { name: 'Fecha' }).getByRole('radio').and(page.locator(':enabled'));
     const slotFound = await findAndClickAvailableSlot(dateBtns);
     test.skip(!slotFound, 'No available slots found');
 

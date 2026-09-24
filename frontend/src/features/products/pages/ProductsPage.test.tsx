@@ -50,7 +50,7 @@ describe('ProductsPage', () => {
     renderPage();
 
     expect(screen.getByRole('link', { name: 'Turno' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Productos' })).toHaveClass('border-primary-500');
+    expect(screen.getByRole('link', { name: 'Productos' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Agua mineral')).toBeInTheDocument();
   });
 

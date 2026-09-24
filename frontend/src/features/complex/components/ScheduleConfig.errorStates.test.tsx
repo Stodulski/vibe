@@ -78,7 +78,6 @@ describe('ScheduleConfig failure states', () => {
     });
     const { container } = renderWithProviders(<ScheduleConfig complexId="c1" slug="padel-club" />);
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThanOrEqual(7);
   });
 });

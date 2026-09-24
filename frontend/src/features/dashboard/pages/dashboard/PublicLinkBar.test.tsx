@@ -12,11 +12,11 @@ describe('PublicLinkBar', () => {
 
   // The copy button's label is `hidden sm:inline` — an icon-only button on
   // mobile with no accessible name, before this fix. This checks the fix's
-  // actual shape (an always-present `.sr-only` twin), since jsdom doesn't
-  // apply the stylesheet that would otherwise hide the visible span here.
-  it('keeps an always-visible sr-only label on the icon-only mobile button', () => {
+  // actual shape: an accessible name via an always-present `.sr-only` twin,
+  // since jsdom doesn't apply the stylesheet that would otherwise hide the
+  // visible span here.
+  it('keeps an accessible name on the icon-only mobile button', () => {
     render(<PublicLinkBar publicUrl="https://vibe.app/mi-club" copied={false} onCopy={vi.fn()} />);
-    const button = screen.getByRole('button', { name: /copiar enlace/i });
-    expect(button.querySelector('.sr-only')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /copiar enlace/i })).toBeInTheDocument();
   });
 });

@@ -72,7 +72,7 @@ test.describe('Public Booking Flow', () => {
     // confirm/pay flow. Assert what the storefront actually shows instead:
     // the date selector, and (once duration is answered) either real
     // availability or its explicit "no slots" message (never nothing).
-    await expect(page.locator('.scrollbar-none').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('radiogroup', { name: 'Fecha' })).toBeVisible({ timeout: 30_000 });
     await answerDurationQuestion(page);
     await expect(page.locator('[data-slot-time]').first().or(page.getByText(NO_AVAILABILITY_COPY))).toBeVisible({
       timeout: 10_000,
@@ -88,8 +88,8 @@ test.describe('Public Booking Flow', () => {
 
     // Date buttons are inside a scrollable container after the "Selecciona una fecha" heading.
     // Each button has the day number as text. Click the 2nd button (tomorrow).
-    // Date buttons are inside the scrollable container with class "scrollbar-none"
-    const dateBtns = page.locator('.scrollbar-none button:not([disabled])');
+    // Date buttons are the enabled radios in the "Fecha" radiogroup.
+    const dateBtns = page.getByRole('radiogroup', { name: 'Fecha' }).getByRole('radio').and(page.locator(':enabled'));
     const btnCount = await dateBtns.count();
     if (btnCount > 1) {
       await dateBtns.nth(1).click();
@@ -109,9 +109,8 @@ test.describe('Public Booking Flow', () => {
     await publicPage.goto(SLUG);
     await answerDurationQuestion(page);
 
-    // Date buttons: scrollable container siblings of the heading
-    // Date buttons are inside the scrollable container with class "scrollbar-none"
-    const dateBtns = page.locator('.scrollbar-none button:not([disabled])');
+    // Date buttons are the enabled radios in the "Fecha" radiogroup.
+    const dateBtns = page.getByRole('radiogroup', { name: 'Fecha' }).getByRole('radio').and(page.locator(':enabled'));
     const slotFound = await findAndClickAvailableSlot(dateBtns);
     test.skip(!slotFound, 'No available slots found in the next 7 days');
 
