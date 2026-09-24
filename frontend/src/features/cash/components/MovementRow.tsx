@@ -31,9 +31,9 @@ export function MovementRow({ movement, movements, onVoid }: MovementRowProps) {
     <div className="border-border-subtle flex items-start justify-between gap-3 border-b py-3 last:border-b-0">
       <div className="min-w-0 space-y-0.5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant={isIncome ? 'default' : 'secondary'} className="text-micro">
+          <span className={cn('text-xs font-semibold', isIncome ? 'text-success-text' : 'text-error-text')}>
             {t.cash.kinds[movement.kind]}
-          </Badge>
+          </span>
           <span className="text-text-primary text-sm font-medium">{t.cash.categories[movement.category]}</span>
           {isVoided && <Badge variant="outline">{t.cash.voidedBadge}</Badge>}
         </div>
