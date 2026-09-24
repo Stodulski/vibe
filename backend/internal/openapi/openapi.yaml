@@ -4611,7 +4611,10 @@ components:
         kind: {type: string, enum: [income, expense]}
         category:
           type: string
-          enum: [other_income, supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense]
+          enum: [other_income, supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense, sale, restock]
+          description: >-
+            The 8 manual categories, plus the system categories `sale` and `restock` written by
+            the sales and restock flows. Never accepted on manual movement creation.
         method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
         amount: {type: integer, description: "Centavos ARS."}
         note: {type: [string, "null"]}

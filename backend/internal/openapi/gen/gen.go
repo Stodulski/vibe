@@ -184,7 +184,9 @@ const (
 	CashMovementCategoryMaintenance  CashMovementCategory = "maintenance"
 	CashMovementCategoryOtherExpense CashMovementCategory = "other_expense"
 	CashMovementCategoryOtherIncome  CashMovementCategory = "other_income"
+	CashMovementCategoryRestock      CashMovementCategory = "restock"
 	CashMovementCategorySalaries     CashMovementCategory = "salaries"
+	CashMovementCategorySale         CashMovementCategory = "sale"
 	CashMovementCategoryServices     CashMovementCategory = "services"
 	CashMovementCategorySupplies     CashMovementCategory = "supplies"
 	CashMovementCategoryWithdrawal   CashMovementCategory = "withdrawal"
@@ -201,7 +203,11 @@ func (e CashMovementCategory) Valid() bool {
 		return true
 	case CashMovementCategoryOtherIncome:
 		return true
+	case CashMovementCategoryRestock:
+		return true
 	case CashMovementCategorySalaries:
+		return true
+	case CashMovementCategorySale:
 		return true
 	case CashMovementCategoryServices:
 		return true
@@ -1754,7 +1760,9 @@ type CashManualRefundTotalMethod string
 // CashMovement defines model for CashMovement.
 type CashMovement struct {
 	// Amount Centavos ARS.
-	Amount    int                  `json:"amount"`
+	Amount int `json:"amount"`
+
+	// Category The 8 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
 	Category  CashMovementCategory `json:"category"`
 	ComplexId openapi_types.UUID   `json:"complex_id"`
 	CreatedAt time.Time            `json:"created_at"`
@@ -1769,7 +1777,7 @@ type CashMovement struct {
 	VoidsMovementId *openapi_types.UUID `json:"voids_movement_id,omitempty"`
 }
 
-// CashMovementCategory defines model for CashMovement.Category.
+// CashMovementCategory The 8 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
 type CashMovementCategory string
 
 // CashMovementKind defines model for CashMovement.Kind.

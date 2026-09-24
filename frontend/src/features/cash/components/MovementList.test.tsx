@@ -60,6 +60,26 @@ describe('MovementList', () => {
   });
 });
 
+// System categories (pos-cashbox products/sales delivery): the backend
+// writes these on POS sales/restocks, never through the manual movement
+// form. A session with one POS sale used to fail to render at all because
+// the schema didn't know these values (see cash.schema.test.ts).
+describe('MovementList — system categories (sale, restock)', () => {
+  it('renders a sale income with the Venta label and no Anular action (backend refuses a manual void with 409)', () => {
+    const movements = [makeCashMovement({ id: 's1', kind: 'income', category: 'sale' })];
+    render(<MovementList movements={movements} onVoid={vi.fn()} />);
+    expect(screen.getByText('Venta')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
+  });
+
+  it('renders a restock expense with the Reposición label and offers Anular (the backend allows a manual void)', () => {
+    const movements = [makeCashMovement({ id: 'r1', kind: 'expense', category: 'restock' })];
+    render(<MovementList movements={movements} onVoid={vi.fn()} />);
+    expect(screen.getByText('Reposición')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Anular' })).toBeInTheDocument();
+  });
+});
+
 describe('MovementRow — void eligibility in isolation', () => {
   it('never offers Anular on a row that is itself a void, even without its original present', () => {
     const voidRow = makeCashMovement({ id: 'm2', voids_movement_id: 'm1' });

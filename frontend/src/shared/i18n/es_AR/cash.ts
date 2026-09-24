@@ -61,6 +61,10 @@ export const cash = {
     cleaning: 'Limpieza',
     withdrawal: 'Retiro',
     other_expense: 'Otros egresos',
+    // System categories: written by the sales and restock flows, never
+    // offered on the manual movement form.
+    sale: 'Venta',
+    restock: 'Reposición',
   },
   kinds: {
     income: 'Ingreso',

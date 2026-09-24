@@ -1996,8 +1996,11 @@ export interface components {
             session_id: string;
             /** @enum {string} */
             kind: "income" | "expense";
-            /** @enum {string} */
-            category: "other_income" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense";
+            /**
+             * @description The 8 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
+             * @enum {string}
+             */
+            category: "other_income" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense" | "sale" | "restock";
             /** @enum {string} */
             method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
             /** @description Centavos ARS. */

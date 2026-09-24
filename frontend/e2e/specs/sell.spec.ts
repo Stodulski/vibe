@@ -60,6 +60,22 @@ async function sellThreeUnits(page: Page, name: string) {
   await expect(confirmDialog).toBeHidden({ timeout: 5_000 });
 }
 
+/**
+ * Regression guard for the products/sales delivery breaking Turno: the
+ * backend writes a `sale` cash movement that the frontend's schema/types
+ * used to reject entirely (a `CashMovement.category` enum missing `sale`
+ * and `restock`), so the open session's own detail request failed to parse
+ * and the whole Turno tab showed "No pudimos cargar la caja" instead of the
+ * cash card — even though the sale itself had gone through.
+ */
+async function assertCashPageRendersSale(page: Page) {
+  await page.goto('/cash');
+  await expect(page.getByRole('heading', { name: 'Caja', exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('No pudimos cargar la caja')).toHaveCount(0);
+  await expect(page.getByText('Efectivo esperado')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Venta').first()).toBeVisible({ timeout: 5_000 });
+}
+
 async function voidTheSale(page: Page, name: string) {
   const salesList = page.getByTestId('sell-sales-list');
   const row = salesList
@@ -108,6 +124,8 @@ test.describe('Sell (POS)', () => {
     product = await createProductWithOneUnit(api, complexId, name);
 
     await sellThreeUnits(page, name);
+    await assertCashPageRendersSale(page);
+    await page.goto('/cash/sell');
     await voidTheSale(page, name);
   });
 });
