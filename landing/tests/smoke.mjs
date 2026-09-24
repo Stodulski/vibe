@@ -262,7 +262,7 @@ async function testImages() {
   await p.waitForTimeout(1500);
   const imgs = await p.evaluate(() => [...document.querySelectorAll('img')].map(i => ({
     src: i.currentSrc || i.src, ok: i.complete && i.naturalWidth > 0,
-    lazy: i.loading === 'lazy', alt: i.alt, clone: !!i.closest('.ft-block[aria-hidden="true"]'),
+    lazy: i.loading === 'lazy', alt: i.alt, clone: !!i.closest('[data-clone]'),
   })));
   const broken = imgs.filter(i => !i.ok && !i.lazy);
   check('ninguna imagen ansiosa está rota', broken.length === 0, broken.map(i => i.src).join(', ').slice(0, 80));
