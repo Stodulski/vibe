@@ -15,9 +15,7 @@ function Harness({ onChange }: { onChange: (v: number | undefined) => void }) {
     },
   });
 
-  return (
-    <input aria-label="Monto" ref={inputRef} value={displayValue} onChange={handleChange} onBlur={handleBlur} />
-  );
+  return <input aria-label="Monto" ref={inputRef} value={displayValue} onChange={handleChange} onBlur={handleBlur} />;
 }
 
 function renderHarness(onChange = vi.fn()) {
@@ -137,7 +135,6 @@ describe('useMoneyInput — a decimal comma is never silently dropped', () => {
     expect(input).toHaveValue('1.500,50');
     expect(onChange).toHaveBeenLastCalledWith(1500.5);
   });
-
 });
 
 describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collapsed mid-typing either', () => {
@@ -223,7 +220,6 @@ describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collaps
     expect(input).toHaveValue('1.500,007');
     expect(onChange).toHaveBeenLastCalledWith(1500.007);
   });
-
 });
 
 describe('useMoneyInput — a lone trailing comma ("pending") is never collapsed mid-typing', () => {
