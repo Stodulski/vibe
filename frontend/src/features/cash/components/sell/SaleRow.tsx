@@ -16,7 +16,10 @@ export function SaleRow({ sale, onVoid }: SaleRowProps) {
   const isVoided = !!sale.voided_at;
 
   return (
-    <div className="border-border-subtle flex items-start justify-between gap-3 border-b py-3 last:border-b-0">
+    <div
+      data-testid="sale-row"
+      className="border-border-subtle flex items-start justify-between gap-3 border-b py-3 last:border-b-0"
+    >
       <div className="min-w-0 space-y-0.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-text-tertiary text-xs">{formatVenueDayTime(sale.created_at)}</span>

@@ -78,13 +78,9 @@ async function assertCashPageRendersSale(page: Page) {
 
 async function voidTheSale(page: Page, name: string) {
   const salesList = page.getByTestId('sell-sales-list');
-  // The innermost element holding both this sale's item line and a void
-  // button is its row — independent of how deep the item line sits.
-  const row = salesList
-    .locator('div')
-    .filter({ has: page.getByText(new RegExp(`3× ${name}`)) })
-    .filter({ has: page.getByRole('button', { name: 'Anular' }) })
-    .last();
+  // The row is found by its content, not by DOM depth or by its void
+  // button (which disappears once the sale is voided).
+  const row = salesList.getByTestId('sale-row').filter({ has: page.getByText(new RegExp(`3× ${name}`)) });
   await expect(row).toBeVisible({ timeout: 5_000 });
 
   await row.getByRole('button', { name: 'Anular' }).click();
