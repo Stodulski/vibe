@@ -4,6 +4,7 @@ import { formatPrice, cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { ProductBadges } from './ProductBadges';
 import { ProductActionsMenuFor } from './ProductActionsMenuFor';
+import { StockOnHand } from './StockOnHand';
 import type { Product } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -71,7 +72,7 @@ export const ProductCard = memo(function ProductCard({
         <div className="text-right">
           <Figure label={t.products.stockLabel}>
             <span className="score-text text-text-primary text-sm font-semibold">
-              {product.tracks_stock ? product.stock_on_hand : t.products.noStockControl}
+              <StockOnHand tracksStock={product.tracks_stock} stockOnHand={product.stock_on_hand} />
             </span>
           </Figure>
         </div>

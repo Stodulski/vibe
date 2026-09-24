@@ -3,6 +3,7 @@ import { formatPrice } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { ProductBadges } from './ProductBadges';
 import { ProductActionsMenu } from './ProductActionsMenu';
+import { StockOnHand } from './StockOnHand';
 import type { Product } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -46,7 +47,7 @@ export function ProductDetailHeader({
         <div>
           <p className="text-micro text-text-tertiary font-medium tracking-wider uppercase">{t.products.stockLabel}</p>
           <p className="score-text text-text-primary mt-1 text-lg font-bold">
-            {product.tracks_stock ? product.stock_on_hand : t.products.noStockControl}
+            <StockOnHand tracksStock={product.tracks_stock} stockOnHand={product.stock_on_hand} />
           </p>
         </div>
       </div>
