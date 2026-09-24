@@ -50,4 +50,16 @@ describe('MoneyPesosField — formats as you type', () => {
     render(<MoneyPesosField id="amount" label="Monto" value={1500} onChange={vi.fn()} />);
     expect(screen.getByLabelText('Monto')).toHaveValue('1.500');
   });
+
+  it('typing a decimal comma reports the real fraction, never a silently inflated integer', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ControlledHarness onChange={onChange} />);
+
+    await user.type(screen.getByLabelText('Monto'), '1500,50');
+
+    expect(screen.getByLabelText('Monto')).toHaveValue('1.500,50');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+    expect(onChange).not.toHaveBeenCalledWith(150050);
+  });
 });

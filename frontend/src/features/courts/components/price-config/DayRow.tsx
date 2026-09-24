@@ -147,7 +147,7 @@ function BaseRow({
 }: DayRowProps & { bandCount: number; expanded: boolean; onToggle: () => void; panelId: string }) {
   const price = useWatch({ control, name: dayPriceField(day) });
   const dayError = errors[day]?.price;
-  const { displayValue, inputRef, handleChange } = useMoneyInput({
+  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
     value: Number.isNaN(price) ? undefined : price,
     onChange: (v) => {
       setValue(dayPriceField(day), v ?? Number.NaN, { shouldValidate: true });
@@ -164,6 +164,7 @@ function BaseRow({
           ref={inputRef}
           value={displayValue}
           onChange={handleChange}
+          onBlur={handleBlur}
         />
         {price > 0 && <ApplyToAllButton onClick={applyToAll(day, getValues, setValue)} />}
         <DisclosureButton dayLabel={label} expanded={expanded} count={bandCount} panelId={panelId} onClick={onToggle} />

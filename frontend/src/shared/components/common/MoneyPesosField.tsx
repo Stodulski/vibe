@@ -44,15 +44,18 @@ interface MoneyPesosFieldProps {
  * `step` in floating point, and `0.01` (tried first, to allow centavos)
  * cannot be represented exactly in IEEE754 — an ordinary value like `1500.5`
  * failed that check as a false "step mismatch". A `type="text"` input has no
- * step at all, and `useMoneyInput`'s own digit-only parsing makes a decimal
- * amount unreachable by typing or pasting in the first place — whole pesos
- * only, same convention as `DepositAmountInput`/`ManualPriceField`. Every
- * form using this field still sets `noValidate` for the same reason as
+ * step at all; a typed/pasted decimal comma ("1500,50") is instead caught by
+ * `useMoneyInput` itself, which shows it back exactly as typed and reports
+ * the real fractional number so this field's own Zod schema — whole pesos
+ * only, same convention as `DepositAmountInput`/`ManualPriceField` — rejects
+ * it with a visible message, never by silently rounding or (the bug
+ * `useMoneyInput`'s own doc comment covers) multiplying the amount away.
+ * Every form using this field still sets `noValidate` for the same reason as
  * always: the caller's own Zod schema is what reports a validation problem,
  * never a browser-native block before React runs.
  */
 export function MoneyPesosField({ id, label, value, onChange, error, placeholder }: MoneyPesosFieldProps) {
-  const { displayValue, inputRef, handleChange } = useMoneyInput({ value, onChange });
+  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({ value, onChange });
 
   return (
     <FormField label={label} htmlFor={id} error={error}>
@@ -68,6 +71,7 @@ export function MoneyPesosField({ id, label, value, onChange, error, placeholder
           value={displayValue}
           placeholder={placeholder}
           onChange={handleChange}
+          onBlur={handleBlur}
         />
       </div>
     </FormField>

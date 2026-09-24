@@ -7,7 +7,7 @@ import { useMoneyInput } from './useMoneyInput';
 /** A minimal controlled host, the same `value`/`onChange` shape every money field uses. */
 function Harness({ onChange }: { onChange: (v: number | undefined) => void }) {
   const [value, setValue] = useState<number | undefined>(undefined);
-  const { displayValue, inputRef, handleChange } = useMoneyInput({
+  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
     value,
     onChange: (v) => {
       setValue(v);
@@ -15,7 +15,9 @@ function Harness({ onChange }: { onChange: (v: number | undefined) => void }) {
     },
   });
 
-  return <input aria-label="Monto" ref={inputRef} value={displayValue} onChange={handleChange} />;
+  return (
+    <input aria-label="Monto" ref={inputRef} value={displayValue} onChange={handleChange} onBlur={handleBlur} />
+  );
 }
 
 function renderHarness(onChange = vi.fn()) {
@@ -69,17 +71,6 @@ describe('useMoneyInput — formatting as you type', () => {
     expect(onChange).toHaveBeenLastCalledWith(1500);
   });
 
-  it('drops a pasted decimal comma instead of inflating the amount', async () => {
-    const user = userEvent.setup();
-    const { input, onChange } = renderHarness();
-
-    await user.click(input);
-    await user.paste('1.500,50');
-
-    expect(input).toHaveValue('1.500');
-    expect(onChange).toHaveBeenLastCalledWith(1500);
-  });
-
   it('caps the amount at the max digit length instead of growing without bound', async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();
@@ -110,5 +101,100 @@ describe('useMoneyInput — formatting as you type', () => {
     // count before the caret (2: "1" and "9") landed after the same two
     // digits in the reformatted string.
     expect(input.selectionStart).toBe(3);
+  });
+});
+
+describe('useMoneyInput — a decimal comma is never silently dropped', () => {
+  // Regression coverage for a real bug: typing "1.500,50" one keystroke at a
+  // time used to reformat away the comma the instant it landed, so the
+  // following "5" and "0" silently read as two more thousands digits of the
+  // INTEGER part — "1.500,50" ended up 150050 pesos, a 100x amount, with no
+  // error anywhere. `analyzeMoneyInput`'s 'invalid' case is what this whole
+  // describe block is pinning down.
+
+  it('typing a decimal comma one keystroke at a time never inflates the amount', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,50');
+
+    // The integer part was already grouped ("1.500") by the time the comma
+    // landed — that grouping is harmless and stays. What matters is what
+    // does NOT happen: it is not reformatted into "1.500" alone (losing the
+    // ",50"), and it is NOT the corrupted "150.050" the original bug produced.
+    expect(input).toHaveValue('1.500,50');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+    expect(onChange).not.toHaveBeenCalledWith(150050);
+  });
+
+  it('pasting a real decimal amount is shown verbatim and reported as a fraction, never rounded away', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.click(input);
+    await user.paste('1.500,50');
+
+    expect(input).toHaveValue('1.500,50');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+  });
+
+  it('pasting an explicit ",00" (no centavos) is harmless and collapses immediately', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.click(input);
+    await user.paste('$ 1.500,00');
+
+    expect(input).toHaveValue('1.500');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+  });
+
+  it('a lone trailing comma is left visible while typing, and reports the integer part', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,');
+
+    // The comma itself is NOT dropped — the integer part was already grouped
+    // ("1.500") before it landed, but the trailing "," stays visible: see
+    // this hook's own doc comment for why collapsing it away now is exactly
+    // the bug above, one keystroke earlier.
+    expect(input).toHaveValue('1.500,');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+  });
+
+  it('a digit typed right after a trailing comma is read as a decimal, never appended to the integer part', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,');
+    await user.type(input, '5');
+
+    expect(input).toHaveValue('1.500,5');
+    expect(onChange).toHaveBeenLastCalledWith(1500.5);
+    expect(onChange).not.toHaveBeenCalledWith(15005);
+  });
+
+  it('a pending trailing comma resolves to the grouped integer on blur', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,');
+    expect(input).toHaveValue('1.500,');
+
+    await user.tab();
+
+    expect(input).toHaveValue('1.500');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+  });
+
+  it('leaves an invalid fractional amount visible on blur, so its error stays visible', async () => {
+    const user = userEvent.setup();
+    const { input } = renderHarness();
+
+    await user.type(input, '1500,5');
+    await user.tab();
+
+    expect(input).toHaveValue('1.500,5');
   });
 });

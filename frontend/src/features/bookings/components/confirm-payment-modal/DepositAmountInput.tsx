@@ -42,7 +42,7 @@ export function DepositAmountInput({
 }) {
   const maxPesos = booking ? booking.price / 100 : Infinity;
   const [pesos, setPesos] = useState<number | undefined>(undefined);
-  const { displayValue, inputRef, handleChange } = useMoneyInput({
+  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
     value: pesos,
     onChange: (v) => {
       setPesos(v);
@@ -72,6 +72,7 @@ export function DepositAmountInput({
           ref={inputRef}
           value={displayValue}
           onChange={handleChange}
+          onBlur={handleBlur}
           placeholder={t.placeholders.depositAmount}
         />
       </div>
