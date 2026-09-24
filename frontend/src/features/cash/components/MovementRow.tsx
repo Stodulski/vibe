@@ -35,7 +35,6 @@ export function MovementRow({ movement, movements, onVoid }: MovementRowProps) {
             {t.cash.kinds[movement.kind]}
           </Badge>
           <span className="text-text-primary text-sm font-medium">{t.cash.categories[movement.category]}</span>
-          <span className="text-text-tertiary text-xs">· {t.bookings.paymentMethods[movement.method]}</span>
           {isVoided && <Badge variant="outline">{t.cash.voidedBadge}</Badge>}
         </div>
         <p className="text-text-tertiary text-xs">
@@ -46,7 +45,10 @@ export function MovementRow({ movement, movements, onVoid }: MovementRowProps) {
         {movement.note && <p className="text-text-tertiary text-xs italic">{movement.note}</p>}
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className="text-text-tertiary text-xs whitespace-nowrap">
+          {t.bookings.paymentMethods[movement.method]}
+        </span>
         <span
           className={cn('text-sm font-semibold whitespace-nowrap', isIncome ? 'text-success-text' : 'text-error-text')}
         >
