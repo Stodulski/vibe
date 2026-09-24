@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 
@@ -98,7 +98,7 @@ export function SectionFooter({
               {cancelLabel ?? t.common.cancel}
             </Button>
           )}
-          <Button
+          <LoadingButton
             type={onSubmit ? 'button' : 'submit'}
             variant={submitVariant}
             size={submitSize}
@@ -108,14 +108,15 @@ export function SectionFooter({
             // `pending` whenever it is `false` and never look at
             // `submitDisabled` at all. Both are `boolean | undefined`;
             // coercing them first says the same thing without the ambiguity.
-            disabled={!!pending || !!submitDisabled}
+            disabled={!!submitDisabled}
+            loading={!!pending}
             // `w-full` would eat the whole row and push a trailing action off
             // the end of it — which is exactly what happened to the overflow
             // menu. With one present the submit takes what is left instead.
             className={cn(extra ? 'flex-1 sm:w-auto sm:flex-none' : 'w-full sm:w-auto')}
           >
-            {pending ? <Loader2 className="size-4 animate-spin" /> : submitLabel}
-          </Button>
+            {submitLabel}
+          </LoadingButton>
         </>
       )}
     </div>
@@ -153,8 +154,14 @@ export function SectionFooterSubmit({
   ...props
 }: SectionFooterSubmitProps) {
   return (
-    <Button type={type} disabled={!!pending || !!disabled} className={cn('w-full sm:w-auto', className)} {...props}>
-      {pending ? <Loader2 className="size-4 animate-spin" /> : children}
-    </Button>
+    <LoadingButton
+      type={type}
+      disabled={!!disabled}
+      loading={!!pending}
+      className={cn('w-full sm:w-auto', className)}
+      {...props}
+    >
+      {children}
+    </LoadingButton>
   );
 }

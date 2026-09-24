@@ -1,5 +1,5 @@
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -23,22 +23,15 @@ export function RegisterFormFooter({ isPending, submitDisabled = isPending, onBa
       >
         {t.common.back}
       </Button>
-      <Button
+      <LoadingButton
         type="submit"
         className="h-11 flex-1 rounded-full font-semibold transition-colors hover:brightness-110"
         disabled={submitDisabled}
+        loading={isPending}
+        loadingText={t.auth.creatingAccount}
       >
-        {isPending ? (
-          <>
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            <span className="sr-only" aria-live="polite">
-              {t.auth.creatingAccount}
-            </span>
-          </>
-        ) : (
-          t.auth.register
-        )}
-      </Button>
+        {t.auth.register}
+      </LoadingButton>
     </div>
   );
 }

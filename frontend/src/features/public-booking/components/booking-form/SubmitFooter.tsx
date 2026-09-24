@@ -1,5 +1,5 @@
-import { Loader2, Lock } from 'lucide-react';
-import { Button } from '@/shared/components/ui/button';
+import { Lock } from 'lucide-react';
+import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice } from '@/shared/lib/utils';
 
@@ -28,25 +28,16 @@ export function SubmitFooter({ isLoading, totalOnline, type, onClick }: SubmitFo
         <span className="text-text-secondary">{t.publicBooking.totalOnline}</span>
         <span className="text-text-primary font-semibold tabular-nums">{formatPrice(totalOnline)}</span>
       </div>
-      <Button
+      <LoadingButton
         type={type}
         className="shadow-brand h-14 w-full rounded-xl text-base font-semibold"
-        disabled={isLoading}
-        aria-busy={isLoading}
+        loading={isLoading}
+        loadingText={t.publicBooking.generatingPaymentLink}
         onClick={onClick}
       >
-        {isLoading ? (
-          <>
-            <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-            <span className="sr-only">{t.publicBooking.generatingPaymentLink}</span>
-          </>
-        ) : (
-          <>
-            <Lock className="size-4 shrink-0" aria-hidden="true" />
-            {t.publicBooking.paySecurely}
-          </>
-        )}
-      </Button>
+        <Lock className="size-4 shrink-0" aria-hidden="true" />
+        {t.publicBooking.paySecurely}
+      </LoadingButton>
     </div>
   );
 }

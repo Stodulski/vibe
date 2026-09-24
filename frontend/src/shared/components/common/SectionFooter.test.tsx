@@ -18,11 +18,14 @@ describe('SectionFooter', () => {
       expect(onSubmit).toHaveBeenCalledTimes(1);
     });
 
-    it('shows a spinner and disables the submit button while pending', () => {
+    it('shows a spinner and disables the submit button while pending, keeping its label and width', () => {
       render(<SectionFooter submitLabel="Guardar" pending />);
-      const submitButton = screen.getByRole('button');
+      // Still reachable by its accessible name: the label stays in the DOM
+      // (visually hidden) so the button does not shrink to the spinner.
+      const submitButton = screen.getByRole('button', { name: 'Guardar' });
       expect(submitButton).toBeDisabled();
-      expect(screen.queryByText('Guardar')).not.toBeInTheDocument();
+      expect(submitButton).toHaveAttribute('aria-busy', 'true');
+      expect(submitButton.querySelector('svg.animate-spin')).toBeInTheDocument();
     });
   });
 
@@ -45,16 +48,17 @@ describe('SectionFooter', () => {
       expect(onSubmit).toHaveBeenCalledTimes(1);
     });
 
-    it('SectionFooterSubmit shows a spinner and disables itself when pending', () => {
+    it('SectionFooterSubmit shows a spinner and disables itself when pending, keeping its label and width', () => {
       render(
         <SectionFooter>
           <SectionFooterSubmit pending>Confirmar</SectionFooterSubmit>
         </SectionFooter>,
       );
 
-      const submitButton = screen.getByRole('button');
+      const submitButton = screen.getByRole('button', { name: 'Confirmar' });
       expect(submitButton).toBeDisabled();
-      expect(screen.queryByText('Confirmar')).not.toBeInTheDocument();
+      expect(submitButton).toHaveAttribute('aria-busy', 'true');
+      expect(submitButton.querySelector('svg.animate-spin')).toBeInTheDocument();
     });
   });
 });
