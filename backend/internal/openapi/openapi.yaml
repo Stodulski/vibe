@@ -639,15 +639,20 @@ paths:
         constant time), a wrong content type, an oversized body, a missing or rejected
         credential all redirect to `<FRONTEND_URL>/login?error=google_rejected`; Google not
         being configured and any internal failure redirect to
-        `<FRONTEND_URL>/login?error=google_unavailable`. The reason is logged and never shown.
-        `501` is the one exception: with no `FRONTEND_URL` there is nowhere to redirect to.
+        `<FRONTEND_URL>/login?error=google_unavailable`. Rate limiting redirects to
+        `<FRONTEND_URL>/login?error=google_rate_limited` rather than answering `429` — the
+        middleware knows this route's contract and redirects before the handler is even
+        reached. The reason is logged and never shown. `501` is the one exception: with no
+        `FRONTEND_URL` there is nowhere to redirect to, and a rate-limited request in that same
+        misconfigured state falls back to an ordinary `429` for lack of an address to send it to.
       responses:
         "303":
           description: >-
-            Always, on success and on every failure alike. `Location` is
-            `<FRONTEND_URL>/auth/google/return?code=<code>` on success, and
+            Always, on success and on every ordinary failure alike, including a rate-limited
+            request. `Location` is `<FRONTEND_URL>/auth/google/return?code=<code>` on success,
             `<FRONTEND_URL>/login?error=google_rejected` or
-            `<FRONTEND_URL>/login?error=google_unavailable` otherwise.
+            `<FRONTEND_URL>/login?error=google_unavailable` on an ordinary failure, and
+            `<FRONTEND_URL>/login?error=google_rate_limited` when refused by the rate limiter.
           headers:
             Location:
               description: Where the browser continues. Never carries a session or a profile token.
@@ -655,7 +660,16 @@ paths:
             Cache-Control:
               description: Always `no-store` — the location carries a one-time code.
               schema: {type: string}
-        "429": {$ref: "#/components/responses/RateLimited"}
+        "429":
+          description: >-
+            Rate limited while `FRONTEND_URL` is not configured — the one case where this route
+            cannot redirect and falls back to the ordinary problem document.
+          headers:
+            Retry-After:
+              schema: {type: integer}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "501":
           description: >-
             `FRONTEND_URL` is not configured, so there is no address to redirect to. The only

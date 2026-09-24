@@ -281,7 +281,7 @@ export interface paths {
          *
          *     The code is bound to the browser it was issued to: the SHA-256 of the validated `g_csrf_token` is stored beside the verified claims, and the exchange has to present the same value — read back off the cookie Google set on the app's origin — or it establishes nothing. Without that binding the code would be an unbound bearer, and anybody holding a valid Google ID token could mint one and send a victim the return URL, whose browser would spend it and be signed in as the attacker.
          *
-         *     Every failure is a `303` as well, because the response is a page a person sees rather than JSON a client reads. A CSRF cookie/field that is missing or unequal (compared in constant time), a wrong content type, an oversized body, a missing or rejected credential all redirect to `<FRONTEND_URL>/login?error=google_rejected`; Google not being configured and any internal failure redirect to `<FRONTEND_URL>/login?error=google_unavailable`. The reason is logged and never shown. `501` is the one exception: with no `FRONTEND_URL` there is nowhere to redirect to.
+         *     Every failure is a `303` as well, because the response is a page a person sees rather than JSON a client reads. A CSRF cookie/field that is missing or unequal (compared in constant time), a wrong content type, an oversized body, a missing or rejected credential all redirect to `<FRONTEND_URL>/login?error=google_rejected`; Google not being configured and any internal failure redirect to `<FRONTEND_URL>/login?error=google_unavailable`. Rate limiting redirects to `<FRONTEND_URL>/login?error=google_rate_limited` rather than answering `429` — the middleware knows this route's contract and redirects before the handler is even reached. The reason is logged and never shown. `501` is the one exception: with no `FRONTEND_URL` there is nowhere to redirect to, and a rate-limited request in that same misconfigured state falls back to an ordinary `429` for lack of an address to send it to.
          */
         post: operations["authGoogleRedirect"];
         delete?: never;
@@ -3369,7 +3369,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Always, on success and on every failure alike. `Location` is `<FRONTEND_URL>/auth/google/return?code=<code>` on success, and `<FRONTEND_URL>/login?error=google_rejected` or `<FRONTEND_URL>/login?error=google_unavailable` otherwise. */
+            /** @description Always, on success and on every ordinary failure alike, including a rate-limited request. `Location` is `<FRONTEND_URL>/auth/google/return?code=<code>` on success, `<FRONTEND_URL>/login?error=google_rejected` or `<FRONTEND_URL>/login?error=google_unavailable` on an ordinary failure, and `<FRONTEND_URL>/login?error=google_rate_limited` when refused by the rate limiter. */
             303: {
                 headers: {
                     /** @description Where the browser continues. Never carries a session or a profile token. */
@@ -3380,7 +3380,16 @@ export interface operations {
                 };
                 content?: never;
             };
-            429: components["responses"]["RateLimited"];
+            /** @description Rate limited while `FRONTEND_URL` is not configured — the one case where this route cannot redirect and falls back to the ordinary problem document. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description `FRONTEND_URL` is not configured, so there is no address to redirect to. The only answer this endpoint gives that is not a redirect. */
             501: {
                 headers: {
