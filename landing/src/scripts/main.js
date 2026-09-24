@@ -304,12 +304,22 @@ function ftCenterOn(el, animate) {
 /* .active styles whichever slide is centered right now, clones included — otherwise the one
    sitting in the main spot mid-wrap renders as a dimmed secondary slide. */
 function ftSetActiveElement(el) {
-  ftAllBlocks.forEach(block => block.classList.toggle('active', block === el));
+  ftAllBlocks.forEach(block => {
+    const isActive = block === el;
+    block.classList.toggle('active', isActive);
+    if (isActive) block.setAttribute('aria-current', 'true');
+    else block.removeAttribute('aria-current');
+  });
 }
 
 function ftSetIndex(index) {
   ftIndex = index;
-  ftDots.forEach((dot, i) => dot.classList.toggle('active', i === ftIndex));
+  ftDots.forEach((dot, i) => {
+    const isActive = i === ftIndex;
+    dot.classList.toggle('active', isActive);
+    if (isActive) dot.setAttribute('aria-current', 'true');
+    else dot.removeAttribute('aria-current');
+  });
 }
 
 /* Lands on the real slide with every transition suppressed: position, dim and scale all
