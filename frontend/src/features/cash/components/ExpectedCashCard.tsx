@@ -53,9 +53,9 @@ export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
         </div>
       )}
 
-      <div className="border-border-subtle flex items-center justify-between border-t pt-3">
+      <div className="border-border-subtle flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t pt-3">
         <span className="text-text-secondary text-sm font-semibold">{t.cash.expectedCash}</span>
-        <span className="font-display text-text-primary text-2xl font-bold tracking-tight">
+        <span className="font-display text-text-primary text-xl font-bold tracking-tight tabular-nums sm:text-2xl">
           {formatPrice(summary.expected_cash)}
         </span>
       </div>
