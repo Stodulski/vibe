@@ -8,7 +8,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { useCashSession } from '@/shared/hooks/useCashSession';
-import type { CashMovementTotal } from '@/shared/types/api.types';
+import type { CashMovementTotal, CashSessionSummary } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -44,6 +44,40 @@ function CashboxStat({
     <div className="min-w-0">
       <dt className="text-text-tertiary truncate text-xs">{label}</dt>
       <dd className={cn('score-text text-sm font-semibold whitespace-nowrap', valueClassName)}>{formatPrice(value)}</dd>
+    </div>
+  );
+}
+
+/** The open-till body: the shift's four totals, then when it opened and the way in. */
+function OpenCashboxSummary({ summary, openedAt }: { summary: CashSessionSummary; openedAt: string }) {
+  return (
+    <div className="flex flex-1 flex-col justify-center gap-3">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+        <CashboxStat
+          label={t.cash.expectedCash}
+          value={summary.expected_cash}
+          valueClassName="text-text-primary text-lg font-bold"
+        />
+        <CashboxStat label={t.cash.openingCashLabel} value={summary.opening_cash} />
+        <CashboxStat
+          label={t.cash.incomeTotal}
+          value={totalByKind(summary.movement_totals, 'income')}
+          valueClassName="text-success-text"
+        />
+        <CashboxStat
+          label={t.cash.expenseTotal}
+          value={totalByKind(summary.movement_totals, 'expense')}
+          valueClassName="text-error-text"
+        />
+      </dl>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-text-tertiary text-xs">
+          {t.cash.openedAt}: {formatVenueDayTime(openedAt)}
+        </p>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/cash">{t.dashboard.cashboxGoToShift}</Link>
+        </Button>
+      </div>
     </div>
   );
 }
@@ -104,34 +138,7 @@ export function CashboxPanel({ complexId }: CashboxPanelProps) {
       {query.isRealError && <StaleDataNotice onRetry={retry} />}
 
       {data ? (
-        <div className="flex flex-1 flex-col justify-center gap-3">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-            <CashboxStat
-              label={t.cash.expectedCash}
-              value={data.summary.expected_cash}
-              valueClassName="text-text-primary text-lg font-bold"
-            />
-            <CashboxStat label={t.cash.openingCashLabel} value={data.summary.opening_cash} />
-            <CashboxStat
-              label={t.cash.incomeTotal}
-              value={totalByKind(data.summary.movement_totals, 'income')}
-              valueClassName="text-success-text"
-            />
-            <CashboxStat
-              label={t.cash.expenseTotal}
-              value={totalByKind(data.summary.movement_totals, 'expense')}
-              valueClassName="text-error-text"
-            />
-          </dl>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-text-tertiary text-xs">
-              {t.cash.openedAt}: {formatVenueDayTime(data.cash_session.opened_at)}
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/cash">{t.dashboard.cashboxGoToShift}</Link>
-            </Button>
-          </div>
-        </div>
+        <OpenCashboxSummary summary={data.summary} openedAt={data.cash_session.opened_at} />
       ) : (
         <div className="flex flex-1 flex-col justify-center gap-3">
           <Button asChild size="sm" className="w-fit">
