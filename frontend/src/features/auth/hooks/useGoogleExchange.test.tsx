@@ -164,6 +164,21 @@ describe('useGoogleExchange — failure', () => {
     });
   });
 
+  // A 429 from the exchange itself means the sign-in was throttled, not that
+  // Google is unreachable — a distinct message from google_unavailable.
+  it('sends a 429 back to /login?error=google_rate_limited', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleExchange).mockRejectedValueOnce(await makeConsumedHttpError(429, {}));
+
+    setCsrfCookie();
+
+    await renderExchange('a-code');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_rate_limited', { replace: true });
+    });
+  });
+
   it('sends any other server failure back to /login?error=google_unavailable', async () => {
     const { authApi } = await import('../api/auth.api');
     vi.mocked(authApi.googleExchange).mockRejectedValueOnce(await makeConsumedHttpError(500, {}));
