@@ -2,12 +2,19 @@ package main
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/cors"
+
+	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi"
 )
 
 // newTestCORSHandler builds the same rs/cors handler routes() wires up, so a
@@ -96,6 +103,109 @@ func TestNormalizeCORSPreflightHeadersFixesMixedCase(t *testing.T) {
 				t.Errorf("want Access-Control-Allow-Headers to be set for %q", reqHeaders)
 			}
 		})
+	}
+}
+
+// declaredHeaderParameters walks the embedded OpenAPI document and returns
+// every distinct header name declared by a Parameter Object with `in:
+// header`, across every operation's own parameters, every path item's
+// shared parameters, and components.parameters (the ones referenced by
+// $ref, such as Idempotency-Key and If-Match). Lowercased, because that is
+// how a browser sends Access-Control-Request-Headers and how rs/cors
+// matches AllowedHeaders.
+//
+// This is what makes the CORS guard spec-driven rather than a fixed list: a
+// header parameter added to openapi.yaml without a matching AllowedHeaders
+// entry fails TestEveryDeclaredHeaderParameterIsAllowedByCORS, instead of
+// shipping a preflight rejection that is only found in production.
+func declaredHeaderParameters(t *testing.T, doc *openapi3.T) []string {
+	t.Helper()
+
+	seen := map[string]bool{}
+	add := func(p *openapi3.Parameter) {
+		if p != nil && strings.EqualFold(p.In, openapi3.ParameterInHeader) {
+			seen[strings.ToLower(p.Name)] = true
+		}
+	}
+
+	for _, ref := range doc.Components.Parameters {
+		if ref != nil {
+			add(ref.Value)
+		}
+	}
+
+	for _, pathItem := range doc.Paths.Map() {
+		for _, ref := range pathItem.Parameters {
+			if ref != nil {
+				add(ref.Value)
+			}
+		}
+		for _, op := range pathItem.Operations() {
+			for _, ref := range op.Parameters {
+				if ref != nil {
+					add(ref.Value)
+				}
+			}
+		}
+	}
+
+	headers := make([]string, 0, len(seen))
+	for h := range seen {
+		headers = append(headers, h)
+	}
+	sort.Strings(headers)
+
+	if len(headers) == 0 {
+		t.Fatal("declaredHeaderParameters found none; the walk is broken, not the document")
+	}
+	return headers
+}
+
+// TestEveryDeclaredHeaderParameterIsAllowedByCORS is the guard: every header
+// parameter openapi.yaml declares anywhere (an operation's own parameters, a
+// path item's shared parameters, or a components.parameters entry reached by
+// $ref, such as Idempotency-Key and If-Match) must be allowed by the same
+// corsOptions the server actually runs. Before Idempotency-Key was added to
+// AllowedHeaders, this failed on that header: a cross-origin POST carrying
+// it never got past the browser's preflight (see Sentry VIBE-FRONTEND-5).
+func TestEveryDeclaredHeaderParameterIsAllowedByCORS(t *testing.T) {
+	respond := httpx.NewResponder(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h, err := openapi.NewHandler(respond)
+	if err != nil {
+		t.Fatalf("openapi.NewHandler: %v", err)
+	}
+
+	handler := newTestCORSHandler()
+
+	for _, header := range declaredHeaderParameters(t, h.Document()) {
+		t.Run(header, func(t *testing.T) {
+			w := preflight(http.HandlerFunc(handler.HandlerFunc), header)
+
+			if got := w.Header().Get("Access-Control-Allow-Headers"); got == "" {
+				t.Errorf("Access-Control-Request-Headers: %q: CORS preflight has no "+
+					"Access-Control-Allow-Headers; add it to corsOptions' AllowedHeaders "+
+					"in routes.go (status=%d)", header, w.Code)
+			}
+		})
+	}
+}
+
+// TestCombinedPreflightAllowsContentTypeIdempotencyKeyAndCSRFToken pins the
+// exact acceptance scenario: a preflight asking for content-type,
+// idempotency-key and x-csrf-token together, from FrontendURL, gets the
+// allow headers back.
+func TestCombinedPreflightAllowsContentTypeIdempotencyKeyAndCSRFToken(t *testing.T) {
+	handler := newTestCORSHandler()
+	w := preflight(http.HandlerFunc(handler.HandlerFunc), "content-type,idempotency-key,x-csrf-token")
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("want 204; got %d", w.Code)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Errorf("want Access-Control-Allow-Origin; got %q", got)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Headers"); got == "" {
+		t.Error("want Access-Control-Allow-Headers to be set for the combined preflight")
 	}
 }
 
