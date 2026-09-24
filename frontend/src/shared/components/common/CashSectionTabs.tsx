@@ -38,7 +38,7 @@ export function CashSectionTabs() {
             end={tab.to === '/cash'}
             className={({ isActive }) =>
               cn(
-                'flex h-11 items-center justify-center border-b-2 px-3 text-sm font-medium transition-colors sm:flex-none',
+                'flex h-11 flex-1 items-center justify-center border-b-2 px-3 text-sm font-medium transition-colors sm:flex-none',
                 isActive
                   ? 'border-primary-500 text-primary-400'
                   : 'text-text-secondary hover:text-text-primary border-transparent',
