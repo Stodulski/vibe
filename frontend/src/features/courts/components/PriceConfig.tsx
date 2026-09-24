@@ -77,7 +77,6 @@ function PriceForm({
 }) {
   const { form, onSubmit, nextBand, isPending } = usePriceConfigForm(complexId, court, schedules, onClose);
   const {
-    register,
     handleSubmit,
     setValue,
     getValues,
@@ -115,7 +114,6 @@ function PriceForm({
             label={label}
             shortLabel={short}
             control={control}
-            register={register}
             setValue={setValue}
             getValues={getValues}
             nextBand={nextBand}
