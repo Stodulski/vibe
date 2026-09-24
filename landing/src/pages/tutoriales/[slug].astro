@@ -21,7 +21,6 @@ export function getStaticPaths() {
 const { t } = Astro.props;
 const canonical = `https://vibe.com.ar/tutoriales/${t.slug}`;
 const relacionados = getRelacionados(t);
-const youtubeUrl = `https://www.youtube.com/watch?v=${t.youtube}`;
 ---
 <BaseLayout
   title={t.seoTitle}
@@ -68,11 +67,12 @@ const youtubeUrl = `https://www.youtube.com/watch?v=${t.youtube}`;
           poster={`${CDN}/${t.slug}.webp`}
           width={VIDEO_ANCHO}
           height={VIDEO_ALTO}
+          muted
           playsinline
         >
           <source src={`${CDN}/${t.slug}.mp4`} type="video/mp4" />
-          Tu navegador no puede reproducir este video. Podés verlo en
-          {' '}<a href={youtubeUrl} rel="noopener" target="_blank">YouTube</a>.
+          Tu navegador no puede reproducir este video. Podés
+          {' '}<a href={`${CDN}/${t.slug}.mp4`} download>descargarlo</a>.
         </video>
 
         {/* La respuesta va después del video, no antes: dice lo mismo que
