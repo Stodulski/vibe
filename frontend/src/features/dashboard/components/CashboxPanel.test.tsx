@@ -85,21 +85,21 @@ describe('CashboxPanel', () => {
   it('shows a loading skeleton while the session query is in flight', () => {
     mockLoading();
     renderWithProviders(<CashboxPanel complexId="c1" />);
-    expect(screen.queryByText('Caja abierta')).not.toBeInTheDocument();
-    expect(screen.queryByText('Caja cerrada')).not.toBeInTheDocument();
+    expect(screen.queryByText('Abierta')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cerrada')).not.toBeInTheDocument();
   });
 
   it('shows the closed state with a link to open the till', () => {
     mockClosed();
     renderWithProviders(<CashboxPanel complexId="c1" />);
-    expect(screen.getByText('Caja cerrada')).toBeInTheDocument();
+    expect(screen.getByText('Cerrada')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Abrir caja' })).toHaveAttribute('href', '/cash');
   });
 
   it('shows the open state with expected cash, opened time and a link to the shift', () => {
     mockOpen({ expectedCash: 650000 });
     renderWithProviders(<CashboxPanel complexId="c1" />);
-    expect(screen.getByText('Caja abierta')).toBeInTheDocument();
+    expect(screen.getByText('Abierta')).toBeInTheDocument();
     expect(screen.getByText('$6.500')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ir a la caja' })).toHaveAttribute('href', '/cash');
   });
@@ -109,8 +109,8 @@ describe('CashboxPanel', () => {
     const refetch = vi.fn();
     mockRealErrorNoData(refetch);
     renderWithProviders(<CashboxPanel complexId="c1" />);
-    expect(screen.queryByText('Caja abierta')).not.toBeInTheDocument();
-    expect(screen.queryByText('Caja cerrada')).not.toBeInTheDocument();
+    expect(screen.queryByText('Abierta')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cerrada')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Reintentar' }));
     expect(refetch).toHaveBeenCalled();
   });
@@ -118,7 +118,7 @@ describe('CashboxPanel', () => {
   it('keeps rendering cached data with a non-blocking notice on a background refetch failure', () => {
     mockRealErrorWithCachedData();
     renderWithProviders(<CashboxPanel complexId="c1" />);
-    expect(screen.getByText('Caja abierta')).toBeInTheDocument();
+    expect(screen.getByText('Abierta')).toBeInTheDocument();
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 });

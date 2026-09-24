@@ -65,8 +65,8 @@ export const dashboard = {
   // Open/closed labels and the "Abrir caja" action reuse `t.cash`'s own
   // strings (openSuccess/closeSuccess/openAction) so the dashboard never
   // drifts from the Caja screen's own copy for the same states.
-  cashboxOpen: 'Caja abierta',
-  cashboxClosed: 'Caja cerrada',
+  cashboxOpen: 'Abierta',
+  cashboxClosed: 'Cerrada',
   cashboxGoToShift: 'Ir a la caja',
   // ─── Low-stock alert (pos-cashbox T6) ───
   lowStockTitle: 'Stock bajo',

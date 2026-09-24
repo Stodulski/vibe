@@ -5,7 +5,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Button } from '@/shared/components/ui/button';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatPrice } from '@/shared/lib/utils';
+import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { useCashSession } from '@/shared/hooks/useCashSession';
 
@@ -68,7 +68,12 @@ export function CashboxPanel({ complexId }: CashboxPanelProps) {
 
   return (
     <Panel as="section" size="sm" className="flex h-full flex-col p-4" aria-label={t.cash.title}>
-      <h3 className="text-text-primary mb-2 text-sm font-semibold">{t.cash.title}</h3>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-text-primary text-sm font-semibold">{t.cash.title}</h3>
+        <span className={cn('text-sm font-semibold', data ? 'text-success-text' : 'text-error-text')}>
+          {data ? t.dashboard.cashboxOpen : t.dashboard.cashboxClosed}
+        </span>
+      </div>
 
       {/* A background refetch failure while data from an earlier successful
           read is still on screen — keep rendering it, non-blocking notice on
@@ -77,7 +82,6 @@ export function CashboxPanel({ complexId }: CashboxPanelProps) {
 
       {data ? (
         <div className="flex flex-1 flex-col justify-center gap-1">
-          <p className="text-text-secondary text-sm font-medium">{t.dashboard.cashboxOpen}</p>
           <p className="score-text text-text-primary text-lg font-bold">{formatPrice(data.summary.expected_cash)}</p>
           <p className="text-text-tertiary text-xs">
             {t.cash.openedAt}: {formatVenueDayTime(data.cash_session.opened_at)}
@@ -88,7 +92,6 @@ export function CashboxPanel({ complexId }: CashboxPanelProps) {
         </div>
       ) : (
         <div className="flex flex-1 flex-col justify-center gap-3">
-          <p className="text-text-secondary text-sm font-medium">{t.dashboard.cashboxClosed}</p>
           <Button asChild size="sm" className="w-fit">
             <Link to="/cash">{t.cash.openAction}</Link>
           </Button>
