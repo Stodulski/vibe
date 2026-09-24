@@ -280,10 +280,11 @@ func (h *Handler) CreateMovement(w http.ResponseWriter, r *http.Request) {
 	switch body.Kind {
 	case gen.CashMovementsCreateJSONBodyKindIncome:
 		v.Check(validator.PermittedValue(category, IncomeCategories...), "category",
-			"must be 'other_income' for an income movement")
+			"must be one of: other_income, classes, tournaments, events, memberships, sponsorship, cash_contribution")
 	case gen.CashMovementsCreateJSONBodyKindExpense:
 		v.Check(validator.PermittedValue(category, ExpenseCategories...), "category",
-			"must be one of: supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense")
+			"must be one of: supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense, "+
+				"rent, taxes, professional_fees, marketing, bank_fees")
 	}
 	v.Check(paymentmethod.IsCounter(string(body.Method)), "method", paymentmethod.Message)
 	v.Check(body.Amount > 0, "amount", "must be greater than 0")

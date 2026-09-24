@@ -1883,8 +1883,10 @@ paths:
                 kind: {type: string, enum: [income, expense]}
                 category:
                   type: string
-                  enum: [other_income, supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense]
-                  description: "other_income for income; one of the rest for expense."
+                  enum: [other_income, classes, tournaments, events, memberships, sponsorship, cash_contribution,
+                         supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense,
+                         rent, taxes, professional_fees, marketing, bank_fees]
+                  description: "The first 7 values for income; the rest for expense."
                 method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
                 amount: {type: integer, minimum: 1, maximum: 2000000000, description: "Centavos ARS."}
                 note: {type: string, maxLength: 500}
@@ -4625,9 +4627,11 @@ components:
         kind: {type: string, enum: [income, expense]}
         category:
           type: string
-          enum: [other_income, supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense, sale, restock]
+          enum: [other_income, classes, tournaments, events, memberships, sponsorship, cash_contribution,
+                 supplies, salaries, services, maintenance, cleaning, withdrawal, other_expense,
+                 rent, taxes, professional_fees, marketing, bank_fees, sale, restock]
           description: >-
-            The 8 manual categories, plus the system categories `sale` and `restock` written by
+            The 19 manual categories, plus the system categories `sale` and `restock` written by
             the sales and restock flows. Never accepted on manual movement creation.
         method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
         amount: {type: integer, description: "Centavos ARS."}
