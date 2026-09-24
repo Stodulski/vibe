@@ -50,8 +50,10 @@ export const updatePricesSchema = z.object({
   prices: z.array(priceItemSchema).min(1, t.validation.atLeastOnePrice),
 });
 
-// A blank field reads back from react-hook-form's `valueAsNumber` as NaN, and
-// NaN means the same thing 0 does here — this band has no price set, and
+// A blank field reads back as NaN — `DayRow`/`BandRow` set it explicitly via
+// `useMoneyInput`'s `undefined` (the money-formatting field's own way of
+// reporting "empty", see that hook's own doc comment) — and NaN means the
+// same thing 0 does here — this band has no price set, and
 // usePriceConfigForm filters it out of the request before sending. z.nan()
 // is listed as its own alternative rather than folded into 0 by a preprocess
 // step, because a preprocess step's input type is `unknown`, which breaks

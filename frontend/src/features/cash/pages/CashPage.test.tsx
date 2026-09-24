@@ -270,6 +270,6 @@ describe('CashPage — background refetch failure with cached data', () => {
     // The dialog, and what was typed into it, are still mounted — the stale
     // notice never unmounted them.
     expect(incomeDialog).toBeVisible();
-    expect(within(incomeDialog).getByLabelText('Monto')).toHaveValue(1234);
+    expect(within(incomeDialog).getByLabelText('Monto')).toHaveValue('1.234');
   });
 });

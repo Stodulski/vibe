@@ -5,11 +5,11 @@ import {
   useWatch,
   type Control,
   type FieldErrors,
-  type UseFormRegister,
   type UseFormSetValue,
   type UseFormGetValues,
 } from 'react-hook-form';
 import { toast } from 'sonner';
+import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { ApplyToAllButton } from './ApplyToAllButton';
@@ -28,7 +28,6 @@ interface DayRowProps {
   label: string;
   shortLabel: string;
   control: Control<PriceFormValues>;
-  register: UseFormRegister<PriceFormValues>;
   setValue: UseFormSetValue<PriceFormValues>;
   getValues: UseFormGetValues<PriceFormValues>;
   /** Builds the row "Nuevo precio" appends; see `nextDifferentiatedBand`. */
@@ -105,7 +104,6 @@ export function DayRow(props: DayRowProps) {
               dayLabel={props.label}
               index={index}
               control={control}
-              register={props.register}
               setValue={props.setValue}
               onRemove={() => {
                 remove(index);
@@ -139,7 +137,6 @@ function BaseRow({
   label,
   shortLabel,
   control,
-  register,
   setValue,
   getValues,
   errors,
@@ -150,6 +147,12 @@ function BaseRow({
 }: DayRowProps & { bandCount: number; expanded: boolean; onToggle: () => void; panelId: string }) {
   const price = useWatch({ control, name: dayPriceField(day) });
   const dayError = errors[day]?.price;
+  const { displayValue, inputRef, handleChange } = useMoneyInput({
+    value: Number.isNaN(price) ? undefined : price,
+    onChange: (v) => {
+      setValue(dayPriceField(day), v ?? Number.NaN, { shouldValidate: true });
+    },
+  });
 
   return (
     <PriceRow label={label} shortLabel={shortLabel}>
@@ -158,7 +161,9 @@ function BaseRow({
           placeholder=""
           error={dayError?.message}
           aria-label={`${t.courts.price} ${label}`}
-          {...register(dayPriceField(day), { valueAsNumber: true })}
+          ref={inputRef}
+          value={displayValue}
+          onChange={handleChange}
         />
         {price > 0 && <ApplyToAllButton onClick={applyToAll(day, getValues, setValue)} />}
         <DisclosureButton dayLabel={label} expanded={expanded} count={bandCount} panelId={panelId} onClick={onToggle} />

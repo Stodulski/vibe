@@ -51,19 +51,24 @@ describe('OpenCashSessionDialog', () => {
     });
   });
 
-  it('rejects a decimal amount with the app\'s own "whole pesos" error, not a native step-mismatch block', async () => {
+  it('strips a typed "." instead of treating it as a decimal point — whole pesos only', async () => {
     const user = userEvent.setup();
     render(<OpenCashSessionDialog open onClose={vi.fn()} complexId="c1" />);
 
-    // Without `noValidate` on the `<form>`, a number input's default step of
-    // 1 makes the browser refuse to submit at all here — no validation error
-    // rendered, no `mutate` call, just nothing (see MoneyPesosField's doc
-    // comment). `noValidate` lets react-hook-form/Zod run instead.
+    // `MoneyPesosField` is a `type="text"` money input now (see its own doc
+    // comment) — there is no native number-input step to mismatch any more,
+    // and a decimal amount is unreachable by typing at all: every non-digit
+    // character, including a typed ".", is stripped before the field ever
+    // sees it, so "1500.5" becomes the whole-pesos amount 15005, not a
+    // rejected 1500.5.
     await user.type(screen.getByLabelText('Monto inicial'), '1500.5');
+    expect(screen.getByLabelText('Monto inicial')).toHaveValue('15.005');
+
     await user.click(screen.getByRole('button', { name: 'Abrir caja' }));
 
-    expect(await screen.findByText('El monto debe ser en pesos enteros, sin centavos')).toBeInTheDocument();
-    expect(mutate).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mutate).toHaveBeenCalledWith({ opening_cash: 1500500, note: undefined }, expect.anything());
+    });
   });
 
   it('maps a 422 field error from the server onto the amount field', async () => {

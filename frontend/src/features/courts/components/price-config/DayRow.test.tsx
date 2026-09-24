@@ -40,7 +40,6 @@ function Harness({
   const { form, nextBand, onSubmit } = usePriceConfigForm('c1', court, schedules, vi.fn());
   const {
     control,
-    register,
     setValue,
     getValues,
     handleSubmit,
@@ -61,7 +60,6 @@ function Harness({
         label={dayInfo.label}
         shortLabel={dayInfo.short}
         control={control}
-        register={register}
         setValue={setValue}
         getValues={getValues}
         nextBand={nextBand}
@@ -80,7 +78,7 @@ describe('DayRow — collapsed by default, exactly the plain row', () => {
   it('shows one editable full-day price field and no differentiated rows', () => {
     renderDay({ day: 'friday' });
 
-    expect(screen.getByRole('spinbutton', { name: /^precio viernes$/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^precio viernes$/i })).toBeInTheDocument();
     expect(screen.queryByText(t.courts.newPrice)).not.toBeInTheDocument();
     expect(screen.queryByText('Desde')).not.toBeInTheDocument();
     const chevron = screen.getByRole('button', { name: /mostrar franjas de viernes/i });
@@ -96,7 +94,7 @@ describe('DayRow — collapsed by default, exactly the plain row', () => {
 
     // Still collapsed, still just the one price field — the shorter, later
     // band became the row; the longer one is the full-day price shown here.
-    expect(screen.getByRole('spinbutton', { name: /^precio viernes$/i })).toHaveValue(120);
+    expect(screen.getByRole('textbox', { name: /^precio viernes$/i })).toHaveValue('120');
     expect(screen.queryByText(t.courts.newPrice)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /mostrar franjas de viernes \(1\)/i })).toHaveAttribute(
       'aria-expanded',
@@ -117,9 +115,9 @@ describe('DayRow — expanding, adding, deleting a differentiated row', () => {
     await user.click(screen.getByRole('button', { name: /mostrar franjas de viernes \(1\)/i }));
 
     expect(screen.getByText(t.courts.newPrice)).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: /viernes, franja 1: precio/i })).toHaveValue(200);
+    expect(screen.getByRole('textbox', { name: /viernes, franja 1: precio/i })).toHaveValue('200');
     // The full-day price field never disappears behind the disclosure.
-    expect(screen.getByRole('spinbutton', { name: /^precio viernes$/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^precio viernes$/i })).toBeInTheDocument();
   });
 
   it('adding a row keeps the day expanded and shows the new row', async () => {
@@ -133,8 +131,8 @@ describe('DayRow — expanding, adding, deleting a differentiated row', () => {
 
     await user.click(screen.getByText(t.courts.newPrice));
 
-    expect(screen.getByRole('spinbutton', { name: /viernes, franja 1: precio/i })).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: /viernes, franja 2: precio/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /viernes, franja 1: precio/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /viernes, franja 2: precio/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ocultar franjas de viernes \(2\)/i })).toHaveAttribute(
       'aria-expanded',
       'true',
@@ -152,11 +150,11 @@ describe('DayRow — expanding, adding, deleting a differentiated row', () => {
 
     await user.click(screen.getByRole('button', { name: /eliminar franja.*viernes, franja 1/i }));
 
-    expect(screen.queryByRole('spinbutton', { name: /franja/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: /^precio viernes$/i })).toHaveValue(120);
+    expect(screen.queryByRole('textbox', { name: /franja/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^precio viernes$/i })).toHaveValue('120');
 
     await user.click(screen.getByRole('button', { name: /ocultar franjas de viernes/i }));
-    expect(screen.getByRole('spinbutton', { name: /^precio viernes$/i })).toHaveValue(120);
+    expect(screen.getByRole('textbox', { name: /^precio viernes$/i })).toHaveValue('120');
   });
 });
 

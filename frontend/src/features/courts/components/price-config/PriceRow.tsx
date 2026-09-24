@@ -108,11 +108,19 @@ export function PriceField({
         >
           $
         </span>
+        {/* `type="text"`, formatted by `useMoneyInput` in every caller (`DayRow`,
+            `BandRow`) so a rate types with live thousands separators, same as
+            every other money field in the app. This used to be a native
+            `type="number"` with `step="any"`/`inputMode="decimal"`, which let a
+            rate carry cents — no caller and no test ever exercised that, and
+            the rest of the app's money fields are whole pesos only, so the
+            switch to digit-only formatting standardizes this field onto the
+            same convention rather than trying to preserve unused decimal
+            precision. */}
         <Input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step="any"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
           aria-invalid={!!error}
           aria-label={ariaLabel}
           aria-describedby={error ? errorId : undefined}

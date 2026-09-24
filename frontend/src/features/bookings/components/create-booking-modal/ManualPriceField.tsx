@@ -2,6 +2,7 @@ import { DollarSign } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
+import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
@@ -24,6 +25,13 @@ export function ManualPriceField({
   setValue: UseFormSetValue<CreateBookingDto>;
   errors: FieldErrors<CreateBookingDto>;
 }) {
+  const { displayValue, inputRef, handleChange } = useMoneyInput({
+    value: price,
+    onChange: (v) => {
+      setValue('price', v);
+    },
+  });
+
   return (
     <FormField
       label={
@@ -40,14 +48,13 @@ export function ManualPriceField({
         <DollarSign className="text-text-tertiary absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <Input
           id="manual-price"
-          type="number"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
           className="pl-9"
-          min={1}
-          value={price ?? ''}
-          onChange={(e) => {
-            const raw = e.target.valueAsNumber;
-            setValue('price', Number.isNaN(raw) ? undefined : raw);
-          }}
+          ref={inputRef}
+          value={displayValue}
+          onChange={handleChange}
           placeholder={t.placeholders.amount}
         />
       </div>

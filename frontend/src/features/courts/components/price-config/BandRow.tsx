@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { Trash2 } from 'lucide-react';
-import { useWatch, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
+import { useWatch, type Control, type UseFormSetValue } from 'react-hook-form';
 import { TimeSelect } from '@/shared/components/common/TimeSelect';
+import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { PriceField } from './PriceRow';
@@ -17,7 +18,6 @@ interface BandRowProps {
   dayLabel: string;
   index: number;
   control: Control<PriceFormValues>;
-  register: UseFormRegister<PriceFormValues>;
   setValue: UseFormSetValue<PriceFormValues>;
   onRemove: () => void;
   errors: {
@@ -67,10 +67,17 @@ interface BandRowProps {
  * `PriceField`'s and `TimeSelect`'s own `compact` prop still narrows their
  * padding and text only below `sm`, in both shapes.
  */
-export function BandRow({ day, dayLabel, index, control, register, setValue, onRemove, errors }: BandRowProps) {
+export function BandRow({ day, dayLabel, index, control, setValue, onRemove, errors }: BandRowProps) {
   const timeFrom = useWatch({ control, name: bandField(day, index, 'time_from') });
   const timeTo = useWatch({ control, name: bandField(day, index, 'time_to') });
+  const price = useWatch({ control, name: bandField(day, index, 'price') });
   const isNextDay = endsNextDay({ time_from: timeFrom, time_to: timeTo });
+  const { displayValue, inputRef, handleChange } = useMoneyInput({
+    value: Number.isNaN(price) ? undefined : price,
+    onChange: (v) => {
+      setValue(bandField(day, index, 'price'), v ?? Number.NaN, { shouldValidate: true });
+    },
+  });
 
   // Stable identities so a row's re-render does not churn its two selects.
   // `setValue` is stable across renders, and `day`/`index` are the row.
@@ -138,7 +145,9 @@ export function BandRow({ day, dayLabel, index, control, register, setValue, onR
         error={errors.time_from ?? errors.time_to ?? errors.price}
         aria-label={`${bandName}: ${t.courts.price}`}
         compact
-        {...register(bandField(day, index, 'price'), { valueAsNumber: true })}
+        ref={inputRef}
+        value={displayValue}
+        onChange={handleChange}
       />
       {/* `ml-auto` only below `sm` — the safety net if the two time selects
           and the price field ever hit their caps before using the whole
