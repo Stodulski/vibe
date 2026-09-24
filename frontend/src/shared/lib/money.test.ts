@@ -8,6 +8,8 @@ import {
   formatMoneyValue,
   countDigits,
   caretPositionForDigitCount,
+  analyzeMoneyInput,
+  fractionalMoneyValue,
   MAX_MONEY_DIGITS,
 } from './money';
 
@@ -120,5 +122,66 @@ describe('caretPositionForDigitCount', () => {
 
   it('clamps to the end when asked for more digits than exist', () => {
     expect(caretPositionForDigitCount('150', 10)).toBe(3);
+  });
+});
+
+describe('analyzeMoneyInput', () => {
+  it('reports "none" for a plain digit string with no comma', () => {
+    expect(analyzeMoneyInput('150000')).toEqual({
+      hasComma: false,
+      integerDigits: '150000',
+      decimalDigits: '',
+      kind: 'none',
+    });
+  });
+
+  it('reports "pending" for a lone trailing comma with nothing after it yet', () => {
+    expect(analyzeMoneyInput('1500,')).toEqual({
+      hasComma: true,
+      integerDigits: '1500',
+      decimalDigits: '',
+      kind: 'pending',
+    });
+  });
+
+  it('reports "zero" for a comma followed only by zeros', () => {
+    expect(analyzeMoneyInput('1500,0')).toEqual({
+      hasComma: true,
+      integerDigits: '1500',
+      decimalDigits: '0',
+      kind: 'zero',
+    });
+    expect(analyzeMoneyInput('$ 1.500,00')).toEqual({
+      hasComma: true,
+      integerDigits: '1500',
+      decimalDigits: '00',
+      kind: 'zero',
+    });
+  });
+
+  it('reports "invalid" for a comma followed by a non-zero digit — never silently dropped', () => {
+    expect(analyzeMoneyInput('1500,5')).toEqual({
+      hasComma: true,
+      integerDigits: '1500',
+      decimalDigits: '5',
+      kind: 'invalid',
+    });
+    expect(analyzeMoneyInput('1.500,50')).toEqual({
+      hasComma: true,
+      integerDigits: '1500',
+      decimalDigits: '50',
+      kind: 'invalid',
+    });
+  });
+});
+
+describe('fractionalMoneyValue', () => {
+  it('builds the real fractional pesos amount, never a corrupted integer', () => {
+    expect(fractionalMoneyValue(analyzeMoneyInput('1500,5'))).toBe(1500.5);
+    expect(fractionalMoneyValue(analyzeMoneyInput('1.500,50'))).toBe(1500.5);
+  });
+
+  it('defaults a missing integer part to 0', () => {
+    expect(fractionalMoneyValue(analyzeMoneyInput(',5'))).toBe(0.5);
   });
 });

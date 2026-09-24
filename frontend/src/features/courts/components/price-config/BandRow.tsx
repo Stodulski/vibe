@@ -72,7 +72,7 @@ export function BandRow({ day, dayLabel, index, control, setValue, onRemove, err
   const timeTo = useWatch({ control, name: bandField(day, index, 'time_to') });
   const price = useWatch({ control, name: bandField(day, index, 'price') });
   const isNextDay = endsNextDay({ time_from: timeFrom, time_to: timeTo });
-  const { displayValue, inputRef, handleChange } = useMoneyInput({
+  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
     value: Number.isNaN(price) ? undefined : price,
     onChange: (v) => {
       setValue(bandField(day, index, 'price'), v ?? Number.NaN, { shouldValidate: true });
@@ -148,6 +148,7 @@ export function BandRow({ day, dayLabel, index, control, setValue, onRemove, err
         ref={inputRef}
         value={displayValue}
         onChange={handleChange}
+        onBlur={handleBlur}
       />
       {/* `ml-auto` only below `sm` — the safety net if the two time selects
           and the price field ever hit their caps before using the whole

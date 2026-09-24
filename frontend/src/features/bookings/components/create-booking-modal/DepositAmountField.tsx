@@ -23,7 +23,7 @@ export function DepositAmountField({
   setValue: UseFormSetValue<CreateBookingDto>;
   errors: FieldErrors<CreateBookingDto>;
 }) {
-  const { displayValue, inputRef, handleChange } = useMoneyInput({
+  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
     value: depositAmount,
     onChange: (raw) => {
       // `shouldDirty` marks this as a manual edit — `useCreateBookingForm`'s
@@ -65,6 +65,7 @@ export function DepositAmountField({
           ref={inputRef}
           value={displayValue}
           onChange={handleChange}
+          onBlur={handleBlur}
           placeholder={t.placeholders.amount}
         />
       </div>

@@ -25,7 +25,7 @@ export function ManualPriceField({
   setValue: UseFormSetValue<CreateBookingDto>;
   errors: FieldErrors<CreateBookingDto>;
 }) {
-  const { displayValue, inputRef, handleChange } = useMoneyInput({
+  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
     value: price,
     onChange: (v) => {
       setValue('price', v);
@@ -55,6 +55,7 @@ export function ManualPriceField({
           ref={inputRef}
           value={displayValue}
           onChange={handleChange}
+          onBlur={handleBlur}
           placeholder={t.placeholders.amount}
         />
       </div>

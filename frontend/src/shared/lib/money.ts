@@ -93,3 +93,63 @@ export function caretPositionForDigitCount(formatted: string, digitCount: number
   }
   return formatted.length;
 }
+
+/**
+ * What a raw input string means once it contains a decimal comma —
+ * `useMoneyInput` reads this before deciding whether it may reformat/group
+ * the field at all.
+ *
+ * - `'none'`    — no comma typed at all; the ordinary whole-pesos formatting
+ *                 path applies (see `extractMoneyDigits`).
+ * - `'pending'` — a trailing comma with nothing after it yet ("1500,"). Left
+ *                 exactly as typed rather than reformatted: reformatting here
+ *                 would drop the comma from the DOM, and the very next typed
+ *                 digit would then be silently read as another thousands
+ *                 digit of the integer part instead of a centavos digit —
+ *                 the 100x bug this whole type exists to prevent (typing
+ *                 "1.500,50" one keystroke at a time must never end up
+ *                 "150.050"). Resolved by `useMoneyInput`'s `handleBlur`.
+ * - `'zero'`    — a comma followed only by zeros ("1500,0", "1500,00"): an
+ *                 explicit, unambiguous "no centavos", safe to collapse to
+ *                 the integer part immediately.
+ * - `'invalid'` — a comma followed by a non-zero digit: a real fractional
+ *                 amount. Never silently rounded or reformatted away — shown
+ *                 exactly as typed/pasted and reported as the fractional
+ *                 number itself (`fractionalMoneyValue`), so the caller's
+ *                 whole-pesos Zod rule (an `.int()`, where the schema has
+ *                 one) rejects it with a visible message instead of the
+ *                 amount being corrupted in silence.
+ */
+export interface MoneyInputAnalysis {
+  hasComma: boolean;
+  /** Digits before the first comma (or every digit, when there is no comma), capped at `MAX_MONEY_DIGITS`. */
+  integerDigits: string;
+  /** Digits after the first comma; `''` when there is no comma. */
+  decimalDigits: string;
+  kind: 'none' | 'pending' | 'zero' | 'invalid';
+}
+
+/** Classifies a raw money-field input around its (possible) decimal comma. See `MoneyInputAnalysis`. */
+export function analyzeMoneyInput(raw: string): MoneyInputAnalysis {
+  const commaIndex = raw.indexOf(',');
+  if (commaIndex === -1) {
+    return { hasComma: false, integerDigits: extractMoneyDigits(raw), decimalDigits: '', kind: 'none' };
+  }
+  const integerDigits = raw.slice(0, commaIndex).replace(/\D/g, '').slice(0, MAX_MONEY_DIGITS);
+  const decimalDigits = raw.slice(commaIndex + 1).replace(/\D/g, '');
+  if (decimalDigits === '') return { hasComma: true, integerDigits, decimalDigits, kind: 'pending' };
+  if (/^0+$/.test(decimalDigits)) return { hasComma: true, integerDigits, decimalDigits, kind: 'zero' };
+  return { hasComma: true, integerDigits, decimalDigits, kind: 'invalid' };
+}
+
+/**
+ * The fractional pesos number an `'invalid'` analysis reports — e.g.
+ * `{ integerDigits: '1500', decimalDigits: '5' }` -> `1500.5`. Never silently
+ * truncated or multiplied away: this is exactly what the person typed, in
+ * pesos, so a whole-pesos Zod rule downstream sees (and rejects) the real
+ * fractional amount instead of a corrupted integer.
+ */
+export function fractionalMoneyValue(analysis: MoneyInputAnalysis): number {
+  const intPart = analysis.integerDigits === '' ? '0' : analysis.integerDigits;
+  return Number(`${intPart}.${analysis.decimalDigits}`);
+}
