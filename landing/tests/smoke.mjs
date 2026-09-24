@@ -194,7 +194,7 @@ async function testCarousel() {
   check('hay puntos de progreso', total > 0, `${total} puntos`);
 
   const activeIndex = () => p.evaluate(() =>
-    [...document.querySelectorAll('.ft-dot')].findIndex(d => d.classList.contains('active')));
+    [...document.querySelectorAll('.ft-dot')].findIndex(d => d.getAttribute('aria-current') === 'true'));
 
   const start = await activeIndex();
   await p.locator('.ft-arrow-next').click();
@@ -219,7 +219,7 @@ async function testCarousel() {
 
   /* The active slide has to sit in the middle of the viewport, not off to a side. */
   const centred = await p.evaluate(() => {
-    const el = document.querySelector('.ft-block.active');
+    const el = document.querySelector('.ft-block[aria-current="true"]');
     const vp = document.querySelector('.ft-viewport');
     if (!el || !vp) return false;
     const a = el.getBoundingClientRect(), b = vp.getBoundingClientRect();
