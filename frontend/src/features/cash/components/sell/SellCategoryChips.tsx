@@ -9,13 +9,23 @@ interface SellCategoryChipsProps {
   onSelect: (category: string | null) => void;
 }
 
-/** "Todas" plus one chip per category present in the active catalog (`odd/tasks/pos-cashbox.md` T5b). */
+/**
+ * "Todas" plus one chip per category present in the active catalog
+ * (`odd/tasks/pos-cashbox.md` T5b), in one horizontally scrolling row rather
+ * than wrapping lines, so a long category list never pushes the products
+ * down. Same scroller as the public DateSelector (`scrollbar-none`, snap).
+ */
 export function SellCategoryChips({ categories, selected, onSelect }: SellCategoryChipsProps) {
   return (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label={t.products.categoryLabel}>
+    <div
+      className="flex snap-x scrollbar-none gap-1.5 overflow-x-auto pb-1"
+      role="group"
+      aria-label={t.products.categoryLabel}
+    >
       <Button
         type="button"
         size="sm"
+        className="shrink-0 snap-start"
         variant={selected === null ? 'default' : 'outline'}
         aria-pressed={selected === null}
         onClick={() => {
@@ -29,6 +39,7 @@ export function SellCategoryChips({ categories, selected, onSelect }: SellCatego
           key={category}
           type="button"
           size="sm"
+          className="shrink-0 snap-start"
           variant={selected === category ? 'default' : 'outline'}
           aria-pressed={selected === category}
           onClick={() => {
