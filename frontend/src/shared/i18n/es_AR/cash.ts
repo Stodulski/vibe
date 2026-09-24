@@ -54,6 +54,12 @@ export const cash = {
   voidError: 'Error al anular el movimiento',
   categories: {
     other_income: 'Otros ingresos',
+    classes: 'Clases',
+    tournaments: 'Torneos',
+    events: 'Eventos',
+    memberships: 'Cuotas y abonos',
+    sponsorship: 'Publicidad y sponsors',
+    cash_contribution: 'Aporte / cambio',
     supplies: 'Insumos',
     salaries: 'Sueldos',
     services: 'Servicios',
@@ -61,6 +67,11 @@ export const cash = {
     cleaning: 'Limpieza',
     withdrawal: 'Retiro',
     other_expense: 'Otros egresos',
+    rent: 'Alquiler del local',
+    taxes: 'Impuestos',
+    professional_fees: 'Honorarios',
+    marketing: 'Marketing',
+    bank_fees: 'Comisiones bancarias',
     // System categories: written by the sales and restock flows, never
     // offered on the manual movement form.
     sale: 'Venta',

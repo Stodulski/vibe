@@ -1,11 +1,20 @@
 /**
  * A cash movement's category, one fixed set per `kind` (owner decision,
- * `odd/tasks/pos-cashbox.md`: "income other_income; expense supplies,
- * salaries, services, maintenance, cleaning, withdrawal, other_expense").
- * Mirrors the `CHECK` constraint on `cash_movements.category`
- * (`db/migrations/003_cashbox.sql`) and the `openapi.yaml` enum.
+ * `odd/tasks/cash-movement-categories.md`, 2026-09-24: a fixed set shared by
+ * every complex). Mirrors the `CHECK` constraint on `cash_movements.category`
+ * (`db/migrations/008_cash_movement_categories.sql`) and the `openapi.yaml`
+ * enum. `other_income`/`other_expense` are listed last in both arrays so the
+ * form's option order puts the catch-all category at the bottom.
  */
-export const INCOME_CATEGORIES = ['other_income'] as const;
+export const INCOME_CATEGORIES = [
+  'classes',
+  'tournaments',
+  'events',
+  'memberships',
+  'sponsorship',
+  'cash_contribution',
+  'other_income',
+] as const;
 export const EXPENSE_CATEGORIES = [
   'supplies',
   'salaries',
@@ -13,6 +22,11 @@ export const EXPENSE_CATEGORIES = [
   'maintenance',
   'cleaning',
   'withdrawal',
+  'rent',
+  'taxes',
+  'professional_fees',
+  'marketing',
+  'bank_fees',
   'other_expense',
 ] as const;
 

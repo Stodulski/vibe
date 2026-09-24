@@ -7,6 +7,48 @@ import { useCreateCashMovement } from '../hooks/useCreateCashMovement';
 
 vi.mock('../hooks/useCreateCashMovement', () => ({ useCreateCashMovement: vi.fn() }));
 
+const INCOME_CATEGORY_LABELS = [
+  'Clases',
+  'Torneos',
+  'Eventos',
+  'Cuotas y abonos',
+  'Publicidad y sponsors',
+  'Aporte / cambio',
+  'Otros ingresos',
+];
+const EXPENSE_CATEGORY_LABELS = [
+  'Insumos',
+  'Sueldos',
+  'Servicios',
+  'Mantenimiento',
+  'Limpieza',
+  'Retiro',
+  'Alquiler del local',
+  'Impuestos',
+  'Honorarios',
+  'Marketing',
+  'Comisiones bancarias',
+  'Otros egresos',
+];
+
+// "Categoría" is the first combobox; "Método" is the second (see
+// `ConfirmPaymentModal.test.tsx` for the same positional pattern — a Radix
+// `Select` root is treated as a wrapper by `FormField`'s auto-wiring, so its
+// accessible name is not reliably queryable by the label text). Shared by
+// both category-list assertions below so neither `it` block pushes the
+// `describe` over the line-count limit.
+async function expectCategoryOptions(kind: 'income' | 'expense', labels: string[]) {
+  const user = userEvent.setup();
+  render(<MovementFormDialog open onClose={vi.fn()} complexId="c1" sessionId="s1" kind={kind} />);
+  const [category] = screen.getAllByRole('combobox');
+  if (!category) throw new Error('category combobox not found');
+  expect(category).toHaveTextContent(labels[0] ?? '');
+
+  await user.click(category);
+  const options = screen.getAllByRole('option').map((o) => o.textContent);
+  expect(options).toEqual(labels);
+}
+
 describe('MovementFormDialog', () => {
   const mutate = vi.fn();
 
@@ -17,27 +59,12 @@ describe('MovementFormDialog', () => {
     >);
   });
 
-  // "Categoría" is the first combobox; "Método" is the second (see
-  // `ConfirmPaymentModal.test.tsx` for the same positional pattern — a
-  // Radix `Select` root is treated as a wrapper by `FormField`'s auto-wiring,
-  // so its accessible name is not reliably queryable by the label text).
-  it('offers only "Otros ingresos" for an income movement', () => {
-    render(<MovementFormDialog open onClose={vi.fn()} complexId="c1" sessionId="s1" kind="income" />);
-    const [category] = screen.getAllByRole('combobox');
-    expect(category).toHaveTextContent('Otros ingresos');
+  it('defaults an income movement to Clases and lists the seven income categories, "Otros ingresos" last', async () => {
+    await expectCategoryOptions('income', INCOME_CATEGORY_LABELS);
   });
 
-  it('defaults an expense movement to Insumos and lists the seven expense categories', async () => {
-    const user = userEvent.setup();
-    render(<MovementFormDialog open onClose={vi.fn()} complexId="c1" sessionId="s1" kind="expense" />);
-    const [category] = screen.getAllByRole('combobox');
-    if (!category) throw new Error('category combobox not found');
-    expect(category).toHaveTextContent('Insumos');
-
-    await user.click(category);
-    for (const label of ['Insumos', 'Sueldos', 'Servicios', 'Mantenimiento', 'Limpieza', 'Retiro', 'Otros egresos']) {
-      expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
-    }
+  it('defaults an expense movement to Insumos and lists the twelve expense categories, "Otros egresos" last', async () => {
+    await expectCategoryOptions('expense', EXPENSE_CATEGORY_LABELS);
   });
 
   it('rejects submitting with no amount typed', async () => {

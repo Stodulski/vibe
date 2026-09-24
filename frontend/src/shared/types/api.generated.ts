@@ -1997,10 +1997,10 @@ export interface components {
             /** @enum {string} */
             kind: "income" | "expense";
             /**
-             * @description The 8 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
+             * @description The 19 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
              * @enum {string}
              */
-            category: "other_income" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense" | "sale" | "restock";
+            category: "other_income" | "classes" | "tournaments" | "events" | "memberships" | "sponsorship" | "cash_contribution" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense" | "rent" | "taxes" | "professional_fees" | "marketing" | "bank_fees" | "sale" | "restock";
             /** @enum {string} */
             method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
             /** @description Centavos ARS. */
@@ -4701,10 +4701,10 @@ export interface operations {
                     /** @enum {string} */
                     kind: "income" | "expense";
                     /**
-                     * @description other_income for income; one of the rest for expense.
+                     * @description The first 7 values for income; the rest for expense.
                      * @enum {string}
                      */
-                    category: "other_income" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense";
+                    category: "other_income" | "classes" | "tournaments" | "events" | "memberships" | "sponsorship" | "cash_contribution" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense" | "rent" | "taxes" | "professional_fees" | "marketing" | "bank_fees";
                     /** @enum {string} */
                     method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
                     /** @description Centavos ARS. */
