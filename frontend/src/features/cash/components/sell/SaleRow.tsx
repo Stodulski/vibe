@@ -7,10 +7,6 @@ import type { Sale } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
-function itemsSummary(sale: Sale): string {
-  return sale.items.map((item) => `${String(item.quantity)}× ${item.product_name}`).join(', ');
-}
-
 interface SaleRowProps {
   sale: Sale;
   onVoid: () => void;
@@ -27,7 +23,11 @@ export function SaleRow({ sale, onVoid }: SaleRowProps) {
           <span className="text-text-tertiary text-xs">· {t.bookings.paymentMethods[sale.method]}</span>
           {isVoided && <Badge variant="outline">{t.cash.saleVoidedBadge}</Badge>}
         </div>
-        <p className="text-text-secondary truncate text-sm">{itemsSummary(sale)}</p>
+        <ul className="text-text-secondary text-sm">
+          {sale.items.map((item, index) => (
+            <li key={`${item.product_name}-${String(index)}`}>{`${String(item.quantity)}× ${item.product_name}`}</li>
+          ))}
+        </ul>
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-1.5">

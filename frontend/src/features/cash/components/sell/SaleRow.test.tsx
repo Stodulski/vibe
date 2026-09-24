@@ -15,7 +15,8 @@ describe('SaleRow', () => {
     });
     render(<SaleRow sale={sale} onVoid={vi.fn()} />);
 
-    expect(screen.getByText('2× Agua 500ml, 1× Pelotas')).toBeInTheDocument();
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent);
+    expect(items).toEqual(['2× Agua 500ml', '1× Pelotas']);
     expect(screen.getByText('$3.000')).toBeInTheDocument();
     expect(screen.getByText(/Transferencia/)).toBeInTheDocument();
   });
