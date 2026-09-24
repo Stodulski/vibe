@@ -9,31 +9,31 @@ import { ClientDetailStats } from './ClientDetailStats';
 describe('ClientDetailStats', () => {
   it('reads a heavy no-show count as an error', () => {
     render(<ClientDetailStats totalBookings={10} noShows={3} attendance={100} />);
-    expect(screen.getByText('3')).toHaveClass('text-error-text');
+    expect(screen.getByText('3')).toHaveAttribute('data-tone', 'error');
   });
 
   it('reads a light no-show count as a warning', () => {
     render(<ClientDetailStats totalBookings={10} noShows={1} attendance={100} />);
-    expect(screen.getByText('1')).toHaveClass('text-warning-text');
+    expect(screen.getByText('1')).toHaveAttribute('data-tone', 'warning');
   });
 
   it('reads zero no-shows as neutral', () => {
     render(<ClientDetailStats totalBookings={10} noShows={0} attendance={100} />);
-    expect(screen.getByText('0')).toHaveClass('text-text-primary');
+    expect(screen.getByText('0')).toHaveAttribute('data-tone', 'neutral');
   });
 
   it('reads high attendance as a success', () => {
     render(<ClientDetailStats totalBookings={10} noShows={0} attendance={80} />);
-    expect(screen.getByText('80%')).toHaveClass('text-success-text');
+    expect(screen.getByText('80%')).toHaveAttribute('data-tone', 'success');
   });
 
   it('reads mid attendance as a warning', () => {
     render(<ClientDetailStats totalBookings={10} noShows={0} attendance={50} />);
-    expect(screen.getByText('50%')).toHaveClass('text-warning-text');
+    expect(screen.getByText('50%')).toHaveAttribute('data-tone', 'warning');
   });
 
   it('reads low attendance as an error', () => {
     render(<ClientDetailStats totalBookings={10} noShows={0} attendance={49} />);
-    expect(screen.getByText('49%')).toHaveClass('text-error-text');
+    expect(screen.getByText('49%')).toHaveAttribute('data-tone', 'error');
   });
 });

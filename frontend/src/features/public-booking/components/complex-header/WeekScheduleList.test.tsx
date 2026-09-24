@@ -24,13 +24,13 @@ describe('WeekScheduleList', () => {
   it('bolds the day carried by selectedDate, not today', () => {
     render(<WeekScheduleList schedules={schedules} selectedDate={aSaturday} />);
 
-    expect(screen.getByText('Sábado')).toHaveClass('font-semibold', 'text-primary-400');
+    expect(screen.getByText('Sábado')).toHaveAttribute('aria-current', 'date');
   });
 
   it('does not bold any other day when selectedDate is given', () => {
     render(<WeekScheduleList schedules={schedules} selectedDate={aSaturday} />);
 
-    expect(screen.getByText('Lunes')).not.toHaveClass('text-primary-400');
+    expect(screen.getByText('Lunes')).not.toHaveAttribute('aria-current');
   });
 
   it('falls back to bolding today when no selectedDate is given', () => {
@@ -38,7 +38,7 @@ describe('WeekScheduleList', () => {
 
     // Whatever CI's actual today is, exactly one label carries the "today" styling.
     const dayLabels = screen.getAllByText(/^(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)$/);
-    const highlighted = dayLabels.filter((el) => el.className.includes('text-primary-400'));
+    const highlighted = dayLabels.filter((el) => el.getAttribute('aria-current') === 'date');
     expect(highlighted).toHaveLength(1);
   });
 });

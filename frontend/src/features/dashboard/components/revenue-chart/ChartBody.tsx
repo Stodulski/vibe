@@ -15,7 +15,11 @@ interface ChartBodyProps {
 
 export function ChartBody({ state, period }: ChartBodyProps) {
   if (state.status === 'loading') {
-    return <Skeleton className="h-full min-h-[200px] w-full rounded-xl" />;
+    return (
+      <div role="status" aria-busy="true" aria-label={t.common.loading} className="h-full min-h-[200px]">
+        <Skeleton className="h-full w-full rounded-xl" />
+      </div>
+    );
   }
 
   if (state.status === 'error') {

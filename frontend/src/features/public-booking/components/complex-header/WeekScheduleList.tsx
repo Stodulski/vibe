@@ -63,6 +63,7 @@ export function WeekScheduleList({ schedules, selectedDate }: WeekScheduleListPr
           {index > 0 && <div aria-hidden="true" className="bg-border-subtle hidden w-px self-stretch lg:block" />}
           <div>
             <dt
+              aria-current={row.isToday ? 'date' : undefined}
               className={cn(
                 'text-micro tracking-wide uppercase lg:text-sm lg:tracking-normal lg:normal-case',
                 row.isToday ? 'text-primary-400 font-semibold' : 'text-text-tertiary',

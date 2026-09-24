@@ -18,7 +18,14 @@ interface LowStockAlertProps {
 
 function LowStockAlertSkeleton() {
   return (
-    <Panel as="section" size="sm" className="flex h-full flex-col gap-2 p-4" aria-label={t.dashboard.lowStockTitle}>
+    <Panel
+      as="section"
+      size="sm"
+      className="flex h-full flex-col gap-2 p-4"
+      aria-label={t.dashboard.lowStockTitle}
+      role="status"
+      aria-busy="true"
+    >
       <Skeleton className="mb-1 h-4 w-24" />
       {[0, 1, 2].map((i) => (
         <Skeleton key={i} className="h-4 w-full" />
