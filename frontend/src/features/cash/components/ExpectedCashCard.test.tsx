@@ -38,4 +38,12 @@ describe('ExpectedCashCard', () => {
     expect(row).toHaveTextContent('Devoluciones en efectivo');
     expect(row).toHaveTextContent('-$200');
   });
+
+  it('shows the expected cash amount smaller on mobile and at its full size from sm up', () => {
+    const session = makeCashSession();
+    render(<ExpectedCashCard session={session} summary={makeSummary()} />);
+
+    const amount = screen.getByText('$6.500');
+    expect(amount).toHaveClass('text-xl', 'sm:text-2xl', 'tabular-nums');
+  });
 });

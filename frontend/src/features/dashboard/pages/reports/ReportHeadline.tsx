@@ -23,7 +23,9 @@ export function ReportHeadline({ totals, previous }: { totals: MonthlyReportTota
     <div className="border-border-subtle mb-5 border-b pb-4">
       <p className="text-micro text-text-tertiary font-medium tracking-wider uppercase">{t.reports.netForMonth}</p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="score-text text-text-primary text-2xl font-bold tabular-nums">{formatPrice(totals.net)}</span>
+        <span className="score-text text-text-primary text-xl font-bold tabular-nums sm:text-2xl">
+          {formatPrice(totals.net)}
+        </span>
         <ComparisonBadge current={totals.net} previous={previous.net} versus={t.dashboard.versusLastMonth} />
       </div>
       {previous.net > 0 && (
