@@ -29,12 +29,18 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatPrice(cents: number, currency = 'ARS'): string {
+  // Whole amounts show no decimals ("$1.500"); an amount that carries
+  // centavos shows exactly 2, never a lone trailing digit ("$1.500,50",
+  // never "$1.500,5") — money-centavos change, same "hasta 2 decimales"
+  // convention every money input/schema in the app now follows.
+  const hasCentavos = cents % 100 !== 0;
   // Intl inserts a non-breaking space between the currency symbol and the
   // amount for es-AR (e.g. "$ 150") - tighten it to "$150".
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: hasCentavos ? 2 : 0,
+    maximumFractionDigits: hasCentavos ? 2 : 0,
   })
     .format(cents / 100)
     .replace(/\s/, '');
