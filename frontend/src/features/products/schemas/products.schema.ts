@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { COUNTER_PAYMENT_METHODS } from '@/shared/lib/paymentMethods';
+import { hasAtMostTwoDecimals } from '@/shared/lib/money';
 import { ADJUSTMENT_REASONS } from '../lib/adjustmentReasons';
 import { MAX_PRODUCT_PRICE_PESOS, MAX_RESTOCK_COST_PESOS, MAX_STOCK_QUANTITY } from '../lib/money';
 
@@ -8,14 +9,15 @@ const t = ES_AR;
 
 const optionalNoteSchema = z.string().max(500, t.validation.maxChars500).optional().or(z.literal(''));
 
-// Whole pesos only, may be 0 (owner decision: "precio en pesos ... may be
-// 0") — same NaN-from-an-empty-number-input handling as `cash.schema.ts`'s
-// `sessionCashSchema`.
+// May be 0 (owner decision: "precio en pesos ... may be 0") — same
+// NaN-from-an-empty-number-input handling as `cash.schema.ts`'s
+// `sessionCashSchema`. Centavos, not whole pesos only (money-centavos
+// change): `hasAtMostTwoDecimals` replaces the old `.int()`.
 const priceSchema = z
   .number({ message: t.validation.amountRequired })
   .min(0, t.validation.amountNonNegative)
   .max(MAX_PRODUCT_PRICE_PESOS, t.validation.movementAmountTooLarge)
-  .int(t.validation.amountMustBeWhole);
+  .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals);
 
 /**
  * The create/edit form. `thresholdLocked` is not a static property of the
@@ -69,7 +71,7 @@ export const restockSchema = z.object({
     .number({ message: t.validation.amountRequired })
     .positive(t.validation.amountPositive)
     .max(MAX_RESTOCK_COST_PESOS, t.validation.movementAmountTooLarge)
-    .int(t.validation.amountMustBeWhole),
+    .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals),
   method: z.enum(COUNTER_PAYMENT_METHODS, { message: t.validation.selectPaymentMethod }),
   note: optionalNoteSchema,
 });

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { COUNTER_PAYMENT_METHODS } from '@/shared/lib/paymentMethods';
+import { hasAtMostTwoDecimals } from '@/shared/lib/money';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, MOVEMENT_CATEGORIES } from '../lib/movementCategories';
 import { MAX_SESSION_CASH_PESOS, MAX_MOVEMENT_AMOUNT_PESOS } from '../lib/money';
 
@@ -13,11 +14,16 @@ const t = ES_AR;
 // legitimate opening/counted amount here (an empty drawer) where it is not
 // there, so this stays a plain `min(0)` rather than that field's `z.nan()`
 // escape hatch.
+//
+// Centavos, not whole pesos only (money-centavos change): `.int()` used to
+// reject any decimal here, but `MoneyPesosField` now accepts up to 2 decimal
+// digits, so the schema-level rule is `hasAtMostTwoDecimals` instead — the
+// same shared check every other money amount uses.
 const sessionCashSchema = z
   .number({ message: t.validation.amountRequired })
   .min(0, t.validation.amountNonNegative)
   .max(MAX_SESSION_CASH_PESOS, t.validation.cashSessionTooLarge)
-  .int(t.validation.amountMustBeWhole);
+  .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals);
 
 const optionalNoteSchema = z.string().max(500, t.validation.maxChars500).optional().or(z.literal(''));
 
@@ -40,7 +46,7 @@ export const cashMovementSchema = z
       .number({ message: t.validation.amountRequired })
       .positive(t.validation.amountPositive)
       .max(MAX_MOVEMENT_AMOUNT_PESOS, t.validation.movementAmountTooLarge)
-      .int(t.validation.amountMustBeWhole),
+      .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals),
     note: optionalNoteSchema,
   })
   // A category belongs to exactly one kind (see `categoriesFor`) — the select

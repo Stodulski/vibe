@@ -91,7 +91,7 @@ describe('OpenCashSessionDialog — decimal input never silently corrupts the am
     });
   });
 
-  it('rejects a decimal amount typed with a comma with the app\'s own "whole pesos" error, and never submits', async () => {
+  it('accepts a decimal amount typed with a comma and converts it to the exact centavos, never a 10x/100x amount', async () => {
     const user = userEvent.setup();
     render(<OpenCashSessionDialog open onClose={vi.fn()} complexId="c1" />);
 
@@ -99,15 +99,17 @@ describe('OpenCashSessionDialog — decimal input never silently corrupts the am
     // reformat the comma away the instant it landed, so the following "5"
     // and "0" silently read as two more thousands digits of the integer part
     // — "1500,50" ended up recording 150050 pesos, a 100x amount, with no
-    // validation error anywhere (see `useMoneyInput`'s own doc comment). The
-    // field now shows the amount back exactly as typed and reports the real
-    // fraction (1500.5), so `sessionCashSchema`'s `.int()` rejects it visibly.
+    // validation error anywhere (see `useMoneyInput`'s own doc comment).
+    // Centavos are now an accepted amount everywhere (money-centavos change):
+    // the field shows it back grouped, and it submits as the exact 150050
+    // centavos — never a corrupted 15050000 or a rejected whole-pesos error.
     await user.type(screen.getByLabelText('Monto inicial'), '1500,50');
     expect(screen.getByLabelText('Monto inicial')).toHaveValue('1.500,50');
 
     await user.click(screen.getByRole('button', { name: 'Abrir caja' }));
 
-    expect(await screen.findByText('El monto debe ser en pesos enteros, sin centavos')).toBeInTheDocument();
-    expect(mutate).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mutate).toHaveBeenCalledWith({ opening_cash: 150050, note: undefined }, expect.anything());
+    });
   });
 });

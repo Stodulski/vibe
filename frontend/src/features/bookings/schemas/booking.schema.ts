@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { phoneField, firstNameField, lastNameField, optionalEmailField } from '@/shared/lib/validations';
 import { parseHhMm, parseYmd } from '@/shared/lib/time';
+import { hasAtMostTwoDecimals } from '@/shared/lib/money';
 import { nowInArgentina } from '../lib/today';
 import { COUNTER_PAYMENT_METHODS } from '../lib/paymentMethods';
 
@@ -22,7 +23,11 @@ export const createBookingSchema = z
       message: t.validation.durationInvalid,
     }),
     payment_option: z.enum(['unpaid', 'deposit', 'full']).optional(),
-    deposit_amount: z.number().positive(t.validation.amountPositive).optional(),
+    deposit_amount: z
+      .number()
+      .positive(t.validation.amountPositive)
+      .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals)
+      .optional(),
     payment_method: z.enum(COUNTER_PAYMENT_METHODS).optional(),
     notes: z.string().max(500, t.validation.maxChars500).optional().or(z.literal('')),
     // Pesos, converted to centavos in `cleanBookingPayload`. Required exactly
@@ -30,7 +35,11 @@ export const createBookingSchema = z
     // and `CreateBookingSteps`'s manual `priceRequired` check, which enforce
     // that pairing outside the schema (it depends on `courts`/`schedules`,
     // neither of which is a form field).
-    price: z.number().positive(t.validation.amountPositive).optional(),
+    price: z
+      .number()
+      .positive(t.validation.amountPositive)
+      .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals)
+      .optional(),
   })
   .refine(
     ({ payment_option, payment_method }) => {
@@ -74,7 +83,10 @@ export const confirmPaymentSchema = z.object({
   method: z.enum(COUNTER_PAYMENT_METHODS, {
     message: t.validation.selectPaymentMethod,
   }),
-  amount: z.number().positive(t.validation.amountPositive),
+  amount: z
+    .number()
+    .positive(t.validation.amountPositive)
+    .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals),
 });
 
 export type CreateBookingDto = z.infer<typeof createBookingSchema>;

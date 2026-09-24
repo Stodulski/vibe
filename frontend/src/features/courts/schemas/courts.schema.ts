@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { timeToMinutes } from '@/shared/lib/time';
+import { hasAtMostTwoDecimals } from '@/shared/lib/money';
 
 const t = ES_AR;
 
@@ -25,7 +26,10 @@ export const createCourtSchema = z.object({
 
 const priceItemSchema = z
   .object({
-    price: z.number().min(1, t.validation.priceNonNegative),
+    price: z
+      .number()
+      .min(1, t.validation.priceNonNegative)
+      .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals),
     day_type: z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], {
       message: t.validation.dayInvalid,
     }),
@@ -64,9 +68,15 @@ export const updatePricesSchema = z.object({
 // The message sits on the union, not only on the number branch: when every
 // branch fails, zod reports the union's own error, so a branch-level message
 // would never reach the field.
-const bandPrice = z.union([z.number().min(0, t.validation.priceNonNegative), z.nan()], {
-  error: t.validation.priceNonNegative,
-});
+const bandPrice = z
+  .union([z.number().min(0, t.validation.priceNonNegative), z.nan()], {
+    error: t.validation.priceNonNegative,
+  })
+  // NaN (the "no price set" case above) skips the decimals check entirely —
+  // it is not an amount at all, and `hasAtMostTwoDecimals(NaN)` is false, so
+  // it would otherwise be rejected as an invalid amount instead of read as
+  // "unset".
+  .refine((value) => Number.isNaN(value) || hasAtMostTwoDecimals(value), t.validation.amountMaxTwoDecimals);
 
 // One differentiated row of the price-config dialog: a half-hour range and
 // the hourly rate charged inside it, layered on top of its day's full-day

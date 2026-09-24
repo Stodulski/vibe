@@ -84,6 +84,9 @@ export const validation = {
   // app's own message for a decimal amount, shown instead of letting the
   // number input's native step-mismatch silently block the submit.
   amountMustBeWhole: 'El monto debe ser en pesos enteros, sin centavos',
+  // Every money-amount field's shared decimals rule (money-centavos change):
+  // centavos are accepted everywhere now, up to 2 decimal digits.
+  amountMaxTwoDecimals: 'Hasta 2 decimales',
   selectCategory: 'Seleccioná una categoría',
   selectPaymentMethod: 'Seleccioná un método de pago',
   manualPriceRequired: 'Ingresá un precio: no hay una tarifa configurada para este horario',
