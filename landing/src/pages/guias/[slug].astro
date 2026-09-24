@@ -31,12 +31,12 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
   ogImage="https://vibe.com.ar/og-image.png"
   ogImageWidth="1200"
   ogImageHeight="630"
-  ogImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  ogImageAlt="Vibe - Sistema de gestión para complejos deportivos"
   twitterCard="summary_large_image"
   twitterTitle={guia.title}
   twitterDescription={guia.metaDescription}
   twitterImage="https://vibe.com.ar/og-image.png"
-  twitterImageAlt="Vibe - Plataforma de gestión de complejos deportivos y reservas online"
+  twitterImageAlt="Vibe - Sistema de gestión para complejos deportivos"
   jsonLd={guiaJsonLd(guia)}
   blobs={4}
   skipLink={true}
@@ -138,7 +138,7 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
 
       {guia.tutorial && (
         <aside class="guia-tutorial">
-          <h2>Vas a querer verlo</h2>
+          <h2>Miralo funcionando</h2>
           <p>
             <a href={`/tutoriales/${guia.tutorial.slug}`}>{guia.tutorial.texto}</a>, en un video corto
             del panel. También está el <a href="/tutoriales">resto de los tutoriales</a>.
@@ -147,13 +147,13 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
       )}
 
       <aside class="guia-cta">
-        <h2>Cargá tu complejo en Vibe</h2>
+        <h2>Tu complejo en orden, 100% gratis</h2>
         <p>
-          Tus clientes reservan y pagan la seña desde el celular, y vos gestionás todo desde un
-          panel. Para el complejo no hay costo fijo ni suscripción.
+          Reservas con seña, cobros, caja y el stock del bar en un panel. Vibe no le cobra nada a tu
+          complejo: ni abono ni costo fijo. Quién paga qué, en <a href="/#precio">el precio</a>.
         </p>
         <a class="btn-primary" href="https://app.vibe.com.ar/register" rel="noopener">
-          Crear mi cuenta
+          Crear mi cuenta gratis
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </a>
       </aside>
