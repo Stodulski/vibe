@@ -138,17 +138,95 @@ describe('useMoneyInput — a decimal comma is never silently dropped', () => {
     expect(onChange).toHaveBeenLastCalledWith(1500.5);
   });
 
-  it('pasting an explicit ",00" (no centavos) is harmless and collapses immediately', async () => {
+});
+
+describe('useMoneyInput — a zero decimal ("," / ",0" / ",00") is never collapsed mid-typing either', () => {
+  // Regression coverage, one digit later than the block above: ",0"/",00" is
+  // unambiguous ("no centavos") once the person is DONE typing, but
+  // collapsing it the instant it lands is the same 100x bug one digit
+  // further along — the comma disappears from the DOM, and the next typed
+  // digit is then read as another thousands digit instead of a centavos
+  // digit. "1500,00" typed one keystroke at a time must never become 15000
+  // mid-typing (or 150000 counted in cents downstream).
+
+  it('pasting an explicit ",00" (no centavos) stays visible until blur, then collapses', async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();
 
     await user.click(input);
     await user.paste('$ 1.500,00');
 
-    expect(input).toHaveValue('1.500');
+    // NOT collapsed immediately, and shown exactly as pasted (same as the
+    // 'invalid' case) — see the "typing ',00' one keystroke at a time" test
+    // below for why an immediate collapse here is the same 100x bug, one
+    // digit later than the lone-trailing-comma case.
+    expect(input).toHaveValue('$ 1.500,00');
     expect(onChange).toHaveBeenLastCalledWith(1500);
+
+    await user.tab();
+
+    expect(input).toHaveValue('1.500');
   });
 
+  it('typing ",00" one keystroke at a time never inflates the amount, even mid-typing', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    // Regression coverage, one digit later than the lone-comma case above: a
+    // ",0"/",00" decimal is unambiguous ("no centavos") once the person is
+    // DONE typing, but collapsing it the instant the second "0" lands still
+    // drops the comma from the DOM — a still-in-progress "1500,00" typed one
+    // keystroke at a time must never become 15000 at any point along the way.
+    await user.type(input, '1500,');
+    expect(onChange).not.toHaveBeenCalledWith(15000);
+
+    await user.type(input, '0');
+    expect(input).toHaveValue('1.500,0');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+    expect(onChange).not.toHaveBeenCalledWith(15000);
+
+    await user.type(input, '0');
+    expect(input).toHaveValue('1.500,00');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+    expect(onChange).not.toHaveBeenCalledWith(15000);
+
+    await user.tab();
+
+    expect(input).toHaveValue('1.500');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+    expect(onChange).not.toHaveBeenCalledWith(15000);
+  });
+
+  it('a non-zero digit after a zero decimal turns it invalid, shown verbatim', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,0');
+    expect(input).toHaveValue('1.500,0');
+    expect(onChange).toHaveBeenLastCalledWith(1500);
+
+    await user.type(input, '5');
+
+    expect(input).toHaveValue('1.500,05');
+    expect(onChange).toHaveBeenLastCalledWith(1500.05);
+  });
+
+  it('a non-zero digit landing three keystrokes after a trailing comma is still caught', async () => {
+    const user = userEvent.setup();
+    const { input, onChange } = renderHarness();
+
+    await user.type(input, '1500,');
+    await user.type(input, '0');
+    await user.type(input, '0');
+    await user.type(input, '7');
+
+    expect(input).toHaveValue('1.500,007');
+    expect(onChange).toHaveBeenLastCalledWith(1500.007);
+  });
+
+});
+
+describe('useMoneyInput — a lone trailing comma ("pending") is never collapsed mid-typing', () => {
   it('a lone trailing comma is left visible while typing, and reports the integer part', async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderHarness();

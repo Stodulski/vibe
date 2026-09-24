@@ -109,9 +109,14 @@ export function caretPositionForDigitCount(formatted: string, digitCount: number
  *                 the 100x bug this whole type exists to prevent (typing
  *                 "1.500,50" one keystroke at a time must never end up
  *                 "150.050"). Resolved by `useMoneyInput`'s `handleBlur`.
- * - `'zero'`    — a comma followed only by zeros ("1500,0", "1500,00"): an
- *                 explicit, unambiguous "no centavos", safe to collapse to
- *                 the integer part immediately.
+ * - `'zero'`    — a comma followed only by zeros so far ("1500,0", "1500,00"):
+ *                 an explicit, unambiguous "no centavos" ONCE THE PERSON IS
+ *                 DONE TYPING — but NOT safe to collapse immediately while
+ *                 they might still be typing: collapsing "1500,00" the
+ *                 instant the second "0" lands is the exact same 100x bug one
+ *                 digit later (the comma disappears, and a further "0" would
+ *                 read as another thousands digit). Left exactly as typed,
+ *                 same as `'pending'`, and resolved the same way on blur.
  * - `'invalid'` — a comma followed by a non-zero digit: a real fractional
  *                 amount. Never silently rounded or reformatted away — shown
  *                 exactly as typed/pasted and reported as the fractional
