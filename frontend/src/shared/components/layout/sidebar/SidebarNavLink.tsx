@@ -27,7 +27,10 @@ export function SidebarNavLink({ item, isActive, collapsed, isMobile, onNavigate
       aria-current={isActive ? 'page' : undefined}
       aria-label={item.label}
       className={cn(
-        'group text-nav press-scale relative flex items-center rounded-lg transition-colors duration-200',
+        'group press-scale relative flex items-center rounded-lg transition-colors duration-200',
+        // The mobile sheet runs a notch smaller than the desktop rail (owner
+        // request): 12px labels instead of the 13px `text-nav`.
+        isMobile ? 'text-xs' : 'text-nav',
         collapsed && !isMobile ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-2.5 py-[7px]',
         isActive
           ? 'bg-primary-500/10 text-text-primary font-medium'
@@ -41,7 +44,8 @@ export function SidebarNavLink({ item, isActive, collapsed, isMobile, onNavigate
       )}
       <item.icon
         className={cn(
-          'size-4 shrink-0 transition-colors duration-200',
+          'shrink-0 transition-colors duration-200',
+          isMobile ? 'size-3.5' : 'size-4',
           isActive ? 'text-primary-500' : 'text-text-tertiary group-hover:text-text-secondary',
         )}
         aria-hidden="true"
