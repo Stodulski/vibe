@@ -79,6 +79,35 @@ describe('cashMovementSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  // Each new category (odd/tasks/cash-movement-categories.md) is accepted
+  // for its own kind and refused for the other, mirroring the backend's
+  // cash_movements_category_kind_consistent CHECK.
+  const newIncomeCategories = [
+    'classes',
+    'tournaments',
+    'events',
+    'memberships',
+    'sponsorship',
+    'cash_contribution',
+  ] as const;
+  const newExpenseCategories = ['rent', 'taxes', 'professional_fees', 'marketing', 'bank_fees'] as const;
+
+  it.each(newIncomeCategories)('accepts %s as an income category', (category) => {
+    expect(cashMovementSchema.safeParse({ ...base, kind: 'income', category }).success).toBe(true);
+  });
+
+  it.each(newIncomeCategories)('rejects %s as an expense category', (category) => {
+    expect(cashMovementSchema.safeParse({ ...base, kind: 'expense', category }).success).toBe(false);
+  });
+
+  it.each(newExpenseCategories)('accepts %s as an expense category', (category) => {
+    expect(cashMovementSchema.safeParse({ ...base, kind: 'expense', category }).success).toBe(true);
+  });
+
+  it.each(newExpenseCategories)('rejects %s as an income category', (category) => {
+    expect(cashMovementSchema.safeParse({ ...base, kind: 'income', category }).success).toBe(false);
+  });
+
   it('rejects an amount of 0 (must be positive)', () => {
     expect(cashMovementSchema.safeParse({ ...base, amount: 0 }).success).toBe(false);
   });
