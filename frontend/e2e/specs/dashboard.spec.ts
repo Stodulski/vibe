@@ -36,7 +36,9 @@ test.describe('Dashboard', () => {
   test('displays revenue section', async ({ authenticatedPage: page }) => {
     await page.goto('/dashboard');
 
-    await expect(page.getByText('Ingresos')).toBeVisible({ timeout: 15_000 });
+    // Exact heading: a substring match also hits PaymentOverview's "Ingresos
+    // de hoy", and strict mode fails whenever both have rendered.
+    await expect(page.getByRole('heading', { name: 'Ingresos', exact: true })).toBeVisible({ timeout: 15_000 });
   });
 
   // "Estado de canchas" (a live per-court status section) no longer exists on
