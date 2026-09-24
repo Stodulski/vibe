@@ -351,6 +351,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		RateLimitUserBurst: cfg.Limiter.UserBurst,
 		RequestLogSample:   cfg.RequestLogSample,
 		Env:                cfg.Env,
+		FrontendURL:        cfg.FrontendURL,
 	})
 	cache := userCache{mw: mw}
 

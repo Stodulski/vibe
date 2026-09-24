@@ -163,3 +163,191 @@ func TestARateLimitExemptionCoversOneExactRouteAndNothingUnderIt(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Auth ceiling scope
+// ---------------------------------------------------------------------------
+
+// TestAuthCeilingOffRoutesAreNotBoundByTheAuthCeiling proves the three
+// session/token routes named in authCeilingOffRoutes are throttled by the
+// general ceiling only, not by authCeiling's much stricter burst of 10. The
+// general ceiling here is set far above what the loop below issues, so every
+// one of the 20 requests must succeed; a route still on authCeiling would be
+// refused after its 10th.
+func TestAuthCeilingOffRoutesAreNotBoundByTheAuthCeiling(t *testing.T) {
+	tests := []struct {
+		method, path string
+	}{
+		{http.MethodGet, "/api/v1/auth/me"},
+		{http.MethodPost, "/api/v1/auth/refresh"},
+		{http.MethodPost, "/api/v1/auth/logout"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			f := newFixture(t, Config{RateLimitEnabled: true, RateLimitRPS: 10_000, RateLimitBurst: 10_000})
+			handler := f.mw.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			allowed := 0
+			for range authCeiling.burst * 2 {
+				r := httptest.NewRequestWithContext(t.Context(), tt.method, tt.path, nil)
+				r.RemoteAddr = "203.0.113.11:1000"
+				w := httptest.NewRecorder()
+				handler.ServeHTTP(w, r)
+				if w.Code == http.StatusOK {
+					allowed++
+				}
+			}
+
+			if want := authCeiling.burst * 2; allowed != want {
+				t.Errorf("%s %s must not be bound by authCeiling (burst %d); got %d/%d through",
+					tt.method, tt.path, authCeiling.burst, allowed, want)
+			}
+		})
+	}
+}
+
+// TestGetAuthMeDoesNotDrainTheBucketLoginNeeds is the acceptance scenario:
+// draining what would have been the auth bucket with GET /auth/me must not
+// make POST /auth/login answer 429, because the two no longer share a
+// ceiling.
+func TestGetAuthMeDoesNotDrainTheBucketLoginNeeds(t *testing.T) {
+	f := newFixture(t, Config{RateLimitEnabled: true, RateLimitRPS: 10_000, RateLimitBurst: 10_000})
+	handler := f.mw.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	const addr = "203.0.113.12:1000"
+
+	// Hammer GET /auth/me well past what the old shared auth ceiling
+	// (burst 10) would have tolerated.
+	for range authCeiling.burst * 3 {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/me", nil)
+		r.RemoteAddr = addr
+		handler.ServeHTTP(httptest.NewRecorder(), r)
+	}
+
+	// Login still gets its full, untouched auth-ceiling burst.
+	allowed := 0
+	for range authCeiling.burst {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/login", nil)
+		r.RemoteAddr = addr
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code == http.StatusOK {
+			allowed++
+		}
+	}
+
+	if allowed != authCeiling.burst {
+		t.Errorf("POST /auth/login got %d/%d of its own burst after GET /auth/me was hammered from the same address; "+
+			"the two must not share a bucket", allowed, authCeiling.burst)
+	}
+}
+
+// TestPostAuthLoginStillHitsTheAuthCeiling is the other half: login itself
+// must still be bound by authCeiling, not accidentally exempted along with
+// the three session routes.
+func TestPostAuthLoginStillHitsTheAuthCeiling(t *testing.T) {
+	f := newFixture(t, Config{RateLimitEnabled: true, RateLimitRPS: 10_000, RateLimitBurst: 10_000})
+	handler := f.mw.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	allowed := 0
+	for range authCeiling.burst + 5 {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/login", nil)
+		r.RemoteAddr = "203.0.113.13:1000"
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code == http.StatusOK {
+			allowed++
+		}
+	}
+
+	if allowed != authCeiling.burst {
+		t.Errorf("POST /auth/login must still be bound by authCeiling's burst of %d; got %d through",
+			authCeiling.burst, allowed)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Google redirect rate-limit contract
+// ---------------------------------------------------------------------------
+
+// TestRateLimitedGoogleRedirectAnswers303ToFrontendLogin is
+// authGoogleRedirect's documented contract (openapi.yaml): every failure,
+// rate limiting included, is a 303 to the frontend, never a JSON 429 — this
+// route's only caller is a browser following a top-level form navigation
+// Google itself posted.
+func TestRateLimitedGoogleRedirectAnswers303ToFrontendLogin(t *testing.T) {
+	f := newFixture(t, Config{
+		RateLimitEnabled: true, RateLimitRPS: 0, RateLimitBurst: 1,
+		FrontendURL: "http://localhost:5173",
+	})
+	handler := f.mw.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	const addr = "203.0.113.14:1000"
+
+	req := func() *http.Request {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/google/redirect", nil)
+		r.RemoteAddr = addr
+		return r
+	}
+
+	// The one-token burst is spent by the first request.
+	if w := httptest.NewRecorder(); true {
+		handler.ServeHTTP(w, req())
+		if w.Code != http.StatusOK {
+			t.Fatalf("first request: want 200 to spend the only token; got %d", w.Code)
+		}
+	}
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req())
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("rate-limited google/redirect: want 303; got %d", w.Code)
+	}
+	if got, want := w.Header().Get("Location"), "http://localhost:5173/login?error=google_rate_limited"; got != want {
+		t.Errorf("Location = %q, want %q", got, want)
+	}
+	if got := w.Header().Get("Retry-After"); got == "" {
+		t.Error("want Retry-After set even on the redirect path")
+	}
+	if got := w.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store — the Location carries a one-time-use error state", got)
+	}
+}
+
+// TestRateLimitedGoogleRedirectFallsBackTo429WithoutAFrontendURL is the
+// degenerate deployment state: with no FrontendURL configured there is
+// nowhere to redirect to, so the ordinary 429 problem document stands —
+// matching the handler's own FrontendURL-missing behaviour (501) in spirit.
+func TestRateLimitedGoogleRedirectFallsBackTo429WithoutAFrontendURL(t *testing.T) {
+	f := newFixture(t, Config{RateLimitEnabled: true, RateLimitRPS: 0, RateLimitBurst: 1})
+	handler := f.mw.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	const addr = "203.0.113.15:1000"
+
+	req := func() *http.Request {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/google/redirect", nil)
+		r.RemoteAddr = addr
+		return r
+	}
+
+	handler.ServeHTTP(httptest.NewRecorder(), req())
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req())
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("without FrontendURL: want 429; got %d", w.Code)
+	}
+	if got := w.Header().Get("Retry-After"); got == "" {
+		t.Error("want Retry-After set")
+	}
+}

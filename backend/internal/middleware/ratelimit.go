@@ -133,9 +133,37 @@ const (
 	ceilingCount
 )
 
+// authCeilingOffRoutes names the exact /api/v1/auth/* routes that stay off
+// authCeiling and are throttled by the general ceiling only (and, once
+// signed in, by the per-account one via RateLimitUser) — each with why it
+// does not belong on the strict ceiling meant for credential and token
+// attempts.
+//
+// This is an exact set, not a second prefix, for the same reason
+// rateLimitExemptRoutes is one: a prefix trick grants itself silently to
+// every route added under it later. GET /auth/me runs on every page load,
+// POST /auth/refresh keeps a session alive in the background, and POST
+// /auth/logout ends one — none of them is an attempt an attacker replays to
+// gain anything, and all three fire far more often than a human logs in.
+// Before this, all three shared authCeiling's burst of 10 requests per 6
+// seconds with login, register, and every password-reset and Google route,
+// so ordinary browsing (GET /auth/me on every navigation) could drain the
+// bucket login itself needed (Sentry VIBE-FRONTEND-4). Every other
+// credential and token route — login, register, Google, forgot/reset
+// password, verify and resend, confirm email change, PUT/DELETE /auth/me —
+// keeps the strict ceiling.
+var authCeilingOffRoutes = map[string]string{
+	"GET /api/v1/auth/me":       "a session read that runs on every page load, not a credential attempt",
+	"POST /api/v1/auth/refresh": "keeps an existing session alive; not a credential attempt",
+	"POST /api/v1/auth/logout":  "ends a session; not a credential attempt",
+}
+
 func ceilingsFor(r *http.Request) []int {
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/api/v1/auth/"):
+		if _, off := authCeilingOffRoutes[r.Method+" "+r.URL.Path]; off {
+			return generalOnly
+		}
 		return generalAndAuth
 	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/book":
 		return generalAndBook
@@ -201,6 +229,34 @@ func (m *Middleware) RateLimit(next http.Handler) http.Handler {
 // ceilings returns the limits in index order.
 func (m *Middleware) ceilings() [ceilingCount]ceiling {
 	return [ceilingCount]ceiling{m.generalCeiling(), authCeiling, bookingCeiling, m.userCeiling()}
+}
+
+// googleRedirectRoute is the one address-keyed-ceiling route whose contract
+// (openapi.yaml, authGoogleRedirect) says every failure is a 303 to the
+// frontend, never a problem document: it is reached by a browser following a
+// top-level form navigation Google itself posted, not by a client reading
+// JSON.
+const googleRedirectRoute = "POST /api/v1/auth/google/redirect"
+
+// refuseRateLimited answers a refused request: the ordinary 429 problem
+// document (via the Responder, which also sets Retry-After) everywhere
+// except googleRedirectRoute, which gets a 303 to
+// <FrontendURL>/login?error=google_rate_limited instead, per its own
+// documented contract, but keeps the Retry-After header a well-behaved
+// caller could still read off the redirect response.
+func (m *Middleware) refuseRateLimited(w http.ResponseWriter, r *http.Request, retryAfter time.Duration) {
+	if r.Method+" "+r.URL.Path == googleRedirectRoute && m.cfg.FrontendURL != "" {
+		seconds := int(math.Ceil(retryAfter.Seconds()))
+		if seconds < 1 {
+			seconds = 1
+		}
+		w.Header().Set("Retry-After", strconv.Itoa(seconds))
+		w.Header().Set("Cache-Control", "no-store")
+		http.Redirect(w, r, m.cfg.FrontendURL+"/login?error=google_rate_limited", http.StatusSeeOther)
+		return
+	}
+
+	m.respond.RateLimitExceededAfter(w, r, retryAfter)
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +347,7 @@ func (m *Middleware) rateLimitRedis(next http.Handler, fallback *localBuckets) h
 				allowed = fallback.allow(ip, index)
 			}
 			if !allowed {
-				m.respond.RateLimitExceededAfter(w, r, c.retryAfter())
+				m.refuseRateLimited(w, r, c.retryAfter())
 				return
 			}
 		}
@@ -477,7 +533,7 @@ func (m *Middleware) rateLimitLocal(next http.Handler, buckets *localBuckets) ht
 
 		for _, index := range ceilingsFor(r) {
 			if !buckets.allow(ip, index) {
-				m.respond.RateLimitExceededAfter(w, r, buckets.ceilings[index].retryAfter())
+				m.refuseRateLimited(w, r, buckets.ceilings[index].retryAfter())
 				return
 			}
 		}

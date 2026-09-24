@@ -76,6 +76,13 @@ type Config struct {
 	// staging deployment sharing a Redis with production cannot replay
 	// production's answers.
 	Env string
+	// FrontendURL is where a rate-limited POST /api/v1/auth/google/redirect
+	// redirects to. That route's whole contract (openapi.yaml,
+	// authGoogleRedirect) is that every failure is a 303 to the app, never a
+	// JSON body — its caller is a browser following Google's own form post,
+	// not a client reading a problem document. See googleRedirectRateLimited
+	// in ratelimit.go.
+	FrontendURL string
 }
 
 // Middleware builds the chain.
