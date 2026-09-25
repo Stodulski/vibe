@@ -41,13 +41,19 @@ const RESALTADO = '100% gratis para vos.';
  * Van en base64 y no por ruta: setContent renderiza sin URL base, así que un
  * src relativo no resuelve y el icono saldría roto sin avisar.
  */
+/*
+ * Tamaños ~1.75x los originales (mismo fold que .sport-emoji en el hero,
+ * pedido del dueño 2026-09-25 porque los iconos se veian chicos). El de
+ * tennis ademas se corrio de x:1010 a x:980 porque agrandado se salia del
+ * lienzo de 1200px de ancho.
+ */
 const ICONOS = [
-  { archivo: 'soccer-ball.webp', x: 742, y: 96, tam: 150, giro: -14, opacidad: 1 },
-  { archivo: 'tennis.webp', x: 1010, y: 268, tam: 118, giro: 12, opacidad: 0.95 },
-  { archivo: 'basketball.webp', x: 868, y: 398, tam: 96, giro: -8, opacidad: 0.9 },
-  { archivo: 'volleyball.webp', x: 1046, y: 62, tam: 74, giro: 18, opacidad: 0.8 },
-  { archivo: 'field-hockey.webp', x: 726, y: 492, tam: 64, giro: -20, opacidad: 0.7 },
-  { archivo: 'trophy.webp', x: 1054, y: 462, tam: 58, giro: 8, opacidad: 0.62 },
+  { archivo: 'soccer-ball.webp', x: 742, y: 96, tam: 263, giro: -14, opacidad: 1 },
+  { archivo: 'tennis.webp', x: 980, y: 268, tam: 207, giro: 12, opacidad: 0.95 },
+  { archivo: 'basketball.webp', x: 868, y: 398, tam: 168, giro: -8, opacidad: 0.9 },
+  { archivo: 'volleyball.webp', x: 1046, y: 62, tam: 130, giro: 18, opacidad: 0.8 },
+  { archivo: 'field-hockey.webp', x: 726, y: 492, tam: 112, giro: -20, opacidad: 0.7 },
+  { archivo: 'trophy.webp', x: 1054, y: 462, tam: 102, giro: 8, opacidad: 0.62 },
 ];
 
 const dataUri = (archivo) =>
