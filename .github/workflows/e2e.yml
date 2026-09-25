@@ -10,6 +10,16 @@ on:
     # (because the PR touched only the other package) blocks the merge forever.
     # `push.branches: [main]` keeps its paths filter: that side only feeds
     # deploy-time signals and caches.
+    #
+    # The workflow still triggers on every pull request; only the `e2e` job
+    # below skips when this PR cannot affect either package. The `changes`
+    # job computes which packages changed and `e2e` gets `needs: changes` plus
+    # `if: github.event_name != 'pull_request' || needs.changes.outputs.backend
+    # == 'true' || needs.changes.outputs.frontend == 'true'`. A job skipped by
+    # a job-level `if:` still reports success to required checks (unlike a
+    # workflow-level `paths` filter, which never reports at all), so the
+    # required check name keeps matching and the PR is never blocked waiting
+    # on it.
     branches: [main]
   push:
     branches: [main]
@@ -23,10 +33,80 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Cheap gate for the `e2e` job below. It still exists and still triggers on
+  # every pull request (see the comment on `pull_request` above); this job
+  # only decides, per PR, whether it has anything to check.
+  #
+  # `run=true` on a push (or any non-pull_request event) because the
+  # workflow's own `push.paths` filter already decided this run should
+  # happen at all — nothing here re-narrows it.
+  #
+  # On a pull_request, this diffs the PR's base against its head. `run` is
+  # true when the diff touches `backend/**` or `frontend/**` (either side of
+  # the suite), when it touches `.github/**` (a workflow or script change can
+  # affect what this job does), when it touches any root-level file outside
+  # backend/, frontend/, landing/ and docs/ (unclassifiable — treated the
+  # same as `.github/**`), or when the base commit cannot be found in the
+  # fetched history (fail open, never closed: an undetermined diff must
+  # never suppress a required check).
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.changes.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether backend or frontend changed
+        id: changes
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "::warning::Base commit ${base} is not in the fetched history; running the suite."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files="$(git diff --name-only "${base}" "${head}")"
+          echo "Changed files:"
+          echo "$files"
+
+          run=false
+          everything=false
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              .github/*) everything=true ;;
+              backend/*|frontend/*) run=true ;;
+              landing/*|docs/*) ;;
+              *) everything=true ;;
+            esac
+          done <<< "$files"
+
+          if [ "$everything" = "true" ]; then
+            run=true
+          fi
+
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   e2e:
     name: E2E (make e2e)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.run == 'true'
     steps:
       - uses: actions/checkout@v7
 

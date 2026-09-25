@@ -7,6 +7,15 @@ on:
     # (because the PR touched only the other package) blocks the merge forever.
     # `push.branches: [main]` keeps its paths filter: that side only feeds
     # deploy-time signals and caches.
+    #
+    # The workflow still triggers on every pull request; only the heavy jobs
+    # below skip when this PR cannot affect them. The `changes` job computes
+    # which packages changed and every other job gets `needs: changes` plus
+    # `if: github.event_name != 'pull_request' || needs.changes.outputs.<x> ==
+    # 'true'`. A job skipped by a job-level `if:` still reports success to
+    # required checks (unlike a workflow-level `paths` filter, which never
+    # reports at all), so the required check name keeps matching and the PR
+    # is never blocked waiting on it.
     branches: [main]
   push:
     branches: [main]
@@ -25,9 +34,81 @@ defaults:
     working-directory: frontend
 
 jobs:
+  # Cheap gate for the jobs below. Every one of them still exists and still
+  # triggers on every pull request (see the comment on `pull_request` above);
+  # this job only decides, per PR, whether they have anything to check.
+  #
+  # `frontend=true` on a push (or any non-pull_request event) because the
+  # workflow's own `push.paths` filter already decided this run should
+  # happen at all — nothing here re-narrows it.
+  #
+  # On a pull_request, this diffs the PR's base against its head. `frontend`
+  # is true when the diff touches `frontend/**` or
+  # `backend/internal/openapi/openapi.yaml` (the generated API client is
+  # regenerated from it), when it touches `.github/**` (a workflow or script
+  # change can affect what these jobs do), when it touches any root-level
+  # file outside backend/, frontend/, landing/ and docs/ (unclassifiable —
+  # treated the same as `.github/**`), or when the base commit cannot be
+  # found in the fetched history (fail open, never closed: an undetermined
+  # diff must never suppress a required check).
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed packages
+        id: changes
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "::warning::Base commit ${base} is not in the fetched history; running every job."
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files="$(git diff --name-only "${base}" "${head}")"
+          echo "Changed files:"
+          echo "$files"
+
+          frontend=false
+          everything=false
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              .github/*) everything=true ;;
+              backend/internal/openapi/openapi.yaml) frontend=true ;;
+              frontend/*) frontend=true ;;
+              backend/*|landing/*|docs/*) ;;
+              *) everything=true ;;
+            esac
+          done <<< "$files"
+
+          if [ "$everything" = "true" ]; then
+            frontend=true
+          fi
+
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
   typecheck:
     name: Typecheck (tsc -b --force)
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -50,6 +131,8 @@ jobs:
   lint:
     name: Lint (eslint .)
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -72,6 +155,8 @@ jobs:
   format:
     name: Format check (prettier --check)
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -94,6 +179,8 @@ jobs:
   test:
     name: Unit tests (vitest)
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -141,6 +228,8 @@ jobs:
   build:
     name: Build (vite build)
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -171,6 +260,8 @@ jobs:
   audit:
     name: Audit (pnpm audit)
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -204,7 +295,8 @@ jobs:
   lighthouse:
     name: Lighthouse (lhci autorun)
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -241,6 +333,8 @@ jobs:
   knip:
     name: Knip (unused exports/deps)
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
