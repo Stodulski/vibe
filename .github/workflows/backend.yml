@@ -208,7 +208,7 @@ jobs:
       # objects this job needs (race-instrumented, or CGO_ENABLED=0) were never
       # in it, so every run compiled the tree from scratch. This one is keyed
       # per job and saved on every run, so the next run restores the newest.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/go-build
           key: go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-${{ github.run_id }}
@@ -269,7 +269,7 @@ jobs:
       # objects this job needs (race-instrumented, or CGO_ENABLED=0) were never
       # in it, so every run compiled the tree from scratch. This one is keyed
       # per job and saved on every run, so the next run restores the newest.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/go-build
           key: go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-${{ github.run_id }}
@@ -395,7 +395,7 @@ jobs:
       # objects this job needs (race-instrumented, or CGO_ENABLED=0) were never
       # in it, so every run compiled the tree from scratch. This one is keyed
       # per job and saved on every run, so the next run restores the newest.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/go-build
           key: go-build-${{ github.job }}-${{ hashFiles('backend/go.sum') }}-${{ github.run_id }}
