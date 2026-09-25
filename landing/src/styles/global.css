@@ -491,6 +491,20 @@ body {
    desktop anchors. */
 @media (min-width: 769px) and (max-width: 1200px) {
   .sport-emoji { width: calc(var(--size) * 1.85); height: calc(var(--size) * 1.85); }
+  /* The one-line H1 ("Más reservas para tu complejo.") reaches the basketball
+     anchors in this range, so the basketball rides above the headline and
+     the soccer ball drops beside the paragraph. */
+  .orbit-item-1 { top: 40%; }
+  .orbit-item-2 { top: 4%; }
+}
+/* Below ~1000px the copy column is nearly full width, so the three large
+   balls shrink and tuck into the side gutters. */
+@media (min-width: 769px) and (max-width: 1000px) {
+  .orbit-item-1 .sport-emoji,
+  .orbit-item-2 .sport-emoji,
+  .orbit-item-4 .sport-emoji { width: calc(var(--size) * 1.2); height: calc(var(--size) * 1.2); }
+  .orbit-item-1 { left: 1%; top: 38%; }
+  .orbit-item-4 { left: 90%; top: 70%; }
 }
 
 /* Frame for owner-dashboard screenshots — subtle border and brand glow, no fake window chrome */
