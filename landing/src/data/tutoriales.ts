@@ -68,7 +68,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       + 'cómo bloquear un horario desde el panel de Vibe.',
     excerpt: 'Todas tus canchas del día en una pantalla, y cada turno con su cliente y su pago.',
     duracion: 50,
-    youtube: 'S7PUkxm8lu0',
+    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'La grilla pone todas las canchas del complejo una al lado de la otra, con cada turno en su '
@@ -145,7 +145,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       + 'cruza de una tarifa a la otra, por media hora.',
     excerpt: 'Un precio base por día y, arriba, las franjas que cobrás distinto.',
     duracion: 50,
-    youtube: 'Zn91DlIh2rs',
+    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'Cada cancha arranca con un precio base para todo el día. Sobre ese precio abrís cualquier día '
@@ -227,7 +227,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       + 'fichas a mano ni planillas: la base se llena sola.',
     excerpt: 'Cada persona que reserva queda guardada, con su historial y su asistencia.',
     duracion: 54,
-    youtube: 'c5QQGWhU3Es',
+    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'La base de clientes no se carga: se llena sola con cada reserva. De cada persona queda el '
@@ -292,7 +292,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       + 'entrás al panel de Vibe, con la caja incluida.',
     excerpt: 'Cuánto facturaste, cuántas reservas tenés y qué canchas están vacías, apenas entrás.',
     duracion: 54,
-    youtube: 'EfSBAkqQHCk',
+    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'Entrás al panel y ves lo que facturaste en el día, cuántas reservas tenés y el porcentaje de '
@@ -367,7 +367,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       + 'en Excel para el contador, con la caja incluida.',
     excerpt: 'El cierre del mes armado solo, comparado con el anterior y listo para el contador.',
     duracion: 44,
-    youtube: 'n4h7--y2sd4',
+    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'El reporte se arma mes a mes y se compara siempre contra el mes anterior. Te muestra cuánto '
@@ -435,7 +435,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       + 'MercadoPago: todo se define en una sola pantalla.',
     excerpt: 'Los datos del complejo, los horarios de atención y cuánta seña pedís.',
     duracion: 38,
-    youtube: '05OH3m9ZJxM',
+    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'En Configuración cargás el nombre, la dirección y el teléfono del complejo, y el porcentaje '
