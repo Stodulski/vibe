@@ -35,14 +35,11 @@ export function DashboardContent({
 }: DashboardContentProps) {
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      {/* 1. Cashbox status + low-stock alert (pos-cashbox T6), first on the
-          page (owner request) — same grid shape as the operational row below, one column on mobile, two on
-          desktop. LowStockAlert hides itself when there is nothing to flag,
-          so this row can render as a single card. */}
-      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
-        <CashboxPanel complexId={selectedComplexId} />
-        <LowStockAlert complexId={selectedComplexId} />
-      </div>
+      {/* 1. Cashbox status (pos-cashbox T6), first on the page and full width
+          on every breakpoint (owner request), then the low-stock alert, which
+          hides itself when there is nothing to flag. */}
+      <CashboxPanel complexId={selectedComplexId} />
+      <LowStockAlert complexId={selectedComplexId} />
 
       {/* 1b. Upcoming bookings + Payment overview (folds in today's key metrics) — "Operaciones del día" */}
       <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">

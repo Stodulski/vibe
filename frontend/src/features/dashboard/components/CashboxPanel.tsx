@@ -52,7 +52,7 @@ function CashboxStat({
 function OpenCashboxSummary({ summary, openedAt }: { summary: CashSessionSummary; openedAt: string }) {
   return (
     <div className="flex flex-1 flex-col justify-center gap-3">
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         <CashboxStat
           label={t.cash.expectedCash}
           value={summary.expected_cash}
@@ -60,12 +60,12 @@ function OpenCashboxSummary({ summary, openedAt }: { summary: CashSessionSummary
         />
         <CashboxStat label={t.cash.openingCashLabel} value={summary.opening_cash} />
         <CashboxStat
-          label={t.cash.incomeTotal}
+          label={t.dashboard.cashboxShiftIncome}
           value={totalByKind(summary.movement_totals, 'income')}
           valueClassName="text-success-text"
         />
         <CashboxStat
-          label={t.cash.expenseTotal}
+          label={t.dashboard.cashboxShiftExpense}
           value={totalByKind(summary.movement_totals, 'expense')}
           valueClassName="text-error-text"
         />
