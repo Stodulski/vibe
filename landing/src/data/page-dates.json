@@ -1,6 +1,6 @@
 {
   "/": {
-    "hash": "58837ecdc87f4471",
+    "hash": "76bc78162499856b",
     "date": "2026-09-25"
   },
   "/privacidad": {
@@ -40,7 +40,7 @@
     "date": "2026-09-25"
   },
   "/tutoriales/grilla-de-reservas": {
-    "hash": "3f69f2c176667f0e",
+    "hash": "40486e0252f9daa8",
     "date": "2026-09-25"
   },
   "/tutoriales/panel-de-control": {
@@ -68,7 +68,7 @@
     "date": "2026-09-25"
   },
   "/tutoriales/abrir-y-cerrar-la-caja": {
-    "hash": "10708d947f83e8e5",
+    "hash": "87d93c8714ef4754",
     "date": "2026-09-25"
   },
   "/tutoriales/cobrar-una-reserva-en-el-mostrador": {
@@ -76,7 +76,7 @@
     "date": "2026-09-25"
   },
   "/tutoriales/ingresos-egresos-y-anulaciones": {
-    "hash": "07b26f0438234925",
+    "hash": "a7dad45ab049b746",
     "date": "2026-09-25"
   },
   "/tutoriales/productos-y-stock": {
@@ -84,7 +84,7 @@
     "date": "2026-09-25"
   },
   "/tutoriales/vender-desde-el-mostrador": {
-    "hash": "e89c14bbe478e361",
+    "hash": "037aea7ae02e6dff",
     "date": "2026-09-25"
   }
 }
