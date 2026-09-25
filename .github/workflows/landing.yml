@@ -1,0 +1,131 @@
+name: Landing
+
+on:
+  pull_request:
+    # No `paths` filter on pull requests, following the same pattern as
+    # backend.yml, frontend.yml and e2e.yml: a required check skipped by a
+    # workflow-level `paths` filter never reports at all, and the pull
+    # request then waits for it forever. This job is not a required check
+    # today (the owner decides that later), but is written to the same
+    # pattern so promoting it later needs no rework.
+    #
+    # The workflow still triggers on every pull request; only the `build`
+    # job below skips when this PR cannot affect the landing. The `changes`
+    # job computes whether the landing changed and `build` gets
+    # `needs: changes` plus `if: github.event_name != 'pull_request' ||
+    # needs.changes.outputs.landing == 'true'`. A job skipped by a job-level
+    # `if:` still reports success (unlike a workflow-level `paths` filter,
+    # which never reports at all).
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - "landing/**"
+      - ".github/workflows/landing.yml"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Every job runs inside the landing package; `uses` steps take explicit paths
+# because `defaults.run` only applies to `run` steps.
+defaults:
+  run:
+    working-directory: landing
+
+jobs:
+  # Cheap gate for the `build` job below.
+  #
+  # `landing=true` on a push (or any non-pull_request event) because the
+  # workflow's own `push.paths` filter already decided this run should
+  # happen at all — nothing here re-narrows it.
+  #
+  # On a pull_request, this diffs the PR's base against its head. `landing`
+  # is true when the diff touches `landing/**`, when it touches `.github/**`
+  # (a workflow or script change can affect what this job does), when it
+  # touches any root-level file outside backend/, frontend/, landing/ and
+  # docs/ (unclassifiable — treated the same as `.github/**`), or when the
+  # base commit cannot be found in the fetched history (fail open, never
+  # closed: an undetermined diff must never suppress this check).
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      landing: ${{ steps.changes.outputs.landing }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether the landing changed
+        id: changes
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "landing=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "::warning::Base commit ${base} is not in the fetched history; running the build."
+            echo "landing=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files="$(git diff --name-only "${base}" "${head}")"
+          echo "Changed files:"
+          echo "$files"
+
+          landing=false
+          everything=false
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              .github/*) everything=true ;;
+              landing/*) landing=true ;;
+              backend/*|frontend/*|docs/*) ;;
+              *) everything=true ;;
+            esac
+          done <<< "$files"
+
+          if [ "$everything" = "true" ]; then
+            landing=true
+          fi
+
+          echo "landing=$landing" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Landing build and SEO gate
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.landing == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: landing/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: landing/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `pnpm run build` also regenerates the API catalog and the markdown
+      # mirrors (see landing/package.json); landing-api-catalog.yml already
+      # guards the catalog against drift, so this job does not repeat that
+      # check.
+      - name: Build
+        run: pnpm run build
+
+      - name: SEO gate
+        run: pnpm run seo:gate
