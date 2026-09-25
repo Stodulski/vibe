@@ -14,7 +14,7 @@ import type { Ok, Spec } from './spec';
 export type PaymentSummary = Spec<'PaymentSummary'>;
 
 /**
- * The dashboard's "Hoy" card money figures — everything that entered today,
+ * The dashboard's "Ingresos de hoy" figures — everything that entered today,
  * on the Argentina calendar day, combining booking payments with cash-till
  * movements (bar sales, other manual income, expenses). See the OpenAPI
  * description on DashboardStats.today_money for how it differs from
