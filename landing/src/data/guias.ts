@@ -147,21 +147,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'día completo. No elige: adivina.',
           'Del lado tuyo pasa lo mismo. Para saber cómo viene el sábado abrís una agenda por cancha, en '
             + 'vez de mirar una sola pantalla. Una lista contra una grilla, todos los días.',
-          'Y hay un tope que conviene mirar antes que el precio: el plan gratuito permite tres agendas '
-            + 'y el segundo, cinco. Si cada cancha es una agenda, un complejo de seis canchas arranca '
-            + `recién en el tercer plan, que sale ${pesos(TU_PLANES[2].mensual)} por mes.`,
-        ],
-      },
-      {
-        tipo: 'lista',
-        heading: 'Lo que Turnito hace bien',
-        intro: 'Es cierto, y a un complejo le sirve:',
-        items: [
-          'Un plan gratis que no vence, con cien reservas por mes',
-          'Turnos recurrentes flexibles: diarios, semanales o mensuales, con fecha de fin o sin ella',
-          'Calendario embebido, para que la reserva viva adentro de tu propia web',
-          'Bloqueo automático del cliente que acumula faltas',
-          'Recordatorios por WhatsApp, Telegram y mail',
+          'Y hay un tope que conviene mirar antes que el precio: el plan gratuito no vence, incluye '
+            + 'cien reservas por mes y permite tres agendas; el segundo plan sube a cinco. Si cada '
+            + 'cancha es una agenda, un complejo de seis canchas arranca recién en el tercer plan, que '
+            + `sale ${pesos(TU_PLANES[2].mensual)} por mes.`,
         ],
       },
       {
@@ -180,10 +169,6 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'Para quién es cada uno',
         parrafos: [
-          'Turnito es una agenda genérica: además de canchas sirve para peluquerías, consultorios y '
-            + 'gimnasios. Si en tu complejo también das clases con profes que llevan agenda propia, o '
-            + 'alquilás otros espacios que no son cancha, una herramienta genérica te puede cubrir todo '
-            + 'eso con un solo sistema.',
           'Si no querés que tu cliente vea ningún cargo aparte del precio de la cancha, Turnito va al '
             + 'revés que Vibe: la comisión la absorbe el complejo y el que reserva ve un total sin '
             + 'desglose.',
@@ -237,15 +222,14 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     title: 'Vibe o CanchaFija: qué comparten y en qué se diferencian',
     seoTitle: 'Vibe o CanchaFija: en qué se diferencian y cuánto cuestan',
     metaDescription:
-      'CanchaFija suma turnos fijos, torneos, escuelitas y socios, con abono mensual. Vibe cubre '
-      + 'reservas, caja y bar sin cobrarle al complejo.',
+      'CanchaFija cobra un abono mensual por complejo; Vibe no cobra nada. Las dos con reserva online, '
+      + 'caja y bar: cambia el modelo de cobro.',
     excerpt:
-      'Comparten la reserva, el cobro y el bar. Uno suma la vida de club y cobra abono; el otro no le '
-      + 'cobra al complejo.',
+      'Comparten la reserva, el cobro y el bar. Uno cobra abono todos los meses; el otro no le cobra '
+      + 'nada al complejo.',
     respuesta:
       'CanchaFija y Vibe comparten la base: reservas online con cobro por MercadoPago y la gestión del '
-      + 'bar o la cantina. CanchaFija suma lo que hace a la vida de un club: turnos fijos semanales, '
-      + 'torneos, escuelitas con cuotas y socios con cobro automático. La diferencia de plata es el '
+      + 'bar o la cantina. La diferencia de plata es el '
       + `abono: CanchaFija le cobra al complejo un plan mensual en pesos según cuántas canchas tenga, `
       + `desde ${pesos(CF_PLANES[0].mensual)} hasta ${pesos(CF_PLANES.at(-1)!.mensual)}, con el primer `
       + 'mes gratis y sin permanencia. Vibe no le cobra nada al complejo, e incluye caja por turno con '
@@ -261,19 +245,6 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'Reserva online con cobro por MercadoPago',
           'El bar o la cantina: en Vibe, venta de productos con stock y caja por turno con arqueo',
           'Reportes de lo que entra',
-        ],
-      },
-      {
-        tipo: 'lista',
-        heading: 'Lo que CanchaFija suma para la vida de club',
-        intro: 'CanchaFija va más allá de la cancha con estas herramientas:',
-        items: [
-          'Turnos fijos: la reserva recurrente semanal, con la opción de saltear una semana sin romper la serie',
-          'Torneos, con fixture, inscripciones y premios',
-          'Escuelitas con cuotas mensuales que se generan solas',
-          'Socios, con cobro automático y control de asistencia',
-          'Tienda online, incluida en todos los planes',
-          'Canchas combinables, para partir una de fútbol 7 en dos de fútbol 5',
         ],
       },
       {
@@ -299,8 +270,6 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'Cómo elegir',
         parrafos: [
-          'Si tu complejo funciona como un club —con socios, escuelitas y torneos—, CanchaFija está '
-            + 'armado para esa operación completa.',
           'Un detalle operativo: el alta en CanchaFija no es automática. Completás un formulario y '
             + `ellos te mandan las credenciales; dicen que configurarlo lleva unos `
             + `${CF_MINUTOS_DE_CONFIGURACION} minutos una vez adentro, y el soporte es el mismo en `
@@ -350,8 +319,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       'ATC Sports cobra un abono mensual en dólares; Vibe no le cobra nada al complejo. Qué comparten, '
       + 'qué trae cada uno y cuándo conviene.',
     excerpt:
-      'Las dos toman reservas y llevan la caja. La diferencia está en quién paga, cuándo, y en lo que '
-      + 'ATC suma afuera de la cancha.',
+      'Las dos toman reservas y llevan la caja. La diferencia está en quién paga y cuándo.',
     respuesta:
       'La diferencia principal no está en las reservas, que las dos cubren: está en quién paga. ATC '
       + `Sports le cobra al complejo un abono mensual fijo en dólares, desde ${dolares(ATC_PLANES[0].mensual)} `
@@ -359,8 +327,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       + 'Vibe no le cobra nada al complejo: el cargo de servicio lo paga el cliente sobre la seña, y la '
       + 'comisión de MercadoPago corre con los dos modelos. En alcance, las dos cubren reservas, caja y '
       + 'stock, y cada complejo tiene su propia página pública para que el cliente vea las canchas y '
-      + 'reserve. ATC suma funciones extra —grabación de partidos, banners QR y accesos para varios '
-      + 'usuarios del staff— que se detallan más abajo.',
+      + 'reserve.',
     datePublished: '2026-09-16',
     fuente: { nombre: 'ATC Sports, software de gestión deportiva', url: ATC_FUENTE, nofollow: true },
     bloques: [
@@ -406,23 +373,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         ],
       },
       {
-        tipo: 'lista',
-        heading: 'Funciones extra que suma ATC',
-        intro: `Publicado en su página, verificado el ${ATC_VERIFICADO}, más allá de reservas y caja:`,
-        items: [
-          'Integración con grabación de partidos',
-          'Banners QR y paquetes digitales personalizados',
-          'Sitio web propio del complejo, más allá de la página de reservas',
-          'Multiusuario: varias personas con su propio acceso al mismo complejo',
-        ],
-      },
-      {
         tipo: 'parrafos',
         heading: 'Cómo elegir sin probar los dos',
         parrafos: [
-          'Si querés grabar los partidos o que varias personas del staff entren con su propio usuario, '
-            + 'eso lo tiene ATC. La reserva online, la caja y el stock del bar los tienen las dos por '
-            + 'igual.',
+          'La reserva online, la caja y el stock del bar los tienen las dos por igual.',
           'Si lo que necesitás es que la gente reserve y pague la seña sola, la decisión se reduce a '
             + 'quién carga con el costo: vos con una cuota fija, o tu cliente con un cargo sobre la '
             + 'seña. Cuánto sale un abono por turno según tu volumen está calculado, con la tabla '
