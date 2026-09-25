@@ -26,6 +26,7 @@ type FacadeStore interface {
 	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
 	GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
 	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error)
+	GetDayMoneyTotals(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DayMoneyTotals, error)
 	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
 	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
 	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error)
@@ -126,6 +127,11 @@ func (f *Facade) GetUpcomingToday(ctx context.Context, complexID uuid.UUID, toda
 // GetPaymentSummary returns today's money figures. Exported for reporting.
 func (f *Facade) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error) {
 	return f.store.GetPaymentSummary(ctx, complexID, today)
+}
+
+// GetDayMoneyTotals returns today's day-level money totals. Exported for reporting.
+func (f *Facade) GetDayMoneyTotals(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DayMoneyTotals, error) {
+	return f.store.GetDayMoneyTotals(ctx, complexID, today)
 }
 
 // GetRevenueByDay returns the revenue chart's series. Exported for reporting.

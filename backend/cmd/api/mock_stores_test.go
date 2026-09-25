@@ -857,6 +857,10 @@ func (m *mockBookingStore) GetPaymentSummary(ctx context.Context, complexID uuid
 	return &bookingstore.PaymentSummary{}, nil
 }
 
+func (m *mockBookingStore) GetDayMoneyTotals(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DayMoneyTotals, error) {
+	return &bookingstore.DayMoneyTotals{ByMethod: map[string]int64{}}, nil
+}
+
 func (m *mockBookingStore) HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error) {
 	if m.HasActiveBookingsByCourtFn != nil {
 		return m.HasActiveBookingsByCourtFn(ctx, courtID)

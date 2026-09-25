@@ -2549,7 +2549,7 @@ export interface components {
         /** @description Built as an ad-hoc map in the handler, not a named Go struct. */
         DashboardStats: {
             today_bookings: number;
-            /** @description Centavos ARS. */
+            /** @description Centavos ARS. Booking payments actually collected today (payments.created_at, Argentina calendar day): status deposit_paid, fully_paid, refund_pending or partial_refund. An 'unpaid' payment (an abandoned checkout) and a fully 'refunded' one are both excluded. This is a bookings-only figure and does not include bar sales or other cash-till income — see today_money for the day's full income picture, which also reconciles bookings taken through it with this field. */
             today_revenue: number;
             yesterday_bookings: number;
             /** @description Centavos ARS. */
@@ -2565,6 +2565,24 @@ export interface components {
             /** @description The next 10 bookings due today. */
             upcoming_bookings: components["schemas"]["Booking"][];
             payment_summary: components["schemas"]["PaymentSummary"];
+            today_money: components["schemas"]["DayMoneyTotals"];
+        };
+        /** @description Everything that entered today, on the Argentina calendar day (created_at cast to that zone's date) — deliberately NOT a cash session's shift window, which runs from whenever the till was opened to now or to close and can cross midnight. bookings here uses the same window and collected-status rule as today_revenue (payments.created_at; status deposit_paid, fully_paid, refund_pending or partial_refund — 'unpaid' and 'refunded' excluded), so the two always agree; today_money additionally folds in bar sales and other manual cash-till income/expense so the dashboard has one number for "how much came in today" instead of two figures that measure different things. A voided cash movement and its void always net to zero in every field below. A fully refunded payment is left out of every income figure here entirely, the same way today_revenue excludes it — the simplest rule that cannot move money between the day it was collected and the day it was given back. */
+        DayMoneyTotals: {
+            /** @description Centavos ARS. Booking payments received today, every method. Equals today_revenue. */
+            bookings: number;
+            /** @description Centavos ARS. Income cash movements with category 'sale', net of voids. */
+            bar_sales: number;
+            /** @description Centavos ARS. Every other non-sale income cash movement, net of voids. */
+            other_income: number;
+            /** @description Centavos ARS. Expense cash movements (manual expenses and restock), net of voids. Never negative. */
+            expenses: number;
+            /** @description Centavos ARS. bookings + bar_sales + other_income. Does not subtract expenses. */
+            total_income: number;
+            /** @description Income today (bookings plus cash-movement income, net of voids) per payment method. Expenses never appear here. */
+            by_method: {
+                [key: string]: number;
+            };
         };
         PaymentSummary: {
             /** @description Collection or refund status name to its breakdown. */

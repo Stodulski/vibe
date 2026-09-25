@@ -60,11 +60,36 @@ func toGenDashboardStats(dash *DashboardStats) gen.DashboardStats {
 		PendingBookings:   dash.Stats.PendingBookings,
 		TodayBookings:     dash.Stats.TodayBookings,
 		TodayRevenue:      dash.Stats.TodayRevenue,
+		TodayMoney:        toGenDayMoneyTotals(dash.DayMoney),
 		TotalClients:      dash.TotalClients,
 		UpcomingBookings:  upcoming,
 		WeeklyRevenue:     dash.Stats.WeeklyRevenue,
 		YesterdayBookings: dash.Stats.YesterdayBookings,
 		YesterdayRevenue:  dash.Stats.YesterdayRevenue,
+	}
+}
+
+// toGenDayMoneyTotals maps the store's day-money aggregate onto the
+// generated wire type, converting each centavo figure from int64 (the store
+// sums money in, to avoid overflow on a large ByMethod total) to the wire
+// type's int (HTTP-08).
+func toGenDayMoneyTotals(dm *bookingstore.DayMoneyTotals) gen.DayMoneyTotals {
+	if dm == nil {
+		return gen.DayMoneyTotals{ByMethod: map[string]int{}}
+	}
+
+	byMethod := make(map[string]int, len(dm.ByMethod))
+	for k, v := range dm.ByMethod {
+		byMethod[k] = int(v)
+	}
+
+	return gen.DayMoneyTotals{
+		Bookings:    int(dm.Bookings),
+		BarSales:    int(dm.BarSales),
+		OtherIncome: int(dm.OtherIncome),
+		Expenses:    int(dm.Expenses),
+		TotalIncome: int(dm.TotalIncome),
+		ByMethod:    byMethod,
 	}
 }
 

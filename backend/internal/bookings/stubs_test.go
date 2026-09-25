@@ -153,6 +153,10 @@ func (s *stubStore) GetPaymentSummary(context.Context, uuid.UUID, time.Time) (*b
 	return nil, nil
 }
 
+func (s *stubStore) GetDayMoneyTotals(context.Context, uuid.UUID, time.Time) (*bookingstore.DayMoneyTotals, error) {
+	return nil, nil
+}
+
 func (s *stubStore) GetRevenueByDay(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.RevenueDataPoint, error) {
 	return nil, nil
 }

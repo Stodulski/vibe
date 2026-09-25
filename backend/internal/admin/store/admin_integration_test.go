@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
+	"github.com/stodulski/vibe-server/internal/data/paymentstatus"
 )
 
 // int32Max is the ceiling an ::int cast silently imposes on a SUM(). Postgres does
@@ -32,7 +33,7 @@ func TestGetPlatformStatsSurvivesRevenueBeyondInt32(t *testing.T) {
 	// rows are the only ones.
 	var baseline int64
 	err := f.DB.QueryRow(ctx,
-		`SELECT COALESCE(SUM(amount), 0)::bigint FROM payments WHERE status != 'refunded'`,
+		`SELECT COALESCE(SUM(amount), 0)::bigint FROM payments WHERE status IN `+paymentstatus.CollectedStatuses,
 	).Scan(&baseline)
 	if err != nil {
 		t.Fatalf("reading the revenue baseline: %v", err)

@@ -282,6 +282,7 @@ type BookingStatsQuerier interface {
 	GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
 	GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
 	GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error)
+	GetDayMoneyTotals(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DayMoneyTotals, error)
 }
 
 // BookingReminderManager selects bookings due for reminder or confirmation notifications.

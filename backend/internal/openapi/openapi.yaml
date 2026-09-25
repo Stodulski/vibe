@@ -5200,10 +5200,20 @@ components:
       required:
         [today_bookings, today_revenue, yesterday_bookings, yesterday_revenue, weekly_revenue,
          monthly_revenue, occupancy_rate, pending_bookings, total_clients, upcoming_bookings,
-         payment_summary]
+         payment_summary, today_money]
       properties:
         today_bookings: {type: integer}
-        today_revenue: {type: integer, description: "Centavos ARS."}
+        today_revenue:
+          type: integer
+          description: >
+            Centavos ARS. Booking payments actually collected today
+            (payments.created_at, Argentina calendar day): status
+            deposit_paid, fully_paid, refund_pending or partial_refund. An
+            'unpaid' payment (an abandoned checkout) and a fully 'refunded'
+            one are both excluded. This is a bookings-only figure and does
+            not include bar sales or other cash-till income — see today_money
+            for the day's full income picture, which also reconciles bookings
+            taken through it with this field.
         yesterday_bookings: {type: integer}
         yesterday_revenue: {type: integer, description: "Centavos ARS."}
         weekly_revenue: {type: integer, description: "Centavos ARS."}
@@ -5218,6 +5228,49 @@ components:
           description: The next 10 bookings due today.
           items: {$ref: "#/components/schemas/Booking"}
         payment_summary: {$ref: "#/components/schemas/PaymentSummary"}
+        today_money: {$ref: "#/components/schemas/DayMoneyTotals"}
+
+    DayMoneyTotals:
+      type: object
+      description: >
+        Everything that entered today, on the Argentina calendar day
+        (created_at cast to that zone's date) — deliberately NOT a cash
+        session's shift window, which runs from whenever the till was opened
+        to now or to close and can cross midnight. bookings here uses the
+        same window and collected-status rule as today_revenue
+        (payments.created_at; status deposit_paid, fully_paid, refund_pending
+        or partial_refund — 'unpaid' and 'refunded' excluded), so the two
+        always agree; today_money additionally folds in bar sales and other
+        manual cash-till income/expense so the dashboard has one number for
+        "how much came in today" instead of two figures that measure
+        different things. A voided cash movement and its void always net to
+        zero in every field below. A fully refunded payment is left out of
+        every income figure here entirely, the same way today_revenue
+        excludes it — the simplest rule that cannot move money between the
+        day it was collected and the day it was given back.
+      required: [bookings, bar_sales, other_income, expenses, total_income, by_method]
+      properties:
+        bookings:
+          type: integer
+          description: "Centavos ARS. Booking payments received today, every method. Equals today_revenue."
+        bar_sales:
+          type: integer
+          description: "Centavos ARS. Income cash movements with category 'sale', net of voids."
+        other_income:
+          type: integer
+          description: "Centavos ARS. Every other non-sale income cash movement, net of voids."
+        expenses:
+          type: integer
+          description: "Centavos ARS. Expense cash movements (manual expenses and restock), net of voids. Never negative."
+        total_income:
+          type: integer
+          description: "Centavos ARS. bookings + bar_sales + other_income. Does not subtract expenses."
+        by_method:
+          type: object
+          description: >
+            Income today (bookings plus cash-movement income, net of voids)
+            per payment method. Expenses never appear here.
+          additionalProperties: {type: integer}
 
     PaymentSummary:
       type: object
