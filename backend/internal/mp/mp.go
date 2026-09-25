@@ -387,7 +387,7 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 			{
 				"id":          input.BookingID.String(),
 				"title":       fmt.Sprintf("%s - %s - %s %s hs", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
-				"description": fmt.Sprintf("Seña para reserva de pádel en %s. %s, %s a las %s hs.", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
+				"description": fmt.Sprintf("Seña para reserva en %s. %s, %s a las %s hs.", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
 				"quantity":    1,
 				"currency_id": "ARS",
 				"unit_price":  unitPrice,
@@ -412,7 +412,7 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 		"expires":              true,
 		"expiration_date_from": expirationFrom,
 		"expiration_date_to":   expirationTo,
-		"statement_descriptor": "PADEL RESERVA",
+		"statement_descriptor": "VIBE RESERVA",
 		"external_reference":   input.BookingID.String(),
 		"metadata": map[string]string{
 			"booking_id":   input.BookingID.String(),

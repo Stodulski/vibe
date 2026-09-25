@@ -709,3 +709,52 @@ func TestTitleDateReadsAsADateAfterMercadoPagoStripsPunctuation(t *testing.T) {
 		}
 	}
 }
+
+// TestCreatePreferenceDescribesTheBookingWithoutASport pins what the payer
+// reads: the item description names no sport, since a complex can run any of
+// seven, and the card statement carries the neutral "VIBE RESERVA".
+func TestCreatePreferenceDescribesTheBookingWithoutASport(t *testing.T) {
+	var captured map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
+			t.Errorf("decoding request body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(Preference{ID: "pref-1"}); err != nil {
+			t.Errorf("Encode: %v", err)
+		}
+	}))
+	defer ts.Close()
+
+	client := NewMPClient("marketplace-token", "secret", "app", "client", nil)
+	client.baseURL = ts.URL
+
+	input := CreatePreferenceInput{
+		BookingID:   uuid.New(),
+		ComplexName: "Acme",
+		CourtName:   "Cancha 1",
+		Date:        "2025-06-15",
+		StartTime:   "18:00",
+		Amount:      10000,
+		Caller:      mustSeller(t, "seller-token"),
+		BackendURL:  "https://api.vibe.test",
+	}
+	if _, err := client.CreatePreference(t.Context(), input); err != nil {
+		t.Fatalf("CreatePreference: %v", err)
+	}
+
+	items, ok := captured["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("captured request has no single item: %v", captured["items"])
+	}
+	item, _ := items[0].(map[string]any)
+	if want := "Acme - Cancha 1 - 15 jun 18:00 hs"; item["title"] != want {
+		t.Errorf("title = %q, want %q", item["title"], want)
+	}
+	if want := "Seña para reserva en Acme. Cancha 1, 15 jun a las 18:00 hs."; item["description"] != want {
+		t.Errorf("description = %q, want %q", item["description"], want)
+	}
+	if captured["statement_descriptor"] != "VIBE RESERVA" {
+		t.Errorf("statement_descriptor = %v, want VIBE RESERVA", captured["statement_descriptor"])
+	}
+}
