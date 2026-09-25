@@ -67,6 +67,16 @@ export const ATC_SOPORTE_REMOTO_SIN_COSTO_ADICIONAL = true;
  */
 export const ATC_DESCUENTO_ANUAL_PORCENTAJE = 33;
 
+/**
+ * El descuento que da su propia tabla (`mensual` contra `anual`), que no es el
+ * 33 que anuncian. La guía muestra los dos para que nadie lea el 33 como un
+ * error nuestro. Se calcula del primer plan: los tres tienen la misma
+ * proporción.
+ */
+export const ATC_DESCUENTO_SEGUN_TABLA_PORCENTAJE = Math.round(
+  (1 - ATC_PLANES[0].anual / ATC_PLANES[0].mensual) * 100,
+);
+
 /** No mencionan comisión por reserva en ninguna parte de esa página. */
 export const ATC_MENCIONA_COMISION_POR_RESERVA = false;
 

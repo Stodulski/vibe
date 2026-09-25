@@ -28,6 +28,7 @@ import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
 import {
   ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO, ATC_PRUEBA_GRATIS_DIAS,
   ATC_DESCUENTO_ANUAL_PORCENTAJE,
+  ATC_DESCUENTO_SEGUN_TABLA_PORCENTAJE,
   CF_PLANES, CF_FUENTE, CF_VERIFICADO, CF_FEE_AL_JUGADOR, CF_SOPORTE_HORARIO,
   CF_MINUTOS_DE_CONFIGURACION, CF_REEMBOLSO_DIAS_HABILES,
   TU_PLANES, TU_FUENTE, TU_VERIFICADO,
@@ -393,7 +394,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'ATC cobra un abono mensual por complejo, en dólares, escalonado por cantidad de canchas. Es '
             + 'previsible: sabés lo que pagás el mes que viene, con un enero flojo o un agosto lleno. '
             + `Ofrece ${ATC_PRUEBA_GRATIS_DIAS} días de prueba gratis y un ${ATC_DESCUENTO_ANUAL_PORCENTAJE} `
-            + 'por ciento de descuento si pagás el año por adelantado.',
+            + 'por ciento de descuento si pagás el año por adelantado. Ese es el número que anuncian; '
+            + `los precios de su propia tabla dan un ${ATC_DESCUENTO_SEGUN_TABLA_PORCENTAJE} por ciento.`,
           'Vibe no tiene abono. El complejo no le paga nada a la plataforma; lo que hay es un cargo de '
             + 'servicio sobre la seña, y lo paga el que reserva. Un mes sin reservas no te cuesta un '
             + 'peso de Vibe. La contracara: tu cliente ve un importe un poco más alto al reservar.',
