@@ -1,52 +1,32 @@
 /**
- * Tutoriales = un video, una pantalla, una URL.
+ * Tutoriales = una pantalla del panel, explicada en texto, una URL.
  *
  * No son guías. Una guía contesta algo que se busca ANTES de saber que Vibe
- * existe, y cita fuentes externas. Un tutorial muestra una pantalla del panel
+ * existe, y cita fuentes externas. Un tutorial explica una pantalla del panel
  * funcionando, y su fuente es el producto. Van separados para que ninguna de
  * las dos cosas diluya a la otra: mezcladas, las guías dejan de leerse como
  * contenido editorial y los tutoriales dejan de encontrarse.
  *
  * `respuesta` va primero y por el mismo motivo que en las guías: un motor
- * generativo cita unidades que puede extraer enteras. El video no se puede
- * extraer, el párrafo sí, así que el párrafo tiene que decir lo mismo que el
- * video sin depender de él. Una página cuyo contenido está solo en el video es
- * una página vacía para todo el que no lo reproduce, incluido Google.
- *
- * `slug` es también el nombre del archivo en el CDN. Una sola cosa para
- * recordar, y el día que se regraba un video no hay que buscar a qué URL
- * correspondía.
+ * generativo cita unidades que puede extraer enteras. Es el resumen de la
+ * pantalla que se explica más abajo, sin depender de ningún otro elemento de
+ * la página.
  */
 import type { Bloque } from './guias.ts';
 import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
 
-export const CDN = 'https://cdn.vibe.com.ar/tutorials';
-
-/** Alto y ancho reales de la grabación; van en el markup para que no salte el layout. */
-export const VIDEO_ANCHO = 1920;
-export const VIDEO_ALTO = 1080;
-
 export type TutorialFaq = { question: string; answer: string };
 
 export type Tutorial = {
-  /** También el nombre del .mp4 y del .webp en el CDN. */
   slug: string;
   /** H1 de la página. */
   title: string;
   seoTitle: string;
   metaDescription: string;
-  /** Lo que muestra el video, en un párrafo, sin depender de que se reproduzca. */
+  /** Lo que muestra esa pantalla, en un párrafo. */
   respuesta: string;
   /** Bajada del índice. */
   excerpt: string;
-  /** Segundos exactos de la grabación, para el VideoObject y el video-sitemap. */
-  duracion: number;
-  /**
-   * El mismo video publicado en YouTube. Va en `sameAs` del VideoObject, no en
-   * `contentUrl`: la página reproduce el archivo propio, y esto le dice a Google
-   * que la copia de YouTube es el mismo contenido y no otro que compite.
-   */
-  youtube: string;
   datePublished: string;
   /* NO se escribe: sale del hash del contenido, igual que en las guías. */
   dateModified: string;
@@ -67,8 +47,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Todas tus canchas del día en una pantalla, cada turno con su seña y lo que falta cobrar, y '
       + 'cómo bloquear un horario desde el panel de Vibe.',
     excerpt: 'Todas tus canchas del día en una pantalla, y cada turno con su cliente y su pago.',
-    duracion: 50,
-    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'La grilla pone todas las canchas del complejo una al lado de la otra, con cada turno en su '
@@ -144,8 +122,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Cargá un precio base por día y una franja nocturna más cara. Cómo cobra Vibe un turno que '
       + 'cruza de una tarifa a la otra, por media hora.',
     excerpt: 'Un precio base por día y, arriba, las franjas que cobrás distinto.',
-    duracion: 50,
-    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'Cada cancha arranca con un precio base para todo el día. Sobre ese precio abrís cualquier día '
@@ -226,8 +202,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Cada persona que reserva queda guardada con su teléfono, su historial y su asistencia. Sin '
       + 'fichas a mano ni planillas: la base se llena sola.',
     excerpt: 'Cada persona que reserva queda guardada, con su historial y su asistencia.',
-    duracion: 54,
-    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'La base de clientes no se carga: se llena sola con cada reserva. De cada persona queda el '
@@ -291,8 +265,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Lo que facturaste hoy, las reservas, la ocupación y el mapa de horas muertas: qué ves apenas '
       + 'entrás al panel de Vibe, con la caja incluida.',
     excerpt: 'Cuánto facturaste, cuántas reservas tenés y qué canchas están vacías, apenas entrás.',
-    duracion: 54,
-    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'Entrás al panel y ves lo que facturaste en el día, cuántas reservas tenés y el porcentaje de '
@@ -366,8 +338,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'El mes cerrado solo: comparado con el anterior, abierto por método de pago y por cancha, y '
       + 'en Excel para el contador, con la caja incluida.',
     excerpt: 'El cierre del mes armado solo, comparado con el anterior y listo para el contador.',
-    duracion: 44,
-    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'El reporte se arma mes a mes y se compara siempre contra el mes anterior. Te muestra cuánto '
@@ -434,8 +404,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Los datos del complejo, hasta qué hora se reserva cada día, cuánta seña pedís y el estado de '
       + 'MercadoPago: todo se define en una sola pantalla.',
     excerpt: 'Los datos del complejo, los horarios de atención y cuánta seña pedís.',
-    duracion: 38,
-    youtube: '',
     datePublished: '2026-09-16',
     respuesta:
       'En Configuración cargás el nombre, la dirección y el teléfono del complejo, y el porcentaje '
@@ -502,8 +470,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Abrís la caja con el efectivo del cajón. Al cerrar, cargás lo que contaste y ves si sobra o falta, '
       + 'sin sacar la cuenta a mano.',
     excerpt: 'Abrís con el efectivo del cajón; al cerrar, Vibe ya hizo la cuenta.',
-    duracion: 54,
-    youtube: '',
     datePublished: '2026-09-24',
     respuesta:
       'Abrís la caja cargando el efectivo con el que arrancás el turno. Mientras está abierta, ves el '
@@ -577,8 +543,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Cargá lo que entra o sale de la caja por categoría, desde clases hasta el alquiler del local, y '
       + 'anulá un movimiento sin perder el historial.',
     excerpt: 'Todo lo que entra o sale de la caja, por categoría, con su anulación si hace falta.',
-    duracion: 54,
-    youtube: '',
     datePublished: '2026-09-24',
     respuesta:
       'Con la caja abierta, cargás un ingreso o un egreso eligiendo su categoría —clases, torneos, '
@@ -646,8 +610,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Tocás un producto, se suma al carrito, elegís el método y cobrás. La venta descuenta el stock y '
       + 'entra a la caja del turno sola.',
     excerpt: 'Tocás un producto, elegís el método, cobrás. El stock se descuenta solo.',
-    duracion: 44,
-    youtube: '',
     datePublished: '2026-09-24',
     respuesta:
       'La pantalla de vender muestra tu catálogo en tarjetas: tocás un producto y se suma una unidad al '
@@ -718,8 +680,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Cargá cada producto con su precio y, si querés, su stock. Un aviso solo cuando queda poco, y la '
       + 'reposición entra a la caja como cualquier gasto.',
     excerpt: 'Cada producto con su precio y su stock, con aviso cuando queda poco.',
-    duracion: 42,
-    youtube: '',
     datePublished: '2026-09-24',
     respuesta:
       'Cada producto se carga con su nombre, categoría y precio. El control de stock es opcional: un '
@@ -792,8 +752,6 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       'Un turno confirmado sin cobrar todavía se cobra igual desde el panel: elegís el método real y '
       + 'queda registrado, sin pasar por MercadoPago.',
     excerpt: 'Un turno sin cobrar se cobra igual desde el panel, con el método que uses en el momento.',
-    duracion: 34,
-    youtube: '',
     datePublished: '2026-09-24',
     respuesta:
       'No todos los clientes pagan la seña online: un turno cargado por teléfono, o uno al que todavía le '

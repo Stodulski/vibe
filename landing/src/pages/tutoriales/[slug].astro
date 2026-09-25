@@ -2,16 +2,14 @@
 /**
  * Un tutorial por URL, generado desde src/data/tutoriales.ts.
  *
- * El orden del DOM tampoco es negociable acá, y es distinto al de una guía a
- * propósito: H1, el video, y recién después la respuesta. La respuesta va
- * justo después del video, no antes, porque es la que contesta lo mismo que
- * el video sin depender de que se reproduzca — es la unidad que un motor
- * generativo puede citar entera.
+ * El orden del DOM tampoco es negociable acá: H1, la respuesta, y recién
+ * después los bloques y la FAQ. La respuesta va justo después del H1 porque es
+ * la unidad que un motor generativo puede citar entera.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { tutoriales, getRelacionados, CDN, VIDEO_ANCHO, VIDEO_ALTO } from '../../data/tutoriales';
+import { tutoriales, getRelacionados } from '../../data/tutoriales';
 import { tutorialJsonLd } from '../../data/jsonld';
 
 export function getStaticPaths() {
@@ -57,26 +55,6 @@ const relacionados = getRelacionados(t);
           <h1>{t.title}</h1>
         </header>
 
-        {/* controls + preload="none": no autoplay, nada se descarga hasta que
-            alguien toca play. El fallback adentro es para el navegador que no
-            entiende <video>, no una alternativa decorativa. */}
-        <video
-          class="tutorial-video"
-          controls
-          preload="none"
-          poster={`${CDN}/${t.slug}.webp`}
-          width={VIDEO_ANCHO}
-          height={VIDEO_ALTO}
-          muted
-          playsinline
-        >
-          <source src={`${CDN}/${t.slug}.mp4`} type="video/mp4" />
-          Tu navegador no puede reproducir este video. Podés
-          {' '}<a href={`${CDN}/${t.slug}.mp4`} download>descargarlo</a>.
-        </video>
-
-        {/* La respuesta va después del video, no antes: dice lo mismo que
-            muestra la pantalla, sin depender de que el video se reproduzca. */}
         <p class="tutorial-respuesta">{t.respuesta}</p>
         <p class="tutorial-meta">
           <span>Actualizado el {t.dateModified}</span>

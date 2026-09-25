@@ -267,25 +267,7 @@ function rasterImages(html) {
   return [...new Set(all.filter(u => /\.webp$/i.test(u) || !stems.has(u.replace(/\.(png|jpe?g)$/i, ''))))];
 }
 
-/* Read the video's facts back out of the VideoObject already in the page rather
-   than restating them here, so the two can never drift apart. */
-function videoObject(html) {
-  for (const m of html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)) {
-    try {
-      const d = JSON.parse(m[1]);
-      if (d['@type'] === 'VideoObject') return d;
-    } catch { /* not every block on the page has to parse */ }
-  }
-  return null;
-}
-
 const xml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-/* "PT17S" -> 17, which is what a video sitemap wants. */
-function isoSeconds(iso) {
-  const m = /^PT(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(iso || '');
-  return m ? Math.round((+(m[1] || 0)) * 60 + (+(m[2] || 0))) : null;
-}
 
 function metaDescription(html) {
   /* Astro emits attributes alphabetically, so `content` lands before `name`. */
@@ -428,18 +410,6 @@ function urlEntry(route) {
     .map(u => `    <image:image><image:loc>${SITE}${xml(u)}</image:loc></image:image>`)
     .join('\n');
 
-  const v = videoObject(html);
-  const seconds = v && isoSeconds(v.duration);
-  const video = v ? `    <video:video>
-      <video:thumbnail_loc>${xml(v.thumbnailUrl)}</video:thumbnail_loc>
-      <video:title>${xml(v.name)}</video:title>
-      <video:description>${xml(v.description)}</video:description>
-      <video:content_loc>${xml(v.contentUrl)}</video:content_loc>${seconds ? `
-      <video:duration>${seconds}</video:duration>` : ''}
-      <video:publication_date>${xml(v.uploadDate)}</video:publication_date>
-      <video:family_friendly>yes</video:family_friendly>
-    </video:video>` : '';
-
   return [
     '  <url>',
     `    <loc>${SITE}${route}</loc>`,
@@ -447,15 +417,13 @@ function urlEntry(route) {
     `    <changefreq>${route === '/' ? 'weekly' : 'yearly'}</changefreq>`,
     `    <priority>${route === '/' ? '1.0' : '0.3'}</priority>`,
     images,
-    video,
     '  </url>',
   ].filter(Boolean).join('\n');
 }
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
-        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${INDEXED.filter(r => pages.has(r)).map(urlEntry).join('\n')}
 </urlset>
 `;

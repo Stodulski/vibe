@@ -30,7 +30,6 @@ import {
 } from '../src/data/mercadopago-costos.ts';
 import { ejemplo, pesos, CARGO_SERVICIO, CARGO_MINIMO } from '../src/data/precio.ts';
 import { faq } from '../src/data/faq.ts';
-import { tutoriales, CDN } from '../src/data/tutoriales.ts';
 
 const BASE = (process.argv[2] || 'https://vibe.com.ar').replace(/\/$/, '');
 const results = [];
@@ -882,33 +881,6 @@ async function testAnchoEnSerp() {
   await p.context().close();
 }
 
-/* --------------------------------------------------- assets de los tutoriales */
-
-/**
- * Que el video y el poster de cada tutorial existan de verdad en el CDN.
- *
- * Nada del build puede cachear esto: los archivos viven en otro host, así que
- * `astro build` compone la URL y da por buena cualquier cadena. Se rompió una
- * vez, en producción, porque el slug de la página y el nombre del archivo
- * subido dejaron de coincidir en dos de siete y nadie tenía cómo notarlo.
- */
-async function testAssetsDeTutoriales() {
-  const p = await newPage();
-  for (const t of tutoriales) {
-    for (const [tipo, ext] of [['poster', 'webp'], ['video', 'mp4']]) {
-      const url = `${CDN}/${t.slug}.${ext}`;
-      let estado = 0;
-      try {
-        const r = await p.request.fetch(url, { headers: { range: 'bytes=0-1' }, timeout: 15000 });
-        estado = r.status();
-      } catch { /* queda en 0 y se reporta */ }
-      /* 206 y no 200 porque el pedido lleva Range: el CDN sirve el trozo pedido. */
-      check(`${t.slug}: el ${tipo} existe en el CDN`, estado === 200 || estado === 206, `${estado} en ${url}`);
-    }
-  }
-  await p.context().close();
-}
-
 /* --------------------------------------------------------------------- run */
 browser = await chromium.launch();
 try {
@@ -930,7 +902,6 @@ try {
   await testNingunNumeroSuelto();
   await testEnlacesPegados();
   await testAnchoEnSerp();
-  await testAssetsDeTutoriales();
 } finally {
   await browser.close();
 }

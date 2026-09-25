@@ -3,7 +3,7 @@
 import { LAST_MODIFIED, PUBLISHED } from './site-dates.ts';
 import type { Guia } from './guias.ts';
 import type { Tutorial } from './tutoriales.ts';
-import { CDN, ULTIMA_ACTUALIZACION as TUTORIALES_ULTIMA_ACTUALIZACION } from './tutoriales.ts';
+import { ULTIMA_ACTUALIZACION as TUTORIALES_ULTIMA_ACTUALIZACION } from './tutoriales.ts';
 import { faq } from './faq.ts';
 import { RANGO_NACIONAL } from './mercadopago-costos.ts';
 import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from './precio.ts';
@@ -184,21 +184,10 @@ export function guiasIndexJsonLd(lista: Guia[]): string[] {
 /* -------------------------------------------------------------- tutoriales */
 
 /**
- * "30" -> "PT30S". Los tutoriales de hoy duran todos menos de un minuto, pero
- * la conversión es general para que un video más largo no rompa el schema el
- * día que aparezca.
- */
-function duracionIso(segundos: number): string {
-  const minutos = Math.floor(segundos / 60);
-  const resto = segundos % 60;
-  return `PT${minutos ? `${minutos}M` : ''}${resto || !minutos ? `${resto}S` : ''}`;
-}
-
-/**
- * Un tutorial declara que es un video (con su propio archivo, no el de
- * YouTube, que va en `sameAs`), que las preguntas del final son preguntas, y
- * dónde vive dentro del sitio. No lleva `citation`: a diferencia de una guía,
- * no afirma un número de un tercero, así que no hay fuente que citar.
+ * Un tutorial declara que es un artículo (misma forma que una guía), que las
+ * preguntas del final son preguntas, y dónde vive dentro del sitio. No lleva
+ * `citation`: a diferencia de una guía, no afirma un número de un tercero, así
+ * que no hay fuente que citar.
  */
 export function tutorialJsonLd(t: Tutorial): string[] {
   const url = `https://vibe.com.ar/tutoriales/${t.slug}`;
@@ -209,25 +198,23 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     logo: 'https://vibe.com.ar/logo.png',
   };
 
-  const video: Record<string, unknown> = {
+  const articulo: Record<string, unknown> = {
     '@context': 'https://schema.org',
-    '@type': 'VideoObject',
-    /* El título SEO trae el sufijo " | Vibe" para el <title>; el schema
-       describe el video en sí, así que se saca. */
-    name: t.seoTitle.replace(/ \| Vibe$/, ''),
+    '@type': 'Article',
+    headline: t.title,
     description: t.metaDescription,
-    thumbnailUrl: `${CDN}/${t.slug}.webp`,
-    uploadDate: t.datePublished,
-    duration: duracionIso(t.duracion),
-    contentUrl: `${CDN}/${t.slug}.mp4`,
+    /* La respuesta contesta la pregunta entera: es lo que conviene que se cite
+       si se cita una sola cosa de la página. */
+    abstract: t.respuesta,
+    url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
     inLanguage: 'es-AR',
+    datePublished: t.datePublished,
+    dateModified: t.dateModified,
+    author: editor,
     publisher: editor,
     isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar' },
   };
-  /* `sameAs` solo declara la copia en YouTube cuando existe de verdad: un
-     tutorial recién grabado que todavía no se subió ahí no lleva un enlace
-     a un video que no está. */
-  if (t.youtube) video.sameAs = `https://www.youtube.com/watch?v=${t.youtube}`;
 
   const faqSchema = {
     '@context': 'https://schema.org',
@@ -249,7 +236,7 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     ],
   };
 
-  return [video, faqSchema, breadcrumb].map(o => JSON.stringify(o, null, 2));
+  return [articulo, faqSchema, breadcrumb].map(o => JSON.stringify(o, null, 2));
 }
 
 /** El índice: una lista de los tutoriales, en orden. */
@@ -259,7 +246,7 @@ export function tutorialesIndexJsonLd(lista: Tutorial[]): string[] {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: 'Tutoriales de Vibe',
-      description: 'Videos cortos del panel de Vibe, una pantalla por video: la grilla, los precios, los clientes, el panel, los reportes y la configuración.',
+      description: 'Guías cortas del panel de Vibe, pantalla por pantalla: la grilla, los precios, los clientes, el panel, los reportes y la configuración.',
       url: 'https://vibe.com.ar/tutoriales',
       inLanguage: 'es-AR',
       dateModified: TUTORIALES_ULTIMA_ACTUALIZACION,
