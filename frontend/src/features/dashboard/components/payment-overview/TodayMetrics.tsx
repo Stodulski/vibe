@@ -3,36 +3,23 @@ import { ComparisonBadge } from '../stats-cards/ComparisonBadge';
 
 const t = ES_AR;
 
-interface TodayBookingsSummaryProps {
-  todayBookingsCount: number;
-  yesterdayBookingsCount: number;
+interface TodayMetricsProps {
+  todayBookings: number;
+  yesterdayBookings: number;
   occupancyRate: number;
 }
 
-/**
- * "Reservas hoy" (every confirmed booking today, not just the ones still
- * upcoming) and the occupancy bar, moved in from PaymentOverview's
- * TodayMetrics (odd/tasks/dashboard-today-card.md).
- */
-export function TodayBookingsSummary({
-  todayBookingsCount,
-  yesterdayBookingsCount,
-  occupancyRate,
-}: TodayBookingsSummaryProps) {
+export function TodayMetrics({ todayBookings, yesterdayBookings, occupancyRate }: TodayMetricsProps) {
   return (
-    <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:gap-6">
+    <div className="mb-4 flex flex-col gap-4">
       <div>
         <div className="flex items-center gap-2">
           <span className="text-text-tertiary text-sm font-medium">{t.dashboard.bookingsToday}</span>
-          <ComparisonBadge
-            current={todayBookingsCount}
-            previous={yesterdayBookingsCount}
-            versus={t.dashboard.versusYesterday}
-          />
+          <ComparisonBadge current={todayBookings} previous={yesterdayBookings} versus={t.dashboard.versusYesterday} />
         </div>
-        <p className="score-text text-text-primary mt-1 text-lg font-bold">{todayBookingsCount}</p>
+        <p className="score-text text-text-primary mt-1 text-lg font-bold">{todayBookings}</p>
       </div>
-      <div className="flex-1">
+      <div>
         <span className="text-text-tertiary text-sm font-medium">{t.dashboard.occupancyRate}</span>
         <p className="score-text text-text-primary mt-1 text-lg font-bold">{occupancyRate}%</p>
         <div

@@ -61,21 +61,6 @@ export const dashboard = {
   exportExpired: 'El archivo generado ya venció. Volvé a exportarlo.',
   realtimeAccessEnded:
     'Se dejaron de recibir actualizaciones en vivo de este complejo. Recargá la página si creés que es un error.',
-  // ─── "Hoy" card (dashboard-today-card) ───
-  // Open/closed labels and the "Abrir caja" action reuse `t.cash`'s own
-  // strings (openSuccess/closeSuccess/openAction) so the dashboard never
-  // drifts from the Caja screen's own copy for the same states.
-  todayCardTitle: 'Hoy',
-  cashboxOpen: 'Abierta',
-  cashboxClosed: 'Cerrada',
-  cashboxGoToShift: 'Ir a la caja',
-  // The day-level income breakdown (today_money), replacing the old
-  // shift-scoped cashboxShiftIncome/cashboxShiftExpense: those counted only
-  // till movements and left out counter booking payments, which is the bug
-  // this card exists to fix (see odd/tasks/dashboard-today-card.md).
-  todayIncomeBookings: 'Turnos',
-  todayIncomeBar: 'Bar',
-  todayIncomeOther: 'Otros',
   // ─── Low-stock alert (pos-cashbox T6) ───
   lowStockTitle: 'Stock bajo',
   lowStockViewProducts: 'Ver productos',
