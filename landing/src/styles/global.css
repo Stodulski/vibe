@@ -448,8 +448,11 @@ body {
 .sport-emoji {
   display: block;
   /* The Fluent artwork leaves transparent margin inside its square, so it
-     draws a third larger than a font emoji of the same --size would. */
-  width: calc(var(--size) * 1.3); height: calc(var(--size) * 1.3);
+     draws a third larger than a font emoji of the same --size would. Owner
+     ask (2026-09-25): the icons read too small, so this multiplier is ~1.75x
+     the previous 1.3, taking the largest icon from ~130px to ~228px on
+     desktop; the mobile override below keeps the same fold. */
+  width: calc(var(--size) * 2.275); height: calc(var(--size) * 2.275);
   filter:
     drop-shadow(0 0 1px var(--green))
     drop-shadow(0 0 1px var(--green))
@@ -1250,7 +1253,8 @@ body {
   .orbit-item-8 { left: 18%; top: 96%; }
   .orbit-item-4 { left: 52%; top: 99%; }
   .orbit-item-6 { left: 86%; top: 95%; }
-  .sport-emoji { width: calc(var(--size) * 0.55); height: calc(var(--size) * 0.55); }
+  /* Same ~1.75x fold as the desktop rule above. */
+  .sport-emoji { width: calc(var(--size) * 0.9625); height: calc(var(--size) * 0.9625); }
   .hero-subtitle { font-size: 0.9375rem; }
   .section-desc { font-size: 1rem; }
   .final-cta .section-title { font-size: clamp(1.75rem, 5vw, 2.75rem); }
