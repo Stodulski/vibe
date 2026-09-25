@@ -1417,3 +1417,198 @@ func (m *Store) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, toda
 	}
 	return summary, nil
 }
+
+// dayMoneyIncomeCategories and dayMoneyExpenseCategories mirror
+// cashbox.IncomeCategories/ExpenseCategories (internal/cashbox/service.go),
+// which mirror cash_movements_category_kind_consistent
+// (db/migrations/003_cashbox.sql, widened by 008_cash_movement_categories.sql).
+// Duplicated here rather than imported: internal/cashbox already imports
+// internal/reporting/store for its session-window reads, and this package
+// sits below both in the dependency graph, so importing cashbox from here
+// would risk a cycle as those packages evolve. 'restock' is included as an
+// expense category — it is system-only, the same way 'sale' is for income —
+// because a stock purchase is money that left the till just as much as a
+// manual expense is.
+var (
+	dayMoneyIncomeCategories = []string{
+		"other_income", "classes", "tournaments", "events", "memberships", "sponsorship", "cash_contribution",
+	}
+	dayMoneyExpenseCategories = []string{
+		"supplies", "salaries", "services", "maintenance", "cleaning", "withdrawal", "other_expense",
+		"rent", "taxes", "professional_fees", "marketing", "bank_fees", "restock",
+	}
+)
+
+// daySaleCategory is the system-only category a bar sale is recorded under
+// (internal/sales), the only source of DayMoneyTotals.BarSales.
+const daySaleCategory = "sale"
+
+// DayMoneyTotals is the dashboard's "Hoy" card money figures — every amount
+// that ENTERED today, on the Argentina calendar day, combining booking
+// payments (every method, from payments.created_at — the same window
+// GetPaymentSummary's by-method breakdown already uses) with cash_movements
+// (bar sales, other manual income, and expenses).
+//
+// This is a calendar-day total, not a cash-session-shift total: a cash
+// session's own "Ingresos del turno" (cashbox.Service, expected_cash) is
+// scoped to [opened_at, closed_at-or-now), which almost never lines up with
+// local midnight and can cross into two calendar days. The two are
+// deliberately different questions — "how much came in today" vs. "how much
+// should be in the till for this shift" — see the OpenAPI description on
+// DashboardStats.today_money.
+//
+// A voided movement and its void always net to zero here: a void
+// (cash_movements_check_void, 003_cashbox.sql) carries the opposite kind and
+// the ORIGINAL's category, so summing "income minus expense" within a
+// category cancels a void against what it voided without a separate
+// exclusion pass.
+//
+// Refunds made today are left out of every figure here — the same rule
+// TodayRevenue and GetPaymentSummary already apply (p.status != 'refunded').
+// This is the simplest rule that cannot double-count: a refund reverses a
+// payment that may have been taken on an earlier day, so netting it into
+// TODAY's income would move money from the day it was actually collected to
+// the day it was given back, understating one day and overstating the other.
+type DayMoneyTotals struct {
+	// Bookings is booking payments received today, every method.
+	Bookings int64 `json:"bookings"`
+	// BarSales is income movements with category 'sale', net of voids.
+	BarSales int64 `json:"bar_sales"`
+	// OtherIncome is every other non-sale income movement, net of voids.
+	OtherIncome int64 `json:"other_income"`
+	// Expenses is expense movements (manual expenses plus restock), net of
+	// voids. Always >= 0.
+	Expenses int64 `json:"expenses"`
+	// TotalIncome is Bookings + BarSales + OtherIncome. It does not subtract
+	// Expenses: "income" and "what's left after expenses" are different
+	// questions, and the card shows Expenses on its own line for that reason.
+	TotalIncome int64 `json:"total_income"`
+	// ByMethod is income today (bookings + bar sales + other income) per
+	// payment method, net of voids. Expenses never appear here.
+	ByMethod map[string]int64 `json:"by_method"`
+}
+
+// GetDayMoneyTotals computes the dashboard's day-level money totals. See
+// DayMoneyTotals for what each figure means and why voids and refunds are
+// handled the way they are.
+func (m *Store) GetDayMoneyTotals(ctx context.Context, complexID uuid.UUID, today time.Time) (*DayMoneyTotals, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	totals := &DayMoneyTotals{ByMethod: make(map[string]int64)}
+
+	if err := addDayMoneyBookingPayments(ctx, m, complexID, today, totals); err != nil {
+		return nil, err
+	}
+
+	net, err := dayMoneyMovementsNet(ctx, m, complexID, today)
+	if err != nil {
+		return nil, err
+	}
+	applyDayMoneyMovementsNet(net, totals)
+
+	totals.TotalIncome = totals.Bookings + totals.BarSales + totals.OtherIncome
+	return totals, nil
+}
+
+// addDayMoneyBookingPayments adds today's booking payments, every method, to
+// totals — the same window and exclusion rule GetPaymentSummary's by-method
+// breakdown already uses.
+func addDayMoneyBookingPayments(ctx context.Context, m *Store, complexID uuid.UUID, today time.Time, totals *DayMoneyTotals) error {
+	rows, err := m.DB.Query(ctx, `
+		SELECT p.method::text, COALESCE(SUM(p.amount), 0)::bigint
+		FROM payments p
+		WHERE p.complex_id = $1 AND p.status != 'refunded'
+		  AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2
+		GROUP BY p.method`,
+		data.UUIDToPg(complexID), data.DateToPg(today),
+	)
+	if err != nil {
+		return fmt.Errorf("bookings: get day money booking payments: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var method string
+		var amount int64
+		if err := rows.Scan(&method, &amount); err != nil {
+			return fmt.Errorf("bookings: scan day money booking payment row: %w", err)
+		}
+		totals.Bookings += amount
+		totals.ByMethod[method] += amount
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("bookings: get day money booking payments: %w", err)
+	}
+	return nil
+}
+
+// dayMoneyMovementKey identifies one (method, category) bucket of today's
+// cash movements.
+type dayMoneyMovementKey struct{ method, category string }
+
+// dayMoneyMovementsNet reads today's cash_movements grouped by
+// (method, category) and reduces each group to income minus expense: a
+// void's opposite kind (cash_movements_check_void, 003_cashbox.sql) subtracts
+// back out whatever it voided, so the returned map is already the post-void
+// figure without a separate exclusion pass.
+func dayMoneyMovementsNet(ctx context.Context, m *Store, complexID uuid.UUID, today time.Time) (map[dayMoneyMovementKey]int64, error) {
+	rows, err := m.DB.Query(ctx, `
+		SELECT method::text, kind, category, COALESCE(SUM(amount), 0)::bigint
+		FROM cash_movements
+		WHERE complex_id = $1
+		  AND (created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2
+		GROUP BY method, kind, category`,
+		data.UUIDToPg(complexID), data.DateToPg(today),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("bookings: get day money cash movements: %w", err)
+	}
+	defer rows.Close()
+
+	net := make(map[dayMoneyMovementKey]int64)
+	for rows.Next() {
+		var method, kind, category string
+		var amount int64
+		if err := rows.Scan(&method, &kind, &category, &amount); err != nil {
+			return nil, fmt.Errorf("bookings: scan day money cash movement row: %w", err)
+		}
+		k := dayMoneyMovementKey{method, category}
+		if kind == "income" {
+			net[k] += amount
+		} else {
+			net[k] -= amount
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: get day money cash movements: %w", err)
+	}
+	return net, nil
+}
+
+// applyDayMoneyMovementsNet buckets each (method, category) net figure into
+// bar sales, other income or expenses, and folds bar sales and other income
+// into ByMethod alongside the booking payments already there.
+func applyDayMoneyMovementsNet(net map[dayMoneyMovementKey]int64, totals *DayMoneyTotals) {
+	incomeCategories := make(map[string]bool, len(dayMoneyIncomeCategories))
+	for _, c := range dayMoneyIncomeCategories {
+		incomeCategories[c] = true
+	}
+	expenseCategories := make(map[string]bool, len(dayMoneyExpenseCategories))
+	for _, c := range dayMoneyExpenseCategories {
+		expenseCategories[c] = true
+	}
+
+	for k, amount := range net {
+		switch {
+		case k.category == daySaleCategory:
+			totals.BarSales += amount
+			totals.ByMethod[k.method] += amount
+		case incomeCategories[k.category]:
+			totals.OtherIncome += amount
+			totals.ByMethod[k.method] += amount
+		case expenseCategories[k.category]:
+			totals.Expenses += -amount
+		}
+	}
+}

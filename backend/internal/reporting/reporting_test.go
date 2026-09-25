@@ -89,6 +89,9 @@ func (stubBookings) GetUpcomingToday(context.Context, uuid.UUID, time.Time, stri
 func (stubBookings) GetPaymentSummary(context.Context, uuid.UUID, time.Time) (*bookingstore.PaymentSummary, error) {
 	return &bookingstore.PaymentSummary{}, nil
 }
+func (stubBookings) GetDayMoneyTotals(context.Context, uuid.UUID, time.Time) (*bookingstore.DayMoneyTotals, error) {
+	return &bookingstore.DayMoneyTotals{ByMethod: map[string]int64{}}, nil
+}
 func (stubBookings) GetRevenueByDay(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.RevenueDataPoint, error) {
 	return nil, nil
 }

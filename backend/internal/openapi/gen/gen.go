@@ -2068,7 +2068,10 @@ type DashboardStats struct {
 	PendingBookings int            `json:"pending_bookings"`
 	TodayBookings   int            `json:"today_bookings"`
 
-	// TodayRevenue Centavos ARS.
+	// TodayMoney Everything that entered today, on the Argentina calendar day (created_at cast to that zone's date) — deliberately NOT a cash session's shift window, which runs from whenever the till was opened to now or to close and can cross midnight. bookings here uses the same window and exclusion rule as today_revenue (payments.created_at, refunds excluded), so the two always agree; today_money additionally folds in bar sales and other manual cash-till income/expense so the dashboard has one number for "how much came in today" instead of two figures that measure different things. A voided cash movement and its void always net to zero in every field below. Refunds made today are left out of every income figure here, the same way they are excluded from today_revenue — the simplest rule that cannot move money between the day it was collected and the day it was given back.
+	TodayMoney DayMoneyTotals `json:"today_money"`
+
+	// TodayRevenue Centavos ARS. Booking payments taken today (payments.created_at, Argentina calendar day), refunds excluded. This is a bookings-only figure and does not include bar sales or other cash-till income — see today_money for the day's full income picture, which also reconciles bookings taken through it with this field.
 	TodayRevenue int `json:"today_revenue"`
 	TotalClients int `json:"total_clients"`
 
@@ -2081,6 +2084,27 @@ type DashboardStats struct {
 
 	// YesterdayRevenue Centavos ARS.
 	YesterdayRevenue int `json:"yesterday_revenue"`
+}
+
+// DayMoneyTotals Everything that entered today, on the Argentina calendar day (created_at cast to that zone's date) — deliberately NOT a cash session's shift window, which runs from whenever the till was opened to now or to close and can cross midnight. bookings here uses the same window and exclusion rule as today_revenue (payments.created_at, refunds excluded), so the two always agree; today_money additionally folds in bar sales and other manual cash-till income/expense so the dashboard has one number for "how much came in today" instead of two figures that measure different things. A voided cash movement and its void always net to zero in every field below. Refunds made today are left out of every income figure here, the same way they are excluded from today_revenue — the simplest rule that cannot move money between the day it was collected and the day it was given back.
+type DayMoneyTotals struct {
+	// BarSales Centavos ARS. Income cash movements with category 'sale', net of voids.
+	BarSales int `json:"bar_sales"`
+
+	// Bookings Centavos ARS. Booking payments received today, every method. Equals today_revenue.
+	Bookings int `json:"bookings"`
+
+	// ByMethod Income today (bookings plus cash-movement income, net of voids) per payment method. Expenses never appear here.
+	ByMethod map[string]int `json:"by_method"`
+
+	// Expenses Centavos ARS. Expense cash movements (manual expenses and restock), net of voids. Never negative.
+	Expenses int `json:"expenses"`
+
+	// OtherIncome Centavos ARS. Every other non-sale income cash movement, net of voids.
+	OtherIncome int `json:"other_income"`
+
+	// TotalIncome Centavos ARS. bookings + bar_sales + other_income. Does not subtract expenses.
+	TotalIncome int `json:"total_income"`
 }
 
 // FieldError defines model for FieldError.

@@ -90,6 +90,7 @@ type DashboardStats struct {
 	OccupancyRate  int
 	Upcoming       []*bookingstore.Booking
 	PaymentSummary *bookingstore.PaymentSummary
+	DayMoney       *bookingstore.DayMoneyTotals
 }
 
 // DashboardStats aggregates today's figures for one complex.
@@ -155,12 +156,18 @@ func (s *Service) DashboardStats(ctx context.Context, complexID uuid.UUID, now t
 		return nil, err
 	}
 
+	dayMoney, err := s.bookings.GetDayMoneyTotals(ctx, complexID, today)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DashboardStats{
 		Stats:          stats,
 		TotalClients:   totalClients,
 		OccupancyRate:  occupancyRate,
 		Upcoming:       upcoming,
 		PaymentSummary: paymentSummary,
+		DayMoney:       dayMoney,
 	}, nil
 }
 
