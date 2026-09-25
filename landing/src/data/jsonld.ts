@@ -5,8 +5,6 @@ import type { Guia } from './guias.ts';
 import type { Tutorial } from './tutoriales.ts';
 import { ULTIMA_ACTUALIZACION as TUTORIALES_ULTIMA_ACTUALIZACION } from './tutoriales.ts';
 import { faq } from './faq.ts';
-import { RANGO_NACIONAL } from './mercadopago-costos.ts';
-import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from './precio.ts';
 
 export const homeJsonLd: string[] = [
 `   {
@@ -22,7 +20,7 @@ export const homeJsonLd: string[] = [
       "price": "0",
       "priceCurrency": "ARS",
       "availability": "https://schema.org/InStock",
-      "description": "100% gratis para el complejo deportivo: sin costo fijo, sin suscripción y sin cargo sobre los cobros en el mostrador ni las ventas. Al cliente que reserva online se le suma un cargo de servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)} ARS. MercadoPago descuenta su comisión del pago online, ${RANGO_NACIONAL} más IVA, según la provincia del complejo y cuándo se acredite el dinero."
+      "description": "100% gratis para el complejo deportivo: sin costo fijo, sin suscripción y sin cargo sobre los cobros en el mostrador ni las ventas."
     },
     "featureList": [
       "Reservas online 24/7 con página pública del complejo",

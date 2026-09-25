@@ -643,12 +643,11 @@ async function testCostosMercadoPago() {
       (tabla[i] || []).join(' '));
   });
 
-  /* El detalle por plazo y provincia vive en la guia, no en la home: la home
-     solo tiene que enlazarla y no repetir la tabla ni el ejemplo. */
+  /* El detalle por plazo y provincia vive en la guia, no en la home: el pitch
+     de la home (2026-09-25) ya no explica quien paga ni enlaza esta guia desde
+     Precio, asi que aca solo queda confirmar que no repite la tabla ni el
+     ejemplo con montos. */
   await p.goto(BASE + '/#precio', { waitUntil: 'load' });
-  const link = await p.evaluate(() =>
-    document.querySelector('a[href="/guias/cuanto-cobra-mercadopago-por-una-sena"]')?.textContent.trim());
-  check('la home enlaza la guia de costos de MercadoPago', !!link, link ?? 'no esta');
   check('la home ya no repite la tabla de tarifas por plazo',
     await p.locator('.mp-fees-list').count() === 0);
   check('la home ya no repite el ejemplo con montos',

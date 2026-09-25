@@ -1,9 +1,3 @@
----
-/* El cargo y su minimo salen de precio.ts, nunca tipeados a mano: el 7% y el
-   $1.000 se repiten en la FAQ y en los terminos, y una copia escrita aparte es
-   la que ya quedo mal una vez. */
-import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from '../data/precio';
----
 <section class="pricing" id="precio">
  <div class="container">
   <div class="pricing-card anim anim-d1">
@@ -17,8 +11,6 @@ import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from '../data/precio';
     </div>
     <div class="pricing-body">
      <p class="pricing-desc">Sin abono, sin costo fijo, sin suscripción. La caja, la venta de productos y todo lo que cobrás en el mostrador tampoco tienen cargo de Vibe. 100% gratis para tu complejo.</p>
-     <p class="pricing-desc">¿Quién paga, entonces? El que reserva online: un <strong>cargo de servicio del {CARGO_SERVICIO_TEXTO} sobre la seña</strong>, con un mínimo de {pesos(CARGO_MINIMO)}. Lo ve antes de pagar, y si cancela a tiempo se le devuelve junto con la seña.</p>
-     <p class="pricing-desc">Aparte está MercadoPago, que descuenta su comisión del pago online antes de que llegue a tu cuenta. Depende de tu provincia y de cuándo elijas cobrar, y corre con cualquier sistema que cobre por MercadoPago.</p>
      <div class="pricing-trust">
       <div class="trust-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg><span>Seña segura</span></div>
       <div class="trust-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Datos encriptados</span></div>
@@ -27,24 +19,6 @@ import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from '../data/precio';
      <a class="btn-primary" href="https://app.vibe.com.ar/register" rel="noopener">Crear mi cuenta gratis<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
     </div>
    </div>
-  </div>
-
-  <div class="mp-fees anim anim-d4">
-   <p class="mp-fees-label">Las dos preguntas que vienen después</p>
-   <ul class="mp-fees-links">
-    <li>
-     <a href="/guias/cuanto-cobra-mercadopago-por-una-sena">
-      ¿Cuánto cobra MercadoPago según tu provincia?
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-     </a>
-    </li>
-    <li>
-     <a href="/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas">
-      ¿Cuánto cuesta un sistema de reservas para canchas?
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-     </a>
-    </li>
-   </ul>
   </div>
  </div>
 </section>
