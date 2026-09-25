@@ -509,6 +509,20 @@ html body[data-scroll-locked] {
   animation: count-in 400ms var(--ease-out) backwards;
 }
 
+/* Tap confirmation on a Vender product tile: a ring that fades out, replayed
+   on every tap by re-keying the element (see SellProductTile). */
+@keyframes tile-added {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.animate-tile-added {
+  animation: tile-added 450ms var(--ease-out) forwards;
+}
+
 .stagger-children > * {
   animation: fade-in 300ms var(--ease-out) backwards;
 }
