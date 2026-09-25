@@ -462,13 +462,13 @@ body {
    delays start each one partway round its loop. */
 .orbit-item-1 { left: 8%;  top: 26%; --size: 6.25rem; --radius: 22px; --period: 19s; }
 .orbit-item-2 { left: 89%; top: 17%; --size: 4.25rem; --radius: 16px; --period: 14s; --dir: reverse; }
-.orbit-item-3 { left: 21%; top: 6%;  --size: 2.1rem; --radius: 10px; --period: 11s; }
-.orbit-item-4 { left: 85%; top: 66%; --size: 5.25rem; --radius: 20px; --period: 17s; --dir: reverse; }
+.orbit-item-3 { left: 15%; top: -4%; --size: 2.1rem; --radius: 10px; --period: 11s; }
+.orbit-item-4 { left: 85%; top: 76%; --size: 5.25rem; --radius: 20px; --period: 17s; --dir: reverse; }
 .orbit-item-5 { left: 4%;  top: 70%; --size: 2.25rem; --radius: 12px; --period: 13s; }
-.orbit-item-6 { left: 69%; top: 94%; --size: 2.5rem; --radius: 14px; --period: 15s; --dir: reverse; }
+.orbit-item-6 { left: 83%; top: 98%; --size: 2.5rem; --radius: 14px; --period: 15s; --dir: reverse; }
 .orbit-item-7 { left: 95%; top: 40%; --size: 1.9rem; --radius: 9px;  --period: 10s; }
-.orbit-item-8 { left: 25%; top: 92%; --size: 3.5rem; --radius: 18px; --period: 18s; --dir: reverse; }
-.orbit-item-9 { left: 74%; top: 5%;  --size: 1.85rem; --radius: 8px;  --period: 12s; }
+.orbit-item-8 { left: 14%; top: 92%; --size: 3.5rem; --radius: 18px; --period: 18s; --dir: reverse; }
+.orbit-item-9 { left: 74%; top: -6%; --size: 1.85rem; --radius: 8px;  --period: 12s; }
 .orbit-item-1 .orbit-path { animation-delay: -4s; }
 .orbit-item-2 .orbit-path { animation-delay: -9s; }
 .orbit-item-3 .orbit-path { animation-delay: -2s; }
@@ -481,6 +481,16 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .orbit-path { animation: none; }
+}
+
+/* Between the >768px desktop rule and the mobile rewrite, hero-orbit's own
+   width is still viewport-capped (min(1180px, 100vw - 48px)) but the hero
+   text column has already reflowed to its widest, narrow-viewport layout —
+   the tightest squeeze between icons and text. A slightly smaller fold here
+   keeps every icon clear of the hero copy without moving them off their
+   desktop anchors. */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .sport-emoji { width: calc(var(--size) * 1.85); height: calc(var(--size) * 1.85); }
 }
 
 /* Frame for owner-dashboard screenshots — subtle border and brand glow, no fake window chrome */
@@ -1243,16 +1253,16 @@ body {
   .hero { padding: 172px 12px 136px; align-items: flex-start; }
   /* A phone has no side margins, so the emojis move to the free bands above
      and below the copy instead of crossing it, and fewer of them stay. */
-  .hero-orbit { top: -12%; bottom: -12%; width: calc(100vw - 24px); }
+  .hero-orbit { top: -18%; bottom: -18%; width: calc(100vw - 24px); }
   .orbit-item { --radius: 10px; }
   /* The bottom row hangs below the copy; the hero clips its overflow, so it
      needs the room inside its own padding or the emojis get cut off. */
   .orbit-item-3, .orbit-item-5, .orbit-item-7, .orbit-item-9 { display: none; }
-  .orbit-item-1 { left: 15%; top: 2%; }
-  .orbit-item-2 { left: 86%; top: 4%; }
-  .orbit-item-8 { left: 18%; top: 96%; }
-  .orbit-item-4 { left: 52%; top: 99%; }
-  .orbit-item-6 { left: 86%; top: 95%; }
+  .orbit-item-1 { left: 15%; top: -1%; }
+  .orbit-item-2 { left: 88%; top: -2.5%; }
+  .orbit-item-8 { left: 18%; top: 95%; }
+  .orbit-item-4 { left: 40%; top: 97%; }
+  .orbit-item-6 { left: 92%; top: 93.7%; }
   /* Same ~1.75x fold as the desktop rule above. */
   .sport-emoji { width: calc(var(--size) * 0.9625); height: calc(var(--size) * 0.9625); }
   .hero-subtitle { font-size: 0.9375rem; }

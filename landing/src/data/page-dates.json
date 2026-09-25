@@ -1,90 +1,90 @@
 {
   "/": {
-    "hash": "a689712f90cc3c27",
+    "hash": "58837ecdc87f4471",
     "date": "2026-09-25"
   },
   "/privacidad": {
-    "hash": "12c88bdfe1f2b800",
+    "hash": "449d3353897b61f6",
     "date": "2026-09-25"
   },
   "/terminos": {
-    "hash": "07ce1a282b46d916",
+    "hash": "f22dcd173ff68930",
     "date": "2026-09-25"
   },
   "/guias": {
-    "hash": "2171acc331368466",
+    "hash": "76017cdab63ee7cf",
     "date": "2026-09-25"
   },
   "/guias/cuanto-cobra-mercadopago-por-una-sena": {
-    "hash": "dc0e9ecc174905bd",
+    "hash": "82a2a3a5f3f40dc6",
     "date": "2026-09-25"
   },
   "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "b70b10d049651d83",
+    "hash": "e6ad51413c6cf86a",
     "date": "2026-09-25"
   },
   "/guias/como-llenar-los-horarios-vacios-de-un-complejo": {
-    "hash": "192ad65f7116cee8",
+    "hash": "f85f5472af4749c6",
     "date": "2026-09-25"
   },
   "/tutoriales": {
-    "hash": "ccd7f56a95245743",
+    "hash": "dcb35d09ea39e59e",
     "date": "2026-09-25"
   },
   "/tutoriales/base-de-clientes": {
-    "hash": "bd91874b18cb80f6",
+    "hash": "68a03d9dd9ed5374",
     "date": "2026-09-25"
   },
   "/tutoriales/configuracion-del-complejo": {
-    "hash": "76d7bfe626fcd08c",
+    "hash": "9c25c839f9960bad",
     "date": "2026-09-25"
   },
   "/tutoriales/grilla-de-reservas": {
-    "hash": "98609500d51b2255",
+    "hash": "3f69f2c176667f0e",
     "date": "2026-09-25"
   },
   "/tutoriales/panel-de-control": {
-    "hash": "e62b3265dd0ac7be",
+    "hash": "ba33267e63b551ac",
     "date": "2026-09-25"
   },
   "/tutoriales/precios-por-horario": {
-    "hash": "5fff51c4aa01cb11",
+    "hash": "16b6bb91f17b1125",
     "date": "2026-09-25"
   },
   "/tutoriales/reportes-de-facturacion": {
-    "hash": "6ab29448db1a5081",
+    "hash": "b0469f3cf7a67f3f",
     "date": "2026-09-25"
   },
   "/guias/vibe-o-atc-sports-en-que-se-diferencian": {
-    "hash": "6aa49d4dbc1461b7",
+    "hash": "7ff3b50196db05b4",
     "date": "2026-09-25"
   },
   "/guias/vibe-o-canchafija-en-que-se-diferencian": {
-    "hash": "e4387c5decb26f6d",
+    "hash": "219808674985ee61",
     "date": "2026-09-25"
   },
   "/guias/vibe-o-turnito-para-un-complejo-de-canchas": {
-    "hash": "115a15bc396839e5",
+    "hash": "3bfa7f112cfdaf55",
     "date": "2026-09-25"
   },
   "/tutoriales/abrir-y-cerrar-la-caja": {
-    "hash": "442fc4027ddf2ebe",
+    "hash": "10708d947f83e8e5",
     "date": "2026-09-25"
   },
   "/tutoriales/cobrar-una-reserva-en-el-mostrador": {
-    "hash": "0645043613c812ea",
+    "hash": "955f1fb63cf3839d",
     "date": "2026-09-25"
   },
   "/tutoriales/ingresos-egresos-y-anulaciones": {
-    "hash": "d1a2d39a3a1c4adc",
+    "hash": "07b26f0438234925",
     "date": "2026-09-25"
   },
   "/tutoriales/productos-y-stock": {
-    "hash": "1c5cf2b5afb08160",
+    "hash": "d43978e0ee19b3a7",
     "date": "2026-09-25"
   },
   "/tutoriales/vender-desde-el-mostrador": {
-    "hash": "f4ae901223edf230",
+    "hash": "e89c14bbe478e361",
     "date": "2026-09-25"
   }
 }
