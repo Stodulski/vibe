@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { TodayBookings } from '@/features/dashboard';
-import { TodayCard } from '../../components/TodayCard';
+import { TodayBookings, PaymentOverview } from '@/features/dashboard';
 import { LowStockAlert } from '../../components/LowStockAlert';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { DashboardStats, ClientInsights } from '@/shared/types/api.types';
@@ -33,34 +32,18 @@ export function DashboardContent({
   clientsError,
   onRetryClients,
 }: DashboardContentProps) {
-  // "unpaid" never carries a collected amount (see PaymentStatusBreakdown's
-  // comment on GetPaymentSummary's SQL) and self-resolves within the 15-
-  // minute payment-expiry window — not something to show in cash control.
-  const statusEntries = Object.entries(stats.payment_summary.by_status)
-    .filter(([key]) => key !== 'unpaid')
-    .sort((a, b) => b[1].total - a[1].total);
-
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      {/* 1. The "Hoy" card (odd/tasks/dashboard-today-card.md): till status +
-          expected cash next to the day's income, replacing the old separate
-          Caja and "Ingresos de hoy" cards, which never reconciled with each
-          other. Full width on every breakpoint (owner request), then the
-          low-stock alert, which hides itself when there is nothing to flag. */}
-      <TodayCard complexId={selectedComplexId} stats={stats} />
+      {/* 1. Low-stock alert (pos-cashbox T6); hides itself when there is
+          nothing to flag. The till lives on the Caja screen, not here (owner
+          request, 2026-09-25). */}
       <LowStockAlert complexId={selectedComplexId} />
 
-      {/* 1b. Upcoming bookings, full width — absorbed "Reservas hoy",
-          occupancy and the payment-status breakdown from the old
-          PaymentOverview card. */}
-      <TodayBookings
-        bookings={stats.upcoming_bookings}
-        complexId={selectedComplexId}
-        todayBookingsCount={stats.today_bookings}
-        yesterdayBookingsCount={stats.yesterday_bookings}
-        occupancyRate={stats.occupancy_rate}
-        statusEntries={statusEntries}
-      />
+      {/* 1b. Upcoming bookings + Payment overview (folds in today's key metrics) — "Operaciones del día" */}
+      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
+        <PaymentOverview stats={stats} />
+        <TodayBookings bookings={stats.upcoming_bookings} complexId={selectedComplexId} />
+      </div>
 
       {/* 2. Trends — revenue chart, client insights, occupancy heatmap
           (lazy, desktop only). Grouped under one heading and separated from
