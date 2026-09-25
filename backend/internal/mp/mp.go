@@ -386,7 +386,7 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 		"items": []map[string]any{
 			{
 				"id":          input.BookingID.String(),
-				"title":       fmt.Sprintf("%s — %s · %s %s hs", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
+				"title":       fmt.Sprintf("%s - %s - %s %s hs", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
 				"description": fmt.Sprintf("Seña para reserva de pádel en %s. %s, %s a las %s hs.", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
 				"quantity":    1,
 				"currency_id": "ARS",
