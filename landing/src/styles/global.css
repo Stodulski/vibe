@@ -960,7 +960,7 @@ body {
 .mp-fees-links a:hover svg { transform: translateX(4px); }
 
 /* Cierra el carrusel de capturas: es el único lugar del home donde un enlace a
-   los videos sigue el hilo de lo que el visitante está mirando. */
+   los tutoriales sigue el hilo de lo que el visitante está mirando. */
 .ft-tutoriales {
   margin-top: 26px; text-align: center;
   font-size: 0.875rem; color: var(--muted); line-height: 1.6;
@@ -1636,7 +1636,7 @@ body {
 .guia-comparaciones + .guia-tutorial, .guia-comparaciones + .guia-cta { margin-top: 24px; }
 
 /* Más liviano que .guia-cta a propósito: son dos bloques seguidos y el que
-   pide la cuenta tiene que pesar más que el que ofrece un video. */
+   pide la cuenta tiene que pesar más que el que enlaza al tutorial. */
 .guia-tutorial {
   margin-top: 56px; padding: 22px 24px;
   border-left: 2px solid var(--green); border-radius: 0 12px 12px 0;
@@ -1712,8 +1712,7 @@ body {
 
 /* ========== TUTORIALES ========== */
 /* Mismos tokens y misma escala de espaciado que .guia*: es la misma familia de
-   contenido editorial, solo que con un video en vez de una tabla como pieza
-   central. */
+   contenido editorial. */
 .tutorial { padding: 140px 24px 80px; }
 .tutorial-inner { max-width: 820px; }
 
@@ -1728,17 +1727,6 @@ body {
   font-weight: 800; font-size: clamp(2rem, 5vw, 2.75rem);
   letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 20px;
 }
-
-/* El video es la pieza central de la página: va justo después del H1, con el
-   mismo trato de tarjeta que .browser-frame le da a una captura del panel. */
-.tutorial-video {
-  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
-  border-radius: 16px; border: 1px solid var(--border);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 0 48px -12px var(--green-glow);
-  background: var(--surface-solid);
-  margin-bottom: 28px;
-}
-.tutorial-video a { color: var(--green); }
 
 .tutorial-respuesta {
   font-size: 1.0625rem; line-height: 1.7; color: var(--text);
@@ -1809,10 +1797,6 @@ body {
 .tutorial-volver { color: var(--muted); font-size: 0.875rem; text-decoration: underline; text-underline-offset: 2px; }
 .tutorial-volver:hover, .tutorial-volver:focus-visible { color: var(--green); }
 
-.tutorial-index-item img {
-  width: 160px; height: 90px; flex-shrink: 0; object-fit: cover;
-  border-radius: 10px; background: var(--surface-solid);
-}
 .tutorial-index-item h2 { font-weight: 700; font-size: 1.125rem; margin-bottom: 8px; color: var(--text); }
 .tutorial-index-item p { font-size: 0.9375rem; color: var(--muted); line-height: 1.7; margin-bottom: 8px; }
 .tutorial-index-meta { font-size: 0.75rem; color: var(--muted); opacity: 0.7; }
@@ -1820,34 +1804,6 @@ body {
 @media (max-width: 640px) {
   .tutorial { padding: 110px 20px 64px; }
   .tutorial-cta { padding: 24px; }
-  .tutorial-index-item img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
-  /* El video sangra a los dos bordes de la pantalla: se saca del padding del
-     contenedor con margen negativo, y pierde el marco de tarjeta que tiene en
-     desktop porque a sangre completa un borde redondeado se corta contra el
-     viewport en vez de leerse como esquina.
-     El .tutorial-inner que lo envuelve es también un .container, y .container
-     cambia de padding en SUS PROPIOS breakpoints (24 en desktop, 12 hasta
-     768px, 8 desde 360px), que no coinciden con los de .tutorial (24 en
-     desktop, 20 desde 640px). El margen que cancela los dos no es un número
-     fijo: acá, con .tutorial en 20 y .container en 12, el total es 32, no 44.
-     Verificado midiendo el x real del elemento, no calculado de memoria —
-     confiar en la suma de dos reglas escritas en momentos distintos fue
-     justo el error que dejó el video 12px corto de cada borde. */
-  .tutorial-video {
-    width: 100vw; margin-left: -32px; margin-right: -32px;
-    border-radius: 0; border-left: none; border-right: none;
-  }
-}
-
-/* Va DESPUÉS del bloque de arriba a propósito: los dos @media aplican a la vez
-   bajo 360px, y en CSS dos reglas con la misma especificidad las decide el
-   orden en el archivo, no cuál @media es más angosto. Puesta antes, esta regla
-   perdía contra la de arriba aunque su condición fuera más específica. El
-   valor en sí (28) es el mismo de siempre — .tutorial en 20 más el .container
-   de acá en 8 — medido directo con getBoundingClientRect, no de memoria: fue
-   justo sumar de memoria lo que dio el número mal la primera vez. */
-@media (max-width: 360px) {
-  .tutorial-video { margin-left: -28px; margin-right: -28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

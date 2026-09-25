@@ -10,11 +10,11 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { tutoriales, CDN, ULTIMA_ACTUALIZACION } from '../../data/tutoriales';
+import { tutoriales, ULTIMA_ACTUALIZACION } from '../../data/tutoriales';
 import { tutorialesIndexJsonLd } from '../../data/jsonld';
 
-const TITULO = 'Tutoriales en video: el panel de Vibe funcionando | Vibe';
-const BAJADA = 'Videos cortos del panel de Vibe, una pantalla por video: la grilla, los precios, '
+const TITULO = 'Tutoriales: el panel de Vibe explicado | Vibe';
+const BAJADA = 'Guías cortas del panel de Vibe, pantalla por pantalla: la grilla, los precios, '
   + 'los clientes, el panel, los reportes y la configuración.';
 ---
 <BaseLayout
@@ -22,7 +22,7 @@ const BAJADA = 'Videos cortos del panel de Vibe, una pantalla por video: la gril
   description={BAJADA}
   canonical="https://vibe.com.ar/tutoriales"
   date={ULTIMA_ACTUALIZACION}
-  ogTitle="Tutoriales en video: el panel de Vibe funcionando"
+  ogTitle="Tutoriales: el panel de Vibe explicado"
   ogDescription={BAJADA}
   ogUrl="https://vibe.com.ar/tutoriales"
   ogImage="https://vibe.com.ar/og-image.png"
@@ -30,7 +30,7 @@ const BAJADA = 'Videos cortos del panel de Vibe, una pantalla por video: la gril
   ogImageHeight="630"
   ogImageAlt="Vibe - Sistema de gestión para complejos deportivos"
   twitterCard="summary_large_image"
-  twitterTitle="Tutoriales en video: el panel de Vibe funcionando"
+  twitterTitle="Tutoriales: el panel de Vibe explicado"
   twitterDescription={BAJADA}
   twitterImage="https://vibe.com.ar/og-image.png"
   twitterImageAlt="Vibe - Sistema de gestión para complejos deportivos"
@@ -53,17 +53,17 @@ const BAJADA = 'Videos cortos del panel de Vibe, una pantalla por video: la gril
       </header>
 
       <section class="tutorial-bloque">
-        <h2>Qué muestra cada video</h2>
+        <h2>Qué explica cada tutorial</h2>
         <p>
-          Cada tutorial es una pantalla del panel de Vibe, grabada sobre el producto
-          real: sin guion leído y sin pantallas armadas para la cámara. Si estás
-          evaluando Vibe y querés verlo andar antes de cargar tu complejo, es la
-          forma más rápida, y no hace falta crear una cuenta.
+          Cada tutorial describe una pantalla del panel de Vibe tal como funciona hoy
+          en el producto real, sin ejemplos inventados. Si estás evaluando Vibe y
+          querés entender cómo funciona antes de cargar tu complejo, es la forma más
+          rápida, y no hace falta crear una cuenta.
         </p>
         <p>
           No son <a href="/guias">guías</a>. Una guía contesta algo que se busca
           antes de saber que Vibe existe, con un número y una fuente. Un tutorial
-          muestra una pantalla funcionando, y su fuente es el producto. Si lo que
+          explica una pantalla del panel, y su fuente es el producto. Si lo que
           buscás es cuánto cuesta un sistema de reservas o cuánto se queda la
           pasarela de pago de una seña, eso está en las guías.
         </p>
@@ -73,20 +73,13 @@ const BAJADA = 'Videos cortos del panel de Vibe, una pantalla por video: la gril
         {tutoriales.map(t => (
           <li class="tutorial-index-item">
             <a href={`/tutoriales/${t.slug}`}>
-              <img
-                src={`${CDN}/${t.slug}.webp`}
-                alt={`Captura de pantalla del panel de Vibe: ${t.title}`}
-                width="320"
-                height="180"
-                loading="lazy"
-              />
               <div class="index-texto">
                 <h2>{t.title}</h2>
                 <p>{t.excerpt}</p>
-                <span class="tutorial-index-meta">{t.duracion} segundos · Actualizado el {t.dateModified}</span>
+                <span class="tutorial-index-meta">Actualizado el {t.dateModified}</span>
               </div>
               <span class="index-cta">
-                Ver el video
+                Ver el tutorial
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
               </span>
             </a>
