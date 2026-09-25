@@ -28,6 +28,7 @@ import { fechaDeContenido, guardarFechas } from './fecha-de-contenido.ts';
 import {
   ATC_PLANES, ATC_FUENTE, ATC_VERIFICADO, ATC_PRUEBA_GRATIS_DIAS,
   ATC_DESCUENTO_ANUAL_PORCENTAJE,
+  ATC_DESCUENTO_SEGUN_TABLA_PORCENTAJE,
   CF_PLANES, CF_FUENTE, CF_VERIFICADO, CF_FEE_AL_JUGADOR, CF_SOPORTE_HORARIO,
   CF_MINUTOS_DE_CONFIGURACION, CF_REEMBOLSO_DIAS_HABILES,
   TU_PLANES, TU_FUENTE, TU_VERIFICADO,
@@ -146,21 +147,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'día completo. No elige: adivina.',
           'Del lado tuyo pasa lo mismo. Para saber cómo viene el sábado abrís una agenda por cancha, en '
             + 'vez de mirar una sola pantalla. Una lista contra una grilla, todos los días.',
-          'Y hay un tope que conviene mirar antes que el precio: el plan gratuito permite tres agendas '
-            + 'y el segundo, cinco. Si cada cancha es una agenda, un complejo de seis canchas arranca '
-            + `recién en el tercer plan, que sale ${pesos(TU_PLANES[2].mensual)} por mes.`,
-        ],
-      },
-      {
-        tipo: 'lista',
-        heading: 'Lo que Turnito hace bien',
-        intro: 'Es cierto, y a un complejo le sirve:',
-        items: [
-          'Un plan gratis que no vence, con cien reservas por mes',
-          'Turnos recurrentes flexibles: diarios, semanales o mensuales, con fecha de fin o sin ella',
-          'Calendario embebido, para que la reserva viva adentro de tu propia web',
-          'Bloqueo automático del cliente que acumula faltas',
-          'Recordatorios por WhatsApp, Telegram y mail',
+          'Y hay un tope que conviene mirar antes que el precio: el plan gratuito no vence, incluye '
+            + 'cien reservas por mes y permite tres agendas; el segundo plan sube a cinco. Si cada '
+            + 'cancha es una agenda, un complejo de seis canchas arranca recién en el tercer plan, que '
+            + `sale ${pesos(TU_PLANES[2].mensual)} por mes.`,
         ],
       },
       {
@@ -177,20 +167,15 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       },
       {
         tipo: 'parrafos',
-        heading: 'Cómo elegir entre Turnito y Vibe',
+        heading: 'Para quién es cada uno',
         parrafos: [
-          '¿Una o dos canchas y presupuesto cero? El plan gratis de Turnito es gratis de verdad, y '
-            + 'trae dos cosas que Vibe hoy no tiene: turnos recurrentes y calendario embebido.',
-          'Si además de canchas das clases, tenés profes con agenda propia o alquilás otros espacios, '
-            + 'una agenda genérica te cubre todo con una sola herramienta. Vibe hoy no: está hecho para '
-            + 'gestionar canchas —reservas, cobros, caja y lo que vendés en el mostrador—, no para '
-            + 'agendar clases.',
-          'Si no querés que tu cliente vea ningún cargo, Turnito va al revés que nosotros: la comisión '
-            + 'la paga el complejo y el que reserva ve el precio de la cancha y nada más.',
-          'Y si lo que querés es que el que reserva vea todas las canchas del día en una pantalla, sin '
-            + 'un plan que te limite las agendas y sin pagarle comisión a la plataforma, eso es Vibe: el '
-            + 'día completo en paralelo, el cargo de servicio a cargo del que reserva, y la caja y el '
-            + 'bar en el mismo sistema. Para tu complejo, 100% gratis.',
+          'Si no querés que tu cliente vea ningún cargo aparte del precio de la cancha, Turnito va al '
+            + 'revés que Vibe: la comisión la absorbe el complejo y el que reserva ve un total sin '
+            + 'desglose.',
+          'Vibe está hecho para complejos que alquilan canchas por hora: el que reserva ve todas las '
+            + 'canchas del día en una sola grilla, sin un plan que limite cuántas cargás. El cargo de '
+            + 'servicio lo paga el que reserva, y la caja, los cobros del mostrador y el bar están en el '
+            + 'mismo sistema. Usar Vibe es gratis para el complejo, tengas una cancha o veinte.',
         ],
       },
     ],
@@ -225,8 +210,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: 'Si sumo canchas, ¿tengo que cambiar de plan en Vibe?',
         answer:
-          'No. Vibe no tiene planes ni abono, así que sumar una cancha no te mueve a nada más caro. En '
-          + 'Turnito cada cancha ocupa una agenda, y el plan depende de cuántas sumes.',
+          'No. Vibe no cobra por plan ni por abono, así que sumar una cancha no te mueve a nada más '
+          + 'caro. En Turnito cada cancha ocupa una agenda, y el plan depende de cuántas sumes.',
       },
     ],
   },
@@ -237,15 +222,14 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     title: 'Vibe o CanchaFija: qué comparten y en qué se diferencian',
     seoTitle: 'Vibe o CanchaFija: en qué se diferencian y cuánto cuestan',
     metaDescription:
-      'CanchaFija suma turnos fijos, torneos, escuelitas y socios, con abono mensual. Vibe cubre '
-      + 'reservas, caja y bar sin cobrarle al complejo.',
+      'CanchaFija cobra un abono mensual por complejo; Vibe no cobra nada. Las dos con reserva online, '
+      + 'caja y bar: cambia el modelo de cobro.',
     excerpt:
-      'Comparten la reserva, el cobro y el bar. Uno suma la vida de club y cobra abono; el otro no le '
-      + 'cobra al complejo.',
+      'Comparten la reserva, el cobro y el bar. Uno cobra abono todos los meses; el otro no le cobra '
+      + 'nada al complejo.',
     respuesta:
       'CanchaFija y Vibe comparten la base: reservas online con cobro por MercadoPago y la gestión del '
-      + 'bar o la cantina. CanchaFija suma lo que hace a la vida de un club: turnos fijos semanales, '
-      + 'torneos, escuelitas con cuotas y socios con cobro automático. La diferencia de plata es el '
+      + 'bar o la cantina. La diferencia de plata es el '
       + `abono: CanchaFija le cobra al complejo un plan mensual en pesos según cuántas canchas tenga, `
       + `desde ${pesos(CF_PLANES[0].mensual)} hasta ${pesos(CF_PLANES.at(-1)!.mensual)}, con el primer `
       + 'mes gratis y sin permanencia. Vibe no le cobra nada al complejo, e incluye caja por turno con '
@@ -261,21 +245,6 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'Reserva online con cobro por MercadoPago',
           'El bar o la cantina: en Vibe, venta de productos con stock y caja por turno con arqueo',
           'Reportes de lo que entra',
-        ],
-      },
-      {
-        tipo: 'lista',
-        heading: 'Lo que CanchaFija hace y Vibe no',
-        intro:
-          'Leé esta lista antes que cualquier otra cosa: son cosas reales que CanchaFija resuelve y '
-          + 'Vibe hoy no.',
-        items: [
-          'Turnos fijos: la reserva recurrente semanal, con la opción de saltear una semana sin romper la serie',
-          'Torneos, con fixture, inscripciones y premios',
-          'Escuelitas con cuotas mensuales que se generan solas',
-          'Socios, con cobro automático y control de asistencia',
-          'Tienda online, incluida en todos los planes',
-          'Canchas combinables, para partir una de fútbol 7 en dos de fútbol 5',
         ],
       },
       {
@@ -301,8 +270,6 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'Cómo elegir',
         parrafos: [
-          'Si tu complejo es un club —socios, escuelitas, torneos—, CanchaFija cubre esa operación y '
-            + 'Vibe hoy no. Si lo necesitás, empezá por ahí.',
           'Un detalle operativo: el alta en CanchaFija no es automática. Completás un formulario y '
             + `ellos te mandan las credenciales; dicen que configurarlo lleva unos `
             + `${CF_MINUTOS_DE_CONFIGURACION} minutos una vez adentro, y el soporte es el mismo en `
@@ -315,12 +282,6 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       },
     ],
     faq: [
-      {
-        question: '¿Vibe tiene turnos fijos?',
-        answer:
-          'No. Hoy la reserva recurrente se carga semana a semana desde la grilla. Para un complejo '
-          + 'que vive de los habitués, es la diferencia más concreta entre las dos.',
-      },
       {
         question: '¿Cuánto le cobra CanchaFija al jugador por reserva?',
         answer:
@@ -358,16 +319,15 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       'ATC Sports cobra un abono mensual en dólares; Vibe no le cobra nada al complejo. Qué comparten, '
       + 'qué trae cada uno y cuándo conviene.',
     excerpt:
-      'Las dos toman reservas y llevan la caja. La diferencia está en quién paga, cuándo, y en lo que '
-      + 'ATC suma afuera de la cancha.',
+      'Las dos toman reservas y llevan la caja. La diferencia está en quién paga y cuándo.',
     respuesta:
       'La diferencia principal no está en las reservas, que las dos cubren: está en quién paga. ATC '
       + `Sports le cobra al complejo un abono mensual fijo en dólares, desde ${dolares(ATC_PLANES[0].mensual)} `
       + `hasta ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, haya reservas o no. `
       + 'Vibe no le cobra nada al complejo: el cargo de servicio lo paga el cliente sobre la seña, y la '
       + 'comisión de MercadoPago corre con los dos modelos. En alcance, las dos cubren reservas, caja y '
-      + 'stock; ATC suma integración con grabación de partidos, banners QR, web propia del complejo y '
-      + 'acceso multiusuario, que Vibe hoy no tiene.',
+      + 'stock, y cada complejo tiene su propia página pública para que el cliente vea las canchas y '
+      + 'reserve.',
     datePublished: '2026-09-16',
     fuente: { nombre: 'ATC Sports, software de gestión deportiva', url: ATC_FUENTE, nofollow: true },
     bloques: [
@@ -393,8 +353,9 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'ATC cobra un abono mensual por complejo, en dólares, escalonado por cantidad de canchas. Es '
             + 'previsible: sabés lo que pagás el mes que viene, con un enero flojo o un agosto lleno. '
             + `Ofrece ${ATC_PRUEBA_GRATIS_DIAS} días de prueba gratis y un ${ATC_DESCUENTO_ANUAL_PORCENTAJE} `
-            + 'por ciento de descuento si pagás el año por adelantado.',
-          'Vibe no tiene abono. El complejo no le paga nada a la plataforma; lo que hay es un cargo de '
+            + 'por ciento de descuento si pagás el año por adelantado. Ese es el número que anuncian; '
+            + `los precios de su propia tabla dan un ${ATC_DESCUENTO_SEGUN_TABLA_PORCENTAJE} por ciento.`,
+          'Vibe no cobra abono. El complejo no le paga nada a la plataforma; lo que hay es un cargo de '
             + 'servicio sobre la seña, y lo paga el que reserva. Un mes sin reservas no te cuesta un '
             + 'peso de Vibe. La contracara: tu cliente ve un importe un poco más alto al reservar.',
           'Hay una comisión que corre con los dos: la de MercadoPago, que se descuenta del pago online '
@@ -412,25 +373,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         ],
       },
       {
-        tipo: 'lista',
-        heading: 'Lo que ATC hace y Vibe no',
-        intro:
-          'Está publicado en su página y es cierto. Si necesitás alguna de estas cosas, hoy no la tenés '
-          + 'en Vibe:',
-        items: [
-          'Integración con grabación de partidos',
-          'Banners QR y paquetes digitales personalizados',
-          'Sitio web propio del complejo, más allá de la página de reservas',
-          'Multiusuario: varias personas con su propio acceso al mismo complejo',
-        ],
-      },
-      {
         tipo: 'parrafos',
         heading: 'Cómo elegir sin probar los dos',
         parrafos: [
-          'Si querés grabar los partidos, tener una web propia o que varias personas entren con su '
-            + 'propio usuario, eso ATC lo tiene y Vibe hoy no. Es el corte más simple. La caja y el '
-            + 'stock del bar, en cambio, los tienen las dos.',
+          'La reserva online, la caja y el stock del bar los tienen las dos por igual.',
           'Si lo que necesitás es que la gente reserve y pague la seña sola, la decisión se reduce a '
             + 'quién carga con el costo: vos con una cuota fija, o tu cliente con un cargo sobre la '
             + 'seña. Cuánto sale un abono por turno según tu volumen está calculado, con la tabla '

@@ -35,13 +35,16 @@ const FILAS = [
   ],
   [
     { estado: 'good', texto: 'Caja por turno con arqueo, y venta con stock' },
-    { estado: 'bad', texto: 'Cuaderno, planilla y memoria' },
+    { estado: 'bad', texto: 'Cuaderno o planilla' },
     { estado: 'good', texto: 'También: caja y stock' },
   ],
   [
     { estado: 'good', texto: 'Recordatorio automático antes del turno' },
     { estado: 'bad', texto: 'Te acordás vos, turno por turno' },
-    { estado: 'bad', texto: 'No figura en sus funciones publicadas' },
+    /* Su página de precios y funciones no dice nada de recordatorios (revisado
+       2026-09-25). Que no lo publiquen no prueba que no lo tengan, así que la
+       celda queda neutra en vez de marcarlo como falta. */
+    { estado: 'neutral', texto: 'Sin dato publicado' },
   ],
 ];
 ---
