@@ -53,7 +53,7 @@ export const homeJsonLd: string[] = [
     "datePublished": "${PUBLISHED}",
     "dateModified": "${LAST_MODIFIED}"
   }`,
-`   {"@context":"https://schema.org","@type":"HowTo","name":"Cómo ordenar tu complejo deportivo con Vibe","description":"De cero a ordenado en cuatro pasos: cargás el complejo, compartís tu link, recibís reservas con seña y abrís la caja.","step":[{"@type":"HowToStep","position":1,"name":"Cargá tu complejo","text":"Canchas, horarios y precios. Conectás MercadoPago y las señas online quedan andando."},{"@type":"HowToStep","position":2,"name":"Compartí tu link","text":"Tu complejo tiene su propia página. Pegala en Instagram, en Google Maps y en el WhatsApp."},{"@type":"HowToStep","position":3,"name":"Dejá que reserven solos","text":"Entran reservas con seña, a cualquier hora. Las ves en la grilla, con lo que falta cobrar."},{"@type":"HowToStep","position":4,"name":"Abrí la caja y vendé","text":"Cobrás lo que falta, vendés lo del bar y al cerrar el turno la cuenta ya está hecha."}]}`,
+`   {"@context":"https://schema.org","@type":"HowTo","name":"Cómo empezar con Vibe en tu complejo deportivo","description":"En cuatro pasos: cargás el complejo, compartís tu link, recibís reservas con seña y abrís la caja.","step":[{"@type":"HowToStep","position":1,"name":"Cargá tu complejo","text":"Canchas, horarios y precios. Conectás MercadoPago y las señas online quedan andando."},{"@type":"HowToStep","position":2,"name":"Compartí tu link","text":"Tu complejo tiene su propia página. Pegala en Instagram, en Google Maps y en el WhatsApp."},{"@type":"HowToStep","position":3,"name":"Dejá que reserven solos","text":"Entran reservas con seña, a cualquier hora. Las ves en la grilla, con lo que falta cobrar."},{"@type":"HowToStep","position":4,"name":"Abrí la caja y vendé","text":"Cobrás lo que falta, vendés lo del bar y al cerrar el turno la cuenta ya está hecha."}]}`,
 /* El FAQPage se arma desde la misma fuente que renderiza la FAQ visible. Antes
    estaban las nueve respuestas escritas de nuevo acá, y Google descuenta el
    structured data que no coincide con lo que dice la pagina. */
@@ -154,7 +154,7 @@ export function guiasIndexJsonLd(lista: Guia[]): string[] {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: 'Guías de Vibe',
-      description: 'Respuestas directas, con números y fuente, a lo que te preguntás antes de ordenar la gestión de tu complejo deportivo.',
+      description: 'Respuestas directas, con números y fuente, a lo que te preguntás para hacer crecer tu complejo deportivo.',
       url: 'https://vibe.com.ar/guias',
       inLanguage: 'es-AR',
       dateModified: LAST_MODIFIED,
