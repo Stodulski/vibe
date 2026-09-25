@@ -57,7 +57,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     bloques: [
       {
         tipo: 'parrafos',
-        heading: 'Chau cuaderno de turnos',
+        heading: 'Toda la agenda, en una sola pantalla',
         parrafos: [
           'Te llaman: "¿hay lugar el jueves a las nueve?". La respuesta está acá, sin hojear nada: qué '
             + 'está tomado y qué queda libre, en la cancha que te piden.',
@@ -480,13 +480,12 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     bloques: [
       {
         tipo: 'parrafos',
-        heading: 'El cuaderno que a la noche no cerraba',
+        heading: 'La cuenta que se arma sola durante el turno',
         parrafos: [
-          'Contar el cajón a mano al final del día y no saber si lo que sobra es un error tuyo o de la '
-            + 'persona que atendió antes es una pelea que se repite todas las noches.',
-          'Acá la cuenta la hace Vibe: cada cobro en efectivo, cada venta y cada ingreso o egreso que '
-            + 'cargás durante el turno ya está sumado al efectivo esperado. Vos solo contás el cajón y '
-            + 'comparás.',
+          'El efectivo esperado se arma solo mientras trabajás: cada cobro en efectivo, cada venta y '
+            + 'cada ingreso o egreso que cargás durante el turno va sumando en tiempo real.',
+          'Al cerrar, solo contás el cajón y comparás contra ese número. Si hay una diferencia, la ves '
+            + 'al toque, con el detalle del turno completo a la vista.',
         ],
       },
       {
@@ -523,8 +522,8 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       {
         question: '¿Necesito la caja abierta para cobrar una reserva?',
         answer:
-          'No para cualquier cobro, pero sí para que ese cobro en efectivo entre al esperado, y para '
-          + 'vender productos o reponer stock, que sí necesitan un turno abierto.',
+          'No hace falta para cualquier cobro, pero sí para que ese cobro en efectivo entre al esperado, '
+          + 'y para vender productos o reponer stock, que sí necesitan un turno abierto.',
       },
       {
         question: '¿Puedo ver las cajas de turnos anteriores?',
@@ -554,10 +553,10 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'Categorías, no un cajón de "otros"',
         parrafos: [
-          'Anotar todo como "varios" en un cuaderno sirve el mismo día y no sirve nunca más: a fin de '
-            + 'mes no hay forma de saber cuánto entró por clases o cuánto salió en sueldos.',
-          'Cada movimiento se carga con su categoría propia, así que el desglose por categoría de la caja '
-            + '—y del reporte del mes— sale solo, sin tener que releer cada nota.',
+          'Cada movimiento se carga con su categoría propia —clases, sueldos, insumos y las demás—, así '
+            + 'que sabés al toque cuánto entró por cada una.',
+          'El desglose por categoría de la caja —y del reporte del mes— sale solo, sin tener que releer '
+            + 'cada nota.',
         ],
       },
       {
@@ -621,11 +620,10 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'El sábado sin gaseosas, resuelto antes de que pase',
         parrafos: [
-          'Vender en el mostrador a mano —anotar en un papel, descontar el stock después, sumar la caja '
-            + 'al final— es donde más se pierde: un producto que se vendió y nunca se cargó, o una caja '
-            + 'que no cierra porque faltó anotar una venta.',
-          'Acá la venta hace las tres cosas en el mismo toque: cobra, descuenta stock y entra a la caja. '
-            + 'No hay un paso aparte que te puedas olvidar.',
+          'Cada venta hace las tres cosas en el mismo toque: cobra, descuenta el stock y entra a la caja '
+            + 'del turno.',
+          'Así el producto, el stock y la caja quedan sincronizados al momento, sin un paso aparte que '
+            + 'dependa de acordarte más tarde.',
         ],
       },
       {
