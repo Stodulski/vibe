@@ -13,6 +13,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/paymentstatus"
 	slotguard "github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/db"
 	"github.com/stodulski/vibe-server/internal/mpcred"
@@ -853,8 +854,11 @@ type OccupancyDataPoint struct {
 // court time and a resold no_show is one hour, not two. TodayBookedMinutes is
 // the numerator the handler turns into occupancy_rate, so the over-count landed
 // straight in a percentage. The revenue counters are unaffected either way:
-// every figure here comes from payments.amount filtered on payments.status, and
-// no revenue in this query is derived from a booking's status.
+// every figure here comes from payments.amount filtered on payments.status —
+// paymentstatus.CollectedStatuses, so an abandoned checkout's 'unpaid' row
+// (internal/bookings/service_public.go inserts it the instant a MercadoPago
+// preference is created, before anything is paid) is never counted — and no
+// revenue in this query is derived from a booking's status.
 func (m *Store) GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*DashboardStats, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -864,14 +868,14 @@ func (m *Store) GetDashboardStats(ctx context.Context, complexID uuid.UUID, toda
 		SELECT
 			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date = $2 AND status NOT IN `+slotguard.ReleasedBookingStatuses+`),
 			(SELECT COALESCE(SUM(duration_minutes), 0) FROM bookings WHERE complex_id = $1 AND date = $2 AND status NOT IN `+slotguard.ReleasedBookingStatuses+`),
-			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status != 'refunded'
+			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2),
 			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date = $2 - INTERVAL '1 day' AND status NOT IN `+slotguard.ReleasedBookingStatuses+`),
-			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status != 'refunded'
+			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2 - INTERVAL '1 day'),
-			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status != 'refunded'
+			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN $2 - INTERVAL '6 days' AND $2),
-			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status != 'refunded'
+			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN $2 - INTERVAL '29 days' AND $2),
 			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date BETWEEN $2 AND $2 + INTERVAL '30 days' AND status = 'pending')
 	`, data.UUIDToPg(complexID), data.DateToPg(today)).Scan(
@@ -926,6 +930,9 @@ func (m *Store) GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today
 }
 
 // GetRevenueByDay returns one RevenueDataPoint per day in [from, to], including zero-revenue days.
+//
+// Filtered on paymentstatus.CollectedStatuses, the same rule GetDashboardStats
+// uses — an 'unpaid' row from an abandoned checkout never appears on the chart.
 func (m *Store) GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]RevenueDataPoint, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -933,7 +940,7 @@ func (m *Store) GetRevenueByDay(ctx context.Context, complexID uuid.UUID, from, 
 	rows, err := m.DB.Query(ctx, `
 		SELECT (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS pay_date, COALESCE(SUM(p.amount), 0)::bigint AS amount
 		FROM payments p
-		WHERE p.complex_id = $1 AND p.status != 'refunded'
+		WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 		  AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN $2 AND $3
 		GROUP BY pay_date
 		ORDER BY pay_date ASC`,
@@ -1327,12 +1334,14 @@ type PaymentStatusBreakdown struct {
 //
 // ByStatus is keyed by bookings.collection_status — unpaid, deposit_paid,
 // fully_paid — and not by the refund axis. The payment_status split separated the two, and
-// this card was always the collection one: it sums payments rows that are NOT
-// refunded, over bookings that are NOT cancelled, so a bucket labelled
-// 'refunded' here could only ever have held the amount a partially refunded
-// booking still had in hand, filed under a refund label. That was the
-// conflation the payment_status split removed; the number did not change, only the name it is filed
-// under.
+// this card was always the collection one: it sums payments rows in
+// paymentstatus.CollectedStatuses, over bookings that are NOT cancelled, so a
+// bucket labelled 'refunded' here could only ever have held the amount a
+// partially refunded booking still had in hand, filed under a refund label.
+// That was the conflation the payment_status split removed; the number did
+// not change, only the name it is filed under. The join also means an
+// 'unpaid' key never carries money: the only payment row an unpaid booking
+// has is itself 'unpaid' (never collected), which CollectedStatuses excludes.
 type PaymentSummary struct {
 	ByStatus map[string]PaymentStatusBreakdown `json:"by_status"`
 	ByMethod map[string]int                    `json:"by_method"`
@@ -1371,7 +1380,7 @@ func (m *Store) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, toda
 		       COALESCE(SUM(p.amount), 0)::bigint
 		FROM bookings b
 		JOIN payments p ON p.booking_id = b.id
-		WHERE b.complex_id = $1 AND b.status != 'cancelled' AND p.status != 'refunded'
+		WHERE b.complex_id = $1 AND b.status != 'cancelled' AND p.status IN `+paymentstatus.CollectedStatuses+`
 		  AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2
 		GROUP BY b.collection_status`,
 		data.UUIDToPg(complexID), data.DateToPg(today),
@@ -1395,7 +1404,7 @@ func (m *Store) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, toda
 	rows2, err := m.DB.Query(ctx, `
 		SELECT p.method::text, COALESCE(SUM(p.amount), 0)::bigint
 		FROM payments p
-		WHERE p.complex_id = $1 AND p.status != 'refunded'
+		WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 		  AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2
 		GROUP BY p.method`,
 		data.UUIDToPg(complexID), data.DateToPg(today),
@@ -1463,12 +1472,14 @@ const daySaleCategory = "sale"
 // category cancels a void against what it voided without a separate
 // exclusion pass.
 //
-// Refunds made today are left out of every figure here — the same rule
-// TodayRevenue and GetPaymentSummary already apply (p.status != 'refunded').
-// This is the simplest rule that cannot double-count: a refund reverses a
-// payment that may have been taken on an earlier day, so netting it into
-// TODAY's income would move money from the day it was actually collected to
-// the day it was given back, understating one day and overstating the other.
+// Bookings only counts payments in paymentstatus.CollectedStatuses — the
+// same rule TodayRevenue and GetPaymentSummary apply — so an 'unpaid' row
+// from an abandoned checkout is never counted, and a fully refunded payment
+// is left out entirely. This is the simplest rule that cannot double-count: a
+// refund reverses a payment that may have been taken on an earlier day, so
+// netting it into TODAY's income would move money from the day it was
+// actually collected to the day it was given back, understating one day and
+// overstating the other.
 type DayMoneyTotals struct {
 	// Bookings is booking payments received today, every method.
 	Bookings int64 `json:"bookings"`
@@ -1518,7 +1529,7 @@ func addDayMoneyBookingPayments(ctx context.Context, m *Store, complexID uuid.UU
 	rows, err := m.DB.Query(ctx, `
 		SELECT p.method::text, COALESCE(SUM(p.amount), 0)::bigint
 		FROM payments p
-		WHERE p.complex_id = $1 AND p.status != 'refunded'
+		WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 		  AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2
 		GROUP BY p.method`,
 		data.UUIDToPg(complexID), data.DateToPg(today),

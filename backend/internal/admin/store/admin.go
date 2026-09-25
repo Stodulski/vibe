@@ -12,6 +12,7 @@ import (
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/paymentstatus"
 )
 
 // PlatformStats contains platform-wide aggregate statistics.
@@ -104,6 +105,12 @@ type Store struct {
 }
 
 // GetPlatformStats computes platform-wide user, complex, court, booking and revenue counters.
+//
+// TotalRevenue filters on paymentstatus.CollectedStatuses, not != 'refunded':
+// the public checkout inserts an 'unpaid' payment row the instant a
+// MercadoPago preference is created (internal/bookings/service_public.go),
+// before anything is paid, and that row stays 'unpaid' forever if the player
+// abandons checkout — != 'refunded' let every one of those count as revenue.
 func (m *Store) GetPlatformStats(ctx context.Context) (*PlatformStats, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -118,7 +125,7 @@ func (m *Store) GetPlatformStats(ctx context.Context) (*PlatformStats, error) {
 			(SELECT COUNT(*) FROM complexes WHERE deleted_at IS NULL AND created_at >= NOW() - INTERVAL '30 days')::int,
 			(SELECT COUNT(*) FROM courts WHERE deleted_at IS NULL)::int,
 			(SELECT COUNT(*) FROM bookings WHERE status != 'cancelled')::int,
-			(SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status != 'refunded')::bigint
+			(SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status IN `+paymentstatus.CollectedStatuses+`)::bigint
 	`).Scan(
 		&stats.TotalUsers,
 		&stats.ActiveUsers,
@@ -321,6 +328,9 @@ func (m *Store) ListComplexes(ctx context.Context, search string, filters data.F
 }
 
 // GetComplexDetail returns the complex with owner info and aggregate statistics, or ErrRecordNotFound if it does not exist.
+//
+// TotalRevenue filters on paymentstatus.CollectedStatuses — see
+// GetPlatformStats's own comment for why != 'refunded' alone is wrong.
 func (m *Store) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*AdminComplexDetail, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -341,7 +351,7 @@ func (m *Store) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*Adm
 		       (SELECT COUNT(*)::int FROM courts WHERE complex_id = c.id AND deleted_at IS NULL),
 		       (SELECT COUNT(DISTINCT client_id)::int FROM bookings WHERE complex_id = c.id AND status != 'cancelled'),
 		       (SELECT COUNT(*)::int FROM bookings WHERE complex_id = c.id AND status != 'cancelled'),
-		       (SELECT COALESCE(SUM(amount), 0)::bigint FROM payments WHERE complex_id = c.id AND status != 'refunded')
+		       (SELECT COALESCE(SUM(amount), 0)::bigint FROM payments WHERE complex_id = c.id AND status IN `+paymentstatus.CollectedStatuses+`)
 		FROM complexes c
 		JOIN users u ON u.id = c.owner_id
 		WHERE c.id = $1 AND c.deleted_at IS NULL`, complexID).Scan(

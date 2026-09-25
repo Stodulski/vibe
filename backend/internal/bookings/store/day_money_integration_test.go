@@ -57,6 +57,28 @@ func insertMovement(t *testing.T, f *datatest.Fixture, sessionID uuid.UUID, kind
 	return id
 }
 
+// insertPaymentWithStatus writes a payments row directly with an arbitrary
+// status and method — datatest.Fixture.CreatePayment only ever writes
+// 'deposit_paid'. This is how a test reproduces the public checkout's
+// abandoned-preference row: 'unpaid', 'mercadopago', inserted the instant a
+// MercadoPago preference is created (internal/bookings/service_public.go)
+// and left behind forever if the player never pays
+// (internal/bookings/cron.go's ReleaseExpiredPayments cancels the booking but
+// cannot change payment_status — there is no "expired" value).
+func insertPaymentWithStatus(t *testing.T, f *datatest.Fixture, bookingID uuid.UUID, amount int, method, status string, createdAt time.Time) uuid.UUID {
+	t.Helper()
+
+	var id uuid.UUID
+	if err := f.DB.QueryRow(context.Background(),
+		`INSERT INTO payments (booking_id, complex_id, amount, service_fee, method, status, created_at)
+		 VALUES ($1, $2, $3, 0, $4, $5, $6) RETURNING id`,
+		bookingID, f.ComplexID, amount, method, status, createdAt,
+	).Scan(&id); err != nil {
+		t.Fatalf("inserting %s/%s payment: %v", method, status, err)
+	}
+	return id
+}
+
 func backdatePaymentCreatedAt(t *testing.T, f *datatest.Fixture, paymentID uuid.UUID, when time.Time) {
 	t.Helper()
 
@@ -115,6 +137,11 @@ func TestGetDayMoneyTotalsCombinesBookingsAndMovementsNettingVoids(t *testing.T)
 	voidedID := insertMovement(t, f, session, "income", "sale", "cash", 7_000, todayNoon, nil)
 	insertMovement(t, f, session, "expense", "sale", "cash", 7_000, todayNoon, &voidedID)
 
+	// An abandoned checkout today: the MercadoPago preference row the public
+	// checkout writes up front, never paid. Must not count as revenue at all.
+	abandonedBooking := f.CreateBooking(t, datatest.BookingOptions{StartTime: "13:00", EndTime: "14:00"})
+	insertPaymentWithStatus(t, f, abandonedBooking.ID, 75_000, "mercadopago", "unpaid", todayNoon)
+
 	// Yesterday's data — a booking payment and a bar sale — must be excluded
 	// entirely.
 	yesterdayBooking := f.CreateBooking(t, datatest.BookingOptions{StartTime: "12:00", EndTime: "13:00"})
@@ -128,7 +155,7 @@ func TestGetDayMoneyTotalsCombinesBookingsAndMovementsNettingVoids(t *testing.T)
 	}
 
 	if got.Bookings != 30_000 {
-		t.Errorf("Bookings = %d, want 30000 (10000 cash + 20000 transfer, yesterday's 99000 excluded)", got.Bookings)
+		t.Errorf("Bookings = %d, want 30000 (10000 cash + 20000 transfer; the 75000 unpaid abandoned checkout and yesterday's 99000 must both be excluded)", got.Bookings)
 	}
 	if got.BarSales != 5_000 {
 		t.Errorf("BarSales = %d, want 5000 — the voided 7000 sale must net to zero and yesterday's 88000 must be excluded", got.BarSales)
@@ -150,6 +177,6 @@ func TestGetDayMoneyTotalsCombinesBookingsAndMovementsNettingVoids(t *testing.T)
 		}
 	}
 	if _, ok := got.ByMethod["mercadopago"]; ok && got.ByMethod["mercadopago"] != 0 {
-		t.Errorf("ByMethod[mercadopago] = %d, want 0 or absent — no mercadopago activity today", got.ByMethod["mercadopago"])
+		t.Errorf("ByMethod[mercadopago] = %d, want 0 or absent — the only mercadopago row today is the unpaid abandoned checkout", got.ByMethod["mercadopago"])
 	}
 }
