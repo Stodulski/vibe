@@ -6,6 +6,7 @@ import type {
   ClientInsightsResponse,
   DashboardStats,
   DashboardStatsResponse,
+  DayMoneyTotals,
   RevenueDataPoint,
   RevenueChartResponse,
   OccupancyDataPoint,
@@ -57,6 +58,20 @@ export const clientInsightsResponseSchema = z
   })
   .loose() satisfies z.ZodType<ClientInsightsResponse>;
 
+// `by_method` stays `z.record(z.string(), …)` for the same reason
+// paymentSummarySchema's own does — server-built keys, rendered whatever
+// arrives (see DayMoneyTotals's own doc comment).
+const dayMoneyTotalsSchema = z
+  .object({
+    bookings: z.number(),
+    bar_sales: z.number(),
+    other_income: z.number(),
+    expenses: z.number(),
+    total_income: z.number(),
+    by_method: z.record(z.string(), z.number()),
+  })
+  .loose() satisfies z.ZodType<DayMoneyTotals>;
+
 const dashboardStatsSchema = z
   .object({
     today_bookings: z.number(),
@@ -70,6 +85,7 @@ const dashboardStatsSchema = z
     total_clients: z.number(),
     upcoming_bookings: z.array(bookingSchema),
     payment_summary: paymentSummarySchema,
+    today_money: dayMoneyTotalsSchema,
   })
   .loose() satisfies z.ZodType<DashboardStats>;
 

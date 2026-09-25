@@ -50,7 +50,7 @@ function sortLowStock(products: Product[]): Product[] {
  * entirely when there is nothing to flag — the same precedent the monthly
  * export's own empty blocks follow, rather than an empty card nobody needs.
  *
- * Self-contained like `CashboxPanel`: owns its own `useProducts` query
+ * Self-contained like `TodayCard`: owns its own `useProducts` query
  * instead of threading a product list through `DashboardContent`.
  */
 export function LowStockAlert({ complexId }: LowStockAlertProps) {

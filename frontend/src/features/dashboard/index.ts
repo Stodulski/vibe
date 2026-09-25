@@ -3,7 +3,6 @@
 // this folder — see 06-auth-shared-tooling.md A3.
 
 export { TodayBookings } from './components/TodayBookings';
-export { PaymentOverview } from './components/PaymentOverview';
 export { ComparisonBadge } from './components/stats-cards/ComparisonBadge';
 
 export { useDashboardStats } from './hooks/useDashboardStats';

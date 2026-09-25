@@ -13,6 +13,17 @@ import type { Ok, Spec } from './spec';
  */
 export type PaymentSummary = Spec<'PaymentSummary'>;
 
+/**
+ * The dashboard's "Hoy" card money figures — everything that entered today,
+ * on the Argentina calendar day, combining booking payments with cash-till
+ * movements (bar sales, other manual income, expenses). See the OpenAPI
+ * description on DashboardStats.today_money for how it differs from
+ * `today_revenue` (bookings only) and from a cash session's shift totals.
+ * `by_method` is an open string map for the same reason PaymentSummary's
+ * maps are: server-built keys, rendered whatever arrives.
+ */
+export type DayMoneyTotals = Spec<'DayMoneyTotals'>;
+
 export type TopClient = Spec<'TopClient'>;
 
 export type ClientInsights = Spec<'ClientInsights'>;

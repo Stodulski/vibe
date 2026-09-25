@@ -20,15 +20,18 @@ test.describe('Dashboard', () => {
     });
   });
 
-  // The four standalone stat cards (Reservas hoy / Ingreso hoy / Ocupación /
-  // Pendientes) were folded into the payment-overview panel, now titled
-  // "Ingresos de hoy" (it is booking revenue, not the till) -- see
-  // PaymentOverview.tsx's comment. Assert what that panel actually shows today.
-  test('displays payment overview panel', async ({ authenticatedPage: page }) => {
+  // The old separate Caja and "Ingresos de hoy" (PaymentOverview) cards were
+  // replaced by one "Hoy" card (TodayCard) -- see
+  // odd/tasks/dashboard-today-card.md. "Reservas hoy", "Ocupación" and
+  // "Estado de cobro" moved into TodayBookings, which now shows them in its
+  // header area above the upcoming-bookings list. Assert what each card
+  // actually shows today.
+  test('displays the Hoy card and today bookings summary', async ({ authenticatedPage: page }) => {
     await page.goto('/dashboard');
 
-    await expect(page.getByText('Reservas hoy', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Hoy', exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Ingresos de hoy', { exact: true })).toBeVisible();
+    await expect(page.getByText('Reservas hoy', { exact: true })).toBeVisible();
     await expect(page.getByText('Ocupación', { exact: true })).toBeVisible();
     await expect(page.getByText('Estado de cobro', { exact: true })).toBeVisible();
   });
@@ -36,14 +39,14 @@ test.describe('Dashboard', () => {
   test('displays revenue section', async ({ authenticatedPage: page }) => {
     await page.goto('/dashboard');
 
-    // Exact heading: a substring match also hits PaymentOverview's "Ingresos
-    // de hoy", and strict mode fails whenever both have rendered.
+    // Exact heading: a substring match also hits TodayCard's "Ingresos de
+    // hoy" heading, and strict mode fails whenever both have rendered.
     await expect(page.getByRole('heading', { name: 'Ingresos', exact: true })).toBeVisible({ timeout: 15_000 });
   });
 
   // "Estado de canchas" (a live per-court status section) no longer exists on
   // the dashboard -- it was removed along with the standalone stat cards; see
-  // DashboardContent.tsx, which now composes PaymentOverview + TodayBookings
+  // DashboardContent.tsx, which now composes TodayCard + TodayBookings
   // plus a desktop-only "Tendencias" section (revenue chart, client insights,
   // occupancy heatmap). Assert that section instead of the removed one.
   test('shows the desktop trends section with the occupancy heatmap', async ({ authenticatedPage: page }) => {

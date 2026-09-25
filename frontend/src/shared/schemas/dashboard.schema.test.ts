@@ -26,6 +26,14 @@ describe('dashboardStatsResponseSchema', () => {
           by_status: { unpaid: { count: 1, total: 5000 } },
           by_method: { cash: 2 },
         },
+        today_money: {
+          bookings: 15000,
+          bar_sales: 5000,
+          other_income: 1000,
+          expenses: 500,
+          total_income: 21000,
+          by_method: { cash: 21000 },
+        },
       },
     });
     expect(result.success).toBe(true);
