@@ -68,6 +68,10 @@ export const dashboard = {
   cashboxOpen: 'Abierta',
   cashboxClosed: 'Cerrada',
   cashboxGoToShift: 'Ir a la caja',
+  // Scoped to the open shift so they never read as the same figure as
+  // "Ingresos de hoy" (booking revenue for the whole day, every method).
+  cashboxShiftIncome: 'Ingresos del turno',
+  cashboxShiftExpense: 'Egresos del turno',
   // ─── Low-stock alert (pos-cashbox T6) ───
   lowStockTitle: 'Stock bajo',
   lowStockViewProducts: 'Ver productos',
