@@ -29,7 +29,7 @@ export function PaymentOverview({ stats }: PaymentOverviewProps) {
   const methodEntries = Object.entries(today_money.by_method).sort((a, b) => b[1] - a[1]);
 
   return (
-    <Panel as="section" size="sm" className="flex h-full flex-col p-4">
+    <Panel as="section" size="sm" className="flex h-full flex-col py-4 sm:p-4">
       <TodayRevenueHeader totals={today_money} />
       <TodayMetrics
         todayBookings={today_bookings}

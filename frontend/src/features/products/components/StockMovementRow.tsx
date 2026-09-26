@@ -12,7 +12,7 @@ function signedQuantity(quantity: number): string {
 /** One stock movement — date, kind, signed quantity, reason (adjustments only) and note. */
 export function StockMovementRow({ movement }: { movement: StockMovement }) {
   return (
-    <div className="border-border-subtle flex items-center justify-between gap-3 border-b px-3.5 py-3 last:border-b-0">
+    <div className="border-border-subtle flex items-center justify-between gap-3 border-b py-3 last:border-b-0 sm:px-3.5">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-text-primary text-sm font-medium">{t.products.movementKinds[movement.kind]}</span>

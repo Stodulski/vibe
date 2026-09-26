@@ -37,7 +37,12 @@ export const TodayBookings = memo(function TodayBookings({ bookings, complexId }
   const visible = confirmedBookings.slice(0, MAX_VISIBLE_BOOKINGS_DESKTOP);
 
   return (
-    <Panel as="section" size="sm" className="flex h-full flex-col p-4" aria-label={t.dashboard.upcomingBookings}>
+    <Panel
+      as="section"
+      size="sm"
+      className="flex h-full flex-col py-4 sm:p-4"
+      aria-label={t.dashboard.upcomingBookings}
+    >
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-baseline gap-2">
           <h3 className="text-text-primary text-sm font-semibold whitespace-nowrap">{t.dashboard.upcomingBookings}</h3>

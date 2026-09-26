@@ -87,7 +87,7 @@ export function LowStockAlert({ complexId }: LowStockAlertProps) {
   if (lowStock.length === 0) return null;
 
   return (
-    <Panel as="section" size="sm" className="flex h-full flex-col p-4" aria-label={t.dashboard.lowStockTitle}>
+    <Panel as="section" size="sm" className="flex h-full flex-col py-4 sm:p-4" aria-label={t.dashboard.lowStockTitle}>
       <h3 className="text-text-primary mb-2 text-sm font-semibold">{t.dashboard.lowStockTitle}</h3>
 
       {query.isError && <StaleDataNotice onRetry={retry} />}
