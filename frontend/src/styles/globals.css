@@ -89,11 +89,27 @@
 }
 
 @theme {
+  /* Elevation ladder (odd/tasks/app-dark-contrast.md T1): page < card < elevated
+   * < modal/popover < hover. `hover` sits ABOVE the modal tier on purpose — it
+   * is the brightest step in the ladder, reserved for the instant a pointer is
+   * over something, on any surface, so the feedback never blends into
+   * whatever it is hovering on top of.
+   *
+   * The modal/popover tier is #212121, not the requested #242525: at #242525,
+   * `text-text-tertiary` (#8a8a8a) on a dialog/popover body measured 4.45:1,
+   * just under AA's 4.5:1 for normal text (`scripts/contrast-report.mjs`).
+   * Three steps darker clears it (4.67:1) while staying visually the same
+   * "modal" step, still above `elevated` (#1e1e1e) in the ladder. */
   --color-bg-base: #0b0b0b;
-  --color-bg-subtle: #111111;
-  --color-bg-elevated: #181818;
-  --color-bg-overlay: #1e1e1e;
-  --color-bg-highlight: #252525;
+  --color-bg-subtle: #171717;
+  --color-bg-elevated: #1e1e1e;
+  --color-bg-overlay: #212121;
+  --color-bg-highlight: #2d2d2d;
+  /* The arithmetic midpoint of page (#0b0b0b) and card (#171717) — not a new
+   * hue. The desktop sidebar is a permanent structural rail, not a content
+   * section, so giving it the same fill as the panels beside it would make
+   * it read as one more card rather than the frame those cards sit in. */
+  --color-bg-sidebar: #111111;
 
   --color-primary-50: #ecfdf3;
   --color-primary-100: #d1fae5;
@@ -105,18 +121,6 @@
   --color-primary-700: #15803d;
   --color-primary-800: #166534;
   --color-primary-900: #14532d;
-
-  --color-accent-300: #c4b5fd;
-  --color-accent-400: #a78bfa;
-  --color-accent-500: #8b5cf6;
-  --color-accent-600: #7c3aed;
-
-  --color-neutral-400: #a0a0a0;
-  --color-neutral-500: #6b6b6b;
-  --color-neutral-600: #525252;
-  --color-neutral-700: #3a3a3a;
-  --color-neutral-800: #2a2a2a;
-  --color-neutral-900: #1e1e1e;
 
   /* Three tiers of readable text, and one that is deliberately not.
    *
@@ -151,19 +155,20 @@
   --color-text-disabled: #525252;
   --color-text-inverse: #0b0b0b;
 
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-default: rgba(255, 255, 255, 0.1);
-  --color-border-strong: rgba(255, 255, 255, 0.15);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-default: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.22);
   --color-border-brand: #1db954;
 
   /* The border a control's own shape is drawn in — inputs, selects,
    * checkboxes, the outline button variant. Named by what it is FOR, not by
    * how loud it is, because none of the three greys above were ever loud
    * enough for this: WCAG 2.1 AA wants 3:1 for a form field's own boundary,
-   * and even --color-border-strong (15% white) only reaches 1.53:1 against
-   * this page's darkest ground. White has to sit at 35% before it clears 3:1
-   * against every background tier in this file (#0b0b0b through #252525);
-   * measured directly, not estimated.
+   * and even --color-border-strong (22% white) only reaches roughly 2:1
+   * against this page's darkest ground. White has to sit at 35% before it
+   * clears 3:1 against every background tier in this file (#0b0b0b through
+   * #2d2d2d); measured directly, not estimated (see `pnpm exec node
+   * scripts/contrast-report.mjs`).
    *
    * subtle/default/strong stay as they are for dividers and card edges,
    * which WCAG's own UI-element rule doesn't reach — those are decorative,
@@ -172,25 +177,52 @@
   --color-border-interactive: rgba(255, 255, 255, 0.35);
   --color-border-interactive-hover: rgba(255, 255, 255, 0.45);
 
+  /* One faint neutral wash, reused by `.glow-hover` and `.dot-grid`
+   * (odd/tasks/app-dark-contrast.md T3) — both were the same literal
+   * `rgba(255, 255, 255, 0.03)` before this, just never named. */
+  --color-wash-white: rgba(255, 255, 255, 0.03);
+
+  /* Status fills roughly doubled (odd/tasks/app-dark-contrast.md T1): the
+   * previous values were nearly indistinguishable from the page, so a
+   * banner read as "text floating on nothing" instead of a tinted panel.
+   * Text/icon/border tokens are unchanged and still pass AA against these. */
   --color-success-text: #4ade80;
   --color-success-icon: #22c55e;
-  --color-success-bg: #052e16;
+  --color-success-bg: #0a5c2c;
   --color-success-border: #166534;
 
   --color-warning-text: #facc15;
   --color-warning-icon: #eab308;
-  --color-warning-bg: #1a1700;
+  --color-warning-bg: #342e00;
   --color-warning-border: #854d0e;
 
   --color-error-text: #f87171;
   --color-error-icon: #ef4444;
-  --color-error-bg: #1c0a0a;
+  --color-error-bg: #381414;
   --color-error-border: #b91c1c;
 
   --color-info-text: #7dd3fc;
   --color-info-icon: #38bdf8;
-  --color-info-bg: #0c1929;
+  --color-info-bg: #183252;
   --color-info-border: #0369a1;
+
+  /* Dashboard data colors (odd/tasks/app-dark-contrast.md T3) — routed
+   * through tokens instead of literals baked into canvas-drawing code and
+   * inline styles. Teal stays as the chart's own dedicated data color
+   * (deliberately not the brand green, so a revenue line is never confused
+   * with a "this is the primary action" cue); see chart-draw.ts. */
+  --color-chart-accent: #14b8a6;
+  --color-chart-grid: rgba(255, 255, 255, 0.04);
+  /* Occupancy heatmap ramp. Step 0 ("sin reservas") is a neutral white tint
+   * instead of the faintest teal — the old ramp put 0% and the lowest active
+   * band at 1.08:1, close enough to read as the same cell. Steps 1-4 start
+   * much higher (0.22 instead of 0.10) so "no bookings" and "some bookings"
+   * are never confusable again. */
+  --color-chart-heat-0: rgba(255, 255, 255, 0.03);
+  --color-chart-heat-1: rgba(20, 184, 166, 0.22);
+  --color-chart-heat-2: rgba(20, 184, 166, 0.38);
+  --color-chart-heat-3: rgba(20, 184, 166, 0.55);
+  --color-chart-heat-4: rgba(20, 184, 166, 0.75);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
@@ -221,24 +253,31 @@
   --duration-fast: 120ms;
   --duration-normal: 200ms;
 
-  --background: oklch(0.1 0 0);
+  /* shadcn tokens aligned to the same elevation ladder as the --color-bg-*
+   * scale above (odd/tasks/app-dark-contrast.md T1): raw hex, not oklch, so
+   * `--background` is exactly the page ground instead of a separately-tuned
+   * near-black that drifted darker than the page itself (the old
+   * oklch(0.1 0 0) rendered as ~#030303, measurably darker than #0b0b0b —
+   * that mismatch was the modal/dialog contrast bug). `--card` is dropped:
+   * `rg` found zero `bg-card`/`text-card-foreground`/`data-slot="card"`
+   * usages anywhere in `src`, only the token's own (now removed)
+   * definition — nothing left to align. */
+  --background: #0b0b0b;
   --foreground: oklch(1 0 0);
-  --card: oklch(0.13 0 0);
-  --card-foreground: oklch(1 0 0);
-  --popover: oklch(0.13 0 0);
+  --popover: #212121;
   --popover-foreground: oklch(1 0 0);
-  --primary: oklch(0.65 0.17 150);
-  --primary-foreground: oklch(0.1 0 0);
-  --secondary: oklch(0.16 0 0);
+  --primary: #1db954;
+  --primary-foreground: #0b0b0b;
+  --secondary: #171717;
   --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.16 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.16 0 0);
+  --muted: #171717;
+  --muted-foreground: #a0a0a0;
+  --accent: #171717;
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.58 0.22 25);
-  --border: oklch(1 0 0 / 6%);
+  --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 10%);
-  --ring: oklch(0.65 0.17 150);
+  --ring: #1db954;
   --chart-1: oklch(0.65 0.17 150);
   --chart-2: oklch(0.65 0.16 290);
   --chart-3: oklch(0.58 0.22 25);
@@ -264,8 +303,6 @@
   --radius-4xl: calc(var(--radius) + 16px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -407,15 +444,15 @@ html body[data-scroll-locked] {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(29, 185, 84, 0.3);
+  background: color-mix(in srgb, var(--color-primary-500) 30%, transparent);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(29, 185, 84, 0.5);
+  background: color-mix(in srgb, var(--color-primary-500) 50%, transparent);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(29, 185, 84, 0.3) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-primary-500) 30%, transparent) transparent;
 }
 
 /* Scrolls, but shows no bar — for surfaces that already advertise the movement
@@ -613,14 +650,14 @@ html body[data-scroll-locked] {
 }
 
 .glass {
-  background: rgba(11, 11, 11, 0.95);
+  background: color-mix(in srgb, var(--color-bg-base) 95%, transparent);
 }
 
 .glow-hover {
   transition: background-color var(--duration-normal) var(--ease-out);
 }
 .glow-hover:hover {
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--color-wash-white);
 }
 
 .score-text {
@@ -643,7 +680,7 @@ html body[data-scroll-locked] {
 }
 
 .dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-image: radial-gradient(var(--color-wash-white) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
@@ -691,15 +728,18 @@ html body[data-scroll-locked] {
   background: radial-gradient(circle, var(--blob-color) 0%, transparent 70%);
 }
 .auth-blob-1 {
-  --blob-color: rgba(29, 185, 84, 0.09);
+  --blob-color: color-mix(in srgb, var(--color-primary-500) 9%, transparent);
   animation: mesh-drift-1 25s ease-in-out infinite alternate;
 }
+/* The one blob that is deliberately not brand green — a wash of the same
+ * teal used for the revenue chart's data color (odd/tasks/app-dark-contrast.md
+ * T3), not a fourth arbitrary hue. */
 .auth-blob-2 {
-  --blob-color: rgba(20, 184, 166, 0.07);
+  --blob-color: color-mix(in srgb, var(--color-chart-accent) 7%, transparent);
   animation: mesh-drift-2 30s ease-in-out infinite alternate;
 }
 .auth-blob-3 {
-  --blob-color: rgba(29, 185, 84, 0.055);
+  --blob-color: color-mix(in srgb, var(--color-primary-500) 5.5%, transparent);
   animation: mesh-drift-3 20s ease-in-out infinite alternate;
 }
 
@@ -737,8 +777,8 @@ html body[data-scroll-locked] {
     background-color var(--duration-normal) var(--ease-out);
 }
 .hover-lift:hover {
-  border-color: rgba(255, 255, 255, 0.1);
-  background-color: rgba(255, 255, 255, 0.02);
+  border-color: var(--color-border-default);
+  background-color: var(--color-wash-white);
 }
 
 .safe-area-inset {
@@ -776,6 +816,19 @@ html body[data-scroll-locked] {
 :disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Opts a disabled element out of the opacity above, the same way
+ * `.focus-self` opts one out of the global focus ring below: a Tailwind
+ * `opacity-100` utility lives in `@layer utilities` and cannot outrank an
+ * unlayered `:disabled` selector no matter how specific it is, layered or
+ * not. A closed public-booking date (`DateButton`) needs this — it already
+ * reads as unavailable through color alone (a quiet border, no fill, dimmed
+ * numerals), and the 50% opacity above would wash its own "Cerrado" label
+ * back down toward the ~1.6:1 the old `opacity-30` on the whole button left
+ * it at (odd/tasks/app-dark-contrast.md T4). */
+.opacity-self:disabled {
+  opacity: 1;
 }
 
 /* Opts an element out of the global ring because it already shows its own

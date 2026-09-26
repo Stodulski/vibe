@@ -36,7 +36,7 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50',
+        'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/70',
         className,
       )}
       {...props}
@@ -60,7 +60,7 @@ function DialogContent({
         aria-modal="true"
         data-slot="dialog-content"
         className={cn(
-          'bg-background data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed z-50 flex w-full flex-col gap-4 overflow-y-auto border p-5 shadow-lg duration-200 outline-none',
+          'bg-popover text-popover-foreground data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed z-50 flex w-full flex-col gap-4 overflow-y-auto border p-5 shadow-lg duration-200 outline-none',
           'data-[state=closed]:sm:zoom-out-95 data-[state=open]:sm:zoom-in-95 inset-0 rounded-none pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:inset-auto sm:top-[50%] sm:left-[50%] sm:max-h-[calc(100dvh-3rem)] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:p-6 [&>form]:flex [&>form]:flex-1 [&>form]:flex-col sm:[&>form]:flex-none [&>form>:last-child]:mt-auto sm:[&>form>:last-child]:mt-0',
           className,
         )}
