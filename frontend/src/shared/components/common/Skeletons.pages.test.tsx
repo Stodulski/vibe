@@ -5,7 +5,6 @@ import {
   SkeletonDashboard,
   SkeletonSettings,
   SkeletonBookings,
-  SkeletonComplexSelector,
   SkeletonCancelInfo,
   SkeletonBookConfirm,
   SkeletonBookSuccess,
@@ -29,11 +28,6 @@ describe('Skeleton pages', () => {
 
   it('SkeletonBookings renders with status role', () => {
     render(<SkeletonBookings />);
-    expect(screen.getByRole('status')).toBeInTheDocument();
-  });
-
-  it('SkeletonComplexSelector renders with status role', () => {
-    render(<SkeletonComplexSelector />);
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 

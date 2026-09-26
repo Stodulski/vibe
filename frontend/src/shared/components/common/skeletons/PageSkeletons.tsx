@@ -166,28 +166,3 @@ export function SkeletonBookings() {
     </div>
   );
 }
-
-/** Complex selector skeleton with complex cards */
-export function SkeletonComplexSelector() {
-  return (
-    <div className="animate-fade-in w-full max-w-2xl" role="status" aria-label={t.common.loading}>
-      <div className="mb-6 text-center sm:mb-8">
-        <Skeleton className="mx-auto h-7 w-56 rounded-lg" />
-        <Skeleton className="mx-auto mt-2 h-4 w-72 rounded-lg" />
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:gap-4">
-        {Array.from({ length: 2 }, (_, i) => (
-          <div key={i} className="border-border-subtle bg-bg-elevated rounded-2xl border p-4 sm:p-5">
-            <div className="flex items-start gap-3">
-              <Skeleton className="size-10 shrink-0 rounded-xl" />
-              <div className="min-w-0 flex-1">
-                <Skeleton className="h-4 w-40 rounded-lg" />
-                <Skeleton className="mt-1.5 h-3 w-28 rounded-lg" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
