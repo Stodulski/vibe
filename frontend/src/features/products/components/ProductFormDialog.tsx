@@ -12,6 +12,7 @@ import { getFieldErrors } from '@/shared/lib/serverErrors';
 import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
 import { pesosToCentavos, centavosToPesos } from '@/shared/lib/money';
 import { blankToUndefined } from '@/shared/lib/blankToUndefined';
+import { normalizeCategory } from '../lib/normalizeCategory';
 import { QuantityField } from './QuantityField';
 import { ProductCategoryField } from './ProductCategoryField';
 import { productFormSchema, type ProductFormDto } from '../schemas/products.schema';
@@ -54,7 +55,22 @@ export function ProductFormDialog({ open, onClose, complexId, product, existingC
   );
 }
 
-function useProductForm(complexId: string, product: Product | null | undefined, onDone: () => void) {
+function applyServerFieldErrors(error: unknown, setError: UseFormReturn<ProductFormDto>['setError']) {
+  const fieldErrors = getFieldErrors(error);
+  if (fieldErrors.name) setError('name', { type: 'server', message: fieldErrors.name });
+  if (fieldErrors.category) setError('category', { type: 'server', message: fieldErrors.category });
+  if (fieldErrors.price) setError('price', { type: 'server', message: fieldErrors.price });
+  if (fieldErrors.low_stock_threshold) {
+    setError('low_stock_threshold', { type: 'server', message: fieldErrors.low_stock_threshold });
+  }
+}
+
+function useProductForm(
+  complexId: string,
+  product: Product | null | undefined,
+  onDone: () => void,
+  existingCategories: readonly string[],
+) {
   // A product that already carries a threshold can only replace it, never
   // clear it back to unset (`productsUpdate`'s own doc comment) — the schema
   // enforces that once `thresholdLocked`.
@@ -76,14 +92,10 @@ function useProductForm(complexId: string, product: Product | null | undefined, 
   const { setError } = form;
 
   const onSubmit = (data: ProductFormDto) => {
+    // See `normalizeCategory`'s own doc comment.
+    const category = normalizeCategory(data.category ?? '', existingCategories);
     const onError = (error: unknown) => {
-      const fieldErrors = getFieldErrors(error);
-      if (fieldErrors.name) setError('name', { type: 'server', message: fieldErrors.name });
-      if (fieldErrors.category) setError('category', { type: 'server', message: fieldErrors.category });
-      if (fieldErrors.price) setError('price', { type: 'server', message: fieldErrors.price });
-      if (fieldErrors.low_stock_threshold) {
-        setError('low_stock_threshold', { type: 'server', message: fieldErrors.low_stock_threshold });
-      }
+      applyServerFieldErrors(error, setError);
     };
 
     if (isEdit) {
@@ -97,7 +109,7 @@ function useProductForm(complexId: string, product: Product | null | undefined, 
             // treats an OMITTED field as "keep current" and an EMPTY STRING
             // as "clear it" (`productsUpdate`'s own doc comment) — omitting
             // here would silently un-clear a category the person just erased.
-            category: data.category?.trim() ?? '',
+            category,
             price: pesosToCentavos(data.price),
             tracks_stock: data.tracks_stock,
             low_stock_threshold: data.low_stock_threshold,
@@ -111,7 +123,7 @@ function useProductForm(complexId: string, product: Product | null | undefined, 
     createProduct.mutate(
       {
         name: data.name.trim(),
-        category: blankToUndefined(data.category?.trim()),
+        category: blankToUndefined(category),
         price: pesosToCentavos(data.price),
         tracks_stock: data.tracks_stock,
         low_stock_threshold: data.low_stock_threshold,
@@ -206,7 +218,12 @@ function ProductFormDialogBody({
   product,
   existingCategories,
 }: Omit<ProductFormDialogProps, 'open'>) {
-  const { form, onSubmit, isPending, thresholdLocked } = useProductForm(complexId, product, onClose);
+  const { form, onSubmit, isPending, thresholdLocked } = useProductForm(
+    complexId,
+    product,
+    onClose,
+    existingCategories,
+  );
   const {
     handleSubmit,
     setValue,

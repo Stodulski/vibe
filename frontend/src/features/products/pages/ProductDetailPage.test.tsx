@@ -5,11 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProductDetailPage from './ProductDetailPage';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
 import { useProduct } from '../hooks/useProduct';
+import { useProducts } from '../hooks/useProducts';
 import { useProductStockMovements } from '../hooks/useProductStockMovements';
 import { makeProduct } from '@/test/factories';
 
 vi.mock('@/features/complex/hooks/useSelectedComplex', () => ({ useSelectedComplex: vi.fn() }));
 vi.mock('../hooks/useProduct', () => ({ useProduct: vi.fn() }));
+vi.mock('../hooks/useProducts', () => ({ useProducts: vi.fn() }));
 vi.mock('../hooks/useProductStockMovements', () => ({ useProductStockMovements: vi.fn() }));
 
 function renderAt(productId: string) {
@@ -35,6 +37,14 @@ describe('ProductDetailPage', () => {
       complex: { id: 'c1' },
       selectedComplexId: 'c1',
     } as unknown as ReturnType<typeof useSelectedComplex>);
+    // `ProductDetailDialogs` (mounted alongside the header, closed) now
+    // fetches the catalog for `ProductCategoryField`'s chip suggestions.
+    vi.mocked(useProducts).mockReturnValue({
+      data: { products: [] },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useProducts>);
     vi.mocked(useProductStockMovements).mockReturnValue({
       data: { pages: [{ stock_movements: [], metadata: { has_more: false } }] },
       isLoading: false,

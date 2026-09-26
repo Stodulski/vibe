@@ -1,4 +1,4 @@
-import { Button } from '@/shared/components/ui/button';
+import { Chip, ChipList } from '@/shared/components/common/ChipList';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -13,42 +13,31 @@ interface SellCategoryChipsProps {
  * "Todas" plus one chip per category present in the active catalog
  * (`odd/tasks/pos-cashbox.md` T5b), in one horizontally scrolling row rather
  * than wrapping lines, so a long category list never pushes the products
- * down. Same scroller as the public DateSelector (`scrollbar-none`, snap).
+ * down. Same scroller as the public DateSelector (`scrollbar-none`, snap) —
+ * shared with the products feature's category picker via `ChipList`/`Chip`.
  */
 export function SellCategoryChips({ categories, selected, onSelect }: SellCategoryChipsProps) {
   return (
-    <div
-      className="flex snap-x scrollbar-none gap-1.5 overflow-x-auto pb-1"
-      role="group"
-      aria-label={t.products.categoryLabel}
-    >
-      <Button
-        type="button"
-        size="sm"
-        className="shrink-0 snap-start"
-        variant={selected === null ? 'default' : 'outline'}
-        aria-pressed={selected === null}
+    <ChipList aria-label={t.products.categoryLabel}>
+      <Chip
+        selected={selected === null}
         onClick={() => {
           onSelect(null);
         }}
       >
         {t.cash.sellAllCategories}
-      </Button>
+      </Chip>
       {categories.map((category) => (
-        <Button
+        <Chip
           key={category}
-          type="button"
-          size="sm"
-          className="shrink-0 snap-start"
-          variant={selected === category ? 'default' : 'outline'}
-          aria-pressed={selected === category}
+          selected={selected === category}
           onClick={() => {
             onSelect(category);
           }}
         >
           {category}
-        </Button>
+        </Chip>
       ))}
-    </div>
+    </ChipList>
   );
 }
