@@ -1,13 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SkeletonCard, SkeletonTable, SkeletonStat } from './Skeletons';
+import { SkeletonTable, SkeletonStat } from './Skeletons';
 
 describe('Skeleton primitives', () => {
-  it('SkeletonCard is aria-hidden', () => {
-    const { container } = render(<SkeletonCard />);
-    expect(container.firstChild).toHaveAttribute('aria-hidden', 'true');
-  });
-
   it('SkeletonTable renders with default rows', () => {
     render(<SkeletonTable />);
     expect(screen.getByRole('status')).toBeInTheDocument();

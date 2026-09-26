@@ -1092,3 +1092,39 @@ input[type='number']::-webkit-outer-spin-button {
     transition: border-color var(--duration-normal) var(--ease-out);
   }
 }
+
+/* ─── Leaflet: dark tiles, scoped to `.public-map` ───
+   OpenStreetMap's raster tiles are light by design and the CSP `img-src`
+   only allows `*.tile.openstreetmap.org` (vercel.json), so the tiles
+   themselves can't change providers — only their pixels, here, with a filter
+   on the tile pane alone (odd/tasks/public-pending-polish.md T3). Scoped to a
+   class on the `MapContainer` instance rather than the bare `.leaflet-*`
+   selectors, so a future map that wants the light default is unaffected.
+
+   Markers, popups, the zoom control and the attribution are never inside
+   `.leaflet-tile-pane`, so the filter never touches them; the zoom control
+   and attribution keep Leaflet's light default otherwise, so they get the
+   app's own dark tokens here instead. */
+.public-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+}
+
+.public-map .leaflet-bar a {
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-border-subtle);
+}
+
+.public-map .leaflet-bar a:hover,
+.public-map .leaflet-bar a:focus {
+  background-color: var(--color-bg-highlight);
+}
+
+.public-map .leaflet-control-attribution {
+  background-color: rgba(23, 23, 23, 0.8);
+  color: var(--color-text-secondary);
+}
+
+.public-map .leaflet-control-attribution a {
+  color: var(--color-text-secondary);
+}

@@ -4,17 +4,6 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
 
-export function SkeletonCard() {
-  return (
-    <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-6 sm:p-8" aria-hidden="true">
-      <Skeleton className="mb-4 h-4 w-1/3 rounded-lg" />
-      <Skeleton className="mb-4 h-4 w-full rounded-lg" />
-      <Skeleton className="mb-4 h-4 w-5/6 rounded-lg" />
-      <Skeleton className="h-4 w-2/3 rounded-lg" />
-    </div>
-  );
-}
-
 export function SkeletonCourtCard() {
   return (
     <div className="border-border-subtle overflow-hidden rounded-2xl border" aria-hidden="true">
