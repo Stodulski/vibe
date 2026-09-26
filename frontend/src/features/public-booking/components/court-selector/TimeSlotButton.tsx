@@ -48,10 +48,13 @@ export function TimeSlotButton({ option, isSelected, typesVary, onSelect }: Time
       aria-pressed={isSelected}
       aria-label={`${option.startTime}${typeLabel ? `, ${typeLabel}` : ''}${isLast ? `, ${t.publicBooking.lastCourtLeft}` : ''}`}
       className={cn(
+        // Visible idle edge + a stronger selected fill than idle (odd/tasks/
+        // app-dark-contrast.md T4) — see `DateButton` for the same change and
+        // `scripts/contrast-report.mjs` for the measured ratios.
         'press-scale flex cursor-pointer flex-col items-center rounded-xl border px-2 py-3 transition-colors duration-200',
         isSelected
-          ? 'border-primary-500 bg-primary-500/10 shadow-brand ring-primary-500/30 ring-1'
-          : 'border-border-subtle bg-bg-subtle hover:border-border-default hover:bg-bg-overlay',
+          ? 'border-primary-500 bg-primary-500/20 shadow-brand ring-primary-500/30 ring-1'
+          : 'border-border-interactive bg-bg-subtle hover:border-border-interactive-hover hover:bg-bg-highlight',
       )}
     >
       <span className={cn('text-sm font-bold tabular-nums', isSelected ? 'text-primary-400' : 'text-text-primary')}>
