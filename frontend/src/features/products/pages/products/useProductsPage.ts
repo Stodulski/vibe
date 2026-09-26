@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
 import { useProducts } from '../../hooks/useProducts';
+import { buildCategorySet } from '../../lib/categorySet';
 import type { Product } from '@/shared/types/api.types';
 
 export type ProductStatusFilter = 'active' | 'inactive';
@@ -37,11 +38,7 @@ export function useProductsPage() {
   // Activos and Inactivos would need fetching both filters at once for a
   // soft-suggestion field that already covers the common case (creating a
   // product for a category an active one already uses).
-  const existingCategories = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of allProducts) if (p.category) set.add(p.category);
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [allProducts]);
+  const existingCategories = useMemo(() => buildCategorySet(allProducts), [allProducts]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
