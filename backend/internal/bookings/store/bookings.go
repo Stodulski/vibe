@@ -1452,7 +1452,7 @@ var (
 // (internal/sales), the only source of DayMoneyTotals.BarSales.
 const daySaleCategory = "sale"
 
-// DayMoneyTotals is the dashboard's "Hoy" card money figures — every amount
+// DayMoneyTotals is the dashboard's "Ingresos de hoy" figures — every amount
 // that ENTERED today, on the Argentina calendar day, combining booking
 // payments (every method, from payments.created_at — the same window
 // GetPaymentSummary's by-method breakdown already uses) with cash_movements

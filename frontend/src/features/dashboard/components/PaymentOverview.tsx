@@ -16,14 +16,7 @@ interface PaymentOverviewProps {
  * height its taller sibling (TodayBookings) sets.
  */
 export function PaymentOverview({ stats }: PaymentOverviewProps) {
-  const {
-    payment_summary: summary,
-    today_revenue,
-    yesterday_revenue,
-    today_bookings,
-    yesterday_bookings,
-    occupancy_rate,
-  } = stats;
+  const { payment_summary: summary, today_money, today_bookings, yesterday_bookings, occupancy_rate } = stats;
 
   // "unpaid" never carries a collected amount (see PaymentStatusBreakdown's
   // comment on GetPaymentSummary's SQL) and self-resolves within the 15-
@@ -31,11 +24,13 @@ export function PaymentOverview({ stats }: PaymentOverviewProps) {
   const statusEntries = Object.entries(summary.by_status)
     .filter(([key]) => key !== 'unpaid')
     .sort((a, b) => b[1].total - a[1].total);
-  const methodEntries = Object.entries(summary.by_method).sort((a, b) => b[1] - a[1]);
+  // By method over today_money, so the breakdown adds up to the header's
+  // total (bookings plus bar and other till income), not just bookings.
+  const methodEntries = Object.entries(today_money.by_method).sort((a, b) => b[1] - a[1]);
 
   return (
     <Panel as="section" size="sm" className="flex h-full flex-col p-4">
-      <TodayRevenueHeader todayRevenue={today_revenue} yesterdayRevenue={yesterday_revenue} />
+      <TodayRevenueHeader totals={today_money} />
       <TodayMetrics
         todayBookings={today_bookings}
         yesterdayBookings={yesterday_bookings}
