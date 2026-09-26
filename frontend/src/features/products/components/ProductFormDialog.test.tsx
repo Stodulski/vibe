@@ -44,6 +44,20 @@ describe('ProductFormDialog — create', () => {
     });
   });
 
+  it('saves a typed category with the existing catalog spelling (trim, case-insensitive)', async () => {
+    const user = userEvent.setup();
+    render(<ProductFormDialog open onClose={vi.fn()} complexId="c1" existingCategories={['Bebidas']} />);
+
+    await user.type(screen.getByLabelText('Nombre'), 'Agua mineral');
+    await user.type(screen.getByLabelText('Categoría'), 'bebidas');
+    await user.type(screen.getByLabelText('Precio'), '1500');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => {
+      expect(createMutate).toHaveBeenCalledWith(expect.objectContaining({ category: 'Bebidas' }), expect.anything());
+    });
+  });
+
   it('has no threshold-locked helper text for a brand-new product', () => {
     render(<ProductFormDialog open onClose={vi.fn()} complexId="c1" existingCategories={[]} />);
     expect(screen.queryByText(/Ya tiene un aviso configurado/)).not.toBeInTheDocument();

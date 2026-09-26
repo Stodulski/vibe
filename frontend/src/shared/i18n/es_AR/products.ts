@@ -28,6 +28,14 @@ export const products = {
   editTitle: 'Editar producto',
   nameField: 'Nombre',
   categoryField: 'Categoría',
+  // Chip suggestions for a brand-new catalog with nothing of its own yet
+  // (odd/tasks/product-category-chips.md T1) — `ProductCategoryField` lists
+  // these after the catalog's own categories, deduplicated case-insensitively.
+  starterCategories: ['Bebidas', 'Snacks', 'Comida', 'Accesorios', 'Alquiler', 'Indumentaria'],
+  // Own label rather than reusing `categoryLabel`: the chip row sits right
+  // next to a field already labelled "Categoría", and `getByLabelText`
+  // (and a screen reader) needs the two to resolve to different names.
+  categoryChipsLabel: 'Categorías sugeridas',
   priceField: 'Precio',
   tracksStockField: 'Controlar stock',
   lowStockThresholdField: 'Avisar con stock bajo en',
