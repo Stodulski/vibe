@@ -15,12 +15,14 @@ import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, 
 const DRAG_THRESHOLD_PX = 4;
 
 /**
- * Grab-and-drag horizontal scrolling for the court columns.
+ * Grab-and-drag horizontal scrolling for a mouse: the booking grid's court
+ * columns and the chip sliders (`ChipList`).
  *
- * The columns follow the pointer from its first pixel of travel. What the
+ * The content follows the pointer from its first pixel of travel. What the
  * threshold decides is only whether to capture the pointer — below it the
- * press keeps its target, so pressing a free slot still opens its duration
- * popover rather than being eaten by the scroll.
+ * press keeps its target, so pressing a free slot or a chip still acts on it
+ * rather than being eaten by the scroll. Once captured, the release lands on
+ * the scroller, so a drag that ends over a chip does not also select it.
  *
  * Scrolling itself is done by writing `scrollLeft` straight from the pointer
  * position — no state per move, so nothing re-renders while dragging and the

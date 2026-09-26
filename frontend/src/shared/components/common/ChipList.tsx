@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Button } from '@/shared/components/ui/button';
+import { useDragScroll } from '@/shared/hooks/useDragScroll';
+import { cn } from '@/shared/lib/utils';
 
 interface ChipListProps {
   'aria-label': string;
@@ -15,9 +17,27 @@ interface ChipListProps {
  * single-select filter with an "all" option, the product picker's chips
  * toggle a text input, and the two don't share enough behavior to merge.
  */
+/**
+ * Horizontal chip slider. Touch pans natively; a mouse can drag it too
+ * (`useDragScroll`), and a thin brand-green bar 5px under the chips shows
+ * there is more to scroll. Snapping is off while dragging so it does not
+ * fight the pointer.
+ */
 export function ChipList({ 'aria-label': ariaLabel, children }: ChipListProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { dragging, dragHandlers } = useDragScroll(ref);
+
   return (
-    <div className="flex snap-x scrollbar-none gap-1.5 overflow-x-auto pb-1" role="group" aria-label={ariaLabel}>
+    <div
+      ref={ref}
+      className={cn(
+        'scrollbar-accent flex gap-1.5 overflow-x-auto pb-[5px] select-none',
+        dragging ? 'cursor-grabbing snap-none' : 'snap-x',
+      )}
+      role="group"
+      aria-label={ariaLabel}
+      {...dragHandlers}
+    >
       {children}
     </div>
   );
