@@ -48,7 +48,10 @@ export function ProductTableRow({
       onClick={() => {
         onSelect(product);
       }}
-      className={cn('border-border-subtle hover:bg-bg-elevated cursor-pointer', !product.active && 'opacity-60')}
+      className={cn(
+        'border-border-subtle hover:bg-bg-highlight hover:border-border-default cursor-pointer',
+        !product.active && 'opacity-60',
+      )}
     >
       <TableCell className="max-w-56">
         <button

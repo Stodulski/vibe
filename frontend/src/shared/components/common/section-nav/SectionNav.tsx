@@ -48,7 +48,7 @@ export function SectionNav<V extends string>({ items, active, onChange }: Sectio
                 'flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-primary-500/10 text-primary-400'
-                  : 'text-text-secondary hover:bg-bg-elevated/50 hover:text-text-primary',
+                  : 'text-text-secondary hover:bg-bg-highlight hover:text-text-primary',
               )}
             >
               <item.icon className={cn('size-4 shrink-0', isActive ? 'text-primary-400' : 'text-text-tertiary')} />

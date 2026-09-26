@@ -23,7 +23,7 @@ export function TodayBookingRow({ booking, onSelect, hiddenOnMobile }: TodayBook
         onClick={() => {
           onSelect(booking);
         }}
-        className="hover:bg-bg-base/40 flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left transition-colors"
+        className="hover:bg-bg-highlight flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left transition-colors"
       >
         <div className="min-w-0 flex-1">
           {/* Mobile: name on its own line, time/court below. */}

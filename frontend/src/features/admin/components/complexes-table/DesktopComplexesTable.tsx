@@ -20,7 +20,7 @@ export function DesktopComplexesTable({ complexes }: DesktopComplexesTableProps)
         <ComplexesTableHead />
         <TableBody>
           {complexes.map((complex) => (
-            <TableRow key={complex.id} className="hover:bg-bg-elevated/50 transition-colors">
+            <TableRow key={complex.id} className="hover:bg-transparent">
               <TableCell>
                 <Link
                   to={`/admin/complexes/${complex.id}`}

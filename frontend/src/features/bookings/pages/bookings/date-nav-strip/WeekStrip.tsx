@@ -61,8 +61,8 @@ export function WeekStrip({
               isSel
                 ? 'bg-primary-500/10 text-primary-400 shadow-primary-500/5 shadow-sm'
                 : isDayToday
-                  ? 'text-text-primary hover:bg-bg-elevated/50'
-                  : 'text-text-tertiary hover:bg-bg-elevated/50 hover:text-text-secondary',
+                  ? 'text-text-primary hover:bg-bg-highlight'
+                  : 'text-text-tertiary hover:bg-bg-highlight hover:text-text-secondary',
             )}
           >
             <span className="text-xs font-medium tracking-wider whitespace-nowrap uppercase">
