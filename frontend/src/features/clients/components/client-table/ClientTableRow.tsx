@@ -41,7 +41,10 @@ export function ClientTableRow({
       onClick={() => {
         onSelect(client);
       }}
-      className={cn('border-border-subtle hover:bg-bg-elevated cursor-pointer', client.is_blocked && 'opacity-60')}
+      className={cn(
+        'border-border-subtle hover:bg-bg-highlight hover:border-border-default cursor-pointer',
+        client.is_blocked && 'opacity-60',
+      )}
     >
       <TableCell className="max-w-56">
         <button

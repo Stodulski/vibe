@@ -177,9 +177,9 @@
   --color-border-interactive: rgba(255, 255, 255, 0.35);
   --color-border-interactive-hover: rgba(255, 255, 255, 0.45);
 
-  /* One faint neutral wash, reused by `.glow-hover` and `.dot-grid`
-   * (odd/tasks/app-dark-contrast.md T3) — both were the same literal
-   * `rgba(255, 255, 255, 0.03)` before this, just never named. */
+  /* One faint neutral wash, used by `.dot-grid` (odd/tasks/app-dark-contrast.md
+   * T3) — was `.glow-hover`'s color too until that class was removed as a
+   * misleading hover on non-clickable surfaces (odd/tasks/consistent-hovers.md). */
   --color-wash-white: rgba(255, 255, 255, 0.03);
 
   /* Status fills roughly doubled (odd/tasks/app-dark-contrast.md T1): the
@@ -653,13 +653,6 @@ html body[data-scroll-locked] {
   background: color-mix(in srgb, var(--color-bg-base) 95%, transparent);
 }
 
-.glow-hover {
-  transition: background-color var(--duration-normal) var(--ease-out);
-}
-.glow-hover:hover {
-  background-color: var(--color-wash-white);
-}
-
 .score-text {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -769,16 +762,6 @@ html body[data-scroll-locked] {
 
 .auth-card {
   position: relative;
-}
-
-.hover-lift {
-  transition:
-    border-color var(--duration-normal) var(--ease-out),
-    background-color var(--duration-normal) var(--ease-out);
-}
-.hover-lift:hover {
-  border-color: var(--color-border-default);
-  background-color: var(--color-wash-white);
 }
 
 .safe-area-inset {
@@ -1115,9 +1098,16 @@ input[type='number']::-webkit-outer-spin-button {
   border-bottom-color: var(--color-border-subtle);
 }
 
-.public-map .leaflet-bar a:hover,
 .public-map .leaflet-bar a:focus {
   background-color: var(--color-bg-highlight);
+}
+
+/* Gated so a tap on the zoom control doesn't leave it stuck lit — only a real
+   hover-capable pointer gets the hover feedback (odd/tasks/consistent-hovers.md). */
+@media (hover: hover) {
+  .public-map .leaflet-bar a:hover {
+    background-color: var(--color-bg-highlight);
+  }
 }
 
 .public-map .leaflet-control-attribution {

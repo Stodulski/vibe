@@ -33,7 +33,7 @@ export const SellProductTile = memo(function SellProductTile({ product, onTap }:
         onTap(product);
       }}
       buttonLabel={product.name}
-      buttonClassName="focus-self relative flex w-full touch-manipulation flex-col items-start gap-2 rounded-2xl border border-border-subtle bg-bg-subtle p-4 text-left transition-[color,background-color,border-color,transform] duration-150 hover:border-border-default hover:bg-bg-elevated focus-visible:border-primary-400 focus-visible:bg-bg-elevated active:scale-[0.96] active:border-primary-400 active:bg-bg-elevated min-h-24"
+      buttonClassName="focus-self relative flex w-full touch-manipulation flex-col items-start gap-2 rounded-2xl border border-border-subtle bg-bg-subtle p-4 text-left transition-[color,background-color,border-color,transform] duration-150 hover:border-border-default hover:bg-bg-highlight focus-visible:border-primary-400 focus-visible:bg-bg-elevated active:scale-[0.96] active:border-primary-400 active:bg-bg-elevated min-h-24"
     >
       {tapCount > 0 && (
         <span

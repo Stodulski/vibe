@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 const DEFAULT_BUTTON_CLASSES =
-  'flex w-full items-center gap-3 rounded-xl border border-border-subtle bg-bg-subtle p-3.5 text-left transition-colors hover:border-border-default active:scale-[0.99]';
+  'flex w-full items-center gap-3 rounded-xl border border-border-subtle bg-bg-subtle p-3.5 text-left transition-colors hover:border-border-default hover:bg-bg-highlight active:scale-[0.99]';
 
 const DEFAULT_ACTION_CLASSES = 'absolute right-3.5 top-1/2 -translate-y-1/2';
 

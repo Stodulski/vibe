@@ -21,7 +21,7 @@ export function CashSessionHistoryRow({ session }: { session: CashSession }) {
   return (
     <Link
       to={`/cash/sessions/${session.id}`}
-      className="border-border-subtle hover:bg-bg-elevated flex items-center gap-2 border-b px-1 py-3 last:border-b-0"
+      className="border-border-subtle hover:bg-bg-highlight hover:border-border-default flex items-center gap-2 border-b px-1 py-3 last:border-b-0"
     >
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">

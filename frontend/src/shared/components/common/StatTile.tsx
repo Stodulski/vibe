@@ -86,7 +86,7 @@ export function StatTile({
     // (`gap-2`/`gap-3`) rather than stacked with page-level spacing between
     // them — without its own box it would visually run into the tile next to
     // it on a phone (odd/tasks/app-dark-contrast.md T2 Panel audit).
-    <Panel as="article" mobile="card" className={cn('hover-lift', className)}>
+    <Panel as="article" mobile="card" className={className}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-text-tertiary text-sm font-medium">{label}</span>

@@ -20,7 +20,7 @@ export function DesktopUsersTable({ users }: DesktopUsersTableProps) {
         <UsersTableHead />
         <TableBody>
           {users.map((user) => (
-            <TableRow key={user.id} className="hover:bg-bg-elevated/50 transition-colors">
+            <TableRow key={user.id} className="hover:bg-transparent">
               <TableCell>
                 <Link
                   to={`/admin/users/${user.id}`}

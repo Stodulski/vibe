@@ -32,7 +32,7 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
           // as an outline drawn on the page. The price chips are `bg-elevated`,
           // one step up, so they still read as sitting on the card.
           'group bg-bg-subtle relative flex h-full flex-col overflow-hidden rounded-2xl border transition-colors',
-          court.is_active ? 'border-border-subtle hover-lift glow-hover' : 'border-border-subtle/50 opacity-60',
+          court.is_active ? 'border-border-subtle' : 'border-border-subtle/50 opacity-60',
         )}
       >
         <div className="flex-1 p-4 sm:p-5">

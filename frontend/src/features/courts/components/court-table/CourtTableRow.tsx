@@ -30,7 +30,7 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
 
   return (
     <>
-      <TableRow className={cn('border-border-subtle hover:bg-bg-elevated', !court.is_active && 'opacity-60')}>
+      <TableRow className={cn('border-border-subtle hover:bg-transparent', !court.is_active && 'opacity-60')}>
         <TableCell className="max-w-56">
           <p className="text-text-primary truncate text-sm font-semibold" title={court.name}>
             {court.name}
