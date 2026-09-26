@@ -64,7 +64,7 @@ export function CashSessionHistoryList({ complexId }: { complexId: string }) {
     <div data-testid="cash-history-list">
       <h2 className="text-text-tertiary mb-2 text-sm font-semibold tracking-wider uppercase">{t.cash.historyTitle}</h2>
       {isLoading ? (
-        <SkeletonTable rows={3} />
+        <SkeletonTable rows={3} mobile="flat" />
       ) : isError && !data ? (
         <EmptyState
           icon={AlertTriangle}

@@ -42,10 +42,28 @@ export function heatKey(dayOfWeek: number, hour: number): string {
   return `${String(dayOfWeek)}-${String(hour)}`;
 }
 
+/**
+ * Reads a heat-ramp step from `globals.css` (odd/tasks/app-dark-contrast.md
+ * T3) instead of a literal here, so the ramp has one definition. Step 0 ("sin
+ * reservas") used to be 1.08:1 against the lowest active step — close enough
+ * to read as the same cell — because both were a thin wash of nearly the same
+ * apparent brightness. Step 0 is now a neutral white tint instead of the
+ * faintest teal, and the active steps start much higher, so "no bookings" and
+ * "some bookings" are never confusable again (see `scripts/contrast-report.mjs`).
+ */
 export function getHeatColor(percentage: number): string {
-  if (percentage === 0) return 'rgba(255, 255, 255, 0.02)';
-  if (percentage < 25) return 'rgba(20, 184, 166, 0.10)';
-  if (percentage < 50) return 'rgba(20, 184, 166, 0.22)';
-  if (percentage < 75) return 'rgba(20, 184, 166, 0.40)';
-  return 'rgba(20, 184, 166, 0.62)';
+  if (typeof document === 'undefined') {
+    if (percentage === 0) return 'rgba(255, 255, 255, 0.03)';
+    if (percentage < 25) return 'rgba(20, 184, 166, 0.22)';
+    if (percentage < 50) return 'rgba(20, 184, 166, 0.38)';
+    if (percentage < 75) return 'rgba(20, 184, 166, 0.55)';
+    return 'rgba(20, 184, 166, 0.75)';
+  }
+  const style = getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
+  if (percentage === 0) return read('--color-chart-heat-0', 'rgba(255, 255, 255, 0.03)');
+  if (percentage < 25) return read('--color-chart-heat-1', 'rgba(20, 184, 166, 0.22)');
+  if (percentage < 50) return read('--color-chart-heat-2', 'rgba(20, 184, 166, 0.38)');
+  if (percentage < 75) return read('--color-chart-heat-3', 'rgba(20, 184, 166, 0.55)');
+  return read('--color-chart-heat-4', 'rgba(20, 184, 166, 0.75)');
 }

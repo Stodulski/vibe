@@ -22,7 +22,7 @@ export function MPCallbackStatus({
       )}
       {status === 'success' && (
         <>
-          <CheckCircle2 className="mx-auto size-10 text-green-400" />
+          <CheckCircle2 className="text-success-text mx-auto size-10" />
           <p className="text-text-primary text-sm font-medium">{t.mp.connectSuccess}</p>
         </>
       )}

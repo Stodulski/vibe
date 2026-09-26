@@ -14,7 +14,9 @@ export function SkeletonCancelInfo() {
       <Skeleton className="size-16 rounded-full" />
       <Skeleton className="h-6 w-48 rounded-lg" />
       <Skeleton className="h-4 w-64 rounded-lg" />
-      <div className="border-border-subtle bg-bg-subtle w-full rounded-2xl border p-4">
+      {/* Matches `BookingInfoCard`'s own surface: flat below `sm`, boxed
+          from `sm:` up (odd/tasks/app-dark-contrast.md T2 follow-up). */}
+      <div className="sm:border-border-subtle sm:bg-bg-subtle w-full sm:rounded-2xl sm:border sm:p-5">
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="flex justify-between">
@@ -44,18 +46,10 @@ export function SkeletonBookConfirm() {
       </div>
       {/* Back button */}
       <Skeleton className="h-5 w-36 rounded-lg" />
-      {/* Booking summary card */}
-      <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-6">
-        <Skeleton className="mb-4 h-5 w-36 rounded-lg" />
-        <div className="space-y-2">
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="flex justify-between">
-              <Skeleton className="h-4 w-20 rounded-lg" />
-              <Skeleton className="h-4 w-32 rounded-lg" />
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* `BookingForm` renders no summary card — just the fields below — so
+          this doesn't invent one either (odd/tasks/app-dark-contrast.md T2
+          follow-up: a stale "summary card" section here used to show a box
+          the real page never has). */}
       {/* Form fields */}
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -78,7 +72,9 @@ export function SkeletonBookSuccess() {
       <Skeleton className="size-20 rounded-full sm:size-24" />
       <Skeleton className="h-7 w-52 rounded-lg" />
       <Skeleton className="h-4 w-36 rounded-lg" />
-      <div className="border-border-subtle bg-bg-subtle w-full max-w-sm rounded-2xl border p-4 sm:p-6">
+      {/* Matches `BookingSummary`'s own surface: flat below `sm`, boxed from
+          `sm:` up (odd/tasks/app-dark-contrast.md T2 follow-up). */}
+      <div className="sm:border-border-subtle sm:bg-bg-subtle w-full max-w-sm sm:rounded-2xl sm:border sm:p-5">
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="flex justify-between">

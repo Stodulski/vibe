@@ -16,9 +16,6 @@ export interface ChartLayout {
 
 const CHART_MARGIN = { top: 4, right: 4, bottom: 6, left: 4 } as const;
 
-export const STROKE_COLOR = '#14B8A6';
-const GRID_COLOR = 'rgba(255,255,255,0.04)';
-
 /**
  * Attempt to read a CSS variable value from the document root.
  * Falls back to the provided default when running outside a browser or
@@ -28,6 +25,28 @@ export function cssVar(name: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback;
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
+}
+
+/** Parses a `#rrggbb` string into its channels. Returns black for anything else — this only ever reads our own token. */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const match = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex.trim());
+  if (!match?.[1] || !match[2] || !match[3]) return { r: 0, g: 0, b: 0 };
+  return { r: parseInt(match[1], 16), g: parseInt(match[2], 16), b: parseInt(match[3], 16) };
+}
+
+/**
+ * The chart's own data color (odd/tasks/app-dark-contrast.md T3) — read from
+ * `--color-chart-accent` instead of baked into this module as a literal, so
+ * `globals.css` stays the single place that decides it. Kept as teal rather
+ * than the brand green: a revenue line is data, not a "this is the primary
+ * action" cue, and the two colors are easy to tell apart at a glance.
+ */
+export function strokeColor(): string {
+  return cssVar('--color-chart-accent', '#14b8a6');
+}
+
+function gridColor(): string {
+  return cssVar('--color-chart-grid', 'rgba(255,255,255,0.04)');
 }
 
 /**
@@ -73,7 +92,7 @@ export function computeChartLayout(w: number, h: number, data: ChartDatum[]): Ch
 /** Draw the dashed horizontal grid lines (5 rows) across the plot area. */
 function drawGrid(ctx: CanvasRenderingContext2D, layout: ChartLayout): void {
   ctx.save();
-  ctx.strokeStyle = GRID_COLOR;
+  ctx.strokeStyle = gridColor();
   ctx.setLineDash([3, 3]);
   ctx.lineWidth = 1;
   const gridLines = 5;
@@ -135,9 +154,10 @@ function fillGradient(ctx: CanvasRenderingContext2D, points: [number, number][],
   ctx.lineTo(last[0], layout.bottomY);
   ctx.lineTo(first[0], layout.bottomY);
   ctx.closePath();
+  const { r, g, b } = hexToRgb(strokeColor());
   const grad = ctx.createLinearGradient(0, layout.mt, 0, layout.bottomY);
-  grad.addColorStop(0, 'rgba(20,184,166,0.12)');
-  grad.addColorStop(1, 'rgba(20,184,166,0)');
+  grad.addColorStop(0, `rgba(${String(r)},${String(g)},${String(b)},0.12)`);
+  grad.addColorStop(1, `rgba(${String(r)},${String(g)},${String(b)},0)`);
   ctx.fillStyle = grad;
   ctx.fill();
 }
@@ -145,7 +165,7 @@ function fillGradient(ctx: CanvasRenderingContext2D, points: [number, number][],
 /** Stroke the curve line itself. */
 function strokeLine(ctx: CanvasRenderingContext2D, points: [number, number][]): void {
   buildCurvePath(ctx, points);
-  ctx.strokeStyle = STROKE_COLOR;
+  ctx.strokeStyle = strokeColor();
   ctx.lineWidth = 1.5;
   ctx.lineJoin = 'round';
   ctx.stroke();

@@ -31,10 +31,15 @@ function CourtCard({ entry, isSelected, onSelect }: CourtCardProps) {
       }}
       aria-pressed={isSelected}
       className={cn(
+        // Visible idle edge + a slight fill + a stronger selected fill than
+        // idle (odd/tasks/app-dark-contrast.md T4) — see `DateButton` for the
+        // same change. Idle used to be `bg-bg-base`, the page's own color, so
+        // its "fill" had zero contrast against the page it sits on; it is now
+        // the same card-tier fill the date and slot buttons use.
         'flex cursor-pointer flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors duration-200',
         isSelected
-          ? 'border-primary-500 bg-primary-500/10'
-          : 'border-border-subtle bg-bg-base hover:border-border-default',
+          ? 'border-primary-500 bg-primary-500/20'
+          : 'border-border-interactive bg-bg-subtle hover:border-border-interactive-hover hover:bg-bg-highlight',
       )}
     >
       {/* One line, cut with an ellipsis: a long name must not stretch its

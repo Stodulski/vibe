@@ -34,9 +34,9 @@ function UserDetailGrid({ user, complexesCount }: UserDetailGridProps) {
         <Shield className="text-text-tertiary size-4" />
         <span className="text-text-secondary">{user.is_active ? t.admin.users.active : t.admin.users.inactive}</span>
         {user.is_active ? (
-          <CheckCircle className="size-3.5 text-green-400" />
+          <CheckCircle className="text-success-text size-3.5" />
         ) : (
-          <XCircle className="size-3.5 text-red-400" />
+          <XCircle className="text-error-text size-3.5" />
         )}
       </div>
       <div className="flex items-center gap-2 text-sm">

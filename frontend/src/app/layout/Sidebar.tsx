@@ -38,7 +38,14 @@ export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
         // The sheet is 280px and this said 220, so the drawer opened with a
         // 60px band of empty background down its right edge — the panel's
         // width is the sheet's decision to make, not this component's.
-        isMobile ? 'w-full' : 'border-border-subtle w-[68px] border-r',
+        //
+        // Desktop only: the mobile sheet already sits on the popover surface
+        // (see `sheet.tsx`), so a second fill here would be redundant. The
+        // permanent icon rail needs its own — `bg-bg-sidebar` (odd/tasks/
+        // app-dark-contrast.md T1), the midpoint between the page and the
+        // card tier, so it reads as a distinct structural frame rather than
+        // one more card sitting flush against the page.
+        isMobile ? 'w-full' : 'bg-bg-sidebar border-border-subtle w-[68px] border-r',
       )}
       aria-label={t.layout.sidebar}
     >

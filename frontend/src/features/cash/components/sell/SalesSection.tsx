@@ -65,7 +65,7 @@ function SalesListBody({
   sentinelRef,
   onRetryNextPage,
 }: SalesListBodyProps) {
-  if (isLoading) return <SkeletonTable rows={3} />;
+  if (isLoading) return <SkeletonTable rows={3} mobile="flat" />;
   if (isError && !hasData) {
     return (
       <EmptyState

@@ -20,7 +20,14 @@ interface SectionTabsProps<V extends string> {
  */
 export function SectionTabs<V extends string>({ items, active, onChange }: SectionTabsProps<V>) {
   return (
-    <div className="-mx-4 px-4 lg:hidden">
+    // Full-bleed to the page edge: the negative margin has to match whatever
+    // horizontal padding the page itself is using at each width this strip is
+    // actually visible at (it's `lg:hidden`, so both the base and `sm:` tiers
+    // apply) — `AppShell`'s `main` is `px-3 sm:px-6`. A flat `-mx-4 px-4`
+    // (16px) against the base tier's actual 12px left the strip 4px wider
+    // than the viewport, which showed up as page-level horizontal scroll on
+    // /profile and /settings at 320px.
+    <div className="-mx-3 px-3 sm:-mx-6 sm:px-6 lg:hidden">
       <div className="flex">
         {items.map((item) => {
           const isActive = active === item.value;

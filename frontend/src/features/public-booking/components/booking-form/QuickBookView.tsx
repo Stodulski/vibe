@@ -59,7 +59,7 @@ export function QuickBookView({ slotInfo, pricing, saved, isLoading, onSubmit, o
     <div className="space-y-5">
       <BookingSummaryCard slotInfo={slotInfo} pricing={pricing} />
 
-      <Panel size="sm" className="space-y-3 p-4">
+      <Panel size="sm" className="space-y-3 py-4 sm:p-4">
         <QuickBookSavedIdentity saved={saved} onEdit={onEdit} />
 
         {!confirmed && (

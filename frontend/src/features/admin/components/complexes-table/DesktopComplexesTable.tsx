@@ -39,7 +39,7 @@ export function DesktopComplexesTable({ complexes }: DesktopComplexesTableProps)
               <TableCell className="text-text-secondary text-center text-sm">{complex.courts_count}</TableCell>
               <TableCell className="text-center">
                 {complex.mp_connected ? (
-                  <CheckCircle className="mx-auto size-4 text-green-400" aria-label={t.mp.connected} />
+                  <CheckCircle className="text-success-text mx-auto size-4" aria-label={t.mp.connected} />
                 ) : (
                   <XCircle className="text-text-tertiary mx-auto size-4" aria-label={t.mp.notConnected} />
                 )}

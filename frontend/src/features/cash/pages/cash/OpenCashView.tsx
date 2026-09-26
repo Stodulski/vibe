@@ -39,7 +39,7 @@ export function OpenCashView({
   onVoidTarget,
   onClearVoidTarget,
 }: OpenCashViewProps) {
-  if (detailQuery.isLoading) return <SkeletonTable rows={4} />;
+  if (detailQuery.isLoading) return <SkeletonTable rows={4} mobile="flat" />;
 
   // Only the full-screen error when there is nothing cached to show — a
   // background refetch failure with `data` still around keeps rendering the

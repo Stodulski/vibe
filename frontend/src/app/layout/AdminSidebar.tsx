@@ -20,7 +20,12 @@ export function AdminSidebar({ onNavigate, isMobile = false }: AdminSidebarProps
 
   return (
     <aside
-      className={cn('flex h-full shrink-0 flex-col', isMobile ? 'w-[220px]' : 'border-border-subtle w-[68px] border-r')}
+      className={cn(
+        'flex h-full shrink-0 flex-col',
+        // See `Sidebar.tsx` for why the desktop rail gets its own fill
+        // (odd/tasks/app-dark-contrast.md T1).
+        isMobile ? 'w-[220px]' : 'bg-bg-sidebar border-border-subtle w-[68px] border-r',
+      )}
       aria-label={t.layout.sidebar}
     >
       {isMobile && (

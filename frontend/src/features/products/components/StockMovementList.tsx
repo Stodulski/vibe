@@ -110,7 +110,7 @@ export function StockMovementList({ complexId, productId }: { complexId: string;
         {t.products.historyTitle}
       </h2>
       {isLoading ? (
-        <SkeletonTable rows={3} />
+        <SkeletonTable rows={3} mobile="flat" />
       ) : isError && !data ? (
         <EmptyState
           icon={AlertTriangle}
