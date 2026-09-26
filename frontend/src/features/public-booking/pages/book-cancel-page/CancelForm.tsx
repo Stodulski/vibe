@@ -89,10 +89,7 @@ export function CancelForm({
       )}
 
       <div className="space-y-3">
-        <Button
-          onClick={onOpenConfirm}
-          className="bg-destructive hover:bg-destructive/90 min-h-12 w-full rounded-xl text-white"
-        >
+        <Button variant="destructive" onClick={onOpenConfirm} className="min-h-12 w-full rounded-xl">
           {canRefund ? t.publicBooking.cancelBookingConfirm : t.publicBooking.cancelNoRefund}
         </Button>
         <Button variant="ghost" className="text-text-secondary min-h-12 w-full hover:bg-transparent" onClick={onBack}>

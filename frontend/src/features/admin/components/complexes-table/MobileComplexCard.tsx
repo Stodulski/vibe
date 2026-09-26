@@ -14,7 +14,7 @@ interface MobileComplexCardProps {
 export function MobileComplexCard({ complex, onClick }: MobileComplexCardProps) {
   return (
     <TappableCard onTap={onClick}>
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-400">
+      <div className="bg-primary-500/10 text-primary-400 flex size-10 shrink-0 items-center justify-center rounded-full">
         <Trophy className="size-4" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
@@ -30,7 +30,7 @@ export function MobileComplexCard({ complex, onClick }: MobileComplexCardProps) 
             {complex.courts_count} {t.admin.complexes.courts.toLowerCase()}
           </span>
           {complex.mp_connected && (
-            <span className="flex items-center gap-0.5 text-green-400">
+            <span className="text-success-text flex items-center gap-0.5">
               <CheckCircle className="size-3" aria-hidden="true" />
               MP
             </span>

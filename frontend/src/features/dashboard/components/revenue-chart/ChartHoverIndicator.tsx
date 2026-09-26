@@ -1,4 +1,4 @@
-import { STROKE_COLOR } from './chart-draw';
+import { strokeColor } from './chart-draw';
 
 interface ChartHoverIndicatorProps {
   x: number;
@@ -8,6 +8,7 @@ interface ChartHoverIndicatorProps {
 
 /** Vertical guide line + highlighted dot shown at the hovered data point. */
 export function ChartHoverIndicator({ x, y, lineHeight }: ChartHoverIndicatorProps) {
+  const color = strokeColor();
   return (
     <>
       <div
@@ -22,8 +23,8 @@ export function ChartHoverIndicator({ x, y, lineHeight }: ChartHoverIndicatorPro
           width: 8,
           height: 8,
           borderRadius: '50%',
-          background: STROKE_COLOR,
-          boxShadow: `0 0 6px ${STROKE_COLOR}`,
+          background: color,
+          boxShadow: `0 0 6px ${color}`,
         }}
       />
     </>
