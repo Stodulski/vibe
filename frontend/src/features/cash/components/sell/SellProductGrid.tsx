@@ -48,7 +48,7 @@ export function SellProductGrid({
       ) : products.length === 0 ? (
         <EmptyState icon={PackageSearch} title={t.cash.sellNoResults} description="" />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => (
             <SellProductTile key={product.id} product={product} onTap={onSelect} />
           ))}
