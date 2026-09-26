@@ -74,7 +74,12 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
         zoom={15}
         scrollWheelZoom={false}
         dragging={!('ontouchstart' in window)}
-        className="z-0 h-[200px] w-full"
+        // `public-map`: darkens only this map's tile pane and restyles its
+        // zoom control and attribution (globals.css) — scoped to a class on
+        // this instance, not a global Leaflet selector, so any other map the
+        // app grows later opts in on its own instead of inheriting this one's
+        // treatment (odd/tasks/public-pending-polish.md T3).
+        className="public-map z-0 h-[200px] w-full"
         ref={setMap}
       >
         <TileLayer
