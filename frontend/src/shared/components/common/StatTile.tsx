@@ -3,21 +3,26 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Panel } from './Panel';
 
-export type StatTileTone =
-  'primary' | 'info' | 'warning' | 'blue' | 'green' | 'cyan' | 'purple' | 'pink' | 'orange' | 'yellow' | 'emerald';
+// Every tone routes to the status/primary tokens (odd/tasks/app-dark-contrast.md
+// T3) instead of the raw Tailwind default palette (`bg-purple-500/10`,
+// `bg-orange-500/10`...), which bypassed `globals.css` entirely. `blue`,
+// `purple`, `orange` and `emerald` are decorative aliases kept for the
+// existing call sites (`ComplexStatsGrid`) that use them to tell a few KPI
+// tiles apart in one grid — they are not semantic status claims about the
+// metric, just distinct on-token colors. `cyan`/`pink`/`yellow`/`green` had
+// zero call sites (verified with `rg`) and were dropped rather than given a
+// token mapping nobody uses.
+export type StatTileTone = 'primary' | 'info' | 'warning' | 'success' | 'blue' | 'purple' | 'orange' | 'emerald';
 
 const STAT_TILE_TONES: Record<StatTileTone, string> = {
   primary: 'bg-primary-500/10 text-primary-400',
   info: 'bg-info-bg text-info-icon',
   warning: 'bg-warning-bg text-warning-icon',
-  blue: 'bg-blue-500/10 text-blue-400',
-  green: 'bg-green-500/10 text-green-400',
-  cyan: 'bg-cyan-500/10 text-cyan-400',
-  purple: 'bg-purple-500/10 text-purple-400',
-  pink: 'bg-pink-500/10 text-pink-400',
-  orange: 'bg-orange-500/10 text-orange-400',
-  yellow: 'bg-yellow-500/10 text-yellow-400',
-  emerald: 'bg-emerald-500/10 text-emerald-400',
+  success: 'bg-success-bg text-success-icon',
+  blue: 'bg-info-bg text-info-icon',
+  purple: 'bg-primary-500/10 text-primary-400',
+  orange: 'bg-warning-bg text-warning-icon',
+  emerald: 'bg-success-bg text-success-icon',
 };
 
 interface StatTileProps {
@@ -77,7 +82,11 @@ export function StatTile({
   className,
 }: StatTileProps) {
   return (
-    <Panel as="article" className={cn('hover-lift', className)}>
+    // A stat tile always sits beside its neighbors in a dense grid
+    // (`gap-2`/`gap-3`) rather than stacked with page-level spacing between
+    // them — without its own box it would visually run into the tile next to
+    // it on a phone (odd/tasks/app-dark-contrast.md T2 Panel audit).
+    <Panel as="article" mobile="card" className={cn('hover-lift', className)}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-text-tertiary text-sm font-medium">{label}</span>

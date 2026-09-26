@@ -29,7 +29,9 @@ export function OwnedComplexesList({ complexes }: OwnedComplexesListProps) {
           to={`/admin/complexes/${complex.id}`}
           className="focus-visible:ring-primary-500/50 block rounded-2xl focus-visible:ring-2 focus-visible:outline-none"
         >
-          <Panel size="sm" className="hover:border-border-default p-3.5 transition-colors">
+          {/* A tappable row card, not a content section — keeps its box at
+              every width (odd/tasks/app-dark-contrast.md T2 Panel audit). */}
+          <Panel size="sm" mobile="card" className="hover:border-border-default p-3.5 transition-colors">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-text-primary font-medium">{complex.name}</p>
