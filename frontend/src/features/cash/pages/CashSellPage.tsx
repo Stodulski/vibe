@@ -36,7 +36,7 @@ export default function CashSellPage() {
 function SellPageBody({ complexId, state }: { complexId: string; state: ReturnType<typeof useSellPage> }) {
   const { cashSession } = state;
 
-  if (cashSession.isLoading) return <SkeletonTable rows={4} />;
+  if (cashSession.isLoading) return <SkeletonTable rows={4} mobile="flat" />;
 
   if (cashSession.isRealError && !cashSession.data) {
     return (

@@ -72,7 +72,7 @@ function onOpenCloseDialog(state: ReturnType<typeof useCashPage>) {
 function CashPageBody({ complexId, state }: { complexId: string; state: ReturnType<typeof useCashPage> }) {
   const { sessionQuery } = state;
 
-  if (sessionQuery.isLoading) return <SkeletonTable rows={4} />;
+  if (sessionQuery.isLoading) return <SkeletonTable rows={4} mobile="flat" />;
 
   // Only the full-screen error when there is nothing cached to fall back on —
   // a background refetch failure (window focus, reconnect) with `data` still

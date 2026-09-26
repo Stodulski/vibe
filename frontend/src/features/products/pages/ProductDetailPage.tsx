@@ -87,7 +87,7 @@ export default function ProductDetailPage() {
       <PageHeader title={t.products.detailTitle} />
 
       {query.isLoading ? (
-        <SkeletonTable rows={4} />
+        <SkeletonTable rows={4} mobile="flat" />
       ) : !query.data ? (
         // Only the full-screen error when there is nothing cached — a
         // background refetch failure with `data` still around keeps

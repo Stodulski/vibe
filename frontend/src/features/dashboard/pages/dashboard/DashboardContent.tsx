@@ -11,8 +11,9 @@ const RevenueChart = lazy(() => import('@/features/dashboard/components/RevenueC
 const ClientInsightsCard = lazy(() => import('@/features/dashboard/components/ClientInsightsCard'));
 const OccupancyHeatmap = lazy(() => import('@/features/dashboard/components/OccupancyHeatmap'));
 
+/** Matches `RevenueChart`/`ClientInsightsCard`/`OccupancyHeatmap`'s own `rounded-2xl border` — this only ever renders inside the `hidden md:flex` trends block, where those are always boxed. */
 function ChartSkeleton() {
-  return <div className="bg-bg-subtle h-80 animate-pulse rounded-xl" />;
+  return <div className="border-border-subtle bg-bg-subtle h-80 animate-pulse rounded-2xl border" />;
 }
 
 interface DashboardContentProps {
