@@ -1,22 +1,36 @@
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { TIME_GROUPS } from './court-selector/constants';
 
 const t = ES_AR;
 
+/**
+ * Mirrors `CourtSelector`'s hour-major grid, not the court-major layout it
+ * replaced (odd/tasks/public-pending-polish.md T1): a period header — the
+ * same icon and label `TimeGroupGrid` renders, since neither depends on
+ * data — followed by a grid of hour-sized placeholders at the same column
+ * breakpoints as `TimeSlotButton` (`grid-cols-3 sm:grid-cols-4 md:grid-cols-6
+ * lg:grid-cols-8`). Two groups, not three: a club open only in the evening
+ * still gets a plausible loading shape, and a third group would only add
+ * height a one-group club never fills once real data lands.
+ *
+ * No fake breadcrumb or duration-chip row: those live in `BookingSteps`,
+ * outside `AvailabilitySection`, and are already on screen — real, not
+ * skeleton — by the time this ever renders there. Depicting them here would
+ * only draw a second, fake copy right below the real one.
+ */
 export function SkeletonSlotGrid() {
   return (
-    <div className="animate-fade-in space-y-8">
-      <p className="text-text-tertiary text-center text-sm">{t.publicBooking.checkingAvailability}</p>
-      {Array.from({ length: 2 }, (_, courtIdx) => (
-        <div key={courtIdx}>
-          <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-2.5">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-5 w-12 rounded-full" />
-            <Skeleton className="h-5 w-16 rounded-full" />
+    <div className="animate-fade-in space-y-6" role="status" aria-label={t.publicBooking.checkingAvailability}>
+      {TIME_GROUPS.slice(1).map(({ key, icon: Icon }) => (
+        <div key={key}>
+          <div className="mb-2 flex items-center gap-1.5">
+            <Icon className="text-text-tertiary size-3.5" />
+            <Skeleton className="h-3 w-14 rounded-full" />
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-            {Array.from({ length: 10 }, (_, slotIdx) => (
-              <Skeleton key={slotIdx} className="h-[52px] rounded-xl" />
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+            {Array.from({ length: 8 }, (_, slotIdx) => (
+              <Skeleton key={slotIdx} className="h-14 rounded-xl" />
             ))}
           </div>
         </div>
