@@ -13,30 +13,31 @@ import (
 )
 
 const (
-	// redisGoogleCodeKey prefixes the one-time redirect-mode sign-in codes.
+	// redisGoogleCodeKey prefixes every entry this store holds.
 	//
 	// It is a suffix of the real key: every key this type writes carries
-	// platformredis.KeyPrefix(env) in front of it as well, so a code minted in
-	// staging cannot be spent against production (RED-01).
+	// platformredis.KeyPrefix(env) in front of it as well, so an entry minted
+	// in staging cannot be spent against production (RED-01).
 	redisGoogleCodeKey = "gauth:"
 	// googleCodeOpTimeout bounds one round trip. Both operations sit inside a
 	// sign-in a person is waiting through, so neither may hang on Redis.
 	googleCodeOpTimeout = 2 * time.Second
 )
 
-// GoogleCodes holds the one-time codes that carry a redirect-mode Google
-// sign-in from Google's form POST to the frontend's exchange request.
+// GoogleCodes holds single-use, TTL-bound opaque values keyed by a random
+// token. Today that is the OIDC authorization-code flow's {nonce, verifier}
+// state (internal/auth/google_oidc.go), under its own key namespace.
 //
-// Redis is what makes a code mintable on one instance and spendable on
-// another, and — through GETDEL — what makes spending it atomic, so two
-// concurrent exchanges of the same code cannot both establish a session.
+// Redis is what makes an entry mintable on one instance and spendable on
+// another, and — through GETDEL — what makes consuming it atomic, so two
+// concurrent attempts to spend the same entry cannot both succeed.
 //
 // The in-memory map is not a test double: it is the whole store when no Redis
 // is configured, which is a single-instance deployment and the local
 // development stack. It is correct there and only there — on more than one
-// instance a code minted on A is unknown to B, and the exchange fails as if
-// the code had expired. That is why the composition root always hands this
-// type the real client when there is one.
+// instance an entry minted on A is unknown to B, and consuming it fails as if
+// it had expired. That is why the composition root always hands this type the
+// real client when there is one.
 type GoogleCodes struct {
 	rdb *redis.Client
 	// prefix namespaces every key by application and environment.

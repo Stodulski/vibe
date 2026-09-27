@@ -19,28 +19,26 @@ import (
 // Google sign-in, OIDC authorization-code flow (GoogleStart / GoogleFinish)
 // ---------------------------------------------------------------------------
 //
-// This is a second, standard OpenID Connect flow added alongside the GIS
-// popup/redirect flow above (GoogleSignIn/GoogleRedirect/GoogleExchange): a
-// GET /auth/google/start that sends the browser to Google's own consent
-// screen, and a POST /auth/google/finish the SPA calls from its callback
-// page once Google sends the browser back with a code. Neither existing
-// flow is touched; see the T4 cleanup task for their eventual removal.
+// This is the standard OpenID Connect authorization-code flow with PKCE, and
+// the only way to sign in with Google: a GET /auth/google/start that sends
+// the browser to Google's own consent screen, and a POST /auth/google/finish
+// the SPA calls from its callback page once Google sends the browser back
+// with a code. /auth/google/complete is its own second step, for a first-time
+// sign-in that still needs a phone number Google never provides.
 //
-// The two requests are bound together the same way GoogleRedirect and
-// GoogleExchange are bound: an opaque value only the browser that started
-// the attempt can present again. There it was g_csrf_token in a cookie
-// Google itself set; here it is `state` in a cookie this server sets, read
-// back by the callback page and sent in the finish request body. GoogleFinish
+// The two requests are bound together the same way a login-CSRF defence
+// always works: an opaque value only the browser that started the attempt can
+// present again. Here it is `state` in a cookie this server sets, read back
+// by the callback page and sent in the finish request body. GoogleFinish
 // compares the two in constant time before it will spend anything.
 //
 // PKCE is the second half of the standard's own defence: the verifier this
 // server generated and kept to itself never travels in a URL or a redirect a
 // network intermediary or a nosy browser extension could observe, only its
 // SHA-256 challenge does, in the /start redirect. Without it, a code
-// intercepted off the /auth/google/callback redirect (a narrower window than
-// GoogleRedirect's, but not zero) would be exchangeable by whoever intercepted
-// it; with it, the token endpoint refuses an exchange presenting the wrong
-// verifier.
+// intercepted off the /auth/google/callback redirect would be exchangeable by
+// whoever intercepted it; with it, the token endpoint refuses an exchange
+// presenting the wrong verifier.
 //
 // The nonce closes the remaining gap PKCE does not cover: PKCE proves this
 // server made the token request, but says nothing about which authorization
@@ -82,18 +80,14 @@ type googleOAuthState struct {
 	Verifier string `json:"verifier"`
 }
 
-// oidcStateKeyPrefix namespaces this flow's entries inside the same store
-// GoogleCodes uses for the redirect-mode one-time codes (see
-// Dependencies.GoogleCodes) — a thin sibling key, not a second Redis type,
-// for one small piece of the same shape: an opaque value, single-use, with a
-// TTL. A real one-time code is a random base64 string with no fixed prefix,
-// so this namespace can never collide with one.
+// oidcStateKeyPrefix namespaces this flow's entries inside GoogleCodes (see
+// Dependencies.GoogleCodes) — a store built for exactly this shape: an opaque
+// value, single-use, with a TTL.
 const oidcStateKeyPrefix = "oidc-state:"
 
 func oidcStateKey(state string) string { return oidcStateKeyPrefix + state }
 
-// randomURLToken returns n bytes of crypto/rand, base64 raw-URL-encoded —
-// the same construction GoogleRedirectStart uses for its own one-time code.
+// randomURLToken returns n bytes of crypto/rand, base64 raw-URL-encoded.
 func randomURLToken(n int) (string, error) {
 	raw := make([]byte, n)
 	if _, err := rand.Read(raw); err != nil {
@@ -184,9 +178,8 @@ func (s *Service) GoogleStart(ctx context.Context) (*GoogleStartResult, error) {
 //
 // An unknown, expired or already-spent state and a code Google refuses
 // (googleid.ErrCodeRejected, typically invalid_grant) both answer
-// ErrGoogleCodeInvalid — the same one error GoogleExchange's own code
-// carries, and the same reason: telling them apart would answer questions
-// about states or codes the caller never held. An ID token that fails
+// ErrGoogleCodeInvalid, for one reason: telling them apart would answer
+// questions about states or codes the caller never held. An ID token that fails
 // verification, or whose nonce does not match, answers ErrGoogleRejected —
 // the same error a rejected credential raises everywhere else in this
 // module.

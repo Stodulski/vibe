@@ -103,28 +103,10 @@ func (s *apiServer) AuthForgotPassword(w http.ResponseWriter, r *http.Request) {
 	s.app.auth.ForgotPassword(w, r)
 }
 
-// AuthGoogle implements gen.ServerInterface for authGoogle
-// (POST /api/v1/auth/google). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AuthGoogle(w http.ResponseWriter, r *http.Request) {
-	s.app.auth.GoogleSignIn(w, r)
-}
-
 // AuthGoogleComplete implements gen.ServerInterface for authGoogleComplete
 // (POST /api/v1/auth/google/complete). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) AuthGoogleComplete(w http.ResponseWriter, r *http.Request) {
 	s.app.auth.GoogleComplete(w, r)
-}
-
-// AuthGoogleExchange implements gen.ServerInterface for authGoogleExchange
-// (POST /api/v1/auth/google/exchange). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AuthGoogleExchange(w http.ResponseWriter, r *http.Request) {
-	s.app.auth.GoogleExchange(w, r)
-}
-
-// AuthGoogleRedirect implements gen.ServerInterface for authGoogleRedirect
-// (POST /api/v1/auth/google/redirect). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AuthGoogleRedirect(w http.ResponseWriter, r *http.Request) {
-	s.app.auth.GoogleRedirect(w, r)
 }
 
 // AuthGoogleStart implements gen.ServerInterface for authGoogleStart

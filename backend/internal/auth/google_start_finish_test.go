@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stodulski/vibe-server/internal/googleid"
+	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
 // getRequest builds a plain GET, the shape GoogleStart's caller — a browser
@@ -337,5 +338,40 @@ func TestGoogleFinishHandlerDisabledConfig(t *testing.T) {
 
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("want 503; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+// TestGoogleFinishRefusesNonJSONContentType pins the fix for a CSRF-exempt
+// route reachable by a forged cross-site body: POST /api/v1/auth/google/finish
+// mints a session cookie and carries no CSRF token (its own state cookie is
+// the token's source), so a plain <form enctype="text/plain"> submission
+// could otherwise drive it with an attacker-chosen "body" that still decodes
+// as the expected JSON shape. Refusing any Content-Type but
+// application/json, before the body is read, closes that without a token
+// check on the route that mints the cookie the token would be derived from —
+// and it must happen before any Set-Cookie is written, or the token exchange
+// runs.
+func TestGoogleFinishRefusesNonJSONContentType(t *testing.T) {
+	f := newFixtureWithGoogleOAuth(t)
+	state := startAndBindNonce(t, f)
+
+	r := postFinish(t, "the-auth-code", state, state)
+	r.Header.Set("Content-Type", "text/plain")
+
+	w := httptest.NewRecorder()
+	f.handler.GoogleFinish(w, r)
+
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("want 415; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := decode(t, w)
+	if got := body["type"]; got != httpx.KindUnsupportedMediaType.URI() {
+		t.Errorf("want type %q; got %v", httpx.KindUnsupportedMediaType.URI(), got)
+	}
+	if findCookie(w.Header(), "access_token") != nil || findCookie(w.Header(), "refresh_token") != nil {
+		t.Error("a refused request must not mint a session cookie")
+	}
+	if len(f.codeExchanger.calls) != 0 {
+		t.Error("the token exchange must not run before the Content-Type check passes")
 	}
 }

@@ -75,12 +75,12 @@ type Claims struct {
 	// GivenName/FamilyName are not.
 	Name    string
 	Picture string
-	// Nonce is the token's "nonce" claim, present on a token issued through
-	// the OIDC authorization-code flow (internal/auth's GoogleFinish) and
-	// empty on one issued through Google Identity Services' own SDK, which
-	// never sends one. Verify does not check it — it has no expected value to
-	// check it against — it only exposes it; the caller compares it against
-	// what it stored when it started the flow.
+	// Nonce is the token's "nonce" claim, present on every token this server
+	// verifies today: internal/auth's GoogleFinish always requests one at
+	// GoogleStart and sends it to Google's authorization endpoint. Verify
+	// does not check it — it has no expected value to check it against — it
+	// only exposes it; the caller compares it against what it stored when it
+	// started the flow.
 	Nonce string
 }
 

@@ -231,31 +231,9 @@ func (m *Middleware) ceilings() [ceilingCount]ceiling {
 	return [ceilingCount]ceiling{m.generalCeiling(), authCeiling, bookingCeiling, m.userCeiling()}
 }
 
-// googleRedirectRoute is the one address-keyed-ceiling route whose contract
-// (openapi.yaml, authGoogleRedirect) says every failure is a 303 to the
-// frontend, never a problem document: it is reached by a browser following a
-// top-level form navigation Google itself posted, not by a client reading
-// JSON.
-const googleRedirectRoute = "POST /api/v1/auth/google/redirect"
-
-// refuseRateLimited answers a refused request: the ordinary 429 problem
-// document (via the Responder, which also sets Retry-After) everywhere
-// except googleRedirectRoute, which gets a 303 to
-// <FrontendURL>/login?error=google_rate_limited instead, per its own
-// documented contract, but keeps the Retry-After header a well-behaved
-// caller could still read off the redirect response.
+// refuseRateLimited answers a refused request with the ordinary 429 problem
+// document, via the Responder, which also sets Retry-After.
 func (m *Middleware) refuseRateLimited(w http.ResponseWriter, r *http.Request, retryAfter time.Duration) {
-	if r.Method+" "+r.URL.Path == googleRedirectRoute && m.cfg.FrontendURL != "" {
-		seconds := int(math.Ceil(retryAfter.Seconds()))
-		if seconds < 1 {
-			seconds = 1
-		}
-		w.Header().Set("Retry-After", strconv.Itoa(seconds))
-		w.Header().Set("Cache-Control", "no-store")
-		http.Redirect(w, r, m.cfg.FrontendURL+"/login?error=google_rate_limited", http.StatusSeeOther)
-		return
-	}
-
 	m.respond.RateLimitExceededAfter(w, r, retryAfter)
 }
 

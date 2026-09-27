@@ -368,7 +368,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		RateLimitUserBurst: cfg.Limiter.UserBurst,
 		RequestLogSample:   cfg.RequestLogSample,
 		Env:                cfg.Env,
-		FrontendURL:        cfg.FrontendURL,
 	})
 	cache := userCache{mw: mw}
 
@@ -531,10 +530,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Turnstile:     turnstileClient,
 		Google:        googleVerifier,
 		Identities:    d.models.UserIdentities,
-		// The redirect-mode one-time codes are minted on whichever instance
-		// Google's post landed on and spent on whichever one the frontend's
-		// exchange reaches, so they have to live in Redis and not in a
-		// process — see auth.GoogleCodes.
+		// The OIDC flow's state is minted on whichever instance /start
+		// reached and consumed on whichever one /finish reaches, so it has to
+		// live in Redis and not in a process — see auth.GoogleCodes.
 		GoogleCodes: auth.NewGoogleCodes(d.rdb, cfg.Env),
 		// The OIDC authorization-code flow's token exchange, alongside the
 		// GIS ID-token verifier above — see GoogleFinish.

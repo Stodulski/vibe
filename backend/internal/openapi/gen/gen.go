@@ -1009,36 +1009,6 @@ func (e AdminListUsersParamsRole) Valid() bool {
 	}
 }
 
-// Defines values for AuthGoogle200JSONResponseBody1NeedsProfile.
-const (
-	AuthGoogle200JSONResponseBody1NeedsProfileTrue AuthGoogle200JSONResponseBody1NeedsProfile = true
-)
-
-// Valid indicates whether the value is a known member of the AuthGoogle200JSONResponseBody1NeedsProfile enum.
-func (e AuthGoogle200JSONResponseBody1NeedsProfile) Valid() bool {
-	switch e {
-	case AuthGoogle200JSONResponseBody1NeedsProfileTrue:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AuthGoogleExchange200JSONResponseBody1NeedsProfile.
-const (
-	AuthGoogleExchange200JSONResponseBody1NeedsProfileTrue AuthGoogleExchange200JSONResponseBody1NeedsProfile = true
-)
-
-// Valid indicates whether the value is a known member of the AuthGoogleExchange200JSONResponseBody1NeedsProfile enum.
-func (e AuthGoogleExchange200JSONResponseBody1NeedsProfile) Valid() bool {
-	switch e {
-	case AuthGoogleExchange200JSONResponseBody1NeedsProfileTrue:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AuthGoogleFinish200JSONResponseBody1NeedsProfile.
 const (
 	AuthGoogleFinish200JSONResponseBody1NeedsProfileTrue AuthGoogleFinish200JSONResponseBody1NeedsProfile = true
@@ -2847,35 +2817,6 @@ type AuthForgotPasswordJSONBody struct {
 	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
-// AuthGoogleJSONBody defines parameters for AuthGoogle.
-type AuthGoogleJSONBody struct {
-	// Credential The Google Identity Services ID token from the client's sign-in button.
-	Credential string `json:"credential"`
-}
-
-// AuthGoogle200JSONResponseBody0 defines parameters for AuthGoogle.
-type AuthGoogle200JSONResponseBody0 struct {
-	// CsrfToken Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
-	CsrfToken string `json:"csrf_token"`
-	User      User   `json:"user"`
-}
-
-// AuthGoogle200JSONResponseBody1 defines parameters for AuthGoogle.
-type AuthGoogle200JSONResponseBody1 struct {
-	NeedsProfile AuthGoogle200JSONResponseBody1NeedsProfile `json:"needs_profile"`
-	Profile      struct {
-		Email     string `json:"email"`
-		FirstName string `json:"first_name"`
-		LastName  string `json:"last_name"`
-	} `json:"profile"`
-
-	// ProfileToken Signed, 10-minute token. Send back to `/auth/google/complete`.
-	ProfileToken string `json:"profile_token"`
-}
-
-// AuthGoogle200JSONResponseBody1NeedsProfile defines parameters for AuthGoogle.
-type AuthGoogle200JSONResponseBody1NeedsProfile bool
-
 // AuthGoogleCompleteJSONBody defines parameters for AuthGoogleComplete.
 type AuthGoogleCompleteJSONBody struct {
 	// FirstName Overrides the profile token's given_name.
@@ -2888,38 +2829,6 @@ type AuthGoogleCompleteJSONBody struct {
 	Phone        string `json:"phone"`
 	ProfileToken string `json:"profile_token"`
 }
-
-// AuthGoogleExchangeJSONBody defines parameters for AuthGoogleExchange.
-type AuthGoogleExchangeJSONBody struct {
-	// Code The opaque one-time code from `/auth/google/redirect`'s `Location`.
-	Code string `json:"code"`
-
-	// GCsrfToken The value of the `g_csrf_token` cookie Google set on the app's origin, read back by the return page. It binds the code to the browser the redirect was delivered to: the server compares its hash, in constant time, against the one stored when the code was issued. A browser that cannot produce it — because it blocks the cookie — fails closed here.
-	GCsrfToken string `json:"g_csrf_token"`
-}
-
-// AuthGoogleExchange200JSONResponseBody0 defines parameters for AuthGoogleExchange.
-type AuthGoogleExchange200JSONResponseBody0 struct {
-	// CsrfToken Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
-	CsrfToken string `json:"csrf_token"`
-	User      User   `json:"user"`
-}
-
-// AuthGoogleExchange200JSONResponseBody1 defines parameters for AuthGoogleExchange.
-type AuthGoogleExchange200JSONResponseBody1 struct {
-	NeedsProfile AuthGoogleExchange200JSONResponseBody1NeedsProfile `json:"needs_profile"`
-	Profile      struct {
-		Email     string `json:"email"`
-		FirstName string `json:"first_name"`
-		LastName  string `json:"last_name"`
-	} `json:"profile"`
-
-	// ProfileToken Signed, 10-minute token. Send back to `/auth/google/complete`.
-	ProfileToken string `json:"profile_token"`
-}
-
-// AuthGoogleExchange200JSONResponseBody1NeedsProfile defines parameters for AuthGoogleExchange.
-type AuthGoogleExchange200JSONResponseBody1NeedsProfile bool
 
 // AuthGoogleFinishJSONBody defines parameters for AuthGoogleFinish.
 type AuthGoogleFinishJSONBody struct {
@@ -2952,21 +2861,6 @@ type AuthGoogleFinish200JSONResponseBody1 struct {
 
 // AuthGoogleFinish200JSONResponseBody1NeedsProfile defines parameters for AuthGoogleFinish.
 type AuthGoogleFinish200JSONResponseBody1NeedsProfile bool
-
-// AuthGoogleRedirectFormdataBody defines parameters for AuthGoogleRedirect.
-type AuthGoogleRedirectFormdataBody struct {
-	// ClientId The OAuth client id. Sent by Google, ignored here — the audience is checked on the token itself.
-	ClientId *string `form:"client_id,omitempty" json:"client_id,omitempty"`
-
-	// Credential The Google Identity Services ID token.
-	Credential string `form:"credential" json:"credential"`
-
-	// GCsrfToken Google's double-submit token. Must equal the `g_csrf_token` cookie Google set on the app's origin.
-	GCsrfToken string `form:"g_csrf_token" json:"g_csrf_token"`
-
-	// SelectBy How the account was chosen. Sent by Google, ignored here.
-	SelectBy *string `form:"select_by,omitempty" json:"select_by,omitempty"`
-}
 
 // AuthLoginJSONBody defines parameters for AuthLogin.
 type AuthLoginJSONBody struct {
@@ -3679,20 +3573,11 @@ type AuthConfirmEmailChangeJSONRequestBody AuthConfirmEmailChangeJSONBody
 // AuthForgotPasswordJSONRequestBody defines body for AuthForgotPassword for application/json ContentType.
 type AuthForgotPasswordJSONRequestBody AuthForgotPasswordJSONBody
 
-// AuthGoogleJSONRequestBody defines body for AuthGoogle for application/json ContentType.
-type AuthGoogleJSONRequestBody AuthGoogleJSONBody
-
 // AuthGoogleCompleteJSONRequestBody defines body for AuthGoogleComplete for application/json ContentType.
 type AuthGoogleCompleteJSONRequestBody AuthGoogleCompleteJSONBody
 
-// AuthGoogleExchangeJSONRequestBody defines body for AuthGoogleExchange for application/json ContentType.
-type AuthGoogleExchangeJSONRequestBody AuthGoogleExchangeJSONBody
-
 // AuthGoogleFinishJSONRequestBody defines body for AuthGoogleFinish for application/json ContentType.
 type AuthGoogleFinishJSONRequestBody AuthGoogleFinishJSONBody
-
-// AuthGoogleRedirectFormdataRequestBody defines body for AuthGoogleRedirect for application/x-www-form-urlencoded ContentType.
-type AuthGoogleRedirectFormdataRequestBody AuthGoogleRedirectFormdataBody
 
 // AuthLoginJSONRequestBody defines body for AuthLogin for application/json ContentType.
 type AuthLoginJSONRequestBody AuthLoginJSONBody
@@ -3905,21 +3790,12 @@ type ServerInterface interface {
 	// AuthForgotPassword Request a password reset email
 	// (POST /api/v1/auth/forgot-password)
 	AuthForgotPassword(w http.ResponseWriter, r *http.Request)
-	// AuthGoogle Sign in with a Google Identity Services ID token
-	// (POST /api/v1/auth/google)
-	AuthGoogle(w http.ResponseWriter, r *http.Request)
 	// AuthGoogleComplete Finish a first-time Google sign-in by supplying a phone number
 	// (POST /api/v1/auth/google/complete)
 	AuthGoogleComplete(w http.ResponseWriter, r *http.Request)
-	// AuthGoogleExchange Spend a redirect-mode one-time code for a session
-	// (POST /api/v1/auth/google/exchange)
-	AuthGoogleExchange(w http.ResponseWriter, r *http.Request)
 	// AuthGoogleFinish Complete the OIDC authorization-code sign-in flow
 	// (POST /api/v1/auth/google/finish)
 	AuthGoogleFinish(w http.ResponseWriter, r *http.Request)
-	// AuthGoogleRedirect Receive Google's redirect-mode form post and hand back a one-time code
-	// (POST /api/v1/auth/google/redirect)
-	AuthGoogleRedirect(w http.ResponseWriter, r *http.Request)
 	// AuthGoogleStart Begin the OIDC authorization-code sign-in flow
 	// (GET /api/v1/auth/google/start)
 	AuthGoogleStart(w http.ResponseWriter, r *http.Request)
@@ -4562,20 +4438,6 @@ func (siw *ServerInterfaceWrapper) AuthForgotPassword(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
-// AuthGoogle operation middleware
-func (siw *ServerInterfaceWrapper) AuthGoogle(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AuthGoogle(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // AuthGoogleComplete operation middleware
 func (siw *ServerInterfaceWrapper) AuthGoogleComplete(w http.ResponseWriter, r *http.Request) {
 
@@ -4590,39 +4452,11 @@ func (siw *ServerInterfaceWrapper) AuthGoogleComplete(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
-// AuthGoogleExchange operation middleware
-func (siw *ServerInterfaceWrapper) AuthGoogleExchange(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AuthGoogleExchange(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // AuthGoogleFinish operation middleware
 func (siw *ServerInterfaceWrapper) AuthGoogleFinish(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AuthGoogleFinish(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AuthGoogleRedirect operation middleware
-func (siw *ServerInterfaceWrapper) AuthGoogleRedirect(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AuthGoogleRedirect(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7995,10 +7829,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/audit-log", wrapper.AuditListComplexLog)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/register", wrapper.AuthRegister)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/login", wrapper.AuthLogin)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google", wrapper.AuthGoogle)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/complete", wrapper.AuthGoogleComplete)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/redirect", wrapper.AuthGoogleRedirect)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/exchange", wrapper.AuthGoogleExchange)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/auth/google/start", wrapper.AuthGoogleStart)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/finish", wrapper.AuthGoogleFinish)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/refresh", wrapper.AuthRefresh)

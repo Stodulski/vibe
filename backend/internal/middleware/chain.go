@@ -383,15 +383,8 @@ func (m *Middleware) RequireComplexOwner(next http.HandlerFunc) http.HandlerFunc
 var csrfExemptRoutes = map[string]string{
 	"POST /api/v1/auth/register": "creates the account; there is no session to derive a token from",
 	"POST /api/v1/auth/login":    "mints the cookie the token would be derived from",
-	"POST /api/v1/auth/google": "verifies a Google Identity Services ID token and mints the " +
-		"cookie the token would be derived from, or answers with no session at all",
 	"POST /api/v1/auth/google/complete": "creates the account and mints the cookie; there is no " +
 		"session yet to derive a token from",
-	"POST /api/v1/auth/google/redirect": "posted by Google itself in redirect mode, which cannot " +
-		"carry our header; its own defence is the g_csrf_token double submit, and it mints no " +
-		"session at all — only a redirect carrying a one-time code",
-	"POST /api/v1/auth/google/exchange": "spends that one-time code and mints the cookie the token " +
-		"would be derived from; there is no session yet",
 	"POST /api/v1/auth/google/finish": "the state cookie /auth/google/start set is this route's own " +
 		"login-CSRF defence, compared against the body in constant time; it mints the cookie the " +
 		"token would be derived from, or answers with no session at all",
