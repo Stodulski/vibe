@@ -466,6 +466,33 @@ func (s *stubGoogleVerifier) Verify(_ context.Context, credential string) (*goog
 	return s.claims, nil
 }
 
+// stubCodeExchanger is a GoogleCodeExchanger double. A nil err from Exchange
+// (the zero value) means an enabled exchanger that answers idToken for every
+// code; set err to drive a rejection (googleid.ErrCodeRejected,
+// googleid.ErrUnavailable, or anything else), or enabled to false to
+// exercise the disabled path without depending on NewService's own
+// nil-to-disabled substitution.
+type stubCodeExchanger struct {
+	enabled bool
+	idToken string
+	err     error
+	// calls records every (code, verifier, redirectURI) triple Exchange was
+	// asked to trade, so a test can assert exactly what GoogleFinish
+	// forwarded — in particular, the verifier it read back out of the state
+	// store rather than one it invented.
+	calls []struct{ code, verifier, redirectURI string }
+}
+
+func (s *stubCodeExchanger) Enabled() bool { return s.enabled }
+
+func (s *stubCodeExchanger) Exchange(_ context.Context, code, verifier, redirectURI string) (string, error) {
+	s.calls = append(s.calls, struct{ code, verifier, redirectURI string }{code, verifier, redirectURI})
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.idToken, nil
+}
+
 // stubIdentities is an IdentityStore double, recording every link it was
 // asked to write.
 type stubIdentities struct {
@@ -525,6 +552,7 @@ type fixture struct {
 	audit         *stubRecorder
 	turnstile     *stubTurnstile
 	google        *stubGoogleVerifier
+	codeExchanger *stubCodeExchanger
 	identities    *stubIdentities
 	// logs is everything the handler wrote to its logger. Some failures are
 	// deliberately invisible to the caller — the generic answer is what stops
@@ -557,15 +585,21 @@ func newFixture(t *testing.T) *fixture {
 		// GOOGLE_OAUTH_CLIENT_ID: every existing test keeps exercising the
 		// unconfigured (503) path unchanged. Tests for the feature itself
 		// opt in via newFixtureWithGoogle.
-		google:     &stubGoogleVerifier{enabled: false},
-		identities: &stubIdentities{},
-		logs:       &bytes.Buffer{},
+		google: &stubGoogleVerifier{enabled: false},
+		// Disabled by default, matching a deployment with no
+		// GOOGLE_OAUTH_CLIENT_SECRET: every existing test keeps exercising
+		// the unconfigured path unchanged. Tests for the feature itself opt
+		// in via newFixtureWithGoogleOAuth.
+		codeExchanger: &stubCodeExchanger{enabled: false},
+		identities:    &stubIdentities{},
+		logs:          &bytes.Buffer{},
 	}
 	logger := slog.New(slog.NewTextHandler(f.logs, nil))
 	cfg := Config{
-		JWTSecret:   testJWTSecret,
-		Environment: "test",
-		FrontendURL: "https://vibe.test",
+		JWTSecret:     testJWTSecret,
+		Environment:   "test",
+		FrontendURL:   "https://vibe.test",
+		OAuthClientID: "test-client-id.apps.googleusercontent.com",
 		// bcrypt.MinCost, not the production cost: this suite registers and
 		// signs in hundreds of users, and a cost-12 hash under the race
 		// detector takes seconds each. It used to be a package variable a
@@ -586,6 +620,7 @@ func newFixture(t *testing.T) *fixture {
 		Audit:         f.audit,
 		Turnstile:     f.turnstile,
 		Google:        f.google,
+		CodeExchanger: f.codeExchanger,
 		Identities:    f.identities,
 		Respond:       httpx.NewResponder(logger),
 		Logger:        logger,
@@ -629,6 +664,21 @@ func newFixtureWithGoogleCodes(t *testing.T, codes GoogleCodeStore) *fixture {
 	t.Helper()
 	f := newFixtureWithGoogle(t)
 	f.service.googleCodes = codes
+	return f
+}
+
+// newFixtureWithGoogleOAuth is newFixtureWithGoogle with the OIDC
+// authorization-code flow also enabled (a stub code exchanger answering
+// idToken for every code), for the tests that exercise GoogleStart and
+// GoogleFinish. f.google — the same stub the GIS flow uses — is what
+// GoogleFinish verifies the exchanged idToken against, so a test drives an ID
+// token rejection or a nonce mismatch through f.google.err/f.google.claims,
+// exactly as the GIS tests do.
+func newFixtureWithGoogleOAuth(t *testing.T) *fixture {
+	t.Helper()
+	f := newFixtureWithGoogle(t)
+	f.codeExchanger.enabled = true
+	f.codeExchanger.idToken = "the-id-token"
 	return f
 }
 

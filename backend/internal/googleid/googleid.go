@@ -75,6 +75,13 @@ type Claims struct {
 	// GivenName/FamilyName are not.
 	Name    string
 	Picture string
+	// Nonce is the token's "nonce" claim, present on a token issued through
+	// the OIDC authorization-code flow (internal/auth's GoogleFinish) and
+	// empty on one issued through Google Identity Services' own SDK, which
+	// never sends one. Verify does not check it — it has no expected value to
+	// check it against — it only exposes it; the caller compares it against
+	// what it stored when it started the flow.
+	Nonce string
 }
 
 // Config configures a Verifier.
@@ -288,6 +295,7 @@ type googleClaims struct {
 	FamilyName    string `json:"family_name"`
 	Name          string `json:"name"`
 	Picture       string `json:"picture"`
+	Nonce         string `json:"nonce"`
 }
 
 // truthy normalizes email_verified's bool-or-string wire representation.
@@ -352,5 +360,6 @@ func (v *Verifier) Verify(ctx context.Context, credential string) (*Claims, erro
 		FamilyName: claims.FamilyName,
 		Name:       claims.Name,
 		Picture:    claims.Picture,
+		Nonce:      claims.Nonce,
 	}, nil
 }

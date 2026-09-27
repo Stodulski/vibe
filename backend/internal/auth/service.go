@@ -100,6 +100,7 @@ type Service struct {
 	google        GoogleVerifier
 	identities    IdentityStore
 	googleCodes   GoogleCodeStore
+	codeExchanger GoogleCodeExchanger
 	logger        *slog.Logger
 	cfg           Config
 }
@@ -141,6 +142,11 @@ func NewService(d Dependencies, cfg Config) *Service {
 		// root passes the Redis-backed one.
 		googleCodes = NewGoogleCodes(nil, cfg.Environment)
 	}
+	codeExchanger := d.CodeExchanger
+	if codeExchanger == nil {
+		// Same reasoning as disabledTurnstile above.
+		codeExchanger = disabledCodeExchanger{}
+	}
 	return &Service{
 		users:       d.Users,
 		userWrites:  d.Users,
@@ -168,6 +174,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		google:        googleVerifier,
 		identities:    d.Identities,
 		googleCodes:   googleCodes,
+		codeExchanger: codeExchanger,
 		logger:        d.Logger,
 		cfg:           cfg,
 	}
