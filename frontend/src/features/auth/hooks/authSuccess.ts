@@ -52,7 +52,7 @@ export function readIntendedFrom(state: unknown, search: string): string | undef
 /**
  * Shared "just authenticated" success handling for every mutation that ends
  * a session the same way a plain login does — `useLogin` and
- * `useGoogleExchange`/`useGoogleComplete` (an existing-account Google sign-in
+ * `useGoogleFinish`/`useGoogleComplete` (an existing-account Google sign-in
  * or a freshly-completed Google profile is a login in every way that
  * matters here).
  *
@@ -63,9 +63,9 @@ export function readIntendedFrom(state: unknown, search: string): string | undef
  *
  * A caller that knows the destination better than the current location does
  * passes it as `options.from`, and it wins. Exactly one does: the Google
- * redirect flow signs in on `/auth/google/return`, a page the visitor never
+ * OIDC flow signs in on `/auth/google/callback`, a page the visitor never
  * chose and which carries neither the router state nor the `?from=` the
- * original `/login` had — so `useGoogleExchange` hands back the destination
+ * original `/login` had — so `useGoogleFinish` hands back the destination
  * it parked before leaving for Google. The override is filtered by
  * {@link isSafeRedirect} exactly like the other two, so an override is not a
  * way around the allowlist.

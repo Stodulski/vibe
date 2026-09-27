@@ -9,7 +9,7 @@ import { PublicPageLoader } from './loaders';
 const LoginPage = lazyRetry(() => import('@/features/auth/pages/LoginPage'));
 const RegisterPage = lazyRetry(() => import('@/features/auth/pages/RegisterPage'));
 const GoogleCompletePage = lazyRetry(() => import('@/features/auth/pages/GoogleCompletePage'));
-const GoogleReturnPage = lazyRetry(() => import('@/features/auth/pages/GoogleReturnPage'));
+const GoogleCallbackPage = lazyRetry(() => import('@/features/auth/pages/GoogleCallbackPage'));
 const VerifyEmailSentPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailSentPage'));
 const VerifyEmailPage = lazyRetry(() => import('@/features/auth/pages/VerifyEmailPage'));
 const ConfirmEmailChangePage = lazyRetry(() => import('@/features/auth/pages/ConfirmEmailChangePage'));
@@ -53,16 +53,17 @@ export const authRoutes: RouteObject[] = [
       </GuestRoute>
     ),
   },
-  // Where Google's redirect-mode sign-in comes back to, via the backend's
-  // 303 (see `GoogleSignInButton`). Guest-only like the rest: a visitor who
-  // already has a session has nothing to exchange.
+  // Where Google's authorization server lands the browser after the account
+  // chooser (see `GoogleSignInButton` and `GoogleCallbackPage`). Guest-only
+  // like the rest: a visitor who already has a session has nothing to
+  // exchange.
   {
-    path: '/auth/google/return',
+    path: '/auth/google/callback',
     element: (
       <GuestRoute>
         <ErrorBoundary>
           <Suspense fallback={<PublicPageLoader />}>
-            <GoogleReturnPage />
+            <GoogleCallbackPage />
           </Suspense>
         </ErrorBoundary>
       </GuestRoute>

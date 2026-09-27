@@ -6,7 +6,7 @@ import { makeConsumedHttpError } from '@/test/factories';
 
 vi.mock('../api/auth.api', () => ({
   authApi: {
-    googleExchange: vi.fn(),
+    googleFinish: vi.fn(),
   },
 }));
 
@@ -42,21 +42,15 @@ vi.mock('./authSuccess', async () => {
   };
 });
 
-const CSRF_COOKIE_VALUE = 'a-csrf-cookie';
-
-function setCsrfCookie() {
-  document.cookie = `g_csrf_token=${CSRF_COOKIE_VALUE}`;
-}
-
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-async function renderExchange(code: string | null, strict = false) {
-  const { useGoogleExchange } = await import('./useGoogleExchange');
-  const Base = createWrapper(['/auth/google/return']);
+async function renderFinish(code: string | null, state: string | null, error: string | null = null, strict = false) {
+  const { useGoogleFinish } = await import('./useGoogleFinish');
+  const Base = createWrapper(['/auth/google/callback']);
   const wrapper = strict
     ? ({ children }: { children: ReactNode }) => (
         <StrictMode>
@@ -67,7 +61,7 @@ async function renderExchange(code: string | null, strict = false) {
 
   return renderHook(
     () => {
-      useGoogleExchange(code);
+      useGoogleFinish(code, state, error);
     },
     { wrapper },
   );
@@ -75,44 +69,39 @@ async function renderExchange(code: string | null, strict = false) {
 
 afterEach(async () => {
   const { authApi } = await import('../api/auth.api');
-  vi.mocked(authApi.googleExchange).mockReset();
+  vi.mocked(authApi.googleFinish).mockReset();
   mockNavigate.mockReset();
   mockAuthSuccess.mockReset();
-  document.cookie = 'g_csrf_token=; max-age=0';
   window.sessionStorage.clear();
 });
 
-describe('useGoogleExchange — success', () => {
-  it('logs in exactly like the popup exchange did when the account already exists', async () => {
+describe('useGoogleFinish — success', () => {
+  it('logs in exactly like the old exchange did when the account already exists', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+    vi.mocked(authApi.googleFinish).mockResolvedValueOnce({
       csrf_token: 'token',
       user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
     });
 
-    setCsrfCookie();
-
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockSetCsrfToken).toHaveBeenCalledWith('token');
     });
-    expect(authApi.googleExchange).toHaveBeenCalledWith({ code: 'a-code', g_csrf_token: CSRF_COOKIE_VALUE });
+    expect(authApi.googleFinish).toHaveBeenCalledWith({ code: 'a-code', state: 'a-state' });
     expect(mockSetSessionUser).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   it('hands off to /register/google with the profile in router state when the email is unknown', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+    vi.mocked(authApi.googleFinish).mockResolvedValueOnce({
       needs_profile: true,
       profile_token: 'a-profile-token',
       profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
     });
 
-    setCsrfCookie();
-
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/register/google', {
@@ -127,52 +116,113 @@ describe('useGoogleExchange — success', () => {
   });
 });
 
-describe('useGoogleExchange — failure', () => {
-  // The code is single-use and lives 120 s; a reload of this page, or a
-  // second tab, spends one that is already gone. That is a 422, and it reads
-  // as "expired", not as "Google is down".
-  it('sends an invalid or expired code back to /login?error=google_expired', async () => {
+describe('useGoogleFinish — Google refused before a code ever arrived', () => {
+  // The visitor backed out of the account chooser — not a failure, so it
+  // returns to a plain /login with no message.
+  it('returns quietly to /login on access_denied', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockRejectedValueOnce(
+
+    await renderFinish(null, null, 'access_denied');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });
+    });
+    expect(authApi.googleFinish).not.toHaveBeenCalled();
+  });
+
+  it('sends any other OAuth error back to /login?error=google_unavailable', async () => {
+    const { authApi } = await import('../api/auth.api');
+
+    await renderFinish(null, null, 'server_error');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_unavailable', { replace: true });
+    });
+    expect(authApi.googleFinish).not.toHaveBeenCalled();
+  });
+});
+
+describe('useGoogleFinish — a callback that lost its query', () => {
+  it('reports an expired sign-in and never calls the API when the code is missing', async () => {
+    const { authApi } = await import('../api/auth.api');
+
+    await renderFinish(null, 'a-state');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_expired', { replace: true });
+    });
+    expect(authApi.googleFinish).not.toHaveBeenCalled();
+  });
+
+  it('reports an expired sign-in and never calls the API when the state is missing', async () => {
+    const { authApi } = await import('../api/auth.api');
+
+    await renderFinish('a-code', null);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_expired', { replace: true });
+    });
+    expect(authApi.googleFinish).not.toHaveBeenCalled();
+  });
+});
+
+describe('useGoogleFinish — /finish failure', () => {
+  // A missing, mismatched, expired or replayed state, or Google's own
+  // invalid_grant: the backend names the `code` field either way.
+  it('sends a 422 naming `code` back to /login?error=google_expired', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleFinish).mockRejectedValueOnce(
       await makeConsumedHttpError(422, {
         type: 'https://vibe.com.ar/problems/validation',
         errors: [{ field: 'code', message: 'invalid or expired' }],
       }),
     );
 
-    setCsrfCookie();
-
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_expired', { replace: true });
     });
   });
 
+  // The ID token or its nonce was rejected — a different failure from an
+  // expired state, and the copy says so.
+  it('sends a 422 naming `credential` back to /login?error=google_rejected', async () => {
+    const { authApi } = await import('../api/auth.api');
+    vi.mocked(authApi.googleFinish).mockRejectedValueOnce(
+      await makeConsumedHttpError(422, {
+        type: 'https://vibe.com.ar/problems/validation',
+        errors: [{ field: 'credential', message: 'invalid token' }],
+      }),
+    );
+
+    await renderFinish('a-code', 'a-state');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_rejected', { replace: true });
+    });
+  });
+
   // A dropped connection carries no problem body at all, so nothing can be
-  // said about the code itself — only that the exchange could not happen.
+  // said about the code itself — only that the finish call could not happen.
   it('sends a network failure back to /login?error=google_unavailable', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    vi.mocked(authApi.googleFinish).mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-    setCsrfCookie();
-
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_unavailable', { replace: true });
     });
   });
 
-  // A 429 from the exchange itself means the sign-in was throttled, not that
-  // Google is unreachable — a distinct message from google_unavailable.
+  // A 429 from the finish call itself means the sign-in was throttled, not
+  // that Google is unreachable — a distinct message from google_unavailable.
   it('sends a 429 back to /login?error=google_rate_limited', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockRejectedValueOnce(await makeConsumedHttpError(429, {}));
+    vi.mocked(authApi.googleFinish).mockRejectedValueOnce(await makeConsumedHttpError(429, {}));
 
-    setCsrfCookie();
-
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_rate_limited', { replace: true });
@@ -181,104 +231,70 @@ describe('useGoogleExchange — failure', () => {
 
   it('sends any other server failure back to /login?error=google_unavailable', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockRejectedValueOnce(await makeConsumedHttpError(500, {}));
+    vi.mocked(authApi.googleFinish).mockRejectedValueOnce(await makeConsumedHttpError(500, {}));
 
-    setCsrfCookie();
-
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_unavailable', { replace: true });
     });
   });
-
-  // Without the cookie there is no double submit to make, so the backend
-  // would refuse the request with the same 422 an unknown code gets. Failing
-  // closed here says the same thing without spending the code — and it is
-  // also what a browser with cookies blocked looks like.
-  it('never calls the API and reports an expired sign-in when the cookie is missing', async () => {
-    const { authApi } = await import('../api/auth.api');
-
-    await renderExchange('a-code');
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_expired', { replace: true });
-    });
-    expect(authApi.googleExchange).not.toHaveBeenCalled();
-  });
-
-  // The cookie is set here on purpose: it is the missing *code* this test is
-  // about, and the two exits say different things.
-  it('never calls the API and reports a rejected sign-in when there is no code', async () => {
-    const { authApi } = await import('../api/auth.api');
-    setCsrfCookie();
-
-    await renderExchange(null);
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/login?error=google_rejected', { replace: true });
-    });
-    expect(authApi.googleExchange).not.toHaveBeenCalled();
-  });
 });
 
-describe('useGoogleExchange — single use', () => {
+describe('useGoogleFinish — single use', () => {
   // StrictMode mounts, unmounts and remounts every effect on purpose. A code
-  // that is spent twice is a sign-in that fails on its own second request, so
-  // the guard is a ref rather than a mutation flag: it is the same object
+  // and state spent twice is a sign-in that fails on its own second request,
+  // so the guard is a ref rather than a mutation flag: it is the same object
   // across that double invocation.
   it('sends exactly one request under a StrictMode double mount', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockResolvedValue({
+    vi.mocked(authApi.googleFinish).mockResolvedValue({
       csrf_token: 'token',
       user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
     });
 
-    setCsrfCookie();
-
-    const { rerender } = await renderExchange('a-code', true);
+    const { rerender } = await renderFinish('a-code', 'a-state', null, true);
     rerender();
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalled();
     });
-    expect(authApi.googleExchange).toHaveBeenCalledTimes(1);
+    expect(authApi.googleFinish).toHaveBeenCalledTimes(1);
   });
 });
 
-// `/auth/google/return?code=…` knows nothing about where the visitor was
-// heading — the button parked it in sessionStorage before leaving for Google.
-describe('useGoogleExchange — the destination parked before the redirect', () => {
+// `/auth/google/callback?code=…&state=…` knows nothing about where the
+// visitor was heading — the button parked it in sessionStorage before
+// leaving for Google.
+describe('useGoogleFinish — the destination parked before the redirect', () => {
   const KEY = 'vibe.google-signin.from';
 
   it('returns to the remembered page instead of the role default', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+    vi.mocked(authApi.googleFinish).mockResolvedValueOnce({
       csrf_token: 'token',
       user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
     });
-    setCsrfCookie();
     window.sessionStorage.setItem(KEY, '/bookings/abc');
 
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/bookings/abc', { replace: true });
     });
     expect(mockAuthSuccess).toHaveBeenCalledWith({ from: '/bookings/abc' });
-    // Spent, like the code it travelled with.
+    // Spent, like the code and state it travelled with.
     expect(window.sessionStorage.getItem(KEY)).toBeNull();
   });
 
   it('falls back to the role default when nothing was remembered', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+    vi.mocked(authApi.googleFinish).mockResolvedValueOnce({
       csrf_token: 'token',
       user: { id: '1', email: 'juan@test.com', role: 'owner' } as never,
     });
-    setCsrfCookie();
 
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
@@ -289,7 +305,7 @@ describe('useGoogleExchange — the destination parked before the redirect', () 
 
 // A sibling describe, not nested: max-lines-per-function counts a describe
 // callback's whole body.
-describe('useGoogleExchange — that destination across the profile step', () => {
+describe('useGoogleFinish — that destination across the profile step', () => {
   const KEY = 'vibe.google-signin.from';
 
   // The profile step is one more hop before there is a session, so the
@@ -297,15 +313,14 @@ describe('useGoogleExchange — that destination across the profile step', () =>
   // the same handler, which reads `from` straight out of `location.state`.
   it('carries the destination into /register/google router state', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+    vi.mocked(authApi.googleFinish).mockResolvedValueOnce({
       needs_profile: true,
       profile_token: 'a-profile-token',
       profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
     });
-    setCsrfCookie();
     window.sessionStorage.setItem(KEY, '/bookings');
 
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/register/google', {
@@ -321,14 +336,13 @@ describe('useGoogleExchange — that destination across the profile step', () =>
 
   it('leaves /register/google state as it was when there is nothing to carry', async () => {
     const { authApi } = await import('../api/auth.api');
-    vi.mocked(authApi.googleExchange).mockResolvedValueOnce({
+    vi.mocked(authApi.googleFinish).mockResolvedValueOnce({
       needs_profile: true,
       profile_token: 'a-profile-token',
       profile: { email: 'nuevo@test.com', first_name: 'Nuevo', last_name: 'Usuario' },
     });
-    setCsrfCookie();
 
-    await renderExchange('a-code');
+    await renderFinish('a-code', 'a-state');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/register/google', {

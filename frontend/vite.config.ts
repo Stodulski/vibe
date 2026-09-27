@@ -66,26 +66,10 @@ const VENDOR_CHUNKS: Record<string, string> = {
 // suite never talks to the dev API.
 const API_PROXY_TARGET = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080';
 
-/** Where Google's redirect-mode sign-in POSTs the credential, on this origin. */
-const GOOGLE_CALLBACK_PATH = '/auth/google/callback';
-/** The API endpoint that path stands in front of. */
-const GOOGLE_REDIRECT_PATH = '/api/v1/auth/google/redirect';
-
 const apiProxy = {
   '/api': {
     target: API_PROXY_TARGET,
     changeOrigin: true,
-  },
-  // Google Identity Services in `ux_mode: 'redirect'` form-POSTs `credential`
-  // and `g_csrf_token` to `login_uri` — an app-origin path, because the
-  // `g_csrf_token` cookie it double-submits is set on the app origin. In
-  // production Vercel rewrites it (see vercel.json); `pnpm dev` and the E2E
-  // stack have no Vercel, so the same hop is a proxy rewrite here. Method,
-  // body and cookies pass through untouched, which is the whole contract.
-  [GOOGLE_CALLBACK_PATH]: {
-    target: API_PROXY_TARGET,
-    changeOrigin: true,
-    rewrite: () => GOOGLE_REDIRECT_PATH,
   },
 };
 
@@ -159,7 +143,6 @@ const config: UserConfig = {
           /^\/api\//,
           /^\/\.well-known\//,
           /^\/assets\//,
-          new RegExp(`^${GOOGLE_CALLBACK_PATH}$`),
           // The Sentry envelope/CSP-report tunnel (vercel.json): a POST
           // target the Workbox router already ignores (GET-only routes),
           // but a GET navigation there — a reload, someone pasting the
