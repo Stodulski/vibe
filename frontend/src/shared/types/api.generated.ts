@@ -224,26 +224,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sign in with a Google Identity Services ID token
-         * @description Public. Verifies `credential` against Google's JWKS. An existing account (matched by verified email) gets a session exactly like `/auth/login`, `email_verified` is set to `true` if it was not already, and the Google account is linked. An address with no account answers `200` with `needs_profile: true` and a `profile_token` for `/auth/google/complete`, since registration requires a phone number Google never provides. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
-         */
-        post: operations["authGoogle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/google/complete": {
         parameters: {
             query?: never;
@@ -255,57 +235,9 @@ export interface paths {
         put?: never;
         /**
          * Finish a first-time Google sign-in by supplying a phone number
-         * @description Public. Consumes the `profile_token` from `/auth/google`'s `needs_profile` answer, creates the account with `email_verified: true` and a session exactly like `/auth/login`. `first_name`/`last_name` are optional overrides of the profile token's own Google-supplied names. `409` if the address was claimed between the two requests. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
+         * @description Public. Consumes the `profile_token` from `/auth/google/finish`'s `needs_profile` answer, creates the account with `email_verified: true` and a session exactly like `/auth/login`. `first_name`/`last_name` are optional overrides of the profile token's own Google-supplied names. `409` if the address was claimed between the two requests. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
          */
         post: operations["authGoogleComplete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/google/redirect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Receive Google's redirect-mode form post and hand back a one-time code
-         * @description Public, and not called by the frontend's own code: this is the `login_uri` Google posts to when the client asks for `ux_mode: 'redirect'`, which exists because popup mode opens a blank page on many mobile browsers. Google posts `application/x-www-form-urlencoded` with `credential` (the ID token) and `g_csrf_token`, and sets a `g_csrf_token` cookie on the app's origin; the frontend proxies `https://app.vibe.com.ar/auth/google/callback` here with the body and cookies intact.
-         *
-         *     The request is a top-level cross-site form navigation, so it establishes **nothing**: no session cookie is ever set here. On success the answer is `303` to `<FRONTEND_URL>/auth/google/return?code=<code>`, carrying an opaque, single-use code that expires in 120 seconds and is spent against `/auth/google/exchange` from the app's own origin.
-         *
-         *     The code is bound to the browser it was issued to: the SHA-256 of the validated `g_csrf_token` is stored beside the verified claims, and the exchange has to present the same value — read back off the cookie Google set on the app's origin — or it establishes nothing. Without that binding the code would be an unbound bearer, and anybody holding a valid Google ID token could mint one and send a victim the return URL, whose browser would spend it and be signed in as the attacker.
-         *
-         *     Every failure is a `303` as well, because the response is a page a person sees rather than JSON a client reads. A CSRF cookie/field that is missing or unequal (compared in constant time), a wrong content type, an oversized body, a missing or rejected credential all redirect to `<FRONTEND_URL>/login?error=google_rejected`; Google not being configured and any internal failure redirect to `<FRONTEND_URL>/login?error=google_unavailable`. Rate limiting redirects to `<FRONTEND_URL>/login?error=google_rate_limited` rather than answering `429` — the middleware knows this route's contract and redirects before the handler is even reached. The reason is logged and never shown. `501` is the one exception: with no `FRONTEND_URL` there is nowhere to redirect to, and a rate-limited request in that same misconfigured state falls back to an ordinary `429` for lack of an address to send it to.
-         */
-        post: operations["authGoogleRedirect"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/google/exchange": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Spend a redirect-mode one-time code for a session
-         * @description Public. Consumes the `code` `/auth/google/redirect` put in the URL and answers exactly what `/auth/google` answers: a session with its cookies, or `needs_profile` with a profile token for `/auth/google/complete`. This is where the session cookies are set — the redirect endpoint never sets any.
-         *
-         *     The code is single-use and expires in 120 seconds, and it is bound to the browser the redirect was delivered to — see `g_csrf_token` below. An unknown code, an expired or already-spent one, and one presented with the wrong `g_csrf_token` all answer `422` on field `code` with "invalid or expired": which it was is never revealed, and the code is consumed either way, so a guessed pairing cannot be retried. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
-         */
-        post: operations["authGoogleExchange"];
         delete?: never;
         options?: never;
         head?: never;
@@ -321,9 +253,9 @@ export interface paths {
         };
         /**
          * Begin the OIDC authorization-code sign-in flow
-         * @description Public, and reached by navigating the browser here directly (an ordinary link, not an XHR): this is the standard OpenID Connect authorization-code flow with PKCE, the shape every other "Sign in with Google" integration uses, added alongside popup mode (`POST /auth/google`) and redirect mode (`POST /auth/google/redirect` + `POST /auth/google/exchange`) rather than replacing either.
+         * @description Public, and reached by navigating the browser here directly (an ordinary link, not an XHR): this is the standard OpenID Connect authorization-code flow with PKCE, the shape every other "Sign in with Google" integration (Auth0, Supabase, Auth.js) uses, and the only way to sign in with Google.
          *
-         *     Mints `state`, a `nonce` and a PKCE verifier, stores `{nonce, verifier}` single-use for 10 minutes under `state` — the same store `/auth/google/redirect`'s one-time codes use, under its own key namespace — sets `state` in a host-only cookie (`HttpOnly`, `SameSite=Lax`, `Secure` outside development, path-scoped to `/api/v1/auth/google`, `Max-Age` matching the 10-minute TTL) and answers `302` to Google's own authorization endpoint with `response_type=code`, `scope=openid email profile`, `state`, `nonce`, the PKCE `code_challenge` (S256 of the verifier), `code_challenge_method=S256` and `redirect_uri = <FRONTEND_URL>/auth/google/callback` — the same address already registered in the Google Cloud console for redirect mode's `login_uri`.
+         *     Mints `state`, a `nonce` and a PKCE verifier, stores `{nonce, verifier}` single-use for 10 minutes under `state`, sets `state` in a host-only cookie (`HttpOnly`, `SameSite=Lax`, `Secure` outside development, path-scoped to `/api/v1/auth/google`, `Max-Age` matching the 10-minute TTL) and answers `302` to Google's own authorization endpoint with `response_type=code`, `scope=openid email profile`, `state`, `nonce`, the PKCE `code_challenge` (S256 of the verifier), `code_challenge_method=S256` and `redirect_uri = <FRONTEND_URL>/auth/google/callback` — the address registered in the Google Cloud console for this client.
          *
          *     `303` to `<FRONTEND_URL>/login?error=google_unavailable` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set) or the state could not be stored, logging why; `501` when `FRONTEND_URL` itself is empty, the one case with nowhere to redirect to.
          */
@@ -347,11 +279,11 @@ export interface paths {
         put?: never;
         /**
          * Complete the OIDC authorization-code sign-in flow
-         * @description Public, and CSRF-exempt like `/auth/google/exchange`: the `state` cookie bound to the browser that called `/auth/google/start` is this route's own login-CSRF defence. Called by the frontend's `/auth/google/callback` page once Google sends the browser back with `code` and `state`.
+         * @description Public, and CSRF-exempt: the `state` cookie bound to the browser that called `/auth/google/start` is this route's own login-CSRF defence. Called by the frontend's `/auth/google/callback` page once Google sends the browser back with `code` and `state`.
          *
-         *     Requires the `state` cookie `/auth/google/start` set and compares it against the body `state` in constant time, then consumes the entry stored under it — single-use, so a replayed callback finds nothing. Exchanges `code` at Google's token endpoint using the client secret and the PKCE verifier that entry carried, presenting the same `redirect_uri` `/auth/google/start` advertised. Verifies the returned `id_token` exactly as the other two flows do (audience, issuer, expiry, signature, `email_verified`), plus checking that its `nonce` matches the one `/auth/google/start` minted. From there this answers exactly what `/auth/google` and `/auth/google/exchange` answer: a session with its cookies, or `needs_profile` with a profile token for `/auth/google/complete`.
+         *     Requires the `state` cookie `/auth/google/start` set and compares it against the body `state` in constant time, then consumes the entry stored under it — single-use, so a replayed callback finds nothing. Exchanges `code` at Google's token endpoint using the client secret and the PKCE verifier that entry carried, presenting the same `redirect_uri` `/auth/google/start` advertised. Verifies the returned `id_token` (audience, issuer, expiry, signature, `email_verified`), plus checking that its `nonce` matches the one `/auth/google/start` minted. From there this answers a session with its cookies, or `needs_profile` with a profile token for `/auth/google/complete`.
          *
-         *     A missing or mismatched `state` cookie, an unknown, expired or already-spent `state`, and a `code` Google refuses (`invalid_grant` and similar) all answer `422` on field `code` with "invalid or expired" — the same vocabulary `/auth/google/exchange` uses for its own code, so which of them happened is never revealed and the frontend's existing handling for that answer covers this flow too. An `id_token` or `nonce` that fails verification answers `422` on field `credential` with "invalid", the same as a rejected credential anywhere else in this module. `503` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set).
+         *     A missing or mismatched `state` cookie, an unknown, expired or already-spent `state`, and a `code` Google refuses (`invalid_grant` and similar) all answer `422` on field `code` with "invalid or expired" — the frontend's existing `google_expired` handling covers this flow too. An `id_token` or `nonce` that fails verification answers `422` on field `credential` with "invalid", the same as a rejected credential anywhere else in this module. `503` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set).
          */
         post: operations["authGoogleFinish"];
         delete?: never;
@@ -2788,7 +2720,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description The outcome of a verified Google sign-in: a session established exactly as `/auth/login` does, or a profile token for an address with no account yet. `/auth/google` and `/auth/google/exchange` answer identically — the second is the redirect-mode path to the same place. */
+        /** @description The outcome of a verified Google sign-in: a session established exactly as `/auth/login` does, or a profile token for an address with no account yet. */
         GoogleSignInResult: {
             headers: {
                 /** @description Sets `access_token` and `refresh_token`, only when a session was established. */
@@ -3311,37 +3243,6 @@ export interface operations {
             500: components["responses"]["ServerError"];
         };
     };
-    authGoogle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description The Google Identity Services ID token from the client's sign-in button. */
-                    credential: string;
-                };
-            };
-        };
-        responses: {
-            200: components["responses"]["GoogleSignInResult"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`), or Google's JWKS is unreachable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     authGoogleComplete: {
         parameters: {
             query?: never;
@@ -3390,7 +3291,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description An account for this address was created between `/auth/google` and this request. */
+            /** @description An account for this address was created between `/auth/google/finish` and this request. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3399,93 +3300,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    authGoogleRedirect: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": {
-                    /** @description The Google Identity Services ID token. */
-                    credential: string;
-                    /** @description Google's double-submit token. Must equal the `g_csrf_token` cookie Google set on the app's origin. */
-                    g_csrf_token: string;
-                    /** @description How the account was chosen. Sent by Google, ignored here. */
-                    select_by?: string;
-                    /** @description The OAuth client id. Sent by Google, ignored here — the audience is checked on the token itself. */
-                    client_id?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Always, on success and on every ordinary failure alike, including a rate-limited request. `Location` is `<FRONTEND_URL>/auth/google/return?code=<code>` on success, `<FRONTEND_URL>/login?error=google_rejected` or `<FRONTEND_URL>/login?error=google_unavailable` on an ordinary failure, and `<FRONTEND_URL>/login?error=google_rate_limited` when refused by the rate limiter. */
-            303: {
-                headers: {
-                    /** @description Where the browser continues. Never carries a session or a profile token. */
-                    Location?: string;
-                    /** @description Always `no-store` — the location carries a one-time code. */
-                    "Cache-Control"?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Rate limited while `FRONTEND_URL` is not configured — the one case where this route cannot redirect and falls back to the ordinary problem document. */
-            429: {
-                headers: {
-                    "Retry-After"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `FRONTEND_URL` is not configured, so there is no address to redirect to. The only answer this endpoint gives that is not a redirect. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    authGoogleExchange: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description The opaque one-time code from `/auth/google/redirect`'s `Location`. */
-                    code: string;
-                    /** @description The value of the `g_csrf_token` cookie Google set on the app's origin, read back by the return page. It binds the code to the browser the redirect was delivered to: the server compares its hash, in constant time, against the one stored when the code was issued. A browser that cannot produce it — because it blocks the cookie — fails closed here. */
-                    g_csrf_token: string;
-                };
-            };
-        };
-        responses: {
-            200: components["responses"]["GoogleSignInResult"];
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];

@@ -178,20 +178,20 @@ type TurnstileVerifier interface {
 	Verify(ctx context.Context, token, remoteIP string) error
 }
 
-// GoogleVerifier verifies a Google Identity Services ID token. It is declared
-// here, by the consumer, matching TurnstileVerifier — Handler depends on this
+// GoogleVerifier verifies a Google-issued ID token. It is declared here, by
+// the consumer, matching TurnstileVerifier — Handler depends on this
 // interface, never on internal/googleid's concrete Verifier.
 //
 // A nil GoogleVerifier means disabled, exactly like a nil TurnstileVerifier:
-// NewHandler substitutes disabledGoogle{}, so GoogleSignIn and GoogleComplete
+// NewHandler substitutes disabledGoogle{}, so GoogleFinish and GoogleComplete
 // answer 503 without a nil check at every call site.
 type GoogleVerifier interface {
 	// Enabled reports whether Google sign-in is configured at all (a client
 	// id is set). When it is not, callers must answer 503 without calling
 	// Verify.
 	Enabled() bool
-	// Verify checks credential, a Google Identity Services ID token from the
-	// request body, and reports why it was rejected via googleid.ErrInvalidToken
+	// Verify checks credential, the ID token GoogleFinish's token exchange
+	// returned, and reports why it was rejected via googleid.ErrInvalidToken
 	// or googleid.ErrUnavailable.
 	Verify(ctx context.Context, credential string) (*googleid.Claims, error)
 }
@@ -215,10 +215,9 @@ type GoogleCodeExchanger interface {
 	Exchange(ctx context.Context, code, verifier, redirectURI string) (idToken string, err error)
 }
 
-// GoogleCodeStore holds the one-time codes that carry a redirect-mode Google
-// sign-in between the two requests it is split across: Google's form POST,
-// whose answer is a redirect, and the frontend's exchange, which is where the
-// session is finally established.
+// GoogleCodeStore holds single-use, TTL-bound opaque values keyed by a random
+// token — currently the OIDC authorization-code flow's {nonce, verifier}
+// state, under its own key namespace (internal/auth/google_oidc.go).
 //
 // It is declared here, by the consumer, like every other port in this file.
 // GoogleCodes satisfies it; a nil one means "no store was wired", which
@@ -329,17 +328,15 @@ type Dependencies struct {
 	// Turnstile verifies the optional turnstile_token on register, login and
 	// forgot-password. Nil means disabled — see TurnstileVerifier.
 	Turnstile TurnstileVerifier
-	// Google verifies a Google Identity Services ID token for /auth/google
-	// and /auth/google/complete. Nil means disabled — see GoogleVerifier.
+	// Google verifies the Google ID token GoogleFinish's token exchange
+	// returns. Nil means disabled — see GoogleVerifier.
 	Google GoogleVerifier
 	// Identities links a local account to the Google account it signed in
 	// with.
 	Identities IdentityStore
-	// GoogleCodes holds the one-time codes redirect-mode Google sign-in is
-	// exchanged with. Nil means in-memory — see GoogleCodeStore. GoogleStart
-	// and GoogleFinish reuse the same store, under their own key namespace,
-	// for the OIDC flow's state/nonce/PKCE-verifier entries — see
-	// internal/auth/google_oidc.go.
+	// GoogleCodes holds the OIDC authorization-code flow's single-use
+	// state/nonce/PKCE-verifier entries, under their own key namespace — see
+	// internal/auth/google_oidc.go. Nil means in-memory — see GoogleCodeStore.
 	GoogleCodes GoogleCodeStore
 	// CodeExchanger trades an OIDC authorization code for an ID token, for
 	// GoogleFinish. Nil means disabled — see GoogleCodeExchanger.
@@ -369,7 +366,7 @@ func (disabledTurnstile) Verify(context.Context, string, string) error {
 }
 
 // disabledGoogle is the zero-value GoogleVerifier: always disabled, its
-// Verify never actually called (GoogleSignIn and GoogleComplete check
+// Verify never actually called (GoogleFinish and GoogleComplete check
 // Enabled first).
 type disabledGoogle struct{}
 

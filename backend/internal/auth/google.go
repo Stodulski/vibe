@@ -5,9 +5,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"mime"
 	"net/http"
-	"net/url"
 	"strings"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
@@ -44,53 +42,6 @@ func setUnusablePassword(user *authstore.User, cost int) error {
 	// 72 bytes bcrypt reads on encoding overhead instead of entropy for no
 	// benefit — nobody ever types this password.
 	return user.SetPassword(string(randomPassword), cost)
-}
-
-// GoogleSignIn handles POST /api/v1/auth/google: verifies a Google Identity
-// Services ID token from the client and either starts a session for the
-// account already registered under that address, or hands back a
-// short-lived profile token so the client can collect the one field Google
-// never provides — a phone number — before GoogleComplete creates the
-// account.
-func (h *Handler) GoogleSignIn(w http.ResponseWriter, r *http.Request) {
-	if !h.svc.GoogleEnabled() {
-		h.respond.Refuse(w, r, googleNotConfigured)
-		return
-	}
-
-	var body gen.AuthGoogleJSONBody
-	if err := httpx.ReadJSON(w, r, &body); err != nil {
-		h.respond.BadRequest(w, r, err)
-		return
-	}
-
-	v := validator.New()
-	v.Check(body.Credential != "", "credential", "must be provided")
-	if !v.Valid() {
-		h.respond.FailedValidation(w, r, v.Errors)
-		return
-	}
-
-	result, err := h.svc.GoogleSignIn(r.Context(), h.actor(r), body.Credential)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrGoogleRejected):
-			v.AddError("credential", "invalid")
-			h.respond.FailedValidation(w, r, v.Errors)
-		case errors.Is(err, ErrInvalidCredentials):
-			h.respond.InvalidCredentials(w, r)
-		default:
-			h.respond.DomainError(w, r, err)
-		}
-		return
-	}
-
-	if result.NeedsProfile != nil {
-		h.respondNeedsProfile(w, r, result.NeedsProfile)
-		return
-	}
-
-	h.respondWithSession(w, r, result.Session)
 }
 
 // GoogleComplete handles POST /api/v1/auth/google/complete: creates the
@@ -173,146 +124,30 @@ func (h *Handler) GoogleComplete(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// Google sign-in, redirect mode
+// Google sign-in, OIDC authorization-code + PKCE flow
 // ---------------------------------------------------------------------------
+//
+// See internal/auth/google_oidc.go for the Service half of this flow (the
+// state store, the token exchange and the nonce check) and its own comment
+// for how the pieces fit together and why. This file only has the HTTP
+// concerns: reading and writing the state cookie, and mapping the Service's
+// errors onto the same status/field vocabulary GoogleComplete already uses.
 
-const (
-	// googleRedirectMaxBody bounds Google's form post. The credential is a
-	// JWT of a couple of kilobytes and the CSRF token is a short random
-	// string; 16 KiB is generous for both and small enough that a flood of
-	// oversized posts costs nothing to refuse.
-	googleRedirectMaxBody = 16 << 10
-	// googleFormContentType is the only content type Google's redirect mode
-	// sends, and so the only one this endpoint parses.
-	googleFormContentType = "application/x-www-form-urlencoded"
-	// googleCSRFField is the double-submit token's name in both places it
-	// arrives: the cookie Google sets on the app's origin and the form field
-	// it posts. Google's guide requires them to be present and equal.
-	googleCSRFField = "g_csrf_token"
-	// googleCredentialField is the ID token's field name in the form post.
-	googleCredentialField = "credential"
-)
+// googleErrorUnavailable is one of the two values the frontend's /login page
+// reads out of ?error= and turns into a sentence: a redirect target is a URL
+// a person can read and share, so it says that the sign-in did not happen and
+// nothing about why.
+const googleErrorUnavailable = "google_unavailable"
 
-const (
-	// googleErrorRejected and googleErrorUnavailable are the two values the
-	// frontend's /login page reads out of ?error= and turns into a sentence.
-	// They are the whole vocabulary on purpose: a redirect target is a URL a
-	// person can read and share, so it says that the sign-in did not happen
-	// and nothing about why.
-	googleErrorRejected    = "google_rejected"
-	googleErrorUnavailable = "google_unavailable"
-)
-
-// frontendNotConfigured is the answer the redirect endpoint gives when
-// FRONTEND_URL is empty. Every other failure of that endpoint is a redirect
-// to the frontend, which is precisely what this deployment has no address
-// for — so it is the one case that answers a problem document instead.
+// frontendNotConfigured is the answer GoogleStart gives when FRONTEND_URL is
+// empty. Every other failure of that endpoint is a redirect to the frontend,
+// which is precisely what this deployment has no address for — so it is the
+// one case that answers a problem document instead.
 var frontendNotConfigured = httpx.NotImplemented(
-	"google sign-in through redirect mode needs FRONTEND_URL to be configured")
-
-// GoogleRedirect handles POST /api/v1/auth/google/redirect: the `login_uri`
-// Google posts to in redirect mode (`ux_mode: 'redirect'`), reached through
-// the frontend's own proxy so that the cookie Google sets on the app's origin
-// arrives with it.
-//
-// Popup mode opens a blank Google page on a good share of mobile browsers, and
-// redirect mode is the way out — but it changes what this request is. It is a
-// top-level, cross-site form navigation whose response the person sees as a
-// page, so it may not establish anything: a POST an attacker can cause must
-// never end in a session. So the answer is always a redirect, the session is
-// never started here, and what travels in the URL is an opaque one-time code
-// the frontend spends from its own origin against GoogleExchange.
-//
-// Every failure answers 303 to the frontend as well. The alternative is a
-// problem document rendered as a dead-end page in the address bar, on the one
-// endpoint in this API whose caller is a human being looking at a browser
-// rather than a client reading JSON.
-//
-// It is one cohesive request lifecycle for a single resource operation, per
-// this codebase's handler conventions (CLAUDE.md); splitting it would relocate
-// sequential steps into helpers without reducing what a reader holds at once.
-//
-//nolint:funlen // see the cohesion note above
-func (h *Handler) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
-	// Nothing about this response may be cached or replayed: it carries a
-	// one-time code in its Location.
-	w.Header().Set("Cache-Control", "no-store")
-
-	if h.cfg.FrontendURL == "" {
-		h.respond.Refuse(w, r, frontendNotConfigured)
-		return
-	}
-	if !h.svc.GoogleEnabled() {
-		h.googleRedirectFailed(w, r, googleErrorUnavailable, "not_configured", nil)
-		return
-	}
-
-	if contentType := r.Header.Get("Content-Type"); !isGoogleFormPost(contentType) {
-		h.googleRedirectFailed(w, r, googleErrorRejected, "unexpected_content_type", nil,
-			"content_type", contentType)
-		return
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, googleRedirectMaxBody)
-	if err := r.ParseForm(); err != nil {
-		// An oversized body and a malformed one are the same answer: neither
-		// is a post Google made.
-		h.googleRedirectFailed(w, r, googleErrorRejected, "unreadable_body", err)
-		return
-	}
-
-	// The double submit from Google's own guide: the token is in a cookie on
-	// the app's origin and in the form, and a cross-site forgery can write
-	// the form but not read the cookie. Compared in constant time, because
-	// the comparison itself must not report how much of a guess was right.
-	cookie, err := r.Cookie(googleCSRFField)
-	if err != nil || cookie.Value == "" {
-		h.googleRedirectFailed(w, r, googleErrorRejected, "csrf_cookie_missing", nil)
-		return
-	}
-	field := r.PostFormValue(googleCSRFField)
-	if field == "" {
-		h.googleRedirectFailed(w, r, googleErrorRejected, "csrf_field_missing", nil)
-		return
-	}
-	if subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(field)) != 1 {
-		h.googleRedirectFailed(w, r, googleErrorRejected, "csrf_mismatch", nil)
-		return
-	}
-
-	credential := r.PostFormValue(googleCredentialField)
-	if credential == "" {
-		h.googleRedirectFailed(w, r, googleErrorRejected, "credential_missing", nil)
-		return
-	}
-
-	code, err := h.svc.GoogleRedirectStart(r.Context(), credential, field)
-	if err != nil {
-		if errors.Is(err, ErrGoogleRejected) {
-			h.googleRedirectFailed(w, r, googleErrorRejected, "credential_rejected", err)
-			return
-		}
-		// A verifier that could not reach Google, a Redis that would not hold
-		// the code, an encoding failure: none of them is the caller's fault,
-		// and all of them mean this sign-in cannot continue.
-		h.googleRedirectFailed(w, r, googleErrorUnavailable, "sign_in_failed", err)
-		return
-	}
-
-	h.redirect(w, r, h.cfg.FrontendURL+"/auth/google/return?code="+url.QueryEscape(code))
-}
-
-// isGoogleFormPost reports whether a Content-Type header is the form encoding
-// Google's redirect mode posts. The parameters after the media type (a
-// charset) are Content-Type's own syntax and are ignored, as they are
-// everywhere else that reads this header.
-func isGoogleFormPost(contentType string) bool {
-	media, _, err := mime.ParseMediaType(contentType)
-	return err == nil && media == googleFormContentType
-}
+	"google sign-in through the OIDC flow needs FRONTEND_URL to be configured")
 
 // googleRedirectFailed sends the browser back to the frontend's login page
-// with one of the two error values it knows, having logged why.
+// with one of the known error values, having logged why.
 //
 // The log line is the only place the reason exists: the person reading the
 // address bar learns that the sign-in did not happen, and nothing that would
@@ -333,82 +168,11 @@ func (h *Handler) googleRedirectFailed(
 	h.redirect(w, r, h.cfg.FrontendURL+"/login?error="+errorValue)
 }
 
-// redirect answers a redirect-mode request with 303 See Other, which is what
-// turns a POST into the browser's following GET.
+// redirect answers a request whose caller is a browser mid-navigation, not a
+// client reading JSON, with 303 See Other.
 func (h *Handler) redirect(w http.ResponseWriter, r *http.Request, location string) {
 	http.Redirect(w, r, location, http.StatusSeeOther)
 }
-
-// GoogleExchange handles POST /api/v1/auth/google/exchange: the frontend
-// spends the one-time code GoogleRedirect put in the URL, from its own origin,
-// and gets exactly what POST /auth/google answers — a session, or the profile
-// it still has to complete.
-//
-// This is where the cookies are set, and it is the only endpoint of the two
-// that sets any.
-//
-// The code alone is not enough: g_csrf_token, read back off the cookie Google
-// set on the app's origin, has to match what the redirect stored. A code is
-// otherwise an unbound bearer, and anybody holding a valid Google ID token
-// could mint one with curl and send a victim the return URL — whose browser
-// would spend it and be signed in as the attacker. A browser that blocks that
-// cookie cannot produce the value and fails closed here, which is the right
-// way round: it fails at the exchange rather than signing somebody in wrongly.
-func (h *Handler) GoogleExchange(w http.ResponseWriter, r *http.Request) {
-	if !h.svc.GoogleEnabled() {
-		h.respond.Refuse(w, r, googleNotConfigured)
-		return
-	}
-
-	var body gen.AuthGoogleExchangeJSONBody
-	if err := httpx.ReadJSON(w, r, &body); err != nil {
-		h.respond.BadRequest(w, r, err)
-		return
-	}
-
-	v := validator.New()
-	v.Check(body.Code != "", "code", "must be provided")
-	v.Check(body.GCsrfToken != "", "g_csrf_token", "must be provided")
-	if !v.Valid() {
-		h.respond.FailedValidation(w, r, v.Errors)
-		return
-	}
-
-	result, err := h.svc.GoogleExchange(r.Context(), h.actor(r), body.Code, body.GCsrfToken)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrGoogleCodeInvalid):
-			// One message for unknown, expired and already-spent: which of
-			// the three it was is not this caller's business, and answering
-			// it would turn this endpoint into an oracle for codes.
-			v.AddError("code", "invalid or expired")
-			h.respond.FailedValidation(w, r, v.Errors)
-		case errors.Is(err, ErrInvalidCredentials):
-			h.respond.InvalidCredentials(w, r)
-		default:
-			h.respond.DomainError(w, r, err)
-		}
-		return
-	}
-
-	if result.NeedsProfile != nil {
-		h.respondNeedsProfile(w, r, result.NeedsProfile)
-		return
-	}
-
-	h.respondWithSession(w, r, result.Session)
-}
-
-// ---------------------------------------------------------------------------
-// Google sign-in, OIDC authorization-code + PKCE flow
-// ---------------------------------------------------------------------------
-//
-// See internal/auth/google_oidc.go for the Service half of this flow (the
-// state store, the token exchange and the nonce check) and its own comment
-// for how the pieces fit together and why. This file only has the HTTP
-// concerns: reading and writing the state cookie, and mapping the Service's
-// errors onto the same status/field vocabulary GoogleSignIn and GoogleExchange
-// already use.
 
 const (
 	// googleOAuthStateCookie is the state cookie's name.
@@ -457,8 +221,7 @@ func (h *Handler) clearOAuthStateCookie(w http.ResponseWriter) {
 // Google's own consent screen, the entry point of the standard OIDC
 // authorization-code flow. Reached by navigating here directly — an ordinary
 // link, not an XHR — so every failure is a redirect the person looking at
-// the address bar can act on, exactly like GoogleRedirect's own reasoning,
-// and for the same reason: there is no client here to hand a JSON body to.
+// the address bar can act on: there is no client here to hand a JSON body to.
 func (h *Handler) GoogleStart(w http.ResponseWriter, r *http.Request) {
 	// Nothing about this response may be cached or replayed: a cached 302
 	// would send every later visitor back to a stale, already-spent state.
@@ -487,9 +250,8 @@ func (h *Handler) GoogleStart(w http.ResponseWriter, r *http.Request) {
 // callback page calls this once Google sends the browser back with code and
 // state, completing the flow GoogleStart began.
 //
-// The state cookie is this route's whole login-CSRF defence, the same role
-// g_csrf_token plays for GoogleRedirect/GoogleExchange: whoever holds it is
-// the browser GoogleStart redirected, and a code/state pair presented
+// The state cookie is this route's whole login-CSRF defence: whoever holds it
+// is the browser GoogleStart redirected, and a code/state pair presented
 // without it — or with a state that does not match — never reaches Google.
 // It is cleared whatever the outcome, because the attempt it named is over
 // either way.

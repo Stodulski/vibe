@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,25 +14,7 @@ import (
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/googleid"
-	"github.com/stodulski/vibe-server/internal/httpx"
 )
-
-// TestGoogleSignInDisabledConfig covers the 503 a caller gets when no
-// GOOGLE_OAUTH_CLIENT_ID is configured — newFixture's stub verifier starts
-// disabled, exactly like a real Verifier with an empty client id.
-func TestGoogleSignInDisabledConfig(t *testing.T) {
-	f := newFixture(t)
-
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"whatever"}`))
-
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("want 503; got %d (%s)", w.Code, w.Body.String())
-	}
-	if len(f.google.calls) != 0 {
-		t.Error("Verify must not be called while Google sign-in is disabled")
-	}
-}
 
 func TestGoogleCompleteDisabledConfig(t *testing.T) {
 	f := newFixture(t)
@@ -46,14 +27,16 @@ func TestGoogleCompleteDisabledConfig(t *testing.T) {
 	}
 }
 
-// TestGoogleSignInExistingUser is the whole existing-account contract in one
-// place: a session exactly like Login's, email_verified flipped from false to
-// true, failed attempts reset, and the identity link written.
+// TestGoogleSignInWithClaimsExistingUser is the whole existing-account
+// contract in one place: a session exactly like Login's, email_verified
+// flipped from false to true, failed attempts reset, and the identity link
+// written. Exercised directly against googleSignInWithClaims — the shared
+// core GoogleFinish runs once Google's claims are verified.
 // The pre-hijack this guards against: somebody registered ana@example.com
 // with a password of their choosing and never verified it; Ana then signs in
 // with Google. The account is hers now — with the registrant's password gone
 // and nothing they were issued still valid.
-func TestGoogleSignInExistingUser(t *testing.T) {
+func TestGoogleSignInWithClaimsExistingUser(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
@@ -66,24 +49,12 @@ func TestGoogleSignInExistingUser(t *testing.T) {
 	registrantHash := append([]byte(nil), user.PasswordHash...)
 	f.users.add(user)
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"good-id-token"}`))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	result, err := f.service.googleSignInWithClaims(t.Context(), Actor{}, f.google.claims)
+	if err != nil {
+		t.Fatalf("googleSignInWithClaims() = %v, want nil", err)
 	}
-	if findCookie(w.Header(), "access_token") == nil {
-		t.Error("no access token cookie was set")
-	}
-	if findCookie(w.Header(), "refresh_token") == nil {
-		t.Error("no refresh token cookie was set")
-	}
-	body := decode(t, w)
-	if _, ok := body["csrf_token"]; !ok {
-		t.Error("csrf_token missing from the response body")
-	}
-	if _, ok := body["user"]; !ok {
-		t.Error("user missing from the response body")
+	if result.Session == nil {
+		t.Fatal("no session was established")
 	}
 
 	if f.users.verified == nil || *f.users.verified != user.ID {
@@ -126,7 +97,7 @@ func TestGoogleSignInExistingUser(t *testing.T) {
 
 // The control: an account whose owner proved the address themselves keeps
 // the password they chose. Only the never-verified case is a credential reset.
-func TestGoogleSignInVerifiedAccountKeepsCredentials(t *testing.T) {
+func TestGoogleSignInWithClaimsVerifiedAccountKeepsCredentials(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
@@ -134,11 +105,12 @@ func TestGoogleSignInVerifiedAccountKeepsCredentials(t *testing.T) {
 	}
 	f.users.add(user)
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"good-id-token"}`))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	result, err := f.service.googleSignInWithClaims(t.Context(), Actor{}, f.google.claims)
+	if err != nil {
+		t.Fatalf("googleSignInWithClaims() = %v, want nil", err)
+	}
+	if result.Session == nil {
+		t.Fatal("no session was established")
 	}
 	if f.users.passwordUpdated != nil || len(f.tokens.allWiped) != 0 || len(f.blacklist.invalidated) != 0 {
 		t.Error("a verified account's own credentials were reset by a Google sign-in")
@@ -150,7 +122,7 @@ func TestGoogleSignInVerifiedAccountKeepsCredentials(t *testing.T) {
 
 // If the reset cannot be persisted, no session may start: it would sit on
 // top of a password somebody else chose.
-func TestGoogleSignInClaimNotPersisted(t *testing.T) {
+func TestGoogleSignInWithClaimsClaimNotPersisted(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
@@ -159,13 +131,11 @@ func TestGoogleSignInClaimNotPersisted(t *testing.T) {
 	f.users.add(user)
 	f.users.updatePasswordErr = errors.New("db down")
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"good-id-token"}`))
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("want 500; got %d (%s)", w.Code, w.Body.String())
+	result, err := f.service.googleSignInWithClaims(t.Context(), Actor{}, f.google.claims)
+	if err == nil {
+		t.Fatal("googleSignInWithClaims() = nil, want an error from the failed credential reset")
 	}
-	if findCookie(w.Header(), "access_token") != nil || findCookie(w.Header(), "refresh_token") != nil {
+	if result != nil {
 		t.Error("a session was started on an account whose registrant password is still in place")
 	}
 	if f.users.verified != nil || len(f.identities.inserted) != 0 || len(f.audit.entries) != 0 {
@@ -173,9 +143,10 @@ func TestGoogleSignInClaimNotPersisted(t *testing.T) {
 	}
 }
 
-// TestGoogleSignInInactiveAccount and TestGoogleSignInLockedAccount cover the
-// same generic 401 Login gives a wrong password — see loginFailed.
-func TestGoogleSignInInactiveAccount(t *testing.T) {
+// TestGoogleSignInWithClaimsInactiveAccount and
+// TestGoogleSignInWithClaimsLockedAccount cover the same generic refusal
+// Login gives a wrong password — see loginFailed.
+func TestGoogleSignInWithClaimsInactiveAccount(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	user := &authstore.User{
 		ID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", LastName: "Perez",
@@ -183,11 +154,9 @@ func TestGoogleSignInInactiveAccount(t *testing.T) {
 	}
 	f.users.add(user)
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"good-id-token"}`))
-
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("want 401; got %d (%s)", w.Code, w.Body.String())
+	_, err := f.service.googleSignInWithClaims(t.Context(), Actor{}, f.google.claims)
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("googleSignInWithClaims() = %v, want an error wrapping ErrInvalidCredentials", err)
 	}
 	if len(f.tokens.stored) != 0 {
 		t.Error("no session may be issued to a deactivated account")
@@ -197,7 +166,7 @@ func TestGoogleSignInInactiveAccount(t *testing.T) {
 	}
 }
 
-func TestGoogleSignInLockedAccount(t *testing.T) {
+func TestGoogleSignInWithClaimsLockedAccount(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	lockedUntil := time.Now().Add(time.Hour)
 	user := &authstore.User{
@@ -207,46 +176,37 @@ func TestGoogleSignInLockedAccount(t *testing.T) {
 	}
 	f.users.add(user)
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"good-id-token"}`))
-
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("want 401; got %d (%s)", w.Code, w.Body.String())
+	_, err := f.service.googleSignInWithClaims(t.Context(), Actor{}, f.google.claims)
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("googleSignInWithClaims() = %v, want an error wrapping ErrInvalidCredentials", err)
 	}
 	if len(f.tokens.stored) != 0 {
 		t.Error("no session may be issued to a locked account")
 	}
 }
 
-// TestGoogleSignInUnknownEmailNeedsProfile covers the first-time sign-in
-// branch: a verifiable profile_token, and the profile prefilled from claims.
-func TestGoogleSignInUnknownEmailNeedsProfile(t *testing.T) {
+// TestGoogleSignInWithClaimsUnknownEmailNeedsProfile covers the first-time
+// sign-in branch: a verifiable profile_token, and the profile prefilled from
+// claims.
+func TestGoogleSignInWithClaimsUnknownEmailNeedsProfile(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"good-id-token"}`))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	result, err := f.service.googleSignInWithClaims(t.Context(), Actor{}, f.google.claims)
+	if err != nil {
+		t.Fatalf("googleSignInWithClaims() = %v, want nil", err)
 	}
-	body := decode(t, w)
-	if needsProfile, _ := body["needs_profile"].(bool); !needsProfile {
-		t.Errorf("needs_profile = %v, want true", body["needs_profile"])
+	if result.NeedsProfile == nil {
+		t.Fatal("an address with no account should answer needs_profile")
 	}
-	profile, ok := body["profile"].(map[string]any)
-	if !ok {
-		t.Fatalf("profile is %T, not an object", body["profile"])
+	if result.Session != nil {
+		t.Error("needs_profile must not carry a session")
 	}
-	if profile["email"] != "ana@example.com" || profile["first_name"] != "Ana" || profile["last_name"] != "Perez" {
-		t.Errorf("profile = %+v, want the claims' email/given_name/family_name", profile)
+	if result.NeedsProfile.Email != "ana@example.com" ||
+		result.NeedsProfile.FirstName != "Ana" || result.NeedsProfile.LastName != "Perez" {
+		t.Errorf("NeedsProfile = %+v, want the claims' email/given_name/family_name", result.NeedsProfile)
 	}
 
-	token, ok := body["profile_token"].(string)
-	if !ok || token == "" {
-		t.Fatalf("profile_token missing or not a string: %v", body["profile_token"])
-	}
-
-	claims, err := f.service.tokenService.ValidateProfileToken(token)
+	claims, err := f.service.tokenService.ValidateProfileToken(result.NeedsProfile.ProfileToken)
 	if err != nil {
 		t.Fatalf("the issued profile_token does not verify: %v", err)
 	}
@@ -259,7 +219,7 @@ func TestGoogleSignInUnknownEmailNeedsProfile(t *testing.T) {
 }
 
 // mintProfileToken is the test helper every GoogleComplete test uses to get a
-// verifiable profile_token without going through GoogleSignIn.
+// verifiable profile_token without going through a full sign-in flow.
 func mintProfileToken(t *testing.T, f *fixture, sub, email, givenName, familyName string) string {
 	t.Helper()
 	token, err := f.service.tokenService.GenerateProfileToken(sub, email, givenName, familyName)
@@ -462,79 +422,28 @@ func TestGoogleCompletePhoneMissing(t *testing.T) {
 	}
 }
 
-// TestGoogleSignInVerifyUnavailable covers the 503 path when Verify itself
-// reports the JWKS could not be reached, distinct from the 503 for
-// "not configured".
-func TestGoogleSignInVerifyUnavailable(t *testing.T) {
+// TestVerifyGoogleCredentialUnavailable covers the 503-worthy path when
+// Verify itself reports the JWKS could not be reached, distinct from the 503
+// for "not configured" — exercised directly against verifyGoogleCredential,
+// the helper GoogleFinish shares with the sign-in core.
+func TestVerifyGoogleCredentialUnavailable(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	f.google.err = googleid.ErrUnavailable
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"good-id-token"}`))
-
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("want 503; got %d (%s)", w.Code, w.Body.String())
+	_, err := f.service.verifyGoogleCredential(t.Context(), "good-id-token")
+	if !errors.Is(err, googleid.ErrUnavailable) {
+		t.Fatalf("verifyGoogleCredential() = %v, want an error wrapping googleid.ErrUnavailable", err)
 	}
 }
 
-// TestGoogleSignInInvalidToken covers Verify rejecting the token itself
+// TestVerifyGoogleCredentialRejected covers Verify rejecting the token itself
 // (signature, audience, issuer...): a validation error, not a server error.
-func TestGoogleSignInInvalidToken(t *testing.T) {
+func TestVerifyGoogleCredentialRejected(t *testing.T) {
 	f := newFixtureWithGoogle(t)
 	f.google.err = errors.Join(googleid.ErrInvalidToken, errors.New("wrong audience"))
 
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{"credential":"bad-id-token"}`))
-
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
-	}
-}
-
-func TestGoogleSignInMissingCredential(t *testing.T) {
-	f := newFixtureWithGoogle(t)
-
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, postJSON(t, `{}`))
-
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
-	}
-	if len(f.google.calls) != 0 {
-		t.Error("Verify must not be called with no credential")
-	}
-}
-
-// TestGoogleSignInRefusesNonJSONContentType pins the fix for a CSRF-exempt
-// route reachable by a forged cross-site body: POST /api/v1/auth/google
-// mints a session cookie and carries no CSRF token (it is the token's own
-// source), so a plain <form enctype="text/plain"> submission could otherwise
-// drive it with an attacker-chosen "body" that still decodes as the expected
-// JSON shape. Refusing any Content-Type but application/json, before the
-// body is read, closes that without a token check on the route that mints
-// the cookie the token would be derived from — and it must happen before any
-// Set-Cookie is written.
-func TestGoogleSignInRefusesNonJSONContentType(t *testing.T) {
-	f := newFixtureWithGoogle(t)
-
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/",
-		strings.NewReader(`{"credential":"good-id-token"}`))
-	r.Header.Set("Content-Type", "text/plain")
-
-	w := httptest.NewRecorder()
-	f.handler.GoogleSignIn(w, r)
-
-	if w.Code != http.StatusUnsupportedMediaType {
-		t.Fatalf("want 415; got %d (%s)", w.Code, w.Body.String())
-	}
-	body := decode(t, w)
-	if got := body["type"]; got != httpx.KindUnsupportedMediaType.URI() {
-		t.Errorf("want type %q; got %v", httpx.KindUnsupportedMediaType.URI(), got)
-	}
-	if findCookie(w.Header(), "access_token") != nil || findCookie(w.Header(), "refresh_token") != nil {
-		t.Error("a refused request must not mint a session cookie")
-	}
-	if len(f.google.calls) != 0 {
-		t.Error("Verify must not be called before the Content-Type check passes")
+	_, err := f.service.verifyGoogleCredential(t.Context(), "bad-id-token")
+	if !errors.Is(err, ErrGoogleRejected) {
+		t.Fatalf("verifyGoogleCredential() = %v, want an error wrapping ErrGoogleRejected", err)
 	}
 }

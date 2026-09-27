@@ -51,13 +51,9 @@ var crossTenantRoutes = map[string]string{
 	// platform — the auth routes write audit_log rows whose complex_id is
 	// deliberately NULL (internal/auth/trail.go), and none of them knows a
 	// complex.
-	"POST /api/v1/auth/register": "bootstrap: creates the account, before any complex exists",
-	"POST /api/v1/auth/login":    "platform: the sign-in audit row belongs to no complex",
-	"POST /api/v1/auth/google": "platform: the sign-in audit row belongs to no complex, " +
-		"same as login",
-	"POST /api/v1/auth/google/complete": "bootstrap: creates the account, before any complex exists",
-	"POST /api/v1/auth/google/exchange": "platform: the sign-in audit row belongs to no complex, " +
-		"same as /auth/google, which this is the redirect-mode path to",
+	"POST /api/v1/auth/register":            "bootstrap: creates the account, before any complex exists",
+	"POST /api/v1/auth/login":               "platform: the sign-in audit row belongs to no complex",
+	"POST /api/v1/auth/google/complete":     "bootstrap: creates the account, before any complex exists",
 	"POST /api/v1/auth/refresh":             "platform: the session audit row belongs to no complex",
 	"POST /api/v1/auth/logout":              "platform: the sign-out audit row belongs to no complex",
 	"POST /api/v1/auth/verify-email":        "platform: reached from an emailed link, before any complex is in play",

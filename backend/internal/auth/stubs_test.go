@@ -640,9 +640,9 @@ func newFixtureWithTurnstile(t *testing.T) *fixture {
 
 // newFixtureWithGoogle is newFixture with Google sign-in enabled and its stub
 // verifier returning a fixed set of claims for every credential, for the
-// tests that exercise GoogleSignIn and GoogleComplete themselves. A test that
-// needs different claims overwrites f.google.claims before calling the
-// handler.
+// tests that exercise googleSignInWithClaims, verifyGoogleCredential and
+// GoogleComplete themselves. A test that needs different claims overwrites
+// f.google.claims before calling the handler.
 func newFixtureWithGoogle(t *testing.T) *fixture {
 	t.Helper()
 	f := newFixture(t)
@@ -654,16 +654,6 @@ func newFixtureWithGoogle(t *testing.T) *fixture {
 		FamilyName: "Perez",
 		Name:       "Ana Perez",
 	}
-	return f
-}
-
-// newFixtureWithGoogleCodes is newFixtureWithGoogle with the redirect-mode
-// code store replaced, for the tests that drive the Redis-backed one rather
-// than the in-memory store NewService substitutes.
-func newFixtureWithGoogleCodes(t *testing.T, codes GoogleCodeStore) *fixture {
-	t.Helper()
-	f := newFixtureWithGoogle(t)
-	f.service.googleCodes = codes
 	return f
 }
 
@@ -730,4 +720,74 @@ func tokenFromURL(t *testing.T, link string) string {
 	}
 	token, _, _ := strings.Cut(query, "&")
 	return token
+}
+
+// testLoginPath is the login page GoogleStart and GoogleFinish redirect to on
+// failure, shared by every test that asserts one of their error redirects.
+const testLoginPath = "https://vibe.test/login?error="
+
+// assertRedirectedTo fails unless w is a 303 to location that wrote no cookie
+// at all.
+func assertRedirectedTo(t *testing.T, w *httptest.ResponseRecorder, location string) {
+	t.Helper()
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("want 303; got %d (%s)", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("Location"); got != location {
+		t.Errorf("Location = %q, want %q", got, location)
+	}
+	assertNoCookiesWritten(t, w)
+}
+
+// assertNoCookiesWritten fails if the response wrote any Set-Cookie header at
+// all — not merely no session. A redirect that only ever answers with a
+// browser-visible Location must not establish or disturb anything else.
+func assertNoCookiesWritten(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	if written := w.Header().Values("Set-Cookie"); len(written) != 0 {
+		t.Errorf("the redirect wrote %v; it must set no cookie at all", written)
+	}
+}
+
+// assertNoSession fails if the response carries either session cookie.
+func assertNoSession(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	for _, name := range []string{"access_token", "refresh_token"} {
+		if findCookie(w.Header(), name) != nil {
+			t.Errorf("a %s cookie was set where no session should have been established", name)
+		}
+	}
+}
+
+// assertInvalidCode fails unless w is the one answer an unknown, expired or
+// already-spent code (or OIDC state) gets — the same answer for all three, so
+// that nothing about which ones have existed can be read off it.
+func assertInvalidCode(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := decode(t, w)
+	message, ok := fieldError(body, "code")
+	if !ok || message != "invalid or expired" {
+		t.Errorf("code error = %q (present %v), want %q", message, ok, "invalid or expired")
+	}
+	for _, name := range []string{"access_token", "refresh_token"} {
+		if findCookie(w.Header(), name) != nil {
+			t.Errorf("a refused exchange set a %s cookie", name)
+		}
+	}
+}
+
+// activeUser is an account that can sign in, for the Google sign-in tests.
+func activeUser(t *testing.T, email string) *authstore.User {
+	t.Helper()
+	user := &authstore.User{
+		ID: uuid.New(), Email: email, FirstName: "Ana", LastName: "Perez",
+		Phone: "+5491112345678", Role: "owner", IsActive: true, EmailVerified: true,
+	}
+	if err := user.SetPassword("irrelevant-here", bcrypt.MinCost); err != nil {
+		t.Fatal(err)
+	}
+	return user
 }

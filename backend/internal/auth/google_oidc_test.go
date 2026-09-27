@@ -125,8 +125,7 @@ func TestGoogleFinishNeedsProfile(t *testing.T) {
 }
 
 // TestGoogleFinishStateIsSingleUse is what makes a leaked callback URL worth
-// nothing twice, the same property TestGoogleExchangeSpendsTheCodeOnce pins
-// for the redirect-mode flow.
+// nothing twice.
 func TestGoogleFinishStateIsSingleUse(t *testing.T) {
 	f := newFixtureWithGoogleOAuth(t)
 	f.users.add(activeUser(t, "ana@example.com"))
@@ -245,13 +244,12 @@ func TestGoogleOAuthEnabled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// The Redis-backed store, shared with the redirect-mode codes
+// The Redis-backed store
 // ---------------------------------------------------------------------------
 
 // newGoogleOAuthFixture is newFixtureWithGoogleOAuth with the state store
 // replaced by a live miniredis, so the key name and TTL are exercised for
-// real — the same reasoning newGoogleCodesFixture gives for the redirect-mode
-// codes, whose store this flow reuses.
+// real.
 func newGoogleOAuthFixture(t *testing.T) (*fixture, *miniredis.Miniredis) {
 	t.Helper()
 
@@ -265,9 +263,9 @@ func newGoogleOAuthFixture(t *testing.T) (*fixture, *miniredis.Miniredis) {
 }
 
 // TestGoogleOAuthStateIsNamespacedUnderTheSameStore pins that this flow's
-// entries live under a distinct key inside the redirect-mode code store
-// (Dependencies.GoogleCodes) rather than a second Redis type, and that they
-// carry the same TTL GoogleStart promises.
+// entries live under a distinct key inside GoogleCodes (Dependencies.GoogleCodes)
+// rather than a second Redis type, and that they carry the same TTL GoogleStart
+// promises.
 func TestGoogleOAuthStateIsNamespacedUnderTheSameStore(t *testing.T) {
 	f, mr := newGoogleOAuthFixture(t)
 

@@ -210,10 +210,10 @@ func (s *TokenService) ValidateAccessToken(tokenString string) (*Claims, error) 
 	return claims, nil
 }
 
-// GoogleProfileClaims is what a profile token carries between GoogleSignIn's
-// needs_profile answer and GoogleComplete: the Google identity a first-time
-// caller already proved ownership of, so GoogleComplete does not have to
-// trust the client's own copy of it.
+// GoogleProfileClaims is what a profile token carries between a Google
+// sign-in's needs_profile answer (GoogleFinish) and GoogleComplete: the
+// Google identity a first-time caller already proved ownership of, so
+// GoogleComplete does not have to trust the client's own copy of it.
 type GoogleProfileClaims struct {
 	jwt.RegisteredClaims
 	Email      string `json:"email"`

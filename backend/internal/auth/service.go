@@ -2,11 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -48,10 +43,10 @@ var (
 	// ErrGoogleRejected reports that Google refused the ID token the client
 	// presented.
 	ErrGoogleRejected = errors.New("google rejected the credential")
-	// ErrGoogleCodeInvalid reports that the one-time code a redirect-mode
-	// sign-in is being exchanged with is unknown, expired or already spent.
-	// The three are deliberately one error: telling them apart would let a
-	// caller probe which codes have existed.
+	// ErrGoogleCodeInvalid reports that the OIDC flow's state, or the code
+	// Google's token endpoint was asked to exchange, is unknown, expired or
+	// already spent. The three are deliberately one error: telling them apart
+	// would let a caller probe which ones have existed.
 	ErrGoogleCodeInvalid = errors.New("invalid or expired google sign-in code")
 )
 
@@ -137,9 +132,9 @@ func NewService(d Dependencies, cfg Config) *Service {
 	googleCodes := d.GoogleCodes
 	if googleCodes == nil {
 		// A store nobody wired is an in-memory one, not a nil that panics on
-		// the first redirect-mode sign-in. It is correct for a
-		// single-instance deployment and for the unit suite; the composition
-		// root passes the Redis-backed one.
+		// the first OIDC sign-in. It is correct for a single-instance
+		// deployment and for the unit suite; the composition root passes the
+		// Redis-backed one.
 		googleCodes = NewGoogleCodes(nil, cfg.Environment)
 	}
 	codeExchanger := d.CodeExchanger
@@ -1276,27 +1271,14 @@ type GoogleResult struct {
 	NeedsProfile *NeedsProfile
 }
 
-// GoogleSignIn verifies a Google Identity Services ID token and either starts a
-// session for the account already registered under that address, or hands back
-// a profile token so the client can collect the one field Google never provides
-// — a phone number — before GoogleComplete creates the account.
-func (s *Service) GoogleSignIn(ctx context.Context, actor Actor, credential string) (*GoogleResult, error) {
-	claims, err := s.verifyGoogleCredential(ctx, credential)
-	if err != nil {
-		return nil, err
-	}
-	return s.googleSignInWithClaims(ctx, actor, claims)
-}
-
 // verifyGoogleCredential checks an ID token with Google and normalises the two
 // failures this module tells apart: a verifier that could not reach a verdict
 // (googleid.ErrUnavailable, returned as-is so the refusal table answers 503)
 // and a credential Google refused (ErrGoogleRejected).
 //
-// It is separate from googleSignInWithClaims because redirect mode splits the
-// two halves across two requests: the redirect endpoint verifies, and the
-// exchange endpoint — a request later, with only a one-time code in hand —
-// runs the rest against the claims that verification already produced.
+// GoogleFinish is its only caller: it verifies the ID token Google's token
+// endpoint returned, adds its own nonce check, and then runs
+// googleSignInWithClaims against the same claims.
 func (s *Service) verifyGoogleCredential(ctx context.Context, credential string) (*googleid.Claims, error) {
 	claims, err := s.google.Verify(ctx, credential)
 	if err != nil {
@@ -1310,7 +1292,7 @@ func (s *Service) verifyGoogleCredential(ctx context.Context, credential string)
 	return claims, nil
 }
 
-// googleSignInWithClaims is everything GoogleSignIn does once Google has
+// googleSignInWithClaims is everything GoogleFinish does once Google has
 // vouched for the address: it starts the session for the account already
 // registered under it, or builds the needs_profile answer.
 func (s *Service) googleSignInWithClaims(ctx context.Context, actor Actor, claims *googleid.Claims) (*GoogleResult, error) {
@@ -1360,128 +1342,6 @@ func (s *Service) googleSignInWithClaims(ctx context.Context, actor Actor, claim
 		return nil, err
 	}
 	return &GoogleResult{Session: session}, nil
-}
-
-// ---------------------------------------------------------------------------
-// Google sign-in, redirect mode
-// ---------------------------------------------------------------------------
-
-// Google Identity Services in popup mode opens a blank page on a good share of
-// mobile browsers — storage partitioning, a lost opener, in-app webviews — so
-// the client asks Google for redirect mode instead, and Google form-POSTs the
-// ID token to the frontend, which proxies it here.
-//
-// That POST is a top-level browser navigation, so its answer is a redirect and
-// never a session: a form post nobody can see the response of is exactly what
-// CSRF is, and the double-submit token Google sets alongside it is only the
-// first half of the defence. The second half is that this endpoint mints no
-// session at all. It hands back an opaque one-time code in the URL, and the
-// frontend spends it from its own origin, with its own XHR, against
-// GoogleExchange — which is where the cookies are finally set.
-//
-// The code therefore has to survive one round trip through a browser and no
-// longer, carry nothing readable, and be spendable exactly once.
-
-const (
-	// googleCodeTTL is how long a redirect-mode code stays exchangeable. It
-	// covers one redirect plus the frontend's own request, and nothing else:
-	// the window in which a leaked URL is worth anything is the whole risk
-	// this value controls.
-	googleCodeTTL = 120 * time.Second
-	// googleCodeBytes is the entropy behind a code. It is the only thing
-	// standing between a guess and a session, so it is a full 256 bits.
-	googleCodeBytes = 32
-)
-
-// googleRedirectCode is what a one-time code carries: the identity Google
-// vouched for, and what binds the code to the browser it was issued to.
-type googleRedirectCode struct {
-	// Claims is the verified Google identity. Storing it rather than the ID
-	// token keeps a live bearer token for Google out of Redis, and spares the
-	// exchange a second JWKS round trip for an answer already reached.
-	Claims *googleid.Claims `json:"claims"`
-	// CSRFHash is sha256 of the g_csrf_token this sign-in arrived with — the
-	// value already proved equal to the cookie Google set on the app's origin.
-	// Only the hash: a code is at rest in Redis for two minutes, and what it
-	// holds must not be enough to spend it.
-	CSRFHash []byte `json:"csrf_hash"`
-}
-
-// GoogleRedirectStart verifies a credential that arrived through redirect mode
-// and returns the one-time code the frontend exchanges for a session.
-//
-// It deliberately establishes nothing: no session, no account, no audit row.
-// Whoever caused this request is not necessarily whoever is about to read the
-// answer, and the sign-in only really happens in GoogleExchange, from the
-// frontend's own origin.
-//
-// csrfToken is what binds the code to one browser. Without it the code is an
-// unbound bearer, and holding any valid Google ID token is enough to mint one
-// with curl and send a victim the return URL: their browser spends it and they
-// are signed in as the attacker. Google sets g_csrf_token as a readable cookie
-// on the app's origin, so only the browser that received this redirect can
-// produce the matching value at the exchange.
-func (s *Service) GoogleRedirectStart(ctx context.Context, credential, csrfToken string) (string, error) {
-	claims, err := s.verifyGoogleCredential(ctx, credential)
-	if err != nil {
-		return "", err
-	}
-
-	csrfHash := sha256.Sum256([]byte(csrfToken))
-	payload, err := json.Marshal(googleRedirectCode{Claims: claims, CSRFHash: csrfHash[:]})
-	if err != nil {
-		return "", fmt.Errorf("auth: encoding google claims: %w", err)
-	}
-
-	raw := make([]byte, googleCodeBytes)
-	if _, err := rand.Read(raw); err != nil {
-		return "", fmt.Errorf("auth: generating google sign-in code: %w", err)
-	}
-	// Raw URL encoding: the code travels in a query string, so it may not
-	// carry padding or any character a URL would have to escape.
-	code := base64.RawURLEncoding.EncodeToString(raw)
-
-	if err := s.googleCodes.Store(ctx, code, payload, googleCodeTTL); err != nil {
-		return "", err
-	}
-	return code, nil
-}
-
-// GoogleExchange spends a redirect-mode code and answers exactly what
-// GoogleSignIn answers: an established session, or the profile the client
-// still has to complete.
-//
-// csrfToken is the g_csrf_token cookie Google set on the app's origin, read
-// back by the return page. It must hash to what GoogleRedirectStart stored, or
-// this is not the browser the code was issued to and nothing is established.
-//
-// The code is consumed before that comparison, and whether or not what follows
-// succeeds: it is what makes the code single-use, and it is what stops a
-// guessed pairing being retried against the same code.
-func (s *Service) GoogleExchange(ctx context.Context, actor Actor, code, csrfToken string) (*GoogleResult, error) {
-	payload, err := s.googleCodes.Consume(ctx, code)
-	if err != nil {
-		return nil, err
-	}
-
-	var held googleRedirectCode
-	if err := json.Unmarshal(payload, &held); err != nil {
-		return nil, fmt.Errorf("auth: decoding google claims: %w", err)
-	}
-	if held.Claims == nil {
-		return nil, fmt.Errorf("auth: google sign-in code carried no claims")
-	}
-
-	presented := sha256.Sum256([]byte(csrfToken))
-	if subtle.ConstantTimeCompare(held.CSRFHash, presented[:]) != 1 {
-		// The same refusal an unknown code gets, from the same sentinel: a
-		// caller may not learn whether it guessed a real code and missed the
-		// binding, or guessed nothing at all.
-		s.logger.Warn("google exchange: code presented by a browser it was not issued to")
-		return nil, ErrGoogleCodeInvalid
-	}
-
-	return s.googleSignInWithClaims(ctx, actor, held.Claims)
 }
 
 // GoogleCompleteInput is the validated second half of a first-time Google
