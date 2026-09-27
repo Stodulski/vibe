@@ -326,6 +326,40 @@ func TestFeaturesZeroValueSaysNo(t *testing.T) {
 
 // TestHelpIsNotAMisconfiguration keeps -h printing the flags and exiting zero,
 // which is what the ~70 flags' own documentation is.
+// TestGoogleOAuthClientSecretIsLoaded pins the one new variable the OIDC
+// authorization-code flow needs: GoogleOAuthEnabled requires it alongside
+// the client id, so a typo in its name would silently keep that flow
+// disabled in production with no error anywhere.
+func TestGoogleOAuthClientSecretIsLoaded(t *testing.T) {
+	cfg, err := config.Load(nil, env(map[string]string{
+		"GOOGLE_OAUTH_CLIENT_ID":     "client-id.apps.googleusercontent.com",
+		"GOOGLE_OAUTH_CLIENT_SECRET": "shh-its-a-secret",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Google.OAuthClientID != "client-id.apps.googleusercontent.com" {
+		t.Errorf("OAuthClientID = %q", cfg.Google.OAuthClientID)
+	}
+	if cfg.Google.OAuthClientSecret != "shh-its-a-secret" {
+		t.Errorf("OAuthClientSecret = %q", cfg.Google.OAuthClientSecret)
+	}
+}
+
+// TestGoogleOAuthClientSecretDefaultsEmpty is the unset case: a deployment
+// with no GOOGLE_OAUTH_CLIENT_SECRET must load with the flow's own
+// enablement check false, not a zero value that happens to also be a valid
+// (empty) secret.
+func TestGoogleOAuthClientSecretDefaultsEmpty(t *testing.T) {
+	cfg, err := config.Load(nil, env(nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Google.OAuthClientSecret != "" {
+		t.Errorf("OAuthClientSecret = %q, want empty with nothing configured", cfg.Google.OAuthClientSecret)
+	}
+}
+
 func TestHelpIsNotAMisconfiguration(t *testing.T) {
 	_, err := config.Load([]string{"-h"}, env(nil))
 	if !errors.Is(err, config.ErrHelp) {

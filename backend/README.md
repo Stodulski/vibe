@@ -217,6 +217,36 @@ Google's post reached and spent on whichever one the frontend's exchange reaches
 `REDIS_URL` the store falls back to this process's memory, which is correct for a single instance
 and for local development and wrong for anything else.
 
+**Authorization-code flow (OIDC + PKCE)** is a third way in, added alongside the two above and
+enabled independently: it needs `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and
+`FRONTEND_URL` all set, and answers the same `google_unavailable` redirect as the others while any
+of them is missing. It is the shape every other "Sign in with Google" integration (Auth0, Supabase,
+Auth.js) uses, and it exists to drop popup mode's decoy button and redirect mode's blank-page POST
+leg — see the `google-oidc-signin` ODD feature for why.
+
+1. `GET /api/v1/auth/google/start` mints `state`, a `nonce` and a PKCE verifier, stores `{nonce,
+   verifier}` for 10 minutes under `state` (the same Redis store the redirect-mode codes use, under
+   its own `oidc-state:` key), sets `state` in a host-only cookie (`HttpOnly`, `SameSite=Lax`,
+   `Secure` outside development, path-scoped to `/api/v1/auth/google`) and answers `302` to
+   Google's own authorization endpoint with `response_type=code`, `scope=openid email profile`,
+   `state`, `nonce`, `code_challenge` (S256 of the verifier) and `redirect_uri =
+   <FRONTEND_URL>/auth/google/callback` — the same address Google's console already has registered
+   for redirect mode's `login_uri`.
+2. Google sends the browser back to that `redirect_uri` with `code` and `state`. The frontend's
+   callback page posts both, plus the cookie, to `POST /api/v1/auth/google/finish`.
+3. The server compares the cookie and body `state` in constant time, consumes the stored entry (so
+   a replayed callback finds nothing), exchanges `code` at Google's token endpoint with the client
+   secret and the PKCE verifier, verifies the returned `id_token` exactly as the other two flows do
+   — plus checking its `nonce` against the one `/start` minted — and answers exactly what
+   `POST /api/v1/auth/google/exchange` answers: the session cookies, or `needs_profile` with a
+   profile token.
+
+A missing or mismatched `state` cookie, an unknown/expired/replayed `state`, and a `code` Google
+refuses (`invalid_grant`) all answer `422` on field `code` with "invalid or expired" — the same
+vocabulary `/auth/google/exchange` already uses, so the frontend's existing `google_expired`
+handling covers this flow too. An ID token or nonce that fails verification answers `422` on field
+`credential` with "invalid", the same as a rejected credential anywhere else in this module.
+
 ## Environment variables
 
 `.env.example` is versioned in this repository and lists every variable with a comment. `.env` is gitignored and never committed. This file's contents are not reproduced here; the tables below list names, purpose, and required/default status as read from `cmd/api/main.go` and `cmd/api/boot_config.go`.
@@ -268,7 +298,8 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 | `BACKEND_URL` | Public backend URL, used for MercadoPago OAuth callbacks and webhooks. | **Required when `MP_ACCESS_TOKEN` is set**, must be absolute (https in production). | `""` |
 | `TRUSTED_PROXIES` | Peers allowed to set `X-Forwarded-For`: `false`, `true` (private ranges), or a comma-separated CIDR list. | Optional | `false` |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key. Setting it enables Turnstile verification on register, login and forgot-password; pairs with the client's `VITE_TURNSTILE_SITE_KEY`. | Optional | `""` |
-| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client id. Setting it enables "Sign in with Google" in both modes (`POST /api/v1/auth/google` and `POST /api/v1/auth/google/redirect`); the same value goes to the client as `VITE_GOOGLE_CLIENT_ID`. Create a **Web application** OAuth client in the Google Cloud console with this app's origin as an authorized JavaScript origin. Popup mode needs no redirect URI — Google Identity Services posts the ID token directly — but redirect mode does: add the client's `login_uri` (`https://app.vibe.com.ar/auth/google/callback`) as an authorized redirect URI. See [Sign in with Google](#sign-in-with-google). | Optional | `""` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client id. Setting it enables "Sign in with Google" in every mode (`POST /api/v1/auth/google`, `POST /api/v1/auth/google/redirect`, and — alongside `GOOGLE_OAUTH_CLIENT_SECRET` — `GET /api/v1/auth/google/start`); the same value goes to the client as `VITE_GOOGLE_CLIENT_ID`. Create a **Web application** OAuth client in the Google Cloud console with this app's origin as an authorized JavaScript origin. Popup mode needs no redirect URI — Google Identity Services posts the ID token directly — but redirect mode and the authorization-code flow both do: add the client's `login_uri`/`redirect_uri` (`https://app.vibe.com.ar/auth/google/callback`, the same address for both) as an authorized redirect URI. See [Sign in with Google](#sign-in-with-google). | Optional | `""` |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth client secret, from the same OAuth client as `GOOGLE_OAUTH_CLIENT_ID`. Enables the authorization-code flow (`GET /api/v1/auth/google/start`, `POST /api/v1/auth/google/finish`) once `GOOGLE_OAUTH_CLIENT_ID` and `FRONTEND_URL` are also set. Never logged. See [Sign in with Google](#sign-in-with-google). | Optional | `""` |
 
 ### MercadoPago
 

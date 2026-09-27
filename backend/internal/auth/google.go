@@ -399,6 +399,161 @@ func (h *Handler) GoogleExchange(w http.ResponseWriter, r *http.Request) {
 	h.respondWithSession(w, r, result.Session)
 }
 
+// ---------------------------------------------------------------------------
+// Google sign-in, OIDC authorization-code + PKCE flow
+// ---------------------------------------------------------------------------
+//
+// See internal/auth/google_oidc.go for the Service half of this flow (the
+// state store, the token exchange and the nonce check) and its own comment
+// for how the pieces fit together and why. This file only has the HTTP
+// concerns: reading and writing the state cookie, and mapping the Service's
+// errors onto the same status/field vocabulary GoogleSignIn and GoogleExchange
+// already use.
+
+const (
+	// googleOAuthStateCookie is the state cookie's name.
+	googleOAuthStateCookie = "google_oauth_state"
+	// googleOAuthStateCookiePath scopes the cookie to this flow's own two
+	// routes — it is read by GoogleFinish and by nothing else, so a browser
+	// carries it nowhere outside them.
+	googleOAuthStateCookiePath = "/api/v1/auth/google"
+)
+
+// setOAuthStateCookie sets the state cookie GoogleFinish reads back, with the
+// TTL the stored entry itself carries (googleOAuthStateTTL).
+func (h *Handler) setOAuthStateCookie(w http.ResponseWriter, state string) {
+	//nolint:gosec // G124: HttpOnly/SameSite are literal true/Lax below; Secure is env-conditional (false only in
+	// local development) so gosec's literal-value check cannot prove it, but the cookie is always fully secured.
+	http.SetCookie(w, &http.Cookie{
+		Name:     googleOAuthStateCookie,
+		Value:    state,
+		Path:     googleOAuthStateCookiePath,
+		MaxAge:   int(googleOAuthStateTTL.Seconds()),
+		HttpOnly: true,
+		Secure:   h.cfg.Environment != "development",
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// clearOAuthStateCookie expires the state cookie. GoogleFinish calls this
+// whatever the outcome: the attempt the cookie named is over either way,
+// spent by a real callback or refused as somebody else's, and a state left
+// behind is one more single-use value with nothing left to spend.
+func (h *Handler) clearOAuthStateCookie(w http.ResponseWriter) {
+	//nolint:gosec // G124: HttpOnly/SameSite are literal true/Lax below; Secure is env-conditional (false only in
+	// local development) so gosec's literal-value check cannot prove it, but the cookie is always fully secured.
+	http.SetCookie(w, &http.Cookie{
+		Name:     googleOAuthStateCookie,
+		Value:    "",
+		Path:     googleOAuthStateCookiePath,
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cfg.Environment != "development",
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// GoogleStart handles GET /api/v1/auth/google/start: sends the browser to
+// Google's own consent screen, the entry point of the standard OIDC
+// authorization-code flow. Reached by navigating here directly — an ordinary
+// link, not an XHR — so every failure is a redirect the person looking at
+// the address bar can act on, exactly like GoogleRedirect's own reasoning,
+// and for the same reason: there is no client here to hand a JSON body to.
+func (h *Handler) GoogleStart(w http.ResponseWriter, r *http.Request) {
+	// Nothing about this response may be cached or replayed: a cached 302
+	// would send every later visitor back to a stale, already-spent state.
+	w.Header().Set("Cache-Control", "no-store")
+
+	if h.cfg.FrontendURL == "" {
+		h.respond.Refuse(w, r, frontendNotConfigured)
+		return
+	}
+	if !h.svc.GoogleOAuthEnabled() {
+		h.googleRedirectFailed(w, r, googleErrorUnavailable, "oauth_not_configured", nil)
+		return
+	}
+
+	start, err := h.svc.GoogleStart(r.Context())
+	if err != nil {
+		h.googleRedirectFailed(w, r, googleErrorUnavailable, "oauth_start_failed", err)
+		return
+	}
+
+	h.setOAuthStateCookie(w, start.State)
+	http.Redirect(w, r, start.AuthorizationURL, http.StatusFound)
+}
+
+// GoogleFinish handles POST /api/v1/auth/google/finish: the frontend's
+// callback page calls this once Google sends the browser back with code and
+// state, completing the flow GoogleStart began.
+//
+// The state cookie is this route's whole login-CSRF defence, the same role
+// g_csrf_token plays for GoogleRedirect/GoogleExchange: whoever holds it is
+// the browser GoogleStart redirected, and a code/state pair presented
+// without it — or with a state that does not match — never reaches Google.
+// It is cleared whatever the outcome, because the attempt it named is over
+// either way.
+func (h *Handler) GoogleFinish(w http.ResponseWriter, r *http.Request) {
+	// A session, or a profile token, is about to be minted: no copy of this
+	// response may be cached or replayed.
+	w.Header().Set("Cache-Control", "no-store")
+
+	if !h.svc.GoogleOAuthEnabled() {
+		h.respond.Refuse(w, r, googleNotConfigured)
+		return
+	}
+
+	var body gen.AuthGoogleFinishJSONBody
+	if err := httpx.ReadJSON(w, r, &body); err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+
+	v := validator.New()
+	v.Check(body.Code != "", "code", "must be provided")
+	v.Check(body.State != "", "state", "must be provided")
+	if !v.Valid() {
+		h.respond.FailedValidation(w, r, v.Errors)
+		return
+	}
+
+	cookie, cookieErr := r.Cookie(googleOAuthStateCookie)
+	h.clearOAuthStateCookie(w)
+	if cookieErr != nil || cookie.Value == "" ||
+		subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(body.State)) != 1 {
+		// The same answer an unknown, expired or replayed state gets from the
+		// service below — see GoogleFinish's own comment for why they must
+		// not be told apart.
+		v.AddError("code", "invalid or expired")
+		h.respond.FailedValidation(w, r, v.Errors)
+		return
+	}
+
+	result, err := h.svc.GoogleFinish(r.Context(), h.actor(r), body.Code, body.State)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrGoogleCodeInvalid):
+			v.AddError("code", "invalid or expired")
+			h.respond.FailedValidation(w, r, v.Errors)
+		case errors.Is(err, ErrGoogleRejected):
+			v.AddError("credential", "invalid")
+			h.respond.FailedValidation(w, r, v.Errors)
+		case errors.Is(err, ErrInvalidCredentials):
+			h.respond.InvalidCredentials(w, r)
+		default:
+			h.respond.DomainError(w, r, err)
+		}
+		return
+	}
+
+	if result.NeedsProfile != nil {
+		h.respondNeedsProfile(w, r, result.NeedsProfile)
+		return
+	}
+
+	h.respondWithSession(w, r, result.Session)
+}
+
 // respondNeedsProfile answers a Google sign-in for an address with no account
 // yet: the profile token plus the fields prefilled for the signup form.
 func (h *Handler) respondNeedsProfile(w http.ResponseWriter, r *http.Request, needs *NeedsProfile) {

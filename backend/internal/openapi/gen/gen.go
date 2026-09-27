@@ -1039,6 +1039,21 @@ func (e AuthGoogleExchange200JSONResponseBody1NeedsProfile) Valid() bool {
 	}
 }
 
+// Defines values for AuthGoogleFinish200JSONResponseBody1NeedsProfile.
+const (
+	AuthGoogleFinish200JSONResponseBody1NeedsProfileTrue AuthGoogleFinish200JSONResponseBody1NeedsProfile = true
+)
+
+// Valid indicates whether the value is a known member of the AuthGoogleFinish200JSONResponseBody1NeedsProfile enum.
+func (e AuthGoogleFinish200JSONResponseBody1NeedsProfile) Valid() bool {
+	switch e {
+	case AuthGoogleFinish200JSONResponseBody1NeedsProfileTrue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthUpdateCurrentUser200JSONResponseBodyEmailChange.
 const (
 	AuthUpdateCurrentUser200JSONResponseBodyEmailChangeFailed    AuthUpdateCurrentUser200JSONResponseBodyEmailChange = "failed"
@@ -2906,6 +2921,38 @@ type AuthGoogleExchange200JSONResponseBody1 struct {
 // AuthGoogleExchange200JSONResponseBody1NeedsProfile defines parameters for AuthGoogleExchange.
 type AuthGoogleExchange200JSONResponseBody1NeedsProfile bool
 
+// AuthGoogleFinishJSONBody defines parameters for AuthGoogleFinish.
+type AuthGoogleFinishJSONBody struct {
+	// Code The authorization code Google's redirect carried.
+	Code string `json:"code"`
+
+	// State The `state` Google's redirect carried, read back by the callback page. Compared against the `state` cookie `/auth/google/start` set; the two must agree.
+	State string `json:"state"`
+}
+
+// AuthGoogleFinish200JSONResponseBody0 defines parameters for AuthGoogleFinish.
+type AuthGoogleFinish200JSONResponseBody0 struct {
+	// CsrfToken Send this back as the `X-CSRF-Token` header on subsequent mutating requests.
+	CsrfToken string `json:"csrf_token"`
+	User      User   `json:"user"`
+}
+
+// AuthGoogleFinish200JSONResponseBody1 defines parameters for AuthGoogleFinish.
+type AuthGoogleFinish200JSONResponseBody1 struct {
+	NeedsProfile AuthGoogleFinish200JSONResponseBody1NeedsProfile `json:"needs_profile"`
+	Profile      struct {
+		Email     string `json:"email"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+	} `json:"profile"`
+
+	// ProfileToken Signed, 10-minute token. Send back to `/auth/google/complete`.
+	ProfileToken string `json:"profile_token"`
+}
+
+// AuthGoogleFinish200JSONResponseBody1NeedsProfile defines parameters for AuthGoogleFinish.
+type AuthGoogleFinish200JSONResponseBody1NeedsProfile bool
+
 // AuthGoogleRedirectFormdataBody defines parameters for AuthGoogleRedirect.
 type AuthGoogleRedirectFormdataBody struct {
 	// ClientId The OAuth client id. Sent by Google, ignored here — the audience is checked on the token itself.
@@ -3641,6 +3688,9 @@ type AuthGoogleCompleteJSONRequestBody AuthGoogleCompleteJSONBody
 // AuthGoogleExchangeJSONRequestBody defines body for AuthGoogleExchange for application/json ContentType.
 type AuthGoogleExchangeJSONRequestBody AuthGoogleExchangeJSONBody
 
+// AuthGoogleFinishJSONRequestBody defines body for AuthGoogleFinish for application/json ContentType.
+type AuthGoogleFinishJSONRequestBody AuthGoogleFinishJSONBody
+
 // AuthGoogleRedirectFormdataRequestBody defines body for AuthGoogleRedirect for application/x-www-form-urlencoded ContentType.
 type AuthGoogleRedirectFormdataRequestBody AuthGoogleRedirectFormdataBody
 
@@ -3864,9 +3914,15 @@ type ServerInterface interface {
 	// AuthGoogleExchange Spend a redirect-mode one-time code for a session
 	// (POST /api/v1/auth/google/exchange)
 	AuthGoogleExchange(w http.ResponseWriter, r *http.Request)
+	// AuthGoogleFinish Complete the OIDC authorization-code sign-in flow
+	// (POST /api/v1/auth/google/finish)
+	AuthGoogleFinish(w http.ResponseWriter, r *http.Request)
 	// AuthGoogleRedirect Receive Google's redirect-mode form post and hand back a one-time code
 	// (POST /api/v1/auth/google/redirect)
 	AuthGoogleRedirect(w http.ResponseWriter, r *http.Request)
+	// AuthGoogleStart Begin the OIDC authorization-code sign-in flow
+	// (GET /api/v1/auth/google/start)
+	AuthGoogleStart(w http.ResponseWriter, r *http.Request)
 	// AuthLogin Log in and start a session
 	// (POST /api/v1/auth/login)
 	AuthLogin(w http.ResponseWriter, r *http.Request)
@@ -4548,11 +4604,39 @@ func (siw *ServerInterfaceWrapper) AuthGoogleExchange(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// AuthGoogleFinish operation middleware
+func (siw *ServerInterfaceWrapper) AuthGoogleFinish(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthGoogleFinish(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AuthGoogleRedirect operation middleware
 func (siw *ServerInterfaceWrapper) AuthGoogleRedirect(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AuthGoogleRedirect(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AuthGoogleStart operation middleware
+func (siw *ServerInterfaceWrapper) AuthGoogleStart(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthGoogleStart(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7915,6 +7999,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/complete", wrapper.AuthGoogleComplete)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/redirect", wrapper.AuthGoogleRedirect)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/exchange", wrapper.AuthGoogleExchange)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/auth/google/start", wrapper.AuthGoogleStart)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/google/finish", wrapper.AuthGoogleFinish)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/refresh", wrapper.AuthRefresh)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/logout", wrapper.AuthLogout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/verify-email", wrapper.AuthVerifyEmail)

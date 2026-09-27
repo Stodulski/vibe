@@ -272,6 +272,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("SENTRY_RELEASE", &cfg.Sentry.Release)
 	env.strVal("GOOGLE_MAPS_API", &cfg.Google.PlacesAPIKey)
 	env.strVal("GOOGLE_OAUTH_CLIENT_ID", &cfg.Google.OAuthClientID)
+	env.strVal("GOOGLE_OAUTH_CLIENT_SECRET", &cfg.Google.OAuthClientSecret)
 	env.boolVal("OPENAPI_VALIDATE_REQUESTS", &cfg.OpenAPIValidateRequests)
 	env.boolVal("PPROF_ENABLED", &cfg.PProf)
 

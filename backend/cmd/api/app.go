@@ -248,6 +248,18 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		HalfOpenMaxReqs: 1,
 		OnStateChange:   cbStateChange,
 	})
+	// A breaker of its own, matching mpOAuthCB's reasoning above: this one
+	// gates a different outbound call (Google's token endpoint rather than
+	// its JWKS) with a different failure mode, and mixing the two into one
+	// breaker would let a JWKS outage look like a token-endpoint outage or
+	// the reverse.
+	googleTokenCB := circuitbreaker.New(circuitbreaker.Config{
+		Name:            "google-oauth-token",
+		MaxFailures:     3,
+		ResetTimeout:    60 * time.Second,
+		HalfOpenMaxReqs: 1,
+		OnStateChange:   cbStateChange,
+	})
 
 	blacklist := auth.NewTokenBlacklist(d.rdb, d.logger, cfg.Env)
 	events := realtime.NewHub(d.rdb, d.logger, cfg.Env)
@@ -274,6 +286,11 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	googleVerifier := googleid.NewVerifier(googleid.Config{
 		ClientID: cfg.Google.OAuthClientID,
 		CB:       googleCB,
+	})
+	googleCodeExchanger := googleid.NewCodeExchanger(googleid.ExchangeConfig{
+		ClientID:     cfg.Google.OAuthClientID,
+		ClientSecret: cfg.Google.OAuthClientSecret,
+		CB:           googleTokenCB,
 	})
 
 	// The queue is the jobs table, so it is built from the store rather than
@@ -494,6 +511,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		CookieDomain:      cfg.CookieDomain,
 		Environment:       cfg.Env,
 		FrontendURL:       cfg.FrontendURL,
+		OAuthClientID:     cfg.Google.OAuthClientID,
 		TrustProxies:      d.trustedProxies.Any(),
 		PasswordHashCost:  cfg.PasswordHashCost,
 	}
@@ -518,8 +536,11 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		// exchange reaches, so they have to live in Redis and not in a
 		// process — see auth.GoogleCodes.
 		GoogleCodes: auth.NewGoogleCodes(d.rdb, cfg.Env),
-		Respond:     respond,
-		Logger:      d.logger,
+		// The OIDC authorization-code flow's token exchange, alongside the
+		// GIS ID-token verifier above — see GoogleFinish.
+		CodeExchanger: googleCodeExchanger,
+		Respond:       respond,
+		Logger:        d.logger,
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
