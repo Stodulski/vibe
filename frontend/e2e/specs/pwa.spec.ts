@@ -19,6 +19,10 @@ interface BrowserGlobals {
     dispatchEvent(event: unknown): void;
   };
   Event: new (type: string) => unknown;
+  caches: {
+    open(name: string): Promise<unknown>;
+    has(name: string): Promise<boolean>;
+  };
 }
 interface ServiceWorkerRegistrationLike {
   installing: unknown;
@@ -66,9 +70,19 @@ test.describe('PWA — offline and update prompt', () => {
   // reaching `state === 'installed'` as an update exactly when the page
   // already has a controller — the same condition a real second deploy
   // produces. Faking that transition on the real registration exercises the
-  // real onNeedRefresh -> toast wiring in serviceWorkerUpdate.ts, not a
-  // stand-in component.
-  test('shows the update toast when a new service worker reaches waiting', async ({ page }) => {
+  // real onNeedRefresh wiring in serviceWorkerUpdate.ts, not a stand-in
+  // component.
+  //
+  // The update is applied silently — there is no toast to wait for — so this
+  // asserts the absence of a prompt and drives the app through one of the
+  // real triggers (an in-app navigation). The fake worker never reaches a real
+  // `waiting` state, so SKIP_WAITING has nothing to activate and the reload
+  // that follows a real takeover cannot happen here; what this proves is that
+  // the navigation spent the pending update. `applyPendingServiceWorkerUpdate`
+  // purges the runtime API cache as its first step, so a pre-seeded
+  // `api-cache` disappearing is that signal. The takeover itself is proven by
+  // the first deploy after a merge, as it always was.
+  test('applies a waiting update silently on the next in-app navigation, with no update prompt', async ({ page }) => {
     await page.goto('/login');
     await page.waitForFunction(() => {
       const { navigator } = globalThis as never as BrowserGlobals;
@@ -76,7 +90,10 @@ test.describe('PWA — offline and update prompt', () => {
     });
 
     await page.evaluate(async () => {
-      const { navigator, EventTarget, Event } = globalThis as never as BrowserGlobals;
+      const { navigator, EventTarget, Event, caches } = globalThis as never as BrowserGlobals;
+      // Seeded so its purge can be observed; must match API_CACHE_NAME in
+      // src/shared/lib/apiCache.ts.
+      await caches.open('api-cache');
       const registration = await navigator.serviceWorker.getRegistration();
       if (!registration) throw new Error('expected an active service worker registration');
 
@@ -106,7 +123,18 @@ test.describe('PWA — offline and update prompt', () => {
       fakeWorker.state = 'installed';
     });
 
-    await expect(page.getByText('Hay una versión nueva de Vibe.')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole('button', { name: 'Actualizar' })).toBeVisible();
+    // No toast, no "Actualizar" button: the update landed without asking.
+    await expect(page.getByText('Hay una versión nueva de Vibe.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Actualizar' })).toHaveCount(0);
+
+    // Nothing spends the update while the person stays on this screen.
+    expect(await page.evaluate(() => (globalThis as never as BrowserGlobals).caches.has('api-cache'))).toBe(true);
+
+    // useApplyUpdateOnNavigation spends the pending update on the next
+    // pathname change. This link exists on the login page regardless of
+    // auth state, so no login flow is needed to trigger it.
+    await page.getByRole('link', { name: 'Registrate acá' }).click();
+    await expect(page).toHaveURL(/\/register/);
+    await page.waitForFunction(async () => !(await (globalThis as never as BrowserGlobals).caches.has('api-cache')));
   });
 });

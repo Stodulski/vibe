@@ -1,16 +1,9 @@
-import { toast } from 'sonner';
 import type { registerSW } from 'virtual:pwa-register';
-import { ES_AR } from '@/shared/i18n/es_AR';
 import { purgeApiCache } from '@/shared/lib/apiCache';
 import { hasUnsavedWork } from '@/shared/lib/unsavedWork';
 
-const t = ES_AR;
-
 /** How often a long-lived tab asks the browser whether a new worker exists. */
 export const SW_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-
-/** Fixed toast id, so repeated update checks refresh one toast instead of stacking. */
-export const SW_UPDATE_TOAST_ID = 'sw-update';
 
 /**
  * `registerSW`'s "take over now" callback, kept module-level so the triggers
@@ -48,8 +41,8 @@ export function isUpdatePending(): boolean {
  * deploy would otherwise never reload.
  *
  * Idempotent: a second call while a handover is in flight does nothing, so the
- * navigation trigger, the visibility trigger and the toast can all fire
- * without stacking `controllerchange` listeners or reloads.
+ * navigation trigger, the hide-on-background trigger and the hidden-at-detection
+ * trigger can all fire without stacking `controllerchange` listeners or reloads.
  *
  * Callers decide whether it is *safe* to call; this only decides whether it is
  * possible.
@@ -59,11 +52,6 @@ export function applyPendingServiceWorkerUpdate(): void {
     return;
   }
   applying = true;
-
-  // The toast is the fallback for someone parked on one screen. Once the
-  // update is being applied it has nothing left to offer, and leaving it up
-  // through the reload would flash a stale prompt.
-  toast.dismiss(SW_UPDATE_TOAST_ID);
 
   purgeApiCache();
   if ('serviceWorker' in navigator) {
@@ -81,9 +69,8 @@ export function applyPendingServiceWorkerUpdate(): void {
 /**
  * Applies a pending update only if nobody is in the middle of something.
  *
- * Used by the triggers that fire without the person asking. The toast action
- * deliberately does not go through here: clicking "Actualizar" *is* the person
- * asking.
+ * Used by every trigger below: none of them is a person asking, so all of
+ * them defer to `hasUnsavedWork()` instead of forcing the handover.
  */
 function applyPendingUpdateIfSafe(): void {
   if (!pending || hasUnsavedWork()) {
@@ -94,8 +81,9 @@ function applyPendingUpdateIfSafe(): void {
 
 /**
  * Registers the service worker in prompt mode and turns "a new build exists"
- * into an update that lands at the first safe moment, never into a reload on
- * top of what someone is doing.
+ * into an update that is applied silently at the first safe moment, never
+ * into a reload on top of what someone is doing, and never into a prompt the
+ * person has to notice and act on.
  *
  * The worker precaches index.html and every bundle, so an open tab keeps
  * running the build it loaded — and because index.html is served cache-first,
@@ -108,7 +96,7 @@ function applyPendingUpdateIfSafe(): void {
  *
  * Prompt mode keeps that guarantee — the new worker waits, and the old one
  * keeps serving the old build's chunks to the tabs that loaded them — while
- * two triggers spend it at moments that cost nothing:
+ * three triggers spend it at moments that cost nothing:
  *
  * - An in-app navigation that changes the pathname
  *   (`useApplyUpdateOnNavigation`). The screen is being torn down anyway, and
@@ -116,10 +104,17 @@ function applyPendingUpdateIfSafe(): void {
  *   time the trigger runs, so it is safe by construction.
  * - The tab going to the background (below), unless a form is dirty. Nobody is
  *   looking, and the person comes back to the new build already loaded.
+ * - The update being detected while the tab is *already* in the background
+ *   (`onNeedRefresh` below), which is what the periodic check finds on a tab
+ *   nobody switched away from since the deploy. Waiting for the next
+ *   `visibilitychange` would never fire, so this applies the update on the
+ *   spot through the same safe path instead.
  *
- * Both refuse while `hasUnsavedWork()`, so a dirty form is never reloaded out
- * from under anyone. The toast stays as the way in for someone who sits on one
- * screen and never navigates or switches away.
+ * Every trigger refuses while `hasUnsavedWork()`, so a dirty form is never
+ * reloaded out from under anyone. There is no visible fallback for someone
+ * who sits on one screen, never navigates and never leaves it: that person
+ * keeps running the old build until one of the three triggers fires. The
+ * owner chose that silence over a visible update prompt.
  *
  * The periodic and visibility checks only make a long-lived tab notice a
  * deploy without waiting for the browser's own 24 hour check.
@@ -137,16 +132,16 @@ export function setupServiceWorkerUpdates(register: typeof registerSW): void {
     },
     onNeedRefresh() {
       pending = true;
-      toast(t.common.updateAvailable, {
-        id: SW_UPDATE_TOAST_ID,
-        duration: Infinity,
-        action: {
-          label: t.common.updateNow,
-          onClick: () => {
-            applyPendingServiceWorkerUpdate();
-          },
-        },
-      });
+
+      // The tab may already be in the background when this fires — the
+      // periodic check runs regardless of visibility, so a deploy that lands
+      // while nobody switched away is found here, not on a `visibilitychange`
+      // that will never come. Applying it now, through the same safe path,
+      // closes that gap instead of leaving the build stale until the next
+      // hide.
+      if (document.visibilityState === 'hidden') {
+        applyPendingUpdateIfSafe();
+      }
     },
   });
 

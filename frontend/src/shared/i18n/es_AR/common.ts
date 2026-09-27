@@ -25,8 +25,6 @@ export const common = {
   filters: 'Filtros',
   export: 'Exportar',
   refresh: 'Actualizar',
-  updateAvailable: 'Hay una versión nueva de Vibe.',
-  updateNow: 'Actualizar',
   optional: 'opcional',
   requiredMarker: 'requerido',
   requiredHint: 'Los campos obligatorios están marcados con *',
