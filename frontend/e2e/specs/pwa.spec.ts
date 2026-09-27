@@ -19,6 +19,10 @@ interface BrowserGlobals {
     dispatchEvent(event: unknown): void;
   };
   Event: new (type: string) => unknown;
+  caches: {
+    open(name: string): Promise<unknown>;
+    has(name: string): Promise<boolean>;
+  };
 }
 interface ServiceWorkerRegistrationLike {
   installing: unknown;
@@ -71,8 +75,13 @@ test.describe('PWA — offline and update prompt', () => {
   //
   // The update is applied silently — there is no toast to wait for — so this
   // asserts the absence of a prompt and drives the app through one of the
-  // real triggers (an in-app navigation) to prove the new worker actually
-  // takes over.
+  // real triggers (an in-app navigation). The fake worker never reaches a real
+  // `waiting` state, so SKIP_WAITING has nothing to activate and the reload
+  // that follows a real takeover cannot happen here; what this proves is that
+  // the navigation spent the pending update. `applyPendingServiceWorkerUpdate`
+  // purges the runtime API cache as its first step, so a pre-seeded
+  // `api-cache` disappearing is that signal. The takeover itself is proven by
+  // the first deploy after a merge, as it always was.
   test('applies a waiting update silently on the next in-app navigation, with no update prompt', async ({ page }) => {
     await page.goto('/login');
     await page.waitForFunction(() => {
@@ -81,7 +90,10 @@ test.describe('PWA — offline and update prompt', () => {
     });
 
     await page.evaluate(async () => {
-      const { navigator, EventTarget, Event } = globalThis as never as BrowserGlobals;
+      const { navigator, EventTarget, Event, caches } = globalThis as never as BrowserGlobals;
+      // Seeded so its purge can be observed; must match API_CACHE_NAME in
+      // src/shared/lib/apiCache.ts.
+      await caches.open('api-cache');
       const registration = await navigator.serviceWorker.getRegistration();
       if (!registration) throw new Error('expected an active service worker registration');
 
@@ -115,16 +127,14 @@ test.describe('PWA — offline and update prompt', () => {
     await expect(page.getByText('Hay una versión nueva de Vibe.')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Actualizar' })).toHaveCount(0);
 
+    // Nothing spends the update while the person stays on this screen.
+    expect(await page.evaluate(() => (globalThis as never as BrowserGlobals).caches.has('api-cache'))).toBe(true);
+
     // useApplyUpdateOnNavigation spends the pending update on the next
     // pathname change. This link exists on the login page regardless of
-    // auth state, so no login flow is needed to trigger it. React Router's
-    // client-side navigation alone never fires a browser `load` event; only
-    // `applyPendingServiceWorkerUpdate`'s `window.location.reload()` on the
-    // `controllerchange` does, so waiting for `load` is the signal that the
-    // takeover actually happened rather than just that the route changed.
-    const reloaded = page.waitForEvent('load');
+    // auth state, so no login flow is needed to trigger it.
     await page.getByRole('link', { name: 'Registrate acá' }).click();
-    await reloaded;
     await expect(page).toHaveURL(/\/register/);
+    await page.waitForFunction(async () => !(await (globalThis as never as BrowserGlobals).caches.has('api-cache')));
   });
 });
