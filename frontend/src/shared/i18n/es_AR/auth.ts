@@ -107,4 +107,10 @@ export const auth = {
   googleErrorUnavailable: 'Google no está disponible en este momento. Probá más tarde o ingresá con tu email.',
   googleErrorExpired: 'El ingreso con Google expiró. Probá de nuevo.',
   googleErrorRateLimited: 'Demasiados intentos. Esperá un minuto y volvé a probar.',
+  inAppBrowserExplain:
+    'Google no permite iniciar sesión desde el navegador de esta app. Podés seguir con tu email y contraseña, o abrir esta página en tu navegador para usar Google.',
+  inAppBrowserOpenInChrome: 'Abrir en Chrome',
+  inAppBrowserOpenIOSInstruction: 'Tocá el botón ··· o el ícono para compartir y elegí "Abrir en el navegador".',
+  inAppBrowserCopyLink: 'Copiar enlace',
+  inAppBrowserLinkCopied: 'Enlace copiado',
 } as const;
