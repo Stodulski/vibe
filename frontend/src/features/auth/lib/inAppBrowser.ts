@@ -16,7 +16,7 @@
 export type InAppBrowserApp = 'instagram' | 'facebook' | 'messenger' | 'line' | 'tiktok' | 'android-webview';
 
 /** The OS family, used to pick the right escape hatch (intent link vs. menu instructions). */
-export type InAppBrowserPlatform = 'android' | 'ios' | 'other';
+type InAppBrowserPlatform = 'android' | 'ios' | 'other';
 
 export interface InAppBrowserInfo {
   /** The detected in-app browser, or `null` when the user agent looks like a real browser. */
