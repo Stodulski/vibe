@@ -196,6 +196,25 @@ type GoogleVerifier interface {
 	Verify(ctx context.Context, credential string) (*googleid.Claims, error)
 }
 
+// GoogleCodeExchanger trades an OIDC authorization code — together with the
+// PKCE verifier GoogleStart minted for it — for Google's ID token. It is
+// declared here, by the consumer, matching GoogleVerifier — Handler/Service
+// depend on this interface, never on internal/googleid's concrete client.
+//
+// A nil GoogleCodeExchanger means disabled, exactly like a nil GoogleVerifier:
+// NewService substitutes disabledCodeExchanger{}, so GoogleOAuthEnabled and
+// GoogleFinish answer as unconfigured without a nil check at every call site.
+type GoogleCodeExchanger interface {
+	// Enabled reports whether the authorization-code flow is configured (a
+	// client secret is set, alongside the client id GoogleVerifier already
+	// requires). When it is not, callers must skip Exchange entirely.
+	Enabled() bool
+	// Exchange trades code and verifier for an ID token, presenting
+	// redirectURI exactly as GoogleStart sent it to Google. It reports why a
+	// code was refused via googleid.ErrCodeRejected or googleid.ErrUnavailable.
+	Exchange(ctx context.Context, code, verifier, redirectURI string) (idToken string, err error)
+}
+
 // GoogleCodeStore holds the one-time codes that carry a redirect-mode Google
 // sign-in between the two requests it is split across: Google's form POST,
 // whose answer is a redirect, and the frontend's exchange, which is where the
@@ -239,7 +258,15 @@ type Config struct {
 	// runs over plain HTTP.
 	Environment string
 	// FrontendURL is the origin the emailed verification and reset links point at.
+	// GoogleStart and GoogleFinish also derive the OIDC redirect_uri from it
+	// (FrontendURL + "/auth/google/callback") — see googleOAuthCallbackPath.
 	FrontendURL string
+	// OAuthClientID is this application's Google OAuth client id, used to
+	// build the authorization URL GoogleStart redirects to. It is the same
+	// value GoogleVerifier itself was configured with; it travels here too
+	// because building that URL is this module's own concern, not the
+	// verifier's.
+	OAuthClientID string
 	// PasswordHashCost is the bcrypt cost this module hashes passwords at.
 	// Zero means authstore.DefaultHashCost, the production value; a test
 	// binary passes bcrypt.MinCost so that a suite which registers or signs in
@@ -309,10 +336,16 @@ type Dependencies struct {
 	// with.
 	Identities IdentityStore
 	// GoogleCodes holds the one-time codes redirect-mode Google sign-in is
-	// exchanged with. Nil means in-memory — see GoogleCodeStore.
+	// exchanged with. Nil means in-memory — see GoogleCodeStore. GoogleStart
+	// and GoogleFinish reuse the same store, under their own key namespace,
+	// for the OIDC flow's state/nonce/PKCE-verifier entries — see
+	// internal/auth/google_oidc.go.
 	GoogleCodes GoogleCodeStore
-	Respond     *httpx.Responder
-	Logger      *slog.Logger
+	// CodeExchanger trades an OIDC authorization code for an ID token, for
+	// GoogleFinish. Nil means disabled — see GoogleCodeExchanger.
+	CodeExchanger GoogleCodeExchanger
+	Respond       *httpx.Responder
+	Logger        *slog.Logger
 }
 
 // NewHandler returns a Handler backed by the given service.
@@ -344,4 +377,15 @@ func (disabledGoogle) Enabled() bool { return false }
 
 func (disabledGoogle) Verify(context.Context, string) (*googleid.Claims, error) {
 	return nil, googleid.ErrUnavailable
+}
+
+// disabledCodeExchanger is the zero-value GoogleCodeExchanger: always
+// disabled, its Exchange never actually called (GoogleOAuthEnabled is checked
+// first).
+type disabledCodeExchanger struct{}
+
+func (disabledCodeExchanger) Enabled() bool { return false }
+
+func (disabledCodeExchanger) Exchange(context.Context, string, string, string) (string, error) {
+	return "", googleid.ErrUnavailable
 }
