@@ -488,6 +488,13 @@ func main() {
 		logger.Info("google sign-in disabled (no GOOGLE_OAUTH_CLIENT_ID)")
 	}
 
+	if cfg.Google.OAuthClientID != "" && cfg.Google.OAuthClientSecret != "" && cfg.FrontendURL != "" {
+		logger.Info("google oidc authorization-code sign-in enabled")
+	} else {
+		logger.Info("google oidc authorization-code sign-in disabled " +
+			"(needs GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET and FRONTEND_URL all set)")
+	}
+
 	// One event per boot, so that a deploy proves its own Sentry wiring: an
 	// empty project is otherwise indistinguishable from a DSN that was never
 	// set. Here rather than next to sentry.Init because -migrate-only passes

@@ -294,6 +294,12 @@ type Google struct {
 	// the OpenAPI document and the CSRF/rate-limit/tenant exemption tables
 	// never depend on it.
 	OAuthClientID string
+	// OAuthClientSecret additionally enables the OIDC authorization-code
+	// flow (GET /auth/google/start, POST /auth/google/finish) when set
+	// alongside OAuthClientID and FrontendURL — see
+	// auth.Service.GoogleOAuthEnabled. It is never logged: main.go's boot log
+	// only ever names OAuthClientID.
+	OAuthClientSecret string
 }
 
 // Features is the product flag set parsed from FEATURE_FLAGS.

@@ -36,6 +36,10 @@ var publicRoutes = map[string]string{
 		"frontend's proxy; the caller is Google, not a signed-in browser, and the answer is only a redirect",
 	"POST /api/v1/auth/google/exchange": "spends the one-time code the redirect handed the frontend; " +
 		"the session it establishes is the one that did not exist yet",
+	"GET /api/v1/auth/google/start": "sends the browser to Google's own consent screen; there is no " +
+		"session yet, and its own defence is the state cookie it sets, not one",
+	"POST /api/v1/auth/google/finish": "completes the OIDC code exchange the callback page started; " +
+		"the session it establishes is the one that did not exist yet",
 	"POST /api/v1/auth/refresh":             "runs on an expired access token by design",
 	"POST /api/v1/auth/logout":              "must succeed even with an already-invalid session",
 	"POST /api/v1/auth/verify-email":        "reached from an emailed link, before first login",

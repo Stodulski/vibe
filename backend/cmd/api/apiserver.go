@@ -127,6 +127,18 @@ func (s *apiServer) AuthGoogleRedirect(w http.ResponseWriter, r *http.Request) {
 	s.app.auth.GoogleRedirect(w, r)
 }
 
+// AuthGoogleStart implements gen.ServerInterface for authGoogleStart
+// (GET /api/v1/auth/google/start). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) AuthGoogleStart(w http.ResponseWriter, r *http.Request) {
+	s.app.auth.GoogleStart(w, r)
+}
+
+// AuthGoogleFinish implements gen.ServerInterface for authGoogleFinish
+// (POST /api/v1/auth/google/finish). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) AuthGoogleFinish(w http.ResponseWriter, r *http.Request) {
+	s.app.auth.GoogleFinish(w, r)
+}
+
 // AuthLogin implements gen.ServerInterface for authLogin
 // (POST /api/v1/auth/login). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) AuthLogin(w http.ResponseWriter, r *http.Request) {
