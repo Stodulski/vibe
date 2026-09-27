@@ -13,8 +13,8 @@ interface SellCategoryChipsProps {
  * "Todas" plus one chip per category present in the active catalog
  * (`odd/tasks/pos-cashbox.md` T5b), in one horizontally scrolling row rather
  * than wrapping lines, so a long category list never pushes the products
- * down. Same scroller as the public DateSelector (`scrollbar-none`, snap) —
- * shared with the products feature's category picker via `ChipList`/`Chip`.
+ * down. The scroller (snap, mouse drag, thin green bar) is `ChipList`/`Chip`,
+ * shared with the products feature's category picker.
  */
 export function SellCategoryChips({ categories, selected, onSelect }: SellCategoryChipsProps) {
   return (

@@ -455,6 +455,32 @@ html body[data-scroll-locked] {
   scrollbar-color: color-mix(in srgb, var(--color-primary-500) 30%, transparent) transparent;
 }
 
+/* A thin brand-green bar for horizontal chip sliders. Chromium and WebKit
+   only honour ::-webkit-scrollbar while scrollbar-width/-color are `auto`, so
+   the global `* { scrollbar-width: thin }` is reset here; Firefox, which has
+   no such pseudo-elements, gets the standard properties instead. */
+.scrollbar-accent {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+.scrollbar-accent::-webkit-scrollbar {
+  height: 4px;
+}
+.scrollbar-accent::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-accent::-webkit-scrollbar-thumb,
+.scrollbar-accent::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-500);
+  border-radius: 999px;
+}
+@supports (-moz-appearance: none) {
+  .scrollbar-accent {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-primary-500) transparent;
+  }
+}
+
 /* Scrolls, but shows no bar — for surfaces that already advertise the movement
    some other way (arrows, a partly-cut item at the edge). */
 .scrollbar-none {

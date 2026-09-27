@@ -3,7 +3,7 @@ import { getNowMinutesInBuenosAires } from './nowIndicator';
 import { useTimelineColumns } from './useTimelineColumns';
 import { useColumnScroller } from './useColumnScroller';
 import { useColumnWidth } from './useColumnWidth';
-import { useDragScroll } from './useDragScroll';
+import { useDragScroll } from '@/shared/hooks/useDragScroll';
 import { cn } from '@/shared/lib/utils';
 import { StickyCourtNames } from './StickyCourtNames';
 import { GridBody } from './GridBody';
