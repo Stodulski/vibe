@@ -66,9 +66,14 @@ test.describe('PWA — offline and update prompt', () => {
   // reaching `state === 'installed'` as an update exactly when the page
   // already has a controller — the same condition a real second deploy
   // produces. Faking that transition on the real registration exercises the
-  // real onNeedRefresh -> toast wiring in serviceWorkerUpdate.ts, not a
-  // stand-in component.
-  test('shows the update toast when a new service worker reaches waiting', async ({ page }) => {
+  // real onNeedRefresh wiring in serviceWorkerUpdate.ts, not a stand-in
+  // component.
+  //
+  // The update is applied silently — there is no toast to wait for — so this
+  // asserts the absence of a prompt and drives the app through one of the
+  // real triggers (an in-app navigation) to prove the new worker actually
+  // takes over.
+  test('applies a waiting update silently on the next in-app navigation, with no update prompt', async ({ page }) => {
     await page.goto('/login');
     await page.waitForFunction(() => {
       const { navigator } = globalThis as never as BrowserGlobals;
@@ -106,7 +111,20 @@ test.describe('PWA — offline and update prompt', () => {
       fakeWorker.state = 'installed';
     });
 
-    await expect(page.getByText('Hay una versión nueva de Vibe.')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole('button', { name: 'Actualizar' })).toBeVisible();
+    // No toast, no "Actualizar" button: the update landed without asking.
+    await expect(page.getByText('Hay una versión nueva de Vibe.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Actualizar' })).toHaveCount(0);
+
+    // useApplyUpdateOnNavigation spends the pending update on the next
+    // pathname change. This link exists on the login page regardless of
+    // auth state, so no login flow is needed to trigger it. React Router's
+    // client-side navigation alone never fires a browser `load` event; only
+    // `applyPendingServiceWorkerUpdate`'s `window.location.reload()` on the
+    // `controllerchange` does, so waiting for `load` is the signal that the
+    // takeover actually happened rather than just that the route changed.
+    const reloaded = page.waitForEvent('load');
+    await page.getByRole('link', { name: 'Registrate acá' }).click();
+    await reloaded;
+    await expect(page).toHaveURL(/\/register/);
   });
 });

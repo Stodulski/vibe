@@ -1,18 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { toast } from 'sonner';
 import type { registerSW } from 'virtual:pwa-register';
-import { ES_AR } from '@/shared/i18n/es_AR';
 import {
   applyPendingServiceWorkerUpdate,
   isUpdatePending,
   setupServiceWorkerUpdates,
   SW_UPDATE_INTERVAL_MS,
-  SW_UPDATE_TOAST_ID,
 } from './serviceWorkerUpdate';
 import { API_CACHE_NAME } from './apiCache';
 import { markUnsavedWork } from './unsavedWork';
-
-vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { dismiss: vi.fn() }) }));
 
 type RegisterOptions = NonNullable<Parameters<typeof registerSW>[0]>;
 
@@ -54,16 +49,6 @@ function setVisibility(state: 'visible' | 'hidden') {
   document.dispatchEvent(new Event('visibilitychange'));
 }
 
-function lastToastOptions() {
-  const call = vi.mocked(toast).mock.calls.at(-1);
-  if (!call) throw new Error('toast was not called');
-  return call[1] as {
-    id?: string;
-    duration?: number;
-    action?: { label: string; onClick: (event: unknown) => void };
-  };
-}
-
 afterEach(() => {
   vi.unstubAllGlobals();
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
@@ -88,78 +73,29 @@ describe('setupServiceWorkerUpdates', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows one persistent toast with the update action when a new worker is waiting', () => {
+  it('marks the update pending when a new worker is waiting, with no visible prompt', () => {
     const sw = fakeRegister();
     setupServiceWorkerUpdates(sw.register);
+    expect(isUpdatePending()).toBe(false);
 
     sw.options().onNeedRefresh?.();
 
-    expect(toast).toHaveBeenCalledWith(ES_AR.common.updateAvailable, expect.anything());
-    const opts = lastToastOptions();
-    expect(opts.id).toBe(SW_UPDATE_TOAST_ID);
-    expect(opts.duration).toBe(Infinity);
-    expect(opts.action?.label).toBe(ES_AR.common.updateNow);
-  });
-
-  it('asks the waiting worker to take over, with a reload, only when the action is clicked', () => {
-    const sw = fakeRegister();
-    setupServiceWorkerUpdates(sw.register);
-    sw.options().onNeedRefresh?.();
+    expect(isUpdatePending()).toBe(true);
     expect(sw.updateSW).not.toHaveBeenCalled();
-
-    lastToastOptions().action?.onClick(new Event('click'));
-
-    expect(sw.updateSW).toHaveBeenCalledTimes(1);
-    expect(sw.updateSW).toHaveBeenCalledWith(true);
-  });
-
-  it('reloads once the new worker takes control after the click, and not before', () => {
-    const reload = vi.fn();
-    vi.stubGlobal('location', { reload });
-    const serviceWorker = new EventTarget();
-    vi.stubGlobal('navigator', { serviceWorker });
-    const sw = fakeRegister();
-    setupServiceWorkerUpdates(sw.register);
-    sw.options().onNeedRefresh?.();
-
-    // A takeover nobody asked for (e.g. every tab closed and reopened) is
-    // not a reason to reload this tab.
-    serviceWorker.dispatchEvent(new Event('controllerchange'));
-    expect(reload).not.toHaveBeenCalled();
-
-    lastToastOptions().action?.onClick(new Event('click'));
-    expect(reload).not.toHaveBeenCalled();
-
-    serviceWorker.dispatchEvent(new Event('controllerchange'));
-    expect(reload).toHaveBeenCalledTimes(1);
-    vi.unstubAllGlobals();
-  });
-
-  it('reuses the same toast id on repeated checks instead of stacking toasts', () => {
-    const sw = fakeRegister();
-    setupServiceWorkerUpdates(sw.register);
-
-    sw.options().onNeedRefresh?.();
-    sw.options().onNeedRefresh?.();
-
-    const ids = vi.mocked(toast).mock.calls.map((call) => (call[1] as { id?: string }).id);
-    expect(ids).toEqual([SW_UPDATE_TOAST_ID, SW_UPDATE_TOAST_ID]);
   });
 });
 
 describe('setupServiceWorkerUpdates cache purge', () => {
   it('purges the runtime API cache before handing over to the new worker', () => {
-    const del = vi.fn().mockResolvedValue(true);
-    vi.stubGlobal('caches', { delete: del });
+    const browser = stubBrowser();
     const sw = fakeRegister();
     setupServiceWorkerUpdates(sw.register);
     sw.options().onNeedRefresh?.();
-    expect(del).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
 
-    lastToastOptions().action?.onClick(new Event('click'));
+    applyPendingServiceWorkerUpdate();
 
-    expect(del).toHaveBeenCalledWith(API_CACHE_NAME);
-    vi.unstubAllGlobals();
+    expect(browser.deleteCache).toHaveBeenCalledWith(API_CACHE_NAME);
   });
 });
 
@@ -201,8 +137,8 @@ describe('setupServiceWorkerUpdates update checks', () => {
 });
 
 // PWA-09: a build that waits for a click reaches almost nobody, and a build
-// that reloads on its own interrupts everybody. These pin the two moments
-// where neither is true.
+// that reloads on its own interrupts everybody. These pin the moments where
+// neither is true — the update is applied silently instead.
 describe('applyPendingServiceWorkerUpdate', () => {
   beforeEach(() => {
     markUnsavedWork('form', false);
@@ -245,18 +181,7 @@ describe('applyPendingServiceWorkerUpdate', () => {
     expect(browser.reload).toHaveBeenCalledTimes(1);
   });
 
-  it('dismisses the fallback toast, so no stale prompt survives the handover', () => {
-    stubBrowser();
-    const sw = fakeRegister();
-    setupServiceWorkerUpdates(sw.register);
-    sw.options().onNeedRefresh?.();
-
-    applyPendingServiceWorkerUpdate();
-
-    expect(toast.dismiss).toHaveBeenCalledWith(SW_UPDATE_TOAST_ID);
-  });
-
-  // Two triggers and a toast can all fire for one waiting worker; a second
+  // Two silent triggers can both fire for one waiting worker; a second
   // handover would stack a second `controllerchange` listener and reload twice.
   it('is idempotent: a second call while one is in flight does nothing', () => {
     const browser = stubBrowser();
@@ -326,5 +251,57 @@ describe('setupServiceWorkerUpdates background trigger', () => {
 
     expect(sw.updateSW).not.toHaveBeenCalled();
     expect(browser.deleteCache).not.toHaveBeenCalled();
+  });
+});
+
+describe('setupServiceWorkerUpdates update detected while hidden', () => {
+  beforeEach(() => {
+    markUnsavedWork('form', false);
+  });
+
+  it('applies the update at once when it is detected while the tab is already hidden', () => {
+    const browser = stubBrowser();
+    setVisibility('hidden');
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+
+    // The periodic check finds the new worker without any `visibilitychange`
+    // happening first — the tab was already backgrounded when the deploy
+    // landed, so there is no future hide event to wait for.
+    sw.options().onNeedRefresh?.();
+
+    expect(isUpdatePending()).toBe(true);
+    expect(browser.deleteCache).toHaveBeenCalledWith(API_CACHE_NAME);
+    expect(sw.updateSW).toHaveBeenCalledWith(true);
+  });
+
+  it('does not apply the update detected while hidden if a form has unsaved changes', () => {
+    const browser = stubBrowser();
+    markUnsavedWork('form', true);
+    setVisibility('hidden');
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+
+    sw.options().onNeedRefresh?.();
+
+    expect(isUpdatePending()).toBe(true);
+    expect(sw.updateSW).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
+  });
+
+  it('waits for a navigation or a hide when the update is detected while visible', () => {
+    const browser = stubBrowser();
+    setVisibility('visible');
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+
+    sw.options().onNeedRefresh?.();
+
+    expect(isUpdatePending()).toBe(true);
+    expect(sw.updateSW).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
+
+    setVisibility('hidden');
+    expect(sw.updateSW).toHaveBeenCalledWith(true);
   });
 });
