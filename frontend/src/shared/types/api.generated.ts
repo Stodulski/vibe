@@ -312,6 +312,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Begin the OIDC authorization-code sign-in flow
+         * @description Public, and reached by navigating the browser here directly (an ordinary link, not an XHR): this is the standard OpenID Connect authorization-code flow with PKCE, the shape every other "Sign in with Google" integration uses, added alongside popup mode (`POST /auth/google`) and redirect mode (`POST /auth/google/redirect` + `POST /auth/google/exchange`) rather than replacing either.
+         *
+         *     Mints `state`, a `nonce` and a PKCE verifier, stores `{nonce, verifier}` single-use for 10 minutes under `state` — the same store `/auth/google/redirect`'s one-time codes use, under its own key namespace — sets `state` in a host-only cookie (`HttpOnly`, `SameSite=Lax`, `Secure` outside development, path-scoped to `/api/v1/auth/google`, `Max-Age` matching the 10-minute TTL) and answers `302` to Google's own authorization endpoint with `response_type=code`, `scope=openid email profile`, `state`, `nonce`, the PKCE `code_challenge` (S256 of the verifier), `code_challenge_method=S256` and `redirect_uri = <FRONTEND_URL>/auth/google/callback` — the same address already registered in the Google Cloud console for redirect mode's `login_uri`.
+         *
+         *     `303` to `<FRONTEND_URL>/login?error=google_unavailable` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set) or the state could not be stored, logging why; `501` when `FRONTEND_URL` itself is empty, the one case with nowhere to redirect to.
+         */
+        get: operations["authGoogleStart"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete the OIDC authorization-code sign-in flow
+         * @description Public, and CSRF-exempt like `/auth/google/exchange`: the `state` cookie bound to the browser that called `/auth/google/start` is this route's own login-CSRF defence. Called by the frontend's `/auth/google/callback` page once Google sends the browser back with `code` and `state`.
+         *
+         *     Requires the `state` cookie `/auth/google/start` set and compares it against the body `state` in constant time, then consumes the entry stored under it — single-use, so a replayed callback finds nothing. Exchanges `code` at Google's token endpoint using the client secret and the PKCE verifier that entry carried, presenting the same `redirect_uri` `/auth/google/start` advertised. Verifies the returned `id_token` exactly as the other two flows do (audience, issuer, expiry, signature, `email_verified`), plus checking that its `nonce` matches the one `/auth/google/start` minted. From there this answers exactly what `/auth/google` and `/auth/google/exchange` answer: a session with its cookies, or `needs_profile` with a profile token for `/auth/google/complete`.
+         *
+         *     A missing or mismatched `state` cookie, an unknown, expired or already-spent `state`, and a `code` Google refuses (`invalid_grant` and similar) all answer `422` on field `code` with "invalid or expired" — the same vocabulary `/auth/google/exchange` uses for its own code, so which of them happened is never revealed and the frontend's existing handling for that answer covers this flow too. An `id_token` or `nonce` that fails verification answers `422` on field `credential` with "invalid", the same as a rejected credential anywhere else in this module. `503` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set).
+         */
+        post: operations["authGoogleFinish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -3442,6 +3490,81 @@ export interface operations {
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
             /** @description Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    authGoogleStart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To Google's authorization endpoint, with the state cookie set. */
+            302: {
+                headers: {
+                    /** @description Google's authorization endpoint with this attempt's parameters. */
+                    Location?: string;
+                    /** @description Sets the host-only `state` cookie `/auth/google/finish` reads back. */
+                    "Set-Cookie"?: string;
+                    /** @description Always `no-store`. */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The authorization-code flow is not configured, or the state could not be stored. `Location` is `<FRONTEND_URL>/login?error=google_unavailable`. */
+            303: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            429: components["responses"]["RateLimited"];
+            /** @description `FRONTEND_URL` is not configured, so there is no address to redirect to. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    authGoogleFinish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The authorization code Google's redirect carried. */
+                    code: string;
+                    /** @description The `state` Google's redirect carried, read back by the callback page. Compared against the `state` cookie `/auth/google/start` set; the two must agree. */
+                    state: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["GoogleSignInResult"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description The authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` or `FRONTEND_URL` missing). */
             503: {
                 headers: {
                     [name: string]: unknown;

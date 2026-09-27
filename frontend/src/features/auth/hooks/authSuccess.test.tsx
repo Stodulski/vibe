@@ -74,9 +74,9 @@ describe('useAuthSuccessHandler — the ?from= a hard 401 redirect leaves behind
 });
 
 /**
- * The Google redirect flow signs in on `/auth/google/return`, a page the
+ * The Google OIDC flow signs in on `/auth/google/callback`, a page the
  * visitor never chose: it carries neither the router state nor the `?from=`
- * the original `/login` had. `useGoogleExchange` therefore hands the
+ * the original `/login` had. `useGoogleFinish` therefore hands the
  * destination over explicitly, and it has to beat what the location says —
  * without becoming a way past the allowlist.
  */
@@ -86,7 +86,7 @@ describe('useAuthSuccessHandler — an explicit destination from the caller', ()
   });
 
   it('uses the destination the caller passed', () => {
-    login('/auth/google/return?code=abc', 'owner', { from: '/bookings/abc' });
+    login('/auth/google/callback?code=abc&state=xyz', 'owner', { from: '/bookings/abc' });
     expect(mockNavigate).toHaveBeenCalledWith('/bookings/abc', { replace: true });
   });
 
@@ -98,7 +98,7 @@ describe('useAuthSuccessHandler — an explicit destination from the caller', ()
   // An override is a convenience for a page that lost its context, not an
   // exemption: it goes through exactly the same allowlist.
   it('is filtered like every other destination', () => {
-    login('/auth/google/return?code=abc', 'owner', { from: 'https://evil.example/steal' });
+    login('/auth/google/callback?code=abc&state=xyz', 'owner', { from: 'https://evil.example/steal' });
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 

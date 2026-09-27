@@ -19,7 +19,7 @@ export const handlers = [
   // ─── auth ───
   http.post('*/auth/login', () => HttpResponse.json({ user: makeUser(), csrf_token: 'test-csrf-token' })),
   http.post('*/auth/register', () => HttpResponse.json({ message: 'ok' })),
-  http.post('*/auth/google', () => HttpResponse.json({ status: 'complete', user: makeUser(), csrf_token: 'tok' })),
+  http.post('*/auth/google/finish', () => HttpResponse.json({ user: makeUser(), csrf_token: 'tok' })),
   http.post('*/auth/google/complete', () => HttpResponse.json({ user: makeUser(), csrf_token: 'tok' })),
   http.post('*/auth/logout', () => HttpResponse.json({})),
   http.post('*/auth/verify-email', () => HttpResponse.json({ message: 'ok' })),

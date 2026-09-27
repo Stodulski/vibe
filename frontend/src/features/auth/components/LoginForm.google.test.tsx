@@ -7,16 +7,15 @@ vi.mock('../hooks/useLogin', () => ({
   useLogin: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
 }));
 
-// Never resolves — these tests only care about whether the section renders
-// at all, not about the widget itself (see GoogleSignInButton.test.tsx).
-vi.mock('@/shared/lib/googleIdentity', () => ({
-  loadGoogleIdentityServices: () => new Promise(() => undefined),
-}));
-
 const mockEnv = vi.hoisted(
-  (): { VITE_GOOGLE_CLIENT_ID: string | undefined; VITE_TURNSTILE_SITE_KEY: string | undefined } => ({
+  (): {
+    VITE_GOOGLE_CLIENT_ID: string | undefined;
+    VITE_TURNSTILE_SITE_KEY: string | undefined;
+    VITE_API_URL: string;
+  } => ({
     VITE_GOOGLE_CLIENT_ID: undefined,
     VITE_TURNSTILE_SITE_KEY: undefined,
+    VITE_API_URL: '/api/v1',
   }),
 );
 vi.mock('@/shared/lib/env', () => ({ env: mockEnv }));

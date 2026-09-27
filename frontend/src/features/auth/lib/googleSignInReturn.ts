@@ -12,15 +12,16 @@ const RETURN_PATH_KEY = 'vibe.google-signin.from';
 
 /**
  * Parks the page a visitor was trying to reach before they were sent to sign
- * in, so it survives the Google redirect hop.
+ * in, so it survives the Google OIDC round trip.
  *
- * In popup mode this was free: the page never left, so `useAuthSuccessHandler`
- * could still read the `/login` router state (or `?from=`) when the credential
- * came back. Redirect mode hands the browser to Google and gets it back on
- * `/auth/google/return`, a URL that carries only `?code=` — so a person who
- * was heading for `/bookings?date=…`, got bounced to
- * `/login?from=%2Fbookings…`, and then chose Google used to land on the role
- * default instead of where they were going.
+ * The page never used to leave in the old popup flow, so
+ * `useAuthSuccessHandler` could still read the `/login` router state (or
+ * `?from=`) when the credential came back. The OIDC flow hands the browser
+ * to Google and gets it back on `/auth/google/callback`, a URL that carries
+ * only `?code=` and `?state=` — so a person who was heading for
+ * `/bookings?date=…`, got bounced to `/login?from=%2Fbookings…`, and then
+ * chose Google would otherwise land on the role default instead of where
+ * they were going.
  *
  * Anything {@link isSafeRedirect} rejects is not stored, and — this is the
  * part that matters — neither is `undefined`: the key is removed instead, so

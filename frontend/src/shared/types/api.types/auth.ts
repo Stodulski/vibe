@@ -12,31 +12,20 @@ export type RegisterRequest = Body<'authRegister'>;
 
 export type AuthResponse = Ok<'authLogin'>;
 
-/** `POST /auth/google` when the Google account has no matching user yet. */
-export type GoogleNeedsProfileResponse = Extract<Ok<'authGoogle'>, { needs_profile: true }>;
+/** `POST /auth/google/finish` when the Google account has no matching user yet. */
+export type GoogleNeedsProfileResponse = Extract<Ok<'authGoogleFinish'>, { needs_profile: true }>;
 
 export type GoogleProfilePreview = GoogleNeedsProfileResponse['profile'];
 
-/** `POST /auth/google` — either an existing account logs in, or a new one needs a phone number first. */
-export type GoogleSignInResponse = Ok<'authGoogle'>;
+/** `POST /auth/google/finish` — either an existing account logs in, or a new one needs a phone number first. */
+export type GoogleSignInResponse = Ok<'authGoogleFinish'>;
 
 /**
- * `POST /auth/google/exchange` — the single-use code the backend's redirect
- * handler put in `/auth/google/return?code=…`, plus the `g_csrf_token` cookie
- * Google set on this origin during the redirect hop.
- *
- * Both halves are required. The code alone proves only that *some* Google
- * sign-in happened, so an attacker could mint one with their own account and
- * hand the victim a `/auth/google/return?code=…` link to be silently logged
- * in as the attacker. The cookie is the other half of the double submit: the
- * backend stored its hash next to the code and refuses a mismatch, and the
- * attacker cannot set a cookie on this origin in the victim's browser.
- *
- * The *response* needs no type of its own: the endpoint answers
- * byte-identically to `POST /auth/google`, so it reuses
- * {@link GoogleSignInResponse} (and `googleSignInResponseSchema`).
+ * `POST /auth/google/finish` — the authorization code and state Google
+ * appended to `/auth/google/callback?code=…&state=…` after the visitor
+ * chose an account.
  */
-export type GoogleExchangeRequest = Body<'authGoogleExchange'>;
+export type GoogleFinishRequest = Body<'authGoogleFinish'>;
 
 export type GoogleCompleteRequest = Body<'authGoogleComplete'>;
 

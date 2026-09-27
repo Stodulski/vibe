@@ -102,27 +102,13 @@ describe('vercel.json security headers', () => {
     expect(cspDirective('frame-ancestors')).toBe("'none'");
   });
 
-  it('allows form-action to submit to Google, for GIS redirect mode', () => {
-    // `google.accounts.id.initialize({ ux_mode: 'redirect', login_uri })` in
-    // GoogleSignInButton.tsx makes Google POST the credential back to our
-    // own `login_uri` — that leg is documented in this repo (see the comment
-    // on `callback` in src/shared/lib/googleIdentity.ts) and needs nothing
-    // here, since `form-action` only restricts forms our own document
-    // submits, not requests arriving at it.
-    //
-    // What is NOT determinable from this repo is the *outbound* leg: whether
-    // clicking the rendered GIS button navigates the browser directly, or
-    // whether Google's opaque `gsi/client` script (loaded from
-    // accounts.google.com, not vendored or observable here) builds a
-    // same-document `<form>` and submits it to accounts.google.com. If it
-    // does the latter, `form-action 'self'` would silently block sign-in the
-    // day this policy is switched from Report-Only to enforcing — a much
-    // worse failure than an over-broad allowance now, while it only ever
-    // generates a report. So this is added defensively rather than proven
-    // from source; a real preview deployment's Report-Only console output
-    // (clicking "Continuar con Google" end to end) is the way to actually
-    // confirm which leg fires, if any.
-    expect(cspDirective('form-action')).toBe("'self' https://accounts.google.com");
+  // "Continuar con Google" is a plain `<a href="…/auth/google/start">` now
+  // (GoogleSignInButton.tsx): a top-level navigation the browser makes on
+  // its own, which no CSP directive governs, and no in-page `<form>` submits
+  // to Google any more — so `form-action` has nothing left to allow beyond
+  // this document's own submits.
+  it("scopes form-action to 'self'", () => {
+    expect(cspDirective('form-action')).toBe("'self'");
   });
 });
 
@@ -139,16 +125,6 @@ describe('vercel.json CSP third-party origins', () => {
     // own widget script) — src/shared/components/common/TurnstileField.tsx.
     ['script-src', 'https://challenges.cloudflare.com'],
     ['frame-src', 'https://challenges.cloudflare.com'],
-    // Google Identity Services, redirect mode. The script is loaded from
-    // exactly this path (SCRIPT_SRC) — src/shared/lib/googleIdentity.ts —
-    // and Google's own CSP guidance for GIS scopes script-src/frame-src to
-    // the same `/gsi/` path rather than the whole origin.
-    ['script-src', 'https://accounts.google.com/gsi/client'],
-    ['frame-src', 'https://accounts.google.com/gsi/'],
-    // The rendered GIS button pulls its own stylesheet from this path —
-    // Google's CSP guidance's fourth source, alongside script/frame/connect —
-    // src/features/auth/components/GoogleSignInButton.tsx.
-    ['style-src', 'https://accounts.google.com/gsi/style'],
     // OpenStreetMap tiles — the `TileLayer` url in
     // src/features/public-booking/components/ComplexMap.tsx. Leaflet's own
     // marker icons are bundled assets (see the comment in that file), not a
@@ -174,10 +150,6 @@ describe('vercel.json CSP third-party origins', () => {
     // for the resulting `public_url` above, is never fetched from the
     // browser and so is not repeated here.)
     ['connect-src', 'https://*.r2.cloudflarestorage.com'],
-    // Google's own CSP guidance for GIS also lists connect-src under
-    // `/gsi/`, alongside script/frame/style — belt-and-braces for whatever
-    // the loaded accounts.google.com script itself talks to.
-    ['connect-src', 'https://accounts.google.com/gsi/'],
   ])('allows %s to reach %s', (directive, origin) => {
     expect(cspDirective(directive)).toContain(origin);
   });
@@ -201,8 +173,9 @@ describe('vercel.json CSP third-party origins', () => {
     // `/fonts/*.woff2` file — no `data:`-embedded or Google-hosted font.
     expect(cspDirective('font-src')).toBe("'self'");
     // No `googleusercontent.com` avatar is ever rendered (no
-    // `googleusercontent`/`avatar_url`/`picture` reference in src/) — GIS
-    // draws its own button, this app never shows the Google profile photo.
+    // `googleusercontent`/`avatar_url`/`picture` reference in src/) — this
+    // app never shows the Google profile photo, only the email/name preview
+    // on `/register/google` (GoogleCompleteForm).
     expect(imgSrc).not.toContain('googleusercontent.com');
     // No <img>, canvas or CSS in this app resolves to a blob: URL — the only
     // `URL.createObjectURL` call is the report-export download link

@@ -9,7 +9,7 @@ import type { GoogleCompleteRequest } from '@/shared/types/api.types';
 /**
  * Handles `POST /auth/google/complete` — the second step of Google sign-up,
  * submitted from `GoogleCompletePage`. Success behaves exactly like a login
- * (same store updates, same redirect logic as `useLogin`/`useGoogleExchange`).
+ * (same store updates, same redirect logic as `useLogin`/`useGoogleFinish`).
  *
  * A 422 field-validation error is deliberately left un-toasted here: the
  * page itself applies it directly onto the form via a per-call `onError`
@@ -42,7 +42,7 @@ export function useGoogleComplete(options: UseGoogleCompleteOptions = {}) {
     // Wrapped for the reason `useLogin` states: React Query would otherwise
     // pass this mutation's variables as the handler's options bag. The
     // destination a Google sign-in was carrying reaches the handler through
-    // `location.state.from` here, put there by `useGoogleExchange`.
+    // `location.state.from` here, put there by `useGoogleFinish`.
     onSuccess: (data) => {
       handleAuthSuccess(data);
     },

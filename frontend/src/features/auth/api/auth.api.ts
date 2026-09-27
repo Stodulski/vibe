@@ -15,7 +15,7 @@ import type {
   UpdateMeRequest,
   UpdateMeResponse,
   GoogleSignInResponse,
-  GoogleExchangeRequest,
+  GoogleFinishRequest,
   GoogleCompleteRequest,
 } from '@/shared/types/api.types';
 
@@ -27,18 +27,18 @@ export const authApi = {
     api.post('auth/register', { json: data }).json().then(parseWith(messageResponseSchema, 'authApi.register')),
 
   /**
-   * Trades the single-use code from `/auth/google/return?code=…`, together
-   * with the `g_csrf_token` cookie Google set on this origin, for a session.
-   * The credential itself never touches the browser in redirect mode: Google
-   * POSTs it straight to the API, which answers this endpoint with exactly
-   * what `POST /auth/google` used to answer the popup flow with — hence the
-   * same schema.
+   * Trades the authorization code and state from
+   * `/auth/google/callback?code=…&state=…` for a session. The credential
+   * itself never touches the browser: the backend exchanges the code with
+   * Google directly and verifies the ID token there, then answers this
+   * endpoint with exactly what `POST /auth/google` used to answer the old
+   * popup flow with — hence the same schema.
    */
-  googleExchange: (data: GoogleExchangeRequest): Promise<GoogleSignInResponse> =>
+  googleFinish: (data: GoogleFinishRequest): Promise<GoogleSignInResponse> =>
     api
-      .post('auth/google/exchange', { json: data })
+      .post('auth/google/finish', { json: data })
       .json()
-      .then(parseWith(googleSignInResponseSchema, 'authApi.googleExchange')),
+      .then(parseWith(googleSignInResponseSchema, 'authApi.googleFinish')),
 
   googleComplete: (data: GoogleCompleteRequest): Promise<AuthResponse> =>
     api

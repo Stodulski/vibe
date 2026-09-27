@@ -2,30 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vite
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom';
-import type { GoogleNamespace } from '@/shared/lib/googleIdentity';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { GoogleSignInSection } from './GoogleSignInSection';
 
-const mockEnv = vi.hoisted((): { VITE_GOOGLE_CLIENT_ID: string | undefined } => ({
+const mockEnv = vi.hoisted((): { VITE_GOOGLE_CLIENT_ID: string | undefined; VITE_API_URL: string } => ({
   VITE_GOOGLE_CLIENT_ID: 'test-client-id',
+  VITE_API_URL: '/api/v1',
 }));
 vi.mock('@/shared/lib/env', () => ({ env: mockEnv }));
-
-// The section renders the real GoogleSignInButton in the "not in-app" case,
-// which loads Google's script — stub it exactly like GoogleSignInButton's
-// own test does, so this file stays about routing to the right child, not
-// about Google Identity Services itself.
-const stubGoogleNamespace: GoogleNamespace = {
-  accounts: {
-    id: {
-      initialize: vi.fn(),
-      renderButton: vi.fn(),
-    },
-  },
-};
-vi.mock('@/shared/lib/googleIdentity', () => ({
-  loadGoogleIdentityServices: () => Promise.resolve(stubGoogleNamespace),
-}));
 
 const INSTAGRAM_ANDROID_UA =
   'Mozilla/5.0 (Linux; Android 10; SM-G960F Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/96.0.4664.104 Mobile Safari/537.36 Instagram 224.0.0.15.109 Android';
@@ -62,7 +46,7 @@ describe('GoogleSignInSection — in-app browser routing', () => {
     renderSection();
 
     expect(screen.getByTestId('in-app-browser-notice')).toBeInTheDocument();
-    expect(screen.queryByTestId('google-button-host')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: ES_AR.auth.continueWithGoogle })).not.toBeInTheDocument();
   });
 
   it('renders the Android intent link to open Chrome inside an in-app browser on Android', () => {
@@ -84,14 +68,15 @@ describe('GoogleSignInSection — in-app browser routing', () => {
     expect(screen.queryByRole('link', { name: ES_AR.auth.inAppBrowserOpenInChrome })).not.toBeInTheDocument();
   });
 
-  it('renders the real Google button outside an in-app browser', async () => {
+  it('renders the real Google button outside an in-app browser', () => {
     userAgentSpy = stubUserAgent(CHROME_ANDROID_UA);
 
     renderSection();
 
-    await waitFor(() => {
-      expect(screen.getByTestId('google-button-host')).toBeInTheDocument();
-    });
+    expect(screen.getByRole('link', { name: ES_AR.auth.continueWithGoogle })).toHaveAttribute(
+      'href',
+      '/api/v1/auth/google/start',
+    );
     expect(screen.queryByTestId('in-app-browser-notice')).not.toBeInTheDocument();
   });
 });

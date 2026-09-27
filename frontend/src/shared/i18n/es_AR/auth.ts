@@ -89,7 +89,6 @@ export const auth = {
   turnstileChallengeError: 'No pudimos cargar la verificación de seguridad. Recargá la página e intentá de nuevo.',
   continueWithGoogle: 'Continuar con Google',
   orDivider: 'o',
-  googleUnavailable: 'Google no está disponible en este momento.',
   googleCompleteTitle: 'Completá tu perfil',
   googleCompleteHint: 'Solo falta tu teléfono para terminar de crear la cuenta.',
   googleCompleteSubmit: 'Completar registro',
@@ -98,11 +97,11 @@ export const auth = {
   googleSignInError: 'No pudimos iniciar sesión con Google. Probá de nuevo.',
   googleReturnTitle: 'Ingresando con Google',
   googleReturnLoading: 'Estamos terminando tu ingreso con Google...',
-  // The `?error=` values `/login` can arrive with after a Google redirect:
-  // some minted by the backend's redirect handler, others by the code
-  // exchange (see `useGoogleExchange`). `google_rate_limited` is minted by
-  // both — a rate-limited redirect-mode post and a rate-limited exchange
-  // land on the same message.
+  // The `?error=` values `/login` can arrive with after a Google sign-in
+  // attempt: some minted by the backend's `/auth/google/start` when it
+  // refuses outright, others by the callback's `/auth/google/finish` (see
+  // `useGoogleFinish`). `google_rate_limited` is minted by both — a
+  // throttled start and a throttled finish land on the same message.
   googleErrorRejected: 'No pudimos validar tu cuenta de Google. Probá de nuevo.',
   googleErrorUnavailable: 'Google no está disponible en este momento. Probá más tarde o ingresá con tu email.',
   googleErrorExpired: 'El ingreso con Google expiró. Probá de nuevo.',

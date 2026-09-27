@@ -4,16 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Google Identity Services in `ux_mode: 'redirect'` form-POSTs the credential
- * to `login_uri` — `/auth/google/callback` on the app's own origin, because
- * the `g_csrf_token` cookie it double-submits is set there. Nothing in the
- * bundle can observe what happens next: on Vercel that path is a rewrite to
- * the API, and if it is ever deleted or ordered after the SPA catch-all,
- * Google's POST is answered with `index.html` and every Google sign-in dies
- * silently. Hence this file, next to `vercel.headers.test.ts`.
- *
- * `vite.config.ts` carries the same hop for `pnpm dev` and the E2E stack; see
- * `vite.proxy.test.ts`.
+ * `/auth/google/callback` is an ordinary client-side route (`GoogleCallbackPage`,
+ * see `authRoutes.tsx`) since the OIDC authorization-code flow replaced
+ * Google Identity Services' redirect mode: Google's authorization server
+ * lands the browser there with `?code=&state=`, and the SPA catch-all below
+ * is what serves it `index.html` like every other route. There is no
+ * Vercel-side rewrite for it any more — that only existed to hand Google's
+ * old form POST to the API — so this file no longer pins one; see
+ * `vercel.json`'s git history for the removed entry.
  *
  * The crawler-prerender rewrite below replaced the former edge `middleware.ts`
  * (Vercel deprecated the edge runtime for Routing Middleware, and moving it to
@@ -100,19 +98,12 @@ describe('vercel.json rewrites, Sentry tunnel', () => {
 });
 
 describe('vercel.json rewrites', () => {
-  it('sends the Google redirect callback to the API', () => {
+  // The OIDC callback is a plain SPA route now, not a rewrite target — this
+  // guards against a future rewrite reappearing ahead of the catch-all and
+  // silently swallowing the page again.
+  it('has no dedicated rewrite for the Google OIDC callback: it falls through to the SPA catch-all', () => {
     const rewrite = config.rewrites.find((r) => r.source === GOOGLE_CALLBACK);
-    expect(rewrite?.destination).toBe('https://api.vibe.com.ar/api/v1/auth/google/redirect');
-  });
-
-  // Vercel takes the first matching rewrite, and `/(.*)` matches everything.
-  it('declares it before the SPA catch-all', () => {
-    const callback = config.rewrites.findIndex((r) => r.source === GOOGLE_CALLBACK);
-    const catchAll = config.rewrites.findIndex((r) => r.source === SPA_CATCH_ALL);
-
-    expect(callback).toBeGreaterThanOrEqual(0);
-    expect(catchAll).toBeGreaterThanOrEqual(0);
-    expect(callback).toBeLessThan(catchAll);
+    expect(rewrite).toBeUndefined();
   });
 });
 
@@ -164,12 +155,10 @@ describe('vercel.json rewrites, crawler prerender', () => {
     expect(crawlerRewrite?.has?.[0]).toMatchObject({ type: 'header', key: 'user-agent' });
   });
 
-  it('sits after the Google callback rewrite and before the SPA catch-all', () => {
-    const callback = config.rewrites.findIndex((r) => r.source === GOOGLE_CALLBACK);
+  it('sits before the SPA catch-all', () => {
     const crawler = config.rewrites.findIndex((r) => r.destination === PRERENDER_DESTINATION);
     const catchAll = config.rewrites.findIndex((r) => r.source === SPA_CATCH_ALL);
 
-    expect(crawler).toBeGreaterThan(callback);
     expect(crawler).toBeLessThan(catchAll);
   });
 });

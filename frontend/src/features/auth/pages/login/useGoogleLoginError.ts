@@ -9,10 +9,11 @@ const t = ES_AR;
  * shows for it.
  *
  * The query string is the mechanism because it is the only one the *backend*
- * can use: `POST /api/v1/auth/google/redirect` never renders a page, it 303s
- * to `/login?error=…`, and router state does not survive a redirect from
- * another origin. `useGoogleExchange` writes its own failures the same way so
- * there is one channel rather than two.
+ * can use: `GET /api/v1/auth/google/start` never renders a page, it 302s to
+ * `/login?error=…` when it refuses outright (e.g. `google_unavailable` with
+ * Google sign-in disabled server-side), and router state does not survive a
+ * redirect from another origin. `useGoogleFinish` writes its own failures the
+ * same way so there is one channel rather than two.
  */
 const GOOGLE_ERRORS: Record<string, string> = {
   google_rejected: t.auth.googleErrorRejected,
@@ -35,8 +36,8 @@ export function useGoogleLoginError(): string | undefined {
   // Read once, in the initializer, rather than assigned from the effect
   // below: the effect's whole job is to delete the parameter it read, and a
   // `setMessage` there would be a second render chasing the first. Every way
-  // into this page carries its `?error=` from the start — a 303 out of the
-  // API is a full page load, and `useGoogleExchange` navigates to a route
+  // into this page carries its `?error=` from the start — a redirect out of
+  // the API is a full page load, and `useGoogleFinish` navigates to a route
   // this component is not mounted on — so there is no later value to catch.
   const [message] = useState(() => GOOGLE_ERRORS[searchParams.get('error') ?? '']);
 
