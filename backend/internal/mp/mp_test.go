@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -757,4 +758,92 @@ func TestCreatePreferenceDescribesTheBookingWithoutASport(t *testing.T) {
 	if captured["statement_descriptor"] != "VIBE RESERVA" {
 		t.Errorf("statement_descriptor = %v, want VIBE RESERVA", captured["statement_descriptor"])
 	}
+}
+
+func TestExchangeOAuthCode(t *testing.T) {
+	serve := func(t *testing.T, status int, body string) *MPClient {
+		t.Helper()
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/oauth/token" {
+				t.Errorf("unexpected path: %s", r.URL.Path)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(body))
+		}))
+		t.Cleanup(ts.Close)
+
+		client := NewMPClient("platform", "secret", "app", "client", nil)
+		client.baseURL = ts.URL
+		return client
+	}
+
+	t.Run("returns the tokens on 200", func(t *testing.T) {
+		client := serve(t, http.StatusOK, `{"access_token":"AT","refresh_token":"RT","user_id":42,"expires_in":15552000}`)
+
+		tokens, err := client.ExchangeOAuthCode(t.Context(), "code", "https://x/cb", "verifier")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if tokens.AccessToken != "AT" || tokens.RefreshToken != "RT" || tokens.UserID != 42 {
+			t.Errorf("wrong tokens: %+v", tokens)
+		}
+	})
+
+	for _, status := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity} {
+		t.Run(fmt.Sprintf("a %d is a rejected code", status), func(t *testing.T) {
+			client := serve(t, status, `{"error":"invalid_grant","message":"Invalid authorization code"}`)
+
+			_, err := client.ExchangeOAuthCode(t.Context(), "code", "https://x/cb", "verifier")
+			if !errors.Is(err, ErrOAuthRejected) {
+				t.Fatalf("want ErrOAuthRejected; got %v", err)
+			}
+			if errors.Is(err, ErrOAuthUnavailable) {
+				t.Error("a rejected code must not also read as an outage")
+			}
+			var apiErr *APIError
+			if !errors.As(err, &apiErr) || apiErr.StatusCode != status {
+				t.Errorf("the status must stay reachable for the log; got %v", err)
+			}
+		})
+	}
+
+	for _, status := range []int{
+		http.StatusUnauthorized, http.StatusForbidden, http.StatusRequestTimeout,
+		http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway,
+	} {
+		t.Run(fmt.Sprintf("a %d is no verdict on the code", status), func(t *testing.T) {
+			client := serve(t, status, `{"error":"secret-body-detail"}`)
+
+			_, err := client.ExchangeOAuthCode(t.Context(), "code", "https://x/cb", "verifier")
+			if !errors.Is(err, ErrOAuthUnavailable) {
+				t.Fatalf("want ErrOAuthUnavailable; got %v", err)
+			}
+			if errors.Is(err, ErrOAuthRejected) {
+				t.Error("an outage must not read as a rejected code")
+			}
+			if strings.Contains(err.Error(), "secret-body-detail") {
+				t.Errorf("the response body must not be in an error that is logged at error level; got %v", err)
+			}
+		})
+	}
+
+	t.Run("a transport failure is no verdict on the code", func(t *testing.T) {
+		client := NewMPClient("platform", "secret", "app", "client", nil)
+		client.baseURL = "http://127.0.0.1:1" // nothing listens here
+
+		_, err := client.ExchangeOAuthCode(t.Context(), "code", "https://x/cb", "verifier")
+		if !errors.Is(err, ErrOAuthUnavailable) {
+			t.Errorf("want ErrOAuthUnavailable; got %v", err)
+		}
+	})
+
+	t.Run("an unreadable 200 is no verdict on the code", func(t *testing.T) {
+		client := serve(t, http.StatusOK, `not json`)
+
+		_, err := client.ExchangeOAuthCode(t.Context(), "code", "https://x/cb", "verifier")
+		if !errors.Is(err, ErrOAuthUnavailable) {
+			t.Errorf("want ErrOAuthUnavailable; got %v", err)
+		}
+	})
 }

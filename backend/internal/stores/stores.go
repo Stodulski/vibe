@@ -188,7 +188,15 @@ type ComplexScheduleManager interface {
 // ComplexMPManager manages a complex's MercadoPago OAuth credentials.
 type ComplexMPManager interface {
 	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
-	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
+	// ConnectMPCredentials stores freshly authorized credentials, refusing with
+	// complexstore.ErrActiveBookings when they name a different seller account
+	// than the connected one while bookings are live. The refresh paths keep
+	// UpdateMPCredentials: they renew the same account's tokens.
+	ConnectMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
+	// DisconnectMPCredentials clears the connection, refusing with
+	// complexstore.ErrActiveBookings while bookings are live; the check and the
+	// clear are one transaction.
+	DisconnectMPCredentials(ctx context.Context, complexID uuid.UUID) error
 	GetWithMPConnected(ctx context.Context) ([]*complexstore.Complex, error)
 	// ListComplexesNeedingMPRefresh narrows GetWithMPConnected to complexes
 	// whose token has no known expiry or expires within 30 days — what

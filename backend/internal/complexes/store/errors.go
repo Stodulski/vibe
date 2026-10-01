@@ -23,4 +23,13 @@ var (
 	// owner's slot, so the owner can open a new one. Contrast ErrDuplicateSlug,
 	// whose constraint holds across deleted rows too.
 	ErrDuplicateOwner = errors.New("duplicate owner")
+	// ErrActiveBookings is returned by the MercadoPago connect and disconnect
+	// writes when the complex still owes someone their hours and the write
+	// would strand them: disconnecting, or connecting a different seller
+	// account than the one those bookings were priced and collected under.
+	//
+	// It is the database's answer, asked inside the transaction that holds the
+	// complex row, not a pre-check the caller made earlier. The complexes
+	// package re-exports it as complexes.ErrActiveBookings.
+	ErrActiveBookings = errors.New("complex still has active bookings")
 )

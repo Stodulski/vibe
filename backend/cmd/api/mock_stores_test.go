@@ -361,7 +361,8 @@ type mockComplexStore struct {
 	UpsertScheduleFn                func(ctx context.Context, schedule *complexstore.Schedule) error
 	GetSchedulesFn                  func(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 	UpdateMPCredentialsFn           func(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
-	ClearMPCredentialsFn            func(ctx context.Context, complexID uuid.UUID) error
+	ConnectMPCredentialsFn          func(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
+	DisconnectMPCredentialsFn       func(ctx context.Context, complexID uuid.UUID) error
 	GetWithMPConnectedFn            func(ctx context.Context) ([]*complexstore.Complex, error)
 	ListComplexesNeedingMPRefreshFn func(ctx context.Context) ([]*complexstore.Complex, error)
 	SlugExistsFn                    func(ctx context.Context, slug string) (bool, error)
@@ -517,9 +518,16 @@ func (m *mockComplexStore) UpdateMPCredentials(ctx context.Context, complexID uu
 	return nil
 }
 
-func (m *mockComplexStore) ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error {
-	if m.ClearMPCredentialsFn != nil {
-		return m.ClearMPCredentialsFn(ctx, complexID)
+func (m *mockComplexStore) ConnectMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
+	if m.ConnectMPCredentialsFn != nil {
+		return m.ConnectMPCredentialsFn(ctx, complexID, accessToken, refreshToken, userID, expiresIn)
+	}
+	return nil
+}
+
+func (m *mockComplexStore) DisconnectMPCredentials(ctx context.Context, complexID uuid.UUID) error {
+	if m.DisconnectMPCredentialsFn != nil {
+		return m.DisconnectMPCredentialsFn(ctx, complexID)
 	}
 	return nil
 }

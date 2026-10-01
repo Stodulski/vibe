@@ -48,6 +48,12 @@ type stubStore struct {
 		expiresIn             int
 	}
 	mpCleared *uuid.UUID
+	// connectErr and disconnectErr stand in for the store's own refusal
+	// (complexstore.ErrActiveBookings) — the guard runs inside the store's
+	// transaction, so the unit tests can only prove what the service and the
+	// handler do with it; the integration tests prove the guard itself.
+	connectErr    error
+	disconnectErr error
 
 	// allSlugs and needingRefresh back the two reads that exist for other
 	// modules and for the OAuth refresh sweep.
@@ -121,7 +127,17 @@ func (s *stubStore) UpdateMPCredentials(_ context.Context, _ uuid.UUID, access, 
 	return nil
 }
 
-func (s *stubStore) ClearMPCredentials(_ context.Context, id uuid.UUID) error {
+func (s *stubStore) ConnectMPCredentials(ctx context.Context, id uuid.UUID, access, refresh, user string, expiresIn int) error {
+	if s.connectErr != nil {
+		return s.connectErr
+	}
+	return s.UpdateMPCredentials(ctx, id, access, refresh, user, expiresIn)
+}
+
+func (s *stubStore) DisconnectMPCredentials(_ context.Context, id uuid.UUID) error {
+	if s.disconnectErr != nil {
+		return s.disconnectErr
+	}
 	s.mpCleared = &id
 	return nil
 }

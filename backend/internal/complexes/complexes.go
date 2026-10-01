@@ -62,7 +62,11 @@ type ScheduleStore interface {
 // that touches a seller's OAuth tokens.
 type CredentialStore interface {
 	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
-	ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error
+	// ConnectMPCredentials and DisconnectMPCredentials refuse with
+	// complexstore.ErrActiveBookings when the change would strand live
+	// bookings; the check is the store's own, inside the write's transaction.
+	ConnectMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
+	DisconnectMPCredentials(ctx context.Context, complexID uuid.UUID) error
 	// ListComplexesNeedingMPRefresh drives Service.RefreshMPTokens, the OAuth
 	// sweep cmd/api schedules every 12 hours.
 	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error)
@@ -142,6 +146,12 @@ func refusals() httpx.Refusals {
 			"cannot delete complex while it has active bookings, cancel them first"),
 		ErrUploadsNotConfigured: httpx.NotImplemented("image uploads are not configured"),
 		ErrForeignObject:        httpx.BadRequest("URL does not belong to this storage"),
+		// The MercadoPago connect exchange. Neither message carries what
+		// MercadoPago said: that detail is in the log, not for the client.
+		mp.ErrOAuthRejected: httpx.BadRequest(
+			"MercadoPago did not accept the authorization, start the connection again"),
+		mp.ErrOAuthUnavailable: httpx.BadGateway(
+			"MercadoPago is not available right now, try again in a moment"),
 	}
 }
 
