@@ -257,25 +257,22 @@ type stubComplexes struct {
 	complex   *complexstore.Complex
 	schedules []*complexstore.Schedule
 	err       error
-	// credentialsErr fails UpdateMPCredentials, standing in for the database
-	// refusing the write that stores a freshly refreshed MercadoPago token.
-	// MercadoPago rotates the refresh token on use, so a refused write leaves
-	// the stored one dead — a stub that always persisted is how a silent
-	// failure of that write would ship green.
-	credentialsErr error
+	// refreshErr fails RefreshMPCredentials, standing in for the complex
+	// module being unable to renew the seller's credentials.
+	refreshErr error
+	// refreshedToken is the access token a successful refresh hands back.
+	refreshedToken string
 
-	// credentials records every persisted refresh, so a test can assert the
-	// write was attempted rather than trusting the caller reached it.
-	credentials []mpCredentialUpdate
+	// refreshes records every refresh asked for, so a test can assert the
+	// checkout delegated it, and with which stale token, rather than trusting
+	// the caller reached it.
+	refreshes []mpRefreshRequest
 }
 
-// mpCredentialUpdate is one attempt to store a refreshed MercadoPago credential.
-type mpCredentialUpdate struct {
-	complexID    uuid.UUID
-	accessToken  string
-	refreshToken string
-	mpUserID     string
-	expiresIn    int
+// mpRefreshRequest is one call to RefreshMPCredentials.
+type mpRefreshRequest struct {
+	complexID  uuid.UUID
+	staleToken string
 }
 
 func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*complexstore.Complex, error) {
@@ -292,18 +289,16 @@ func (s *stubComplexes) GetSchedules(context.Context, uuid.UUID) ([]*complexstor
 	return s.schedules, nil
 }
 
-func (s *stubComplexes) UpdateMPCredentials(_ context.Context, complexID uuid.UUID, accessToken, refreshToken, mpUserID string, expiresIn int) error {
-	s.credentials = append(s.credentials, mpCredentialUpdate{
-		complexID:    complexID,
-		accessToken:  accessToken,
-		refreshToken: refreshToken,
-		mpUserID:     mpUserID,
-		expiresIn:    expiresIn,
-	})
-	if s.credentialsErr != nil {
-		return s.credentialsErr
+func (s *stubComplexes) RefreshMPCredentials(_ context.Context, complexID uuid.UUID, staleToken string) (string, error) {
+	s.refreshes = append(s.refreshes, mpRefreshRequest{complexID: complexID, staleToken: staleToken})
+	token := s.refreshedToken
+	if token == "" {
+		token = "refreshed"
 	}
-	return nil
+	if s.refreshErr != nil {
+		return token, s.refreshErr
+	}
+	return token, nil
 }
 
 type stubCourts struct {
@@ -555,11 +550,21 @@ type stubCheckout struct {
 	// test can assert on the input rather than trusting that the caller built
 	// it correctly — the stub used to ignore its argument entirely.
 	lastInput mp.CreatePreferenceInput
+	// inputs is every CreatePreference call's input, in order, so a test can
+	// tell the first attempt's caller from the retry's.
+	inputs []mp.CreatePreferenceInput
+	// unauthorizedOnce makes the first CreatePreference answer 401, the way
+	// MercadoPago answers an expired seller token, and every later one succeed.
+	unauthorizedOnce bool
 }
 
 func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error) {
 	s.created++
 	s.lastInput = input
+	s.inputs = append(s.inputs, input)
+	if s.unauthorizedOnce && s.created == 1 {
+		return nil, &mp.APIError{StatusCode: http.StatusUnauthorized, Body: "invalid access token"}
+	}
 	if s.onCreate != nil {
 		s.onCreate()
 	}
@@ -570,10 +575,6 @@ func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePrefer
 		return &mp.Preference{ID: "pref-1", InitPoint: "https://mp.test/checkout"}, nil
 	}
 	return s.preference, nil
-}
-
-func (s *stubCheckout) RefreshOAuthToken(context.Context, string) (*mp.OAuthTokens, error) {
-	return &mp.OAuthTokens{AccessToken: "refreshed"}, nil
 }
 
 func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID string, caller mp.Caller) error {

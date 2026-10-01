@@ -66,7 +66,10 @@ type Dependencies struct {
 	// client from Payments in cmd/api, on its own circuit breaker: a sweep over
 	// other people's expired credentials must not be able to take checkout down
 	// for every tenant at once.
-	OAuth   TokenRefresher
+	OAuth TokenRefresher
+	// Locks serializes the refresh of one venue's credentials across instances
+	// and across the two paths that refresh them, the cron and checkout.
+	Locks   Locker
 	Storage storage.ObjectStorage
 	Audit   Recorder
 	Logger  *slog.Logger
@@ -78,6 +81,13 @@ type Dependencies struct {
 // TokenRefresher renews a seller's MercadoPago OAuth credentials.
 type TokenRefresher interface {
 	RefreshOAuthToken(ctx context.Context, refreshToken string) (*mp.OAuthTokens, error)
+}
+
+// Locker is the cross-instance lock the credential refresh takes. It is
+// satisfied by data.LockStore; declared here so the module names the one
+// operation it needs.
+type Locker interface {
+	TryAdvisory(ctx context.Context, key string) (acquired bool, release func(), err error)
 }
 
 // Service holds this module's rules: what a venue may be called, what a public
@@ -97,11 +107,18 @@ type Service struct {
 	bookings BookingStore
 	payments PaymentConnector
 	oauth    TokenRefresher
+	locks    Locker
 	storage  storage.ObjectStorage
 	audit    Recorder
 	logger   *slog.Logger
 	run      func(func())
 	cfg      Config
+
+	// refreshLockPoll and refreshLockWait pace and bound the wait for another
+	// refresh of the same venue to finish. Fields rather than constants so a
+	// test does not have to sit through them.
+	refreshLockPoll time.Duration
+	refreshLockWait time.Duration
 }
 
 // NewService returns a Service backed by the given dependencies.
@@ -117,11 +134,15 @@ func NewService(deps Dependencies, cfg Config) *Service {
 		bookings: deps.Bookings,
 		payments: deps.Payments,
 		oauth:    deps.OAuth,
+		locks:    deps.Locks,
 		storage:  deps.Storage,
 		audit:    deps.Audit,
 		logger:   deps.Logger,
 		run:      deps.Run,
 		cfg:      cfg,
+
+		refreshLockPoll: mpRefreshLockPoll,
+		refreshLockWait: mpRefreshLockWait,
 	}
 }
 
@@ -828,52 +849,52 @@ func (s *Service) RefreshMPTokens(ctx context.Context) {
 	)
 }
 
-// refreshOneMPToken refreshes a single complex's MercadoPago OAuth token and
-// persists the result. Every failure branch alerts Sentry itself, so the caller
-// only has to count.
+// refreshOneMPToken refreshes a single complex's MercadoPago OAuth token
+// through the same serialized routine checkout uses, and classifies the outcome
+// for the sweep's counters. Every failure branch alerts Sentry itself, so the
+// caller only has to count.
 func (s *Service) refreshOneMPToken(ctx context.Context, c *complexstore.Complex) mpRefreshResult {
-	refreshTok, refreshErr := c.SellerRefreshToken()
-	if refreshErr != nil {
-		if errors.Is(refreshErr, mpcred.ErrMPCredentialUnreadable) {
-			sentry.CaptureMessage(fmt.Sprintf("MP refresh token UNREADABLE (skipping refresh): complex=%s (%s) error=%v", c.Name, c.ID, refreshErr))
-			return mpRefreshFailed
-		}
-		return mpRefreshSkipped
+	// The access token this sweep saw. When it cannot be read there is nothing
+	// to compare against, and the refresh runs unconditionally.
+	staleAccess, accessErr := c.SellerAccessToken()
+	if accessErr != nil {
+		staleAccess = ""
 	}
 
-	newTokens, err := s.oauth.RefreshOAuthToken(ctx, refreshTok)
-	if err != nil {
+	_, err := s.RefreshMPCredentials(ctx, c.ID, staleAccess)
+	switch {
+	case err == nil:
+		s.logger.Info("cron_refresh_mp_tokens: refreshed token", "complex_id", c.ID, "complex_name", c.Name)
+		return mpRefreshOK
+	case errors.Is(err, mpcred.ErrMPRefreshNotPersisted):
+		// RefreshMPCredentials already logged and alerted.
+		return mpRefreshFailed
+	case errors.Is(err, mpcred.ErrMPCredentialUnreadable):
+		sentry.CaptureMessage(fmt.Sprintf("MP refresh token UNREADABLE (skipping refresh): complex=%s (%s) error=%v", c.Name, c.ID, err))
+		return mpRefreshFailed
+	case errors.Is(err, mpcred.ErrMPNotConnected):
+		return mpRefreshSkipped
+	case IsMPRefreshRejected(err):
 		// A 4xx here is ordinarily MercadoPago answering invalid_grant — the
 		// seller revoked access, or the refresh token itself expired — which is
 		// an expected, unactionable-by-retry outcome, not an operational
 		// failure of this job. Anything else (5xx, network, decode) is.
-		if refreshTokenWasRejected(err) {
-			s.logger.Warn("cron_refresh_mp_tokens: MercadoPago rejected the refresh token",
-				"error", err, "complex_id", c.ID, "complex_name", c.Name)
-		} else {
-			s.logger.Error("cron_refresh_mp_tokens: failed to refresh token",
-				"error", err, "complex_id", c.ID, "complex_name", c.Name)
-		}
-		sentry.CaptureMessage(fmt.Sprintf("MP OAuth refresh FAILED: complex=%s (%s) error=%v", c.Name, c.ID, err))
-		return mpRefreshFailed
+		s.logger.Warn("cron_refresh_mp_tokens: MercadoPago rejected the refresh token",
+			"error", err, "complex_id", c.ID, "complex_name", c.Name)
+	default:
+		s.logger.Error("cron_refresh_mp_tokens: failed to refresh token",
+			"error", err, "complex_id", c.ID, "complex_name", c.Name)
 	}
-
-	mpUserID := fmt.Sprintf("%d", newTokens.UserID)
-	if updateErr := s.credentials.UpdateMPCredentials(ctx, c.ID, newTokens.AccessToken, newTokens.RefreshToken, mpUserID, newTokens.ExpiresIn); updateErr != nil {
-		s.logger.Error("cron_refresh_mp_tokens: failed to save new tokens", "error", updateErr, "complex_id", c.ID)
-		sentry.CaptureMessage(fmt.Sprintf("MP OAuth token save FAILED: complex=%s (%s) error=%v", c.Name, c.ID, updateErr))
-		return mpRefreshFailed
-	}
-
-	s.logger.Info("cron_refresh_mp_tokens: refreshed token", "complex_id", c.ID, "complex_name", c.Name)
-	return mpRefreshOK
+	sentry.CaptureMessage(fmt.Sprintf("MP OAuth refresh FAILED: complex=%s (%s) error=%v", c.Name, c.ID, err))
+	return mpRefreshFailed
 }
 
-// refreshTokenWasRejected reports whether a RefreshOAuthToken failure was
+// IsMPRefreshRejected reports whether a RefreshMPCredentials failure was
 // MercadoPago's 4xx invalid_grant-style answer — the seller revoked the grant,
 // or the refresh token itself expired — rather than an outage (5xx, network,
-// decode failure) worth an Error-level page.
-func refreshTokenWasRejected(err error) bool {
+// decode failure) worth an Error-level page. A rejection is final: retrying
+// with the same refresh token cannot succeed, only reconnecting can.
+func IsMPRefreshRejected(err error) bool {
 	var apiErr *mp.APIError
 	return errors.As(err, &apiErr) && apiErr.StatusCode >= 400 && apiErr.StatusCode < 500
 }
@@ -914,10 +935,4 @@ func (s *Service) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complex
 // publicsite's sitemap.
 func (s *Service) GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error) {
 	return s.venues.GetAllSlugs(ctx)
-}
-
-// UpdateMPCredentials stores a seller's MercadoPago credentials. Exported for
-// bookings, which refreshes them on the booking path when it finds them stale.
-func (s *Service) UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
-	return s.credentials.UpdateMPCredentials(ctx, complexID, accessToken, refreshToken, userID, expiresIn)
 }

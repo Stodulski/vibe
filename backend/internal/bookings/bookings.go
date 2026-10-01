@@ -67,7 +67,14 @@ type ClientStore interface {
 type ComplexReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
-	UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error
+	// RefreshMPCredentials renews the seller's MercadoPago credentials and
+	// returns the access token to use. staleAccessToken is the one this caller
+	// just saw rejected; when the stored one already differs, somebody else
+	// refreshed first and that token comes back without another refresh. The
+	// complex module owns the refresh, so checkout and the cron never race on
+	// the one-use refresh token. On mpcred.ErrMPRefreshNotPersisted the token
+	// is still returned alongside the error.
+	RefreshMPCredentials(ctx context.Context, complexID uuid.UUID, staleAccessToken string) (string, error)
 }
 
 // CourtReader supplies the court, its price bands, and the hours its owner has
@@ -107,7 +114,6 @@ type SlotLocker interface {
 // Checkout is the MercadoPago side of a public booking.
 type Checkout interface {
 	CreatePreference(ctx context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error)
-	RefreshOAuthToken(ctx context.Context, refreshToken string) (*mp.OAuthTokens, error)
 	UpdatePreferenceExpired(ctx context.Context, preferenceID string, caller mp.Caller) error
 }
 

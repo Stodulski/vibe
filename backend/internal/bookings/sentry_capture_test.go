@@ -91,7 +91,7 @@ var errStoreUnavailable = errors.New("database unavailable")
 // TestPublicRoutesCaptureNothing is task 12.2 (design.md Decision 4(b),
 // specs/booking-link-credential's last requirement): a server error on any of
 // the three public routes must reach Sentry through nothing. Every capture
-// site in this package lives in PublicBook/createMPPreferenceWithRetry, and
+// site in this package lives in PublicBook, and
 // none of it is on these three routes' path.
 //
 // Mutation, run and recorded: add

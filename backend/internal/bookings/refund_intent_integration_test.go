@@ -4,6 +4,7 @@ package bookings
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -40,6 +42,15 @@ type integrationFixture struct {
 	handler *Handler
 }
 
+// complexReader gives the real complex store the one method ComplexReader takes
+// from the complex service rather than from the store: the refresh. These suites
+// never reach it.
+type complexReader struct{ stores.ComplexStore }
+
+func (complexReader) RefreshMPCredentials(context.Context, uuid.UUID, string) (string, error) {
+	return "", errors.New("RefreshMPCredentials is not exercised by this suite")
+}
+
 func newIntegrationFixture(t *testing.T) *integrationFixture {
 	t.Helper()
 
@@ -50,7 +61,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 		Facade:    NewFacade(f.Stores.Bookings),
 		Store:     f.Stores.Bookings,
 		Clients:   &stubClients{},
-		Complexes: f.Stores.Complexes,
+		Complexes: complexReader{f.Stores.Complexes},
 		Courts:    &stubCourts{},
 		Payments:  &stubPayments{},
 		Locks:     &stubLocks{},
