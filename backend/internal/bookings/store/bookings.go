@@ -1286,19 +1286,14 @@ func (m *Store) HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID)
 // HasActiveBookings reports whether the complex still owes anyone their hours
 // from today onwards. Same predicate and same reasoning as
 // HasActiveBookingsByCourt, one level up: it gates deleting the complex and
-// disconnecting its MercadoPago account.
+// disconnecting its MercadoPago account. The predicate itself lives in
+// slotguard.ComplexHasActiveBookings, shared with the complexes store's
+// transactional MercadoPago guards so "active" has one definition.
 func (m *Store) HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	var exists bool
-	err := m.DB.QueryRow(ctx, `
-		SELECT EXISTS(
-			SELECT 1 FROM bookings
-			WHERE complex_id = $1
-			  AND upper(span) > NOW()
-			  AND status NOT IN `+slotguard.ReleasedBookingStatuses+`
-		)`, data.UUIDToPg(complexID)).Scan(&exists)
+	exists, err := slotguard.ComplexHasActiveBookings(ctx, m.DB, complexID)
 	if err != nil {
 		return false, fmt.Errorf("bookings: has active bookings: %w", err)
 	}

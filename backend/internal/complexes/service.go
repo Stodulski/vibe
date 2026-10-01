@@ -32,10 +32,12 @@ var (
 	// database's partial unique index on complexes.owner_id.
 	ErrAlreadyOwnsComplex = errors.New("account already owns a complex")
 	// ErrActiveBookings reports that an operation was refused because the venue
-	// still has live bookings. Both deletion and disconnecting MercadoPago
-	// raise it; they answer with different sentences because they are different
-	// requests.
-	ErrActiveBookings = errors.New("complex still has active bookings")
+	// still has live bookings. Deletion, disconnecting MercadoPago and
+	// connecting a different MercadoPago account all raise it; they answer with
+	// different sentences because they are different requests. It is the
+	// store's sentinel, re-exported, because the two MercadoPago refusals come
+	// out of the store's own transaction.
+	ErrActiveBookings = complexstore.ErrActiveBookings
 	// ErrUploadsNotConfigured reports that no object storage is wired, so the
 	// image endpoints have nothing to sign against.
 	ErrUploadsNotConfigured = errors.New("image uploads are not configured")
@@ -621,17 +623,33 @@ func (s *Service) UpdateSchedules(ctx context.Context, complexID uuid.UUID, acto
 // ConnectMercadoPago exchanges the OAuth code for the owner's own MercadoPago
 // credentials, so payments settle into their account rather than the platform's.
 // It returns the seller's MercadoPago user id.
+//
+// Three outcomes besides success are the caller's to tell apart:
+// mp.ErrOAuthRejected (MercadoPago refused the code: expired, already used, or
+// a mismatched redirect_uri or PKCE verifier — the owner starts again),
+// mp.ErrOAuthUnavailable (MercadoPago could not be reached or failed), and
+// ErrActiveBookings (the code names a different seller account than the one
+// connected, and live bookings still depend on the connected one).
 func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, actor Actor, code, redirectURI, codeVerifier string) (string, error) {
 	tokens, err := s.payments.ExchangeOAuthCode(ctx, code, redirectURI, codeVerifier)
 	if err != nil {
-		s.logger.Error("mp connect: oauth exchange failed", "error", err, "complex_id", complexID)
+		// A rejected code is an owner mistake, not a fault of ours: warn, with
+		// the detail MercadoPago gave. Everything else is ours to look at.
+		if errors.Is(err, mp.ErrOAuthRejected) {
+			s.logger.Warn("mp connect: oauth code rejected", "error", err, "complex_id", complexID)
+		} else {
+			s.logger.Error("mp connect: oauth exchange failed", "error", err, "complex_id", complexID)
+		}
 		return "", fmt.Errorf("failed to connect MercadoPago: %w", err)
 	}
 
 	mpUserID := fmt.Sprintf("%d", tokens.UserID)
 
-	err = s.credentials.UpdateMPCredentials(ctx, complexID, tokens.AccessToken, tokens.RefreshToken, mpUserID, tokens.ExpiresIn)
+	err = s.credentials.ConnectMPCredentials(ctx, complexID, tokens.AccessToken, tokens.RefreshToken, mpUserID, tokens.ExpiresIn)
 	if err != nil {
+		if errors.Is(err, ErrActiveBookings) {
+			s.logger.Warn("mp connect: refused to replace the seller account while bookings are active", "complex_id", complexID)
+		}
 		return "", err
 	}
 
@@ -641,18 +659,21 @@ func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, a
 }
 
 // DisconnectMercadoPago drops the owner's stored credentials. It is refused
-// while the venue still has live bookings: those are money that still has to be
-// collected or returned through that connection.
+// (ErrActiveBookings) while the venue still has live bookings: those are money
+// that still has to be collected or returned through that connection. The
+// refusal and the clear are one atomic store operation, so a booking committed
+// between a separate check and a separate write cannot slip through.
+//
+// The grant is not revoked at MercadoPago: its API documents no endpoint for a
+// seller's authorization to be revoked by the application (the docs list
+// revocation only as something the seller does, or that follows a password
+// change or the application's deletion — see
+// https://www.mercadopago.com.ar/developers/en/docs/security/oauth/management),
+// and none is invented here. The access and refresh tokens we drop therefore
+// stay valid at MercadoPago until they expire or the seller revokes the
+// authorization from their own MercadoPago account.
 func (s *Service) DisconnectMercadoPago(ctx context.Context, complexID uuid.UUID, actor Actor) error {
-	hasActive, err := s.bookings.HasActiveBookings(ctx, complexID)
-	if err != nil {
-		return err
-	}
-	if hasActive {
-		return ErrActiveBookings
-	}
-
-	if err := s.credentials.ClearMPCredentials(ctx, complexID); err != nil {
+	if err := s.credentials.DisconnectMPCredentials(ctx, complexID); err != nil {
 		return err
 	}
 

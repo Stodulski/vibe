@@ -2437,12 +2437,29 @@ paths:
                   mp_user_id: {type: string}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
+        "400":
+          description: >-
+            MercadoPago refused the authorization code (expired, already used, or a mismatched
+            redirect_uri or PKCE verifier). The owner starts the connection again. The detail is
+            a fixed sentence; nothing MercadoPago said is included.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "409":
+          description: >-
+            The code authorizes a different MercadoPago account than the one connected, and the
+            complex has active bookings that were taken under the connected one. Re-authorizing
+            the same account is not refused.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
-        "500":
+        "500": {$ref: "#/components/responses/ServerError"}
+        "502":
           description: >-
-            The OAuth exchange with MercadoPago failed. Unlike most 500s, this message includes
-            the wrapped error detail.
+            MercadoPago could not be reached, failed, or refused this server's own credentials.
+            Nothing was stored; trying again later is the only useful response.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

@@ -616,6 +616,111 @@ func TestConnectMercadoPagoStoresNothingOnAFailedExchange(t *testing.T) {
 	}
 }
 
+const connectBody = `{"code":"auth-code","redirect_uri":"https://vibe.test/mp/callback","code_verifier":"verifier"}`
+
+// MercadoPago refusing the code is the owner's mistake to retry, not a server
+// fault: it answers 4xx with a stable sentence that carries nothing MercadoPago
+// said, and it is logged as a warning, not an error.
+func TestConnectMercadoPagoAnswersARejectedCodeAs400(t *testing.T) {
+	f := newFixture(t)
+	f.payments.err = fmt.Errorf("%w: %w", mp.ErrOAuthRejected, &mp.APIError{StatusCode: 400, Body: `{"error":"invalid_grant","secret_detail":"leak-me"}`})
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil, connectBody))
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400; got %d (%s)", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "leak-me") || strings.Contains(w.Body.String(), "invalid_grant") {
+		t.Errorf("what MercadoPago said must not reach the client; got %s", w.Body.String())
+	}
+	if f.store.mpCredentials != nil {
+		t.Error("nothing must be stored when the code is rejected")
+	}
+	logs := f.logs.String()
+	if !strings.Contains(logs, "level=WARN") || strings.Contains(logs, "level=ERROR") {
+		t.Errorf("a rejected code must be logged at warn and not at error; got %q", logs)
+	}
+}
+
+// MercadoPago being down, or failing, is a gateway failure, not a bug of ours.
+func TestConnectMercadoPagoAnswersAnOutageAs502(t *testing.T) {
+	f := newFixture(t)
+	f.payments.err = fmt.Errorf("%w: status 503", mp.ErrOAuthUnavailable)
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil, connectBody))
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("want 502; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.mpCredentials != nil {
+		t.Error("nothing must be stored when MercadoPago is unavailable")
+	}
+}
+
+// An error nobody classified is still ours to answer as a fault.
+func TestConnectMercadoPagoKeepsUnclassifiedFailuresAs500(t *testing.T) {
+	f := newFixture(t)
+	f.payments.err = errors.New("marshal exploded")
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil, connectBody))
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("want 500; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+// Swapping the seller account under live bookings is refused with its own
+// sentence, and the refusal comes from the store, so nothing is written.
+func TestConnectMercadoPagoRefusesADifferentAccountWhileBookingsAreActive(t *testing.T) {
+	f := newFixture(t)
+	f.payments.tokens = &mp.OAuthTokens{AccessToken: "AT", RefreshToken: "RT", UserID: 999}
+	f.store.connectErr = complexstore.ErrActiveBookings
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil, connectBody))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "cannot connect a different MercadoPago account while you have active bookings") {
+		t.Errorf("the 409 must say what was refused; got %s", w.Body.String())
+	}
+	if f.store.mpCredentials != nil {
+		t.Error("a refused reconnect must store nothing")
+	}
+	if len(f.audit.entries) != 0 {
+		t.Errorf("a refused reconnect must not be audited as a connect; got %+v", f.audit.entries)
+	}
+}
+
+// Refused while bookings are live: the store's own atomic refusal surfaces as
+// the 409 that tells the owner what to do, and nothing is cleared.
+func TestDisconnectMercadoPagoIsRefusedWhileBookingsAreActive(t *testing.T) {
+	f := newFixture(t)
+	f.store.disconnectErr = complexstore.ErrActiveBookings
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.DisconnectMercadoPago(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil, ""))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "cannot disconnect MercadoPago while you have active bookings") {
+		t.Errorf("the 409 must say what was refused; got %s", w.Body.String())
+	}
+	if f.store.mpCleared != nil {
+		t.Error("a refused disconnect must clear nothing")
+	}
+}
+
 func TestDisconnectMercadoPagoClearsTheCredentials(t *testing.T) {
 	f := newFixture(t)
 	complex := &complexstore.Complex{ID: uuid.New()}

@@ -213,6 +213,42 @@ func LocalInstant(date time.Time, hhmm string) time.Time {
 // though the court was released — see the comment there.
 const ReleasedBookingStatuses = `('cancelled', 'no_show')`
 
+// rowQuerier is the part of a pool or a transaction that runs one statement and
+// reads one row. Both *data.DB and pgx.Tx satisfy it, which is what lets a
+// question be asked either on its own or inside a transaction that already
+// holds a lock.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// ComplexHasActiveBookings reports whether the complex still owes anyone their
+// hours: some booking of it has not finished yet and was not released.
+//
+// This is the one definition of "active" the complex-level guards share: the
+// bookings store's HasActiveBookings (what gates deleting a venue) and the
+// complexes store's MercadoPago connect and disconnect (which ask it inside the
+// transaction that holds the venue row). It is a function over a rowQuerier
+// rather than a constant so the same predicate runs on the pool or on a
+// transaction without a second copy of the SQL.
+//
+// Asked as "has this booking finished yet", not "is its date today or later":
+// a booking dated yesterday running 23:30 to 00:30 is being played right now at
+// ten past midnight. See ReleasedBookingStatuses for the status half.
+func ComplexHasActiveBookings(ctx context.Context, q rowQuerier, complexID uuid.UUID) (bool, error) {
+	var exists bool
+	err := q.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM bookings
+			WHERE complex_id = $1
+			  AND upper(span) > NOW()
+			  AND status NOT IN `+ReleasedBookingStatuses+`
+		)`, data.UUIDToPg(complexID)).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check active bookings: %w", err)
+	}
+	return exists, nil
+}
+
 // SpanTaken reports whether a live booking already covers an arbitrary stretch
 // of a court's calendar. The caller must hold LockCourtDays for the local days
 // that stretch touches.

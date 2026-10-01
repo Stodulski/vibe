@@ -13,6 +13,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/db"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 )
@@ -407,42 +408,147 @@ func (m *Store) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*Sched
 // cron tick. Zero (an OAuth response that carried no expires_in) stores NULL,
 // which ListComplexesNeedingMPRefresh also treats as due for a refresh.
 func (m *Store) UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
-	if accessToken == "" || refreshToken == "" || userID == "" {
-		return mpcred.ErrMPCredentialEmpty
-	}
-
-	sealedAccess, err := m.Keys.Seal(mpcred.AAD(complexID, mpcred.AccessTokenColumn), accessToken)
+	sealedAccess, sealedRefresh, expiresAt, err := m.sealMPCredentials(complexID, accessToken, refreshToken, userID, expiresIn)
 	if err != nil {
-		return fmt.Errorf("data: sealing mp_access_token: %w", err)
-	}
-	sealedRefresh, err := m.Keys.Seal(mpcred.AAD(complexID, mpcred.RefreshTokenColumn), refreshToken)
-	if err != nil {
-		return fmt.Errorf("data: sealing mp_refresh_token: %w", err)
-	}
-
-	var expiresAt pgtype.Timestamptz
-	if expiresIn > 0 {
-		expiresAt = data.TimeToPg(time.Now().Add(time.Duration(expiresIn) * time.Second))
+		return err
 	}
 
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	_, err = m.DB.Exec(ctx,
-		`UPDATE complexes SET mp_access_token = $1, mp_refresh_token = $2, mp_user_id = $3, mp_token_expires_at = $4 WHERE id = $5`,
+	_, err = m.DB.Exec(ctx, writeMPCredentialsSQL,
 		sealedAccess, sealedRefresh, userID, expiresAt, data.UUIDToPg(complexID))
 	return err
 }
 
-// ClearMPCredentials disconnects the complex's MercadoPago OAuth integration.
-func (m *Store) ClearMPCredentials(ctx context.Context, complexID uuid.UUID) error {
-	ctx, cancel := data.QueryContext(ctx)
+// writeMPCredentialsSQL is the one statement that stores a seller's
+// credentials, shared by the plain refresh write and the guarded connect.
+const writeMPCredentialsSQL = `UPDATE complexes SET mp_access_token = $1, mp_refresh_token = $2, mp_user_id = $3, mp_token_expires_at = $4 WHERE id = $5`
+
+// sealMPCredentials validates and seals one credential set for storage. It
+// refuses an empty value before any sealing is attempted; see
+// UpdateMPCredentials for why that refusal sits above the CHECK.
+func (m *Store) sealMPCredentials(complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) (sealedAccess, sealedRefresh string, expiresAt pgtype.Timestamptz, err error) {
+	if accessToken == "" || refreshToken == "" || userID == "" {
+		return "", "", expiresAt, mpcred.ErrMPCredentialEmpty
+	}
+
+	sealedAccess, err = m.Keys.Seal(mpcred.AAD(complexID, mpcred.AccessTokenColumn), accessToken)
+	if err != nil {
+		return "", "", expiresAt, fmt.Errorf("data: sealing mp_access_token: %w", err)
+	}
+	sealedRefresh, err = m.Keys.Seal(mpcred.AAD(complexID, mpcred.RefreshTokenColumn), refreshToken)
+	if err != nil {
+		return "", "", expiresAt, fmt.Errorf("data: sealing mp_refresh_token: %w", err)
+	}
+
+	if expiresIn > 0 {
+		expiresAt = data.TimeToPg(time.Now().Add(time.Duration(expiresIn) * time.Second))
+	}
+	return sealedAccess, sealedRefresh, expiresAt, nil
+}
+
+// lockMPUserID takes the complex row FOR UPDATE and returns the seller account
+// it is connected to, or "" when it is not connected. data.ErrRecordNotFound
+// when no live complex has the id.
+//
+// The row lock serializes every writer of the venue's MercadoPago connection —
+// a concurrent connect, disconnect or token refresh waits here — and, because
+// the booking question that follows runs as a statement of its own, it sees a
+// snapshot taken after that wait rather than before it.
+func lockMPUserID(ctx context.Context, tx pgx.Tx, complexID uuid.UUID) (string, error) {
+	var userID pgtype.Text
+	err := tx.QueryRow(ctx,
+		`SELECT mp_user_id FROM complexes WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+		data.UUIDToPg(complexID)).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", data.ErrRecordNotFound
+		}
+		return "", fmt.Errorf("lock complex: %w", err)
+	}
+	return userID.String, nil
+}
+
+// ConnectMPCredentials stores credentials the owner has just authorized,
+// refusing with ErrActiveBookings when that would swap the seller account under
+// bookings that are still live.
+//
+// A booking's checkout preference is created under the account connected at the
+// time, and the payment webhook accepts it only when the collector is the
+// complex's current mp_user_id. Replacing the account while such a booking is
+// unpaid therefore strands it: the money lands in the old account and the
+// booking is never confirmed. Re-authorizing the SAME account only refreshes
+// the tokens and is always allowed, and so is a first connection.
+//
+// The check and the write share one transaction holding the complex row, so a
+// concurrent connect or disconnect cannot interleave between them.
+func (m *Store) ConnectMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
+	sealedAccess, sealedRefresh, expiresAt, err := m.sealMPCredentials(complexID, accessToken, refreshToken, userID, expiresIn)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	_, err := m.DB.Exec(ctx,
-		`UPDATE complexes SET mp_access_token = NULL, mp_refresh_token = NULL, mp_user_id = NULL, mp_token_expires_at = NULL WHERE id = $1`,
-		data.UUIDToPg(complexID))
-	return err
+	return m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		current, err := lockMPUserID(ctx, tx, complexID)
+		if err != nil {
+			return err
+		}
+		if current != "" && current != userID {
+			active, err := slotguard.ComplexHasActiveBookings(ctx, tx, complexID)
+			if err != nil {
+				return err
+			}
+			if active {
+				return ErrActiveBookings
+			}
+		}
+		if _, err := tx.Exec(ctx, writeMPCredentialsSQL,
+			sealedAccess, sealedRefresh, userID, expiresAt, data.UUIDToPg(complexID)); err != nil {
+			return fmt.Errorf("store mp credentials: %w", err)
+		}
+		return nil
+	})
+}
+
+// DisconnectMPCredentials disconnects the complex's MercadoPago OAuth
+// integration, refusing with ErrActiveBookings while the venue has live
+// bookings: those are money that still has to be collected or returned through
+// that connection.
+//
+// This used to be a bookings check by the service followed by a separate clear,
+// with nothing between them; a booking committed in that gap was left with no
+// seller to be paid to. The check now runs inside the transaction that holds
+// the complex row, as a statement of its own after the lock, so it reads
+// current state — see lockMPUserID, and SoftDelete in the courts store for why
+// folding it into the UPDATE's WHERE would not be enough. A booking still in
+// flight is the one thing it cannot see: the booking path does not lock the
+// complex row.
+func (m *Store) DisconnectMPCredentials(ctx context.Context, complexID uuid.UUID) error {
+	ctx, cancel := data.TxContext(ctx)
+	defer cancel()
+
+	return m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		if _, err := lockMPUserID(ctx, tx, complexID); err != nil {
+			return err
+		}
+		active, err := slotguard.ComplexHasActiveBookings(ctx, tx, complexID)
+		if err != nil {
+			return err
+		}
+		if active {
+			return ErrActiveBookings
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE complexes SET mp_access_token = NULL, mp_refresh_token = NULL, mp_user_id = NULL, mp_token_expires_at = NULL WHERE id = $1`,
+			data.UUIDToPg(complexID)); err != nil {
+			return fmt.Errorf("clear mp credentials: %w", err)
+		}
+		return nil
+	})
 }
 
 // ListComplexesNeedingMPRefresh returns connected complexes whose OAuth token

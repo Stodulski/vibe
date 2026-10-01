@@ -571,7 +571,12 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 
 	mpUserID, err := h.svc.ConnectMercadoPago(r.Context(), complex.ID, h.actor(r), input.Code, input.RedirectUri, codeVerifier)
 	if err != nil {
-		h.respond.ServerError(w, r, err)
+		if errors.Is(err, ErrActiveBookings) {
+			h.respond.DomainErrorWith(w, r, err,
+				"cannot connect a different MercadoPago account while you have active bookings, cancel them first")
+			return
+		}
+		h.respond.DomainError(w, r, err)
 		return
 	}
 

@@ -169,8 +169,39 @@ type OAuthTokens struct {
 	ExpiresIn    int    `json:"expires_in"`
 }
 
+// ErrOAuthRejected is what ExchangeOAuthCode returns when MercadoPago's token
+// endpoint refuses the exchange itself: the authorization code is expired or
+// already used, or the redirect_uri or PKCE verifier does not match what the
+// authorization was issued for. It is the owner's to retry from the start, not
+// a fault of ours, and the error it wraps (an *APIError, so errors.As reaches
+// the status and body) is for the log only.
+var ErrOAuthRejected = errors.New("mp: oauth authorization rejected")
+
+// ErrOAuthUnavailable is what ExchangeOAuthCode returns when no verdict on the
+// code could be had: MercadoPago could not be reached, answered 5xx, throttled
+// us, or refused our own client credentials (a 401/403 is our configuration
+// being wrong, which the owner cannot fix and must not be told to retry). It
+// carries no response body.
+var ErrOAuthUnavailable = errors.New("mp: oauth exchange unavailable")
+
+// oauthRejectedStatus reports whether a token-endpoint status means "this
+// authorization code will not work", as opposed to anything about us or them.
+// 400 is MercadoPago's answer for invalid_grant and invalid_request; 404 and
+// 422 are accepted for the same family of refusals.
+func oauthRejectedStatus(status int) bool {
+	switch status {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity:
+		return true
+	}
+	return false
+}
+
 // ExchangeOAuthCode exchanges an authorization code for access/refresh tokens (MP Marketplace OAuth).
 // If codeVerifier is non-empty, it is sent for PKCE validation.
+//
+// Every failure is either ErrOAuthRejected (MercadoPago refused this code) or
+// ErrOAuthUnavailable (no verdict), so a caller can answer an owner's mistake
+// as one and an outage as the other.
 func (c *MPClient) ExchangeOAuthCode(ctx context.Context, code, redirectURI, codeVerifier string) (*OAuthTokens, error) {
 	body := map[string]string{
 		"grant_type":    "authorization_code",
@@ -197,21 +228,28 @@ func (c *MPClient) ExchangeOAuthCode(ctx context.Context, code, redirectURI, cod
 
 	resp, err := c.doRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("mp: oauth request failed: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrOAuthUnavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, readErr := io.ReadAll(resp.Body)
-		if readErr != nil {
-			return nil, fmt.Errorf("mp: oauth exchange failed with status %d (failed to read body: %w)", resp.StatusCode, readErr)
+		if !oauthRejectedStatus(resp.StatusCode) {
+			// No body: this is logged at error level, and what MercadoPago
+			// said to an unexpected status is not worth more than the status.
+			return nil, fmt.Errorf("%w: status %d", ErrOAuthUnavailable, resp.StatusCode)
 		}
-		return nil, fmt.Errorf("mp: oauth exchange failed with status %d: %s", resp.StatusCode, string(respBody))
+		// Bounded: the body goes to a warn line, and an endpoint answering a
+		// rejection has no business sending more than a short JSON error.
+		respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+		if readErr != nil {
+			respBody = nil
+		}
+		return nil, fmt.Errorf("%w: %w", ErrOAuthRejected, &APIError{StatusCode: resp.StatusCode, Body: string(respBody)})
 	}
 
 	var tokens OAuthTokens
 	if err := json.NewDecoder(resp.Body).Decode(&tokens); err != nil {
-		return nil, fmt.Errorf("mp: failed to decode oauth response: %w", err)
+		return nil, fmt.Errorf("%w: failed to decode oauth response: %w", ErrOAuthUnavailable, err)
 	}
 
 	return &tokens, nil
