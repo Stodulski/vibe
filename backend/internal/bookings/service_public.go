@@ -441,35 +441,44 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 // with a token refresh if the seller's access token has expired.
 func (s *Service) createMPPreferenceWithRetry(ctx context.Context, prefInput mp.CreatePreferenceInput, complex *complexstore.Complex) (*mp.Preference, error) {
 	pref, err := s.checkout.CreatePreference(ctx, prefInput)
-
-	refreshTok, refreshTokErr := complex.SellerRefreshToken()
-	if err != nil && mp.IsUnauthorized(err) && refreshTokErr == nil {
-		s.logger.Info("public booking: seller token expired, refreshing", "complex_id", complex.ID)
-		newTokens, refreshErr := s.checkout.RefreshOAuthToken(ctx, refreshTok)
-		if refreshErr == nil {
-			mpUserID := fmt.Sprintf("%d", newTokens.UserID)
-			if credErr := s.complexes.UpdateMPCredentials(ctx, complex.ID, newTokens.AccessToken, newTokens.RefreshToken, mpUserID, newTokens.ExpiresIn); credErr != nil {
-				s.logger.Error("public booking: failed to persist refreshed MP credentials", "error", credErr, "complex_id", complex.ID)
-				sentry.CaptureMessage(fmt.Sprintf("MP OAuth refreshed-credential persist FAILED (checkout retry): complex_id=%s error=%v", complex.ID, credErr))
-			}
-			refreshedSeller, callerErr := mp.AsSeller(newTokens.AccessToken)
-			if callerErr != nil {
-				// MercadoPago answered the refresh without an access token.
-				// Retrying without one would have meant retrying as the
-				// platform, so there is nothing left to retry with: the
-				// original 401 is the answer.
-				s.logger.Error("public booking: the refreshed seller token is unusable, keeping the original failure",
-					"error", callerErr, "complex_id", complex.ID)
-				return pref, err
-			}
-			prefInput.Caller = refreshedSeller
-			pref, err = s.checkout.CreatePreference(ctx, prefInput)
-		} else {
-			s.logger.Error("public booking: failed to refresh seller token", "error", refreshErr, "complex_id", complex.ID)
-		}
+	if err == nil || !mp.IsUnauthorized(err) {
+		return pref, err
 	}
 
-	return pref, err
+	// An unreadable access token leaves the stale value empty, which makes the
+	// refresh unconditional rather than skipped.
+	staleAccess, accessErr := complex.SellerAccessToken()
+	if accessErr != nil {
+		staleAccess = ""
+	}
+
+	s.logger.Info("public booking: seller token expired, refreshing", "complex_id", complex.ID)
+	accessToken, refreshErr := s.complexes.RefreshMPCredentials(ctx, complex.ID, staleAccess)
+	if refreshErr != nil {
+		if !errors.Is(refreshErr, mpcred.ErrMPRefreshNotPersisted) {
+			s.logger.Error("public booking: failed to refresh seller token", "error", refreshErr, "complex_id", complex.ID)
+			return pref, err
+		}
+		// MercadoPago did issue new tokens; only storing them failed, and the
+		// refresh has already alerted. The access token that came back is good
+		// for this request, so the client is not failed for a write they have
+		// no part in.
+		s.logger.Error("public booking: refreshed MP credentials were not stored, continuing with the new access token for this request",
+			"error", refreshErr, "complex_id", complex.ID)
+	}
+
+	refreshedSeller, callerErr := mp.AsSeller(accessToken)
+	if callerErr != nil {
+		// MercadoPago answered the refresh without an access token.
+		// Retrying without one would have meant retrying as the
+		// platform, so there is nothing left to retry with: the
+		// original 401 is the answer.
+		s.logger.Error("public booking: the refreshed seller token is unusable, keeping the original failure",
+			"error", callerErr, "complex_id", complex.ID)
+		return pref, err
+	}
+	prefInput.Caller = refreshedSeller
+	return s.checkout.CreatePreference(ctx, prefInput)
 }
 
 // ResolveLink is the whole authorization for the three public routes

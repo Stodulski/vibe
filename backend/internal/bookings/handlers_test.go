@@ -1,9 +1,11 @@
 package bookings
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,6 +20,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -596,57 +599,83 @@ func TestPublicBookRefusesWhenTheComplexHasNoSellerCredential(t *testing.T) {
 	}
 }
 
-// TestCheckoutRetryReportsAFailedCredentialPersist covers the branch in
-// createMPPreferenceWithRetry that alerts when a freshly refreshed
-// MercadoPago credential cannot be stored.
-//
-// MercadoPago rotates the refresh token on every use: the moment
-// RefreshOAuthToken returns, the refresh token in our database is already
-// dead. If the write that replaces it is refused, this venue's checkout
-// keeps working only until the new access token expires, and then no code
-// path can refresh it again — the next owner-facing symptom is checkout
-// failing outright with no record of why. The cron refresh path already
-// alerted on this; this one only logged, so the same fault was invisible
-// depending on which path hit it first.
-//
-// The complex_id is asserted alongside the alert because an operator who
-// cannot tell which venue needs reconnecting cannot act on it.
-//
-// Mutation: delete the sentry.CaptureMessage call in public.go's
-// UpdateMPCredentials error branch, leaving only the log line, and re-run —
-// this test must fail.
-func TestCheckoutRetryReportsAFailedCredentialPersist(t *testing.T) {
+// sellerFixture is a complex whose stored seller token MercadoPago has just
+// rejected, with the checkout stub set to answer 401 once.
+func sellerFixture(t *testing.T) (*fixture, *complexstore.Complex) {
+	t.Helper()
 	f := newFixture(t)
-	complexID := uuid.New()
 	accessToken, refreshToken := "expired-seller-token", "seller-refresh-token"
-	complex := complexstore.NewComplexForTest(complexID, &accessToken, &refreshToken)
+	complex := complexstore.NewComplexForTest(uuid.New(), &accessToken, &refreshToken)
 	complex.Name = "Vibe"
+	f.checkout.unauthorizedOnce = true
+	f.complexes.refreshedToken = "fresh-seller-token"
+	return f, complex
+}
 
-	// MercadoPago rejects the stored access token, which is what sends the
-	// checkout down the refresh-and-retry path in the first place.
-	f.checkout.err = &mp.APIError{StatusCode: http.StatusUnauthorized, Body: "invalid access token"}
-	// The refresh succeeds — new tokens in hand — and the write that must
-	// store them is refused.
-	f.complexes.credentialsErr = errors.New("database unavailable")
+// A 401 from MercadoPago sends checkout through the complex module's refresh
+// with the token that was just rejected, then retries once as the seller whose
+// token came back. The refresh is the complex module's alone: checkout never
+// spends a refresh token itself.
+func TestCheckoutRetriesOnceWithTheRefreshedSellerToken(t *testing.T) {
+	f, complex := sellerFixture(t)
 
-	sentryEvents := withCapturedSentryEvents(t)
-
-	_, _ = f.service.createMPPreferenceWithRetry(t.Context(),
-		mp.CreatePreferenceInput{Caller: mustSeller(t, accessToken)}, complex)
-
-	if len(f.complexes.credentials) != 1 {
-		t.Fatalf("the refreshed credential must be written back exactly once; got %d attempts", len(f.complexes.credentials))
+	pref, err := f.service.createMPPreferenceWithRetry(t.Context(),
+		mp.CreatePreferenceInput{Caller: mustSeller(t, "expired-seller-token")}, complex)
+	if err != nil {
+		t.Fatalf("the retry succeeds, so checkout must too; got %v", err)
 	}
-
-	messages := sentryEvents.messages()
-	alert, found := findMessage(messages, "refreshed-credential persist FAILED")
-	if !found {
-		t.Fatalf("a refreshed MercadoPago credential that could not be stored must alert, "+
-			"not just log: the stored refresh token is dead from here on; captured %q", messages)
+	if pref == nil || pref.ID == "" {
+		t.Fatal("want the preference the retry created")
 	}
-	if !strings.Contains(alert, complexID.String()) {
-		t.Errorf("the alert must name the complex whose credential is now unrefreshable, "+
-			"or the operator cannot act on it; want complex_id=%s, got %q", complexID, alert)
+	if f.checkout.created != 2 {
+		t.Fatalf("want exactly one retry (2 attempts); got %d", f.checkout.created)
+	}
+	if got := f.complexes.refreshes; len(got) != 1 || got[0].complexID != complex.ID || got[0].staleToken != "expired-seller-token" {
+		t.Fatalf("want one refresh naming the complex and the rejected token; got %+v", got)
+	}
+	if f.checkout.inputs[1].Caller != mustSeller(t, "fresh-seller-token") {
+		t.Error("the retry must be made as the seller with the refreshed token")
+	}
+}
+
+// When the refresh fails, the original 401 is the answer and nothing is
+// retried: there is no new token to retry with.
+func TestCheckoutKeepsTheOriginalFailureWhenTheRefreshFails(t *testing.T) {
+	f, complex := sellerFixture(t)
+	f.complexes.refreshErr = errors.New("mercadopago unavailable")
+
+	_, err := f.service.createMPPreferenceWithRetry(t.Context(),
+		mp.CreatePreferenceInput{Caller: mustSeller(t, "expired-seller-token")}, complex)
+
+	if !mp.IsUnauthorized(err) {
+		t.Fatalf("want the original 401 back; got %v", err)
+	}
+	if f.checkout.created != 1 {
+		t.Errorf("no retry without a refreshed token; got %d attempts", f.checkout.created)
+	}
+}
+
+// MercadoPago rotates the refresh token on every use, so when the new tokens
+// could not be stored the venue needs reconnecting later, but the access token
+// that did come back is still good for this client's request. The refresh
+// itself has already alerted; checkout must not fail the client for it, and
+// must say so at error level.
+func TestCheckoutStillUsesTheNewTokenWhenItCouldNotBeStored(t *testing.T) {
+	f, complex := sellerFixture(t)
+	f.complexes.refreshErr = fmt.Errorf("%w: %w", mpcred.ErrMPRefreshNotPersisted, errors.New("database unavailable"))
+	var logs bytes.Buffer
+	f.service.logger = slog.New(slog.NewTextHandler(&logs, nil))
+
+	pref, err := f.service.createMPPreferenceWithRetry(t.Context(),
+		mp.CreatePreferenceInput{Caller: mustSeller(t, "expired-seller-token")}, complex)
+	if err != nil || pref == nil {
+		t.Fatalf("the new access token is usable, so the retry must go ahead; got pref=%v err=%v", pref, err)
+	}
+	if f.checkout.inputs[1].Caller != mustSeller(t, "fresh-seller-token") {
+		t.Error("the retry must use the access token the refresh returned")
+	}
+	if out := logs.String(); !strings.Contains(out, "level=ERROR") || !strings.Contains(out, complex.ID.String()) {
+		t.Errorf("the unstored credentials must be logged at error level naming the complex; got %q", out)
 	}
 }
 

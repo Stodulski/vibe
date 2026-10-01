@@ -456,6 +456,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Bookings: bookingsFacade,
 		Payments: mpClient,
 		OAuth:    mpOAuthClient,
+		Locks:    d.models.Locks,
 		Storage:  d.storage,
 		Audit:    auditor,
 		Logger:   d.logger,

@@ -81,4 +81,12 @@ var (
 	// floor beneath the encryption boundary, not the guard itself. Declared
 	// now for signature stability; unreachable until Slice 2 wires sealing.
 	ErrMPCredentialEmpty = errors.New("data: MercadoPago credential must not be empty")
+	// ErrMPRefreshNotPersisted is returned by the credential refresh when
+	// MercadoPago issued new tokens but the write that stores them failed.
+	// MercadoPago rotates the refresh token on use, so the stored one is dead
+	// from that moment: the caller may still use the access token that came
+	// back for the request in hand, but the venue needs reconnecting once it
+	// expires. The refresh has already logged and alerted by the time a caller
+	// sees this.
+	ErrMPRefreshNotPersisted = errors.New("data: refreshed MercadoPago credentials could not be stored")
 )
