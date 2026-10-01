@@ -5352,12 +5352,31 @@ export interface operations {
                     };
                 };
             };
+            /** @description MercadoPago refused the authorization code (expired, already used, or a mismatched redirect_uri or PKCE verifier). The owner starts the connection again. The detail is a fixed sentence; nothing MercadoPago said is included. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            /** @description The code authorizes a different MercadoPago account than the one connected, and the complex has active bookings that were taken under the connected one. Re-authorizing the same account is not refused. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
-            /** @description The OAuth exchange with MercadoPago failed. Unlike most 500s, this message includes the wrapped error detail. */
-            500: {
+            500: components["responses"]["ServerError"];
+            /** @description MercadoPago could not be reached, failed, or refused this server's own credentials. Nothing was stored; trying again later is the only useful response. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };
