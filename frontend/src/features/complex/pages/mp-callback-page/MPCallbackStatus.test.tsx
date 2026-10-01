@@ -13,6 +13,14 @@ describe('MPCallbackStatus', () => {
     expect(screen.getByRole('link', { name: t.mp.connectRetry })).toHaveAttribute('href', '/onboarding');
   });
 
+  it('says the owner cancelled, with retry, when MercadoPago was declined', () => {
+    renderWithProviders(<MPCallbackStatus status="error" errorReason="denied" returnPath="/settings" />);
+
+    expect(screen.getByText(t.mp.connectErrorDenied)).toBeInTheDocument();
+    expect(screen.queryByText(t.mp.connectErrorExpired)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: t.mp.connectRetry })).toHaveAttribute('href', '/settings');
+  });
+
   it('explains the conflict and only offers the way back', () => {
     renderWithProviders(<MPCallbackStatus status="error" errorReason="conflict" returnPath="/settings" />);
 

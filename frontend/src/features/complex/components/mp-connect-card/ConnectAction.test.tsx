@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { ConnectAction } from './ConnectAction';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
@@ -23,6 +23,25 @@ describe('ConnectAction', () => {
     );
     const link = screen.getByRole('link', { name: t.mp.connect });
     expect(link).toHaveAttribute('href', 'https://auth.mercadopago.com/test');
+  });
+
+  it('persists the attempt on click, middle-click and the context menu ("open in new tab")', () => {
+    const onConnectClick = vi.fn();
+    render(
+      <ConnectAction
+        connected={false}
+        authUrl="https://auth.mercadopago.com/test"
+        onConnectClick={onConnectClick}
+        onDisconnectClick={vi.fn()}
+      />,
+    );
+    const link = screen.getByRole('link', { name: t.mp.connect });
+
+    fireEvent.click(link);
+    fireEvent(link, new MouseEvent('auxclick', { bubbles: true, button: 1 }));
+    fireEvent.contextMenu(link);
+
+    expect(onConnectClick).toHaveBeenCalledTimes(3);
   });
 
   it('renders the disconnect button when connected, regardless of authUrl', () => {

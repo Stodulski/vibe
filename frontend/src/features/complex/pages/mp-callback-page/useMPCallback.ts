@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { HTTPError } from 'ky';
 import { queryKeys } from '@/shared/lib/queryKeys';
+import { mpRedirectUri } from '@/shared/lib/mpAuth';
 import { consumeMPOAuthSession, DEFAULT_RETURN_PATH, type MPOAuthSession } from '@/shared/lib/mpOAuthSession';
 import { complexApi } from '../../api/complex.api';
 
@@ -12,16 +13,19 @@ export type MPCallbackStatus = 'processing' | 'success' | 'error';
  * Why the connection failed, for the copy the page shows:
  * - `conflict`: the API refused (409) — a different MercadoPago account while
  *   the complex has active bookings. Retrying cannot help until they are gone.
+ * - `denied`: the owner cancelled on MercadoPago (`?error=access_denied`, no
+ *   code). Nothing went wrong; they can simply start again.
  * - `expired`: the attempt cannot be completed — unknown or already-used
  *   state (reload, cleared storage, another browser) or the API rejected the
  *   code (other 4xx). The only way forward is to start the connection again.
  * - `failed`: anything else (network, 5xx).
  */
-export type MPCallbackErrorReason = 'conflict' | 'expired' | 'failed';
+export type MPCallbackErrorReason = 'conflict' | 'denied' | 'expired' | 'failed';
 
 interface OAuthParams {
   code: string | null;
   session: MPOAuthSession | null;
+  denied: boolean;
 }
 
 // Reads the OAuth redirect params and consumes the attempt bound to `state`,
@@ -37,7 +41,11 @@ interface OAuthParams {
 function readOAuthParams(searchParams: URLSearchParams): OAuthParams {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
-  return { code, session: state ? consumeMPOAuthSession(state) : null };
+  return {
+    code,
+    session: state ? consumeMPOAuthSession(state) : null,
+    denied: code === null && searchParams.get('error') === 'access_denied',
+  };
 }
 
 function errorReasonFor(error: unknown): MPCallbackErrorReason {
@@ -67,7 +75,7 @@ function useConnectMutation({
     mutationFn: (params: { complexId: string; code: string; codeVerifier: string }) =>
       complexApi.connectMP(params.complexId, {
         code: params.code,
-        redirect_uri: `${window.location.origin}/settings/mp/callback`,
+        redirect_uri: mpRedirectUri(),
         code_verifier: params.codeVerifier,
       }),
     onSuccess: (_data, variables) => {
@@ -107,7 +115,7 @@ export function useMPCallback() {
   const returnPath = oauthParams.session?.returnPath ?? DEFAULT_RETURN_PATH;
   const canExchange = oauthParams.code !== null && oauthParams.session !== null;
   const [status, setStatus] = useState<MPCallbackStatus>(canExchange ? 'processing' : 'error');
-  const [errorReason, setErrorReason] = useState<MPCallbackErrorReason>('expired');
+  const [errorReason, setErrorReason] = useState<MPCallbackErrorReason>(oauthParams.denied ? 'denied' : 'expired');
 
   const connectMutation = useConnectMutation({
     queryClient,

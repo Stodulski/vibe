@@ -40,7 +40,10 @@ export function ConnectAction({
         // and keeps the fill; connecting is one-time setup, and the block
         // already announces itself with a status row and a green badge.
         <Button asChild variant="outline" className="w-full sm:w-auto">
-          <a href={authUrl} onClick={onConnectClick}>
+          {/* Every way of opening the link must persist the attempt first: a
+              middle-click fires `auxclick` and the context menu's "open in new
+              tab" fires `contextmenu`, neither of which is a `click`. */}
+          <a href={authUrl} onClick={onConnectClick} onAuxClick={onConnectClick} onContextMenu={onConnectClick}>
             <ExternalLink className="size-3.5" />
             {t.mp.connect}
           </a>

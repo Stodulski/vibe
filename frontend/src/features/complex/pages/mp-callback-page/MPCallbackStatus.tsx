@@ -9,6 +9,7 @@ const t = ES_AR;
 
 const ERROR_COPY: Record<MPCallbackErrorReason, string> = {
   conflict: t.mp.connectErrorConflict,
+  denied: t.mp.connectErrorDenied,
   expired: t.mp.connectErrorExpired,
   failed: t.mp.connectError,
 };

@@ -41,12 +41,34 @@ describe('mpOAuthSession', () => {
     expect(sessionStorage.length).toBe(0);
   });
 
-  it('rejects a return path that leaves the origin', () => {
-    sessionStorage.setItem(
-      'mp_oauth_evil',
-      JSON.stringify({ ...session(1), returnPath: '//evil.example', createdAt: Date.now() }),
-    );
+  it.each([
+    '//evil.com',
+    '/\\evil.com',
+    '/\t/evil.com',
+    '/%2Fevil.com',
+    '/%5Cevil.com',
+    'https://evil.com',
+    'javascript:alert(1)',
+    'settings',
+    '',
+  ])('rejects the return path %j', (returnPath) => {
+    sessionStorage.setItem('mp_oauth_evil', JSON.stringify({ ...session(1), returnPath, createdAt: Date.now() }));
     expect(consumeMPOAuthSession('evil')).toBeNull();
+  });
+
+  it.each(['/settings', '/onboarding', '/settings?tab=billing'])('accepts the same-origin path %j', (returnPath) => {
+    sessionStorage.setItem('mp_oauth_ok', JSON.stringify({ ...session(1), returnPath, createdAt: Date.now() }));
+    expect(consumeMPOAuthSession('ok')?.returnPath).toBe(returnPath);
+  });
+
+  it('rejects and deletes an entry older than ten minutes on consume', () => {
+    const now = Date.now();
+    saveMPOAuthSession('stale', session(1), now - 11 * MINUTE);
+    saveMPOAuthSession('edge', session(2), now - 10 * MINUTE);
+
+    expect(consumeMPOAuthSession('stale', now)).toBeNull();
+    expect(sessionStorage.getItem('mp_oauth_stale')).toBeNull();
+    expect(consumeMPOAuthSession('edge', now)?.codeVerifier).toBe('v2');
   });
 });
 

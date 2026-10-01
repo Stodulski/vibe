@@ -139,8 +139,15 @@ describe('useMPCallback without a usable attempt', () => {
     const { result } = renderCallback('?error=access_denied&state=state-1');
 
     expect(result.current.status).toBe('error');
+    expect(result.current.errorReason).toBe('denied');
     expect(calls).toHaveLength(0);
     expect(consumeMPOAuthSession('state-1')).toBeNull();
+  });
+
+  it('reports an unknown state without a denial as expired, not denied', () => {
+    const { result } = renderCallback('?error=server_error&state=nope');
+
+    expect(result.current.errorReason).toBe('expired');
   });
 });
 

@@ -23,15 +23,25 @@ const MAX_AGE_MS = 10 * 60 * 1000;
 /** Upper bound on entries kept, so repeated clicks can never grow storage. */
 const MAX_ENTRIES = 5;
 
+// Only ever a same-origin path: this is where the callback sends the owner
+// back to. Rejects protocol-relative (`//x`), backslash (`/\x`, which
+// browsers read as `//x`), percent-encoded slash/backslash lead-ins,
+// control characters and anything that resolves to another origin.
+function isSameOriginPath(path: string): boolean {
+  if (!path.startsWith('/') || /^\/(?:[/\\]|%2f|%5c)/i.test(path)) return false;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(path)) return false;
+  try {
+    return new URL(path, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 const entrySchema = z.object({
   complexId: z.string().min(1),
   codeVerifier: z.string().min(1),
-  // Only ever a same-origin path: this is where the callback sends the owner
-  // back to, so a protocol-relative value must never be accepted.
-  returnPath: z
-    .string()
-    .startsWith('/')
-    .refine((p) => !p.startsWith('//')),
+  returnPath: z.string().refine(isSameOriginPath),
   createdAt: z.number(),
 });
 
@@ -89,13 +99,13 @@ export function saveMPOAuthSession(
  * Reads and deletes the attempt for `state` in one step. The entry is gone
  * before the caller does anything with it, so a reload of the callback URL
  * cannot replay a single-use authorization code. `null` for an unknown,
- * already-consumed or unreadable entry.
+ * already-consumed, expired (same ten minutes as pruning) or unreadable entry.
  */
-export function consumeMPOAuthSession(state: string): MPOAuthSession | null {
+export function consumeMPOAuthSession(state: string, now: number = Date.now()): MPOAuthSession | null {
   const key = entryKey(state);
   const entry = safeSessionStorage.getJSON(key, entrySchema);
   safeSessionStorage.remove(key);
-  return entry;
+  return entry && now - entry.createdAt <= MAX_AGE_MS ? entry : null;
 }
 
 /** Removes every OAuth attempt, current and legacy — on logout. */

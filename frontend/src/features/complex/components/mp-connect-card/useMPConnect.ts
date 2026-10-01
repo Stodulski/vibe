@@ -46,6 +46,9 @@ export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
   const queryClient = useQueryClient();
   const [showDisconnect, setShowDisconnect] = useState(false);
   const [prepared, setPrepared] = useState<{ attempt: MPAuthAttempt; authUrl: string } | null>(null);
+  // Bumped after each persisted attempt so the next click, tab or menu use gets
+  // a fresh state nonce and verifier instead of reusing a spent pair.
+  const [attemptSeq, setAttemptSeq] = useState(0);
 
   const {
     data: mpStatus,
@@ -94,13 +97,17 @@ export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
     return () => {
       cancelled = true;
     };
-  }, [hasStatus, appId]);
+  }, [hasStatus, appId, attemptSeq]);
 
   const disconnectMutation = useDisconnectMutation(complexId, queryClient, setShowDisconnect);
 
-  // Persist the attempt right before navigating (onClick fires before the
-  // browser follows the link), bound to its own state nonce so a callback can
-  // only ever pick up the verifier that matches it.
+  // Persist the attempt right before the browser follows the link, bound to
+  // its own state nonce so a callback can only ever pick up the verifier that
+  // matches it. Wired to click, auxclick (middle-click) and contextmenu ("open
+  // in new tab"): sessionStorage is copied into a tab opened from this one, so
+  // it has to be written before that tab exists. Saving is idempotent per
+  // state, and the link keeps its current href until the fresh attempt is
+  // ready, so a repeat event persists the same pair the href carries.
   const handleConnectClick = () => {
     if (!prepared) return;
     saveMPOAuthSession(prepared.attempt.state, {
@@ -108,6 +115,7 @@ export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
       codeVerifier: prepared.attempt.verifier,
       returnPath: window.location.pathname,
     });
+    setAttemptSeq((n) => n + 1);
   };
 
   return {

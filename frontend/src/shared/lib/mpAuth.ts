@@ -15,6 +15,14 @@ export interface MPAuthAttempt {
 }
 
 /**
+ * The address MercadoPago sends the owner back to. The authorization URL and
+ * the code exchange must present the exact same value, so both read it here.
+ */
+export function mpRedirectUri(): string {
+  return `${window.location.origin}/settings/mp/callback`;
+}
+
+/**
  * Build the MercadoPago OAuth authorization URL synchronously from a
  * prepared attempt.
  *
@@ -25,12 +33,11 @@ export interface MPAuthAttempt {
  * through an authorization the API cannot complete.
  */
 export function buildMPAuthUrl(attempt: MPAuthAttempt, appId?: string): string {
-  const redirectUri = `${window.location.origin}/settings/mp/callback`;
   const params = new URLSearchParams({
     client_id: appId ?? ENV_MP_APP_ID,
     response_type: 'code',
     platform_id: 'mp',
-    redirect_uri: redirectUri,
+    redirect_uri: mpRedirectUri(),
     // A random nonce, so the complexId never travels through MercadoPago.
     state: attempt.state,
     code_challenge: attempt.challenge,

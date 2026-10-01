@@ -137,3 +137,49 @@ describe('useMPConnect OAuth attempt', () => {
     expect(sessionStorage.length).toBe(0);
   });
 });
+
+describe('useMPConnect attempt rotation', () => {
+  beforeEach(() => {
+    attemptCount = 0;
+    sessionStorage.clear();
+    server.use(
+      http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
+    );
+  });
+
+  it('prepares a fresh attempt after a persist, so a second tab gets its own state and verifier', async () => {
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-1');
+    });
+
+    act(() => {
+      result.current.handleConnectClick();
+    });
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-2');
+    });
+    act(() => {
+      result.current.handleConnectClick();
+    });
+
+    // Both attempts stay resolvable: each new tab returns with its own state.
+    expect(consumeMPOAuthSession('state-1')?.codeVerifier).toBe('v1');
+    expect(consumeMPOAuthSession('state-2')?.codeVerifier).toBe('v2');
+  });
+
+  it('does not change the link under the owner before the fresh attempt is ready', async () => {
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    await waitFor(() => {
+      expect(result.current.authUrl).not.toBeNull();
+    });
+
+    act(() => {
+      result.current.handleConnectClick();
+    });
+
+    expect(result.current.authUrl).not.toBeNull();
+  });
+});
