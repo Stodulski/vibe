@@ -16,6 +16,8 @@ export interface SafeStorage {
   get(key: string): string | null;
   set(key: string, value: string): void;
   remove(key: string): void;
+  /** Every key currently stored, or an empty list when storage is unavailable. */
+  keys(): string[];
   /**
    * Reads `key`, `JSON.parse`s it, and validates the result against `schema`.
    * Returns `null` for anything this cannot use: no entry, storage
@@ -51,6 +53,15 @@ function createSafeStorage(getArea: () => Storage): SafeStorage {
     }
   }
 
+  function keys(): string[] {
+    try {
+      const area = getArea();
+      return Array.from({ length: area.length }, (_, i) => area.key(i)).filter((k): k is string => k !== null);
+    } catch {
+      return [];
+    }
+  }
+
   function getJSON<T>(key: string, schema: z.ZodType<T>): T | null {
     const raw = get(key);
     if (raw == null) return null;
@@ -63,7 +74,7 @@ function createSafeStorage(getArea: () => Storage): SafeStorage {
     }
   }
 
-  return { get, set, remove, getJSON };
+  return { get, set, remove, keys, getJSON };
 }
 
 export const safeLocalStorage = createSafeStorage(() => window.localStorage);

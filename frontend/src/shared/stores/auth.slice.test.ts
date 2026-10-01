@@ -3,6 +3,7 @@ import type { StoreApi } from 'zustand';
 import { createAuthSlice, type AuthSlice } from './auth.slice';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
 import { API_CACHE_NAME } from '@/shared/lib/apiCache';
+import { consumeMPOAuthSession, saveMPOAuthSession } from '@/shared/lib/mpOAuthSession';
 
 const mockSetUser = vi.fn<(user: { id: string } | null) => void>();
 
@@ -75,14 +76,14 @@ describe('authSlice', () => {
   });
 
   it('logout removes the MercadoPago OAuth state', () => {
-    sessionStorage.setItem(STORAGE_KEYS.MP_CODE_VERIFIER, 'verifier');
-    sessionStorage.setItem(STORAGE_KEYS.MP_RETURN_PATH, '/dashboard');
+    saveMPOAuthSession('nonce-1', { complexId: 'c1', codeVerifier: 'verifier', returnPath: '/dashboard' });
+    sessionStorage.setItem('mp_code_verifier', 'legacy');
     const store = createStore();
 
     store.logout();
 
-    expect(sessionStorage.getItem(STORAGE_KEYS.MP_CODE_VERIFIER)).toBeNull();
-    expect(sessionStorage.getItem(STORAGE_KEYS.MP_RETURN_PATH)).toBeNull();
+    expect(consumeMPOAuthSession('nonce-1')).toBeNull();
+    expect(sessionStorage.getItem('mp_code_verifier')).toBeNull();
   });
 
   it('logout purges the service worker API cache so nothing stays readable on the device', () => {
@@ -130,14 +131,14 @@ describe('authSlice, cross-tab logout broadcast (SEC-03)', () => {
   });
 
   it('logoutLocal clears the csrfToken and the same storage keys as logout', () => {
-    sessionStorage.setItem(STORAGE_KEYS.MP_CODE_VERIFIER, 'verifier');
+    saveMPOAuthSession('nonce-1', { complexId: 'c1', codeVerifier: 'verifier', returnPath: '/dashboard' });
     const store = createStore();
     store.setCsrfToken('test-csrf-token');
 
     store.logoutLocal();
 
     expect(store.getState().csrfToken).toBeNull();
-    expect(sessionStorage.getItem(STORAGE_KEYS.MP_CODE_VERIFIER)).toBeNull();
+    expect(consumeMPOAuthSession('nonce-1')).toBeNull();
   });
 });
 

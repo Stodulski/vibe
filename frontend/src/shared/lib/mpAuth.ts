@@ -1,12 +1,22 @@
 import { generateCodeVerifier, generateCodeChallenge } from './pkce';
-import { safeSessionStorage } from './safeStorage';
 import { env } from './env';
 
 const ENV_MP_APP_ID = env.VITE_MP_APP_ID ?? '';
 
 /**
- * Build the MercadoPago OAuth authorization URL synchronously
- * using a pre-computed PKCE challenge.
+ * One prepared MercadoPago authorization attempt: the PKCE pair plus the
+ * random `state` nonce that identifies it on the way back. Nothing here is
+ * persisted — see `saveMPOAuthSession`, called on click.
+ */
+export interface MPAuthAttempt {
+  state: string;
+  verifier: string;
+  challenge: string;
+}
+
+/**
+ * Build the MercadoPago OAuth authorization URL synchronously from a
+ * prepared attempt.
  *
  * @param appId The app id from `GET .../mp/status` (`app_id`, the one the API
  * can actually exchange a code with). Falls back to the build-time
@@ -14,23 +24,16 @@ const ENV_MP_APP_ID = env.VITE_MP_APP_ID ?? '';
  * around, since a client built against a stale app id would send the seller
  * through an authorization the API cannot complete.
  */
-export function buildMPAuthUrl(
-  complexId: string,
-  pkce: { verifier: string; challenge: string },
-  appId?: string,
-): string {
-  // Use a random nonce as state to avoid leaking the complexId.
-  const nonce = crypto.randomUUID();
-  safeSessionStorage.set('mp_oauth_complex_' + nonce, complexId);
-
+export function buildMPAuthUrl(attempt: MPAuthAttempt, appId?: string): string {
   const redirectUri = `${window.location.origin}/settings/mp/callback`;
   const params = new URLSearchParams({
     client_id: appId ?? ENV_MP_APP_ID,
     response_type: 'code',
     platform_id: 'mp',
     redirect_uri: redirectUri,
-    state: nonce,
-    code_challenge: pkce.challenge,
+    // A random nonce, so the complexId never travels through MercadoPago.
+    state: attempt.state,
+    code_challenge: attempt.challenge,
     code_challenge_method: 'S256',
   });
 
@@ -38,10 +41,11 @@ export function buildMPAuthUrl(
 }
 
 /**
- * Pre-generate PKCE values (async). Call on mount, use result synchronously on click.
+ * Prepare a new attempt (async: the S256 challenge is a digest). Call when
+ * the status loads and use the result synchronously on click.
  */
-export async function generatePKCE(): Promise<{ verifier: string; challenge: string }> {
+export async function createMPAuthAttempt(): Promise<MPAuthAttempt> {
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
-  return { verifier, challenge };
+  return { state: crypto.randomUUID(), verifier, challenge };
 }

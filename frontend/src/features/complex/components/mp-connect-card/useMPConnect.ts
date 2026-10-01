@@ -4,10 +4,9 @@ import { toast } from 'sonner';
 import { HTTPError } from 'ky';
 import api, { withSignal } from '@/shared/lib/ky';
 import { queryKeys } from '@/shared/lib/queryKeys';
-import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
-import { safeSessionStorage } from '@/shared/lib/safeStorage';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { buildMPAuthUrl, generatePKCE } from '@/shared/lib/mpAuth';
+import { buildMPAuthUrl, createMPAuthAttempt, type MPAuthAttempt } from '@/shared/lib/mpAuth';
+import { saveMPOAuthSession } from '@/shared/lib/mpOAuthSession';
 import { parseWith } from '@/shared/lib/apiParse';
 import { mpStatusResponseSchema } from '@/shared/schemas/publicBooking.schema';
 import type { MPStatusResponse } from '@/shared/types/api.types';
@@ -46,8 +45,7 @@ function useDisconnectMutation(
 export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
   const queryClient = useQueryClient();
   const [showDisconnect, setShowDisconnect] = useState(false);
-  const [authUrl, setAuthUrl] = useState<string | null>(null);
-  const [pkceVerifier, setPkceVerifier] = useState<string | null>(null);
+  const [prepared, setPrepared] = useState<{ attempt: MPAuthAttempt; authUrl: string } | null>(null);
 
   const {
     data: mpStatus,
@@ -77,31 +75,39 @@ export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
     ...(options?.refetchInterval !== undefined ? { refetchInterval: options.refetchInterval } : {}),
   });
 
-  // Pre-compute PKCE + auth URL so the <a> tag has a real href on tap. Waits
-  // on mpStatus so the URL can carry its app_id — the app id the API can
-  // actually exchange a code with — rather than build one from the
-  // build-time env var and possibly send the seller through the wrong app.
+  // Prepare one attempt (PKCE pair + state nonce) and its auth URL so the <a>
+  // tag has a real href on tap. Waits on mpStatus so the URL can carry its
+  // app_id — the app id the API can actually exchange a code with — rather
+  // than build one from the build-time env var and possibly send the seller
+  // through the wrong app. Nothing is written to storage here: that happens
+  // on click, so loading the card (or each status refetch) leaves no state
+  // behind.
+  const hasStatus = mpStatus !== undefined;
+  const appId = mpStatus?.app_id;
   useEffect(() => {
-    if (!mpStatus) return;
+    if (!hasStatus) return;
     let cancelled = false;
-    void generatePKCE().then((pkce) => {
+    void createMPAuthAttempt().then((attempt) => {
       if (cancelled) return;
-      setPkceVerifier(pkce.verifier);
-      setAuthUrl(buildMPAuthUrl(complexId, pkce, mpStatus.app_id));
+      setPrepared({ attempt, authUrl: buildMPAuthUrl(attempt, appId) });
     });
     return () => {
       cancelled = true;
     };
-  }, [complexId, mpStatus]);
+  }, [hasStatus, appId]);
 
   const disconnectMutation = useDisconnectMutation(complexId, queryClient, setShowDisconnect);
 
-  // Store PKCE verifier right before navigating (onClick fires before navigation)
+  // Persist the attempt right before navigating (onClick fires before the
+  // browser follows the link), bound to its own state nonce so a callback can
+  // only ever pick up the verifier that matches it.
   const handleConnectClick = () => {
-    if (pkceVerifier) {
-      safeSessionStorage.set(STORAGE_KEYS.MP_CODE_VERIFIER, pkceVerifier);
-      safeSessionStorage.set(STORAGE_KEYS.MP_RETURN_PATH, window.location.pathname);
-    }
+    if (!prepared) return;
+    saveMPOAuthSession(prepared.attempt.state, {
+      complexId,
+      codeVerifier: prepared.attempt.verifier,
+      returnPath: window.location.pathname,
+    });
   };
 
   return {
@@ -110,7 +116,7 @@ export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
     refetch,
     connected: mpStatus?.connected ?? false,
     mpUserId: mpStatus?.mp_user_id,
-    authUrl,
+    authUrl: prepared?.authUrl ?? null,
     handleConnectClick,
     showDisconnect,
     setShowDisconnect,

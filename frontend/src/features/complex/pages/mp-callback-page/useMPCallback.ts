@@ -1,50 +1,74 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { HTTPError } from 'ky';
 import { queryKeys } from '@/shared/lib/queryKeys';
-import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
+import { consumeMPOAuthSession, DEFAULT_RETURN_PATH, type MPOAuthSession } from '@/shared/lib/mpOAuthSession';
 import { complexApi } from '../../api/complex.api';
-import { safeSessionStorage } from '@/shared/lib/safeStorage';
+
+export type MPCallbackStatus = 'processing' | 'success' | 'error';
+
+/**
+ * Why the connection failed, for the copy the page shows:
+ * - `conflict`: the API refused (409) — a different MercadoPago account while
+ *   the complex has active bookings. Retrying cannot help until they are gone.
+ * - `expired`: the attempt cannot be completed — unknown or already-used
+ *   state (reload, cleared storage, another browser) or the API rejected the
+ *   code (other 4xx). The only way forward is to start the connection again.
+ * - `failed`: anything else (network, 5xx).
+ */
+export type MPCallbackErrorReason = 'conflict' | 'expired' | 'failed';
 
 interface OAuthParams {
   code: string | null;
-  complexId: string | null;
+  session: MPOAuthSession | null;
 }
 
-// Reads (and, for the nonce-keyed complexId lookup, consumes) the OAuth
-// redirect params synchronously. Called once from a lazy `useState`
-// initializer — this is the officially-recommended way to compute a value
-// once "when the component is first created" without an effect
+// Reads the OAuth redirect params and consumes the attempt bound to `state`,
+// synchronously and exactly once. Called from a lazy `useState` initializer —
+// this is the officially-recommended way to compute a value once "when the
+// component is first created" without an effect
 // (react.dev/learn/you-might-not-need-an-effect), which avoids the
 // `react-hooks/set-state-in-effect` violation an effect-driven `setStatus`
-// would trigger for this synchronous, one-time check.
+// would trigger for this synchronous, one-time check. The entry is deleted
+// here, before anything is sent, so reloading the page cannot replay the
+// single-use code. It is consumed even when `code` is missing (MercadoPago
+// answers `?error=access_denied&state=…` if the owner declines).
 function readOAuthParams(searchParams: URLSearchParams): OAuthParams {
   const code = searchParams.get('code');
-  const stateNonce = searchParams.get('state');
-  const complexId = stateNonce ? safeSessionStorage.get('mp_oauth_complex_' + stateNonce) : null;
-  if (stateNonce) safeSessionStorage.remove('mp_oauth_complex_' + stateNonce);
-  return { code, complexId };
+  const state = searchParams.get('state');
+  return { code, session: state ? consumeMPOAuthSession(state) : null };
+}
+
+function errorReasonFor(error: unknown): MPCallbackErrorReason {
+  if (!(error instanceof HTTPError)) return 'failed';
+  const { status } = error.response;
+  if (status === 409) return 'conflict';
+  if (status >= 400 && status < 500) return 'expired';
+  return 'failed';
 }
 
 function useConnectMutation({
   queryClient,
   setStatus,
+  setErrorReason,
   redirectTimeoutRef,
   navigate,
   returnPath,
 }: {
   queryClient: ReturnType<typeof useQueryClient>;
-  setStatus: (status: 'processing' | 'success' | 'error') => void;
+  setStatus: (status: MPCallbackStatus) => void;
+  setErrorReason: (reason: MPCallbackErrorReason) => void;
   redirectTimeoutRef: React.RefObject<ReturnType<typeof setTimeout> | null>;
   navigate: ReturnType<typeof useNavigate>;
   returnPath: string;
 }) {
   return useMutation({
-    mutationFn: (params: { complexId: string; code: string; codeVerifier?: string | undefined }) =>
+    mutationFn: (params: { complexId: string; code: string; codeVerifier: string }) =>
       complexApi.connectMP(params.complexId, {
         code: params.code,
         redirect_uri: `${window.location.origin}/settings/mp/callback`,
-        ...(params.codeVerifier ? { code_verifier: params.codeVerifier } : {}),
+        code_verifier: params.codeVerifier,
       }),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
@@ -52,17 +76,15 @@ function useConnectMutation({
       });
       void queryClient.invalidateQueries({ queryKey: queryKeys.complexes.all });
       setStatus('success');
-      safeSessionStorage.remove(STORAGE_KEYS.MP_RETURN_PATH);
       redirectTimeoutRef.current = setTimeout(() => {
         void navigate(returnPath, { replace: true });
       }, 1500);
     },
-    onError: () => {
+    // No auto-redirect on failure: the code is single-use, so the page stays
+    // and offers the way back to where the connect action lives.
+    onError: (error) => {
+      setErrorReason(errorReasonFor(error));
       setStatus('error');
-      safeSessionStorage.remove(STORAGE_KEYS.MP_RETURN_PATH);
-      redirectTimeoutRef.current = setTimeout(() => {
-        void navigate(returnPath, { replace: true });
-      }, 2500);
     },
   });
 }
@@ -72,6 +94,7 @@ export function useMPCallback() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submittedRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -81,45 +104,31 @@ export function useMPCallback() {
   );
 
   const [oauthParams] = useState(() => readOAuthParams(searchParams));
-  // Read once, the same way as `oauthParams` above and for the same reason:
-  // the mutation removes this key from `sessionStorage` on settle, and
-  // re-reading it fresh on every render would make the effect below see a
-  // "changed" dependency after that removal and want to re-run.
-  const [returnPath] = useState(() => safeSessionStorage.get(STORAGE_KEYS.MP_RETURN_PATH) ?? '/settings');
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>(() =>
-    !oauthParams.code || !oauthParams.complexId ? 'error' : 'processing',
-  );
+  const returnPath = oauthParams.session?.returnPath ?? DEFAULT_RETURN_PATH;
+  const canExchange = oauthParams.code !== null && oauthParams.session !== null;
+  const [status, setStatus] = useState<MPCallbackStatus>(canExchange ? 'processing' : 'error');
+  const [errorReason, setErrorReason] = useState<MPCallbackErrorReason>('expired');
 
   const connectMutation = useConnectMutation({
     queryClient,
     setStatus,
+    setErrorReason,
     redirectTimeoutRef,
     navigate,
     returnPath,
   });
 
-  // `oauthParams` and `returnPath` never change after mount (both are read
-  // once, above), and `mutate` is a stable function identity — so unlike a
-  // dependency on the `connectMutation` object itself (a new identity every
-  // render), this effect's deps never change after the first run and it
-  // needs no `processed` ref to guard against re-submitting the OAuth code.
+  // `oauthParams` never changes after mount (read once, above) and `mutate`
+  // is a stable function identity, so this effect's deps never change. The
+  // ref covers what deps cannot: StrictMode runs the effect twice in
+  // development, and the authorization code is single-use.
   const { mutate } = connectMutation;
   useEffect(() => {
-    if (!oauthParams.code || !oauthParams.complexId) {
-      safeSessionStorage.remove(STORAGE_KEYS.MP_RETURN_PATH);
-      const timer = setTimeout(() => {
-        void navigate(returnPath, { replace: true });
-      }, 2500);
-      return () => {
-        clearTimeout(timer);
-      };
-    }
+    const { code, session } = oauthParams;
+    if (!code || !session || submittedRef.current) return;
+    submittedRef.current = true;
+    mutate({ complexId: session.complexId, code, codeVerifier: session.codeVerifier });
+  }, [oauthParams, mutate]);
 
-    const codeVerifier = safeSessionStorage.get(STORAGE_KEYS.MP_CODE_VERIFIER) ?? undefined;
-    safeSessionStorage.remove(STORAGE_KEYS.MP_CODE_VERIFIER);
-
-    mutate({ complexId: oauthParams.complexId, code: oauthParams.code, codeVerifier });
-  }, [oauthParams, mutate, navigate, returnPath]);
-
-  return { status, returnPath };
+  return { status, errorReason, returnPath };
 }

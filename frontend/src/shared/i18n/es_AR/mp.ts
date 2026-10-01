@@ -10,6 +10,10 @@ export const mp = {
   userId: 'ID de cuenta',
   connectSuccess: 'MercadoPago conectado exitosamente',
   connectError: 'Error al conectar MercadoPago',
+  connectErrorExpired: 'El enlace de conexión venció. Volvé a conectar MercadoPago.',
+  connectErrorConflict:
+    'No podés conectar otra cuenta de MercadoPago mientras tengas reservas activas. Cancelalas primero o conectá la misma cuenta de antes.',
+  connectRetry: 'Volver a intentar',
   disconnectSuccess: 'MercadoPago desconectado',
   disconnectError: 'Error al desconectar MercadoPago',
   feesTitle: 'Costos de MercadoPago',
