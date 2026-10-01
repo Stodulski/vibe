@@ -1,12 +1,21 @@
-import { describe, it, expect, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/msw/server';
 import { createQueryWrapper } from '@/test/test-utils';
+import { consumeMPOAuthSession } from '@/shared/lib/mpOAuthSession';
 
+let attemptCount = 0;
 vi.mock('@/shared/lib/mpAuth', () => ({
-  generatePKCE: vi.fn().mockResolvedValue({ verifier: 'v1', challenge: 'c1' }),
-  buildMPAuthUrl: vi.fn().mockReturnValue('https://mp.test/auth'),
+  createMPAuthAttempt: vi.fn(() => {
+    attemptCount += 1;
+    return Promise.resolve({
+      state: `state-${String(attemptCount)}`,
+      verifier: `v${String(attemptCount)}`,
+      challenge: 'c1',
+    });
+  }),
+  buildMPAuthUrl: vi.fn((attempt: { state: string }) => `https://mp.test/auth?state=${attempt.state}`),
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -79,5 +88,98 @@ describe('useMPConnect options', () => {
       },
       { timeout: 3000 },
     );
+  });
+});
+
+describe('useMPConnect OAuth attempt', () => {
+  beforeEach(() => {
+    attemptCount = 0;
+    sessionStorage.clear();
+    server.use(
+      http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
+    );
+  });
+
+  it('prepares the auth URL without persisting anything', async () => {
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-1');
+    });
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('binds the verifier and return path to the state nonce on click', async () => {
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    await waitFor(() => {
+      expect(result.current.authUrl).not.toBeNull();
+    });
+
+    act(() => {
+      result.current.handleConnectClick();
+    });
+
+    expect(consumeMPOAuthSession('state-1')).toEqual({
+      complexId: 'c1',
+      codeVerifier: 'v1',
+      returnPath: window.location.pathname,
+      createdAt: expect.any(Number) as number,
+    });
+  });
+
+  it('does nothing on click while the attempt is still being prepared', async () => {
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    act(() => {
+      result.current.handleConnectClick();
+    });
+    expect(sessionStorage.length).toBe(0);
+  });
+});
+
+describe('useMPConnect attempt rotation', () => {
+  beforeEach(() => {
+    attemptCount = 0;
+    sessionStorage.clear();
+    server.use(
+      http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
+    );
+  });
+
+  it('prepares a fresh attempt after a persist, so a second tab gets its own state and verifier', async () => {
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-1');
+    });
+
+    act(() => {
+      result.current.handleConnectClick();
+    });
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-2');
+    });
+    act(() => {
+      result.current.handleConnectClick();
+    });
+
+    // Both attempts stay resolvable: each new tab returns with its own state.
+    expect(consumeMPOAuthSession('state-1')?.codeVerifier).toBe('v1');
+    expect(consumeMPOAuthSession('state-2')?.codeVerifier).toBe('v2');
+  });
+
+  it('does not change the link under the owner before the fresh attempt is ready', async () => {
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    await waitFor(() => {
+      expect(result.current.authUrl).not.toBeNull();
+    });
+
+    act(() => {
+      result.current.handleConnectClick();
+    });
+
+    expect(result.current.authUrl).not.toBeNull();
   });
 });

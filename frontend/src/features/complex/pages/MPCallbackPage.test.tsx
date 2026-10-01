@@ -14,8 +14,10 @@ describe('MPCallbackPage', () => {
   it('shows error state when no code param is present', async () => {
     const Page = (await import('./MPCallbackPage')).default;
     render(<Page />, { wrapper: createWrapper(['/settings/mp/callback']) });
-    // Without code/state params, component immediately goes to error state
-    expect(screen.getByText(/error al conectar/i)).toBeInTheDocument();
+    // Without code/state params, component immediately goes to error state,
+    // and stays there with a way to start over instead of bouncing away.
+    expect(screen.getByText(/el enlace de conexión venció/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /volver a intentar/i })).toHaveAttribute('href', '/settings');
   });
 
   it('renders AppHeader', async () => {

@@ -1,7 +1,8 @@
 import type { StateCreator } from 'zustand';
 import { setUser } from '@/shared/lib/observability';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
-import { safeLocalStorage, safeSessionStorage } from '@/shared/lib/safeStorage';
+import { safeLocalStorage } from '@/shared/lib/safeStorage';
+import { clearMPOAuthSessions } from '@/shared/lib/mpOAuthSession';
 import { purgeApiCache } from '@/shared/lib/apiCache';
 
 /**
@@ -40,8 +41,7 @@ let broadcastSequence = 0;
 
 export const createAuthSlice: StateCreator<AuthSlice> = (set) => {
   const teardown = () => {
-    safeSessionStorage.remove(STORAGE_KEYS.MP_CODE_VERIFIER);
-    safeSessionStorage.remove(STORAGE_KEYS.MP_RETURN_PATH);
+    clearMPOAuthSessions();
     setUser(null);
     // The service worker's API cache outlives the in-memory store, so
     // clearing state is not enough to end a session on a shared device.

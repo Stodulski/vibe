@@ -4,8 +4,9 @@ import { MPConnectCard } from './MPConnectCard';
 
 const buildMPAuthUrl = vi.fn((..._args: unknown[]) => 'https://mp.test/auth?code=test');
 vi.mock('@/shared/lib/mpAuth', () => ({
-  generatePKCE: () => Promise.resolve({ verifier: 'test-verifier', challenge: 'test-challenge' }),
-  buildMPAuthUrl: (complexId: string, pkce: unknown, appId?: string) => buildMPAuthUrl(complexId, pkce, appId),
+  createMPAuthAttempt: () =>
+    Promise.resolve({ state: 'test-state', verifier: 'test-verifier', challenge: 'test-challenge' }),
+  buildMPAuthUrl: (attempt: unknown, appId?: string) => buildMPAuthUrl(attempt, appId),
 }));
 
 let mockMpStatus: { connected: boolean; mp_user_id: string | null; app_id?: string } = {
@@ -40,6 +41,7 @@ describe('MPConnectCard', () => {
     vi.clearAllMocks();
     mockMpStatus = { connected: false, mp_user_id: null };
     mockMpStatusIsError = false;
+    sessionStorage.clear();
   });
 
   // The app id the API can actually exchange a code with comes from
@@ -50,7 +52,7 @@ describe('MPConnectCard', () => {
     mockMpStatus = { connected: false, mp_user_id: null, app_id: 'app-from-server' };
     renderWithProviders(<MPConnectCard complexId="c1" province="Buenos Aires" />);
     await waitFor(() => {
-      expect(buildMPAuthUrl).toHaveBeenCalledWith('c1', expect.anything(), 'app-from-server');
+      expect(buildMPAuthUrl).toHaveBeenCalledWith(expect.objectContaining({ state: 'test-state' }), 'app-from-server');
     });
   });
 
@@ -109,5 +111,24 @@ describe('MPConnectCard', () => {
     const retryButton = screen.getByRole('button', { name: /actualizar/i });
     retryButton.click();
     expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MPConnectCard OAuth attempt', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockMpStatus = { connected: false, mp_user_id: null };
+    mockMpStatusIsError = false;
+    sessionStorage.clear();
+  });
+
+  // The attempt is only persisted when the owner clicks; merely showing the
+  // card (and every status refetch) must leave nothing in sessionStorage.
+  it('writes nothing to sessionStorage until the connect link is clicked', async () => {
+    renderWithProviders(<MPConnectCard complexId="c1" province="Buenos Aires" />);
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /conectar/i })).toBeInTheDocument();
+    });
+    expect(sessionStorage.length).toBe(0);
   });
 });
