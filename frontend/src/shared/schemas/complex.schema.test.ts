@@ -56,6 +56,20 @@ describe('blockedSlotSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  // The server drops `reason` from the body when none was given (omitempty on a
+  // nil pointer), and the OpenAPI document lists it as optional.
+  it('validates a BlockedSlot whose reason key is absent', () => {
+    const result = blockedSlotSchema.safeParse({
+      id: 'bs1',
+      court_id: 'ct1',
+      date: '2026-03-18',
+      start_time: '10:00',
+      end_time: '11:00',
+      created_at: '2026-01-01T00:00:00Z',
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('complexApi response schemas', () => {
