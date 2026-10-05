@@ -36,19 +36,16 @@ describe('computeBookingPricing', () => {
     expect(pricing.serviceFee).toBe(12_345);
   });
 
-  it('falls back to a 7% local estimate when serviceFee is absent', () => {
+  it('falls back to the flat 100000 centavos fee when serviceFee is absent', () => {
     const pricing = computeBookingPricing(baseSlotInfo);
-    // 7% of 300000 = 21000, above the 100000 floor
     expect(pricing.serviceFee).toBe(100_000);
   });
 
-  it('floors the local estimate at 100000 centavos', () => {
-    const pricing = computeBookingPricing({
-      ...baseSlotInfo,
-      price: 10_000,
-      depositPercentage: 100,
-    });
-    expect(pricing.serviceFee).toBe(100_000);
+  it('keeps the flat fallback fee whatever the online amount is', () => {
+    const small = computeBookingPricing({ ...baseSlotInfo, price: 10_000, depositPercentage: 100 });
+    const large = computeBookingPricing({ ...baseSlotInfo, price: 10_000_000, depositPercentage: 100 });
+    expect(small.serviceFee).toBe(100_000);
+    expect(large.serviceFee).toBe(100_000);
   });
 
   it('computes totalOnline as mpAmount + serviceFee', () => {
