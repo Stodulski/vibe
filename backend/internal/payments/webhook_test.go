@@ -16,6 +16,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/pricing"
 )
 
 // TestWebhookStillConfirmsABookingThroughThePlatformAppOwnerToken guards the
@@ -445,7 +446,7 @@ func TestARedeliveredWebhookLeavesExactlyOnePaymentRow(t *testing.T) {
 			prepare: func(f *fixture, b *bookingstore.Booking) {
 				f.payments.byBooking = &paymentstore.Payment{
 					ID: uuid.New(), BookingID: b.ID, ComplexID: b.ComplexID,
-					Amount: b.DepositAmount, Method: "mercadopago", Status: "pending",
+					Amount: b.DepositAmount, ServiceFee: pricing.ServiceFee(b.DepositAmount), Method: "mercadopago", Status: "pending",
 				}
 			},
 		},

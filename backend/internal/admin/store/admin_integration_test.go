@@ -20,7 +20,7 @@ const int32Max = 2_147_483_647
 // payments.amount is INTEGER, so SUM(amount) returns BIGINT. Casting it back with
 // ::int made GetPlatformStats fail the moment cumulative non-refunded payments
 // crossed 2,147,483,647. The unit is centavos — internal/pricing documents
-// feeMinCentavos = 100_000 as "1000 ARS, in centavos" and internal/mp divides by 100
+// serviceFeeCentavos = 100_000 as "1000 ARS, in centavos" and internal/mp divides by 100
 // for MercadoPago's unit price — so the ceiling is only ~21,474,836 ARS platform-wide,
 // about 1,400 payments at a 15,000 ARS average. Once crossed the endpoint never
 // recovers, because the sum only grows.

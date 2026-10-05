@@ -103,9 +103,16 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	// check above — only the collector check applies to every branch.
 	actualCentavos := int(math.Round(mpPayment.TransactionAmount * 100))
 
-	// The total paid includes deposit + service fee (7%, min 1000 ARS) paid by client.
-	serviceFee := pricing.ServiceFee(booking.DepositAmount)
-	expectedCentavos := booking.DepositAmount + serviceFee
+	// The checkout row, when there is one, is read before the amount is checked
+	// because it is the record of what this client was actually asked to pay.
+	existingPayment, err := s.payments.GetByBookingID(ctx, booking.ID)
+	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
+		return fmt.Errorf("look up the existing payment for booking %s: %w", booking.ID, err)
+	}
+
+	// The total paid includes deposit + service fee, both paid by the client.
+	expectedDeposit, serviceFee := expectedCharge(booking, existingPayment)
+	expectedCentavos := expectedDeposit + serviceFee
 
 	if actualCentavos != expectedCentavos {
 		s.logger.Error("mp webhook: FRAUD ALERT - amount mismatch",
@@ -125,8 +132,8 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	}
 
 	// Re-validate price after re-fetch to detect concurrent price changes.
-	revalidatedServiceFee := pricing.ServiceFee(booking.DepositAmount)
-	revalidatedExpected := booking.DepositAmount + revalidatedServiceFee
+	revalidatedDeposit, revalidatedServiceFee := expectedCharge(booking, existingPayment)
+	revalidatedExpected := revalidatedDeposit + revalidatedServiceFee
 	if revalidatedExpected != expectedCentavos {
 		s.logger.Warn("mp webhook: price changed between validation and confirmation",
 			"mp_payment_id", mpPaymentID,
@@ -156,12 +163,6 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			"booking_id", booking.ID,
 		)
 		return nil
-	}
-
-	// Look up existing payment created during public booking flow.
-	existingPayment, err := s.payments.GetByBookingID(ctx, booking.ID)
-	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
-		return fmt.Errorf("look up the existing payment for booking %s: %w", booking.ID, err)
 	}
 
 	booking.Status = "confirmed"
@@ -300,6 +301,22 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		}
 	}
 	return nil
+}
+
+// expectedCharge returns the deposit and the service fee a MercadoPago payment
+// for this booking has to carry.
+//
+// The payment row written at checkout is the record of what the client was
+// asked to pay, and it is trusted over a recomputation: a checkout opened before
+// the service fee changed carries the fee in force then, and recomputing it with
+// today's rule would reject a legitimate payment as an amount mismatch while
+// MercadoPago keeps the money. Only a booking with no checkout row falls back to
+// the current rule.
+func expectedCharge(booking *bookingstore.Booking, checkout *paymentstore.Payment) (deposit, serviceFee int) {
+	if checkout != nil {
+		return checkout.Amount, checkout.ServiceFee
+	}
+	return booking.DepositAmount, pricing.ServiceFee(booking.DepositAmount)
 }
 
 // refundBookingWhoseSlotIsGone cancels a booking that lost its slot while its
@@ -490,6 +507,8 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 
 	// No checkout row: split what MercadoPago says the client paid rather than
 	// what the booking currently says it should have cost.
+	// With no row there is no stored fee to trust, so the current flat fee is
+	// the best available split of what was paid.
 	paid := int(math.Round(mpPayment.TransactionAmount * 100))
 	serviceFee := pricing.ServiceFee(booking.DepositAmount)
 	amount := paid - serviceFee
