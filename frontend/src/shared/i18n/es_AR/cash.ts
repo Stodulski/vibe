@@ -127,7 +127,7 @@ export const cash = {
   cartDecreaseAction: 'Restar',
   cartIncreaseAction: 'Sumar',
   cartMaxLinesReached: 'Llegaste al máximo de 50 productos distintos en un carrito.',
-  cartLineStockWarning: 'Sin stock suficiente: se vende igual',
+  cartLineStockWarning: 'Sin stock suficiente',
   cartTotal: 'Total',
   cartMethod: 'Método',
   cartNote: 'Nota',
