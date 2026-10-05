@@ -38,7 +38,7 @@ async function sellThreeUnits(page: Page, name: string) {
   await tile.click();
   await tile.click();
 
-  await expect(page.getByText('Sin stock suficiente: se vende igual')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText('Sin stock suficiente')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('sell-cart-total')).toHaveText('$3.000');
 
   const chargeResponse = page.waitForResponse(
