@@ -34,10 +34,10 @@ import {
   TU_PLANES, TU_FUENTE, TU_VERIFICADO,
 } from './competencia.ts';
 import {
-  filasDeCostoPorReserva, columnasDeCostoPorReserva, cargoPorReserva,
+  filasDeCostoPorReserva, columnasDeCostoPorReserva,
   POR_RESERVA_POCAS, POR_RESERVA_MUCHAS, VECES, VOLUMENES,
 } from './costo-por-reserva.ts';
-import { CARGO_MINIMO, CARGO_SERVICIO_TEXTO, SENA_DE_EJEMPLO } from './precio.ts';
+import { CARGO_SERVICIO, CARGO_PUEDE_CAMBIAR } from './precio.ts';
 
 /* Los extremos de la banda, buscados por provincia en vez de tipeados. */
 const BA_INMEDIATA = tasaDe('Buenos Aires', 'Al instante');
@@ -324,7 +324,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       'La diferencia principal no está en las reservas, que las dos cubren: está en quién paga. ATC '
       + `Sports le cobra al complejo un abono mensual fijo en dólares, desde ${dolares(ATC_PLANES[0].mensual)} `
       + `hasta ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, haya reservas o no. `
-      + 'Vibe no le cobra nada al complejo: el cargo de servicio lo paga el cliente sobre la seña, y la '
+      + 'Vibe no le cobra nada al complejo: el cargo de servicio lo paga el cliente, y la '
       + 'comisión de MercadoPago corre con los dos modelos. En alcance, las dos cubren reservas, caja y '
       + 'stock, y cada complejo tiene su propia página pública para que el cliente vea las canchas y '
       + 'reserve.',
@@ -356,7 +356,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'por ciento de descuento si pagás el año por adelantado. Ese es el número que anuncian; '
             + `los precios de su propia tabla dan un ${ATC_DESCUENTO_SEGUN_TABLA_PORCENTAJE} por ciento.`,
           'Vibe no cobra abono. El complejo no le paga nada a la plataforma; lo que hay es un cargo de '
-            + 'servicio sobre la seña, y lo paga el que reserva. Un mes sin reservas no te cuesta un '
+            + 'servicio fijo por cada pago online, y lo paga el que reserva. Un mes sin reservas no te cuesta un '
             + 'peso de Vibe. La contracara: tu cliente ve un importe un poco más alto al reservar.',
           'Hay una comisión que corre con los dos: la de MercadoPago, que se descuenta del pago online '
             + 'a quien lo recibe, con cualquier plataforma. Con ATC se suma al abono; con Vibe es lo '
@@ -417,8 +417,9 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿El cargo de servicio de Vibe es en pesos o en dólares?',
         answer:
-          'En pesos, como porcentaje de la seña. El abono de ATC es en dólares, así que no se restan '
-          + 'directo sin meter un tipo de cambio en el medio.',
+          `En pesos: es un monto fijo de ${pesos(CARGO_SERVICIO)} por pago online. El abono de ATC es en `
+          + 'dólares, así que no se restan directo sin meter un tipo de cambio en el medio. '
+          + CARGO_PUEDE_CAMBIAR,
       },
     ],
   },
@@ -592,7 +593,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + '<a href="/guias/como-llenar-los-horarios-vacios-de-un-complejo">llenar los horarios que '
             + 'quedan vacíos</a>.',
           'La contracara, que es real: el abono es previsible. Sabés exactamente cuánto pagás el mes '
-            + 'que viene, y para presupuestar eso vale. Un cargo por reserva sube cuando te va bien.',
+            + 'que viene, y para presupuestar eso vale. Un cargo por reserva acompaña al volumen: cuantas más '
+            + 'reservas online, más cargos suman en total.',
         ],
       },
       {
@@ -600,9 +602,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         heading: 'El otro modelo: quién paga qué',
         parrafos: [
           'Vibe no cobra abono: el complejo no le paga nada fijo, haya reservas o no. Lo que hay es un '
-            + `cargo de servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de `
-            + `${pesos(CARGO_MINIMO)}, que paga el cliente que reserva. Sobre una seña de `
-            + `${pesos(SENA_DE_EJEMPLO)} son ${pesos(cargoPorReserva())}, y los pone él, no vos.`,
+            + `cargo de servicio fijo de ${pesos(CARGO_SERVICIO)} por pago online, sin importar cuánto sea `
+            + `la seña, que paga el cliente que reserva y no vos. ${CARGO_PUEDE_CAMBIAR}`,
           'Ese cargo es lo único que cobra Vibe, y solo en una reserva online. La caja, la venta de '
             + 'productos con stock y lo que cobrás en el mostrador —efectivo, transferencia, débito, '
             + 'crédito o QR— no tienen ningún cargo de Vibe. Un abono como el de ATC también los '
@@ -618,11 +619,11 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'sobre un poco más. Lo que queda de diferencia es el abono: con ATC, una cuota fija en '
             + 'dólares haya reservas o no; con Vibe, cero. Siempre.',
           'Del lado del cliente es al revés: con un abono paga la cancha y nada más; con un cargo por '
-            + `reserva paga la cancha más ${pesos(cargoPorReserva())}. Ahí el abono le sale más barato `
+            + `reserva paga la cancha más ${pesos(CARGO_SERVICIO)}. Ahí el abono le sale más barato `
             + 'a él.',
           'La salvedad que conviene tener presente: una cuota fija dividida por reservas se abarata sola '
             + 'con el volumen, hasta casi cero. Un cargo por reserva no baja nunca, porque es un '
-            + 'porcentaje de la seña. A partir de cierto volumen, cualquier cuota fija sale más barata '
+            + 'monto fijo por reserva. A partir de cierto volumen, cualquier cuota fija sale más barata '
             + 'por turno que cualquier cargo por reserva, sea la empresa que sea y en la moneda que sea.',
           'Sin vueltas: el cargo por reserva le saca el costo fijo al complejo y se lo pasa al que '
             + 'reserva. Del lado del mostrador conviene siempre —cero es menos que cualquier abono, a '
@@ -679,8 +680,9 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿El cargo de Vibe baja si tengo mucho volumen?',
         answer:
-          'No. Es un porcentaje fijo de la seña con un mínimo en pesos: no cambia con el volumen. Un '
-          + 'abono, en cambio, se abarata por reserva cuantos más turnos hacés. Justo al revés.',
+          `No. Es un monto fijo de ${pesos(CARGO_SERVICIO)} por pago online: no cambia con el volumen. Un `
+          + 'abono, en cambio, se abarata por reserva cuantos más turnos hacés. Justo al revés. '
+          + CARGO_PUEDE_CAMBIAR,
       },
     ],
   },
@@ -762,10 +764,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'estaba tanteando lo saca de la grilla ahora, cuando todavía podés vender ese turno, y no '
             + 'a las ocho de la noche, cuando ya no se lo vendés a nadie.',
           'Con Vibe, el complejo no paga abono ni costo fijo. Al que reserva se le suma un cargo de '
-            + `servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo de ${pesos(CARGO_MINIMO)}: `
-            + `sobre una seña de ${pesos(SENA_DE_EJEMPLO)} son ${pesos(cargoPorReserva())}, y los paga `
-            + 'él, no vos. Lo ve antes de pagar. Si cancela dentro de la ventana que configuraste, '
-            + 'MercadoPago le devuelve la seña solo, y el cargo de servicio vuelve con ella.',
+            + `servicio fijo de ${pesos(CARGO_SERVICIO)} por pago online, sea cual sea la seña, y lo `
+            + `paga él, no vos. ${CARGO_PUEDE_CAMBIAR} `
+            + 'Si cancela dentro de la ventana que configuraste, MercadoPago le devuelve la seña solo, '
+            + 'y el cargo de servicio vuelve con ella.',
           'Aparte está la comisión de MercadoPago, que esa sí la paga el complejo: se descuenta del '
             + `pago online antes de que llegue a tu cuenta, y va ${RANGO_NACIONAL} más IVA según tu `
             + 'provincia y el plazo que elijas. La tabla completa está en '

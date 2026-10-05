@@ -11,20 +11,16 @@
  * nadie dos veces, y con razón.
  *
  * Todo sale de datos que ya vigilamos: los planes de ATC (competencia.ts, con
- * fuente y fecha) y nuestro propio cargo (precio.ts). Ninguno se escribe acá.
+ * fuente y fecha). Ninguno se escribe acá.
  */
 import { ATC_PLANES } from './competencia.ts';
-import { CARGO_SERVICIO, CARGO_MINIMO, SENA_DE_EJEMPLO, dolares } from './precio.ts';
+import { dolares } from './precio.ts';
 
 /** Los volúmenes de la tabla. Un complejo chico y uno grande, y el medio. */
 export const VOLUMENES = [50, 100, 200, 400, 800];
 
 /** Lo que sale cada reserva si pagás un abono fijo de `mensual` y hacés `n`. */
 export const porReservaConAbono = (mensual: number, n: number) => mensual / n;
-
-/** Lo que se le suma al cliente por reserva, con el mínimo aplicado. */
-export const cargoPorReserva = (sena: number = SENA_DE_EJEMPLO) =>
-  Math.max(CARGO_MINIMO, Math.round(sena * CARGO_SERVICIO));
 
 /** La tabla: una fila por volumen, una columna por plan. */
 export const filasDeCostoPorReserva = VOLUMENES.map(n => [
