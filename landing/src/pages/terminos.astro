@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import { terminosJsonLd } from '../data/jsonld';
+import { CARGO_SERVICIO, pesos } from '../data/precio';
 ---
 <BaseLayout
   title="Términos y Condiciones | Vibe"
@@ -36,7 +37,7 @@ import { terminosJsonLd } from '../data/jsonld';
  />
  <main class="legal-page">
   <h1>Términos y Condiciones</h1>
-  <p class="legal-date">Última actualización: <time datetime="2026-08-24">24 de agosto de 2026</time></p>
+  <p class="legal-date">Última actualización: <time datetime="2026-10-05">5 de octubre de 2026</time></p>
   <p>Bienvenido a <strong>Vibe</strong> ("nosotros", "la plataforma"). Estos Términos y Condiciones regulan el acceso y uso del sitio web <a href="https://vibe.com.ar">vibe.com.ar</a> y de la aplicación web <a href="https://app.vibe.com.ar">app.vibe.com.ar</a>. Al utilizar nuestros servicios, aceptas estos términos en su totalidad.</p>
   <h2>1. Aceptación de los términos</h2>
   <p>Al acceder a este sitio, registrarte y utilizar la plataforma, aceptas quedar vinculado por estos Términos y Condiciones, así como por nuestra <a href="/privacidad">Política de Privacidad</a>. Si no estás de acuerdo con alguno de estos términos, no debes utilizar el servicio.</p>
@@ -66,7 +67,8 @@ import { terminosJsonLd } from '../data/jsonld';
    <li>Los pagos de seña de reservas online se procesan a través de <strong>MercadoPago</strong>. Las reservas manuales creadas por el dueño del complejo pueden registrarse con pago en efectivo o transferencia</li>
    <li>Vibe no almacena datos de tarjetas ni información financiera sensible</li>
    <li>El saldo restante (si lo hubiera) se abona directamente en el complejo</li>
-   <li>Se aplica un cargo de servicio del 7% (mínimo $1.000 ARS) sobre la seña al cliente, que no forma parte del pago de la cancha</li>
+   <li>Se aplica un cargo de servicio fijo de {pesos(CARGO_SERVICIO)} ARS por cada pago online, a cargo del cliente, que no forma parte del pago de la cancha</li>
+   <li>Vibe puede modificar el monto del cargo de servicio en cualquier momento. El monto vigente es el que se muestra al cliente antes de pagar, y un cambio no afecta a los pagos ya realizados</li>
   </ul>
   <p>Los pagos recibidos por MercadoPago se acreditan directamente en la cuenta del complejo, según los plazos establecidos por MercadoPago.</p>
   <h2>5. Cancelaciones y reembolsos</h2>

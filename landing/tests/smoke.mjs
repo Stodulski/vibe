@@ -28,7 +28,7 @@ import {
   COSTOS, PLAZOS, porcentaje, IVA, RECARGO_TARJETA_EXTRANJERA,
   BRECHA_INMEDIATA, VIGENTE_DESDE, FUENTE,
 } from '../src/data/mercadopago-costos.ts';
-import { ejemplo, pesos, CARGO_SERVICIO, CARGO_MINIMO } from '../src/data/precio.ts';
+import { ejemplo, pesos, CARGO_SERVICIO, CARGO_PUEDE_CAMBIAR } from '../src/data/precio.ts';
 import { faq } from '../src/data/faq.ts';
 
 const BASE = (process.argv[2] || 'https://vibe.com.ar').replace(/\/$/, '');
@@ -732,7 +732,6 @@ async function testNingunNumeroSuelto() {
   const e = ejemplo();
   const porcentajesValidos = new Set([
     ...COSTOS.flatMap(g => g.tasas).map(porcentaje),
-    `${CARGO_SERVICIO * 100}%`.replace('.', ','),
     `${IVA}%`,
     `${BRECHA_INMEDIATA.toFixed(2).replace('.', ',')}%`,
     '0%',
@@ -742,10 +741,10 @@ async function testNingunNumeroSuelto() {
     e.sena, e.cargo, e.totalCliente,
     e.inmediata.descuento, e.inmediata.neto,
     e.masLenta.descuento, e.masLenta.neto,
-    CARGO_MINIMO, 0,
+    CARGO_SERVICIO, 0,
   ].map(pesos));
 
-  for (const ruta of ['/', '/guias/cuanto-cobra-mercadopago-por-una-sena']) {
+  for (const ruta of ['/', '/terminos', '/guias/cuanto-cobra-mercadopago-por-una-sena']) {
     await p.goto(BASE + ruta, { waitUntil: 'load' });
     const texto = await p.evaluate(() => document.body.innerText);
 
@@ -761,6 +760,18 @@ async function testNingunNumeroSuelto() {
     check(`${ruta} no muestra ningun monto fuera de la cuenta`,
       montosSueltos.length === 0, montosSueltos.join(' '));
   }
+
+  /* El cargo es un monto fijo: los terminos lo dicen con el valor de precio.ts
+     (no con uno tipeado) y avisan que puede cambiar. */
+  await p.goto(BASE + '/terminos', { waitUntil: 'load' });
+  const terminos = await p.evaluate(() => document.querySelector('main').innerText);
+  check('los terminos dicen el cargo de servicio fijo de precio.ts',
+    terminos.includes(`cargo de servicio fijo de ${pesos(CARGO_SERVICIO)}`));
+  check('los terminos no describen el cargo como porcentaje ni con minimo',
+    !/cargo de servicio del\s+\d|mínimo \$/i.test(terminos));
+  check('los terminos avisan que el cargo puede cambiar en cualquier momento',
+    /puede modificar el monto del cargo de servicio en cualquier momento/.test(terminos)
+      && /no afecta a los pagos ya realizados/.test(terminos));
 
   /* La FAQ visible y su schema salen de la misma fuente. Si alguien vuelve a
      escribir una de las dos aparte, Google descarta el markup entero. */
@@ -784,6 +795,8 @@ async function testNingunNumeroSuelto() {
     `${visibles.length} vs ${faq.length}`);
   check('el FAQPage tiene las mismas que la FAQ visible', schema.length === visibles.length,
     `${schema.length} vs ${visibles.length}`);
+  check('la FAQ avisa que el cargo de servicio puede cambiar',
+    visibles[0]?.a.includes(CARGO_PUEDE_CAMBIAR) && schema[0]?.a.includes(CARGO_PUEDE_CAMBIAR));
   const desalineadas = visibles.filter((v, i) => v.q !== schema[i]?.q || v.a !== schema[i]?.a);
   check('cada respuesta del schema es textual la que se ve', desalineadas.length === 0,
     desalineadas.map(d => d.q).join(' | '));

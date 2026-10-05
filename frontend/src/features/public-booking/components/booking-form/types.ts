@@ -29,7 +29,7 @@ export const bookingSlotInfoSchema = z.object({
    * When provided, it is used directly instead of the local estimate so that
    * the frontend and backend never diverge silently.
    * If absent (e.g. before a quote endpoint exists), the component falls back
-   * to the local estimate: max(round(mpAmount * 7%), 1000).
+   * to the flat service fee of 1000 ARS (100000 centavos).
    */
   serviceFee: z.number().optional(),
 });

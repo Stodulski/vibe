@@ -13,7 +13,7 @@
  * Los números salen de precio.ts. Ninguna cifra sobre plata se escribe acá a
  * mano.
  */
-import { CARGO_SERVICIO_TEXTO, CARGO_MINIMO, pesos } from './precio.ts';
+import { CARGO_SERVICIO, CARGO_PUEDE_CAMBIAR, pesos } from './precio.ts';
 
 export type FaqItem = {
   question: string;
@@ -28,9 +28,9 @@ export const faq: FaqItem[] = [
     question: '¿Vibe es gratis de verdad?',
     answer: 'Sí, para tu complejo. Vibe no te cobra abono, ni costo fijo, ni nada sobre lo que cobrás '
       + 'en el mostrador o vendés en el bar. Nunca. Hay dos costos, y conviene tenerlos claros: el que '
-      + `reserva online paga un cargo de servicio del ${CARGO_SERVICIO_TEXTO} sobre la seña, con un mínimo `
-      + `de ${pesos(CARGO_MINIMO)}; y MercadoPago descuenta su comisión del pago online que entra a tu `
-      + 'cuenta, como con cualquier sistema que cobre por MercadoPago.',
+      + `reserva online paga un cargo de servicio fijo de ${pesos(CARGO_SERVICIO)} por pago; y MercadoPago `
+      + 'descuenta su comisión del pago online que entra a tu cuenta, como con cualquier sistema que '
+      + `cobre por MercadoPago. ${CARGO_PUEDE_CAMBIAR}`,
   },
   {
     anim: 'anim-d2',

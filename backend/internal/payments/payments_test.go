@@ -16,6 +16,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/pricing"
 )
 
 const webhookBody = `{"type":"payment","data":{"id":"mp-123"}}`
@@ -630,7 +631,7 @@ func TestApprovedPaymentIsRefusedAndRefundedWhenTheSlotWasTaken(t *testing.T) {
 			name: "an existing checkout payment",
 			prepare: func(f *fixture, booking *bookingstore.Booking) {
 				f.payments.byBooking = &paymentstore.Payment{
-					ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount, Status: "pending",
+					ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount, ServiceFee: pricing.ServiceFee(booking.DepositAmount), Status: "pending",
 				}
 			},
 			wantInsert:      false,
@@ -719,7 +720,7 @@ func TestAConfirmationThatFailsOnTheDatabaseIsRetriedRatherThanRefunded(t *testi
 
 	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID}
 	f.bookings.booking = booking
-	f.payments.byBooking = &paymentstore.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount}
+	f.payments.byBooking = &paymentstore.Payment{ID: uuid.New(), BookingID: booking.ID, Amount: booking.DepositAmount, ServiceFee: pricing.ServiceFee(booking.DepositAmount)}
 	f.payments.confirmErr = errDatabase
 
 	err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
@@ -909,5 +910,138 @@ func TestTheOnlineConfirmationSaysWhatWasPaidAndWhatIsOwed(t *testing.T) {
 	}
 	if sent.MapsURL == "" {
 		t.Error("the confirmation email must be able to open a map")
+	}
+}
+
+// oldPercentageFee is what a checkout opened before the flat service fee carried
+// for a 1500 pesos deposit: 7% of it, above the 1000 pesos floor of the time.
+const oldPercentageFee = 10_500
+
+// confirmableFixture returns a fixture, a pending booking and the collector-ready
+// MercadoPago payment for it, with every collaborator the confirmation needs.
+func confirmableFixture(t *testing.T) (*fixture, *bookingstore.Booking, *mp.Payment) {
+	t.Helper()
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, mpPayment := pendingBooking(complexID)
+	mpPayment.CollectorID = 111111111
+
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
+	return f, booking, mpPayment
+}
+
+// A checkout opened before a fee change carries the old fee on its payment row.
+// The webhook has to confirm it against what the client was actually asked to
+// pay: recomputing with today's rule would call the amount a fraud mismatch and
+// drop a payment MercadoPago has already captured.
+func TestApprovedPaymentIsConfirmedAgainstTheFeeStoredAtCheckout(t *testing.T) {
+	f, booking, mpPayment := confirmableFixture(t)
+	checkout := &paymentstore.Payment{
+		ID: uuid.New(), BookingID: booking.ID, ComplexID: booking.ComplexID,
+		Amount: booking.DepositAmount, ServiceFee: oldPercentageFee, Method: "mercadopago", Status: "pending",
+	}
+	f.payments.byBooking = checkout
+	// 1500 deposit + 105 old percentage fee.
+	mpPayment.TransactionAmount = float64(booking.DepositAmount+oldPercentageFee) / 100.0
+	sentryEvents := withCapturedSentryEvents(t)
+
+	if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+		t.Fatalf("a payment matching its checkout row must be confirmed: %v", err)
+	}
+
+	if f.payments.confirmed == nil {
+		t.Fatal("a payment opened under the old fee must still be confirmed")
+	}
+	if got := f.payments.confirmed.ServiceFee; got != oldPercentageFee {
+		t.Errorf("the settled row must keep the fee the client paid; want %d, got %d", oldPercentageFee, got)
+	}
+	if booking.Status != "confirmed" {
+		t.Errorf("the booking must be confirmed; got status=%q", booking.Status)
+	}
+	if messages := sentryEvents.messages(); len(messages) != 0 {
+		t.Errorf("a legitimate in-flight payment must not raise an alert; got %q", messages)
+	}
+}
+
+// Trusting the checkout row must not weaken the amount check: money that does
+// not match what that row says the client owed is still refused and alerted.
+func TestApprovedPaymentThatDiffersFromItsCheckoutRowIsRefusedAndAlerted(t *testing.T) {
+	tests := []struct {
+		name        string
+		storedFee   int
+		paidPesos   float64
+		description string
+	}{
+		{"paid less than the row", 100_000, 1500, "the fee is missing from what was paid"},
+		{"paid more than the row", 100_000, 2600, "more arrived than the row asked for"},
+		{"paid the flat fee against an old-fee row", oldPercentageFee, 2500, "the row, not today's rule, decides"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, booking, mpPayment := confirmableFixture(t)
+			f.payments.byBooking = &paymentstore.Payment{
+				ID: uuid.New(), BookingID: booking.ID, ComplexID: booking.ComplexID,
+				Amount: booking.DepositAmount, ServiceFee: tt.storedFee, Method: "mercadopago", Status: "pending",
+			}
+			mpPayment.TransactionAmount = tt.paidPesos
+			sentryEvents := withCapturedSentryEvents(t)
+
+			if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+				t.Errorf("an amount verdict is final and must not be retried; got %v", err)
+			}
+
+			if f.payments.confirmed != nil || f.payments.inserted != nil {
+				t.Errorf("%s: a payment that disagrees with its checkout row must not be recorded", tt.description)
+			}
+			if booking.Status == "confirmed" {
+				t.Error("the booking must not be confirmed")
+			}
+			if _, found := findMessage(sentryEvents.messages(), "FRAUD ALERT: amount mismatch"); !found {
+				t.Errorf("the mismatch must be reported; captured %q", sentryEvents.messages())
+			}
+		})
+	}
+}
+
+// With no checkout row there is nothing stored to trust, so the payment is
+// checked against the current flat fee and recorded with it.
+func TestApprovedPaymentWithoutACheckoutRowUsesTheFlatFee(t *testing.T) {
+	f, booking, mpPayment := confirmableFixture(t)
+	// 1500 deposit + the flat 1000 fee.
+	mpPayment.TransactionAmount = 2500
+
+	if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+		t.Fatalf("confirming a payment without a checkout row: %v", err)
+	}
+
+	if f.payments.inserted == nil {
+		t.Fatal("a payment with no checkout row must be recorded")
+	}
+	if got := f.payments.inserted.ServiceFee; got != 100_000 {
+		t.Errorf("the recorded fee must be the flat 100000; got %d", got)
+	}
+	if booking.Status != "confirmed" {
+		t.Errorf("the booking must be confirmed; got status=%q", booking.Status)
+	}
+}
+
+// Without a row the old percentage amount no longer matches anything, and the
+// payment is refused rather than guessed at.
+func TestApprovedPaymentWithoutACheckoutRowIsRefusedWhenItCarriesTheOldFee(t *testing.T) {
+	f, booking, mpPayment := confirmableFixture(t)
+	mpPayment.TransactionAmount = float64(booking.DepositAmount+oldPercentageFee) / 100.0
+	sentryEvents := withCapturedSentryEvents(t)
+
+	_ = f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
+
+	if f.payments.inserted != nil || f.payments.confirmed != nil {
+		t.Error("an amount that matches no known fee must not be recorded")
+	}
+	if _, found := findMessage(sentryEvents.messages(), "FRAUD ALERT: amount mismatch"); !found {
+		t.Errorf("the mismatch must be reported; captured %q", sentryEvents.messages())
 	}
 }

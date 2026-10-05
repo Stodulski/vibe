@@ -275,7 +275,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		return PublicBookResult{}, ErrMercadoPagoNotConnected
 	}
 
-	// Calculate service fee: 7% (min 1000 ARS), paid by client.
+	// Calculate the flat service fee, paid by client.
 	serviceFee := pricing.ServiceFee(mpAmount)
 	totalClientPays := mpAmount + serviceFee
 

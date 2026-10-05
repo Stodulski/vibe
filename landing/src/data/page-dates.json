@@ -1,15 +1,15 @@
 {
   "/": {
-    "hash": "8284aac380331bfd",
-    "date": "2026-09-25"
+    "hash": "894acf76c20cd581",
+    "date": "2026-10-05"
   },
   "/privacidad": {
     "hash": "089ead7b65521f14",
     "date": "2026-09-25"
   },
   "/terminos": {
-    "hash": "6b2790f60e8d6384",
-    "date": "2026-09-25"
+    "hash": "a7c54c4cfce7a020",
+    "date": "2026-10-05"
   },
   "/guias": {
     "hash": "4ff388d334433491",
@@ -20,12 +20,12 @@
     "date": "2026-09-25"
   },
   "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "b1f1b3897aa17fc0",
-    "date": "2026-09-25"
+    "hash": "1bbf79902a35785d",
+    "date": "2026-10-05"
   },
   "/guias/como-llenar-los-horarios-vacios-de-un-complejo": {
-    "hash": "e4d3ec87e8d85e3d",
-    "date": "2026-09-25"
+    "hash": "b1b166d899eeeece",
+    "date": "2026-10-05"
   },
   "/tutoriales": {
     "hash": "99a7aea4aa8e80be",
@@ -56,8 +56,8 @@
     "date": "2026-09-25"
   },
   "/guias/vibe-o-atc-sports-en-que-se-diferencian": {
-    "hash": "278d4c306f8dcd5f",
-    "date": "2026-09-25"
+    "hash": "d1f2a243ae701589",
+    "date": "2026-10-05"
   },
   "/guias/vibe-o-canchafija-en-que-se-diferencian": {
     "hash": "0f482a23160fe58f",
