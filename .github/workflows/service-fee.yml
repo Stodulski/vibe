@@ -1,9 +1,10 @@
 name: Service fee
 
-# The service fee is one commercial fact stated in four places across three
-# packages that cannot import one another. This fails a change that moves one
-# copy without the others — the failure it prevents is a landing page
-# advertising a price the checkout does not charge.
+# The service fee is one commercial fact (a flat amount per online payment)
+# stated in four places across three packages that cannot import one another,
+# plus the landing terms, which import the landing constant. This fails a change
+# that moves one copy without the others — the failure it prevents is a landing
+# page advertising a price the checkout does not charge.
 on:
   pull_request:
   push:
@@ -13,13 +14,14 @@ on:
       - frontend/src/features/public-booking/components/booking-form/pricing.ts
       - frontend/src/shared/i18n/es_AR/serviceFee.ts
       - landing/src/data/precio.ts
+      - landing/src/pages/terminos.astro
       - .github/scripts/check-service-fee.mjs
       - .github/scripts/check-service-fee.test.mjs
       - .github/workflows/service-fee.yml
 
 # Deliberately unfiltered on pull_request, unlike `push` above. A required
 # check that is skipped by a paths filter never reports at all, and the pull
-# request waits for it forever; this job reads four files and takes seconds, so
+# request waits for it forever; this job reads five files and takes seconds, so
 # it runs on every pull request and can safely be made a required context.
 
 concurrency:
@@ -38,7 +40,7 @@ jobs:
           node-version-file: frontend/.nvmrc
 
       # No install step: the script has no dependencies, on purpose. Reading
-      # four files should not need a Go toolchain, a bundler and an Astro
+      # five files should not need a Go toolchain, a bundler and an Astro
       # resolver in one job.
       # The checker runs green whenever the copies agree, which is every day
       # until the one that matters — so its own failure paths are tested
