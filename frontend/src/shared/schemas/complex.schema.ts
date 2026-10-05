@@ -86,7 +86,7 @@ export const blockedSlotSchema = exact<BlockedSlot>(
       date: z.string(),
       start_time: z.string(),
       end_time: z.string(),
-      reason: z.string().nullable(),
+      reason: z.string().nullable().optional(),
       created_by: z.string().nullable().optional(),
       created_at: z.string(),
       court_name: z.string().optional(),
