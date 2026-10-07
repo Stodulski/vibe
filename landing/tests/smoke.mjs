@@ -240,9 +240,9 @@ async function testVideo() {
       emojis: el.querySelectorAll('.orbit-item .sport-emoji').length,
     };
   });
-  check('la órbita de deportes existe', !!v);
+  check('los íconos de deporte existen', !!v);
   check('es decorativo (aria-hidden)', v && v.hidden);
-  check('renderiza los emojis de deporte', v && v.chips >= 6, v ? `chips=${v.chips}` : '');
+  check('renderiza los emojis de deporte', v && v.chips >= 4, v ? `chips=${v.chips}` : '');
   check('cada chip trae su emoji', v && v.emojis === v.chips, v ? `emojis=${v.emojis}` : '');
   await p.context().close();
 }

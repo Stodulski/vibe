@@ -406,11 +406,11 @@ body {
 .hero-proof-text { font-size: 0.8125rem; color: var(--muted); }
 .hero-proof-text strong { color: var(--text); font-weight: 600; }
 
-/* ========== HERO ORBIT (hero signature) ========== */
-/* Sport emojis scattered around the centered copy, each circling its own small
-   loop — different sizes, radii, speeds and directions, so the group reads as
-   loosely orbiting rather than riding one ring. The box overhangs the copy so
-   the emojis sit around the text, not on it. */
+/* ========== HERO ICONS (hero signature) ========== */
+/* Four sport emojis, one pair on each side of the centered copy: equal size,
+   mirrored positions, each bobbing gently on its own beat. Quiet on purpose, so
+   the headline leads and the icons only add warmth. Below 1000px the copy takes
+   the full width, so the icons are hidden there instead of crossing it. */
 .hero-orbit {
   position: absolute; top: -6%; bottom: -6%; left: 50%; z-index: 0;
   /* Sized to the viewport, not the copy, so the outer emojis never run off a
@@ -426,21 +426,20 @@ body {
   background: radial-gradient(circle, rgba(29, 185, 84, 0.10) 0%, rgba(29, 185, 84, 0.03) 45%, transparent 70%);
   border-radius: 50%;
 }
-/* A zero-size anchor; the emoji centers on it and loops around it. */
+/* A zero-size anchor; the emoji centers on it and bobs around it. */
 .orbit-item {
   position: absolute; width: 0; height: 0;
-  --size: 3rem; --radius: 14px; --period: 16s; --dir: normal;
+  --size: 4.5rem; --bob: 10px; --period: 7s;
 }
-/* rotate → translate → counter-rotate walks a circle of --radius while the
-   emoji stays upright, all in one transform, so the browser never repaints. */
+/* A vertical bob on the transform only, so the browser never repaints. */
 .orbit-path {
   position: absolute; top: 0; left: 0;
   translate: -50% -50%;
-  animation: orbit-loop var(--period) linear infinite var(--dir);
+  animation: orbit-bob var(--period) ease-in-out infinite;
 }
-@keyframes orbit-loop {
-  from { transform: rotate(0deg) translateX(var(--radius)) rotate(0deg); }
-  to { transform: rotate(360deg) translateX(var(--radius)) rotate(-360deg); }
+@keyframes orbit-bob {
+  0%, 100% { transform: translateY(calc(var(--bob) * -0.5)); }
+  50% { transform: translateY(calc(var(--bob) * 0.5)); }
 }
 /* The glow lives on this static child so it is rasterized once and only the
    finished layer moves. Two tight shadows draw the outline, the wide one is
@@ -448,63 +447,40 @@ body {
 .sport-emoji {
   display: block;
   /* The Fluent artwork leaves transparent margin inside its square, so it
-     draws a third larger than a font emoji of the same --size would. Owner
-     ask (2026-09-25): the icons read too small, so this multiplier is ~1.75x
-     the previous 1.3, taking the largest icon from ~130px to ~228px on
-     desktop; the mobile override below keeps the same fold. */
+     draws a third larger than a font emoji of the same --size would. */
   width: calc(var(--size) * 2.275); height: calc(var(--size) * 2.275);
   filter:
     drop-shadow(0 0 1px var(--green))
     drop-shadow(0 0 1px var(--green))
     drop-shadow(0 0 18px rgba(29, 185, 84, 0.55));
 }
-/* Deliberately uneven: a few large, several small, no mirror pairs. Negative
-   delays start each one partway round its loop. */
-.orbit-item-1 { left: 8%;  top: 26%; --size: 6.25rem; --radius: 22px; --period: 19s; }
-.orbit-item-2 { left: 89%; top: 17%; --size: 4.25rem; --radius: 16px; --period: 14s; --dir: reverse; }
-.orbit-item-3 { left: 15%; top: -4%; --size: 2.1rem; --radius: 10px; --period: 11s; }
-.orbit-item-4 { left: 85%; top: 76%; --size: 5.25rem; --radius: 20px; --period: 17s; --dir: reverse; }
-.orbit-item-5 { left: 4%;  top: 70%; --size: 2.25rem; --radius: 12px; --period: 13s; }
-.orbit-item-6 { left: 83%; top: 98%; --size: 2.5rem; --radius: 14px; --period: 15s; --dir: reverse; }
-.orbit-item-7 { left: 95%; top: 40%; --size: 1.9rem; --radius: 9px;  --period: 10s; }
-.orbit-item-8 { left: 14%; top: 92%; --size: 3.5rem; --radius: 18px; --period: 18s; --dir: reverse; }
-.orbit-item-9 { left: 74%; top: -6%; --size: 1.85rem; --radius: 8px;  --period: 12s; }
-.orbit-item-1 .orbit-path { animation-delay: -4s; }
-.orbit-item-2 .orbit-path { animation-delay: -9s; }
-.orbit-item-3 .orbit-path { animation-delay: -2s; }
-.orbit-item-4 .orbit-path { animation-delay: -12s; }
-.orbit-item-5 .orbit-path { animation-delay: -6s; }
-.orbit-item-6 .orbit-path { animation-delay: -1s; }
-.orbit-item-7 .orbit-path { animation-delay: -7s; }
-.orbit-item-8 .orbit-path { animation-delay: -15s; }
-.orbit-item-9 .orbit-path { animation-delay: -5s; }
+/* Mirrored pairs: soccer ball / basketball up high, tennis / volleyball lower.
+   Different periods and negative delays keep the four from bobbing in step. */
+.orbit-item-1 { left: 5%;  top: 22%; --period: 7s; }
+.orbit-item-2 { left: 95%; top: 22%; --period: 8s; }
+.orbit-item-3 { left: 11%; top: 64%; --period: 9s; }
+.orbit-item-4 { left: 89%; top: 64%; --period: 6.5s; }
+.orbit-item-1 .orbit-path { animation-delay: -2s; }
+.orbit-item-2 .orbit-path { animation-delay: -5s; }
+.orbit-item-3 .orbit-path { animation-delay: -1s; }
+.orbit-item-4 .orbit-path { animation-delay: -4s; }
 
 @media (prefers-reduced-motion: reduce) {
   .orbit-path { animation: none; }
 }
 
-/* Between the >768px desktop rule and the mobile rewrite, hero-orbit's own
-   width is still viewport-capped (min(1180px, 100vw - 48px)) but the hero
-   text column has already reflowed to its widest, narrow-viewport layout —
-   the tightest squeeze between icons and text. A slightly smaller fold here
-   keeps every icon clear of the hero copy without moving them off their
-   desktop anchors. */
-@media (min-width: 769px) and (max-width: 1200px) {
-  .sport-emoji { width: calc(var(--size) * 1.85); height: calc(var(--size) * 1.85); }
-  /* The one-line H1 ("Tu complejo, en un solo panel.") reaches the basketball
-     anchors in this range, so the basketball rides above the headline and
-     the soccer ball drops beside the paragraph. */
-  .orbit-item-1 { top: 40%; }
-  .orbit-item-2 { top: 4%; }
+/* Narrower desktop: the H1 reaches closer to the gutters, so the icons shrink
+   and hug the edges to stay clear of the copy. */
+@media (min-width: 1001px) and (max-width: 1200px) {
+  .sport-emoji { width: calc(var(--size) * 1.5); height: calc(var(--size) * 1.5); }
+  .orbit-item-1 { left: 3%; }
+  .orbit-item-2 { left: 97%; }
+  .orbit-item-3 { left: 8%; }
+  .orbit-item-4 { left: 92%; }
 }
-/* Below ~1000px the copy column is nearly full width, so the three large
-   balls shrink and tuck into the side gutters. */
-@media (min-width: 769px) and (max-width: 1000px) {
-  .orbit-item-1 .sport-emoji,
-  .orbit-item-2 .sport-emoji,
-  .orbit-item-4 .sport-emoji { width: calc(var(--size) * 1.2); height: calc(var(--size) * 1.2); }
-  .orbit-item-1 { left: 1%; top: 38%; }
-  .orbit-item-4 { left: 90%; top: 70%; }
+/* Tablet and phone: the copy column is (nearly) full width. No icons. */
+@media (max-width: 1000px) {
+  .hero-orbit { display: none; }
 }
 
 /* Frame for owner-dashboard screenshots — subtle border and brand glow, no fake window chrome */
@@ -677,7 +653,9 @@ body {
   background: var(--border); background-clip: content-box;
   cursor: pointer; transition: background 0.2s, width 0.2s;
 }
-.ft-dot.active { background: var(--green); width: 24px; }
+/* background-color, not the shorthand: the shorthand would reset background-clip to
+   border-box and paint the whole 40x24 hit area green. */
+.ft-dot.active { background-color: var(--green); width: 24px; }
 
 /* Text content */
 .ft-block-text h3 {
@@ -1262,23 +1240,7 @@ body {
   .footer-contact { justify-content: center; gap: 12px 24px; padding-bottom: 72px; }
   .cursor-blob { display: none; }
   .section-title { font-size: clamp(1.75rem, 5vw, 2.5rem); }
-  /* Top-aligned rather than centered on a phone, so the padding really is the
-     room the top row of emojis needs below the nav. */
-  .hero { padding: 172px 12px 136px; align-items: flex-start; }
-  /* A phone has no side margins, so the emojis move to the free bands above
-     and below the copy instead of crossing it, and fewer of them stay. */
-  .hero-orbit { top: -18%; bottom: -18%; width: calc(100vw - 24px); }
-  .orbit-item { --radius: 10px; }
-  /* The bottom row hangs below the copy; the hero clips its overflow, so it
-     needs the room inside its own padding or the emojis get cut off. */
-  .orbit-item-3, .orbit-item-5, .orbit-item-7, .orbit-item-9 { display: none; }
-  .orbit-item-1 { left: 15%; top: -1%; }
-  .orbit-item-2 { left: 88%; top: -2.5%; }
-  .orbit-item-8 { left: 18%; top: 95%; }
-  .orbit-item-4 { left: 40%; top: 97%; }
-  .orbit-item-6 { left: 92%; top: 93.7%; }
-  /* Same ~1.75x fold as the desktop rule above. */
-  .sport-emoji { width: calc(var(--size) * 0.9625); height: calc(var(--size) * 0.9625); }
+  .hero { padding: 120px 12px 80px; }
   .hero-subtitle { font-size: 0.9375rem; }
   .section-desc { font-size: 1rem; }
   .final-cta .section-title { font-size: clamp(1.75rem, 5vw, 2.75rem); }
@@ -1349,7 +1311,7 @@ body {
 /* Small phones: 360px */
 @media (max-width: 360px) {
   .container { padding: 0 8px; }
-  .hero { padding: 172px 8px 136px; }
+  .hero { padding: 120px 8px 80px; }
   .hero h1 { font-size: 1.5rem; }
   .hero-subtitle { font-size: 0.8125rem; }
   .btn-primary, .btn-cta-final { font-size: 0.875rem; padding: 12px 20px; }
@@ -1391,7 +1353,7 @@ body {
 
 /* True ultra-small: 320px (iPhone SE 1st gen and similar) */
 @media (max-width: 320px) {
-  .hero { padding: 172px 6px 128px; }
+  .hero { padding: 120px 6px 80px; }
   .hero h1 { font-size: 1.375rem; }
   .btn-primary, .btn-cta-final { font-size: 0.8125rem; padding: 11px 18px; }
   .trust-badge { font-size: 0.625rem; }
