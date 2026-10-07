@@ -11,7 +11,7 @@ export const homeJsonLd: string[] = [
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Vibe",
-    "description": "Sistema de gestión gratis para complejos deportivos: reservas online con seña, cobros en el mostrador, caja por turno con arqueo, venta de productos con stock y reportes.",
+    "description": "Sistema de gestión gratis para complejos deportivos: cobros en el mostrador, caja por turno con arqueo, venta de productos con stock, clientes, reportes y reservas online con seña.",
     "url": "https://vibe.com.ar",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -23,9 +23,6 @@ export const homeJsonLd: string[] = [
       "description": "100% gratis para el complejo deportivo: sin costo fijo, sin suscripción y sin cargo sobre los cobros en el mostrador ni las ventas."
     },
     "featureList": [
-      "Reservas online 24/7 con página pública del complejo",
-      "Cobro de señas con MercadoPago y reembolso automático",
-      "Precios por cancha, día y franja horaria",
       "Cobros en el mostrador: efectivo, transferencia, débito, crédito y QR",
       "Caja por turno con arqueo de efectivo",
       "Ingresos y egresos por categoría",
@@ -34,7 +31,10 @@ export const homeJsonLd: string[] = [
       "Recordatorio automático 2 horas antes del turno",
       "Base de clientes con asistencia y bloqueo",
       "Dashboard con ocupación por horario",
-      "Reporte mensual con exportación a Excel"
+      "Reporte mensual con exportación a Excel",
+      "Reservas online 24/7 con página pública del complejo",
+      "Cobro de señas con MercadoPago y reembolso automático",
+      "Precios por cancha, día y franja horaria"
     ],
     "author": {
       "@type": "Organization",
