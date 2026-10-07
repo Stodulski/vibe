@@ -1,6 +1,6 @@
 <section class="hero" id="inicio">
  <div class="hero-inner">
-  <!-- Decorative sport emojis drifting around the centered copy. Purely
+  <!-- Decorative sport emojis bobbing beside the centered copy. Purely
        presentational (the hero copy already names the sports), so it is hidden
        from assistive tech and sits behind the content.
 
@@ -9,18 +9,14 @@
        Windows. These are Microsoft's Fluent Emoji 3D (MIT, license beside the
        files in /emoji), resized to 160px WebP — twice the largest rendered
        size, so they stay sharp on 2x screens. Low fetch priority: they are
-       decoration and must not compete with the headline for first paint. -->
+       decoration and must not compete with the headline for first paint. Lazy, so
+       the viewports that hide them (below 1000px) never download them. -->
   <div class="hero-orbit" aria-hidden="true">
    <div class="hero-orbit-glow"></div>
-   <span class="orbit-item orbit-item-1"><span class="orbit-path"><img class="sport-emoji" src="/emoji/soccer-ball.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-2"><span class="orbit-path"><img class="sport-emoji" src="/emoji/basketball.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-3"><span class="orbit-path"><img class="sport-emoji" src="/emoji/tennis.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-4"><span class="orbit-path"><img class="sport-emoji" src="/emoji/volleyball.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-5"><span class="orbit-path"><img class="sport-emoji" src="/emoji/field-hockey.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-6"><span class="orbit-path"><img class="sport-emoji" src="/emoji/ping-pong.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-7"><span class="orbit-path"><img class="sport-emoji" src="/emoji/trophy.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-8"><span class="orbit-path"><img class="sport-emoji" src="/emoji/stopwatch.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
-   <span class="orbit-item orbit-item-9"><span class="orbit-path"><img class="sport-emoji" src="/emoji/sports-medal.webp" alt="" width="192" height="192" decoding="async" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-1"><span class="orbit-path"><img class="sport-emoji" src="/emoji/soccer-ball.webp" alt="" width="192" height="192" decoding="async" loading="lazy" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-2"><span class="orbit-path"><img class="sport-emoji" src="/emoji/basketball.webp" alt="" width="192" height="192" decoding="async" loading="lazy" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-3"><span class="orbit-path"><img class="sport-emoji" src="/emoji/tennis.webp" alt="" width="192" height="192" decoding="async" loading="lazy" fetchpriority="low"></span></span>
+   <span class="orbit-item orbit-item-4"><span class="orbit-path"><img class="sport-emoji" src="/emoji/volleyball.webp" alt="" width="192" height="192" decoding="async" loading="lazy" fetchpriority="low"></span></span>
   </div>
   <div class="hero-content">
    <div class="section-label anim anim-d1">Sistema de gestión para complejos deportivos</div>
