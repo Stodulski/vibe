@@ -491,7 +491,7 @@ body {
    desktop anchors. */
 @media (min-width: 769px) and (max-width: 1200px) {
   .sport-emoji { width: calc(var(--size) * 1.85); height: calc(var(--size) * 1.85); }
-  /* The one-line H1 ("Más reservas para tu complejo.") reaches the basketball
+  /* The one-line H1 ("Tu complejo, en un solo panel.") reaches the basketball
      anchors in this range, so the basketball rides above the headline and
      the soccer ball drops beside the paragraph. */
   .orbit-item-1 { top: 40%; }

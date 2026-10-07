@@ -29,7 +29,7 @@ const SALIDA = join(RAIZ, 'public', 'og-image.png');
  * de complejos deportivos" que todavía encuadraba el producto como reservas.
  */
 const EYEBROW = 'Sistema de gestión para complejos deportivos';
-const TITULAR = 'Más reservas para tu complejo.';
+const TITULAR = 'Tu complejo, en un solo panel.';
 const RESALTADO = '100% gratis para vos.';
 
 /**
