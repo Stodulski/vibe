@@ -33,6 +33,7 @@ type Complex struct {
 	Email             *string   `json:"email"`
 	LogoURL           *string   `json:"logo_url"`
 	CoverURL          *string   `json:"cover_url"`
+	Description       *string   `json:"description"`
 	DepositPercentage int       `json:"deposit_percentage"`
 	CancellationHours int       `json:"cancellation_hours"`
 	Latitude          *float64  `json:"latitude"`
@@ -137,7 +138,8 @@ func (m *Store) Insert(ctx context.Context, c *Complex) error {
 		Longitude:         data.Float8ToPg(c.Longitude),
 		// The column is NOT NULL and a nil slice binds as NULL, which Postgres
 		// takes as the value rather than as "use the default". Never send nil.
-		Amenities: orEmpty(c.Amenities),
+		Amenities:   orEmpty(c.Amenities),
+		Description: data.TextToPg(c.Description),
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -212,8 +214,9 @@ func (m *Store) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, 
 			IsActive: c.IsActive, MpAccessToken: c.MpAccessToken,
 			MpRefreshToken: c.MpRefreshToken, MpUserID: c.MpUserID,
 			Latitude: c.Latitude, Longitude: c.Longitude, Amenities: c.Amenities,
-			DeletedAt: c.DeletedAt,
-			CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+			Description: c.Description,
+			DeletedAt:   c.DeletedAt,
+			CreatedAt:   c.CreatedAt, UpdatedAt: c.UpdatedAt,
 		}, m.Keys)
 		count := int(c.CourtCount)
 		complex.CourtCount = &count
@@ -261,6 +264,7 @@ func (m *Store) Update(ctx context.Context, c *Complex, expectedVersion *int) er
 		Latitude:          data.Float8ToPg(c.Latitude),
 		Longitude:         data.Float8ToPg(c.Longitude),
 		Amenities:         c.Amenities,
+		Description:       data.TextToPg(c.Description),
 		ID:                data.UUIDToPg(c.ID),
 		UpdatedAt:         data.TimeToPg(c.UpdatedAt),
 	})
@@ -734,6 +738,7 @@ func complexFromDB(c db.Complex, keys *crypto.Keyring) *Complex {
 		Email:             data.PgToTextPtr(c.Email),
 		LogoURL:           data.PgToTextPtr(c.LogoUrl),
 		CoverURL:          data.PgToTextPtr(c.CoverUrl),
+		Description:       data.PgToTextPtr(c.Description),
 		DepositPercentage: int(c.DepositPercentage),
 		CancellationHours: int(c.CancellationHours),
 		Latitude:          data.PgToFloat8Ptr(c.Latitude),

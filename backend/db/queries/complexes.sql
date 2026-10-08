@@ -4,9 +4,9 @@ INSERT INTO complexes (
     address, city, province, country_code, currency,
     phone, email, logo_url, cover_url,
     deposit_percentage, cancellation_hours,
-    latitude, longitude, amenities
+    latitude, longitude, amenities, description
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 RETURNING *;
 
 -- name: GetComplexByID :one
@@ -81,7 +81,8 @@ SET name = $1,
     is_active = $12,
     latitude = $13,
     longitude = $14,
-    amenities = $15
+    amenities = $15,
+    description = $18
 --
 -- `expected_version` is the CALLER's precondition, and it is optional (API-08).
 -- NULL means "whatever it is now", which is the last-write-wins this endpoint

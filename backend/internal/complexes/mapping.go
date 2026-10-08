@@ -32,6 +32,7 @@ type complexResponse struct {
 	Email             *string    `json:"email"`
 	LogoURL           *string    `json:"logo_url"`
 	CoverURL          *string    `json:"cover_url"`
+	Description       *string    `json:"description"`
 	DepositPercentage int        `json:"deposit_percentage"`
 	CancellationHours int        `json:"cancellation_hours"`
 	Latitude          *float64   `json:"latitude"`
@@ -82,6 +83,7 @@ func toComplexResponse(c *complexstore.Complex) complexResponse {
 		Email:             c.Email,
 		LogoURL:           c.LogoURL,
 		CoverURL:          c.CoverURL,
+		Description:       c.Description,
 		DepositPercentage: c.DepositPercentage,
 		CancellationHours: c.CancellationHours,
 		Latitude:          c.Latitude,
