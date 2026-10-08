@@ -11,6 +11,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { tutoriales, getRelacionados } from '../../data/tutoriales';
 import { tutorialJsonLd } from '../../data/jsonld';
+import { fechaEnTexto } from '../../data/mercadopago-costos.ts';
 
 export function getStaticPaths() {
   return tutoriales.map(t => ({ params: { slug: t.slug }, props: { t } }));
@@ -57,7 +58,7 @@ const relacionados = getRelacionados(t);
 
         <p class="tutorial-respuesta">{t.respuesta}</p>
         <p class="tutorial-meta">
-          <span>Actualizado el {t.dateModified}</span>
+          <span>Actualizado el {fechaEnTexto(t.dateModified)}</span>
         </p>
 
         {t.bloques.map((bloque) => (
