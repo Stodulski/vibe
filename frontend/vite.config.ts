@@ -148,6 +148,13 @@ const config: UserConfig = {
           // but a GET navigation there — a reload, someone pasting the
           // URL — must never be answered with the SPA shell either.
           /^\/_r\//,
+          // Files the host serves, never the router: /sitemap.xml, /robots.txt,
+          // /llms.txt and the other static documents. Without this an installed
+          // PWA answers a navigation to them with the SPA shell, and the router
+          // reads "sitemap.xml" as a complex slug ("Complejo no encontrado").
+          /\/[^/]+\.[a-z0-9]+$/i,
+          // City hub pages, rendered by the backend (vercel.json), not the router.
+          /^\/canchas\//,
         ],
         // index.html stays in the precache, so the navigation route above
         // serves it cache-first rather than network-first. That is deliberate
