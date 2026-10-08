@@ -945,3 +945,9 @@ func (s *Service) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complex
 func (s *Service) GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error) {
 	return s.venues.GetAllSlugs(ctx)
 }
+
+// ListActiveComplexesForHubs returns every live, switched-on complex with the
+// sports of its courts, for publicsite's city hubs and the sitemap's hub entries.
+func (s *Service) ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error) {
+	return s.venues.ListActiveComplexesForHubs(ctx)
+}

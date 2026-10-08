@@ -177,6 +177,9 @@ type ComplexCRUD interface {
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SlugsWithPrefix(ctx context.Context, base string) ([]string, error)
 	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
+	// ListActiveComplexesForHubs feeds the public city hubs and the sitemap's hub
+	// entries; it reads active complexes only.
+	ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error)
 }
 
 // ComplexScheduleManager manages a complex's weekly opening schedule.

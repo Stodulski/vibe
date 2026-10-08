@@ -2697,6 +2697,9 @@ type Limit = int
 // MovementID defines model for MovementID.
 type MovementID = openapi_types.UUID
 
+// PathCity defines model for PathCity.
+type PathCity = string
+
 // PathID defines model for PathID.
 type PathID = openapi_types.UUID
 
@@ -4050,6 +4053,9 @@ type ServerInterface interface {
 	// CourtsPublicAvailability The storefront's bookable-slot grid for one day
 	// (GET /api/v1/public/complexes/{slug}/availability)
 	CourtsPublicAvailability(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicAvailabilityParams)
+	// PublicsiteCityHub Server-rendered city hub
+	// (GET /api/v1/public/hubs/{city})
+	PublicsiteCityHub(w http.ResponseWriter, r *http.Request, city PathCity)
 	// LeadsCaptureAbandonedRegistration Capture an email from a registration that was started but never finished
 	// (POST /api/v1/public/leads/abandoned-registration)
 	LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request)
@@ -7466,6 +7472,32 @@ func (siw *ServerInterfaceWrapper) CourtsPublicAvailability(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// PublicsiteCityHub operation middleware
+func (siw *ServerInterfaceWrapper) PublicsiteCityHub(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "city" -------------
+	var city PathCity
+
+	err = runtime.BindStyledParameterWithOptions("simple", "city", r.PathValue("city"), &city, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "city", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublicsiteCityHub(w, r, city)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // LeadsCaptureAbandonedRegistration operation middleware
 func (siw *ServerInterfaceWrapper) LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request) {
 
@@ -7916,6 +7948,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/sitemap.xml", wrapper.PublicsiteSitemap)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/sitemap.xml", wrapper.PublicsiteSitemapMoved)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/prerender/{slug}", wrapper.PublicsitePrerender)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/hubs/{city}", wrapper.PublicsiteCityHub)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/events", wrapper.RealtimeStream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/stats", wrapper.ReportingGetDashboardStats)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/stats/revenue", wrapper.ReportingGetRevenueChart)

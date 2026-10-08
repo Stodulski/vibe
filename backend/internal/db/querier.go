@@ -245,6 +245,16 @@ type Querier interface {
 	InsertUserIdentity(ctx context.Context, arg InsertUserIdentityParams) error
 	// Atomic: deletes stale tokens (>3 min), inserts new only if none within 3 min.
 	InsertVerificationTokenWithCooldown(ctx context.Context, arg InsertVerificationTokenWithCooldownParams) (EmailVerificationToken, error)
+	// The public city hubs and the sitemap read this. It reads active_complexes, so
+	// a soft-deleted venue is absent, and keeps only the switched-on ones. Each row
+	// carries the sports of that complex's switched-on courts, read from
+	// active_courts so a soft-deleted court is absent too.
+	//
+	// The city is not matched here: a hub matches a city case- and accent-insensitively,
+	// and this database has no unaccent extension to do that in SQL. Callers group
+	// the rows by city themselves. The order is by city then name so the grouping,
+	// and the spelling a hub takes from its first row, is stable.
+	ListActiveComplexesForHubs(ctx context.Context) ([]ListActiveComplexesForHubsRow, error)
 	// Oldest first: a session's ledger reads top to bottom like a receipt tape.
 	// Not paginated — a shift's movement count is bounded by a business day at
 	// the counter, the same reasoning ListBlockedSlots' unpaginated call applies.

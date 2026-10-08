@@ -245,3 +245,32 @@ describe('vercel.json rewrites, crawler prerender: the user-agent condition', ()
     expect(uaPattern.test(userAgent)).toBe(false);
   });
 });
+
+/**
+ * `/canchas/:city` is the public hub listing the complexes of one city. It is
+ * server-rendered by the backend (`GET /api/v1/public/hubs/:city`), so it is
+ * forwarded to the API origin the same way `/sitemap.xml` is. It is not gated
+ * on the user agent: people and crawlers get the same HTML.
+ */
+const HUB_SOURCE = '/canchas/:city';
+const HUB_DESTINATION = 'https://api.vibe.com.ar/api/v1/public/hubs/:city';
+
+describe('vercel.json rewrites, city hubs', () => {
+  const hub = config.rewrites.find((r) => r.source === HUB_SOURCE);
+
+  it('rewrites /canchas/:city to the backend city hub endpoint', () => {
+    expect(hub?.destination).toBe(HUB_DESTINATION);
+  });
+
+  it('is not gated on the user agent, so people and crawlers get the same page', () => {
+    expect(hub?.has).toBeUndefined();
+  });
+
+  it('sits before the SPA catch-all', () => {
+    const hubIndex = config.rewrites.findIndex((r) => r.source === HUB_SOURCE);
+    const catchAll = config.rewrites.findIndex((r) => r.source === SPA_CATCH_ALL);
+
+    expect(hubIndex).toBeGreaterThanOrEqual(0);
+    expect(hubIndex).toBeLessThan(catchAll);
+  });
+});
