@@ -47,7 +47,33 @@ const (
 	placeholderImage       = `content="https://app.vibe.com.ar/logo.png"`
 )
 
-// defaultImage is the fallback social preview image when a complex has no logo.
-// Absolute, matching the frontend's own og:image: a social unfurler fetches
-// this URL on its own and has no page to resolve a relative one against.
+// defaultImage is the fallback social preview image when a complex has neither
+// a cover photo nor a logo. Absolute, matching the frontend's own og:image: a
+// social unfurler fetches this URL on its own and has no page to resolve a
+// relative one against.
 const defaultImage = "https://app.vibe.com.ar/logo.png"
+
+// The body of the prerendered page repeats what the public page shows, with the
+// same words, so the day names, the closed label, the headings and the amenity
+// labels below mirror the frontend's es_AR copy.
+const (
+	closedLabel     = "Cerrado"
+	hoursHeading    = "Horarios"
+	servicesHeading = "Servicios"
+	phoneLabel      = "Teléfono:"
+)
+
+// dayLabels names the stored days, in the Spanish the public page uses.
+var dayLabels = map[string]string{
+	"monday": "Lunes", "tuesday": "Martes", "wednesday": "Miércoles", "thursday": "Jueves",
+	"friday": "Viernes", "saturday": "Sábado", "sunday": "Domingo",
+}
+
+// amenityLabels maps the stored amenity keys (the complexes_amenities_known
+// vocabulary) to the labels the public page shows.
+var amenityLabels = map[string]string{
+	"parking": "Estacionamiento", "changing_rooms": "Vestuarios", "showers": "Duchas",
+	"bar": "Bar", "racket_rental": "Alquiler de paletas", "pro_shop": "Venta de pelotas",
+	"wifi": "Wi-Fi", "lockers": "Lockers", "lessons": "Clases", "tournaments": "Torneos",
+	"accessible": "Accesible", "match_recording": "Grabación",
+}
