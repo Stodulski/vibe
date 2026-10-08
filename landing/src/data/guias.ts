@@ -427,7 +427,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     slug: 'cuanto-cobra-mercadopago-por-una-sena',
     tutorial: { slug: 'configuracion-del-complejo', texto: 'Dónde se conecta Mercado Pago y se define la seña' },
     title: 'Cuánto te cobra MercadoPago por cobrar una seña',
-    seoTitle: 'Cuánto cobra MercadoPago por una seña, según tu provincia',
+    seoTitle: 'Cuánto cobra MercadoPago por una seña: tabla por provincia',
     /* Medida en pixeles, no en caracteres: 768px sobre un limite de 920. El margen
        importa porque el texto se arma desde el dataset, asi que si MercadoPago
        mueve una tasa cambia el largo. */
