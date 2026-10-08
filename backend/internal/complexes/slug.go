@@ -60,18 +60,20 @@ const maxSlugLength = 60
 // segments below already is.
 var reservedSlugs = map[string]bool{
 	// authRoutes.tsx
-	"login":             true,
-	"register":          true,
-	"verify-email-sent": true,
-	"verify-email":      true,
-	"forgot-password":   true,
-	"reset-password":    true,
+	"login":                true,
+	"register":             true,
+	"verify-email-sent":    true,
+	"verify-email":         true,
+	"forgot-password":      true,
+	"reset-password":       true,
+	"confirm-email-change": true,
 	// ownerRoutes.tsx (ownerStandaloneRoutes)
 	"complexes":  true,
 	"onboarding": true,
 	// ownerRoutes.tsx (ownerDashboardRoutes) — also covers /settings/mp/callback above
 	"dashboard": true,
 	"bookings":  true,
+	"cash":      true,
 	"courts":    true,
 	"clients":   true,
 	"reports":   true,
@@ -79,6 +81,9 @@ var reservedSlugs = map[string]bool{
 	"profile":   true,
 	// adminRoutes.tsx — also covers /admin/users, /admin/complexes, ...
 	"admin": true,
+
+	// City hub, /canchas/<city>. Reserved ahead of its route.
+	"canchas": true,
 
 	// Platform paths, from frontend/middleware.ts's SKIP_PREFIXES rather
 	// than from its router. H-20: the first version of this list was derived
