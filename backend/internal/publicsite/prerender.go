@@ -98,7 +98,7 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 
 	escapedName := html.EscapeString(complex.Name)
 	title := pageTitle(escapedName)
-	description := pageDescription(escapedName)
+	description := pageDescription(escapedName, html.EscapeString(complex.City))
 
 	imageURL := defaultImage
 	if complex.LogoURL != nil && *complex.LogoURL != "" {
@@ -119,6 +119,7 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 	escapedCanonical := html.EscapeString(canonicalURL)
 	extraHead := fmt.Sprintf(`<link rel="canonical" href="%s" />`+"\n", escapedCanonical) +
 		fmt.Sprintf(`    <meta property="og:url" content="%s" />`+"\n", escapedCanonical) +
+		`    <meta property="og:locale" content="es_AR" />` + "\n" +
 		fmt.Sprintf("    <script type=\"application/ld+json\">%s</script>\n    ", structuredData(complex, schedules, canonicalURL))
 
 	return strings.Replace(page, "</head>", extraHead+"</head>", 1)

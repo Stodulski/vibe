@@ -16,9 +16,14 @@ func pageTitle(complexName string) string {
 	return complexName + " - Reserva tu cancha"
 }
 
-// pageDescription is the meta description and og:description.
-func pageDescription(complexName string) string {
-	return fmt.Sprintf("Reserva canchas en %s. Rápido y seguro.", complexName)
+// pageDescription is the meta description and og:description. The city is what
+// tells one venue's snippet from another's; without it every complex would
+// carry the same sentence. Both arguments must already be HTML-escaped.
+func pageDescription(complexName, city string) string {
+	if city == "" {
+		return fmt.Sprintf("Reserva canchas en %s. Horarios y reservas online.", complexName)
+	}
+	return fmt.Sprintf("Reserva canchas en %s, %s. Horarios y reservas online.", complexName, city)
 }
 
 // The placeholders below are the copy shipped in the frontend's index.html.

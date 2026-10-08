@@ -171,8 +171,9 @@ func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 	body := w.Body.String()
 	for _, want := range []string{
 		"<title>Vibe Palermo - Reserva tu cancha | Vibe</title>",
-		`content="Reserva canchas en Vibe Palermo. Rápido y seguro."`,
+		`content="Reserva canchas en Vibe Palermo, CABA. Horarios y reservas online."`,
 		`content="https://cdn.example/logo.png"`,
+		`<meta property="og:locale" content="es_AR" />`,
 		`<link rel="canonical"`,
 		`<script type="application/ld+json">`,
 	} {
@@ -487,7 +488,7 @@ func TestPrerenderSubstitutesIntoTheFrontendsRealMarkup(t *testing.T) {
 	}
 	for _, want := range []string{
 		"<title>Vibe Palermo - Reserva tu cancha | Vibe</title>",
-		`content="Reserva canchas en Vibe Palermo. Rápido y seguro."`,
+		`content="Reserva canchas en Vibe Palermo, CABA. Horarios y reservas online."`,
 		`content="https://app.vibe.com.ar/logo.png"`,
 	} {
 		if !strings.Contains(body, want) {
