@@ -3678,6 +3678,44 @@ paths:
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
+  /api/v1/public/hubs/{city}:
+    get:
+      tags: [publicsite]
+      operationId: publicsiteCityHub
+      summary: Server-rendered city hub
+      description: >-
+        Public. Cross-tenant bypass reason `platform`. The switched-on complexes of one city, server-rendered as HTML for search
+        engines and people: each name links to its public page with its address and sports, and the page carries a JSON-LD
+        ItemList of those pages. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and
+        accent-insensitively. Only switched-on complexes are listed.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathCity"}
+      responses:
+        "200":
+          description: City hub page.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
+          content:
+            text/html:
+              schema: {type: string}
+        "404":
+          description: The city has no switched-on complex.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: The complexes could not be read. Retry after the Retry-After delay.
+          headers:
+            Retry-After:
+              schema: {type: string}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
   # ---------------------------------------------------------------------
   # realtime
   # ---------------------------------------------------------------------
@@ -4125,6 +4163,11 @@ components:
       schema: {type: string, format: uuid}
     PathSlug:
       name: slug
+      in: path
+      required: true
+      schema: {type: string}
+    PathCity:
+      name: city
       in: path
       required: true
       schema: {type: string}
