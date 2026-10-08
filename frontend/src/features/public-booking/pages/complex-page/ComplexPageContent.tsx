@@ -2,11 +2,13 @@ import { ComplexHeader, DateSelector, type SelectedSlot } from '@/features/publi
 import type {
   AvailabilityData,
   CourtAvailability,
+  CourtWithPrices,
   DurationMinutes,
   PublicComplex,
   Schedule,
   Sport,
 } from '@/shared/types/api.types';
+import { CourtDirectory } from './CourtDirectory';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
@@ -14,6 +16,8 @@ import { BookingSteps } from './booking-steps/BookingSteps';
 interface ComplexPageContentProps {
   complex: PublicComplex;
   schedules: Schedule[];
+  /** Every active court of the complex. Only the phone-only page lists them. */
+  courts: CourtWithPrices[];
   mpConnected: boolean;
   selectedDate: Date;
   onDateSelect: (date: Date) => void;
@@ -70,6 +74,7 @@ const CONTENT_WIDTH = 'min-w-0 flex-1 space-y-6 animate-fade-in sm:space-y-10 lg
 export function ComplexPageContent({
   complex,
   schedules,
+  courts,
   mpConnected,
   selectedDate,
   onDateSelect,
@@ -78,13 +83,14 @@ export function ComplexPageContent({
   // A complex that cannot be booked online is not shown the machinery for
   // booking online. It used to get all of it — date picker, sport filter and
   // every slot of every court, each one disabled — under a warning banner.
-  // Nothing on that page could be acted on; the phone is the one thing that
-  // can, so it is the only thing offered.
+  // Nothing on that page could be acted on, so the phone is the one thing
+  // offered to act on; the courts are listed beneath it, read-only.
   if (!mpConnected) {
     return (
       <div className={CONTENT_WIDTH}>
         <ComplexHeader complex={complex} schedules={schedules} selectedDate={selectedDate} />
         <PhoneBookingPanel phone={complex.phone} />
+        <CourtDirectory courts={courts} />
       </div>
     );
   }
@@ -106,7 +112,7 @@ export function ComplexPageContent({
 
 type BookingFlowProps = Omit<
   ComplexPageContentProps,
-  'complex' | 'schedules' | 'mpConnected' | 'selectedDate' | 'onDateSelect'
+  'complex' | 'schedules' | 'courts' | 'mpConnected' | 'selectedDate' | 'onDateSelect'
 >;
 
 /** The questions and the hours. */
