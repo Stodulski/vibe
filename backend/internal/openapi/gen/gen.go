@@ -1949,26 +1949,29 @@ type Complex struct {
 	CountryCode       string   `json:"country_code"`
 
 	// CourtCount Present only when returned by the owner's complex-list query.
-	CourtCount        *int               `json:"court_count,omitempty"`
-	CoverUrl          *string            `json:"cover_url,omitempty"`
-	CreatedAt         time.Time          `json:"created_at"`
-	Currency          string             `json:"currency"`
-	DepositPercentage int                `json:"deposit_percentage"`
-	Email             *string            `json:"email,omitempty"`
-	Id                openapi_types.UUID `json:"id"`
-	IsActive          bool               `json:"is_active"`
-	Latitude          *float64           `json:"latitude,omitempty"`
-	LogoUrl           *string            `json:"logo_url,omitempty"`
-	Longitude         *float64           `json:"longitude,omitempty"`
-	MpTokenExpiresAt  *time.Time         `json:"mp_token_expires_at,omitempty"`
-	MpUserId          *string            `json:"mp_user_id,omitempty"`
-	Name              string             `json:"name"`
-	OwnerId           openapi_types.UUID `json:"owner_id"`
-	PaymentsEnabled   bool               `json:"payments_enabled"`
-	Phone             string             `json:"phone"`
-	Province          string             `json:"province"`
-	Slug              string             `json:"slug"`
-	UpdatedAt         time.Time          `json:"updated_at"`
+	CourtCount        *int      `json:"court_count,omitempty"`
+	CoverUrl          *string   `json:"cover_url,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	Currency          string    `json:"currency"`
+	DepositPercentage int       `json:"deposit_percentage"`
+
+	// Description The owner's plain-text description, or null when none is set.
+	Description      *string            `json:"description,omitempty"`
+	Email            *string            `json:"email,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	IsActive         bool               `json:"is_active"`
+	Latitude         *float64           `json:"latitude,omitempty"`
+	LogoUrl          *string            `json:"logo_url,omitempty"`
+	Longitude        *float64           `json:"longitude,omitempty"`
+	MpTokenExpiresAt *time.Time         `json:"mp_token_expires_at,omitempty"`
+	MpUserId         *string            `json:"mp_user_id,omitempty"`
+	Name             string             `json:"name"`
+	OwnerId          openapi_types.UUID `json:"owner_id"`
+	PaymentsEnabled  bool               `json:"payments_enabled"`
+	Phone            string             `json:"phone"`
+	Province         string             `json:"province"`
+	Slug             string             `json:"slug"`
+	UpdatedAt        time.Time          `json:"updated_at"`
 
 	// Version Optimistic-concurrency counter, bumped on every update.
 	Version int `json:"version"`
@@ -2469,24 +2472,27 @@ type PublicCancelInfoRefundMethod string
 
 // PublicComplex The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state.
 type PublicComplex struct {
-	Address           string             `json:"address"`
-	Amenities         []string           `json:"amenities"`
-	CancellationHours int                `json:"cancellation_hours"`
-	City              string             `json:"city"`
-	CountryCode       string             `json:"country_code"`
-	CoverUrl          *string            `json:"cover_url,omitempty"`
-	Currency          string             `json:"currency"`
-	DepositPercentage int                `json:"deposit_percentage"`
-	Email             *string            `json:"email,omitempty"`
-	Id                openapi_types.UUID `json:"id"`
-	Latitude          *float64           `json:"latitude,omitempty"`
-	LogoUrl           *string            `json:"logo_url,omitempty"`
-	Longitude         *float64           `json:"longitude,omitempty"`
-	Name              string             `json:"name"`
-	PaymentsEnabled   bool               `json:"payments_enabled"`
-	Phone             string             `json:"phone"`
-	Province          string             `json:"province"`
-	Slug              string             `json:"slug"`
+	Address           string   `json:"address"`
+	Amenities         []string `json:"amenities"`
+	CancellationHours int      `json:"cancellation_hours"`
+	City              string   `json:"city"`
+	CountryCode       string   `json:"country_code"`
+	CoverUrl          *string  `json:"cover_url,omitempty"`
+	Currency          string   `json:"currency"`
+	DepositPercentage int      `json:"deposit_percentage"`
+
+	// Description The owner's plain-text description. Omitted when none is set.
+	Description     *string            `json:"description,omitempty"`
+	Email           *string            `json:"email,omitempty"`
+	Id              openapi_types.UUID `json:"id"`
+	Latitude        *float64           `json:"latitude,omitempty"`
+	LogoUrl         *string            `json:"logo_url,omitempty"`
+	Longitude       *float64           `json:"longitude,omitempty"`
+	Name            string             `json:"name"`
+	PaymentsEnabled bool               `json:"payments_enabled"`
+	Phone           string             `json:"phone"`
+	Province        string             `json:"province"`
+	Slug            string             `json:"slug"`
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -2987,15 +2993,18 @@ type ComplexesUpdateJSONBody struct {
 	City              *string                             `json:"city,omitempty"`
 	CoverUrl          *string                             `json:"cover_url,omitempty"`
 	DepositPercentage *int                                `json:"deposit_percentage,omitempty"`
-	Email             *string                             `json:"email,omitempty"`
-	IsActive          *bool                               `json:"is_active,omitempty"`
-	Latitude          *float64                            `json:"latitude,omitempty"`
-	LogoUrl           *string                             `json:"logo_url,omitempty"`
-	Longitude         *float64                            `json:"longitude,omitempty"`
-	Name              *string                             `json:"name,omitempty"`
-	Phone             *string                             `json:"phone,omitempty"`
-	Province          *string                             `json:"province,omitempty"`
-	Slug              *string                             `json:"slug,omitempty"`
+
+	// Description Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it.
+	Description *string  `json:"description,omitempty"`
+	Email       *string  `json:"email,omitempty"`
+	IsActive    *bool    `json:"is_active,omitempty"`
+	Latitude    *float64 `json:"latitude,omitempty"`
+	LogoUrl     *string  `json:"logo_url,omitempty"`
+	Longitude   *float64 `json:"longitude,omitempty"`
+	Name        *string  `json:"name,omitempty"`
+	Phone       *string  `json:"phone,omitempty"`
+	Province    *string  `json:"province,omitempty"`
+	Slug        *string  `json:"slug,omitempty"`
 
 	// Version The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins.
 	Version *int `json:"version,omitempty"`

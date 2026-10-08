@@ -355,6 +355,7 @@ type UpdateInput struct {
 	Email             *string
 	LogoURL           *string
 	CoverURL          *string
+	Description       *string
 	DepositPercentage *int
 	CancellationHours *int
 	IsActive          *bool
@@ -431,6 +432,14 @@ func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, act
 	}
 	if in.CoverURL != nil {
 		complex.CoverURL = in.CoverURL
+	}
+	if in.Description != nil {
+		// A blank description is no description. The in-memory value must be
+		// nil too, or the owner's response would echo "" where the row holds NULL.
+		complex.Description = nil
+		if *in.Description != "" {
+			complex.Description = in.Description
+		}
 	}
 	if in.DepositPercentage != nil {
 		complex.DepositPercentage = *in.DepositPercentage
