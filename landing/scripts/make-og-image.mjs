@@ -29,8 +29,8 @@ const SALIDA = join(RAIZ, 'public', 'og-image.png');
  * de complejos deportivos" que todavía encuadraba el producto como reservas.
  */
 const EYEBROW = 'Sistema de gestión para complejos deportivos';
-const TITULAR = 'Tu complejo, en un solo panel.';
-const RESALTADO = '100% gratis para vos.';
+const TITULAR = 'Gestioná tu complejo';
+const RESALTADO = 'gratis.';
 
 /**
  * Los mismos iconos que orbitan en el hero, quietos y del lado que el texto

@@ -133,7 +133,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       + 'nombre una cancha; en Vibe ve todas las canchas del día en paralelo. En plata, Turnito tiene '
       + `un plan gratis y planes pagos desde ${pesos(TU_PLANES[1].mensual)} por mes, y en todos menos el `
       + `más caro cobra una comisión sobre lo que se paga online, que baja de ${TU_PLANES[0].comision} `
-      + 'por ciento a cero según el plan y absorbe el complejo. Vibe no le cobra nada al complejo: el '
+      + 'por ciento a cero según el plan y absorbe el complejo. Vibe es gratis para el complejo: el '
       + 'cargo de servicio lo paga el que reserva.',
     datePublished: '2026-09-16',
     fuente: { nombre: 'Turnito, planes de Argentina', url: TU_FUENTE, nofollow: true },
@@ -222,7 +222,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     title: 'Vibe o CanchaFija: qué comparten y en qué se diferencian',
     seoTitle: 'Vibe o CanchaFija: en qué se diferencian y cuánto cuestan',
     metaDescription:
-      'CanchaFija cobra un abono mensual por complejo; Vibe no cobra nada. Las dos con reserva online, '
+      'CanchaFija cobra un abono mensual por complejo; Vibe es gratis para el complejo. Las dos con reserva online, '
       + 'caja y bar: cambia el modelo de cobro.',
     excerpt:
       'Comparten la reserva, el cobro y el bar. Uno cobra abono todos los meses; el otro no le cobra '
@@ -232,7 +232,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       + 'bar o la cantina. La diferencia de plata es el '
       + `abono: CanchaFija le cobra al complejo un plan mensual en pesos según cuántas canchas tenga, `
       + `desde ${pesos(CF_PLANES[0].mensual)} hasta ${pesos(CF_PLANES.at(-1)!.mensual)}, con el primer `
-      + 'mes gratis y sin permanencia. Vibe no le cobra nada al complejo, e incluye caja por turno con '
+      + 'mes gratis y sin permanencia. Vibe es gratis para el complejo, e incluye caja por turno con '
       + 'arqueo y venta de productos con stock.',
     datePublished: '2026-09-16',
     fuente: { nombre: 'CanchaFija, planes y precios', url: CF_FUENTE, nofollow: true },
@@ -277,7 +277,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'a nadie.',
           'Si lo tuyo es alquilar canchas por hora, cobrar la seña y llevar la caja y el bar, las dos '
             + 'lo resuelven y la diferencia es el abono. CanchaFija cobra su plan todos los meses, haya '
-            + 'reservas o no. Vibe no le cobra nada a tu complejo. En un enero flojo, eso se siente.',
+            + 'reservas o no. Vibe es gratis para tu complejo. En un enero flojo, eso se siente.',
         ],
       },
     ],
@@ -316,7 +316,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     title: 'Vibe o ATC Sports: en qué se diferencian de verdad',
     seoTitle: 'Vibe o ATC Sports: abono fijo o $0 para tu complejo',
     metaDescription:
-      'ATC Sports cobra un abono mensual en dólares; Vibe no le cobra nada al complejo. Qué comparten, '
+      'ATC Sports cobra un abono mensual en dólares; Vibe es gratis para el complejo. Qué comparten, '
       + 'qué trae cada uno y cuándo conviene.',
     excerpt:
       'Las dos toman reservas y llevan la caja. La diferencia está en quién paga y cuándo.',
@@ -324,7 +324,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       'La diferencia principal no está en las reservas, que las dos cubren: está en quién paga. ATC '
       + `Sports le cobra al complejo un abono mensual fijo en dólares, desde ${dolares(ATC_PLANES[0].mensual)} `
       + `hasta ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, haya reservas o no. `
-      + 'Vibe no le cobra nada al complejo: el cargo de servicio lo paga el cliente, y la '
+      + 'Vibe es gratis para el complejo: el cargo de servicio lo paga el cliente, y la '
       + 'comisión de MercadoPago corre con los dos modelos. En alcance, las dos cubren reservas, caja y '
       + 'stock, y cada complejo tiene su propia página pública para que el cliente vea las canchas y '
       + 'reserve.',
@@ -510,7 +510,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'La paga quien cobra: el complejo. MercadoPago la descuenta antes de que el pago llegue a tu '
           + 'cuenta, así que nunca la ves salir: ves entrar menos. Si cobrás con Vibe, el pago online es '
           + 'la seña más el cargo de servicio que paga el cliente, y MercadoPago calcula su porcentaje '
-          + 'sobre ese total antes de separar la parte de Vibe. Vibe, en cambio, no le cobra nada al '
+          + 'sobre ese total antes de separar la parte de Vibe. Vibe, en cambio, es gratis para el '
           + 'complejo.',
       },
       {
@@ -559,7 +559,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     respuesta:
       `En Argentina hay dos modelos. Un abono mensual fijo, de ${dolares(ATC_PLANES[0].mensual)} a `
       + `${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, que se paga haya reservas `
-      + 'o no. O un cargo por reserva, que no le cobra nada fijo al complejo. Cuál te conviene depende '
+      + 'o no. O un cargo por reserva, sin abono fijo para el complejo. Cuál te conviene depende '
       + `de una sola cosa: cuántos turnos hacés por mes. El mismo abono de ${dolares(ATC_PLANES[0].mensual)} `
       + `te sale ${dolares(POR_RESERVA_POCAS)} por reserva si hacés ${VOLUMENES[0]} al mes, y `
       + `${dolares(POR_RESERVA_MUCHAS)} si hacés ${VOLUMENES.at(-1)}.`,
@@ -673,7 +673,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         answer:
           'Hay planes gratuitos con tope de canchas o de reservas, y pruebas por tiempo limitado. Antes '
           + 'de contarlos como gratis, mirá dos cosas: qué pasa cuando pasás el tope, y si cobrar señas '
-          + 'online está incluido o es un extra. Vibe no le cobra nada al complejo, sin planes ni '
+          + 'online está incluido o es un extra. Vibe es gratis para el complejo, sin planes ni '
           + 'abono: el cargo de servicio lo paga el que reserva online, y la comisión de MercadoPago '
           + 'corre aparte, como con cualquiera.',
       },
