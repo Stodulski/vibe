@@ -244,7 +244,7 @@ export function tutorialesIndexJsonLd(lista: Tutorial[]): string[] {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: 'Tutoriales de Vibe',
-      description: 'Guías cortas del panel de Vibe, pantalla por pantalla: la grilla, los precios, los clientes, el panel, los reportes y la configuración.',
+      description: 'Tutoriales del panel de Vibe, pantalla por pantalla: grilla, precios, clientes, caja, ventas, stock, reportes y configuración.',
       url: 'https://vibe.com.ar/tutoriales',
       inLanguage: 'es-AR',
       dateModified: TUTORIALES_ULTIMA_ACTUALIZACION,
