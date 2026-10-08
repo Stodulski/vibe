@@ -88,7 +88,7 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 }
 
 // render substitutes the frontend's default meta tags with this complex's, and
-// injects the canonical URL and JSON-LD before </head>.
+// injects the canonical URL, JSON-LD and the visible facts before </head>.
 //
 // Every interpolated value is HTML-escaped: complex names, descriptions and
 // logo URLs are owner-supplied, and they are being written into markup.
@@ -97,13 +97,8 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 	canonicalURL := baseURL + "/" + slug
 
 	escapedName := html.EscapeString(complex.Name)
-	title := pageTitle(escapedName)
-	description := pageDescription(escapedName)
-
-	imageURL := defaultImage
-	if complex.LogoURL != nil && *complex.LogoURL != "" {
-		imageURL = *complex.LogoURL
-	}
+	title := pageTitle(escapedName, html.EscapeString(complex.City))
+	description := pageDescription(escapedName, html.EscapeString(complex.City), complex.PaymentsEnabled, amenityNames(complex.Amenities))
 
 	page := tmpl
 	for _, sub := range []struct{ placeholder, replacement string }{
@@ -111,14 +106,20 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 		{placeholderDescription, fmt.Sprintf(`content="%s"`, description)},
 		{placeholderOGTitle, fmt.Sprintf(`content="%s"`, title)},
 		{placeholderOGDesc, fmt.Sprintf(`content="%s"`, description)},
-		{placeholderImage, fmt.Sprintf(`content="%s"`, html.EscapeString(imageURL))},
+		{placeholderImage, fmt.Sprintf(`content="%s"`, html.EscapeString(socialImage(complex)))},
 	} {
 		page = strings.ReplaceAll(page, sub.placeholder, sub.replacement)
 	}
 
+	// The frontend mounts into #root with createRoot, which replaces whatever is
+	// there, so the facts below are read by crawlers and then replaced for a
+	// visitor by the same facts the app renders.
+	page = strings.Replace(page, `<div id="root">`, `<div id="root">`+bodyFacts(complex, schedules), 1)
+
 	escapedCanonical := html.EscapeString(canonicalURL)
 	extraHead := fmt.Sprintf(`<link rel="canonical" href="%s" />`+"\n", escapedCanonical) +
 		fmt.Sprintf(`    <meta property="og:url" content="%s" />`+"\n", escapedCanonical) +
+		`    <meta property="og:locale" content="es_AR" />` + "\n" +
 		fmt.Sprintf("    <script type=\"application/ld+json\">%s</script>\n    ", structuredData(complex, schedules, canonicalURL))
 
 	return strings.Replace(page, "</head>", extraHead+"</head>", 1)
@@ -147,6 +148,93 @@ var schemaDays = map[string]string{
 	"thursday": "Thursday", "friday": "Friday", "saturday": "Saturday", "sunday": "Sunday",
 }
 
+// weekOrder is the order the week's hours are listed in, Monday first.
+var weekOrder = []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+
+// ownImage is the complex's own picture: its cover photo, else its logo. It is
+// empty when the complex has neither, so a caller can decide what that means.
+func ownImage(complex *complexstore.Complex) string {
+	for _, u := range []*string{complex.CoverURL, complex.LogoURL} {
+		if u != nil && *u != "" {
+			return *u
+		}
+	}
+	return ""
+}
+
+// socialImage is the picture a link preview shows: the complex's own image, or
+// Vibe's default when it has none.
+func socialImage(complex *complexstore.Complex) string {
+	if image := ownImage(complex); image != "" {
+		return image
+	}
+	return defaultImage
+}
+
+// amenityNames returns the Spanish labels of the complex's known amenities, in
+// the order the complex stores them. Keys outside the known vocabulary are
+// skipped rather than published raw.
+func amenityNames(keys []string) []string {
+	var names []string
+	for _, key := range keys {
+		if label, known := amenityLabels[key]; known {
+			names = append(names, label)
+		}
+	}
+	return names
+}
+
+// bodyFacts is the server-rendered copy of the facts the public page shows:
+// name, address, phone, the week's hours and the services. It is built from the
+// same data the page renders, so a crawler reads what a visitor sees.
+func bodyFacts(complex *complexstore.Complex, schedules []*complexstore.Schedule) string {
+	var b strings.Builder
+	b.WriteString("<main>")
+	fmt.Fprintf(&b, "<h1>%s</h1>", html.EscapeString(complex.Name))
+	if address := joinNonEmpty(", ", complex.Address, complex.City); address != "" {
+		fmt.Fprintf(&b, "<p>%s</p>", html.EscapeString(address))
+	}
+	if complex.Phone != "" {
+		fmt.Fprintf(&b, "<p>%s</p>", html.EscapeString(complex.Phone))
+	}
+
+	byDay := make(map[string]*complexstore.Schedule, len(schedules))
+	for _, s := range schedules {
+		byDay[s.Day] = s
+	}
+	fmt.Fprintf(&b, "<h2>%s</h2><ul>", hoursHeading)
+	for _, day := range weekOrder {
+		line := closedLabel
+		if s, ok := byDay[day]; ok && !s.IsClosed {
+			line = s.OpenTime + " - " + s.CloseTime
+		}
+		fmt.Fprintf(&b, "<li>%s: %s</li>", html.EscapeString(dayLabels[day]), html.EscapeString(line))
+	}
+	b.WriteString("</ul>")
+
+	if names := amenityNames(complex.Amenities); len(names) > 0 {
+		fmt.Fprintf(&b, "<h2>%s</h2><ul>", servicesHeading)
+		for _, name := range names {
+			fmt.Fprintf(&b, "<li>%s</li>", html.EscapeString(name))
+		}
+		b.WriteString("</ul>")
+	}
+	b.WriteString("</main>")
+	return b.String()
+}
+
+// joinNonEmpty joins the parts that are not empty, so an address without a
+// province does not end in a dangling separator.
+func joinNonEmpty(sep string, parts ...string) string {
+	var kept []string
+	for _, part := range parts {
+		if part != "" {
+			kept = append(kept, part)
+		}
+	}
+	return strings.Join(kept, sep)
+}
+
 // structuredData builds the schema.org SportsActivityLocation document that
 // lets search engines show the complex's address and opening hours directly in
 // results.
@@ -167,9 +255,10 @@ func structuredData(complex *complexstore.Complex, schedules []*complexstore.Sch
 	}
 
 	// Optional fields are omitted rather than emitted empty, because an empty
-	// value in structured data is treated as an error by validators.
-	if complex.LogoURL != nil {
-		schema["image"] = *complex.LogoURL
+	// value in structured data is treated as an error by validators. The image
+	// is only ever the complex's own: Vibe's default logo is not the venue's.
+	if image := ownImage(complex); image != "" {
+		schema["image"] = image
 	}
 	if complex.Email != nil {
 		schema["email"] = *complex.Email
@@ -180,6 +269,17 @@ func structuredData(complex *complexstore.Complex, schedules []*complexstore.Sch
 			"latitude":  *complex.Latitude,
 			"longitude": *complex.Longitude,
 		}
+	}
+	if names := amenityNames(complex.Amenities); len(names) > 0 {
+		features := make([]map[string]any, 0, len(names))
+		for _, name := range names {
+			features = append(features, map[string]any{
+				"@type": "LocationFeatureSpecification",
+				"name":  name,
+				"value": true,
+			})
+		}
+		schema["amenityFeature"] = features
 	}
 
 	var hours []map[string]any

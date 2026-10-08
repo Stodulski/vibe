@@ -170,9 +170,10 @@ func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 
 	body := w.Body.String()
 	for _, want := range []string{
-		"<title>Vibe Palermo - Reserva tu cancha | Vibe</title>",
-		`content="Reserva canchas en Vibe Palermo. Rápido y seguro."`,
+		"<title>Vibe Palermo en CABA - Reservá tu cancha | Vibe</title>",
+		`content="Reservá tu cancha en Vibe Palermo, CABA por WhatsApp. Horarios y ubicación."`,
 		`content="https://cdn.example/logo.png"`,
+		`<meta property="og:locale" content="es_AR" />`,
 		`<link rel="canonical"`,
 		`<script type="application/ld+json">`,
 	} {
@@ -486,8 +487,8 @@ func TestPrerenderSubstitutesIntoTheFrontendsRealMarkup(t *testing.T) {
 		t.Fatalf("want 200; got %d (%s)", w.Code, body)
 	}
 	for _, want := range []string{
-		"<title>Vibe Palermo - Reserva tu cancha | Vibe</title>",
-		`content="Reserva canchas en Vibe Palermo. Rápido y seguro."`,
+		"<title>Vibe Palermo en CABA - Reservá tu cancha | Vibe</title>",
+		`content="Reservá tu cancha en Vibe Palermo, CABA por WhatsApp. Horarios y ubicación."`,
 		`content="https://app.vibe.com.ar/logo.png"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -559,7 +560,7 @@ func TestAScheduleFailureStillRendersTheComplexsOwnPage(t *testing.T) {
 		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "<title>Vibe Palermo - Reserva tu cancha | Vibe</title>") {
+	if !strings.Contains(body, "<title>Vibe Palermo en CABA - Reservá tu cancha | Vibe</title>") {
 		t.Error("the complex's own title was lost along with its schedules")
 	}
 	if strings.Contains(body, "openingHoursSpecification") {
@@ -588,7 +589,7 @@ func TestAnUnreachableFrontendStillProducesAPage(t *testing.T) {
 		t.Fatalf("want 200 from the built-in shell; got %d (%s)", w.Code, w.Body.String())
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "<title>Vibe Palermo - Reserva tu cancha | Vibe</title>") {
+	if !strings.Contains(body, "<title>Vibe Palermo en CABA - Reservá tu cancha | Vibe</title>") {
 		t.Errorf("the built-in shell did not take this complex's tags\n%s", body)
 	}
 	if !strings.Contains(body, `<link rel="canonical"`) {
