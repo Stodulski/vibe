@@ -27,8 +27,7 @@ export const faq: FaqItem[] = [
     anim: 'anim-d1',
     question: '¿Vibe es gratis de verdad?',
     answer: 'Vibe no le cobra al complejo. El cargo de servicio lo paga quien reserva online, y lo ve antes '
-      + 'de pagar, junto al precio de la cancha. Las comisiones de MercadoPago son aparte y están explicadas '
-      + 'en la guía de costos.',
+      + 'de pagar, junto al precio de la cancha. Las comisiones de MercadoPago son aparte.',
   },
   {
     anim: 'anim-d2',
