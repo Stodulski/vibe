@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -92,13 +93,13 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 //
 // Every interpolated value is HTML-escaped: complex names, descriptions and
 // logo URLs are owner-supplied, and they are being written into markup.
-func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules []*complexstore.Schedule, slug string) string {
+func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules []*complexstore.Schedule, courts []*courtstore.Court, slug string) string {
 	baseURL := strings.TrimRight(s.frontendURL, "/")
 	canonicalURL := baseURL + "/" + slug
 
 	escapedName := html.EscapeString(complex.Name)
 	title := pageTitle(escapedName, html.EscapeString(complex.City))
-	description := pageDescription(escapedName, html.EscapeString(complex.City), complex.PaymentsEnabled, amenityNames(complex.Amenities))
+	description := pageDescription(escapedName, html.EscapeString(complex.City), complex.PaymentsEnabled, sportNames(courts), amenityNames(complex.Amenities))
 
 	page := tmpl
 	for _, sub := range []struct{ placeholder, replacement string }{
@@ -114,7 +115,7 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 	// The frontend mounts into #root with createRoot, which replaces whatever is
 	// there, so the facts below are read by crawlers and then replaced for a
 	// visitor by the same facts the app renders.
-	page = strings.Replace(page, `<div id="root">`, `<div id="root">`+bodyFacts(complex, schedules), 1)
+	page = strings.Replace(page, `<div id="root">`, `<div id="root">`+bodyFacts(complex, schedules, courts), 1)
 
 	escapedCanonical := html.EscapeString(canonicalURL)
 	extraHead := fmt.Sprintf(`<link rel="canonical" href="%s" />`+"\n", escapedCanonical) +
@@ -185,9 +186,10 @@ func amenityNames(keys []string) []string {
 }
 
 // bodyFacts is the server-rendered copy of the facts the public page shows:
-// name, address, phone, the week's hours and the services. It is built from the
-// same data the page renders, so a crawler reads what a visitor sees.
-func bodyFacts(complex *complexstore.Complex, schedules []*complexstore.Schedule) string {
+// name, address, phone, the week's hours, the active courts and the services. It
+// is built from the same data the page renders, so a crawler reads what a visitor
+// sees. courts must already be the active courts; prices are not part of the body.
+func bodyFacts(complex *complexstore.Complex, schedules []*complexstore.Schedule, courts []*courtstore.Court) string {
 	var b strings.Builder
 	b.WriteString("<main>")
 	fmt.Fprintf(&b, "<h1>%s</h1>", html.EscapeString(complex.Name))
@@ -212,6 +214,14 @@ func bodyFacts(complex *complexstore.Complex, schedules []*complexstore.Schedule
 	}
 	b.WriteString("</ul>")
 
+	if len(courts) > 0 {
+		fmt.Fprintf(&b, "<h2>%s</h2><ul>", courtsHeading)
+		for _, c := range courts {
+			b.WriteString(courtLine(c))
+		}
+		b.WriteString("</ul>")
+	}
+
 	if names := amenityNames(complex.Amenities); len(names) > 0 {
 		fmt.Fprintf(&b, "<h2>%s</h2><ul>", servicesHeading)
 		for _, name := range names {
@@ -233,6 +243,46 @@ func joinNonEmpty(sep string, parts ...string) string {
 		}
 	}
 	return strings.Join(kept, sep)
+}
+
+// courtLine is one court in the body: its name, then its sport and court type,
+// then the owner's own description when there is one. Every owner-supplied part
+// is escaped; the sport and court type labels are fixed.
+func courtLine(c *courtstore.Court) string {
+	var traits []string
+	if label := sportLabels[c.Sport]; label != "" {
+		traits = append(traits, label)
+	}
+	if label := courtTypeLabels[c.CourtType]; label != "" {
+		traits = append(traits, label)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "<li>%s", html.EscapeString(c.Name))
+	if len(traits) > 0 {
+		fmt.Fprintf(&b, ": %s", html.EscapeString(strings.Join(traits, ", ")))
+	}
+	if c.Description != nil && *c.Description != "" {
+		fmt.Fprintf(&b, "<p>%s</p>", html.EscapeString(*c.Description))
+	}
+	b.WriteString("</li>")
+	return b.String()
+}
+
+// sportNames returns the distinct Spanish labels of the courts' sports, in the
+// order the courts list them. A sport outside the known vocabulary is skipped.
+func sportNames(courts []*courtstore.Court) []string {
+	seen := make(map[string]bool, len(courts))
+	var names []string
+	for _, c := range courts {
+		label := sportLabels[c.Sport]
+		if label == "" || seen[label] {
+			continue
+		}
+		seen[label] = true
+		names = append(names, label)
+	}
+	return names
 }
 
 // structuredData builds the schema.org SportsActivityLocation document that
