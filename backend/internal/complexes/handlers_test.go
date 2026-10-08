@@ -440,6 +440,88 @@ func TestUpdateRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+// A reserved slug is refused on Create and on Update alike, and the refusal
+// names the slug field. Each name is a one-segment route the client's router
+// declares, or the city hub the backend serves, so a complex claiming one
+// would be unreachable at its own URL.
+func TestReservedSlugsAreRefusedOnCreateAndOnEdit(t *testing.T) {
+	for _, slug := range []string{"admin", "cash", "canchas", "confirm-email-change"} {
+		t.Run("create "+slug, func(t *testing.T) {
+			f := newFixture(t)
+			body := `{"name":"V","slug":"` + slug + `","address":"a","city":"c","province":"p","phone":"1","cancellation_hours":24}`
+
+			w := httptest.NewRecorder()
+			f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, body))
+
+			assertReservedSlugRefusal(t, w)
+			if f.store.inserted != nil {
+				t.Error("a complex must not be created on a reserved slug")
+			}
+		})
+
+		t.Run("edit to "+slug, func(t *testing.T) {
+			f := newFixture(t)
+			complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
+
+			w := httptest.NewRecorder()
+			f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+				`{"slug":"`+slug+`"}`))
+
+			assertReservedSlugRefusal(t, w)
+			if f.store.updated != nil {
+				t.Errorf("a refused rename must not reach the store; got %+v", f.store.updated)
+			}
+		})
+	}
+}
+
+func assertReservedSlugRefusal(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+	}
+	if body := w.Body.String(); !strings.Contains(body, `"slug"`) || !strings.Contains(body, "is reserved") {
+		t.Errorf(`the refusal must name the "slug" field as "is reserved"; got %s`, body)
+	}
+}
+
+// Only a changed slug is checked against reservedSlugs. A complex can already
+// carry a slug the list refuses (H-13 describes one created before the check
+// existed), and it must stay editable: resending its own slug unchanged is not
+// a rename onto a route, so the owner's other edits must still be saved.
+func TestUpdateKeepsAnUnchangedReservedSlugEditable(t *testing.T) {
+	f := newFixture(t)
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Admin Club", Slug: "admin"}
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"name":"Renamed Club","slug":"admin"}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated == nil || f.store.updated.Name != "Renamed Club" {
+		t.Errorf("the edit must be persisted; got %+v", f.store.updated)
+	}
+}
+
+func TestUpdateMovesAComplexToAFreeSlug(t *testing.T) {
+	f := newFixture(t)
+	complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"slug":"vibe-nuevo"}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated == nil || f.store.updated.Slug != "vibe-nuevo" {
+		t.Errorf("a free slug must be persisted; got %+v", f.store.updated)
+	}
+}
+
 // H-13: SlugAvailable is also the suggestion path — the fix direction is
 // explicit that it must not offer a reserved slug either, even though no
 // complex has ever claimed it in the database.

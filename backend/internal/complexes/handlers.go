@@ -269,9 +269,12 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		v.Check(slugValidRX.MatchString(slug), "slug", "must contain only lowercase letters, numbers, and hyphens")
 		v.Check(len(slug) <= maxSlugLength, "slug", fmt.Sprintf("must not be more than %d characters", maxSlugLength))
 		// See reservedSlugs on Create: the same route collision applies to a
-		// rename, and a rename is exactly how an owner could talk themselves
-		// into it — Create already refuses these, but Update never re-checked.
-		v.Check(!reservedSlugs[slug], "slug", "is reserved")
+		// rename. Only a change is checked, as Service.Update checks slug
+		// uniqueness: a complex can already carry a slug the list refuses, and
+		// resending that slug unchanged must not block the owner's other edits.
+		if slug != complex.Slug {
+			v.Check(!reservedSlugs[slug], "slug", "is reserved")
+		}
 		in.Slug = &slug
 	}
 

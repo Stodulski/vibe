@@ -45,13 +45,15 @@ func TestReservedSlugsMatchTheKnownClientRoutes(t *testing.T) {
 	want := []string{
 		// authRoutes
 		"login", "register", "verify-email-sent", "verify-email",
-		"forgot-password", "reset-password",
+		"forgot-password", "reset-password", "confirm-email-change",
 		// ownerStandaloneRoutes
 		"complexes", "onboarding",
 		// ownerDashboardRoutes
-		"dashboard", "bookings", "courts", "clients", "reports", "settings", "profile",
+		"dashboard", "bookings", "cash", "courts", "clients", "reports", "settings", "profile",
 		// adminRoutes
 		"admin",
+		// City hub, /canchas/<city>, reserved ahead of its route.
+		"canchas",
 		// Platform paths from middleware.ts's SKIP_PREFIXES (H-20) — not
 		// routes the SPA declares, but paths it never gets to see.
 		"api", "assets", "fonts", "icons", "logo",
