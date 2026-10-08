@@ -26,11 +26,8 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d1',
     question: '¿Vibe es gratis de verdad?',
-    answer: 'Sí, para tu complejo. Vibe no te cobra abono, ni costo fijo, ni nada sobre lo que cobrás '
-      + 'en el mostrador o vendés en el bar. Nunca. Hay dos costos, y conviene tenerlos claros: el que '
-      + `reserva online paga un cargo de servicio fijo de ${pesos(CARGO_SERVICIO)} por pago; y MercadoPago `
-      + 'descuenta su comisión del pago online que entra a tu cuenta, como con cualquier sistema que '
-      + `cobre por MercadoPago. ${CARGO_PUEDE_CAMBIAR}`,
+    answer: 'Vibe no le cobra al complejo. El cargo de servicio lo paga quien reserva online, y lo ve antes '
+      + 'de pagar, junto al precio de la cancha. Las comisiones de MercadoPago son aparte.',
   },
   {
     anim: 'anim-d2',
@@ -55,7 +52,7 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d5',
     question: '¿Qué pasa si vendo algo que figura sin stock?',
-    answer: 'La venta sale igual. Vibe te avisa que ese producto quedó en cero o menos, para que revises '
+    answer: 'La venta sale igual. Vibe te avisa que ese producto quedó en cero o menos, para que revisés '
       + 'el conteo. Y si le ponés un mínimo a cada producto, el dashboard te avisa cuando baja de ahí.',
   },
   {
@@ -72,7 +69,7 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d8',
     question: '¿Y los que reservan y no vienen?',
-    answer: 'La seña los filtra: el que pagó, viene. Y dos horas antes del turno, Vibe le manda un '
+    answer: 'La seña filtra a quien no piensa ir. Y dos horas antes del turno, Vibe le manda un '
       + 'recordatorio automático al mail que dejó al reservar.',
   },
 ];

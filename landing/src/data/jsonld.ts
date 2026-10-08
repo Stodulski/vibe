@@ -20,7 +20,7 @@ export const homeJsonLd: string[] = [
       "price": "0",
       "priceCurrency": "ARS",
       "availability": "https://schema.org/InStock",
-      "description": "100% gratis para el complejo deportivo: sin costo fijo, sin suscripción y sin cargo sobre los cobros en el mostrador ni las ventas."
+      "description": "Gratis para el complejo deportivo: sin costo fijo, sin suscripción y sin cargo sobre los cobros en el mostrador ni las ventas."
     },
     "featureList": [
       "Cobros en el mostrador: efectivo, transferencia, débito, crédito y QR",
@@ -67,7 +67,7 @@ JSON.stringify({
   })),
 }, null, 2),
 `   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, cobros, caja, ventas y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
-`   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar","description":"Sistema de gestión para complejos deportivos, 100% gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
+`   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar","description":"Sistema de gestión para complejos deportivos, gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
 ];
 
 export const privacidadJsonLd: string[] = [

@@ -1,27 +1,27 @@
 {
   "cuanto-cobra-mercadopago-por-una-sena": {
-    "hash": "74f21813f57da28b",
+    "hash": "1962c2c0bedbf944",
     "date": "2026-10-08"
   },
   "cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "a6662e677b5b4b4b",
+    "hash": "a363a4ab46c9d17e",
     "date": "2026-10-08"
   },
   "como-llenar-los-horarios-vacios-de-un-complejo": {
-    "hash": "491555bba568f14f",
-    "date": "2026-10-05"
+    "hash": "b3b58868c5c2c220",
+    "date": "2026-10-08"
   },
   "tutorial:grilla-de-reservas": {
     "hash": "84cd33bc60bfec07",
     "date": "2026-09-25"
   },
   "tutorial:precios-por-horario": {
-    "hash": "8cb9b9342a5528f5",
-    "date": "2026-09-25"
+    "hash": "61ea77f0e472919b",
+    "date": "2026-10-08"
   },
   "tutorial:base-de-clientes": {
-    "hash": "ea5ebbf894af2b73",
-    "date": "2026-09-25"
+    "hash": "86b27d2010e2489d",
+    "date": "2026-10-08"
   },
   "tutorial:panel-de-control": {
     "hash": "aea8c5d4b9280d25",
@@ -32,15 +32,15 @@
     "date": "2026-09-25"
   },
   "tutorial:configuracion-del-complejo": {
-    "hash": "e6f161268b04a963",
-    "date": "2026-09-25"
+    "hash": "cb63a61cd80885c7",
+    "date": "2026-10-08"
   },
   "vibe-o-atc-sports-en-que-se-diferencian": {
-    "hash": "22d738ef40beb83a",
+    "hash": "29cee38185b9176b",
     "date": "2026-10-08"
   },
   "vibe-o-turnito-para-un-complejo-de-canchas": {
-    "hash": "88f1f39206152b3e",
+    "hash": "8704b820cabb074f",
     "date": "2026-10-08"
   },
   "vibe-o-canchafija-en-que-se-diferencian": {
@@ -64,7 +64,7 @@
     "date": "2026-09-25"
   },
   "tutorial:cobrar-una-reserva-en-el-mostrador": {
-    "hash": "8085c29f88c8fab9",
-    "date": "2026-09-25"
+    "hash": "4a30cb67f3340c0f",
+    "date": "2026-10-08"
   }
 }

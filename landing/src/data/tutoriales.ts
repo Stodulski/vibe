@@ -138,7 +138,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
             + 'cobrara todo el turno a la tarifa de la hora de inicio, reservar a las 17:30 saldría más '
             + 'barato que a las 18:00 por la misma hora de cancha. Y ese agujero lo encuentra el primer '
             + 'cliente que hace la cuenta.',
-          'Cobrar cada media hora a su tarifa cierra el agujero sin que tengas que pensarlo. Cargás el '
+          'Cobrar cada media hora a su tarifa cierra el agujero sin que tengás que pensarlo. Cargás el '
             + 'precio de día y el de noche, y cualquier duración con cualquier horario de inicio da el '
             + 'número justo.',
         ],
@@ -164,7 +164,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       {
         question: '¿Cuántas franjas puedo cargar por día?',
         answer:
-          'Las que necesites. Lo habitual es una, la nocturna, pero si cobrás distinto al mediodía '
+          'Las que necesités. Lo habitual es una, la nocturna, pero si cobrás distinto al mediodía '
           + 'cargás esa también. Lo único que no se puede es superponer dos franjas en el mismo '
           + 'horario.',
       },
@@ -252,7 +252,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         question: '¿La asistencia cuenta las reservas telefónicas o solo las pagadas online?',
         answer:
           'Cuenta todas. El porcentaje sale de las reservas completadas y las ausencias reales del '
-          + 'cliente, sea que haya pagado online o que la hayas cargado vos por teléfono.',
+          + 'cliente, sea que haya pagado online o que la hayás cargado vos por teléfono.',
       },
     ],
     relacionados: ['grilla-de-reservas', 'panel-de-control'],
@@ -418,7 +418,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           'El porcentaje de seña es lo único de esta pantalla que elegís vos y no copiás de un dato '
             + 'que ya existe. Una seña baja hace fácil reservar, y también faltar. Una seña alta filtra '
             + 'al que no va a ir, y también a alguno que sí iba.',
-          'Revisalo contra el porcentaje de ausencias que te muestra la base de clientes. No lo dejes '
+          'Revisalo contra el porcentaje de ausencias que te muestra la base de clientes. No lo dejés '
             + 'donde quedó el primer día.',
         ],
       },
@@ -749,7 +749,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     metaDescription:
       'Un turno confirmado sin cobrar todavía se cobra igual desde el panel: elegís el método real y '
       + 'queda registrado, sin pasar por MercadoPago.',
-    excerpt: 'Un turno sin cobrar se cobra igual desde el panel, con el método que uses en el momento.',
+    excerpt: 'Un turno sin cobrar se cobra igual desde el panel, con el método que usés en el momento.',
     datePublished: '2026-09-24',
     respuesta:
       'No todos los clientes pagan la seña online: un turno cargado por teléfono, o uno al que todavía le '
@@ -789,7 +789,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         question: '¿Puedo cobrar solo la seña y dejar el resto pendiente?',
         answer:
           'Sí. Elegís si confirmás el pago completo o solo la seña, y el turno queda con el saldo '
-          + 'restante a la vista hasta que lo cobres.',
+          + 'restante a la vista hasta que lo cobrés.',
       },
       {
         question: '¿Este cobro entra a la caja del turno?',

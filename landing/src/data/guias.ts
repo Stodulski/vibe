@@ -144,7 +144,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         parrafos: [
           'Con una cancha, una agenda alcanza. Con cuatro, cada cancha es una agenda aparte: el que '
             + 'reserva entra a una, mira sus horarios y, si no hay lugar, sale y prueba otra. No ve el '
-            + 'día completo. No elige: adivina.',
+            + 'día completo. En Turnito, la agenda se arma cancha por cancha.',
           'Del lado tuyo pasa lo mismo. Para saber cómo viene el sábado abrís una agenda por cancha, en '
             + 'vez de mirar una sola pantalla. Una lista contra una grilla, todos los días.',
           'Y hay un tope que conviene mirar antes que el precio: el plan gratuito no vence, incluye '
@@ -175,7 +175,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           'Vibe está hecho para complejos que alquilan canchas por hora: el que reserva ve todas las '
             + 'canchas del día en una sola grilla, sin un plan que limite cuántas cargás. El cargo de '
             + 'servicio lo paga el que reserva, y la caja, los cobros del mostrador y el bar están en el '
-            + 'mismo sistema. Usar Vibe es gratis para el complejo, tengas una cancha o veinte.',
+            + 'mismo sistema. Usar Vibe es gratis para el complejo, tengás una cancha o veinte.',
         ],
       },
     ],
@@ -211,7 +211,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         question: 'Si sumo canchas, ¿tengo que cambiar de plan en Vibe?',
         answer:
           'No. Vibe no cobra por plan ni por abono, así que sumar una cancha no te mueve a nada más '
-          + 'caro. En Turnito cada cancha ocupa una agenda, y el plan depende de cuántas sumes.',
+          + 'caro. En Turnito cada cancha ocupa una agenda, y el plan depende de cuántas sumás.',
       },
     ],
   },
@@ -323,7 +323,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     respuesta:
       'La diferencia principal no está en las reservas, que las dos cubren: está en quién paga. ATC '
       + `Sports le cobra al complejo un abono mensual fijo en dólares, desde ${dolares(ATC_PLANES[0].mensual)} `
-      + `hasta ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, haya reservas o no. `
+      + `hasta ${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengás, haya reservas o no. `
       + 'Vibe es gratis para el complejo: el cargo de servicio lo paga el cliente, y la '
       + 'comisión de MercadoPago corre con los dos modelos. En alcance, las dos cubren reservas, caja y '
       + 'stock, y cada complejo tiene su propia página pública para que el cliente vea las canchas y '
@@ -516,7 +516,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿Puedo cambiar el plazo de acreditación después?',
         answer:
-          'Sí. Se cambia en la sección de costos y cuotas de tu cuenta de MercadoPago, cuando quieras. '
+          'Sí. Se cambia en la sección de costos y cuotas de tu cuenta de MercadoPago, cuando querás. '
           + 'Aplica a los cobros nuevos, no a los que ya están en curso.',
       },
       {
@@ -555,10 +555,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       + 'cliente: los dos modelos con números reales, según tu volumen.',
     excerpt:
       'El precio de lista no dice nada sin tu volumen. La misma cuota sale '
-      + `${dolares(POR_RESERVA_POCAS)} o ${dolares(POR_RESERVA_MUCHAS)} por reserva según cuántas hagas.`,
+      + `${dolares(POR_RESERVA_POCAS)} o ${dolares(POR_RESERVA_MUCHAS)} por reserva según cuántas hagás.`,
     respuesta:
       `En Argentina hay dos modelos. Un abono mensual fijo, de ${dolares(ATC_PLANES[0].mensual)} a `
-      + `${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengas, que se paga haya reservas `
+      + `${dolares(ATC_PLANES.at(-1)!.mensual)} según cuántas canchas tengás, que se paga haya reservas `
       + 'o no. O un cargo por reserva, sin abono fijo para el complejo. Cuál te conviene depende '
       + `de una sola cosa: cuántos turnos hacés por mes. El mismo abono de ${dolares(ATC_PLANES[0].mensual)} `
       + `te sale ${dolares(POR_RESERVA_POCAS)} por reserva si hacés ${VOLUMENES[0]} al mes, y `
@@ -637,7 +637,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         intro: 'Tres cosas que no están en la lista y sí en tu cuenta a fin de mes:',
         items: [
           'La comisión de MercadoPago corre con los dos modelos. Si cobrás señas online, MercadoPago '
-            + 'se lleva lo suyo, tengas abono o no.',
+            + 'se lleva lo suyo, tengás abono o no.',
           'El abono suele ir escalonado por canchas: sumar una puede saltarte de plan sin que cambie '
             + 'nada más.',
           'El precio más bajo anunciado suele ser pagando el año por adelantado. Mes a mes cuesta más, '
@@ -729,7 +729,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'de la semana y marca el pico, el calendario muestra el día cancha por cancha, y el '
             + 'reporte mensual abre las reservas y la plata por cancha. Nada de eso te dice qué hacer; '
             + 'te dice dónde mirar.',
-          'Qué hacer hoy: anotá una semana completa, hora por hora y cancha por cancha, y marcá las '
+          'Qué hacer: anotá una semana completa, hora por hora y cancha por cancha, y marcá las '
             + 'franjas vacías. Esas franjas son el problema, no "la mañana".',
         ],
       },
@@ -749,7 +749,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'estés despierto. El trabajo real no es el software: es tener la grilla cargada de '
             + 'verdad, con horarios y precios al día. Una página que muestra libre un horario que no lo '
             + 'está hace más daño que no tener página.',
-          'Qué hacer hoy: contá en tu WhatsApp los mensajes de reserva que entraron fuera de tu horario '
+          'Qué hacer: contá en tu WhatsApp los mensajes de reserva que entraron fuera de tu horario '
             + 'esta semana. Ese número es tuyo, es real, y es el tamaño de lo que estás perdiendo.',
         ],
       },
@@ -757,9 +757,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'La seña es lo que separa un turno de un "te aviso"',
         parrafos: [
-          'Reservar sin poner nada no cuesta nada, y lo que no cuesta nada se cancela sin avisar. El '
-            + 'que puso plata, viene. Esa es toda la función de la seña: no es financiamiento, es un '
-            + 'filtro.',
+          'Reservar sin poner nada no cuesta nada, y lo que no cuesta nada se cancela sin avisar. La seña '
+            + 'es un filtro: separa al que tanteaba del que va a ir.',
           'Y filtra para los dos lados. Al que iba a ir no lo espanta, porque ya pensaba pagar. Al que '
             + 'estaba tanteando lo saca de la grilla ahora, cuando todavía podés vender ese turno, y no '
             + 'a las ocho de la noche, cuando ya no se lo vendés a nadie.',
@@ -770,10 +769,10 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'y el cargo de servicio vuelve con ella.',
           'Aparte está la comisión de MercadoPago, que esa sí la paga el complejo: se descuenta del '
             + `pago online antes de que llegue a tu cuenta, y va ${RANGO_NACIONAL} más IVA según tu `
-            + 'provincia y el plazo que elijas. La tabla completa está en '
+            + 'provincia y el plazo que elijás. La tabla completa está en '
             + '<a href="/guias/cuanto-cobra-mercadopago-por-una-sena">cuánto cobra MercadoPago por una '
             + 'seña</a>.',
-          'Qué hacer hoy: definí un porcentaje de seña y una ventana de cancelación, y escribilos donde '
+          'Qué hacer: definí un porcentaje de seña y una ventana de cancelación, y escribilos donde '
             + 'la gente reserva. Una regla escrita se discute mucho menos que una que hay que explicar '
             + 'por teléfono cada vez.',
         ],
@@ -796,7 +795,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'escribiendo.',
           'El mismo link en los tres. Si Google, Instagram y WhatsApp llevan a tres lugares distintos, '
             + 'no sabés cuál funciona y el que reserva no sabe cuál es el oficial.',
-          'Qué hacer hoy: abrí los tres y fijate si llevan al mismo lado. El que no tenga link es, hoy, '
+          'Qué hacer: abrí los tres y fijate si llevan al mismo lado. El que no tenga link es, hoy, '
             + 'el que te está mandando gente al teléfono.',
         ],
       },
@@ -821,7 +820,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'Argentina están abiertos con números en '
             + '<a href="/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas">cuánto cuesta un '
             + 'sistema de reservas para canchas</a>.',
-          'Qué hacer hoy: sacá de tu historial a los que venían seguido y hace rato que no aparecen, y '
+          'Qué hacer: sacá de tu historial a los que venían seguido y hace rato que no aparecen, y '
             + 'escribiles uno por uno. Sin lista de difusión: un mensaje reenviado se nota y no se '
             + 'contesta.',
         ],
@@ -854,7 +853,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         question: '¿Por dónde empiezo si tengo una sola cancha?',
         answer:
           'Por el segundo paso. Con una cancha el diagnóstico lo tenés en la cabeza y no te vas a '
-          + 'equivocar demasiado, así que lo que más rinde es que se pueda reservar sin que atiendas: '
+          + 'equivocar demasiado, así que lo que más rinde es que se pueda reservar sin que atiendás: '
           + 'con una sola cancha, cada turno que se pierde por un mensaje sin contestar es un pedazo '
           + 'grande de tu día.',
       },
