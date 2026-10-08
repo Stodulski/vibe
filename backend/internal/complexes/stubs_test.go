@@ -56,9 +56,10 @@ type stubStore struct {
 	disconnectErr error
 
 	// allSlugs and needingRefresh back the two reads that exist for other
-	// modules and for the OAuth refresh sweep.
+	// modules and for the OAuth refresh sweep. hubs backs the city hub read.
 	allSlugs       []complexstore.ComplexSlug
 	needingRefresh []*complexstore.Complex
+	hubs           []complexstore.HubComplex
 }
 
 func (s *stubStore) GetByOwner(context.Context, uuid.UUID) ([]*complexstore.Complex, error) {
@@ -151,6 +152,10 @@ func (s *stubStore) GetByID(context.Context, uuid.UUID) (*complexstore.Complex, 
 
 func (s *stubStore) GetAllSlugs(context.Context) ([]complexstore.ComplexSlug, error) {
 	return s.allSlugs, s.getErr
+}
+
+func (s *stubStore) ListActiveComplexesForHubs(context.Context) ([]complexstore.HubComplex, error) {
+	return s.hubs, s.getErr
 }
 
 func (s *stubStore) ListComplexesNeedingMPRefresh(context.Context) ([]*complexstore.Complex, error) {

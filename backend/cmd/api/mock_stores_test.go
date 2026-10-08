@@ -368,6 +368,7 @@ type mockComplexStore struct {
 	SlugExistsFn                    func(ctx context.Context, slug string) (bool, error)
 	SlugsWithPrefixFn               func(ctx context.Context, base string) ([]string, error)
 	GetAllSlugsFn                   func(ctx context.Context) ([]complexstore.ComplexSlug, error)
+	ListActiveComplexesForHubsFn    func(ctx context.Context) ([]complexstore.HubComplex, error)
 
 	mu   sync.Mutex
 	rows map[uuid.UUID]complexstore.Complex
@@ -563,6 +564,13 @@ func (m *mockComplexStore) SlugsWithPrefix(ctx context.Context, base string) ([]
 func (m *mockComplexStore) GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error) {
 	if m.GetAllSlugsFn != nil {
 		return m.GetAllSlugsFn(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockComplexStore) ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error) {
+	if m.ListActiveComplexesForHubsFn != nil {
+		return m.ListActiveComplexesForHubsFn(ctx)
 	}
 	return nil, nil
 }
