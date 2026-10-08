@@ -210,10 +210,10 @@ func TestCronReminder2h_PayloadCarriesWhereToGoAndWhatToPay(t *testing.T) {
 	if rem.MapsURL != "https://www.google.com/maps/search/?api=1&query=-34.603722,-58.381592" {
 		t.Errorf("the reminder email cannot open a map; got maps URL %q", rem.MapsURL)
 	}
-	if rem.CancelPath != "vibe-palermo/book/cancel?token=fresh-token" {
+	if rem.CancelPath != "c/vibe-palermo/book/cancel?token=fresh-token" {
 		t.Errorf("the reminder cannot be cancelled from WhatsApp; got cancel path %q", rem.CancelPath)
 	}
-	if rem.CancelURL != "http://localhost:5173/vibe-palermo/book/cancel?token=fresh-token" {
+	if rem.CancelURL != "http://localhost:5173/c/vibe-palermo/book/cancel?token=fresh-token" {
 		t.Errorf("the reminder email has no cancel link; got %q", rem.CancelURL)
 	}
 }
@@ -297,7 +297,7 @@ func TestCronReleaseExpiredPayments_SaysWhyTheBookingWentAway(t *testing.T) {
 	if sent.RefundLine != notifications.ExpiredUnpaidRefundLine {
 		t.Errorf("the cancellation does not say why the booking went away; got %q", sent.RefundLine)
 	}
-	if sent.BookURL != "http://localhost:5173/vibe-palermo/book" {
+	if sent.BookURL != "http://localhost:5173/c/vibe-palermo/book" {
 		t.Errorf("the cancellation offers no way back; got %q", sent.BookURL)
 	}
 }

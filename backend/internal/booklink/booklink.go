@@ -29,32 +29,32 @@ const QueryParam = "token"
 // Cancel builds the absolute cancel link sent in booking confirmation
 // notifications (email, WhatsApp).
 func Cancel(frontendURL, complexSlug, credential string) string {
-	return fmt.Sprintf("%s/%s/book/cancel?%s=%s", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
+	return fmt.Sprintf("%s/c/%s/book/cancel?%s=%s", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // CancelPath builds the same link as Cancel, relative to the frontend origin
 // rather than absolute, for the WhatsApp confirmation message's button.
 func CancelPath(complexSlug, credential string) string {
-	return fmt.Sprintf("%s/book/cancel?%s=%s", complexSlug, QueryParam, url.QueryEscape(credential))
+	return fmt.Sprintf("c/%s/book/cancel?%s=%s", complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // Success builds the MercadoPago checkout preference's success back_url.
 func Success(frontendURL, complexSlug, credential string) string {
-	return fmt.Sprintf("%s/%s/book/success?%s=%s", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
+	return fmt.Sprintf("%s/c/%s/book/success?%s=%s", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // SuccessPending builds the MercadoPago checkout preference's pending
 // back_url — the same success page, with an explicit pending status,
 // since MercadoPago redirects there for a payment still under review.
 func SuccessPending(frontendURL, complexSlug, credential string) string {
-	return fmt.Sprintf("%s/%s/book/success?%s=%s&status=pending", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
+	return fmt.Sprintf("%s/c/%s/book/success?%s=%s&status=pending", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // Failure builds the MercadoPago checkout preference's failure back_url. It
 // carries no credential: nothing on the far side of a failed payment can be
 // looked up by one.
 func Failure(frontendURL, complexSlug string) string {
-	return fmt.Sprintf("%s/%s/book?error=payment_failed", frontendURL, complexSlug)
+	return fmt.Sprintf("%s/c/%s/book?error=payment_failed", frontendURL, complexSlug)
 }
 
 // BookPath builds the complex's public booking page, relative to the frontend
@@ -65,7 +65,7 @@ func Failure(frontendURL, complexSlug string) string {
 // page is public, and a client whose booking was just cancelled has nothing
 // left to authorize against.
 func BookPath(complexSlug string) string {
-	return fmt.Sprintf("%s/book", complexSlug)
+	return fmt.Sprintf("c/%s/book", complexSlug)
 }
 
 // MapsQuery builds the dynamic suffix for a Google Maps search button — the
@@ -101,7 +101,7 @@ func MapsQuery(name, address, city string, latitude, longitude *float64) string 
 // Book builds the same public booking page as BookPath, absolute, for the
 // cancellation and refund emails' "Nueva reserva" button.
 func Book(frontendURL, complexSlug string) string {
-	return fmt.Sprintf("%s/%s/book", frontendURL, complexSlug)
+	return fmt.Sprintf("%s/c/%s/book", frontendURL, complexSlug)
 }
 
 // mapsURLPrefix is the fixed base a Google Maps "search" deep link is built
