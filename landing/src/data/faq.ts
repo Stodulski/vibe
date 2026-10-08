@@ -53,7 +53,7 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d5',
     question: '¿Qué pasa si vendo algo que figura sin stock?',
-    answer: 'La venta sale igual. Vibe te avisa que ese producto quedó en cero o menos, para que revises '
+    answer: 'La venta sale igual. Vibe te avisa que ese producto quedó en cero o menos, para que revisés '
       + 'el conteo. Y si le ponés un mínimo a cada producto, el dashboard te avisa cuando baja de ahí.',
   },
   {
@@ -70,7 +70,7 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d8',
     question: '¿Y los que reservan y no vienen?',
-    answer: 'La seña los filtra: el que pagó, viene. Y dos horas antes del turno, Vibe le manda un '
+    answer: 'La seña filtra a quien no piensa ir. Y dos horas antes del turno, Vibe le manda un '
       + 'recordatorio automático al mail que dejó al reservar.',
   },
 ];
