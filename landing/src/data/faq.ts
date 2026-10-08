@@ -26,11 +26,9 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d1',
     question: '¿Vibe es gratis de verdad?',
-    answer: 'Sí, para tu complejo. Vibe no te cobra abono, ni costo fijo, ni nada sobre lo que cobrás '
-      + 'en el mostrador o vendés en el bar. Nunca. Hay dos costos, y conviene tenerlos claros: el que '
-      + `reserva online paga un cargo de servicio fijo de ${pesos(CARGO_SERVICIO)} por pago; y MercadoPago `
-      + 'descuenta su comisión del pago online que entra a tu cuenta, como con cualquier sistema que '
-      + `cobre por MercadoPago. ${CARGO_PUEDE_CAMBIAR}`,
+    answer: 'Vibe no le cobra al complejo. El cargo de servicio lo paga quien reserva online, y lo ve antes '
+      + 'de pagar, junto al precio de la cancha. Las comisiones de MercadoPago son aparte y están explicadas '
+      + 'en la guía de costos.',
   },
   {
     anim: 'anim-d2',
