@@ -191,11 +191,11 @@ func bodyFacts(complex *complexstore.Complex, schedules []*complexstore.Schedule
 	var b strings.Builder
 	b.WriteString("<main>")
 	fmt.Fprintf(&b, "<h1>%s</h1>", html.EscapeString(complex.Name))
-	if address := joinNonEmpty(", ", complex.Address, complex.City, complex.Province); address != "" {
+	if address := joinNonEmpty(", ", complex.Address, complex.City); address != "" {
 		fmt.Fprintf(&b, "<p>%s</p>", html.EscapeString(address))
 	}
 	if complex.Phone != "" {
-		fmt.Fprintf(&b, "<p>%s %s</p>", phoneLabel, html.EscapeString(complex.Phone))
+		fmt.Fprintf(&b, "<p>%s</p>", html.EscapeString(complex.Phone))
 	}
 
 	byDay := make(map[string]*complexstore.Schedule, len(schedules))
@@ -206,7 +206,7 @@ func bodyFacts(complex *complexstore.Complex, schedules []*complexstore.Schedule
 	for _, day := range weekOrder {
 		line := closedLabel
 		if s, ok := byDay[day]; ok && !s.IsClosed {
-			line = s.OpenTime + " a " + s.CloseTime
+			line = s.OpenTime + " - " + s.CloseTime
 		}
 		fmt.Fprintf(&b, "<li>%s: %s</li>", html.EscapeString(dayLabels[day]), html.EscapeString(line))
 	}

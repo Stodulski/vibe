@@ -60,7 +60,6 @@ const (
 	closedLabel     = "Cerrado"
 	hoursHeading    = "Horarios"
 	servicesHeading = "Servicios"
-	phoneLabel      = "Teléfono:"
 )
 
 // dayLabels names the stored days, in the Spanish the public page uses.

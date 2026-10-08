@@ -125,9 +125,9 @@ func TestPrerenderWritesTheVisibleFactsIntoTheRootElement(t *testing.T) {
 	for _, want := range []string{
 		`<div id="root"><main>`,
 		`<h1>Vibe Palermo</h1>`,
-		`<p>Av. Santa Fe 1234, CABA, Buenos Aires</p>`,
-		`Teléfono: +541100000000`,
-		`<li>Lunes: 08:00 a 23:00</li>`,
+		`<p>Av. Santa Fe 1234, CABA</p>`,
+		`<p>+541100000000</p>`,
+		`<li>Lunes: 08:00 - 23:00</li>`,
 		`<li>Domingo: Cerrado</li>`,
 		`<li>Estacionamiento</li>`,
 	} {
