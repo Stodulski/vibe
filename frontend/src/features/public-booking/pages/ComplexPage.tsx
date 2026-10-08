@@ -109,7 +109,7 @@ function ComplexPageBody({
   mpConnected: boolean;
   handleContinue: ReturnType<typeof useComplexContinue>['handleContinue'];
 }) {
-  const { complex, schedules } = complexData;
+  const { complex, schedules, courts } = complexData;
   const {
     availability,
     availLoading,
@@ -125,6 +125,7 @@ function ComplexPageBody({
     <ComplexPageContent
       complex={complex}
       schedules={schedules}
+      courts={courts}
       mpConnected={mpConnected}
       selectedDate={state.selectedDate}
       onDateSelect={state.handleDateSelect}

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type { AvailabilityData, PublicComplexResponse } from '@/shared/types/api.types';
+import type { AvailabilityData, CourtWithPrices, PublicComplexResponse } from '@/shared/types/api.types';
 import type { BookingSlotInfo } from '@/features/public-booking';
+import { makeCourt } from '@/test/factories';
+import { formatPrice } from '@/shared/lib/utils';
 
 // ─── Regression test for the server contract migration ───
 //
@@ -58,7 +60,7 @@ vi.mock('@/features/public-booking/components/DateSelector', () => ({
 // components — the whole point is to observe the slots, the phone number and
 // the Continue button they actually render, not a stand-in.
 
-function buildComplexData(paymentsEnabled: boolean): PublicComplexResponse {
+function buildComplexData(paymentsEnabled: boolean, courts: CourtWithPrices[] = []): PublicComplexResponse {
   return {
     complex: {
       id: 'c1',
@@ -75,7 +77,7 @@ function buildComplexData(paymentsEnabled: boolean): PublicComplexResponse {
       cancellation_hours: 24,
       payments_enabled: paymentsEnabled,
     },
-    courts: [],
+    courts,
     schedules: [],
   };
 }
@@ -107,6 +109,43 @@ function buildAvailability(): AvailabilityData {
 }
 
 const PHONE = '+541100000000';
+
+// Two courts that differ on every field the directory shows. The padel court
+// carries a price, which the phone-only page must list the court without showing.
+const PADEL_COURT: CourtWithPrices = {
+  ...makeCourt({
+    id: 'ct-1',
+    complex_id: 'c1',
+    name: 'Cancha 1',
+    sport: 'padel',
+    court_type: 'indoor',
+    description: 'Con iluminación LED',
+  }),
+  prices: [
+    {
+      id: 'pr-1',
+      court_id: 'ct-1',
+      price: 150000,
+      day_type: 'monday',
+      time_from: '08:00',
+      time_to: '23:00',
+      from_min: 480,
+      to_min: 1380,
+    },
+  ],
+};
+const TENNIS_COURT: CourtWithPrices = {
+  ...makeCourt({
+    id: 'ct-2',
+    complex_id: 'c1',
+    name: 'Cancha 2',
+    sport: 'tennis',
+    court_type: 'outdoor',
+    description: null,
+  }),
+  prices: [],
+};
+const COURTS: CourtWithPrices[] = [PADEL_COURT, TENNIS_COURT];
 
 async function renderComplexPage() {
   const Page = (await import('./ComplexPage')).default;
@@ -202,5 +241,65 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     expect(screen.queryByRole('button', { name: /^10:00\b/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('ComplexPage — phone-only courts directory', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    mockUseAvailability.mockReturnValue({ data: buildAvailability(), isLoading: false });
+  });
+
+  async function renderWith(paymentsEnabled: boolean, courts: CourtWithPrices[] = []) {
+    mockUseComplexBySlug.mockReturnValue({
+      data: buildComplexData(paymentsEnabled, courts),
+      isLoading: false,
+      error: null,
+    });
+    await renderComplexPage();
+  }
+
+  it('lists the active courts with their name, sport, court type and description', async () => {
+    await renderWith(false, COURTS);
+
+    const directory = screen.getByRole('region', { name: /canchas/i });
+    expect(within(directory).getByText('Cancha 1')).toBeInTheDocument();
+    expect(within(directory).getByText('Pádel · Techada')).toBeInTheDocument();
+    expect(within(directory).getByText('Con iluminación LED')).toBeInTheDocument();
+    expect(within(directory).getByText('Cancha 2')).toBeInTheDocument();
+    expect(within(directory).getByText('Tenis · Descubierta')).toBeInTheDocument();
+  });
+
+  it('renders the owner description as text, never as markup', async () => {
+    const markup = '<b>Techada</b> <img src="x" alt="">';
+    await renderWith(false, [{ ...PADEL_COURT, description: markup }]);
+
+    const directory = screen.getByRole('region', { name: /canchas/i });
+    expect(within(directory).getByText(markup)).toBeInTheDocument();
+    expect(directory.querySelector('b, img')).toBeNull();
+  });
+
+  it('never shows a price on the phone-only page', async () => {
+    await renderWith(false, COURTS);
+
+    expect(screen.getByRole('region', { name: /canchas/i })).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/\$/);
+    expect(document.body).not.toHaveTextContent(formatPrice(150000));
+  });
+
+  it('shows no directory when the complex has no active courts', async () => {
+    await renderWith(false, []);
+
+    expect(screen.getByRole('link', { name: /escribir al complejo por whatsapp/i })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /canchas/i })).not.toBeInTheDocument();
+  });
+
+  it('leaves the online-payments branch unchanged: no directory, booking flow still shown', async () => {
+    await renderWith(true, COURTS);
+
+    expect(screen.queryByRole('region', { name: /canchas/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /escribir al complejo por whatsapp/i })).not.toBeInTheDocument();
+    // Two sports in the fixture, so the flow opens on the sport question.
+    expect(screen.getByRole('heading', { name: /qué vas a jugar/i })).toBeInTheDocument();
   });
 });
