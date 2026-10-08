@@ -358,6 +358,7 @@ type ActiveComplex struct {
 	Amenities         []string           `json:"amenities"`
 	MpTokenExpiresAt  pgtype.Timestamptz `json:"mp_token_expires_at"`
 	Version           int32              `json:"version"`
+	Description       pgtype.Text        `json:"description"`
 }
 
 // Courts that are not soft-deleted and whose complex is not soft-deleted either. Read this, not the table, unless the caller needs deleted rows (admin, audit, the court name on a historical booking).
@@ -507,6 +508,7 @@ type Complex struct {
 	Amenities         []string           `json:"amenities"`
 	MpTokenExpiresAt  pgtype.Timestamptz `json:"mp_token_expires_at"`
 	Version           int32              `json:"version"`
+	Description       pgtype.Text        `json:"description"`
 }
 
 type ComplexSchedule struct {

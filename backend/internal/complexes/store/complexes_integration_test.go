@@ -214,6 +214,85 @@ func TestIntegration_UpdateRefusesALostUpdate(t *testing.T) {
 	}
 }
 
+// The description is a column of complexes but is read through the
+// active_complexes view, so a write must come back intact through every reader
+// (by id, by slug and by owner), and a cleared one must come back as nil.
+func TestIntegration_DescriptionRoundTripsThroughTheActiveView(t *testing.T) {
+	f := datatest.Shared(t)
+	ctx := context.Background()
+
+	t.Cleanup(func() {
+		current, err := f.Stores.Complexes.GetByID(context.Background(), f.ComplexID)
+		if err != nil {
+			t.Errorf("GetByID (cleanup): %v", err)
+			return
+		}
+		current.Description = nil
+		if err := f.Stores.Complexes.Update(context.Background(), current, nil); err != nil {
+			t.Errorf("clearing the description (cleanup): %v", err)
+		}
+	})
+
+	c, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if c.Description != nil {
+		t.Fatalf("a fresh complex must have no description; got %q", *c.Description)
+	}
+
+	text := "Dos canchas techadas y bar."
+	c.Description = &text
+	if err := f.Stores.Complexes.Update(ctx, c, nil); err != nil {
+		t.Fatalf("Update with a description: %v", err)
+	}
+
+	byID, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
+	if err != nil {
+		t.Fatalf("GetByID after write: %v", err)
+	}
+	if byID.Description == nil || *byID.Description != text {
+		t.Errorf("GetByID: description = %v, want %q", byID.Description, text)
+	}
+
+	bySlug, err := f.Stores.Complexes.GetBySlug(ctx, c.Slug)
+	if err != nil {
+		t.Fatalf("GetBySlug after write: %v", err)
+	}
+	if bySlug.Description == nil || *bySlug.Description != text {
+		t.Errorf("GetBySlug: description = %v, want %q", bySlug.Description, text)
+	}
+
+	owned, err := f.Stores.Complexes.GetByOwner(ctx, c.OwnerID)
+	if err != nil {
+		t.Fatalf("GetByOwner after write: %v", err)
+	}
+	found := false
+	for _, o := range owned {
+		if o.ID == f.ComplexID {
+			found = true
+			if o.Description == nil || *o.Description != text {
+				t.Errorf("GetByOwner: description = %v, want %q", o.Description, text)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("GetByOwner did not return the fixture complex")
+	}
+
+	c.Description = nil
+	if err := f.Stores.Complexes.Update(ctx, c, nil); err != nil {
+		t.Fatalf("Update clearing the description: %v", err)
+	}
+	cleared, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
+	if err != nil {
+		t.Fatalf("GetByID after clear: %v", err)
+	}
+	if cleared.Description != nil {
+		t.Errorf("a cleared description must read back as nil; got %q", *cleared.Description)
+	}
+}
+
 // insertComplexForNewOwner creates one more complex, under a freshly
 // inserted owner rather than the fixture's own f.UserID, with no
 // MercadoPago credential yet — sealUnderForeignKey fills that in.
