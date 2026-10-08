@@ -635,6 +635,12 @@ func (s *apiServer) PublicsiteSitemap(w http.ResponseWriter, r *http.Request) {
 	s.app.publicsite.Sitemap(w, r)
 }
 
+// PublicsiteCityHub implements gen.ServerInterface for publicsiteCityHub
+// (GET /api/v1/public/hubs/{city}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) PublicsiteCityHub(w http.ResponseWriter, r *http.Request, city gen.PathCity) {
+	s.app.publicsite.CityHub(w, r)
+}
+
 // ComplexesSlugAvailable implements gen.ServerInterface for complexesSlugAvailable
 // (GET /api/v1/slug-available). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ComplexesSlugAvailable(w http.ResponseWriter, r *http.Request, params gen.ComplexesSlugAvailableParams) {
