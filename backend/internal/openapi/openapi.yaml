@@ -2216,6 +2216,7 @@ paths:
                 email: {type: string}
                 logo_url: {type: string}
                 cover_url: {type: string}
+                description: {type: string, maxLength: 600, description: "Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it."}
                 deposit_percentage: {type: integer, minimum: 0, maximum: 100}
                 cancellation_hours: {type: integer, minimum: 1, maximum: 168}
                 is_active: {type: boolean}
@@ -3678,6 +3679,44 @@ paths:
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
+  /api/v1/public/hubs/{city}:
+    get:
+      tags: [publicsite]
+      operationId: publicsiteCityHub
+      summary: Server-rendered city hub
+      description: >-
+        Public. Cross-tenant bypass reason `platform`. The switched-on complexes of one city, server-rendered as HTML for search
+        engines and people: each name links to its public page with its address and sports, and the page carries a JSON-LD
+        ItemList of those pages. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and
+        accent-insensitively. Only switched-on complexes are listed.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathCity"}
+      responses:
+        "200":
+          description: City hub page.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
+          content:
+            text/html:
+              schema: {type: string}
+        "404":
+          description: The city has no switched-on complex.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: The complexes could not be read. Retry after the Retry-After delay.
+          headers:
+            Retry-After:
+              schema: {type: string}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
   # ---------------------------------------------------------------------
   # realtime
   # ---------------------------------------------------------------------
@@ -4128,6 +4167,11 @@ components:
       in: path
       required: true
       schema: {type: string}
+    PathCity:
+      name: city
+      in: path
+      required: true
+      schema: {type: string}
     BookingID:
       name: bookingID
       in: path
@@ -4414,6 +4458,7 @@ components:
         email: {type: [string, "null"]}
         logo_url: {type: [string, "null"], format: uri}
         cover_url: {type: [string, "null"], format: uri}
+        description: {type: [string, "null"], maxLength: 600, description: "The owner's plain-text description, or null when none is set."}
         deposit_percentage: {type: integer, minimum: 0, maximum: 100}
         cancellation_hours: {type: integer, minimum: 1, maximum: 168}
         latitude: {type: [number, "null"], format: double}
@@ -4453,6 +4498,7 @@ components:
         email: {type: string}
         logo_url: {type: string, format: uri}
         cover_url: {type: string, format: uri}
+        description: {type: string, maxLength: 600, description: "The owner's plain-text description. Omitted when none is set."}
         deposit_percentage: {type: integer}
         cancellation_hours: {type: integer}
         latitude: {type: number, format: double}

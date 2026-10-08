@@ -56,6 +56,14 @@ func (s *Service) Sitemap(ctx context.Context) (string, error) {
 		b.WriteString("  </url>\n")
 	}
 
+	// Each city with a switched-on complex has a hub page, listed alongside the
+	// complex pages it links to.
+	hubs, err := s.cityHubs(ctx)
+	if err != nil {
+		return "", err
+	}
+	writeHubSitemapEntries(&b, hubs, baseURL)
+
 	b.WriteString("</urlset>\n")
 
 	return b.String(), nil

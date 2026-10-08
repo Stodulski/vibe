@@ -355,6 +355,7 @@ type UpdateInput struct {
 	Email             *string
 	LogoURL           *string
 	CoverURL          *string
+	Description       *string
 	DepositPercentage *int
 	CancellationHours *int
 	IsActive          *bool
@@ -431,6 +432,14 @@ func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, act
 	}
 	if in.CoverURL != nil {
 		complex.CoverURL = in.CoverURL
+	}
+	if in.Description != nil {
+		// A blank description is no description. The in-memory value must be
+		// nil too, or the owner's response would echo "" where the row holds NULL.
+		complex.Description = nil
+		if *in.Description != "" {
+			complex.Description = in.Description
+		}
 	}
 	if in.DepositPercentage != nil {
 		complex.DepositPercentage = *in.DepositPercentage
@@ -935,4 +944,10 @@ func (s *Service) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complex
 // publicsite's sitemap.
 func (s *Service) GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error) {
 	return s.venues.GetAllSlugs(ctx)
+}
+
+// ListActiveComplexesForHubs returns every live, switched-on complex with the
+// sports of its courts, for publicsite's city hubs and the sitemap's hub entries.
+func (s *Service) ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error) {
+	return s.venues.ListActiveComplexesForHubs(ctx)
 }

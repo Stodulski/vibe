@@ -24,11 +24,13 @@ type stubStore struct {
 	slugs     []complexstore.ComplexSlug
 	complex   *complexstore.Complex
 	schedules []*complexstore.Schedule
+	hubs      []complexstore.HubComplex
 	courts    []complexes.CourtWithPrices
 
 	slugsErr     error
 	complexErr   error
 	schedulesErr error
+	hubsErr      error
 	publicErr    error
 }
 
@@ -41,6 +43,10 @@ func (s *stubStore) GetPublic(context.Context, string) (*complexes.PublicProfile
 
 func (s *stubStore) GetAllSlugs(context.Context) ([]complexstore.ComplexSlug, error) {
 	return s.slugs, s.slugsErr
+}
+
+func (s *stubStore) ListActiveComplexesForHubs(context.Context) ([]complexstore.HubComplex, error) {
+	return s.hubs, s.hubsErr
 }
 
 func (s *stubStore) GetBySlug(context.Context, string) (*complexstore.Complex, error) {

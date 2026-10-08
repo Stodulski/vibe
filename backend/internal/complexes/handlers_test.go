@@ -440,6 +440,88 @@ func TestUpdateRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+// A reserved slug is refused on Create and on Update alike, and the refusal
+// names the slug field. Each name is a one-segment route the client's router
+// declares, or the city hub the backend serves, so a complex claiming one
+// would be unreachable at its own URL.
+func TestReservedSlugsAreRefusedOnCreateAndOnEdit(t *testing.T) {
+	for _, slug := range []string{"admin", "cash", "canchas", "confirm-email-change"} {
+		t.Run("create "+slug, func(t *testing.T) {
+			f := newFixture(t)
+			body := `{"name":"V","slug":"` + slug + `","address":"a","city":"c","province":"p","phone":"1","cancellation_hours":24}`
+
+			w := httptest.NewRecorder()
+			f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, body))
+
+			assertReservedSlugRefusal(t, w)
+			if f.store.inserted != nil {
+				t.Error("a complex must not be created on a reserved slug")
+			}
+		})
+
+		t.Run("edit to "+slug, func(t *testing.T) {
+			f := newFixture(t)
+			complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
+
+			w := httptest.NewRecorder()
+			f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+				`{"slug":"`+slug+`"}`))
+
+			assertReservedSlugRefusal(t, w)
+			if f.store.updated != nil {
+				t.Errorf("a refused rename must not reach the store; got %+v", f.store.updated)
+			}
+		})
+	}
+}
+
+func assertReservedSlugRefusal(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+	}
+	if body := w.Body.String(); !strings.Contains(body, `"slug"`) || !strings.Contains(body, "is reserved") {
+		t.Errorf(`the refusal must name the "slug" field as "is reserved"; got %s`, body)
+	}
+}
+
+// Only a changed slug is checked against reservedSlugs. A complex can already
+// carry a slug the list refuses (H-13 describes one created before the check
+// existed), and it must stay editable: resending its own slug unchanged is not
+// a rename onto a route, so the owner's other edits must still be saved.
+func TestUpdateKeepsAnUnchangedReservedSlugEditable(t *testing.T) {
+	f := newFixture(t)
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Admin Club", Slug: "admin"}
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"name":"Renamed Club","slug":"admin"}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated == nil || f.store.updated.Name != "Renamed Club" {
+		t.Errorf("the edit must be persisted; got %+v", f.store.updated)
+	}
+}
+
+func TestUpdateMovesAComplexToAFreeSlug(t *testing.T) {
+	f := newFixture(t)
+	complex := &complexstore.Complex{ID: uuid.New(), Slug: "vibe-palermo"}
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"slug":"vibe-nuevo"}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated == nil || f.store.updated.Slug != "vibe-nuevo" {
+		t.Errorf("a free slug must be persisted; got %+v", f.store.updated)
+	}
+}
+
 // H-13: SlugAvailable is also the suggestion path — the fix direction is
 // explicit that it must not offer a reserved slug either, even though no
 // complex has ever claimed it in the database.
@@ -1095,5 +1177,157 @@ func TestMercadoPagoStatusServesTheAppID(t *testing.T) {
 	}
 	if body["connected"] != false {
 		t.Errorf("connected = %v, want false for a complex without credentials", body["connected"])
+	}
+}
+
+// The owner's description is plain text. Surrounding whitespace is trimmed
+// before it is measured or stored, so what the owner typed is what the public
+// page shows.
+func TestUpdatePersistsTheTrimmedDescription(t *testing.T) {
+	f := newFixture(t)
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"description":"  Dos canchas techadas y bar.  "}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated == nil || f.store.updated.Description == nil {
+		t.Fatalf("the description must be persisted; got %+v", f.store.updated)
+	}
+	if got := *f.store.updated.Description; got != "Dos canchas techadas y bar." {
+		t.Errorf("want the trimmed description; got %q", got)
+	}
+}
+
+// A blank description is no description: it clears the column to NULL rather
+// than storing an empty string, and the owner's response says null.
+func TestUpdateClearsTheDescriptionWhenBlank(t *testing.T) {
+	f := newFixture(t)
+	previous := "Texto anterior"
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo", Description: &previous}
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"description":"   "}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated == nil || f.store.updated.Description != nil {
+		t.Errorf("a blank description must be stored as NULL; got %+v", f.store.updated)
+	}
+	if !strings.Contains(w.Body.String(), `"description":null`) {
+		t.Errorf("the owner response must answer a cleared description as null; got %s", w.Body.String())
+	}
+}
+
+// An omitted description is not a clear: a PUT that edits only the name leaves
+// the stored text exactly as it was.
+func TestUpdateKeepsTheDescriptionWhenOmitted(t *testing.T) {
+	f := newFixture(t)
+	previous := "Texto anterior"
+	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo", Description: &previous}
+
+	w := httptest.NewRecorder()
+	f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+		`{"name":"Vibe Palermo Norte"}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.updated == nil || f.store.updated.Description == nil || *f.store.updated.Description != previous {
+		t.Errorf("an omitted description must keep its stored text; got %+v", f.store.updated)
+	}
+}
+
+// The limit counts characters, the same measure the database CHECK uses, so
+// accented text is not charged twice for its UTF-8 bytes.
+func TestUpdateBoundsTheDescriptionInCharacters(t *testing.T) {
+	tests := []struct {
+		name        string
+		description string
+		wantStatus  int
+	}{
+		{name: "at the limit", description: strings.Repeat("a", descriptionMaxLen), wantStatus: http.StatusOK},
+		{name: "one character over the limit", description: strings.Repeat("a", descriptionMaxLen+1), wantStatus: http.StatusUnprocessableEntity},
+		{name: "accented text at the limit", description: strings.Repeat("ñ", descriptionMaxLen), wantStatus: http.StatusOK},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
+
+			w := httptest.NewRecorder()
+			f.handler.Update(w, ownerRequest(t, http.MethodPatch, "/", uuid.New(), complex, nil,
+				`{"description":"`+tt.description+`"}`))
+
+			if w.Code != tt.wantStatus {
+				t.Fatalf("want %d; got %d (%s)", tt.wantStatus, w.Code, w.Body.String())
+			}
+			if tt.wantStatus == http.StatusUnprocessableEntity {
+				if !strings.Contains(w.Body.String(), "description") {
+					t.Errorf("the rejection must name description; got %s", w.Body.String())
+				}
+				if f.store.updated != nil {
+					t.Errorf("an over-limit description must not reach the store; got %+v", f.store.updated)
+				}
+			}
+		})
+	}
+}
+
+// The storefront shows the owner's description when there is one.
+func TestGetPublicCarriesTheDescriptionWhenSet(t *testing.T) {
+	f := newFixture(t)
+	text := "Dos canchas techadas y bar."
+	f.store.complex = &complexstore.Complex{ID: uuid.New(), Slug: "vibe", Name: "Vibe", IsActive: true, Description: &text}
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	r = withSlug(r, "vibe")
+
+	w := httptest.NewRecorder()
+	f.handler.GetPublic(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	var body struct {
+		Complex map[string]any `json:"complex"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("public body is not valid JSON: %v", err)
+	}
+	if got := body.Complex["description"]; got != text {
+		t.Errorf("want the public description %q; got %v", text, got)
+	}
+}
+
+// A venue with no description has no description key in the public payload,
+// because the storefront projection omits empty optional fields.
+func TestGetPublicOmitsTheDescriptionWhenUnset(t *testing.T) {
+	f := newFixture(t)
+	f.store.complex = &complexstore.Complex{ID: uuid.New(), Slug: "vibe", Name: "Vibe", IsActive: true}
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	r = withSlug(r, "vibe")
+
+	w := httptest.NewRecorder()
+	f.handler.GetPublic(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	var body struct {
+		Complex map[string]any `json:"complex"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("public body is not valid JSON: %v", err)
+	}
+	if v, present := body.Complex["description"]; present {
+		t.Errorf("an unset description must be omitted from the public payload; got %v", v)
 	}
 }

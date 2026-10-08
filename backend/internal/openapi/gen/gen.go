@@ -1949,26 +1949,29 @@ type Complex struct {
 	CountryCode       string   `json:"country_code"`
 
 	// CourtCount Present only when returned by the owner's complex-list query.
-	CourtCount        *int               `json:"court_count,omitempty"`
-	CoverUrl          *string            `json:"cover_url,omitempty"`
-	CreatedAt         time.Time          `json:"created_at"`
-	Currency          string             `json:"currency"`
-	DepositPercentage int                `json:"deposit_percentage"`
-	Email             *string            `json:"email,omitempty"`
-	Id                openapi_types.UUID `json:"id"`
-	IsActive          bool               `json:"is_active"`
-	Latitude          *float64           `json:"latitude,omitempty"`
-	LogoUrl           *string            `json:"logo_url,omitempty"`
-	Longitude         *float64           `json:"longitude,omitempty"`
-	MpTokenExpiresAt  *time.Time         `json:"mp_token_expires_at,omitempty"`
-	MpUserId          *string            `json:"mp_user_id,omitempty"`
-	Name              string             `json:"name"`
-	OwnerId           openapi_types.UUID `json:"owner_id"`
-	PaymentsEnabled   bool               `json:"payments_enabled"`
-	Phone             string             `json:"phone"`
-	Province          string             `json:"province"`
-	Slug              string             `json:"slug"`
-	UpdatedAt         time.Time          `json:"updated_at"`
+	CourtCount        *int      `json:"court_count,omitempty"`
+	CoverUrl          *string   `json:"cover_url,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	Currency          string    `json:"currency"`
+	DepositPercentage int       `json:"deposit_percentage"`
+
+	// Description The owner's plain-text description, or null when none is set.
+	Description      *string            `json:"description,omitempty"`
+	Email            *string            `json:"email,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	IsActive         bool               `json:"is_active"`
+	Latitude         *float64           `json:"latitude,omitempty"`
+	LogoUrl          *string            `json:"logo_url,omitempty"`
+	Longitude        *float64           `json:"longitude,omitempty"`
+	MpTokenExpiresAt *time.Time         `json:"mp_token_expires_at,omitempty"`
+	MpUserId         *string            `json:"mp_user_id,omitempty"`
+	Name             string             `json:"name"`
+	OwnerId          openapi_types.UUID `json:"owner_id"`
+	PaymentsEnabled  bool               `json:"payments_enabled"`
+	Phone            string             `json:"phone"`
+	Province         string             `json:"province"`
+	Slug             string             `json:"slug"`
+	UpdatedAt        time.Time          `json:"updated_at"`
 
 	// Version Optimistic-concurrency counter, bumped on every update.
 	Version int `json:"version"`
@@ -2469,24 +2472,27 @@ type PublicCancelInfoRefundMethod string
 
 // PublicComplex The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state.
 type PublicComplex struct {
-	Address           string             `json:"address"`
-	Amenities         []string           `json:"amenities"`
-	CancellationHours int                `json:"cancellation_hours"`
-	City              string             `json:"city"`
-	CountryCode       string             `json:"country_code"`
-	CoverUrl          *string            `json:"cover_url,omitempty"`
-	Currency          string             `json:"currency"`
-	DepositPercentage int                `json:"deposit_percentage"`
-	Email             *string            `json:"email,omitempty"`
-	Id                openapi_types.UUID `json:"id"`
-	Latitude          *float64           `json:"latitude,omitempty"`
-	LogoUrl           *string            `json:"logo_url,omitempty"`
-	Longitude         *float64           `json:"longitude,omitempty"`
-	Name              string             `json:"name"`
-	PaymentsEnabled   bool               `json:"payments_enabled"`
-	Phone             string             `json:"phone"`
-	Province          string             `json:"province"`
-	Slug              string             `json:"slug"`
+	Address           string   `json:"address"`
+	Amenities         []string `json:"amenities"`
+	CancellationHours int      `json:"cancellation_hours"`
+	City              string   `json:"city"`
+	CountryCode       string   `json:"country_code"`
+	CoverUrl          *string  `json:"cover_url,omitempty"`
+	Currency          string   `json:"currency"`
+	DepositPercentage int      `json:"deposit_percentage"`
+
+	// Description The owner's plain-text description. Omitted when none is set.
+	Description     *string            `json:"description,omitempty"`
+	Email           *string            `json:"email,omitempty"`
+	Id              openapi_types.UUID `json:"id"`
+	Latitude        *float64           `json:"latitude,omitempty"`
+	LogoUrl         *string            `json:"logo_url,omitempty"`
+	Longitude       *float64           `json:"longitude,omitempty"`
+	Name            string             `json:"name"`
+	PaymentsEnabled bool               `json:"payments_enabled"`
+	Phone           string             `json:"phone"`
+	Province        string             `json:"province"`
+	Slug            string             `json:"slug"`
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -2690,6 +2696,9 @@ type Limit = int
 
 // MovementID defines model for MovementID.
 type MovementID = openapi_types.UUID
+
+// PathCity defines model for PathCity.
+type PathCity = string
 
 // PathID defines model for PathID.
 type PathID = openapi_types.UUID
@@ -2987,15 +2996,18 @@ type ComplexesUpdateJSONBody struct {
 	City              *string                             `json:"city,omitempty"`
 	CoverUrl          *string                             `json:"cover_url,omitempty"`
 	DepositPercentage *int                                `json:"deposit_percentage,omitempty"`
-	Email             *string                             `json:"email,omitempty"`
-	IsActive          *bool                               `json:"is_active,omitempty"`
-	Latitude          *float64                            `json:"latitude,omitempty"`
-	LogoUrl           *string                             `json:"logo_url,omitempty"`
-	Longitude         *float64                            `json:"longitude,omitempty"`
-	Name              *string                             `json:"name,omitempty"`
-	Phone             *string                             `json:"phone,omitempty"`
-	Province          *string                             `json:"province,omitempty"`
-	Slug              *string                             `json:"slug,omitempty"`
+
+	// Description Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it.
+	Description *string  `json:"description,omitempty"`
+	Email       *string  `json:"email,omitempty"`
+	IsActive    *bool    `json:"is_active,omitempty"`
+	Latitude    *float64 `json:"latitude,omitempty"`
+	LogoUrl     *string  `json:"logo_url,omitempty"`
+	Longitude   *float64 `json:"longitude,omitempty"`
+	Name        *string  `json:"name,omitempty"`
+	Phone       *string  `json:"phone,omitempty"`
+	Province    *string  `json:"province,omitempty"`
+	Slug        *string  `json:"slug,omitempty"`
 
 	// Version The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -4041,6 +4053,9 @@ type ServerInterface interface {
 	// CourtsPublicAvailability The storefront's bookable-slot grid for one day
 	// (GET /api/v1/public/complexes/{slug}/availability)
 	CourtsPublicAvailability(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicAvailabilityParams)
+	// PublicsiteCityHub Server-rendered city hub
+	// (GET /api/v1/public/hubs/{city})
+	PublicsiteCityHub(w http.ResponseWriter, r *http.Request, city PathCity)
 	// LeadsCaptureAbandonedRegistration Capture an email from a registration that was started but never finished
 	// (POST /api/v1/public/leads/abandoned-registration)
 	LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request)
@@ -7457,6 +7472,32 @@ func (siw *ServerInterfaceWrapper) CourtsPublicAvailability(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// PublicsiteCityHub operation middleware
+func (siw *ServerInterfaceWrapper) PublicsiteCityHub(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "city" -------------
+	var city PathCity
+
+	err = runtime.BindStyledParameterWithOptions("simple", "city", r.PathValue("city"), &city, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "city", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublicsiteCityHub(w, r, city)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // LeadsCaptureAbandonedRegistration operation middleware
 func (siw *ServerInterfaceWrapper) LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request) {
 
@@ -7907,6 +7948,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/sitemap.xml", wrapper.PublicsiteSitemap)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/sitemap.xml", wrapper.PublicsiteSitemapMoved)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/prerender/{slug}", wrapper.PublicsitePrerender)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/hubs/{city}", wrapper.PublicsiteCityHub)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/events", wrapper.RealtimeStream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/stats", wrapper.ReportingGetDashboardStats)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/stats/revenue", wrapper.ReportingGetRevenueChart)

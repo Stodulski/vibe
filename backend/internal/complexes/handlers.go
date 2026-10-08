@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -15,6 +17,14 @@ import (
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/validator"
+)
+
+// descriptionMaxLen bounds the owner's plain-text description, in characters.
+// The column's CHECK (complexes_description_length) counts characters too, so
+// the two limits agree.
+const (
+	descriptionMaxLen  = 600
+	descriptionMessage = "must not be more than 600 characters"
 )
 
 var slugValidRX = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -245,6 +255,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Email:             input.Email,
 		LogoURL:           input.LogoUrl,
 		CoverURL:          input.CoverUrl,
+		Description:       input.Description,
 		DepositPercentage: input.DepositPercentage,
 		CancellationHours: input.CancellationHours,
 		IsActive:          input.IsActive,
@@ -269,9 +280,12 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		v.Check(slugValidRX.MatchString(slug), "slug", "must contain only lowercase letters, numbers, and hyphens")
 		v.Check(len(slug) <= maxSlugLength, "slug", fmt.Sprintf("must not be more than %d characters", maxSlugLength))
 		// See reservedSlugs on Create: the same route collision applies to a
-		// rename, and a rename is exactly how an owner could talk themselves
-		// into it — Create already refuses these, but Update never re-checked.
-		v.Check(!reservedSlugs[slug], "slug", "is reserved")
+		// rename. Only a change is checked, as Service.Update checks slug
+		// uniqueness: a complex can already carry a slug the list refuses, and
+		// resending that slug unchanged must not block the owner's other edits.
+		if slug != complex.Slug {
+			v.Check(!reservedSlugs[slug], "slug", "is reserved")
+		}
 		in.Slug = &slug
 	}
 
@@ -313,6 +327,12 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		// Same floor as Create, and for the same reason: see the note there.
 		v.Check(*input.CancellationHours >= 1, "cancellation_hours", "must be at least 1")
 		v.Check(*input.CancellationHours <= 168, "cancellation_hours", "must not be more than 168")
+	}
+	if input.Description != nil {
+		// Trimmed before it is measured, so the limit applies to what is stored.
+		trimmed := strings.TrimSpace(*input.Description)
+		v.Check(utf8.RuneCountInString(trimmed) <= descriptionMaxLen, "description", descriptionMessage)
+		in.Description = &trimmed
 	}
 
 	if !v.Valid() {
@@ -394,6 +414,7 @@ type PublicComplex struct {
 	Email             *string   `json:"email,omitempty"`
 	LogoURL           *string   `json:"logo_url,omitempty"`
 	CoverURL          *string   `json:"cover_url,omitempty"`
+	Description       *string   `json:"description,omitempty"`
 	DepositPercentage int       `json:"deposit_percentage"`
 	CancellationHours int       `json:"cancellation_hours"`
 	Latitude          *float64  `json:"latitude,omitempty"`
@@ -420,6 +441,7 @@ func newPublicComplex(c *complexstore.Complex) PublicComplex {
 		Email:             c.Email,
 		LogoURL:           c.LogoURL,
 		CoverURL:          c.CoverURL,
+		Description:       c.Description,
 		DepositPercentage: c.DepositPercentage,
 		CancellationHours: c.CancellationHours,
 		Latitude:          c.Latitude,

@@ -23,6 +23,8 @@ export const publicBooking = {
   phoneOnlyDescription: 'Este complejo todavía no toma reservas online. Escribile para reservar.',
   phoneOnlyCallLabel: 'Escribir al complejo por WhatsApp',
   phoneOnlyMessage: 'Hola, quiero reservar una cancha.',
+  // Heading over the read-only court list on the same phone-only page.
+  courtsTitle: 'Canchas',
   available: 'Disponible',
   occupied: 'Ocupado',
   continue: 'Continuar',

@@ -32,6 +32,9 @@ type Store interface {
 	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
 	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
+	// ListActiveComplexesForHubs is every switched-on complex with its city and
+	// court sports, for the city hubs and their sitemap entries.
+	ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error)
 	GetPublic(ctx context.Context, slug string) (*complexes.PublicProfile, error)
 }
 
