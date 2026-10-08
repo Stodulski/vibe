@@ -130,10 +130,10 @@ func TestCityHubPageIsASemanticListOfItsComplexes(t *testing.T) {
 		"<title>Canchas en Banfield - Reservá tu cancha | Vibe</title>",
 		`<link rel="canonical" href="https://app.vibe.com.ar/canchas/banfield">`,
 		"<h1>Canchas en Banfield</h1>",
-		`<a href="https://app.vibe.com.ar/club-norte">Club Norte</a>`,
+		`<a href="https://app.vibe.com.ar/c/club-norte">Club Norte</a>`,
 		"Av. Rivadavia 100",
 		"Pádel, Tenis",
-		`<a href="https://app.vibe.com.ar/canchas-sur">Canchas Sur</a>`,
+		`<a href="https://app.vibe.com.ar/c/canchas-sur">Canchas Sur</a>`,
 		"Calle 2 200",
 		"Fútbol",
 	} {
@@ -199,7 +199,7 @@ func TestCityHubPageCarriesAnItemListOfTheComplexURLs(t *testing.T) {
 	if ld.Type != "ItemList" {
 		t.Errorf("JSON-LD @type = %q; want ItemList", ld.Type)
 	}
-	want := []string{"https://app.vibe.com.ar/club-norte", "https://app.vibe.com.ar/canchas-sur"}
+	want := []string{"https://app.vibe.com.ar/c/club-norte", "https://app.vibe.com.ar/c/canchas-sur"}
 	if len(ld.Elements) != len(want) {
 		t.Fatalf("ItemList has %d items; want %d", len(ld.Elements), len(want))
 	}

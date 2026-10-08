@@ -95,7 +95,7 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 // logo URLs are owner-supplied, and they are being written into markup.
 func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules []*complexstore.Schedule, courts []*courtstore.Court, slug string) string {
 	baseURL := strings.TrimRight(s.frontendURL, "/")
-	canonicalURL := baseURL + "/" + slug
+	canonicalURL := complexURL(baseURL, slug)
 
 	escapedName := html.EscapeString(complex.Name)
 	title := pageTitle(escapedName, html.EscapeString(complex.City))

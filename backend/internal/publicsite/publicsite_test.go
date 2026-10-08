@@ -111,9 +111,9 @@ func TestSitemapListsEveryComplexAndNotTheNoindexRoot(t *testing.T) {
 
 	body := w.Body.String()
 	for _, want := range []string{
-		"<loc>https://vibe.example/vibe-palermo</loc>",
+		"<loc>https://vibe.example/c/vibe-palermo</loc>",
 		"<lastmod>2026-03-01</lastmod>",
-		"<loc>https://vibe.example/vibe-pilar</loc>",
+		"<loc>https://vibe.example/c/vibe-pilar</loc>",
 		"<lastmod>2026-04-02</lastmod>",
 	} {
 		if !strings.Contains(body, want) {
@@ -128,7 +128,7 @@ func TestSitemapListsEveryComplexAndNotTheNoindexRoot(t *testing.T) {
 	}
 
 	// The trailing slash on the configured frontend URL must not double up.
-	if strings.Contains(body, "//vibe-palermo") {
+	if strings.Contains(body, "//c/vibe-palermo") {
 		t.Error("the base URL's trailing slash produced a doubled separator")
 	}
 }
@@ -206,6 +206,43 @@ func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 		if strings.Contains(body, placeholder) {
 			t.Errorf("placeholder %q survived substitution", placeholder)
 		}
+	}
+}
+
+// A complex's public page lives at /c/<slug>, because a bare single-segment slug
+// collides with platform routes. Every URL the page publishes about itself
+// (canonical, og:url and the JSON-LD url) must carry that prefix.
+func TestPrerenderPublishesTheCPrefixedURLEverywhere(t *testing.T) {
+	store := &stubStore{
+		complex: &complexstore.Complex{
+			ID: uuid.New(), Name: "Vibe Palermo", Phone: "+541100000000",
+			Address: "Av. Santa Fe 1234", City: "CABA", Province: "Buenos Aires",
+			CountryCode: "AR", IsActive: true,
+		},
+	}
+
+	frontend := frontendServing(t, baseTemplate)
+	h := NewHandler(NewService(store, frontend), testResponder())
+	w := httptest.NewRecorder()
+	h.Prerender(w, slugRequest(t, "vibe-palermo"))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	want := frontend + "/c/vibe-palermo"
+	for _, fragment := range []string{
+		`<link rel="canonical" href="` + want + `" />`,
+		`<meta property="og:url" content="` + want + `" />`,
+		`"url":"` + want + `"`,
+	} {
+		if !strings.Contains(body, fragment) {
+			t.Errorf("prerendered page is missing %q", fragment)
+		}
+	}
+	if strings.Contains(body, frontend+"/vibe-palermo") {
+		t.Errorf("the page still publishes the bare slug URL %q", frontend+"/vibe-palermo")
 	}
 }
 

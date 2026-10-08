@@ -196,7 +196,7 @@ func hubJSONLD(hub cityHub, base string) string {
 		list.Elements = append(list.Elements, hubListItem{
 			Type:     "ListItem",
 			Position: i + 1,
-			URL:      base + "/" + c.Slug,
+			URL:      complexURL(base, c.Slug),
 		})
 	}
 	data, err := json.Marshal(list)
@@ -227,7 +227,7 @@ func renderCityHub(hub cityHub, frontendURL string) string {
 	fmt.Fprintf(&b, "<h1>Canchas en %s</h1>\n", html.EscapeString(hub.City))
 	b.WriteString("<ul>\n")
 	for _, c := range hub.Complexes {
-		fmt.Fprintf(&b, "<li>\n<a href=\"%s\">%s</a>\n", html.EscapeString(base+"/"+c.Slug), html.EscapeString(c.Name))
+		fmt.Fprintf(&b, "<li>\n<a href=\"%s\">%s</a>\n", html.EscapeString(complexURL(base, c.Slug)), html.EscapeString(c.Name))
 		fmt.Fprintf(&b, "<span>%s</span>\n", html.EscapeString(c.Address))
 		if sports := sportLabelsOf(c.Sports); sports != "" {
 			fmt.Fprintf(&b, "<span>%s</span>\n", html.EscapeString(sports))

@@ -77,7 +77,7 @@ func TestCityHubLeavesOutSwitchedOffComplexes(t *testing.T) {
 
 	body := serveHub(newHubHandler(store), "banfield").Body.String()
 
-	if !strings.Contains(body, `href="https://app.vibe.com.ar/club-norte"`) {
+	if !strings.Contains(body, `href="https://app.vibe.com.ar/c/club-norte"`) {
 		t.Error("the switched-on complex is missing from its city hub")
 	}
 	if strings.Contains(body, "club-off") || strings.Contains(body, "Club Off") {
