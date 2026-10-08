@@ -265,12 +265,13 @@ func TestAutoRefundSkipsWhatCannotBeRefunded(t *testing.T) {
 }
 
 func TestAutoRefundIssuesTheRefundAndTellsTheClient(t *testing.T) {
+	const slug = "vibe-palermo"
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking, payment := paidBooking(complexID)
 	f.payments.byBooking = payment
 	f.complexes.complex = linkedComplex(complexID, "")
-	f.complexes.complex.Name = "Vibe"
+	f.complexes.complex.Name, f.complexes.complex.Slug = "Vibe", slug
 	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", Phone: "+5491155551234"}
 	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 
@@ -303,10 +304,10 @@ func TestAutoRefundIssuesTheRefundAndTellsTheClient(t *testing.T) {
 	if sent.Amount == "" {
 		t.Errorf("the refund notice must name the amount; got %q", sent.Amount)
 	}
-	if sent.BookPath != f.complexes.complex.Slug+"/book" {
+	if sent.BookPath != "c/"+slug+"/book" {
 		t.Errorf("the refund notice offers no way back; got book path %q", sent.BookPath)
 	}
-	if sent.BookURL != "https://vibe.test/"+f.complexes.complex.Slug+"/book" {
+	if sent.BookURL != "https://vibe.test/c/"+slug+"/book" {
 		t.Errorf("the refund email offers no way back; got %q", sent.BookURL)
 	}
 }

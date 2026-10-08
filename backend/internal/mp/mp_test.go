@@ -654,9 +654,9 @@ func TestCreatePreferenceBuildsBackURLsFromInput(t *testing.T) {
 		Amount:      10000,
 		Caller:      mustSeller(t, "seller-token"),
 		BackURLs: BackURLs{
-			Success: "https://vibe.test/acme/book/success?booking_id=abc",
-			Failure: "https://vibe.test/acme/book?error=payment_failed",
-			Pending: "https://vibe.test/acme/book/success?booking_id=abc&status=pending",
+			Success: "https://vibe.test/c/acme/book/success?booking_id=abc",
+			Failure: "https://vibe.test/c/acme/book?error=payment_failed",
+			Pending: "https://vibe.test/c/acme/book/success?booking_id=abc&status=pending",
 		},
 		BackendURL: "https://api.vibe.test",
 	}

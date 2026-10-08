@@ -178,7 +178,7 @@ func TestPublicCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	if sent.Phone != "+5491155551234" {
 		t.Errorf("the cancellation cannot reach WhatsApp; got phone %q", sent.Phone)
 	}
-	if sent.BookPath != "vibe/book" || sent.BookURL != "https://vibe.test/vibe/book" {
+	if sent.BookPath != "c/vibe/book" || sent.BookURL != "https://vibe.test/c/vibe/book" {
 		t.Errorf("the cancellation offers no way back; got %q / %q", sent.BookPath, sent.BookURL)
 	}
 }
@@ -702,7 +702,7 @@ func TestStaffCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	if sent.Phone != "+5491155551234" {
 		t.Errorf("the cancellation cannot reach WhatsApp; got phone %q", sent.Phone)
 	}
-	if sent.BookPath != "vibe/book" || sent.BookURL != "https://vibe.test/vibe/book" {
+	if sent.BookPath != "c/vibe/book" || sent.BookURL != "https://vibe.test/c/vibe/book" {
 		t.Errorf("the cancellation offers no way back; got %q / %q", sent.BookPath, sent.BookURL)
 	}
 }

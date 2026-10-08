@@ -65,7 +65,7 @@ func TestCancelPathIsRelative(t *testing.T) {
 	if strings.HasPrefix(got, "http") {
 		t.Errorf("CancelPath must be relative; got %q", got)
 	}
-	want := "acme/book/cancel?" + QueryParam + "=cred-abc123"
+	want := "c/acme/book/cancel?" + QueryParam + "=cred-abc123"
 	if got != want {
 		t.Errorf("CancelPath = %q, want %q", got, want)
 	}
@@ -75,7 +75,7 @@ func TestCancelPathIsRelative(t *testing.T) {
 // frontend origin.
 func TestCancelIsAbsolute(t *testing.T) {
 	got := Cancel("https://vibe.test", "acme", "cred-abc123")
-	want := "https://vibe.test/acme/book/cancel?" + QueryParam + "=cred-abc123"
+	want := "https://vibe.test/c/acme/book/cancel?" + QueryParam + "=cred-abc123"
 	if got != want {
 		t.Errorf("Cancel = %q, want %q", got, want)
 	}
@@ -173,10 +173,36 @@ func TestAddress(t *testing.T) {
 }
 
 func TestBookLinks(t *testing.T) {
-	if got := BookPath("vibe-norte"); got != "vibe-norte/book" {
+	if got := BookPath("vibe-norte"); got != "c/vibe-norte/book" {
 		t.Errorf("BookPath = %q", got)
 	}
-	if got := Book("https://app.vibe.com.ar", "vibe-norte"); got != "https://app.vibe.com.ar/vibe-norte/book" {
+	if got := Book("https://app.vibe.com.ar", "vibe-norte"); got != "https://app.vibe.com.ar/c/vibe-norte/book" {
 		t.Errorf("Book = %q", got)
+	}
+}
+
+// Every link a client is sent to a complex's public pages carries the /c/
+// prefix, because a bare single-segment slug collides with platform routes. The
+// rest of each path and the query shape are unchanged, which this table pins
+// exactly for all seven builders.
+func TestEveryComplexLinkCarriesTheCPrefix(t *testing.T) {
+	const origin, slug, credential = "https://vibe.test", "acme", "cred-abc123"
+	tests := []struct {
+		name, got, want string
+	}{
+		{"Cancel", Cancel(origin, slug, credential), origin + "/c/acme/book/cancel?token=cred-abc123"},
+		{"CancelPath", CancelPath(slug, credential), "c/acme/book/cancel?token=cred-abc123"},
+		{"Success", Success(origin, slug, credential), origin + "/c/acme/book/success?token=cred-abc123"},
+		{"SuccessPending", SuccessPending(origin, slug, credential), origin + "/c/acme/book/success?token=cred-abc123&status=pending"},
+		{"Failure", Failure(origin, slug), origin + "/c/acme/book?error=payment_failed"},
+		{"BookPath", BookPath(slug), "c/acme/book"},
+		{"Book", Book(origin, slug), origin + "/c/acme/book"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("%s = %q, want %q", tt.name, tt.got, tt.want)
+			}
+		})
 	}
 }

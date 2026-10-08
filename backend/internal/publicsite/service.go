@@ -28,6 +28,14 @@ func NewService(store Store, frontendURL string) *Service {
 	}
 }
 
+// complexURL is the public address of one complex's page, under the frontend
+// origin base. The /c/ prefix is part of the address: a bare single-segment slug
+// collides with platform routes, so every URL this package publishes for a
+// complex (sitemap, canonical, og:url, JSON-LD, city hub) is built here.
+func complexURL(base, slug string) string {
+	return base + "/c/" + slug
+}
+
 // Sitemap builds the XML listing every published complex.
 func (s *Service) Sitemap(ctx context.Context) (string, error) {
 	slugs, err := s.store.GetAllSlugs(ctx)
@@ -49,7 +57,7 @@ func (s *Service) Sitemap(ctx context.Context) (string, error) {
 	// exist to be found.
 	for _, slug := range slugs {
 		b.WriteString("  <url>\n")
-		fmt.Fprintf(&b, "    <loc>%s/%s</loc>\n", baseURL, slug.Slug)
+		fmt.Fprintf(&b, "    <loc>%s</loc>\n", complexURL(baseURL, slug.Slug))
 		fmt.Fprintf(&b, "    <lastmod>%s</lastmod>\n", slug.UpdatedAt.Format("2006-01-02"))
 		b.WriteString("    <changefreq>daily</changefreq>\n")
 		b.WriteString("    <priority>0.8</priority>\n")

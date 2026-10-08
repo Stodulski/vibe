@@ -41,8 +41,8 @@ func TestServiceSitemap(t *testing.T) {
 				{Slug: "club-sur", UpdatedAt: updated},
 			},
 			wantLocs: []string{
-				"<loc>https://vibe.example/club-norte</loc>",
-				"<loc>https://vibe.example/club-sur</loc>",
+				"<loc>https://vibe.example/c/club-norte</loc>",
+				"<loc>https://vibe.example/c/club-sur</loc>",
 				"<lastmod>2026-03-12</lastmod>",
 			},
 			unwantedLoc: "<loc>https://vibe.example/</loc>",
