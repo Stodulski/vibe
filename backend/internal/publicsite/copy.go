@@ -18,6 +18,10 @@ import (
 // snippet stays inside the width Google shows.
 const maxDescriptionServices = 3
 
+// maxDescriptionSports caps how many sports the description names, for the same
+// reason as maxDescriptionServices.
+const maxDescriptionSports = 3
+
 // pageTitle is the <title> and og:title for a complex's public page. The city
 // places the venue for someone searching their area. Both arguments must already
 // be HTML-escaped.
@@ -29,11 +33,14 @@ func pageTitle(complexName, city string) string {
 }
 
 // pageDescription is the meta description and og:description: how to book, where,
-// and what the venue offers. It says "online" only when the complex takes online
-// payments, and "por WhatsApp" otherwise, which is how the public page itself
-// describes the two cases. services are the labels of the complex's amenities.
-// The name and city must already be HTML-escaped; the service labels are fixed.
-func pageDescription(complexName, city string, online bool, services []string) string {
+// what the venue plays and what it offers. It says "online" only when the complex
+// takes online payments, and "por WhatsApp" otherwise, which is how the public
+// page itself describes the two cases. sports are the Spanish labels of the
+// active courts' sports, deduplicated by the caller; they lead the sentence as
+// "canchas de pádel y tenis" and are lowercased here, because mid-sentence they
+// are common nouns. services are the labels of the complex's amenities. The name
+// and city must already be HTML-escaped; the sport and service labels are fixed.
+func pageDescription(complexName, city string, online bool, sports, services []string) string {
 	place := complexName
 	if city != "" {
 		place += ", " + city
@@ -42,6 +49,17 @@ func pageDescription(complexName, city string, online bool, services []string) s
 	if online {
 		channel = " online"
 	}
+	subject := "Reservá tu cancha en "
+	if len(sports) > 0 {
+		if len(sports) > maxDescriptionSports {
+			sports = sports[:maxDescriptionSports]
+		}
+		lowered := make([]string, len(sports))
+		for i, sport := range sports {
+			lowered[i] = strings.ToLower(sport)
+		}
+		subject = "Reservá canchas de " + joinSpanish(lowered) + " en "
+	}
 	detail := "Horarios y ubicación."
 	if len(services) > 0 {
 		if len(services) > maxDescriptionServices {
@@ -49,7 +67,15 @@ func pageDescription(complexName, city string, online bool, services []string) s
 		}
 		detail = strings.Join(services, ", ") + "."
 	}
-	return fmt.Sprintf("Reservá tu cancha en %s%s. %s", place, channel, detail)
+	return fmt.Sprintf("%s%s%s. %s", subject, place, channel, detail)
+}
+
+// joinSpanish joins items the way Spanish writes a list: "a", "a y b", "a, b y c".
+func joinSpanish(items []string) string {
+	if len(items) <= 1 {
+		return strings.Join(items, "")
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " y " + items[len(items)-1]
 }
 
 // The placeholders below are the copy shipped in the frontend's index.html.
@@ -85,6 +111,7 @@ const defaultImage = "https://app.vibe.com.ar/logo.png"
 const (
 	closedLabel     = "Cerrado"
 	hoursHeading    = "Horarios"
+	courtsHeading   = "Canchas"
 	servicesHeading = "Servicios"
 )
 
@@ -101,4 +128,17 @@ var amenityLabels = map[string]string{
 	"bar": "Bar", "racket_rental": "Alquiler de paletas", "pro_shop": "Venta de pelotas",
 	"wifi": "Wi-Fi", "lockers": "Lockers", "lessons": "Clases", "tournaments": "Torneos",
 	"accessible": "Accesible", "match_recording": "Grabación",
+}
+
+// sportLabels and courtTypeLabels name a court's stored sport and court type in
+// the Spanish the public page and the owner's court form use (frontend
+// es_AR courts.ts: sportTypes and courtTypes). Change them there and here
+// together, because the same words appear on both sides.
+var sportLabels = map[string]string{
+	"padel": "Pádel", "tennis": "Tenis", "soccer": "Fútbol", "basketball": "Básquet",
+	"volleyball": "Vóley", "hockey": "Hockey", "pickleball": "Pickleball",
+}
+
+var courtTypeLabels = map[string]string{
+	"indoor": "Techada", "outdoor": "Descubierta", "semi_covered": "Semi cubierta",
 }
