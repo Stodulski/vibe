@@ -97,8 +97,8 @@ func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules [
 	canonicalURL := baseURL + "/" + slug
 
 	escapedName := html.EscapeString(complex.Name)
-	title := pageTitle(escapedName)
-	description := pageDescription(escapedName, html.EscapeString(complex.City))
+	title := pageTitle(escapedName, html.EscapeString(complex.City))
+	description := pageDescription(escapedName, html.EscapeString(complex.City), complex.PaymentsEnabled, amenityNames(complex.Amenities))
 
 	page := tmpl
 	for _, sub := range []struct{ placeholder, replacement string }{

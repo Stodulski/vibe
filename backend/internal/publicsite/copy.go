@@ -1,6 +1,9 @@
 package publicsite
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // The strings below are user-facing copy, shown in search results and social
 // previews. They are Spanish because that is the only locale the product
@@ -11,19 +14,42 @@ import "fmt"
 // rather than a hunt through the renderer. Nothing else in this package should
 // contain a user-visible string.
 
-// pageTitle is the <title> and og:title for a complex's public page.
-func pageTitle(complexName string) string {
-	return complexName + " - Reserva tu cancha"
+// maxDescriptionServices caps how many amenities the description names, so the
+// snippet stays inside the width Google shows.
+const maxDescriptionServices = 3
+
+// pageTitle is the <title> and og:title for a complex's public page. The city
+// places the venue for someone searching their area. Both arguments must already
+// be HTML-escaped.
+func pageTitle(complexName, city string) string {
+	if city == "" {
+		return complexName + " - Reservá tu cancha"
+	}
+	return complexName + " en " + city + " - Reservá tu cancha"
 }
 
-// pageDescription is the meta description and og:description. The city is what
-// tells one venue's snippet from another's; without it every complex would
-// carry the same sentence. Both arguments must already be HTML-escaped.
-func pageDescription(complexName, city string) string {
-	if city == "" {
-		return fmt.Sprintf("Reserva canchas en %s. Horarios y reservas online.", complexName)
+// pageDescription is the meta description and og:description: how to book, where,
+// and what the venue offers. It says "online" only when the complex takes online
+// payments, and "por WhatsApp" otherwise, which is how the public page itself
+// describes the two cases. services are the labels of the complex's amenities.
+// The name and city must already be HTML-escaped; the service labels are fixed.
+func pageDescription(complexName, city string, online bool, services []string) string {
+	place := complexName
+	if city != "" {
+		place += ", " + city
 	}
-	return fmt.Sprintf("Reserva canchas en %s, %s. Horarios y reservas online.", complexName, city)
+	channel := " por WhatsApp"
+	if online {
+		channel = " online"
+	}
+	detail := "Horarios y ubicación."
+	if len(services) > 0 {
+		if len(services) > maxDescriptionServices {
+			services = services[:maxDescriptionServices]
+		}
+		detail = strings.Join(services, ", ") + "."
+	}
+	return fmt.Sprintf("Reservá tu cancha en %s%s. %s", place, channel, detail)
 }
 
 // The placeholders below are the copy shipped in the frontend's index.html.

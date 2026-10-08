@@ -162,3 +162,46 @@ func TestPrerenderEscapesOwnerTextInTheBody(t *testing.T) {
 		t.Errorf("the address should appear escaped inside the body")
 	}
 }
+
+// The title names the city so a search for the venue's area finds it, and the
+// description says how to book and what the venue offers, in the copy the
+// public page itself uses.
+func TestPageTitleNamesTheCity(t *testing.T) {
+	cases := []struct{ name, city, want string }{
+		{"Grid", "Banfield", "Grid en Banfield - Reservá tu cancha"},
+		{"Grid", "", "Grid - Reservá tu cancha"},
+	}
+	for _, tc := range cases {
+		if got := pageTitle(tc.name, tc.city); got != tc.want {
+			t.Errorf("pageTitle(%q, %q) = %q; want %q", tc.name, tc.city, got, tc.want)
+		}
+	}
+}
+
+func TestPageDescriptionSaysOnlineOnlyWhenPaymentsAreEnabled(t *testing.T) {
+	cases := []struct {
+		name     string
+		online   bool
+		services []string
+		want     string
+	}{
+		{"online without services", true, nil, "Reservá tu cancha en Grid, Banfield online. Horarios y ubicación."},
+		{"phone only without services", false, nil, "Reservá tu cancha en Grid, Banfield por WhatsApp. Horarios y ubicación."},
+		{"online lists the services", true, []string{"Estacionamiento", "Bar", "Wi-Fi"}, "Reservá tu cancha en Grid, Banfield online. Estacionamiento, Bar, Wi-Fi."},
+		{"at most three services", true, []string{"Estacionamiento", "Bar", "Wi-Fi", "Duchas"}, "Reservá tu cancha en Grid, Banfield online. Estacionamiento, Bar, Wi-Fi."},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := pageDescription("Grid", "Banfield", tc.online, tc.services); got != tc.want {
+				t.Errorf("pageDescription = %q; want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPageDescriptionWithoutCity(t *testing.T) {
+	want := "Reservá tu cancha en Grid online. Horarios y ubicación."
+	if got := pageDescription("Grid", "", true, nil); got != want {
+		t.Errorf("pageDescription = %q; want %q", got, want)
+	}
+}
