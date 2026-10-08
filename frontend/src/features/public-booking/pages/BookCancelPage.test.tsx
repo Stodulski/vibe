@@ -40,9 +40,9 @@ async function renderPage(token = 't1') {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/club-norte/book/cancel?token=${token}`]}>
+      <MemoryRouter initialEntries={[`/c/club-norte/book/cancel?token=${token}`]}>
         <Routes>
-          <Route path="/:slug/book/cancel" element={<Page />} />
+          <Route path="/c/:slug/book/cancel" element={<Page />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,

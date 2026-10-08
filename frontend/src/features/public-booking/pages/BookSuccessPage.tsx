@@ -8,6 +8,7 @@ import {
   readStoredBookingInfo,
 } from '@/features/public-booking';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -66,7 +67,7 @@ export default function BookSuccessPage() {
   });
 
   function handleRetry() {
-    void navigate(`/${String(slug)}`, { replace: true });
+    void navigate(publicComplexPath(String(slug)), { replace: true });
   }
 
   return (

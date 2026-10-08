@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { SelectedSlot } from '@/features/public-booking';
 import type { PublicComplex } from '@/shared/types/api.types';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { buildConfirmState } from './buildConfirmState';
 
 export function useHandleContinue(
@@ -23,7 +24,7 @@ export function useHandleContinue(
    */
   return function handleContinue(selection: SelectedSlot | null = selectedSlot) {
     if (!complex || !selection || !mpConnected) return;
-    void navigate(`/${String(slug)}/book/confirm`, {
+    void navigate(`${publicComplexPath(String(slug))}/book/confirm`, {
       state: buildConfirmState(complex, selection, dateStr),
     });
   };

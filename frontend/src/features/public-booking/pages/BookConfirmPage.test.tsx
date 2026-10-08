@@ -58,11 +58,11 @@ async function renderPage(state: BookingSlotInfo | null = mockSlotInfo) {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[{ pathname: '/club-norte/book/confirm', state }]}>
+      <MemoryRouter initialEntries={[{ pathname: '/c/club-norte/book/confirm', state }]}>
         <Routes>
-          <Route path="/:slug/book/confirm" element={<Page />} />
-          <Route path="/:slug" element={<SlotSelectionRouteProbe />} />
-          <Route path="/:slug/book/success" element={<SuccessRouteProbe />} />
+          <Route path="/c/:slug/book/confirm" element={<Page />} />
+          <Route path="/c/:slug" element={<SlotSelectionRouteProbe />} />
+          <Route path="/c/:slug/book/success" element={<SuccessRouteProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,

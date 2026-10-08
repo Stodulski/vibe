@@ -7,8 +7,8 @@ function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/:slug/book" element={<BookPage />} />
-        <Route path="/:slug" element={<div>complex page</div>} />
+        <Route path="/c/:slug/book" element={<BookPage />} />
+        <Route path="/c/:slug" element={<div>complex page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -16,12 +16,12 @@ function renderAt(path: string) {
 
 describe('BookPage', () => {
   it('redirects to the complex page', () => {
-    renderAt('/club-norte/book');
+    renderAt('/c/club-norte/book');
     expect(screen.getByText('complex page')).toBeInTheDocument();
   });
 
   it('forwards the error query param to the complex page redirect', () => {
-    renderAt('/club-norte/book?error=slot_taken');
+    renderAt('/c/club-norte/book?error=slot_taken');
     expect(screen.getByText('complex page')).toBeInTheDocument();
   });
 });

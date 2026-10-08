@@ -123,7 +123,7 @@ export function initSentry() {
     beforeBreadcrumb: scrubBreadcrumb,
     integrations: [
       // Router-aware tracing: transactions are named after the route
-      // pattern ("/:slug/book/confirm"), not the raw pathname, and render
+      // pattern ("/c/:slug/book/confirm"), not the raw pathname, and render
       // errors get tagged with which route they happened on. The
       // version-suffixed `reactRouterV7BrowserTracingIntegration` is
       // deprecated in favor of this version-agnostic one — same options,

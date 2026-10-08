@@ -4,6 +4,7 @@ import { Panel } from '@/shared/components/common/Panel';
 import { Separator } from '@/shared/components/ui/separator';
 import type { Complex } from '@/shared/types/api.types';
 import { formatDateLong } from '@/shared/lib/utils';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -24,12 +25,12 @@ export function ComplexInfoCard({ complex }: ComplexInfoCardProps) {
           <p className="text-text-tertiary mt-1 text-sm">
             {complex.city}, {complex.province}
           </p>
-          <p className="text-text-tertiary text-xs">/{complex.slug}</p>
+          <p className="text-text-tertiary text-xs">{publicComplexPath(complex.slug)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <ActiveStatusBadge isActive={complex.is_active} className="text-xs" />
           <a
-            href={`/${complex.slug}`}
+            href={publicComplexPath(complex.slug)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary-400 flex shrink-0 items-center gap-1 text-xs hover:underline"

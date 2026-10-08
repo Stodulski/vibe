@@ -45,8 +45,8 @@ async function renderPage(path: string, state: unknown = null) {
   return render(
     <MemoryRouter initialEntries={[{ pathname, search: search ? `?${search}` : '', state }]}>
       <Routes>
-        <Route path="/:slug/book/success" element={<Page />} />
-        <Route path="/:slug" element={<div>slot selection page</div>} />
+        <Route path="/c/:slug/book/success" element={<Page />} />
+        <Route path="/c/:slug" element={<div>slot selection page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -59,17 +59,17 @@ beforeEach(() => {
 
 describe('BookSuccessPage token resolution', () => {
   it('reads the token from location.state when present (no-deposit flow)', async () => {
-    await renderPage('/club-norte/book/success', { token: 't1' });
+    await renderPage('/c/club-norte/book/success', { token: 't1' });
     expect(screen.getByText('token:t1')).toBeInTheDocument();
   });
 
   it('falls back to the token search param when no state is present (MP redirect flow)', async () => {
-    await renderPage('/club-norte/book/success?token=t2');
+    await renderPage('/c/club-norte/book/success?token=t2');
     expect(screen.getByText('token:t2')).toBeInTheDocument();
   });
 
   it('resolves to null when neither state nor search param is present', async () => {
-    await renderPage('/club-norte/book/success');
+    await renderPage('/c/club-norte/book/success');
     expect(screen.getByText('token:null')).toBeInTheDocument();
   });
 });
@@ -93,19 +93,19 @@ const validBookingInfo = {
 
 describe('BookSuccessPage bookingInfo resolution', () => {
   it('reads bookingInfo from location.state when present', async () => {
-    await renderPage('/club-norte/book/success', { token: 't1', bookingInfo: validBookingInfo });
+    await renderPage('/c/club-norte/book/success', { token: 't1', bookingInfo: validBookingInfo });
     expect(lastProps?.bookingInfo).toEqual(validBookingInfo);
   });
 
   it('falls back to sessionStorage when no state bookingInfo is present (MP redirect flow)', async () => {
     const stored = { ...validBookingInfo, courtName: 'Cancha 2' };
     sessionStorage.setItem('vibe_booking_info', JSON.stringify(stored));
-    await renderPage('/club-norte/book/success?token=t2');
+    await renderPage('/c/club-norte/book/success?token=t2');
     expect(lastProps?.bookingInfo).toEqual(stored);
   });
 
   it('falls back to null when location.state.bookingInfo is shaped wrong (missing required fields)', async () => {
-    await renderPage('/club-norte/book/success', {
+    await renderPage('/c/club-norte/book/success', {
       token: 't1',
       bookingInfo: { courtName: 'Cancha 1' },
     });
@@ -114,25 +114,25 @@ describe('BookSuccessPage bookingInfo resolution', () => {
 
   it('falls back to null when the sessionStorage entry is shaped wrong', async () => {
     sessionStorage.setItem('vibe_booking_info', JSON.stringify({ courtName: 'Cancha 2' }));
-    await renderPage('/club-norte/book/success?token=t2');
+    await renderPage('/c/club-norte/book/success?token=t2');
     expect(lastProps?.bookingInfo).toBeNull();
   });
 
   it('falls back to null when a field in the stored booking info is null instead of the expected type', async () => {
     sessionStorage.setItem('vibe_booking_info', JSON.stringify({ ...validBookingInfo, price: null }));
-    await renderPage('/club-norte/book/success?token=t2');
+    await renderPage('/c/club-norte/book/success?token=t2');
     expect(lastProps?.bookingInfo).toBeNull();
   });
 });
 
 describe('BookSuccessPage location.state validation', () => {
   it('ignores a garbage location.state and still resolves the token from the search param', async () => {
-    await renderPage('/club-norte/book/success?token=t2', 'not-an-object');
+    await renderPage('/c/club-norte/book/success?token=t2', 'not-an-object');
     expect(screen.getByText('token:t2')).toBeInTheDocument();
   });
 
   it('ignores a location.state with a token of the wrong type', async () => {
-    await renderPage('/club-norte/book/success?token=t2', { token: 12345 });
+    await renderPage('/c/club-norte/book/success?token=t2', { token: 12345 });
     expect(screen.getByText('token:t2')).toBeInTheDocument();
   });
 });
@@ -152,19 +152,19 @@ describe('BookSuccessPage bookingDetails resolution', () => {
       timedOut: false,
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useBookingStatus>);
-    await renderPage('/club-norte/book/success', { token: 't1' });
+    await renderPage('/c/club-norte/book/success', { token: 't1' });
     expect(lastProps?.bookingDetails).toEqual(details);
   });
 });
 
 describe('BookSuccessPage payment-under-review resolution', () => {
   it('reads status=pending from the MP back_url and resolves the under_review view', async () => {
-    await renderPage('/club-norte/book/success?token=t2&status=pending');
+    await renderPage('/c/club-norte/book/success?token=t2&status=pending');
     expect(screen.getByText('view:under_review')).toBeInTheDocument();
   });
 
   it('resolves the loading view when status is absent from the URL and nothing has answered yet', async () => {
-    await renderPage('/club-norte/book/success?token=t2');
+    await renderPage('/c/club-norte/book/success?token=t2');
     expect(screen.getByText('view:loading')).toBeInTheDocument();
   });
 });
@@ -182,7 +182,7 @@ describe('BookSuccessPage status error resolution', () => {
       timedOut: false,
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useBookingStatus>);
-    await renderPage('/club-norte/book/success', { token: 't1' });
+    await renderPage('/c/club-norte/book/success', { token: 't1' });
     expect(screen.getByText('view:error')).toBeInTheDocument();
   });
 
@@ -196,7 +196,7 @@ describe('BookSuccessPage status error resolution', () => {
       timedOut: false,
       refetch,
     } as unknown as ReturnType<typeof useBookingStatus>);
-    await renderPage('/club-norte/book/success', { token: 't1' });
+    await renderPage('/c/club-norte/book/success', { token: 't1' });
     await user.click(screen.getByText('status-retry'));
     expect(refetch).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('slot selection page')).not.toBeInTheDocument();
@@ -206,7 +206,7 @@ describe('BookSuccessPage status error resolution', () => {
 describe('BookSuccessPage retry navigation', () => {
   it('navigates back to the complex slug page on retry', async () => {
     const user = userEvent.setup();
-    await renderPage('/club-norte/book/success', { token: 't1' });
+    await renderPage('/c/club-norte/book/success', { token: 't1' });
     await user.click(screen.getByText('retry'));
     expect(screen.getByText('slot selection page')).toBeInTheDocument();
   });

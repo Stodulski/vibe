@@ -2,6 +2,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { SkeletonCancelInfo } from '@/shared/components/common/Skeletons';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { LinkExpiredState } from '@/shared/components/common/LinkExpiredState';
 import { InvalidLinkState } from './book-cancel-page/InvalidLinkState';
 import { CancelInfoErrorState } from './book-cancel-page/CancelInfoErrorState';
@@ -95,7 +96,7 @@ export default function BookCancelPage() {
   const token = searchParams.get('token') ?? '';
 
   const goBack = () => {
-    window.location.href = `/${String(slug)}`;
+    window.location.href = publicComplexPath(String(slug));
   };
 
   const flow = useCancelBookingFlow(token);

@@ -5,6 +5,7 @@ import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
 import { Button } from '@/shared/components/ui/button';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { useConfirmBookingSubmit } from './book-confirm-page/useConfirmBookingSubmit';
 
 const t = ES_AR;
@@ -23,7 +24,7 @@ export default function BookConfirmPage() {
   const slotInfo = parsedSlotInfo.success ? parsedSlotInfo.data : null;
 
   if (!slotInfo) {
-    return <Navigate to={`/${String(slug)}`} replace />;
+    return <Navigate to={publicComplexPath(String(slug))} replace />;
   }
 
   // Back lands on the last step taken, not the first: the query carries every
@@ -40,7 +41,7 @@ export default function BookConfirmPage() {
       slug={slug}
       slotInfo={slotInfo}
       onBack={() => {
-        void navigate(`/${String(slug)}?${back.toString()}`, { replace: true });
+        void navigate(`${publicComplexPath(String(slug))}?${back.toString()}`, { replace: true });
       }}
     />
   );

@@ -20,20 +20,14 @@
  */
 
 /**
- * The single-segment paths the app owns at the root.
+ * The single-segment paths the app owns at the root. No complex can be named
+ * any of these: the backend refuses them as slugs (`reservedSlugs` in
+ * backend/internal/complexes/slug.go), so a request for one is never a
+ * storefront and is answered 404 without a fetch.
  *
- * This used to be a SKIP_PREFIXES denylist that anything unlisted fell
- * through, and it drifted: /profile, /reports and /admin were added to the
- * router and never added there, so a crawler on /profile was rewritten to
- * the prerender endpoint and served the backend's 404. The rule stays
- * inverted here for the same reason a denylist is only ever as correct as
- * its last edit: a slug this function does not recognise as the app's own
- * is treated as a possible complex, never the other way round.
- *
- * `vercel.json`'s rewrite `source` already excludes these at the routing
- * layer; this list re-checks the same exclusion here so a direct hit on
- * `/api/prerender?slug=login` (bypassing that rewrite entirely) cannot be
- * proxied to the backend either.
+ * Complex storefronts now live under `/c/<slug>`, so `vercel.json`'s rewrite
+ * no longer has to exclude these names; this list is the function's own guard
+ * for a direct hit on `/api/prerender?slug=login`, which bypasses the rewrite.
  *
  * Derived from src/app/router/{authRoutes,ownerRoutes,adminRoutes}.tsx.
  */

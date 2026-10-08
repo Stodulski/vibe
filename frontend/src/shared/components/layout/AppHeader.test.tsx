@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AppHeader } from './AppHeader';
 
 describe('AppHeader', () => {
@@ -34,5 +34,17 @@ describe('AppHeader', () => {
     );
     const link = screen.getByAltText('Vibe').closest('a');
     expect(link).toHaveAttribute('href', '/');
+  });
+
+  it('links to the complex storefront under /c/ when the route carries a slug', () => {
+    render(
+      <MemoryRouter initialEntries={['/c/los-alamos/book']}>
+        <Routes>
+          <Route path="/c/:slug/*" element={<AppHeader />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const link = screen.getByAltText('Vibe').closest('a');
+    expect(link).toHaveAttribute('href', '/c/los-alamos');
   });
 });
