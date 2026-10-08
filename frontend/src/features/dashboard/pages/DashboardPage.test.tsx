@@ -15,7 +15,7 @@ vi.mock('@/shared/components/common/EmptyState', () => ({
   ),
 }));
 vi.mock('./dashboard/PublicLinkBar', () => ({
-  PublicLinkBar: () => <div data-testid="public-link-bar">PublicLinkBar</div>,
+  PublicLinkBar: ({ publicUrl }: { publicUrl: string }) => <div data-testid="public-link-bar">{publicUrl}</div>,
 }));
 vi.mock('./dashboard/DashboardContent', () => ({
   DashboardContent: () => <div data-testid="dashboard-content">DashboardContent</div>,
@@ -31,6 +31,8 @@ vi.mock('@/features/dashboard/hooks/useClientInsights', () => ({
 }));
 
 import { useDashboardStats } from '@/features/dashboard';
+import { useSelectedComplex } from '@/features/complex';
+import { makeComplex } from '@/test/factories';
 
 describe('DashboardPage', () => {
   it('shows loading skeleton while fetching', async () => {
@@ -83,5 +85,23 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('DashboardPage public link', () => {
+  it('copies the public link under the /c/ prefix', async () => {
+    vi.mocked(useDashboardStats).mockReturnValue({
+      data: { upcoming_bookings: [] },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useDashboardStats>);
+    vi.mocked(useSelectedComplex).mockReturnValueOnce({
+      complex: makeComplex({ slug: 'los-alamos' }),
+      selectedComplexId: 'c1',
+    } as unknown as ReturnType<typeof useSelectedComplex>);
+    const DashboardPage = (await import('./DashboardPage')).default;
+    render(<DashboardPage />);
+    expect(screen.getByTestId('public-link-bar')).toHaveTextContent(/\/c\/los-alamos$/);
   });
 });

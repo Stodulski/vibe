@@ -1,5 +1,6 @@
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import type { BookingStatus } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -24,7 +25,7 @@ export function SuccessFooterActions({ slug, token, status, canCancel }: Success
       <Button
         className="min-h-12 w-full rounded-xl sm:min-w-[14rem] sm:flex-1"
         onClick={() => {
-          window.location.href = `/${slug}`;
+          window.location.href = publicComplexPath(slug);
         }}
       >
         {t.publicBooking.makeAnother}
@@ -34,7 +35,7 @@ export function SuccessFooterActions({ slug, token, status, canCancel }: Success
           variant="ghost"
           className="text-text-secondary min-h-12 w-full rounded-xl sm:w-auto"
           onClick={() => {
-            window.location.href = `/${slug}/book/cancel?token=${encodeURIComponent(token)}`;
+            window.location.href = `${publicComplexPath(slug)}/book/cancel?token=${encodeURIComponent(token)}`;
           }}
         >
           {t.publicBooking.cancelBooking}

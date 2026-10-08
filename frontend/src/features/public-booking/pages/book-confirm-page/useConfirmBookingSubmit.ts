@@ -9,6 +9,7 @@ import {
 import { buildBookingRequest } from './buildBookingRequest';
 import { buildBookingInfo } from './buildBookingInfo';
 import { safeSessionStorage } from '@/shared/lib/safeStorage';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 
 export function useConfirmBookingSubmit(slug: string | undefined, slotInfo: BookingSlotInfo) {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export function useConfirmBookingSubmit(slug: string | undefined, slotInfo: Book
   const mutation = usePublicBooking({
     onConflict: () => {
       // Slot was taken — redirect back to slot selection with date pre-selected.
-      void navigate(`/${String(slug)}?date=${slotInfo.date}`, { replace: true });
+      void navigate(`${publicComplexPath(String(slug))}?date=${slotInfo.date}`, { replace: true });
     },
     onPaymentLinkError: () => {
       setPaymentLinkError(true);
@@ -46,7 +47,7 @@ export function useConfirmBookingSubmit(slug: string | undefined, slotInfo: Book
           setRedirecting(true);
           window.location.href = data.mp_init_point;
         } else {
-          void navigate(`/${String(slug)}/book/success`, {
+          void navigate(`${publicComplexPath(String(slug))}/book/success`, {
             state: {
               token: data.token,
               bookingInfo,

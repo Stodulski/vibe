@@ -45,6 +45,14 @@ function renderList(complexes: Complex[] = [mockComplex]) {
   );
 }
 
+describe('OwnedComplexesList — public address', () => {
+  it('shows the public address under the /c/ prefix', () => {
+    renderList();
+
+    expect(screen.getByText('/c/padel-club-norte')).toBeInTheDocument();
+  });
+});
+
 // Finding M12: each card was a `Panel` (a plain `div`) with an `onClick`,
 // so it never got focus and did not respond to Enter. It is now a real link.
 describe('OwnedComplexesList — accessible card navigation', () => {

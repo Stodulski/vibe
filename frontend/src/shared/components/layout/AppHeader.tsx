@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { Logo } from '@/shared/components/common/Logo';
 import type { ReactNode } from 'react';
 
@@ -18,7 +19,7 @@ export function AppHeader({ children, className }: AppHeaderProps) {
         className,
       )}
     >
-      <Link to={slug ? `/${slug}` : '/'} className="flex items-center">
+      <Link to={slug ? publicComplexPath(slug) : '/'} className="flex items-center">
         <Logo />
       </Link>
       {children && <div className="flex items-center gap-2">{children}</div>}

@@ -111,9 +111,9 @@ const PHONE = '+541100000000';
 async function renderComplexPage() {
   const Page = (await import('./ComplexPage')).default;
   return render(
-    <MemoryRouter initialEntries={['/test-club']}>
+    <MemoryRouter initialEntries={['/c/test-club']}>
       <Routes>
-        <Route path="/:slug" element={<Page />} />
+        <Route path="/c/:slug" element={<Page />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -150,7 +150,7 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     fireEvent.click(continueButton);
 
     expect(mockNavigate).toHaveBeenCalledWith(
-      '/test-club/book/confirm',
+      '/c/test-club/book/confirm',
       expect.objectContaining({
         state: expect.objectContaining({ complexId: 'c1' }) as unknown as BookingSlotInfo,
       }),

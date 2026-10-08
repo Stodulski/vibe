@@ -23,7 +23,7 @@
       "destination": "https://api.vibe.com.ar/api/v1/sitemap.xml"
     },
     {
-      "source": "/:slug((?!(?:login|register|verify-email|verify-email-sent|confirm-email-change|forgot-password|reset-password|complexes|onboarding|settings|dashboard|bookings|courts|clients|reports|profile|admin)$)[a-z0-9]+(?:-[a-z0-9]+)*)",
+      "source": "/c/:slug([a-z0-9]+(?:-[a-z0-9]+)*)",
       "has": [
         {
           "type": "header",
@@ -289,7 +289,7 @@
       ]
     },
     {
-      "source": "/:slug/book",
+      "source": "/c/:slug/book",
       "headers": [
         {
           "key": "X-Robots-Tag",
@@ -298,7 +298,7 @@
       ]
     },
     {
-      "source": "/:slug/book/(.*)",
+      "source": "/c/:slug/book/(.*)",
       "headers": [
         {
           "key": "X-Robots-Tag",

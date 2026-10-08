@@ -3,6 +3,7 @@ import { Building2 } from 'lucide-react';
 import { ActiveStatusBadge } from '@/shared/components/common/ActiveStatusBadge';
 import { Panel } from '@/shared/components/common/Panel';
 import type { Complex } from '@/shared/types/api.types';
+import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -38,7 +39,7 @@ export function OwnedComplexesList({ complexes }: OwnedComplexesListProps) {
                 <p className="text-text-tertiary text-xs">
                   {complex.city}, {complex.province}
                 </p>
-                <p className="text-text-tertiary mt-1 text-xs">/{complex.slug}</p>
+                <p className="text-text-tertiary mt-1 text-xs">{publicComplexPath(complex.slug)}</p>
               </div>
               <ActiveStatusBadge isActive={complex.is_active} className="text-xs" />
             </div>

@@ -33,8 +33,14 @@ interface VercelRewrite {
   has?: VercelHasCondition[];
 }
 
+interface VercelHeaderRule {
+  source: string;
+  headers: { key: string; value: string }[];
+}
+
 const config = JSON.parse(readFileSync(fileURLToPath(new URL('./vercel.json', import.meta.url)), 'utf8')) as {
   rewrites: VercelRewrite[];
+  headers: VercelHeaderRule[];
 };
 
 const GOOGLE_CALLBACK = '/auth/google/callback';
@@ -47,9 +53,8 @@ const TUNNEL_SECURITY = '/_r/s';
  * `report-uri /_r/s` (vercel.json headers) both point at this app's own
  * origin instead of straight at ingest.us.sentry.io, because ad blockers
  * strip requests to that host by name (`ERR_BLOCKED_BY_CLIENT`) — these two
- * rewrites are what actually forwards the traffic to Sentry. The leading
- * `_` keeps the path out of the crawler `/:slug(...)` rewrite below: no
- * slugify output ever produces a leading underscore segment.
+ * rewrites are what actually forwards the traffic to Sentry. Neither path
+ * sits under the `/c/` prefix the crawler rewrite below is scoped to.
  */
 describe('vercel.json rewrites, Sentry tunnel', () => {
   it('rewrites the envelope tunnel to the Sentry envelope endpoint', () => {
@@ -107,47 +112,37 @@ describe('vercel.json rewrites', () => {
   });
 });
 
-/**
- * The routes the app owns at the root — ported from `APP_ROUTES` in the
- * former `middleware.ts` — so a crawler on any of them stays on the SPA
- * instead of being handed the backend's 404 for a slug that isn't one.
- *
- * Derived from src/app/router/{authRoutes,ownerRoutes,adminRoutes}.tsx.
- */
-const APP_ROUTES = [
-  'login',
-  'register',
-  'verify-email',
-  'verify-email-sent',
-  'confirm-email-change',
-  'forgot-password',
-  'reset-password',
-  'complexes',
-  'onboarding',
-  'settings',
-  'dashboard',
-  'bookings',
-  'courts',
-  'clients',
-  'reports',
-  'profile',
-  'admin',
-];
-
 const PRERENDER_DESTINATION = '/api/prerender?slug=:slug';
 
-/** Pulls the inner `path-to-regexp` group out of a `/:slug(...)` source. */
+/**
+ * Complex storefronts live under `/c/<slug>`, so the crawler rewrite is scoped
+ * to that prefix. A single-segment `/<slug>` is no longer a complex URL at all:
+ * it is the legacy redirect the SPA answers for humans, and crawlers get the
+ * plain shell for it (the old URLs are not in use, so they are not rewritten).
+ */
+const crawlerRewrites = config.rewrites.filter((r) => r.destination === PRERENDER_DESTINATION);
+const crawlerRewrite = crawlerRewrites[0];
+
+/** Pulls the inner `path-to-regexp` group out of a `/c/:slug(...)` source. */
 function slugGroup(source: string): string {
-  const match = /^\/:slug\((.*)\)$/.exec(source);
-  if (!match?.[1]) throw new Error(`not a /:slug(...) source: ${source}`);
+  const match = /^\/c\/:slug\((.*)\)$/.exec(source);
+  if (!match?.[1]) throw new Error(`not a /c/:slug(...) source: ${source}`);
   return match[1];
 }
-
-const crawlerRewrite = config.rewrites.find((r) => r.destination === PRERENDER_DESTINATION);
 
 describe('vercel.json rewrites, crawler prerender', () => {
   it('exists, pointing at the api/prerender.ts Vercel Function', () => {
     expect(crawlerRewrite).toBeDefined();
+  });
+
+  it('is scoped to the /c/:slug prefix', () => {
+    expect(crawlerRewrite?.source).toMatch(/^\/c\/:slug\(.+\)$/);
+  });
+
+  it('has no single-segment /:slug crawler rule left over', () => {
+    expect(crawlerRewrites).toHaveLength(1);
+    const singleSegment = config.rewrites.filter((r) => r.source.startsWith('/:slug('));
+    expect(singleSegment).toEqual([]);
   });
 
   it('is gated on the user-agent header', () => {
@@ -164,34 +159,30 @@ describe('vercel.json rewrites, crawler prerender', () => {
 });
 
 if (!crawlerRewrite) throw new Error('crawler rewrite not found');
-const slugPattern = new RegExp(`^${slugGroup(crawlerRewrite.source)}$`);
+const crawlerPath = new RegExp(`^/c/(?:${slugGroup(crawlerRewrite.source)})$`);
 
-describe('vercel.json rewrites, crawler prerender: the slug shape', () => {
-  it.each(APP_ROUTES)('rejects the app route %s', (route) => {
-    expect(slugPattern.test(route)).toBe(false);
+describe('vercel.json rewrites, crawler prerender: the path shape', () => {
+  it.each(['/c/club-padel-norte', '/c/demo', '/c/login-norte'])('matches the complex page %s', (path) => {
+    expect(crawlerPath.test(path)).toBe(true);
   });
 
-  it.each(['club-padel-norte', 'demo'])('accepts the real slug %s', (slug) => {
-    expect(slugPattern.test(slug)).toBe(true);
-  });
-
-  it('accepts login-norte: the exclusion is anchored to the whole segment', () => {
-    expect(slugPattern.test('login-norte')).toBe(true);
-  });
-
-  it.each(['Foo_Bar', 'a.b', 'two/segments'])('rejects %s, which slugify could not have produced', (value) => {
-    expect(slugPattern.test(value)).toBe(false);
+  it.each([
+    '/club-padel-norte',
+    '/login',
+    '/c',
+    '/c/',
+    '/c/Foo_Bar',
+    '/c/a.b',
+    '/c/two/segments',
+    '/c/club-padel-norte/book',
+  ])('does not match %s', (path) => {
+    expect(crawlerPath.test(path)).toBe(false);
   });
 });
 
-describe('vercel.json rewrites, Sentry tunnel: never shadowed by the crawler slug', () => {
-  // The crawler rewrite matches a single `[a-z0-9]+(?:-[a-z0-9]+)*` segment.
-  // `_r` can never be produced by that pattern (no leading underscore, no
-  // uppercase), so `/_r/e` and `/_r/s` are safe ahead of it regardless of
-  // declaration order — this just proves it rather than assuming it.
-  it.each([TUNNEL_ENVELOPE, TUNNEL_SECURITY])('%s does not match the crawler slug pattern', (source) => {
-    const segment = source.replace(/^\//, '').split('/')[0] ?? '';
-    expect(slugPattern.test(segment)).toBe(false);
+describe('vercel.json rewrites, Sentry tunnel: never shadowed by the crawler rule', () => {
+  it.each([TUNNEL_ENVELOPE, TUNNEL_SECURITY])('%s does not match the crawler path', (source) => {
+    expect(crawlerPath.test(source)).toBe(false);
   });
 });
 
@@ -243,5 +234,24 @@ describe('vercel.json rewrites, crawler prerender: the user-agent condition', ()
 
   it.each(REAL_BROWSER_USER_AGENTS)('does not match %s', (_name, userAgent) => {
     expect(uaPattern.test(userAgent)).toBe(false);
+  });
+});
+
+/**
+ * Booking pages are per-complex and must stay out of search results. The
+ * noindex rules follow the `/c/:slug` prefix, so the old `/:slug/book` rules
+ * must be gone or they would also match the platform's own two-segment paths.
+ */
+describe('vercel.json headers, noindex on public booking pages', () => {
+  const noindexSources = config.headers
+    .filter((rule) => rule.headers.some((h) => h.key === 'X-Robots-Tag' && h.value === 'noindex'))
+    .map((rule) => rule.source);
+
+  it.each(['/c/:slug/book', '/c/:slug/book/(.*)'])('marks %s noindex', (source) => {
+    expect(noindexSources).toContain(source);
+  });
+
+  it.each(['/:slug/book', '/:slug/book/(.*)'])('no longer carries the old %s noindex rule', (source) => {
+    expect(noindexSources).not.toContain(source);
   });
 });
