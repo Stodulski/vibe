@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
@@ -106,13 +107,21 @@ func (s *Service) Prerender(ctx context.Context, slug string) (Prerendered, erro
 		schedules = nil
 	}
 
+	// The courts cost the court list and the sports named in the description,
+	// and nothing else, so a failed read leaves the page as it would be for a
+	// venue with no courts.
+	courts, courtsErr := s.activeCourts(ctx, slug)
+	if courtsErr != nil {
+		courts = nil
+	}
+
 	// templateCache.get already prefers a stale copy to an error, so a failure
 	// here means there has never been one — the first request after a deploy
 	// while the frontend is down. fallbackTemplate carries the same
 	// placeholders, so this complex's own tags still land on it.
 	//
-	// Neither this nor the schedules failure above returns an error: both are
-	// reported through Degraded and the page is served anyway. That is the
+	// Neither this nor the schedules or courts failures above returns an error:
+	// all are reported through Degraded and the page is served anyway. That is the
 	// whole point of this endpoint's error handling — see Prerendered.
 	tmpl, templateErr := s.templates.get(ctx, s.frontendURL)
 	if templateErr != nil {
@@ -120,9 +129,27 @@ func (s *Service) Prerender(ctx context.Context, slug string) (Prerendered, erro
 	}
 
 	return Prerendered{
-		Page:     s.render(tmpl, complex, schedules, slug),
-		Degraded: errors.Join(schedulesErr, templateErr),
+		Page:     s.render(tmpl, complex, schedules, courts, slug),
+		Degraded: errors.Join(schedulesErr, courtsErr, templateErr),
 	}, nil
+}
+
+// activeCourts returns the complex's active courts, in the order the store lists
+// them. The storefront profile already carries only active courts; they are
+// checked again here so this page never names a retired court, whatever the
+// store returns. The prices the profile carries are not read.
+func (s *Service) activeCourts(ctx context.Context, slug string) ([]*courtstore.Court, error) {
+	profile, err := s.store.GetPublic(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	courts := make([]*courtstore.Court, 0, len(profile.Courts))
+	for _, listed := range profile.Courts {
+		if listed.Court != nil && listed.IsActive {
+			courts = append(courts, listed.Court)
+		}
+	}
+	return courts, nil
 }
 
 // Prerendered is a crawler-facing page and, when something went wrong on the
@@ -136,7 +163,8 @@ func (s *Service) Prerender(ctx context.Context, slug string) (Prerendered, erro
 type Prerendered struct {
 	Page string
 	// Degraded is why this page is less than it should be — the complex's own
-	// page without its opening hours, or built from the fallback template
-	// instead of the frontend's real one — or nil when nothing went wrong.
+	// page without its opening hours or its courts, or built from the fallback
+	// template instead of the frontend's real one — or nil when nothing went
+	// wrong.
 	Degraded error
 }

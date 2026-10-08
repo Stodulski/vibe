@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/complexes"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
@@ -23,7 +24,10 @@ const templateTTL = 10 * time.Minute
 // fetchTimeout bounds the fetch of the frontend's index.html.
 const fetchTimeout = 10 * time.Second
 
-// Store is the complex data these two pages need.
+// Store is the complex data these pages need. GetPublic is the storefront
+// profile the booking page already reads; its Courts are the active courts only,
+// in the order the store lists them, and this package takes the courts from it
+// without the prices it carries.
 type Store interface {
 	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
@@ -31,6 +35,7 @@ type Store interface {
 	// ListActiveComplexesForHubs is every switched-on complex with its city and
 	// court sports, for the city hubs and their sitemap entries.
 	ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error)
+	GetPublic(ctx context.Context, slug string) (*complexes.PublicProfile, error)
 }
 
 // Handler serves the crawler-facing routes. It maps the service's errors onto

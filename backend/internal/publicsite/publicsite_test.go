@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/complexes"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -24,11 +25,20 @@ type stubStore struct {
 	complex   *complexstore.Complex
 	schedules []*complexstore.Schedule
 	hubs      []complexstore.HubComplex
+	courts    []complexes.CourtWithPrices
 
 	slugsErr     error
 	complexErr   error
 	schedulesErr error
 	hubsErr      error
+	publicErr    error
+}
+
+func (s *stubStore) GetPublic(context.Context, string) (*complexes.PublicProfile, error) {
+	if s.publicErr != nil {
+		return nil, s.publicErr
+	}
+	return &complexes.PublicProfile{Courts: s.courts}, nil
 }
 
 func (s *stubStore) GetAllSlugs(context.Context) ([]complexstore.ComplexSlug, error) {
