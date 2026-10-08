@@ -1,9 +1,12 @@
 package publicsite
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -11,7 +14,17 @@ import (
 	"unicode/utf8"
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/httpx"
 )
+
+// hubCacheControl is how long a crawler or a proxy may reuse a hub page. It matches
+// the prerendered complex pages.
+const hubCacheControl = "public, max-age=300, stale-while-revalidate=60"
+
+// hubRetryAfterSeconds is the Retry-After on a hub answered 503. A failed read is
+// transient, so a crawler is asked to come back rather than to index the fault.
+const hubRetryAfterSeconds = "60"
 
 // hubDescriptionRunes is the most characters a hub's meta description runs.
 const hubDescriptionRunes = 150
@@ -223,4 +236,69 @@ func renderCityHub(hub cityHub, frontendURL string) string {
 	}
 	b.WriteString("</ul>\n</main>\n</body>\n</html>\n")
 	return b.String()
+}
+
+// writeHubSitemapEntries appends one sitemap entry per city hub. A hub's lastmod
+// is the latest update among its complexes, so a crawler refetches it when a
+// complex in that city changes.
+func writeHubSitemapEntries(b *strings.Builder, hubs []cityHub, baseURL string) {
+	for _, hub := range hubs {
+		b.WriteString("  <url>\n")
+		fmt.Fprintf(b, "    <loc>%s/canchas/%s</loc>\n", baseURL, hub.Slug)
+		fmt.Fprintf(b, "    <lastmod>%s</lastmod>\n", hub.LastMod.Format("2006-01-02"))
+		b.WriteString("    <changefreq>daily</changefreq>\n")
+		b.WriteString("    <priority>0.7</priority>\n")
+		b.WriteString("  </url>\n")
+	}
+}
+
+// cityHubs reads the switched-on complexes and groups them by city. A failed read
+// is ErrComplexUnavailable: the city is real, only this read failed.
+func (s *Service) cityHubs(ctx context.Context) ([]cityHub, error) {
+	rows, err := s.store.ListActiveComplexesForHubs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrComplexUnavailable, err)
+	}
+	return cityHubsFrom(rows), nil
+}
+
+// CityHub returns the hub page for the city a path names, matched case- and
+// accent-insensitively. A city with no switched-on complex is
+// data.ErrRecordNotFound.
+func (s *Service) CityHub(ctx context.Context, city string) (string, error) {
+	slug := citySlug(city)
+	hubs, err := s.cityHubs(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, hub := range hubs {
+		if hub.Slug == slug {
+			return renderCityHub(hub, s.frontendURL), nil
+		}
+	}
+	return "", data.ErrRecordNotFound
+}
+
+// CityHub handles GET /api/v1/public/hubs/{city}: the HTML listing of one city's
+// switched-on complexes, for search engines and people alike.
+func (h *Handler) CityHub(w http.ResponseWriter, r *http.Request) {
+	page, err := h.svc.CityHub(r.Context(), httpx.ReadStringParam(r, "city"))
+	switch {
+	case errors.Is(err, data.ErrRecordNotFound):
+		h.respond.NotFound(w, r)
+	case errors.Is(err, ErrComplexUnavailable):
+		// A crawler retries a transient 5xx. A 200 here would index a fault in the
+		// city's place, so the read failure is answered as unavailable instead.
+		h.respond.LogError(r, err)
+		w.Header().Set("Retry-After", hubRetryAfterSeconds)
+		h.respond.Refuse(w, r, httpx.Unavailable(nil))
+	case err != nil:
+		h.respond.ServerError(w, r, err)
+	default:
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", hubCacheControl)
+		w.WriteHeader(http.StatusOK)
+		// The response is committed; a write failure can no longer be reported.
+		_, _ = w.Write([]byte(page))
+	}
 }
