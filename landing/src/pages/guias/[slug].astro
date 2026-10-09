@@ -12,6 +12,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { guias, comparaciones } from '../../data/guias';
 import { guiaJsonLd } from '../../data/jsonld';
+import { fechaEnTexto } from '../../data/mercadopago-costos.ts';
 
 export function getStaticPaths() {
   return guias.map(guia => ({ params: { slug: guia.slug }, props: { guia } }));
@@ -56,7 +57,7 @@ const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
           {/* La respuesta va antes que cualquier otra cosa, a propósito. */}
           <p class="guia-respuesta">{guia.respuesta}</p>
           <p class="guia-meta">
-            <span>Actualizado el {guia.dateModified}</span>
+            <span>Actualizado el {fechaEnTexto(guia.dateModified)}</span>
             {guia.fuente && (
               <>
                 <span aria-hidden="true">·</span>

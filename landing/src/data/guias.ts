@@ -204,7 +204,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿Esta comparación está actualizada?',
         answer:
-          `Los planes se leyeron de su página el ${TU_VERIFICADO} y el link está arriba. Turnito cambia `
+          `Los planes se leyeron de su página el ${fechaEnTexto(TU_VERIFICADO)} y el link está arriba. Turnito cambia `
           + 'los precios por país: estos son los de Argentina.',
       },
       {
@@ -298,7 +298,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿Esta comparación está actualizada?',
         answer:
-          `Los planes se leyeron de su página el ${CF_VERIFICADO} y el link está arriba. Son precios en `
+          `Los planes se leyeron de su página el ${fechaEnTexto(CF_VERIFICADO)} y el link está arriba. Son precios en `
           + 'pesos: confirmalos antes de hacer cuentas finas.',
       },
       {
@@ -411,7 +411,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
       {
         question: '¿Esta comparación está actualizada?',
         answer:
-          `Los datos de ATC se leyeron de su página el ${ATC_VERIFICADO} y el link está arriba. Si ves `
+          `Los datos de ATC se leyeron de su página el ${fechaEnTexto(ATC_VERIFICADO)} y el link está arriba. Si ves `
           + 'algo distinto de lo que publican hoy, escribinos y lo corregimos.',
       },
       {
@@ -576,7 +576,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
         nota:
           'Precios de lista de ATC Sports en dólares —así los publican fuera de Argentina, y es el '
           + `precio que no se mueve solo con el tipo de cambio—, pagando mes a mes, verificados el `
-          + `${ATC_VERIFICADO}. Los publican ellos y los pueden cambiar cuando quieran.`,
+          + `${fechaEnTexto(ATC_VERIFICADO)}. Los publican ellos y los pueden cambiar cuando quieran.`,
         columnas: columnasDeCostoPorReserva,
         filas: filasDeCostoPorReserva,
       },

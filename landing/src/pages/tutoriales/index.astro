@@ -12,10 +12,11 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { tutoriales, ULTIMA_ACTUALIZACION } from '../../data/tutoriales';
 import { tutorialesIndexJsonLd } from '../../data/jsonld';
+import { fechaEnTexto } from '../../data/mercadopago-costos.ts';
 
 const TITULO = 'Tutoriales: el panel de Vibe explicado | Vibe';
-const BAJADA = 'Guías cortas del panel de Vibe, pantalla por pantalla: la grilla, los precios, '
-  + 'los clientes, el panel, los reportes y la configuración.';
+const BAJADA = 'Tutoriales del panel de Vibe, pantalla por pantalla: grilla, precios, '
+  + 'clientes, caja, ventas, stock, reportes y configuración.';
 ---
 <BaseLayout
   title={TITULO}
@@ -76,7 +77,7 @@ const BAJADA = 'Guías cortas del panel de Vibe, pantalla por pantalla: la grill
               <div class="index-texto">
                 <h2>{t.title}</h2>
                 <p>{t.excerpt}</p>
-                <span class="tutorial-index-meta">Actualizado el {t.dateModified}</span>
+                <span class="tutorial-index-meta">Actualizado el {fechaEnTexto(t.dateModified)}</span>
               </div>
               <span class="index-cta">
                 Ver el tutorial

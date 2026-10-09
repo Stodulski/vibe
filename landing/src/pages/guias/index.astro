@@ -13,6 +13,7 @@ import Footer from '../../components/Footer.astro';
 import { guias } from '../../data/guias';
 import { guiasIndexJsonLd } from '../../data/jsonld';
 import { LAST_MODIFIED } from '../../data/site-dates';
+import { fechaEnTexto } from '../../data/mercadopago-costos.ts';
 
 const TITULO = 'Guías para dueños de complejos deportivos | Vibe';
 const BAJADA = 'Respuestas directas, con números y fuente, a lo que te preguntás antes de sumar un '
@@ -97,7 +98,7 @@ const BAJADA = 'Respuestas directas, con números y fuente, a lo que te pregunt�
               <div class="index-texto">
                 <h2>{guia.title}</h2>
                 <p>{guia.excerpt}</p>
-                <span class="guia-index-fecha">Actualizado el {guia.dateModified}</span>
+                <span class="guia-index-fecha">Actualizado el {fechaEnTexto(guia.dateModified)}</span>
               </div>
               <span class="index-cta">
                 Leer la guía
