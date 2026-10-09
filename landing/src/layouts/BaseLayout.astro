@@ -7,7 +7,7 @@ export interface Props {
   title: string;
   description: string;
   /** Absolute canonical URL. Also used for the three hreflang alternates. */
-  canonical?: string;
+  canonical: string;
   date?: string;
   appleTouchIcon?: string;
   ogTitle: string;
@@ -67,11 +67,11 @@ const blobList = Array.from({ length: blobs });
   <title>{title}</title>
   <meta content={description} name="description"/>
   <meta content={robots} name="robots"/>
-  {canonical && <link href={canonical} rel="canonical"/>}
-  {canonical && <link href={canonical} hreflang="es-AR" rel="alternate"/>}
-  {canonical && <link href={canonical} hreflang="es" rel="alternate"/>}
-  {canonical && <link href={canonical} hreflang="x-default" rel="alternate"/>}
-  {canonical && <link href={canonical} rel="alternate" type="text/markdown"/>}
+  <link href={canonical} rel="canonical"/>
+  <link href={canonical} hreflang="es-AR" rel="alternate"/>
+  <link href={canonical} hreflang="es" rel="alternate"/>
+  <link href={canonical} hreflang="x-default" rel="alternate"/>
+  <link href={canonical} rel="alternate" type="text/markdown"/>
   <meta content="#0b0b0b" name="theme-color"/>
   <meta content="Vibe" name="author"/>
   {date && <meta content={date} name="date"/>}
