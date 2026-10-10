@@ -34,6 +34,8 @@ export interface PublicApiOptions {
 }
 
 export interface PublicApi {
+  /** The public complex record, unparsed. The page validates it against the booking schema. */
+  complex(slug: string): Promise<unknown>;
   hubData(city: string): Promise<HubData>;
   /** The backend's sitemap document, unfiltered. */
   sitemapXml(): Promise<string>;
@@ -81,6 +83,9 @@ export function createPublicApi({
   }
 
   return {
+    complex(slug) {
+      return getJson(`/public/complexes/${encodeURIComponent(slug)}`);
+    },
     async hubData(city) {
       const json = await getJson(`/public/hubs/${encodeURIComponent(city)}/data`);
       try {
