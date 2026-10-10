@@ -32,6 +32,26 @@ export function shouldRegisterServiceWorker(hostname: string, appUrl: string): b
   return appHostname !== '' && appHostname === hostname;
 }
 
+/** Path of the web app manifest, served by the app host only. */
+const MANIFEST_PATH = '/manifest.json';
+
+/**
+ * Links the web app manifest into the page, on the same hosts that may run the
+ * worker. Not static in index.html: the landing owns vibe.com.ar and does not
+ * proxy `/manifest.json` there, so a static link would 404 on every complex page
+ * and point browsers at an install target that is not ours. Idempotent: a page
+ * that already carries the link gets no second one.
+ */
+export function linkWebManifest(hostname: string, appUrl: string, doc: Document = document): void {
+  if (!shouldRegisterServiceWorker(hostname, appUrl) || doc.head.querySelector('link[rel="manifest"]')) {
+    return;
+  }
+  const link = doc.createElement('link');
+  link.setAttribute('rel', 'manifest');
+  link.setAttribute('href', MANIFEST_PATH);
+  doc.head.append(link);
+}
+
 /** Script path of this app's service worker, as the build emits it. */
 const APP_WORKER_PATH = '/sw.js';
 

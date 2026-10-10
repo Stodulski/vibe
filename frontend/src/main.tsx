@@ -5,7 +5,7 @@ import { App } from './app/App';
 import { env } from '@/shared/lib/env';
 import { startObservability } from '@/shared/lib/observability';
 import { setupServiceWorkerUpdates } from '@/shared/lib/serviceWorkerUpdate';
-import { shouldRegisterServiceWorker, unregisterServiceWorkers } from '@/shared/lib/serviceWorkerHost';
+import { linkWebManifest, shouldRegisterServiceWorker, unregisterServiceWorkers } from '@/shared/lib/serviceWorkerHost';
 import './styles/globals.css';
 
 // `registerSW` must be imported from app code so the plugin injects the
@@ -17,6 +17,8 @@ if (shouldRegisterServiceWorker(window.location.hostname, env.VITE_APP_URL)) {
 } else {
   void unregisterServiceWorkers();
 }
+// The install manifest follows the same host rule: it is linked only where the app lives.
+linkWebManifest(window.location.hostname, env.VITE_APP_URL);
 
 // Error reporting starts here, before the first render, but the SDK itself
 // loads at idle time. The two are separable now: `startObservability`

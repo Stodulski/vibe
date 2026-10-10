@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { shouldRegisterServiceWorker, unregisterServiceWorkers } from './serviceWorkerHost';
+import { linkWebManifest, shouldRegisterServiceWorker, unregisterServiceWorkers } from './serviceWorkerHost';
 
 const APP_URL = 'https://app.vibe.com.ar';
 
@@ -113,5 +113,44 @@ describe('unregisterServiceWorkers', () => {
     vi.stubGlobal('navigator', {});
 
     await expect(unregisterServiceWorkers()).resolves.toBeUndefined();
+  });
+});
+
+describe('linkWebManifest', () => {
+  /** A detached document, so the links never leak into the test page itself. */
+  function freshDocument(): Document {
+    return document.implementation.createHTMLDocument('');
+  }
+
+  function manifestLinks(doc: Document) {
+    return doc.head.querySelectorAll('link[rel="manifest"]');
+  }
+
+  it('links the manifest once on the app host, however often it is called', () => {
+    const doc = freshDocument();
+
+    linkWebManifest('app.vibe.com.ar', APP_URL, doc);
+    linkWebManifest('app.vibe.com.ar', APP_URL, doc);
+
+    const links = manifestLinks(doc);
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute('href')).toBe('/manifest.json');
+  });
+
+  it('appends nothing on the landing host', () => {
+    const doc = freshDocument();
+
+    linkWebManifest('vibe.com.ar', APP_URL, doc);
+    linkWebManifest('www.vibe.com.ar', APP_URL, doc);
+
+    expect(manifestLinks(doc)).toHaveLength(0);
+  });
+
+  it('links the manifest on localhost, where the worker runs too', () => {
+    const doc = freshDocument();
+
+    linkWebManifest('localhost', APP_URL, doc);
+
+    expect(manifestLinks(doc)).toHaveLength(1);
   });
 });
