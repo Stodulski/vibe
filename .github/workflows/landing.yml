@@ -21,6 +21,10 @@ on:
     branches: [main]
     paths:
       - "landing/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/landing.yml"
 
 concurrency:
@@ -41,7 +45,9 @@ jobs:
   # happen at all — nothing here re-narrows it.
   #
   # On a pull_request, this diffs the PR's base against its head. `landing`
-  # is true when the diff touches `landing/**`, when it touches `.github/**`
+  # is true when the diff touches `landing/**`, `packages/**`, the root
+  # workspace files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`),
+  # when it touches `.github/**`
   # (a workflow or script change can affect what this job does), when it
   # touches any root-level file outside backend/, frontend/, landing/ and
   # docs/ (unclassifiable — treated the same as `.github/**`), or when the
@@ -88,6 +94,7 @@ jobs:
             case "$f" in
               .github/*) everything=true ;;
               landing/*) landing=true ;;
+              packages/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml) landing=true ;;
               backend/*|frontend/*|docs/*) ;;
               *) everything=true ;;
             esac
@@ -109,16 +116,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: landing/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: pnpm
-          cache-dependency-path: landing/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-landing...
 
       # `pnpm run build` also regenerates the API catalog and the markdown
       # mirrors (see landing/package.json); landing-api-catalog.yml already

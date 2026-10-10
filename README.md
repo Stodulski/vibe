@@ -8,7 +8,7 @@ Court booking for padel clubs. One repository, three deployables:
 | [`frontend/`](frontend) | React, Vite, TypeScript | Vercel (`app.vibe.com.ar`) | [README](frontend/README.md) |
 | [`landing/`](landing)   | Astro                   | Vercel (`vibe.com.ar`)     | scripts in `package.json`    |
 
-Each package keeps its own toolchain, lockfile, environment file and README. There is no root build: work inside the package you are changing.
+Each package keeps its own toolchain, environment file and README. `frontend/` and `landing/` form one pnpm workspace rooted here, with one `pnpm-lock.yaml`: run `pnpm install` once from the repository root. There is no root build: work inside the package you are changing.
 
 ## CI
 
@@ -49,9 +49,9 @@ production releases and not just previews. Each project now deploys only for its
 | `vibe-landing`    | `landing/vercel.json`  | `ignoreCommand`                   |
 | backend (Railway) | `backend/railway.toml` | `watchPatterns = ["/backend/**"]` |
 
-Each package is self-contained — its own lockfile, its own `pnpm-workspace.yaml`, its own build
-inputs — and the repository root holds only `README.md` and `CLAUDE.md`, so a directory is the whole
-of what a build depends on.
+Each Vercel project is self-contained: its directory, plus the shared root workspace files
+(`package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`) and `packages/`, which `frontend/` and
+`landing/` install from. Its `ignoreCommand` diffs those paths too.
 
 The Vercel gate compares against `VERCEL_GIT_PREVIOUS_SHA`, the commit last deployed for that
 branch, so the diff spans the whole push; Vercel's own doc example uses `HEAD^ HEAD`, which sees only

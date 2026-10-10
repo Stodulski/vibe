@@ -21,6 +21,10 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/frontend.yml"
 
 concurrency:
@@ -43,8 +47,9 @@ jobs:
   # happen at all — nothing here re-narrows it.
   #
   # On a pull_request, this diffs the PR's base against its head. `frontend`
-  # is true when the diff touches `frontend/**` or
-  # `backend/internal/openapi/openapi.yaml` (the generated API client is
+  # is true when the diff touches `frontend/**`, `packages/**`, the root
+  # workspace files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`),
+  # or `backend/internal/openapi/openapi.yaml` (the generated API client is
   # regenerated from it), when it touches `.github/**` (a workflow or script
   # change can affect what these jobs do), when it touches any root-level
   # file outside backend/, frontend/, landing/ and docs/ (unclassifiable —
@@ -93,6 +98,7 @@ jobs:
               .github/*) everything=true ;;
               backend/internal/openapi/openapi.yaml) frontend=true ;;
               frontend/*) frontend=true ;;
+              packages/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml) frontend=true ;;
               backend/*|landing/*|docs/*) ;;
               *) everything=true ;;
             esac
@@ -114,16 +120,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       - name: Typecheck
         run: pnpm exec tsc -b --force
@@ -138,16 +145,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       - name: Lint
         run: pnpm lint
@@ -162,16 +170,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       - name: Format check
         run: pnpm format:check
@@ -186,16 +195,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       # TST-12: coverage is collected on every run and made visible without a
       # hard threshold: the text summary lands in the job summary and the lcov
@@ -235,16 +245,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       - name: Build
         env:
@@ -267,16 +278,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       # CI-08/SEC-09: a high or critical npm advisory blocks the PR instead
       # of only ever surfacing through Dependabot after merge. The verdict
@@ -302,16 +314,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       - uses: actions/download-artifact@v8
         with:
@@ -340,16 +353,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       - name: Knip
         run: pnpm knip
