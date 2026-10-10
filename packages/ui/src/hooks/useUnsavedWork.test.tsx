@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, renderHook } from '@testing-library/react';
-import { hasUnsavedWork } from '@/shared/lib/unsavedWork';
+import { hasUnsavedWork } from '../lib/unsavedWork';
 import { useUnsavedWork } from './useUnsavedWork';
 
 /** A screen that does nothing but declare whether it is holding work. */

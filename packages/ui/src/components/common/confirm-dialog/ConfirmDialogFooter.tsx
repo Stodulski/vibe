@@ -1,16 +1,22 @@
 import { Loader2 } from 'lucide-react';
-import { AlertDialogAction, AlertDialogCancel, AlertDialogFooter } from '@/shared/components/ui/alert-dialog';
-import { ES_AR } from '@/shared/i18n/es_AR';
-import { cn } from '@/shared/lib/utils';
+import { AlertDialogAction, AlertDialogCancel, AlertDialogFooter } from '../../ui/alert-dialog';
+import { cn } from '../../../lib/cn';
 
 interface ConfirmDialogFooterProps {
   isDestructive: boolean;
   isLoading: boolean;
+  cancelLabel: string;
   confirmLabel: string;
   onConfirm: () => void;
 }
 
-export function ConfirmDialogFooter({ isDestructive, isLoading, confirmLabel, onConfirm }: ConfirmDialogFooterProps) {
+export function ConfirmDialogFooter({
+  isDestructive,
+  isLoading,
+  cancelLabel,
+  confirmLabel,
+  onConfirm,
+}: ConfirmDialogFooterProps) {
   return (
     <AlertDialogFooter className="mt-6 gap-3 sm:flex-row">
       <AlertDialogCancel
@@ -21,7 +27,7 @@ export function ConfirmDialogFooter({ isDestructive, isLoading, confirmLabel, on
           'transition-colors duration-150',
         )}
       >
-        {ES_AR.common.cancel}
+        {cancelLabel}
       </AlertDialogCancel>
       <AlertDialogAction
         onClick={(e) => {

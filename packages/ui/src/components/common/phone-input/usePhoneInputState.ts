@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { parsePhoneWithPrefix, formatE164 } from '@/shared/lib/phone';
-import { DEFAULT_PHONE_PREFIX } from '@/shared/lib/constants';
+import { parsePhoneWithPrefix, formatE164 } from '../../../lib/phone';
+import { DEFAULT_PHONE_PREFIX } from '../../../lib/constants';
 
 interface UsePhoneInputStateArgs {
   value: string;

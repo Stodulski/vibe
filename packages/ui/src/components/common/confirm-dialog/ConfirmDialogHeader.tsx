@@ -1,6 +1,6 @@
 import { AlertTriangle, Info } from 'lucide-react';
-import { AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/shared/components/ui/alert-dialog';
-import { cn } from '@/shared/lib/utils';
+import { AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '../../ui/alert-dialog';
+import { cn } from '../../../lib/cn';
 
 interface ConfirmDialogHeaderProps {
   isDestructive: boolean;

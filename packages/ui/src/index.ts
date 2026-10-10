@@ -24,3 +24,36 @@ export { StepBreadcrumbs, type Crumb } from './components/common/StepBreadcrumbs
 export { WhatsappIcon } from './components/common/WhatsappIcon';
 
 export { MeshBackdrop } from './components/layout/MeshBackdrop';
+
+export { ConfirmDialog } from './components/common/ConfirmDialog';
+export { PhoneInput } from './components/common/PhoneInput';
+
+export { DEFAULT_PHONE_PREFIX } from './lib/constants';
+export { formatE164, parsePhoneWithPrefix } from './lib/phone';
+export {
+  endsOnALaterDay,
+  formatDateFull,
+  formatDeadline,
+  formatHourRange,
+  formatInstantTime,
+  formatPrice,
+  toDisplayDate,
+} from './lib/format';
+export {
+  MINUTES_PER_DAY,
+  VENUE_TIME_ZONE,
+  minutesInto,
+  overlaps,
+  spanOnDay,
+  startOfDay,
+  toSpan,
+  venueInstant,
+  type Span,
+} from './lib/instants';
+export { addMinutes, generateTimeSlots, parseHhMm, parseYmd, timeToMinutes, type HhMm, type Ymd } from './lib/time';
+export { safeLocalStorage, safeSessionStorage, type SafeStorage } from './lib/safeStorage';
+export { submitHandler, useAppForm } from './lib/form';
+export { useIdempotentMutation, type WithAttemptKey } from './lib/idempotency';
+export { hasUnsavedWork, markUnsavedWork } from './lib/unsavedWork';
+export { useUnsavedWork } from './hooks/useUnsavedWork';
+export { useMediaQuery } from './hooks/useMediaQuery';
