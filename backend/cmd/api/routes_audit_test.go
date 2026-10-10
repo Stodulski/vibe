@@ -23,6 +23,8 @@ var publicRoutes = map[string]string{
 	"GET /api/sitemap.xml":                             "the 301 to the line above, for indexes that still hold the old path",
 	"GET /api/v1/public/prerender/{slug}":              "server-rendered page for social and search crawlers",
 	"GET /api/v1/public/hubs/{city}":                   "server-rendered city listing for search crawlers and people, linked from the sitemap",
+	"GET /api/v1/public/hubs":                          "city hub index as JSON, read anonymously by the public site's server render",
+	"GET /api/v1/public/hubs/{city}/data":              "one city hub as JSON, read anonymously by the public site's server render",
 	"GET /api/v1/public/complexes/{slug}":              "the public booking page for a complex",
 	"GET /api/v1/public/complexes/{slug}/availability": "slot grid on the public booking page",
 	"POST /api/v1/public/leads/abandoned-registration": "captures an email left on the register form " +

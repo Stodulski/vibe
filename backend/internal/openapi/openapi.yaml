@@ -3434,6 +3434,73 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
 
+  /api/v1/public/hubs:
+    get:
+      tags: [publicsite]
+      operationId: publicsiteHubs
+      summary: City hub index
+      description: >-
+        Public. Cross-tenant bypass reason `platform`. Every city that has at least one switched-on complex, sorted by
+        slug, with how many switched-on complexes it lists. The JSON counterpart of the city hub pages: the public site
+        renders its hub index from it. Field names are snake_case, as on the other public documents.
+      security: []
+      responses:
+        "200":
+          description: Every city hub with a switched-on complex. An empty list when there is none.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicHubList"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: The complexes could not be read. Retry after the Retry-After delay.
+          headers:
+            Retry-After:
+              schema: {type: string}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
+  /api/v1/public/hubs/{city}/data:
+    get:
+      tags: [publicsite]
+      operationId: publicsiteCityHubData
+      summary: One city hub as JSON
+      description: >-
+        Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, in the order the
+        HTML hub page lists them. The city is matched exactly as the HTML hub matches it: on its slug, case- and
+        accent-insensitively. Only switched-on complexes are listed.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathCity"}
+      responses:
+        "200":
+          description: One city's hub and its switched-on complexes.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicCityHub"}
+        "404":
+          description: The city has no switched-on complex.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: The complexes could not be read. Retry after the Retry-After delay.
+          headers:
+            Retry-After:
+              schema: {type: string}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
   # ---------------------------------------------------------------------
   # realtime
   # ---------------------------------------------------------------------
@@ -4231,6 +4298,49 @@ components:
             Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as
             `If-Match: "<version>"` or as a `version` body field — and the write is refused with
             409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
+
+    PublicHub:
+      type: object
+      description: One city hub. Its `slug` is the city's URL form; its `name` is the city as its first complex stores it.
+      required: [slug, name, complex_count]
+      properties:
+        slug: {type: string, example: "vicente-lopez"}
+        name: {type: string, example: "Vicente López"}
+        complex_count:
+          type: integer
+          minimum: 0
+          description: How many switched-on complexes the hub lists.
+
+    PublicHubComplex:
+      type: object
+      description: A switched-on complex as its city hub lists it.
+      required: [slug, name, address, city, sports]
+      properties:
+        slug: {type: string}
+        name: {type: string}
+        address: {type: string}
+        city: {type: string, description: "The city as this complex stores it."}
+        sports:
+          type: array
+          description: The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored.
+          items: {type: string}
+
+    PublicHubList:
+      type: object
+      required: [hubs]
+      properties:
+        hubs:
+          type: array
+          items: {$ref: "#/components/schemas/PublicHub"}
+
+    PublicCityHub:
+      type: object
+      required: [hub, complexes]
+      properties:
+        hub: {$ref: "#/components/schemas/PublicHub"}
+        complexes:
+          type: array
+          items: {$ref: "#/components/schemas/PublicHubComplex"}
 
     Schedule:
       type: object

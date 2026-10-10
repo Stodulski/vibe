@@ -593,6 +593,18 @@ func (s *apiServer) PublicsiteCityHub(w http.ResponseWriter, r *http.Request, ci
 	s.app.publicsite.CityHub(w, r)
 }
 
+// PublicsiteHubs implements gen.ServerInterface for publicsiteHubs
+// (GET /api/v1/public/hubs). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) PublicsiteHubs(w http.ResponseWriter, r *http.Request) {
+	s.app.publicsite.HubsJSON(w, r)
+}
+
+// PublicsiteCityHubData implements gen.ServerInterface for publicsiteCityHubData
+// (GET /api/v1/public/hubs/{city}/data). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) PublicsiteCityHubData(w http.ResponseWriter, r *http.Request, city gen.PathCity) {
+	s.app.publicsite.CityHubJSON(w, r)
+}
+
 // ComplexesSlugAvailable implements gen.ServerInterface for complexesSlugAvailable
 // (GET /api/v1/slug-available). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ComplexesSlugAvailable(w http.ResponseWriter, r *http.Request, params gen.ComplexesSlugAvailableParams) {

@@ -82,6 +82,8 @@ var crossTenantRoutes = map[string]string{
 	"GET /api/v1/sitemap.xml":                          "platform: every active slug on the platform, by definition",
 	"GET /api/sitemap.xml":                             "platform: the 301 to the line above; it reads nothing",
 	"GET /api/v1/public/hubs/{city}":                   "platform: every active complex in one city, public listing data only, by definition",
+	"GET /api/v1/public/hubs":                          "platform: every active complex in every city, public listing data only, by definition",
+	"GET /api/v1/public/hubs/{city}/data":              "platform: every active complex in one city, public listing data only, by definition",
 	"POST /api/v1/book":                                "resolves: the public booking flow is handed a complex id and validates it",
 	"GET /api/v1/book/status":                          "resolves: the booking link authenticates by token hash, which yields the booking",
 	"GET /api/v1/book/cancel-info":                     "resolves: same token hash, same booking",

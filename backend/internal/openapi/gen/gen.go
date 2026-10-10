@@ -2293,6 +2293,14 @@ type PublicCancelInfoBookingSport string
 // PublicCancelInfoRefundMethod defines model for PublicCancelInfo.RefundMethod.
 type PublicCancelInfoRefundMethod string
 
+// PublicCityHub defines model for PublicCityHub.
+type PublicCityHub struct {
+	Complexes []PublicHubComplex `json:"complexes"`
+
+	// Hub One city hub. Its `slug` is the city's URL form; its `name` is the city as its first complex stores it.
+	Hub PublicHub `json:"hub"`
+}
+
 // PublicComplex The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state.
 type PublicComplex struct {
 	Address           string   `json:"address"`
@@ -2319,6 +2327,32 @@ type PublicComplex struct {
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
+}
+
+// PublicHub One city hub. Its `slug` is the city's URL form; its `name` is the city as its first complex stores it.
+type PublicHub struct {
+	// ComplexCount How many switched-on complexes the hub lists.
+	ComplexCount int    `json:"complex_count"`
+	Name         string `json:"name"`
+	Slug         string `json:"slug"`
+}
+
+// PublicHubComplex A switched-on complex as its city hub lists it.
+type PublicHubComplex struct {
+	Address string `json:"address"`
+
+	// City The city as this complex stores it.
+	City string `json:"city"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+
+	// Sports The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored.
+	Sports []string `json:"sports"`
+}
+
+// PublicHubList defines model for PublicHubList.
+type PublicHubList struct {
+	Hubs []PublicHub `json:"hubs"`
 }
 
 // RefundOutcome defines model for RefundOutcome.
@@ -3796,9 +3830,15 @@ type ServerInterface interface {
 	// CourtsPublicAvailability The storefront's bookable-slot grid for one day
 	// (GET /api/v1/public/complexes/{slug}/availability)
 	CourtsPublicAvailability(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicAvailabilityParams)
+	// PublicsiteHubs City hub index
+	// (GET /api/v1/public/hubs)
+	PublicsiteHubs(w http.ResponseWriter, r *http.Request)
 	// PublicsiteCityHub Server-rendered city hub
 	// (GET /api/v1/public/hubs/{city})
 	PublicsiteCityHub(w http.ResponseWriter, r *http.Request, city PathCity)
+	// PublicsiteCityHubData One city hub as JSON
+	// (GET /api/v1/public/hubs/{city}/data)
+	PublicsiteCityHubData(w http.ResponseWriter, r *http.Request, city PathCity)
 	// LeadsCaptureAbandonedRegistration Capture an email from a registration that was started but never finished
 	// (POST /api/v1/public/leads/abandoned-registration)
 	LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request)
@@ -6906,6 +6946,20 @@ func (siw *ServerInterfaceWrapper) CourtsPublicAvailability(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// PublicsiteHubs operation middleware
+func (siw *ServerInterfaceWrapper) PublicsiteHubs(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublicsiteHubs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PublicsiteCityHub operation middleware
 func (siw *ServerInterfaceWrapper) PublicsiteCityHub(w http.ResponseWriter, r *http.Request) {
 
@@ -6923,6 +6977,32 @@ func (siw *ServerInterfaceWrapper) PublicsiteCityHub(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PublicsiteCityHub(w, r, city)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PublicsiteCityHubData operation middleware
+func (siw *ServerInterfaceWrapper) PublicsiteCityHubData(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "city" -------------
+	var city PathCity
+
+	err = runtime.BindStyledParameterWithOptions("simple", "city", r.PathValue("city"), &city, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "city", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublicsiteCityHubData(w, r, city)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7375,6 +7455,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/sitemap.xml", wrapper.PublicsiteSitemapMoved)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/prerender/{slug}", wrapper.PublicsitePrerender)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/hubs/{city}", wrapper.PublicsiteCityHub)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/hubs", wrapper.PublicsiteHubs)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/hubs/{city}/data", wrapper.PublicsiteCityHubData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/events", wrapper.RealtimeStream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/stats", wrapper.ReportingGetDashboardStats)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/stats/revenue", wrapper.ReportingGetRevenueChart)
