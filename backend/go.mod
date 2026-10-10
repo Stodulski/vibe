@@ -16,7 +16,7 @@ require (
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/cors v1.11.1
-	github.com/xuri/excelize/v2 v2.11.1-0.20260910071107-696050fbf14e
+	github.com/xuri/excelize/v2 v2.11.1-0.20261003002531-6258dcebc4e2
 	golang.org/x/crypto v0.57.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/time v0.16.0
@@ -52,7 +52,7 @@ require (
 	github.com/speakeasy-api/openapi v1.24.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
-	github.com/xuri/efp v0.0.1 // indirect
+	github.com/xuri/efp v0.0.2 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
