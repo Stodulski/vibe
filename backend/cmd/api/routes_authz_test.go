@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	cashboxstore "github.com/stodulski/vibe-server/internal/cashbox/store"
@@ -32,9 +31,9 @@ import (
 // guard is the right one: it only ever sends an anonymous request, and
 // RequireAuth, RequireComplexOwner and RequireSuperAdmin all reject an
 // anonymous caller with the same 401. Three separate reviewers each replaced a
-// stronger guard with RequireAuth — opening every /api/v1/admin route to any
+// stronger guard with RequireAuth — opening every superadmin route to any
 // registered owner, removing tenant isolation from every complex-scoped route,
-// and exposing the platform audit log — and the suite stayed green.
+// and exposing platform-wide data — and the suite stayed green.
 //
 // The matrix below closes that gap by sending the same request as five
 // different callers and asserting what each one gets back. A guard swapped for
@@ -52,7 +51,7 @@ const (
 	// anonymous carries no credentials at all.
 	anonymous callerClass = iota
 	// authenticated is a logged-in account that owns no complex. It is the
-	// caller a "RequireSuperAdmin -> RequireAuth" slip hands the admin API to.
+	// caller a "RequireSuperAdmin -> RequireAuth" slip hands the platform API to.
 	authenticated
 	// foreignOwner owns a complex, but not the one named in the path. It is
 	// the caller tenant isolation exists for.
@@ -144,8 +143,8 @@ func (p policy) String() string {
 //
 // The superadmin cell on complexOwner is deliberate: RequireComplexOwner
 // compares owner ids and knows nothing about roles, so the platform role does
-// not inherit access to a tenant's data. Platform-wide reads live behind
-// /api/v1/admin instead.
+// not inherit access to a tenant's data. Platform-wide reads are guarded by
+// RequireSuperAdmin, not by ownership.
 func wantStatus(p policy, c callerClass) int {
 	if c == anonymous {
 		return http.StatusUnauthorized
@@ -245,17 +244,6 @@ var routePolicies = map[string]policy{
 	"GET /api/v1/complexes/{id}/reports/export":                                         complexOwner,
 	"POST /api/v1/complexes/{id}/reports/exports":                                       complexOwner,
 	"GET /api/v1/complexes/{id}/reports/exports/{exportID}":                             complexOwner,
-
-	// Platform-wide: every tenant's data, plus the audit log that records who
-	// did what, from which address, to which entity.
-	"GET /api/v1/admin/stats":                      superAdmin,
-	"GET /api/v1/admin/users":                      superAdmin,
-	"GET /api/v1/admin/users/{id}":                 superAdmin,
-	"PATCH /api/v1/admin/users/{id}/toggle-active": superAdmin,
-	"GET /api/v1/admin/complexes":                  superAdmin,
-	"GET /api/v1/admin/complexes/{id}":             superAdmin,
-	"GET /api/v1/admin/audit-log":                  superAdmin,
-	"GET /api/v1/admin/healthcheck":                superAdmin,
 }
 
 // ---------------------------------------------------------------------------
@@ -404,8 +392,6 @@ type authzFixture struct {
 
 	// complexID is the complex named by :id on every complex-scoped route.
 	complexID uuid.UUID
-	// adminUserID is the account named by :id under /api/v1/admin/users.
-	adminUserID uuid.UUID
 	// subResourceID stands in for :courtID, :bookingID, :clientID and :slotID.
 	subResourceID uuid.UUID
 
@@ -493,7 +479,6 @@ func newAuthzFixture(t *testing.T) *authzFixture {
 	fx := &authzFixture{
 		app:           app,
 		complexID:     target.ID,
-		adminUserID:   stranger.ID,
 		subResourceID: uuid.New(),
 		tokens:        make(map[callerClass]string),
 	}
@@ -537,10 +522,6 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	clients, ok := fx.app.models.Clients.(*mockClientStore)
 	if !ok {
 		t.Fatalf("client store is %T, not *mockClientStore", fx.app.models.Clients)
-	}
-	admin, ok := fx.app.models.Admin.(*mockAdminStore)
-	if !ok {
-		t.Fatalf("admin store is %T, not *mockAdminStore", fx.app.models.Admin)
 	}
 	cashbox, ok := fx.app.models.Cashbox.(*mockCashboxStore)
 	if !ok {
@@ -646,15 +627,6 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	}
 	sales.GetByIDFn = func(_ context.Context, _, _ uuid.UUID) (*salestore.Sale, error) { return sale, nil }
 	sales.VoidFn = func(_ context.Context, _, _, _ uuid.UUID, _ *string) (*salestore.Sale, error) { return sale, nil }
-
-	// The admin detail routes read the platform store rather than the tenant
-	// stores, so they need their own records.
-	admin.GetUserDetailFn = func(_ context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error) {
-		return &adminstore.AdminUserDetail{User: &authstore.User{ID: userID, Email: "detail@example.com"}}, nil
-	}
-	admin.GetComplexDetailFn = func(_ context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error) {
-		return &adminstore.AdminComplexDetail{Complex: &complexstore.Complex{ID: complexID}}, nil
-	}
 }
 
 // call issues one request for a route as one caller class and returns the
@@ -699,18 +671,15 @@ func (fx *authzFixture) call(t *testing.T, rt recordedRoute, class callerClass) 
 // an unparseable id or a missing record.
 func (fx *authzFixture) concretePath(path string) string {
 	segments := strings.Split(path, "/")
-	adminUsers := strings.HasPrefix(path, "/api/v1/admin/users/")
 
 	for i, s := range segments {
 		if !strings.HasPrefix(s, "{") || !strings.HasSuffix(s, "}") {
 			continue
 		}
-		switch {
-		case s == "{slug}":
+		switch s {
+		case "{slug}":
 			segments[i] = "complejo-propio"
-		case s == "{id}" && adminUsers:
-			segments[i] = fx.adminUserID.String()
-		case s == "{id}":
+		case "{id}":
 			segments[i] = fx.complexID.String()
 		default:
 			segments[i] = fx.subResourceID.String()

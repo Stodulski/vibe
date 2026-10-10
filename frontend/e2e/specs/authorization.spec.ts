@@ -16,13 +16,4 @@ test.describe('Role-based authorization', () => {
     await expect(page.getByText('No tenés permiso para ver esta página')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('heading', { name: 'Usuarios' })).toHaveCount(0);
   });
-
-  test('an owner navigating to a nested /admin route also sees the forbidden page', async ({
-    authenticatedPage: page,
-  }) => {
-    await page.goto('/admin/users');
-
-    await expect(page).toHaveURL(/\/admin\/users$/, { timeout: 10_000 });
-    await expect(page.getByText('No tenés permiso para ver esta página')).toBeVisible({ timeout: 10_000 });
-  });
 });

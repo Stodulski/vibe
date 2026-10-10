@@ -13,7 +13,6 @@ import { validation } from './es_AR/validation';
 import { navigation } from './es_AR/navigation';
 import { profile } from './es_AR/profile';
 import { layout } from './es_AR/layout';
-import { admin } from './es_AR/admin';
 import { reports } from './es_AR/reports';
 import { cash } from './es_AR/cash';
 import { products } from './es_AR/products';
@@ -34,7 +33,6 @@ export const ES_AR = {
   navigation,
   profile,
   layout,
-  admin,
   reports,
   cash,
   products,

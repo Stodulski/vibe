@@ -4,166 +4,6 @@
  */
 
 export interface paths {
-    "/api/v1/admin/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Platform-wide statistics
-         * @description Superadmin only. Cross-tenant by design (bypass reason `platform`).
-         */
-        get: operations["adminGetStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List platform users
-         * @description Superadmin only. Cross-tenant by design (bypass reason `platform`). Paginated.
-         */
-        get: operations["adminListUsers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a platform user and the complexes they own
-         * @description Superadmin only. Cross-tenant by design (bypass reason `platform`).
-         */
-        get: operations["adminGetUser"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/users/{id}/toggle-active": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Activate or deactivate a platform user
-         * @description Superadmin only. Cross-tenant scope is not granted for this route: it writes `users.is_active` by primary key and touches no tenant table. Refuses to let a superadmin deactivate their own account.
-         */
-        patch: operations["adminToggleUserActive"];
-        trace?: never;
-    };
-    "/api/v1/admin/complexes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List every complex on the platform
-         * @description Superadmin only. Cross-tenant by design (bypass reason `platform`). Paginated.
-         */
-        get: operations["adminListComplexes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/complexes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get one complex with owner and usage figures
-         * @description Superadmin only. Cross-tenant by design (bypass reason `platform`, with no ownership check by design).
-         */
-        get: operations["adminGetComplex"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/audit-log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the platform-wide audit trail
-         * @description Superadmin only. Cross-tenant by design (bypass reason `platform`). Paginated.
-         */
-        get: operations["adminListAuditLog"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/healthcheck": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Detailed health check for operators
-         * @description Superadmin only. Cross-tenant by design (bypass reason `platform`, queue depths are counted across every tenant). Answers `200` with `status: degraded` when Redis or the payments circuit breaker is impaired, and `503` when the database is unreachable.
-         */
-        get: operations["adminGetHealthDetailed"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/complexes/{id}/audit-log": {
         parameters: {
             query?: never;
@@ -1479,6 +1319,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/hubs/{city}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server-rendered city hub
+         * @description Public. Cross-tenant bypass reason `platform`. The switched-on complexes of one city, server-rendered as HTML for search engines and people: each name links to its public page with its address and sports, and the page carries a JSON-LD ItemList of those pages. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed.
+         */
+        get: operations["publicsiteCityHub"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/complexes/{id}/events": {
         parameters: {
             query?: never;
@@ -1824,6 +1684,8 @@ export interface components {
             logo_url?: string | null;
             /** Format: uri */
             cover_url?: string | null;
+            /** @description The owner's plain-text description, or null when none is set. */
+            description?: string | null;
             deposit_percentage: number;
             cancellation_hours: number;
             /** Format: double */
@@ -1864,6 +1726,8 @@ export interface components {
             logo_url?: string;
             /** Format: uri */
             cover_url?: string;
+            /** @description The owner's plain-text description. Omitted when none is set. */
+            description?: string;
             deposit_percentage: number;
             cancellation_hours: number;
             /** Format: double */
@@ -2392,48 +2256,6 @@ export interface components {
             /** @description Present only when the slug is taken and a free alternative was found. */
             suggestion?: string;
         };
-        PlatformStats: {
-            total_users: number;
-            active_users: number;
-            new_users_month: number;
-            total_complexes: number;
-            new_complexes_month: number;
-            total_courts: number;
-            total_bookings: number;
-            /** @description Centavos ARS. */
-            total_revenue: number;
-        };
-        AdminUserRow: {
-            /** Format: uuid */
-            id: string;
-            email: string;
-            first_name: string;
-            last_name: string;
-            phone: string;
-            /** @enum {string} */
-            role: "owner" | "client" | "superadmin";
-            is_active: boolean;
-            email_verified: boolean;
-            /** Format: date-time */
-            created_at: string;
-            complex_count: number;
-        };
-        AdminComplexRow: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            owner_id: string;
-            owner_name: string;
-            owner_email: string;
-            name: string;
-            slug: string;
-            city: string;
-            is_active: boolean;
-            mp_connected: boolean;
-            courts_count: number;
-            /** Format: date-time */
-            created_at: string;
-        };
         /** @description Every pointer field lacks `omitempty` in Go, so an absent value serializes as JSON `null`, not as an absent key. */
         AuditLogRow: {
             /** Format: uuid */
@@ -2485,36 +2307,6 @@ export interface components {
             version: string;
             /** @description Present only when non-empty. */
             impaired?: ("database" | "cache" | "payments")[];
-        };
-        HealthDetailed: {
-            /** @enum {string} */
-            status: "available" | "degraded";
-            version: string;
-            environment: string;
-            /** @description Dependency name to state, plus merged db_pool_*\/redis_pool_* figures. */
-            dependencies: {
-                [key: string]: string;
-            };
-            impaired?: ("database" | "cache" | "payments")[];
-            /** @description Per external dependency (mercadopago, whatsapp, mailer) to circuit state. */
-            breakers?: {
-                [key: string]: "closed" | "open" | "half-open";
-            };
-            /** @description Process counters (request volume, latency, goroutines, notifier queue depths). Shape not fixed. */
-            metrics?: {
-                [key: string]: unknown;
-            };
-            queues?: components["schemas"]["QueueStats"][];
-            /** @description Present only when the queue-stats query itself failed. Does not fail the whole health check. */
-            queues_error?: string;
-        };
-        QueueStats: {
-            /** @example webhook_events */
-            name: string;
-            pending: number;
-            processing: number;
-            exhausted: number;
-            oldest_due_seconds: number;
         };
         PlaceDetails: {
             address: string;
@@ -2754,6 +2546,7 @@ export interface components {
         /** @description Complex id. */
         PathID: string;
         PathSlug: string;
+        PathCity: string;
         BookingID: string;
         CourtID: string;
         /** @description Cash session id. */
@@ -2782,323 +2575,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    adminGetStats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Platform statistics. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        stats: components["schemas"]["PlatformStats"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    adminListUsers: {
-        parameters: {
-            query?: {
-                search?: string;
-                role?: "owner" | "client" | "superadmin";
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of users. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        users: components["schemas"]["AdminUserRow"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Malformed cursor. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    adminGetUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The user and the complex they own, at most one. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                        /** @description At most one item, since one account owns at most one complex. */
-                        complexes: components["schemas"]["Complex"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    adminToggleUserActive: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /**
-                     * @description Omitting it deactivates the account, same as sending false.
-                     * @default false
-                     */
-                    is_active?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description The user was updated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example user updated */
-                        message: string;
-                    };
-                };
-            };
-            /** @description Malformed request body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The caller tried to change their own account status. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    adminListComplexes: {
-        parameters: {
-            query?: {
-                search?: string;
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of complexes. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        complexes: components["schemas"]["AdminComplexRow"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Malformed cursor. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    adminGetComplex: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The complex plus derived figures. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        complex: components["schemas"]["Complex"];
-                        owner_name: string;
-                        owner_email: string;
-                        courts_count: number;
-                        clients_count: number;
-                        bookings_count: number;
-                        /** @description Centavos ARS. */
-                        total_revenue: number;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    adminListAuditLog: {
-        parameters: {
-            query?: {
-                entity_type?: string;
-                complex_id?: string;
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of audit log rows. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        audit_logs: components["schemas"]["AuditLogRow"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Malformed `complex_id` or cursor. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    adminGetHealthDetailed: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The process is available, possibly degraded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthDetailed"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            /** @description The database is unreachable, this instance should be pulled from rotation. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthDetailed"];
-                };
-            };
-        };
-    };
     auditListComplexLog: {
         parameters: {
             query?: {
@@ -5080,6 +4556,8 @@ export interface operations {
                     email?: string;
                     logo_url?: string;
                     cover_url?: string;
+                    /** @description Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it. */
+                    description?: string;
                     deposit_percentage?: number;
                     cancellation_hours?: number;
                     is_active?: boolean;
@@ -6685,6 +6163,50 @@ export interface operations {
             };
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
+        };
+    };
+    publicsiteCityHub: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                city: components["parameters"]["PathCity"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description City hub page. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description The city has no switched-on complex. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description The complexes could not be read. Retry after the Retry-After delay. */
+            503: {
+                headers: {
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     realtimeStream: {

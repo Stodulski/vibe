@@ -64,17 +64,10 @@ async function withPersistedSession(
   await context.close();
 }
 
-export const test = base.extend<{ authenticatedPage: Page; adminPage: Page }>({
+export const test = base.extend<{ authenticatedPage: Page }>({
   authenticatedPage: async ({ browser }, use, testInfo) => {
     const sessionIndex = testInfo.parallelIndex % OWNER_SESSION_POOL_SIZE;
     await withPersistedSession(browser, `e2e/.auth/owner-${String(sessionIndex)}.json`, '/dashboard', use);
-  },
-
-  // The single TEST_ADMIN (superadmin) session — one file is enough since
-  // admin specs are few and never race the owner pool's refresh token (a
-  // wholly different account, session and user).
-  adminPage: async ({ browser }, use) => {
-    await withPersistedSession(browser, 'e2e/.auth/admin.json', '/admin', use);
   },
 });
 

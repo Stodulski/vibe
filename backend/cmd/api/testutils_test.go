@@ -119,7 +119,6 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize fun
 		WebhookEvents:     &mockWebhookEventStore{},
 		SlotLocks:         &mockSlotLockStore{},
 		Reports:           &mockReportStore{},
-		Admin:             &mockAdminStore{},
 		Audit:             &mockAuditStore{},
 		Locks:             &mockLockStore{},
 	}

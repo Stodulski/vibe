@@ -17,19 +17,15 @@ type stubPinger struct{ err error }
 
 func (s stubPinger) Ping(context.Context) error { return s.err }
 
-type stubPool struct{ stats map[string]int64 }
-
-func (s stubPool) PoolStats() map[string]int64 { return s.stats }
-
 func newResponder() *httpx.Responder {
 	return httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 }
 
-func newHandler(database, cache Pinger, dbPool, cachePool PoolReporter) *Handler {
+func newHandler(database, cache Pinger) *Handler {
 	return NewHandler(Dependencies{
-		Database: database, Cache: cache, DBPool: dbPool, CachePool: cachePool,
+		Database: database, Cache: cache,
 		Respond: newResponder(),
-	}, Config{Environment: "test", Version: "1.0.0"})
+	}, Config{Version: "1.0.0"})
 }
 
 func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
@@ -42,7 +38,7 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 }
 
 func TestCheckReportsAvailableWhenEverythingResponds(t *testing.T) {
-	h := newHandler(stubPinger{}, stubPinger{}, nil, nil)
+	h := newHandler(stubPinger{}, stubPinger{})
 
 	w := httptest.NewRecorder()
 	h.Check(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
@@ -58,7 +54,7 @@ func TestCheckReportsAvailableWhenEverythingResponds(t *testing.T) {
 // An unreachable database means the instance cannot serve, so it must answer
 // 503 and be pulled from the balancer.
 func TestUnreachableDatabaseTakesTheInstanceOutOfRotation(t *testing.T) {
-	h := newHandler(stubPinger{err: errors.New("connection refused")}, stubPinger{}, nil, nil)
+	h := newHandler(stubPinger{err: errors.New("connection refused")}, stubPinger{})
 
 	w := httptest.NewRecorder()
 	h.Check(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
@@ -74,7 +70,7 @@ func TestUnreachableDatabaseTakesTheInstanceOutOfRotation(t *testing.T) {
 // Redis is optional — the application falls back to in-memory behaviour — so
 // losing it must not answer 503 and pull every instance at once.
 func TestUnreachableCacheDegradesButKeepsServing(t *testing.T) {
-	h := newHandler(stubPinger{}, stubPinger{err: errors.New("i/o timeout")}, nil, nil)
+	h := newHandler(stubPinger{}, stubPinger{err: errors.New("i/o timeout")})
 
 	w := httptest.NewRecorder()
 	h.Check(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
@@ -89,10 +85,10 @@ func TestUnreachableCacheDegradesButKeepsServing(t *testing.T) {
 
 // Running without Redis at all is a supported deployment, not a fault.
 func TestAbsentCacheIsNotAFailure(t *testing.T) {
-	h := newHandler(stubPinger{}, nil, nil, nil)
+	h := newHandler(stubPinger{}, nil)
 
 	w := httptest.NewRecorder()
-	h.Detailed(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	h.Check(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
 	if w.Code != http.StatusOK {
 		t.Errorf("want 200; got %d", w.Code)
@@ -102,15 +98,14 @@ func TestAbsentCacheIsNotAFailure(t *testing.T) {
 	if body["status"] != statusAvailable {
 		t.Errorf("want %q; got %v", statusAvailable, body["status"])
 	}
-	deps, _ := body["dependencies"].(map[string]any)
-	if deps["redis"] != stateNotConfigured {
-		t.Errorf("want %q; got %v", stateNotConfigured, deps["redis"])
+	if _, present := body["impaired"]; present {
+		t.Errorf("an absent cache must not be reported as impaired; got %v", body["impaired"])
 	}
 }
 
-// The public probe must not disclose pool figures or the environment name.
+// The public probe must not disclose dependency states or the environment name.
 func TestPublicCheckExposesOnlyStatusAndVersion(t *testing.T) {
-	h := newHandler(stubPinger{}, stubPinger{}, stubPool{map[string]int64{"total": 25}}, nil)
+	h := newHandler(stubPinger{}, stubPinger{})
 
 	w := httptest.NewRecorder()
 	h.Check(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
@@ -126,45 +121,6 @@ func TestPublicCheckExposesOnlyStatusAndVersion(t *testing.T) {
 	}
 }
 
-func TestDetailedIncludesPoolFigures(t *testing.T) {
-	h := newHandler(
-		stubPinger{}, stubPinger{},
-		stubPool{map[string]int64{"total": 25, "idle": 10}},
-		stubPool{map[string]int64{"hits": 100}},
-	)
-
-	w := httptest.NewRecorder()
-	h.Detailed(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
-
-	deps, _ := decode(t, w)["dependencies"].(map[string]any)
-	for key, want := range map[string]string{
-		"db_pool_total":   "25",
-		"db_pool_idle":    "10",
-		"redis_pool_hits": "100",
-	} {
-		if deps[key] != want {
-			t.Errorf("want %s = %s; got %v", key, want, deps[key])
-		}
-	}
-}
-
-func TestDetailedOmitsPoolFiguresWhenUnavailable(t *testing.T) {
-	h := newHandler(stubPinger{}, stubPinger{}, nil, nil)
-
-	w := httptest.NewRecorder()
-	h.Detailed(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
-
-	deps, _ := decode(t, w)["dependencies"].(map[string]any)
-	for key := range deps {
-		if len(key) > 5 && key[len(key)-5:] == "_pool" {
-			t.Errorf("unexpected pool key %q with no pooler wired", key)
-		}
-	}
-	if deps["database"] != stateOK {
-		t.Errorf("the dependency states must still be reported; got %v", deps["database"])
-	}
-}
-
 // TestLiveAnswersWhileEveryDependencyIsDown is the separation this endpoint
 // exists for. With one endpoint doing both jobs, a database outage marked the
 // process dead and the platform restarted every replica — turning an outage
@@ -172,7 +128,7 @@ func TestDetailedOmitsPoolFiguresWhenUnavailable(t *testing.T) {
 // could not.
 func TestLiveAnswersWhileEveryDependencyIsDown(t *testing.T) {
 	down := stubPinger{err: errors.New("connection refused")}
-	h := newHandler(down, down, nil, nil)
+	h := newHandler(down, down)
 
 	w := httptest.NewRecorder()
 	h.Live(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/livez", nil))
@@ -189,7 +145,7 @@ func TestLiveAnswersWhileEveryDependencyIsDown(t *testing.T) {
 // every few seconds must not open a database connection to answer.
 func TestLiveProbesNothing(t *testing.T) {
 	probe := &countingPinger{}
-	h := newHandler(probe, probe, nil, nil)
+	h := newHandler(probe, probe)
 
 	w := httptest.NewRecorder()
 	h.Live(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/livez", nil))

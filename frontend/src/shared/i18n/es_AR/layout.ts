@@ -15,5 +15,8 @@ export const layout = {
   notFoundDescription: 'La página que buscás no existe.',
   forbiddenTitle: 'No tenés permiso para ver esta página',
   forbiddenDescription: 'Si te parece que es un error, contactá al administrador de tu complejo.',
+  adminPlaceholderTitle: 'Panel admin',
+  adminPlaceholderEmptyTitle: 'En construcción',
+  adminPlaceholderDescription: 'Estamos rearmando este panel.',
   offline: 'Sin conexión a internet',
 } as const;

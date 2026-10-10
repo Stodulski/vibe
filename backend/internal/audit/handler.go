@@ -21,8 +21,8 @@ const defaultPageSize = 50
 // Reader is the read side of the trail this package writes.
 //
 // It is declared here, by the consumer, for the same reason Store is: the
-// endpoint needs one query, and should not depend on everything the admin
-// store happens to expose.
+// endpoint needs one query, and should not depend on everything the store
+// happens to expose.
 type Reader interface {
 	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string,
 		filters data.Filters) ([]*auditstore.AuditLogRow, data.Metadata, error)

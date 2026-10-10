@@ -12,23 +12,9 @@ export const adminRoutes: RouteObject[] = [
     children: [
       {
         path: '/admin',
-        element: ownerPage(() => import('@/features/admin/pages/AdminDashboardPage')),
-      },
-      {
-        path: '/admin/users',
-        element: ownerPage(() => import('@/features/admin/pages/AdminUsersPage')),
-      },
-      {
-        path: '/admin/users/:id',
-        element: ownerPage(() => import('@/features/admin/pages/AdminUserDetailPage')),
-      },
-      {
-        path: '/admin/complexes',
-        element: ownerPage(() => import('@/features/admin/pages/AdminComplexesPage')),
-      },
-      {
-        path: '/admin/complexes/:id',
-        element: ownerPage(() => import('@/features/admin/pages/AdminComplexDetailPage')),
+        element: ownerPage(() =>
+          import('@/app/router/AdminPlaceholderPage').then((m) => ({ default: m.AdminPlaceholderPage })),
+        ),
       },
     ],
   },

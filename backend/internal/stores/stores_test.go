@@ -31,5 +31,4 @@ func TestModels_InterfacesAreDefined(t *testing.T) {
 	var _ = m.PasswordReset
 	var _ = m.FailedRefunds
 	var _ = m.SlotLocks
-	var _ = m.Admin
 }

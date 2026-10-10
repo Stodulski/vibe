@@ -47,17 +47,6 @@ describe('AdminSidebar', () => {
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
 
-  it('renders admin navigation items', () => {
-    render(
-      <MemoryRouter>
-        <AdminSidebar isMobile />
-      </MemoryRouter>,
-    );
-    expect(screen.getByText('Panel admin')).toBeInTheDocument();
-    expect(screen.getByText('Usuarios')).toBeInTheDocument();
-    expect(screen.getByText('Complejos')).toBeInTheDocument();
-  });
-
   it('renders Vibe Admin brand', () => {
     render(
       <MemoryRouter>
@@ -83,14 +72,5 @@ describe('AdminSidebar', () => {
       </MemoryRouter>,
     );
     expect(screen.getByLabelText('Barra lateral')).toBeInTheDocument();
-  });
-
-  it('renders main navigation with aria-label', () => {
-    render(
-      <MemoryRouter>
-        <AdminSidebar isMobile />
-      </MemoryRouter>,
-    );
-    expect(screen.getByLabelText('Navegación principal')).toBeInTheDocument();
   });
 });

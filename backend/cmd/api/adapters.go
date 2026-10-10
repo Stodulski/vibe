@@ -8,11 +8,9 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
@@ -31,7 +29,8 @@ import (
 // root, because that is the only place that should know which database driver
 // or cache client the application actually uses.
 
-// dbProbe adapts the Postgres pool to health.Pinger and health.PoolReporter.
+// dbProbe adapts the Postgres pool to health.Pinger. Its PoolStats figures are
+// what the cron run logs.
 type dbProbe struct{ pool *platformdb.Pool }
 
 func (p dbProbe) Ping(ctx context.Context) error {
@@ -64,9 +63,9 @@ func (p dbProbe) PoolStats() map[string]int64 {
 	}
 }
 
-// redisProbe adapts the Redis client to the same two interfaces. go-redis
-// returns a command rather than an error, which is why this cannot satisfy
-// health.Pinger directly.
+// redisProbe adapts the Redis client to health.Pinger. go-redis returns a
+// command rather than an error, which is why this cannot satisfy health.Pinger
+// directly.
 type redisProbe struct{ rdb *platformredis.Client }
 
 func (p redisProbe) Ping(ctx context.Context) error {
@@ -74,18 +73,6 @@ func (p redisProbe) Ping(ctx context.Context) error {
 		return fmt.Errorf("redis probe: ping: %w", err)
 	}
 	return nil
-}
-
-func (p redisProbe) PoolStats() map[string]int64 {
-	s := p.rdb.PoolStats()
-	return map[string]int64{
-		"hits":     int64(s.Hits),
-		"misses":   int64(s.Misses),
-		"timeouts": int64(s.Timeouts),
-		"total":    int64(s.TotalConns),
-		"idle":     int64(s.IdleConns),
-		"stale":    int64(s.StaleConns),
-	}
 }
 
 // healthProbes returns the probes for whatever infrastructure is configured.
@@ -97,25 +84,23 @@ func (p redisProbe) PoolStats() map[string]int64 {
 // A free function rather than a method on *application: newApplication builds
 // this before app.db/app.rdb are published, and a method would have to read
 // those fields — the back-reference the composition root exists to remove.
-func healthProbes(db *platformdb.Pool, rdb *platformredis.Client) (database, cache health.Pinger, dbPool, cachePool health.PoolReporter) {
+func healthProbes(db *platformdb.Pool, rdb *platformredis.Client) (database, cache health.Pinger) {
 	if db != nil {
-		probe := dbProbe{pool: db}
-		database, dbPool = probe, probe
+		database = dbProbe{pool: db}
 	}
 	if rdb != nil {
-		probe := redisProbe{rdb: rdb}
-		cache, cachePool = probe, probe
+		cache = redisProbe{rdb: rdb}
 	}
-	return database, cache, dbPool, cachePool
+	return database, cache
 }
 
 // userCache adapts the middleware's cached-user store to the narrow
-// invalidation interface the admin module asks for.
+// invalidation interface auth.UserCache asks for.
 //
 // It holds *middleware.Middleware directly rather than *application: the
 // former is what newApplication builds this from, and holding the latter
-// would compile no matter which order middleware and admin were built in,
-// defeating the point of building admin from a local.
+// would compile no matter which order middleware and auth were built in,
+// defeating the point of building auth from a local.
 type userCache struct{ mw *middleware.Middleware }
 
 func (c userCache) InvalidateUser(ctx context.Context, id uuid.UUID) {
@@ -250,59 +235,8 @@ type breakerProbe struct {
 	blocksRevenue bool
 }
 
-func (b breakerProbe) Name() string        { return b.cb.Name() }
 func (b breakerProbe) State() string       { return b.cb.State().String() }
 func (b breakerProbe) BlocksRevenue() bool { return b.blocksRevenue }
-
-// processMetrics is the process's own counters, gathered for the detailed
-// health endpoint.
-//
-// Three sources are merged because they were each unreachable on their own:
-// the request middleware's counters (new), the runtime's goroutine and heap
-// figures, and the expvar variables the notifier already publishes — which
-// were computed on every deployment and served only when the environment was
-// "development".
-type processMetrics struct{ app *application }
-
-func (p processMetrics) Metrics() map[string]any {
-	out := map[string]any{}
-
-	if p.app.middleware != nil {
-		for key, value := range p.app.middleware.Metrics() {
-			out[key] = value
-		}
-	}
-
-	var mem runtime.MemStats
-	runtime.ReadMemStats(&mem)
-	out["goroutines"] = int64(runtime.NumGoroutine())
-	// G115: heap size and object count are process facts bounded by the
-	// machine's memory, many orders of magnitude below the int64 ceiling; the
-	// conversion exists only because runtime reports them unsigned.
-	out["heap_alloc_bytes"] = int64(mem.HeapAlloc) //nolint:gosec
-	out["heap_objects"] = int64(mem.HeapObjects)   //nolint:gosec
-	out["gc_cycles"] = int64(mem.NumGC)
-	out["uptime_seconds"] = int64(time.Since(processStart).Seconds())
-
-	// expvar's own "memstats" and "cmdline" are deliberately skipped: the first
-	// duplicates the fields above at ten times the size, and the second is the
-	// process command line, which on this deployment carries flag-supplied
-	// secrets.
-	expvar.Do(func(kv expvar.KeyValue) {
-		switch kv.Key {
-		case "memstats", "cmdline":
-			return
-		}
-		out["expvar_"+kv.Key] = json.RawMessage(kv.Value.String())
-	})
-
-	return out
-}
-
-// processStart is when this process booted, so uptime_seconds can distinguish
-// "the counters are zero because nothing is happening" from "the counters are
-// zero because we restarted ninety seconds ago".
-var processStart = time.Now()
 
 // queueProbe reports the backlog of the two durable work queues.
 //

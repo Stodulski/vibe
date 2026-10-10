@@ -1,11 +1,11 @@
 // Package store persists and reads the audit trail: who changed what, when,
 // and from where.
 //
-// It is its own store rather than a corner of the admin one because the two
-// have no caller in common any more. The trail is written by every module
-// through internal/audit's recorder, and read by both the platform-wide admin
-// view and a venue's own trail — while the rest of the admin store is read by
-// nobody but the platform operator.
+// It is its own store rather than a corner of a larger one, because the trail
+// has callers of its own. Every module writes it through internal/audit's
+// recorder, and a venue reads its own trail through the tenant endpoint. The
+// platform-level rows (no complex) have no reader until the admin area is
+// rebuilt.
 package store
 
 import (
@@ -19,7 +19,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
-// AuditLogRow represents an audit log entry for admin listing.
+// AuditLogRow represents an audit log entry for the tenant listing.
 type AuditLogRow struct {
 	ID         uuid.UUID  `json:"id"`
 	UserID     *uuid.UUID `json:"user_id"`
@@ -43,10 +43,12 @@ type Store struct {
 // listAuditLogsSQL is the audit-log page query.
 //
 // It is a constant rather than a literal inside the method so the plan assertion
-// in admin_integration_test.go can EXPLAIN the exact statement this store issues.
-// Its unscoped form — complex_id NULL, the default superadmin view — is served by
-// idx_audit_log_created_at; before that index existed it seq-scanned
-// the whole table and blew past the QueryContext budget at roughly 372,000 rows.
+// in audit_plans_integration_test.go can EXPLAIN the exact statement this store
+// issues. Its unscoped form — complex_id NULL, the platform-level rows that
+// belong to no complex — is served by idx_audit_log_created_at; before that
+// index existed it seq-scanned the whole table and blew past the QueryContext
+// budget at roughly 372,000 rows. No route reads that unscoped form today: the
+// superadmin view that did was removed, and it waits for the admin rebuild.
 const listAuditLogsSQL = `
 	SELECT a.id, a.user_id, u.email, a.complex_id, a.action, a.entity_type,
 	       a.entity_id, a.ip_address::text, a.created_at

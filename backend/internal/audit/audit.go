@@ -26,7 +26,7 @@ import (
 const writeTimeout = 5 * time.Second
 
 // Store is the persistence this package needs. It is declared here, by the
-// consumer, so that adding a method to the admin store does not widen what
+// consumer, so that adding a method to the store does not widen what
 // auditing depends on.
 //
 // oldVal and newVal arrive already encoded. The store persists bytes it is

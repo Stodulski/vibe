@@ -90,7 +90,6 @@ describe('public complex URLs', () => {
     // Multi-segment platform routes whose second segment is a plain word,
     // the shape a legacy `/:slug/book` would have to share to collide.
     '/cash/sell',
-    '/admin/users',
     '/settings/mp/callback',
     '/register/google',
     '/auth/google/callback',

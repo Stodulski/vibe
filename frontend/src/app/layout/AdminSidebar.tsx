@@ -2,7 +2,6 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { AdminBrand } from '@/shared/components/layout/admin-sidebar/AdminBrand';
-import { AdminNav } from '@/shared/components/layout/admin-sidebar/AdminNav';
 import { AdminUserMenu } from './admin-sidebar/AdminUserMenu';
 
 const t = ES_AR;
@@ -33,8 +32,6 @@ export function AdminSidebar({ onNavigate, isMobile = false }: AdminSidebarProps
           <AdminBrand />
         </div>
       )}
-      <AdminNav collapsed={collapsed} isMobile={isMobile} onNavigate={onNavigate} />
-
       <AdminUserMenu user={user} collapsed={collapsed} isMobile={isMobile} onNavigate={onNavigate} />
     </aside>
   );

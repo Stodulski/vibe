@@ -26,7 +26,7 @@ Three layout groups in `src/app/router.tsx`, all pages lazy-loaded:
 
 - **Auth pages** (no layout): `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`
 - **Owner dashboard** (`DashboardLayout`): `/dashboard`, `/bookings`, `/courts`, `/clients`, `/reports`, `/settings`, `/profile`
-- **Admin** (`AdminLayout`, superadmin only): `/admin/*`
+- **Admin** (`AdminLayout`, superadmin only): `/admin` only, a placeholder (`AdminPlaceholderPage`) while the admin area is rebuilt from scratch
 - **Public booking** (`PublicLayout`): `/:slug`, `/:slug/book/*`
 
 ### Feature Module Pattern

@@ -312,11 +312,10 @@ const invalidateAttempts = 3
 //
 // A failed delete is retried, because a single DEL against a Redis that
 // dropped one connection is not an answer. What it still cannot do is tell the
-// caller: the InvalidateUser method on the cache interfaces in internal/auth
-// and internal/admin returns nothing, so a caller has no way to refuse to
-// deactivate an account it could not evict. Giving it an error return is the
-// follow-up; it is a signature change across two packages this change does not
-// own.
+// caller: the InvalidateUser method on the cache interface in internal/auth
+// returns nothing, so a caller has no way to refuse to deactivate an account it
+// could not evict. Giving it an error return is the follow-up; it is a
+// signature change in internal/auth that this change does not own.
 //
 // This is the one cache operation whose failures are reported every time
 // rather than through the throttle the read and write paths use. The two

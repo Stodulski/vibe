@@ -9,7 +9,6 @@ export { SecurityForm } from './components/SecurityForm';
 export { GoogleCompleteForm } from './components/GoogleCompleteForm';
 
 export { useLogout } from './hooks/useLogout';
-export { useAuth } from './hooks/useAuth';
 export { useCrossTabLogout } from './hooks/useCrossTabLogout';
 
 export { authApi } from './api/auth.api';

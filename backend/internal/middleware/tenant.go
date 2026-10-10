@@ -45,8 +45,8 @@ import (
 //	by-owner    the scope is the logged-in user's own account, across whichever
 //	            complexes belong to it, so it is a user filter and not a
 //	            complex one.
-//	platform    the route exists to look across tenants (the superadmin
-//	            console), or writes a platform-level row with no complex at all.
+//	platform    the route looks across tenants, or writes a platform-level row
+//	            with no complex at all.
 var crossTenantRoutes = map[string]string{
 	// platform — the auth routes write audit_log rows whose complex_id is
 	// deliberately NULL (internal/auth/trail.go), and none of them knows a
@@ -89,16 +89,6 @@ var crossTenantRoutes = map[string]string{
 
 	// resolves — MercadoPago arrives with a payment id and nothing else.
 	"POST /api/v1/webhooks/mercadopago": "resolves: the tenant is found from the payment's external reference",
-
-	// platform — the superadmin console exists to see across tenants.
-	"GET /api/v1/admin/stats":                      "platform: aggregates across every tenant",
-	"GET /api/v1/admin/users":                      "platform: the operator's user list",
-	"GET /api/v1/admin/users/{id}":                 "platform: the operator's user detail, with that user's complexes",
-	"PATCH /api/v1/admin/users/{id}/toggle-active": "platform: the operator suspends an account",
-	"GET /api/v1/admin/complexes":                  "platform: the operator's complex list",
-	"GET /api/v1/admin/complexes/{id}":             "platform: the operator's complex detail, with no ownership check by design",
-	"GET /api/v1/admin/audit-log":                  "platform: the operator's audit trail, optionally filtered to one complex",
-	"GET /api/v1/admin/healthcheck":                "platform: queue depths counted across every tenant",
 }
 
 // CrossTenantRoutes returns the routes whose database session crosses tenants,

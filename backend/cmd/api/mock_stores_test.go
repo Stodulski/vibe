@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
@@ -1188,62 +1187,7 @@ func (m *mockWebhookEventStore) DeleteProcessed(ctx context.Context, olderThan t
 }
 
 // ---------------------------------------------------------------------------
-// mockAdminStore
-// ---------------------------------------------------------------------------
-
-type mockAdminStore struct {
-	GetPlatformStatsFn func(ctx context.Context) (*adminstore.PlatformStats, error)
-	ListUsersFn        func(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*adminstore.AdminUserRow, data.Metadata, error)
-	GetUserDetailFn    func(ctx context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error)
-	ListComplexesFn    func(ctx context.Context, search string, filters data.Filters) ([]*adminstore.AdminComplexRow, data.Metadata, error)
-	GetComplexDetailFn func(ctx context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error)
-	ToggleUserActiveFn func(ctx context.Context, userID uuid.UUID, isActive bool) error
-}
-
-func (m *mockAdminStore) GetPlatformStats(ctx context.Context) (*adminstore.PlatformStats, error) {
-	if m.GetPlatformStatsFn != nil {
-		return m.GetPlatformStatsFn(ctx)
-	}
-	return &adminstore.PlatformStats{}, nil
-}
-
-func (m *mockAdminStore) ListUsers(ctx context.Context, search, roleFilter string, filters data.Filters) ([]*adminstore.AdminUserRow, data.Metadata, error) {
-	if m.ListUsersFn != nil {
-		return m.ListUsersFn(ctx, search, roleFilter, filters)
-	}
-	return nil, data.Metadata{}, nil
-}
-
-func (m *mockAdminStore) GetUserDetail(ctx context.Context, userID uuid.UUID) (*adminstore.AdminUserDetail, error) {
-	if m.GetUserDetailFn != nil {
-		return m.GetUserDetailFn(ctx, userID)
-	}
-	return nil, data.ErrRecordNotFound
-}
-
-func (m *mockAdminStore) ListComplexes(ctx context.Context, search string, filters data.Filters) ([]*adminstore.AdminComplexRow, data.Metadata, error) {
-	if m.ListComplexesFn != nil {
-		return m.ListComplexesFn(ctx, search, filters)
-	}
-	return nil, data.Metadata{}, nil
-}
-
-func (m *mockAdminStore) GetComplexDetail(ctx context.Context, complexID uuid.UUID) (*adminstore.AdminComplexDetail, error) {
-	if m.GetComplexDetailFn != nil {
-		return m.GetComplexDetailFn(ctx, complexID)
-	}
-	return nil, data.ErrRecordNotFound
-}
-
-func (m *mockAdminStore) ToggleUserActive(ctx context.Context, userID uuid.UUID, isActive bool) error {
-	if m.ToggleUserActiveFn != nil {
-		return m.ToggleUserActiveFn(ctx, userID, isActive)
-	}
-	return nil
-}
-
-// ---------------------------------------------------------------------------
-// mockAuditStore — the trail, split out of the admin store
+// mockAuditStore — the trail the writing modules record into and a venue reads back
 // ---------------------------------------------------------------------------
 
 type mockAuditStore struct{}

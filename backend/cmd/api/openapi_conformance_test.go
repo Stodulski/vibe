@@ -389,12 +389,6 @@ func TestOpenAPIConformance_OptionalFieldsMayBeOmitted(t *testing.T) {
 				`"city":"Buenos Aires","province":"Buenos Aires","phone":"+5491198765432","cancellation_hours":24}`,
 		},
 		{
-			name:   "toggle user active without is_active",
-			method: http.MethodPatch,
-			path:   "/api/v1/admin/users/" + uuid.New().String() + "/toggle-active",
-			body:   `{}`,
-		},
-		{
 			name:   "update schedules without is_closed",
 			method: http.MethodPut,
 			path:   "/api/v1/complexes/" + uuid.New().String() + "/schedules",
