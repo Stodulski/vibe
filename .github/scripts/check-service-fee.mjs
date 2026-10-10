@@ -78,8 +78,8 @@ const SITES = [
     }),
   },
   {
-    label: 'frontend — client-side estimate before the backend quotes',
-    file: 'frontend/src/features/public-booking/components/booking-form/pricing.ts',
+    label: 'booking — client-side estimate before the backend quotes',
+    file: 'packages/booking/src/components/booking-form/pricing.ts',
     read: (s, f) => ({
       amountCentavos: fromCentavos(
         capture(s, f, /^const SERVICE_FEE_FALLBACK_CENTAVOS = ([\d_]+);$/m, 'SERVICE_FEE_FALLBACK_CENTAVOS'),

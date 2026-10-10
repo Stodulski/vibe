@@ -11,7 +11,7 @@ on:
     branches: [main]
     paths:
       - backend/internal/pricing/pricing.go
-      - frontend/src/features/public-booking/components/booking-form/pricing.ts
+      - packages/booking/src/components/booking-form/pricing.ts
       - frontend/src/shared/i18n/es_AR/serviceFee.ts
       - landing/src/data/precio.ts
       - landing/src/pages/terminos.astro
