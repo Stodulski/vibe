@@ -5,7 +5,7 @@ import type { BookingConfig } from '@/features/public-booking/config';
 import { createBookingQueryClient } from '@/features/public-booking/lib/bookingQueryClient';
 
 /** Matches the MSW handlers, which answer under `VITE_API_URL` of the vitest config. */
-export const TEST_BOOKING_CONFIG: BookingConfig = {
+const TEST_BOOKING_CONFIG: BookingConfig = {
   apiBaseUrl: 'http://localhost/api/v1',
   publicSiteUrl: 'http://localhost',
   privacyUrl: 'https://vibe.com.ar/privacidad',

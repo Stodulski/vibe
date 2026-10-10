@@ -302,6 +302,25 @@ export default defineConfig([
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/complex'), not its internals.",
             },
+            {
+              // The booking package ships on its own (an Astro island), so it takes
+              // its routing, HTTP, config, state and copy from its own modules, never
+              // from the app. See BookingRoot and BookingConfig.
+              group: [
+                'react-router-dom',
+                '@/shared/lib/ky',
+                '@/shared/lib/env',
+                '@/shared/lib/observability',
+                '@/shared/lib/sentry',
+                '@/shared/stores',
+                '@/shared/stores/**',
+                '@/shared/i18n',
+                '@/shared/i18n/**',
+                '@/app/**',
+              ],
+              message:
+                'The public booking feature must stay standalone: no router, app HTTP client, env, stores, i18n or app code. Use BookingRoot, BookingConfig and the feature messages.',
+            },
           ],
         },
       ],
