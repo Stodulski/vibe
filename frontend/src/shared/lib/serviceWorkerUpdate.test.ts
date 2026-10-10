@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { registerSW } from 'virtual:pwa-register';
 import {
   applyPendingServiceWorkerUpdate,
+  applyUpdateFromNotFound,
   isUpdatePending,
   setupServiceWorkerUpdates,
   SW_UPDATE_INTERVAL_MS,
@@ -123,6 +124,35 @@ describe('setupServiceWorkerUpdates update checks', () => {
       expect(update).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  // VIBE-FRONTEND-B: iOS Safari rejects `update()` with `InvalidStateError:
+  // newestWorker is null`. A failed check is harmless — the next one retries —
+  // so it must never surface as an unhandled rejection.
+  it('swallows a rejected update check instead of leaving it unhandled', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const sw = fakeRegister();
+      setupServiceWorkerUpdates(sw.register);
+      // A plain function, not `vi.fn()`: a spy subscribes to the promises it
+      // returns to record their outcome, which would mark this one handled
+      // and hide exactly the leak under test.
+      let checks = 0;
+      const update = () => {
+        checks += 1;
+        return Promise.reject(new DOMException('newestWorker is null', 'InvalidStateError'));
+      };
+      sw.options().onRegisteredSW?.('/sw.js', { update } as unknown as ServiceWorkerRegistration);
+
+      setVisibility('visible');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(checks).toBeGreaterThan(0);
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
     }
   });
 
@@ -303,5 +333,75 @@ describe('setupServiceWorkerUpdates update detected while hidden', () => {
 
     setVisibility('hidden');
     expect(sw.updateSW).toHaveBeenCalledWith(true);
+  });
+});
+
+// A tab running a build that predates a route renders that build's 404 for a
+// page the current build serves. The 404 is the one screen that knows the
+// build is stale, so it hands over as soon as a newer one is waiting.
+describe('applyUpdateFromNotFound', () => {
+  beforeEach(() => {
+    markUnsavedWork('form', false);
+  });
+
+  /** Sets up a visible tab with a registration whose `update()` is a spy. */
+  function setupVisibleTab() {
+    const browser = stubBrowser();
+    setVisibility('visible');
+    const sw = fakeRegister();
+    setupServiceWorkerUpdates(sw.register);
+    const update = vi.fn().mockResolvedValue(undefined);
+    sw.options().onRegisteredSW?.('/sw.js', { update } as unknown as ServiceWorkerRegistration);
+    return { browser, sw, update };
+  }
+
+  it('applies an update that is already waiting', () => {
+    const { browser, sw } = setupVisibleTab();
+    sw.options().onNeedRefresh?.();
+
+    applyUpdateFromNotFound();
+
+    expect(browser.deleteCache).toHaveBeenCalledWith(API_CACHE_NAME);
+    expect(sw.updateSW).toHaveBeenCalledWith(true);
+    browser.serviceWorker.dispatchEvent(new Event('controllerchange'));
+    expect(browser.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays put with no newer build, then applies one detected later even while visible', () => {
+    const { browser, sw, update } = setupVisibleTab();
+
+    applyUpdateFromNotFound();
+
+    // No newer build yet: a real 404 stays put, with no reload loop.
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(sw.updateSW).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
+
+    sw.options().onNeedRefresh?.();
+
+    expect(sw.updateSW).toHaveBeenCalledWith(true);
+  });
+
+  it('still defers to unsaved work', () => {
+    const { browser, sw } = setupVisibleTab();
+    markUnsavedWork('form', true);
+
+    sw.options().onNeedRefresh?.();
+    applyUpdateFromNotFound();
+
+    expect(sw.updateSW).not.toHaveBeenCalled();
+    expect(browser.deleteCache).not.toHaveBeenCalled();
+  });
+
+  it('does not apply on detection when the 404 armed it before a new setup', () => {
+    const first = setupVisibleTab();
+    applyUpdateFromNotFound();
+    expect(first.update).toHaveBeenCalledTimes(1);
+
+    // A fresh setup is a fresh page: the 404 that armed it is gone.
+    const { sw } = setupVisibleTab();
+    sw.options().onNeedRefresh?.();
+
+    expect(sw.updateSW).not.toHaveBeenCalled();
   });
 });

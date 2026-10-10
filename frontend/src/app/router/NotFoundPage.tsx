@@ -1,13 +1,20 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AppHeader } from '@/shared/components/layout/AppHeader';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { MeshBackdrop } from '@/shared/components/layout/MeshBackdrop';
+import { applyUpdateFromNotFound } from '@/shared/lib/serviceWorkerUpdate';
 
 const t = ES_AR;
 
 export function NotFoundPage() {
   usePageTitle(t.layout.notFoundTitle);
+  // A stale build renders this page for routes it predates; hand over to the
+  // current build if one exists.
+  useEffect(() => {
+    applyUpdateFromNotFound();
+  }, []);
   return (
     <div className="bg-bg-base relative flex min-h-dvh flex-col">
       <MeshBackdrop />

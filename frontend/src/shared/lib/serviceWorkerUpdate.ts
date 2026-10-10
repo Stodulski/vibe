@@ -18,6 +18,31 @@ let pending = false;
 let applying = false;
 
 /**
+ * Set by `applyUpdateFromNotFound` when the 404 rendered before any new worker
+ * was found: the update is then applied the moment it is detected, whatever
+ * the tab's visibility.
+ */
+let applyOnDetection = false;
+
+/**
+ * The browser's registration, kept module-level so `applyUpdateFromNotFound`
+ * can force a check as well as the interval and visibility triggers.
+ */
+let registration: ServiceWorkerRegistration | undefined;
+
+/**
+ * Asks the browser whether `target` has a new worker.
+ *
+ * A failed check is harmless — the next interval or return to the tab asks
+ * again — but left uncaught it is an unhandled rejection. iOS Safari rejects
+ * with `InvalidStateError: newestWorker is null` when the registration has no
+ * worker to compare against yet (VIBE-FRONTEND-B).
+ */
+function checkForUpdate(target: ServiceWorkerRegistration | undefined): void {
+  target?.update().catch(() => undefined);
+}
+
+/**
  * Whether a new build is waiting for this tab to hand over.
  *
  * A plain getter rather than a subscribable store on purpose: the one reader
@@ -80,6 +105,33 @@ function applyPendingUpdateIfSafe(): void {
 }
 
 /**
+ * Hands a stale tab over to the current build when it lands on the 404 page.
+ * Called once by `NotFoundPage` on mount.
+ *
+ * A 404 is the one screen that can mean the build itself is stale: the tab's
+ * router only knows the routes of the build it loaded, so a route added by a
+ * later deploy (`/c/<slug>` on a build that predates it) matches nothing and
+ * renders this page, while the current build would have served it. The
+ * navigation trigger cannot help — the person is already on the dead end and
+ * may never navigate again, and a reload alone serves the same cached build.
+ *
+ * If a new worker is already waiting it is applied now. Otherwise the tab
+ * forces a check instead of waiting for the interval and arms
+ * `applyOnDetection`, so `onNeedRefresh` applies the update on detection even
+ * while the tab is visible. With no newer build nothing happens: the 404 is a
+ * real one and the page stays, so there is no reload loop. Both paths still go
+ * through `applyPendingUpdateIfSafe`, so unsaved work is never reloaded away.
+ */
+export function applyUpdateFromNotFound(): void {
+  if (pending) {
+    applyPendingUpdateIfSafe();
+    return;
+  }
+  applyOnDetection = true;
+  checkForUpdate(registration);
+}
+
+/**
  * Registers the service worker in prompt mode and turns "a new build exists"
  * into an update that is applied silently at the first safe moment, never
  * into a reload on top of what someone is doing, and never into a prompt the
@@ -96,7 +148,7 @@ function applyPendingUpdateIfSafe(): void {
  *
  * Prompt mode keeps that guarantee — the new worker waits, and the old one
  * keeps serving the old build's chunks to the tabs that loaded them — while
- * three triggers spend it at moments that cost nothing:
+ * four triggers spend it at moments that cost nothing:
  *
  * - An in-app navigation that changes the pathname
  *   (`useApplyUpdateOnNavigation`). The screen is being torn down anyway, and
@@ -109,11 +161,14 @@ function applyPendingUpdateIfSafe(): void {
  *   nobody switched away from since the deploy. Waiting for the next
  *   `visibilitychange` would never fire, so this applies the update on the
  *   spot through the same safe path instead.
+ * - The 404 page (`applyUpdateFromNotFound`), which a stale build renders for
+ *   routes it predates. It applies a waiting update at once, or the next one
+ *   detected regardless of visibility.
  *
  * Every trigger refuses while `hasUnsavedWork()`, so a dirty form is never
  * reloaded out from under anyone. There is no visible fallback for someone
  * who sits on one screen, never navigates and never leaves it: that person
- * keeps running the old build until one of the three triggers fires. The
+ * keeps running the old build until one of the four triggers fires. The
  * owner chose that silence over a visible update prompt.
  *
  * The periodic and visibility checks only make a long-lived tab notice a
@@ -122,13 +177,21 @@ function applyPendingUpdateIfSafe(): void {
 export function setupServiceWorkerUpdates(register: typeof registerSW): void {
   pending = false;
   applying = false;
+  applyOnDetection = false;
+  registration = undefined;
 
-  let registration: ServiceWorkerRegistration | undefined;
+  // The periodic and visibility checks stay bound to this setup's own
+  // registration rather than the module-level one, so the listeners of an
+  // earlier setup never check on behalf of a later one.
+  let ownRegistration: ServiceWorkerRegistration | undefined;
+  const check = () => {
+    checkForUpdate(ownRegistration);
+  };
 
   updateServiceWorker = register({
     immediate: true,
     onRegisteredSW(_swUrl, swRegistration) {
-      registration = swRegistration;
+      registration = ownRegistration = swRegistration;
     },
     onNeedRefresh() {
       pending = true;
@@ -138,16 +201,13 @@ export function setupServiceWorkerUpdates(register: typeof registerSW): void {
       // while nobody switched away is found here, not on a `visibilitychange`
       // that will never come. Applying it now, through the same safe path,
       // closes that gap instead of leaving the build stale until the next
-      // hide.
-      if (document.visibilityState === 'hidden') {
+      // hide. A 404 that armed `applyOnDetection` wants it applied now too.
+      if (applyOnDetection || document.visibilityState === 'hidden') {
         applyPendingUpdateIfSafe();
       }
     },
   });
 
-  const check = () => {
-    void registration?.update();
-  };
   setInterval(check, SW_UPDATE_INTERVAL_MS);
 
   document.addEventListener('visibilitychange', () => {
