@@ -1,0 +1,18 @@
+/**
+ * The WhatsApp glyph, as a drop-in replacement for a lucide icon.
+ *
+ * Every other icon here comes from lucide, but lucide has no brand icons, so
+ * the three WhatsApp actions were all wearing a generic speech bubble. A
+ * generic bubble reads as "chat", not as "this opens WhatsApp", and the user
+ * only finds out after the tap.
+ *
+ * Fill is `currentColor` so callers keep colouring it with a text class the
+ * same way they colour a lucide icon.
+ */
+export function WhatsappIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M16.004 0C7.176 0 .002 7.174.002 16.002c0 2.822.737 5.58 2.137 8.012L.009 32l8.188-2.09a15.95 15.95 0 0 0 7.807 2.032C24.83 31.942 32 24.768 32 15.94 32 7.174 24.83 0 16.004 0zm0 29.314a13.28 13.28 0 0 1-7.1-2.048l-.508-.302-4.87 1.244 1.302-4.732-.338-.533A13.27 13.27 0 0 1 2.63 16.002c0-7.38 6.004-13.374 13.374-13.374 7.38 0 13.368 5.994 13.368 13.374 0 7.37-5.988 13.312-13.368 13.312zm7.326-10.012c-.4-.2-2.372-1.172-2.74-1.306-.368-.132-.636-.2-.904.2s-1.038 1.306-1.272 1.574c-.234.268-.468.3-.868.1s-1.692-.624-3.222-1.988c-1.192-1.062-1.996-2.374-2.23-2.774-.234-.4-.024-.616.176-.816.18-.18.4-.468.6-.702.2-.234.268-.4.4-.668.134-.268.068-.502-.032-.702-.1-.2-.904-2.178-1.238-2.982-.326-.784-.658-.678-.904-.69l-.77-.012c-.268 0-.702.1-1.07.502-.368.4-1.404 1.372-1.404 3.346 0 1.974 1.438 3.882 1.638 4.15.2.268 2.826 4.314 6.852 6.05.958.414 1.704.66 2.286.846.96.306 1.834.262 2.524.16.77-.116 2.372-.97 2.706-1.906.334-.936.334-1.738.234-1.906-.1-.168-.368-.268-.77-.468z" />
+    </svg>
+  );
+}

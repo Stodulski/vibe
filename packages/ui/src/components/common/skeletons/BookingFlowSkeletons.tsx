@@ -1,7 +1,5 @@
-import { Skeleton } from '@/shared/components/ui/skeleton';
-import { ES_AR } from '@/shared/i18n/es_AR';
-
-const t = ES_AR;
+import { Skeleton } from '../../ui/skeleton';
+import { messages } from '../../../messages';
 
 /** Cancel booking info skeleton */
 export function SkeletonCancelInfo() {
@@ -9,7 +7,7 @@ export function SkeletonCancelInfo() {
     <div
       className="animate-fade-in mx-auto flex w-full max-w-md flex-col items-center gap-4 px-4 py-16"
       role="status"
-      aria-label={t.common.loading}
+      aria-label={messages.loading}
     >
       <Skeleton className="size-16 rounded-full" />
       <Skeleton className="h-6 w-48 rounded-lg" />
@@ -34,7 +32,7 @@ export function SkeletonCancelInfo() {
 /** Public booking confirm page skeleton */
 export function SkeletonBookConfirm() {
   return (
-    <div className="animate-fade-in w-full space-y-6 sm:space-y-8" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in w-full space-y-6 sm:space-y-8" role="status" aria-label={messages.loading}>
       {/* Step indicator */}
       <div className="flex items-center justify-center gap-3">
         {Array.from({ length: 3 }, (_, i) => (
@@ -68,7 +66,7 @@ export function SkeletonBookConfirm() {
 /** Public booking success page skeleton */
 export function SkeletonBookSuccess() {
   return (
-    <div className="animate-fade-in flex flex-col items-center gap-5 py-16" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in flex flex-col items-center gap-5 py-16" role="status" aria-label={messages.loading}>
       <Skeleton className="size-20 rounded-full sm:size-24" />
       <Skeleton className="h-7 w-52 rounded-lg" />
       <Skeleton className="h-4 w-36 rounded-lg" />

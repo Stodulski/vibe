@@ -1,8 +1,6 @@
-import { Panel } from '@/shared/components/common/Panel';
-import { Skeleton } from '@/shared/components/ui/skeleton';
-import { ES_AR } from '@/shared/i18n/es_AR';
-
-const t = ES_AR;
+import { Panel } from '../Panel';
+import { Skeleton } from '../../ui/skeleton';
+import { messages } from '../../../messages';
 
 export function SkeletonCourtCard() {
   return (
@@ -66,7 +64,7 @@ export function SkeletonTable({ rows = 5, live = true, mobile = 'card' }: Skelet
       mobile={mobile}
       className="p-0"
       role={live ? 'status' : undefined}
-      aria-label={live ? t.common.loading : undefined}
+      aria-label={live ? messages.loading : undefined}
       aria-hidden={live ? undefined : true}
     >
       <div className={rowClassName}>

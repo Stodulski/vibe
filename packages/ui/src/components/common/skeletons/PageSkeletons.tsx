@@ -1,13 +1,11 @@
-import { Panel } from '@/shared/components/common/Panel';
-import { Skeleton } from '@/shared/components/ui/skeleton';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { Panel } from '../Panel';
+import { Skeleton } from '../../ui/skeleton';
+import { messages } from '../../../messages';
 import { SkeletonStat, SkeletonTable } from './SkeletonPrimitives';
-
-const t = ES_AR;
 
 export function SkeletonPage() {
   return (
-    <div className="animate-fade-in flex flex-col gap-12" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in flex flex-col gap-12" role="status" aria-label={messages.loading}>
       <div className="flex items-center justify-between">
         <div>
           <Skeleton className="mb-4 h-7 w-40 rounded-lg" />
@@ -37,7 +35,7 @@ export function SkeletonPage() {
  */
 export function SkeletonDashboard() {
   return (
-    <div className="animate-fade-in flex flex-col gap-4 md:gap-6" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in flex flex-col gap-4 md:gap-6" role="status" aria-label={messages.loading}>
       {/* Low-stock alert */}
       <Panel as="section" size="sm" className="flex flex-col gap-2 py-4 sm:p-4">
         <Skeleton className="h-4 w-24 rounded-lg" />
@@ -80,7 +78,7 @@ export function SkeletonDashboard() {
 /** Settings page skeleton with sidebar tabs + content area */
 export function SkeletonSettings() {
   return (
-    <div className="animate-fade-in" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in" role="status" aria-label={messages.loading}>
       <div className="mb-4 sm:mb-6">
         <Skeleton className="h-7 w-36 rounded-lg" />
       </div>
@@ -133,7 +131,7 @@ export function SkeletonSettings() {
  */
 export function SkeletonBookings() {
   return (
-    <div className="animate-fade-in" role="status" aria-label={t.common.loading}>
+    <div className="animate-fade-in" role="status" aria-label={messages.loading}>
       {/* Page header: title + create/block buttons */}
       <div className="mb-3 flex flex-col gap-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
         <Skeleton className="h-7 w-28 rounded-lg md:hidden" />
