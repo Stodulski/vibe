@@ -408,7 +408,7 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 			RefundLine:   refundLine,
 			RefundAmount: refundAmount,
 			BookPath:     booklink.BookPath(complex.Slug),
-			BookURL:      booklink.Book(s.cfg.FrontendURL, complex.Slug),
+			BookURL:      booklink.Book(s.cfg.PublicURL, complex.Slug),
 			BookingID:    booking.ID.String(),
 		})
 	}

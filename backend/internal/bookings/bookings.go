@@ -189,8 +189,9 @@ type Recorder interface {
 
 // Config is what this module needs from application configuration.
 type Config struct {
-	// FrontendURL builds the links a client receives.
-	FrontendURL string
+	// PublicURL is the public storefront origin the links a client receives
+	// (cancel, success, book) are built on; see config.Config.PublicBaseURL.
+	PublicURL string
 	// BackendURL is the origin MercadoPago sends its webhook to.
 	BackendURL string
 	// Environment gates behaviour that differs locally.

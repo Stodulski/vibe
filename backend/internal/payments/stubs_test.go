@@ -785,7 +785,7 @@ func newFixture(t *testing.T) *fixture {
 		Audit:         f.audit,
 		Logger:        logger,
 		Run:           func(fn func()) { fn() }, // inline, so tests observe the work
-	}, Config{FrontendURL: "https://vibe.test", CancellationGracePeriod: 15 * time.Minute, LinkTokenBuffer: 24 * time.Hour})
+	}, Config{PublicURL: "https://vibe.test", CancellationGracePeriod: 15 * time.Minute, LinkTokenBuffer: 24 * time.Hour})
 	f.handler = NewHandler(f.service, f.provider, httpx.NewResponder(logger), logger)
 	return f
 }

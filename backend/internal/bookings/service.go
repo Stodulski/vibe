@@ -640,7 +640,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	// InsertSafe already minted this booking's access token
 	// (bookingstore.Booking.LinkToken); it is the credential every public route
 	// authorizes on, not the booking's primary key.
-	cancelURL := booklink.Cancel(s.cfg.FrontendURL, complex.Slug, booking.LinkToken)
+	cancelURL := booklink.Cancel(s.cfg.PublicURL, complex.Slug, booking.LinkToken)
 	cancelPath := booklink.CancelPath(complex.Slug, booking.LinkToken)
 	mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 	mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)

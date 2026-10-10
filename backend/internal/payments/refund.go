@@ -290,7 +290,7 @@ func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingst
 		ComplexName: complex.Name,
 		Amount:      amount,
 		BookPath:    booklink.BookPath(complex.Slug),
-		BookURL:     booklink.Book(s.cfg.FrontendURL, complex.Slug),
+		BookURL:     booklink.Book(s.cfg.PublicURL, complex.Slug),
 		BookingID:   booking.ID.String(),
 	})
 }

@@ -556,13 +556,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// released rather than run.
 	reportingService.RegisterExportWorker(queue)
 
-	// Public pages (complex and city hub) are published on the public site origin.
-	// Until PUBLIC_URL is set they stay on FRONTEND_URL.
-	publicBaseURL := cfg.PublicURL
-	if publicBaseURL == "" {
-		publicBaseURL = cfg.FrontendURL
-	}
-	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL, publicBaseURL)
+	// Public pages (complex and city hub) and public booking links are built on
+	// the public site origin. Until PUBLIC_URL is set they stay on FRONTEND_URL.
+	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL, cfg.PublicBaseURL())
 	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
 
 	paymentsService := payments.NewService(payments.Dependencies{
@@ -592,7 +588,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Logger:     d.logger,
 		Run:        app.background,
 	}, payments.Config{
-		FrontendURL:             cfg.FrontendURL,
+		PublicURL:               cfg.PublicBaseURL(),
 		CancellationGracePeriod: cfg.Booking.GracePeriod,
 		LinkTokenBuffer:         cfg.Booking.LinkTokenBuffer,
 	})
@@ -628,7 +624,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Logger:       d.logger,
 		Run:          app.background,
 	}, bookings.Config{
-		FrontendURL:     cfg.FrontendURL,
+		PublicURL:       cfg.PublicBaseURL(),
 		BackendURL:      cfg.BackendURL,
 		Environment:     cfg.Env,
 		GracePeriod:     cfg.Booking.GracePeriod,

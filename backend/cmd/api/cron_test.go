@@ -302,6 +302,93 @@ func TestCronReleaseExpiredPayments_SaysWhyTheBookingWentAway(t *testing.T) {
 	}
 }
 
+// With PUBLIC_URL set, the reminder's cancel link is built on the public site,
+// the origin a booking's own links use. The WhatsApp path stays relative: its
+// host comes from the template's base URL configured in Meta, not from here.
+func TestCronReminder2h_CancelLinkUsesPublicURLWhenSet(t *testing.T) {
+	candidate := &bookingstore.CronBooking{ClientEmail: "ana@example.com", ComplexName: "Vibe", ComplexSlug: "vibe"}
+	candidate.ID = uuid.New()
+	candidate.Date = time.Now()
+	candidate.StartTime = "18:00"
+	candidate.StartsAt = slots.At(timezone.Day(candidate.Date), "18:00")
+	candidate.EndsAt = candidate.StartsAt.Add(60 * time.Minute)
+
+	app, queue := newTestApplicationWithPublicURL(t, "https://vibe.com.ar", func(m *stores.Stores) {
+		m.Bookings = &mockBookingStore{
+			GetForReminder2hEnrichedFn: func(context.Context, time.Time) ([]*bookingstore.CronBooking, error) {
+				return []*bookingstore.CronBooking{candidate}, nil
+			},
+			MarkReminderSent2hFn: func(context.Context, uuid.UUID) error { return nil },
+		}
+		m.BookingLinkTokens = &mockBookingLinkTokenStore{
+			MintFn: func(context.Context, uuid.UUID, time.Time) (string, error) { return "fresh-token", nil },
+		}
+	})
+
+	app.cronReminder2h(context.Background())
+
+	payloads := queue.payloadsOf(notifications.TaskEmailReminder2h)
+	if len(payloads) != 1 {
+		t.Fatalf("want one reminder enqueued; got %d (%v)", len(payloads), queue.taskTypes())
+	}
+	rem, ok := payloads[0].(notifications.Reminder)
+	if !ok {
+		t.Fatalf("want a notifications.Reminder payload; got %T", payloads[0])
+	}
+	if rem.CancelURL != "https://vibe.com.ar/c/vibe/book/cancel?token=fresh-token" {
+		t.Errorf("the reminder email cancel link is not on the public site; got %q", rem.CancelURL)
+	}
+	if rem.CancelPath != "c/vibe/book/cancel?token=fresh-token" {
+		t.Errorf("the WhatsApp cancel path changed shape; got %q", rem.CancelPath)
+	}
+}
+
+// The expiry sweep's "book again" link follows the same origin rule.
+func TestCronReleaseExpiredPayments_BookURLUsesPublicURLWhenSet(t *testing.T) {
+	candidate := &bookingstore.CronBooking{
+		ClientEmail: "ana@example.com",
+		ComplexName: "Vibe Palermo",
+		CourtName:   "Cancha 1",
+		ComplexSlug: "vibe-palermo",
+	}
+	candidate.ID = uuid.New()
+	candidate.Date = time.Now()
+	candidate.StartTime = "18:00"
+	candidate.StartsAt = slots.At(timezone.Day(candidate.Date), "18:00")
+	candidate.EndsAt = candidate.StartsAt.Add(60 * time.Minute)
+	candidate.Status = "pending"
+	candidate.CollectionStatus = bookingstore.CollectionStatusUnpaid
+
+	app, queue := newTestApplicationWithPublicURL(t, "https://vibe.com.ar", func(m *stores.Stores) {
+		m.Bookings = &mockBookingStore{
+			GetExpiredPendingEnrichedFn: func(context.Context, time.Duration) ([]*bookingstore.CronBooking, error) {
+				return []*bookingstore.CronBooking{candidate}, nil
+			},
+			UpdateFn: func(context.Context, *bookingstore.Booking) error { return nil },
+		}
+	})
+
+	app.cronReleaseExpiredPayments(context.Background())
+
+	payloads := queue.payloadsOf(notifications.TaskEmailBookingCancelled)
+	if len(payloads) != 1 {
+		t.Fatalf("want one cancellation enqueued; got %d (%v)", len(payloads), queue.taskTypes())
+	}
+	raw, err := json.Marshal(payloads[0])
+	if err != nil {
+		t.Fatalf("marshalling the payload: %v", err)
+	}
+	var sent struct {
+		BookURL string `json:"book_url"`
+	}
+	if err := json.Unmarshal(raw, &sent); err != nil {
+		t.Fatalf("payload is not valid JSON: %v", err)
+	}
+	if sent.BookURL != "https://vibe.com.ar/c/vibe-palermo/book" {
+		t.Errorf("the cancellation's book link is not on the public site; got %q", sent.BookURL)
+	}
+}
+
 func TestCronReminder2h_NoBookings(t *testing.T) {
 	app := newTestApplication(t)
 

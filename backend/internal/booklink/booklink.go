@@ -28,36 +28,37 @@ const QueryParam = "token"
 
 // Cancel builds the absolute cancel link sent in booking confirmation
 // notifications (email, WhatsApp).
-func Cancel(frontendURL, complexSlug, credential string) string {
-	return fmt.Sprintf("%s/c/%s/book/cancel?%s=%s", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
+func Cancel(publicURL, complexSlug, credential string) string {
+	return fmt.Sprintf("%s/c/%s/book/cancel?%s=%s", publicURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
-// CancelPath builds the same link as Cancel, relative to the frontend origin
-// rather than absolute, for the WhatsApp confirmation message's button.
+// CancelPath builds the same link as Cancel, relative to the public origin
+// rather than absolute, for the WhatsApp confirmation message's button. The
+// WhatsApp template's base URL, configured in Meta, supplies the host.
 func CancelPath(complexSlug, credential string) string {
 	return fmt.Sprintf("c/%s/book/cancel?%s=%s", complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // Success builds the MercadoPago checkout preference's success back_url.
-func Success(frontendURL, complexSlug, credential string) string {
-	return fmt.Sprintf("%s/c/%s/book/success?%s=%s", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
+func Success(publicURL, complexSlug, credential string) string {
+	return fmt.Sprintf("%s/c/%s/book/success?%s=%s", publicURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // SuccessPending builds the MercadoPago checkout preference's pending
 // back_url — the same success page, with an explicit pending status,
 // since MercadoPago redirects there for a payment still under review.
-func SuccessPending(frontendURL, complexSlug, credential string) string {
-	return fmt.Sprintf("%s/c/%s/book/success?%s=%s&status=pending", frontendURL, complexSlug, QueryParam, url.QueryEscape(credential))
+func SuccessPending(publicURL, complexSlug, credential string) string {
+	return fmt.Sprintf("%s/c/%s/book/success?%s=%s&status=pending", publicURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // Failure builds the MercadoPago checkout preference's failure back_url. It
 // carries no credential: nothing on the far side of a failed payment can be
 // looked up by one.
-func Failure(frontendURL, complexSlug string) string {
-	return fmt.Sprintf("%s/c/%s/book?error=payment_failed", frontendURL, complexSlug)
+func Failure(publicURL, complexSlug string) string {
+	return fmt.Sprintf("%s/c/%s/book?error=payment_failed", publicURL, complexSlug)
 }
 
-// BookPath builds the complex's public booking page, relative to the frontend
+// BookPath builds the complex's public booking page, relative to the public
 // origin, for the "Nueva reserva" button on the cancellation and refund
 // WhatsApp templates.
 //
@@ -100,8 +101,8 @@ func MapsQuery(name, address, city string, latitude, longitude *float64) string 
 
 // Book builds the same public booking page as BookPath, absolute, for the
 // cancellation and refund emails' "Nueva reserva" button.
-func Book(frontendURL, complexSlug string) string {
-	return fmt.Sprintf("%s/c/%s/book", frontendURL, complexSlug)
+func Book(publicURL, complexSlug string) string {
+	return fmt.Sprintf("%s/c/%s/book", publicURL, complexSlug)
 }
 
 // mapsURLPrefix is the fixed base a Google Maps "search" deep link is built

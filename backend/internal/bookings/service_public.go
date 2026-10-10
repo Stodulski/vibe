@@ -380,9 +380,9 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		MarketplaceFee: serviceFee,
 		Caller:         seller,
 		BackURLs: mp.BackURLs{
-			Success: booklink.Success(s.cfg.FrontendURL, complex.Slug, booking.LinkToken),
-			Failure: booklink.Failure(s.cfg.FrontendURL, complex.Slug),
-			Pending: booklink.SuccessPending(s.cfg.FrontendURL, complex.Slug, booking.LinkToken),
+			Success: booklink.Success(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
+			Failure: booklink.Failure(s.cfg.PublicURL, complex.Slug),
+			Pending: booklink.SuccessPending(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
 		},
 		BackendURL:     s.cfg.BackendURL,
 		ExpiresIn:      s.cfg.PaymentExpiry,

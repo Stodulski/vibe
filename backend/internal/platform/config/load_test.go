@@ -343,6 +343,41 @@ func TestPublicURLIsOptionalAndLoaded(t *testing.T) {
 	}
 }
 
+// TestPublicBaseURLIsPublicURLOrFrontendURL pins the origin every public
+// player-facing link is built on: PUBLIC_URL when set, FRONTEND_URL while it
+// is empty.
+func TestPublicBaseURLIsPublicURLOrFrontendURL(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  config.Config
+		want string
+	}{
+		{
+			name: "PUBLIC_URL wins when set",
+			cfg:  config.Config{FrontendURL: "http://localhost:5173", PublicURL: "https://vibe.com.ar"},
+			want: "https://vibe.com.ar",
+		},
+		{
+			name: "FRONTEND_URL is the fallback while PUBLIC_URL is empty",
+			cfg:  config.Config{FrontendURL: "https://app.vibe.com.ar"},
+			want: "https://app.vibe.com.ar",
+		},
+		{
+			name: "nothing set yields nothing",
+			cfg:  config.Config{},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := tt.cfg
+			if got := cfg.PublicBaseURL(); got != tt.want {
+				t.Errorf("PublicBaseURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAnUnknownFlagIsAnError(t *testing.T) {
 	if _, err := config.Load([]string{"-nonsense"}, env(nil)); err == nil {
 		t.Fatal("Load: want an error for an unknown flag")

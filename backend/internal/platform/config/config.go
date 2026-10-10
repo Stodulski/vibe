@@ -31,13 +31,17 @@ type Config struct {
 	SMTP      SMTP
 	R2        R2
 
+	// FrontendURL is the owner-panel origin: login, verify-email and
+	// reset-password links, the MercadoPago connect return, and the Google
+	// OAuth redirect. It is also where the public pages' index.html is fetched.
 	FrontendURL string
-	// PublicURL is the public storefront origin (https://vibe.com.ar). When set,
-	// CORS accepts it next to FrontendURL, so the storefront can call the API
-	// from the browser, and the public pages (complex pages, city hubs, the
-	// sitemap, canonical and og:url) are built on it. Empty means unset: CORS
-	// then allows only FrontendURL, and the public pages use FrontendURL.
-	// Email, booking, payment and owner-panel links keep using FrontendURL.
+	// PublicURL is the public storefront origin (https://vibe.com.ar). Every
+	// public player-facing link is built on it through PublicBaseURL: the
+	// complex pages, city hubs, sitemap, canonical and og:url, and the booking
+	// cancel, success and book links in emails and MercadoPago back URLs. When
+	// set, CORS accepts it next to FrontendURL too, so the storefront can call
+	// the API from the browser. Empty means unset: PublicBaseURL falls back to
+	// FrontendURL, and CORS allows only FrontendURL.
 	PublicURL string
 	// PasswordHashCost is the bcrypt cost the auth module hashes at. Zero
 	// means authstore.DefaultHashCost, the production value; the test harness
@@ -86,6 +90,16 @@ type Config struct {
 	// command runs, and it has no env var on purpose — it is an invocation
 	// mode, not a setting of the deployment.
 	MigrateOnly bool
+}
+
+// PublicBaseURL is the origin every public player-facing link is built on:
+// PublicURL when it is set, FrontendURL while it is empty. Callers that build a
+// public link go through this method, so the fallback lives in exactly one place.
+func (cfg *Config) PublicBaseURL() string {
+	if cfg.PublicURL != "" {
+		return cfg.PublicURL
+	}
+	return cfg.FrontendURL
 }
 
 // HTTP is the server's timeout surface: the four bounds http.Server places on

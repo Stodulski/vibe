@@ -30,7 +30,16 @@ func newTestApplication(t *testing.T) *application {
 func newTestApplicationWithStores(t *testing.T, customize func(*stores.Stores)) (*application, *memoryQueue) {
 	t.Helper()
 
-	return newTestApplicationWith(t, slog.New(slog.NewTextHandler(io.Discard, nil)), customize)
+	return newTestApplicationWith(t, slog.New(slog.NewTextHandler(io.Discard, nil)), "", customize)
+}
+
+// newTestApplicationWithPublicURL is the store-customizing harness with
+// PUBLIC_URL set, so the public booking links are built on the public site
+// origin instead of falling back to FRONTEND_URL.
+func newTestApplicationWithPublicURL(t *testing.T, publicURL string, customize func(*stores.Stores)) (*application, *memoryQueue) {
+	t.Helper()
+
+	return newTestApplicationWith(t, slog.New(slog.NewTextHandler(io.Discard, nil)), publicURL, customize)
 }
 
 // newTestApplicationWithNotifications also hands back the queue the
@@ -52,13 +61,13 @@ func newTestApplicationWithNotifications(t *testing.T) (*application, *memoryQue
 func newTestApplicationWithLogger(t *testing.T, testLogger *slog.Logger) (*application, *memoryQueue) {
 	t.Helper()
 
-	return newTestApplicationWith(t, testLogger, nil)
+	return newTestApplicationWith(t, testLogger, "", nil)
 }
 
-// newTestApplicationWith is the one harness both wrappers above go through:
-// the caller chooses the logger and, optionally, adjusts the store set before
-// newApplication reads it.
-func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize func(*stores.Stores)) (*application, *memoryQueue) {
+// newTestApplicationWith is the one harness every wrapper above goes through:
+// the caller chooses the logger and PUBLIC_URL (empty leaves it unset), and
+// optionally adjusts the store set before newApplication reads it.
+func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, publicURL string, customize func(*stores.Stores)) (*application, *memoryQueue) {
 	t.Helper()
 
 	cfg := config.Config{
@@ -87,6 +96,7 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, customize fun
 			UserBurst: 10_000,
 		},
 		FrontendURL: "http://localhost:5173",
+		PublicURL:   publicURL,
 		// bcrypt.MinCost for the same reason internal/auth's own harness uses
 		// it: the routes this suite drives register and sign in users, and a
 		// cost-12 hash under the race detector takes seconds each.
