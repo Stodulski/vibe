@@ -238,4 +238,8 @@ export const publicBooking = {
   cancelBookingQuestion: '¿Cancelás la reserva?',
   refundRowLabel: 'Te devolvemos',
   paidAmountNoRefundSuffix: 'Si cancelás ahora, no se devuelve.',
+  // Ley 25.326 art. 6, shown under the pay button where the player types
+  // their name and phone. The complex is the controller; Vibe processes.
+  privacyNotice: 'Tus datos los gestiona el complejo para tu reserva. Vibe los procesa por su cuenta.',
+  privacyNoticeLink: 'Política de privacidad',
 } as const;

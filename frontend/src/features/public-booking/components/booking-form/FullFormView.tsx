@@ -1,4 +1,6 @@
 import type { Control, FieldErrors, UseFormHandleSubmit, UseFormRegister } from 'react-hook-form';
+import { ES_AR } from '@/shared/i18n/es_AR';
+import { env } from '@/shared/lib/env';
 import { submitHandler } from '@/shared/lib/form';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 import { BookingSummaryCard } from './BookingSummaryCard';
@@ -8,6 +10,10 @@ import { PhoneAndEmailFields } from './PhoneAndEmailFields';
 import { NotesField } from './NotesField';
 import type { BookingPricing } from './pricing';
 import type { BookingSlotInfo } from './types';
+
+const t = ES_AR;
+
+const PRIVACY_POLICY_URL = new URL('/privacidad', env.VITE_LANDING_URL).href;
 
 interface FullFormViewProps {
   slotInfo: BookingSlotInfo;
@@ -39,6 +45,17 @@ export function FullFormView({
         <PhoneAndEmailFields register={register} control={control} errors={errors} />
         <NotesField register={register} />
         <SubmitFooter isLoading={isLoading} totalOnline={pricing.totalOnline} type="submit" />
+        <p className="text-text-tertiary text-center text-xs">
+          {t.publicBooking.privacyNotice}{' '}
+          <a
+            href={PRIVACY_POLICY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-400 underline underline-offset-2"
+          >
+            {t.publicBooking.privacyNoticeLink}
+          </a>
+        </p>
       </form>
     </div>
   );
