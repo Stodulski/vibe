@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/build-api-catalog.mjs && astro build && node scripts/build-markdown.mjs",
+    "build": "node scripts/build-api-catalog.mjs && astro build && node -e \"const fs = require('node:fs'); fs.cpSync('dist/client', 'dist', { recursive: true }); fs.rmSync('dist/client', { recursive: true, force: true });\" && node scripts/build-markdown.mjs",
     "preview": "astro preview",
     "test": "node tests/smoke.mjs",
     "test:unit": "node --test tests/*.test.ts",

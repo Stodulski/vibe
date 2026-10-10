@@ -1,0 +1,107 @@
+---
+/**
+ * City hub at /canchas/[city], rendered on each request from the public API so it
+ * always lists the live complexes. The answers are 200 for a city with complexes,
+ * 404 for a city without any, and 503 with Retry-After when the read fails.
+ * Nothing here is indexable until STOREFRONT_INDEXABLE flips at the cutover.
+ */
+import { PUBLIC_API_URL } from 'astro:env/server';
+import BookingLayout from '../../layouts/BookingLayout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { ApiError, API_TIMEOUT_MS, createPublicApi } from '../../lib/api.ts';
+import { toHubView } from '../../lib/hub.ts';
+import { robotsDirective } from '../../lib/storefront.ts';
+
+export const prerender = false;
+
+/** Longer city segments cannot name a city; they are answered as not found. */
+const MAX_CITY_LENGTH = 100;
+
+const errorCopy = {
+  not_found: {
+    title: 'Canchas no encontradas - Vibe',
+    h1: 'No encontramos canchas en esta ciudad',
+    lead: 'Todavía no hay complejos de Vibe en esta ciudad.',
+  },
+  unavailable: {
+    title: 'Canchas no disponibles - Vibe',
+    h1: 'No podemos mostrar las canchas ahora',
+    lead: 'Tuvimos un problema para cargar esta ciudad. Probá de nuevo en un minuto.',
+  },
+};
+
+const city = Astro.params.city ?? '';
+
+let view: ReturnType<typeof toHubView> | null = null;
+let errorKind: keyof typeof errorCopy = 'not_found';
+
+if (city.length > 0 && city.length <= MAX_CITY_LENGTH) {
+  try {
+    const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
+    view = toHubView(await api.hubData(city));
+  } catch (error) {
+    errorKind = error instanceof ApiError && error.kind === 'not_found' ? 'not_found' : 'unavailable';
+    if (errorKind === 'unavailable') console.error('city hub unavailable', error);
+  }
+}
+
+const status = view ? 200 : errorKind === 'not_found' ? 404 : 503;
+const copy = view ? null : errorCopy[errorKind];
+
+Astro.response.status = status;
+Astro.response.headers.set(
+  'Cache-Control',
+  view ? 'public, s-maxage=300, stale-while-revalidate=60' : 'no-store',
+);
+if (status === 503) Astro.response.headers.set('Retry-After', '60');
+---
+<BookingLayout
+  title={view ? view.title : copy!.title}
+  description={view ? view.description : copy!.lead}
+  canonical={view?.canonical}
+  robots={robotsDirective(status)}
+  jsonLd={view ? [view.jsonLd] : []}
+>
+  <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
+  <main id="contenido" class="mx-auto flex w-full max-w-3xl flex-col px-4 pb-16 pt-28 sm:pt-32">
+    {view ? (
+      <>
+        <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{view.h1}</h1>
+        <p class="mt-3 text-base text-vibe-muted">Elegí un complejo y reservá tu turno.</p>
+        <ul class="mt-8 flex flex-col gap-3">
+          {view.complexes.map((complex) => (
+            <li>
+              <a
+                href={complex.href}
+                class="flex min-h-11 flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
+              >
+                <span class="text-lg font-semibold">{complex.name}</span>
+                {complex.address && <span class="text-sm text-vibe-muted">{complex.address}</span>}
+                {complex.sports.length > 0 && (
+                  <span class="flex flex-wrap gap-2 pt-1">
+                    {complex.sports.map((sport) => (
+                      <span class="rounded-full bg-vibe-green/15 px-3 py-1 text-xs font-medium text-vibe-green">{sport}</span>
+                    ))}
+                  </span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    ) : (
+      <>
+        <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{copy!.h1}</h1>
+        <p class="mt-3 text-base text-vibe-muted">{copy!.lead}</p>
+        <a
+          href="/"
+          class="mt-6 inline-flex min-h-11 w-fit items-center rounded-full bg-vibe-green px-6 font-semibold text-vibe-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green"
+        >
+          Volvé al inicio
+        </a>
+      </>
+    )}
+  </main>
+  <Footer linkPrefix="/" logoHref="/" />
+</BookingLayout>

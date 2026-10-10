@@ -11,7 +11,10 @@ export const STOREFRONT_INDEXABLE = false;
 /** Public origin of the storefront, used for canonical and JSON-LD URLs. */
 export const STOREFRONT_ORIGIN = 'https://vibe.com.ar';
 
-/** The robots directive every server-rendered storefront page carries. */
-export function robotsDirective(): string {
-  return STOREFRONT_INDEXABLE ? 'index, follow' : 'noindex';
+/**
+ * The robots directive for a response with this status. Error answers are never
+ * indexed, whatever the switch says.
+ */
+export function robotsDirective(status = 200): string {
+  return STOREFRONT_INDEXABLE && status < 400 ? 'index, follow' : 'noindex';
 }

@@ -1,0 +1,100 @@
+---
+/**
+ * Layout for the server-rendered public routes. It repeats BaseLayout's head and its
+ * decorative body, and it is the only layout that imports booking.css, so Tailwind
+ * stays out of the hand-written pages.
+ */
+// booking.css imports global.css into a cascade layer; importing it here would
+// put it back unlayered, above Tailwind.
+import '../styles/booking.css';
+import AnalyticsLoader from '../components/AnalyticsLoader.astro';
+import { robotsDirective } from '../lib/storefront.ts';
+
+export interface Props {
+  title: string;
+  description: string;
+  /** Absolute canonical URL. Omit it on error answers. */
+  canonical?: string;
+  robots?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogUrl?: string;
+  ogImage?: string;
+  /** Serialized JSON-LD payloads, each in its own script element. */
+  jsonLd?: string[];
+  /** GA4 and Contentsquare loader. Off until the owner decides analytics for these routes. */
+  tracking?: boolean;
+}
+
+const {
+  title,
+  description,
+  canonical,
+  robots = robotsDirective(),
+  ogTitle = title,
+  ogDescription = description,
+  ogUrl = canonical,
+  ogImage = 'https://vibe.com.ar/og-image.png',
+  jsonLd = [],
+  tracking = false,
+} = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="es-AR">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>{title}</title>
+  <meta content={description} name="description"/>
+  <meta content={robots} name="robots"/>
+  {canonical && <link href={canonical} rel="canonical"/>}
+  <meta content="#0b0b0b" name="theme-color"/>
+  <meta content="Vibe" name="author"/>
+  <link href="/favicon.ico" rel="icon" sizes="16x16 32x32 48x48" type="image/x-icon"/>
+  <link href="/favicon.svg" rel="icon" type="image/svg+xml"/>
+  <link href="/apple-touch-icon.png" rel="apple-touch-icon"/>
+  <meta content={ogTitle} property="og:title"/>
+  <meta content={ogDescription} property="og:description"/>
+  <meta content="website" property="og:type"/>
+  {ogUrl && <meta content={ogUrl} property="og:url"/>}
+  <meta content={ogImage} property="og:image"/>
+  <meta content="es_AR" property="og:locale"/>
+  <meta content="Vibe" property="og:site_name"/>
+  <meta content="summary_large_image" name="twitter:card"/>
+  <meta content={ogTitle} name="twitter:title"/>
+  <meta content={ogDescription} name="twitter:description"/>
+  <meta content={ogImage} name="twitter:image"/>
+  {jsonLd.map((block) => <script type="application/ld+json" is:inline set:html={block}/>)}
+  <link as="font" crossorigin="" href="/fonts/dm-sans-latin.woff2" rel="preload" type="font/woff2"/>
+  <slot name="head"/>
+ </head>
+ <body>
+  <a class="skip-link" href="#contenido">Saltar al contenido principal</a>
+  <div aria-hidden="true" class="bg-mesh">
+   <div class="bg-mesh__blob"></div>
+   <div class="bg-mesh__blob"></div>
+  </div>
+  <div aria-hidden="true" class="bg-noise"></div>
+  <div aria-hidden="true" class="cursor-blob"></div>
+  <slot/>
+  {tracking && <AnalyticsLoader/>}
+  <script>
+   /* Mobile menu only. main.js stays out of this layout on purpose: BaseLayout already
+      bundles it, and importing it here would split it into a shared chunk and change
+      the bytes of every existing page. */
+   const toggle = document.querySelector('.nav-toggle');
+   const mobileMenu = document.querySelector('.mobile-menu');
+   if (toggle && mobileMenu) {
+     const setOpen = (isOpen: boolean) => {
+       mobileMenu.classList.toggle('open', isOpen);
+       toggle.classList.toggle('active', isOpen);
+       toggle.setAttribute('aria-expanded', String(isOpen));
+       mobileMenu.setAttribute('aria-hidden', String(!isOpen));
+       document.body.style.overflow = isOpen ? 'hidden' : '';
+     };
+     toggle.addEventListener('click', () => setOpen(!mobileMenu.classList.contains('open')));
+     mobileMenu.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setOpen(false)));
+   }
+  </script>
+ </body>
+</html>
