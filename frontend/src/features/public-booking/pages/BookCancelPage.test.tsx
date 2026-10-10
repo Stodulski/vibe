@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { renderBooking } from '@/test/booking';
+import { renderBooking, setBookingUrl } from '@/test/booking';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -36,13 +35,8 @@ const mockCancelInfo = {
 
 async function renderPage(token = 't1') {
   const Page = (await import('./BookCancelPage')).default;
-  return renderBooking(
-    <MemoryRouter initialEntries={[`/c/club-norte/book/cancel?token=${token}`]}>
-      <Routes>
-        <Route path="/c/:slug/book/cancel" element={<Page />} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  setBookingUrl(`/c/club-norte/book/cancel?token=${token}`);
+  return renderBooking(<Page slug="club-norte" />);
 }
 
 beforeEach(() => {

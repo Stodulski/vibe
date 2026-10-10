@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   usePublicBooking,
   BOOKING_INFO_KEY,
@@ -10,9 +9,10 @@ import { buildBookingRequest } from './buildBookingRequest';
 import { buildBookingInfo } from './buildBookingInfo';
 import { safeSessionStorage } from '@/shared/lib/safeStorage';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
+import { navigateTo } from '../../lib/navigation';
+import { clearBookingResult, clearConfirmDraft, saveBookingResult } from '../../lib/handoff';
 
 export function useConfirmBookingSubmit(slug: string | undefined, slotInfo: BookingSlotInfo) {
-  const navigate = useNavigate();
   const [redirecting, setRedirecting] = useState(false);
   const [paymentLinkError, setPaymentLinkError] = useState(false);
   // Kept so "Reintentar" can resubmit exactly what the person already typed —
@@ -22,7 +22,8 @@ export function useConfirmBookingSubmit(slug: string | undefined, slotInfo: Book
   const mutation = usePublicBooking({
     onConflict: () => {
       // Slot was taken — redirect back to slot selection with date pre-selected.
-      void navigate(`${publicComplexPath(String(slug))}?date=${slotInfo.date}`, { replace: true });
+      clearConfirmDraft(String(slug));
+      navigateTo(`${publicComplexPath(String(slug))}?date=${slotInfo.date}`, { replace: true });
     },
     onPaymentLinkError: () => {
       setPaymentLinkError(true);
@@ -42,18 +43,17 @@ export function useConfirmBookingSubmit(slug: string | undefined, slotInfo: Book
         // server; getting stuck on this screen with a blocked slot would be
         // worse.
         safeSessionStorage.set(BOOKING_INFO_KEY, JSON.stringify(bookingInfo));
+        clearConfirmDraft(String(slug));
 
         if (data.mp_init_point) {
+          // A result left by an earlier booking must not answer for this one
+          // when MercadoPago brings the browser back.
+          clearBookingResult(String(slug));
           setRedirecting(true);
           window.location.href = data.mp_init_point;
         } else {
-          void navigate(`${publicComplexPath(String(slug))}/book/success`, {
-            state: {
-              token: data.token,
-              bookingInfo,
-            },
-            replace: true,
-          });
+          saveBookingResult(String(slug), { token: data.token, bookingInfo });
+          navigateTo(`${publicComplexPath(String(slug))}/book/success`, { replace: true });
         }
       },
     });

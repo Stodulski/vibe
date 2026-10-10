@@ -1,7 +1,8 @@
-import { useNavigate } from 'react-router-dom';
 import type { SelectedSlot } from '@/features/public-booking';
 import type { PublicComplex } from '@/shared/types/api.types';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
+import { navigateTo } from '../../lib/navigation';
+import { saveConfirmDraft } from '../../lib/handoff';
 import { buildConfirmState } from './buildConfirmState';
 
 export function useHandleContinue(
@@ -11,8 +12,6 @@ export function useHandleContinue(
   selectedSlot: SelectedSlot | null,
   dateStr: string,
 ) {
-  const navigate = useNavigate();
-
   /**
    * Off to the confirm page with a selection.
    *
@@ -21,11 +20,13 @@ export function useHandleContinue(
    * previous render's value — reading it here would navigate with nothing.
    * With no argument, the settled selection is used, as from the Continue
    * button under the hours.
+   *
+   * The selection travels as a draft in sessionStorage, keyed by slug, because
+   * the confirm page is a separate document.
    */
   return function handleContinue(selection: SelectedSlot | null = selectedSlot) {
     if (!complex || !selection || !mpConnected) return;
-    void navigate(`${publicComplexPath(String(slug))}/book/confirm`, {
-      state: buildConfirmState(complex, selection, dateStr),
-    });
+    saveConfirmDraft(String(slug), buildConfirmState(complex, selection, dateStr));
+    navigateTo(`${publicComplexPath(String(slug))}/book/confirm`);
   };
 }

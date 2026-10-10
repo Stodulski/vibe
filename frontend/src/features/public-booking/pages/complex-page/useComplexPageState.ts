@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useQueryParams } from '../../lib/navigation';
 import { format } from 'date-fns/format';
 import type { SelectedSlot } from '@/features/public-booking';
 import { useUnsavedWork } from '@/shared/hooks/useUnsavedWork';
@@ -29,20 +29,17 @@ function readFlow(params: URLSearchParams) {
 
 /** Merges into the query, dropping keys set to null. Never pushes history. */
 function useQueryPatch() {
-  const [, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useQueryParams();
   return useCallback(
     (patch: Record<string, string | null>) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(patch)) {
-            if (value === null) next.delete(key);
-            else next.set(key, value);
-          }
-          return next;
-        },
-        { replace: true },
-      );
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null) next.delete(key);
+          else next.set(key, value);
+        }
+        return next;
+      });
     },
     [setSearchParams],
   );
@@ -120,7 +117,7 @@ function useFlowChangeHandlers(setSelectedSlot: (slot: null) => void, patchParam
  * page counts as busy while, and only while, a slot is selected.
  */
 export function useComplexPageState() {
-  const [searchParams] = useSearchParams();
+  const [searchParams] = useQueryParams();
   const patchParams = useQueryPatch();
   const flow = readFlow(searchParams);
 

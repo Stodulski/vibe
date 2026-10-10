@@ -1,6 +1,7 @@
-import { Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { PaymentFailedScreen } from './book-page/PaymentFailedScreen';
+import { navigateTo, useQueryParams } from '../lib/navigation';
 
 /**
  * Where MercadoPago sends someone whose payment was rejected.
@@ -20,13 +21,19 @@ import { PaymentFailedScreen } from './book-page/PaymentFailedScreen';
  *
  * Before removing this route, change that back_url first.
  */
-export default function BookPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const [searchParams] = useSearchParams();
+export default function BookPage({ slug }: { slug: string }) {
+  const [searchParams] = useQueryParams();
+  const paymentFailed = searchParams.get('error') === 'payment_failed';
 
-  if (searchParams.get('error') === 'payment_failed') {
-    return <PaymentFailedScreen slug={String(slug)} />;
+  useEffect(() => {
+    if (!paymentFailed) {
+      navigateTo(publicComplexPath(slug), { replace: true });
+    }
+  }, [paymentFailed, slug]);
+
+  if (paymentFailed) {
+    return <PaymentFailedScreen slug={slug} />;
   }
 
-  return <Navigate to={publicComplexPath(String(slug))} replace />;
+  return null;
 }

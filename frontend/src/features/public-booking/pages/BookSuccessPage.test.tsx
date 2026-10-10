@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { useBookingStatus, type BookingStatusView } from '@/features/public-booking';
+import { setBookingUrl } from '@/test/booking';
+import { bookingResultKey } from '../lib/handoff';
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
 vi.mock('@/features/public-booking/hooks/useBookingStatus', () => ({
@@ -39,44 +40,53 @@ vi.mock('@/features/public-booking/components/BookingConfirmed', () => ({
   },
 }));
 
-async function renderPage(path: string, state: unknown = null) {
+/**
+ * Renders the success page at `path`. The confirm page leaves its result for this
+ * slug in sessionStorage, which is what the page reads on mount. A test can park a
+ * different value there, raw, to check that the schema rejects it.
+ */
+async function renderPage(path: string, result: unknown = null) {
   const Page = (await import('./BookSuccessPage')).default;
-  const [pathname = '', search] = path.split('?');
-  return render(
-    <MemoryRouter initialEntries={[{ pathname, search: search ? `?${search}` : '', state }]}>
-      <Routes>
-        <Route path="/c/:slug/book/success" element={<Page />} />
-        <Route path="/c/:slug" element={<div>slot selection page</div>} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  setBookingUrl(path);
+  if (result !== null) {
+    window.sessionStorage.setItem(bookingResultKey('club-norte'), JSON.stringify(result));
+  }
+  return render(<Page slug="club-norte" />);
 }
+
+let replaceSpy: MockInstance<Location['replace']> | undefined;
 
 beforeEach(() => {
   lastProps = undefined;
   sessionStorage.clear();
 });
 
+afterEach(() => {
+  replaceSpy?.mockRestore();
+  replaceSpy = undefined;
+  setBookingUrl('/');
+});
+
 describe('BookSuccessPage token resolution', () => {
-  it('reads the token from location.state when present (no-deposit flow)', async () => {
+  it('reads the token from the saved result when present (no-deposit flow)', async () => {
     await renderPage('/c/club-norte/book/success', { token: 't1' });
     expect(screen.getByText('token:t1')).toBeInTheDocument();
   });
 
-  it('falls back to the token search param when no state is present (MP redirect flow)', async () => {
+  it('falls back to the token search param when no result is saved (MP redirect flow)', async () => {
     await renderPage('/c/club-norte/book/success?token=t2');
     expect(screen.getByText('token:t2')).toBeInTheDocument();
   });
 
-  it('resolves to null when neither state nor search param is present', async () => {
+  it('resolves to null when neither the result nor the search param is present', async () => {
     await renderPage('/c/club-norte/book/success');
     expect(screen.getByText('token:null')).toBeInTheDocument();
   });
 });
 
-// A full, schema-valid `BookingInfo` shape. bookingInfoSchema.safeParse now
-// validates `location.state.bookingInfo` and the sessionStorage fallback, so
-// a fixture missing any required field is rejected rather than passed through.
+// A full, schema-valid `BookingInfo` shape. bookingInfoSchema validates the saved
+// result's bookingInfo and the sessionStorage fallback, so a fixture missing any
+// required field is rejected rather than passed through.
 const validBookingInfo = {
   courtName: 'Cancha 1',
   date: '2026-03-20',
@@ -92,19 +102,19 @@ const validBookingInfo = {
 };
 
 describe('BookSuccessPage bookingInfo resolution', () => {
-  it('reads bookingInfo from location.state when present', async () => {
+  it('reads bookingInfo from the saved result when present', async () => {
     await renderPage('/c/club-norte/book/success', { token: 't1', bookingInfo: validBookingInfo });
     expect(lastProps?.bookingInfo).toEqual(validBookingInfo);
   });
 
-  it('falls back to sessionStorage when no state bookingInfo is present (MP redirect flow)', async () => {
+  it('falls back to sessionStorage when the result has no bookingInfo (MP redirect flow)', async () => {
     const stored = { ...validBookingInfo, courtName: 'Cancha 2' };
     sessionStorage.setItem('vibe_booking_info', JSON.stringify(stored));
     await renderPage('/c/club-norte/book/success?token=t2');
     expect(lastProps?.bookingInfo).toEqual(stored);
   });
 
-  it('falls back to null when location.state.bookingInfo is shaped wrong (missing required fields)', async () => {
+  it('falls back to null when the saved result has a bookingInfo shaped wrong (missing required fields)', async () => {
     await renderPage('/c/club-norte/book/success', {
       token: 't1',
       bookingInfo: { courtName: 'Cancha 1' },
@@ -125,13 +135,13 @@ describe('BookSuccessPage bookingInfo resolution', () => {
   });
 });
 
-describe('BookSuccessPage location.state validation', () => {
-  it('ignores a garbage location.state and still resolves the token from the search param', async () => {
+describe('BookSuccessPage saved result validation', () => {
+  it('ignores a garbage saved result and still resolves the token from the search param', async () => {
     await renderPage('/c/club-norte/book/success?token=t2', 'not-an-object');
     expect(screen.getByText('token:t2')).toBeInTheDocument();
   });
 
-  it('ignores a location.state with a token of the wrong type', async () => {
+  it('ignores a saved result with a token of the wrong type', async () => {
     await renderPage('/c/club-norte/book/success?token=t2', { token: 12345 });
     expect(screen.getByText('token:t2')).toBeInTheDocument();
   });
@@ -186,9 +196,10 @@ describe('BookSuccessPage status error resolution', () => {
     expect(screen.getByText('view:error')).toBeInTheDocument();
   });
 
-  it('refetches the status query on status-retry, without navigating away', async () => {
+  it('refetches the status query on status-retry, without leaving the page', async () => {
     const user = userEvent.setup();
     const refetch = vi.fn();
+    replaceSpy = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
     vi.mocked(useBookingStatus).mockReturnValueOnce({
       data: undefined,
       isLoading: false,
@@ -199,15 +210,16 @@ describe('BookSuccessPage status error resolution', () => {
     await renderPage('/c/club-norte/book/success', { token: 't1' });
     await user.click(screen.getByText('status-retry'));
     expect(refetch).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText('slot selection page')).not.toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
   });
 });
 
 describe('BookSuccessPage retry navigation', () => {
   it('navigates back to the complex slug page on retry', async () => {
     const user = userEvent.setup();
+    replaceSpy = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
     await renderPage('/c/club-norte/book/success', { token: 't1' });
     await user.click(screen.getByText('retry'));
-    expect(screen.getByText('slot selection page')).toBeInTheDocument();
+    expect(replaceSpy).toHaveBeenCalledWith('/c/club-norte');
   });
 });

@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderBooking } from '@/test/booking';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useComplexBySlug } from '@/features/public-booking';
@@ -43,11 +42,7 @@ vi.mock('@/features/public-booking/components/SkeletonSlotGrid', () => ({
 describe('ComplexPage', () => {
   it('renders without crashing', async () => {
     const Page = (await import('./ComplexPage')).default;
-    const { container } = renderBooking(
-      <MemoryRouter initialEntries={['/test-club']}>
-        <Page />
-      </MemoryRouter>,
-    );
+    const { container } = renderBooking(<Page slug="test-club" />);
     expect(container).toBeDefined();
   });
 });
@@ -61,11 +56,7 @@ describe('ComplexPage error vs not-found (useComplexBySlug)', () => {
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useComplexBySlug>);
     const Page = (await import('./ComplexPage')).default;
-    renderBooking(
-      <MemoryRouter initialEntries={['/test-club']}>
-        <Page />
-      </MemoryRouter>,
-    );
+    renderBooking(<Page slug="test-club" />);
     expect(await screen.findByText(t.publicBooking.complexNotFound)).toBeInTheDocument();
   });
 
@@ -78,11 +69,7 @@ describe('ComplexPage error vs not-found (useComplexBySlug)', () => {
       refetch,
     } as unknown as ReturnType<typeof useComplexBySlug>);
     const Page = (await import('./ComplexPage')).default;
-    renderBooking(
-      <MemoryRouter initialEntries={['/test-club']}>
-        <Page />
-      </MemoryRouter>,
-    );
+    renderBooking(<Page slug="test-club" />);
 
     expect(await screen.findByText(t.publicBooking.complexLoadError)).toBeInTheDocument();
     expect(screen.queryByText(t.publicBooking.complexNotFound)).not.toBeInTheDocument();

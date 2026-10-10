@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { formatDateFull, formatHourRange, formatPrice } from '@/shared/lib/utils';
@@ -54,7 +53,7 @@ export function PaymentFailedScreen({ slug }: { slug: string }) {
 
       <div className="flex w-full flex-col gap-2">
         <Button asChild size="lg" className="min-h-12">
-          <Link to={publicComplexPath(slug)}>{t.publicBooking.paymentFailedChooseAnother}</Link>
+          <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedChooseAnother}</a>
         </Button>
         {booking && (
           <Button asChild variant="ghost" className="min-h-12">

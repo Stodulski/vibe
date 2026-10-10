@@ -1,27 +1,43 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { screen } from '@testing-library/react';
+import { renderBooking, setBookingUrl } from '@/test/booking';
+import { ES_AR } from '@/shared/i18n/es_AR';
 import BookPage from './BookPage';
 
-function renderAt(path: string) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/c/:slug/book" element={<BookPage />} />
-        <Route path="/c/:slug" element={<div>complex page</div>} />
-      </Routes>
-    </MemoryRouter>,
-  );
-}
+afterEach(() => {
+  vi.restoreAllMocks();
+  setBookingUrl('/');
+});
 
 describe('BookPage', () => {
-  it('redirects to the complex page', () => {
-    renderAt('/c/club-norte/book');
-    expect(screen.getByText('complex page')).toBeInTheDocument();
+  it('redirects to the complex page when nothing failed', () => {
+    const replace = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
+    setBookingUrl('/c/club-norte/book');
+
+    renderBooking(<BookPage slug="club-norte" />);
+
+    expect(replace).toHaveBeenCalledWith('/c/club-norte');
   });
 
-  it('forwards the error query param to the complex page redirect', () => {
-    renderAt('/c/club-norte/book?error=slot_taken');
-    expect(screen.getByText('complex page')).toBeInTheDocument();
+  it('redirects on any other error, not only a failed payment', () => {
+    const replace = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
+    setBookingUrl('/c/club-norte/book?error=slot_taken');
+
+    renderBooking(<BookPage slug="club-norte" />);
+
+    expect(replace).toHaveBeenCalledWith('/c/club-norte');
+  });
+
+  it('shows the payment failed screen with a way back to the complex page', () => {
+    const replace = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
+    setBookingUrl('/c/club-norte/book?error=payment_failed');
+
+    renderBooking(<BookPage slug="club-norte" />);
+
+    expect(screen.getByRole('link', { name: ES_AR.publicBooking.paymentFailedChooseAnother })).toHaveAttribute(
+      'href',
+      '/c/club-norte',
+    );
+    expect(replace).not.toHaveBeenCalled();
   });
 });

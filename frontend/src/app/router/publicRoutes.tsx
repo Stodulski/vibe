@@ -5,8 +5,10 @@ import { SkeletonSlotGrid } from '@/features/public-booking/components/SkeletonS
 import { lazyPage, lazyShell } from './routeHelpers';
 import { PublicPageLoader } from './loaders';
 import { LegacyComplexRedirect } from './LegacyComplexRedirect';
-import { PublicBookingRoot } from './PublicBookingRoot';
 
+// Every booking route loads from `publicBookingPages`, which renders the booking
+// entries. The entries import all the booking pages, so the booking pages share
+// one lazy chunk.
 export const publicRoutes: RouteObject[] = [
   {
     element: lazyShell(
@@ -15,39 +17,41 @@ export const publicRoutes: RouteObject[] = [
     ),
     children: [
       {
-        // The booking providers wrap only the pages, not the shell, so the
-        // header and footer keep the app's own providers.
-        element: <PublicBookingRoot />,
-        children: [
-          {
-            path: '/c/:slug',
-            element: lazyPage(
-              () => import('@/features/public-booking/pages/ComplexPage'),
-              <div className="animate-fade-in w-full space-y-6 sm:space-y-10">
-                <SkeletonComplexHeader />
-                <SkeletonSlotGrid />
-              </div>,
-            ),
-          },
-          {
-            // Not a page anyone navigates to — MercadoPago's failure back_url.
-            // See BookPage for why it must not be removed.
-            path: '/c/:slug/book',
-            element: lazyPage(() => import('@/features/public-booking/pages/BookPage')),
-          },
-          {
-            path: '/c/:slug/book/confirm',
-            element: lazyPage(() => import('@/features/public-booking/pages/BookConfirmPage'), <SkeletonBookConfirm />),
-          },
-          {
-            path: '/c/:slug/book/success',
-            element: lazyPage(() => import('@/features/public-booking/pages/BookSuccessPage'), <SkeletonBookSuccess />),
-          },
-          {
-            path: '/c/:slug/book/cancel',
-            element: lazyPage(() => import('@/features/public-booking/pages/BookCancelPage'), <SkeletonCancelInfo />),
-          },
-        ],
+        path: '/c/:slug',
+        element: lazyPage(
+          () => import('./publicBookingPages').then((m) => ({ default: m.ComplexPageRoute })),
+          <div className="animate-fade-in w-full space-y-6 sm:space-y-10">
+            <SkeletonComplexHeader />
+            <SkeletonSlotGrid />
+          </div>,
+        ),
+      },
+      {
+        // Not a page anyone navigates to — MercadoPago's failure back_url.
+        // See BookPage for why it must not be removed.
+        path: '/c/:slug/book',
+        element: lazyPage(() => import('./publicBookingPages').then((m) => ({ default: m.BookPageRoute }))),
+      },
+      {
+        path: '/c/:slug/book/confirm',
+        element: lazyPage(
+          () => import('./publicBookingPages').then((m) => ({ default: m.BookConfirmRoute })),
+          <SkeletonBookConfirm />,
+        ),
+      },
+      {
+        path: '/c/:slug/book/success',
+        element: lazyPage(
+          () => import('./publicBookingPages').then((m) => ({ default: m.BookSuccessRoute })),
+          <SkeletonBookSuccess />,
+        ),
+      },
+      {
+        path: '/c/:slug/book/cancel',
+        element: lazyPage(
+          () => import('./publicBookingPages').then((m) => ({ default: m.BookCancelRoute })),
+          <SkeletonCancelInfo />,
+        ),
       },
     ],
   },

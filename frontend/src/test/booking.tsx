@@ -40,3 +40,8 @@ export function renderBooking(ui: ReactNode, options?: Omit<RenderOptions, 'wrap
   const wrapper = createBookingWrapper(config === undefined ? {} : { config });
   return render(ui, { wrapper, ...renderOptions });
 }
+
+/** Sets the URL the booking pages read their query from, through `history.replaceState`. */
+export function setBookingUrl(path: string): void {
+  window.history.replaceState(null, '', path);
+}

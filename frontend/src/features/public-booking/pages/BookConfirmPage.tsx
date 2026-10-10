@@ -1,30 +1,31 @@
-import { useParams, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
-import { BookingForm, type BookingSlotInfo, bookingSlotInfoSchema, StepIndicator } from '@/features/public-booking';
+import { BookingForm, type BookingSlotInfo, StepIndicator } from '@/features/public-booking';
 import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
 import { Button } from '@/shared/components/ui/button';
-import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { useConfirmBookingSubmit } from './book-confirm-page/useConfirmBookingSubmit';
+import { navigateTo } from '../lib/navigation';
+import { clearConfirmDraft, readConfirmDraft } from '../lib/handoff';
 
 const t = ES_AR;
 
-export default function BookConfirmPage() {
-  usePageTitle(t.publicBooking.confirmBooking);
-  const { slug } = useParams<{ slug: string }>();
-  const location = useLocation();
-  const navigate = useNavigate();
+export default function BookConfirmPage({ slug }: { slug: string }) {
+  // The draft is the slot the person chose on the complex page, parked in
+  // sessionStorage for this slug. It is read once, when the page mounts. A
+  // missing or invalid draft (a direct visit, a stale tab) sends the person
+  // back to the complex page, as the old router state did.
+  const slotInfo = useMemo(() => readConfirmDraft(slug), [slug]);
 
-  // `location.state` is `history.state`: it survives a refresh and can carry
-  // whatever an earlier navigation put there, so it is validated rather than
-  // cast. Anything that doesn't match — no state (direct navigation), a
-  // stale/garbage shape — redirects back, same as the old "no state" check.
-  const parsedSlotInfo = bookingSlotInfoSchema.safeParse(location.state);
-  const slotInfo = parsedSlotInfo.success ? parsedSlotInfo.data : null;
+  useEffect(() => {
+    if (!slotInfo) {
+      navigateTo(publicComplexPath(slug), { replace: true });
+    }
+  }, [slotInfo, slug]);
 
   if (!slotInfo) {
-    return <Navigate to={publicComplexPath(String(slug))} replace />;
+    return null;
   }
 
   // Back lands on the last step taken, not the first: the query carries every
@@ -41,7 +42,8 @@ export default function BookConfirmPage() {
       slug={slug}
       slotInfo={slotInfo}
       onBack={() => {
-        void navigate(`${publicComplexPath(String(slug))}?${back.toString()}`, { replace: true });
+        clearConfirmDraft(slug);
+        navigateTo(`${publicComplexPath(slug)}?${back.toString()}`, { replace: true });
       }}
     />
   );

@@ -1,7 +1,5 @@
-import { useParams, useSearchParams } from 'react-router-dom';
 import { SkeletonCancelInfo } from '@/shared/components/common/Skeletons';
-import { usePageTitle } from '@/shared/hooks/usePageTitle';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { navigateTo, useQueryParams } from '../lib/navigation';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { LinkExpiredState } from '@/shared/components/common/LinkExpiredState';
 import { InvalidLinkState } from './book-cancel-page/InvalidLinkState';
@@ -10,8 +8,6 @@ import { CancelledResultState } from './book-cancel-page/CancelledResultState';
 import { AlreadyProcessedState } from './book-cancel-page/AlreadyProcessedState';
 import { CancelForm } from './book-cancel-page/CancelForm';
 import { useCancelBookingFlow } from '@/features/public-booking/hooks/useCancelBookingFlow';
-
-const t = ES_AR;
 
 type CancelBookingFlow = ReturnType<typeof useCancelBookingFlow>;
 
@@ -89,14 +85,12 @@ function BookCancelPageContent({ token, flow, goBack }: BookCancelPageContentPro
   );
 }
 
-export default function BookCancelPage() {
-  usePageTitle(t.publicBooking.cancelBookingQuestion);
-  const { slug } = useParams<{ slug: string }>();
-  const [searchParams] = useSearchParams();
+export default function BookCancelPage({ slug }: { slug: string }) {
+  const [searchParams] = useQueryParams();
   const token = searchParams.get('token') ?? '';
 
   const goBack = () => {
-    window.location.href = publicComplexPath(String(slug));
+    navigateTo(publicComplexPath(slug));
   };
 
   const flow = useCancelBookingFlow(token);

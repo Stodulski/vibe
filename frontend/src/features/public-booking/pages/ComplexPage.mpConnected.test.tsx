@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { screen, fireEvent, within } from '@testing-library/react';
-import { renderBooking } from '@/test/booking';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { renderBooking, setBookingUrl } from '@/test/booking';
+import { readConfirmDraft } from '../lib/handoff';
 import type { AvailabilityData, CourtWithPrices, PublicComplexResponse } from '@/shared/types/api.types';
-import type { BookingSlotInfo } from '@/features/public-booking';
+
 import { makeCourt } from '@/test/factories';
 import { formatPrice } from '@/shared/lib/utils';
 
@@ -24,11 +24,18 @@ import { formatPrice } from '@/shared/lib/utils';
 // so "cannot be booked online" is asserted by the absence of slots and the
 // presence of the number, rather than by hundreds of disabled buttons.
 
-const mockNavigate = vi.fn();
+// Continuing moves the browser to the confirm page. The spy records that, so no
+// navigation really happens in the test document.
+let assignSpy: MockInstance<Location['assign']> | undefined;
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return { ...actual, useNavigate: () => mockNavigate };
+beforeEach(() => {
+  setBookingUrl('/c/test-club');
+  assignSpy = vi.spyOn(window.location, 'assign').mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  assignSpy?.mockRestore();
+  assignSpy = undefined;
 });
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({
@@ -150,18 +157,12 @@ const COURTS: CourtWithPrices[] = [PADEL_COURT, TENNIS_COURT];
 
 async function renderComplexPage() {
   const Page = (await import('./ComplexPage')).default;
-  return renderBooking(
-    <MemoryRouter initialEntries={['/c/test-club']}>
-      <Routes>
-        <Route path="/c/:slug" element={<Page />} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  return renderBooking(<Page slug="test-club" />);
 }
 
 describe('ComplexPage — mpConnected derived from payments_enabled', () => {
   beforeEach(() => {
-    mockNavigate.mockClear();
+    assignSpy?.mockClear();
     mockUseAvailability.mockReturnValue({ data: buildAvailability(), isLoading: false });
   });
 
@@ -189,12 +190,8 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     const continueButton = await screen.findByRole('button', { name: /continuar/i });
     fireEvent.click(continueButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith(
-      '/c/test-club/book/confirm',
-      expect.objectContaining({
-        state: expect.objectContaining({ complexId: 'c1' }) as unknown as BookingSlotInfo,
-      }),
-    );
+    expect(assignSpy).toHaveBeenCalledWith('/c/test-club/book/confirm');
+    expect(readConfirmDraft('test-club')).toEqual(expect.objectContaining({ complexId: 'c1' }));
   });
 
   it('asks the duration before the hours, and only once', async () => {
@@ -241,13 +238,13 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     // invitation the venue cannot honour.
     expect(screen.queryByRole('button', { name: /^10:00\b/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(assignSpy).not.toHaveBeenCalled();
   });
 });
 
 describe('ComplexPage — phone-only courts directory', () => {
   beforeEach(() => {
-    mockNavigate.mockClear();
+    assignSpy?.mockClear();
     mockUseAvailability.mockReturnValue({ data: buildAvailability(), isLoading: false });
   });
 

@@ -1,19 +1,26 @@
-import { describe, it, expect } from 'vitest';
-import { createElement, type ReactNode } from 'react';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createElement, Fragment, type ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import { format } from 'date-fns/format';
 import type { SelectedSlot } from '@/features/public-booking';
 import { hasUnsavedWork } from '@/shared/lib/unsavedWork';
+import { setBookingUrl } from '@/test/booking';
 import { useComplexPageState } from './useComplexPageState';
 
-// Plain .ts file (no JSX loader here), so the router wrapper is built with
-// createElement instead of JSX.
+// The hook reads its answers from window.location. The URL is set here, before
+// renderHook runs, so the wrapper only passes children through. Plain .ts file
+// (no JSX loader here), so it uses createElement.
 function wrapperFor(initialEntries: string[]) {
+  setBookingUrl(initialEntries[0] ?? '/');
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(MemoryRouter, { initialEntries }, children);
+    return createElement(Fragment, null, children);
   };
 }
+
+// The answers live in the URL, and a test that writes them leaves them behind.
+beforeEach(() => {
+  setBookingUrl('/');
+});
 
 describe('useComplexPageState — reading a fully answered URL', () => {
   it('carries every answer from the query into state', () => {
