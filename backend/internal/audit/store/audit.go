@@ -1,11 +1,11 @@
 // Package store persists and reads the audit trail: who changed what, when,
 // and from where.
 //
-// It is its own store rather than a corner of the admin one because the two
-// have no caller in common any more. The trail is written by every module
-// through internal/audit's recorder, and read by both the platform-wide admin
-// view and a venue's own trail — while the rest of the admin store is read by
-// nobody but the platform operator.
+// It is its own store rather than a corner of a larger one, because the trail
+// has callers of its own. Every module writes it through internal/audit's
+// recorder, and a venue reads its own trail through the tenant endpoint. The
+// platform-level rows (no complex) have no reader until the admin area is
+// rebuilt.
 package store
 
 import (
@@ -19,7 +19,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 )
 
-// AuditLogRow represents an audit log entry for admin listing.
+// AuditLogRow represents an audit log entry for the tenant listing.
 type AuditLogRow struct {
 	ID         uuid.UUID  `json:"id"`
 	UserID     *uuid.UUID `json:"user_id"`
