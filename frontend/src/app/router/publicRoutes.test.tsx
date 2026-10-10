@@ -7,19 +7,18 @@ vi.mock('@/shared/components/layout/PublicLayout', () => ({
   PublicLayout: () => <Outlet />,
 }));
 
-vi.mock('@/features/public-booking/pages/ComplexPage', () => ({
-  default: function ComplexPageStub() {
+// The booking routes are stubbed: these tests are about where a URL lands,
+// not about what each page shows once it is there.
+vi.mock('./publicBookingPages', () => ({
+  ComplexPageRoute: function ComplexPageStub() {
     const { slug } = useParams<{ slug: string }>();
     return <div>complex page {slug}</div>;
   },
+  BookPageRoute: () => <div>book page</div>,
+  BookConfirmRoute: () => <div>confirm page</div>,
+  BookSuccessRoute: () => <div>success page</div>,
+  BookCancelRoute: () => <div>cancel page</div>,
 }));
-
-// The booking pages are stubbed: these tests are about where a URL lands,
-// not about what each page shows once it is there.
-vi.mock('@/features/public-booking/pages/BookPage', () => ({ default: () => <div>book page</div> }));
-vi.mock('@/features/public-booking/pages/BookConfirmPage', () => ({ default: () => <div>confirm page</div> }));
-vi.mock('@/features/public-booking/pages/BookSuccessPage', () => ({ default: () => <div>success page</div> }));
-vi.mock('@/features/public-booking/pages/BookCancelPage', () => ({ default: () => <div>cancel page</div> }));
 
 function renderAt(url: string) {
   const router = createMemoryRouter(publicRoutes, { initialEntries: [url] });

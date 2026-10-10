@@ -2,14 +2,14 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns/format';
 import { addDays } from 'date-fns/addDays';
 import { es } from 'date-fns/locale/es';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import type { Schedule } from '@/shared/types/api.types';
 import { useLoadMoreOnScroll } from './date-selector/useLoadMoreOnScroll';
 import { useAutoScrollToSelectedDate } from './date-selector/useAutoScrollToSelectedDate';
 import { useDateStripKeyboardNav } from './date-selector/useDateStripKeyboardNav';
 import { DateButton } from './date-selector/DateButton';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface DateSelectorProps {
   selectedDate: Date;

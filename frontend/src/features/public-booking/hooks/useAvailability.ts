@@ -1,9 +1,10 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { publicBookingApi } from '../api/public-booking.api';
+import { usePublicBookingApi } from '../api/context';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import type { DurationMinutes } from '@/shared/types/api.types';
 
 export function useAvailability(slug: string | undefined, date: string, duration: DurationMinutes) {
+  const api = usePublicBookingApi();
   // `enabled` gates the actual fetch; the queryKey/queryFn are still built
   // eagerly (TanStack Query's contract), so a real slug is never missing
   // when `queryFn` actually runs — the '' fallback is a type-level-only
@@ -14,7 +15,7 @@ export function useAvailability(slug: string | undefined, date: string, duration
     // so switching 60/90/120 hits its own cache entry instead of serving
     // slots priced for the previous duration.
     queryKey: queryKeys.availability.bySlugAndDate(safeSlug, date, duration),
-    queryFn: ({ signal }) => publicBookingApi.getAvailability(safeSlug, date, duration, signal),
+    queryFn: ({ signal }) => api.getAvailability(safeSlug, date, duration, signal),
     select: (data) => data.availability,
     enabled: !!slug && !!date,
     // `AvailabilitySection` draws its own error state for a failed slot

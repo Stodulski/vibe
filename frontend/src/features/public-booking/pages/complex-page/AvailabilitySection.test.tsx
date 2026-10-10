@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { AvailabilitySection } from './AvailabilitySection';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 vi.mock('@/features/public-booking/components/CourtSelector', () => ({
   CourtSelector: () => <div data-testid="court-selector">CourtSelector</div>,

@@ -5,8 +5,7 @@
 export { BookingForm, type BookingSlotInfo } from './components/BookingForm';
 export { BookingConfirmed, type BookingInfo } from './components/BookingConfirmed';
 export { resolveBookingStatusView, type BookingStatusView } from './components/booking-confirmed/statusView';
-export { bookingInfoSchema } from './components/booking-confirmed/types';
-export { bookingSlotInfoSchema } from './components/booking-form/types';
+
 export { StepIndicator } from './components/StepIndicator';
 export { CourtSelector, type SelectedSlot } from './components/CourtSelector';
 export { COURT_TYPE_LABELS, DURATION_OPTIONS } from './components/court-selector/constants';

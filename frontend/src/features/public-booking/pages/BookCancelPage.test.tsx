@@ -1,23 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { renderBooking, setBookingUrl } from '@/test/booking';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const getCancelInfo = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const cancelBooking = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock('@/features/public-booking/api/public-booking.api', () => ({
-  publicBookingApi: {
+vi.mock('@/features/public-booking/api/public-booking.api', () => {
+  const publicBookingApi = {
     getCancelInfo: (...args: unknown[]) => getCancelInfo(...args),
     cancelBooking: (...args: unknown[]) => cancelBooking(...args),
-  },
-}));
+  };
+  return { publicBookingApi, createPublicBookingApi: () => publicBookingApi };
+});
 
 const mockCancelInfo = {
   booking: {
@@ -35,18 +35,8 @@ const mockCancelInfo = {
 
 async function renderPage(token = 't1') {
   const Page = (await import('./BookCancelPage')).default;
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/c/club-norte/book/cancel?token=${token}`]}>
-        <Routes>
-          <Route path="/c/:slug/book/cancel" element={<Page />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  setBookingUrl(`/c/club-norte/book/cancel?token=${token}`);
+  return renderBooking(<Page slug="club-norte" />);
 }
 
 beforeEach(() => {
@@ -57,7 +47,7 @@ describe('BookCancelPage invalid link', () => {
   it('shows the invalid-link state when no token is present', async () => {
     await renderPage('');
     await waitFor(() => {
-      expect(screen.getByText(ES_AR.publicBooking.invalidCancelLink)).toBeInTheDocument();
+      expect(screen.getByText(BOOKING_MESSAGES.publicBooking.invalidCancelLink)).toBeInTheDocument();
     });
   });
 });
@@ -84,7 +74,7 @@ describe('BookCancelPage cancel flow', () => {
     getCancelInfo.mockResolvedValue({ ...mockCancelInfo, can_refund: false });
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: ES_AR.publicBooking.cancelNoRefund })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.cancelNoRefund })).toBeInTheDocument();
     });
   });
 
@@ -116,7 +106,7 @@ describe('BookCancelPage cancel flow', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /confirmar cancelaci.n/i }));
-    await user.click(screen.getByRole('button', { name: ES_AR.publicBooking.confirmCancelYes }));
+    await user.click(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.confirmCancelYes }));
 
     await waitFor(() => {
       expect(cancelBooking).toHaveBeenCalledWith({ token: 'tok-xyz' });
@@ -136,12 +126,12 @@ describe('BookCancelPage cancel error handling', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /confirmar cancelaci.n/i }));
-    await user.click(screen.getByRole('button', { name: ES_AR.publicBooking.confirmCancelYes }));
+    await user.click(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.confirmCancelYes }));
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(detail);
     });
-    expect(toast.error).not.toHaveBeenCalledWith(ES_AR.publicBooking.cancelBookingError);
+    expect(toast.error).not.toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.cancelBookingError);
   });
 
   it('onError falls back to the generic i18n message when the backend body has no error field', async () => {
@@ -154,10 +144,10 @@ describe('BookCancelPage cancel error handling', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /confirmar cancelaci.n/i }));
-    await user.click(screen.getByRole('button', { name: ES_AR.publicBooking.confirmCancelYes }));
+    await user.click(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.confirmCancelYes }));
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(ES_AR.publicBooking.cancelBookingError);
+      expect(toast.error).toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.cancelBookingError);
     });
   });
 });
@@ -167,28 +157,28 @@ describe('BookCancelPage link status (resolveLink 404 vs 410)', () => {
     getCancelInfo.mockRejectedValue(await makeConsumedHttpError(410, { title: 'link expired' }));
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByText(ES_AR.publicBooking.linkExpired)).toBeInTheDocument();
+      expect(screen.getByText(BOOKING_MESSAGES.publicBooking.linkExpired)).toBeInTheDocument();
     });
-    expect(screen.queryByText(ES_AR.publicBooking.invalidCancelLink)).not.toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.invalidCancelLink)).not.toBeInTheDocument();
   });
 
   it('shows the not-found copy on a 404, not the expired-link state', async () => {
     getCancelInfo.mockRejectedValue(await makeConsumedHttpError(404, { title: 'unknown token' }));
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByText(ES_AR.publicBooking.invalidCancelLink)).toBeInTheDocument();
+      expect(screen.getByText(BOOKING_MESSAGES.publicBooking.invalidCancelLink)).toBeInTheDocument();
     });
-    expect(screen.queryByText(ES_AR.publicBooking.linkExpired)).not.toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.linkExpired)).not.toBeInTheDocument();
   });
 
   it('shows a retryable error, not the invalid-link dead end, on a 500', async () => {
     getCancelInfo.mockRejectedValue(await makeConsumedHttpError(500, { title: 'boom' }));
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByText(ES_AR.publicBooking.cancelInfoLoadError)).toBeInTheDocument();
+      expect(screen.getByText(BOOKING_MESSAGES.publicBooking.cancelInfoLoadError)).toBeInTheDocument();
     });
-    expect(screen.queryByText(ES_AR.publicBooking.invalidCancelLink)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: ES_AR.publicBooking.tryAgain })).toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.invalidCancelLink)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.tryAgain })).toBeInTheDocument();
   });
 
   it('retries getCancelInfo when the retry button is clicked after a 500', async () => {
@@ -197,10 +187,10 @@ describe('BookCancelPage link status (resolveLink 404 vs 410)', () => {
     const user = userEvent.setup();
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByText(ES_AR.publicBooking.cancelInfoLoadError)).toBeInTheDocument();
+      expect(screen.getByText(BOOKING_MESSAGES.publicBooking.cancelInfoLoadError)).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: ES_AR.publicBooking.tryAgain }));
+    await user.click(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.tryAgain }));
 
     await waitFor(() => {
       expect(screen.getByText('Cancha 1')).toBeInTheDocument();
@@ -216,8 +206,8 @@ describe('BookCancelPage refund method (manual must not look like automatic, bef
       expect(screen.getByText('Cancha 1')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(ES_AR.publicBooking.refundManualDescription)).toBeInTheDocument();
-    expect(screen.queryByText(ES_AR.publicBooking.refundRowLabel)).not.toBeInTheDocument();
+    expect(screen.getByText(BOOKING_MESSAGES.publicBooking.refundManualDescription)).toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.refundRowLabel)).not.toBeInTheDocument();
   });
 
   // `refund_amount` only comes back set for an automatic (mercadopago)
@@ -234,8 +224,8 @@ describe('BookCancelPage refund method (manual must not look like automatic, bef
       expect(screen.getByText('Cancha 1')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(ES_AR.publicBooking.refundRowLabel).closest('div')).toHaveTextContent('5.000');
-    expect(screen.queryByText(ES_AR.publicBooking.refundManualDescription)).not.toBeInTheDocument();
+    expect(screen.getByText(BOOKING_MESSAGES.publicBooking.refundRowLabel).closest('div')).toHaveTextContent('5.000');
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.refundManualDescription)).not.toBeInTheDocument();
   });
 
   it('shows the "nothing to refund" copy when refund_method is "none", not the automatic or manual copy', async () => {
@@ -249,9 +239,9 @@ describe('BookCancelPage refund method (manual must not look like automatic, bef
       expect(screen.getByText('Cancha 1')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText(ES_AR.publicBooking.paidLabel)).not.toBeInTheDocument();
-    expect(screen.queryByText(ES_AR.publicBooking.refundRowLabel)).not.toBeInTheDocument();
-    expect(screen.queryByText(ES_AR.publicBooking.refundManualDescription)).not.toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.paidLabel)).not.toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.refundRowLabel)).not.toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.refundManualDescription)).not.toBeInTheDocument();
   });
 });
 
@@ -274,8 +264,8 @@ describe('BookCancelPage refund method — expired window and confirm dialog', (
       expect(screen.getByText('Cancha 1')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(ES_AR.publicBooking.paidLabel).closest('div')).toHaveTextContent('6.800');
-    expect(screen.getByText(ES_AR.publicBooking.refundExpired)).toBeInTheDocument();
+    expect(screen.getByText(BOOKING_MESSAGES.publicBooking.paidLabel).closest('div')).toHaveTextContent('6.800');
+    expect(screen.getByText(BOOKING_MESSAGES.publicBooking.refundExpired)).toBeInTheDocument();
   });
 
   it('carries the manual-vs-automatic distinction into the confirm dialog', async () => {
@@ -287,8 +277,8 @@ describe('BookCancelPage refund method — expired window and confirm dialog', (
     });
 
     await user.click(screen.getByRole('button', { name: /confirmar cancelaci.n/i }));
-    expect(screen.getByText(ES_AR.publicBooking.confirmCancelRefundManualDetail)).toBeInTheDocument();
-    expect(screen.queryByText(ES_AR.publicBooking.confirmCancelRefundDetail)).not.toBeInTheDocument();
+    expect(screen.getByText(BOOKING_MESSAGES.publicBooking.confirmCancelRefundManualDetail)).toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.publicBooking.confirmCancelRefundDetail)).not.toBeInTheDocument();
   });
 });
 
@@ -309,7 +299,7 @@ describe('BookCancelPage cancellation outcome renders the server refund.message'
     });
 
     await user.click(screen.getByRole('button', { name: /confirmar cancelaci.n/i }));
-    await user.click(screen.getByRole('button', { name: ES_AR.publicBooking.confirmCancelYes }));
+    await user.click(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.confirmCancelYes }));
 
     await waitFor(() => {
       expect(
@@ -335,7 +325,7 @@ describe('BookCancelPage cancellation outcome renders the server refund.message'
     });
 
     await user.click(screen.getByRole('button', { name: /confirmar cancelaci.n/i }));
-    await user.click(screen.getByRole('button', { name: ES_AR.publicBooking.confirmCancelYes }));
+    await user.click(screen.getByRole('button', { name: BOOKING_MESSAGES.publicBooking.confirmCancelYes }));
 
     await waitFor(() => {
       expect(

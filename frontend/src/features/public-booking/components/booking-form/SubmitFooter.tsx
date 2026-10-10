@@ -1,9 +1,9 @@
 import { Lock } from 'lucide-react';
 import { LoadingButton } from '@/shared/components/common/LoadingButton';
-import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatPrice } from '@/shared/lib/utils';
+import { BOOKING_MESSAGES } from '../../messages';
+import { formatPrice } from '@/shared/lib/format';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface SubmitFooterProps {
   isLoading: boolean;

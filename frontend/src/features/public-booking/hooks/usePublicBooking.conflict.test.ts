@@ -3,8 +3,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { server } from '@/test/msw/server';
-import { createQueryWrapper } from '@/test/test-utils';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { createBookingWrapper } from '@/test/booking';
+import { BOOKING_MESSAGES } from '../messages';
 import type { PublicBookingRequest } from '@/shared/types/api.types';
 import { usePublicBooking } from './usePublicBooking';
 
@@ -42,7 +42,7 @@ function refuseWith(kind: string, detail: string) {
 }
 
 async function submit(onConflict: () => void) {
-  const { result } = renderHook(() => usePublicBooking({ onConflict }), { wrapper: createQueryWrapper() });
+  const { result } = renderHook(() => usePublicBooking({ onConflict }), { wrapper: createBookingWrapper() });
   result.current.mutate(VALID_REQUEST);
   await waitFor(() => {
     expect(result.current.isError).toBe(true);
@@ -60,7 +60,7 @@ describe('usePublicBooking — 409 by problem kind', () => {
 
     await submit(onConflict);
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.publicBooking.slotConflict);
+    expect(toast.error).toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.slotConflict);
     expect(onConflict).toHaveBeenCalledOnce();
   });
 
@@ -73,8 +73,8 @@ describe('usePublicBooking — 409 by problem kind', () => {
 
     await submit(onConflict);
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.publicBooking.duplicateBooking);
-    expect(toast.error).not.toHaveBeenCalledWith(ES_AR.publicBooking.slotConflict);
+    expect(toast.error).toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.duplicateBooking);
+    expect(toast.error).not.toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.slotConflict);
     expect(onConflict).not.toHaveBeenCalled();
   });
 
@@ -84,7 +84,7 @@ describe('usePublicBooking — 409 by problem kind', () => {
 
     await submit(onConflict);
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.publicBooking.bookingConflict);
+    expect(toast.error).toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.bookingConflict);
     expect(onConflict).not.toHaveBeenCalled();
   });
 
@@ -94,7 +94,7 @@ describe('usePublicBooking — 409 by problem kind', () => {
 
     await submit(onConflict);
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.publicBooking.bookingConflict);
+    expect(toast.error).toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.bookingConflict);
     expect(onConflict).not.toHaveBeenCalled();
   });
 
@@ -106,7 +106,7 @@ describe('usePublicBooking — 409 by problem kind', () => {
 
     await submit(onConflict);
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.publicBooking.bookingConflict);
+    expect(toast.error).toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.bookingConflict);
     expect(onConflict).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,8 @@
-import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatPrice } from '@/shared/lib/utils';
+import { BOOKING_MESSAGES } from '../../messages';
+import { formatPrice } from '@/shared/lib/format';
 import type { BookingPricing } from './pricing';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface PriceBreakdownProps {
   depositPercentage: number;

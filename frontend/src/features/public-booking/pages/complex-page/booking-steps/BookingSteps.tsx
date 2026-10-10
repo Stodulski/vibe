@@ -1,11 +1,11 @@
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../../messages';
 import { DURATION_OPTIONS } from '@/features/public-booking';
 import type { DurationMinutes, Sport } from '@/shared/types/api.types';
 import { StepChoice } from './StepChoice';
 import { StepBreadcrumbs, type Crumb } from '@/shared/components/common/StepBreadcrumbs';
 import { useBookingSteps, type StepId } from './useBookingSteps';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface BookingStepsProps {
   availableSports: Sport[];

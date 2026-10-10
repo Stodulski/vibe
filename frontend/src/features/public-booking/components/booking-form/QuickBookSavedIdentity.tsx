@@ -1,9 +1,9 @@
 import { Pencil, User } from 'lucide-react';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { DEFAULT_PHONE_PREFIX } from '@/shared/lib/constants';
 import type { SavedClientData } from './savedFormData';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface QuickBookSavedIdentityProps {
   saved: SavedClientData;

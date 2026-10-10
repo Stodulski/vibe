@@ -1,8 +1,8 @@
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { Schedule } from '@/shared/types/api.types';
 import { DAY_NAMES, getTodayName } from './dayNames';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * The week starts on Monday here, not on Sunday.

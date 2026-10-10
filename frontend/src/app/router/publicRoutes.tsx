@@ -6,6 +6,9 @@ import { lazyPage, lazyShell } from './routeHelpers';
 import { PublicPageLoader } from './loaders';
 import { LegacyComplexRedirect } from './LegacyComplexRedirect';
 
+// Every booking route loads from `publicBookingPages`, which renders the booking
+// entries. The entries import all the booking pages, so the booking pages share
+// one lazy chunk.
 export const publicRoutes: RouteObject[] = [
   {
     element: lazyShell(
@@ -16,7 +19,7 @@ export const publicRoutes: RouteObject[] = [
       {
         path: '/c/:slug',
         element: lazyPage(
-          () => import('@/features/public-booking/pages/ComplexPage'),
+          () => import('./publicBookingPages').then((m) => ({ default: m.ComplexPageRoute })),
           <div className="animate-fade-in w-full space-y-6 sm:space-y-10">
             <SkeletonComplexHeader />
             <SkeletonSlotGrid />
@@ -27,19 +30,28 @@ export const publicRoutes: RouteObject[] = [
         // Not a page anyone navigates to — MercadoPago's failure back_url.
         // See BookPage for why it must not be removed.
         path: '/c/:slug/book',
-        element: lazyPage(() => import('@/features/public-booking/pages/BookPage')),
+        element: lazyPage(() => import('./publicBookingPages').then((m) => ({ default: m.BookPageRoute }))),
       },
       {
         path: '/c/:slug/book/confirm',
-        element: lazyPage(() => import('@/features/public-booking/pages/BookConfirmPage'), <SkeletonBookConfirm />),
+        element: lazyPage(
+          () => import('./publicBookingPages').then((m) => ({ default: m.BookConfirmRoute })),
+          <SkeletonBookConfirm />,
+        ),
       },
       {
         path: '/c/:slug/book/success',
-        element: lazyPage(() => import('@/features/public-booking/pages/BookSuccessPage'), <SkeletonBookSuccess />),
+        element: lazyPage(
+          () => import('./publicBookingPages').then((m) => ({ default: m.BookSuccessRoute })),
+          <SkeletonBookSuccess />,
+        ),
       },
       {
         path: '/c/:slug/book/cancel',
-        element: lazyPage(() => import('@/features/public-booking/pages/BookCancelPage'), <SkeletonCancelInfo />),
+        element: lazyPage(
+          () => import('./publicBookingPages').then((m) => ({ default: m.BookCancelRoute })),
+          <SkeletonCancelInfo />,
+        ),
       },
     ],
   },

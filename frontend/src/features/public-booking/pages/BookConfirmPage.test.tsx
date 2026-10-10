@@ -1,23 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { renderBooking, setBookingUrl } from '@/test/booking';
+import { BOOKING_MESSAGES } from '../messages';
 import { makeConsumedHttpError } from '@/test/factories';
 import type { BookingSlotInfo } from '@/features/public-booking';
+import { confirmDraftKey, readBookingResult } from '../lib/handoff';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const createBooking = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock('@/features/public-booking/api/public-booking.api', () => ({
-  publicBookingApi: {
+vi.mock('@/features/public-booking/api/public-booking.api', () => {
+  const publicBookingApi = {
     createBooking: (...args: unknown[]) => createBooking(...args),
-  },
-}));
+  };
+  // The page reads this through BookingRoot's createPublicBookingApi.
+  return { publicBookingApi, createPublicBookingApi: () => publicBookingApi };
+});
 
 const mockSlotInfo: BookingSlotInfo = {
   complexId: 'c1',
@@ -35,66 +37,69 @@ const mockSlotInfo: BookingSlotInfo = {
   sport: 'padel',
 };
 
-// Renders whatever `useConfirmBookingSubmit` navigates to `/success` with,
-// so a test can assert the confirm flow carried the token forward rather
-// than just checking that *some* navigation happened.
-function SuccessRouteProbe() {
-  const location = useLocation();
-  const state = location.state as { token?: string } | null;
-  return <div>success page - token:{state?.token ?? 'none'}</div>;
+let replaceSpy: MockInstance<Location['replace']> | undefined;
+
+/** Stops the page's redirects from leaving the test document, and records them. */
+function spyOnReplace() {
+  replaceSpy = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
+  return replaceSpy;
 }
 
-// Exposes the query string the page navigated back to, so a test can assert
-// on it with URLSearchParams instead of a fragile literal string.
-function SlotSelectionRouteProbe() {
-  const location = useLocation();
-  return <div>slot selection page - query:{location.search}</div>;
+/** The URL the page last sent the browser to, as a URL, so a test can read its query. */
+function lastRedirect(spy: { mock: { calls: unknown[][] } }): URL {
+  return new URL(String(spy.mock.calls.at(-1)?.[0]), 'http://localhost');
 }
 
-async function renderPage(state: BookingSlotInfo | null = mockSlotInfo) {
+/**
+ * Renders the confirm page. The complex page leaves the chosen slot as a draft for
+ * this slug, which is what the page reads on mount. A test can park another value
+ * there, raw, to check that the schema rejects it.
+ */
+async function renderPage(draft: unknown = mockSlotInfo) {
   const Page = (await import('./BookConfirmPage')).default;
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[{ pathname: '/c/club-norte/book/confirm', state }]}>
-        <Routes>
-          <Route path="/c/:slug/book/confirm" element={<Page />} />
-          <Route path="/c/:slug" element={<SlotSelectionRouteProbe />} />
-          <Route path="/c/:slug/book/success" element={<SuccessRouteProbe />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  setBookingUrl('/c/club-norte/book/confirm');
+  if (draft !== null) {
+    window.sessionStorage.setItem(confirmDraftKey('club-norte'), JSON.stringify(draft));
+  }
+  return renderBooking(<Page slug="club-norte" />);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
+afterEach(() => {
+  replaceSpy?.mockRestore();
+  replaceSpy = undefined;
+  setBookingUrl('/');
+  window.sessionStorage.clear();
+});
+
 describe('BookConfirmPage redirect guard', () => {
-  it('redirects to the slot selection page when no slotInfo state is present', async () => {
+  it('redirects to the complex page when no draft is saved', async () => {
+    const replace = spyOnReplace();
     await renderPage(null);
     await waitFor(() => {
-      expect(screen.getByText(/slot selection page/)).toBeInTheDocument();
+      expect(replace).toHaveBeenCalledWith('/c/club-norte');
     });
   });
 
-  it('redirects to the slot selection page when location.state is garbage, not a valid BookingSlotInfo', async () => {
-    // `location.state` is `history.state` — it survives a refresh and can
-    // carry anything a previous, unrelated navigation left there.
-    await renderPage({ some: 'unrelated shape' } as unknown as BookingSlotInfo);
+  it('redirects to the complex page when the stored draft is not a valid BookingSlotInfo', async () => {
+    // sessionStorage is editable and survives a refresh, so it can hold anything an
+    // earlier visit left there.
+    const replace = spyOnReplace();
+    await renderPage({ some: 'unrelated shape' });
     await waitFor(() => {
-      expect(screen.getByText(/slot selection page/)).toBeInTheDocument();
+      expect(replace).toHaveBeenCalledWith('/c/club-norte');
     });
   });
 
   it('redirects when a required field is present but the wrong type (would otherwise reach pricing as NaN)', async () => {
-    const badSlotInfo = { ...mockSlotInfo, price: 'not-a-number' } as unknown as BookingSlotInfo;
+    const replace = spyOnReplace();
+    const badSlotInfo = { ...mockSlotInfo, price: 'not-a-number' };
     await renderPage(badSlotInfo);
     await waitFor(() => {
-      expect(screen.getByText(/slot selection page/)).toBeInTheDocument();
+      expect(replace).toHaveBeenCalledWith('/c/club-norte');
     });
   });
 });
@@ -151,28 +156,30 @@ function stubThrowingSessionStorage() {
 }
 
 describe('BookConfirmPage happy path', () => {
-  it('renders the booking form with the passed slotInfo', async () => {
+  it('renders the booking form with the draft slot', async () => {
     await renderPage();
     await waitFor(() => {
       expect(screen.getByText('Cancha 1')).toBeInTheDocument();
     });
   });
 
-  it('navigates to the success page carrying the token, not a booking id, when booking succeeds without an mp_init_point', async () => {
+  it('saves the token as the booking result and moves to the success page when there is no mp_init_point', async () => {
     createBooking.mockResolvedValue({
       booking: { status: 'pending', collection_status: 'unpaid', refund_status: 'none' },
       token: 'tok-abc123',
     });
+    const replace = spyOnReplace();
     const user = userEvent.setup();
     await renderPage();
     await fillAndSubmitConfirmForm(user);
 
     await waitFor(
       () => {
-        expect(screen.getByText('success page - token:tok-abc123')).toBeInTheDocument();
+        expect(replace).toHaveBeenCalledWith('/c/club-norte/book/success');
       },
       { timeout: 3000 },
     );
+    expect(readBookingResult('club-norte')?.token).toBe('tok-abc123');
   });
 
   it('redirects to Mercado Pago when mp_init_point is present', async () => {
@@ -197,14 +204,15 @@ describe('BookConfirmPage happy path', () => {
   // never leave the person stuck here with a slot the server thinks is taken.
   it('still redirects to Mercado Pago when caching bookingInfo to sessionStorage throws', async () => {
     const restoreLocation = stubWindowLocation();
-    const restoreSessionStorage = stubThrowingSessionStorage();
     createBooking.mockResolvedValue({
       booking: { status: 'pending', collection_status: 'unpaid', refund_status: 'none' },
       token: 'tok-abc123',
       mp_init_point: 'https://mp.com/checkout/b1',
     });
     const user = userEvent.setup();
+    // Rendered first: the draft is written before the storage stub goes in.
     await renderPage();
+    const restoreSessionStorage = stubThrowingSessionStorage();
     await fillAndSubmitConfirmForm(user);
 
     await waitFor(() => {
@@ -248,6 +256,7 @@ describe('BookConfirmPage payment link error (503)', () => {
       booking: { status: 'pending', collection_status: 'unpaid', refund_status: 'none' },
       token: 'tok-retry-1',
     });
+    const replace = spyOnReplace();
     const user = userEvent.setup();
     await renderPage();
     await fillAndSubmit(user);
@@ -256,14 +265,16 @@ describe('BookConfirmPage payment link error (503)', () => {
     await user.click(screen.getByRole('button', { name: t.publicBooking.retryPaymentLink }));
 
     await waitFor(() => {
-      expect(screen.getByText('success page - token:tok-retry-1')).toBeInTheDocument();
+      expect(replace).toHaveBeenCalledWith('/c/club-norte/book/success');
     });
+    expect(readBookingResult('club-norte')?.token).toBe('tok-retry-1');
     expect(createBooking).toHaveBeenCalledTimes(2);
   });
 });
 
 describe('BookConfirmPage back link', () => {
   it('returns to the complex page with date, duration, time and sport in the query', async () => {
+    const replace = spyOnReplace();
     const user = userEvent.setup();
     await renderPage();
     await waitFor(() => {
@@ -272,12 +283,12 @@ describe('BookConfirmPage back link', () => {
 
     await user.click(screen.getByRole('button', { name: t.publicBooking.changeTimeSlot }));
 
-    const queryText = await waitFor(() => {
-      const el = screen.getByText(/slot selection page - query:/);
-      return el.textContent;
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalled();
     });
-    const query = new URLSearchParams(queryText.replace('slot selection page - query:', ''));
+    const query = lastRedirect(replace).searchParams;
 
+    expect(lastRedirect(replace).pathname).toBe('/c/club-norte');
     expect(query.get('date')).toBe(mockSlotInfo.date);
     expect(query.get('duration')).toBe(String(mockSlotInfo.durationMinutes));
     expect(query.get('time')).toBe(mockSlotInfo.startTime);
@@ -285,6 +296,7 @@ describe('BookConfirmPage back link', () => {
   });
 
   it('leaves the sport key out of the query when the slotInfo has none', async () => {
+    const replace = spyOnReplace();
     const user = userEvent.setup();
     const { sport: _sport, ...withoutSport } = mockSlotInfo;
     await renderPage(withoutSport);
@@ -294,12 +306,9 @@ describe('BookConfirmPage back link', () => {
 
     await user.click(screen.getByRole('button', { name: t.publicBooking.changeTimeSlot }));
 
-    const queryText = await waitFor(() => {
-      const el = screen.getByText(/slot selection page - query:/);
-      return el.textContent;
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalled();
     });
-    const query = new URLSearchParams(queryText.replace('slot selection page - query:', ''));
-
-    expect(query.has('sport')).toBe(false);
+    expect(lastRedirect(replace).searchParams.has('sport')).toBe(false);
   });
 });

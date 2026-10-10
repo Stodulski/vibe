@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/msw/server';
-import { publicBookingApi } from './public-booking.api';
+import { createPublicBookingApi } from './public-booking.api';
+import { createBookingClient } from './client';
+
+const publicBookingApi = createPublicBookingApi(createBookingClient('http://localhost/api/v1'));
 import type { PublicBookingRequest, PublicCancelBookingRequest } from '@/shared/types/api.types';
 
 // Complete response fixtures — one per method — so the schema wired into

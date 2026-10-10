@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { HTTPError } from 'ky';
 import { toast } from 'sonner';
-import { publicBookingApi } from '../api/public-booking.api';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { usePublicBookingApi } from '../api/context';
+import { BOOKING_MESSAGES } from '../messages';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { queryKeys } from '@/shared/lib/queryKeys';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 export function useCancelBookingFlow(token: string) {
+  const api = usePublicBookingApi();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const {
@@ -19,7 +20,7 @@ export function useCancelBookingFlow(token: string) {
     refetch: refetchCancelInfo,
   } = useQuery({
     queryKey: queryKeys.cancelInfo.byToken(token),
-    queryFn: ({ signal }) => publicBookingApi.getCancelInfo(token, signal),
+    queryFn: ({ signal }) => api.getCancelInfo(token, signal),
     enabled: !!token,
     retry: false,
     // The page distinguishes 404 (never existed) from 410 (no longer live)
@@ -40,7 +41,7 @@ export function useCancelBookingFlow(token: string) {
   const linkNotFound = cancelInfoError instanceof HTTPError && cancelInfoError.response.status === 404;
 
   const cancel = useMutation({
-    mutationFn: () => publicBookingApi.cancelBooking({ token }),
+    mutationFn: () => api.cancelBooking({ token }),
     onError: (error: unknown) => {
       toast.error(getHttpErrorMessage(error, t.publicBooking.cancelBookingError));
     },

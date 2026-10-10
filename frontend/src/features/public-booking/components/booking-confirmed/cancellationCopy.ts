@@ -1,8 +1,8 @@
-import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDeadline } from '@/shared/lib/utils';
+import { BOOKING_MESSAGES } from '../../messages';
+import { formatDeadline } from '@/shared/lib/format';
 import type { BookingInfo } from './types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * The cancellation line under the confirmed booking's details — three

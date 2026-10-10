@@ -1,10 +1,10 @@
 import { format } from 'date-fns/format';
 import { es } from 'date-fns/locale/es';
-import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatPrice, toDisplayDate } from '@/shared/lib/utils';
+import { BOOKING_MESSAGES } from '../../messages';
+import { formatPrice, toDisplayDate } from '@/shared/lib/format';
 import type { BookingSlotInfo } from './types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
 const COURT_TYPE_LABELS: Record<string, string> = t.courts.courtTypes;

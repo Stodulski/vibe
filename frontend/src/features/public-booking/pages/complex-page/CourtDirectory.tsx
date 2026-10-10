@@ -1,8 +1,8 @@
 import { useId } from 'react';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { Court } from '@/shared/types/api.types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /** What the directory shows of a court. Nothing priced: the page cannot take a booking yet. */
 type DirectoryCourt = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'description'>;

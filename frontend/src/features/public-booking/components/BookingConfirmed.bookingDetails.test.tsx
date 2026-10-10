@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BookingConfirmed } from './BookingConfirmed';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { mockBookingInfo, baseProps } from './bookingConfirmedFixtures';
 import type { BookingStatusDetails } from '@/shared/types/api.types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 const defaultProps = { ...baseProps, onRetry: vi.fn(), onStatusRetry: vi.fn() };
 

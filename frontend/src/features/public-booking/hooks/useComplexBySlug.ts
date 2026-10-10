@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { HTTPError } from 'ky';
-import { publicBookingApi } from '../api/public-booking.api';
+import { usePublicBookingApi } from '../api/context';
 import { queryKeys } from '@/shared/lib/queryKeys';
 
 export function useComplexBySlug(slug: string | undefined) {
+  const api = usePublicBookingApi();
   // `enabled` gates the actual fetch; a real slug is never missing when
   // `queryFn` actually runs — the '' fallback is a type-level-only
   // placeholder, never observed by the API.
   const safeSlug = slug ?? '';
   return useQuery({
     queryKey: queryKeys.publicComplex.bySlug(safeSlug),
-    queryFn: ({ signal }) => publicBookingApi.getComplex(safeSlug, signal),
+    queryFn: ({ signal }) => api.getComplex(safeSlug, signal),
     enabled: !!slug,
     // Renders its own failure: `ComplexLoadError` on the public page, with a
     // retry. A 5xx must not take the whole booking page to the boundary.

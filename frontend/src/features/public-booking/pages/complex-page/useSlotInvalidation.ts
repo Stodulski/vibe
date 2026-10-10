@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { toast } from 'sonner';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { AvailabilityData, CourtAvailability } from '@/shared/types/api.types';
 import type { SelectedSlot } from '@/features/public-booking';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /** Whether `selectedSlot`'s court and hour are still bookable in `availability`. */
 export function isSlotStillAvailable(

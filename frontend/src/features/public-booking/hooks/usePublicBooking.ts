@@ -1,13 +1,13 @@
 import { HTTPError } from 'ky';
 import { toast } from 'sonner';
-import { publicBookingApi } from '../api/public-booking.api';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { usePublicBookingApi } from '../api/context';
+import { BOOKING_MESSAGES } from '../messages';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { getProblem } from '@/shared/lib/ApiError';
 import { useIdempotentMutation, type WithAttemptKey } from '@/shared/lib/idempotency';
 import type { PublicBookingRequest } from '@/shared/types/api.types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface UsePublicBookingOptions {
   /**
@@ -49,9 +49,9 @@ function conflictCopy(kind: string | undefined): string {
 }
 
 export function usePublicBooking(options?: UsePublicBookingOptions) {
+  const api = usePublicBookingApi();
   return useIdempotentMutation({
-    mutationFn: ({ attemptKey, ...data }: WithAttemptKey<PublicBookingRequest>) =>
-      publicBookingApi.createBooking(data, attemptKey),
+    mutationFn: ({ attemptKey, ...data }: WithAttemptKey<PublicBookingRequest>) => api.createBooking(data, attemptKey),
     onError: (error) => {
       if (error instanceof HTTPError) {
         if (error.response.status === 409) {

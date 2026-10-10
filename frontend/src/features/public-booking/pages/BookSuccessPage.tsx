@@ -1,41 +1,26 @@
-import { z } from 'zod';
-import { useParams, useLocation, useSearchParams, useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import {
-  useBookingStatus,
   BookingConfirmed,
-  bookingInfoSchema,
   resolveBookingStatusView,
   readStoredBookingInfo,
+  useBookingStatus,
 } from '@/features/public-booking';
-import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { navigateTo, useQueryParams } from '../lib/navigation';
+import { readBookingResult } from '../lib/handoff';
 
-const t = ES_AR;
+export default function BookSuccessPage({ slug }: { slug: string }) {
+  const [searchParams] = useQueryParams();
 
-// `location.state` is `history.state`: it survives a refresh and can carry
-// whatever an earlier navigation put there, so it is validated rather than
-// cast in with `as`.
-const successStateSchema = z.object({
-  token: z.string().min(1),
-  bookingInfo: bookingInfoSchema.optional(),
-});
+  // The result is parked by the confirm page for this slug (no-deposit flow). It
+  // is read once, at mount, so a refresh still shows the same booking.
+  const result = useMemo(() => readBookingResult(slug), [slug]);
 
-export default function BookSuccessPage() {
-  usePageTitle(t.publicBooking.bookingSuccess);
-  const { slug } = useParams<{ slug: string }>();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  // token comes from the result (no-deposit flow) or searchParams (MP redirect)
+  const token = result?.token ?? searchParams.get('token') ?? null;
 
-  const parsedState = successStateSchema.safeParse(location.state);
-  const state = parsedState.success ? parsedState.data : null;
-
-  // token comes from state (no-deposit flow) or searchParams (MP redirect)
-  const token = state?.token ?? searchParams.get('token') ?? null;
-
-  // bookingInfo: from state (direct navigation) or sessionStorage (MP redirect)
-  const bookingInfo = state?.bookingInfo ?? readStoredBookingInfo();
+  // bookingInfo: from the result (no-deposit flow) or sessionStorage (MP redirect)
+  const bookingInfo = result?.bookingInfo ?? readStoredBookingInfo();
 
   // MercadoPago redirects here with `?status=pending` when the payment
   // itself is still under review on their end (e.g. a cash voucher or bank
@@ -67,7 +52,7 @@ export default function BookSuccessPage() {
   });
 
   function handleRetry() {
-    void navigate(publicComplexPath(String(slug)), { replace: true });
+    navigateTo(publicComplexPath(slug), { replace: true });
   }
 
   return (
@@ -79,7 +64,7 @@ export default function BookSuccessPage() {
         bookingInfo={bookingInfo}
         bookingDetails={bookingStatus}
         token={token}
-        slug={String(slug)}
+        slug={slug}
         onRetry={handleRetry}
         onStatusRetry={() => {
           void refetch();

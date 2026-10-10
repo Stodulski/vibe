@@ -1,10 +1,11 @@
-import { cn, formatPrice } from '@/shared/lib/utils';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { cn } from '@/shared/lib/cn';
+import { formatPrice } from '@/shared/lib/format';
+import { BOOKING_MESSAGES } from '../../messages';
 import { COURT_TYPE_LABELS } from './constants';
 import { needsCourtChoice } from './courtChoice';
 import type { CourtAtTime, TimeOption } from './timeOptions';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
 

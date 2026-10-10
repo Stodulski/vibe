@@ -3,10 +3,10 @@ import { Input } from '@/shared/components/ui/input';
 import { PhoneInput } from '@/shared/components/common/PhoneInput';
 import { FormField } from '@/shared/components/common/FormField';
 import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface PhoneAndEmailFieldsProps {
   register: UseFormRegister<PublicBookingFormData>;

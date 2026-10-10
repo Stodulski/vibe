@@ -1,8 +1,6 @@
-import { useParams } from 'react-router-dom';
 import { HTTPError } from 'ky';
 import { useComplexBySlug, useAvailability } from '@/features/public-booking';
 import { useComplexPageState } from './complex-page/useComplexPageState';
-import { useComplexPageMeta } from './complex-page/useComplexPageMeta';
 import { useSlotInvalidation, isStartTimeStillOffered } from './complex-page/useSlotInvalidation';
 import { useAvailableSports } from './complex-page/useAvailableSports';
 import { useFilteredCourts } from './complex-page/useFilteredCourts';
@@ -15,10 +13,10 @@ import { ComplexPageContent } from './complex-page/ComplexPageContent';
 // 404 means the slug never resolved to a complex; anything else (500, a
 // dropped connection) is recoverable, so it gets a retry instead of the same
 // dead-end "not found" message.
-function ComplexLoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+function ComplexLoadError({ slug, error, onRetry }: { slug: string; error: unknown; onRetry: () => void }) {
   const notFound = error instanceof HTTPError && error.response.status === 404;
   if (notFound) {
-    return <NotFoundState />;
+    return <NotFoundState slug={slug} />;
   }
   return <ComplexErrorState onRetry={onRetry} />;
 }
@@ -55,11 +53,13 @@ function useComplexAvailability(slug: string | undefined, state: ReturnType<type
 }
 
 function ComplexPageLoadGuard({
+  slug,
   isLoading,
   error,
   complexData,
   onRetryComplex,
 }: {
+  slug: string;
   isLoading: boolean;
   error: unknown;
   complexData: unknown;
@@ -69,10 +69,10 @@ function ComplexPageLoadGuard({
     return <ComplexPageLoadingSkeleton />;
   }
   if (error) {
-    return <ComplexLoadError error={error} onRetry={onRetryComplex} />;
+    return <ComplexLoadError slug={slug} error={error} onRetry={onRetryComplex} />;
   }
   if (!complexData) {
-    return <NotFoundState />;
+    return <NotFoundState slug={slug} />;
   }
   return null;
 }
@@ -154,12 +154,10 @@ function ComplexPageBody({
   );
 }
 
-export default function ComplexPage() {
-  const { slug } = useParams<{ slug: string }>();
+export default function ComplexPage({ slug }: { slug: string }) {
   const state = useComplexPageState();
 
   const { data: complexData, isLoading, error, refetch: refetchComplex } = useComplexBySlug(slug);
-  useComplexPageMeta(slug, complexData);
   const availableSports = useAvailableSports(complexData);
 
   const availabilityBag = useComplexAvailability(slug, state);
@@ -173,6 +171,7 @@ export default function ComplexPage() {
   if (isLoading || error || !complexData) {
     return (
       <ComplexPageLoadGuard
+        slug={slug}
         isLoading={isLoading}
         error={error}
         complexData={complexData}

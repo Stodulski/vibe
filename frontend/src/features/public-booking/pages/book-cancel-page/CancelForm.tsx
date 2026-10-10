@@ -1,13 +1,13 @@
 import { AlertTriangle } from 'lucide-react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { Button } from '@/shared/components/ui/button';
-import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatPrice } from '@/shared/lib/utils';
+import { BOOKING_MESSAGES } from '../../messages';
+import { formatPrice } from '@/shared/lib/format';
 import type { CancelInfoResponse } from '@/shared/types/api.types';
 import { BookingInfoCard, type CancelMoneyBand } from './BookingInfoCard';
 import { RefundExpiredNotice } from './RefundExpiredNotice';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * The subtitle under the title, driven by the amounts `cancel-info` now

@@ -1,10 +1,9 @@
 import { SearchX } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/button';
 import { StatusHero } from '@/shared/components/common/StatusHero';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * Shown when `useComplexBySlug` 404s (the slug never resolved to a complex)
@@ -19,9 +18,7 @@ const t = ES_AR;
  * accessible name still carries both, instead of a numeral pretending to be
  * the page's heading with the actual message demoted to a plain paragraph.
  */
-export function NotFoundState() {
-  const { slug } = useParams<{ slug: string }>();
-
+export function NotFoundState({ slug }: { slug?: string }) {
   const description = slug
     ? `${t.publicBooking.complexNotFoundSlugPrefix} "${slug}"${t.publicBooking.complexNotFoundSlugSuffix}`
     : t.publicBooking.complexNotFoundDescription;
@@ -40,7 +37,7 @@ export function NotFoundState() {
       description={description}
     >
       <Button asChild size="lg" className="mt-4 min-h-12 rounded-xl">
-        <Link to="/">{t.layout.backHome}</Link>
+        <a href="/">{t.layout.backHome}</a>
       </Button>
     </StatusHero>
   );

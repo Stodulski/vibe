@@ -1,8 +1,8 @@
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { TIME_GROUPS } from './court-selector/constants';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * Mirrors `CourtSelector`'s hour-major grid, not the court-major layout it

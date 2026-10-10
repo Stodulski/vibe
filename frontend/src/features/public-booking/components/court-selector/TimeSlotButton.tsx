@@ -1,9 +1,9 @@
-import { cn } from '@/shared/lib/utils';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { cn } from '@/shared/lib/cn';
+import { BOOKING_MESSAGES } from '../../messages';
 import { COURT_TYPE_LABELS } from './constants';
 import type { TimeOption } from './timeOptions';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface TimeSlotButtonProps {
   option: TimeOption;

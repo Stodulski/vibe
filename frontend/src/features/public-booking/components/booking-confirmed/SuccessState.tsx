@@ -1,6 +1,6 @@
 import { CheckCircle2 } from 'lucide-react';
 import { StatusHero } from '@/shared/components/common/StatusHero';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { BookingStatus, BookingStatusDetails } from '@/shared/types/api.types';
 import { BookingSummary } from './BookingSummary';
 import { SuccessFooterActions } from './SuccessFooterActions';
@@ -8,7 +8,7 @@ import { mergeBookingInfo } from './mergeBookingInfo';
 import { cancellationLineText, canCancelBooking } from './cancellationCopy';
 import type { BookingInfo } from './types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface SuccessStateProps {
   bookingInfo: BookingInfo | null;

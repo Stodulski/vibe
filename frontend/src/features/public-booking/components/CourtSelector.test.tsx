@@ -4,9 +4,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CourtSelector, type SelectedSlot } from './CourtSelector';
 import type { AvailabilitySlot, CourtAvailability } from '@/shared/types/api.types';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 type HarnessProps = Omit<ComponentProps<typeof CourtSelector>, 'pendingStartTime' | 'onPendingStartTimeChange'>;
 

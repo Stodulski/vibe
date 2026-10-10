@@ -1,8 +1,8 @@
 import { Check } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { cn } from '@/shared/lib/cn';
+import { BOOKING_MESSAGES } from '../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 const STEPS = [t.publicBooking.stepSelect, t.publicBooking.stepData, t.publicBooking.stepPay] as const;
 

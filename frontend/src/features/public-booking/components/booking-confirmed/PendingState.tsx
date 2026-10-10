@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 export function PendingState() {
   return (
