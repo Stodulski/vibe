@@ -20,12 +20,9 @@ type Actor struct {
 
 // Service serves a tenant its own trail.
 //
-// The trail existed only behind /api/v1/admin/audit-log, which is superadmin
-// only — so the record of who changed a venue's bookings, courts and prices was
-// readable by the platform and not by the venue. That is backwards for the one
-// table whose purpose is accountability: the owner is the person who needs to
-// see that a staff account cancelled a booking, and the platform is the party
-// the trail should also be able to hold to account.
+// The trail is the venue's own record of who changed its bookings, courts and
+// prices, so the venue is the one that reads it: the owner is the person who
+// needs to see that a staff account cancelled a booking.
 //
 // The write side is Recorder, which every other module uses and which this
 // service reuses: a read of the trail is itself an event on the trail.
@@ -75,13 +72,4 @@ func (s *Service) List(ctx context.Context, actor Actor, complexID uuid.UUID, en
 	})
 
 	return logs, metadata, nil
-}
-
-// ListAuditLogs returns a page of the trail with the store's exact signature.
-//
-// Exported for the admin module, whose platform-wide trail route reads across
-// every tenant: its entry point into the trail is this service rather than the
-// audit store.
-func (s *Service) ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*auditstore.AuditLogRow, data.Metadata, error) {
-	return s.reader.ListAuditLogs(ctx, complexID, entityType, filters)
 }

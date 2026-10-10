@@ -43,10 +43,12 @@ type Store struct {
 // listAuditLogsSQL is the audit-log page query.
 //
 // It is a constant rather than a literal inside the method so the plan assertion
-// in admin_integration_test.go can EXPLAIN the exact statement this store issues.
-// Its unscoped form — complex_id NULL, the default superadmin view — is served by
-// idx_audit_log_created_at; before that index existed it seq-scanned
-// the whole table and blew past the QueryContext budget at roughly 372,000 rows.
+// in audit_plans_integration_test.go can EXPLAIN the exact statement this store
+// issues. Its unscoped form — complex_id NULL, the platform-level rows that
+// belong to no complex — is served by idx_audit_log_created_at; before that
+// index existed it seq-scanned the whole table and blew past the QueryContext
+// budget at roughly 372,000 rows. No route reads that unscoped form today: the
+// superadmin view that did was removed, and it waits for the admin rebuild.
 const listAuditLogsSQL = `
 	SELECT a.id, a.user_id, u.email, a.complex_id, a.action, a.entity_type,
 	       a.entity_id, a.ip_address::text, a.created_at

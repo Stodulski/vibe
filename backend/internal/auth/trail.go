@@ -119,7 +119,7 @@ type accountEvent struct {
 // not be theirs at all. A NULL complex_id is invisible to the tenant-facing
 // trail — that query is `complex_id = $1` against the complex the ownership
 // guard resolved, and NULL matches no id (data.listAuditLogsSQL) — so these
-// reach only a superadmin, through the admin trail.
+// reach no tenant, and no route reads them now that the admin trail is gone.
 //
 // ComplexID, EntityType and IPAddress are set here rather than at the nine call
 // sites, so that none of the three can be got wrong in one place out of nine.

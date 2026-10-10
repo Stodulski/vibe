@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/stodulski/vibe-server/internal/admin"
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/bookings"
@@ -61,7 +60,6 @@ type application struct {
 	publicsite *publicsite.Handler
 	leads      *leads.Handler
 	reporting  *reporting.Handler
-	admin      *admin.Handler
 	health     *health.Handler
 	openapi    *openapi.Handler
 	// specValidator refuses requests the OpenAPI document does not allow. It
@@ -244,8 +242,8 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("trusted proxies", "set", trustedProxySet.String())
-	// The audit-log call sites in internal/bookings, internal/complexes,
-	// internal/courts and internal/admin still take a bool and resolve it to
+	// The audit-log call sites in internal/bookings, internal/complexes and
+	// internal/courts still take a bool and resolve it to
 	// httpx.DefaultTrustedProxies. A custom set therefore attributes audit
 	// entries by a different rule than the rate limiter uses, which is worth
 	// saying out loud until those call sites take the set too.

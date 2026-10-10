@@ -16,27 +16,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for AdminUserRowRole.
-const (
-	AdminUserRowRoleClient     AdminUserRowRole = "client"
-	AdminUserRowRoleOwner      AdminUserRowRole = "owner"
-	AdminUserRowRoleSuperadmin AdminUserRowRole = "superadmin"
-)
-
-// Valid indicates whether the value is a known member of the AdminUserRowRole enum.
-func (e AdminUserRowRole) Valid() bool {
-	switch e {
-	case AdminUserRowRoleClient:
-		return true
-	case AdminUserRowRoleOwner:
-		return true
-	case AdminUserRowRoleSuperadmin:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AvailabilityCourtCourtType.
 const (
 	AvailabilityCourtCourtTypeIndoor      AvailabilityCourtCourtType = "indoor"
@@ -472,81 +451,21 @@ func (e CourtWithPricesSport) Valid() bool {
 	}
 }
 
-// Defines values for HealthDetailedBreakers.
-const (
-	Closed   HealthDetailedBreakers = "closed"
-	HalfOpen HealthDetailedBreakers = "half-open"
-	Open     HealthDetailedBreakers = "open"
-)
-
-// Valid indicates whether the value is a known member of the HealthDetailedBreakers enum.
-func (e HealthDetailedBreakers) Valid() bool {
-	switch e {
-	case Closed:
-		return true
-	case HalfOpen:
-		return true
-	case Open:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for HealthDetailedImpaired.
-const (
-	HealthDetailedImpairedCache    HealthDetailedImpaired = "cache"
-	HealthDetailedImpairedDatabase HealthDetailedImpaired = "database"
-	HealthDetailedImpairedPayments HealthDetailedImpaired = "payments"
-)
-
-// Valid indicates whether the value is a known member of the HealthDetailedImpaired enum.
-func (e HealthDetailedImpaired) Valid() bool {
-	switch e {
-	case HealthDetailedImpairedCache:
-		return true
-	case HealthDetailedImpairedDatabase:
-		return true
-	case HealthDetailedImpairedPayments:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for HealthDetailedStatus.
-const (
-	HealthDetailedStatusAvailable HealthDetailedStatus = "available"
-	HealthDetailedStatusDegraded  HealthDetailedStatus = "degraded"
-)
-
-// Valid indicates whether the value is a known member of the HealthDetailedStatus enum.
-func (e HealthDetailedStatus) Valid() bool {
-	switch e {
-	case HealthDetailedStatusAvailable:
-		return true
-	case HealthDetailedStatusDegraded:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for HealthStatusImpaired.
 const (
-	HealthStatusImpairedCache    HealthStatusImpaired = "cache"
-	HealthStatusImpairedDatabase HealthStatusImpaired = "database"
-	HealthStatusImpairedPayments HealthStatusImpaired = "payments"
+	Cache    HealthStatusImpaired = "cache"
+	Database HealthStatusImpaired = "database"
+	Payments HealthStatusImpaired = "payments"
 )
 
 // Valid indicates whether the value is a known member of the HealthStatusImpaired enum.
 func (e HealthStatusImpaired) Valid() bool {
 	switch e {
-	case HealthStatusImpairedCache:
+	case Cache:
 		return true
-	case HealthStatusImpairedDatabase:
+	case Database:
 		return true
-	case HealthStatusImpairedPayments:
+	case Payments:
 		return true
 	default:
 		return false
@@ -555,16 +474,16 @@ func (e HealthStatusImpaired) Valid() bool {
 
 // Defines values for HealthStatusStatus.
 const (
-	HealthStatusStatusAvailable HealthStatusStatus = "available"
-	HealthStatusStatusDegraded  HealthStatusStatus = "degraded"
+	Available HealthStatusStatus = "available"
+	Degraded  HealthStatusStatus = "degraded"
 )
 
 // Valid indicates whether the value is a known member of the HealthStatusStatus enum.
 func (e HealthStatusStatus) Valid() bool {
 	switch e {
-	case HealthStatusStatusAvailable:
+	case Available:
 		return true
-	case HealthStatusStatusDegraded:
+	case Degraded:
 		return true
 	default:
 		return false
@@ -982,27 +901,6 @@ const (
 func (e GoogleSignInResult1NeedsProfile) Valid() bool {
 	switch e {
 	case GoogleSignInResult1NeedsProfileTrue:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminListUsersParamsRole.
-const (
-	AdminListUsersParamsRoleClient     AdminListUsersParamsRole = "client"
-	AdminListUsersParamsRoleOwner      AdminListUsersParamsRole = "owner"
-	AdminListUsersParamsRoleSuperadmin AdminListUsersParamsRole = "superadmin"
-)
-
-// Valid indicates whether the value is a known member of the AdminListUsersParamsRole enum.
-func (e AdminListUsersParamsRole) Valid() bool {
-	switch e {
-	case AdminListUsersParamsRoleClient:
-		return true
-	case AdminListUsersParamsRoleOwner:
-		return true
-	case AdminListUsersParamsRoleSuperadmin:
 		return true
 	default:
 		return false
@@ -1639,38 +1537,6 @@ func (e BookingsWhatsAppVerifyWebhookParamsHubMode) Valid() bool {
 	}
 }
 
-// AdminComplexRow defines model for AdminComplexRow.
-type AdminComplexRow struct {
-	City        string             `json:"city"`
-	CourtsCount int                `json:"courts_count"`
-	CreatedAt   time.Time          `json:"created_at"`
-	Id          openapi_types.UUID `json:"id"`
-	IsActive    bool               `json:"is_active"`
-	MpConnected bool               `json:"mp_connected"`
-	Name        string             `json:"name"`
-	OwnerEmail  string             `json:"owner_email"`
-	OwnerId     openapi_types.UUID `json:"owner_id"`
-	OwnerName   string             `json:"owner_name"`
-	Slug        string             `json:"slug"`
-}
-
-// AdminUserRow defines model for AdminUserRow.
-type AdminUserRow struct {
-	ComplexCount  int                `json:"complex_count"`
-	CreatedAt     time.Time          `json:"created_at"`
-	Email         string             `json:"email"`
-	EmailVerified bool               `json:"email_verified"`
-	FirstName     string             `json:"first_name"`
-	Id            openapi_types.UUID `json:"id"`
-	IsActive      bool               `json:"is_active"`
-	LastName      string             `json:"last_name"`
-	Phone         string             `json:"phone"`
-	Role          AdminUserRowRole   `json:"role"`
-}
-
-// AdminUserRowRole defines model for AdminUserRow.Role.
-type AdminUserRowRole string
-
 // AuditLogRow Every pointer field lacks `omitempty` in Go, so an absent value serializes as JSON `null`, not as an absent key.
 type AuditLogRow struct {
 	Action     string              `json:"action"`
@@ -2104,35 +1970,6 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
-// HealthDetailed defines model for HealthDetailed.
-type HealthDetailed struct {
-	// Breakers Per external dependency (mercadopago, whatsapp, mailer) to circuit state.
-	Breakers *map[string]HealthDetailedBreakers `json:"breakers,omitempty"`
-
-	// Dependencies Dependency name to state, plus merged db_pool_*/redis_pool_* figures.
-	Dependencies map[string]string         `json:"dependencies"`
-	Environment  string                    `json:"environment"`
-	Impaired     *[]HealthDetailedImpaired `json:"impaired,omitempty"`
-
-	// Metrics Process counters (request volume, latency, goroutines, notifier queue depths). Shape not fixed.
-	Metrics *map[string]interface{} `json:"metrics,omitempty"`
-	Queues  *[]QueueStats           `json:"queues,omitempty"`
-
-	// QueuesError Present only when the queue-stats query itself failed. Does not fail the whole health check.
-	QueuesError *string              `json:"queues_error,omitempty"`
-	Status      HealthDetailedStatus `json:"status"`
-	Version     string               `json:"version"`
-}
-
-// HealthDetailedBreakers defines model for HealthDetailed.Breakers.
-type HealthDetailedBreakers string
-
-// HealthDetailedImpaired defines model for HealthDetailed.Impaired.
-type HealthDetailedImpaired string
-
-// HealthDetailedStatus defines model for HealthDetailed.Status.
-type HealthDetailedStatus string
-
 // HealthStatus defines model for HealthStatus.
 type HealthStatus struct {
 	// Impaired Present only when non-empty.
@@ -2285,20 +2122,6 @@ type PlaceDetails struct {
 	// Longitude Formatted with "%f", a string rather than a JSON number.
 	Longitude string `json:"longitude"`
 	Province  string `json:"province"`
-}
-
-// PlatformStats defines model for PlatformStats.
-type PlatformStats struct {
-	ActiveUsers       int `json:"active_users"`
-	NewComplexesMonth int `json:"new_complexes_month"`
-	NewUsersMonth     int `json:"new_users_month"`
-	TotalBookings     int `json:"total_bookings"`
-	TotalComplexes    int `json:"total_complexes"`
-	TotalCourts       int `json:"total_courts"`
-
-	// TotalRevenue Centavos ARS.
-	TotalRevenue int `json:"total_revenue"`
-	TotalUsers   int `json:"total_users"`
 }
 
 // Problem An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
@@ -2496,15 +2319,6 @@ type PublicComplex struct {
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
-}
-
-// QueueStats defines model for QueueStats.
-type QueueStats struct {
-	Exhausted        int    `json:"exhausted"`
-	Name             string `json:"name"`
-	OldestDueSeconds int    `json:"oldest_due_seconds"`
-	Pending          int    `json:"pending"`
-	Processing       int    `json:"processing"`
 }
 
 // RefundOutcome defines model for RefundOutcome.
@@ -2769,50 +2583,6 @@ type Unauthorized = Problem
 
 // ValidationError An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type ValidationError = Problem
-
-// AdminListAuditLogParams defines parameters for AdminListAuditLog.
-type AdminListAuditLogParams struct {
-	EntityType *string             `form:"entity_type,omitempty" json:"entity_type,omitempty"`
-	ComplexId  *openapi_types.UUID `form:"complex_id,omitempty" json:"complex_id,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous page's `metadata.next_cursor`.
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Page size. Default 50, maximum 200.
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// AdminListComplexesParams defines parameters for AdminListComplexes.
-type AdminListComplexesParams struct {
-	Search *string `form:"search,omitempty" json:"search,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous page's `metadata.next_cursor`.
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Page size. Default 50, maximum 200.
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// AdminListUsersParams defines parameters for AdminListUsers.
-type AdminListUsersParams struct {
-	Search *string                   `form:"search,omitempty" json:"search,omitempty"`
-	Role   *AdminListUsersParamsRole `form:"role,omitempty" json:"role,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous page's `metadata.next_cursor`.
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Page size. Default 50, maximum 200.
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// AdminListUsersParamsRole defines parameters for AdminListUsers.
-type AdminListUsersParamsRole string
-
-// AdminToggleUserActiveJSONBody defines parameters for AdminToggleUserActive.
-type AdminToggleUserActiveJSONBody struct {
-	// IsActive Omitting it deactivates the account, same as sending false.
-	IsActive *bool `json:"is_active,omitempty"`
-}
 
 // AuthConfirmEmailChangeJSONBody defines parameters for AuthConfirmEmailChange.
 type AuthConfirmEmailChangeJSONBody struct {
@@ -3576,9 +3346,6 @@ type BookingsWhatsAppVerifyWebhookParamsHubMode string
 // BookingsWhatsAppWebhookJSONBody defines parameters for BookingsWhatsAppWebhook.
 type BookingsWhatsAppWebhookJSONBody map[string]interface{}
 
-// AdminToggleUserActiveJSONRequestBody defines body for AdminToggleUserActive for application/json ContentType.
-type AdminToggleUserActiveJSONRequestBody AdminToggleUserActiveJSONBody
-
 // AuthConfirmEmailChangeJSONRequestBody defines body for AuthConfirmEmailChange for application/json ContentType.
 type AuthConfirmEmailChangeJSONRequestBody AuthConfirmEmailChangeJSONBody
 
@@ -3772,30 +3539,6 @@ type ServerInterface interface {
 	// PublicsiteSitemapMoved Platform sitemap (moved)
 	// (GET /api/sitemap.xml)
 	PublicsiteSitemapMoved(w http.ResponseWriter, r *http.Request)
-	// AdminListAuditLog List the platform-wide audit trail
-	// (GET /api/v1/admin/audit-log)
-	AdminListAuditLog(w http.ResponseWriter, r *http.Request, params AdminListAuditLogParams)
-	// AdminListComplexes List every complex on the platform
-	// (GET /api/v1/admin/complexes)
-	AdminListComplexes(w http.ResponseWriter, r *http.Request, params AdminListComplexesParams)
-	// AdminGetComplex Get one complex with owner and usage figures
-	// (GET /api/v1/admin/complexes/{id})
-	AdminGetComplex(w http.ResponseWriter, r *http.Request, id PathID)
-	// AdminGetHealthDetailed Detailed health check for operators
-	// (GET /api/v1/admin/healthcheck)
-	AdminGetHealthDetailed(w http.ResponseWriter, r *http.Request)
-	// AdminGetStats Platform-wide statistics
-	// (GET /api/v1/admin/stats)
-	AdminGetStats(w http.ResponseWriter, r *http.Request)
-	// AdminListUsers List platform users
-	// (GET /api/v1/admin/users)
-	AdminListUsers(w http.ResponseWriter, r *http.Request, params AdminListUsersParams)
-	// AdminGetUser Get a platform user and the complexes they own
-	// (GET /api/v1/admin/users/{id})
-	AdminGetUser(w http.ResponseWriter, r *http.Request, id PathID)
-	// AdminToggleUserActive Activate or deactivate a platform user
-	// (PATCH /api/v1/admin/users/{id}/toggle-active)
-	AdminToggleUserActive(w http.ResponseWriter, r *http.Request, id PathID)
 	// AuthConfirmEmailChange Confirm a pending email change using an emailed token
 	// (POST /api/v1/auth/confirm-email-change)
 	AuthConfirmEmailChange(w http.ResponseWriter, r *http.Request)
@@ -4107,315 +3850,6 @@ func (siw *ServerInterfaceWrapper) PublicsiteSitemapMoved(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PublicsiteSitemapMoved(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminListAuditLog operation middleware
-func (siw *ServerInterfaceWrapper) AdminListAuditLog(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params AdminListAuditLogParams
-
-	// ------------- Optional query parameter "entity_type" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "entity_type", r.URL.Query(), &params.EntityType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "entity_type"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entity_type", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "complex_id" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "complex_id", r.URL.Query(), &params.ComplexId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "complex_id"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "complex_id", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminListAuditLog(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminListComplexes operation middleware
-func (siw *ServerInterfaceWrapper) AdminListComplexes(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params AdminListComplexesParams
-
-	// ------------- Optional query parameter "search" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminListComplexes(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminGetComplex operation middleware
-func (siw *ServerInterfaceWrapper) AdminGetComplex(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id PathID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminGetComplex(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminGetHealthDetailed operation middleware
-func (siw *ServerInterfaceWrapper) AdminGetHealthDetailed(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminGetHealthDetailed(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminGetStats operation middleware
-func (siw *ServerInterfaceWrapper) AdminGetStats(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminGetStats(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminListUsers operation middleware
-func (siw *ServerInterfaceWrapper) AdminListUsers(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params AdminListUsersParams
-
-	// ------------- Optional query parameter "search" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "role" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "role", r.URL.Query(), &params.Role, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminListUsers(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminGetUser operation middleware
-func (siw *ServerInterfaceWrapper) AdminGetUser(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id PathID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminGetUser(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AdminToggleUserActive operation middleware
-func (siw *ServerInterfaceWrapper) AdminToggleUserActive(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id PathID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminToggleUserActive(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7859,14 +7293,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/stats", wrapper.AdminGetStats)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/users", wrapper.AdminListUsers)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/users/{id}", wrapper.AdminGetUser)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/v1/admin/users/{id}/toggle-active", wrapper.AdminToggleUserActive)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/complexes", wrapper.AdminListComplexes)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/complexes/{id}", wrapper.AdminGetComplex)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/audit-log", wrapper.AdminListAuditLog)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/healthcheck", wrapper.AdminGetHealthDetailed)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/audit-log", wrapper.AuditListComplexLog)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/register", wrapper.AuthRegister)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/login", wrapper.AuthLogin)

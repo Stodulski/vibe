@@ -49,54 +49,6 @@ func (s *apiServer) PublicsiteSitemapMoved(w http.ResponseWriter, r *http.Reques
 	s.app.publicsite.SitemapMoved(w, r)
 }
 
-// AdminListAuditLog implements gen.ServerInterface for adminListAuditLog
-// (GET /api/v1/admin/audit-log). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminListAuditLog(w http.ResponseWriter, r *http.Request, params gen.AdminListAuditLogParams) {
-	s.app.admin.ListAuditLogs(w, r)
-}
-
-// AdminListComplexes implements gen.ServerInterface for adminListComplexes
-// (GET /api/v1/admin/complexes). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminListComplexes(w http.ResponseWriter, r *http.Request, params gen.AdminListComplexesParams) {
-	s.app.admin.ListComplexes(w, r)
-}
-
-// AdminGetComplex implements gen.ServerInterface for adminGetComplex
-// (GET /api/v1/admin/complexes/{id}). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminGetComplex(w http.ResponseWriter, r *http.Request, id gen.PathID) {
-	s.app.admin.GetComplex(w, r)
-}
-
-// AdminGetHealthDetailed implements gen.ServerInterface for adminGetHealthDetailed
-// (GET /api/v1/admin/healthcheck). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminGetHealthDetailed(w http.ResponseWriter, r *http.Request) {
-	s.app.health.Detailed(w, r)
-}
-
-// AdminGetStats implements gen.ServerInterface for adminGetStats
-// (GET /api/v1/admin/stats). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminGetStats(w http.ResponseWriter, r *http.Request) {
-	s.app.admin.Stats(w, r)
-}
-
-// AdminListUsers implements gen.ServerInterface for adminListUsers
-// (GET /api/v1/admin/users). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminListUsers(w http.ResponseWriter, r *http.Request, params gen.AdminListUsersParams) {
-	s.app.admin.ListUsers(w, r)
-}
-
-// AdminGetUser implements gen.ServerInterface for adminGetUser
-// (GET /api/v1/admin/users/{id}). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminGetUser(w http.ResponseWriter, r *http.Request, id gen.PathID) {
-	s.app.admin.GetUser(w, r)
-}
-
-// AdminToggleUserActive implements gen.ServerInterface for adminToggleUserActive
-// (PATCH /api/v1/admin/users/{id}/toggle-active). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) AdminToggleUserActive(w http.ResponseWriter, r *http.Request, id gen.PathID) {
-	s.app.admin.ToggleUserActive(w, r)
-}
-
 // AuthForgotPassword implements gen.ServerInterface for authForgotPassword
 // (POST /api/v1/auth/forgot-password). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) AuthForgotPassword(w http.ResponseWriter, r *http.Request) {

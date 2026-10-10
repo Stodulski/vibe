@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	adminstore "github.com/stodulski/vibe-server/internal/admin/store"
 	auditstore "github.com/stodulski/vibe-server/internal/audit/store"
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
@@ -500,9 +499,8 @@ type SlotLockStore interface {
 
 // AuditStore records and reads the audit trail.
 //
-// It is its own field rather than part of the admin store because the trail
-// has two readers — the platform-wide /admin/audit-log view and a venue's own
-// — and one writer that is every module in the application.
+// It is its own field because the trail has one writer, every module in the
+// application, and one reader, a venue's own trail.
 type AuditStore interface {
 	// InsertAuditLog takes its two values as already-encoded JSON: the caller
 	// encodes on its own goroutine so the background write never reads a struct
@@ -665,7 +663,6 @@ type Stores struct {
 	FailedRefunds     FailedRefundStore
 	WebhookEvents     WebhookEventStore
 	SlotLocks         SlotLockStore
-	Admin             adminstore.AdminStore
 	Audit             AuditStore
 	Reports           reportstore.ReportStore
 	Locks             data.LockStore
@@ -713,7 +710,6 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Reports:           &reportstore.Store{DB: pooled},
 		Locks:             &data.LockModel{DB: pooled, Logger: cfg.Logger},
 		SlotLocks:         &bookingstore.SlotLocks{DB: pooled},
-		Admin:             &adminstore.Store{DB: pooled},
 		Audit:             &auditstore.Store{DB: pooled},
 		Jobs:              &jobs.Store{DB: pooled},
 		Cashbox:           &cashboxstore.Store{DB: pooled, Q: q},

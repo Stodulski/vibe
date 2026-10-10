@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stodulski/vibe-server/internal/admin"
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/bookings"
@@ -98,7 +97,6 @@ func validateDeps(d deps) error {
 		{"models.FailedRefunds", d.models.FailedRefunds != nil},
 		{"models.WebhookEvents", d.models.WebhookEvents != nil},
 		{"models.SlotLocks", d.models.SlotLocks != nil},
-		{"models.Admin", d.models.Admin != nil},
 		{"models.Audit", d.models.Audit != nil},
 		{"models.Reports", d.models.Reports != nil},
 		{"models.Locks", d.models.Locks != nil},
@@ -130,11 +128,9 @@ func validateDeps(d deps) error {
 // the file, so `go build` fails. A field of app can be read in the wrong
 // order and still compile — a local cannot be referenced before its `:=`.
 //
-// Three exceptions capture app itself, not one of its fields, and are safe by
+// One exception captures app itself, not one of its fields, and is safe by
 // construction: app.background (a method value — only wg and logger, which
-// are set on the shell below before anything else runs) and
-// processMetrics{app: app} (a struct field read at request time, long after
-// this function has returned a fully published app).
+// are set on the shell below before anything else runs).
 //
 // newApplication launches no goroutine, opens no connection and registers no
 // process-global. It can be called more than once in the same process.
@@ -396,12 +392,10 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	if d.db != nil {
 		queues = queueProbe{pool: d.db}
 	}
-	database, dbCache, dbPool, cachePool := healthProbes(d.db, d.rdb)
+	database, dbCache := healthProbes(d.db, d.rdb)
 	healthHandler := health.NewHandler(health.Dependencies{
-		Database:  database,
-		Cache:     dbCache,
-		DBPool:    dbPool,
-		CachePool: cachePool,
+		Database: database,
+		Cache:    dbCache,
 		// Without these the check is blind to the payment stack: with
 		// MercadoPago down, no client on any tenant can pay and the endpoint
 		// still answered "available".
@@ -410,14 +404,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 			breakerProbe{cb: waCB},
 			breakerProbe{cb: mailerCB},
 		},
-		Queues: queues,
-		// Reads app.middleware, which phase 3 publishes below. processMetrics
-		// holds the application rather than the middleware, so the order is
-		// not a trap: this is read at request time, long after app is fully
-		// published.
-		Metrics: processMetrics{app: app},
 		Respond: respond,
-	}, health.Config{Environment: cfg.Env, Version: version})
+	}, health.Config{Version: version})
 
 	// Domain services hold the rules; their handlers only decode, validate and
 	// map errors. A service is passed wherever another domain reads this one,
@@ -543,9 +531,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
-	adminService := admin.NewService(d.models.Admin, auditService, cache, auditor)
-	adminHandler := admin.NewHandler(adminService, respond, d.trustedProxies.Any())
-
 	// The export dependencies are assigned only when they exist, because a
 	// typed nil in an interface is not a nil interface: handing over a nil
 	// *jobs.Store would make ExportsConfigured say yes and the first call
@@ -668,7 +653,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.publicsite = publicsiteHandler
 	app.leads = leadsHandler
 	app.reporting = reportingHandler
-	app.admin = adminHandler
 	app.queues = queues
 	app.health = healthHandler
 	app.openapi = openapiHandler
