@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/build-api-catalog.mjs && astro build && pnpm run build:promote && node scripts/build-markdown.mjs && pnpm run build:mirror",
+    "build": "node scripts/build-api-catalog.mjs && astro build && pnpm run build:promote && node scripts/build-markdown.mjs && pnpm run build:mirror && node scripts/check-function-bundle.mjs",
     "build:promote": "node -e \"const fs = require('node:fs'); fs.cpSync('dist/client', 'dist', { recursive: true }); fs.rmSync('dist/client', { recursive: true, force: true });\"",
     "build:mirror": "node -e \"require('node:fs').cpSync('dist', '.vercel/output/static', { recursive: true });\"",
     "preview": "astro preview",
