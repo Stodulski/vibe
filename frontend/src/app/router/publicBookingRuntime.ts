@@ -1,8 +1,8 @@
 import { HTTPError, NetworkError, TimeoutError } from 'ky';
 import { env } from '@/shared/lib/env';
-import { ApiError } from '@/shared/lib/ApiError';
 import { captureException } from '@/shared/lib/observability';
-import type { BookingConfig } from '@/features/public-booking/config';
+import { ApiError } from '@vibe/booking/api-errors';
+import type { BookingConfig } from '@vibe/booking/config';
 
 /**
  * The statuses `reportQueryError` in `shared/lib/queryClient.ts` leaves out:
@@ -15,8 +15,18 @@ const EXPECTED_STATUSES = new Set([401, 403, 404, 422]);
 /**
  * Sends a booking failure to Sentry, with the same filter and tags the app's
  * query client uses, so the booking pages report exactly what they did before.
+ * A render error caught by a booking boundary arrives with its component stack
+ * and is tagged with the route, as the app's own boundary tags it.
  */
-export function reportBookingError(error: unknown): void {
+export function reportBookingError(error: unknown, context?: Record<string, unknown>): void {
+  if (context && 'componentStack' in context) {
+    captureException(error, {
+      tags: { route: window.location.pathname },
+      extra: { componentStack: context.componentStack },
+    });
+    return;
+  }
+
   if (error instanceof HTTPError) {
     if (EXPECTED_STATUSES.has(error.response.status)) return;
 

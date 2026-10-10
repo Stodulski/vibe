@@ -5,6 +5,7 @@
 
 /* Utility classes used only inside the shared package must be generated too. */
 @source '../../../packages/ui/src';
+@source '../../../packages/booking/src';
 
 /* Two deliberate choices packed into one line.
    `clip` rather than `hidden`: both refuse a horizontal scrollbar, but `hidden`

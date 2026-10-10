@@ -143,17 +143,6 @@ export default defineConfig([
       ],
     },
   },
-  // The one named exception to the rule above. The booking copy has a single
-  // source, owned by the public-booking feature so the package can ship on its
-  // own (`features/public-booking/messages.ts`). This file re-exports that
-  // namespace as `ES_AR.publicBooking`, so the owner app keeps its shape. Nothing
-  // else in `src/shared` may import from a feature.
-  {
-    files: ['src/shared/i18n/es_AR/publicBooking.ts'],
-    rules: {
-      'no-restricted-imports': 'off',
-    },
-  },
   // Each feature exposes its public API from its own `index.ts`. Nothing
   // outside a feature imports its internals directly — see
   // 06-auth-shared-tooling.md A3 and 04-public-booking.md M10.
@@ -170,7 +159,6 @@ export default defineConfig([
                 '@/features/complex/**',
                 '@/features/courts/**',
                 '@/features/dashboard/**',
-                '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/onboarding/**',
               ],
@@ -195,7 +183,6 @@ export default defineConfig([
                 '@/features/complex/**',
                 '@/features/courts/**',
                 '@/features/dashboard/**',
-                '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/onboarding/**',
               ],
@@ -220,7 +207,6 @@ export default defineConfig([
                 '@/features/clients/**',
                 '@/features/courts/**',
                 '@/features/dashboard/**',
-                '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/onboarding/**',
               ],
@@ -245,7 +231,6 @@ export default defineConfig([
                 '@/features/clients/**',
                 '@/features/complex/**',
                 '@/features/dashboard/**',
-                '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/onboarding/**',
               ],
@@ -270,56 +255,11 @@ export default defineConfig([
                 '@/features/clients/**',
                 '@/features/complex/**',
                 '@/features/courts/**',
-                '@/features/public-booking/**',
                 '@/features/auth/**',
                 '@/features/onboarding/**',
               ],
               message:
                 "Import another feature's public API from its barrel (e.g. '@/features/bookings'), not its internals.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ['src/features/public-booking/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: [
-                '@/features/bookings/**',
-                '@/features/clients/**',
-                '@/features/complex/**',
-                '@/features/courts/**',
-                '@/features/dashboard/**',
-                '@/features/auth/**',
-                '@/features/onboarding/**',
-              ],
-              message:
-                "Import another feature's public API from its barrel (e.g. '@/features/complex'), not its internals.",
-            },
-            {
-              // The booking package ships on its own (an Astro island), so it takes
-              // its routing, HTTP, config, state and copy from its own modules, never
-              // from the app. See BookingRoot and BookingConfig.
-              group: [
-                'react-router-dom',
-                '@/shared/lib/ky',
-                '@/shared/lib/env',
-                '@/shared/lib/observability',
-                '@/shared/lib/sentry',
-                '@/shared/stores',
-                '@/shared/stores/**',
-                '@/shared/i18n',
-                '@/shared/i18n/**',
-                '@/app/**',
-              ],
-              message:
-                'The public booking feature must stay standalone: no router, app HTTP client, env, stores, i18n or app code. Use BookingRoot, BookingConfig and the feature messages.',
             },
           ],
         },
@@ -340,7 +280,6 @@ export default defineConfig([
                 '@/features/complex/**',
                 '@/features/courts/**',
                 '@/features/dashboard/**',
-                '@/features/public-booking/**',
                 '@/features/onboarding/**',
               ],
               message: "Import another feature's public API from its barrel, not its internals.",
@@ -364,7 +303,6 @@ export default defineConfig([
                 '@/features/complex/**',
                 '@/features/courts/**',
                 '@/features/dashboard/**',
-                '@/features/public-booking/**',
                 '@/features/auth/**',
               ],
               message: "Import another feature's public API from its barrel, not its internals.",

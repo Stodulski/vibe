@@ -218,10 +218,11 @@ const config: UserConfig = {
     },
   },
   optimizeDeps: {
-    // leaflet (and its React binding) is a CJS dependency discovered lazily
-    // otherwise, which can trigger a mid-session re-optimization and a full
-    // dev-server reload the first time a map renders (BLD-05).
-    include: ['leaflet', 'react-leaflet'],
+    // The storefront map (leaflet and its React binding, owned by @vibe/booking) is a
+    // CJS dependency. Discovered lazily, it can trigger a mid-session
+    // re-optimization and a full dev-server reload the first time a map
+    // renders (BLD-05).
+    include: ['@vibe/booking > leaflet', '@vibe/booking > react-leaflet'],
   },
   build: {
     // Matches the `browserslist` entry in package.json so the target is

@@ -7,7 +7,7 @@ import { server } from '@/test/msw/server';
 import { makeConsumedHttpError } from '@/test/factories';
 import { useStore } from '@/shared/stores';
 import { captureException } from '@/shared/lib/observability';
-import { createBookingClient } from '@/features/public-booking/api/client';
+import { createBookingClient } from '@vibe/booking/api-client';
 import { getPublicBookingConfig, reportBookingError } from './publicBookingRuntime';
 
 vi.mock('@/shared/lib/observability', () => ({ captureException: vi.fn() }));

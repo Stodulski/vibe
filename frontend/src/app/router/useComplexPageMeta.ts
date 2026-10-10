@@ -3,7 +3,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { env } from '@/shared/lib/env';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
-import { buildComplexSchema } from '@/features/public-booking/pages/complex-page/schema';
+import { buildComplexSchema } from '@vibe/booking/complex-schema';
 
 const t = ES_AR;
 

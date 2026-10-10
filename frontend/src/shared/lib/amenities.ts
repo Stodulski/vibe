@@ -44,17 +44,3 @@ export const AMENITIES: { value: Amenity; label: string; icon: LucideIcon }[] = 
   { value: 'accessible', label: t.complex.amenities.accessible, icon: Accessibility },
   { value: 'match_recording', label: t.complex.amenities.match_recording, icon: Video },
 ];
-
-/**
- * The listed amenities of a complex, in the canonical order above.
- *
- * The server preserves the order it was sent, which is the order the owner
- * happened to tick the boxes in — fine to store, wrong to render: the same two
- * amenities would sit in different places on two different venues' cards.
- */
-export function orderedAmenities(selected: readonly string[] | undefined): typeof AMENITIES {
-  // Tolerates undefined for the same reason AmenitiesField does: a response
-  // cached before this field existed carries no key.
-  const chosen = new Set(selected ?? []);
-  return AMENITIES.filter((a) => chosen.has(a.value));
-}

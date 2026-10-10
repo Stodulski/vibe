@@ -126,7 +126,7 @@ describe('vercel.json CSP third-party origins', () => {
     ['script-src', 'https://challenges.cloudflare.com'],
     ['frame-src', 'https://challenges.cloudflare.com'],
     // OpenStreetMap tiles — the `TileLayer` url in
-    // src/features/public-booking/components/ComplexMap.tsx. Leaflet's own
+    // packages/booking/src/components/ComplexMap.tsx. Leaflet's own
     // marker icons are bundled assets (see the comment in that file), not a
     // CDN fetch, so no unpkg/CDN origin belongs here.
     ['img-src', 'https://*.tile.openstreetmap.org'],
@@ -134,7 +134,7 @@ describe('vercel.json CSP third-party origins', () => {
     // backend is configured with — either R2's own public dev domain or a
     // custom domain under vibe.com.ar (backend/internal/platform/config) —
     // rendered by src/features/complex/components/ImageUpload.tsx and
-    // src/features/public-booking/components/ComplexHeader.tsx.
+    // packages/booking/src/components/ComplexHeader.tsx.
     ['img-src', 'https://*.r2.dev'],
     ['img-src', 'https://*.vibe.com.ar'],
     // The app's own API, on a different origin than the SPA in production

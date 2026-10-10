@@ -14,12 +14,13 @@ Each package keeps its own toolchain, environment file and README. `frontend/` a
 
 Workflows live in `.github/workflows/`. Their `push` triggers are filtered by path, so a push to `main`
 that only touches one package runs only that package's checks. The ones that also run on
-`pull_request` — `backend.yml`, `frontend.yml`, `e2e.yml` and `service-fee.yml` — do so without a path
+`pull_request` — `backend.yml`, `frontend.yml`, `packages.yml`, `e2e.yml` and `service-fee.yml` — do so without a path
 filter: a required check that a paths filter skips never reports, and the pull request then waits for
 it forever. (`landing-costos-mercadopago.yml` has no pull-request trigger at all; it is a daily cron.)
 
 - `backend.yml` — lint, unit tests, build, vulnerability audit and integration tests for `backend/`.
 - `frontend.yml` — typecheck, lint, format check and unit tests for `frontend/`.
+- `packages.yml` — typecheck, lint and unit tests for the workspace packages in `packages/` (`@vibe/ui`, `@vibe/booking`), on any change to `packages/**`, the lockfile or the workspace file.
 - `e2e.yml` — the client's Playwright suite against an isolated API, triggered by changes to either `backend/` or `frontend/`.
 - `landing-costos-mercadopago.yml` — daily check that the MercadoPago fees published by the landing match the source.
 - `service-fee.yml` — fails when the four places that state Vibe's own service fee (a flat amount per
