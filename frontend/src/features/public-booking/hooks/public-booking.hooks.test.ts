@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { createBookingWrapper } from '@/test/booking';
 
 // Shared default `createBooking` resolution: the module-registry note on the
@@ -152,7 +152,7 @@ describe('usePublicBooking', () => {
     });
 
     expect(toast.error).toHaveBeenCalledWith('El telefono ya tiene una reserva pendiente');
-    expect(toast.error).not.toHaveBeenCalledWith(ES_AR.publicBooking.bookingCreateError);
+    expect(toast.error).not.toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.bookingCreateError);
   });
 
   it('onError falls back to the generic i18n message when the backend body has no error field', async () => {
@@ -178,7 +178,7 @@ describe('usePublicBooking', () => {
       expect(result.current.isError).toBe(true);
     });
 
-    expect(toast.error).toHaveBeenCalledWith(ES_AR.publicBooking.bookingCreateError);
+    expect(toast.error).toHaveBeenCalledWith(BOOKING_MESSAGES.publicBooking.bookingCreateError);
   });
 
   // `isolate: false` (vitest.config.ts) shares the module registry across

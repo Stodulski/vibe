@@ -1,12 +1,12 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/shared/components/ui/accordion';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { orderedAmenities } from '@/shared/lib/amenities';
 import type { Schedule } from '@/shared/types/api.types';
 import { WeekScheduleList } from './WeekScheduleList';
 import { AmenityList } from './AmenityList';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /** Tailwind's `lg`, where the header becomes a card with room for both lists open. */
 const OPEN_SECTIONS = '(min-width: 1024px)';

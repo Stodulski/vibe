@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 import { NotesField } from './NotesField';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 function Wrapper() {
   const { register } = useForm<PublicBookingFormData>();

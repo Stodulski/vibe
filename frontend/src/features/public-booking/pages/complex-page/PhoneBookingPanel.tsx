@@ -1,8 +1,8 @@
 import { Button } from '@/shared/components/ui/button';
 import { WhatsappIcon } from '@/shared/components/common/WhatsappIcon';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * What a complex takes bookings by, when it cannot take them online.

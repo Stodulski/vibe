@@ -3,10 +3,10 @@ import { screen } from '@testing-library/react';
 import { renderBooking } from '@/test/booking';
 import userEvent from '@testing-library/user-event';
 import { makeConsumedHttpError } from '@/test/factories';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { useComplexBySlug } from '@/features/public-booking';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({
   usePageTitle: vi.fn(),

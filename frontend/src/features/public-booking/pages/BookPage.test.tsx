@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderBooking, setBookingUrl } from '@/test/booking';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import BookPage from './BookPage';
 
 afterEach(() => {
@@ -34,10 +34,9 @@ describe('BookPage', () => {
 
     renderBooking(<BookPage slug="club-norte" />);
 
-    expect(screen.getByRole('link', { name: ES_AR.publicBooking.paymentFailedChooseAnother })).toHaveAttribute(
-      'href',
-      '/c/club-norte',
-    );
+    expect(
+      screen.getByRole('link', { name: BOOKING_MESSAGES.publicBooking.paymentFailedChooseAnother }),
+    ).toHaveAttribute('href', '/c/club-norte');
     expect(replace).not.toHaveBeenCalled();
   });
 });

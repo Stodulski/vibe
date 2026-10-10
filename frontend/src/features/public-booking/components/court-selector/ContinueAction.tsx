@@ -1,7 +1,7 @@
 import { Button } from '@/shared/components/ui/button';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * The step out of the grid, in flow, directly under the choice it confirms.

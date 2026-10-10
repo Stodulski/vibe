@@ -3,13 +3,13 @@ import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { BookingForm, type BookingSlotInfo, StepIndicator } from '@/features/public-booking';
 import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
 import { Button } from '@/shared/components/ui/button';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { useConfirmBookingSubmit } from './book-confirm-page/useConfirmBookingSubmit';
 import { navigateTo } from '../lib/navigation';
 import { clearConfirmDraft, readConfirmDraft } from '../lib/handoff';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 export default function BookConfirmPage({ slug }: { slug: string }) {
   // The draft is the slot the person chose on the complex page, parked in

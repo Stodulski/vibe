@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import type { CourtAvailability } from '@/shared/types/api.types';
 import { TimeGroupList } from './court-selector/TimeGroupList';
 import { CourtQuestion } from './court-selector/CourtQuestion';
@@ -10,7 +10,7 @@ import type { SelectedSlot } from './court-selector/types';
 
 export type { SelectedSlot } from './court-selector/types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface CourtSelectorProps {
   courts: CourtAvailability[];

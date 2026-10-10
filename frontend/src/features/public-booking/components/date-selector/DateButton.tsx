@@ -2,12 +2,12 @@ import { forwardRef } from 'react';
 import { format } from 'date-fns/format';
 import { isSameDay } from 'date-fns/isSameDay';
 import { es } from 'date-fns/locale/es';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { cn } from '@/shared/lib/utils';
 import type { Schedule } from '@/shared/types/api.types';
 import { isClosedDay } from './dayUtils';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface DateButtonProps {
   date: Date;

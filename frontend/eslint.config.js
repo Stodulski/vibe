@@ -143,6 +143,17 @@ export default defineConfig([
       ],
     },
   },
+  // The one named exception to the rule above. The booking copy has a single
+  // source, owned by the public-booking feature so the package can ship on its
+  // own (`features/public-booking/messages.ts`). This file re-exports that
+  // namespace as `ES_AR.publicBooking`, so the owner app keeps its shape. Nothing
+  // else in `src/shared` may import from a feature.
+  {
+    files: ['src/shared/i18n/es_AR/publicBooking.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
   // Each feature exposes its public API from its own `index.ts`. Nothing
   // outside a feature imports its internals directly — see
   // 06-auth-shared-tooling.md A3 and 04-public-booking.md M10.

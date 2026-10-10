@@ -1,9 +1,9 @@
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { formatPrice, formatDateFull, formatHourRange } from '@/shared/lib/utils';
 import { COURT_TYPE_LABELS } from '../court-selector/constants';
 import type { BookingInfo } from './types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
 
 interface BookingSummaryProps {

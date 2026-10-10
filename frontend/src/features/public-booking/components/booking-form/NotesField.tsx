@@ -3,13 +3,13 @@ import type { UseFormRegister } from 'react-hook-form';
 import { ChevronDown } from 'lucide-react';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { cn } from '@/shared/lib/utils';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 
 const NOTES_TEXTAREA_ID = 'client_notes';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface NotesFieldProps {
   register: UseFormRegister<PublicBookingFormData>;

@@ -1,5 +1,5 @@
 import type { Control, FieldErrors, UseFormHandleSubmit, UseFormRegister } from 'react-hook-form';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { useBookingConfig } from '../../config';
 import { submitHandler } from '@/shared/lib/form';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
@@ -11,7 +11,7 @@ import { NotesField } from './NotesField';
 import type { BookingPricing } from './pricing';
 import type { BookingSlotInfo } from './types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface FullFormViewProps {
   slotInfo: BookingSlotInfo;

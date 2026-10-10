@@ -1,11 +1,11 @@
 import { XCircle, Ban, Phone } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { StatusHero } from '@/shared/components/common/StatusHero';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { CollectionStatus } from '@/shared/types/api.types';
 import type { BookingInfo } from './types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface CancelledStateProps {
   bookingInfo: BookingInfo | null;

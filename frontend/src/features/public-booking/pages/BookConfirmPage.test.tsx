@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } fr
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderBooking, setBookingUrl } from '@/test/booking';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { makeConsumedHttpError } from '@/test/factories';
 import type { BookingSlotInfo } from '@/features/public-booking';
 import { confirmDraftKey, readBookingResult } from '../lib/handoff';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));

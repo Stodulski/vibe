@@ -1,9 +1,9 @@
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { formatDateFull, formatHourRange } from '@/shared/lib/utils';
 import { COURT_TYPE_LABELS } from '@/features/public-booking';
 import type { CancelInfoResponse } from '@/shared/types/api.types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
 
 type CancelInfoBooking = CancelInfoResponse['booking'];

@@ -1,10 +1,10 @@
 import { SkeletonSlotGrid, CourtSelector, type SelectedSlot } from '@/features/public-booking';
 import { cn } from '@/shared/lib/utils';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { CourtAvailability } from '@/shared/types/api.types';
 import { AvailabilityErrorState } from './AvailabilityErrorState';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface AvailabilitySectionProps {
   isLoading: boolean;

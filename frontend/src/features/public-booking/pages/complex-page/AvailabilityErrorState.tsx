@@ -1,8 +1,8 @@
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface AvailabilityErrorStateProps {
   onRetry: () => void;

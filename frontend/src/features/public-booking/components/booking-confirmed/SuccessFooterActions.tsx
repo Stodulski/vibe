@@ -1,9 +1,9 @@
 import { Button } from '@/shared/components/ui/button';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import type { BookingStatus } from '@/shared/types/api.types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface SuccessFooterActionsProps {
   slug: string;

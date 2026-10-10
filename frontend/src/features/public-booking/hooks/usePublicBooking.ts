@@ -1,13 +1,13 @@
 import { HTTPError } from 'ky';
 import { toast } from 'sonner';
 import { usePublicBookingApi } from '../api/context';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { getProblem } from '@/shared/lib/ApiError';
 import { useIdempotentMutation, type WithAttemptKey } from '@/shared/lib/idempotency';
 import type { PublicBookingRequest } from '@/shared/types/api.types';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 interface UsePublicBookingOptions {
   /**

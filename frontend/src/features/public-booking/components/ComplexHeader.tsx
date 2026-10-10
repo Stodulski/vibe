@@ -2,13 +2,13 @@ import { lazy, Suspense } from 'react';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { ErrorBoundary } from '@/shared/components/common/ErrorBoundary';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { CoverBanner } from './complex-header/CoverBanner';
 import { ComplexLogo } from './complex-header/ComplexLogo';
 import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
 import { ComplexDetails } from './complex-header/ComplexDetails';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 const ComplexMap = lazy(() => import('./ComplexMap').then((m) => ({ default: m.ComplexMap })));
 

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { SkeletonSlotGrid } from './SkeletonSlotGrid';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 describe('SkeletonSlotGrid', () => {
   it('announces the loading state through its status role', () => {

@@ -3,11 +3,11 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { HTTPError } from 'ky';
 import { toast } from 'sonner';
 import { usePublicBookingApi } from '../api/context';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { queryKeys } from '@/shared/lib/queryKeys';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 export function useCancelBookingFlow(token: string) {
   const api = usePublicBookingApi();

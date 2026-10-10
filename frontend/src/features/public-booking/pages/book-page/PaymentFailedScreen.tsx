@@ -2,10 +2,10 @@ import { XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { formatDateFull, formatHourRange, formatPrice } from '@/shared/lib/utils';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../../messages';
 import { readStoredBookingInfo } from '@/features/public-booking';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 /**
  * What someone sees when MercadoPago rejects their card.

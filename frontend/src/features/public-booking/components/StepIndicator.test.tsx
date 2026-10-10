@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { StepIndicator } from './StepIndicator';
-import { ES_AR } from '@/shared/i18n/es_AR';
+import { BOOKING_MESSAGES } from '../messages';
 
-const t = ES_AR;
+const t = BOOKING_MESSAGES;
 
 describe('StepIndicator', () => {
   it('marks the active step with aria-current="step"', () => {
