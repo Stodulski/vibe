@@ -1,7 +1,7 @@
 import { Lock } from 'lucide-react';
 import { LoadingButton } from '@/shared/components/common/LoadingButton';
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatPrice } from '@/shared/lib/utils';
+import { formatPrice } from '@/shared/lib/format';
 
 const t = BOOKING_MESSAGES;
 

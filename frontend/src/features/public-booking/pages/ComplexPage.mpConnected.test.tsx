@@ -5,7 +5,7 @@ import { readConfirmDraft } from '../lib/handoff';
 import type { AvailabilityData, CourtWithPrices, PublicComplexResponse } from '@/shared/types/api.types';
 
 import { makeCourt } from '@/test/factories';
-import { formatPrice } from '@/shared/lib/utils';
+import { formatPrice } from '@/shared/lib/format';
 
 // ─── Regression test for the server contract migration ───
 //

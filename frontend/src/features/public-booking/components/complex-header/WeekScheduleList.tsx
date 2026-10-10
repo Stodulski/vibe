@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/cn';
 import type { Schedule } from '@/shared/types/api.types';
 import { buildWeekSchedule } from './weekSchedule';
 import { getDayName } from './dayNames';

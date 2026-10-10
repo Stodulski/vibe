@@ -1,7 +1,7 @@
 import { format } from 'date-fns/format';
 import { es } from 'date-fns/locale/es';
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatPrice, toDisplayDate } from '@/shared/lib/utils';
+import { formatPrice, toDisplayDate } from '@/shared/lib/format';
 import type { BookingSlotInfo } from './types';
 
 const t = BOOKING_MESSAGES;

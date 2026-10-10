@@ -1,5 +1,5 @@
 import { SkeletonSlotGrid, CourtSelector, type SelectedSlot } from '@/features/public-booking';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/cn';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { CourtAvailability } from '@/shared/types/api.types';
 import { AvailabilityErrorState } from './AvailabilityErrorState';

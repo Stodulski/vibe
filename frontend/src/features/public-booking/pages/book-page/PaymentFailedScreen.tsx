@@ -1,6 +1,6 @@
 import { XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
-import { formatDateFull, formatHourRange, formatPrice } from '@/shared/lib/utils';
+import { formatDateFull, formatHourRange, formatPrice } from '@/shared/lib/format';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { BOOKING_MESSAGES } from '../../messages';
 import { readStoredBookingInfo } from '@/features/public-booking';

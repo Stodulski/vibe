@@ -1,5 +1,5 @@
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatDeadline } from '@/shared/lib/utils';
+import { formatDeadline } from '@/shared/lib/format';
 import type { BookingInfo } from './types';
 
 const t = BOOKING_MESSAGES;

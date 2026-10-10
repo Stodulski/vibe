@@ -1,4 +1,5 @@
-import { cn, formatPrice } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/cn';
+import { formatPrice } from '@/shared/lib/format';
 import { BOOKING_MESSAGES } from '../../messages';
 import { COURT_TYPE_LABELS } from './constants';
 import { needsCourtChoice } from './courtChoice';

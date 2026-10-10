@@ -1,4 +1,4 @@
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/cn';
 import { BOOKING_MESSAGES } from '../../messages';
 import { COURT_TYPE_LABELS } from './constants';
 import type { TimeOption } from './timeOptions';

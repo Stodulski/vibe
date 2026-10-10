@@ -1,5 +1,5 @@
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatPrice, formatDateFull, formatHourRange } from '@/shared/lib/utils';
+import { formatPrice, formatDateFull, formatHourRange } from '@/shared/lib/format';
 import { COURT_TYPE_LABELS } from '../court-selector/constants';
 import type { BookingInfo } from './types';
 

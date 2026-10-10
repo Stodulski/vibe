@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
 import { BOOKING_MESSAGES } from '../../messages';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/cn';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 
 const NOTES_TEXTAREA_ID = 'client_notes';

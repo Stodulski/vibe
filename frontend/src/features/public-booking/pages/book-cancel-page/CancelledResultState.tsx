@@ -2,7 +2,7 @@ import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { StatusHero } from '@/shared/components/common/StatusHero';
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatPrice } from '@/shared/lib/utils';
+import { formatPrice } from '@/shared/lib/format';
 import type { RefundEnvelope, RefundStatus } from '@/shared/types/api.types';
 
 const t = BOOKING_MESSAGES;

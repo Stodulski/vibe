@@ -2,7 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { Button } from '@/shared/components/ui/button';
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatPrice } from '@/shared/lib/utils';
+import { formatPrice } from '@/shared/lib/format';
 import type { CancelInfoResponse } from '@/shared/types/api.types';
 import { BookingInfoCard, type CancelMoneyBand } from './BookingInfoCard';
 import { RefundExpiredNotice } from './RefundExpiredNotice';

@@ -3,7 +3,7 @@ import { format } from 'date-fns/format';
 import { isSameDay } from 'date-fns/isSameDay';
 import { es } from 'date-fns/locale/es';
 import { BOOKING_MESSAGES } from '../../messages';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/cn';
 import type { Schedule } from '@/shared/types/api.types';
 import { isClosedDay } from './dayUtils';
 

@@ -1,5 +1,5 @@
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatDateFull, formatHourRange } from '@/shared/lib/utils';
+import { formatDateFull, formatHourRange } from '@/shared/lib/format';
 import { COURT_TYPE_LABELS } from '@/features/public-booking';
 import type { CancelInfoResponse } from '@/shared/types/api.types';
 
