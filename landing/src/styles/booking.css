@@ -1,0 +1,30 @@
+/*
+ * Tailwind for the server-rendered routes only. Only src/layouts/BookingLayout.astro
+ * imports this file, so the hand-written pages never get the preflight or utilities.
+ *
+ * Cascade: global.css is unlayered on the existing pages, and unlayered rules beat
+ * every @layer, so Tailwind's utilities would lose to it. Here global.css is imported
+ * into the `legacy` layer, which sits below components and utilities. The Nav and
+ * Footer keep their look, and Tailwind's classes win where they overlap.
+ */
+@layer theme, base, legacy, components, utilities;
+
+@import "tailwindcss";
+@import "./global.css" layer(legacy);
+
+@theme {
+  --color-vibe-bg: #0b0b0b;
+  --color-vibe-surface: #151515;
+  --color-vibe-green: #1DB954;
+  --color-vibe-muted: #b0b0b0;
+  --color-vibe-error: #EF4444;
+  --font-sans: 'DM Sans', sans-serif;
+}
+
+@layer components {
+  /* The shared hamburger is 40px. Its tap target needs 44px on these routes. */
+  .nav-toggle {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}

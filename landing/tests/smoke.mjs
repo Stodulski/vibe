@@ -624,6 +624,33 @@ async function testGuias() {
 }
 
 /**
+ * The city hub is rendered on the server from the public API and stays noindex
+ * until the cutover. It reads live data, so it runs only when asked:
+ * SMOKE_HUBS=1 node tests/smoke.mjs
+ */
+async function testCanchas() {
+  if (!process.env.SMOKE_HUBS) return;
+  const p = await newPage();
+
+  const hub = await p.request.get(BASE + '/canchas/banfield');
+  check('/canchas/banfield answers 200', hub.status() === 200, `${hub.status()}`);
+  check('/canchas/banfield is noindex until the cutover',
+    /noindex/.test(hub.headers()['x-robots-tag'] || ''));
+  check('/canchas/banfield is cached at the CDN',
+    /s-maxage=\d+/.test(hub.headers()['cache-control'] || ''));
+
+  const missing = await p.request.get(BASE + '/canchas/no-existe');
+  check('an unknown city answers 404', missing.status() === 404, `${missing.status()}`);
+  check('an unknown city is not cached', missing.headers()['cache-control'] === 'no-store');
+
+  await p.goto(BASE + '/canchas/banfield', { waitUntil: 'load' });
+  const h1 = (await p.locator('h1').first().textContent()) || '';
+  check('the hub H1 names the city', /^Canchas en /.test(h1), h1);
+  check('the hub links each complex to /c/<slug>',
+    await p.locator('main a[href^="/c/"]').count() > 0);
+}
+
+/**
  * Los porcentajes viven en un solo archivo a proposito. Esto comprueba que la
  * home y la guia sigan mostrando ese archivo y no una copia que alguien edito
  * a mano, que es como quedaron mal la primera vez.
@@ -909,6 +936,7 @@ try {
   await testContacto();
   await testRegistro();
   await testGuias();
+  await testCanchas();
   await testCostosMercadoPago();
   await testDatosMercadoPagoJson();
   await testNingunNumeroSuelto();

@@ -37,6 +37,8 @@ Railway and Vercel each build one package, so every project is configured with i
 - Railway (`backend`): root directory `backend`, Dockerfile and `railway.toml` are read from there.
 - Vercel (`frontend`, `landing`): root directory set to the package; `vercel.json` in the landing applies from there.
 
+The landing has server-rendered routes (`/canchas/[city]`), so its build uses the Vercel adapter and writes `.vercel/output`, which Vercel deploys instead of `dist/`. The `build:mirror` step therefore copies the generated sitemap, `llms.txt` and Markdown twins into `.vercel/output/static`. `PUBLIC_API_URL` is inlined at build time, so changing it needs a new deployment.
+
 All three projects watch this one repository, so before 2026-09-14 every push built every one of
 them whatever it touched: a backend-only commit rebuilt two frontends, and a copy fix in the app
 rebuilt the Go image and ran `preDeployCommand` against production Postgres. On Vercel that ran the

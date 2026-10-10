@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/build-api-catalog.mjs && astro build && node scripts/build-markdown.mjs",
+    "build": "node scripts/build-api-catalog.mjs && astro build && pnpm run build:promote && node scripts/build-markdown.mjs && pnpm run build:mirror && node scripts/check-function-bundle.mjs",
+    "build:promote": "node -e \"const fs = require('node:fs'); fs.cpSync('dist/client', 'dist', { recursive: true }); fs.rmSync('dist/client', { recursive: true, force: true });\"",
+    "build:mirror": "node -e \"require('node:fs').cpSync('dist', '.vercel/output/static', { recursive: true });\"",
     "preview": "astro preview",
     "test": "node tests/smoke.mjs",
+    "test:unit": "node --test tests/*.test.ts",
     "check:mp": "node scripts/check-mercadopago.mjs",
     "seo:gate": "node scripts/seo-gate.mjs --dist",
     "seo:prod": "node scripts/seo-gate.mjs --url https://vibe.com.ar",
@@ -14,8 +17,14 @@
     "test:setup": "playwright install chromium"
   },
   "dependencies": {
+    "@astrojs/react": "^7.0.1",
+    "@astrojs/vercel": "^11.0.13",
+    "@tailwindcss/vite": "^4.3.3",
     "@vercel/functions": "^3.9.7",
-    "astro": "^7.3.2"
+    "astro": "^7.3.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "playwright": "^1.63.0",
