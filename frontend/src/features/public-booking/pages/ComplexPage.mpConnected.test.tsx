@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { screen, fireEvent, within } from '@testing-library/react';
+import { renderBooking } from '@/test/booking';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { AvailabilityData, CourtWithPrices, PublicComplexResponse } from '@/shared/types/api.types';
 import type { BookingSlotInfo } from '@/features/public-booking';
@@ -149,7 +150,7 @@ const COURTS: CourtWithPrices[] = [PADEL_COURT, TENNIS_COURT];
 
 async function renderComplexPage() {
   const Page = (await import('./ComplexPage')).default;
-  return render(
+  return renderBooking(
     <MemoryRouter initialEntries={['/c/test-club']}>
       <Routes>
         <Route path="/c/:slug" element={<Page />} />

@@ -1,8 +1,8 @@
 import { usePageTitle, useOGTags, useCanonical, useStructuredData } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { env } from '@/shared/lib/env';
 import { publicComplexPath } from '@/shared/lib/publicPaths';
 import type { PublicComplex, Schedule } from '@/shared/types/api.types';
+import { useBookingConfig } from '../../config';
 import { buildComplexSchema } from './schema';
 
 const t = ES_AR;
@@ -14,7 +14,7 @@ interface ComplexPageMetaData {
 
 /** Wires up document title, canonical URL, OG tags, and JSON-LD structured data. */
 export function useComplexPageMeta(slug: string | undefined, data: ComplexPageMetaData | undefined) {
-  const appUrl = env.VITE_APP_URL;
+  const { publicSiteUrl: appUrl } = useBookingConfig();
   const canonicalUrl = `${appUrl}${publicComplexPath(String(slug))}`;
   const complexName = data?.complex.name;
 

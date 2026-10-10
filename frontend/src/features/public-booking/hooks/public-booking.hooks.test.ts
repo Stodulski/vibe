@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { createQueryWrapper } from '@/test/test-utils';
+import { createBookingWrapper } from '@/test/booking';
 
 // Shared default `createBooking` resolution: the module-registry note on the
 // `afterEach` below explains why this needs restoring after every test.
@@ -28,7 +28,7 @@ const { DEFAULT_CREATE_BOOKING_RESPONSE } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../api/public-booking.api', () => ({
+const { publicBookingApi } = vi.hoisted(() => ({
   publicBookingApi: {
     getComplex: vi.fn().mockResolvedValue({ complex: { name: 'Club' }, courts: [], schedules: [] }),
     getAvailability: vi.fn().mockResolvedValue({ availability: { slots: [] } }),
@@ -37,6 +37,11 @@ vi.mock('../api/public-booking.api', () => ({
       booking: { status: 'confirmed', collection_status: 'fully_paid', refund_status: 'none' },
     }),
   },
+}));
+
+// The hooks read this through BookingRoot's createPublicBookingApi.
+vi.mock('../api/public-booking.api', () => ({
+  createPublicBookingApi: () => publicBookingApi,
 }));
 
 vi.mock('@/shared/lib/queryKeys', () => ({
@@ -55,7 +60,7 @@ describe('useComplexBySlug', () => {
   it('fetches complex by slug', async () => {
     const { useComplexBySlug } = await import('./useComplexBySlug');
     const { result } = renderHook(() => useComplexBySlug('test-club'), {
-      wrapper: createQueryWrapper(),
+      wrapper: createBookingWrapper(),
     });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -64,7 +69,7 @@ describe('useComplexBySlug', () => {
 
   it('is disabled when slug is undefined', async () => {
     const { useComplexBySlug } = await import('./useComplexBySlug');
-    const { result } = renderHook(() => useComplexBySlug(undefined), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => useComplexBySlug(undefined), { wrapper: createBookingWrapper() });
     expect(result.current.fetchStatus).toBe('idle');
   });
 });
@@ -73,7 +78,7 @@ describe('useAvailability', () => {
   it('fetches availability', async () => {
     const { useAvailability } = await import('./useAvailability');
     const { result } = renderHook(() => useAvailability('test-club', '2026-03-18', 90), {
-      wrapper: createQueryWrapper(),
+      wrapper: createBookingWrapper(),
     });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -84,7 +89,7 @@ describe('useAvailability', () => {
   it('is disabled when slug is undefined', async () => {
     const { useAvailability } = await import('./useAvailability');
     const { result } = renderHook(() => useAvailability(undefined, '2026-03-18', 90), {
-      wrapper: createQueryWrapper(),
+      wrapper: createBookingWrapper(),
     });
     expect(result.current.fetchStatus).toBe('idle');
   });
@@ -93,7 +98,7 @@ describe('useAvailability', () => {
 describe('useBookingStatus', () => {
   it('fetches booking status', async () => {
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createBookingWrapper() });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
@@ -102,13 +107,13 @@ describe('useBookingStatus', () => {
 
   it('is disabled when token is null', async () => {
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus(null), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => useBookingStatus(null), { wrapper: createBookingWrapper() });
     expect(result.current.fetchStatus).toBe('idle');
   });
 
   it('has timedOut property', async () => {
     const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createBookingWrapper() });
     expect(result.current.timedOut).toBe(false);
   });
 });
@@ -116,12 +121,11 @@ describe('useBookingStatus', () => {
 describe('usePublicBooking', () => {
   it('returns a mutation', async () => {
     const { usePublicBooking } = await import('./usePublicBooking');
-    const { result } = renderHook(() => usePublicBooking(), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => usePublicBooking(), { wrapper: createBookingWrapper() });
     expect(typeof result.current.mutate).toBe('function');
   });
 
   it('onError surfaces the real backend message from error.data instead of the generic fallback', async () => {
-    const { publicBookingApi } = await import('../api/public-booking.api');
     const backendError = await makeConsumedHttpError(400, {
       title: 'Bad Request',
       detail: 'El telefono ya tiene una reserva pendiente',
@@ -129,7 +133,7 @@ describe('usePublicBooking', () => {
     vi.mocked(publicBookingApi.createBooking).mockRejectedValueOnce(backendError);
 
     const { usePublicBooking } = await import('./usePublicBooking');
-    const { result } = renderHook(() => usePublicBooking(), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => usePublicBooking(), { wrapper: createBookingWrapper() });
 
     result.current.mutate({
       complex_id: 'c1',
@@ -152,12 +156,11 @@ describe('usePublicBooking', () => {
   });
 
   it('onError falls back to the generic i18n message when the backend body has no error field', async () => {
-    const { publicBookingApi } = await import('../api/public-booking.api');
     const backendError = await makeConsumedHttpError(500, {});
     vi.mocked(publicBookingApi.createBooking).mockRejectedValueOnce(backendError);
 
     const { usePublicBooking } = await import('./usePublicBooking');
-    const { result } = renderHook(() => usePublicBooking(), { wrapper: createQueryWrapper() });
+    const { result } = renderHook(() => usePublicBooking(), { wrapper: createBookingWrapper() });
 
     result.current.mutate({
       complex_id: 'c1',
@@ -184,8 +187,7 @@ describe('usePublicBooking', () => {
   // default here guards against leaking a rejected `createBooking` into
   // BookConfirmPage.test.tsx / BookCancelPage.test.tsx, which mock the same
   // resolved module path.
-  afterEach(async () => {
-    const { publicBookingApi } = await import('../api/public-booking.api');
+  afterEach(() => {
     vi.mocked(publicBookingApi.createBooking).mockResolvedValue(DEFAULT_CREATE_BOOKING_RESPONSE);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { renderBooking } from '@/test/booking';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { makeConsumedHttpError } from '@/test/factories';
@@ -42,7 +43,7 @@ vi.mock('@/features/public-booking/components/SkeletonSlotGrid', () => ({
 describe('ComplexPage', () => {
   it('renders without crashing', async () => {
     const Page = (await import('./ComplexPage')).default;
-    const { container } = render(
+    const { container } = renderBooking(
       <MemoryRouter initialEntries={['/test-club']}>
         <Page />
       </MemoryRouter>,
@@ -60,7 +61,7 @@ describe('ComplexPage error vs not-found (useComplexBySlug)', () => {
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useComplexBySlug>);
     const Page = (await import('./ComplexPage')).default;
-    render(
+    renderBooking(
       <MemoryRouter initialEntries={['/test-club']}>
         <Page />
       </MemoryRouter>,
@@ -77,7 +78,7 @@ describe('ComplexPage error vs not-found (useComplexBySlug)', () => {
       refetch,
     } as unknown as ReturnType<typeof useComplexBySlug>);
     const Page = (await import('./ComplexPage')).default;
-    render(
+    renderBooking(
       <MemoryRouter initialEntries={['/test-club']}>
         <Page />
       </MemoryRouter>,

@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { server } from '@/test/msw/server';
-import { createQueryWrapper } from '@/test/test-utils';
+import { createBookingWrapper } from '@/test/booking';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { PublicBookingRequest } from '@/shared/types/api.types';
 import { usePublicBooking } from './usePublicBooking';
@@ -42,7 +42,7 @@ function refuseWith(kind: string, detail: string) {
 }
 
 async function submit(onConflict: () => void) {
-  const { result } = renderHook(() => usePublicBooking({ onConflict }), { wrapper: createQueryWrapper() });
+  const { result } = renderHook(() => usePublicBooking({ onConflict }), { wrapper: createBookingWrapper() });
   result.current.mutate(VALID_REQUEST);
   await waitFor(() => {
     expect(result.current.isError).toBe(true);

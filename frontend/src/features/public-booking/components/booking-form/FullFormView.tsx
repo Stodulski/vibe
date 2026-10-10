@@ -1,6 +1,6 @@
 import type { Control, FieldErrors, UseFormHandleSubmit, UseFormRegister } from 'react-hook-form';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { env } from '@/shared/lib/env';
+import { useBookingConfig } from '../../config';
 import { submitHandler } from '@/shared/lib/form';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 import { BookingSummaryCard } from './BookingSummaryCard';
@@ -12,8 +12,6 @@ import type { BookingPricing } from './pricing';
 import type { BookingSlotInfo } from './types';
 
 const t = ES_AR;
-
-const PRIVACY_POLICY_URL = new URL('/privacidad', env.VITE_LANDING_URL).href;
 
 interface FullFormViewProps {
   slotInfo: BookingSlotInfo;
@@ -36,6 +34,7 @@ export function FullFormView({
   errors,
   onSubmit,
 }: FullFormViewProps) {
+  const { privacyUrl } = useBookingConfig();
   return (
     <div className="space-y-5">
       <BookingSummaryCard slotInfo={slotInfo} pricing={pricing} />
@@ -48,7 +47,7 @@ export function FullFormView({
         <p className="text-text-tertiary text-center text-xs">
           {t.publicBooking.privacyNotice}{' '}
           <a
-            href={PRIVACY_POLICY_URL}
+            href={privacyUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary-400 underline underline-offset-2"

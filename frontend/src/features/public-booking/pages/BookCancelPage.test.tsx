@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { renderBooking } from '@/test/booking';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -12,12 +12,13 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const getCancelInfo = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const cancelBooking = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock('@/features/public-booking/api/public-booking.api', () => ({
-  publicBookingApi: {
+vi.mock('@/features/public-booking/api/public-booking.api', () => {
+  const publicBookingApi = {
     getCancelInfo: (...args: unknown[]) => getCancelInfo(...args),
     cancelBooking: (...args: unknown[]) => cancelBooking(...args),
-  },
-}));
+  };
+  return { publicBookingApi, createPublicBookingApi: () => publicBookingApi };
+});
 
 const mockCancelInfo = {
   booking: {
@@ -35,17 +36,12 @@ const mockCancelInfo = {
 
 async function renderPage(token = 't1') {
   const Page = (await import('./BookCancelPage')).default;
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/c/club-norte/book/cancel?token=${token}`]}>
-        <Routes>
-          <Route path="/c/:slug/book/cancel" element={<Page />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+  return renderBooking(
+    <MemoryRouter initialEntries={[`/c/club-norte/book/cancel?token=${token}`]}>
+      <Routes>
+        <Route path="/c/:slug/book/cancel" element={<Page />} />
+      </Routes>
+    </MemoryRouter>,
   );
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { HTTPError } from 'ky';
-import { publicBookingApi } from '../api/public-booking.api';
+import { usePublicBookingApi } from '../api/context';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ApiResponseError } from '@/shared/lib/apiParse';
 import type { BookingStatusDetails } from '@/shared/types/api.types';
@@ -18,6 +18,7 @@ type BookingStatusResult = UseQueryResult<BookingStatusDetails | undefined> & {
 };
 
 export function useBookingStatus(token: string | null): BookingStatusResult {
+  const api = usePublicBookingApi();
   // Reset `timedOut` when `token` changes, without a `setState`-in-effect:
   // this is React's documented "adjust state during render" pattern for
   // resetting derived state on a prop change.
@@ -44,7 +45,7 @@ export function useBookingStatus(token: string | null): BookingStatusResult {
   const safeToken = token ?? '';
   const query = useQuery({
     queryKey: queryKeys.bookingStatus.byId(safeToken),
-    queryFn: ({ signal }) => publicBookingApi.getBookingStatus(safeToken, signal),
+    queryFn: ({ signal }) => api.getBookingStatus(safeToken, signal),
     select: (data) => data.booking,
     enabled: !!token,
     // This one polls after a payment. Its terminal states (404/410/timeout/

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { renderBooking } from '@/test/booking';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,11 +14,13 @@ vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const createBooking = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock('@/features/public-booking/api/public-booking.api', () => ({
-  publicBookingApi: {
+vi.mock('@/features/public-booking/api/public-booking.api', () => {
+  const publicBookingApi = {
     createBooking: (...args: unknown[]) => createBooking(...args),
-  },
-}));
+  };
+  // The page reads this through BookingRoot's createPublicBookingApi.
+  return { publicBookingApi, createPublicBookingApi: () => publicBookingApi };
+});
 
 const mockSlotInfo: BookingSlotInfo = {
   complexId: 'c1',
@@ -56,7 +59,7 @@ async function renderPage(state: BookingSlotInfo | null = mockSlotInfo) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  return renderBooking(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[{ pathname: '/c/club-norte/book/confirm', state }]}>
         <Routes>
