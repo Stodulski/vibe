@@ -21,7 +21,7 @@ import (
 // test exercises the exact configuration the server runs rather than a
 // reconstruction of it.
 func newTestCORSHandler() *cors.Cors {
-	return cors.New(corsOptions("http://localhost:5173"))
+	return cors.New(corsOptions("http://localhost:5173", ""))
 }
 
 // preflight builds and serves one OPTIONS preflight against handler and
@@ -229,5 +229,110 @@ func TestTheRequestIDIsExposedToTheBrowser(t *testing.T) {
 	got := w.Header().Get("Access-Control-Expose-Headers")
 	if !strings.Contains(strings.ToLower(got), "x-request-id") {
 		t.Errorf("Access-Control-Expose-Headers = %q, want it to name X-Request-ID", got)
+	}
+}
+
+// corsPreflightHeaders sends one browser-style preflight from origin through
+// the real routes() of app, so the origin policy is judged by the chain the
+// server runs. Callers set app.config before it is called: routes() reads the
+// configured origins when the handler is built. It returns the status and the
+// response headers.
+func corsPreflightHeaders(t *testing.T, app *application, origin string) (int, http.Header) {
+	t.Helper()
+
+	ts := newTestServer(t, app)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodOptions, ts.URL+"/api/v1/auth/me", nil)
+	if err != nil {
+		t.Fatalf("building the preflight: %v", err)
+	}
+	req.Header.Set("Origin", origin)
+	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("preflight from %q: %v", origin, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode, resp.Header.Clone()
+}
+
+// TestPublicURLOriginIsAllowedWhenSet pins the public storefront origin: with
+// PUBLIC_URL set, a preflight from exactly that origin gets it echoed back,
+// with credentials allowed, the same grant FRONTEND_URL gets.
+func TestPublicURLOriginIsAllowedWhenSet(t *testing.T) {
+	app := newTestApplication(t)
+	app.config.PublicURL = "https://vibe.com.ar"
+
+	status, h := corsPreflightHeaders(t, app, "https://vibe.com.ar")
+	if status != http.StatusNoContent {
+		t.Errorf("want 204; got %d", status)
+	}
+	if got := h.Get("Access-Control-Allow-Origin"); got != "https://vibe.com.ar" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want the public origin echoed", got)
+	}
+	if got := h.Get("Access-Control-Allow-Credentials"); got != "true" {
+		t.Errorf("Access-Control-Allow-Credentials = %q, want true", got)
+	}
+}
+
+// TestFrontendURLIsStillAllowedWhenPublicURLSet: adding PUBLIC_URL must not
+// displace the frontend origin, which keeps its grant.
+func TestFrontendURLIsStillAllowedWhenPublicURLSet(t *testing.T) {
+	app := newTestApplication(t)
+	app.config.PublicURL = "https://vibe.com.ar"
+
+	_, h := corsPreflightHeaders(t, app, "http://localhost:5173")
+	if got := h.Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want the frontend origin echoed", got)
+	}
+}
+
+// TestPublicURLOriginIsRejectedWhenUnset: with PUBLIC_URL empty, the storefront
+// origin gets no CORS grant.
+func TestPublicURLOriginIsRejectedWhenUnset(t *testing.T) {
+	app := newTestApplication(t)
+
+	_, h := corsPreflightHeaders(t, app, "https://vibe.com.ar")
+	if got := h.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want none while PUBLIC_URL is unset", got)
+	}
+}
+
+// TestUnrelatedOriginsAreRejectedWithPublicURLSet: the match is exact. Origins
+// that only resemble the public one (another host, scheme, port, or a prefix
+// or suffix of it) get no grant even with PUBLIC_URL set.
+func TestUnrelatedOriginsAreRejectedWithPublicURLSet(t *testing.T) {
+	origins := []string{
+		"https://evil.example",
+		"https://vibe.com.ar.evil.example",
+		"https://evil.vibe.com.ar",
+		"http://vibe.com.ar",
+		"https://vibe.com.ar:8443",
+	}
+	for _, origin := range origins {
+		t.Run(origin, func(t *testing.T) {
+			app := newTestApplication(t)
+			app.config.PublicURL = "https://vibe.com.ar"
+
+			_, h := corsPreflightHeaders(t, app, origin)
+			if got := h.Get("Access-Control-Allow-Origin"); got != "" {
+				t.Errorf("Access-Control-Allow-Origin = %q for %q, want none", got, origin)
+			}
+		})
+	}
+}
+
+// TestEmptyOriginsRejectEveryOrigin guards the shape of the origin list. rs/cors
+// treats an empty AllowedOrigins as "allow every origin", so with both
+// FRONTEND_URL and PUBLIC_URL empty the policy must still refuse a foreign
+// origin rather than open the API to all of them.
+func TestEmptyOriginsRejectEveryOrigin(t *testing.T) {
+	app := newTestApplication(t)
+	app.config.FrontendURL = ""
+	app.config.PublicURL = ""
+
+	_, h := corsPreflightHeaders(t, app, "https://evil.example")
+	if got := h.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want none with no origins configured", got)
 	}
 }

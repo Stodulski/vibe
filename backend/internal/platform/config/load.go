@@ -151,6 +151,8 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 		"R2 bucket for signed-URL-only objects such as payments exports; empty disables them (R2_PRIVATE_BUCKET_NAME)")
 
 	fs.StringVar(&cfg.FrontendURL, "frontend-url", "http://localhost:5173", "Frontend URL (FRONTEND_URL)")
+	fs.StringVar(&cfg.PublicURL, "public-url", "",
+		"Public storefront origin, allowed by CORS next to the frontend (PUBLIC_URL)")
 	fs.StringVar(&cfg.BackendURL, "backend-url", "", "Backend public URL (for webhooks) (BACKEND_URL)")
 	fs.StringVar(&cfg.CookieDomain, "cookie-domain", "", "Cookie domain (e.g. .skymait.com) (COOKIE_DOMAIN)")
 
@@ -250,6 +252,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("R2_PRIVATE_BUCKET_NAME", &cfg.R2.PrivateBucketName)
 
 	env.strVal("FRONTEND_URL", &cfg.FrontendURL)
+	env.strVal("PUBLIC_URL", &cfg.PublicURL)
 	env.strVal("BACKEND_URL", &cfg.BackendURL)
 	env.strVal("COOKIE_DOMAIN", &cfg.CookieDomain)
 	env.strVal("TRUSTED_PROXIES", &cfg.TrustedProxiesSpec)

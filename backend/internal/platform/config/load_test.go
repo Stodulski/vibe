@@ -54,6 +54,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.FrontendURL != "http://localhost:5173" {
 		t.Errorf("FrontendURL = %q", cfg.FrontendURL)
 	}
+	if cfg.PublicURL != "" {
+		t.Errorf("PublicURL = %q, want unset by default", cfg.PublicURL)
+	}
 }
 
 // The four server timeouts are the difference between a bounded connection and
@@ -305,6 +308,38 @@ func TestAnEmptyValueIsTreatedAsUnset(t *testing.T) {
 	}
 	if cfg.FrontendURL != "http://localhost:5173" {
 		t.Errorf("FrontendURL = %q, want the default", cfg.FrontendURL)
+	}
+}
+
+// TestPublicURLIsOptionalAndLoaded: PUBLIC_URL is the storefront origin CORS
+// also accepts. It loads from the environment and from -public-url, and an
+// empty variable leaves it unset without touching FRONTEND_URL.
+func TestPublicURLIsOptionalAndLoaded(t *testing.T) {
+	cfg, err := config.Load(nil, env(map[string]string{"PUBLIC_URL": "https://vibe.com.ar"}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.PublicURL != "https://vibe.com.ar" {
+		t.Errorf("PublicURL = %q, want the environment value", cfg.PublicURL)
+	}
+	if cfg.FrontendURL != "http://localhost:5173" {
+		t.Errorf("FrontendURL = %q, want its default untouched", cfg.FrontendURL)
+	}
+
+	cfg, err = config.Load([]string{"-public-url", "https://vibe.com.ar"}, env(nil))
+	if err != nil {
+		t.Fatalf("Load with -public-url: %v", err)
+	}
+	if cfg.PublicURL != "https://vibe.com.ar" {
+		t.Errorf("PublicURL = %q from the flag, want https://vibe.com.ar", cfg.PublicURL)
+	}
+
+	cfg, err = config.Load(nil, env(map[string]string{"PUBLIC_URL": ""}))
+	if err != nil {
+		t.Fatalf("Load with an empty PUBLIC_URL: %v", err)
+	}
+	if cfg.PublicURL != "" {
+		t.Errorf("PublicURL = %q for an empty variable, want unset", cfg.PublicURL)
 	}
 }
 
