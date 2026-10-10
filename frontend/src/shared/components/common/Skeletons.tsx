@@ -1,5 +1,11 @@
-export { SkeletonCourtCard, SkeletonTable, SkeletonStat } from './skeletons/SkeletonPrimitives';
-
-export { SkeletonPage, SkeletonDashboard, SkeletonSettings, SkeletonBookings } from './skeletons/PageSkeletons';
-
-export { SkeletonCancelInfo, SkeletonBookConfirm, SkeletonBookSuccess } from './skeletons/BookingFlowSkeletons';
+export {
+  SkeletonCourtCard,
+  SkeletonTable,
+  SkeletonPage,
+  SkeletonDashboard,
+  SkeletonSettings,
+  SkeletonBookings,
+  SkeletonCancelInfo,
+  SkeletonBookConfirm,
+  SkeletonBookSuccess,
+} from '@vibe/ui/components/common/Skeletons.tsx';
