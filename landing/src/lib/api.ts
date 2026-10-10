@@ -9,6 +9,9 @@ import { InvalidHubData, parseHubData, type HubData } from './hub.ts';
 /** How long a page waits for the API before it answers 503. */
 export const API_TIMEOUT_MS = 3000;
 
+/** How long the sitemap waits for the API. It lists every complex, so it is larger than a hub. */
+export const SITEMAP_TIMEOUT_MS = 5000;
+
 /** not_found: the API has no such record (HTTP 404). unavailable: anything else. */
 export type ApiErrorKind = 'not_found' | 'unavailable';
 
@@ -32,6 +35,8 @@ export interface PublicApiOptions {
 
 export interface PublicApi {
   hubData(city: string): Promise<HubData>;
+  /** The backend's sitemap document, unfiltered. */
+  sitemapXml(): Promise<string>;
 }
 
 export function createPublicApi({
@@ -41,11 +46,11 @@ export function createPublicApi({
 }: PublicApiOptions): PublicApi {
   const root = baseUrl.replace(/\/+$/, '');
 
-  async function getJson(path: string): Promise<unknown> {
+  async function get(path: string, accept: string): Promise<Response> {
     let response: Response;
     try {
       response = await fetchImpl(`${root}${path}`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: accept },
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (cause) {
@@ -54,8 +59,22 @@ export function createPublicApi({
     }
     if (response.status === 404) throw new ApiError('not_found', 404);
     if (!response.ok) throw new ApiError('unavailable', response.status);
+    return response;
+  }
+
+  async function getJson(path: string): Promise<unknown> {
+    const response = await get(path, 'application/json');
     try {
       return await response.json();
+    } catch (cause) {
+      throw new ApiError('unavailable', response.status, { cause });
+    }
+  }
+
+  async function getText(path: string): Promise<string> {
+    const response = await get(path, 'application/xml');
+    try {
+      return await response.text();
     } catch (cause) {
       throw new ApiError('unavailable', response.status, { cause });
     }
@@ -70,6 +89,9 @@ export function createPublicApi({
         if (cause instanceof InvalidHubData) throw new ApiError('unavailable', 200, { cause });
         throw cause;
       }
+    },
+    sitemapXml() {
+      return getText('/sitemap.xml');
     },
   };
 }
