@@ -297,3 +297,20 @@ describe('BookingForm unsaved work', () => {
     expect(hasUnsavedWork()).toBe(false);
   });
 });
+
+// Ley 25.326 art. 6: the player must be told, where their data is collected,
+// who handles it and where the privacy policy is. The notice sits in the full
+// form, the one place a player types name and phone.
+describe('BookingForm privacy notice', () => {
+  it('shows the data notice and a link to the privacy policy in the full form', () => {
+    render(<BookingForm {...defaultProps} />);
+
+    expect(
+      screen.getByText('Tus datos los gestiona el complejo para tu reserva. Vibe los procesa por su cuenta.'),
+    ).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'Política de privacidad' });
+    expect(link).toHaveAttribute('href', 'https://vibe.com.ar/privacidad');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+});
