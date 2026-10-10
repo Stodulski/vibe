@@ -33,15 +33,16 @@ func (app *application) routes() http.Handler {
 		handler = app.specValidator.ValidateRequests(handler)
 	}
 
-	c := cors.New(corsOptions(app.config.FrontendURL))
+	c := cors.New(corsOptions(app.config.FrontendURL, app.config.PublicURL))
 
 	return app.middleware.Wrap(handler, func(next http.Handler) http.Handler {
 		return normalizeCORSPreflightHeaders(c.Handler(next))
 	})
 }
 
-// corsOptions is the browser-facing CORS policy: one allowed origin, the
-// methods the API answers, and the headers a request may carry.
+// corsOptions is the browser-facing CORS policy: the frontend origin and, when
+// PUBLIC_URL is set, the public storefront origin; the methods the API answers;
+// and the headers a request may carry. Origins match exactly, with no wildcard.
 //
 // AllowedHeaders must name every header parameter openapi.yaml declares
 // (Idempotency-Key and If-Match from components.parameters; X-Signature and
@@ -63,9 +64,16 @@ func (app *application) routes() http.Handler {
 // JavaScript, X-Request-ID included — so the correlation id the server puts on
 // every response, and asks support tickets to quote, was readable by curl and
 // invisible to the app that would have to show it.
-func corsOptions(frontendURL string) cors.Options {
+func corsOptions(frontendURL, publicURL string) cors.Options {
+	// frontendURL stays in the list even when empty: rs/cors treats an empty
+	// AllowedOrigins as "allow every origin", so an unset value must never be
+	// the only entry that is dropped.
+	origins := []string{frontendURL}
+	if publicURL != "" {
+		origins = append(origins, publicURL)
+	}
 	return cors.Options{
-		AllowedOrigins: []string{frontendURL},
+		AllowedOrigins: origins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{
 			"Authorization", "Content-Type", "X-CSRF-Token",

@@ -32,6 +32,11 @@ type Config struct {
 	R2        R2
 
 	FrontendURL string
+	// PublicURL is the public storefront origin (https://vibe.com.ar). When set,
+	// CORS accepts it next to FrontendURL, so the storefront can call the API
+	// from the browser. Empty means unset. Links never use it: they keep using
+	// FrontendURL.
+	PublicURL string
 	// PasswordHashCost is the bcrypt cost the auth module hashes at. Zero
 	// means authstore.DefaultHashCost, the production value; the test harness
 	// lowers it so a suite that registers hundreds of users does not spend a
