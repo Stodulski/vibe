@@ -27,7 +27,7 @@ func TestPrerenderPrefersTheCoverPhotoForSocialPreview(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 	body := w.Body.String()
@@ -121,7 +121,7 @@ func TestPrerenderWritesTheVisibleFactsIntoTheRootElement(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, rootTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, rootTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 	body := w.Body.String()
@@ -149,7 +149,7 @@ func TestPrerenderEscapesOwnerTextInTheBody(t *testing.T) {
 		complex: &complexstore.Complex{ID: uuid.New(), Name: "Vibe <i>x</i>", Address: "Calle <b>1</b>", IsActive: true},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, rootTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, rootTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "x"))
 	body := w.Body.String()
@@ -254,7 +254,7 @@ func TestPrerenderListsTheActiveCourts(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, rootTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, rootTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 	body := w.Body.String()
@@ -282,7 +282,7 @@ func TestPrerenderEscapesOwnerTextInTheCourtList(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, rootTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, rootTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe"))
 	body := w.Body.String()
@@ -306,7 +306,7 @@ func TestPrerenderOmitsInactiveCourtsAndPrices(t *testing.T) {
 		courts:  []complexes.CourtWithPrices{active, court("Cancha 9", "hockey", "outdoor", false)},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, rootTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, rootTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe"))
 	body := w.Body.String()
@@ -338,7 +338,7 @@ func TestPrerenderNamesTheActiveSportsInTheDescription(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 	body := w.Body.String()
@@ -361,7 +361,7 @@ func TestACourtFailureStillRendersTheComplexsOwnPage(t *testing.T) {
 		publicErr: errors.New("db down"),
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, rootTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, rootTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 	body := w.Body.String()

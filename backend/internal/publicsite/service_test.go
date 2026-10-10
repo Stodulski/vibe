@@ -56,7 +56,7 @@ func TestServiceSitemap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewService(&stubStore{slugs: tt.slugs, slugsErr: tt.err}, tt.frontendURL)
+			svc := NewService(&stubStore{slugs: tt.slugs, slugsErr: tt.err}, tt.frontendURL, tt.frontendURL)
 
 			doc, err := svc.Sitemap(t.Context())
 
@@ -90,7 +90,7 @@ func TestServiceSitemap(t *testing.T) {
 // shareable through a link a crawler had already seen.
 func TestServicePrerenderHidesADeactivatedComplex(t *testing.T) {
 	store := &stubStore{complex: &complexstore.Complex{ID: uuid.New(), Slug: "club-norte", IsActive: false}}
-	svc := NewService(store, "https://vibe.example")
+	svc := NewService(store, "https://vibe.example", "https://vibe.example")
 
 	if _, err := svc.Prerender(t.Context(), "club-norte"); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Fatalf("got %v, want data.ErrRecordNotFound", err)

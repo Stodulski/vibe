@@ -98,7 +98,7 @@ func TestSitemapListsEveryComplexAndNotTheNoindexRoot(t *testing.T) {
 		{Slug: "vibe-pilar", UpdatedAt: time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)},
 	}}
 
-	h := NewHandler(NewService(store, "https://vibe.example/"), testResponder())
+	h := NewHandler(NewService(store, "https://vibe.example/", "https://vibe.example/"), testResponder())
 	w := httptest.NewRecorder()
 	h.Sitemap(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
@@ -137,7 +137,7 @@ func TestSitemapListsEveryComplexAndNotTheNoindexRoot(t *testing.T) {
 // makes a crawler drop the pages the sitemap lists rather than look for a new
 // address, so it has to be a permanent redirect for as long as it is fetched.
 func TestTheOldSitemapPathRedirectsPermanently(t *testing.T) {
-	h := NewHandler(NewService(&stubStore{}, "https://vibe.example"), testResponder())
+	h := NewHandler(NewService(&stubStore{}, "https://vibe.example", "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.SitemapMoved(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/sitemap.xml", nil))
 
@@ -150,7 +150,7 @@ func TestTheOldSitemapPathRedirectsPermanently(t *testing.T) {
 }
 
 func TestSitemapReportsStoreFailure(t *testing.T) {
-	h := NewHandler(NewService(&stubStore{slugsErr: errors.New("db down")}, "https://vibe.example"), testResponder())
+	h := NewHandler(NewService(&stubStore{slugsErr: errors.New("db down")}, "https://vibe.example", "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Sitemap(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
@@ -173,7 +173,7 @@ func TestPrerenderSubstitutesTheComplexMetadata(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 
@@ -222,7 +222,7 @@ func TestPrerenderPublishesTheCPrefixedURLEverywhere(t *testing.T) {
 	}
 
 	frontend := frontendServing(t, baseTemplate)
-	h := NewHandler(NewService(store, frontend), testResponder())
+	h := NewHandler(NewService(store, frontend, frontend), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 
@@ -246,6 +246,49 @@ func TestPrerenderPublishesTheCPrefixedURLEverywhere(t *testing.T) {
 	}
 }
 
+// The shell is still fetched from the frontend, but every address the complex's
+// page publishes about itself is on the public site origin: the canonical, og:url
+// and JSON-LD url name the public origin, and the frontend's origin never reaches
+// the page.
+func TestPrerenderPublishesItsURLsOnThePublicOrigin(t *testing.T) {
+	const publicBase = "https://vibe.com.ar"
+	const shellMarker = "<!-- shell-from-frontend -->"
+	store := &stubStore{
+		complex: &complexstore.Complex{
+			ID: uuid.New(), Name: "Vibe Palermo", Phone: "+541100000000",
+			Address: "Av. Santa Fe 1234", City: "CABA", Province: "Buenos Aires",
+			CountryCode: "AR", IsActive: true,
+		},
+	}
+
+	frontend := frontendServing(t, baseTemplate+shellMarker)
+	h := NewHandler(NewService(store, frontend, publicBase), testResponder())
+	w := httptest.NewRecorder()
+	h.Prerender(w, slugRequest(t, "vibe-palermo"))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, shellMarker) {
+		t.Error("the shell was not fetched from the frontend origin")
+	}
+	want := publicBase + "/c/vibe-palermo"
+	for _, fragment := range []string{
+		`<link rel="canonical" href="` + want + `" />`,
+		`<meta property="og:url" content="` + want + `" />`,
+		`"url":"` + want + `"`,
+	} {
+		if !strings.Contains(body, fragment) {
+			t.Errorf("prerendered page is missing %q", fragment)
+		}
+	}
+	if strings.Contains(body, frontend) {
+		t.Errorf("the prerendered page publishes the frontend origin %q", frontend)
+	}
+}
+
 // Complex names are owner-supplied and end up inside markup, so they must be
 // escaped rather than interpolated raw.
 func TestPrerenderEscapesOwnerSuppliedText(t *testing.T) {
@@ -253,7 +296,7 @@ func TestPrerenderEscapesOwnerSuppliedText(t *testing.T) {
 		complex: &complexstore.Complex{ID: uuid.New(), Name: `Vibe <script>alert(1)</script>`, IsActive: true},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "x"))
 
@@ -319,7 +362,7 @@ func TestStructuredDataOmitsAbsentFieldsAndClosedDays(t *testing.T) {
 }
 
 func TestPrerenderReportsUnknownSlugAsNotFound(t *testing.T) {
-	h := NewHandler(NewService(&stubStore{complexErr: data.ErrRecordNotFound}, "https://vibe.example"), testResponder())
+	h := NewHandler(NewService(&stubStore{complexErr: data.ErrRecordNotFound}, "https://vibe.example", "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "missing"))
 
@@ -329,7 +372,7 @@ func TestPrerenderReportsUnknownSlugAsNotFound(t *testing.T) {
 }
 
 func TestPrerenderRejectsAnEmptySlug(t *testing.T) {
-	h := NewHandler(NewService(&stubStore{}, "https://vibe.example"), testResponder())
+	h := NewHandler(NewService(&stubStore{}, "https://vibe.example", "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
@@ -412,7 +455,7 @@ func TestPrerenderIsClosedForADeactivatedComplex(t *testing.T) {
 		schedules: []*complexstore.Schedule{{Day: "monday", OpenTime: "08:00", CloseTime: "23:00"}},
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe"))
 
@@ -531,7 +574,7 @@ func TestPrerenderSubstitutesIntoTheFrontendsRealMarkup(t *testing.T) {
 	}
 	index := `<!doctype html><html><head>` + frontendIndexHead + `</head><body></body></html>`
 
-	h := NewHandler(NewService(store, frontendServing(t, index)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, index), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 
@@ -561,7 +604,7 @@ func TestPrerenderSubstitutesIntoTheFrontendsRealMarkup(t *testing.T) {
 func TestAStoreFailureAnswers503WithRetryAfter(t *testing.T) {
 	store := &stubStore{complexErr: errors.New("db down")}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 
@@ -578,7 +621,7 @@ func TestAStoreFailureAnswers503WithRetryAfter(t *testing.T) {
 func TestAnUnknownSlugIsStillNotFound(t *testing.T) {
 	store := &stubStore{complexErr: data.ErrRecordNotFound}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "nobody"))
 
@@ -605,7 +648,7 @@ func TestAScheduleFailureStillRendersTheComplexsOwnPage(t *testing.T) {
 		schedulesErr: errors.New("db down"),
 	}
 
-	h := NewHandler(NewService(store, frontendServing(t, baseTemplate)), testResponder())
+	h := NewHandler(NewService(store, frontendServing(t, baseTemplate), "https://vibe.example"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 
@@ -634,7 +677,7 @@ func TestAnUnreachableFrontendStillProducesAPage(t *testing.T) {
 	}
 
 	// A frontend origin nothing answers on.
-	h := NewHandler(NewService(store, "http://127.0.0.1:1"), testResponder())
+	h := NewHandler(NewService(store, "http://127.0.0.1:1", "http://127.0.0.1:1"), testResponder())
 	w := httptest.NewRecorder()
 	h.Prerender(w, slugRequest(t, "vibe-palermo"))
 

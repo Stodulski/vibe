@@ -556,7 +556,13 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// released rather than run.
 	reportingService.RegisterExportWorker(queue)
 
-	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL)
+	// Public pages (complex and city hub) are published on the public site origin.
+	// Until PUBLIC_URL is set they stay on FRONTEND_URL.
+	publicBaseURL := cfg.PublicURL
+	if publicBaseURL == "" {
+		publicBaseURL = cfg.FrontendURL
+	}
+	publicsiteService := publicsite.NewService(complexesService, cfg.FrontendURL, publicBaseURL)
 	publicsiteHandler := publicsite.NewHandler(publicsiteService, respond)
 
 	paymentsService := payments.NewService(payments.Dependencies{

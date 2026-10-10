@@ -24,7 +24,7 @@ func serveHub(h *Handler, city string) *httptest.ResponseRecorder {
 }
 
 func newHubHandler(store Store) *Handler {
-	return NewHandler(NewService(store, hubFrontend), testResponder())
+	return NewHandler(NewService(store, hubFrontend, hubFrontend), testResponder())
 }
 
 func TestCityHubIsServedAsHTMLWithItsCacheHeader(t *testing.T) {
@@ -106,6 +106,31 @@ func TestCityHubLookupIgnoresCaseAndAccents(t *testing.T) {
 	}
 }
 
+// A city hub is published on the public origin: its canonical, and the link and
+// the JSON-LD ItemList entry it carries for each complex, name vibe.com.ar.
+func TestCityHubPublishesItsURLsOnThePublicOrigin(t *testing.T) {
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	store := &stubStore{hubs: []complexstore.HubComplex{
+		hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true),
+	}}
+	h := NewHandler(NewService(store, hubFrontend, "https://vibe.com.ar"), testResponder())
+
+	body := serveHub(h, "banfield").Body.String()
+
+	for _, want := range []string{
+		`<link rel="canonical" href="https://vibe.com.ar/canchas/banfield">`,
+		`<a href="https://vibe.com.ar/c/club-norte">Club Norte</a>`,
+		`"url":"https://vibe.com.ar/c/club-norte"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("hub is missing %q", want)
+		}
+	}
+	if strings.Contains(body, "app.vibe.com.ar") {
+		t.Error("the hub still publishes the frontend origin")
+	}
+}
+
 func TestCityHubStoreFailureAnswersUnavailableWithRetryAfter(t *testing.T) {
 	store := &stubStore{hubsErr: errors.New("db down")}
 
@@ -127,7 +152,7 @@ func TestSitemapListsEachCityHubWithItsLatestUpdate(t *testing.T) {
 		hubRow("Canchas Sur", "canchas-sur", "b", "banfield", nil, feb, true),
 	}}
 
-	doc, err := NewService(store, "https://vibe.example").Sitemap(t.Context())
+	doc, err := NewService(store, "https://vibe.example", "https://vibe.example").Sitemap(t.Context())
 	if err != nil {
 		t.Fatalf("Sitemap: %v", err)
 	}
@@ -147,7 +172,7 @@ func TestSitemapOmitsACityWithNoActiveComplex(t *testing.T) {
 		hubRow("Club Off", "club-off", "a", "Ushuaia", nil, now, false),
 	}}
 
-	doc, err := NewService(store, "https://vibe.example").Sitemap(t.Context())
+	doc, err := NewService(store, "https://vibe.example", "https://vibe.example").Sitemap(t.Context())
 	if err != nil {
 		t.Fatalf("Sitemap: %v", err)
 	}
@@ -159,8 +184,35 @@ func TestSitemapOmitsACityWithNoActiveComplex(t *testing.T) {
 func TestSitemapReportsAHubReadFailure(t *testing.T) {
 	store := &stubStore{hubsErr: errors.New("db down")}
 
-	if _, err := NewService(store, "https://vibe.example").Sitemap(t.Context()); err == nil {
+	if _, err := NewService(store, "https://vibe.example", "https://vibe.example").Sitemap(t.Context()); err == nil {
 		t.Error("a failed hub read was published as a sitemap without the hubs")
+	}
+}
+
+// The sitemap lists the complex pages and the city hubs under the public origin,
+// never under the frontend's.
+func TestSitemapListsEveryPublicPageOnThePublicOrigin(t *testing.T) {
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	store := &stubStore{
+		slugs: []complexstore.ComplexSlug{{Slug: "club-norte", UpdatedAt: now}},
+		hubs:  []complexstore.HubComplex{hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true)},
+	}
+
+	doc, err := NewService(store, hubFrontend, "https://vibe.com.ar").Sitemap(t.Context())
+	if err != nil {
+		t.Fatalf("Sitemap: %v", err)
+	}
+
+	for _, want := range []string{
+		"<loc>https://vibe.com.ar/c/club-norte</loc>",
+		"<loc>https://vibe.com.ar/canchas/banfield</loc>",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("sitemap is missing %q:\n%s", want, doc)
+		}
+	}
+	if strings.Contains(doc, "app.vibe.com.ar") {
+		t.Errorf("sitemap still publishes the frontend origin:\n%s", doc)
 	}
 }
 

@@ -94,7 +94,7 @@ func (h *Handler) Prerender(w http.ResponseWriter, r *http.Request) {
 // Every interpolated value is HTML-escaped: complex names, descriptions and
 // logo URLs are owner-supplied, and they are being written into markup.
 func (s *Service) render(tmpl string, complex *complexstore.Complex, schedules []*complexstore.Schedule, courts []*courtstore.Court, slug string) string {
-	baseURL := strings.TrimRight(s.frontendURL, "/")
+	baseURL := strings.TrimRight(s.publicBaseURL, "/")
 	canonicalURL := complexURL(baseURL, slug)
 
 	escapedName := html.EscapeString(complex.Name)

@@ -14,21 +14,29 @@ import (
 // venues. There are two, and the second is the one that matters — a venue that
 // has switched itself off is not published, on either page.
 type Service struct {
-	store       Store
+	store Store
+	// frontendURL is the origin the frontend's index.html is fetched from. The
+	// shell belongs to the app, wherever the public pages are published.
 	frontendURL string
-	templates   *templateCache
+	// publicBaseURL is the origin every public page address is built on: the
+	// complex and city hub pages, their canonical and og:url, the JSON-LD and
+	// the sitemap.
+	publicBaseURL string
+	templates     *templateCache
 }
 
-// NewService returns a Service rendering against the given frontend origin.
-func NewService(store Store, frontendURL string) *Service {
+// NewService returns a Service that fetches the frontend shell from frontendURL
+// and publishes every public page address under publicBaseURL.
+func NewService(store Store, frontendURL, publicBaseURL string) *Service {
 	return &Service{
-		store:       store,
-		frontendURL: frontendURL,
-		templates:   newTemplateCache(templateTTL, fetchTimeout),
+		store:         store,
+		frontendURL:   frontendURL,
+		publicBaseURL: publicBaseURL,
+		templates:     newTemplateCache(templateTTL, fetchTimeout),
 	}
 }
 
-// complexURL is the public address of one complex's page, under the frontend
+// complexURL is the public address of one complex's page, under the public
 // origin base. The /c/ prefix is part of the address: a bare single-segment slug
 // collides with platform routes, so every URL this package publishes for a
 // complex (sitemap, canonical, og:url, JSON-LD, city hub) is built here.
@@ -43,7 +51,7 @@ func (s *Service) Sitemap(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	baseURL := strings.TrimRight(s.frontendURL, "/")
+	baseURL := strings.TrimRight(s.publicBaseURL, "/")
 
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")

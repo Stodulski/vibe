@@ -215,10 +215,10 @@ func hubJSONLD(hub cityHub, base string) string {
 	return string(data)
 }
 
-// renderCityHub returns the hub page for one city. Every owner-supplied value is
-// HTML-escaped where it is written.
-func renderCityHub(hub cityHub, frontendURL string) string {
-	base := strings.TrimRight(frontendURL, "/")
+// renderCityHub returns the hub page for one city, addressed under publicBaseURL.
+// Every owner-supplied value is HTML-escaped where it is written.
+func renderCityHub(hub cityHub, publicBaseURL string) string {
+	base := strings.TrimRight(publicBaseURL, "/")
 	hubURL := base + "/canchas/" + hub.Slug
 	title := "Canchas en " + hub.City + " - Reservá tu cancha | Vibe"
 
@@ -291,7 +291,7 @@ func (s *Service) CityHub(ctx context.Context, city string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return renderCityHub(hub, s.frontendURL), nil
+	return renderCityHub(hub, s.publicBaseURL), nil
 }
 
 // CityHub handles GET /api/v1/public/hubs/{city}: the HTML listing of one city's
