@@ -47,10 +47,11 @@ export const TEST_OWNER_C = {
 };
 
 /**
- * A platform admin (`role: superadmin`) for e2e specs that exercise
- * `/admin/*`. The public register endpoint always creates `owner` accounts
- * (internal/auth/handlers.go), so `auth.setup.ts` registers this one the
- * same way and then promotes it directly in the E2E database — the same
+ * A platform admin (`role: superadmin`). RootRedirect sends a superadmin to
+ * the `/admin` placeholder after login, the only admin page left while the
+ * area is rebuilt. The public register endpoint always creates `owner`
+ * accounts (internal/auth/handlers.go), so `auth.setup.ts` registers this one
+ * the same way and then promotes it directly in the E2E database — the same
  * "seed via psql" pattern `ApiHelper.setupFullComplex` already uses to fake
  * a MercadoPago connection.
  */

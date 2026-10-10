@@ -78,10 +78,6 @@ export function formatDateShort(date: string | Date): string {
   return format(toDisplayDate(date), 'dd/MM/yyyy');
 }
 
-export function formatDateCompact(date: string | Date): string {
-  return format(toDisplayDate(date), 'dd MMM yyyy', { locale: es });
-}
-
 export function formatDateLong(date: string | Date): string {
   return format(toDisplayDate(date), "d 'de' MMMM 'de' yyyy", { locale: es });
 }
@@ -91,8 +87,7 @@ export function formatDateFull(date: string | Date): string {
 }
 
 /**
- * A date as "mar 2026" — the month abbreviated, the way `formatDateCompact`
- * already abbreviates it inside a full day. Used where only the month a
+ * A date as "mar 2026" — the month abbreviated. Used where only the month a
  * record was created in matters (e.g. "Cliente desde" in a dense table row),
  * not the exact day.
  */

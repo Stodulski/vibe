@@ -130,23 +130,6 @@ export const handlers = [
   http.get('*/complexes/:complexId', () => HttpResponse.json({ complex: makeComplex() })),
   http.delete('*/complexes/:complexId', () => HttpResponse.json({ message: 'ok', courts_deactivated: 0 })),
 
-  // ─── admin ───
-  http.get('*/admin/stats', () =>
-    HttpResponse.json({
-      stats: {
-        total_users: 0,
-        active_users: 0,
-        new_users_month: 0,
-        total_complexes: 0,
-        new_complexes_month: 0,
-        total_courts: 0,
-        total_bookings: 0,
-        total_revenue: 0,
-      },
-    }),
-  ),
-  http.patch('*/admin/users/:userId/toggle-active', () => HttpResponse.json({ message: 'ok' })),
-
   // ─── MercadoPago connect ───
   http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
   http.delete('*/complexes/:complexId/mp/connect', () => HttpResponse.json({})),

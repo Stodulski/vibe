@@ -81,7 +81,7 @@ export const queryKeys = {
   products: {
     // Split by `active` so switching the Activos/Inactivos filter never
     // serves the other bucket's cached list, and both stay independently
-    // cacheable — the same reasoning as `admin.complexes`'s params key.
+    // cacheable.
     byComplex: (complexId: string, active?: boolean) => ['products', complexId, active] as const,
     // Matches every `byComplex` entry regardless of `active`, for
     // invalidating the whole catalog after a write.
@@ -95,13 +95,5 @@ export const queryKeys = {
     // currently open session's own sales (`odd/tasks/pos-cashbox.md` T5b), so
     // there is no unscoped `byComplex` entry to invalidate alongside this one.
     bySession: (complexId: string, sessionId: string) => ['sales', complexId, sessionId] as const,
-  },
-  admin: {
-    stats: ['admin', 'stats'] as const,
-    usersBase: ['admin', 'users'] as const,
-    users: (params?: { search?: string; role?: string }) => ['admin', 'users', params] as const,
-    userDetail: (id: string) => ['admin', 'users', id] as const,
-    complexes: (params?: { search?: string }) => ['admin', 'complexes', params] as const,
-    complexDetail: (id: string) => ['admin', 'complexes', id] as const,
   },
 };

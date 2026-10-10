@@ -1,6 +1,6 @@
 # Vibe Client
 
-React single-page application for Vibe, a booking platform for sports complexes. It serves the owner dashboard (courts, bookings, clients, reports), a superadmin section, and the public booking pages clients use to reserve a court. Spanish (Argentina) only, currency ARS.
+React single-page application for Vibe, a booking platform for sports complexes. It serves the owner dashboard (courts, bookings, clients, reports), a superadmin section that is currently a placeholder while it is rebuilt from scratch, and the public booking pages clients use to reserve a court. Spanish (Argentina) only, currency ARS.
 
 ## Stack
 
@@ -62,11 +62,12 @@ All `VITE_*` variables are inlined into the built bundle at build time and are n
 
 ```
 src/app/          Router, layouts, top-level providers
-src/features/     One folder per domain (admin, auth, bookings, clients, complex, courts,
+src/features/     One folder per domain (auth, bookings, clients, complex, courts,
                   dashboard, public-booking), each with api/hooks/components/schemas/types
+                  (the admin area is a placeholder, src/app/router/AdminPlaceholderPage.tsx)
 src/shared/       Cross-feature code: components, hooks, i18n (es_AR only), lib, schemas,
                   stores, types
-src/pages/        Route-level page components (admin, auth, owner, public)
+src/pages/        Route-level page components (auth, owner, public; admin is a placeholder being rebuilt)
 e2e/              Playwright specs, page objects and setup (auth, global truncation)
 ```
 

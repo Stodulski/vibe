@@ -70,21 +70,6 @@ export default defineConfig({
       ],
     },
     {
-      // Platform-admin (superadmin) specs, using the TEST_ADMIN session
-      // auth.setup.ts saves to e2e/.auth/admin.json (loaded by the
-      // `adminPage` fixture in auth.fixture.ts — a single shared session is
-      // fine here: low test volume, and a wholly different account/session
-      // from the `authenticated` project's owner pool, so it can never race
-      // that pool's refresh token.
-      name: 'admin',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
-      },
-      dependencies: ['setup'],
-      testMatch: ['admin-users.spec.ts'],
-    },
-    {
       name: 'public',
       use: { ...devices['Desktop Chrome'] },
       testMatch: [

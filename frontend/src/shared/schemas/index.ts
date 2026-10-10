@@ -9,7 +9,6 @@ export * from './client.schema';
 export * from './booking.schema';
 export * from './dashboard.schema';
 export * from './reports.schema';
-export * from './admin.schema';
 export * from './cash.schema';
 export * from './products.schema';
 export * from './sales.schema';

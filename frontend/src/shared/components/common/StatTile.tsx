@@ -12,7 +12,7 @@ import { Panel } from './Panel';
 // metric, just distinct on-token colors. `cyan`/`pink`/`yellow`/`green` had
 // zero call sites (verified with `rg`) and were dropped rather than given a
 // token mapping nobody uses.
-export type StatTileTone = 'primary' | 'info' | 'warning' | 'success' | 'blue' | 'purple' | 'orange' | 'emerald';
+type StatTileTone = 'primary' | 'info' | 'warning' | 'success' | 'blue' | 'purple' | 'orange' | 'emerald';
 
 const STAT_TILE_TONES: Record<StatTileTone, string> = {
   primary: 'bg-primary-500/10 text-primary-400',

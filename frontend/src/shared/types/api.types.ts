@@ -9,7 +9,6 @@ export * from './api.types/availability';
 export * from './api.types/dashboard';
 export * from './api.types/publicBooking';
 export * from './api.types/reports';
-export * from './api.types/admin';
 export * from './api.types/cash';
 export * from './api.types/products';
 export * from './api.types/sales';

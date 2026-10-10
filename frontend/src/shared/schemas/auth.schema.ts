@@ -18,7 +18,7 @@ import type {
 // for them here (the audit finding this fixes is about unvalidated
 // responses).
 
-export const userRoleSchema = z.enum(['owner', 'client', 'superadmin']) satisfies z.ZodType<UserRole>;
+const userRoleSchema = z.enum(['owner', 'client', 'superadmin']) satisfies z.ZodType<UserRole>;
 
 export const userSchema = z
   .object({
