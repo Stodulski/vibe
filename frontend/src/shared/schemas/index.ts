@@ -3,7 +3,6 @@ export * from './auth.schema';
 export * from './payment.schema';
 export * from './complex.schema';
 export * from './court.schema';
-export * from './availability.schema';
 export * from './publicBooking.schema';
 export * from './client.schema';
 export * from './booking.schema';

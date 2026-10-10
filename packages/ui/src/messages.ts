@@ -10,6 +10,8 @@
 export const messages = {
   loading: 'Cargando...',
   back: 'Volver',
+  cancel: 'Cancelar',
+  confirm: 'Confirmar',
   optional: 'opcional',
   requiredMarker: 'requerido',
   errorTitle: 'Algo salió mal',

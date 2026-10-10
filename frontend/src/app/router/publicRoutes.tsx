@@ -1,14 +1,12 @@
 import type { RouteObject } from 'react-router-dom';
 import { SkeletonBookConfirm, SkeletonBookSuccess, SkeletonCancelInfo } from '@/shared/components/common/Skeletons';
-import { SkeletonComplexHeader } from '@/features/public-booking/components/SkeletonComplexHeader';
-import { SkeletonSlotGrid } from '@/features/public-booking/components/SkeletonSlotGrid';
+import { SkeletonComplexHeader, SkeletonSlotGrid } from '@vibe/booking/skeletons';
 import { lazyPage, lazyShell } from './routeHelpers';
 import { PublicPageLoader } from './loaders';
 import { LegacyComplexRedirect } from './LegacyComplexRedirect';
 
-// Every booking route loads from `publicBookingPages`, which renders the booking
-// entries. The entries import all the booking pages, so the booking pages share
-// one lazy chunk.
+// Each booking page is its own module, so each one loads as its own chunk. The
+// pages are packages (`@vibe/booking`) that render inside their own BookingRoot.
 export const publicRoutes: RouteObject[] = [
   {
     element: lazyShell(
@@ -19,7 +17,7 @@ export const publicRoutes: RouteObject[] = [
       {
         path: '/c/:slug',
         element: lazyPage(
-          () => import('./publicBookingPages').then((m) => ({ default: m.ComplexPageRoute })),
+          () => import('./booking/ComplexPageRoute').then((m) => ({ default: m.ComplexPageRoute })),
           <div className="animate-fade-in w-full space-y-6 sm:space-y-10">
             <SkeletonComplexHeader />
             <SkeletonSlotGrid />
@@ -28,28 +26,28 @@ export const publicRoutes: RouteObject[] = [
       },
       {
         // Not a page anyone navigates to — MercadoPago's failure back_url.
-        // See BookPage for why it must not be removed.
+        // See BookPageRoute for why it must not be removed.
         path: '/c/:slug/book',
-        element: lazyPage(() => import('./publicBookingPages').then((m) => ({ default: m.BookPageRoute }))),
+        element: lazyPage(() => import('./booking/BookPageRoute').then((m) => ({ default: m.BookPageRoute }))),
       },
       {
         path: '/c/:slug/book/confirm',
         element: lazyPage(
-          () => import('./publicBookingPages').then((m) => ({ default: m.BookConfirmRoute })),
+          () => import('./booking/BookConfirmRoute').then((m) => ({ default: m.BookConfirmRoute })),
           <SkeletonBookConfirm />,
         ),
       },
       {
         path: '/c/:slug/book/success',
         element: lazyPage(
-          () => import('./publicBookingPages').then((m) => ({ default: m.BookSuccessRoute })),
+          () => import('./booking/BookSuccessRoute').then((m) => ({ default: m.BookSuccessRoute })),
           <SkeletonBookSuccess />,
         ),
       },
       {
         path: '/c/:slug/book/cancel',
         element: lazyPage(
-          () => import('./publicBookingPages').then((m) => ({ default: m.BookCancelRoute })),
+          () => import('./booking/BookCancelRoute').then((m) => ({ default: m.BookCancelRoute })),
           <SkeletonCancelInfo />,
         ),
       },

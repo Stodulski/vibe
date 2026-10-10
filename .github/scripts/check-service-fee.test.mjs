@@ -43,7 +43,7 @@ function tree({
 } = {}) {
   return {
     'backend/internal/pricing/pricing.go': `package pricing\n\nconst serviceFeeCentavos = ${goAmount}\n`,
-    'frontend/src/features/public-booking/components/booking-form/pricing.ts':
+    'packages/booking/src/components/booking-form/pricing.ts':
       `const SERVICE_FEE_FALLBACK_CENTAVOS = ${feAmount};\n`,
     'frontend/src/shared/i18n/es_AR/serviceFee.ts':
       copy ?? `const a = 'Tus clientes pagan un cargo de servicio fijo de $1.000 por reserva.';\n`,
@@ -118,7 +118,7 @@ test('names every follower, one error each, when the backend amount moves alone'
   assert.equal(code, 1);
   assert.equal(errors.length, 3, 'one per follower, and nothing else');
   for (const file of [
-    'frontend/src/features/public-booking/components/booking-form/pricing.ts',
+    'packages/booking/src/components/booking-form/pricing.ts',
     'frontend/src/shared/i18n/es_AR/serviceFee.ts',
     'landing/src/data/precio.ts',
   ]) {

@@ -29,7 +29,7 @@ Three layout groups in `src/app/router.tsx`, all pages lazy-loaded:
 - **Auth pages** (no layout): `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`
 - **Owner dashboard** (`DashboardLayout`): `/dashboard`, `/bookings`, `/courts`, `/clients`, `/reports`, `/settings`, `/profile`
 - **Admin** (`AdminLayout`, superadmin only): `/admin` only, a placeholder (`AdminPlaceholderPage`) while the admin area is rebuilt from scratch
-- **Public booking** (`PublicLayout`): `/:slug`, `/:slug/book/*`
+- **Public booking** (`PublicLayout`): `/:slug`, `/:slug/book/*`. The pages render from `@vibe/booking` (`packages/booking`); each route module in `app/router/booking/` loads one entry as its own chunk.
 
 ### Feature Module Pattern
 
