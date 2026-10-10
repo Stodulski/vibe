@@ -16,7 +16,7 @@ React single-page application for Vibe, a booking platform for sports complexes.
 ## Prerequisites
 
 - Node.js `>=24 <25` (see `.nvmrc` and `package.json` `engines`)
-- pnpm `>=11` (pinned as `pnpm@11.25.0` in `packageManager`)
+- pnpm `>=11` (pinned as `pnpm@11.25.0` in the root `package.json`)
 - The [backend](../backend) API running locally on port `8080` (default), or another API URL configured via `VITE_API_URL`
 - For E2E tests only: Docker (the API lives in `../backend`, in this same repository)
 
@@ -24,8 +24,9 @@ React single-page application for Vibe, a booking platform for sports complexes.
 
 ```bash
 git clone https://github.com/Stodulski/vibe.git
-cd vibe/frontend
-pnpm install
+cd vibe
+pnpm install   # one workspace install at the repository root
+cd frontend
 ```
 
 Copy the versioned example env file and adjust as needed (defaults work for local development against an API on `:8080`):

@@ -1,0 +1,44 @@
+packages:
+  - landing
+  - frontend
+  - packages/*
+
+# Engines are declared in the root package.json and enforced here; this
+# replaces frontend/.npmrc (engine-strict=true).
+engineStrict: true
+
+# Install scripts pnpm may run. esbuild's fetches the binary for this platform.
+# The frontend's list (playwright, sentry cli, msw, protobufjs; unix-dgram
+# off) and the landing's esbuild allowance are merged here.
+allowBuilds:
+  '@playwright/browser-chromium': true
+  '@sentry/cli': true
+  esbuild: true
+  msw: true
+  protobufjs: true
+  unix-dgram: false
+
+minimumReleaseAgeExclude:
+  - vite@8.3.0
+
+# Transitive packages with a Dependabot alert whose direct dependants have not
+# released a fix yet. @puppeteer/browsers 3 dropped extract-zip; Lighthouse CI
+# never downloads a browser, so the bump is inert at runtime.
+# vite pins tsx 4.21, which pins esbuild 0.27 (Dependabot alert); tsx 4.23 moved
+# to esbuild 0.28.
+overrides:
+  '@puppeteer/browsers@2': '>=3.2.2 <4'
+  'qs@<6.16.0': '>=6.16.0 <7'
+  'fast-uri@3': '>=3.1.6 <4'
+  'brace-expansion@2': '>=2.1.2 <3'
+  'tmp@<0.2.6': '>=0.2.6 <0.3'
+  '@babel/plugin-transform-modules-systemjs@7': '>=7.29.4 <8'
+  'uuid@8': '>=11.1.1 <12'
+  # GHSA-68fv-2mgg-jv7q (high): reached through @tailwindcss/vite and vite's postcss.
+  'source-map-js@<1.2.2': '>=1.2.2 <2'
+  'tsx@4': '>=4.23.13'
+  # GHSA-j22f-vq7h-c4qm and GHSA-mcm9-63f2-9j32 (high): reached through astro.
+  'devalue@<5.9.3': '>=5.9.3 <6'
+  # Also reached through astro (high): http-cache-semantics max-stale disclosure, sharp's librsvg CVE-2026-96889.
+  'http-cache-semantics@<4.3.0': '>=4.3.0 <5'
+  'sharp@<0.35.5': '>=0.35.5 <0.36'

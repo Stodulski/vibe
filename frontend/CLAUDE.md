@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+Install once from the repository root (`pnpm install`): `frontend/` and `landing/` share one workspace and `pnpm-lock.yaml`. Run these from `frontend/`:
+
 ```bash
 pnpm dev              # Start Vite dev server (port 5173, proxies /api/* to localhost:8080)
 pnpm build            # Type-check (tsc -b) then Vite build

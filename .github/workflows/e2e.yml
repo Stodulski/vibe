@@ -26,6 +26,10 @@ on:
     paths:
       - "backend/**"
       - "frontend/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/e2e.yml"
 
 concurrency:
@@ -42,7 +46,9 @@ jobs:
   # happen at all — nothing here re-narrows it.
   #
   # On a pull_request, this diffs the PR's base against its head. `run` is
-  # true when the diff touches `backend/**` or `frontend/**` (either side of
+  # true when the diff touches `backend/**`, `frontend/**`, `packages/**` or the
+  # root workspace files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`)
+  # (either side of
   # the suite), when it touches `.github/**` (a workflow or script change can
   # affect what this job does), when it touches any root-level file outside
   # backend/, frontend/, landing/ and docs/ (unclassifiable — treated the
@@ -90,6 +96,7 @@ jobs:
             case "$f" in
               .github/*) everything=true ;;
               backend/*|frontend/*) run=true ;;
+              packages/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml) run=true ;;
               landing/*|docs/*) ;;
               *) everything=true ;;
             esac
@@ -131,13 +138,13 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: frontend/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       # The published binary, pinned to the library version in go.mod: building
       # goose from source cost a minute and a half per run.
@@ -154,8 +161,8 @@ jobs:
         run: sudo apt-get update -q && sudo apt-get install -y -q postgresql-client
 
       - name: Install client dependencies
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-client...
 
       - name: Install Playwright browsers
         working-directory: frontend

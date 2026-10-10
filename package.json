@@ -1,0 +1,9 @@
+{
+  "name": "vibe",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11"
+  }
+}

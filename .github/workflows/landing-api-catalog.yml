@@ -5,8 +5,9 @@
 # backend/internal/openapi/openapi.yaml by landing/scripts/build-api-catalog.mjs
 # and committed, so the landing builds where backend/ is not in the checkout.
 # That leaves one gap this job closes: landing/vercel.json only deploys when
-# landing/ changes, so renaming a route in the backend does not rebuild the
-# landing, and the committed catalog keeps advertising the old URL until
+# landing/ or the shared workspace files change, so renaming a route in the
+# backend does not rebuild the landing, and the committed catalog keeps
+# advertising the old URL until
 # something unrelated triggers a landing deploy. Nothing fails in between; the
 # catalog just quietly points agents at a 404.
 #
@@ -43,16 +44,17 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: landing/package.json
+          package_json_file: package.json
 
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: pnpm
-          cache-dependency-path: landing/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter vibe-landing...
 
       # The generator fails on its own when a path it advertises is no longer a
       # GET in the spec, which covers the rename. This step additionally catches
