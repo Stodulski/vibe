@@ -1,4 +1,4 @@
-FROM golang:1.27-alpine AS builder
+FROM golang:1.27.2-alpine AS builder
 
 # ca-certificates and tzdata are copied into the distroless final stage below;
 # golang:*-alpine ships neither by default.
