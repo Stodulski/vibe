@@ -2,13 +2,21 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './app/App';
+import { env } from '@/shared/lib/env';
 import { startObservability } from '@/shared/lib/observability';
 import { setupServiceWorkerUpdates } from '@/shared/lib/serviceWorkerUpdate';
+import { shouldRegisterServiceWorker, unregisterServiceWorkers } from '@/shared/lib/serviceWorkerHost';
 import './styles/globals.css';
 
 // `registerSW` must be imported from app code so the plugin injects the
 // virtual module; the update policy itself lives in serviceWorkerUpdate.ts.
-setupServiceWorkerUpdates(registerSW);
+// The worker is origin-scoped, so only the app host may register it; any
+// other host (vibe.com.ar, where the landing lives) keeps none.
+if (shouldRegisterServiceWorker(window.location.hostname, env.VITE_APP_URL)) {
+  setupServiceWorkerUpdates(registerSW);
+} else {
+  void unregisterServiceWorkers();
+}
 
 // Error reporting starts here, before the first render, but the SDK itself
 // loads at idle time. The two are separable now: `startObservability`
