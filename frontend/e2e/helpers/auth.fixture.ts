@@ -45,7 +45,14 @@ async function withPersistedSession(
   landingUrl: string,
   use: (page: Page) => Promise<void>,
 ): Promise<void> {
-  const context = await browser.newContext({ storageState: storageStatePath });
+  // Reduced motion, as a user with that preference sees the app. The axe
+  // contrast check in a11y.spec.ts scans right after the page heading is
+  // visible, while the dashboard's occupancy panel is still in its 300ms
+  // `animate-fade-in`. Text read mid-fade is blended with the background, so
+  // tertiary text fails 4.5:1 for a frame or two. The app's reduced-motion
+  // rule ends the fade at once, so every scan reads settled colours. The
+  // contrast expectations themselves are unchanged.
+  const context = await browser.newContext({ storageState: storageStatePath, reducedMotion: 'reduce' });
   const page = await context.newPage();
   // Hand the page over only once its boot has finished: the app refreshes
   // the session on load, and a spec navigating while that refresh is in
