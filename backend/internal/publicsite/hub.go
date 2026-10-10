@@ -156,9 +156,10 @@ func truncateRunes(s string, limit int) string {
 	return string(runes[:limit-3]) + "..."
 }
 
-// sportLabelsOf returns the Spanish labels for a complex's sports, comma-separated.
-// A sport with no label is shown as stored.
-func sportLabelsOf(sports []string) string {
+// hubSportLabelList returns the Spanish label for each of a complex's sports. A sport
+// with no label is shown as stored. The result is never nil, so it encodes as an
+// empty list rather than null.
+func hubSportLabelList(sports []string) []string {
 	labels := make([]string, 0, len(sports))
 	for _, sport := range sports {
 		if label, ok := hubSportLabels[sport]; ok {
@@ -167,7 +168,13 @@ func sportLabelsOf(sports []string) string {
 			labels = append(labels, sport)
 		}
 	}
-	return strings.Join(labels, ", ")
+	return labels
+}
+
+// sportLabelsOf returns the sport labels comma-separated, as the HTML listing shows
+// them.
+func sportLabelsOf(sports []string) string {
+	return strings.Join(hubSportLabelList(sports), ", ")
 }
 
 // hubListItem and hubItemList are the schema.org ItemList the hub carries.
@@ -262,27 +269,50 @@ func (s *Service) cityHubs(ctx context.Context) ([]cityHub, error) {
 	return cityHubsFrom(rows), nil
 }
 
-// CityHub returns the hub page for the city a path names, matched case- and
-// accent-insensitively. A city with no switched-on complex is
-// data.ErrRecordNotFound.
-func (s *Service) CityHub(ctx context.Context, city string) (string, error) {
+// findCityHub returns the hub a city names, matched case- and accent-insensitively.
+// A city with no switched-on complex is data.ErrRecordNotFound.
+func (s *Service) findCityHub(ctx context.Context, city string) (cityHub, error) {
 	slug := citySlug(city)
 	hubs, err := s.cityHubs(ctx)
 	if err != nil {
-		return "", err
+		return cityHub{}, err
 	}
 	for _, hub := range hubs {
 		if hub.Slug == slug {
-			return renderCityHub(hub, s.frontendURL), nil
+			return hub, nil
 		}
 	}
-	return "", data.ErrRecordNotFound
+	return cityHub{}, data.ErrRecordNotFound
+}
+
+// CityHub returns the hub page for the city a path names.
+func (s *Service) CityHub(ctx context.Context, city string) (string, error) {
+	hub, err := s.findCityHub(ctx, city)
+	if err != nil {
+		return "", err
+	}
+	return renderCityHub(hub, s.frontendURL), nil
 }
 
 // CityHub handles GET /api/v1/public/hubs/{city}: the HTML listing of one city's
 // switched-on complexes, for search engines and people alike.
 func (h *Handler) CityHub(w http.ResponseWriter, r *http.Request) {
 	page, err := h.svc.CityHub(r.Context(), httpx.ReadStringParam(r, "city"))
+	if err != nil {
+		h.hubError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", hubCacheControl)
+	w.WriteHeader(http.StatusOK)
+	// The response is committed; a write failure can no longer be reported.
+	_, _ = w.Write([]byte(page))
+}
+
+// hubError answers a hub read that failed, for the HTML and the JSON hub alike: 404
+// for a city with no switched-on complex, 503 with Retry-After for a failed read,
+// and 500 for anything else.
+func (h *Handler) hubError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, data.ErrRecordNotFound):
 		h.respond.NotFound(w, r)
@@ -292,13 +322,7 @@ func (h *Handler) CityHub(w http.ResponseWriter, r *http.Request) {
 		h.respond.LogError(r, err)
 		w.Header().Set("Retry-After", hubRetryAfterSeconds)
 		h.respond.Refuse(w, r, httpx.Unavailable(nil))
-	case err != nil:
-		h.respond.ServerError(w, r, err)
 	default:
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", hubCacheControl)
-		w.WriteHeader(http.StatusOK)
-		// The response is committed; a write failure can no longer be reported.
-		_, _ = w.Write([]byte(page))
+		h.respond.ServerError(w, r, err)
 	}
 }
