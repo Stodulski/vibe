@@ -145,8 +145,12 @@ export function setupServiceWorkerUpdates(register: typeof registerSW): void {
     },
   });
 
+  // A failed check is harmless — the next interval or return to the tab asks
+  // again — but left uncaught it is an unhandled rejection. iOS Safari rejects
+  // with `InvalidStateError: newestWorker is null` when the registration has
+  // no worker to compare against yet (VIBE-FRONTEND-B).
   const check = () => {
-    void registration?.update();
+    registration?.update().catch(() => undefined);
   };
   setInterval(check, SW_UPDATE_INTERVAL_MS);
 

@@ -126,6 +126,35 @@ describe('setupServiceWorkerUpdates update checks', () => {
     }
   });
 
+  // VIBE-FRONTEND-B: iOS Safari rejects `update()` with `InvalidStateError:
+  // newestWorker is null`. A failed check is harmless — the next one retries —
+  // so it must never surface as an unhandled rejection.
+  it('swallows a rejected update check instead of leaving it unhandled', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const sw = fakeRegister();
+      setupServiceWorkerUpdates(sw.register);
+      // A plain function, not `vi.fn()`: a spy subscribes to the promises it
+      // returns to record their outcome, which would mark this one handled
+      // and hide exactly the leak under test.
+      let checks = 0;
+      const update = () => {
+        checks += 1;
+        return Promise.reject(new DOMException('newestWorker is null', 'InvalidStateError'));
+      };
+      sw.options().onRegisteredSW?.('/sw.js', { update } as unknown as ServiceWorkerRegistration);
+
+      setVisibility('visible');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(checks).toBeGreaterThan(0);
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
   it('does nothing on registration when the browser hands back no registration', () => {
     const sw = fakeRegister();
     setupServiceWorkerUpdates(sw.register);
