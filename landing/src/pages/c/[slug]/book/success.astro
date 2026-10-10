@@ -1,0 +1,31 @@
+---
+/**
+ * /c/<slug>/book/success. What was booked is read from sessionStorage, so the page renders
+ * on the client only and shows the success skeleton until then. Never indexable, never
+ * cached by a shared cache.
+ */
+import { BookSuccessEntry } from '@vibe/booking/book-success';
+import { SkeletonBookSuccess } from '@vibe/ui';
+import { PUBLIC_API_URL } from 'astro:env/server';
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import StorefrontLayout from '../../../../layouts/StorefrontLayout.astro';
+import { DEFAULT_DESCRIPTION, storefrontBookingConfig, storefrontRobots } from '../../../../lib/storefront.ts';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const config = storefrontBookingConfig(PUBLIC_API_URL);
+---
+<StorefrontLayout
+  title={`${BOOKING_MESSAGES.publicBooking.bookingSuccess} - Vibe`}
+  description={DEFAULT_DESCRIPTION}
+  robots={storefrontRobots(Astro.url.pathname)}
+  homeHref={`/c/${encodeURIComponent(slug)}`}
+>
+  <BookSuccessEntry client:only="react" slug={slug} config={config} initialSearch={Astro.url.search}>
+    <div slot="fallback" aria-busy="true">
+      <SkeletonBookSuccess />
+    </div>
+  </BookSuccessEntry>
+</StorefrontLayout>

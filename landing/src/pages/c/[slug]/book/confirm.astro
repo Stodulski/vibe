@@ -1,0 +1,31 @@
+---
+/**
+ * /c/<slug>/book/confirm. The draft the visitor chose lives in sessionStorage, which the
+ * server cannot read, so the page renders only on the client and shows the booking skeleton
+ * until then. Never indexable, never cached by a shared cache.
+ */
+import { BookConfirmEntry } from '@vibe/booking/book-confirm';
+import { SkeletonBookConfirm } from '@vibe/ui';
+import { PUBLIC_API_URL } from 'astro:env/server';
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import StorefrontLayout from '../../../../layouts/StorefrontLayout.astro';
+import { DEFAULT_DESCRIPTION, storefrontBookingConfig, storefrontRobots } from '../../../../lib/storefront.ts';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const config = storefrontBookingConfig(PUBLIC_API_URL);
+---
+<StorefrontLayout
+  title={`${BOOKING_MESSAGES.publicBooking.confirmBooking} - Vibe`}
+  description={DEFAULT_DESCRIPTION}
+  robots={storefrontRobots(Astro.url.pathname)}
+  homeHref={`/c/${encodeURIComponent(slug)}`}
+>
+  <BookConfirmEntry client:only="react" slug={slug} config={config} initialSearch={Astro.url.search}>
+    <div slot="fallback" aria-busy="true">
+      <SkeletonBookConfirm />
+    </div>
+  </BookConfirmEntry>
+</StorefrontLayout>

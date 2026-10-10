@@ -1,0 +1,43 @@
+---
+/**
+ * /c/<slug>/book. MercadoPago's failure back_url lands here with `?error=payment_failed`
+ * and gets the failure screen. Any other visit is redirected to the complex page, keeping
+ * its query. Never indexable, never cached by a shared cache.
+ */
+import { PaymentFailedEntry } from '@vibe/booking/payment-failed';
+import { Skeleton } from '@vibe/ui';
+import { PUBLIC_API_URL } from 'astro:env/server';
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import StorefrontLayout from '../../../../layouts/StorefrontLayout.astro';
+import { bookPageAction } from '../../../../lib/book-page.ts';
+import { DEFAULT_DESCRIPTION, storefrontBookingConfig, storefrontRobots } from '../../../../lib/storefront.ts';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+const action = bookPageAction(slug, Astro.url.searchParams);
+
+if (action.kind === 'redirect') {
+  const response = Astro.redirect(action.location, 302);
+  response.headers.set('Cache-Control', 'private, no-store');
+  response.headers.set('X-Robots-Tag', 'noindex');
+  return response;
+}
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const t = BOOKING_MESSAGES.publicBooking;
+const config = storefrontBookingConfig(PUBLIC_API_URL);
+---
+<StorefrontLayout
+  title={`${t.paymentFailed} - Vibe`}
+  description={DEFAULT_DESCRIPTION}
+  robots={storefrontRobots(Astro.url.pathname)}
+  homeHref={`/c/${encodeURIComponent(slug)}`}
+>
+  <PaymentFailedEntry client:only="react" slug={slug} config={config} initialSearch={Astro.url.search}>
+    <div slot="fallback" class="flex w-full flex-col gap-4 py-10" aria-busy="true">
+      <Skeleton className="h-8 w-2/3 rounded-lg" />
+      <Skeleton className="h-32 w-full rounded-2xl" />
+    </div>
+  </PaymentFailedEntry>
+</StorefrontLayout>
