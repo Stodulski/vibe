@@ -12,6 +12,8 @@ export interface BookingEntryProps {
   config: BookingConfig;
   /** Seeds the complex query. Only the complex page reads it. */
   initialComplex?: BookingRootProps['initialComplex'];
+  /** The page's query string as the server saw it. Read by the flow's URL state. */
+  initialSearch?: string;
   /** Mount a Toaster. Pass `false` where the host app already mounts one. */
   toaster?: boolean;
   /** Rendered inside the providers, before the page: head tags and other host wiring. */

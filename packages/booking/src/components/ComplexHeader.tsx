@@ -2,6 +2,7 @@ import { lazy, Suspense, useContext } from 'react';
 import type { PublicComplex, Schedule } from '../api/types';
 import { ErrorBoundary, Skeleton } from '@vibe/ui';
 import { BookingConfigContext } from '../config';
+import { useHasMounted } from '../hooks/useHasMounted';
 import { BOOKING_MESSAGES } from '../messages';
 import { CoverBanner } from './complex-header/CoverBanner';
 import { ComplexLogo } from './complex-header/ComplexLogo';
@@ -42,6 +43,9 @@ export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeade
   const coverUrl = complex.cover_url ?? null;
   // Optional: the header also renders on its own (tests, previews), without a BookingRoot.
   const reportError = useContext(BookingConfigContext)?.reportError;
+  // Leaflet touches `window` when it loads, so the map is requested only after
+  // mount. The server markup and the first client render both show the skeleton.
+  const mapMounted = useHasMounted();
 
   return (
     // The bordered card arrives at `lg`. Below that a panel spanning the whole
@@ -83,14 +87,18 @@ export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeade
                 </div>
               }
             >
-              <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
-                <ComplexMap
-                  latitude={complex.latitude}
-                  longitude={complex.longitude}
-                  name={complex.name}
-                  address={`${complex.address}, ${complex.city}`}
-                />
-              </Suspense>
+              {mapMounted ? (
+                <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
+                  <ComplexMap
+                    latitude={complex.latitude}
+                    longitude={complex.longitude}
+                    name={complex.name}
+                    address={`${complex.address}, ${complex.city}`}
+                  />
+                </Suspense>
+              ) : (
+                <Skeleton className="h-[200px] w-full rounded-xl" />
+              )}
             </ErrorBoundary>
           </div>
         )}

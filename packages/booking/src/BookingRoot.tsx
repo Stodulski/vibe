@@ -6,6 +6,7 @@ import { PublicBookingApiContext } from './api/context';
 import { createBookingClient } from './api/client';
 import { createPublicBookingApi } from './api/public-booking.api';
 import { getBookingQueryClient } from './lib/bookingQueryClient';
+import { InitialSearchContext } from './lib/initialSearch';
 import { queryKeys } from './lib/queryKeys';
 import type { PublicComplexResponse } from './api/types';
 
@@ -18,6 +19,12 @@ export interface BookingRootProps {
   toaster?: boolean | undefined;
   /** Seeds the complex query, so a page with the complex already known renders without a fetch. */
   initialComplex?: { slug: string; data: PublicComplexResponse } | undefined;
+  /**
+   * The page's query string as the server saw it (`?date=...`, with the `?`, or
+   * empty). The server render and the first client render read it, so the
+   * markup matches. Pass `Astro.url.search` on the server.
+   */
+  initialSearch?: string | undefined;
   /** Test seam: a fresh client per test. Production uses the browser singleton. */
   queryClient?: QueryClient;
   children: ReactNode;
@@ -34,7 +41,14 @@ const TOAST_CLASS_NAMES = {
  * Provides everything one booking page needs: the config, the booking endpoints,
  * the query cache and, optionally, the toasts. Each page entry renders one of these.
  */
-export function BookingRoot({ config, toaster = true, initialComplex, queryClient, children }: BookingRootProps) {
+export function BookingRoot({
+  config,
+  toaster = true,
+  initialComplex,
+  initialSearch,
+  queryClient,
+  children,
+}: BookingRootProps) {
   const client = queryClient ?? getBookingQueryClient(config.reportError);
   const api = useMemo(
     () => createPublicBookingApi(createBookingClient(config.apiBaseUrl), config.reportError),
@@ -52,10 +66,12 @@ export function BookingRoot({ config, toaster = true, initialComplex, queryClien
   return (
     <BookingConfigContext.Provider value={config}>
       <PublicBookingApiContext.Provider value={api}>
-        <QueryClientProvider client={client}>
-          {children}
-          {toaster && <Toaster position="bottom-right" richColors toastOptions={{ classNames: TOAST_CLASS_NAMES }} />}
-        </QueryClientProvider>
+        <InitialSearchContext.Provider value={initialSearch}>
+          <QueryClientProvider client={client}>
+            {children}
+            {toaster && <Toaster position="bottom-right" richColors toastOptions={{ classNames: TOAST_CLASS_NAMES }} />}
+          </QueryClientProvider>
+        </InitialSearchContext.Provider>
       </PublicBookingApiContext.Provider>
     </BookingConfigContext.Provider>
   );
