@@ -12,7 +12,7 @@
   "trailingSlash": false,
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!c(?:/|$)|canchas(?:/|$)|assets/|_r/|favicon-16\\.png|favicon-32\\.png|fonts/(?!dm-sans-latin)).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -42,7 +42,7 @@
       ]
     },
     {
-      "source": "/(.*).webp",
+      "source": "/((?!c(?:/|$)|canchas(?:/|$)|assets/|_r/|favicon-16\\.png|favicon-32\\.png|fonts/(?!dm-sans-latin)).*)\\.webp",
       "headers": [
         {
           "key": "Cache-Control",
@@ -51,7 +51,7 @@
       ]
     },
     {
-      "source": "/(.*).woff2",
+      "source": "/((?!c(?:/|$)|canchas(?:/|$)|assets/|_r/|favicon-16\\.png|favicon-32\\.png|fonts/(?!dm-sans-latin)).*)\\.woff2",
       "headers": [
         {
           "key": "Cache-Control",
@@ -60,7 +60,7 @@
       ]
     },
     {
-      "source": "/(.*).md",
+      "source": "/((?!c(?:/|$)|canchas(?:/|$)|assets/|_r/|favicon-16\\.png|favicon-32\\.png|fonts/(?!dm-sans-latin)).*)\\.md",
       "headers": [
         {
           "key": "X-Robots-Tag",
@@ -302,6 +302,36 @@
       "source": "/tutoriales/varios-complejos",
       "destination": "/tutoriales/configuracion-del-complejo",
       "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/c/:path*",
+      "destination": "https://vibe-frontend-maximo-stodulskis-projects.vercel.app/c/:path*"
+    },
+    {
+      "source": "/canchas/:path*",
+      "destination": "https://vibe-frontend-maximo-stodulskis-projects.vercel.app/canchas/:path*"
+    },
+    {
+      "source": "/assets/:path*",
+      "destination": "https://vibe-frontend-maximo-stodulskis-projects.vercel.app/assets/:path*"
+    },
+    {
+      "source": "/fonts/:path*",
+      "destination": "https://vibe-frontend-maximo-stodulskis-projects.vercel.app/fonts/:path*"
+    },
+    {
+      "source": "/_r/:path*",
+      "destination": "https://vibe-frontend-maximo-stodulskis-projects.vercel.app/_r/:path*"
+    },
+    {
+      "source": "/favicon-32.png",
+      "destination": "https://vibe-frontend-maximo-stodulskis-projects.vercel.app/favicon-32.png"
+    },
+    {
+      "source": "/favicon-16.png",
+      "destination": "https://vibe-frontend-maximo-stodulskis-projects.vercel.app/favicon-16.png"
     }
   ],
   "build": {
