@@ -56,6 +56,12 @@ export default defineConfig({
         access: 'public',
         default: 'https://api.vibe.com.ar/api/v1',
       }),
+      /* Cloudflare Web Analytics token. Unset means no beacon on the public pages. */
+      PUBLIC_CF_BEACON_TOKEN: envField.string({
+        context: 'client',
+        access: 'public',
+        optional: true,
+      }),
     },
   },
   vite: {

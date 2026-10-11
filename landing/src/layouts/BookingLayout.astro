@@ -9,6 +9,11 @@
 import '../styles/booking.css';
 import AnalyticsLoader from '../components/AnalyticsLoader.astro';
 import { robotsDirective } from '../lib/storefront.ts';
+import { PUBLIC_CF_BEACON_TOKEN } from 'astro:env/client';
+import { CF_BEACON_SRC, cfBeaconAttribute } from '../lib/analytics.ts';
+
+/* Cloudflare Web Analytics, only when a token is configured at build time. */
+const beacon = cfBeaconAttribute(PUBLIC_CF_BEACON_TOKEN);
 
 export interface Props {
   title: string;
@@ -78,6 +83,7 @@ const {
   <div aria-hidden="true" class="cursor-blob"></div>
   <slot/>
   {tracking && <AnalyticsLoader/>}
+  {beacon && <script is:inline defer src={CF_BEACON_SRC} data-cf-beacon={beacon}></script>}
   <script>
    /* Mobile menu only. main.js stays out of this layout on purpose: BaseLayout already
       bundles it, and importing it here would split it into a shared chunk and change

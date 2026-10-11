@@ -48,7 +48,8 @@ test('the booking config points at the storefront origin and its privacy page', 
 test('the storefront CSP is report-only policy that keeps the directives the flow needs', () => {
   const directives = STOREFRONT_CSP_REPORT_ONLY.split('; ');
   assert.ok(directives.includes("frame-ancestors 'none'"));
-  assert.ok(directives.includes("connect-src 'self' https://api.vibe.com.ar https://vibe.com.ar"));
+  assert.ok(directives.includes("connect-src 'self' https://api.vibe.com.ar https://vibe.com.ar https://cloudflareinsights.com"));
+  assert.ok(directives.includes("script-src 'self' https://static.cloudflareinsights.com"));
   assert.ok(directives.some((d) => d.startsWith('img-src ') && d.includes('https://*.tile.openstreetmap.org')));
 });
 
