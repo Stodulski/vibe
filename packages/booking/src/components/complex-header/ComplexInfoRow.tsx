@@ -1,6 +1,7 @@
 import { MapPin, Phone, Mail } from 'lucide-react';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicComplex } from '../../api/types';
+import { fullAddress } from '../../lib/complexAddress';
 
 const t = BOOKING_MESSAGES;
 
@@ -33,9 +34,7 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
           spaced, but three icons on two different baselines read as uneven. */}
       <div className="flex items-center gap-2">
         <MapPin className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
-        <span>
-          {complex.address}, {complex.city}
-        </span>
+        <span>{fullAddress(complex)}</span>
       </div>
 
       {complex.phone && (

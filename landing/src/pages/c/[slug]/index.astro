@@ -88,7 +88,7 @@ const trail =
 const jsonLd =
   data && head
     ? [
-        jsonLdScript(buildComplexSchema(data.complex, data.schedules, head.canonical)),
+        jsonLdScript(buildComplexSchema(data.complex, data.schedules, head.canonical, data.courts)),
         ...(trail ? [breadcrumbJsonLd(trail)] : []),
       ]
     : [];

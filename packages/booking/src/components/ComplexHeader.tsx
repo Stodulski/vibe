@@ -1,5 +1,5 @@
 import { lazy, Suspense, useContext } from 'react';
-import type { PublicComplex, Schedule } from '../api/types';
+import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
 import { ErrorBoundary, Skeleton } from '@vibe/ui';
 import { BookingConfigContext } from '../config';
 import { useHasMounted } from '../hooks/useHasMounted';
@@ -8,6 +8,7 @@ import { CoverBanner } from './complex-header/CoverBanner';
 import { ComplexLogo } from './complex-header/ComplexLogo';
 import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
 import { ComplexDetails } from './complex-header/ComplexDetails';
+import { CourtSummary } from './complex-header/CourtSummary';
 
 const t = BOOKING_MESSAGES;
 
@@ -16,6 +17,8 @@ const ComplexMap = lazy(() => import('./ComplexMap').then((m) => ({ default: m.C
 interface ComplexHeaderProps {
   complex: PublicComplex;
   schedules: Schedule[];
+  /** The active courts with their prices: the page states how many of each sport there are and from what hourly price. */
+  courts?: readonly CourtWithPrices[];
   /** Forwarded to `ComplexDetails` -> `WeekScheduleList`, so the schedule bolds the day the slot picker is showing, not always today. */
   selectedDate?: Date;
 }
@@ -39,7 +42,7 @@ interface ComplexHeaderProps {
  * right. The split was dropped so the details get the whole width instead of
  * a 56% column.
  */
-export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeaderProps) {
+export function ComplexHeader({ complex, schedules, courts = [], selectedDate }: ComplexHeaderProps) {
   const coverUrl = complex.cover_url ?? null;
   // Optional: the header also renders on its own (tests, previews), without a BookingRoot.
   const reportError = useContext(BookingConfigContext)?.reportError;
@@ -67,8 +70,9 @@ export function ComplexHeader({ complex, schedules, selectedDate }: ComplexHeade
         </div>
       </div>
 
-      {/* What it offers. */}
+      {/* What it offers: the courts and their hourly prices, then the hours and services. */}
       <div>
+        <CourtSummary courts={courts} />
         <ComplexDetails schedules={schedules} amenities={complex.amenities} selectedDate={selectedDate} />
 
         {complex.latitude != null && complex.longitude != null && (

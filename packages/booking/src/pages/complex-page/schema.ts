@@ -1,7 +1,10 @@
 import { isValid } from 'date-fns/isValid';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
-import type { PublicComplex, Schedule } from '../../api/types';
+import { formatPrice } from '@vibe/ui';
+import type { CourtWithPrices, PublicComplex, Schedule } from '../../api/types';
+import { orderedAmenities } from '../../lib/amenities';
+import { priceRange } from '../../lib/courtPrices';
 import { todayInVenueTz } from '../../lib/venueDate';
 
 const SCHEMA_DAY_MAP: Record<string, string> = {
@@ -14,10 +17,15 @@ const SCHEMA_DAY_MAP: Record<string, string> = {
   sunday: 'Sunday',
 };
 
+/**
+ * The complex as a schema.org `SportsActivityLocation`. `courts` feeds the
+ * `priceRange`; without a priced band the range is left out.
+ */
 export function buildComplexSchema(
   complex: PublicComplex,
   schedules: Schedule[],
   url: string,
+  courts: readonly CourtWithPrices[] = [],
 ): Record<string, unknown> {
   const openSchedules = schedules.filter((s) => !s.is_closed);
   const openingHours = openSchedules.map((s) => ({
@@ -56,6 +64,26 @@ export function buildComplexSchema(
   }
   if (openingHours.length > 0) {
     schema.openingHoursSpecification = openingHours;
+  }
+
+  const description = complex.description?.trim();
+  if (description) schema.description = description;
+
+  // Hourly prices in ARS, written as the page writes them: "$18.000" or "$18.000 - $30.000".
+  const prices = priceRange(courts);
+  if (prices) {
+    schema.priceRange =
+      prices.min === prices.max ? formatPrice(prices.min) : `${formatPrice(prices.min)} - ${formatPrice(prices.max)}`;
+  }
+
+  // Each listed service as a feature the place has, by the label the page shows.
+  const services = orderedAmenities(complex.amenities);
+  if (services.length > 0) {
+    schema.amenityFeature = services.map(({ label }) => ({
+      '@type': 'LocationFeatureSpecification',
+      name: label,
+      value: true,
+    }));
   }
 
   return schema;
