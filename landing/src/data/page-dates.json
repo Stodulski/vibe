@@ -9,82 +9,10 @@
   },
   "/terminos": {
     "hash": "aa74ccdc6783f367",
-    "date": "2026-10-11"
+    "date": "2026-10-10"
   },
   "/guias": {
     "hash": "5bbb4f71198c8e52",
-    "date": "2026-10-11"
-  },
-  "/guias/cuanto-cobra-mercadopago-por-una-sena": {
-    "hash": "838e8a1282af7fc2",
-    "date": "2026-10-11"
-  },
-  "/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "74a3bc5d17ec7b20",
-    "date": "2026-10-11"
-  },
-  "/guias/como-llenar-los-horarios-vacios-de-un-complejo": {
-    "hash": "0b506476065e2200",
-    "date": "2026-10-11"
-  },
-  "/tutoriales": {
-    "hash": "fdd7e833cb340068",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/base-de-clientes": {
-    "hash": "d3622df306e48cf0",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/configuracion-del-complejo": {
-    "hash": "ac857782c5aeb731",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/grilla-de-reservas": {
-    "hash": "706102508a7f9f2a",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/panel-de-control": {
-    "hash": "d1230259fca2d8ec",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/precios-por-horario": {
-    "hash": "c09a439b020d6326",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/reportes-de-facturacion": {
-    "hash": "cb960f61523a9729",
-    "date": "2026-10-11"
-  },
-  "/guias/vibe-o-atc-sports-en-que-se-diferencian": {
-    "hash": "3bbffd6d094620bb",
-    "date": "2026-10-11"
-  },
-  "/guias/vibe-o-canchafija-en-que-se-diferencian": {
-    "hash": "c6fb9ee23b6cee09",
-    "date": "2026-10-11"
-  },
-  "/guias/vibe-o-turnito-para-un-complejo-de-canchas": {
-    "hash": "cb5be15a3fd65e23",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/abrir-y-cerrar-la-caja": {
-    "hash": "3c081d97ec8300b4",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/cobrar-una-reserva-en-el-mostrador": {
-    "hash": "3a843b252996cd2a",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/ingresos-egresos-y-anulaciones": {
-    "hash": "4f8426c3d638b57d",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/productos-y-stock": {
-    "hash": "19c8b0dd7a43a972",
-    "date": "2026-10-11"
-  },
-  "/tutoriales/vender-desde-el-mostrador": {
-    "hash": "3b98f626d7cbe547",
-    "date": "2026-10-11"
+    "date": "2026-10-08"
   }
 }
