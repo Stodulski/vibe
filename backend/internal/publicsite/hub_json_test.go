@@ -39,6 +39,10 @@ type hubListBody struct {
 	Hubs []hubSummaryBody `json:"hubs"`
 }
 
+func newHubHandler(store Store) *Handler {
+	return NewHandler(NewService(store, "https://vibe.com.ar"), testResponder())
+}
+
 // serveHubJSON calls the city hub JSON handler the way the router does.
 func serveHubJSON(h *Handler, city string) *httptest.ResponseRecorder {
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/public/hubs/x/data", nil)

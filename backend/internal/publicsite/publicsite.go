@@ -1,45 +1,28 @@
-// Package publicsite serves the two endpoints crawlers hit rather than
-// browsers: the sitemap, and the server-rendered version of a complex's public
-// page.
+// Package publicsite serves the crawler-facing sitemap and the city hub listings
+// the public site renders from JSON.
 //
-// Both exist because the frontend is a single-page app. A crawler that runs no
-// JavaScript would otherwise see an empty shell, so this package fills in the
-// meta tags and structured data for it.
+// Every public page address this package publishes is built on the public site
+// origin, the one config.PublicBaseURL names.
 package publicsite
 
 import (
 	"context"
-	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/stodulski/vibe-server/internal/complexes"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
-// templateTTL is how long the fetched index.html is reused before refetching.
-const templateTTL = 10 * time.Minute
-
-// fetchTimeout bounds the fetch of the frontend's index.html.
-const fetchTimeout = 10 * time.Second
-
-// Store is the complex data these pages need. GetPublic is the storefront
-// profile the booking page already reads; its Courts are the active courts only,
-// in the order the store lists them, and this package takes the courts from it
-// without the prices it carries.
+// Store is the complex data the sitemap and the city hubs read: every slug for the
+// sitemap, and every switched-on complex with its city and court sports for the hubs.
 type Store interface {
 	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
-	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
-	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 	// ListActiveComplexesForHubs is every switched-on complex with its city and
 	// court sports, for the city hubs and their sitemap entries.
 	ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error)
-	GetPublic(ctx context.Context, slug string) (*complexes.PublicProfile, error)
 }
 
-// Handler serves the crawler-facing routes. It maps the service's errors onto
-// HTTP and writes the two documents it builds; the rules live in the Service.
+// Handler serves the crawler-facing and hub routes. It maps the service's errors onto
+// HTTP and writes the documents it builds; the rules live in the Service.
 type Handler struct {
 	svc     *Service
 	respond *httpx.Responder

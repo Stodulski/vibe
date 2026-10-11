@@ -72,8 +72,8 @@ func (h *Handler) CityHubJSON(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// writeHubJSON writes a hub document under the hub's public cache header, the one
-// the HTML hub carries, so a crawler and a proxy reuse both the same way.
+// writeHubJSON writes a hub document under the city hubs' public cache header, so
+// a crawler and a proxy reuse every hub document the same way.
 func (h *Handler) writeHubJSON(w http.ResponseWriter, r *http.Request, body httpx.Envelope) {
 	w.Header().Set("Cache-Control", hubCacheControl)
 	h.respond.JSON(w, r, http.StatusOK, body)

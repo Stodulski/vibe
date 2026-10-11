@@ -5,41 +5,27 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
-// Service holds this module's rules: what a crawler is shown, and for which
-// venues. There are two, and the second is the one that matters — a venue that
-// has switched itself off is not published, on either page.
+// Service holds this module's rules: which complex pages and city hubs the public
+// site publishes. A venue that has switched itself off is not published on either.
 type Service struct {
 	store Store
-	// frontendURL is the origin the frontend's index.html is fetched from. The
-	// shell belongs to the app, wherever the public pages are published.
-	frontendURL string
 	// publicBaseURL is the origin every public page address is built on: the
-	// complex and city hub pages, their canonical and og:url, the JSON-LD and
-	// the sitemap.
+	// complex pages and city hubs listed in the sitemap, and the hub listings.
 	publicBaseURL string
-	templates     *templateCache
 }
 
-// NewService returns a Service that fetches the frontend shell from frontendURL
-// and publishes every public page address under publicBaseURL.
-func NewService(store Store, frontendURL, publicBaseURL string) *Service {
-	return &Service{
-		store:         store,
-		frontendURL:   frontendURL,
-		publicBaseURL: publicBaseURL,
-		templates:     newTemplateCache(templateTTL, fetchTimeout),
-	}
+// NewService returns a Service that publishes every public page address under
+// publicBaseURL.
+func NewService(store Store, publicBaseURL string) *Service {
+	return &Service{store: store, publicBaseURL: publicBaseURL}
 }
 
 // complexURL is the public address of one complex's page, under the public
 // origin base. The /c/ prefix is part of the address: a bare single-segment slug
 // collides with platform routes, so every URL this package publishes for a
-// complex (sitemap, canonical, og:url, JSON-LD, city hub) is built here.
+// complex (the sitemap and the city hubs) is built here.
 func complexURL(base, slug string) string {
 	return base + "/c/" + slug
 }
@@ -85,102 +71,7 @@ func (s *Service) Sitemap(ctx context.Context) (string, error) {
 	return b.String(), nil
 }
 
-// ErrComplexUnavailable reports that the venue exists as far as anyone knows
-// but this request could not read it — a database blip, not an unknown or
-// deactivated slug.
+// ErrComplexUnavailable reports that the complexes this request needs exist as far
+// as anyone knows but could not be read — a database blip, not an unknown city or
+// a deactivated venue.
 var ErrComplexUnavailable = errors.New("complex temporarily unavailable")
-
-// Prerender fetches the frontend's index.html and substitutes the complex's own
-// title, description, image and structured data, so a crawler that runs no
-// JavaScript sees a fully described page rather than an empty app shell.
-//
-// A deactivated venue answers the same data.ErrRecordNotFound one that does not
-// exist answers. The sitemap already filters on is_active, so leaving this page
-// live meant a complex that switched itself off stayed indexable and shareable
-// through a link a crawler had already seen — with its address, phone and
-// opening hours in structured data.
-func (s *Service) Prerender(ctx context.Context, slug string) (Prerendered, error) {
-	complex, err := s.store.GetBySlug(ctx, slug)
-	switch {
-	case errors.Is(err, data.ErrRecordNotFound):
-		return Prerendered{}, err
-	case err != nil:
-		// This used to answer 200 with the generic shell, on the theory that
-		// a 500 costs the page its index entry — but a crawler treats 2xx as
-		// final and 5xx as transient: the shell got indexed in the venue's
-		// place permanently, where a 503 is simply retried once reads work.
-		return Prerendered{}, fmt.Errorf("%w: %w", ErrComplexUnavailable, err)
-	case !complex.IsActive:
-		return Prerendered{}, data.ErrRecordNotFound
-	}
-
-	// A schedules read that fails costs the opening-hours block of the JSON-LD
-	// and nothing else: the title, description, image and canonical URL are all
-	// on the complex this already holds. Rendering without it beats both a 500
-	// and the generic shell.
-	schedules, schedulesErr := s.store.GetSchedules(ctx, complex.ID)
-	if schedulesErr != nil {
-		schedules = nil
-	}
-
-	// The courts cost the court list and the sports named in the description,
-	// and nothing else, so a failed read leaves the page as it would be for a
-	// venue with no courts.
-	courts, courtsErr := s.activeCourts(ctx, slug)
-	if courtsErr != nil {
-		courts = nil
-	}
-
-	// templateCache.get already prefers a stale copy to an error, so a failure
-	// here means there has never been one — the first request after a deploy
-	// while the frontend is down. fallbackTemplate carries the same
-	// placeholders, so this complex's own tags still land on it.
-	//
-	// Neither this nor the schedules or courts failures above returns an error:
-	// all are reported through Degraded and the page is served anyway. That is the
-	// whole point of this endpoint's error handling — see Prerendered.
-	tmpl, templateErr := s.templates.get(ctx, s.frontendURL)
-	if templateErr != nil {
-		tmpl = fallbackTemplate
-	}
-
-	return Prerendered{
-		Page:     s.render(tmpl, complex, schedules, courts, slug),
-		Degraded: errors.Join(schedulesErr, courtsErr, templateErr),
-	}, nil
-}
-
-// activeCourts returns the complex's active courts, in the order the store lists
-// them. The storefront profile already carries only active courts; they are
-// checked again here so this page never names a retired court, whatever the
-// store returns. The prices the profile carries are not read.
-func (s *Service) activeCourts(ctx context.Context, slug string) ([]*courtstore.Court, error) {
-	profile, err := s.store.GetPublic(ctx, slug)
-	if err != nil {
-		return nil, err
-	}
-	courts := make([]*courtstore.Court, 0, len(profile.Courts))
-	for _, listed := range profile.Courts {
-		if listed.Court != nil && listed.IsActive {
-			courts = append(courts, listed.Court)
-		}
-	}
-	return courts, nil
-}
-
-// Prerendered is a crawler-facing page and, when something went wrong on the
-// way to building it, what that was.
-//
-// Degraded is never a reason to fail the request — it is what the handler
-// logs while serving the page anyway, because the complex itself was read
-// successfully and only the opening hours or the frontend's own template was
-// lost. A failed complex read is not a Prerendered with Degraded set — see
-// ErrComplexUnavailable — because that page has nothing of this venue on it.
-type Prerendered struct {
-	Page string
-	// Degraded is why this page is less than it should be — the complex's own
-	// page without its opening hours or its courts, or built from the fallback
-	// template instead of the frontend's real one — or nil when nothing went
-	// wrong.
-	Degraded error
-}

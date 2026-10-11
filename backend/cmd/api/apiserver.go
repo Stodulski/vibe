@@ -575,22 +575,10 @@ func (s *apiServer) LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *
 	s.app.leads.CaptureAbandonedRegistration(w, r)
 }
 
-// PublicsitePrerender implements gen.ServerInterface for publicsitePrerender
-// (GET /api/v1/public/prerender/{slug}). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) PublicsitePrerender(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {
-	s.app.publicsite.Prerender(w, r)
-}
-
 // PublicsiteSitemap implements gen.ServerInterface for publicsiteSitemap
 // (GET /api/v1/sitemap.xml). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) PublicsiteSitemap(w http.ResponseWriter, r *http.Request) {
 	s.app.publicsite.Sitemap(w, r)
-}
-
-// PublicsiteCityHub implements gen.ServerInterface for publicsiteCityHub
-// (GET /api/v1/public/hubs/{city}). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) PublicsiteCityHub(w http.ResponseWriter, r *http.Request, city gen.PathCity) {
-	s.app.publicsite.CityHub(w, r)
 }
 
 // PublicsiteHubs implements gen.ServerInterface for publicsiteHubs

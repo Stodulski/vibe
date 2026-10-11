@@ -33,12 +33,12 @@ type Config struct {
 
 	// FrontendURL is the owner-panel origin: login, verify-email and
 	// reset-password links, the MercadoPago connect return, and the Google
-	// OAuth redirect. It is also where the public pages' index.html is fetched.
+	// OAuth redirect.
 	FrontendURL string
 	// PublicURL is the public storefront origin (https://vibe.com.ar). Every
 	// public player-facing link is built on it through PublicBaseURL: the
-	// complex pages, city hubs, sitemap, canonical and og:url, and the booking
-	// cancel, success and book links in emails and MercadoPago back URLs. When
+	// complex pages, city hubs, the sitemap, and the booking cancel, success
+	// and book links in emails and MercadoPago back URLs. When
 	// set, CORS accepts it next to FrontendURL too, so the storefront can call
 	// the API from the browser. Empty means unset: PublicBaseURL falls back to
 	// FrontendURL, and CORS allows only FrontendURL.
