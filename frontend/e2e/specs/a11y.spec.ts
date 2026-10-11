@@ -51,7 +51,11 @@ test.describe('Accessibility — serious/critical axe violations', () => {
   });
 
   test('the public complex page has no serious/critical violations', async ({ page }) => {
-    await page.goto(landingComplexUrl(complexSlug));
+    // Same as the authenticated context: axe must not sample text mid fade-in,
+    // where its colour is a blend that fails contrast. Production with reduced
+    // motion has no contrast violation on this page.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(landingComplexUrl(complexSlug), { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 15_000 });
     await expectNoSeriousViolations(page);
   });
