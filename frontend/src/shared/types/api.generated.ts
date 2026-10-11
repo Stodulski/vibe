@@ -1299,7 +1299,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/prerender/{slug}": {
+    "/api/v1/public/hubs": {
         parameters: {
             query?: never;
             header?: never;
@@ -1307,10 +1307,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Server-rendered HTML for crawlers
-         * @description Public. Cross-tenant bypass reason `resolves`. The frontend's `index.html`, cached 10 minutes server-side, with title, description, OpenGraph tags, canonical link and JSON-LD substituted in for this complex. All interpolated values are HTML-escaped.
+         * City hub index
+         * @description Public. Cross-tenant bypass reason `platform`. Every city that has at least one switched-on complex, sorted by slug, with how many switched-on complexes it lists. The public site renders its city hub index from it. Field names are snake_case, as on the other public documents.
          */
-        get: operations["publicsitePrerender"];
+        get: operations["publicsiteHubs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1319,7 +1319,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/hubs/{city}": {
+    "/api/v1/public/hubs/{city}/data": {
         parameters: {
             query?: never;
             header?: never;
@@ -1327,10 +1327,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Server-rendered city hub
-         * @description Public. Cross-tenant bypass reason `platform`. The switched-on complexes of one city, server-rendered as HTML for search engines and people: each name links to its public page with its address and sports, and the page carries a JSON-LD ItemList of those pages. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed.
+         * One city hub as JSON
+         * @description Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed.
          */
-        get: operations["publicsiteCityHub"];
+        get: operations["publicsiteCityHubData"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1738,6 +1738,32 @@ export interface components {
             payments_enabled: boolean;
             /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
             version?: number;
+        };
+        /** @description One city hub. Its `slug` is the city's URL form; its `name` is the city as its first complex stores it. */
+        PublicHub: {
+            /** @example vicente-lopez */
+            slug: string;
+            /** @example Vicente López */
+            name: string;
+            /** @description How many switched-on complexes the hub lists. */
+            complex_count: number;
+        };
+        /** @description A switched-on complex as its city hub lists it. */
+        PublicHubComplex: {
+            slug: string;
+            name: string;
+            address: string;
+            /** @description The city as this complex stores it. */
+            city: string;
+            /** @description The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored. */
+            sports: string[];
+        };
+        PublicHubList: {
+            hubs: components["schemas"]["PublicHub"][];
+        };
+        PublicCityHub: {
+            hub: components["schemas"]["PublicHub"];
+            complexes: components["schemas"]["PublicHubComplex"][];
         };
         Schedule: {
             /** Format: uuid */
@@ -6131,41 +6157,40 @@ export interface operations {
             429: components["responses"]["RateLimited"];
         };
     };
-    publicsitePrerender: {
+    publicsiteHubs: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Prerendered HTML. */
+            /** @description Every city hub with a switched-on complex. An empty list when there is none. */
             200: {
                 headers: {
                     "Cache-Control"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/html": string;
+                    "application/json": components["schemas"]["PublicHubList"];
                 };
             };
-            /** @description Unknown slug, or the complex is inactive. */
-            404: {
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description The complexes could not be read. Retry after the Retry-After delay. */
+            503: {
                 headers: {
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
         };
     };
-    publicsiteCityHub: {
+    publicsiteCityHubData: {
         parameters: {
             query?: never;
             header?: never;
@@ -6176,14 +6201,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description City hub page. */
+            /** @description One city's hub and its switched-on complexes. */
             200: {
                 headers: {
                     "Cache-Control"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/html": string;
+                    "application/json": components["schemas"]["PublicCityHub"];
                 };
             };
             /** @description The city has no switched-on complex. */

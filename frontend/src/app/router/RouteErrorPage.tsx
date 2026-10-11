@@ -11,8 +11,8 @@ const t = ES_AR;
  * `errorElement` for the router's root route.
  *
  * `routeHelpers.tsx`'s `<ErrorBoundary>` only wraps each lazy page component,
- * so a render error thrown above it — `DashboardLayout`/`AdminLayout`/
- * `PublicLayout`, `ProtectedRoute`/`GuestRoute`, `RootRedirect`,
+ * so a render error thrown above it — `DashboardLayout`/`AdminLayout`,
+ * `ProtectedRoute`/`GuestRoute`, `RootRedirect`,
  * `NotFoundPage`, or `ScrollToTop` — had no boundary to land on and left a
  * blank screen. This sits on the router's root route (see `router.tsx`) so
  * any of those bubble here instead, mirroring `ErrorBoundary`'s fallback UI.

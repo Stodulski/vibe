@@ -32,15 +32,6 @@ export const queryKeys = {
     byComplex: (complexId: string) => ['clients', complexId] as const,
     detail: (complexId: string, clientId: string) => ['clients', complexId, clientId] as const,
   },
-  availability: {
-    // `duration` is appended after `date` so a duration change (60/90/120)
-    // is its own cache entry — otherwise the picker would serve stale slots
-    // for the previous duration.
-    bySlugAndDate: (slug: string, date: string, duration: number) => ['availability', slug, date, duration] as const,
-  },
-  publicComplex: {
-    bySlug: (slug: string) => ['publicComplex', slug] as const,
-  },
   mpFees: {
     // Not complex-scoped: one shared static file on the landing, matched
     // against a province client-side.

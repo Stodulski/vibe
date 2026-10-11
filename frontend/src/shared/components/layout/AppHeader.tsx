@@ -1,6 +1,5 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
-import { publicComplexPath } from '@/shared/lib/publicPaths';
 import { Logo } from '@/shared/components/common/Logo';
 import type { ReactNode } from 'react';
 
@@ -10,8 +9,6 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ children, className }: AppHeaderProps) {
-  const { slug } = useParams<{ slug: string }>();
-
   return (
     <header
       className={cn(
@@ -19,7 +16,7 @@ export function AppHeader({ children, className }: AppHeaderProps) {
         className,
       )}
     >
-      <Link to={slug ? publicComplexPath(slug) : '/'} className="flex items-center">
+      <Link to="/" className="flex items-center">
         <Logo />
       </Link>
       {children && <div className="flex items-center gap-2">{children}</div>}

@@ -1,7 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { test, expect } from '../helpers/auth.fixture';
-import { getSharedSetup } from '../helpers/shared-setup';
 
 /**
  * Runs axe against the current page and fails on any `serious` or `critical`
@@ -18,13 +17,6 @@ async function expectNoSeriousViolations(page: Page): Promise<void> {
 }
 
 test.describe('Accessibility — serious/critical axe violations', () => {
-  let complexSlug: string;
-
-  test.beforeAll(async () => {
-    const setup = await getSharedSetup();
-    complexSlug = setup.complexSlug;
-  });
-
   test('/login has no serious/critical violations', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible({ timeout: 10_000 });
@@ -46,12 +38,6 @@ test.describe('Accessibility — serious/critical axe violations', () => {
   test('/settings has no serious/critical violations', async ({ authenticatedPage: page }) => {
     await page.goto('/settings');
     await expect(page.getByLabel('Nombre del complejo')).toBeVisible({ timeout: 10_000 });
-    await expectNoSeriousViolations(page);
-  });
-
-  test('the public complex page has no serious/critical violations', async ({ page }) => {
-    await page.goto(`/${complexSlug}`);
-    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 15_000 });
     await expectNoSeriousViolations(page);
   });
 });

@@ -6,7 +6,6 @@
 
 /* Utility classes used only inside the shared package must be generated too. */
 @source '../../../packages/ui/src';
-@source '../../../packages/booking/src';
 
 @keyframes count-in {
   from {

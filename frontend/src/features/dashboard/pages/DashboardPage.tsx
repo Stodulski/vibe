@@ -6,8 +6,7 @@ import { SkeletonDashboard } from '@/shared/components/common/Skeletons';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { env } from '@/shared/lib/env';
-import { publicComplexPath } from '@/shared/lib/publicPaths';
+import { publicComplexUrl } from '@/shared/lib/publicPaths';
 import { useSelectedComplex } from '@/features/complex';
 import { useDashboardStats, useClientInsights } from '@/features/dashboard';
 import { PublicLinkBar } from './dashboard/PublicLinkBar';
@@ -51,7 +50,7 @@ export default function DashboardPage() {
     isError: clientsError,
     refetch: refetchClients,
   } = useClientInsights(selectedComplexId);
-  const publicUrl = complex?.slug ? `${env.VITE_APP_URL}${publicComplexPath(complex.slug)}` : null;
+  const publicUrl = complex?.slug ? publicComplexUrl(complex.slug) : null;
   const { copied, handleCopy } = useCopyPublicUrl(publicUrl);
   if (!selectedComplexId) return null;
 

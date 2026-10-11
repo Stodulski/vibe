@@ -125,11 +125,6 @@ describe('vercel.json CSP third-party origins', () => {
     // own widget script) — src/shared/components/common/TurnstileField.tsx.
     ['script-src', 'https://challenges.cloudflare.com'],
     ['frame-src', 'https://challenges.cloudflare.com'],
-    // OpenStreetMap tiles — the `TileLayer` url in
-    // packages/booking/src/components/ComplexMap.tsx. Leaflet's own
-    // marker icons are bundled assets (see the comment in that file), not a
-    // CDN fetch, so no unpkg/CDN origin belongs here.
-    ['img-src', 'https://*.tile.openstreetmap.org'],
     // Complex logo/cover images: `public_url` is whatever R2_PUBLIC_URL the
     // backend is configured with — either R2's own public dev domain or a
     // custom domain under vibe.com.ar (backend/internal/platform/config) —
@@ -217,5 +212,18 @@ describe('vercel.json CSP reporting endpoint', () => {
     // reports to the production origin is an accepted tradeoff, not a bug.
     const reportingEndpoints = headerValue('Reporting-Endpoints') ?? '';
     expect(reportingEndpoints).toBe(`csp-endpoint="https://app.vibe.com.ar${REPORT_URI}"`);
+  });
+});
+
+/**
+ * The app serves no public pages, so search engines must not index any of it:
+ * one `X-Robots-Tag: noindex` rule covers every path, instead of a list of
+ * per-route rules that a new route could quietly miss.
+ */
+describe('vercel.json robots header', () => {
+  const robotsRules = config.headers.filter((rule) => rule.headers.some((h) => h.key === 'X-Robots-Tag'));
+
+  it('marks every path noindex with a single rule on /(.*)', () => {
+    expect(robotsRules).toEqual([{ source: '/(.*)', headers: [{ key: 'X-Robots-Tag', value: 'noindex' }] }]);
   });
 });
