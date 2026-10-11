@@ -8,12 +8,13 @@
 // put it back unlayered, above Tailwind.
 import '../styles/booking.css';
 import AnalyticsLoader from '../components/AnalyticsLoader.astro';
-import { robotsDirective } from '../lib/storefront.ts';
+import { isBookPath, robotsDirective } from '../lib/storefront.ts';
 import { PUBLIC_CF_BEACON_TOKEN } from 'astro:env/client';
 import { CF_BEACON_SRC, cfBeaconAttribute } from '../lib/analytics.ts';
 
-/* Cloudflare Web Analytics, only when a token is configured at build time. */
-const beacon = cfBeaconAttribute(PUBLIC_CF_BEACON_TOKEN);
+/* Cloudflare Web Analytics, only when a token is configured at build time. The booking
+   steps carry booking state and stay off the beacon, as the privacy policy says. */
+const beacon = isBookPath(Astro.url.pathname) ? null : cfBeaconAttribute(PUBLIC_CF_BEACON_TOKEN);
 
 export interface Props {
   title: string;
