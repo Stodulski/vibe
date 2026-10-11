@@ -631,22 +631,59 @@ async function testCanchas() {
   if (!process.env.SMOKE_HUBS) return;
   const p = await newPage();
 
-  const hub = await p.request.get(BASE + '/canchas/banfield');
-  check('/canchas/banfield answers 200', hub.status() === 200, `${hub.status()}`);
-  check('/canchas/banfield is indexable',
-    hub.headers()['x-robots-tag'] === 'index, follow', hub.headers()['x-robots-tag']);
-  check('/canchas/banfield is cached at the CDN',
-    /s-maxage=\d+/.test(hub.headers()['cache-control'] || ''));
+  const index = await p.request.get(BASE + '/canchas');
+  check('/canchas answers 200', index.status() === 200, `${index.status()}`);
+  check('/canchas is indexable', index.headers()['x-robots-tag'] === 'index, follow', index.headers()['x-robots-tag']);
+
+  // The cities come from the index itself, so the robots rule is checked on whichever
+  // city has one complex and on whichever has two or more, without naming a city.
+  await p.goto(BASE + '/canchas', { waitUntil: 'load' });
+  const cities = await p.locator('main a[href^="/canchas/"]').evaluateAll((links) =>
+    links.map((link) => ({ href: link.getAttribute('href') || '', text: link.textContent || '' })));
+  check('/canchas links the cities to /canchas/<slug>', cities.length > 0, `${cities.length} links`);
+  const single = cities.find((city) => /\b1 complejo\b/.test(city.text));
+  const several = cities.find((city) => {
+    const count = city.text.match(/(\d+) complejos/);
+    return count !== null && Number(count[1]) >= 2;
+  });
+
+  for (const [label, city, robots] of [
+    ['a city with one complex', single, 'noindex, follow'],
+    ['a city with two or more complexes', several, 'index, follow'],
+  ]) {
+    if (!city) {
+      check(`${label} is listed on /canchas`, false, 'none listed');
+      continue;
+    }
+    const hub = await p.request.get(BASE + city.href);
+    check(`${city.href} answers 200`, hub.status() === 200, `${hub.status()}`);
+    check(`${city.href} is ${robots} (${label})`, hub.headers()['x-robots-tag'] === robots, hub.headers()['x-robots-tag']);
+    check(`${city.href} is cached at the CDN`, /s-maxage=\d+/.test(hub.headers()['cache-control'] || ''));
+
+    await p.goto(BASE + city.href, { waitUntil: 'load' });
+    const meta = (await p.locator('meta[name="robots"]').getAttribute('content')) || '';
+    check(`${city.href} meta robots matches the header`, meta === robots, meta);
+    const canonical = (await p.locator('link[rel="canonical"]').getAttribute('href')) || '';
+    check(`${city.href} canonical is its own URL`, canonical === 'https://vibe.com.ar' + city.href, canonical);
+    const title = await p.title();
+    check(`${city.href} title names the sports and the city`, /^Canchas (de .+ )?en /.test(title), title);
+    const types = await p.locator('script[type="application/ld+json"]').evaluateAll((blocks) =>
+      blocks.map((block) => {
+        try {
+          return JSON.parse(block.textContent || '')['@type'];
+        } catch {
+          return 'invalid';
+        }
+      }));
+    check(`${city.href} JSON-LD has CollectionPage and BreadcrumbList`,
+      types.includes('CollectionPage') && types.includes('BreadcrumbList'), types.join(', '));
+    check(`${city.href} links each complex to /c/<slug>`,
+      await p.locator('main a[href^="/c/"]').count() > 0);
+  }
 
   const missing = await p.request.get(BASE + '/canchas/no-existe');
   check('an unknown city answers 404', missing.status() === 404, `${missing.status()}`);
   check('an unknown city is not cached', missing.headers()['cache-control'] === 'no-store');
-
-  await p.goto(BASE + '/canchas/banfield', { waitUntil: 'load' });
-  const h1 = (await p.locator('h1').first().textContent()) || '';
-  check('the hub H1 names the city', /^Canchas en /.test(h1), h1);
-  check('the hub links each complex to /c/<slug>',
-    await p.locator('main a[href^="/c/"]').count() > 0);
 }
 
 /**

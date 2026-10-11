@@ -15,7 +15,9 @@ import type { PublicComplexResponse } from '@vibe/booking/types';
 import StorefrontLayout from '../../../layouts/StorefrontLayout.astro';
 import { API_TIMEOUT_MS, ApiError, createPublicApi } from '../../../lib/api.ts';
 import { complexHead, jsonLdScript } from '../../../lib/complex-meta.ts';
-import { storefrontBookingConfig, storefrontRobots } from '../../../lib/storefront.ts';
+import { storefrontBookingConfig, storefrontRobots, STOREFRONT_ORIGIN } from '../../../lib/storefront.ts';
+import { normalizeText } from '../../../lib/copy.ts';
+import { breadcrumbJsonLd, cityPath, citySlugOf } from '../../../lib/hub.ts';
 
 export const prerender = false;
 
@@ -23,13 +25,17 @@ const t = BOOKING_MESSAGES;
 const slug = Astro.params.slug ?? '';
 
 let data: PublicComplexResponse | null = null;
+/** The city the complex belongs to, from the payload's city_slug. Absent on older payloads. */
+let citySlug: string | null = null;
 let status = 200;
 
 try {
   const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
-  const parsed = publicComplexResponseSchema.safeParse(await api.complex(slug));
+  const raw = await api.complex(slug);
+  const parsed = publicComplexResponseSchema.safeParse(raw);
   if (!parsed.success) throw new ApiError('unavailable', 200, { cause: parsed.error });
   data = parsed.data;
+  citySlug = citySlugOf(raw);
 } catch (error) {
   const notFound = error instanceof ApiError && error.kind === 'not_found';
   status = notFound ? 404 : 503;
@@ -63,11 +69,34 @@ const head = data
       services: data.complex.amenities
         .map((amenity) => t.complex.amenities[amenity] ?? '')
         .filter((label) => label !== ''),
+      courtCount: data.courts.filter((court) => court.is_active).length,
       ownImage: data.complex.cover_url || data.complex.logo_url || null,
     })
   : null;
 
-const jsonLd = data && head ? [jsonLdScript(buildComplexSchema(data.complex, data.schedules, head.canonical))] : [];
+// The breadcrumb needs the city, so it is only written when the payload names one.
+const trail =
+  data && head && citySlug
+    ? [
+        { name: 'Inicio', url: `${STOREFRONT_ORIGIN}/` },
+        { name: 'Canchas', url: `${STOREFRONT_ORIGIN}/canchas` },
+        { name: normalizeText(data.complex.city), url: `${STOREFRONT_ORIGIN}${cityPath(citySlug)}` },
+        { name: normalizeText(data.complex.name), url: head.canonical },
+      ]
+    : null;
+
+const jsonLd =
+  data && head
+    ? [
+        jsonLdScript(buildComplexSchema(data.complex, data.schedules, head.canonical)),
+        ...(trail ? [breadcrumbJsonLd(trail)] : []),
+      ]
+    : [];
+
+const nearbyLink =
+  data && citySlug
+    ? { href: cityPath(citySlug), label: `Más canchas en ${normalizeText(data.complex.city)}` }
+    : null;
 const errorTitle = status === 404 ? t.publicBooking.complexNotFound : t.publicBooking.complexLoadError;
 const errorLead = status === 404 ? t.publicBooking.complexNotFoundDescription : t.publicBooking.complexLoadErrorDescription;
 ---
@@ -92,6 +121,13 @@ const errorLead = status === 404 ? t.publicBooking.complexNotFoundDescription : 
         initialComplex={{ slug, data }}
         initialSearch={Astro.url.search}
       />
+      {nearbyLink && (
+        <p class="pb-8 text-center text-sm">
+          <a class="text-primary-500 font-semibold underline-offset-4 hover:underline" href={nearbyLink.href}>
+            {nearbyLink.label}
+          </a>
+        </p>
+      )}
     </StorefrontLayout>
   ) : (
     <StorefrontLayout title={`${errorTitle} - Vibe`} description={errorLead} robots={robots}>

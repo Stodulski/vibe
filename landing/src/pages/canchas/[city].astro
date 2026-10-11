@@ -3,7 +3,8 @@
  * City hub at /canchas/[city], rendered on each request from the public API so it
  * always lists the live complexes. The answers are 200 for a city with complexes,
  * 404 for a city without any, and 503 with Retry-After when the read fails.
- * Indexing follows STOREFRONT_INDEXABLE.
+ * Indexing follows STOREFRONT_INDEXABLE; a city with fewer than two complexes is
+ * followed but not indexed (hubRobots). The copy and JSON-LD come from lib/hub.ts.
  */
 import { PUBLIC_API_URL } from 'astro:env/server';
 import BookingLayout from '../../layouts/BookingLayout.astro';
@@ -48,47 +49,107 @@ if (city.length > 0 && city.length <= MAX_CITY_LENGTH) {
 
 const status = view ? 200 : errorKind === 'not_found' ? 404 : 503;
 const copy = view ? null : errorCopy[errorKind];
+const robots = view ? view.robots : robotsDirective(status);
 
 Astro.response.status = status;
 Astro.response.headers.set(
   'Cache-Control',
   view ? 'public, s-maxage=300, stale-while-revalidate=60' : 'no-store',
 );
+Astro.response.headers.set('X-Robots-Tag', robots);
 if (status === 503) Astro.response.headers.set('Retry-After', '60');
 ---
 <BookingLayout
   title={view ? view.title : copy!.title}
   description={view ? view.description : copy!.lead}
   canonical={view?.canonical}
-  robots={robotsDirective(status)}
-  jsonLd={view ? [view.jsonLd] : []}
+  robots={robots}
+  ogImage={view?.ogImage ?? undefined}
+  jsonLd={view ? view.jsonLd : []}
 >
   <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
   <main id="contenido" class="mx-auto flex w-full max-w-3xl flex-col px-4 pb-16 pt-28 sm:pt-32">
     {view ? (
       <>
-        <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{view.h1}</h1>
-        <p class="mt-3 text-base text-vibe-muted">Elegí un complejo y reservá tu turno.</p>
-        <ul class="mt-8 flex flex-col gap-3">
+        <nav aria-label="Migas de pan" class="text-sm text-vibe-muted">
+          <ol class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <li><a class="underline-offset-4 hover:underline" href="/">Inicio</a></li>
+            <li aria-hidden="true">›</li>
+            <li><a class="underline-offset-4 hover:underline" href="/canchas">Canchas</a></li>
+            <li aria-hidden="true">›</li>
+            <li aria-current="page">{view.city}</li>
+          </ol>
+        </nav>
+        <h1 class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{view.h1}</h1>
+        {view.intro && <p class="mt-3 text-base text-vibe-muted">{view.intro}</p>}
+        <h2 class="mt-10 text-2xl font-bold tracking-tight">Complejos en {view.city}</h2>
+        <ul class="mt-4 flex flex-col gap-3">
           {view.complexes.map((complex) => (
             <li>
               <a
                 href={complex.href}
-                class="flex min-h-11 flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
+                class="flex min-h-11 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
               >
-                <span class="text-lg font-semibold">{complex.name}</span>
-                {complex.address && <span class="text-sm text-vibe-muted">{complex.address}</span>}
-                {complex.sports.length > 0 && (
-                  <span class="flex flex-wrap gap-2 pt-1">
-                    {complex.sports.map((sport) => (
-                      <span class="rounded-full bg-vibe-green/15 px-3 py-1 text-xs font-medium text-vibe-green">{sport}</span>
-                    ))}
-                  </span>
+                {complex.coverUrl && (
+                  <img
+                    src={complex.coverUrl}
+                    alt={complex.name}
+                    loading="lazy"
+                    decoding="async"
+                    width="640"
+                    height="360"
+                    class="aspect-video w-full object-cover"
+                  />
                 )}
+                <div class="flex flex-col gap-2 p-4">
+                  <h3 class="text-lg font-semibold">{complex.name}</h3>
+                  {complex.address && <p class="text-sm text-vibe-muted">{complex.address}</p>}
+                  {complex.courtsLine && <p class="pt-1 text-sm text-vibe-muted">{complex.courtsLine}</p>}
+                  {!complex.courtsLine && complex.sports.length > 0 && (
+                    <div class="flex flex-wrap gap-2 pt-1">
+                      {complex.sports.map((sport) => (
+                        <span class="rounded-full bg-vibe-green/15 px-3 py-1 text-xs font-medium text-vibe-green">{sport}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </a>
             </li>
           ))}
         </ul>
+        {view.faq.length > 0 && (
+          <section class="mt-12" aria-labelledby="preguntas-frecuentes">
+            <h2 id="preguntas-frecuentes" class="text-2xl font-bold tracking-tight">Preguntas frecuentes</h2>
+            <dl class="mt-4 flex flex-col gap-5">
+              {view.faq.map((item) => (
+                <div>
+                  <dt class="font-semibold">{item.question}</dt>
+                  <dd class="mt-1 text-vibe-muted">{item.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
+        {view.otherHubs.length > 0 && (
+          <section class="mt-12" aria-labelledby="otras-ciudades">
+            <h2 id="otras-ciudades" class="text-2xl font-bold tracking-tight">Canchas en otras ciudades</h2>
+            <ul class="mt-4 flex flex-wrap gap-2">
+              {view.otherHubs.map((other) => (
+                <li>
+                  <a
+                    href={other.href}
+                    class="inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 font-medium transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green"
+                  >
+                    {other.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <p class="mt-8 text-sm">
+          <a class="font-semibold text-vibe-green underline-offset-4 hover:underline" href="/canchas">Ver todas las ciudades</a>
+        </p>
       </>
     ) : (
       <>

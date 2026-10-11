@@ -1,15 +1,22 @@
 /**
- * Head copy of the complex page. It follows the backend prerender
- * (backend/internal/publicsite/copy.go), which is the copy crawlers read today, so the
- * title and description do not change at the cutover. Kept free of package imports so
- * node:test can run it: the page passes in the labels it looked up.
+ * Head copy of the complex page. The title and description name what the complex
+ * offers and where, so the query "canchas de <deporte> en <ciudad>" finds the page. The
+ * page passes in the labels it looked up, so this module has no package imports and
+ * node:test can run it.
  */
 import { DEFAULT_SHARE_IMAGE, STOREFRONT_ORIGIN } from './storefront.ts';
+import { cutAtWord, joinSpanish, jsonLdScript, normalizeText } from './copy.ts';
+
+export { joinSpanish, jsonLdScript };
 
 const APP_NAME = 'Vibe';
-/** Caps how many sports and services the description names, as the backend does. */
+/** Caps how many sports and services the copy names. */
 const MAX_DESCRIPTION_SPORTS = 3;
 const MAX_DESCRIPTION_SERVICES = 3;
+/** The title keeps the sports only while it stays within this many characters. */
+const TITLE_MAX = 60;
+/** The meta description stays within this many characters. */
+const DESCRIPTION_MAX = 155;
 
 export interface ComplexHeadInput {
   slug: string;
@@ -21,6 +28,8 @@ export interface ComplexHeadInput {
   sports: readonly string[];
   /** Spanish labels of the complex's known amenities, in order. */
   services: readonly string[];
+  /** Active courts. Zero or absent leaves the count out of the description. */
+  courtCount?: number | null | undefined;
   /** The complex's own picture: its cover, else its logo. */
   ownImage?: string | null | undefined;
 }
@@ -37,42 +46,55 @@ export function complexCanonical(slug: string): string {
   return `${STOREFRONT_ORIGIN}/c/${encodeURIComponent(slug)}`;
 }
 
-/** "a", "a y b", "a, b y c". */
-export function joinSpanish(items: readonly string[]): string {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
+/**
+ * "{Complex}: canchas de {sports} en {City} | Vibe". When that is over 60 characters the
+ * top sport alone is named; when that still does not fit, or there is no city or no
+ * sport, the title is the generic "{Complex} en {City} - Reservá tu cancha | Vibe".
+ */
+function complexTitle(name: string, city: string, sports: readonly string[]): string {
+  const place = city ? `${name} en ${city}` : name;
+  const generic = `${place} - Reservá tu cancha | ${APP_NAME}`;
+  if (!city || sports.length === 0) return generic;
+
+  const full = `${name}: canchas de ${joinSpanish(sports)} en ${city} | ${APP_NAME}`;
+  if (full.length <= TITLE_MAX) return full;
+
+  const top = `${name}: canchas de ${sports[0]} en ${city} | ${APP_NAME}`;
+  return top.length <= TITLE_MAX ? top : generic;
 }
 
-export function complexHead(input: ComplexHeadInput): ComplexHead {
-  const place = input.city ? `${input.name} en ${input.city}` : input.name;
-  const title = `${place} - Reservá tu cancha | ${APP_NAME}`;
-
+export function complexHead(raw: ComplexHeadInput): ComplexHead {
+  const input = {
+    ...raw,
+    name: normalizeText(raw.name),
+    city: normalizeText(raw.city),
+    sports: raw.sports.map(normalizeText).filter((sport) => sport !== ''),
+    services: raw.services.map(normalizeText).filter((service) => service !== ''),
+  };
   const sports = input.sports.slice(0, MAX_DESCRIPTION_SPORTS).map((sport) => sport.toLowerCase());
-  const subject = sports.length > 0 ? `Reservá canchas de ${joinSpanish(sports)} en ` : 'Reservá tu cancha en ';
+  const courts = input.courtCount && input.courtCount > 0 ? input.courtCount : null;
+  const noun = courts === null ? 'canchas' : `${courts} ${courts === 1 ? 'cancha' : 'canchas'}`;
+  const subject =
+    sports.length > 0
+      ? `Reservá ${noun} de ${joinSpanish(sports)} en `
+      : courts === null
+        ? 'Reservá tu cancha en '
+        : `Reservá ${noun} en `;
   const where = input.city ? `${input.name}, ${input.city}` : input.name;
   const channel = input.online ? ' online' : ' por WhatsApp';
   const services = input.services.slice(0, MAX_DESCRIPTION_SERVICES);
   const detail = services.length > 0 ? `${services.join(', ')}.` : 'Horarios y ubicación.';
 
+  // The services are the first thing dropped when the sentence is too long for the limit.
+  const place = `${subject}${where}${channel}.`;
+  const withDetail = `${place} ${detail}`;
+  const description = withDetail.length <= DESCRIPTION_MAX ? withDetail : cutAtWord(place, DESCRIPTION_MAX);
+
   return {
-    title,
-    description: `${subject}${where}${channel}. ${detail}`,
+    title: complexTitle(input.name, input.city, sports),
+    description,
     canonical: complexCanonical(input.slug),
     image: input.ownImage || DEFAULT_SHARE_IMAGE,
     locale: 'es_AR',
   };
-}
-
-/**
- * JSON for a `<script type="application/ld+json">` body. The payload carries venue
- * names and addresses typed by owners, so `<`, `>`, `&` and the two line separators are
- * written as escapes: a name containing `</script>` cannot close the element.
- */
-export function jsonLdScript(data: unknown): string {
-  return JSON.stringify(data)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029');
 }
