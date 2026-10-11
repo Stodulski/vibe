@@ -78,7 +78,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 		Logger:       logger,
 		Run:          func(fn func()) { fn() },
 	}, Config{
-		FrontendURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
+		PublicURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
 		Environment: "test", GracePeriod: 15 * time.Minute,
 		PaymentExpiry: 15 * time.Minute, SlotLockTTL: 15 * time.Minute,
 	})

@@ -265,7 +265,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			if mintErr != nil {
 				return fmt.Errorf("mint booking link token for confirmation email %s: %w", booking.ID, mintErr)
 			}
-			cancelURL := booklink.Cancel(s.cfg.FrontendURL, complex.Slug, confirmationToken)
+			cancelURL := booklink.Cancel(s.cfg.PublicURL, complex.Slug, confirmationToken)
 			cancelPath := booklink.CancelPath(complex.Slug, confirmationToken)
 			mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)

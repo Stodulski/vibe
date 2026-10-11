@@ -24,7 +24,6 @@ import (
 func TestCityHubRoutesAreDeclaredAsPlatformListings(t *testing.T) {
 	routes := []string{
 		"GET /api/v1/public/hubs",
-		"GET /api/v1/public/hubs/{city}",
 		"GET /api/v1/public/hubs/{city}/data",
 	}
 	for _, route := range routes {

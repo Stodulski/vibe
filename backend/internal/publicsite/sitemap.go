@@ -18,8 +18,8 @@ func (h *Handler) SitemapMoved(w http.ResponseWriter, r *http.Request) {
 	h.respond.MovedPermanently(w, r, SitemapPath)
 }
 
-// Sitemap handles GET /api/v1/sitemap.xml, listing the homepage and every
-// complex's public page.
+// Sitemap handles GET /api/v1/sitemap.xml, listing every complex's public page and
+// every city hub.
 func (h *Handler) Sitemap(w http.ResponseWriter, r *http.Request) {
 	doc, err := h.svc.Sitemap(r.Context())
 	if err != nil {

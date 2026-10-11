@@ -54,7 +54,7 @@ func (s *Service) Reminder2h(ctx context.Context) {
 				"error", mintErr, "booking_id", b.ID)
 		} else {
 			cancelPath = booklink.CancelPath(b.ComplexSlug, token)
-			cancelURL = booklink.Cancel(s.cfg.FrontendURL, b.ComplexSlug, token)
+			cancelURL = booklink.Cancel(s.cfg.PublicURL, b.ComplexSlug, token)
 		}
 
 		s.notify.ReminderDue(notifications.Reminder{
@@ -132,7 +132,7 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 			// never answered.
 			RefundLine: notifications.ExpiredUnpaidRefundLine,
 			BookPath:   booklink.BookPath(b.ComplexSlug),
-			BookURL:    booklink.Book(s.cfg.FrontendURL, b.ComplexSlug),
+			BookURL:    booklink.Book(s.cfg.PublicURL, b.ComplexSlug),
 			BookingID:  b.ID.String(),
 		})
 

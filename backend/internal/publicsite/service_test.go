@@ -6,10 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
-	"github.com/stodulski/vibe-server/internal/data"
 )
 
 // TestServiceSitemap covers what the crawler-facing sitemap is allowed to list:
@@ -21,21 +18,21 @@ func TestServiceSitemap(t *testing.T) {
 	updated := time.Date(2026, 3, 12, 9, 30, 0, 0, time.UTC)
 
 	tests := []struct {
-		name        string
-		slugs       []complexstore.ComplexSlug
-		frontendURL string
-		err         error
-		wantLocs    []string
-		unwantedLoc string
+		name          string
+		slugs         []complexstore.ComplexSlug
+		publicBaseURL string
+		err           error
+		wantLocs      []string
+		unwantedLoc   string
 	}{
 		{
-			name:        "with no complexes the sitemap lists nothing at all",
-			frontendURL: "https://vibe.example",
-			unwantedLoc: "<loc>https://vibe.example/</loc>",
+			name:          "with no complexes the sitemap lists nothing at all",
+			publicBaseURL: "https://vibe.example",
+			unwantedLoc:   "<loc>https://vibe.example/</loc>",
 		},
 		{
-			name:        "every complex is listed under the frontend origin, and only those",
-			frontendURL: "https://vibe.example/",
+			name:          "every complex is listed under the public origin, and only those",
+			publicBaseURL: "https://vibe.example/",
 			slugs: []complexstore.ComplexSlug{
 				{Slug: "club-norte", UpdatedAt: updated},
 				{Slug: "club-sur", UpdatedAt: updated},
@@ -48,15 +45,15 @@ func TestServiceSitemap(t *testing.T) {
 			unwantedLoc: "<loc>https://vibe.example/</loc>",
 		},
 		{
-			name:        "a store failure is passed through, not published as an empty sitemap",
-			frontendURL: "https://vibe.example",
-			err:         errors.New("db down"),
+			name:          "a store failure is passed through, not published as an empty sitemap",
+			publicBaseURL: "https://vibe.example",
+			err:           errors.New("db down"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewService(&stubStore{slugs: tt.slugs, slugsErr: tt.err}, tt.frontendURL)
+			svc := NewService(&stubStore{slugs: tt.slugs, slugsErr: tt.err}, tt.publicBaseURL)
 
 			doc, err := svc.Sitemap(t.Context())
 
@@ -82,17 +79,5 @@ func TestServiceSitemap(t *testing.T) {
 				t.Errorf("sitemap still lists the noindex root %q:\n%s", tt.unwantedLoc, doc)
 			}
 		})
-	}
-}
-
-// A venue that has switched itself off is not published: the sitemap already
-// filters on is_active, so a live prerender would keep it indexable and
-// shareable through a link a crawler had already seen.
-func TestServicePrerenderHidesADeactivatedComplex(t *testing.T) {
-	store := &stubStore{complex: &complexstore.Complex{ID: uuid.New(), Slug: "club-norte", IsActive: false}}
-	svc := NewService(store, "https://vibe.example")
-
-	if _, err := svc.Prerender(t.Context(), "club-norte"); !errors.Is(err, data.ErrRecordNotFound) {
-		t.Fatalf("got %v, want data.ErrRecordNotFound", err)
 	}
 }

@@ -73,7 +73,7 @@ func buildIntegrationFixture(t *testing.T, base *datatest.Fixture) *integrationF
 		Realtime:      &stubBroadcaster{},
 		Logger:        logger,
 		Run:           func(fn func()) { fn() },
-	}, Config{FrontendURL: "https://vibe.test", CancellationGracePeriod: 15 * time.Minute})
+	}, Config{PublicURL: "https://vibe.test", CancellationGracePeriod: 15 * time.Minute})
 	return f
 }
 

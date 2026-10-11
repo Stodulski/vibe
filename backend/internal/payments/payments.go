@@ -183,8 +183,9 @@ type Recorder interface {
 
 // Config is what this module needs from application configuration.
 type Config struct {
-	// FrontendURL builds the cancellation links sent to clients.
-	FrontendURL string
+	// PublicURL is the public storefront origin the cancellation and book links
+	// sent to clients are built on; see config.Config.PublicBaseURL.
+	PublicURL string
 	// CancellationGracePeriod is how long after booking a client may cancel
 	// and still be refunded, regardless of the complex's window.
 	CancellationGracePeriod time.Duration

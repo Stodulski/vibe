@@ -70,7 +70,7 @@ tags:
   - name: products
     description: The counter's product catalog and its append-only stock ledger (restock, adjustment).
   - name: publicsite
-    description: The public storefront's sitemap and crawler-facing prerendered pages.
+    description: The public storefront's sitemap and the city hub listings the public site renders from JSON.
   - name: realtime
     description: Server-Sent Events feed for an owner dashboard's live booking updates.
   - name: reporting
@@ -3367,73 +3367,6 @@ paths:
               schema: {type: string, example: "/api/v1/sitemap.xml"}
         "429": {$ref: "#/components/responses/RateLimited"}
 
-  /api/v1/public/prerender/{slug}:
-    get:
-      tags: [publicsite]
-      operationId: publicsitePrerender
-      summary: Server-rendered HTML for crawlers
-      description: >-
-        Public. Cross-tenant bypass reason `resolves`. The frontend's `index.html`, cached 10
-        minutes server-side, with title, description, OpenGraph tags, canonical link and JSON-LD
-        substituted in for this complex. All interpolated values are HTML-escaped.
-      security: []
-      parameters:
-        - {$ref: "#/components/parameters/PathSlug"}
-      responses:
-        "200":
-          description: Prerendered HTML.
-          headers:
-            Cache-Control:
-              schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
-          content:
-            text/html:
-              schema: {type: string}
-        "404":
-          description: Unknown slug, or the complex is inactive.
-          content:
-            application/problem+json:
-              schema: {$ref: "#/components/schemas/Problem"}
-        "429": {$ref: "#/components/responses/RateLimited"}
-        "500": {$ref: "#/components/responses/ServerError"}
-
-  /api/v1/public/hubs/{city}:
-    get:
-      tags: [publicsite]
-      operationId: publicsiteCityHub
-      summary: Server-rendered city hub
-      description: >-
-        Public. Cross-tenant bypass reason `platform`. The switched-on complexes of one city, server-rendered as HTML for search
-        engines and people: each name links to its public page with its address and sports, and the page carries a JSON-LD
-        ItemList of those pages. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and
-        accent-insensitively. Only switched-on complexes are listed.
-      security: []
-      parameters:
-        - {$ref: "#/components/parameters/PathCity"}
-      responses:
-        "200":
-          description: City hub page.
-          headers:
-            Cache-Control:
-              schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
-          content:
-            text/html:
-              schema: {type: string}
-        "404":
-          description: The city has no switched-on complex.
-          content:
-            application/problem+json:
-              schema: {$ref: "#/components/schemas/Problem"}
-        "429": {$ref: "#/components/responses/RateLimited"}
-        "500": {$ref: "#/components/responses/ServerError"}
-        "503":
-          description: The complexes could not be read. Retry after the Retry-After delay.
-          headers:
-            Retry-After:
-              schema: {type: string}
-          content:
-            application/problem+json:
-              schema: {$ref: "#/components/schemas/Problem"}
-
   /api/v1/public/hubs:
     get:
       tags: [publicsite]
@@ -3441,8 +3374,8 @@ paths:
       summary: City hub index
       description: >-
         Public. Cross-tenant bypass reason `platform`. Every city that has at least one switched-on complex, sorted by
-        slug, with how many switched-on complexes it lists. The JSON counterpart of the city hub pages: the public site
-        renders its hub index from it. Field names are snake_case, as on the other public documents.
+        slug, with how many switched-on complexes it lists. The public site renders its city hub index from it. Field
+        names are snake_case, as on the other public documents.
       security: []
       responses:
         "200":
@@ -3470,9 +3403,9 @@ paths:
       operationId: publicsiteCityHubData
       summary: One city hub as JSON
       description: >-
-        Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, in the order the
-        HTML hub page lists them. The city is matched exactly as the HTML hub matches it: on its slug, case- and
-        accent-insensitively. Only switched-on complexes are listed.
+        Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes. The city is matched
+        on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on
+        complexes are listed.
       security: []
       parameters:
         - {$ref: "#/components/parameters/PathCity"}
