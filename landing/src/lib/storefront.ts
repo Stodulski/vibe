@@ -1,12 +1,11 @@
 /**
  * Storefront switches shared by the pages the landing serves from the server.
  *
- * The app still serves the same public URLs until the cutover, so the Astro pages
- * must not compete with it in search yet. Flip STOREFRONT_INDEXABLE to true at the
- * cutover: the meta robots tag, the X-Robots-Tag header and the sitemap entries all
- * read this one constant.
+ * The landing is the only origin of the public pages, so they are indexable. The meta
+ * robots tag, the X-Robots-Tag header and the sitemap entries all read this one
+ * constant; set it to false to take the storefront out of search.
  */
-export const STOREFRONT_INDEXABLE = false;
+export const STOREFRONT_INDEXABLE = true;
 
 /** Public origin of the storefront, used for canonical and JSON-LD URLs. */
 export const STOREFRONT_ORIGIN = 'https://vibe.com.ar';
