@@ -331,7 +331,7 @@ export class ApiHelper {
     // no spec exercised the shared complex's public page until
     // blocked-slots-availability.spec.ts started running (it was wired into
     // no Playwright project before). Two steps, same as
-    // `public-booking-fixtures.ts`'s `fakeMercadoPagoConnection`: write a
+    // the removed public-booking fixture's `fakeMercadoPagoConnection`: write a
     // plaintext value, then seal it into the v1 envelope with the same
     // operator tool (`cmd/mpcredkey seal`, backend) the app uses for real
     // credential rotation, under the same key `make e2e`'s isolated API is

@@ -58,8 +58,7 @@ export default defineConfig({
         'cash.spec.ts',
         'products.spec.ts',
         'sell.spec.ts',
-        // Four owner specs that were in no project and therefore never ran.
-        'blocked-slots-availability.spec.ts',
+        // Three owner specs that were in no project and therefore never ran.
         'clients-search.spec.ts',
         'court-management-display.spec.ts',
         'settings-tabs.spec.ts',
@@ -77,10 +76,6 @@ export default defineConfig({
         'auth-validation.spec.ts',
         // Two unauthenticated specs that were in no project and never ran.
         'auth-navigation.spec.ts',
-        'public-booking-form.spec.ts',
-        'public-booking.spec.ts',
-        'public-booking-keyboard.spec.ts',
-        'public-cancel.spec.ts',
         'onboarding.spec.ts',
         // Registers and logs in its own dedicated, disposable owner account
         // rather than depending on `setup` — deliberately forces a token
