@@ -66,7 +66,7 @@ USER nonroot
 EXPOSE 8080
 
 # No HEALTHCHECK: distroless/static has no wget/curl/shell to run one with.
-# railway.toml's healthcheckPath already covers readiness for the one
+# .railway/railway.ts's healthcheckPath already covers readiness for the one
 # platform this image deploys to; a Docker-level HEALTHCHECK would be dead
 # weight everywhere else this image runs (e.g. `docker run` locally).
 CMD ["/app/api"]
