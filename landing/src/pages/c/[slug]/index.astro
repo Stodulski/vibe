@@ -114,20 +114,25 @@ const errorLead = status === 404 ? t.publicBooking.complexNotFoundDescription : 
       jsonLd={jsonLd}
       homeHref={`/c/${encodeURIComponent(slug)}`}
     >
-      <ComplexPageEntry
-        client:load
-        slug={slug}
-        config={config}
-        initialComplex={{ slug, data }}
-        initialSearch={Astro.url.search}
-      />
-      {nearbyLink && (
-        <p class="pb-8 text-center text-sm">
-          <a class="text-primary-500 font-semibold underline-offset-4 hover:underline" href={nearbyLink.href}>
-            {nearbyLink.label}
-          </a>
-        </p>
-      )}
+      {/* The layout's <main> is a flex row, so the page and the link below it
+          stack in a column of their own; as two flex children they would sit
+          side by side and squeeze the page. */}
+      <div class="flex w-full min-w-0 flex-col">
+        <ComplexPageEntry
+          client:load
+          slug={slug}
+          config={config}
+          initialComplex={{ slug, data }}
+          initialSearch={Astro.url.search}
+        />
+        {nearbyLink && (
+          <p class="pt-6 pb-8 text-center text-sm">
+            <a class="text-primary-500 font-semibold underline-offset-4 hover:underline" href={nearbyLink.href}>
+              {nearbyLink.label}
+            </a>
+          </p>
+        )}
+      </div>
     </StorefrontLayout>
   ) : (
     <StorefrontLayout title={`${errorTitle} - Vibe`} description={errorLead} robots={robots}>
