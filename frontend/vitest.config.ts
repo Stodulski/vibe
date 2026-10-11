@@ -15,11 +15,9 @@ export default defineConfig({
     globals: false,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
-    // Root-level `*.test.ts` too: vercel.json, index.html and api/prerender.ts
-    // live outside src but ship with the app, and their tests are the only
-    // guard on the contract they hold with the backend's prerender. Tests for
-    // api/ functions sit here at the root, never inside api/: Vercel deploys
-    // every file there as a Function (see prerender.function.test.ts).
+    // Root-level `*.test.ts` too: vercel.json and index.html live outside src
+    // but ship with the app, and their tests are the only guard on the
+    // contract they hold.
     include: ['src/**/*.test.{ts,tsx}', '*.test.ts'],
     css: true,
     // `VITE_APP_URL` is required by src/shared/lib/env.ts (BLD-04): every test

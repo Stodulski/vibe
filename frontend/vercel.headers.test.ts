@@ -219,3 +219,16 @@ describe('vercel.json CSP reporting endpoint', () => {
     expect(reportingEndpoints).toBe(`csp-endpoint="https://app.vibe.com.ar${REPORT_URI}"`);
   });
 });
+
+/**
+ * The app serves no public pages, so search engines must not index any of it:
+ * one `X-Robots-Tag: noindex` rule covers every path, instead of a list of
+ * per-route rules that a new route could quietly miss.
+ */
+describe('vercel.json robots header', () => {
+  const robotsRules = config.headers.filter((rule) => rule.headers.some((h) => h.key === 'X-Robots-Tag'));
+
+  it('marks every path noindex with a single rule on /(.*)', () => {
+    expect(robotsRules).toEqual([{ source: '/(.*)', headers: [{ key: 'X-Robots-Tag', value: 'noindex' }] }]);
+  });
+});
