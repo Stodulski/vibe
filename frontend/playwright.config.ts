@@ -9,6 +9,14 @@ const CI = !!process.env.CI;
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
 const WEB_SERVER_COMMAND = process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ?? 'pnpm exec vite --mode e2e';
 
+// The public pages (/c/<slug>, booking, cancel) are served by landing/, on its
+// own origin. `make e2e` picks the port and points PUBLIC_API_URL at the
+// isolated API; the landing dev server is started next to the app and reads
+// that URL at runtime.
+const LANDING_URL = process.env.PLAYWRIGHT_LANDING_URL ?? 'http://localhost:4322';
+const LANDING_API_URL = process.env.PLAYWRIGHT_LANDING_API_URL ?? 'http://localhost:8080/api/v1';
+const LANDING_PORT = new URL(LANDING_URL).port || '4322';
+
 export default defineConfig({
   testDir: './e2e/specs',
   fullyParallel: true,
@@ -90,12 +98,23 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: WEB_SERVER_COMMAND,
-    url: BASE_URL,
-    reuseExistingServer: !CI,
-    // `make e2e` builds the app before serving it (see backend/scripts/e2e-run.sh):
-    // the default dev server needs seconds, the production build needs a minute.
-    timeout: 180_000,
-  },
+  webServer: [
+    {
+      command: WEB_SERVER_COMMAND,
+      url: BASE_URL,
+      reuseExistingServer: !CI,
+      // `make e2e` builds the app before serving it (see backend/scripts/e2e-run.sh):
+      // the default dev server needs seconds, the production build needs a minute.
+      timeout: 180_000,
+    },
+    {
+      // Astro dev, not a build: the complex page is SSR, so it reads
+      // PUBLIC_API_URL per request and needs no rebuild per API port.
+      command: `pnpm --dir ../landing exec astro dev --host localhost --port ${LANDING_PORT} --strictPort`,
+      url: LANDING_URL,
+      reuseExistingServer: !CI,
+      env: { PUBLIC_API_URL: LANDING_API_URL },
+      timeout: 180_000,
+    },
+  ],
 });
