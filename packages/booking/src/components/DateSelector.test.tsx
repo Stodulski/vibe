@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DateSelector } from './DateSelector';
 import type { Schedule } from '../api/types';
+import { todayInVenueTz } from '../lib/venueDate';
 
 // Mock scrollIntoView for the test DOM
 Element.prototype.scrollIntoView = vi.fn();
@@ -67,7 +68,7 @@ const mockSchedules: Schedule[] = [
 ];
 
 describe('DateSelector', () => {
-  const today = new Date();
+  const today = todayInVenueTz();
 
   const defaultProps = {
     selectedDate: today,
@@ -138,7 +139,7 @@ describe('DateSelector', () => {
 // date strip used to put every loaded date in the Tab order, so Tab never
 // reached the duration/hour controls below it.
 describe('DateSelector keyboard navigation and ARIA', () => {
-  const today = new Date();
+  const today = todayInVenueTz();
 
   const defaultProps = {
     selectedDate: today,

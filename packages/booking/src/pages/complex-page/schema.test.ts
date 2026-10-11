@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildComplexSchema, parseDateParam } from './schema';
 import type { PublicComplex, Schedule } from '../../api/types';
+import { todayInVenueTz } from '../../lib/venueDate';
 
 const complex: PublicComplex = {
   id: 'c1',
@@ -83,24 +84,24 @@ describe('buildComplexSchema', () => {
 describe('parseDateParam', () => {
   it('returns today when the param is null', () => {
     const result = parseDateParam(null);
-    const today = new Date();
+    const today = todayInVenueTz();
     expect(result.toDateString()).toBe(today.toDateString());
   });
 
   it('returns today for a malformed date string', () => {
     const result = parseDateParam('not-a-date');
-    const today = new Date();
+    const today = todayInVenueTz();
     expect(result.toDateString()).toBe(today.toDateString());
   });
 
   it('returns today for a past date', () => {
     const result = parseDateParam('2020-01-01');
-    const today = new Date();
+    const today = todayInVenueTz();
     expect(result.toDateString()).toBe(today.toDateString());
   });
 
   it('parses a valid future date', () => {
-    const futureYear = new Date().getFullYear() + 1;
+    const futureYear = todayInVenueTz().getFullYear() + 1;
     const result = parseDateParam(`${String(futureYear)}-06-15`);
     expect(result.getFullYear()).toBe(futureYear);
     expect(result.getMonth()).toBe(5);
