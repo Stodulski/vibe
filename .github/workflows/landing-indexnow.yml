@@ -20,13 +20,15 @@ permissions:
 
 jobs:
   indexnow:
-    # The landing's production deploy: the environment is Production and the deployment
-    # URL is the apex domain. Other projects (the app on app.vibe.com.ar) fail this filter.
+    # The landing's production deploy. Vercel names the environment "Production – vibe-landing"
+    # (an en dash) and reports the deployment's own *.vercel.app URL, not the apex domain, so
+    # the filter matches the environment name. The app's deploys ("Production – vibe-frontend")
+    # and the backend's ("Vibe / production") fail it.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production' &&
-       github.event.deployment_status.environment_url == 'https://vibe.com.ar')
+       startsWith(github.event.deployment.environment, 'Production') &&
+       endsWith(github.event.deployment.environment, 'vibe-landing'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
