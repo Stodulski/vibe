@@ -6,7 +6,7 @@ import {
   STOREFRONT_REPORTING_ENDPOINTS,
   storefrontRobots,
 } from './lib/storefront.ts';
-import { markdownTwinPath } from './lib/markdown/negotiate.ts';
+import { markdownTwinPath, matcherCovers, wantsMarkdown } from './lib/markdown/negotiate.ts';
 
 /**
  * Headers for the server-rendered routes. vercel.json's header rules are written for
@@ -18,10 +18,23 @@ const SERVER_RENDERED_PREFIXES = ['/canchas/', '/c/'];
 const SERVER_RENDERED_PATHS = ['/canchas'];
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const response = await next();
   const { pathname } = context.url;
   const serverRendered =
     SERVER_RENDERED_PATHS.includes(pathname) || SERVER_RENDERED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+
+  // Agents asking for Markdown get the route's twin. landing/middleware.ts does this for the
+  // static pages, but on Vercel it never runs for a function route, so the server-rendered
+  // pages negotiate here instead.
+  if (
+    serverRendered &&
+    matcherCovers(pathname) &&
+    !isBookPath(pathname) &&
+    wantsMarkdown(context.request.headers.get('accept'))
+  ) {
+    return context.rewrite(markdownTwinPath(pathname));
+  }
+
+  const response = await next();
   if (!serverRendered) return response;
 
   const headers = new Headers(response.headers);
