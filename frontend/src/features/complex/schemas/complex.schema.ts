@@ -27,15 +27,15 @@ const AMENITY_VALUES = [
 ] as const;
 
 const complexShape = {
-  name: z.string().min(1, t.validation.nameRequired).max(200, t.validation.maxChars200),
-  slug: z.string().min(1, t.validation.slugRequired).regex(slugRegex, t.validation.slugFormat),
-  formatted_address: z.string().min(1, t.validation.addressRequired),
-  address: z.string(),
-  city: z.string(),
-  province: z.string(),
+  name: z.string().trim().min(1, t.validation.nameRequired).max(200, t.validation.maxChars200),
+  slug: z.string().trim().min(1, t.validation.slugRequired).regex(slugRegex, t.validation.slugFormat),
+  formatted_address: z.string().trim().min(1, t.validation.addressRequired),
+  address: z.string().trim(),
+  city: z.string().trim(),
+  province: z.string().trim(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
-  phone: z.string().min(1, t.validation.phoneRequired),
+  phone: z.string().trim().min(1, t.validation.phoneRequired),
   email: optionalEmailField,
   deposit_percentage: z.number().min(0, t.validation.min0Percent).max(100, t.validation.max100Percent),
   cancellation_hours: z.number().min(1, t.validation.min1Hour).max(168, t.validation.max168HoursWeek),

@@ -26,7 +26,10 @@ function useAddressSearch() {
     abortRef.current?.abort();
     setError(null);
 
-    if (query.length < 3) {
+    // Padding is not part of the search: it neither counts toward the
+    // 3-character minimum nor reaches the API.
+    const term = query.trim();
+    if (term.length < 3) {
       setPredictions([]);
       setOpen(false);
       return;
@@ -37,7 +40,7 @@ function useAddressSearch() {
       abortRef.current = controller;
       void (async () => {
         try {
-          const results = await fetchAutocompletePredictions(query, sessionToken, controller.signal);
+          const results = await fetchAutocompletePredictions(term, sessionToken, controller.signal);
           // Belt and suspenders alongside the abort itself: a mocked/cached
           // transport can still resolve after being superseded, and a
           // superseded response must never overwrite what the user is now

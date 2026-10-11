@@ -10,6 +10,23 @@ const validBase = {
   client_last_name: 'Perez',
 };
 
+describe('createBookingSchema — whitespace is not a value', () => {
+  it('trims the client name and turns whitespace-only notes into an empty string', () => {
+    const result = createBookingSchema.safeParse({
+      ...validBase,
+      client_first_name: '  Juan  ',
+      date: '2099-01-01',
+      start_time: '10:00',
+      notes: '   ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.client_first_name).toBe('Juan');
+      expect(result.data.notes).toBe('');
+    }
+  });
+});
+
 /**
  * Approval tests for `createBookingSchema`'s date/time-in-past `.refine`.
  * These capture CURRENT behavior before the guard-ladder refactor (replacing

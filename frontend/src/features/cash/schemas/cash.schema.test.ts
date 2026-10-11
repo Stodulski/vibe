@@ -7,6 +7,20 @@ import {
 } from './cash.schema';
 import { MAX_SESSION_CASH_PESOS, MAX_MOVEMENT_AMOUNT_PESOS } from '../lib/money';
 
+describe('optional note — whitespace is empty', () => {
+  it('trims a padded note', () => {
+    const result = openCashSessionSchema.safeParse({ opening_cash: 0, note: '  turno tarde  ' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.note).toBe('turno tarde');
+  });
+
+  it('turns a whitespace-only note into an empty one', () => {
+    const result = openCashSessionSchema.safeParse({ opening_cash: 0, note: '   ' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.note).toBe('');
+  });
+});
+
 describe('openCashSessionSchema', () => {
   it('accepts an opening amount of exactly 0 (an empty drawer)', () => {
     expect(openCashSessionSchema.safeParse({ opening_cash: 0, note: '' }).success).toBe(true);

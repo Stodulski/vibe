@@ -7,7 +7,7 @@ import { MAX_PRODUCT_PRICE_PESOS, MAX_RESTOCK_COST_PESOS, MAX_STOCK_QUANTITY } f
 
 const t = ES_AR;
 
-const optionalNoteSchema = z.string().max(500, t.validation.maxChars500).optional().or(z.literal(''));
+const optionalNoteSchema = z.string().trim().max(500, t.validation.maxChars500).optional().or(z.literal(''));
 
 // May be 0 (owner decision: "precio en pesos ... may be 0") — same
 // NaN-from-an-empty-number-input handling as `cash.schema.ts`'s
@@ -30,7 +30,7 @@ export function productFormSchema(thresholdLocked: boolean) {
   return z
     .object({
       name: z.string().trim().min(1, t.validation.nameRequired).max(120, t.validation.maxChars120),
-      category: z.string().max(60, t.validation.maxChars60).optional().or(z.literal('')),
+      category: z.string().trim().max(60, t.validation.maxChars60).optional().or(z.literal('')),
       price: priceSchema,
       tracks_stock: z.boolean(),
       // Same NaN-from-a-blank-input concern as `priceSchema` above, but this

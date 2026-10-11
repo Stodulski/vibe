@@ -10,6 +10,14 @@ const validForm = {
   reason: 'Mantenimiento',
 };
 
+describe('blockSlotFormSchema — whitespace is empty', () => {
+  it('turns a whitespace-only reason into an empty one', () => {
+    const result = blockSlotFormSchema.safeParse({ ...validForm, reason: '   ' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.reason).toBe('');
+  });
+});
+
 describe('blockSlotFormSchema', () => {
   it('accepts a fully valid form', () => {
     expect(blockSlotFormSchema.safeParse(validForm).success).toBe(true);

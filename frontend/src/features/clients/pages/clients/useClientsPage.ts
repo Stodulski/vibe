@@ -38,7 +38,7 @@ function useClientsList(selectedComplexId: string | null) {
 
   const { data, isLoading, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } = useClients(
     selectedComplexId,
-    debouncedSearch,
+    debouncedSearch.trim(),
   );
 
   const sentinelRef = useIntersectionObserver(

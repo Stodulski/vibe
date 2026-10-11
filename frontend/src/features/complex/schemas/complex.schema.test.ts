@@ -18,6 +18,21 @@ const validComplex = {
   amenities: [],
 };
 
+describe('free-text fields are trimmed before validation', () => {
+  it('trims a padded complex name and city', () => {
+    const result = updateComplexSchema.safeParse({ ...validComplex, name: '  Club  ', city: ' Quilmes ' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.name).toBe('Club');
+      expect(result.data.city).toBe('Quilmes');
+    }
+  });
+
+  it('rejects a whitespace-only phone as empty', () => {
+    expect(updateComplexSchema.safeParse({ ...validComplex, phone: '   ' }).success).toBe(false);
+  });
+});
+
 describe('cancellation_hours floor', () => {
   it('rejects 0 (server refuses a zero cancellation window at the column)', () => {
     const result = updateComplexSchema.safeParse({ ...validComplex, cancellation_hours: 0 });

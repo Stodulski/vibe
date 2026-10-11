@@ -29,7 +29,7 @@ export const createBookingSchema = z
       .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals)
       .optional(),
     payment_method: z.enum(COUNTER_PAYMENT_METHODS).optional(),
-    notes: z.string().max(500, t.validation.maxChars500).optional().or(z.literal('')),
+    notes: z.string().trim().max(500, t.validation.maxChars500).optional().or(z.literal('')),
     // Pesos, converted to centavos in `cleanBookingPayload`. Required exactly
     // when no price rule covers the booking's span — see `PriceOrManualPriceField`
     // and `CreateBookingSteps`'s manual `priceRequired` check, which enforce

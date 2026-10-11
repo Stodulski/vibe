@@ -44,3 +44,34 @@ describe('publicBookingSchema', () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe('publicBookingSchema — whitespace is not a value', () => {
+  it('trims the player name before it is saved', () => {
+    const result = publicBookingSchema.safeParse({ ...validForm, client_first_name: '  Afa  ' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.client_first_name).toBe('Afa');
+  });
+
+  it('rejects a whitespace-only first name as empty', () => {
+    expect(publicBookingSchema.safeParse({ ...validForm, client_first_name: '   ' }).success).toBe(false);
+  });
+
+  it('trims a padded phone and treats a whitespace-only email as empty', () => {
+    const result = publicBookingSchema.safeParse({
+      ...validForm,
+      client_phone: ' +541155550000 ',
+      client_email: '   ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.client_phone).toBe('+541155550000');
+      expect(result.data.client_email).toBe('');
+    }
+  });
+
+  it('trims client_notes and turns whitespace-only notes into an empty string', () => {
+    const result = publicBookingSchema.safeParse({ ...validForm, client_notes: '   ' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.client_notes).toBe('');
+  });
+});
