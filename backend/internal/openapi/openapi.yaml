@@ -3374,8 +3374,9 @@ paths:
       summary: City hub index
       description: >-
         Public. Cross-tenant bypass reason `platform`. Every city that has at least one switched-on complex, sorted by
-        slug, with how many switched-on complexes it lists. The public site renders its city hub index from it. Field
-        names are snake_case, as on the other public documents.
+        province then name (a city with no province last), with its province, how many switched-on complexes it lists,
+        and the Spanish label of each sport its switched-on courts carry. The public site renders its city hub index
+        from it. Field names are snake_case, as on the other public documents.
       security: []
       responses:
         "200":
@@ -3403,9 +3404,9 @@ paths:
       operationId: publicsiteCityHubData
       summary: One city hub as JSON
       description: >-
-        Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes. The city is matched
-        on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on
-        complexes are listed.
+        Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, its court counts by
+        sport, and up to 12 other city hubs to link to. The city is matched on its slug (lowercase, accents removed,
+        spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed.
       security: []
       parameters:
         - {$ref: "#/components/parameters/PathCity"}
@@ -4208,6 +4209,9 @@ components:
         slug: {type: string}
         address: {type: string}
         city: {type: string}
+        city_slug:
+          type: string
+          description: The key of the city hub this complex lists under, /canchas/<city_slug>. Omitted when the city has no slug characters and so belongs to no hub.
         province: {type: string}
         country_code: {type: string, example: "AR"}
         currency: {type: string, example: "ARS"}
@@ -4232,31 +4236,100 @@ components:
             `If-Match: "<version>"` or as a `version` body field — and the write is refused with
             409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 
-    PublicHub:
+    PublicHubSport:
       type: object
-      description: One city hub. Its `slug` is the city's URL form; its `name` is the city as its first complex stores it.
-      required: [slug, name, complex_count]
+      required: [sport, court_count]
+      properties:
+        sport:
+          type: string
+          description: The Spanish label of the sport. A sport with no label is shown as stored.
+        court_count:
+          type: integer
+          minimum: 1
+          description: How many switched-on courts of this sport.
+
+    PublicHubLink:
+      type: object
+      description: A city hub as another hub's document names it.
+      required: [slug, name, province, complex_count]
       properties:
         slug: {type: string, example: "vicente-lopez"}
-        name: {type: string, example: "Vicente López"}
+        name: {type: string, example: "Vicente López", description: "The city's display name."}
+        province:
+          type: string
+          example: "Buenos Aires"
+          description: The province most of the hub's complexes name. Empty when none names one.
         complex_count:
           type: integer
           minimum: 0
           description: How many switched-on complexes the hub lists.
 
+    PublicHub:
+      type: object
+      description: >-
+        One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from
+        the spelling the complexes store.
+      required: [slug, name, province, complex_count, court_count, sports]
+      properties:
+        slug: {type: string, example: "vicente-lopez"}
+        name: {type: string, example: "Vicente López"}
+        province: {type: string, example: "Buenos Aires", description: "Empty when no complex names one."}
+        complex_count:
+          type: integer
+          minimum: 0
+          description: How many switched-on complexes the hub lists.
+        court_count:
+          type: integer
+          minimum: 0
+          description: How many switched-on courts the hub's complexes carry.
+        sports:
+          type: array
+          description: The sports the hub's switched-on courts carry, most-courted first, then by label.
+          items: {$ref: "#/components/schemas/PublicHubSport"}
+
+    PublicHubSummary:
+      type: object
+      description: One city hub in the hub index.
+      required: [slug, name, province, complex_count, sports]
+      properties:
+        slug: {type: string, example: "vicente-lopez"}
+        name: {type: string, example: "Vicente López"}
+        province: {type: string, example: "Buenos Aires", description: "Empty when no complex names one."}
+        complex_count:
+          type: integer
+          minimum: 0
+          description: How many switched-on complexes the hub lists.
+        sports:
+          type: array
+          description: The Spanish label of each sport the hub's switched-on courts carry, most-courted first, then by label.
+          items: {type: string}
+
     PublicHubComplex:
       type: object
       description: A switched-on complex as its city hub lists it.
-      required: [slug, name, address, city, sports]
+      required: [slug, name, address, city, province, cover_url, court_count, sports, courts_by_sport]
       properties:
         slug: {type: string}
         name: {type: string}
         address: {type: string}
-        city: {type: string, description: "The city as this complex stores it."}
+        city: {type: string, description: "The city's display name."}
+        province: {type: string, description: "The province's display name. Empty when the complex names none."}
+        cover_url:
+          type: [string, "null"]
+          format: uri
+          description: The complex's cover image, or null when it has none.
+        court_count:
+          type: integer
+          minimum: 0
+          description: How many switched-on courts the complex has.
         sports:
           type: array
           description: The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored.
           items: {type: string}
+        courts_by_sport:
+          type: array
+          description: The complex's switched-on courts counted by sport, most-courted first, then by label.
+          items: {$ref: "#/components/schemas/PublicHubSport"}
 
     PublicHubList:
       type: object
@@ -4264,16 +4337,20 @@ components:
       properties:
         hubs:
           type: array
-          items: {$ref: "#/components/schemas/PublicHub"}
+          items: {$ref: "#/components/schemas/PublicHubSummary"}
 
     PublicCityHub:
       type: object
-      required: [hub, complexes]
+      required: [hub, complexes, other_hubs]
       properties:
         hub: {$ref: "#/components/schemas/PublicHub"}
         complexes:
           type: array
           items: {$ref: "#/components/schemas/PublicHubComplex"}
+        other_hubs:
+          type: array
+          description: Up to 12 other city hubs to link to. The same province comes first, then the most complexes, then by name.
+          items: {$ref: "#/components/schemas/PublicHubLink"}
 
     Schedule:
       type: object

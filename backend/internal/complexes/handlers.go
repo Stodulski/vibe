@@ -425,6 +425,9 @@ type PublicComplex struct {
 	// all. A booking attempt against a venue with no MercadoPago connection is
 	// refused, and the page can say so before the client fills in a form.
 	PaymentsEnabled bool `json:"payments_enabled"`
+	// CitySlug is the key of the city hub this complex lists under, /canchas/<city_slug>.
+	// It is omitted when the city has no slug characters and so belongs to no hub.
+	CitySlug string `json:"city_slug,omitempty"`
 }
 
 func newPublicComplex(c *complexstore.Complex) PublicComplex {
@@ -448,6 +451,7 @@ func newPublicComplex(c *complexstore.Complex) PublicComplex {
 		Longitude:         c.Longitude,
 		Amenities:         c.Amenities,
 		PaymentsEnabled:   c.MPConnected(),
+		CitySlug:          complexstore.CitySlug(c.City),
 	}
 }
 

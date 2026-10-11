@@ -139,6 +139,29 @@ func TestSitemapOmitsACityWithNoActiveComplex(t *testing.T) {
 	}
 }
 
+// A hub with one complex funnels every search for its city to a single page, which
+// search engines read as a doorway. It stays out of the sitemap, though its page
+// still answers and it is still linked from the hub index.
+func TestSitemapLeavesOutAHubWithOneComplex(t *testing.T) {
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	store := &stubStore{hubs: []complexstore.HubComplex{
+		hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true),
+		hubRow("Canchas Sur", "canchas-sur", "b", "banfield", nil, now, true),
+		hubRow("Club Solo", "club-solo", "c", "Quilmes", nil, now, true),
+	}}
+
+	doc, err := NewService(store, "https://vibe.example").Sitemap(t.Context())
+	if err != nil {
+		t.Fatalf("Sitemap: %v", err)
+	}
+	if urlBlock(doc, "https://vibe.example/canchas/banfield") == "" {
+		t.Errorf("sitemap omits the banfield hub, which has two complexes:\n%s", doc)
+	}
+	if urlBlock(doc, "https://vibe.example/canchas/quilmes") != "" {
+		t.Errorf("sitemap lists the quilmes hub, which has one complex:\n%s", doc)
+	}
+}
+
 func TestSitemapReportsAHubReadFailure(t *testing.T) {
 	store := &stubStore{hubsErr: errors.New("db down")}
 
@@ -153,7 +176,10 @@ func TestSitemapListsEveryPublicPageOnThePublicOrigin(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	store := &stubStore{
 		slugs: []complexstore.ComplexSlug{{Slug: "club-norte", UpdatedAt: now}},
-		hubs:  []complexstore.HubComplex{hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true)},
+		hubs: []complexstore.HubComplex{
+			hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true),
+			hubRow("Canchas Sur", "canchas-sur", "b", "Banfield", nil, now, true),
+		},
 	}
 
 	doc, err := NewService(store, "https://vibe.com.ar").Sitemap(t.Context())

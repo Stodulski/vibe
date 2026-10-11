@@ -247,7 +247,7 @@ type Querier interface {
 	InsertVerificationTokenWithCooldown(ctx context.Context, arg InsertVerificationTokenWithCooldownParams) (EmailVerificationToken, error)
 	// The public city hubs and the sitemap read this. It reads active_complexes, so
 	// a soft-deleted venue is absent, and keeps only the switched-on ones. Each row
-	// carries the sports of that complex's switched-on courts, read from
+	// carries one sport per switched-on court of that complex, read from
 	// active_courts so a soft-deleted court is absent too.
 	//
 	// The city is not matched here: a hub matches a city case- and accent-insensitively,
