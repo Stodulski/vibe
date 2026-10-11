@@ -529,8 +529,9 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 // ResetPassword handles POST /api/v1/auth/reset-password. The link is
 // single-use, and using it ends every session the account had open.
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	// Local struct rather than gen.AuthResetPasswordJSONBody: the password is
-	// opted out of trimming (trim:"-"), which a generated type cannot carry.
+	// Local struct rather than gen.AuthResetPasswordJSONBody, so the password's
+	// trim:"-" opt-out is visible where it is decoded. The generated type carries
+	// the same tag (openapi.yaml, x-oapi-codegen-extra-tags).
 	var body struct {
 		Password string `json:"password" trim:"-"`
 		Token    string `json:"token"`

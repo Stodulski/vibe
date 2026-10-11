@@ -198,6 +198,11 @@ func trimStrings(v reflect.Value) {
 		}
 
 	case reflect.Map:
+		// A map reached through an unexported embedded field is readable but
+		// not storable: Set and SetMapIndex would panic, so leave it alone.
+		if !v.CanInterface() {
+			return
+		}
 		iter := v.MapRange()
 		for iter.Next() {
 			// Map values are not addressable, so trim a settable copy and store it back.

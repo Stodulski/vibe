@@ -161,6 +161,31 @@ func TestReadJSONLeavesUnexportedFieldsAlone(t *testing.T) {
 	}
 }
 
+type trimHiddenMap map[string]string
+
+// trimEmbedsHiddenMap carries an unexported named map through an embedded
+// field. Its entries are readable through reflection but cannot be stored back,
+// so the walker must skip the map instead of panicking on the first entry.
+type trimEmbedsHiddenMap struct {
+	trimHiddenMap
+	Name string `json:"name"`
+}
+
+func TestReadJSONSkipsMapsReachedThroughUnexportedEmbeddedFields(t *testing.T) {
+	got := trimEmbedsHiddenMap{trimHiddenMap: trimHiddenMap{"k": "  v  "}}
+
+	err := ReadJSON(httptest.NewRecorder(), jsonRequest(t, `{"name":" a "}`), &got)
+	if err != nil {
+		t.Fatalf("ReadJSON: %v", err)
+	}
+	if got.Name != "a" {
+		t.Errorf("name: want %q; got %q", "a", got.Name)
+	}
+	if got.trimHiddenMap["k"] != "  v  " {
+		t.Errorf("hidden map entry: want it untouched; got %q", got.trimHiddenMap["k"])
+	}
+}
+
 // ReadJSONAnyContentType serves third-party payloads and must stay byte-faithful.
 func TestReadJSONAnyContentTypeDoesNotTrim(t *testing.T) {
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(`{"name":"  Afa  ","password":" p "}`))
