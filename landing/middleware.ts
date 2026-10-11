@@ -22,6 +22,10 @@ import { next, rewrite } from '@vercel/functions';
  * `matcher` has to be literal, because Vercel reads it statically at build time. A
  * NEW public page needs its line here, or it keeps answering HTML to agents.
  */
+/*
+ * /404 and /404.html are listed so the middleware can answer them with a real 404 instead of the
+ * static file, which Vercel serves with 200 when asked for by name. See notFoundTarget.
+ */
 export const config = {
   matcher: [
     '/',
@@ -34,6 +38,8 @@ export const config = {
     '/canchas',
     '/canchas/:city',
     '/c/:slug',
+    '/404',
+    '/404.html',
   ],
 };
 
@@ -83,8 +89,27 @@ export function markdownTwinPath(pathname: string): string {
   return route === '/' ? '/index.md' : `/${route.slice(1).replace(/\//g, '-')}.md`;
 }
 
+/**
+ * The path the 404 names are rewritten to. It has no file and no matcher line, so Vercel answers
+ * it the way it answers any unknown path: the catch-all route, status 404, 404.html as the body.
+ * Rewriting to a listed route instead would run this middleware again and loop.
+ */
+export const NOT_FOUND_TARGET = '/pagina-inexistente';
+
+/**
+ * The 404 page is a static file served at /404 (cleanUrls maps 404.html there), and a static file
+ * answers 200. Those names are rewritten to NOT_FOUND_TARGET, so the response is the same 404 an
+ * unknown path already gets. Null for every other path.
+ */
+export function notFoundTarget(pathname: string): string | null {
+  const route = pathname.replace(/\/+$/, '') || '/';
+  return route === '/404' || route === '/404.html' ? NOT_FOUND_TARGET : null;
+}
+
 export default function middleware(request: Request) {
   const { pathname } = new URL(request.url);
+  const notFound = notFoundTarget(pathname);
+  if (notFound) return rewrite(new URL(notFound, request.url));
   /* Browsers send a long Accept list and never name text/markdown, so this only
      matches clients that asked for it on purpose. */
   if (!wantsMarkdown(request.headers.get('accept'))) return next();

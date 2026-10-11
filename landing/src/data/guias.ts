@@ -119,7 +119,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     comparacion: true,
     tutorial: { slug: 'grilla-de-reservas', texto: 'Cómo se ve la grilla de reservas de Vibe' },
     title: 'Vibe o Turnito: una agenda o un sistema para tus canchas',
-    seoTitle: 'Vibe o Turnito para un complejo de canchas: qué cambia',
+    seoTitle: 'Vibe o Turnito para tu complejo: qué cambia',
     metaDescription:
       'Turnito es una agenda de turnos; Vibe, un sistema para canchas. Qué cambia con varias canchas '
       + 'y quién paga la comisión en cada uno.',
@@ -220,7 +220,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     comparacion: true,
     tutorial: { slug: 'panel-de-control', texto: 'El panel de control de Vibe, por dentro' },
     title: 'Vibe o CanchaFija: qué comparten y en qué se diferencian',
-    seoTitle: 'Vibe o CanchaFija: en qué se diferencian y cuánto cuestan',
+    seoTitle: 'Vibe o CanchaFija: qué cambia y cuánto cuestan',
     metaDescription:
       'CanchaFija cobra un abono mensual por complejo; Vibe es gratis para el complejo. Las dos con reserva online, '
       + 'caja y bar: cambia el modelo de cobro.',
@@ -427,7 +427,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     slug: 'cuanto-cobra-mercadopago-por-una-sena',
     tutorial: { slug: 'configuracion-del-complejo', texto: 'Dónde se conecta Mercado Pago y se define la seña' },
     title: 'Cuánto te cobra MercadoPago por cobrar una seña',
-    seoTitle: 'Cuánto cobra MercadoPago por una seña: tabla por provincia',
+    seoTitle: 'Cuánto cobra MercadoPago por una seña: la tabla',
     /* Medida en pixeles, no en caracteres: 768px sobre un limite de 920. El margen
        importa porque el texto se arma desde el dataset, asi que si MercadoPago
        mueve una tasa cambia el largo. */
@@ -690,7 +690,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     slug: 'como-llenar-los-horarios-vacios-de-un-complejo',
     tutorial: { slug: 'panel-de-control', texto: 'El mapa de ocupación que muestra tus horas muertas' },
     title: 'Cómo llenar los horarios vacíos de tu complejo',
-    seoTitle: 'Horarios vacíos en tu complejo deportivo: cómo llenarlos',
+    seoTitle: 'Horarios vacíos en tu complejo: cómo llenarlos',
     /* Esta guía es el género donde se inventan estadísticas ("+30% de ocupación
        en 60 días"). No hay ninguna propia que mostrar acá, así que lo único que
        se afirma es el mecanismo. Los porcentajes que sí aparecen son los del
