@@ -92,6 +92,43 @@ describe('useClientNotes — A4 autosave error handling', () => {
   });
 });
 
+describe('useClientNotes — trimmed autosave', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    const { clientsApi } = await import('../../api/clients.api');
+    vi.mocked(clientsApi.update).mockReset();
+  });
+
+  // Whitespace is not a note: the autosave sends the trimmed value, while the
+  // draft keeps exactly what the person typed.
+  it('saves the trimmed notes and keeps the typed draft as it was typed', async () => {
+    const { clientsApi } = await import('../../api/clients.api');
+    vi.mocked(clientsApi.update).mockResolvedValueOnce({
+      client: makeClient({ notes: 'nota con espacios' }),
+    });
+
+    const client = makeClient();
+    const { result } = renderHook(() => useClientNotes('c1', client), { wrapper: createQueryWrapper() });
+
+    act(() => {
+      result.current.onNotesChange('  nota con espacios  ');
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    await waitFor(() => {
+      expect(clientsApi.update).toHaveBeenLastCalledWith('c1', 'cl1', { notes: 'nota con espacios' });
+    });
+    expect(result.current.notes).toBe('  nota con espacios  ');
+  });
+});
+
 describe('useClientNotes — A4 retry', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });

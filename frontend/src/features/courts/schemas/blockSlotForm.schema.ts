@@ -18,7 +18,7 @@ export const blockSlotFormSchema = z
     court_id: z.string().min(1, t.validation.selectCourt),
     start_time: z.string().min(1, t.validation.timeRequired),
     end_time: z.string().min(1, t.validation.timeRequired),
-    reason: z.string().max(500, t.validation.maxChars500).optional(),
+    reason: z.string().trim().max(500, t.validation.maxChars500).optional(),
   })
   .refine((data) => data.start_time < data.end_time, {
     message: t.validation.timeRangeNotEmpty,

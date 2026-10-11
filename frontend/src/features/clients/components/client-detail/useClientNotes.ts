@@ -45,7 +45,7 @@ export function useClientNotes(complexId: string, client: Client | null | undefi
       lastAttemptRef.current = { value, clientId };
       setSaveError(undefined);
       updateClient.mutate(
-        { clientId, data: { notes: value } },
+        { clientId, data: { notes: value.trim() } },
         {
           onSuccess: () => {
             lastAttemptRef.current = undefined;

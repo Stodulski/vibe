@@ -6,7 +6,7 @@ export const publicBookingSchema = z.object({
   client_last_name: lastNameField,
   client_phone: phoneField,
   client_email: optionalEmailField,
-  client_notes: z.string().max(2000).optional(),
+  client_notes: z.string().trim().max(2000).optional(),
 });
 
 export type PublicBookingFormData = z.infer<typeof publicBookingSchema>;

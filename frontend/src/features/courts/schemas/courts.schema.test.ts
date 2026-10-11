@@ -15,6 +15,18 @@ const validData = {
   court_type: 'indoor' as const,
 };
 
+describe('createCourtSchema - whitespace is not a name', () => {
+  it('trims a padded court name', () => {
+    const result = createCourtSchema.safeParse({ ...validData, name: '  Cancha 1  ' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.name).toBe('Cancha 1');
+  });
+
+  it('rejects a whitespace-only court name as empty', () => {
+    expect(createCourtSchema.safeParse({ ...validData, name: '   ' }).success).toBe(false);
+  });
+});
+
 describe('createCourtSchema - name', () => {
   it('accepts valid court data', () => {
     const result = createCourtSchema.safeParse(validData);

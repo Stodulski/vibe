@@ -3,6 +3,25 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { MAX_STOCK_QUANTITY } from '../lib/money';
 import { productFormSchema, restockSchema, adjustSchema } from './products.schema';
 
+describe('optional text fields — whitespace is empty', () => {
+  it('trims a padded category', () => {
+    const result = productFormSchema(false).safeParse({
+      name: 'Agua',
+      category: '  Bebidas  ',
+      price: 1500,
+      tracks_stock: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.category).toBe('Bebidas');
+  });
+
+  it('turns a whitespace-only restock note into an empty one', () => {
+    const result = restockSchema.safeParse({ quantity: 10, total_cost: 5000, method: 'cash', note: '   ' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.note).toBe('');
+  });
+});
+
 describe('productFormSchema', () => {
   const base = { name: 'Agua', category: 'Bebidas', price: 1500, tracks_stock: true };
 

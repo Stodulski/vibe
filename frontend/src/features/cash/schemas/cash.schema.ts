@@ -25,7 +25,7 @@ const sessionCashSchema = z
   .max(MAX_SESSION_CASH_PESOS, t.validation.cashSessionTooLarge)
   .refine(hasAtMostTwoDecimals, t.validation.amountMaxTwoDecimals);
 
-const optionalNoteSchema = z.string().max(500, t.validation.maxChars500).optional().or(z.literal(''));
+const optionalNoteSchema = z.string().trim().max(500, t.validation.maxChars500).optional().or(z.literal(''));
 
 export const openCashSessionSchema = z.object({
   opening_cash: sessionCashSchema,

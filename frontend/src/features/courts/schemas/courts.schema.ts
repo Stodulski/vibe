@@ -6,7 +6,7 @@ import { hasAtMostTwoDecimals } from '@/shared/lib/money';
 const t = ES_AR;
 
 export const createCourtSchema = z.object({
-  name: z.string().min(1, t.validation.nameRequired).max(100, t.validation.maxChars100),
+  name: z.string().trim().min(1, t.validation.nameRequired).max(100, t.validation.maxChars100),
   sport: z.enum(['padel', 'tennis', 'soccer', 'basketball', 'volleyball', 'hockey', 'pickleball'], {
     message: t.validation.sportInvalid,
   }),
@@ -21,7 +21,7 @@ export const createCourtSchema = z.object({
   // description is a valid court, and a caller that has none to give should
   // not have to send "" to say so. The form does send a string, and an empty
   // one is folded back to null by the server.
-  description: z.string().max(200, t.validation.maxChars200).optional(),
+  description: z.string().trim().max(200, t.validation.maxChars200).optional(),
 });
 
 const priceItemSchema = z

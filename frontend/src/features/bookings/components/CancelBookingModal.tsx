@@ -86,7 +86,7 @@ export function CancelBookingModal({ open, onClose, onConfirm, isLoading, bookin
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
-              onConfirm(reason || undefined);
+              onConfirm(reason.trim() || undefined);
             }}
             disabled={isLoading}
             className="bg-destructive hover:bg-destructive/90 text-white"
