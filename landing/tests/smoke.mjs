@@ -681,10 +681,13 @@ async function testStorefront() {
   const failed = await p.request.get(`${BASE}/c/${slug}/book?error=payment_failed`, { maxRedirects: 0 });
   check('/book?error=payment_failed answers 200', failed.status() === 200, `${failed.status()}`);
   check('the booking steps are noindex', /noindex/.test(failed.headers()['x-robots-tag'] || ''));
+  check('the booking steps never load the analytics beacon',
+    !(await failed.text()).includes('data-cf-beacon'));
 
   const cancel = await p.request.get(`${BASE}/c/${slug}/book/cancel?token=x`, { maxRedirects: 0 });
   check('/book/cancel answers 200', cancel.status() === 200, `${cancel.status()}`);
   check('/book/cancel is never cached by a shared cache', cancel.headers()['cache-control'] === 'private, no-store');
+  check('/book/cancel never loads the analytics beacon', !(await cancel.text()).includes('data-cf-beacon'));
 
   await p.context().close();
 }
