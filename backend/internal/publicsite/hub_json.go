@@ -60,7 +60,7 @@ func hubLinkOf(hub cityHub) hubLinkJSON {
 func hubSportsOf(counts []hubSportCount) []hubSportJSON {
 	sports := make([]hubSportJSON, 0, len(counts))
 	for _, c := range counts {
-		sports = append(sports, hubSportJSON{Sport: c.Sport, CourtCount: c.CourtCount})
+		sports = append(sports, hubSportJSON(c))
 	}
 	return sports
 }
