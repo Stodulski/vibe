@@ -1,6 +1,6 @@
 # Vibe Client
 
-React single-page application for Vibe, a booking platform for sports complexes. It serves the owner dashboard (courts, bookings, clients, reports), a superadmin section that is currently a placeholder while it is rebuilt from scratch, and the public booking pages clients use to reserve a court. Spanish (Argentina) only, currency ARS.
+React single-page application for Vibe, a booking platform for sports complexes. It serves the owner dashboard (courts, bookings, clients, reports), a superadmin section that is currently a placeholder while it is rebuilt from scratch. The public storefronts and the booking flow are not part of this app: they live on vibe.com.ar (`landing/`). Spanish (Argentina) only, currency ARS.
 
 ## Stack
 
@@ -50,8 +50,8 @@ The app runs on `http://localhost:5173`. Requests to `/api/*` are proxied by Vit
 | Variable                  | Purpose                                                                                                                                                                                                   | Required | Default               |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
 | `VITE_API_URL`            | Base URL the app calls for the API.                                                                                                                                                                       | Optional | `/api/v1`             |
-| `VITE_APP_URL`            | This app's own URL, used for canonical/OG tags.                                                                                                                                                           | Optional | none                  |
-| `VITE_LANDING_URL`        | Base URL of the marketing landing site, used to read its published MercadoPago fees JSON.                                                                                                                 | Optional | `https://vibe.com.ar` |
+| `VITE_APP_URL`            | This app's own URL. The service worker and web manifest register only on this host.                                                                                                                       | Optional | none                  |
+| `VITE_LANDING_URL`        | Base URL of the marketing landing site, used to read its published MercadoPago fees JSON and to build links to public complex pages.                                                                      | Optional | `https://vibe.com.ar` |
 | `VITE_SENTRY_DSN`         | Sentry DSN. Enables error tracking when set.                                                                                                                                                              | Optional | none                  |
 | `VITE_MP_APP_ID`          | MercadoPago application ID used by the owner-facing "connect MercadoPago" OAuth flow.                                                                                                                     | Optional | none                  |
 | `VITE_TURNSTILE_SITE_KEY` | Enables the Cloudflare Turnstile challenge on register, login and forgot-password; must pair with the server's `TURNSTILE_SECRET_KEY`.                                                                    | Optional | none                  |
@@ -64,11 +64,11 @@ All `VITE_*` variables are inlined into the built bundle at build time and are n
 ```
 src/app/          Router, layouts, top-level providers
 src/features/     One folder per domain (auth, bookings, clients, complex, courts,
-                  dashboard, public-booking), each with api/hooks/components/schemas/types
+                  dashboard), each with api/hooks/components/schemas/types
                   (the admin area is a placeholder, src/app/router/AdminPlaceholderPage.tsx)
 src/shared/       Cross-feature code: components, hooks, i18n (es_AR only), lib, schemas,
                   stores, types
-src/pages/        Route-level page components (auth, owner, public; admin is a placeholder being rebuilt)
+src/pages/        Route-level page components (auth, owner; admin is a placeholder being rebuilt)
 e2e/              Playwright specs, page objects and setup (auth, global truncation)
 ```
 
@@ -101,9 +101,9 @@ This starts an E2E-only Postgres (`:5433`) and Redis (`:6380`), boots a purpose-
 
 ## Deploy
 
-The app deploys to [Vercel](https://vercel.com). `vercel.json` sets the Vite framework preset, `pnpm build` as the build command, `dist` as the output directory, an SPA rewrite (`/(.*) → /index.html`), long-cache headers for static assets, and `X-Robots-Tag: noindex` on authenticated and non-public routes.
+The app deploys to [Vercel](https://vercel.com). `vercel.json` sets the Vite framework preset, `pnpm build` as the build command, `dist` as the output directory, an SPA rewrite (`/(.*) → /index.html`), long-cache headers for static assets, and `X-Robots-Tag: noindex` on every path.
 
-A `vercel.json` rewrite conditioned on the `User-Agent` header sends known bot/crawler user agents on public `/:slug` complex pages to `api/prerender.ts`, a Vercel Function. It re-validates the slug, fetches the backend's prerender endpoint (`BACKEND_URL` + `/api/v1/public/prerender/:slug`, default `https://api.vibe.com.ar`) with a 3s budget, and maps every way that can fail to a status a crawler knows how to act on: `503` with `Retry-After` for a timeout, a backend 5xx, or a bare 404 (which could otherwise de-index every venue), and `404` only for the backend's explicit "this venue does not exist" marker. Because the user-agent condition is on the rewrite itself, human traffic never invokes the function for these paths.
+The app serves no public pages, so `vercel.json` has no crawler prerender, no API rewrite for `/c/*`, `/canchas/*` or `/sitemap.xml`, and no per-route noindex rules: one `X-Robots-Tag: noindex` rule on `/(.*)` covers every path. `public/robots.txt` stays crawlable on purpose, so crawlers read that header. A Disallow would keep already-indexed URLs in the index with no content behind them.
 
 CI runs on GitHub Actions (`.github/workflows/frontend.yml` at the repository root) with four jobs on every push and pull request to `main` that touches `frontend/`: `typecheck` (`tsc -b --force`), `lint` (`pnpm lint`), `format` (`pnpm format:check`), and `test` (`pnpm test`). The end-to-end suite runs from `.github/workflows/e2e.yml`, which is triggered by changes to either `frontend/` or `backend/` and runs `make e2e` from the server package.
 
@@ -115,7 +115,6 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 - **Port `5173` already in use**: another Vite instance is running. Stop it, or run `pnpm dev -- --port 5174`.
 - **The E2E suite is hitting your running dev API**: `global.setup.ts` truncates its target database. If you ran `pnpm test:e2e` directly while a dev API was up on `:8080`, it just wiped your local development data. Always use `cd ../backend && make e2e` for an isolated stack, see above.
-- **Public complex pages show no preview when shared on WhatsApp or social media locally**: the crawler rewrite in `vercel.json` only applies on Vercel, not under `pnpm dev`. Bot-only prerendering can only be verified after a Vercel deploy or with `vercel dev`.
 
 ## License
 

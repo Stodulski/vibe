@@ -29,7 +29,7 @@ Three layout groups in `src/app/router.tsx`, all pages lazy-loaded:
 - **Auth pages** (no layout): `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`
 - **Owner dashboard** (`DashboardLayout`): `/dashboard`, `/bookings`, `/courts`, `/clients`, `/reports`, `/settings`, `/profile`
 - **Admin** (`AdminLayout`, superadmin only): `/admin` only, a placeholder (`AdminPlaceholderPage`) while the admin area is rebuilt from scratch
-- **Public booking** (`PublicLayout`): `/:slug`, `/:slug/book/*`. The pages render from `@vibe/booking` (`packages/booking`); each route module in `app/router/booking/` loads one entry as its own chunk.
+- **Public pages: none.** Storefronts and the booking flow live on vibe.com.ar (`landing/`). Every link to one goes through `publicComplexUrl` (`src/shared/lib/publicPaths.ts`). Unknown paths, `/c/*` included, render the 404 page.
 
 ### Feature Module Pattern
 
@@ -75,12 +75,13 @@ Cookie-based sessions with CSRF protection. The ky client auto-handles token ref
 Defined in `.env.example`:
 
 - `VITE_API_URL` — API base URL (default `/api/v1`, proxied in dev)
-- `VITE_APP_URL` — App URL for canonical/OG tags
-- `VITE_SENTRY_DSN` — Optional Sentry DSN
+- `VITE_APP_URL` — This app's own URL; the service worker and web manifest register only on this host
+- `VITE_LANDING_URL` — Landing URL (default `https://vibe.com.ar`): the MercadoPago fees JSON and links to public complex pages
+- `VITE_SENTRY_DSN`
 
 ### Deployment
 
-Vercel, with a `vercel.json` rewrite gated on the `User-Agent` header for bot/social-crawler prerendering of public `/:slug` pages: only requests whose user agent matches a crawler pattern are routed to `api/prerender.ts`, a Vercel Function that fetches the backend's prerender endpoint with a 3s budget and maps failures to `503`/`Retry-After`, so humans never invoke a function on those paths. PWA via vite-plugin-pwa with workbox (network-first for the _public_ API only — authenticated responses are never cached — cache-first for fonts and map tiles).
+Vercel, with a `vercel.json` SPA rewrite and one `X-Robots-Tag: noindex` rule on `/(.*)`. The app serves no public pages, so there is no crawler prerender function and no API rewrite for them. PWA via vite-plugin-pwa with workbox: cache-first for fonts, and no API response is cached.
 
 ## Code Principles
 
