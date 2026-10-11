@@ -71,7 +71,7 @@ export function ComplexDetails({ schedules, amenities, selectedDate }: ComplexDe
   return (
     <Accordion type="single" collapsible defaultValue="schedules" className="border-border-subtle border-t">
       <AccordionItem value="schedules">
-        <AccordionTrigger>{t.complex.schedules}</AccordionTrigger>
+        <AccordionTrigger headingLevel={2}>{t.complex.schedules}</AccordionTrigger>
         <AccordionContent>
           <WeekScheduleList schedules={schedules} selectedDate={selectedDate} />
         </AccordionContent>
@@ -79,7 +79,7 @@ export function ComplexDetails({ schedules, amenities, selectedDate }: ComplexDe
 
       {hasAmenities && (
         <AccordionItem value="amenities">
-          <AccordionTrigger>{t.complex.amenitiesSection}</AccordionTrigger>
+          <AccordionTrigger headingLevel={2}>{t.complex.amenitiesSection}</AccordionTrigger>
           <AccordionContent>
             <AmenityList amenities={amenities} />
           </AccordionContent>

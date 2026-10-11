@@ -103,6 +103,17 @@ const esIndexable = (html) => {
   return !/noindex/i.test(r);
 };
 
+/* Las etiquetas <link> y su atributo, en cualquier orden: Astro los emite
+   alfabeticamente, pero la regla no tiene que depender de eso. */
+const etiquetas = (html, tag) => html.match(new RegExp(`<${tag}\\b[^>]*>`, 'gi')) || [];
+const atributoDeEtiqueta = (tag, nombre) => tag.match(new RegExp(`\\b${nombre}="([^"]*)"`, 'i'))?.[1];
+
+/** Los bloques JSON-LD de la pagina, ya parseados. `null` si no parsean. */
+const bloquesJsonLd = (html) => [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)]
+  .map(m => {
+    try { return JSON.parse(m[1]); } catch { return null; }
+  });
+
 /**
  * Cuanto se pisan dos paginas, por Jaccard sobre su vocabulario propio.
  *
@@ -148,7 +159,9 @@ async function leerDist() {
     paginas.set(rutaDe(f), { html: await readFile(f, 'utf8'), estado: 200, headers: {} });
   }
   const sitemap = await readFile(join(DIST, 'sitemap.xml'), 'utf8').catch(() => '');
-  return { paginas, sitemap };
+  /* Los gemelos en Markdown quedan planos en la raiz de dist, uno por pagina. */
+  const mds = new Set((await readdir(DIST)).filter(n => n.endsWith('.md')));
+  return { paginas, sitemap, mds };
 }
 
 async function leerProduccion(base) {
@@ -181,9 +194,12 @@ async function leerProduccion(base) {
 
 /* ---------------------------------------------------------------- la puerta */
 
-function revisar({ paginas, sitemap }, modo) {
+function revisar({ paginas, sitemap, mds }, modo) {
   const enSitemap = new Set([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
     .map(m => m[1].replace(SITE, '').replace(/\/+$/, '') || '/'));
+  /* La <loc> tal cual la escribio el sitemap, por ruta: el canonical tiene que ser esa misma cadena. */
+  const locPorRuta = new Map([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map(m => [m[1].replace(SITE, '').replace(/\/+$/, '') || '/', m[1]]));
 
   const titulos = new Map();
   const descripciones = new Map();
@@ -235,15 +251,23 @@ function revisar({ paginas, sitemap }, modo) {
     else if (h1.length > 1) fallar(ruta, `tiene ${h1.length} H1: ${h1.join(' | ')}`);
 
     /* --- canonical --- */
-    const canonical = atributo(html, /<link[^>]*\brel="canonical"[^>]*\bhref="([^"]+)"/i)
-      || atributo(html, /<link[^>]*\bhref="([^"]+)"[^>]*\brel="canonical"/i);
-    if (!canonical) fallar(ruta, 'no tiene canonical');
-    else {
+    const canonicalTag = etiquetas(html, 'link').find(t => /\brel="canonical"/i.test(t));
+    const canonical = canonicalTag ? atributoDeEtiqueta(canonicalTag, 'href') : undefined;
+    if (indexable && !canonical) fallar(ruta, 'no tiene canonical');
+    /* Una pagina que no se indexa no se presenta como la version canonica de nada:
+       un 404 con canonical propio le pide a Google que indexe esa URL. */
+    if (!indexable && canonical) {
+      fallar(ruta, `es noindex y declara canonical (${canonical}): le pide a Google indexar esa URL`);
+    }
+    if (indexable && canonical) {
       if (!canonical.startsWith('http')) fallar(ruta, `el canonical es relativo: ${canonical}`);
       const esperado = `${SITE}${ruta === '/' ? '' : ruta}`;
       if (canonical.replace(/\/$/, '') !== esperado.replace(/\/$/, '')) {
         fallar(ruta, `el canonical apunta a ${canonical} y no a si misma`);
       }
+      /* Canonical y sitemap son la misma cadena, no dos formas de la misma URL. */
+      const loc = locPorRuta.get(ruta);
+      if (loc && canonical !== loc) fallar(ruta, `el canonical es ${canonical} y el sitemap dice ${loc}`);
     }
 
     /* --- robots --- */
@@ -252,6 +276,34 @@ function revisar({ paginas, sitemap }, modo) {
     const header = p.headers['x-robots-tag'] || '';
     if (indexable && /noindex/i.test(header)) {
       fallar(ruta, `el meta dice index pero el header X-Robots-Tag dice "${header}"`);
+    }
+
+    /* --- idioma y alternativas --- */
+    /* Un sitio en un solo idioma no declara hreflang: los tres apuntaban a la misma URL. */
+    const hreflang = etiquetas(html, 'link').filter(t => /\bhreflang=/i.test(t));
+    if (hreflang.length) fallar(ruta, `declara ${hreflang.length} hreflang: el sitio es de un solo idioma`);
+
+    /* El gemelo en Markdown tiene que apuntar al .md, no a la propia pagina HTML. */
+    for (const tag of etiquetas(html, 'link').filter(t => /\btype="text\/markdown"/i.test(t))) {
+      const href = atributoDeEtiqueta(tag, 'href') || '';
+      if (!/^https:\/\/vibe\.com\.ar\/[^/]+\.md$/.test(href)) {
+        fallar(ruta, `el alternate markdown apunta a ${href || '(vacío)'}, que no es un .md de la raíz`);
+      } else if (mds && !mds.has(href.split('/').pop())) {
+        fallar(ruta, `el alternate markdown apunta a ${href} y ese archivo no está en dist`);
+      }
+    }
+
+    /* --- JSON-LD --- */
+    for (const bloque of bloquesJsonLd(html)) {
+      if (bloque === null) {
+        fallar(ruta, 'un bloque JSON-LD no parsea');
+        continue;
+      }
+      /* Article sin image no entra a los rich results de articulo: Google la pide. */
+      if (bloque['@type'] === 'Article' && !/^https:\/\//.test(String(bloque.image ?? ''))) {
+        fallar(ruta, 'Article sin image absoluta: Google la pide para Article');
+      }
+      if (bloque['@type'] === 'HowTo') fallar(ruta, 'declara HowTo: Google retiró ese rich result');
     }
 
     /* --- sitemap coherente con indexabilidad --- */
