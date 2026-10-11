@@ -113,7 +113,11 @@ export default defineConfig({
       command: `pnpm --dir ../landing exec astro dev --host localhost --port ${LANDING_PORT} --strictPort`,
       url: LANDING_URL,
       reuseExistingServer: !CI,
-      env: { PUBLIC_API_URL: LANDING_API_URL },
+      // Astro 7 detaches `astro dev` (prints its URL and exits 0) when it
+      // detects an AI agent shell, which Playwright reads as an early exit.
+      // ASTRO_DEV_BACKGROUND turns that detection off so the server stays
+      // in the foreground.
+      env: { PUBLIC_API_URL: LANDING_API_URL, ASTRO_DEV_BACKGROUND: '0' },
       timeout: 180_000,
     },
   ],
