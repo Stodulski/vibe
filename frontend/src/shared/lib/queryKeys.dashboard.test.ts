@@ -3,23 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { queryKeys } from './queryKeys';
 
 describe('queryKeys dashboard and misc', () => {
-  describe('availability', () => {
-    it('bySlugAndDate returns key with slug, date and duration', () => {
-      expect(queryKeys.availability.bySlugAndDate('club', '2024-03-15', 90)).toEqual([
-        'availability',
-        'club',
-        '2024-03-15',
-        90,
-      ]);
-    });
-  });
-
-  describe('publicComplex', () => {
-    it('bySlug returns key with slug', () => {
-      expect(queryKeys.publicComplex.bySlug('club')).toEqual(['publicComplex', 'club']);
-    });
-  });
-
   describe('bookingStatus', () => {
     it('byId returns key with id', () => {
       expect(queryKeys.bookingStatus.byId('b-1')).toEqual(['bookingStatus', 'b-1']);

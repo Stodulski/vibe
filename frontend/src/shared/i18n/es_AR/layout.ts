@@ -10,7 +10,6 @@ export const layout = {
   errorDescription: 'Ocurrió un error inesperado. Intentá de nuevo o volvé al inicio.',
   retry: 'Reintentar',
   backHome: 'Volver al inicio',
-  poweredBy: 'Powered by Vibe',
   notFoundTitle: 'Página no encontrada',
   notFoundDescription: 'La página que buscás no existe.',
   forbiddenTitle: 'No tenés permiso para ver esta página',

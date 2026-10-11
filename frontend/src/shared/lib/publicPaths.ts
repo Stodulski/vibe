@@ -6,7 +6,7 @@ import { env } from './env';
  * slug can never collide with one. The app serves no public pages: every link to
  * one goes through `publicComplexUrl`, which points at the landing directly.
  */
-export function publicComplexPath(slug: string): string {
+function publicComplexPath(slug: string): string {
   return `/c/${slug}`;
 }
 

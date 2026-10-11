@@ -79,34 +79,3 @@ export function useOGTags(og: {
     };
   }, [og.title, og.description, og.image, og.url]);
 }
-
-export function useCanonical(url: string) {
-  useEffect(() => {
-    let el: HTMLLinkElement | null = document.querySelector('link[rel="canonical"]');
-    if (!el) {
-      el = document.createElement('link');
-      el.setAttribute('rel', 'canonical');
-      document.head.appendChild(el);
-    }
-    el.href = url;
-
-    return () => {
-      el.remove();
-    };
-  }, [url]);
-}
-
-export function useStructuredData(data: Record<string, unknown> | null) {
-  useEffect(() => {
-    if (!data) return;
-
-    const el = document.createElement('script');
-    el.type = 'application/ld+json';
-    el.textContent = JSON.stringify(data);
-    document.head.appendChild(el);
-
-    return () => {
-      el.remove();
-    };
-  }, [data]);
-}
