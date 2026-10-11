@@ -89,7 +89,7 @@ describe('DashboardPage', () => {
 });
 
 describe('DashboardPage public link', () => {
-  it('copies the public link under the /c/ prefix', async () => {
+  it('shows the public link on the landing, under the /c/ prefix', async () => {
     vi.mocked(useDashboardStats).mockReturnValue({
       data: { upcoming_bookings: [] },
       isLoading: false,
@@ -102,6 +102,6 @@ describe('DashboardPage public link', () => {
     } as unknown as ReturnType<typeof useSelectedComplex>);
     const DashboardPage = (await import('./DashboardPage')).default;
     render(<DashboardPage />);
-    expect(screen.getByTestId('public-link-bar')).toHaveTextContent(/\/c\/los-alamos$/);
+    expect(screen.getByTestId('public-link-bar')).toHaveTextContent('https://vibe.com.ar/c/los-alamos');
   });
 });
