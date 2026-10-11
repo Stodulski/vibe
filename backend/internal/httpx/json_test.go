@@ -29,7 +29,7 @@ type trimTarget struct {
 
 func jsonRequest(t *testing.T, body string) *http.Request {
 	t.Helper()
-	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	return r
 }
@@ -163,7 +163,7 @@ func TestReadJSONLeavesUnexportedFieldsAlone(t *testing.T) {
 
 // ReadJSONAnyContentType serves third-party payloads and must stay byte-faithful.
 func TestReadJSONAnyContentTypeDoesNotTrim(t *testing.T) {
-	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"  Afa  ","password":" p "}`))
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(`{"name":"  Afa  ","password":" p "}`))
 
 	var got trimTarget
 	err := ReadJSONAnyContentType(httptest.NewRecorder(), r, &got)
