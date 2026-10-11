@@ -1,0 +1,103 @@
+---
+/**
+ * City index at /canchas: every city with a complex on Vibe, grouped by province, from
+ * the public API. 200 with the list, 503 with Retry-After when the read fails. Indexing
+ * follows STOREFRONT_INDEXABLE, as on the city hubs. The copy and JSON-LD come from
+ * lib/hub-index.ts.
+ */
+import { PUBLIC_API_URL } from 'astro:env/server';
+import BookingLayout from '../../layouts/BookingLayout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { API_TIMEOUT_MS, createPublicApi } from '../../lib/api.ts';
+import { toHubIndexView } from '../../lib/hub-index.ts';
+import { robotsDirective } from '../../lib/storefront.ts';
+
+export const prerender = false;
+
+const unavailable = {
+  title: 'Canchas no disponibles - Vibe',
+  h1: 'No podemos mostrar las canchas ahora',
+  lead: 'Tuvimos un problema para cargar las ciudades. Probá de nuevo en un minuto.',
+};
+
+let view: ReturnType<typeof toHubIndexView> | null = null;
+try {
+  const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
+  view = toHubIndexView(await api.hubIndex());
+} catch (error) {
+  console.error('city index unavailable', error);
+}
+
+const status = view ? 200 : 503;
+const robots = robotsDirective(status);
+
+Astro.response.status = status;
+Astro.response.headers.set(
+  'Cache-Control',
+  view ? 'public, s-maxage=300, stale-while-revalidate=60' : 'no-store',
+);
+Astro.response.headers.set('X-Robots-Tag', robots);
+if (status === 503) Astro.response.headers.set('Retry-After', '60');
+---
+<BookingLayout
+  title={view ? view.title : unavailable.title}
+  description={view ? view.description : unavailable.lead}
+  canonical={view?.canonical}
+  robots={robots}
+  jsonLd={view ? view.jsonLd : []}
+>
+  <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
+  <main id="contenido" class="mx-auto flex w-full max-w-3xl flex-col px-4 pb-16 pt-28 sm:pt-32">
+    {view ? (
+      <>
+        <nav aria-label="Migas de pan" class="text-sm text-vibe-muted">
+          <ol class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <li><a class="underline-offset-4 hover:underline" href="/">Inicio</a></li>
+            <li aria-hidden="true">›</li>
+            <li aria-current="page">Canchas</li>
+          </ol>
+        </nav>
+        <h1 class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{view.h1}</h1>
+        <p class="mt-3 text-base text-vibe-muted">{view.intro}</p>
+        {view.groups.map((group) => (
+          <section class="mt-10" aria-labelledby={`provincia-${group.heading.toLowerCase().replace(/\s+/g, '-')}`}>
+            <h2
+              id={`provincia-${group.heading.toLowerCase().replace(/\s+/g, '-')}`}
+              class="text-2xl font-bold tracking-tight"
+            >
+              {group.heading}
+            </h2>
+            <ul class="mt-4 flex flex-col gap-3">
+              {group.hubs.map((hub) => (
+                <li>
+                  <a
+                    href={hub.href}
+                    class="flex min-h-11 flex-col gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
+                  >
+                    <span class="text-lg font-semibold">{hub.label}</span>
+                    <span class="text-sm text-vibe-muted">
+                      {hub.sportsLine ? `${hub.sportsLine} · ${hub.complexLine}` : hub.complexLine}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </>
+    ) : (
+      <>
+        <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{unavailable.h1}</h1>
+        <p class="mt-3 text-base text-vibe-muted">{unavailable.lead}</p>
+        <a
+          href="/"
+          class="mt-6 inline-flex min-h-11 w-fit items-center rounded-full bg-vibe-green px-6 font-semibold text-vibe-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green"
+        >
+          Volvé al inicio
+        </a>
+      </>
+    )}
+  </main>
+  <Footer linkPrefix="/" logoHref="/" />
+</BookingLayout>

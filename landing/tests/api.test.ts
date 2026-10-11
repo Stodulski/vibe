@@ -92,6 +92,25 @@ test('a request that outlives the timeout is unavailable', async () => {
   await assert.rejects(api.hubData('banfield'), expectApiError('unavailable', null));
 });
 
+test('hubIndex reads the list of cities from the public hubs route', async () => {
+  const fetchImpl = fakeFetch(() =>
+    Response.json({ hubs: [{ slug: 'banfield', name: 'Banfield', province: 'Buenos Aires', complex_count: 1, sports: ['Pádel'] }] }),
+  );
+  const api = createPublicApi({ baseUrl, fetchImpl });
+
+  const index = await api.hubIndex();
+
+  assert.deepEqual(fetchImpl.calls, ['https://api.test/api/v1/public/hubs']);
+  assert.equal(index.hubs[0].slug, 'banfield');
+  assert.deepEqual(index.hubs[0].sports, ['Pádel']);
+});
+
+test('a hub index that is not a list of cities is unavailable', async () => {
+  const api = createPublicApi({ baseUrl, fetchImpl: fakeFetch(() => Response.json({ cities: [] })) });
+
+  await assert.rejects(api.hubIndex(), expectApiError('unavailable', 200));
+});
+
 test('complex reads the public record of one slug, encoded', async () => {
   const body = { complex: { slug: 'club sur' }, courts: null, schedules: [] };
   const fetchImpl = fakeFetch(() => new Response(JSON.stringify(body), { status: 200 }));

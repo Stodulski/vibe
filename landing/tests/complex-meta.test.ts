@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { complexCanonical, complexHead, jsonLdScript, joinSpanish } from '../src/lib/complex-meta.ts';
+import { DEFAULT_SHARE_IMAGE } from '../src/lib/storefront.ts';
 
 const base = {
   slug: 'club-sur',
@@ -15,8 +16,57 @@ const base = {
   services: ['Estacionamiento', 'Duchas'],
 };
 
-test('title names the club and its city, then the app', () => {
-  assert.equal(complexHead(base).title, 'Club Sur en Banfield - Reservá tu cancha | Vibe');
+test('title names the complex, its sports and its city, then the app', () => {
+  assert.equal(complexHead(base).title, 'Club Sur: canchas de pádel y tenis en Banfield | Vibe');
+});
+
+test('title falls back to the top sport when the full title is over 60 characters', () => {
+  assert.equal(
+    complexHead({ ...base, name: 'Club Sur Norte', sports: ['Pádel', 'Tenis', 'Fútbol'] }).title,
+    'Club Sur Norte: canchas de pádel en Banfield | Vibe',
+  );
+});
+
+test('title keeps the generic copy when even the top sport does not fit, or there are no sports', () => {
+  assert.equal(
+    complexHead({
+      ...base,
+      name: 'Complejo Muy Largo Con Nombre Extenso Para Probar',
+      city: 'Ciudad Con Nombre Muy Largo Tambien',
+      sports: ['Pádel', 'Tenis'],
+    }).title,
+    'Complejo Muy Largo Con Nombre Extenso Para Probar en Ciudad Con Nombre Muy Largo Tambien - Reservá tu cancha | Vibe',
+  );
+  assert.equal(complexHead({ ...base, sports: [] }).title, 'Club Sur en Banfield - Reservá tu cancha | Vibe');
+});
+
+test('description counts the courts when the payload has them', () => {
+  assert.equal(
+    complexHead({ ...base, courtCount: 3 }).description,
+    'Reservá 3 canchas de pádel y tenis en Club Sur, Banfield online. Estacionamiento, Duchas.',
+  );
+  assert.equal(
+    complexHead({ ...base, courtCount: 1 }).description,
+    'Reservá 1 cancha de pádel y tenis en Club Sur, Banfield online. Estacionamiento, Duchas.',
+  );
+  assert.equal(
+    complexHead({ ...base, courtCount: 0 }).description,
+    'Reservá canchas de pádel y tenis en Club Sur, Banfield online. Estacionamiento, Duchas.',
+  );
+});
+
+test('description stays within 155 characters by dropping the services before the place', () => {
+  const head = complexHead({
+    ...base,
+    courtCount: 3,
+    services: [
+      'Estacionamiento cubierto con acceso para autos grandes',
+      'Duchas con agua caliente las veinticuatro horas',
+      'Bar y buffet con comida casera',
+    ],
+  });
+  assert.equal(head.description, 'Reservá 3 canchas de pádel y tenis en Club Sur, Banfield online.');
+  assert.ok(head.description.length <= 155);
 });
 
 test('title drops the city when the complex has none', () => {
@@ -55,10 +105,24 @@ test('canonical is the storefront URL of the complex, with the slug encoded', ()
   assert.equal(complexHead(base).canonical, 'https://vibe.com.ar/c/club-sur');
 });
 
-test('share image is the cover, else the logo, else the app default', () => {
+test('share image is the cover, else the logo, else the site share image', () => {
   assert.equal(complexHead({ ...base, ownImage: 'https://cdn.example/cover.jpg' }).image, 'https://cdn.example/cover.jpg');
-  assert.equal(complexHead({ ...base, ownImage: null }).image, 'https://app.vibe.com.ar/logo.png');
-  assert.equal(complexHead({ ...base, ownImage: '' }).image, 'https://app.vibe.com.ar/logo.png');
+  assert.equal(complexHead({ ...base, ownImage: null }).image, 'https://vibe.com.ar/og-image.png');
+  assert.equal(complexHead({ ...base, ownImage: '' }).image, 'https://vibe.com.ar/og-image.png');
+});
+
+test('the fallback share image is the 1200x630 site image, not the 300x300 app logo', () => {
+  assert.equal(DEFAULT_SHARE_IMAGE, 'https://vibe.com.ar/og-image.png');
+});
+
+test('names are trimmed and their inner spaces collapsed before they reach the copy', () => {
+  const head = complexHead({ ...base, name: 'La  Zona ', city: ' Rosario ' });
+  assert.equal(head.title, 'La Zona: canchas de pádel y tenis en Rosario | Vibe');
+  assert.equal(head.description, 'Reservá canchas de pádel y tenis en La Zona, Rosario online. Estacionamiento, Duchas.');
+  assert.equal(
+    complexHead({ ...base, name: 'Afa ', city: 'Rosario', sports: [] }).title,
+    'Afa en Rosario - Reservá tu cancha | Vibe',
+  );
 });
 
 test('locale is es_AR', () => {

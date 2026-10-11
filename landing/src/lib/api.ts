@@ -5,6 +5,7 @@
  * dependencies and runs under node:test. The page passes PUBLIC_API_URL from astro:env.
  */
 import { InvalidHubData, parseHubData, type HubData } from './hub.ts';
+import { parseHubIndex, type HubIndex } from './hub-index.ts';
 
 /** How long a page waits for the API before it answers 503. */
 export const API_TIMEOUT_MS = 3000;
@@ -37,6 +38,8 @@ export interface PublicApi {
   /** The public complex record, unparsed. The page validates it against the booking schema. */
   complex(slug: string): Promise<unknown>;
   hubData(city: string): Promise<HubData>;
+  /** Every city that has a complex, for the city index. */
+  hubIndex(): Promise<HubIndex>;
   /** The backend's sitemap document, unfiltered. */
   sitemapXml(): Promise<string>;
 }
@@ -90,6 +93,15 @@ export function createPublicApi({
       const json = await getJson(`/public/hubs/${encodeURIComponent(city)}/data`);
       try {
         return parseHubData(json);
+      } catch (cause) {
+        if (cause instanceof InvalidHubData) throw new ApiError('unavailable', 200, { cause });
+        throw cause;
+      }
+    },
+    async hubIndex() {
+      const json = await getJson('/public/hubs');
+      try {
+        return parseHubIndex(json);
       } catch (cause) {
         if (cause instanceof InvalidHubData) throw new ApiError('unavailable', 200, { cause });
         throw cause;

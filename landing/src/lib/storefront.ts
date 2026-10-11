@@ -37,8 +37,11 @@ export function storefrontRobots(pathname: string, status = 200): string {
 /** The description the app ships in index.html, for pages with no complex of their own. */
 export const DEFAULT_DESCRIPTION = 'Reserva canchas de pádel, tenis y fútbol de forma rápida y segura.';
 
-/** The app's default share image, used when a complex has neither a cover nor a logo. */
-export const DEFAULT_SHARE_IMAGE = 'https://app.vibe.com.ar/logo.png';
+/**
+ * The site's default share image (1200x630), used when a page has no picture of its own.
+ * The app logo is 300x300 and is not a share image.
+ */
+export const DEFAULT_SHARE_IMAGE = 'https://vibe.com.ar/og-image.png';
 
 /**
  * The config the booking entries run with on the storefront. The API base is absolute,

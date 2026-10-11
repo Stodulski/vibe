@@ -13,6 +13,10 @@ const STOREFRONT_PREFIXES = [`${STOREFRONT_ORIGIN}/c/`, `${STOREFRONT_ORIGIN}/ca
 /** Exactly one path segment after the prefix: no further path, query, fragment or whitespace. */
 const SLUG = /^[^/?#\s]+$/;
 
+/** The city index at /canchas, added by the landing to every storefront sitemap. */
+const STOREFRONT_INDEX = `${STOREFRONT_ORIGIN}/canchas`;
+const INDEX_ENTRY = `  <url>\n    <loc>${STOREFRONT_INDEX}</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>`;
+
 /** Whether a <loc> is a complex page or a city hub on this origin. */
 export function isStorefrontLoc(loc: string): boolean {
   return STOREFRONT_PREFIXES.some((prefix) => loc.startsWith(prefix) && SLUG.test(loc.slice(prefix.length)));
@@ -47,8 +51,9 @@ export function filterStorefrontSitemap(xml: string): FilteredSitemap {
     throw new InvalidSitemap('backend sitemap is not a complete urlset');
   }
 
-  const entries: string[] = [];
-  const kept: string[] = [];
+  // The city index is served by this landing, so the backend's sitemap cannot list it.
+  const entries: string[] = [INDEX_ENTRY];
+  const kept: string[] = [STOREFRONT_INDEX];
   const dropped: string[] = [];
   for (const block of xml.match(URL_BLOCK) ?? []) {
     const loc = block.match(LOC)?.[1] ?? '';

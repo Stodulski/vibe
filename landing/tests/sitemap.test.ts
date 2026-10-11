@@ -50,10 +50,14 @@ test('the filter keeps the storefront entries with their metadata and reports th
       'https://vibe.com.ar/',
     ),
   );
-  assert.deepEqual(kept, ['https://vibe.com.ar/c/club-sur', 'https://vibe.com.ar/canchas/banfield']);
+  assert.deepEqual(kept, [
+    'https://vibe.com.ar/canchas',
+    'https://vibe.com.ar/c/club-sur',
+    'https://vibe.com.ar/canchas/banfield',
+  ]);
   assert.deepEqual(dropped, ['https://app.vibe.com.ar/c/club-sur', 'https://vibe.com.ar/']);
   assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'));
-  assert.equal((xml.match(/<url>/g) ?? []).length, 2);
+  assert.equal((xml.match(/<url>/g) ?? []).length, 3);
   assert.ok(xml.includes('<lastmod>2026-10-01</lastmod>'));
   assert.equal(xml.includes('app.vibe.com.ar'), false);
   assert.ok(xml.endsWith('</urlset>\n'));
@@ -65,11 +69,18 @@ test('a backend answer that is not a complete urlset is refused', () => {
   assert.throws(() => filterStorefrontSitemap(backend('https://vibe.com.ar/c/a').slice(0, -20)), InvalidSitemap);
 });
 
-test('a complete urlset with no storefront entries is a valid, empty answer', () => {
+test('a complete urlset with no storefront entries lists only the city index', () => {
   const { xml, kept, dropped } = filterStorefrontSitemap(backend('https://app.vibe.com.ar/c/a'));
-  assert.deepEqual(kept, []);
+  assert.deepEqual(kept, ['https://vibe.com.ar/canchas']);
   assert.equal(dropped.length, 1);
-  assert.equal(xml.includes('<url>'), false);
+  assert.equal((xml.match(/<url>/g) ?? []).length, 1);
+  assert.ok(xml.includes('<loc>https://vibe.com.ar/canchas</loc>'));
+});
+
+test('the city index is listed by the landing, which the backend cannot list', () => {
+  assert.equal(isStorefrontLoc('https://vibe.com.ar/canchas'), false);
+  const { kept } = filterStorefrontSitemap(backend());
+  assert.deepEqual(kept, ['https://vibe.com.ar/canchas']);
 });
 
 test('404 while the switch is off, and the API is not read', async () => {
