@@ -43,8 +43,8 @@ test.describe('Owner creates a booking end-to-end', () => {
     // timeout fires, not a real assertion failure (the dialog and submit
     // button were both still present in the page snapshot at that instant).
     // Three real UI steps plus their own network round trips is exactly the
-    // kind of flow that needs `test.slow()`: well past the default 30s test
-    // timeout under `make e2e`.
+    // kind of flow public-booking.spec.ts's own `test.slow()` comment
+    // describes ("well past the default 30s test timeout under `make e2e`").
     test.slow();
     await gotoBookings(page);
 
