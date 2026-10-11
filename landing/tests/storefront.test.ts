@@ -10,6 +10,7 @@ import {
   storefrontBookingConfig,
   storefrontRobots,
   STOREFRONT_CSP_REPORT_ONLY,
+  STOREFRONT_REPORTING_ENDPOINTS,
 } from '../src/lib/storefront.ts';
 
 test('a successful answer follows the indexable switch', () => {
@@ -51,8 +52,13 @@ test('the storefront CSP is report-only policy that keeps the directives the flo
   assert.ok(directives.some((d) => d.startsWith('img-src ') && d.includes('https://*.tile.openstreetmap.org')));
 });
 
-test('the storefront CSP names no report endpoint and no Turnstile host', () => {
-  assert.ok(!STOREFRONT_CSP_REPORT_ONLY.includes('report-uri'));
-  assert.ok(!STOREFRONT_CSP_REPORT_ONLY.includes('report-to'));
+test('the storefront CSP reports to the same-origin /_r/s endpoint, as the app does', () => {
+  const directives = STOREFRONT_CSP_REPORT_ONLY.split('; ');
+  assert.ok(directives.includes('report-uri /_r/s'));
+  assert.ok(directives.includes('report-to csp-endpoint'));
+  assert.equal(STOREFRONT_REPORTING_ENDPOINTS, 'csp-endpoint="https://vibe.com.ar/_r/s"');
+});
+
+test('the storefront CSP names no Turnstile host (the booking flow loads none)', () => {
   assert.ok(!STOREFRONT_CSP_REPORT_ONLY.includes('challenges.cloudflare.com'));
 });

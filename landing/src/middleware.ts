@@ -1,5 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
-import { STOREFRONT_CSP_REPORT_ONLY, storefrontRobots } from './lib/storefront.ts';
+import { STOREFRONT_CSP_REPORT_ONLY, STOREFRONT_REPORTING_ENDPOINTS, storefrontRobots } from './lib/storefront.ts';
 
 /**
  * Headers for the server-rendered routes. vercel.json's header rules are written for
@@ -20,6 +20,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   headers.set('X-Robots-Tag', storefrontRobots(pathname, response.status));
   if (pathname.startsWith('/c/')) {
     headers.set('Content-Security-Policy-Report-Only', STOREFRONT_CSP_REPORT_ONLY);
+    headers.set('Reporting-Endpoints', STOREFRONT_REPORTING_ENDPOINTS);
   }
 
   return new Response(response.body, {

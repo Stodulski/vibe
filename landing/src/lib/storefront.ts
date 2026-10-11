@@ -77,4 +77,13 @@ export const STOREFRONT_CSP_REPORT_ONLY = [
   "connect-src 'self' https://api.vibe.com.ar https://vibe.com.ar",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
+  "report-uri /_r/s",
+  "report-to csp-endpoint",
 ].join('; ');
+
+/**
+ * The Reporting API group that `report-to csp-endpoint` names. It is sent as a header
+ * on the storefront responses only, so the static pages' headers do not change. The
+ * endpoint is this site's /_r/s, which vercel.json rewrites to the app's Sentry intake.
+ */
+export const STOREFRONT_REPORTING_ENDPOINTS = 'csp-endpoint="https://vibe.com.ar/_r/s"';
