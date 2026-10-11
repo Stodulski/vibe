@@ -1,0 +1,298 @@
+/*
+ * Base styles of the public surfaces: the booking flow, the storefront on vibe.com.ar
+ * and the app's auth and public pages. These are element rules (body, html, focus,
+ * touch targets, scrollbars, disabled and invalid fields, reduced motion) and the few
+ * utility classes the shared components rely on. The app imports it from
+ * frontend/src/styles/globals.css, the storefront from landing/src/styles/storefront.css.
+ * Owner-panel rules stay in the frontend.
+ */
+
+/* Two deliberate choices packed into one line.
+   `clip` rather than `hidden`: both refuse a horizontal scrollbar, but `hidden`
+   makes the element a scroll container, and a scroll container here is what
+   every `position: sticky` descendant then tries to stick inside — so they all
+   silently stopped sticking. `clip` cuts the overflow without creating one.
+   On `body` alone, not `html`: the viewport takes its overflow from `html`, and
+   only falls through to `body` while `html` is `visible`. Declaring it on
+   `html` captured that fall-through, so the `overflow: hidden` Radix puts on
+   the body to lock the page behind a dialog reached nothing and the page still
+   scrolled with a drawer open. */
+body {
+  overflow-x: clip;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-color: var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+  /* 44px is the touch-target floor, but on a textarea this selector outranks
+     the utility class a component sets, so a notes field asking for three
+     lines collapsed to one. Keep the floor, let the component ask for more. */
+  textarea {
+    min-height: max(44px, var(--textarea-min-height, 0px));
+  }
+  [data-slot='switch'],
+  [data-slot='checkbox'],
+  [data-slot='dialog-close'],
+  [data-slot='sheet-close'],
+  [data-slot='select-scroll-up-button'],
+  [data-slot='select-scroll-down-button'] {
+    min-height: 0;
+  }
+  /* Better touch targets for select items on touch devices */
+  [data-slot='select-item'] {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* The page is the scroller now; `main` no longer has a scrollbar of its own. */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Radix locks the page behind a dialog through react-remove-scroll, which
+   assumes it is about to make a scrollbar vanish and re-reserves that width as
+   `margin-right: <gap>px !important` on the body. The gutter above never
+   vanishes, so both reservations applied at once and the content slid a
+   scrollbar's width to the left every time a modal or drawer opened — while
+   the masthead and sidebar held still, being `fixed` against the viewport.
+   One reservation is enough, and the gutter is the one that also spares us a
+   jump when moving between a page that scrolls and one that doesn't.
+   `html` prefixed only to outrank the library's own `!important`. */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary-500) 30%, transparent);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-primary-500) 50%, transparent);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-primary-500) 30%, transparent) transparent;
+}
+
+/* A thin brand-green bar for horizontal chip sliders. Chromium and WebKit
+   only honour ::-webkit-scrollbar while scrollbar-width/-color are `auto`, so
+   the global `* { scrollbar-width: thin }` is reset here; Firefox, which has
+   no such pseudo-elements, gets the standard properties instead. */
+.scrollbar-accent {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+.scrollbar-accent::-webkit-scrollbar {
+  height: 4px;
+}
+.scrollbar-accent::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-accent::-webkit-scrollbar-thumb,
+.scrollbar-accent::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-500);
+  border-radius: 999px;
+}
+@supports (-moz-appearance: none) {
+  .scrollbar-accent {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-primary-500) transparent;
+  }
+}
+
+/* Scrolls, but shows no bar — for surfaces that already advertise the movement
+   some other way (arrows, a partly-cut item at the edge). */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+
+.animate-spring-scale {
+  animation: fade-in 300ms var(--ease-out) backwards;
+}
+
+@keyframes progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.animate-progress-120s {
+  animation: progress-fill 120s linear both;
+  transform-origin: left center;
+  will-change: transform;
+  contain: layout style;
+}
+
+.animate-ping-limited {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) 3;
+}
+
+/* Optimized transitions for form controls (color, bg, border, ring, opacity) */
+.transition-input {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-timing-function: var(--ease-out);
+  transition-duration: 200ms;
+}
+
+/* Pause animations when tab is hidden */
+.tab-hidden .animate-progress-120s,
+.tab-hidden .animate-ping-limited,
+.tab-hidden .animate-spin {
+  animation-play-state: paused !important;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.dot-grid {
+  background-image: radial-gradient(var(--color-wash-white) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.safe-area-inset {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
+.safe-area-x {
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+
+.press-scale {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.press-scale:active {
+  transform: scale(0.98);
+}
+
+[aria-invalid='true'] {
+  border-color: var(--color-error-border);
+}
+/* react-hook-form focuses the first invalid field on submit, so the global
+   :focus-visible ring above can land on an aria-invalid field at the same
+   time — keep the ring red there instead of green-over-red. */
+[aria-invalid='true']:focus-visible {
+  outline-color: var(--color-error-border);
+}
+[aria-disabled='true'],
+:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Opts a disabled element out of the opacity above, the same way
+ * `.focus-self` opts one out of the global focus ring below: a Tailwind
+ * `opacity-100` utility lives in `@layer utilities` and cannot outrank an
+ * unlayered `:disabled` selector no matter how specific it is, layered or
+ * not. A closed public-booking date (`DateButton`) needs this — it already
+ * reads as unavailable through color alone (a quiet border, no fill, dimmed
+ * numerals), and the 50% opacity above would wash its own "Cerrado" label
+ * back down toward the ~1.6:1 the old `opacity-30` on the whole button left
+ * it at (odd/tasks/app-dark-contrast.md T4). */
+.opacity-self:disabled {
+  opacity: 1;
+}
+
+/* Smooth error message animation */
+@keyframes error-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+[role='alert'] {
+  animation: error-in 200ms var(--ease-out) backwards;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  button,
+  [role='button'],
+  a,
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'],
+  select,
+  label,
+  summary,
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'] {
+    cursor: pointer;
+  }
+}
