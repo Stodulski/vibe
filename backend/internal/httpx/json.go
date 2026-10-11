@@ -172,6 +172,7 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 // space) and unexported fields are left as they were. Non-string values are
 // never changed, and nil pointers are skipped.
 func trimStrings(v reflect.Value) {
+	//exhaustive:ignore // only kinds that can hold text are walked; numbers, booleans and the rest carry none.
 	switch v.Kind() {
 	case reflect.Pointer, reflect.Interface:
 		if !v.IsNil() {
