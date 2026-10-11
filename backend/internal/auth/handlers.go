@@ -90,7 +90,7 @@ func (h *Handler) checkTurnstile(w http.ResponseWriter, r *http.Request, token s
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Email          string `json:"email"`
-		Password       string `json:"password"`
+		Password       string `json:"password" trim:"-"`
 		FirstName      string `json:"first_name"`
 		LastName       string `json:"last_name"`
 		Phone          string `json:"phone"`
@@ -152,7 +152,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Email          string `json:"email"`
-		Password       string `json:"password"`
+		Password       string `json:"password" trim:"-"`
 		TurnstileToken string `json:"turnstile_token"`
 	}
 
@@ -400,8 +400,8 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		FirstName       *string `json:"first_name"`
 		LastName        *string `json:"last_name"`
 		Phone           *string `json:"phone"`
-		CurrentPassword *string `json:"current_password"`
-		NewPassword     *string `json:"new_password"`
+		CurrentPassword *string `json:"current_password" trim:"-"`
+		NewPassword     *string `json:"new_password" trim:"-"`
 	}
 
 	err := httpx.ReadJSON(w, r, &input)
@@ -529,7 +529,13 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 // ResetPassword handles POST /api/v1/auth/reset-password. The link is
 // single-use, and using it ends every session the account had open.
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	var body gen.AuthResetPasswordJSONBody
+	// Local struct rather than gen.AuthResetPasswordJSONBody, so the password's
+	// trim:"-" opt-out is visible where it is decoded. The generated type carries
+	// the same tag (openapi.yaml, x-oapi-codegen-extra-tags).
+	var body struct {
+		Password string `json:"password" trim:"-"`
+		Token    string `json:"token"`
+	}
 	err := httpx.ReadJSON(w, r, &body)
 	if err != nil {
 		h.respond.BadRequest(w, r, err)

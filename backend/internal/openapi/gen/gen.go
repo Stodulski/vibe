@@ -2741,19 +2741,19 @@ type AuthGoogleFinish200JSONResponseBody1NeedsProfile bool
 // AuthLoginJSONBody defines parameters for AuthLogin.
 type AuthLoginJSONBody struct {
 	Email          string  `json:"email"`
-	Password       string  `json:"password"`
+	Password       string  `json:"password" trim:"-"`
 	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
 // AuthUpdateCurrentUserJSONBody defines parameters for AuthUpdateCurrentUser.
 type AuthUpdateCurrentUserJSONBody struct {
-	CurrentPassword *string `json:"current_password,omitempty"`
+	CurrentPassword *string `json:"current_password,omitempty" trim:"-"`
 
 	// Email A value different from the current address creates a pending email-change request instead of changing it; see this operation's description.
 	Email       *string `json:"email,omitempty"`
 	FirstName   *string `json:"first_name,omitempty"`
 	LastName    *string `json:"last_name,omitempty"`
-	NewPassword *string `json:"new_password,omitempty"`
+	NewPassword *string `json:"new_password,omitempty" trim:"-"`
 	Phone       *string `json:"phone,omitempty"`
 }
 
@@ -2765,7 +2765,7 @@ type AuthRegisterJSONBody struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
-	Password  string `json:"password"`
+	Password  string `json:"password" trim:"-"`
 
 	// Phone Normalized server-side to E.164.
 	Phone string `json:"phone"`
@@ -2782,7 +2782,7 @@ type AuthResendVerificationJSONBody struct {
 
 // AuthResetPasswordJSONBody defines parameters for AuthResetPassword.
 type AuthResetPasswordJSONBody struct {
-	Password string `json:"password"`
+	Password string `json:"password" trim:"-"`
 	Token    string `json:"token"`
 }
 

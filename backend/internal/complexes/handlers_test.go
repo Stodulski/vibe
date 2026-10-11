@@ -49,6 +49,27 @@ func TestCreatePersistsAndAudits(t *testing.T) {
 	}
 }
 
+// Owner-typed text reaches the handler with its surrounding whitespace, and the
+// request decoder strips it before anything is stored: a stored "Afa " is what
+// leaked into the storefront's SEO title.
+func TestCreateStoresTheTrimmedText(t *testing.T) {
+	f := newFixture(t)
+	body := strings.Replace(validComplex, `"name":"Vibe Palermo"`, `"name":"  Afa \t"`, 1)
+
+	w := httptest.NewRecorder()
+	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, nil, body))
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.inserted == nil {
+		t.Fatal("the complex was not persisted")
+	}
+	if f.store.inserted.Name != "Afa" {
+		t.Errorf("name: want %q stored; got %q", "Afa", f.store.inserted.Name)
+	}
+}
+
 // An explicit empty amenities list must persist and echo back the same as an
 // omitted one: both mean "no amenities", and the client must not have to tell
 // them apart.
@@ -226,6 +247,8 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 		body string
 	}{
 		{"no name", `{"name":"","slug":"vibe","address":"a","city":"c","province":"p","phone":"1","cancellation_hours":24}`},
+		{"whitespace-only name is empty", `{"name":" \t ","slug":"vibe","address":"a","city":"c","province":"p","phone":"1","cancellation_hours":24}`},
+		{"whitespace-only address is empty", `{"name":"V","slug":"vibe","address":"   ","city":"c","province":"p","phone":"1","cancellation_hours":24}`},
 		{"empty slug", `{"name":"V","slug":"","address":"a","city":"c","province":"p","phone":"1","cancellation_hours":24}`},
 		{"slug of only punctuation", `{"name":"V","slug":"!!!","address":"a","city":"c","province":"p","phone":"1","cancellation_hours":24}`},
 		{"deposit over 100", `{"name":"V","slug":"vibe","address":"a","city":"c","province":"p","phone":"1","deposit_percentage":150,"cancellation_hours":24}`},

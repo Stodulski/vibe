@@ -46,6 +46,7 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 		body string
 	}{
 		{"no name", `{"name":"","sport":"padel","court_type":"indoor"}`},
+		{"whitespace-only name is empty", `{"name":" \t ","sport":"padel","court_type":"indoor"}`},
 		{"unknown sport", `{"name":"C1","sport":"cricket","court_type":"indoor"}`},
 		{"unknown surface", `{"name":"C1","sport":"padel","court_type":"rooftop"}`},
 	}
@@ -68,6 +69,25 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 				t.Error("a rejected create must not be audited")
 			}
 		})
+	}
+}
+
+func TestCreateStoresTheTrimmedName(t *testing.T) {
+	store := &stubStore{}
+	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+
+	w := httptest.NewRecorder()
+	h.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil,
+		`{"name":"  Court 1 \n","sport":"padel","court_type":"indoor"}`))
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+	if store.inserted == nil {
+		t.Fatal("the court was not persisted")
+	}
+	if store.inserted.Name != "Court 1" {
+		t.Errorf("name: want %q stored; got %q", "Court 1", store.inserted.Name)
 	}
 }
 

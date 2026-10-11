@@ -52,6 +52,9 @@ type stubUsers struct {
 	deleted         *uuid.UUID
 	verified        *uuid.UUID
 	passwordUpdated *uuid.UUID
+	// passwordHash is the hash the last credential reset persisted, so a test
+	// can check which password bytes it was made from.
+	passwordHash    []byte
 	failedIncrement int
 	failedReset     int
 }
@@ -138,11 +141,12 @@ func (s *stubUsers) SetEmailVerified(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *stubUsers) UpdatePassword(_ context.Context, id uuid.UUID, _ []byte) error {
+func (s *stubUsers) UpdatePassword(_ context.Context, id uuid.UUID, hash []byte) error {
 	if s.updatePasswordErr != nil {
 		return s.updatePasswordErr
 	}
 	s.passwordUpdated = &id
+	s.passwordHash = hash
 	return nil
 }
 
