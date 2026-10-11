@@ -153,8 +153,6 @@ const config: UserConfig = {
           // PWA answers a navigation to them with the SPA shell, and the router
           // reads "sitemap.xml" as a complex slug ("Complejo no encontrado").
           /\/[^/]+\.[a-z0-9]+$/i,
-          // City hub pages, rendered by the backend (vercel.json), not the router.
-          /^\/canchas\//,
         ],
         // index.html stays in the precache, so the navigation route above
         // serves it cache-first rather than network-first. That is deliberate
@@ -167,29 +165,10 @@ const config: UserConfig = {
         // update check plus the toast is what makes a new build visible.
         // Declared rather than inherited from the plugin default, so the
         // precache purge is part of this config's contract (PWA-08). It only
-        // drops stale *precaches*; the runtime cache below is purged from the
-        // client by src/shared/lib/apiCache.ts.
+        // drops stale *precaches*; responses an older build left in the runtime
+        // cache are purged from the client by src/shared/lib/apiCache.ts.
         cleanupOutdatedCaches: true,
         runtimeCaching: [
-          {
-            // Only the unauthenticated public booking endpoints are cached.
-            // Everything else under /api/v1 is deliberately absent from
-            // runtimeCaching, so the worker never handles it and the request
-            // goes straight to the network: auth travels in a cookie, and a
-            // NetworkFirst rule over the whole API left other people's
-            // bookings and clients readable in the browser's Cache Storage
-            // after logout (PWA-03). The public cache is still purged on
-            // logout by src/shared/lib/apiCache.ts, which owns this name.
-            urlPattern: /\/api\/v1\/public\//,
-            handler: 'NetworkFirst',
-            options: {
-              // Must match API_CACHE_NAME in src/shared/lib/apiCache.ts, which purges
-              // this cache on logout; that module cannot be imported here (it uses
-              // the browser Cache API), so apiCache.test.ts pins the two in lockstep.
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-            },
-          },
           {
             urlPattern: /\.woff2$/,
             handler: 'CacheFirst',
@@ -216,13 +195,6 @@ const config: UserConfig = {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
     },
-  },
-  optimizeDeps: {
-    // The storefront map (leaflet and its React binding, owned by @vibe/booking) is a
-    // CJS dependency. Discovered lazily, it can trigger a mid-session
-    // re-optimization and a full dev-server reload the first time a map
-    // renders (BLD-05).
-    include: ['@vibe/booking > leaflet', '@vibe/booking > react-leaflet'],
   },
   build: {
     // Matches the `browserslist` entry in package.json so the target is

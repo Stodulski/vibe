@@ -35,5 +35,4 @@ describe('AppHeader', () => {
     const link = screen.getByAltText('Vibe').closest('a');
     expect(link).toHaveAttribute('href', '/');
   });
-
 });

@@ -1,7 +1,7 @@
 /**
- * Name of the Workbox runtime cache declared in `vite.config.ts`. It holds
- * responses from the public booking endpoints only — every authenticated
- * route is left out of `runtimeCaching` on purpose (PWA-03).
+ * Name of the runtime cache that older builds wrote public API responses to.
+ * No current build caches anything under this name, so the purge below only
+ * clears what an earlier build left behind.
  */
 export const API_CACHE_NAME = 'api-cache';
 
@@ -12,9 +12,7 @@ export const API_CACHE_NAME = 'api-cache';
  * reasons, both about what the *next* person to use the browser sees:
  *
  * - After logout nothing that belonged to a session may stay readable in the
- *   origin's Cache Storage, even though only public endpoints are cached
- *   today — the guarantee should not depend on which routes are cached this
- *   month (PWA-03).
+ *   origin's Cache Storage, including responses an earlier build cached (PWA-03).
  * - After an update the new worker would otherwise keep serving the previous
  *   build's API responses for up to the entry's `maxAgeSeconds` (PWA-08).
  *
