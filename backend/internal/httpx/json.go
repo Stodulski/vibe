@@ -14,6 +14,7 @@ import (
 	"maps"
 	"mime"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -149,11 +150,68 @@ func WriteProblemJSON(w http.ResponseWriter, status int, problem Problem) error 
 // UnsupportedMediaTypeError before the body is touched). Unknown fields are
 // rejected, the body is capped at MaxJSONBody, and every decoding failure is
 // translated into a message safe to return to the client.
+//
+// Once the body decodes, every string in dst is trimmed of surrounding
+// whitespace (see trimStrings), so a handler validating "required" sees "   "
+// as the empty string it means, and no stored text carries a stray space.
 func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	if err := checkJSONContentType(r); err != nil {
 		return err
 	}
-	return decodeJSON(w, r, dst)
+	if err := decodeJSON(w, r, dst); err != nil {
+		return err
+	}
+	trimStrings(reflect.ValueOf(dst))
+	return nil
+}
+
+// trimStrings strips leading and trailing whitespace from every string a
+// decoded request carries: string and *string fields, slices and arrays,
+// map values, and whatever nested structs or pointers hold them. A field
+// tagged `trim:"-"` (a password, which may legitimately start or end with a
+// space) and unexported fields are left as they were. Non-string values are
+// never changed, and nil pointers are skipped.
+func trimStrings(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		if !v.IsNil() {
+			trimStrings(v.Elem())
+		}
+
+	case reflect.Struct:
+		t := v.Type()
+		for i := range v.NumField() {
+			field := t.Field(i)
+			if (!field.IsExported() && !field.Anonymous) || field.Tag.Get("trim") == "-" {
+				continue
+			}
+			trimStrings(v.Field(i))
+		}
+
+	case reflect.Slice, reflect.Array:
+		// A byte slice is binary (base64 or raw), never owner-typed text.
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return
+		}
+		for i := range v.Len() {
+			trimStrings(v.Index(i))
+		}
+
+	case reflect.Map:
+		iter := v.MapRange()
+		for iter.Next() {
+			// Map values are not addressable, so trim a settable copy and store it back.
+			value := reflect.New(v.Type().Elem()).Elem()
+			value.Set(iter.Value())
+			trimStrings(value)
+			v.SetMapIndex(iter.Key(), value)
+		}
+
+	case reflect.String:
+		if v.CanSet() {
+			v.SetString(strings.TrimSpace(v.String()))
+		}
+	}
 }
 
 // ReadJSONAnyContentType decodes exactly like ReadJSON, but skips the
@@ -170,6 +228,7 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 // credential for the Content-Type check to protect, and skipping it here
 // reopens nothing ReadJSON's default closes on the routes that do mint one.
 func ReadJSONAnyContentType(w http.ResponseWriter, r *http.Request, dst any) error {
+	// Deliberately no trimStrings: third-party payloads must reach the handler exactly as sent.
 	return decodeJSON(w, r, dst)
 }
 
