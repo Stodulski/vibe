@@ -3,7 +3,7 @@
  * City hub at /canchas/[city], rendered on each request from the public API so it
  * always lists the live complexes. The answers are 200 for a city with complexes,
  * 404 for a city without any, and 503 with Retry-After when the read fails.
- * Nothing here is indexable until STOREFRONT_INDEXABLE flips at the cutover.
+ * Indexing follows STOREFRONT_INDEXABLE.
  */
 import { PUBLIC_API_URL } from 'astro:env/server';
 import BookingLayout from '../../layouts/BookingLayout.astro';

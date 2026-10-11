@@ -624,8 +624,7 @@ async function testGuias() {
 }
 
 /**
- * The city hub is rendered on the server from the public API and stays noindex
- * until the cutover. It reads live data, so it runs only when asked:
+ * The city hub is rendered on the server from the public API and is indexable. It reads live data, so it runs only when asked:
  * SMOKE_HUBS=1 node tests/smoke.mjs
  */
 async function testCanchas() {
@@ -634,8 +633,8 @@ async function testCanchas() {
 
   const hub = await p.request.get(BASE + '/canchas/banfield');
   check('/canchas/banfield answers 200', hub.status() === 200, `${hub.status()}`);
-  check('/canchas/banfield is noindex until the cutover',
-    /noindex/.test(hub.headers()['x-robots-tag'] || ''));
+  check('/canchas/banfield is indexable',
+    hub.headers()['x-robots-tag'] === 'index, follow', hub.headers()['x-robots-tag']);
   check('/canchas/banfield is cached at the CDN',
     /s-maxage=\d+/.test(hub.headers()['cache-control'] || ''));
 
@@ -651,8 +650,8 @@ async function testCanchas() {
 }
 
 /**
- * The storefront routes (/c/*) are rendered on the server and stay noindex until the
- * cutover. They read live data, so they run only when asked:
+ * The storefront page (/c/<slug>) is rendered on the server and is indexable; the
+ * booking steps stay noindex. They read live data, so they run only when asked:
  * SMOKE_STOREFRONT=1 [SMOKE_STOREFRONT_SLUG=la-zona-f5] node tests/smoke.mjs
  */
 async function testStorefront() {
@@ -662,7 +661,7 @@ async function testStorefront() {
 
   const complex = await p.request.get(`${BASE}/c/${slug}`, { maxRedirects: 0 });
   check(`/c/${slug} answers 200`, complex.status() === 200, `${complex.status()}`);
-  check(`/c/${slug} is noindex until the cutover`, /noindex/.test(complex.headers()['x-robots-tag'] || ''));
+  check(`/c/${slug} is indexable`, complex.headers()['x-robots-tag'] === 'index, follow', complex.headers()['x-robots-tag']);
   check(`/c/${slug} is cached at the CDN`, /s-maxage=\d+/.test(complex.headers()['cache-control'] || ''));
   check(`/c/${slug} sends the storefront CSP in report-only`,
     /default-src 'self'/.test(complex.headers()['content-security-policy-report-only'] || ''));

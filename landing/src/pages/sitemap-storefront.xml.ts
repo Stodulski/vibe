@@ -2,7 +2,7 @@
  * GET /sitemap-storefront.xml: the complex pages and city hubs the storefront serves,
  * taken from the backend sitemap. Answered on demand so each request sees the API.
  *
- * The route is 404 until STOREFRONT_INDEXABLE flips at the cutover. The `.xml` filename
+ * The route is 404 while STOREFRONT_INDEXABLE is off. The `.xml` filename
  * routes as-is: Astro serves `name.xml.ts` at `/name.xml`, the same as `rss.xml.ts`.
  */
 import { PUBLIC_API_URL } from 'astro:env/server';
