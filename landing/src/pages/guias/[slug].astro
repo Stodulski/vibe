@@ -10,7 +10,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { guias, comparaciones } from '../../data/guias';
+import { guias, comparaciones, guiaTitle } from '../../data/guias';
 import { guiaJsonLd } from '../../data/jsonld';
 import { fechaEnTexto } from '../../data/mercadopago-costos.ts';
 
@@ -22,7 +22,7 @@ const { guia } = Astro.props;
 const canonical = `https://vibe.com.ar/guias/${guia.slug}`;
 ---
 <BaseLayout
-  title={guia.seoTitle}
+  title={guiaTitle(guia)}
   description={guia.metaDescription}
   canonical={canonical}
   date={guia.dateModified}

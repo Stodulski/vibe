@@ -6,8 +6,11 @@ import WhatsappFab from '../components/WhatsappFab.astro';
 export interface Props {
   title: string;
   description: string;
-  /** Absolute canonical URL. Also used for the three hreflang alternates. */
-  canonical: string;
+  /**
+   * Absolute canonical URL. Omit it on noindex pages: a page that is not indexed
+   * must not name another URL as its canonical. Its Markdown twin is derived from it.
+   */
+  canonical?: string;
   date?: string;
   appleTouchIcon?: string;
   ogTitle: string;
@@ -58,6 +61,18 @@ const {
 } = Astro.props;
 
 const blobList = Array.from({ length: blobs });
+
+/*
+ * The Markdown twin of a page, by the same flat name build-markdown.mjs writes
+ * (fileNameOf) and vercel.json declares in its Link header: "/" -> index.md,
+ * "/guias/x" -> guias-x.md.
+ */
+function gemeloMarkdown(canonical: string): string {
+  const ruta = new URL(canonical).pathname.replace(/\/+$/, '');
+  const archivo = ruta === '' ? 'index' : ruta.slice(1).replace(/\//g, '-');
+  return `https://vibe.com.ar/${archivo}.md`;
+}
+const markdownHref = canonical ? gemeloMarkdown(canonical) : undefined;
 ---
 <!DOCTYPE html>
 <html lang="es-AR">
@@ -67,11 +82,8 @@ const blobList = Array.from({ length: blobs });
   <title>{title}</title>
   <meta content={description} name="description"/>
   <meta content={robots} name="robots"/>
-  <link href={canonical} rel="canonical"/>
-  <link href={canonical} hreflang="es-AR" rel="alternate"/>
-  <link href={canonical} hreflang="es" rel="alternate"/>
-  <link href={canonical} hreflang="x-default" rel="alternate"/>
-  <link href={canonical} rel="alternate" type="text/markdown"/>
+  {canonical && <link href={canonical} rel="canonical"/>}
+  {markdownHref && <link href={markdownHref} rel="alternate" type="text/markdown"/>}
   <meta content="#0b0b0b" name="theme-color"/>
   <meta content="Vibe" name="author"/>
   {date && <meta content={date} name="date"/>}

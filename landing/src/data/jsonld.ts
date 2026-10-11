@@ -6,13 +6,17 @@ import type { Tutorial } from './tutoriales.ts';
 import { ULTIMA_ACTUALIZACION as TUTORIALES_ULTIMA_ACTUALIZACION } from './tutoriales.ts';
 import { faq } from './faq.ts';
 
+/* Un Article pide `image` absoluta. Las guías y los tutoriales no tienen imagen
+   propia, así que van con la del sitio, que ya mide 1200x630. */
+const IMAGEN_ARTICULO = 'https://vibe.com.ar/og-image.png';
+
 export const homeJsonLd: string[] = [
 `   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Vibe",
     "description": "Sistema de gestión gratis para complejos deportivos: cobros en el mostrador, caja por turno con arqueo, venta de productos con stock, clientes, reportes y reservas online con seña.",
-    "url": "https://vibe.com.ar",
+    "url": "https://vibe.com.ar/",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "offers": {
@@ -39,7 +43,7 @@ export const homeJsonLd: string[] = [
     "author": {
       "@type": "Organization",
       "name": "Vibe",
-      "url": "https://vibe.com.ar"
+      "url": "https://vibe.com.ar/"
     },
     "inLanguage": "es-AR",
     "areaServed": {
@@ -53,7 +57,6 @@ export const homeJsonLd: string[] = [
     "datePublished": "${PUBLISHED}",
     "dateModified": "${LAST_MODIFIED}"
   }`,
-`   {"@context":"https://schema.org","@type":"HowTo","name":"Cómo empezar con Vibe en tu complejo deportivo","description":"En cuatro pasos: cargás el complejo, compartís tu link, recibís reservas con seña y abrís la caja.","step":[{"@type":"HowToStep","position":1,"name":"Cargá tu complejo","text":"Canchas, horarios y precios. Conectás MercadoPago y las señas online quedan andando."},{"@type":"HowToStep","position":2,"name":"Compartí tu link","text":"Tu complejo tiene su propia página. Pegala en Instagram, en Google Maps y en el WhatsApp."},{"@type":"HowToStep","position":3,"name":"Dejá que reserven solos","text":"Entran reservas con seña, a cualquier hora. Las ves en la grilla, con lo que falta cobrar."},{"@type":"HowToStep","position":4,"name":"Abrí la caja y vendé","text":"Cobrás lo que falta, vendés lo del bar y al cerrar el turno la cuenta ya está hecha."}]}`,
 /* El FAQPage se arma desde la misma fuente que renderiza la FAQ visible. Antes
    estaban las nueve respuestas escritas de nuevo acá, y Google descuenta el
    structured data que no coincide con lo que dice la pagina. */
@@ -66,18 +69,18 @@ JSON.stringify({
     acceptedAnswer: { '@type': 'Answer', text: item.answer },
   })),
 }, null, 2),
-`   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, cobros, caja, ventas y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
-`   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar","description":"Sistema de gestión para complejos deportivos, gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
+`   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, cobros, caja, ventas y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
+`   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar/","description":"Sistema de gestión para complejos deportivos, gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
 ];
 
 export const privacidadJsonLd: string[] = [
-`   {"@context":"https://schema.org","@type":"WebPage","name":"Política de Privacidad","description":"Cómo Vibe recopila, usa y protege los datos de los dueños de complejos y de quienes reservan, y cómo pedir que los corrijamos o borremos.","url":"https://vibe.com.ar/privacidad","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png"}}`,
-`   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar"},{"@type":"ListItem","position":2,"name":"Política de Privacidad","item":"https://vibe.com.ar/privacidad"}]}`,
+`   {"@context":"https://schema.org","@type":"WebPage","name":"Política de Privacidad","description":"Cómo Vibe recopila, usa y protege los datos de los dueños de complejos y de quienes reservan, y cómo pedir que los corrijamos o borremos.","url":"https://vibe.com.ar/privacidad","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar/"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png"}}`,
+`   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar/"},{"@type":"ListItem","position":2,"name":"Política de Privacidad","item":"https://vibe.com.ar/privacidad"}]}`,
 ];
 
 export const terminosJsonLd: string[] = [
-`   {"@context":"https://schema.org","@type":"WebPage","name":"Términos y Condiciones","description":"Los términos de uso de Vibe, el sistema de gestión para complejos deportivos: reservas, cobros, caja, ventas y reportes, y qué hace cada parte.","url":"https://vibe.com.ar/terminos","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar","logo":"https://vibe.com.ar/logo.png"}}`,
-`   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar"},{"@type":"ListItem","position":2,"name":"Términos y Condiciones","item":"https://vibe.com.ar/terminos"}]}`,
+`   {"@context":"https://schema.org","@type":"WebPage","name":"Términos y Condiciones","description":"Los términos de uso de Vibe, el sistema de gestión para complejos deportivos: reservas, cobros, caja, ventas y reportes, y qué hace cada parte.","url":"https://vibe.com.ar/terminos","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar/"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png"}}`,
+`   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar/"},{"@type":"ListItem","position":2,"name":"Términos y Condiciones","item":"https://vibe.com.ar/terminos"}]}`,
 ];
 
 /* ---------------------------------------------------------------- guías --- */
@@ -95,7 +98,7 @@ export function guiaJsonLd(guia: Guia): string[] {
   const editor = {
     '@type': 'Organization',
     name: 'Vibe',
-    url: 'https://vibe.com.ar',
+    url: 'https://vibe.com.ar/',
     logo: 'https://vibe.com.ar/logo.png',
   };
 
@@ -104,6 +107,7 @@ export function guiaJsonLd(guia: Guia): string[] {
     '@type': 'Article',
     headline: guia.title,
     description: guia.metaDescription,
+    image: IMAGEN_ARTICULO,
     /* El primer párrafo responde la pregunta entera: es lo que conviene que se
        cite si se cita una sola cosa de la página. */
     abstract: guia.respuesta,
@@ -114,7 +118,7 @@ export function guiaJsonLd(guia: Guia): string[] {
     dateModified: guia.dateModified,
     author: editor,
     publisher: editor,
-    isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar' },
+    isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar/' },
   };
   if (guia.fuente) {
     articulo.citation = {
@@ -138,7 +142,7 @@ export function guiaJsonLd(guia: Guia): string[] {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar' },
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar/' },
       { '@type': 'ListItem', position: 2, name: 'Guías', item: 'https://vibe.com.ar/guias' },
       { '@type': 'ListItem', position: 3, name: guia.title, item: url },
     ],
@@ -172,7 +176,7 @@ export function guiasIndexJsonLd(lista: Guia[]): string[] {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar' },
+        { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar/' },
         { '@type': 'ListItem', position: 2, name: 'Guías', item: 'https://vibe.com.ar/guias' },
       ],
     }, null, 2),
@@ -192,7 +196,7 @@ export function tutorialJsonLd(t: Tutorial): string[] {
   const editor = {
     '@type': 'Organization',
     name: 'Vibe',
-    url: 'https://vibe.com.ar',
+    url: 'https://vibe.com.ar/',
     logo: 'https://vibe.com.ar/logo.png',
   };
 
@@ -201,6 +205,7 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     '@type': 'Article',
     headline: t.title,
     description: t.metaDescription,
+    image: IMAGEN_ARTICULO,
     /* La respuesta contesta la pregunta entera: es lo que conviene que se cite
        si se cita una sola cosa de la página. */
     abstract: t.respuesta,
@@ -211,7 +216,7 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     dateModified: t.dateModified,
     author: editor,
     publisher: editor,
-    isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar' },
+    isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar/' },
   };
 
   const faqSchema = {
@@ -228,7 +233,7 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar' },
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar/' },
       { '@type': 'ListItem', position: 2, name: 'Tutoriales', item: 'https://vibe.com.ar/tutoriales' },
       { '@type': 'ListItem', position: 3, name: t.title, item: url },
     ],
@@ -262,7 +267,7 @@ export function tutorialesIndexJsonLd(lista: Tutorial[]): string[] {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar' },
+        { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://vibe.com.ar/' },
         { '@type': 'ListItem', position: 2, name: 'Tutoriales', item: 'https://vibe.com.ar/tutoriales' },
       ],
     }, null, 2),

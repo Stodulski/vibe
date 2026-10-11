@@ -20,21 +20,34 @@ function AccordionItem({ className, ...props }: React.ComponentProps<typeof Acco
   );
 }
 
-function AccordionTrigger({ className, children, ...props }: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
+/**
+ * Radix wraps the trigger in a header that renders as h3. A page whose outline
+ * needs h2 there passes `headingLevel={2}`; the default stays h3 for every
+ * existing caller.
+ */
+function AccordionTrigger({
+  className,
+  children,
+  headingLevel = 3,
+  ...props
+}: React.ComponentProps<typeof AccordionPrimitive.Trigger> & { headingLevel?: 2 | 3 | undefined }) {
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
   return (
-    <AccordionPrimitive.Header className="flex">
-      <AccordionPrimitive.Trigger
-        data-slot="accordion-trigger"
-        className={cn(
-          // 48px tall: this is a touch target, and the minimum is 48x48.
-          'text-text-tertiary hover:text-text-secondary [&[data-state=open]]:text-text-secondary flex flex-1 cursor-pointer items-center justify-between gap-4 py-3 text-left text-xs font-semibold tracking-wide uppercase transition-colors [&[data-state=open]>svg]:rotate-180',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        <ChevronDownIcon className="size-4 shrink-0 transition-transform duration-200" aria-hidden="true" />
-      </AccordionPrimitive.Trigger>
+    <AccordionPrimitive.Header asChild>
+      <Heading className="flex">
+        <AccordionPrimitive.Trigger
+          data-slot="accordion-trigger"
+          className={cn(
+            // 48px tall: this is a touch target, and the minimum is 48x48.
+            'text-text-tertiary hover:text-text-secondary [&[data-state=open]]:text-text-secondary flex flex-1 cursor-pointer items-center justify-between gap-4 py-3 text-left text-xs font-semibold tracking-wide uppercase transition-colors [&[data-state=open]>svg]:rotate-180',
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          <ChevronDownIcon className="size-4 shrink-0 transition-transform duration-200" aria-hidden="true" />
+        </AccordionPrimitive.Trigger>
+      </Heading>
     </AccordionPrimitive.Header>
   );
 }

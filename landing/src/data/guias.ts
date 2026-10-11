@@ -549,7 +549,7 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
     verComparaciones: true,
     tutorial: { slug: 'precios-por-horario', texto: 'Cómo se cargan los precios por horario en el panel' },
     title: 'Cuánto cuesta de verdad un sistema de reservas para canchas',
-    seoTitle: 'Cuánto cuesta un sistema de reservas de canchas, con números',
+    seoTitle: 'Cuánto cuesta un sistema de reservas de canchas',
     metaDescription:
       `Abono fijo desde ${dolares(ATC_PLANES[0].mensual)} por mes o un cargo por reserva que paga el `
       + 'cliente: los dos modelos con números reales, según tu volumen.',
@@ -879,6 +879,9 @@ export const guias: Guia[] = contenido.map(g => {
 guardarFechas();
 
 export const getGuia = (slug: string) => guias.find(g => g.slug === slug);
+
+/** El <title> de la guía: su seoTitle con el sufijo de marca que ya llevan los tutoriales. */
+export const guiaTitle = (g: Guia): string => `${g.seoTitle} | Vibe`;
 
 /** Las comparaciones con competidores, menos la que se está leyendo. */
 export const comparaciones = (excepto?: string) =>
