@@ -57,6 +57,20 @@ describe('buildComplexSchema', () => {
     expect(schema.geo).toEqual({ '@type': 'GeoCoordinates', latitude: -34.5, longitude: -58.5 });
   });
 
+  it('uses the cover as the image when the complex has one, before the logo', () => {
+    const schema = buildComplexSchema(
+      { ...complex, cover_url: 'https://example.com/cover.jpg' },
+      schedules,
+      'https://app.test/club-norte',
+    );
+    expect(schema.image).toBe('https://example.com/cover.jpg');
+  });
+
+  it('falls back to the logo when the cover is empty', () => {
+    const schema = buildComplexSchema({ ...complex, cover_url: '' }, schedules, 'https://app.test/club-norte');
+    expect(schema.image).toBe('https://example.com/logo.png');
+  });
+
   it('omits optional fields when absent', () => {
     // Deletes rather than sets to `undefined`: `PublicComplex`'s optional
     // fields are absent-or-present, not present-with-`undefined`.

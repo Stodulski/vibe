@@ -42,7 +42,10 @@ export function buildComplexSchema(
     },
   };
 
-  if (complex.logo_url) schema.image = complex.logo_url;
+  // The complex's own picture, chosen as the backend prerender chooses it: the cover
+  // first, since it is the larger image for rich results, then the logo.
+  const image = [complex.cover_url, complex.logo_url].find((url) => url !== undefined && url !== '');
+  if (image) schema.image = image;
   if (complex.email) schema.email = complex.email;
   if (complex.latitude && complex.longitude) {
     schema.geo = {
