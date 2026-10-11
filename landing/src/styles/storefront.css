@@ -1,0 +1,14 @@
+/*
+ * Stylesheet of the storefront routes (/c/*): the complex page and the booking pages.
+ * Only src/layouts/StorefrontLayout.astro imports it, so the hand-written pages and the
+ * /canchas hubs never get these rules. The element and base styles come from
+ * @vibe/ui/base.css, the same file the app's public pages use.
+ */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@vibe/ui/styles.css';
+@import '@vibe/ui/base.css';
+
+/* Utility classes used only inside the shared packages must be generated too. */
+@source '../../../packages/ui/src';
+@source '../../../packages/booking/src';

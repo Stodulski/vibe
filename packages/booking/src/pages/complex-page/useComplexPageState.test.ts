@@ -5,6 +5,7 @@ import { format } from 'date-fns/format';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import { hasUnsavedWork } from '@vibe/ui';
 import { setBookingUrl } from '../../test/booking';
+import { todayInVenueTz } from '../../lib/venueDate';
 import { useComplexPageState } from './useComplexPageState';
 
 // The hook reads its answers from window.location. The URL is set here, before
@@ -57,7 +58,7 @@ describe('useComplexPageState — reading a malformed URL', () => {
     expect(result.current.sportFilter).toBeNull();
     expect(result.current.answeredFromUrl).toEqual({ sport: false, duration: false });
     // A past date is rejected; today is used instead.
-    expect(result.current.dateStr).toBe(format(new Date(), 'yyyy-MM-dd'));
+    expect(result.current.dateStr).toBe(format(todayInVenueTz(), 'yyyy-MM-dd'));
   });
 });
 

@@ -305,6 +305,12 @@
       "permanent": true
     }
   ],
+  "rewrites": [
+    {
+      "source": "/_r/s",
+      "destination": "https://o4511023559868416.ingest.us.sentry.io/api/4512086199631872/security/?sentry_key=a544aae361b0942642803f08c82eea60"
+    }
+  ],
   "build": {
     "env": {
       "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1"

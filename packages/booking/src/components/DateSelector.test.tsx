@@ -1,8 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DateSelector } from './DateSelector';
 import type { Schedule } from '../api/types';
+import { todayInVenueTz } from '../lib/venueDate';
+
+// The tests select "today", and the mock schedule closes on Sundays, so they
+// failed whenever the suite ran on a Sunday. Pin the clock to a Wednesday
+// afternoon in Argentina. Only Date is faked, so user-event timers still run.
+vi.useFakeTimers({ toFake: ['Date'] });
+vi.setSystemTime(new Date('2026-10-14T18:00:00Z'));
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 // Mock scrollIntoView for the test DOM
 Element.prototype.scrollIntoView = vi.fn();
@@ -67,7 +77,7 @@ const mockSchedules: Schedule[] = [
 ];
 
 describe('DateSelector', () => {
-  const today = new Date();
+  const today = todayInVenueTz();
 
   const defaultProps = {
     selectedDate: today,
@@ -138,7 +148,7 @@ describe('DateSelector', () => {
 // date strip used to put every loaded date in the Tab order, so Tab never
 // reached the duration/hour controls below it.
 describe('DateSelector keyboard navigation and ARIA', () => {
-  const today = new Date();
+  const today = todayInVenueTz();
 
   const defaultProps = {
     selectedDate: today,

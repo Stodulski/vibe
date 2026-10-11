@@ -233,6 +233,8 @@ export const BOOKING_MESSAGES = {
   },
   layout: {
     backHome: 'Volver al inicio',
+    skipToContent: 'Ir al contenido principal',
+    poweredBy: 'Powered by Vibe',
   },
   bookings: {
     court: 'Cancha',

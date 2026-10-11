@@ -216,6 +216,12 @@ importers:
       '@vercel/functions':
         specifier: ^3.9.7
         version: 3.9.7(ws@8.21.3)
+      '@vibe/booking':
+        specifier: workspace:*
+        version: link:../packages/booking
+      '@vibe/ui':
+        specifier: workspace:*
+        version: link:../packages/ui
       astro:
         specifier: ^7.3.2
         version: 7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.5.1)(@vercel/functions@3.9.7(ws@8.21.3))(jiti@2.7.0)(terser@5.46.0)(yaml@2.9.1)
@@ -228,6 +234,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
     devDependencies:
       playwright:
         specifier: ^1.63.0

@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { icon } from 'leaflet';
 import { ExternalLink } from 'lucide-react';
 import { BOOKING_MESSAGES } from '../messages';
+import { assetUrl } from '../lib/assetUrl';
 // Leaflet ships these with the package but its CSS expects them next to the
 // stylesheet, which no bundler reproduces; importing them as modules gives
 // Vite hashed, same-origin URLs it also precaches. They used to be loaded
@@ -17,9 +18,9 @@ import 'leaflet/dist/leaflet.css';
 const t = BOOKING_MESSAGES;
 
 const markerIcon = icon({
-  iconUrl: markerIconUrl,
-  iconRetinaUrl: markerIcon2xUrl,
-  shadowUrl: markerShadowUrl,
+  iconUrl: assetUrl(markerIconUrl),
+  iconRetinaUrl: assetUrl(markerIcon2xUrl),
+  shadowUrl: assetUrl(markerShadowUrl),
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],

@@ -651,6 +651,46 @@ async function testCanchas() {
 }
 
 /**
+ * The storefront routes (/c/*) are rendered on the server and stay noindex until the
+ * cutover. They read live data, so they run only when asked:
+ * SMOKE_STOREFRONT=1 [SMOKE_STOREFRONT_SLUG=la-zona-f5] node tests/smoke.mjs
+ */
+async function testStorefront() {
+  if (!process.env.SMOKE_STOREFRONT) return;
+  const slug = process.env.SMOKE_STOREFRONT_SLUG || 'la-zona-f5';
+  const p = await newPage();
+
+  const complex = await p.request.get(`${BASE}/c/${slug}`, { maxRedirects: 0 });
+  check(`/c/${slug} answers 200`, complex.status() === 200, `${complex.status()}`);
+  check(`/c/${slug} is noindex until the cutover`, /noindex/.test(complex.headers()['x-robots-tag'] || ''));
+  check(`/c/${slug} is cached at the CDN`, /s-maxage=\d+/.test(complex.headers()['cache-control'] || ''));
+  check(`/c/${slug} sends the storefront CSP in report-only`,
+    /default-src 'self'/.test(complex.headers()['content-security-policy-report-only'] || ''));
+  const html = await complex.text();
+  check(`/c/${slug} carries a canonical link`, new RegExp(`<link rel="canonical" href="https://vibe.com.ar/c/${slug}"`).test(html));
+  check(`/c/${slug} carries JSON-LD`, /application\/ld\+json/.test(html));
+
+  const missing = await p.request.get(`${BASE}/c/no-existe-smoke`, { maxRedirects: 0 });
+  check('an unknown complex answers 404', missing.status() === 404, `${missing.status()}`);
+  check('an unknown complex is not cached', missing.headers()['cache-control'] === 'no-store');
+
+  const bookRoot = await p.request.get(`${BASE}/c/${slug}/book`, { maxRedirects: 0 });
+  check('/book without an error redirects with 302', bookRoot.status() === 302, `${bookRoot.status()}`);
+  check('/book redirects to the complex page', (bookRoot.headers().location || '').endsWith(`/c/${slug}`),
+    bookRoot.headers().location || '');
+
+  const failed = await p.request.get(`${BASE}/c/${slug}/book?error=payment_failed`, { maxRedirects: 0 });
+  check('/book?error=payment_failed answers 200', failed.status() === 200, `${failed.status()}`);
+  check('the booking steps are noindex', /noindex/.test(failed.headers()['x-robots-tag'] || ''));
+
+  const cancel = await p.request.get(`${BASE}/c/${slug}/book/cancel?token=x`, { maxRedirects: 0 });
+  check('/book/cancel answers 200', cancel.status() === 200, `${cancel.status()}`);
+  check('/book/cancel is never cached by a shared cache', cancel.headers()['cache-control'] === 'private, no-store');
+
+  await p.context().close();
+}
+
+/**
  * Los porcentajes viven en un solo archivo a proposito. Esto comprueba que la
  * home y la guia sigan mostrando ese archivo y no una copia que alguien edito
  * a mano, que es como quedaron mal la primera vez.
@@ -937,6 +977,7 @@ try {
   await testRegistro();
   await testGuias();
   await testCanchas();
+  await testStorefront();
   await testCostosMercadoPago();
   await testDatosMercadoPagoJson();
   await testNingunNumeroSuelto();

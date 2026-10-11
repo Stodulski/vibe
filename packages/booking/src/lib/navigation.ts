@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useInitialSearch } from './initialSearch';
 
 /**
  * Moves to another page with a full page load. The booking pages are not an
@@ -32,7 +33,7 @@ function subscribe(onChange: () => void): () => void {
 }
 
 function readSearch(): string {
-  return window.location.search;
+  return typeof window === 'undefined' ? '' : window.location.search;
 }
 
 /**
@@ -40,9 +41,13 @@ function readSearch(): string {
  * `history.replaceState`, so they never add a history entry, and they keep the
  * path, the hash and the existing `history.state`. A `popstate` (Back or Forward)
  * re-reads the URL.
+ *
+ * On the server, and while hydrating, the value is the one the host seeded
+ * (`initialSearch` on `BookingRoot`), never `window.location`.
  */
 export function useQueryParams(): [URLSearchParams, SetQueryParams] {
-  const search = useSyncExternalStore(subscribe, readSearch, readSearch);
+  const initialSearch = useInitialSearch() ?? '';
+  const search = useSyncExternalStore(subscribe, readSearch, () => initialSearch);
   const params = useMemo(() => new URLSearchParams(search), [search]);
 
   const setParams = useCallback<SetQueryParams>((next) => {

@@ -8,6 +8,7 @@ import { useLoadMoreOnScroll } from './date-selector/useLoadMoreOnScroll';
 import { useAutoScrollToSelectedDate } from './date-selector/useAutoScrollToSelectedDate';
 import { useDateStripKeyboardNav } from './date-selector/useDateStripKeyboardNav';
 import { DateButton } from './date-selector/DateButton';
+import { todayInVenueTz } from '../lib/venueDate';
 
 const t = BOOKING_MESSAGES;
 
@@ -18,7 +19,8 @@ interface DateSelectorProps {
 }
 
 export function DateSelector({ selectedDate, onDateSelect, schedules }: DateSelectorProps) {
-  const today = useMemo(() => new Date(), []);
+  // The venue's today, not the browser's: the server and the hydrating client must agree.
+  const today = useMemo(() => todayInVenueTz(), []);
   const [daysCount, setDaysCount] = useState(14);
   const days = useMemo(() => Array.from({ length: daysCount }, (_, i) => addDays(today, i)), [today, daysCount]);
 

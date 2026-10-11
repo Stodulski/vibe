@@ -1,4 +1,5 @@
 import { BOOKING_MESSAGES } from '../../messages';
+import { todayInVenueTz } from '../../lib/venueDate';
 
 const t = BOOKING_MESSAGES;
 
@@ -21,5 +22,5 @@ export function getDayName(date: Date): string {
 }
 
 export function getTodayName(): string {
-  return getDayName(new Date());
+  return getDayName(todayInVenueTz());
 }

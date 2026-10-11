@@ -1,0 +1,26 @@
+---
+/**
+ * /c/<slug>/book/cancel?token=... The cancel form for one booking. The page is SSR-safe
+ * (its query comes from the server, and it reads nothing from storage on render), so it
+ * hydrates with the server markup. Never indexable, never cached by a shared cache.
+ */
+import { BookCancelEntry } from '@vibe/booking/book-cancel';
+import { PUBLIC_API_URL } from 'astro:env/server';
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import StorefrontLayout from '../../../../layouts/StorefrontLayout.astro';
+import { DEFAULT_DESCRIPTION, storefrontBookingConfig, storefrontRobots } from '../../../../lib/storefront.ts';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const config = storefrontBookingConfig(PUBLIC_API_URL);
+---
+<StorefrontLayout
+  title={`${BOOKING_MESSAGES.publicBooking.cancelBookingQuestion} - Vibe`}
+  description={DEFAULT_DESCRIPTION}
+  robots={storefrontRobots(Astro.url.pathname)}
+  homeHref={`/c/${encodeURIComponent(slug)}`}
+>
+  <BookCancelEntry client:load slug={slug} config={config} initialSearch={Astro.url.search} />
+</StorefrontLayout>

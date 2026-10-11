@@ -91,3 +91,22 @@ test('a request that outlives the timeout is unavailable', async () => {
 
   await assert.rejects(api.hubData('banfield'), expectApiError('unavailable', null));
 });
+
+test('complex reads the public record of one slug, encoded', async () => {
+  const body = { complex: { slug: 'club sur' }, courts: null, schedules: [] };
+  const fetchImpl = fakeFetch(() => new Response(JSON.stringify(body), { status: 200 }));
+  const api = createPublicApi({ baseUrl, fetchImpl });
+  assert.deepEqual(await api.complex('club sur'), body);
+  assert.deepEqual(fetchImpl.calls, ['https://api.test/api/v1/public/complexes/club%20sur']);
+});
+
+test('complex maps a 404 to not_found', async () => {
+  const api = createPublicApi({ baseUrl, fetchImpl: fakeFetch(() => new Response('', { status: 404 })) });
+  await assert.rejects(api.complex('nope'), (error) => error instanceof ApiError && error.kind === 'not_found');
+});
+
+test('complex maps a 500 to unavailable', async () => {
+  const api = createPublicApi({ baseUrl, fetchImpl: fakeFetch(() => new Response('', { status: 500 })) });
+  await assert.rejects(api.complex('club'), (error) => error instanceof ApiError && error.kind === 'unavailable');
+});
+

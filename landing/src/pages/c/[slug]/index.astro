@@ -1,0 +1,110 @@
+---
+/**
+ * The complex page at /c/<slug>: the club and its slot picker. The server reads the
+ * complex, writes the head copy and the JSON-LD, and renders the flow as an island that
+ * starts from the complex it was given, so the markup names the club before any script
+ * runs. 200 when the complex exists, 404 when the API has no such slug, 503 with
+ * Retry-After when the read fails. Indexing follows STOREFRONT_INDEXABLE.
+ */
+import { PUBLIC_API_URL } from 'astro:env/server';
+import { ComplexPageEntry } from '@vibe/booking/complex-page';
+import { buildComplexSchema } from '@vibe/booking/complex-schema';
+import { publicComplexResponseSchema } from '@vibe/booking/complex-response';
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import type { PublicComplexResponse } from '@vibe/booking/types';
+import StorefrontLayout from '../../../layouts/StorefrontLayout.astro';
+import { API_TIMEOUT_MS, ApiError, createPublicApi } from '../../../lib/api.ts';
+import { complexHead, jsonLdScript } from '../../../lib/complex-meta.ts';
+import { storefrontBookingConfig, storefrontRobots } from '../../../lib/storefront.ts';
+
+export const prerender = false;
+
+const t = BOOKING_MESSAGES;
+const slug = Astro.params.slug ?? '';
+
+let data: PublicComplexResponse | null = null;
+let status = 200;
+
+try {
+  const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
+  const parsed = publicComplexResponseSchema.safeParse(await api.complex(slug));
+  if (!parsed.success) throw new ApiError('unavailable', 200, { cause: parsed.error });
+  data = parsed.data;
+} catch (error) {
+  const notFound = error instanceof ApiError && error.kind === 'not_found';
+  status = notFound ? 404 : 503;
+  if (!notFound) console.error('complex page unavailable', error);
+}
+
+Astro.response.status = status;
+Astro.response.headers.set(
+  'Cache-Control',
+  data ? 'public, s-maxage=60, stale-while-revalidate=300' : 'no-store',
+);
+if (status === 503) Astro.response.headers.set('Retry-After', '60');
+
+const robots = storefrontRobots(Astro.url.pathname, status);
+const config = storefrontBookingConfig(PUBLIC_API_URL);
+
+const head = data
+  ? complexHead({
+      slug,
+      name: data.complex.name,
+      city: data.complex.city,
+      online: data.complex.payments_enabled,
+      sports: [
+        ...new Set(
+          data.courts
+            .filter((court) => court.is_active)
+            .map((court) => t.courts.sportTypes[court.sport] ?? '')
+            .filter((label) => label !== ''),
+        ),
+      ],
+      services: data.complex.amenities
+        .map((amenity) => t.complex.amenities[amenity] ?? '')
+        .filter((label) => label !== ''),
+      ownImage: data.complex.cover_url || data.complex.logo_url || null,
+    })
+  : null;
+
+const jsonLd = data && head ? [jsonLdScript(buildComplexSchema(data.complex, data.schedules, head.canonical))] : [];
+const errorTitle = status === 404 ? t.publicBooking.complexNotFound : t.publicBooking.complexLoadError;
+const errorLead = status === 404 ? t.publicBooking.complexNotFoundDescription : t.publicBooking.complexLoadErrorDescription;
+---
+{
+  data && head ? (
+    <StorefrontLayout
+      title={head.title}
+      description={head.description}
+      canonical={head.canonical}
+      robots={robots}
+      ogTitle={head.title}
+      ogDescription={head.description}
+      ogUrl={head.canonical}
+      ogImage={head.image}
+      jsonLd={jsonLd}
+      homeHref={`/c/${encodeURIComponent(slug)}`}
+    >
+      <ComplexPageEntry
+        client:load
+        slug={slug}
+        config={config}
+        initialComplex={{ slug, data }}
+        initialSearch={Astro.url.search}
+      />
+    </StorefrontLayout>
+  ) : (
+    <StorefrontLayout title={`${errorTitle} - Vibe`} description={errorLead} robots={robots}>
+      <section class="flex w-full flex-col gap-4 py-8">
+        <h1 class="text-text-primary text-xl font-bold tracking-tight">{errorTitle}</h1>
+        <p class="text-text-secondary text-sm">{errorLead}</p>
+        <a
+          href="/"
+          class="bg-primary-500 text-text-inverse inline-flex min-h-12 w-fit items-center rounded-xl px-6 font-semibold"
+        >
+          {t.layout.backHome}
+        </a>
+      </section>
+    </StorefrontLayout>
+  )
+}
