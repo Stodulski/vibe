@@ -1,8 +1,9 @@
 name: E2E
 
 # The Playwright suite lives in frontend and runs against an isolated API
-# built from backend, so a change to either package triggers it. Both live
-# in this repository now: no cross-repository checkout, no token.
+# built from backend, and it visits the public pages the landing serves, so a
+# change to any of those packages triggers it. All live in this repository:
+# no cross-repository checkout, no token.
 on:
   pull_request:
     # No `paths` filter on pull requests: every job of every workflow is a
@@ -26,6 +27,7 @@ on:
     paths:
       - "backend/**"
       - "frontend/**"
+      - "landing/**"
       - "packages/**"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -46,10 +48,10 @@ jobs:
   # happen at all — nothing here re-narrows it.
   #
   # On a pull_request, this diffs the PR's base against its head. `run` is
-  # true when the diff touches `backend/**`, `frontend/**`, `packages/**` or the
-  # root workspace files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`)
-  # (either side of
-  # the suite), when it touches `.github/**` (a workflow or script change can
+  # true when the diff touches `backend/**`, `frontend/**`, `landing/**` (the
+  # public pages the suite now visits), `packages/**` or the root workspace
+  # files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`) (either side
+  # of the suite), when it touches `.github/**` (a workflow or script change can
   # affect what this job does), when it touches any root-level file outside
   # backend/, frontend/, landing/ and docs/ (unclassifiable — treated the
   # same as `.github/**`), or when the base commit cannot be found in the
@@ -95,9 +97,9 @@ jobs:
             [ -z "$f" ] && continue
             case "$f" in
               .github/*) everything=true ;;
-              backend/*|frontend/*) run=true ;;
+              backend/*|frontend/*|landing/*) run=true ;;
               packages/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml) run=true ;;
-              landing/*|docs/*) ;;
+              docs/*) ;;
               *) everything=true ;;
             esac
           done <<< "$files"
@@ -160,9 +162,11 @@ jobs:
       - name: Install psql
         run: sudo apt-get update -q && sudo apt-get install -y -q postgresql-client
 
-      - name: Install client dependencies
+      # The landing serves the public complex pages the suite visits, so its
+      # dependencies (and the workspace packages it imports) install with the client.
+      - name: Install client and landing dependencies
         working-directory: .
-        run: pnpm install --frozen-lockfile --filter vibe-client...
+        run: pnpm install --frozen-lockfile --filter vibe-client... --filter vibe-landing...
 
       - name: Install Playwright browsers
         working-directory: frontend
