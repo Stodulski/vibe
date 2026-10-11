@@ -1,0 +1,87 @@
+# Tells IndexNow (Bing, Yandex and the others that take it) about the landing pages that
+# changed, right after each production deploy of vibe.com.ar.
+#
+# The landing deploys through Vercel's GitHub integration, which reports every deploy
+# as a deployment_status event. A production success is the moment the new HTML is live,
+# so that is when the changed URLs are submitted. The URLs are the ones whose <lastmod>
+# falls in the last two days: the per-page dates from landing/src/data/page-dates.json,
+# plus the storefront's own lastmod. Nothing is submitted for a deploy with no change.
+#
+# A rejected or unreachable IndexNow never fails the workflow: it is a warning, because the
+# site is already live and the next deploy submits the same URLs again.
+name: Landing IndexNow
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  indexnow:
+    # The landing's production deploy: the environment is Production and the deployment
+    # URL is the apex domain. Other projects (the app on app.vibe.com.ar) fail this filter.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production' &&
+       github.event.deployment_status.environment_url == 'https://vibe.com.ar')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Submit the URLs changed in the last two days
+        env:
+          INDEXNOW_KEY: 469b1eba6dac3b5f5da13d17ea885719
+        run: |
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          HOST = "vibe.com.ar"
+          KEY = os.environ["INDEXNOW_KEY"]
+          NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+          cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)).date().isoformat()
+
+          urls = set()
+          for path in ["/sitemap.xml", "/sitemap-storefront.xml"]:
+              try:
+                  with urllib.request.urlopen(f"https://{HOST}{path}", timeout=30) as response:
+                      root = ET.fromstring(response.read())
+              except Exception as error:
+                  print(f"::warning::could not read {path}: {error}")
+                  continue
+              for entry in root.findall("s:url", NS):
+                  loc = (entry.findtext("s:loc", default="", namespaces=NS) or "").strip()
+                  lastmod = (entry.findtext("s:lastmod", default="", namespaces=NS) or "").strip()[:10]
+                  if loc.startswith(f"https://{HOST}/") and lastmod >= cutoff:
+                      urls.add(loc)
+
+          if not urls:
+              print(f"No URL with a lastmod since {cutoff}; nothing to submit.")
+              raise SystemExit(0)
+
+          body = json.dumps({
+              "host": HOST,
+              "key": KEY,
+              "keyLocation": f"https://{HOST}/{KEY}.txt",
+              "urlList": sorted(urls),
+          }).encode("utf-8")
+          request = urllib.request.Request(
+              "https://api.indexnow.org/indexnow",
+              data=body,
+              headers={"Content-Type": "application/json; charset=utf-8"},
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  print(f"IndexNow answered HTTP {response.status} for {len(urls)} URL(s).")
+          except urllib.error.HTTPError as error:
+              print(f"::warning::IndexNow answered HTTP {error.code} for {len(urls)} URL(s); not failing.")
+          except Exception as error:
+              print(f"::warning::IndexNow unreachable ({error}); not failing.")
+          PY

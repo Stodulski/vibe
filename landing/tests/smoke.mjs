@@ -30,6 +30,7 @@ import {
 } from '../src/data/mercadopago-costos.ts';
 import { ejemplo, pesos, CARGO_SERVICIO, CARGO_PUEDE_CAMBIAR } from '../src/data/precio.ts';
 import { faq } from '../src/data/faq.ts';
+import { placeholderProblemsInHtml } from '../scripts/seo-checks.mjs';
 
 const BASE = (process.argv[2] || 'https://vibe.com.ar').replace(/\/$/, '');
 const results = [];
@@ -691,6 +692,22 @@ async function testCanchas() {
  * booking steps stay noindex. They read live data, so they run only when asked:
  * SMOKE_STOREFRONT=1 [SMOKE_STOREFRONT_SLUG=la-zona-f5] node tests/smoke.mjs
  */
+/**
+ * Every complex the storefront sitemap lists must render without placeholder data in its title,
+ * its H1 or its WhatsApp link. The complex page is server-rendered, so this reads live data and
+ * runs only with SMOKE_STOREFRONT, like the page checks above.
+ */
+async function testStorefrontPlaceholders() {
+  if (!process.env.SMOKE_STOREFRONT) return;
+  const sitemap = await (await fetch(`${BASE}/sitemap-storefront.xml`)).text();
+  const slugs = [...sitemap.matchAll(/<loc>[^<]*\/c\/([^/<]+)<\/loc>/g)].map(m => m[1]);
+  for (const slug of slugs) {
+    const html = await (await fetch(`${BASE}/c/${slug}`)).text();
+    const problems = placeholderProblemsInHtml(html);
+    check(`/c/${slug} carries no placeholder data`, problems.length === 0, problems.join('; '));
+  }
+}
+
 async function testStorefront() {
   if (!process.env.SMOKE_STOREFRONT) return;
   const slug = process.env.SMOKE_STOREFRONT_SLUG || 'la-zona-f5';
@@ -1017,6 +1034,7 @@ try {
   await testGuias();
   await testCanchas();
   await testStorefront();
+  await testStorefrontPlaceholders();
   await testCostosMercadoPago();
   await testDatosMercadoPagoJson();
   await testNingunNumeroSuelto();

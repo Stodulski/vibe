@@ -1,5 +1,12 @@
 import { defineMiddleware } from 'astro:middleware';
-import { STOREFRONT_CSP_REPORT_ONLY, STOREFRONT_REPORTING_ENDPOINTS, storefrontRobots } from './lib/storefront.ts';
+import {
+  isBookPath,
+  STOREFRONT_CSP_REPORT_ONLY,
+  STOREFRONT_ORIGIN,
+  STOREFRONT_REPORTING_ENDPOINTS,
+  storefrontRobots,
+} from './lib/storefront.ts';
+import { markdownTwinPath } from './lib/markdown/negotiate.ts';
 
 /**
  * Headers for the server-rendered routes. vercel.json's header rules are written for
@@ -26,6 +33,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (pathname.startsWith('/c/')) {
     headers.set('Content-Security-Policy-Report-Only', STOREFRONT_CSP_REPORT_ONLY);
     headers.set('Reporting-Endpoints', STOREFRONT_REPORTING_ENDPOINTS);
+  }
+  // The HTML answer varies on Accept (agents get the twin), and names that twin. Booking steps
+  // have no twin, so they say nothing about one.
+  if (response.status === 200 && !isBookPath(pathname)) {
+    headers.set('Vary', 'Accept');
+    headers.set('Link', `<${STOREFRONT_ORIGIN}${markdownTwinPath(pathname)}>; rel="alternate"; type="text/markdown"`);
   }
 
   return new Response(response.body, {

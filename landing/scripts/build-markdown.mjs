@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { join, relative } from 'node:path';
 import TurndownService from 'turndown';
+import { renderLlmsTxt } from './llms-txt.mjs';
 
 const DIST = new URL('../dist/', import.meta.url).pathname;
 const SITE = 'https://vibe.com.ar';
@@ -274,7 +275,7 @@ function metaDescription(html) {
   return attr(html, /<meta[^>]*\bcontent="([^"]*)"[^>]*\bname="description"[^>]*>/i);
 }
 
-function toMarkdown(html, route) {
+function toMarkdown(html, route, lastModified) {
   const title = attr(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
   const description = metaDescription(html);
   const body = attr(html, /<body[^>]*>([\s\S]*?)<\/body>/i) || html;
@@ -284,7 +285,7 @@ function toMarkdown(html, route) {
     `title: ${JSON.stringify(title)}`,
     description && `description: ${JSON.stringify(description)}`,
     `canonical: ${SITE}${route}`,
-    `lastModified: ${LAST_MODIFIED}`,
+    lastModified && `lastModified: ${lastModified}`,
     '---',
   ].filter(Boolean).join('\n') + '\n\n';
 
@@ -335,17 +336,41 @@ function summaryFrom(markdown, fallback) {
   return (m?.[1] ?? fallback).trim();
 }
 
-const LAST_MODIFIED = HOY;
 const DATES = leerDates();
+
+/* Guides and tutorials state their own dates, from the same table their JSON-LD reads
+   (src/data/guias-fechas.json, keyed by slug and by "tutorial:<slug>"). The tutorials
+   index states the newest of its tutorials. Those routes are not tracked in
+   page-dates.json: a second copy of their date would drift from the one in the page. */
+const FECHAS_DATOS = (() => {
+  try { return JSON.parse(readFileSync(new URL('../src/data/guias-fechas.json', import.meta.url), 'utf8')); } catch { return {}; }
+})();
+
+function fechaDeDatos(route) {
+  if (route.startsWith('/guias/')) return FECHAS_DATOS[route.slice('/guias/'.length)]?.date;
+  if (route.startsWith('/tutoriales/')) return FECHAS_DATOS[`tutorial:${route.slice('/tutoriales/'.length)}`]?.date;
+  if (route === '/tutoriales') {
+    return Object.entries(FECHAS_DATOS)
+      .filter(([clave]) => clave.startsWith('tutorial:'))
+      .map(([, registro]) => registro.date)
+      .sort()
+      .at(-1);
+  }
+  return undefined;
+}
+
+/* The date a page states: its data's date when it has one, else its own entry. */
+const fechaDe = route => fechaDeDatos(route) ?? DATES[route]?.date;
 
 const pages = new Map();
 for (const file of await htmlFiles(DIST)) {
   const route = routeOf(file);
   const html = await readFile(file, 'utf8');
-  const { title, description, markdown } = toMarkdown(html, route);
-  await writeFile(join(DIST, fileNameOf(route)), markdown, 'utf8');
-  pages.set(route, { title, description, markdown, html });
-  console.log(`  markdown  ${route} -> ${fileNameOf(route)}`);
+  pages.set(route, {
+    html,
+    title: attr(html, /<title[^>]*>([\s\S]*?)<\/title>/i),
+    description: metaDescription(html),
+  });
 }
 
 /* Ahora que cada pagina esta leida se sabe cual declara noindex. */
@@ -360,37 +385,12 @@ const INDEXED = [...pages.entries()]
 
 console.log(`  indexables  ${INDEXED.join(', ')}`);
 
-const home = pages.get('/');
-const summary = summaryFrom(home?.markdown ?? '', home?.description ?? '');
-
-const llms = `# Vibe
-
-> ${home?.description ?? ''}
-
-${summary}
-
-Toda página de este sitio responde en Markdown si la pedís con la cabecera
-\`Accept: text/markdown\`, y en HTML si no. Los archivos \`.md\` listados abajo
-son ese mismo contenido, accesible directamente.
-
-Última actualización: ${LAST_MODIFIED}
-
-## Páginas
-
-${INDEXED.filter(r => pages.has(r)).map(r => {
-  const p = pages.get(r);
-  return `- [${p.title}](${SITE}${r}${r === '/' ? '' : ''}): ${p.description} — Markdown: ${SITE}/${fileNameOf(r)}`;
-}).join('\n')}
-`;
-
-await writeFile(join(DIST, 'llms.txt'), llms, 'utf8');
-console.log('  llms.txt');
-
 /* A page keeps its stored date while its output is unchanged, and takes today's
-   only when it actually differs. New pages start at today. */
+   only when it actually differs. New pages start at today. The dates come first,
+   because each Markdown twin states its page's date. */
 let datesCambiaron = false;
 for (const route of INDEXED) {
-  if (!pages.has(route)) continue;
+  if (fechaDeDatos(route) !== undefined) continue;
   const h = huella(pages.get(route).html);
   const previo = DATES[route];
   if (!previo || previo.hash !== h) {
@@ -404,6 +404,93 @@ if (datesCambiaron) {
   console.log('  src/data/page-dates.json actualizado — commitealo con el cambio');
 }
 
+for (const [route, page] of pages) {
+  const { markdown } = toMarkdown(page.html, route, fechaDe(route));
+  page.markdown = markdown;
+  await writeFile(join(DIST, fileNameOf(route)), markdown, 'utf8');
+  console.log(`  markdown  ${route} -> ${fileNameOf(route)}`);
+}
+
+/* The city hubs and complexes come from the public API, read at build time. A slow or
+   down API leaves those two sections out of llms.txt and never fails the build: the
+   static pages still stand. */
+const API = (process.env.PUBLIC_API_URL || 'https://api.vibe.com.ar/api/v1').replace(/\/+$/, '');
+
+async function getJson(path) {
+  const res = await fetch(`${API}${path}`, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error(`${path} HTTP ${res.status}`);
+  return res.json();
+}
+
+async function dynamicEntries() {
+  try {
+    const index = await getJson('/public/hubs');
+    const hubs = Array.isArray(index?.hubs) ? index.hubs : [];
+    const details = await Promise.allSettled(
+      hubs.map(hub => getJson(`/public/hubs/${encodeURIComponent(hub.slug)}/data`)),
+    );
+    const cities = [{
+      title: 'Canchas en Vibe',
+      url: `${SITE}/canchas`,
+      md: `${SITE}/canchas.md`,
+      note: 'Todas las ciudades con complejos',
+    }];
+    const complexes = [];
+    hubs.forEach((hub, i) => {
+      const province = hub.province ? `${hub.province} · ` : '';
+      cities.push({
+        title: `Canchas en ${hub.name}`,
+        url: `${SITE}/canchas/${hub.slug}`,
+        md: `${SITE}/canchas-${hub.slug}.md`,
+        note: `${province}${hub.complex_count ?? 0} complejo(s)`,
+      });
+      const detail = details[i];
+      if (detail.status !== 'fulfilled') {
+        console.warn(`  llms.txt  no se pudo leer ${hub.slug}: ${detail.reason?.message ?? detail.reason}`);
+        return;
+      }
+      for (const c of detail.value?.complexes ?? []) {
+        complexes.push({
+          title: c.name,
+          url: `${SITE}/c/${c.slug}`,
+          md: `${SITE}/c-${c.slug}.md`,
+          note: [c.address, hub.name].filter(Boolean).join(', '),
+        });
+      }
+    });
+    return { cities, complexes };
+  } catch (error) {
+    console.warn(`  llms.txt  API no disponible, se omiten ciudades y complejos: ${error.message}`);
+    return { cities: [], complexes: [] };
+  }
+}
+
+const home = pages.get('/');
+const summary = summaryFrom(home?.markdown ?? '', home?.description ?? '');
+const newest = INDEXED.map(fechaDe).filter(Boolean).sort().at(-1) ?? HOY;
+const dynamic = await dynamicEntries();
+
+const llms = renderLlmsTxt({
+  title: 'Vibe',
+  description: home?.description ?? '',
+  summary,
+  updated: newest,
+  pages: INDEXED.filter(r => pages.has(r)).map(r => ({
+    title: pages.get(r).title,
+    url: `${SITE}${r}`,
+    md: `${SITE}/${fileNameOf(r)}`,
+    note: pages.get(r).description,
+  })),
+  cities: dynamic.cities,
+  complexes: dynamic.complexes,
+});
+await writeFile(join(DIST, 'llms.txt'), llms, 'utf8');
+console.log(`  llms.txt  ${dynamic.cities.length} ciudad(es), ${dynamic.complexes.length} complejo(s)`);
+
+
 function urlEntry(route) {
   const { html } = pages.get(route);
   const images = rasterImages(html)
@@ -413,7 +500,7 @@ function urlEntry(route) {
   return [
     '  <url>',
     `    <loc>${SITE}${route}</loc>`,
-    `    <lastmod>${DATES[route]?.date || HOY}</lastmod>`,
+    `    <lastmod>${fechaDe(route) || HOY}</lastmod>`,
     `    <changefreq>${route === '/' ? 'weekly' : 'yearly'}</changefreq>`,
     `    <priority>${route === '/' ? '1.0' : '0.3'}</priority>`,
     images,
@@ -478,4 +565,4 @@ if (faltantes.length && process.argv.includes('--fix-headers')) {
   console.log(`  vercel.json  ${INDEXED.length} header(s) declarado(s)`);
 }
 
-console.log(`[agents] ${pages.size} page(s), last modified ${LAST_MODIFIED}`);
+console.log(`[agents] ${pages.size} page(s), last modified ${HOY}`);

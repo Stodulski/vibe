@@ -28,6 +28,7 @@
  */
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { dateDriftProblems, junkWordIn, placeholderProblemsInHtml } from './seo-checks.mjs';
 
 const DIST = new URL('../dist/', import.meta.url).pathname;
 const SITE = 'https://vibe.com.ar';
@@ -211,6 +212,8 @@ function revisar({ paginas, sitemap, mds }, modo) {
       fallar(ruta, `responde ${p.estado}, no 200`);
       continue;
     }
+    /* --- datos de prueba: ni titulo, ni H1, ni telefono de prueba llegan al publico --- */
+    for (const msg of placeholderProblemsInHtml(p.html)) fallar(ruta, msg);
     for (const destino of enlacesInternos(p.html)) {
       if (destino === ruta) continue;
       if (!enlazadaDesde.has(destino)) enlazadaDesde.set(destino, []);
@@ -324,6 +327,27 @@ function revisar({ paginas, sitemap, mds }, modo) {
       fallar(ruta, 'es indexable y no la enlaza ninguna otra pagina');
     }
   }
+
+  /* --- URLs de prueba en el sitemap: un slug de prueba tambien es placeholder --- */
+  for (const [, loc] of sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)) {
+    const word = junkWordIn(loc);
+    if (word) fallar(loc, `el sitemap lista una URL de prueba ("${word}")`);
+  }
+
+  /* --- fechas: el JSON-LD de estas paginas sale de page-dates.json, igual que su lastmod.
+     Si no coinciden, page-dates.json no se regenero con el cambio. Las guias y los
+     tutoriales llevan su propia fecha y no se comparan aca. --- */
+  const FECHAS_DE_PAGINA = ['/', '/privacidad', '/terminos', '/guias'];
+  const lastmod = new Map([...sitemap.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)]
+    .map(([, loc, fecha]) => [loc.replace(SITE, '').replace(/\/+$/, '') || '/', fecha.trim()]));
+  const jsonLd = new Map();
+  for (const ruta of FECHAS_DE_PAGINA) {
+    const p = paginas.get(ruta);
+    if (!p || p.estado !== 200) continue;
+    const bloque = bloquesJsonLd(p.html).find(b => typeof b?.dateModified === 'string' && b['@type'] !== 'WebSite');
+    if (bloque) jsonLd.set(ruta, bloque.dateModified);
+  }
+  for (const msg of dateDriftProblems({ jsonLd, sitemap: lastmod, routes: FECHAS_DE_PAGINA })) fallar('sitemap', msg);
 
   /* --- canibalizacion --- */
   const indexables = [...paginas.entries()]

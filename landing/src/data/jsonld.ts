@@ -1,6 +1,8 @@
-/* JSON-LD payloads copied verbatim from the pre-Astro static HTML, with the
-   modification dates wired to the last commit so they cannot go stale again. */
-import { LAST_MODIFIED, PUBLISHED } from './site-dates.ts';
+/* JSON-LD payloads copied verbatim from the pre-Astro static HTML. Each page's
+   modification date is its own (src/data/page-dates.json), so it moves when that page
+   changes and not on every commit. The organization, the website and the software are
+   defined once, with an @id, and every other node points at them by that @id. */
+import { PUBLISHED, SITE_MODIFIED, pageDateModified } from './site-dates.ts';
 import type { Guia } from './guias.ts';
 import type { Tutorial } from './tutoriales.ts';
 import { ULTIMA_ACTUALIZACION as TUTORIALES_ULTIMA_ACTUALIZACION } from './tutoriales.ts';
@@ -10,10 +12,19 @@ import { faq } from './faq.ts';
    propia, así que van con la del sitio, que ya mide 1200x630. */
 const IMAGEN_ARTICULO = 'https://vibe.com.ar/og-image.png';
 
+/* The entities of the site graph. Defined once on the home page; every other node
+   names them by @id. */
+const ORGANIZATION_ID = 'https://vibe.com.ar/#organization';
+const WEBSITE_ID = 'https://vibe.com.ar/#website';
+const SOFTWARE_ID = 'https://vibe.com.ar/#software';
+const ORGANIZATION_REF = { '@id': ORGANIZATION_ID };
+const WEBSITE_REF = { '@id': WEBSITE_ID };
+
 export const homeJsonLd: string[] = [
 `   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
+    "@id": "${SOFTWARE_ID}",
     "name": "Vibe",
     "description": "Sistema de gestión gratis para complejos deportivos: cobros en el mostrador, caja por turno con arqueo, venta de productos con stock, clientes, reportes y reservas online con seña.",
     "url": "https://vibe.com.ar/",
@@ -40,11 +51,8 @@ export const homeJsonLd: string[] = [
       "Cobro de señas con MercadoPago y reembolso automático",
       "Precios por cancha, día y franja horaria"
     ],
-    "author": {
-      "@type": "Organization",
-      "name": "Vibe",
-      "url": "https://vibe.com.ar/"
-    },
+    "author": ${JSON.stringify(ORGANIZATION_REF)},
+    "publisher": ${JSON.stringify(ORGANIZATION_REF)},
     "inLanguage": "es-AR",
     "areaServed": {
       "@type": "Country",
@@ -55,7 +63,7 @@ export const homeJsonLd: string[] = [
       "name": "Complejos deportivos de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball"
     },
     "datePublished": "${PUBLISHED}",
-    "dateModified": "${LAST_MODIFIED}"
+    "dateModified": "${pageDateModified('/')}"
   }`,
 /* El FAQPage se arma desde la misma fuente que renderiza la FAQ visible. Antes
    estaban las nueve respuestas escritas de nuevo acá, y Google descuenta el
@@ -69,17 +77,17 @@ JSON.stringify({
     acceptedAnswer: { '@type': 'Answer', text: item.answer },
   })),
 }, null, 2),
-`   {"@context":"https://schema.org","@type":"Organization","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, cobros, caja, ventas y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
-`   {"@context":"https://schema.org","@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar/","description":"Sistema de gestión para complejos deportivos, gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","dateModified":"${LAST_MODIFIED}"}`,
+`   {"@context":"https://schema.org","@type":"Organization","@id":"${ORGANIZATION_ID}","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, cobros, caja, ventas y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275"]}`,
+`   {"@context":"https://schema.org","@type":"WebSite","@id":"${WEBSITE_ID}","name":"Vibe","url":"https://vibe.com.ar/","description":"Sistema de gestión para complejos deportivos, gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","publisher":{"@id":"${ORGANIZATION_ID}"},"dateModified":"${SITE_MODIFIED}"}`,
 ];
 
 export const privacidadJsonLd: string[] = [
-`   {"@context":"https://schema.org","@type":"WebPage","name":"Política de Privacidad","description":"Cómo Vibe recopila, usa y protege los datos de los dueños de complejos y de quienes reservan, y cómo pedir que los corrijamos o borremos.","url":"https://vibe.com.ar/privacidad","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar/"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png"}}`,
+`   {"@context":"https://schema.org","@type":"WebPage","name":"Política de Privacidad","description":"Cómo Vibe recopila, usa y protege los datos de los dueños de complejos y de quienes reservan, y cómo pedir que los corrijamos o borremos.","url":"https://vibe.com.ar/privacidad","inLanguage":"es-AR","isPartOf":${JSON.stringify(WEBSITE_REF)},"dateModified":"${pageDateModified('/privacidad')}","publisher":${JSON.stringify(ORGANIZATION_REF)}}`,
 `   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar/"},{"@type":"ListItem","position":2,"name":"Política de Privacidad","item":"https://vibe.com.ar/privacidad"}]}`,
 ];
 
 export const terminosJsonLd: string[] = [
-`   {"@context":"https://schema.org","@type":"WebPage","name":"Términos y Condiciones","description":"Los términos de uso de Vibe, el sistema de gestión para complejos deportivos: reservas, cobros, caja, ventas y reportes, y qué hace cada parte.","url":"https://vibe.com.ar/terminos","inLanguage":"es-AR","isPartOf":{"@type":"WebSite","name":"Vibe","url":"https://vibe.com.ar/"},"dateModified":"${LAST_MODIFIED}","publisher":{"@type":"Organization","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png"}}`,
+`   {"@context":"https://schema.org","@type":"WebPage","name":"Términos y Condiciones","description":"Los términos de uso de Vibe, el sistema de gestión para complejos deportivos: reservas, cobros, caja, ventas y reportes, y qué hace cada parte.","url":"https://vibe.com.ar/terminos","inLanguage":"es-AR","isPartOf":${JSON.stringify(WEBSITE_REF)},"dateModified":"${pageDateModified('/terminos')}","publisher":${JSON.stringify(ORGANIZATION_REF)}}`,
 `   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://vibe.com.ar/"},{"@type":"ListItem","position":2,"name":"Términos y Condiciones","item":"https://vibe.com.ar/terminos"}]}`,
 ];
 
@@ -95,12 +103,6 @@ export const terminosJsonLd: string[] = [
  */
 export function guiaJsonLd(guia: Guia): string[] {
   const url = `https://vibe.com.ar/guias/${guia.slug}`;
-  const editor = {
-    '@type': 'Organization',
-    name: 'Vibe',
-    url: 'https://vibe.com.ar/',
-    logo: 'https://vibe.com.ar/logo.png',
-  };
 
   const articulo: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -116,9 +118,9 @@ export function guiaJsonLd(guia: Guia): string[] {
     inLanguage: 'es-AR',
     datePublished: guia.datePublished,
     dateModified: guia.dateModified,
-    author: editor,
-    publisher: editor,
-    isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar/' },
+    author: ORGANIZATION_REF,
+    publisher: ORGANIZATION_REF,
+    isPartOf: WEBSITE_REF,
   };
   if (guia.fuente) {
     articulo.citation = {
@@ -161,7 +163,7 @@ export function guiasIndexJsonLd(lista: Guia[]): string[] {
       description: 'Respuestas directas, con números y fuente, a lo que te preguntás para hacer crecer tu complejo deportivo.',
       url: 'https://vibe.com.ar/guias',
       inLanguage: 'es-AR',
-      dateModified: LAST_MODIFIED,
+      dateModified: pageDateModified('/guias'),
       mainEntity: {
         '@type': 'ItemList',
         itemListElement: lista.map((g, i) => ({
@@ -193,12 +195,6 @@ export function guiasIndexJsonLd(lista: Guia[]): string[] {
  */
 export function tutorialJsonLd(t: Tutorial): string[] {
   const url = `https://vibe.com.ar/tutoriales/${t.slug}`;
-  const editor = {
-    '@type': 'Organization',
-    name: 'Vibe',
-    url: 'https://vibe.com.ar/',
-    logo: 'https://vibe.com.ar/logo.png',
-  };
 
   const articulo: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -214,9 +210,9 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     inLanguage: 'es-AR',
     datePublished: t.datePublished,
     dateModified: t.dateModified,
-    author: editor,
-    publisher: editor,
-    isPartOf: { '@type': 'WebSite', name: 'Vibe', url: 'https://vibe.com.ar/' },
+    author: ORGANIZATION_REF,
+    publisher: ORGANIZATION_REF,
+    isPartOf: WEBSITE_REF,
   };
 
   const faqSchema = {
