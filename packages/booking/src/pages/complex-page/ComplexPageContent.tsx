@@ -90,7 +90,7 @@ export function ComplexPageContent({
   if (!mpConnected) {
     return (
       <div className={CONTENT_WIDTH}>
-        <ComplexHeader complex={complex} schedules={schedules} selectedDate={selectedDate} />
+        <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
         <PhoneBookingPanel phone={complex.phone} />
         <CourtDirectory courts={courts} />
       </div>
@@ -99,7 +99,7 @@ export function ComplexPageContent({
 
   return (
     <div className={CONTENT_WIDTH}>
-      <ComplexHeader complex={complex} schedules={schedules} selectedDate={selectedDate} />
+      <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
 
       {/* The date frames everything below it: every question in the flow
           narrows the inventory inside one day, and this is the one that says

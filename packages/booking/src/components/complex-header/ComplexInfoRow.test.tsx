@@ -31,6 +31,15 @@ describe('ComplexInfoRow', () => {
     expect(screen.getByText('Av. Libertador 1234, Buenos Aires')).toBeInTheDocument();
   });
 
+  it('shows the province after the city', () => {
+    render(
+      <ComplexInfoRow
+        complex={makeComplex({ address: 'Piquiyin', city: 'Caleta Olivia', province: 'Santa Cruz' })}
+      />,
+    );
+    expect(screen.getByText('Piquiyin, Caleta Olivia, Santa Cruz')).toBeInTheDocument();
+  });
+
   it('makes the phone callable', () => {
     render(<ComplexInfoRow complex={makeComplex()} />);
     expect(screen.getByRole('link', { name: /\+541155550000/ })).toHaveAttribute('href', 'tel:+541155550000');

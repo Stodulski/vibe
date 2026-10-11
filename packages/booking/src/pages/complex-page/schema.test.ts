@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildComplexSchema, parseDateParam } from './schema';
-import type { PublicComplex, Schedule } from '../../api/types';
+import type { CourtWithPrices, PublicComplex, Schedule } from '../../api/types';
 import { todayInVenueTz } from '../../lib/venueDate';
 
 const complex: PublicComplex = {
@@ -92,6 +92,66 @@ describe('buildComplexSchema', () => {
     const allClosed = schedules.map((s) => ({ ...s, is_closed: true }));
     const schema = buildComplexSchema(complex, allClosed, 'https://app.test/club-norte');
     expect(schema.openingHoursSpecification).toBeUndefined();
+  });
+});
+
+function pricedCourt(id: string, prices: number[]): CourtWithPrices {
+  return {
+    id,
+    complex_id: 'c1',
+    name: `Cancha ${id}`,
+    sport: 'padel',
+    court_type: 'indoor',
+    is_active: true,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    prices: prices.map((price, index) => ({
+      id: `${id}-${String(index)}`,
+      court_id: id,
+      price,
+      day_type: 'monday',
+      time_from: '08:00',
+      time_to: '12:00',
+      from_min: 480,
+      to_min: 720,
+    })),
+  };
+}
+
+describe('buildComplexSchema, facts from the payload', () => {
+  const url = 'https://app.test/club-norte';
+
+  it('states the price range of the active courts as hourly prices in ARS', () => {
+    const courts = [pricedCourt('a', [1800000, 3000000]), pricedCourt('b', [2400000])];
+    const schema = buildComplexSchema(complex, schedules, url, courts);
+    expect(schema.priceRange).toBe('$18.000 - $30.000');
+  });
+
+  it('leaves priceRange out when no band is priced', () => {
+    const schema = buildComplexSchema(complex, schedules, url, [pricedCourt('a', [0])]);
+    expect(schema.priceRange).toBeUndefined();
+  });
+
+  it('lists each service as a true amenity feature, by its visible label', () => {
+    const schema = buildComplexSchema({ ...complex, amenities: ['parking', 'wifi'] }, schedules, url);
+    expect(schema.amenityFeature).toEqual([
+      { '@type': 'LocationFeatureSpecification', name: 'Estacionamiento', value: true },
+      { '@type': 'LocationFeatureSpecification', name: 'Wi-Fi', value: true },
+    ]);
+  });
+
+  it('leaves amenityFeature out when the complex lists no services', () => {
+    expect(buildComplexSchema(complex, schedules, url).amenityFeature).toBeUndefined();
+  });
+
+  it('carries the owner description, trimmed, when there is one', () => {
+    const schema = buildComplexSchema({ ...complex, description: '  Canchas techadas.  ' }, schedules, url);
+    expect(schema.description).toBe('Canchas techadas.');
+  });
+
+  it('leaves description out when it is blank', () => {
+    const schema = buildComplexSchema({ ...complex, description: '   ' }, schedules, url);
+    expect(schema.description).toBeUndefined();
   });
 });
 

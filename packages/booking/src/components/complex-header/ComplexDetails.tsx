@@ -34,13 +34,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * Opening hours and services — open in the column, collapsed in the stack.
+ * Opening hours and services — open in the column; in the stack the hours
+ * collapse and the services stay visible.
  *
  * Beside the identity block there is room for both at once, and a control
  * that hides content already on screen is a tap charged for nothing. Once the
  * header stacks into one column that stops being true: the two lists together
- * push the bookable hours off the screen, so they become an accordion whose
- * `type="single"` lets only one stand open at a time.
+ * push the bookable hours off the screen, so the hours become an accordion,
+ * open by default. The services stay a plain list. A closed accordion panel is
+ * not written into the server HTML, and the services are part of what the
+ * page states before any script runs.
  *
  * The switch is a real branch, not two trees with one hidden by CSS — hiding
  * would leave a screen reader reading every heading twice and finding a
@@ -69,22 +72,21 @@ export function ComplexDetails({ schedules, amenities, selectedDate }: ComplexDe
   }
 
   return (
-    <Accordion type="single" collapsible defaultValue="schedules" className="border-border-subtle border-t">
-      <AccordionItem value="schedules">
-        <AccordionTrigger headingLevel={2}>{t.complex.schedules}</AccordionTrigger>
-        <AccordionContent>
-          <WeekScheduleList schedules={schedules} selectedDate={selectedDate} />
-        </AccordionContent>
-      </AccordionItem>
-
-      {hasAmenities && (
-        <AccordionItem value="amenities">
-          <AccordionTrigger headingLevel={2}>{t.complex.amenitiesSection}</AccordionTrigger>
+    <div className="space-y-5">
+      <Accordion type="single" collapsible defaultValue="schedules" className="border-border-subtle border-t">
+        <AccordionItem value="schedules">
+          <AccordionTrigger headingLevel={2}>{t.complex.schedules}</AccordionTrigger>
           <AccordionContent>
-            <AmenityList amenities={amenities} />
+            <WeekScheduleList schedules={schedules} selectedDate={selectedDate} />
           </AccordionContent>
         </AccordionItem>
+      </Accordion>
+
+      {hasAmenities && (
+        <Section title={t.complex.amenitiesSection}>
+          <AmenityList amenities={amenities} />
+        </Section>
       )}
-    </Accordion>
+    </div>
   );
 }
