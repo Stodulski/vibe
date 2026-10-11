@@ -645,6 +645,45 @@ func TestGetPublicReturnsTheVenueWithItsCourts(t *testing.T) {
 	}
 }
 
+// The storefront names the city hub its city belongs to, so a page links back to
+// /canchas/<city_slug> with the same key the hub index groups by.
+func TestGetPublicCarriesTheCitySlugOfItsHub(t *testing.T) {
+	f := newFixture(t)
+	f.store.complex = &complexstore.Complex{ID: uuid.New(), Slug: "vibe", Name: "Vibe", City: "Caleta Olivia", IsActive: true}
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	r = withSlug(r, "vibe")
+
+	w := httptest.NewRecorder()
+	f.handler.GetPublic(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"city_slug":"caleta-olivia"`) {
+		t.Errorf("the public complex must carry its hub's city_slug; got %s", w.Body.String())
+	}
+}
+
+// A city with no slug characters belongs to no hub, so the key is left out.
+func TestGetPublicOmitsTheCitySlugWhenTheCityHasNoHub(t *testing.T) {
+	f := newFixture(t)
+	f.store.complex = &complexstore.Complex{ID: uuid.New(), Slug: "vibe", Name: "Vibe", City: "---", IsActive: true}
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	r = withSlug(r, "vibe")
+
+	w := httptest.NewRecorder()
+	f.handler.GetPublic(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "city_slug") {
+		t.Errorf("a complex in no hub must omit city_slug; got %s", w.Body.String())
+	}
+}
+
 func TestGetPublicReportsAnUnknownSlugAsNotFound(t *testing.T) {
 	f := newFixture(t)
 	f.store.getErr = data.ErrRecordNotFound

@@ -16,8 +16,8 @@ import (
 
 // TestIntegration_ListActiveComplexesForHubsKeepsOnlyLiveSwitchedOnComplexes
 // proves the hub read against a real database: a complex that is switched off
-// or soft-deleted is absent, and a complex's sports come only from its
-// switched-on, live courts, each sport once.
+// or soft-deleted is absent, and a complex's court sports come only from its
+// switched-on, live courts, one entry per court.
 func TestIntegration_ListActiveComplexesForHubsKeepsOnlyLiveSwitchedOnComplexes(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := context.Background()
@@ -66,10 +66,16 @@ func TestIntegration_ListActiveComplexesForHubsKeepsOnlyLiveSwitchedOnComplexes(
 	if got.City != "Banfield" || got.Name != "Club Live" {
 		t.Errorf("listed the complex as %q in %q; want Club Live in Banfield", got.Name, got.City)
 	}
-	// Two padel courts collapse to one padel; the switched-off and the
-	// soft-deleted court contribute nothing.
-	if want := []string{"padel", "tennis"}; !slices.Equal(got.Sports, want) {
-		t.Errorf("sports = %v; want %v", got.Sports, want)
+	if got.Province != "Buenos Aires" {
+		t.Errorf("province = %q; want Buenos Aires", got.Province)
+	}
+	if got.CoverURL != nil {
+		t.Errorf("cover_url = %q; want nil, the complex has none", *got.CoverURL)
+	}
+	// One entry per switched-on court: both padel courts and the tennis court.
+	// The switched-off and the soft-deleted court contribute nothing.
+	if want := []string{"padel", "padel", "tennis"}; !slices.Equal(got.CourtSports, want) {
+		t.Errorf("court sports = %v; want %v", got.CourtSports, want)
 	}
 }
 

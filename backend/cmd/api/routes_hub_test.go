@@ -47,8 +47,8 @@ func TestCityHubRoutesAreDeclaredAsPlatformListings(t *testing.T) {
 func TestHubJSONRoutesReturnTheRealHubsThroughTheTenantMiddleware(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	rows := []complexstore.HubComplex{
-		{ID: uuid.New(), Name: "Club Norte", Slug: "club-norte", Address: "Av. Rivadavia 100", City: "Banfield", IsActive: true, Sports: []string{"padel"}, UpdatedAt: now},
-		{ID: uuid.New(), Name: "Club Lopez", Slug: "club-lopez", Address: "Calle 1 200", City: "Vicente López", IsActive: true, Sports: []string{"tennis"}, UpdatedAt: now},
+		{ID: uuid.New(), Name: "Club Norte", Slug: "club-norte", Address: "Av. Rivadavia 100", City: "Banfield", IsActive: true, CourtSports: []string{"padel"}, UpdatedAt: now},
+		{ID: uuid.New(), Name: "Club Lopez", Slug: "club-lopez", Address: "Calle 1 200", City: "Vicente López", IsActive: true, CourtSports: []string{"tennis"}, UpdatedAt: now},
 	}
 	complexesStore := &mockComplexStore{
 		ListActiveComplexesForHubsFn: func(ctx context.Context) ([]complexstore.HubComplex, error) {

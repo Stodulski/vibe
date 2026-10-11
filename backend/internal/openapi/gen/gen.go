@@ -2297,8 +2297,11 @@ type PublicCancelInfoRefundMethod string
 type PublicCityHub struct {
 	Complexes []PublicHubComplex `json:"complexes"`
 
-	// Hub One city hub. Its `slug` is the city's URL form; its `name` is the city as its first complex stores it.
+	// Hub One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from the spelling the complexes store.
 	Hub PublicHub `json:"hub"`
+
+	// OtherHubs Up to 12 other city hubs to link to. The same province comes first, then the most complexes, then by name.
+	OtherHubs []PublicHubLink `json:"other_hubs"`
 }
 
 // PublicComplex The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state.
@@ -2307,10 +2310,13 @@ type PublicComplex struct {
 	Amenities         []string `json:"amenities"`
 	CancellationHours int      `json:"cancellation_hours"`
 	City              string   `json:"city"`
-	CountryCode       string   `json:"country_code"`
-	CoverUrl          *string  `json:"cover_url,omitempty"`
-	Currency          string   `json:"currency"`
-	DepositPercentage int      `json:"deposit_percentage"`
+
+	// CitySlug The key of the city hub this complex lists under, /canchas/<city_slug>. Omitted when the city has no slug characters and so belongs to no hub.
+	CitySlug          *string `json:"city_slug,omitempty"`
+	CountryCode       string  `json:"country_code"`
+	CoverUrl          *string `json:"cover_url,omitempty"`
+	Currency          string  `json:"currency"`
+	DepositPercentage int     `json:"deposit_percentage"`
 
 	// Description The owner's plain-text description. Omitted when none is set.
 	Description     *string            `json:"description,omitempty"`
@@ -2329,30 +2335,87 @@ type PublicComplex struct {
 	Version *int `json:"version,omitempty"`
 }
 
-// PublicHub One city hub. Its `slug` is the city's URL form; its `name` is the city as its first complex stores it.
+// PublicHub One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from the spelling the complexes store.
 type PublicHub struct {
 	// ComplexCount How many switched-on complexes the hub lists.
-	ComplexCount int    `json:"complex_count"`
-	Name         string `json:"name"`
-	Slug         string `json:"slug"`
+	ComplexCount int `json:"complex_count"`
+
+	// CourtCount How many switched-on courts the hub's complexes carry.
+	CourtCount int    `json:"court_count"`
+	Name       string `json:"name"`
+
+	// Province Empty when no complex names one.
+	Province string `json:"province"`
+	Slug     string `json:"slug"`
+
+	// Sports The sports the hub's switched-on courts carry, most-courted first, then by label.
+	Sports []PublicHubSport `json:"sports"`
 }
 
 // PublicHubComplex A switched-on complex as its city hub lists it.
 type PublicHubComplex struct {
 	Address string `json:"address"`
 
-	// City The city as this complex stores it.
+	// City The city's display name.
 	City string `json:"city"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+
+	// CourtCount How many switched-on courts the complex has.
+	CourtCount int `json:"court_count"`
+
+	// CourtsBySport The complex's switched-on courts counted by sport, most-courted first, then by label.
+	CourtsBySport []PublicHubSport `json:"courts_by_sport"`
+
+	// CoverUrl The complex's cover image, or null when it has none.
+	CoverUrl *string `json:"cover_url"`
+	Name     string  `json:"name"`
+
+	// Province The province's display name. Empty when the complex names none.
+	Province string `json:"province"`
+	Slug     string `json:"slug"`
 
 	// Sports The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored.
 	Sports []string `json:"sports"`
 }
 
+// PublicHubLink A city hub as another hub's document names it.
+type PublicHubLink struct {
+	// ComplexCount How many switched-on complexes the hub lists.
+	ComplexCount int `json:"complex_count"`
+
+	// Name The city's display name.
+	Name string `json:"name"`
+
+	// Province The province most of the hub's complexes name. Empty when none names one.
+	Province string `json:"province"`
+	Slug     string `json:"slug"`
+}
+
 // PublicHubList defines model for PublicHubList.
 type PublicHubList struct {
-	Hubs []PublicHub `json:"hubs"`
+	Hubs []PublicHubSummary `json:"hubs"`
+}
+
+// PublicHubSport defines model for PublicHubSport.
+type PublicHubSport struct {
+	// CourtCount How many switched-on courts of this sport.
+	CourtCount int `json:"court_count"`
+
+	// Sport The Spanish label of the sport. A sport with no label is shown as stored.
+	Sport string `json:"sport"`
+}
+
+// PublicHubSummary One city hub in the hub index.
+type PublicHubSummary struct {
+	// ComplexCount How many switched-on complexes the hub lists.
+	ComplexCount int    `json:"complex_count"`
+	Name         string `json:"name"`
+
+	// Province Empty when no complex names one.
+	Province string `json:"province"`
+	Slug     string `json:"slug"`
+
+	// Sports The Spanish label of each sport the hub's switched-on courts carry, most-courted first, then by label.
+	Sports []string `json:"sports"`
 }
 
 // RefundOutcome defines model for RefundOutcome.

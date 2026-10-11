@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -22,11 +23,20 @@ const hubCacheControl = "public, max-age=300, stale-while-revalidate=60"
 // transient, so a crawler is asked to come back rather than to index the fault.
 const hubRetryAfterSeconds = "60"
 
-// cityHub is one city's listing: the slug its URL carries, the spelling its first
-// complex stores, its live complexes, and the latest update among them.
+// hubOtherLimit caps the other_hubs a city hub document lists.
+const hubOtherLimit = 12
+
+// minIndexableHubComplexes is the fewest complexes a hub needs to be listed in the
+// sitemap: a one-complex hub funnels to a single page, which Google treats as a doorway.
+const minIndexableHubComplexes = 2
+
+// cityHub is one city's listing: the slug its URL carries, the name its first
+// complex stores in display form, the province most of its complexes name, its live
+// complexes, and the latest update among them.
 type cityHub struct {
 	Slug      string
 	City      string
+	Province  string
 	Complexes []complexstore.HubComplex
 	LastMod   time.Time
 }
@@ -43,58 +53,61 @@ var hubSportLabels = map[string]string{
 	"pickleball": "Pickleball",
 }
 
-// accentFold maps the accented letters a city name can carry onto their base
-// letter. It runs after lowercasing, so only lowercase forms are listed.
-var accentFold = strings.NewReplacer(
-	"á", "a", "à", "a", "ä", "a", "â", "a",
-	"é", "e", "è", "e", "ë", "e", "ê", "e",
-	"í", "i", "ì", "i", "ï", "i", "î", "i",
-	"ó", "o", "ò", "o", "ö", "o", "ô", "o",
-	"ú", "u", "ù", "u", "ü", "u", "û", "u",
-	"ñ", "n", "ç", "c",
-)
+// hubConnectors are the words a Spanish place name keeps lowercase, except as its
+// first word.
+var hubConnectors = map[string]bool{
+	"de": true, "del": true, "la": true, "las": true, "los": true, "el": true, "y": true,
+}
 
-// citySlug is the URL form of a city: lowercase, accents removed, a run of spaces
-// or hyphens joined into one hyphen, and every other character dropped. A hub is
-// looked up by it, so "Vicente López", "vicente-lopez" and "VICENTE LÓPEZ" name
-// the same hub.
-func citySlug(city string) string {
-	folded := accentFold.Replace(strings.ToLower(strings.TrimSpace(city)))
+// displayName is the form a city or province is shown in. Spaces are trimmed and
+// collapsed. A name in one case, all lower or all upper, gets Spanish title case; a
+// name typed in mixed case is kept as typed, as its owner may intend it.
+func displayName(name string) string {
+	joined := strings.Join(strings.Fields(name), " ")
+	lower := strings.ToLower(joined)
+	if joined != lower && joined != strings.ToUpper(joined) {
+		return joined
+	}
 
-	var b strings.Builder
-	pendingDash := false
-	for _, r := range folded {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			if pendingDash && b.Len() > 0 {
-				b.WriteByte('-')
-			}
-			pendingDash = false
-			b.WriteRune(r)
-		case r == '-' || unicode.IsSpace(r):
-			pendingDash = true
+	words := strings.Fields(lower)
+	for i, word := range words {
+		if i > 0 && hubConnectors[word] {
+			continue
+		}
+		words[i] = titleHyphenated(word)
+	}
+	return strings.Join(words, " ")
+}
+
+// titleHyphenated upper-cases the first letter of each hyphen-separated part of a
+// lowercase word, so "vicente-lópez" becomes "Vicente-López".
+func titleHyphenated(word string) string {
+	parts := strings.Split(word, "-")
+	for i, part := range parts {
+		if r, size := utf8.DecodeRuneInString(part); size > 0 {
+			parts[i] = string(unicode.ToUpper(r)) + part[size:]
 		}
 	}
-	return b.String()
+	return strings.Join(parts, "-")
 }
 
 // cityHubsFrom groups the switched-on complexes into one hub per city slug, sorted
 // by slug. A switched-off complex is left out entirely, including its update
-// time. A hub takes the spelling its first complex stores.
+// time. A hub takes the display name its first complex stores.
 func cityHubsFrom(rows []complexstore.HubComplex) []cityHub {
 	bySlug := make(map[string]*cityHub)
 	for _, row := range rows {
 		if !row.IsActive {
 			continue
 		}
-		slug := citySlug(row.City)
+		slug := complexstore.CitySlug(row.City)
 		if slug == "" {
 			continue
 		}
 
 		hub, ok := bySlug[slug]
 		if !ok {
-			hub = &cityHub{Slug: slug, City: row.City}
+			hub = &cityHub{Slug: slug, City: displayName(row.City)}
 			bySlug[slug] = hub
 		}
 		hub.Complexes = append(hub.Complexes, row)
@@ -105,32 +118,117 @@ func cityHubsFrom(rows []complexstore.HubComplex) []cityHub {
 
 	hubs := make([]cityHub, 0, len(bySlug))
 	for _, hub := range bySlug {
+		hub.Province = hubProvince(hub.Complexes)
 		hubs = append(hubs, *hub)
 	}
 	sort.Slice(hubs, func(i, j int) bool { return hubs[i].Slug < hubs[j].Slug })
 	return hubs
 }
 
-// hubSportLabelList returns the Spanish label for each of a complex's sports. A sport
-// with no label is shown as stored. The result is never nil, so it encodes as an
-// empty list rather than null.
-func hubSportLabelList(sports []string) []string {
-	labels := make([]string, 0, len(sports))
-	for _, sport := range sports {
-		if label, ok := hubSportLabels[sport]; ok {
+// hubProvince is the province most of a hub's complexes name, ties going to the name
+// first in alphabetical order. Complexes that name no province do not count, so a
+// hub none of whose complexes names one has "".
+func hubProvince(rows []complexstore.HubComplex) string {
+	counts := make(map[string]int)
+	for _, row := range rows {
+		if province := displayName(row.Province); province != "" {
+			counts[province]++
+		}
+	}
+
+	best := ""
+	for province, n := range counts {
+		if best == "" || n > counts[best] || (n == counts[best] && province < best) {
+			best = province
+		}
+	}
+	return best
+}
+
+// hubIndexLess orders the hub index by province, then name. A hub with no province
+// comes last, and a slug settles a tie in name.
+func hubIndexLess(a, b cityHub) bool {
+	if (a.Province == "") != (b.Province == "") {
+		return a.Province != ""
+	}
+	if a.Province != b.Province {
+		return a.Province < b.Province
+	}
+	if a.City != b.City {
+		return a.City < b.City
+	}
+	return a.Slug < b.Slug
+}
+
+// courtSports is one sport per switched-on court across the hub's complexes.
+func (h cityHub) courtSports() []string {
+	var sports []string
+	for _, c := range h.Complexes {
+		sports = append(sports, c.CourtSports...)
+	}
+	return sports
+}
+
+// hubSportLabel is the Spanish label of a sport a court carries. A sport with no
+// label is shown as stored.
+func hubSportLabel(sport string) string {
+	if label, ok := hubSportLabels[sport]; ok {
+		return label
+	}
+	return sport
+}
+
+// hubSportLabelList returns the distinct label of each sport in courtSports, in the
+// order they first appear. The result is never nil, so it encodes as an empty list
+// rather than null.
+func hubSportLabelList(courtSports []string) []string {
+	seen := make(map[string]bool)
+	labels := make([]string, 0, len(courtSports))
+	for _, sport := range courtSports {
+		label := hubSportLabel(sport)
+		if !seen[label] {
+			seen[label] = true
 			labels = append(labels, label)
-		} else {
-			labels = append(labels, sport)
 		}
 	}
 	return labels
 }
 
-// writeHubSitemapEntries appends one sitemap entry per city hub. A hub's lastmod
-// is the latest update among its complexes, so a crawler refetches it when a
-// complex in that city changes.
+// hubSportCount is how many switched-on courts of one sport a hub or a complex has.
+type hubSportCount struct {
+	Sport      string
+	CourtCount int
+}
+
+// courtCountsBySport counts the courts of each sport, most-courted first and then by
+// label, so the sport a hub is best known for leads its list.
+func courtCountsBySport(courtSports []string) []hubSportCount {
+	counts := make(map[string]int)
+	for _, sport := range courtSports {
+		counts[hubSportLabel(sport)]++
+	}
+
+	bySport := make([]hubSportCount, 0, len(counts))
+	for label, n := range counts {
+		bySport = append(bySport, hubSportCount{Sport: label, CourtCount: n})
+	}
+	sort.Slice(bySport, func(i, j int) bool {
+		if bySport[i].CourtCount != bySport[j].CourtCount {
+			return bySport[i].CourtCount > bySport[j].CourtCount
+		}
+		return bySport[i].Sport < bySport[j].Sport
+	})
+	return bySport
+}
+
+// writeHubSitemapEntries appends one sitemap entry per city hub large enough to be
+// indexed. A hub's lastmod is the latest update among its complexes, so a crawler
+// refetches it when a complex in that city changes.
 func writeHubSitemapEntries(b *strings.Builder, hubs []cityHub, baseURL string) {
 	for _, hub := range hubs {
+		if len(hub.Complexes) < minIndexableHubComplexes {
+			continue
+		}
 		b.WriteString("  <url>\n")
 		fmt.Fprintf(b, "    <loc>%s/canchas/%s</loc>\n", baseURL, hub.Slug)
 		fmt.Fprintf(b, "    <lastmod>%s</lastmod>\n", hub.LastMod.Format("2006-01-02"))
@@ -150,20 +248,21 @@ func (s *Service) cityHubs(ctx context.Context) ([]cityHub, error) {
 	return cityHubsFrom(rows), nil
 }
 
-// findCityHub returns the hub a city names, matched case- and accent-insensitively.
-// A city with no switched-on complex is data.ErrRecordNotFound.
-func (s *Service) findCityHub(ctx context.Context, city string) (cityHub, error) {
-	slug := citySlug(city)
+// findCityHub returns the hub a city names, matched case- and accent-insensitively,
+// and every hub, for the other hubs it links to. A city with no switched-on complex
+// is data.ErrRecordNotFound.
+func (s *Service) findCityHub(ctx context.Context, city string) (cityHub, []cityHub, error) {
+	slug := complexstore.CitySlug(city)
 	hubs, err := s.cityHubs(ctx)
 	if err != nil {
-		return cityHub{}, err
+		return cityHub{}, nil, err
 	}
 	for _, hub := range hubs {
 		if hub.Slug == slug {
-			return hub, nil
+			return hub, hubs, nil
 		}
 	}
-	return cityHub{}, data.ErrRecordNotFound
+	return cityHub{}, nil, data.ErrRecordNotFound
 }
 
 // hubError answers a city hub read that failed: 404 for a city with no switched-on

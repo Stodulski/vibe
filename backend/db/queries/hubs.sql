@@ -1,7 +1,7 @@
 -- name: ListActiveComplexesForHubs :many
 -- The public city hubs and the sitemap read this. It reads active_complexes, so
 -- a soft-deleted venue is absent, and keeps only the switched-on ones. Each row
--- carries the sports of that complex's switched-on courts, read from
+-- carries one sport per switched-on court of that complex, read from
 -- active_courts so a soft-deleted court is absent too.
 --
 -- The city is not matched here: a hub matches a city case- and accent-insensitively,
@@ -14,15 +14,17 @@ SELECT
     cx.slug,
     cx.address,
     cx.city,
+    cx.province,
+    cx.cover_url,
     cx.is_active,
     cx.updated_at,
     ARRAY(
-        SELECT DISTINCT ac.sport::text
+        SELECT ac.sport::text
         FROM active_courts ac
         WHERE ac.complex_id = cx.id
           AND ac.is_active
         ORDER BY ac.sport::text
-    )::text[] AS sports
+    )::text[] AS court_sports
 FROM active_complexes cx
 WHERE cx.is_active
 ORDER BY cx.city, cx.name;
