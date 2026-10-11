@@ -26,7 +26,7 @@ describe('RouteErrorPage', () => {
   it('renders the fallback UI when a parent layout throws during render', () => {
     // Mirrors router.tsx: `errorElement` sits on the route wrapping a layout
     // (here `ThrowingLayout`, standing in for DashboardLayout/AdminLayout/
-    // PublicLayout/ProtectedRoute/etc.), not just the lazy page inside it —
+    // ProtectedRoute/etc.), not just the lazy page inside it —
     // this fails if the errorElement were placed only around a leaf page,
     // the way `routeHelpers.tsx`'s per-page `<ErrorBoundary>` is.
     const router = createMemoryRouter(

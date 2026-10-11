@@ -110,7 +110,7 @@ function applyPendingUpdateIfSafe(): void {
  *
  * A 404 is the one screen that can mean the build itself is stale: the tab's
  * router only knows the routes of the build it loaded, so a route added by a
- * later deploy (`/c/<slug>` on a build that predates it) matches nothing and
+ * later deploy (a page added after this build, on a build that predates it) matches nothing and
  * renders this page, while the current build would have served it. The
  * navigation trigger cannot help — the person is already on the dead end and
  * may never navigate again, and a reload alone serves the same cached build.

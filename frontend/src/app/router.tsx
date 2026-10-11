@@ -2,7 +2,6 @@ import { createBrowserRouter, type RouteObject } from 'react-router-dom';
 import { authRoutes } from './router/authRoutes';
 import { ownerStandaloneRoutes, ownerDashboardRoutes } from './router/ownerRoutes';
 import { adminRoutes } from './router/adminRoutes';
-import { publicRoutes } from './router/publicRoutes';
 import { lazyShell } from './router/routeHelpers';
 import { PublicPageLoader } from './router/loaders';
 import { RootRedirect } from './router/RootRedirect';
@@ -31,10 +30,7 @@ const routes: RouteObject[] = [
   // ─── Admin panel (protected + AdminLayout, superadmin only) ───
   ...adminRoutes,
 
-  // ─── Public booking (PublicLayout) ───
-  ...publicRoutes,
-
-  // ─── 404 catch-all ───
+  // ─── 404 catch-all: the app serves no public pages, so `/c/*` lands here too ───
   {
     path: '*',
     element: lazyShell(
