@@ -35,7 +35,7 @@ it forever. (`landing-costos-mercadopago.yml` has no pull-request trigger at all
 
 Railway and Vercel each build one package, so every project is configured with its package directory as the root directory:
 
-- Railway (`backend`): root directory `backend`, Dockerfile and `railway.toml` are read from there.
+- Railway (`backend`): root directory `backend`, where the Dockerfile is read from. The service settings are Infrastructure as Code in `backend/.railway/railway.ts` (`railway config plan`, then `railway config apply`, from `backend/`).
 - Vercel (`frontend`, `landing`): root directory set to the package; `vercel.json` in the landing applies from there.
 
 The landing has server-rendered routes (`/canchas/[city]`), so its build uses the Vercel adapter and writes `.vercel/output`, which Vercel deploys instead of `dist/`. The `build:mirror` step therefore copies the generated sitemap, `llms.txt` and Markdown twins into `.vercel/output/static`. `PUBLIC_API_URL` is inlined at build time, so changing it needs a new deployment.
@@ -50,7 +50,7 @@ production releases and not just previews. Each project now deploys only for its
 | ----------------- | ---------------------- | --------------------------------- |
 | `vibe-frontend`   | `frontend/vercel.json` | `ignoreCommand`                   |
 | `vibe-landing`    | `landing/vercel.json`  | `ignoreCommand`                   |
-| backend (Railway) | `backend/railway.toml` | `watchPatterns = ["/backend/**"]` |
+| backend (Railway) | `backend/.railway/railway.ts` | `watchPatterns: ["/backend/**"]` |
 
 Each Vercel project is self-contained: its directory, plus the shared root workspace files
 (`package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`) and `packages/`, which `frontend/` and

@@ -366,11 +366,11 @@ go run ./cmd/mpcredkey seal|rekey ...        # convert MercadoPago OAuth credent
 
 ## Deploy
 
-The server deploys to [Railway](https://railway.app) from `Dockerfile` (Go 1.27 multi-stage build, distroless final image — see the Dockerfile's own comments for why). `railway.toml` sets:
+The server deploys to [Railway](https://railway.app) from `Dockerfile` (Go 1.27 multi-stage build, distroless final image — see the Dockerfile's own comments for why). `.railway/railway.ts` (Railway Infrastructure as Code: preview with `railway config plan`, apply with `railway config apply`, both from `backend/`) sets:
 
 - `preDeployCommand = ["/app/api -migrate-only"]`: applies migrations once per deploy, before any replica serves traffic, using the same binary that runs the server.
 - `startCommand = "/app/api"`
-- `healthcheckPath = "/api/v1/healthcheck"`: **readiness** (pings Postgres and Redis). `/api/v1/livez` is liveness (answers 200 unconditionally) — not wired into `railway.toml` because Railway's own health check only supports one path per service, but there for a future separate liveness prober.
+- `healthcheckPath = "/api/v1/healthcheck"`: **readiness** (pings Postgres and Redis). `/api/v1/livez` is liveness (answers 200 unconditionally) — not wired into `.railway/railway.ts` because Railway's own health check only supports one path per service, but there for a future separate liveness prober.
 
 CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository root) on every push to `main` and every pull request that touches `backend/`, regardless of the PR's base branch (stacked PRs get CI too). Jobs:
 
@@ -389,7 +389,7 @@ CI runs on GitHub Actions (`.github/workflows/backend.yml` at the repository roo
 
 **Required status checks**: all eight jobs above should be marked required for merging into `main` (GitHub → repository Settings → Branches → branch protection rule for `main`). Not configured by this PR — it is a repository setting, done by the owner outside the codebase.
 
-**"Wait for CI"**: Railway's GitHub integration deploys on push to `main` by reading `railway.toml`, independent of whether GitHub Actions passed. Railway has a **"Wait for CI"** toggle (project → service → Settings → Source) that makes it hold the deploy until GitHub's checks for that commit are green. Not enabled by this PR — it is a Railway dashboard setting the owner flips.
+**"Wait for CI"**: Railway's GitHub integration deploys on push to `main` with the settings applied from `.railway/railway.ts`, independent of whether GitHub Actions passed. Railway has a **"Wait for CI"** toggle (project → service → Settings → Source) that makes it hold the deploy until GitHub's checks for that commit are green. Not enabled by this PR — it is a Railway dashboard setting the owner flips.
 
 The client's Playwright suite runs from `.github/workflows/e2e.yml` via `make e2e`, triggered by changes to either `backend/` or `frontend/`.
 
