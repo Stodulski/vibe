@@ -125,11 +125,6 @@ describe('vercel.json CSP third-party origins', () => {
     // own widget script) — src/shared/components/common/TurnstileField.tsx.
     ['script-src', 'https://challenges.cloudflare.com'],
     ['frame-src', 'https://challenges.cloudflare.com'],
-    // OpenStreetMap tiles — the `TileLayer` url in
-    // packages/booking/src/components/ComplexMap.tsx. Leaflet's own
-    // marker icons are bundled assets (see the comment in that file), not a
-    // CDN fetch, so no unpkg/CDN origin belongs here.
-    ['img-src', 'https://*.tile.openstreetmap.org'],
     // Complex logo/cover images: `public_url` is whatever R2_PUBLIC_URL the
     // backend is configured with — either R2's own public dev domain or a
     // custom domain under vibe.com.ar (backend/internal/platform/config) —
