@@ -5,9 +5,9 @@
  * The helpers live in landing/middleware.ts, because the Vercel Edge bundle cannot import a
  * local .ts module; this file re-exports them for the Astro middleware and the tests.
  */
-import { config, markdownTwinPath, wantsMarkdown } from '../../../middleware.ts';
+import { config, markdownTwinPath, notFoundTarget, NOT_FOUND_TARGET, wantsMarkdown } from '../../../middleware.ts';
 
-export { markdownTwinPath, wantsMarkdown };
+export { markdownTwinPath, notFoundTarget, NOT_FOUND_TARGET, wantsMarkdown };
 
 /**
  * The routes the Vercel middleware runs on. A `:param` matches one non-empty segment.

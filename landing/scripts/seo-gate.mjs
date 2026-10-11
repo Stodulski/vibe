@@ -44,7 +44,7 @@ const MAXIMO_DE_SOLAPAMIENTO = 0.6;
 /* Google corta el title alrededor de los 600px y la description alrededor de
    los 920px. En caracteres es una aproximacion, pero sirve para agarrar los
    casos groseros: un title de 30 y uno de 120 son los dos un problema. */
-const TITLE = { min: 20, max: 65 };
+const TITLE = { min: 20, max: 60 };
 const DESCRIPTION = { min: 70, max: 165 };
 
 /* ------------------------------------------------------------------ helpers */

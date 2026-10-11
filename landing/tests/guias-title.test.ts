@@ -6,7 +6,7 @@ import { guias, guiaTitle } from '../src/data/guias.ts';
 
 /* La banda es la misma que aplica scripts/seo-gate.mjs al title renderizado. */
 const MIN = 20;
-const MAX = 65;
+const MAX = 60;
 
 test('every guia <title> ends with " | Vibe", as the tutorials already do', () => {
   for (const g of guias) {
