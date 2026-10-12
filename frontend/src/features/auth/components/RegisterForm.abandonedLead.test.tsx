@@ -156,11 +156,14 @@ describe('RegisterForm abandoned-registration lead capture — unload and succes
     renderWithProviders(<RegisterForm />);
 
     const email = screen.getByLabelText(/email/i);
-    expect(screen.getByText(ABANDONED_NOTICE)).toBeVisible();
+    const notice = document.getElementById('email-notice');
+    if (!notice) throw new Error('the notice container is missing');
+    expect(notice).toBeVisible();
+    // Two block lines, each its own paragraph, so the sentence is not one wide
+    // text block (see the component).
+    expect(notice.querySelectorAll(':scope > p')).toHaveLength(2);
     expect(email).toHaveAccessibleDescription(ABANDONED_NOTICE);
-    expect(
-      email.compareDocumentPosition(screen.getByText(ABANDONED_NOTICE)) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(email.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: /siguiente/i }));
     await waitFor(() => {

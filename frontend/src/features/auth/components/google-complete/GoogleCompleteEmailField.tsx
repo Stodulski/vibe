@@ -25,9 +25,11 @@ export function GoogleCompleteEmailField({ email }: GoogleCompleteEmailFieldProp
           className="h-11 pl-9 text-sm sm:h-10"
         />
       </FormField>
-      <p id="google-email-notice" className="text-micro text-text-tertiary">
-        {t.auth.abandonedLeadNotice}
-      </p>
+      {/* Two block lines, not one paragraph, for the same reason as the register notice:
+          each line is its own LCP text candidate and stays under the brand mark's size. */}
+      <div id="google-email-notice" className="text-micro text-text-tertiary">
+        <p>{t.auth.abandonedLeadNoticeFirst}</p> <p>{t.auth.abandonedLeadNoticeSecond}</p>
+      </div>
     </div>
   );
 }

@@ -115,10 +115,11 @@ describe('GoogleCompleteForm abandoned-signup notice', () => {
     renderWithProviders(<GoogleCompleteForm profileToken="a-token" profile={PROFILE} />);
 
     const email = screen.getByLabelText(/email/i);
-    expect(screen.getByText(ABANDONED_NOTICE)).toBeVisible();
+    const notice = document.getElementById('google-email-notice');
+    if (!notice) throw new Error('the notice container is missing');
+    expect(notice).toBeVisible();
+    expect(notice.querySelectorAll(':scope > p')).toHaveLength(2);
     expect(email).toHaveAccessibleDescription(ABANDONED_NOTICE);
-    expect(
-      email.compareDocumentPosition(screen.getByText(ABANDONED_NOTICE)) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(email.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

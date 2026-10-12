@@ -27,9 +27,14 @@ export function RegisterEmailField({ register, errors }: RegisterEmailFieldProps
           {...register('email')}
         />
       </FormField>
-      <p id="email-notice" className="text-micro text-text-tertiary">
-        {t.auth.abandonedLeadNotice}
-      </p>
+      {/* Two block lines, not one paragraph. Chrome picks the LCP text per block, so one
+          wrapped paragraph of this copy is wider than the brand mark and takes over as the
+          largest element on the page. Each line on its own stays under the mark's size. The
+          space between the lines is what a screen reader reads as the break; on screen it
+          collapses to nothing. */}
+      <div id="email-notice" className="text-micro text-text-tertiary">
+        <p>{t.auth.abandonedLeadNoticeFirst}</p> <p>{t.auth.abandonedLeadNoticeSecond}</p>
+      </div>
     </div>
   );
 }
