@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -49,6 +50,19 @@ type stubStore struct {
 	voidSale  *salestore.Sale
 	voidErr   error
 	voidCalls int
+
+	// Checkout: checkoutRes overrides the result; otherwise it is built from the
+	// create* fields. The checkout* fields record what the service passed.
+	checkoutRes      *salestore.CheckoutResult
+	checkoutCalls    int
+	checkoutItems    []salestore.ItemInput
+	checkoutBookings []salestore.BookingPaymentInput
+	bookingLines     map[uuid.UUID][]*salestore.BookingPaymentLine
+
+	balancesDue   []*salestore.BalanceDue
+	balancesErr   error
+	balancesDay   time.Time
+	balancesCalls int
 }
 
 type createCall struct {
@@ -75,6 +89,40 @@ func (s *stubStore) Create(_ context.Context, complexID, actorID uuid.UUID, item
 		sale = &salestore.Sale{ID: uuid.New(), ComplexID: complexID}
 	}
 	return sale, s.createItems, s.createWarnings, nil
+}
+
+func (s *stubStore) Checkout(_ context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, bookings []salestore.BookingPaymentInput, method string, note *string) (*salestore.CheckoutResult, error) {
+	s.checkoutCalls++
+	s.createCalls++
+	s.checkoutItems = items
+	s.checkoutBookings = bookings
+	if s.createErr != nil {
+		return nil, s.createErr
+	}
+	if s.checkoutRes != nil {
+		return s.checkoutRes, nil
+	}
+	sale := s.createSale
+	if sale == nil && len(items) > 0 {
+		sale = &salestore.Sale{ID: uuid.New(), ComplexID: complexID}
+	}
+	return &salestore.CheckoutResult{Sale: sale, Items: s.createItems, Warnings: s.createWarnings}, nil
+}
+
+func (s *stubStore) ListBookingPaymentsBySaleIDs(_ context.Context, _ uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error) {
+	out := make(map[uuid.UUID][]*salestore.BookingPaymentLine)
+	for _, id := range saleIDs {
+		if lines, ok := s.bookingLines[id]; ok {
+			out[id] = lines
+		}
+	}
+	return out, nil
+}
+
+func (s *stubStore) ListBalancesDue(_ context.Context, _ uuid.UUID, day time.Time) ([]*salestore.BalanceDue, error) {
+	s.balancesCalls++
+	s.balancesDay = day
+	return s.balancesDue, s.balancesErr
 }
 
 func (s *stubStore) GetByID(_ context.Context, _, _ uuid.UUID) (*salestore.Sale, error) {

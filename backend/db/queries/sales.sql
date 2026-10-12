@@ -72,3 +72,74 @@ ORDER BY sale_id, created_at ASC, id ASC;
 SELECT * FROM stock_movements
 WHERE sale_id = $1 AND complex_id = $2 AND kind = 'sale'
 ORDER BY product_id;
+
+-- name: InsertSaleBookingPayment :one
+INSERT INTO sale_booking_payments (complex_id, sale_id, booking_id, payment_id, amount)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListSaleBookingPaymentsBySaleIDs :many
+-- The booking lines a page of sales collected, for the receipt. Joined to the
+-- booking, court and client so the response can name them without a second
+-- round trip per sale.
+SELECT sbp.sale_id, sbp.payment_id, sbp.booking_id, sbp.amount,
+       b.date AS booking_date,
+       lower(b.span)::timestamptz AS starts_at,
+       upper(b.span)::timestamptz AS ends_at,
+       c.name AS court_name,
+       cl.first_name AS client_first_name,
+       cl.last_name AS client_last_name
+FROM sale_booking_payments sbp
+JOIN bookings b ON b.id = sbp.booking_id AND b.complex_id = sbp.complex_id
+JOIN courts c ON c.id = b.court_id
+JOIN clients cl ON cl.id = b.client_id
+WHERE sbp.sale_id = ANY(sqlc.arg(sale_ids)::uuid[]) AND sbp.complex_id = sqlc.arg(complex_id)::uuid
+ORDER BY sbp.created_at ASC, sbp.id ASC;
+
+-- name: ListBookingPaymentLinesByPaymentIDs :many
+-- The same booking lines as ListSaleBookingPaymentsBySaleIDs, read from the
+-- payments rows directly: a booking-only checkout has no sale to hang them on.
+SELECT p.id AS payment_id, p.booking_id, p.amount,
+       b.date AS booking_date,
+       lower(b.span)::timestamptz AS starts_at,
+       upper(b.span)::timestamptz AS ends_at,
+       c.name AS court_name,
+       cl.first_name AS client_first_name,
+       cl.last_name AS client_last_name
+FROM payments p
+JOIN bookings b ON b.id = p.booking_id AND b.complex_id = p.complex_id
+JOIN courts c ON c.id = b.court_id
+JOIN clients cl ON cl.id = b.client_id
+WHERE p.id = ANY(sqlc.arg(payment_ids)::uuid[]) AND p.complex_id = sqlc.arg(complex_id)::uuid
+ORDER BY p.created_at ASC, p.id ASC;
+
+-- name: CountSaleBookingPayments :one
+SELECT COUNT(*)::bigint FROM sale_booking_payments
+WHERE sale_id = $1 AND complex_id = $2;
+
+-- name: ListBookingBalancesDue :many
+-- The sell page's list: one day's bookings of a complex that still owe money.
+-- A balance is price less what the booking has collected (deposit_amount when
+-- deposit_paid, the whole price when fully_paid). Only confirmed and completed
+-- bookings qualify: cancelled, no-show and pending bookings are never sold
+-- against here. A pending booking is confirmed from the booking panel, which
+-- re-checks its slot, and that is the only path that may confirm one.
+SELECT b.id, b.date AS booking_date,
+       lower(b.span)::timestamptz AS starts_at,
+       upper(b.span)::timestamptz AS ends_at,
+       b.price,
+       b.deposit_amount,
+       b.collection_status,
+       b.status,
+       c.name AS court_name,
+       cl.first_name AS client_first_name,
+       cl.last_name AS client_last_name
+FROM bookings b
+JOIN courts c ON c.id = b.court_id
+JOIN clients cl ON cl.id = b.client_id
+WHERE b.complex_id = sqlc.arg(complex_id)::uuid
+  AND b.date = sqlc.arg(booking_date)::date
+  AND b.status IN ('confirmed', 'completed')
+  AND b.collection_status <> 'fully_paid'
+  AND b.price > CASE WHEN b.collection_status = 'deposit_paid' THEN b.deposit_amount ELSE 0 END
+ORDER BY lower(b.span) ASC, c.name ASC, b.id ASC;

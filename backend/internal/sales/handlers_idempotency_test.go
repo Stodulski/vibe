@@ -107,3 +107,32 @@ func TestCreateWithDifferentKeysRunsTwice(t *testing.T) {
 		t.Fatalf("want two sales recorded for two different keys; got %d", store.createCalls)
 	}
 }
+
+// TestCheckoutReplayedWithTheSameKeyCollectsTheBalanceOnce is the double tap
+// for a balance: the same Idempotency-Key sent twice must collect the booking
+// balance once and replay the first answer, never charge the player twice.
+func TestCheckoutReplayedWithTheSameKeyCollectsTheBalanceOnce(t *testing.T) {
+	bookingID := uuid.New()
+	store := &stubStore{checkoutRes: &salestore.CheckoutResult{
+		BookingLines: []*salestore.BookingPaymentLine{balanceLine(bookingID, 350_000)},
+	}}
+	h, _ := newTestHandler(store)
+	idem := newIdempotencyGuard(t)
+	guarded := idem.Guard("sales-create")(h.Create)
+
+	ownerID, complexID := uuid.New(), uuid.New()
+	body := `{"items":[],"booking_payments":[{"booking_id":"` + bookingID.String() + `","amount":350000}],"method":"cash"}`
+	const key = "counter-tap-balance-0001"
+
+	first := httptest.NewRecorder()
+	guarded(first, createRequest(t, ownerID, complexID, body, key))
+	second := httptest.NewRecorder()
+	guarded(second, createRequest(t, ownerID, complexID, body, key))
+
+	if store.checkoutCalls != 1 {
+		t.Fatalf("want the balance collected once; got %d checkouts", store.checkoutCalls)
+	}
+	if second.Code != first.Code || second.Body.String() != first.Body.String() {
+		t.Errorf("the retry must replay the first answer; first %d %s, second %d %s", first.Code, first.Body.String(), second.Code, second.Body.String())
+	}
+}

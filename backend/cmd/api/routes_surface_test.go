@@ -49,6 +49,7 @@ var apiSurface = map[string]struct{}{
 	"GET /api/v1/complexes/{id}/products/{productID}":                                   {},
 	"GET /api/v1/complexes/{id}/products/{productID}/stock-movements":                   {},
 	"GET /api/v1/complexes/{id}/sales":                                                  {},
+	"GET /api/v1/complexes/{id}/cash/bookings-due":                                      {},
 	"GET /api/v1/complexes/{id}/sales/{saleID}":                                         {},
 	"GET /api/v1/complexes/{id}/reports/export":                                         {},
 	"GET /api/v1/complexes/{id}/reports/exports/{exportID}":                             {},

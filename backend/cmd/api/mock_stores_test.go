@@ -1470,6 +1470,26 @@ type mockSalesStore struct {
 	ListItemsBySaleIDsFn func(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) ([]*salestore.SaleItem, error)
 	ListByComplexFn      func(ctx context.Context, complexID uuid.UUID, sessionID *uuid.UUID, filters data.Filters) ([]*salestore.Sale, data.Metadata, error)
 	VoidFn               func(ctx context.Context, complexID, saleID, actorID uuid.UUID, note *string) (*salestore.Sale, error)
+	CheckoutFn           func(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, bookings []salestore.BookingPaymentInput, method string, note *string) (*salestore.CheckoutResult, error)
+	BalancesDueFn        func(ctx context.Context, complexID uuid.UUID, day time.Time) ([]*salestore.BalanceDue, error)
+}
+
+func (m *mockSalesStore) Checkout(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, bookings []salestore.BookingPaymentInput, method string, note *string) (*salestore.CheckoutResult, error) {
+	if m.CheckoutFn == nil {
+		return &salestore.CheckoutResult{}, nil
+	}
+	return m.CheckoutFn(ctx, complexID, actorID, items, bookings, method, note)
+}
+
+func (m *mockSalesStore) ListBookingPaymentsBySaleIDs(_ context.Context, _ uuid.UUID, _ []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error) {
+	return nil, nil
+}
+
+func (m *mockSalesStore) ListBalancesDue(ctx context.Context, complexID uuid.UUID, day time.Time) ([]*salestore.BalanceDue, error) {
+	if m.BalancesDueFn == nil {
+		return nil, nil
+	}
+	return m.BalancesDueFn(ctx, complexID, day)
 }
 
 func (m *mockSalesStore) Create(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, method string, note *string) (*salestore.Sale, []*salestore.SaleItem, []salestore.StockWarning, error) {

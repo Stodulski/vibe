@@ -506,7 +506,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// service or store) so that a sale and its income and stock movements
 	// commit in one transaction — see internal/sales/store.Store.Create's
 	// own comment, the same reasoning products' own Restock gives.
-	salesService := sales.NewService(d.models.Sales, auditor)
+	salesService := sales.NewService(d.models.Sales, auditor).WithBookingPublisher(events)
 	salesHandler := sales.NewHandler(salesService, respond, d.trustedProxies.Any())
 
 	// The one edge that cannot be a constructor argument, closed the moment the

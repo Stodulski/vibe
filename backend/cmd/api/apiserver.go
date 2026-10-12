@@ -545,6 +545,12 @@ func (s *apiServer) SalesCreate(w http.ResponseWriter, r *http.Request, id gen.P
 	s.app.sales.Create(w, r)
 }
 
+// SalesBookingsDue implements gen.ServerInterface for salesBookingsDue
+// (GET /api/v1/complexes/{id}/cash/bookings-due).
+func (s *apiServer) SalesBookingsDue(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.sales.BookingsDue(w, r)
+}
+
 // SalesGet implements gen.ServerInterface for salesGet
 // (GET /api/v1/complexes/{id}/sales/{saleID}). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) SalesGet(w http.ResponseWriter, r *http.Request, id gen.PathID, saleID gen.SaleID) {

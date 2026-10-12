@@ -697,6 +697,16 @@ type Sale struct {
 	CreatedBy          pgtype.UUID        `json:"created_by"`
 }
 
+type SaleBookingPayment struct {
+	ID        pgtype.UUID        `json:"id"`
+	ComplexID pgtype.UUID        `json:"complex_id"`
+	SaleID    pgtype.UUID        `json:"sale_id"`
+	BookingID pgtype.UUID        `json:"booking_id"`
+	PaymentID pgtype.UUID        `json:"payment_id"`
+	Amount    int32              `json:"amount"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type SaleItem struct {
 	ID          pgtype.UUID        `json:"id"`
 	ComplexID   pgtype.UUID        `json:"complex_id"`

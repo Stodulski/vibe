@@ -119,6 +119,7 @@ var routeGuards = map[string]routeGuard{
 	"GET /api/v1/complexes/{id}/products/{productID}/stock-movements":                   {kind: guardOwner},
 	"GET /api/v1/complexes/{id}/sales":                                                  {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/sales":                                                 {kind: guardOwner, idempotentKey: "sales-create"},
+	"GET /api/v1/complexes/{id}/cash/bookings-due":                                      {kind: guardOwner},
 	"GET /api/v1/complexes/{id}/sales/{saleID}":                                         {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/sales/{saleID}/void":                                   {kind: guardOwner, idempotentKey: "sales-void"},
 	"POST /api/v1/complexes/{id}/mp/connect":                                            {kind: guardOwner},

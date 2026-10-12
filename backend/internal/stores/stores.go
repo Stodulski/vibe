@@ -671,6 +671,9 @@ type ProductStore interface {
 // store (internal/sales/store), the same as every other domain here.
 type SalesStore interface {
 	Create(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, method string, note *string) (*salestore.Sale, []*salestore.SaleItem, []salestore.StockWarning, error)
+	Checkout(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, bookings []salestore.BookingPaymentInput, method string, note *string) (*salestore.CheckoutResult, error)
+	ListBookingPaymentsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error)
+	ListBalancesDue(ctx context.Context, complexID uuid.UUID, day time.Time) ([]*salestore.BalanceDue, error)
 	GetByID(ctx context.Context, complexID, saleID uuid.UUID) (*salestore.Sale, error)
 	ListItemsBySale(ctx context.Context, complexID, saleID uuid.UUID) ([]*salestore.SaleItem, error)
 	ListItemsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) ([]*salestore.SaleItem, error)
@@ -730,6 +733,9 @@ func New(pool *pgxpool.Pool, cfg Config) Stores {
 func newStores(pooled *data.DB, cfg Config) Stores {
 	q := db.New(pooled)
 	paymentExpiry := cfg.paymentExpiry()
+	// One Payments value serves both the booking panel and a sales checkout's
+	// balance lines, so both confirm a payment through the same logic.
+	payments := &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry}
 	return Stores{
 		Users:             &authstore.Users{DB: pooled, Q: q, HashCost: cfg.PasswordHashCost},
 		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
@@ -742,7 +748,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Lifecycle:         &lifecyclestore.Store{Q: q},
 		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
 		Clients:           &clientstore.Store{DB: pooled, Q: q},
-		Payments:          &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
+		Payments:          payments,
 		EmailVerification: &authstore.EmailVerifications{DB: pooled, Q: q},
 		PasswordReset:     &authstore.PasswordResets{DB: pooled},
 		EmailChange:       &authstore.EmailChanges{DB: pooled},
@@ -755,6 +761,6 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Jobs:              &jobs.Store{DB: pooled},
 		Cashbox:           &cashboxstore.Store{DB: pooled, Q: q},
 		Products:          &productstore.Store{DB: pooled, Q: q},
-		Sales:             &salestore.Store{DB: pooled, Q: q},
+		Sales:             &salestore.Store{DB: pooled, Q: q, Payments: payments},
 	}
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
 // maxSaleTotal caps a sale's total, which becomes cash_movements.amount (an
@@ -150,203 +151,10 @@ type StockWarning struct {
 type Store struct {
 	DB *data.DB
 	Q  *db.Queries
-}
-
-// Create records a sale in ONE transaction: it locks the complex's open cash
-// session, locks every named product (in ascending id order, one
-// single-row lock at a time — see below for why not a single batched
-// query), validates that every product exists and is active, computes the
-// total from the LOCKED products' own prices (never the caller's), writes
-// the 'sale' cash income, the sale row, one sale_items row per requested
-// product, and — for every product that tracks stock — one 'sale' stock
-// movement and the stock_on_hand delta it drives.
-//
-// Locking is not restricted to stock-tracked products, unlike the feature
-// document's own wording ("lock ... every stock-tracked product"): every
-// requested product is locked here, tracked or not. An untracked product's
-// price still has to be read for the total, and locking it too closes the
-// same "price changed mid-sale" race for free, at a cost — one more row
-// lock, released at commit, on a sale bounded to 50 lines — this codebase
-// already treats as negligible everywhere else (Restock locks the one
-// product it touches the same way). This is a superset of the minimum the
-// document asks for, not a smaller guarantee.
-//
-// Products are locked ONE AT A TIME, via the existing single-row
-// GetProductByIDForUpdate (products.sql), sorted by id first, rather than
-// through one batched `WHERE id = ANY(...) FOR UPDATE` call: PostgreSQL does
-// not guarantee that a single statement's row-level locks are acquired in
-// its ORDER BY's output order — the sort can run above the locking step in
-// the plan — so a batched call cannot actually promise the stable lock order
-// two concurrent sales sharing a product need to avoid deadlocking each
-// other. A sequence of single-row lock statements, issued in a fixed id
-// order chosen in Go before any of them runs, gives that guarantee exactly:
-// each statement is issued only after the previous one's lock is held.
-//
-// ErrNoOpenCashSession answers a complex with nothing open.
-// *ErrInvalidItems answers a request naming a product that does not exist in
-// this complex or is not active — see that type's own comment.
-// ErrZeroTotal / ErrTotalExceedsCap answer a computed total outside (0, cap].
-//
-//nolint:funlen // one cohesive transaction (lock session, lock products, validate, price, write the cash income, the sale, its items, and every tracked item's stock movement) — splitting it would relocate sequential steps of the same atomic write into helpers without reducing what a reader holds at once, the same cohesion argument products.Store.Restock's identical comment makes.
-func (m *Store) Create(ctx context.Context, complexID, actorID uuid.UUID, items []ItemInput, method string, note *string) (*Sale, []*SaleItem, []StockWarning, error) {
-	ctx, cancel := data.TxContext(ctx)
-	defer cancel()
-
-	if err := data.AssertTenant(ctx, complexID); err != nil {
-		return nil, nil, nil, err
-	}
-
-	ids := make([]uuid.UUID, len(items))
-	for i, it := range items {
-		ids[i] = it.ProductID
-	}
-	sort.Slice(ids, func(i, j int) bool { return bytes.Compare(ids[i][:], ids[j][:]) < 0 })
-
-	var sale *Sale
-	var saleItems []*SaleItem
-	var warnings []StockWarning
-	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
-		session, err := qtx.GetOpenCashSessionForUpdate(ctx, data.UUIDToPg(complexID))
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrNoOpenCashSession
-			}
-			return fmt.Errorf("sale: lock open cash session: %w", err)
-		}
-
-		locked := make(map[uuid.UUID]db.Product, len(ids))
-		problems := map[uuid.UUID]ItemProblem{}
-		for _, id := range ids {
-			row, err := qtx.GetProductByIDForUpdate(ctx, db.GetProductByIDForUpdateParams{
-				ID:        data.UUIDToPg(id),
-				ComplexID: data.UUIDToPg(complexID),
-			})
-			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					problems[id] = ItemNotFound
-					continue
-				}
-				return fmt.Errorf("sale: lock product %s: %w", id, err)
-			}
-			if !row.Active {
-				problems[id] = ItemInactive
-				continue
-			}
-			locked[id] = row
-		}
-		if len(problems) > 0 {
-			return &ErrInvalidItems{Problems: problems}
-		}
-
-		total := 0
-		for _, it := range items {
-			total += int(locked[it.ProductID].Price) * it.Quantity
-		}
-		if total <= 0 {
-			return ErrZeroTotal
-		}
-		if total > maxSaleTotal {
-			return ErrTotalExceedsCap
-		}
-
-		description := fmt.Sprintf("Sale: %d item(s)", len(items))
-		if note != nil && *note != "" {
-			description = description + " — " + *note
-		}
-
-		//nolint:gosec // G115: total is checked positive and <= maxSaleTotal above, well within int32 range.
-		cashRow, err := qtx.InsertCashMovement(ctx, db.InsertCashMovementParams{
-			ComplexID: data.UUIDToPg(complexID),
-			SessionID: session.ID,
-			Kind:      "income",
-			Category:  "sale",
-			Method:    db.PaymentMethod(method),
-			Amount:    int32(total),
-			Note:      data.TextToPg(&description),
-			CreatedBy: data.UUIDToPg(actorID),
-		})
-		if err != nil {
-			return fmt.Errorf("sale: insert cash movement: %w", err)
-		}
-
-		saleRow, err := qtx.InsertSale(ctx, db.InsertSaleParams{
-			ComplexID:      data.UUIDToPg(complexID),
-			SessionID:      session.ID,
-			Method:         db.PaymentMethod(method),
-			Total:          int32(total), //nolint:gosec // G115: same bound as Amount above.
-			CashMovementID: cashRow.ID,
-			CreatedBy:      data.UUIDToPg(actorID),
-		})
-		if err != nil {
-			return fmt.Errorf("sale: insert sale: %w", err)
-		}
-		sale = saleFromDB(saleRow)
-
-		for _, it := range items {
-			product := locked[it.ProductID]
-			lineTotal := int(product.Price) * it.Quantity
-
-			itemRow, err := qtx.InsertSaleItem(ctx, db.InsertSaleItemParams{
-				ComplexID:   data.UUIDToPg(complexID),
-				SaleID:      saleRow.ID,
-				ProductID:   product.ID,
-				ProductName: product.Name,
-				UnitPrice:   product.Price,
-				//nolint:gosec // G115: quantity is validated 1..1000 by the handler.
-				Quantity: int32(it.Quantity),
-				//nolint:gosec // G115: bounded by unit_price and quantity above, both well within range, and by the sale total cap.
-				LineTotal: int32(lineTotal),
-			})
-			if err != nil {
-				return fmt.Errorf("sale: insert sale item for product %s: %w", data.PgToUUID(product.ID), err)
-			}
-			saleItems = append(saleItems, saleItemFromDB(itemRow))
-
-			if !product.TracksStock {
-				continue
-			}
-
-			movementRow, err := qtx.InsertStockMovement(ctx, db.InsertStockMovementParams{
-				ComplexID: data.UUIDToPg(complexID),
-				ProductID: product.ID,
-				Kind:      "sale",
-				//nolint:gosec // G115: quantity is validated 1..1000 by the handler, negated here, still far below int32 range.
-				Quantity:  int32(-it.Quantity),
-				SaleID:    saleRow.ID,
-				CreatedBy: data.UUIDToPg(actorID),
-			})
-			if err != nil {
-				return fmt.Errorf("sale: insert stock movement for product %s: %w", data.PgToUUID(product.ID), err)
-			}
-			_ = movementRow
-
-			updatedProduct, err := qtx.UpdateProductStock(ctx, db.UpdateProductStockParams{
-				ID:        product.ID,
-				ComplexID: data.UUIDToPg(complexID),
-				//nolint:gosec // G115: same bound as Quantity above.
-				Delta: int32(-it.Quantity),
-			})
-			if err != nil {
-				return fmt.Errorf("sale: apply stock delta for product %s: %w", data.PgToUUID(product.ID), err)
-			}
-			if updatedProduct.StockOnHand <= 0 {
-				warnings = append(warnings, StockWarning{
-					ProductID:   data.PgToUUID(product.ID),
-					ProductName: product.Name,
-					StockOnHand: int(updatedProduct.StockOnHand),
-				})
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		var invalid *ErrInvalidItems
-		if errors.As(err, &invalid) {
-			return nil, nil, nil, invalid
-		}
-		return nil, nil, nil, err
-	}
-	return sale, saleItems, warnings, nil
+	// Payments is the booking payment logic a checkout reuses for its balance
+	// lines (internal/payments/store). It shares this store's transaction, so
+	// the balances and the sale commit or roll back together.
+	Payments *paymentstore.Payments
 }
 
 // GetByID returns one sale of this complex, or ErrRecordNotFound.
@@ -494,6 +302,19 @@ func (m *Store) Void(ctx context.Context, complexID, saleID, actorID uuid.UUID, 
 		}
 		if lockedSale.VoidedAt.Valid {
 			return ErrAlreadyVoided
+		}
+
+		// A balance collected with this sale has no reversal: refuse before any
+		// write, so the void never half-undoes a checkout.
+		linked, err := qtx.CountSaleBookingPayments(ctx, db.CountSaleBookingPaymentsParams{
+			SaleID:    lockedSale.ID,
+			ComplexID: data.UUIDToPg(complexID),
+		})
+		if err != nil {
+			return fmt.Errorf("sale void: count booking payments: %w", err)
+		}
+		if linked > 0 {
+			return ErrSaleHasBookingPayments
 		}
 
 		session, err := qtx.GetOpenCashSessionForUpdate(ctx, data.UUIDToPg(complexID))
