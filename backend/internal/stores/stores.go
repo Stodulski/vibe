@@ -213,7 +213,6 @@ type ComplexMPManager interface {
 	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error)
 }
 
-// ComplexStore composes every complex-related store capability.
 // WaitlistStore holds the days players asked to hear about when a slot frees
 // up: the public join, the claim that notifies them once, and the daily cleanup.
 type WaitlistStore interface {
@@ -222,6 +221,7 @@ type WaitlistStore interface {
 	DeleteBefore(ctx context.Context, today time.Time) (int64, error)
 }
 
+// ComplexStore composes every complex-related store capability.
 type ComplexStore interface {
 	ComplexCRUD
 	ComplexScheduleManager
