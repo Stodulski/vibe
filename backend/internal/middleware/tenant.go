@@ -79,6 +79,7 @@ var crossTenantRoutes = map[string]string{
 	"GET /api/v1/public/complexes/{slug}":                "resolves: the storefront finds its complex by slug",
 	"GET /api/v1/public/complexes/{slug}/availability":   "resolves: the availability grid finds its complex by slug",
 	"GET /api/v1/public/complexes/{slug}/next-available": "resolves: the next-day search finds its complex by slug",
+	"POST /api/v1/public/complexes/{slug}/waitlist":      "resolves: the waitlist join finds its complex by slug",
 	"GET /api/v1/sitemap.xml":                            "platform: every active slug on the platform, by definition",
 	"GET /api/sitemap.xml":                               "platform: the 301 to the line above; it reads nothing",
 	"GET /api/v1/public/hubs":                            "platform: every active complex in every city, public listing data only, by definition",

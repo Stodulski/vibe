@@ -23,6 +23,9 @@ type Querier interface {
 	// nothing: the trigger on this table fires on any UPDATE, which is the whole
 	// effect wanted here.
 	BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error)
+	// Marks every entry still waiting for this day as notified and returns them, in
+	// one statement, so two frees of the same day cannot both claim the same row.
+	ClaimWaitlistEntries(ctx context.Context, arg ClaimWaitlistEntriesParams) ([]ClaimWaitlistEntriesRow, error)
 	// closing_note is its own column: it never touches opening_note, so a
 	// closing note can never erase what Open recorded.
 	//
@@ -42,6 +45,7 @@ type Querier interface {
 	DeleteRefreshToken(ctx context.Context, id pgtype.UUID) error
 	DeleteUnverifiedStaleUsers(ctx context.Context) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
+	DeleteWaitlistEntriesBefore(ctx context.Context, today pgtype.Date) (int64, error)
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	GetBlockedSlotByID(ctx context.Context, id pgtype.UUID) (BlockedSlot, error)
 	GetBlockedSlots(ctx context.Context, arg GetBlockedSlotsParams) ([]BlockedSlot, error)
@@ -257,6 +261,7 @@ type Querier interface {
 	InsertUserIdentity(ctx context.Context, arg InsertUserIdentityParams) error
 	// Atomic: deletes stale tokens (>3 min), inserts new only if none within 3 min.
 	InsertVerificationTokenWithCooldown(ctx context.Context, arg InsertVerificationTokenWithCooldownParams) (EmailVerificationToken, error)
+	InsertWaitlistEntry(ctx context.Context, arg InsertWaitlistEntryParams) error
 	// The public city hubs and the sitemap read this. It reads active_complexes, so
 	// a soft-deleted venue is absent, and keeps only the switched-on ones. Each row
 	// carries one sport per switched-on court of that complex, read from

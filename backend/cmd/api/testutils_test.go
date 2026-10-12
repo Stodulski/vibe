@@ -129,6 +129,7 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, publicURL str
 		WebhookEvents:     &mockWebhookEventStore{},
 		SlotLocks:         &mockSlotLockStore{},
 		Reports:           &mockReportStore{},
+		Waitlist:          &mockWaitlistStore{},
 		Audit:             &mockAuditStore{},
 		Locks:             &mockLockStore{},
 	}

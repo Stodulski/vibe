@@ -401,6 +401,7 @@ var csrfExemptRoutes = map[string]string{
 	"POST /api/v1/book/cancel": "same flow, authenticated by the booking's own link token",
 
 	"POST /api/v1/public/leads/abandoned-registration": "reached before an account exists, so no cookie is in play",
+	"POST /api/v1/public/complexes/{slug}/waitlist":    "public waitlist: the player has no account, so no cookie is in play",
 
 	"POST /api/v1/webhooks/mercadopago": "authenticated by MercadoPago's signature; no cookie auth in this flow",
 	"POST /api/v1/webhooks/whatsapp":    "authenticated by Meta's signature; no cookie auth in this flow",

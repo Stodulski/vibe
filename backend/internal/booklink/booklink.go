@@ -105,6 +105,13 @@ func Book(publicURL, complexSlug string) string {
 	return fmt.Sprintf("%s/c/%s/book", publicURL, complexSlug)
 }
 
+// Storefront is the complex's public page, where its booking grid is shown. The
+// storefront does not read a date from its URL, so a link to a particular day
+// lands on the page and the player picks the day there.
+func Storefront(publicURL, complexSlug string) string {
+	return fmt.Sprintf("%s/c/%s", publicURL, complexSlug)
+}
+
 // mapsURLPrefix is the fixed base a Google Maps "search" deep link is built
 // from; MapsQuery returns everything appended after it.
 const mapsURLPrefix = "https://www.google.com/maps/search/?api=1&query="

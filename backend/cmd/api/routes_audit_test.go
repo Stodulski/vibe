@@ -26,6 +26,7 @@ var publicRoutes = map[string]string{
 	"GET /api/v1/public/complexes/{slug}":                "the public booking page for a complex",
 	"GET /api/v1/public/complexes/{slug}/availability":   "slot grid on the public booking page",
 	"GET /api/v1/public/complexes/{slug}/next-available": "looks past a full day for the next one with room on the storefront",
+	"POST /api/v1/public/complexes/{slug}/waitlist":      "adds an email to the waitlist for a fully booked day, from the storefront without an account",
 	"POST /api/v1/public/leads/abandoned-registration": "captures an email left on the register form " +
 		"or the Google sign-up before an account exists, so there is no session yet",
 

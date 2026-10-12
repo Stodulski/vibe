@@ -144,6 +144,7 @@ var routeGuards = map[string]routeGuard{
 	"GET /api/v1/public/complexes/{slug}":                                               {kind: guardPublic},
 	"GET /api/v1/public/complexes/{slug}/availability":                                  {kind: guardPublic},
 	"GET /api/v1/public/complexes/{slug}/next-available":                                {kind: guardPublic},
+	"POST /api/v1/public/complexes/{slug}/waitlist":                                     {kind: guardPublic},
 	"POST /api/v1/public/leads/abandoned-registration":                                  {kind: guardPublic},
 	"GET /api/v1/public/hubs":                                                           {kind: guardPublic},
 	"GET /api/v1/public/hubs/{city}/data":                                               {kind: guardPublic},

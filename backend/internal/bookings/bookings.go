@@ -236,6 +236,9 @@ type Dependencies struct {
 	Audit        Recorder
 	Logger       *slog.Logger
 	Run          func(func())
+	// Waitlist hears about every slot a cancellation or an expiry frees. It is
+	// optional: a nil one means no waitlist is notified.
+	Waitlist SlotFreedNotifier
 }
 
 // Actor is who a change is attributed to, as the handler read it off the

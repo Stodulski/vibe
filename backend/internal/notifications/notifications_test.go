@@ -113,6 +113,10 @@ func (m *stubMailer) SendEmailChangeRequested(_ context.Context, to, firstName, 
 	return m.record("email_change_requested", to, firstName, newEmail, confirmURL, expiresIn)
 }
 
+func (m *stubMailer) SendWaitlistSlotFreed(_ context.Context, to, complexName, date, bookURL string) error {
+	return m.record("waitlist_slot_freed", to, complexName, date, bookURL)
+}
+
 type sentWA struct {
 	to   string
 	tmpl whatsapp.TemplateMessage

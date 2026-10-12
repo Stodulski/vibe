@@ -58,6 +58,7 @@ type Service struct {
 	logger       *slog.Logger
 	cfg          Config
 	run          func(func())
+	waitlist     SlotFreedNotifier
 }
 
 // NewService returns a Service backed by the given dependencies.
@@ -80,6 +81,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		logger:       d.Logger,
 		cfg:          cfg,
 		run:          d.Run,
+		waitlist:     d.Waitlist,
 	}
 }
 

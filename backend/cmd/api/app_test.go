@@ -40,6 +40,7 @@ func validTestDeps(t *testing.T) deps {
 			WebhookEvents:     &mockWebhookEventStore{},
 			SlotLocks:         &mockSlotLockStore{},
 			Reports:           &mockReportStore{},
+			Waitlist:          &mockWaitlistStore{},
 			Audit:             &mockAuditStore{},
 			Locks:             &mockLockStore{},
 		},

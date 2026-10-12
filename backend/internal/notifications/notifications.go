@@ -37,6 +37,7 @@ type Mailer interface {
 	SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error
 	SendDuplicateRegistration(ctx context.Context, to, firstName, loginURL, resetURL string) error
 	SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error
+	SendWaitlistSlotFreed(ctx context.Context, to, complexName, date, bookURL string) error
 }
 
 // WhatsAppSender is the WhatsApp side of delivery.

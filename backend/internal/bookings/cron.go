@@ -17,6 +17,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/timezone"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // Reminder2h sends the two-hour reminder (email, and WhatsApp when it is
@@ -137,6 +138,10 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 			// (see SourceExpiredUnpaid), so there is nothing to take back.
 			Source:    notifications.SourceExpiredUnpaid,
 			BookingID: b.ID.String(),
+		})
+
+		s.freeWaitlistSlot(ctx, waitlist.Freed{
+			ComplexID: b.ComplexID, ComplexName: b.ComplexName, ComplexSlug: b.ComplexSlug, Day: b.Date,
 		})
 
 		s.logger.Info("cron_release_expired_payments: released expired booking", "booking_id", b.ID)

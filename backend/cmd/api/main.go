@@ -44,6 +44,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/scheduler"
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
@@ -76,6 +77,12 @@ type application struct {
 	products  *products.Handler
 	sales     *sales.Handler
 	complexes *complexes.Handler
+	waitlist  *waitlist.Handler
+
+	// waitlistService is the cron's handle on the waitlist cleanup; the
+	// handler above serves the public join.
+	waitlistService *waitlist.Service
+
 	// complexesService is held separately from the handler because the
 	// scheduler calls it directly: the MercadoPago OAuth refresh sweep is the
 	// venue domain's own credential lifecycle, not an HTTP route.

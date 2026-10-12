@@ -2256,6 +2256,49 @@ paths:
   # ---------------------------------------------------------------------
   # courts
   # ---------------------------------------------------------------------
+  /api/v1/public/complexes/{slug}/waitlist:
+    post:
+      tags: [courts]
+      operationId: waitlistJoin
+      summary: Ask to be emailed when a slot on a fully booked day frees up again
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one day of
+        the complex. Joining again for the same address and day answers the same `204`. The email
+        is sent once, the first time a booking on that day is cancelled or expires. The daily
+        cleanup drops entries whose day has passed.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, email]
+              properties:
+                date:
+                  type: string
+                  format: date
+                  description: The day to wait for, as `YYYY-MM-DD`. From today up to 365 days ahead.
+                email:
+                  type: string
+                  description: Trimmed and lowercased before it is stored.
+      responses:
+        "204":
+          description: On the waitlist for that day. Empty body.
+        "400":
+          description: Malformed JSON body.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404":
+          description: Unknown slug, or the complex is inactive.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /api/v1/public/complexes/{slug}/next-available:
     get:
       tags: [courts]
