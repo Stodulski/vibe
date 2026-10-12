@@ -850,3 +850,26 @@ func (m *Mailer) SendOwnerNewBooking(ctx context.Context, to, complexName, court
 	preheader := fmt.Sprintf("%s reservó %s el %s de %s.", clientEsc, courtEsc, dateEsc, startEsc)
 	return m.send(ctx, to, subject, m.wrap("Nueva reserva", preheader, content))
 }
+
+// SendOwnerBookingCancelled emails the complex owner that a client cancelled a
+// booking, so the slot is free to sell again.
+//
+// Only for a client's own cancellation: internal/notifications sends this for
+// SourceClientCancel alone. Its button points at the dashboard's bookings page,
+// the same origin SendOwnerNewBooking uses.
+func (m *Mailer) SendOwnerBookingCancelled(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error {
+	subject := fmt.Sprintf("Se canceló una reserva: %s %s %s", courtName, date, startTime)
+
+	clientEsc, courtEsc := html.EscapeString(clientName), html.EscapeString(courtName)
+	complexEsc := html.EscapeString(complexName)
+	dateEsc, startEsc := html.EscapeString(date), html.EscapeString(startTime)
+
+	content := title("Se canceló una reserva.") +
+		p(fmt.Sprintf("<strong>%s</strong> canceló su reserva de <strong>%s</strong> en <strong>%s</strong>, el %s de %s.",
+			clientEsc, courtEsc, complexEsc, dateEsc, startEsc), 16, 16) +
+		p("El turno quedó libre para reservar.", 16, 16) +
+		button(m.appURL+"/bookings", "Ver en el panel")
+
+	preheader := fmt.Sprintf("%s el %s de %s quedó libre.", courtEsc, dateEsc, startEsc)
+	return m.send(ctx, to, subject, m.wrap("Se canceló una reserva", preheader, content))
+}

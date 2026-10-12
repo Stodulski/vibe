@@ -117,6 +117,27 @@ func TestTheExpirySweepClosesTheCheckoutBeforeItFreesTheSlot(t *testing.T) {
 	}
 }
 
+// An expired booking was never paid, so the owner was never told it existed and
+// the sweep does not email them. It still marks the cancellation as the sweep's,
+// so no owner notice can be derived from it by accident.
+func TestTheExpirySweepDoesNotTellTheOwner(t *testing.T) {
+	f := newFixture(t)
+	candidate := cronCandidate("pending")
+	f.store.expiredPending = []*bookingstore.CronBooking{candidate}
+
+	f.service.ReleaseExpiredPayments(t.Context())
+
+	if len(f.notify.cancelled) != 1 {
+		t.Fatalf("want one cancellation message to the client; got %d", len(f.notify.cancelled))
+	}
+	if got := f.notify.cancelled[0].Source; got != notifications.SourceExpiredUnpaid {
+		t.Errorf("want the expiry marked as the sweep's own; got source %q", got)
+	}
+	if f.notify.cancelled[0].OwnerID != "" {
+		t.Errorf("the expiry must not carry an owner to email; got %q", f.notify.cancelled[0].OwnerID)
+	}
+}
+
 // TestTheExpirySweepFinishesTheBatchAfterOneFailure documents that one booking
 // the database refuses does not cost the rest of the batch their slots.
 func TestTheExpirySweepFinishesTheBatchAfterOneFailure(t *testing.T) {

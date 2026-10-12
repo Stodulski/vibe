@@ -662,6 +662,74 @@ func TestStaffCancelReportsARefundOnlyAPersonCanMake(t *testing.T) {
 	}
 }
 
+// A client's cancellation frees a slot the owner can resell, so the owner hears
+// about it, addressed by the complex's owner and naming the client.
+func TestPublicCancelTellsTheOwnerTheSlotIsFree(t *testing.T) {
+	f := newFixture(t)
+	complexID, ownerID := uuid.New(), uuid.New()
+	booking := futureBooking(complexID)
+	f.store.booking = booking
+	f.linkResolver.booking = booking
+	f.complexes.complex = &complexstore.Complex{ID: complexID, OwnerID: ownerID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Pérez", Phone: "+5491155551234"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
+	f.refunds.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 500_000}
+
+	w := httptest.NewRecorder()
+	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.cancelled) != 1 {
+		t.Fatalf("want one cancellation notification; got %d", len(f.notify.cancelled))
+	}
+	sent := f.notify.cancelled[0]
+
+	if sent.Source != notifications.SourceClientCancel {
+		t.Errorf("a client cancellation must be marked as one; got source %q", sent.Source)
+	}
+	if sent.OwnerID != ownerID.String() {
+		t.Errorf("the owner must be addressed; got owner %q", sent.OwnerID)
+	}
+	if sent.ClientName != "Ana Pérez" {
+		t.Errorf("the owner must hear who cancelled; got %q", sent.ClientName)
+	}
+	if sent.CourtName != "Cancha 1" {
+		t.Errorf("the owner must hear which court; got %q", sent.CourtName)
+	}
+}
+
+// The owner's own panel cancel is their decision, so the notice is marked as
+// theirs and the owner is not emailed about it.
+func TestStaffCancelIsMarkedAsTheOwnersOwn(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking := futureBooking(complexID)
+	f.store.booking = booking
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
+
+	r := ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"bookingID": booking.ID.String()}, `{}`)
+	r = httpx.ContextSetComplex(r, &complexstore.Complex{
+		ID: complexID, OwnerID: uuid.New(), Name: "Vibe", Slug: "vibe", CancellationHours: 24,
+	})
+
+	w := httptest.NewRecorder()
+	f.handler.Cancel(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.cancelled) != 1 {
+		t.Fatalf("want one cancellation notification; got %d", len(f.notify.cancelled))
+	}
+	if got := f.notify.cancelled[0].Source; got != notifications.SourceOwnerCancel {
+		t.Errorf("the panel cancel must say the owner did it; got source %q", got)
+	}
+}
+
 // The staff path refunds regardless of the complex's window, so most owner
 // cancellations are immediately followed by real money moving — and the client
 // used to be told only that their booking was off.

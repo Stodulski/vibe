@@ -771,7 +771,7 @@ func (s *Service) Cancel(ctx context.Context, complex *complexstore.Complex, act
 			"amount", outcome.AmountCentavos, "reason", outcome.Reason)
 	}
 
-	s.notifyCancelledAndRelease(ctx, booking, complex, outcome)
+	s.notifyCancelledAndRelease(ctx, booking, complex, outcome, notifications.SourceOwnerCancel)
 
 	s.realtime.PublishBookingChanged(complex.ID)
 

@@ -10,6 +10,22 @@ import (
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
+// ownerAddress resolves an owner's current email from the id a task carries,
+// so a task sitting in the queue cannot deliver to an address the owner has
+// since changed. op names the task in the errors, so a failed delivery says
+// which email it was.
+func (s *Service) ownerAddress(ctx context.Context, op, ownerID string) (string, error) {
+	id, err := uuid.Parse(ownerID)
+	if err != nil {
+		return "", fmt.Errorf("%s: invalid owner id: %w", op, err)
+	}
+	owner, err := s.users.GetByID(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("%s: fetch owner: %w", op, err)
+	}
+	return owner.Email, nil
+}
+
 // handle adapts a typed delivery function into the queue's raw-payload
 // handler, so each registration below is one line about what it delivers
 // rather than four about unmarshalling.
@@ -57,15 +73,20 @@ func (s *Service) RegisterWorkers() {
 	// time, so a task sitting in the queue cannot deliver to an address the
 	// owner has since changed.
 	s.queue.RegisterHandler(handle(TaskEmailOwnerNewBooking, func(ctx context.Context, p ownerNewBooking) error {
-		ownerID, err := uuid.Parse(p.OwnerID)
+		to, err := s.ownerAddress(ctx, "owner new booking", p.OwnerID)
 		if err != nil {
-			return fmt.Errorf("owner new booking: invalid owner id: %w", err)
+			return err
 		}
-		owner, err := s.users.GetByID(ctx, ownerID)
+		return s.mailer.SendOwnerNewBooking(ctx, to, p.ComplexName, p.CourtName,
+			p.ClientName, p.Date, p.StartTime)
+	}))
+
+	s.queue.RegisterHandler(handle(TaskEmailOwnerBookingCancelled, func(ctx context.Context, p ownerBookingCancelled) error {
+		to, err := s.ownerAddress(ctx, "owner booking cancelled", p.OwnerID)
 		if err != nil {
-			return fmt.Errorf("owner new booking: fetch owner: %w", err)
+			return err
 		}
-		return s.mailer.SendOwnerNewBooking(ctx, owner.Email, p.ComplexName, p.CourtName,
+		return s.mailer.SendOwnerBookingCancelled(ctx, to, p.ComplexName, p.CourtName,
 			p.ClientName, p.Date, p.StartTime)
 	}))
 

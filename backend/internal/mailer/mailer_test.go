@@ -740,6 +740,9 @@ func captureSent(t *testing.T) []string {
 		func() error {
 			return m.SendDuplicateRegistration(ctx, to, "Ana", "https://vibe.test/login", "https://vibe.test/forgot")
 		},
+		func() error {
+			return m.SendOwnerBookingCancelled(ctx, to, complex, court, "Ana Perez", date, hours)
+		},
 	}
 	for i, send := range sends {
 		if err := send(); err != nil {
@@ -827,6 +830,49 @@ func TestTheDuplicateRegistrationEmailNeverGreetsWithAnUnverifiedName(t *testing
 	}
 	if strings.Contains(body, "Hola, <strong></strong>.") || strings.Contains(body, "Hola, .") {
 		t.Errorf("the greeting rendered an empty name; got %s", body)
+	}
+}
+
+// TestOwnerBookingCancelledEmail pins what the owner reads when a client
+// cancels: the subject names the court and the slot, the body names the client
+// and says the slot is free again, and the button opens the dashboard's
+// bookings page, the same origin the new-booking email links to.
+func TestOwnerBookingCancelledEmail(t *testing.T) {
+	var sent brevoRequest
+	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&sent)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer brevo.Close()
+
+	m := New(Config{BrevoAPIKey: "k", Sender: "Vibe <noreply@vibe.com.ar>", AppURL: "https://app.vibe.test"})
+	m.apiURL = brevo.URL
+
+	if err := m.SendOwnerBookingCancelled(context.Background(), "owner@example.com",
+		"Vibe Palermo", "Cancha 1", "Ana Pérez", "01/09", "18:00 - 19:30"); err != nil {
+		t.Fatalf("SendOwnerBookingCancelled = %v", err)
+	}
+
+	if want := "Se canceló una reserva: Cancha 1 01/09 18:00 - 19:30"; sent.Subject != want {
+		t.Errorf("subject: want %q; got %q", want, sent.Subject)
+	}
+	for _, want := range []string{
+		"<strong>Ana Pérez</strong>",
+		"<strong>Cancha 1</strong>",
+		"Vibe Palermo",
+		"El turno quedó libre para reservar.",
+		`href="https://app.vibe.test/bookings"`,
+		"Ver en el panel",
+	} {
+		if !strings.Contains(sent.HTMLContent, want) {
+			t.Errorf("the owner cancellation email is missing %q", want)
+		}
+	}
+	if strings.ContainsAny(sent.Subject, "!¡") {
+		t.Error("the owner cancellation subject must not use exclamation marks")
+	}
+	if strings.Contains(sent.Subject+sent.HTMLContent, "—") {
+		t.Error("the owner cancellation email must not use em dashes")
 	}
 }
 
