@@ -34,8 +34,16 @@ func TestPaymentSummaryByMethodAlreadyExcludesUnpaidAbandonedCheckouts(t *testin
 		t.Fatalf("marking payment unpaid: %v", err)
 	}
 
-	from := time.Now().Add(-time.Hour)
-	to := time.Now().Add(time.Hour)
+	// The query compares Argentina calendar dates and formats from/to in their own
+	// location, so the window is built in Argentina time. In the runner's UTC it
+	// names the next day from 21:00 ART on, and the payment falls outside it.
+	loc, err := time.LoadLocation("America/Argentina/Buenos_Aires")
+	if err != nil {
+		t.Fatalf("loading Argentina time zone: %v", err)
+	}
+	now := time.Now().In(loc)
+	from := now.Add(-time.Hour)
+	to := now.Add(time.Hour)
 
 	store := &reportstore.Store{DB: f.DB}
 	summaries, err := store.PaymentSummaryByMethod(f.Scoped(ctx), f.ComplexID, from, to)
