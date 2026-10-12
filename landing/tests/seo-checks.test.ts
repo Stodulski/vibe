@@ -6,7 +6,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // @ts-expect-error build-time .mjs module, shared by scripts/seo-gate.mjs and tests/smoke.mjs
-import { dateDriftProblems, junkWordIn, placeholderPhone, placeholderProblemsInHtml } from '../scripts/seo-checks.mjs';
+import {
+  dateDriftProblems,
+  esIndexable,
+  junkWordIn,
+  placeholderPhone,
+  placeholderProblemsInHtml,
+} from '../scripts/seo-checks.mjs';
 
 test('a whole word of placeholder text is caught, whatever its case', () => {
   assert.equal(junkWordIn('Club Asdasd en Rosario'), 'asdasd');
@@ -50,4 +56,10 @@ test('JSON-LD dates that disagree with the sitemap are reported for the pages th
   });
   assert.equal(problems.length, 1);
   assert.match(problems[0], /^\/: .*2026-10-10.*2026-10-11/);
+});
+
+test('a page that declares noindex is left out of the sitemap, llms.txt and the Markdown twins, in either attribute order', () => {
+  assert.equal(esIndexable('<head><meta content="noindex, nofollow" name="robots"/></head>'), false);
+  assert.equal(esIndexable('<head><meta name="robots" content="noindex, nofollow"></head>'), false);
+  assert.equal(esIndexable('<head><meta content="index, follow" name="robots"/></head>'), true);
 });

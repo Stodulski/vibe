@@ -12,6 +12,17 @@
 /** Words that only ever appear in test data. Matched as whole words, so "testeo" is not one. */
 export const JUNK_WORDS = ['asdasd', 'asdf', 'qwerty', 'test', 'prueba'];
 
+/* Which pages get an index entry is NOT a list anybody maintains. It used to be,
+   and a hand-kept list is exactly the thing that goes stale the first time
+   somebody adds a page and forgets this file: the page then exists, is indexable,
+   and is missing from both the sitemap and llms.txt without anything failing.
+
+   The page already declares it, in the one place that cannot disagree with what
+   is served: its own robots meta. Anything that says noindex (404, /baja and the
+   like) is out of the sitemap, llms.txt and the Markdown twins; everything else is in. */
+export const esIndexable = html => !/<meta[^>]*\bname="robots"[^>]*\bcontent="[^"]*noindex/i.test(html)
+  && !/<meta[^>]*\bcontent="[^"]*noindex[^"]*"[^>]*\bname="robots"/i.test(html);
+
 const JUNK = new RegExp(`(^|[^\\p{L}\\p{N}])(${JUNK_WORDS.join('|')})(?=$|[^\\p{L}\\p{N}])`, 'iu');
 
 /** The placeholder word in the text, lowercased, or null. */
