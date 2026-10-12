@@ -249,8 +249,10 @@ func (s *Service) cityHubs(ctx context.Context) ([]cityHub, error) {
 }
 
 // findCityHub returns the hub a city names, matched case- and accent-insensitively,
-// and every hub, for the other hubs it links to. A city with no switched-on complex
-// is data.ErrRecordNotFound.
+// and every live hub, for the other hubs it links to. A city with a switched-on
+// complex is answered from the live hubs. A city whose complexes are all switched
+// off or deleted is answered as an empty hub (see emptyCityHub), so its page outlives
+// its last complex. A city no complex was ever recorded in is data.ErrRecordNotFound.
 func (s *Service) findCityHub(ctx context.Context, city string) (cityHub, []cityHub, error) {
 	slug := complexstore.CitySlug(city)
 	hubs, err := s.cityHubs(ctx)
@@ -262,11 +264,50 @@ func (s *Service) findCityHub(ctx context.Context, city string) (cityHub, []city
 			return hub, hubs, nil
 		}
 	}
-	return cityHub{}, nil, data.ErrRecordNotFound
+	empty, err := s.emptyCityHub(ctx, slug)
+	if err != nil {
+		return cityHub{}, nil, err
+	}
+	return empty, hubs, nil
 }
 
-// hubError answers a city hub read that failed: 404 for a city with no switched-on
-// complex, 503 with Retry-After for a failed read, and 500 for anything else.
+// emptyCityHub is the hub of a city that had a complex but has no switched-on one now:
+// the name its stored city carries in display form, the first province named among
+// its stored complexes, and no complexes. It is read only when no live hub matched.
+// A city no complex was ever recorded in is data.ErrRecordNotFound, and a failed read
+// is ErrComplexUnavailable, never a 404: the read cannot tell a city that never had
+// a complex from one whose complexes are all gone.
+func (s *Service) emptyCityHub(ctx context.Context, slug string) (cityHub, error) {
+	if slug == "" {
+		return cityHub{}, data.ErrRecordNotFound
+	}
+	rows, err := s.store.ListComplexCitiesForHubs(ctx)
+	if err != nil {
+		return cityHub{}, fmt.Errorf("%w: %w", ErrComplexUnavailable, err)
+	}
+
+	var hub cityHub
+	found := false
+	for _, row := range rows {
+		if complexstore.CitySlug(row.City) != slug {
+			continue
+		}
+		if !found {
+			hub = cityHub{Slug: slug, City: displayName(row.City)}
+			found = true
+		}
+		if hub.Province == "" {
+			hub.Province = displayName(row.Province)
+		}
+	}
+	if !found {
+		return cityHub{}, data.ErrRecordNotFound
+	}
+	return hub, nil
+}
+
+// hubError answers a city hub read that failed: 404 for a city no complex was ever
+// recorded in, 503 with Retry-After for a failed read, and 500 for anything else.
 func (h *Handler) hubError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, data.ErrRecordNotFound):

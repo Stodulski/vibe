@@ -16,11 +16,13 @@ import (
 )
 
 type stubStore struct {
-	slugs []complexstore.ComplexSlug
-	hubs  []complexstore.HubComplex
+	slugs  []complexstore.ComplexSlug
+	hubs   []complexstore.HubComplex
+	cities []complexstore.HubCity
 
-	slugsErr error
-	hubsErr  error
+	slugsErr  error
+	hubsErr   error
+	citiesErr error
 }
 
 func (s *stubStore) GetAllSlugs(context.Context) ([]complexstore.ComplexSlug, error) {
@@ -29,6 +31,10 @@ func (s *stubStore) GetAllSlugs(context.Context) ([]complexstore.ComplexSlug, er
 
 func (s *stubStore) ListActiveComplexesForHubs(context.Context) ([]complexstore.HubComplex, error) {
 	return s.hubs, s.hubsErr
+}
+
+func (s *stubStore) ListComplexCitiesForHubs(context.Context) ([]complexstore.HubCity, error) {
+	return s.cities, s.citiesErr
 }
 
 func testResponder() *httpx.Responder {
@@ -136,6 +142,31 @@ func TestSitemapOmitsACityWithNoActiveComplex(t *testing.T) {
 	}
 	if strings.Contains(doc, "canchas/ushuaia") {
 		t.Errorf("sitemap lists a city with no active complex:\n%s", doc)
+	}
+}
+
+// A city whose complexes are all gone keeps its hub page but stays out of the
+// sitemap, as it stays out of the hub index: the sitemap lists only the cities
+// with a switched-on complex.
+func TestSitemapOmitsACityWhoseComplexesAreAllGone(t *testing.T) {
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	store := &stubStore{
+		hubs: []complexstore.HubComplex{
+			hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true),
+			hubRow("Canchas Sur", "canchas-sur", "b", "Banfield", nil, now, true),
+		},
+		cities: []complexstore.HubCity{{City: "Banfield"}, {City: "Ushuaia"}},
+	}
+
+	doc, err := NewService(store, "https://vibe.example").Sitemap(t.Context())
+	if err != nil {
+		t.Fatalf("Sitemap: %v", err)
+	}
+	if urlBlock(doc, "https://vibe.example/canchas/banfield") == "" {
+		t.Errorf("sitemap omits the banfield hub, which has two complexes:\n%s", doc)
+	}
+	if urlBlock(doc, "https://vibe.example/canchas/ushuaia") != "" {
+		t.Errorf("sitemap lists the ushuaia hub, which has no switched-on complex:\n%s", doc)
 	}
 }
 

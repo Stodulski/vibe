@@ -30,12 +30,13 @@ import (
 type VenueReader interface {
 	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
-	// GetByID, GetAllSlugs and ListActiveComplexesForHubs serve the cross-domain
-	// reads on Service; every other module enters this domain through them rather
-	// than through the complex store.
+	// GetByID, GetAllSlugs, ListActiveComplexesForHubs and ListComplexCitiesForHubs
+	// serve the cross-domain reads on Service; every other module enters this
+	// domain through them rather than through the complex store.
 	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 	GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, error)
 	ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error)
+	ListComplexCitiesForHubs(ctx context.Context) ([]complexstore.HubCity, error)
 }
 
 // VenueWriter creates, edits and closes a venue.

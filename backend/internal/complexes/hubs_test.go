@@ -30,3 +30,27 @@ func TestServiceListActiveComplexesForHubsPassesAStoreFailureThrough(t *testing.
 		t.Error("a store failure was swallowed; the hub would publish as empty instead of answering unavailable")
 	}
 }
+
+// A city that once had a complex is found through every complex, switched off or
+// soft-deleted included, so the service passes the store's city list through.
+func TestServiceListComplexCitiesForHubsReturnsTheStoresCities(t *testing.T) {
+	f := newFixture(t)
+	f.store.cities = []complexstore.HubCity{{City: "Quilmes", Province: "Buenos Aires"}}
+
+	got, err := f.service.ListComplexCitiesForHubs(t.Context())
+	if err != nil {
+		t.Fatalf("ListComplexCitiesForHubs: %v", err)
+	}
+	if len(got) != 1 || got[0].City != "Quilmes" {
+		t.Errorf("got %+v; want the one city the store returned", got)
+	}
+}
+
+func TestServiceListComplexCitiesForHubsPassesAStoreFailureThrough(t *testing.T) {
+	f := newFixture(t)
+	f.store.getErr = errors.New("db down")
+
+	if _, err := f.service.ListComplexCitiesForHubs(t.Context()); err == nil {
+		t.Error("a store failure was swallowed; a city with no live complex would answer 404 instead of unavailable")
+	}
+}

@@ -147,31 +147,117 @@ func TestCityHubJSONIsServedWithItsCacheHeader(t *testing.T) {
 	}
 }
 
-func TestCityHubJSONIsNotFoundForACityWithNoActiveComplex(t *testing.T) {
+// A city no complex was ever recorded in is not a hub, so its page is a 404.
+func TestCityHubJSONIsNotFoundForACityThatNeverHadAComplex(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	tests := []struct {
-		name string
-		city string
-		rows []complexstore.HubComplex
-	}{
-		{
-			name: "unknown city",
-			city: "ushuaia",
-			rows: []complexstore.HubComplex{hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true)},
-		},
-		{
-			name: "city whose only complex is switched off",
-			city: "quilmes",
-			rows: []complexstore.HubComplex{hubRow("Club Off", "club-off", "a", "Quilmes", nil, now, false)},
+	store := &stubStore{
+		hubs:   []complexstore.HubComplex{hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true)},
+		cities: []complexstore.HubCity{{City: "Banfield", Province: "Buenos Aires"}},
+	}
+
+	w := serveHubJSON(newHubHandler(store), "ushuaia")
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d; want 404", w.Code)
+	}
+}
+
+// A city whose complexes are all switched off or soft-deleted keeps its page as an
+// empty hub: its name and province, no complexes, no courts, and the live hubs to
+// link to. Its lists are written as [] and never null.
+func TestCityHubJSONAnswersAnEmptyHubForACityWhoseComplexesAreAllGone(t *testing.T) {
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	norte := hubRow("Club Norte", "club-norte", "a", "Banfield", []string{"padel"}, now, true)
+	norte.Province = "Buenos Aires"
+	store := &stubStore{
+		hubs: []complexstore.HubComplex{norte},
+		// The stored spelling is all upper case: the hub names it in display form.
+		cities: []complexstore.HubCity{
+			{City: "Banfield", Province: "Buenos Aires"},
+			{City: "QUILMES", Province: "Buenos Aires"},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			w := serveHubJSON(newHubHandler(&stubStore{hubs: tt.rows}), tt.city)
-			if w.Code != http.StatusNotFound {
-				t.Errorf("status = %d; want 404", w.Code)
-			}
-		})
+
+	w := serveHubJSON(newHubHandler(store), "quilmes")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want 200 for a city that had a complex", w.Code)
+	}
+	if got := w.Header().Get("Cache-Control"); got != hubCacheControl {
+		t.Errorf("Cache-Control = %q; want %q", got, hubCacheControl)
+	}
+	body := w.Body.String()
+	for _, want := range []string{`"complexes":[]`, `"sports":[]`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body is missing %s, an empty list written as []:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "null") {
+		t.Errorf("an empty hub encodes a null list:\n%s", body)
+	}
+
+	var doc cityHubBody
+	decodeHubBody(t, w, &doc)
+	if doc.Hub.Slug != "quilmes" || doc.Hub.Name != "Quilmes" || doc.Hub.Province != "Buenos Aires" {
+		t.Errorf("hub = %+v; want quilmes named Quilmes in Buenos Aires", doc.Hub)
+	}
+	if doc.Hub.ComplexCount != 0 || doc.Hub.CourtCount != 0 {
+		t.Errorf("hub counts = %d complexes, %d courts; want 0 and 0", doc.Hub.ComplexCount, doc.Hub.CourtCount)
+	}
+	if len(doc.Complexes) != 0 {
+		t.Errorf("complexes = %+v; want none", doc.Complexes)
+	}
+	if len(doc.OtherHubs) != 1 || doc.OtherHubs[0].Slug != "banfield" || doc.OtherHubs[0].ComplexCount != 1 {
+		t.Errorf("other_hubs = %+v; want the live banfield hub alone", doc.OtherHubs)
+	}
+}
+
+// The city lookup is read only when no live hub matches, so a live hub keeps
+// answering even when the lookup of cities that had a complex would fail.
+func TestCityHubJSONServesALiveHubWithoutReadingCityHistory(t *testing.T) {
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	store := &stubStore{
+		hubs:      []complexstore.HubComplex{hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true)},
+		citiesErr: errors.New("db down"),
+	}
+
+	w := serveHubJSON(newHubHandler(store), "banfield")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want 200 for a live hub", w.Code)
+	}
+}
+
+// A failed city lookup cannot tell a city that never had a complex (404) from one
+// that did (an empty hub), so it is answered as unavailable, never as a 404.
+func TestCityHubJSONCityLookupFailureAnswersUnavailableWithRetryAfter(t *testing.T) {
+	store := &stubStore{citiesErr: errors.New("db down")}
+
+	w := serveHubJSON(newHubHandler(store), "quilmes")
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d; want 503, not a 404 for a city that may have had a complex", w.Code)
+	}
+	if w.Header().Get("Retry-After") == "" {
+		t.Error("a 503 without Retry-After")
+	}
+}
+
+// The hub index lists only the cities with a live complex: an empty hub is reached
+// by its own page, never listed beside the live ones.
+func TestHubListJSONLeavesOutACityWhoseComplexesAreAllGone(t *testing.T) {
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	store := &stubStore{
+		hubs:   []complexstore.HubComplex{hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true)},
+		cities: []complexstore.HubCity{{City: "Banfield"}, {City: "Quilmes"}},
+	}
+
+	w := serveHubList(newHubHandler(store))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want 200", w.Code)
+	}
+	var body hubListBody
+	decodeHubBody(t, w, &body)
+	if len(body.Hubs) != 1 || body.Hubs[0].Slug != "banfield" {
+		t.Errorf("hubs = %+v; want banfield alone", body.Hubs)
 	}
 }
 

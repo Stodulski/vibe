@@ -28,3 +28,15 @@ SELECT
 FROM active_complexes cx
 WHERE cx.is_active
 ORDER BY cx.city, cx.name;
+
+-- name: ListComplexCitiesForHubs :many
+-- A city keeps its hub after its last switched-on complex goes, so the hub read
+-- needs every city a complex was ever recorded in. This reads the complexes table
+-- itself, not active_complexes, so a switched-off or soft-deleted venue still
+-- counts. Only the city and the province are selected: nothing else of a deleted
+-- complex is public. The city is matched by slug in Go, as in
+-- ListActiveComplexesForHubs. Ordered so that a city's spelling and province are
+-- stable when several rows share one slug.
+SELECT DISTINCT c.city, c.province
+FROM complexes c
+ORDER BY c.city, c.province;
