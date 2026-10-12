@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BOOKING_MESSAGES } from '../../messages';
@@ -28,20 +27,23 @@ afterEach(() => {
 describe('ComplexDetails heading outline', () => {
   it('opens the schedules accordion header as h2, right under the page h1', () => {
     stackedViewport();
-    render(<ComplexDetails schedules={[]} amenities={[]} />);
+    render(<ComplexDetails schedules={[]} />);
 
     expect(screen.getByRole('heading', { level: 2, name: BOOKING_MESSAGES.complex.schedules })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
   });
 });
 
-describe('ComplexDetails in the server markup', () => {
-  // Crawlers and no-JS readers get the server HTML only. A closed accordion
-  // panel is not rendered there at all, so the services must sit outside it.
-  it('writes every service into the HTML, not only inside a collapsed panel', () => {
-    const html = renderToStaticMarkup(<ComplexDetails schedules={[]} amenities={['parking', 'wifi']} />);
+describe('ComplexDetails on a phone', () => {
+  // The slot picker follows the club card directly, so the hours start closed
+  // and the visitor opens them only when they want to read the week.
+  it('starts with the schedules accordion closed', () => {
+    stackedViewport();
+    render(<ComplexDetails schedules={[]} />);
 
-    expect(html).toContain(BOOKING_MESSAGES.complex.amenities.parking);
-    expect(html).toContain(BOOKING_MESSAGES.complex.amenities.wifi);
+    expect(screen.getByRole('button', { name: BOOKING_MESSAGES.complex.schedules })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 });

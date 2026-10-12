@@ -1,8 +1,5 @@
-import { lazy, Suspense, useContext } from 'react';
+import type { ReactNode } from 'react';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
-import { ErrorBoundary, Skeleton } from '@vibe/ui';
-import { BookingConfigContext } from '../config';
-import { useHasMounted } from '../hooks/useHasMounted';
 import { sportSummaries } from '../lib/courtPrices';
 import { complexCoverAlt } from '../lib/complexImageAlt';
 import { BOOKING_MESSAGES } from '../messages';
@@ -15,8 +12,6 @@ import { CourtSummary } from './complex-header/CourtSummary';
 
 const t = BOOKING_MESSAGES;
 
-const ComplexMap = lazy(() => import('./ComplexMap').then((m) => ({ default: m.ComplexMap })));
-
 interface ComplexHeaderProps {
   complex: PublicComplex;
   schedules: Schedule[];
@@ -24,6 +19,11 @@ interface ComplexHeaderProps {
   courts?: readonly CourtWithPrices[];
   /** Forwarded to `ComplexDetails` -> `WeekScheduleList`, so the schedule bolds the day the slot picker is showing, not always today. */
   selectedDate?: Date;
+  /**
+   * Rendered inside the card, after the hours. The page passes the services
+   * and the map here where the card is wide; elsewhere it places them itself.
+   */
+  lower?: ReactNode;
 }
 
 /**
@@ -37,7 +37,7 @@ interface ComplexHeaderProps {
  *
  * One column at every width. WHO the club is — cover, logo over its corner,
  * name, contact — comes first and keeps the same internal arrangement at
- * every width. WHAT the club offers — hours and services — follows underneath,
+ * every width. WHAT the club offers — the hours, then the services and map where the page puts them — follows underneath,
  * spanning the full width of the card, so the week's hours fit on one line
  * and the services wrap into a few short rows.
  *
@@ -45,18 +45,13 @@ interface ComplexHeaderProps {
  * right. The split was dropped so the details get the whole width instead of
  * a 56% column.
  */
-export function ComplexHeader({ complex, schedules, courts = [], selectedDate }: ComplexHeaderProps) {
+export function ComplexHeader({ complex, schedules, courts = [], selectedDate, lower }: ComplexHeaderProps) {
   const coverUrl = complex.cover_url ?? null;
   const coverAlt = complexCoverAlt({
     name: complex.name,
     city: complex.city,
     sports: sportSummaries(courts).map(({ sport }) => t.courts.sportTypes[sport]),
   });
-  // Optional: the header also renders on its own (tests, previews), without a BookingRoot.
-  const reportError = useContext(BookingConfigContext)?.reportError;
-  // Leaflet touches `window` when it loads, so the map is requested only after
-  // mount. The server markup and the first client render both show the skeleton.
-  const mapMounted = useHasMounted();
 
   return (
     // The bordered card arrives at `lg`. Below that a panel spanning the whole
@@ -82,42 +77,13 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
         </div>
       </div>
 
-      {/* What it offers: the courts and their hourly prices, then the hours and services. */}
+      {/* What it offers: the courts and their hourly prices, then the hours, then the lower block when the page puts it here. */}
       <div>
         <CourtSummary courts={courts} />
-        <ComplexDetails schedules={schedules} amenities={complex.amenities} selectedDate={selectedDate} />
+        <ComplexDetails schedules={schedules} selectedDate={selectedDate} />
 
-        {complex.latitude != null && complex.longitude != null && (
-          <div className="mt-6">
-            {/*
-              Leaflet is a third-party map widget loaded lazily; a failure in
-              it (a bad tile server, a bundling issue) must not take down the
-              rest of the club's page with it — see routeHelpers.tsx's own
-              per-page ErrorBoundary for the equivalent guard one level up.
-            */}
-            <ErrorBoundary
-              onError={(error, info) => reportError?.(error, { componentStack: info.componentStack })}
-              fallback={
-                <div className="border-border-subtle bg-bg-subtle text-text-secondary flex h-[200px] w-full items-center justify-center rounded-xl border text-center text-sm">
-                  {t.publicBooking.mapUnavailable}
-                </div>
-              }
-            >
-              {mapMounted ? (
-                <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
-                  <ComplexMap
-                    latitude={complex.latitude}
-                    longitude={complex.longitude}
-                    name={complex.name}
-                    address={`${complex.address}, ${complex.city}`}
-                  />
-                </Suspense>
-              ) : (
-                <Skeleton className="h-[200px] w-full rounded-xl" />
-              )}
-            </ErrorBoundary>
-          </div>
-        )}
+        {/* Hidden when the block renders nothing, so an empty slot adds no space to the card. */}
+        {lower && <div className="mt-5 empty:hidden">{lower}</div>}
       </div>
     </div>
   );
