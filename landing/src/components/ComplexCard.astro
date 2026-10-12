@@ -10,24 +10,54 @@ interface Props {
 }
 
 const { complex } = Astro.props;
+// With a cover, the logo overlaps the cover's bottom-left edge and the name moves down to clear it.
+// Without one, the logo sits inline, to the left of the name. Without a logo, the card is unchanged.
+const logoOverCover = Boolean(complex.coverUrl && complex.logoUrl);
+const logoInline = Boolean(complex.logoUrl && !complex.coverUrl);
 ---
 <a
   href={complex.href}
   class="flex min-h-11 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
 >
   {complex.coverUrl && (
-    <img
-      src={complex.coverUrl}
-      alt={complex.coverAlt}
-      loading="lazy"
-      decoding="async"
-      width="640"
-      height="360"
-      class="aspect-video w-full object-cover"
-    />
+    <div class="relative">
+      <img
+        src={complex.coverUrl}
+        alt={complex.coverAlt}
+        loading="lazy"
+        decoding="async"
+        width="640"
+        height="360"
+        class="block aspect-video w-full object-cover"
+      />
+      {complex.logoUrl && (
+        <img
+          src={complex.logoUrl}
+          alt={complex.logoAlt}
+          loading="lazy"
+          decoding="async"
+          width="48"
+          height="48"
+          class="absolute bottom-0 left-4 size-12 translate-y-1/2 rounded-xl border-2 border-vibe-surface object-cover shadow-md"
+        />
+      )}
+    </div>
   )}
-  <div class="flex flex-col gap-2 p-4">
-    <h3 class="text-lg font-semibold">{complex.name}</h3>
+  <div class:list={['flex flex-col gap-2 p-4', logoOverCover && 'pt-10']}>
+    <div class:list={[logoInline && 'flex items-center gap-3']}>
+      {logoInline && (
+        <img
+          src={complex.logoUrl}
+          alt={complex.logoAlt}
+          loading="lazy"
+          decoding="async"
+          width="48"
+          height="48"
+          class="size-12 shrink-0 rounded-xl border border-white/10 object-cover"
+        />
+      )}
+      <h3 class="min-w-0 text-lg font-semibold">{complex.name}</h3>
+    </div>
     {complex.address && <p class="text-sm text-vibe-muted">{complex.address}</p>}
     {complex.courtsLine && <p class="pt-1 text-sm text-vibe-muted">{complex.courtsLine}</p>}
     {!complex.courtsLine && complex.sports.length > 0 && (

@@ -57,6 +57,8 @@ export interface HubComplex {
   city: string;
   /** The cover picture, an http(s) URL, or null. */
   coverUrl: string | null;
+  /** The logo picture, an http(s) URL, or null. */
+  logoUrl: string | null;
   /** Sport labels, in the API's order. */
   sports: string[];
   /** The active courts of the complex, when the payload carries them. */
@@ -96,6 +98,10 @@ export interface HubComplexView {
   coverUrl: string | null;
   /** Alt text of the cover: "{Club} en {City}", or the club alone when no city is known. */
   coverAlt: string;
+  /** The logo picture, an http(s) URL. Absent when the complex has none. */
+  logoUrl?: string;
+  /** Alt text of the logo: "Logo de {Club}". Absent with logoUrl. */
+  logoAlt?: string;
   /** Spanish labels, in the API's order. */
   sports: string[];
   /** "2 canchas de tenis · 1 de pádel", or null when the payload has no courts per sport. */
@@ -222,6 +228,7 @@ function parseComplex(input: unknown): HubComplex {
     address: textField(input.address),
     city: textField(input.city),
     coverUrl: imageUrl(input.cover_url),
+    logoUrl: imageUrl(input.logo_url),
     sports: labelList(input.sports),
     courtCount: countField(input.court_count),
     courtsBySport: Array.isArray(input.courts_by_sport) ? sportCounts(input.courts_by_sport) : null,
@@ -485,6 +492,8 @@ function complexView(complex: HubComplex): HubComplexView {
     coverAlt: complex.city ? `${name} en ${complex.city}` : name,
     sports: complex.sports.map(sportLabel),
     courtsLine: courtsLine(complex.courtsBySport),
+    // A complex without a logo has no logo keys at all: the card then reads them as undefined.
+    ...(complex.logoUrl ? { logoUrl: complex.logoUrl, logoAlt: `Logo de ${name}` } : {}),
   };
 }
 

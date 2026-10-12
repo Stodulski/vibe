@@ -261,6 +261,36 @@ test('the view carries the title, H1, intro, description and canonical from the 
   assert.equal(view.ogImage, 'https://img.example.com/club-sur.jpg');
 });
 
+test('a complex card carries its logo and the alt that names the club', () => {
+  const view = toHubView(
+    parseHubData({
+      hub: { slug: 'x', name: 'X' },
+      complexes: [{ slug: 'a', name: 'Club A', logo_url: 'https://img.example.com/a-logo.png' }],
+    }),
+  );
+  const [complex] = view.complexes;
+
+  assert.equal(complex.logoUrl, 'https://img.example.com/a-logo.png');
+  assert.equal(complex.logoAlt, 'Logo de Club A');
+});
+
+test('a complex without a logo has no logo fields, and a logo that is not an http(s) URL is dropped', () => {
+  const view = toHubView(
+    parseHubData({
+      hub: { slug: 'x', name: 'X' },
+      complexes: [
+        { slug: 'a', name: 'Club A' },
+        { slug: 'b', name: 'Club B', logo_url: 'javascript:alert(1)' },
+      ],
+    }),
+  );
+
+  for (const complex of view.complexes) {
+    assert.equal(complex.logoUrl, undefined);
+    assert.equal(complex.logoAlt, undefined);
+  }
+});
+
 test('a complex card carries its cover, labelled sports and the courts per sport', () => {
   const [complex] = toHubView(banfield).complexes;
 
