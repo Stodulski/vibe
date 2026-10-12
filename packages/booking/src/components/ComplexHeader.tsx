@@ -7,7 +7,6 @@ import { ComplexLogo } from './complex-header/ComplexLogo';
 import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
 import { ShareComplexButton } from './complex-header/ShareComplexButton';
 import { ComplexDetails } from './complex-header/ComplexDetails';
-import { ComplexLower } from './complex-header/ComplexLower';
 import { CourtSummary } from './complex-header/CourtSummary';
 
 const t = BOOKING_MESSAGES;
@@ -32,13 +31,13 @@ interface ComplexHeaderProps {
  *
  * One column at every width. WHO the club is — cover, logo over its corner,
  * name, contact — comes first and keeps the same internal arrangement at
- * every width. WHAT the club offers — the hours, then the services and the
- * map — follows underneath, spanning the full width of the card, so the week's
- * hours fit on one line and the services wrap into a few short rows.
+ * every width. WHAT the club offers — the courts and their prices, then the
+ * hours — follows underneath, spanning the full width of the card, so the
+ * week's hours fit on one line.
  *
- * Below `lg` the card's own box is dropped (`max-lg:contents`), so its three
- * blocks become items of the page column and the page can move the services
- * and the map after the booking. At `lg` they stay inside the card.
+ * The services and the map are not in this card. The page places them after
+ * the booking at every width (see `ComplexLower`), so the markup order is the
+ * reading and focus order everywhere.
  *
  * This used to split into two columns from `lg`, identity left and details
  * right. The split was dropped so the details get the whole width instead of
@@ -53,10 +52,8 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
   });
 
   return (
-    // The bordered card arrives at `lg`. Below that the box is dropped entirely
-    // (`contents`): the page column lays out the blocks directly, and the
-    // padding is not doubled.
-    <div className="lg:border-border-subtle lg:bg-bg-subtle relative max-lg:contents lg:rounded-2xl lg:border lg:p-7">
+    // The bordered card arrives at `lg`. Below that it is a plain block.
+    <div className="lg:border-border-subtle lg:bg-bg-subtle relative lg:rounded-2xl lg:border lg:p-7">
       {/* Identity: cover, logo, name, contact — one block, one order. */}
       <div>
         <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
@@ -81,9 +78,6 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
         <CourtSummary courts={courts} />
         <ComplexDetails schedules={schedules} selectedDate={selectedDate} />
       </div>
-
-      {/* The services and the map. Their own block, so the page can move it below `lg`. */}
-      <ComplexLower complex={complex} />
     </div>
   );
 }

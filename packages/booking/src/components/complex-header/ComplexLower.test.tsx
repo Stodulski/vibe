@@ -76,12 +76,12 @@ describe('ComplexLower in the server markup', () => {
     expect(html.split(BOOKING_MESSAGES.complex.amenities.wifi)).toHaveLength(2);
   });
 
-  // Below lg the page's flex column moves this block after the booking; at lg it
-  // sits in the card, so its own top margin goes.
-  it('places itself after the booking below lg and inside the card at lg', () => {
+  // The page places this block after the booking, with no CSS reordering, so it
+  // only carries the gap above it, the same at every width.
+  it('carries the same gap above it at every width', () => {
     const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ amenities: ['parking'] })} />);
 
-    expect(html).toContain('class="mt-6 max-lg:order-1 sm:mt-10 lg:mt-0"');
+    expect(html).toContain('class="mt-6 sm:mt-10"');
   });
 });
 
