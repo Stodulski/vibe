@@ -3,7 +3,9 @@ package publicsite
 import (
 	"bytes"
 	"context"
+	"encoding/xml"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -239,4 +241,149 @@ func urlBlock(doc, loc string) string {
 		}
 	}
 	return ""
+}
+
+// googleImageNS is the namespace of Google's image sitemap extension.
+const googleImageNS = "http://www.google.com/schemas/sitemap-image/1.1"
+
+func urlPtr(s string) *string { return &s }
+
+// photoSlug is a switched-on complex of the sitemap test fixtures with the given photos.
+func photoSlug(slug string, cover, logo *string) complexstore.ComplexSlug {
+	return complexstore.ComplexSlug{
+		Slug:      slug,
+		UpdatedAt: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		CoverURL:  cover,
+		LogoURL:   logo,
+	}
+}
+
+func sitemapFor(t *testing.T, slugs ...complexstore.ComplexSlug) string {
+	t.Helper()
+	doc, err := NewService(&stubStore{slugs: slugs}, "https://vibe.example").Sitemap(t.Context())
+	if err != nil {
+		t.Fatalf("Sitemap: %v", err)
+	}
+	return doc
+}
+
+// The image sitemap extension lists a venue's photos under its page: the cover first,
+// then the logo, each only when it is an absolute http(s) URL.
+func TestSitemapListsTheCoverThenTheLogoAsImagesOfTheComplex(t *testing.T) {
+	doc := sitemapFor(t, photoSlug("club-norte", urlPtr("https://cdn.example/cover.jpg"), urlPtr("https://cdn.example/logo.png")))
+
+	block := urlBlock(doc, "https://vibe.example/c/club-norte")
+	cover := strings.Index(block, "<image:loc>https://cdn.example/cover.jpg</image:loc>")
+	logo := strings.Index(block, "<image:loc>https://cdn.example/logo.png</image:loc>")
+	if cover < 0 || logo < 0 {
+		t.Fatalf("the complex's <url> is missing its cover or its logo:\n%s", block)
+	}
+	if cover > logo {
+		t.Errorf("the logo is listed before the cover; want the cover first:\n%s", block)
+	}
+	if n := strings.Count(block, "<image:image>"); n != 2 {
+		t.Errorf("want 2 image entries; got %d:\n%s", n, block)
+	}
+}
+
+func TestSitemapListsALogoAloneAsOneImage(t *testing.T) {
+	doc := sitemapFor(t, photoSlug("club-norte", nil, urlPtr("https://cdn.example/logo.png")))
+
+	block := urlBlock(doc, "https://vibe.example/c/club-norte")
+	if n := strings.Count(block, "<image:image>"); n != 1 {
+		t.Errorf("want 1 image entry for a logo alone; got %d:\n%s", n, block)
+	}
+	if !strings.Contains(block, "<image:loc>https://cdn.example/logo.png</image:loc>") {
+		t.Errorf("the logo is not listed:\n%s", block)
+	}
+}
+
+func TestSitemapListsNoImageForAComplexWithoutPhotos(t *testing.T) {
+	doc := sitemapFor(t,
+		photoSlug("sin-fotos", nil, nil),
+		photoSlug("fotos-vacias", urlPtr(""), urlPtr("   ")),
+	)
+
+	for _, loc := range []string{"https://vibe.example/c/sin-fotos", "https://vibe.example/c/fotos-vacias"} {
+		if block := urlBlock(doc, loc); strings.Contains(block, "image:") {
+			t.Errorf("%s lists image entries although it has no photos:\n%s", loc, block)
+		}
+	}
+}
+
+func TestSitemapEscapesAnImageURLForXML(t *testing.T) {
+	doc := sitemapFor(t, photoSlug("club-norte", urlPtr("https://cdn.example/cover.jpg?w=640&h=480"), nil))
+
+	block := urlBlock(doc, "https://vibe.example/c/club-norte")
+	if !strings.Contains(block, "<image:loc>https://cdn.example/cover.jpg?w=640&amp;h=480</image:loc>") {
+		t.Errorf("the image URL is not XML-escaped:\n%s", block)
+	}
+}
+
+func TestSitemapSkipsAPhotoThatIsNotAnAbsoluteHTTPURL(t *testing.T) {
+	bad := []string{"/relative/cover.jpg", "javascript:alert(1)", "ftp://cdn.example/cover.jpg", "https://cdn.example/with space.jpg"}
+	var slugs []complexstore.ComplexSlug
+	for i, u := range bad {
+		slugs = append(slugs, photoSlug("club-"+string(rune('a'+i)), urlPtr(u), nil))
+	}
+
+	doc := sitemapFor(t, slugs...)
+	for i, u := range bad {
+		loc := "https://vibe.example/c/club-" + string(rune('a'+i))
+		if block := urlBlock(doc, loc); strings.Contains(block, "image:") {
+			t.Errorf("the photo %q was listed:\n%s", u, block)
+		}
+	}
+}
+
+// The image entries must keep the document well-formed for a namespace-aware parser:
+// the image prefix has to resolve to Google's namespace, and the escaped URL has to
+// read back as the original. Captions and titles are deprecated and never written.
+func TestSitemapWithImagesParsesAsXMLAndBindsTheImageNamespace(t *testing.T) {
+	doc := sitemapFor(t,
+		photoSlug("club-norte", urlPtr("https://cdn.example/cover.jpg?w=640&h=480"), urlPtr("https://cdn.example/logo.png")),
+		photoSlug("sin-fotos", nil, nil),
+	)
+
+	if !strings.Contains(doc, `xmlns:image="`+googleImageNS+`"`) {
+		t.Errorf("the urlset does not declare the image namespace:\n%s", doc)
+	}
+	if strings.Contains(doc, "image:caption") || strings.Contains(doc, "image:title") {
+		t.Errorf("the sitemap writes deprecated image caption or title elements:\n%s", doc)
+	}
+
+	dec := xml.NewDecoder(strings.NewReader(doc))
+	images := 0
+	var locs []string
+	inImageLoc := false
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("the sitemap is not well-formed XML: %v\n%s", err, doc)
+		}
+		switch el := tok.(type) {
+		case xml.StartElement:
+			if el.Name.Space == googleImageNS && el.Name.Local == "image" {
+				images++
+			}
+			inImageLoc = el.Name.Space == googleImageNS && el.Name.Local == "loc"
+		case xml.EndElement:
+			inImageLoc = false
+		case xml.CharData:
+			if inImageLoc {
+				locs = append(locs, string(el))
+			}
+		}
+	}
+
+	if images != 2 {
+		t.Errorf("want 2 image elements in Google's namespace; got %d:\n%s", images, doc)
+	}
+	want := []string{"https://cdn.example/cover.jpg?w=640&h=480", "https://cdn.example/logo.png"}
+	if strings.Join(locs, "|") != strings.Join(want, "|") {
+		t.Errorf("image locations = %q; want %q", locs, want)
+	}
 }
