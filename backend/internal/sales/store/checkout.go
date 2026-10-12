@@ -499,10 +499,12 @@ func (m *Store) ListBalancesDue(ctx context.Context, complexID uuid.UUID, day ti
 	out := make([]*BalanceDue, 0, len(rows))
 	for _, r := range rows {
 		paid := 0
-		if r.CollectionStatus == bookingstore.CollectionStatusFullyPaid {
+		switch r.CollectionStatus {
+		case bookingstore.CollectionStatusFullyPaid:
 			paid = int(r.Price)
-		} else if r.CollectionStatus == bookingstore.CollectionStatusDepositPaid {
+		case bookingstore.CollectionStatusDepositPaid:
 			paid = int(r.DepositAmount)
+		case bookingstore.CollectionStatusUnpaid:
 		}
 		total := int(r.Price)
 		out = append(out, &BalanceDue{
