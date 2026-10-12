@@ -5,9 +5,10 @@
  *                     when the request carries `Accept: text/markdown`
  *                     (see middleware.ts — vercel.json rewrites cannot do this,
  *                     they are evaluated after the filesystem lookup)
- *   dist/llms.txt     the llmstxt.org index: what this site is, and where to read it
  *   dist/sitemap.xml  regenerated, each page carrying the date its own output
  *                     last changed (see src/data/page-dates.json)
+ *   src/data/llms-static.json  the static part of llms.txt, which /llms.txt renders
+ *                     per request (src/pages/llms.txt.ts). Committed, not written to dist.
  *
  * All of it is derived from the built HTML rather than written by hand: the copy
  * on this site changes often, and a second hand-maintained copy would go stale
@@ -19,7 +20,6 @@ import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { join, relative } from 'node:path';
 import TurndownService from 'turndown';
-import { renderLlmsTxt } from './llms-txt.mjs';
 
 const DIST = new URL('../dist/', import.meta.url).pathname;
 const SITE = 'https://vibe.com.ar';
@@ -250,6 +250,10 @@ function leerDates() {
   try { return JSON.parse(readFileSync(DATES_FILE, 'utf8')); } catch { return {}; }
 }
 
+function leerTexto(file) {
+  try { return readFileSync(file, 'utf8'); } catch { return ''; }
+}
+
 /* What every real client downloads, which is what the sitemap should describe.
    The <img src> is only a fallback: browsers take the WebP from <source>, and
    Googlebot renders mobile-first, so it never sees the PNG at all. Both the
@@ -411,84 +415,30 @@ for (const [route, page] of pages) {
   console.log(`  markdown  ${route} -> ${fileNameOf(route)}`);
 }
 
-/* The city hubs and complexes come from the public API, read at build time. A slow or
-   down API leaves those two sections out of llms.txt and never fails the build: the
-   static pages still stand. */
-const API = (process.env.PUBLIC_API_URL || 'https://api.vibe.com.ar/api/v1').replace(/\/+$/, '');
-
-async function getJson(path) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) throw new Error(`${path} HTTP ${res.status}`);
-  return res.json();
-}
-
-async function dynamicEntries() {
-  try {
-    const index = await getJson('/public/hubs');
-    const hubs = Array.isArray(index?.hubs) ? index.hubs : [];
-    const details = await Promise.allSettled(
-      hubs.map(hub => getJson(`/public/hubs/${encodeURIComponent(hub.slug)}/data`)),
-    );
-    const cities = [{
-      title: 'Canchas en Vibe',
-      url: `${SITE}/canchas`,
-      md: `${SITE}/canchas.md`,
-      note: 'Todas las ciudades con complejos',
-    }];
-    const complexes = [];
-    hubs.forEach((hub, i) => {
-      const province = hub.province ? `${hub.province} · ` : '';
-      cities.push({
-        title: `Canchas en ${hub.name}`,
-        url: `${SITE}/canchas/${hub.slug}`,
-        md: `${SITE}/canchas-${hub.slug}.md`,
-        note: `${province}${hub.complex_count ?? 0} complejo(s)`,
-      });
-      const detail = details[i];
-      if (detail.status !== 'fulfilled') {
-        console.warn(`  llms.txt  no se pudo leer ${hub.slug}: ${detail.reason?.message ?? detail.reason}`);
-        return;
-      }
-      for (const c of detail.value?.complexes ?? []) {
-        complexes.push({
-          title: c.name,
-          url: `${SITE}/c/${c.slug}`,
-          md: `${SITE}/c-${c.slug}.md`,
-          note: [c.address, hub.name].filter(Boolean).join(', '),
-        });
-      }
-    });
-    return { cities, complexes };
-  } catch (error) {
-    console.warn(`  llms.txt  API no disponible, se omiten ciudades y complejos: ${error.message}`);
-    return { cities: [], complexes: [] };
-  }
-}
+/* The static part of llms.txt: what the site is and the pages it lists. /llms.txt is rendered
+   on every request by src/pages/llms.txt.ts, and a function cannot read dist/, so this part
+   lives in a committed file the function imports, the same way page-dates.json works. The
+   city and complex sections are read from the API at request time, not here. */
+const LLMS_STATIC_FILE = new URL('../src/data/llms-static.json', import.meta.url).pathname;
 
 const home = pages.get('/');
-const summary = summaryFrom(home?.markdown ?? '', home?.description ?? '');
-const newest = INDEXED.map(fechaDe).filter(Boolean).sort().at(-1) ?? HOY;
-const dynamic = await dynamicEntries();
-
-const llms = renderLlmsTxt({
+const llmsStatic = {
   title: 'Vibe',
   description: home?.description ?? '',
-  summary,
-  updated: newest,
+  summary: summaryFrom(home?.markdown ?? '', home?.description ?? ''),
+  updated: INDEXED.map(fechaDe).filter(Boolean).sort().at(-1) ?? HOY,
   pages: INDEXED.filter(r => pages.has(r)).map(r => ({
     title: pages.get(r).title,
     url: `${SITE}${r}`,
     md: `${SITE}/${fileNameOf(r)}`,
     note: pages.get(r).description,
   })),
-  cities: dynamic.cities,
-  complexes: dynamic.complexes,
-});
-await writeFile(join(DIST, 'llms.txt'), llms, 'utf8');
-console.log(`  llms.txt  ${dynamic.cities.length} ciudad(es), ${dynamic.complexes.length} complejo(s)`);
+};
+const llmsStaticJson = JSON.stringify(llmsStatic, null, 2) + '\n';
+if (leerTexto(LLMS_STATIC_FILE) !== llmsStaticJson) {
+  writeFileSync(LLMS_STATIC_FILE, llmsStaticJson, 'utf8');
+  console.log('  src/data/llms-static.json actualizado — commitealo con el cambio');
+}
 
 
 function urlEntry(route) {
@@ -522,7 +472,7 @@ console.log('  sitemap.xml');
 /**
  * Que ninguna página quede sin su header `Link` en vercel.json.
  *
- * El sitemap, los gemelos en Markdown y llms.txt salen de recorrer dist/, así
+ * El sitemap y los gemelos en Markdown salen de recorrer dist/, así
  * que una página nueva entra sola. Los headers no: esa lista se escribe a mano,
  * y una página sin su entrada sirve el .md como HTML sin que nada falle. Ya
  * pasó dos veces, y las dos las encontró un test y no el build.
