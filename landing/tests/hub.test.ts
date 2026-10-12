@@ -267,8 +267,24 @@ test('a complex card carries its cover, labelled sports and the courts per sport
   assert.equal(complex.href, '/c/club-sur');
   assert.equal(complex.address, 'Av. Siempre Viva 742');
   assert.equal(complex.coverUrl, 'https://img.example.com/club-sur.jpg');
+  assert.equal(complex.coverAlt, 'Club Sur en Banfield');
   assert.deepEqual(complex.sports, ['Tenis', 'Pádel']);
   assert.equal(complex.courtsLine, '2 canchas de tenis · 1 de pádel');
+});
+
+test('the cover alt of a complex card names the club and its city, or the club alone without a city', () => {
+  const view = toHubView(
+    parseHubData({
+      hub: { slug: 'x', name: 'X' },
+      complexes: [
+        { slug: 'a', name: 'Club  A ', city: 'Rosario', cover_url: 'https://img.example.com/a.jpg' },
+        { slug: 'b', name: 'Club B', cover_url: 'https://img.example.com/b.jpg' },
+      ],
+    }),
+  );
+
+  assert.equal(view.complexes[0].coverAlt, 'Club A en Rosario');
+  assert.equal(view.complexes[1].coverAlt, 'Club B');
 });
 
 test('the view links the other cities', () => {

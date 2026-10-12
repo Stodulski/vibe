@@ -53,6 +53,8 @@ export interface HubComplex {
   slug: string;
   name: string;
   address: string;
+  /** The complex's city, or empty when the payload does not carry it. */
+  city: string;
   /** The cover picture, an http(s) URL, or null. */
   coverUrl: string | null;
   /** Sport labels, in the API's order. */
@@ -92,6 +94,8 @@ export interface HubComplexView {
   /** Relative link to the complex page, served by the same origin. */
   href: string;
   coverUrl: string | null;
+  /** Alt text of the cover: "{Club} en {City}", or the club alone when no city is known. */
+  coverAlt: string;
   /** Spanish labels, in the API's order. */
   sports: string[];
   /** "2 canchas de tenis · 1 de pádel", or null when the payload has no courts per sport. */
@@ -216,6 +220,7 @@ function parseComplex(input: unknown): HubComplex {
     name: normalizeText(input.name),
     // A missing address should not turn a live hub into a 503; the page shows no line.
     address: textField(input.address),
+    city: textField(input.city),
     coverUrl: imageUrl(input.cover_url),
     sports: labelList(input.sports),
     courtCount: countField(input.court_count),
@@ -470,12 +475,14 @@ function courtsLine(entries: readonly SportCount[] | null): string | null {
 }
 
 function complexView(complex: HubComplex): HubComplexView {
+  const name = normalizeText(complex.name);
   return {
     slug: complex.slug,
-    name: normalizeText(complex.name),
+    name,
     address: complex.address,
     href: complexPath(complex.slug),
     coverUrl: complex.coverUrl,
+    coverAlt: complex.city ? `${name} en ${complex.city}` : name,
     sports: complex.sports.map(sportLabel),
     courtsLine: courtsLine(complex.courtsBySport),
   };

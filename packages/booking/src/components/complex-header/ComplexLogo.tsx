@@ -1,3 +1,5 @@
+import { complexLogoAlt } from '../../lib/complexImageAlt';
+
 interface ComplexLogoProps {
   logoUrl: string | null;
   name: string;
@@ -22,7 +24,7 @@ export function ComplexLogo({ logoUrl, name }: ComplexLogoProps) {
         // so the box is reserved before the file arrives (PERF-08).
         <img
           src={logoUrl}
-          alt={name}
+          alt={complexLogoAlt(name)}
           loading="eager"
           decoding="async"
           width={512}

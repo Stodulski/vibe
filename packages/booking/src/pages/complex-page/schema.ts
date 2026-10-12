@@ -50,10 +50,13 @@ export function buildComplexSchema(
     },
   };
 
-  // The complex's own picture, chosen as the backend prerender chooses it: the cover
-  // first, since it is the larger image for rich results, then the logo.
-  const image = [complex.cover_url, complex.logo_url].find((url) => url !== undefined && url !== '');
-  if (image) schema.image = image;
+  // The complex's own pictures: the cover first, since it is the larger image for rich
+  // results, then the logo. schema.org takes a list, so both go in when both exist.
+  const images = [complex.cover_url, complex.logo_url].filter(
+    (url): url is string => typeof url === 'string' && url !== '',
+  );
+  if (images.length === 1) schema.image = images[0];
+  if (images.length > 1) schema.image = images;
   if (complex.email) schema.email = complex.email;
   if (complex.latitude && complex.longitude) {
     schema.geo = {

@@ -2,6 +2,8 @@ import { CoverPlaceholder } from './CoverPlaceholder';
 
 interface CoverBannerProps {
   coverUrl: string | null;
+  /** Describes the photo for search engines and screen readers; see `complexCoverAlt`. */
+  alt: string;
 }
 
 /**
@@ -20,17 +22,20 @@ interface CoverBannerProps {
  * Where the box sits is the caller's decision and changes with the viewport:
  * a banner above the name on a phone, a column beside it on a desktop.
  */
-export function CoverBanner({ coverUrl }: CoverBannerProps) {
+export function CoverBanner({ coverUrl, alt }: CoverBannerProps) {
   return (
     <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl">
       {coverUrl ? (
         // width/height are the bounds the upload pipeline compresses covers
         // to; the 16:9 box above already prevents the shift, this just makes
-        // the ratio explicit to the browser (PERF-08).
+        // the ratio explicit to the browser (PERF-08). The alt is descriptive
+        // rather than empty: the photo is content, and Google Images indexes
+        // a complex's cover through its <img> and alt text.
         <img
           src={coverUrl}
-          alt=""
+          alt={alt}
           loading="eager"
+          fetchPriority="high"
           decoding="async"
           width={1280}
           height={720}

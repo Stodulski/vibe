@@ -1,7 +1,7 @@
 import { beforeAll, afterAll, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ComplexHeader } from './ComplexHeader';
-import type { PublicComplex, Schedule } from '../api/types';
+import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
 
 vi.mock('./ComplexMap', () => ({
   ComplexMap: () => <div data-testid="mock-map">Map</div>,
@@ -128,7 +128,7 @@ describe('ComplexHeader', () => {
       logo_url: 'https://example.com/logo.png',
     };
     render(<ComplexHeader complex={complexWithLogo} schedules={mockSchedules} />);
-    const img = screen.getByAltText('Club Padel Norte');
+    const img = screen.getByAltText('Logo de Club Padel Norte');
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute('src', 'https://example.com/logo.png');
   });
@@ -159,5 +159,25 @@ describe('ComplexHeader', () => {
     expect(await screen.findByText('No pudimos cargar el mapa')).toBeInTheDocument();
     // The rest of the club's page — outside the map's own boundary — is unaffected.
     expect(screen.getByRole('heading', { name: 'Club Padel Norte' })).toBeInTheDocument();
+  });
+});
+
+describe('ComplexHeader cover alt text', () => {
+  it('describes the cover photo by the club, its sports and its city', () => {
+    const padelCourt: CourtWithPrices = {
+      id: 'k1',
+      complex_id: 'c1',
+      name: 'Cancha 1',
+      sport: 'padel',
+      court_type: 'indoor',
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      prices: [],
+    };
+    const complexWithCover = { ...mockComplex, cover_url: 'https://example.com/cover.jpg' };
+    render(<ComplexHeader complex={complexWithCover} schedules={mockSchedules} courts={[padelCourt]} />);
+    const img = screen.getByAltText('Club Padel Norte, canchas de pádel en Buenos Aires');
+    expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg');
   });
 });
