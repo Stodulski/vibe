@@ -27,6 +27,7 @@ import (
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 type stubStore struct {
@@ -628,6 +629,13 @@ func (s *stubRefunder) AutoRefundIfPaid(_ context.Context, b *bookingstore.Booki
 	return s.outcome
 }
 
+// stubWaitlist records every slot the booking paths hand to the waitlist.
+type stubWaitlist struct {
+	freed []waitlist.Freed
+}
+
+func (w *stubWaitlist) SlotFreed(_ context.Context, f waitlist.Freed) { w.freed = append(w.freed, f) }
+
 type stubNotifier struct {
 	confirmed []notifications.BookingConfirmation
 	cancelled []notifications.Cancellation
@@ -728,6 +736,7 @@ type fixture struct {
 	linkResolver *stubLinkResolver
 	linkTokens   *stubLinkTokens
 	notify       *stubNotifier
+	waitlist     *stubWaitlist
 	realtime     *stubBroadcaster
 	audit        *stubRecorder
 }
@@ -740,7 +749,7 @@ func newFixture(t *testing.T) *fixture {
 		courts: &stubCourts{}, payments: &stubPayments{}, locks: &stubLocks{},
 		checkout: &stubCheckout{}, whatsapp: &stubWhatsApp{}, refunds: &stubRefunder{},
 		linkResolver: &stubLinkResolver{}, linkTokens: &stubLinkTokens{},
-		notify: &stubNotifier{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
+		notify: &stubNotifier{}, waitlist: &stubWaitlist{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
 	}
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	f.service = NewService(Dependencies{
@@ -749,8 +758,9 @@ func newFixture(t *testing.T) *fixture {
 		Payments: f.payments, Locks: f.locks, Checkout: f.checkout,
 		Refunds: f.refunds, LinkResolver: f.linkResolver, LinkTokens: f.linkTokens,
 		Notify: f.notify, Realtime: f.realtime, Audit: f.audit,
-		Logger: logger,
-		Run:    func(fn func()) { fn() },
+		Logger:   logger,
+		Run:      func(fn func()) { fn() },
+		Waitlist: f.waitlist,
 	}, Config{
 		PublicURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
 		Environment: "test", GracePeriod: 15 * time.Minute,

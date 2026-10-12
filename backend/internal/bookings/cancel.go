@@ -27,6 +27,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // Refund methods reported by cancel-info. They answer "how would the money come
@@ -421,6 +422,10 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 	if courterr == nil {
 		s.releaseHeldSlots(ctx, booking)
 	}
+
+	s.freeWaitlistSlot(ctx, waitlist.Freed{
+		ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: booking.Date,
+	})
 }
 
 // releaseHeldSlots frees the checkout lock a cancelled booking still holds.

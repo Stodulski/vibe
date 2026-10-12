@@ -39,6 +39,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/turnstile"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
@@ -88,6 +89,7 @@ func validateDeps(d deps) error {
 		{"models.Complexes", d.models.Complexes != nil},
 		{"models.Courts", d.models.Courts != nil},
 		{"models.Bookings", d.models.Bookings != nil},
+		{"models.Waitlist", d.models.Waitlist != nil},
 		{"models.BookingLinkTokens", d.models.BookingLinkTokens != nil},
 		{"models.Tokens", d.models.Tokens != nil},
 		{"models.Clients", d.models.Clients != nil},
@@ -512,6 +514,10 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// all take notify, and none of them can compile before this line runs.
 	notify := notifications.NewService(queue, mailerClient, waClient, d.models.Users, d.logger, whatsappEnabled)
 
+	// The waitlist is handed to the bookings service below, so it is built here.
+	waitlistService := waitlist.NewService(d.models.Waitlist, d.models.Complexes, notify, cfg.PublicBaseURL(), d.logger)
+	waitlistHandler := waitlist.NewHandler(waitlistService, respond)
+
 	authConfig := auth.Config{
 		JWTSecret:         cfg.JWT.Secret,
 		JWTKeyID:          cfg.JWT.KeyID,
@@ -644,6 +650,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Audit:        auditor,
 		Logger:       d.logger,
 		Run:          app.background,
+		Waitlist:     waitlistService,
 	}, bookings.Config{
 		PublicURL:       cfg.PublicBaseURL(),
 		BackendURL:      cfg.BackendURL,
@@ -681,6 +688,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.openapi = openapiHandler
 	app.specValidator = specValidator
 	app.courts = courtsHandler
+	app.waitlist = waitlistHandler
+	app.waitlistService = waitlistService
 	app.cashbox = cashboxHandler
 	app.products = productsHandler
 	app.sales = salesHandler

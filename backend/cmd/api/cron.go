@@ -57,6 +57,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("clean_failed_refunds", 24*time.Hour, app.cronCleanFailedRefunds),
 		job("clean_unverified_users", 24*time.Hour, app.cronCleanUnverifiedUsers),
 		job("clean_jobs", 24*time.Hour, app.cronCleanJobs),
+		job("clean_waitlist_entries", 24*time.Hour, app.cronCleanWaitlistEntries),
 
 		// The token blacklist is an in-process fallback when Redis is absent,
 		// so every instance prunes its own — this one takes no lock.
@@ -202,6 +203,18 @@ func (app *application) cronCompleteBookings(ctx context.Context) {
 // (bookings.LinkTokenRetention), live in bookings.Service; see cronReminder2h.
 func (app *application) cronCleanBookingLinkTokens(ctx context.Context) {
 	app.bookingsService.CleanLinkTokens(ctx)
+}
+
+// cronCleanWaitlistEntries deletes the waitlist entries of days that have
+// passed. An address stays on a waitlist only while the day it asked for is
+// still ahead.
+func (app *application) cronCleanWaitlistEntries(ctx context.Context) {
+	count, err := app.waitlistService.Purge(ctx)
+	if err != nil {
+		app.logger.Error("cron_clean_waitlist_entries: failed", "error", err)
+		return
+	}
+	app.logger.Info("cron_clean_waitlist_entries: completed", "deleted", count)
 }
 
 // cronCleanSlotLocks removes expired slot locks to free up slots.

@@ -76,16 +76,18 @@ var crossTenantRoutes = map[string]string{
 	// starts from a slug or a token hash and works out which complex it is
 	// for; scoping the session to a tenant it has not identified yet is
 	// impossible by construction.
-	"GET /api/v1/public/complexes/{slug}":              "resolves: the storefront finds its complex by slug",
-	"GET /api/v1/public/complexes/{slug}/availability": "resolves: the availability grid finds its complex by slug",
-	"GET /api/v1/sitemap.xml":                          "platform: every active slug on the platform, by definition",
-	"GET /api/sitemap.xml":                             "platform: the 301 to the line above; it reads nothing",
-	"GET /api/v1/public/hubs":                          "platform: every active complex in every city, public listing data only, by definition",
-	"GET /api/v1/public/hubs/{city}/data":              "platform: every active complex in one city, public listing data only, by definition",
-	"POST /api/v1/book":                                "resolves: the public booking flow is handed a complex id and validates it",
-	"GET /api/v1/book/status":                          "resolves: the booking link authenticates by token hash, which yields the booking",
-	"GET /api/v1/book/cancel-info":                     "resolves: same token hash, same booking",
-	"POST /api/v1/book/cancel":                         "resolves: same token hash, same booking",
+	"GET /api/v1/public/complexes/{slug}":                "resolves: the storefront finds its complex by slug",
+	"GET /api/v1/public/complexes/{slug}/availability":   "resolves: the availability grid finds its complex by slug",
+	"GET /api/v1/public/complexes/{slug}/next-available": "resolves: the next-day search finds its complex by slug",
+	"POST /api/v1/public/complexes/{slug}/waitlist":      "resolves: the waitlist join finds its complex by slug",
+	"GET /api/v1/sitemap.xml":                            "platform: every active slug on the platform, by definition",
+	"GET /api/sitemap.xml":                               "platform: the 301 to the line above; it reads nothing",
+	"GET /api/v1/public/hubs":                            "platform: every active complex in every city, public listing data only, by definition",
+	"GET /api/v1/public/hubs/{city}/data":                "platform: every active complex in one city, public listing data only, by definition",
+	"POST /api/v1/book":                                  "resolves: the public booking flow is handed a complex id and validates it",
+	"GET /api/v1/book/status":                            "resolves: the booking link authenticates by token hash, which yields the booking",
+	"GET /api/v1/book/cancel-info":                       "resolves: same token hash, same booking",
+	"POST /api/v1/book/cancel":                           "resolves: same token hash, same booking",
 
 	// resolves — MercadoPago arrives with a payment id and nothing else.
 	"POST /api/v1/webhooks/mercadopago": "resolves: the tenant is found from the payment's external reference",

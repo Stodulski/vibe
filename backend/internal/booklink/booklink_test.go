@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestEveryFunctionEmitsTheConfiguredQueryParam pins the one property this
@@ -178,6 +179,13 @@ func TestBookLinks(t *testing.T) {
 	}
 	if got := Book("https://app.vibe.com.ar", "vibe-norte"); got != "https://app.vibe.com.ar/c/vibe-norte/book" {
 		t.Errorf("Book = %q", got)
+	}
+}
+
+func TestStorefrontOnDateOpensTheDayOnTheComplexPage(t *testing.T) {
+	day := time.Date(2026, time.November, 20, 0, 0, 0, 0, time.UTC)
+	if got := StorefrontOnDate("https://vibe.test", "vibe-padel", day); got != "https://vibe.test/c/vibe-padel?date=2026-11-20" {
+		t.Errorf("StorefrontOnDate = %q", got)
 	}
 }
 

@@ -24,6 +24,7 @@ import (
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	salestore "github.com/stodulski/vibe-server/internal/sales/store"
+	waitliststore "github.com/stodulski/vibe-server/internal/waitlist/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -210,6 +211,14 @@ type ComplexMPManager interface {
 	// whose token has no known expiry or expires within 30 days — what
 	// cronRefreshMPTokens actually needs to refresh.
 	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error)
+}
+
+// WaitlistStore holds the days players asked to hear about when a slot frees
+// up: the public join, the claim that notifies them once, and the daily cleanup.
+type WaitlistStore interface {
+	Insert(ctx context.Context, complexID uuid.UUID, day time.Time, email string) error
+	ClaimUnnotified(ctx context.Context, complexID uuid.UUID, day time.Time) ([]waitliststore.Claimed, error)
+	DeleteBefore(ctx context.Context, today time.Time) (int64, error)
 }
 
 // ComplexStore composes every complex-related store capability.
@@ -671,6 +680,7 @@ type Stores struct {
 	SlotLocks         SlotLockStore
 	Audit             AuditStore
 	Reports           reportstore.ReportStore
+	Waitlist          WaitlistStore
 	Locks             data.LockStore
 	// Jobs is the durable work queue (internal/jobs). It is the one member
 	// cmd/api's validateDeps does not require, because a nil one is a valid
@@ -705,6 +715,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		Bookings:          &bookingstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
 		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
+		Waitlist:          &waitliststore.Store{Q: q},
 		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
 		Clients:           &clientstore.Store{DB: pooled, Q: q},
 		Payments:          &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},

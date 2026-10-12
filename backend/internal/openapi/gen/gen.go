@@ -3400,6 +3400,24 @@ type CourtsPublicAvailabilityParams struct {
 	Duration *int `form:"duration,omitempty" json:"duration,omitempty"`
 }
 
+// CourtsPublicNextAvailableParams defines parameters for CourtsPublicNextAvailable.
+type CourtsPublicNextAvailableParams struct {
+	// From The day to search after, as `YYYY-MM-DD`. A day in the past starts the search today.
+	From openapi_types.Date `form:"from" json:"from"`
+
+	// Duration Defaults to the platform's default slot duration. Must be one of the permitted durations.
+	Duration *int `form:"duration,omitempty" json:"duration,omitempty"`
+}
+
+// WaitlistJoinJSONBody defines parameters for WaitlistJoin.
+type WaitlistJoinJSONBody struct {
+	// Date The day to wait for, as `YYYY-MM-DD`. From today up to 365 days ahead.
+	Date openapi_types.Date `json:"date"`
+
+	// Email Trimmed and lowercased before it is stored.
+	Email string `json:"email"`
+}
+
 // LeadsCaptureAbandonedRegistrationJSONBody defines parameters for LeadsCaptureAbandonedRegistration.
 type LeadsCaptureAbandonedRegistrationJSONBody struct {
 	Email string `json:"email"`
@@ -3569,6 +3587,9 @@ type ComplexesDeleteUploadJSONRequestBody ComplexesDeleteUploadJSONBody
 
 // ComplexesPresignUploadJSONRequestBody defines body for ComplexesPresignUpload for application/json ContentType.
 type ComplexesPresignUploadJSONRequestBody ComplexesPresignUploadJSONBody
+
+// WaitlistJoinJSONRequestBody defines body for WaitlistJoin for application/json ContentType.
+type WaitlistJoinJSONRequestBody WaitlistJoinJSONBody
 
 // LeadsCaptureAbandonedRegistrationJSONRequestBody defines body for LeadsCaptureAbandonedRegistration for application/json ContentType.
 type LeadsCaptureAbandonedRegistrationJSONRequestBody LeadsCaptureAbandonedRegistrationJSONBody
@@ -3906,6 +3927,12 @@ type ServerInterface interface {
 	// CourtsPublicAvailability The storefront's bookable-slot grid for one day
 	// (GET /api/v1/public/complexes/{slug}/availability)
 	CourtsPublicAvailability(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicAvailabilityParams)
+	// CourtsPublicNextAvailable The first day after a given date with a bookable slot
+	// (GET /api/v1/public/complexes/{slug}/next-available)
+	CourtsPublicNextAvailable(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicNextAvailableParams)
+	// WaitlistJoin Ask to be emailed when a slot on a fully booked day frees up again
+	// (POST /api/v1/public/complexes/{slug}/waitlist)
+	WaitlistJoin(w http.ResponseWriter, r *http.Request, slug PathSlug)
 	// PublicsiteHubs City hub index
 	// (GET /api/v1/public/hubs)
 	PublicsiteHubs(w http.ResponseWriter, r *http.Request)
@@ -7016,6 +7043,87 @@ func (siw *ServerInterfaceWrapper) CourtsPublicAvailability(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// CourtsPublicNextAvailable operation middleware
+func (siw *ServerInterfaceWrapper) CourtsPublicNextAvailable(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CourtsPublicNextAvailableParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "duration" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "duration", r.URL.Query(), &params.Duration, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "duration"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "duration", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CourtsPublicNextAvailable(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// WaitlistJoin operation middleware
+func (siw *ServerInterfaceWrapper) WaitlistJoin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.WaitlistJoin(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PublicsiteHubs operation middleware
 func (siw *ServerInterfaceWrapper) PublicsiteHubs(w http.ResponseWriter, r *http.Request) {
 
@@ -7443,6 +7551,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/connect", wrapper.ComplexesDisconnectMercadoPago)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/connect", wrapper.ComplexesConnectMercadoPago)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/status", wrapper.ComplexesMercadoPagoStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist", wrapper.WaitlistJoin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/next-available", wrapper.CourtsPublicNextAvailable)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/availability", wrapper.CourtsPublicAvailability)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/courts", wrapper.CourtsList)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/courts", wrapper.CourtsCreate)

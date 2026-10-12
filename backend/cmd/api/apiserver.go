@@ -569,6 +569,18 @@ func (s *apiServer) CourtsPublicAvailability(w http.ResponseWriter, r *http.Requ
 	s.app.courts.Availability(w, r)
 }
 
+// CourtsPublicNextAvailable implements gen.ServerInterface for courtsPublicNextAvailable
+// (GET /api/v1/public/complexes/{slug}/next-available). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) CourtsPublicNextAvailable(w http.ResponseWriter, r *http.Request, slug gen.PathSlug, params gen.CourtsPublicNextAvailableParams) {
+	s.app.courts.NextAvailable(w, r)
+}
+
+// WaitlistJoin implements gen.ServerInterface for waitlistJoin
+// (POST /api/v1/public/complexes/{slug}/waitlist). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) WaitlistJoin(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {
+	s.app.waitlist.Join(w, r)
+}
+
 // LeadsCaptureAbandonedRegistration implements gen.ServerInterface for leadsCaptureAbandonedRegistration
 // (POST /api/v1/public/leads/abandoned-registration). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request) {

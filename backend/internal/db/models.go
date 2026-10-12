@@ -740,6 +740,15 @@ type UserIdentity struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type WaitlistEntry struct {
+	ID         pgtype.UUID        `json:"id"`
+	ComplexID  pgtype.UUID        `json:"complex_id"`
+	Date       pgtype.Date        `json:"date"`
+	Email      string             `json:"email"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	NotifiedAt pgtype.Timestamptz `json:"notified_at"`
+}
+
 type WebhookEvent struct {
 	ID          pgtype.UUID        `json:"id"`
 	Provider    string             `json:"provider"`
