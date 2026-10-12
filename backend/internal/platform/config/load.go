@@ -150,6 +150,15 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.StringVar(&cfg.R2.PrivateBucketName, "r2-private-bucket-name", "",
 		"R2 bucket for signed-URL-only objects such as payments exports; empty disables them (R2_PRIVATE_BUCKET_NAME)")
 
+	fs.StringVar(&cfg.Social.AccessToken, "meta-social-access-token", "",
+		"Meta system-user token that publishes Vibe's own posts (META_SOCIAL_ACCESS_TOKEN)")
+	fs.StringVar(&cfg.Social.PageID, "meta-social-page-id", "",
+		"Facebook Page ID for Vibe's posts, needed only when the token reaches more than one Page (META_SOCIAL_PAGE_ID)")
+	fs.StringVar(&cfg.Social.SyncRepository, "social-sync-repository", "Stodulski/vibe-social",
+		"GitHub repository whose OIDC token may sync posts, ref main only (SOCIAL_SYNC_REPOSITORY)")
+	fs.StringVar(&cfg.Social.ReportEmail, "social-report-email", "hola@vibe.com.ar",
+		"Address that receives a report when a post finishes publishing (SOCIAL_REPORT_EMAIL)")
+
 	fs.StringVar(&cfg.FrontendURL, "frontend-url", "http://localhost:5173", "Frontend URL (FRONTEND_URL)")
 	fs.StringVar(&cfg.PublicURL, "public-url", "",
 		"Public storefront origin, allowed by CORS next to the frontend (PUBLIC_URL)")
@@ -250,6 +259,11 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("R2_BUCKET_NAME", &cfg.R2.BucketName)
 	env.strVal("R2_PUBLIC_URL", &cfg.R2.PublicURL)
 	env.strVal("R2_PRIVATE_BUCKET_NAME", &cfg.R2.PrivateBucketName)
+
+	env.strVal("META_SOCIAL_ACCESS_TOKEN", &cfg.Social.AccessToken)
+	env.strVal("META_SOCIAL_PAGE_ID", &cfg.Social.PageID)
+	env.strVal("SOCIAL_SYNC_REPOSITORY", &cfg.Social.SyncRepository)
+	env.strVal("SOCIAL_REPORT_EMAIL", &cfg.Social.ReportEmail)
 
 	env.strVal("FRONTEND_URL", &cfg.FrontendURL)
 	env.strVal("PUBLIC_URL", &cfg.PublicURL)

@@ -25,6 +25,7 @@ type Config struct {
 	MP   MP
 
 	WhatsApp  WhatsApp
+	Social    Social
 	Brevo     Brevo
 	Turnstile Turnstile
 	Leads     Leads
@@ -203,6 +204,24 @@ type WhatsApp struct {
 	PhoneID     string
 	VerifyToken string
 	AppSecret   string
+}
+
+// Social is the publishing configuration for Vibe's own posts on its Facebook
+// Page and Instagram professional account.
+type Social struct {
+	// AccessToken is a Business system-user token with pages_show_list,
+	// pages_read_engagement, pages_manage_posts, instagram_basic,
+	// instagram_content_publish and business_management. Empty leaves the
+	// publisher off: posts are still accepted and stored, never published.
+	AccessToken string
+	// PageID selects the Page when the token reaches more than one. Empty is
+	// fine for a single Page.
+	PageID string
+	// SyncRepository is the one GitHub repository whose OIDC token may write
+	// posts. Its ref must be main; that check is fixed in code.
+	SyncRepository string
+	// ReportEmail receives one report per post when it finishes publishing.
+	ReportEmail string
 }
 
 // Brevo is the transactional email provider's configuration.
