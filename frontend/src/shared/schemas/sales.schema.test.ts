@@ -22,6 +22,16 @@ describe('saleSchema', () => {
     expect(saleSchema.safeParse(makeSale()).success).toBe(true);
   });
 
+  it('validates a balance-only checkout entry: no items and no cash movement', () => {
+    const entry = makeSale({
+      items: [],
+      cash_movement_id: null,
+      total: 350000,
+      booking_payments: [makeSaleBookingPayment({ amount: 350000 })],
+    });
+    expect(saleSchema.safeParse(entry).success).toBe(true);
+  });
+
   it('validates a voided sale', () => {
     const sale = makeSale({ voided_at: '2026-01-02T10:00:00Z', voided_by: 'u1', void_cash_movement_id: 'cm2' });
     expect(saleSchema.safeParse(sale).success).toBe(true);

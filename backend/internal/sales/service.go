@@ -147,7 +147,7 @@ func (s *Service) Get(ctx context.Context, complexID, saleID uuid.UUID) (*SaleWi
 	if err != nil {
 		return nil, err
 	}
-	lines, err := s.store.ListBookingPaymentsBySaleIDs(ctx, complexID, []uuid.UUID{saleID})
+	lines, err := s.store.ListBookingPaymentsByEntryIDs(ctx, complexID, []uuid.UUID{saleID})
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (s *Service) List(ctx context.Context, complexID uuid.UUID, sessionID *uuid
 		itemsBySale[item.SaleID] = append(itemsBySale[item.SaleID], item)
 	}
 
-	linesBySale, err := s.store.ListBookingPaymentsBySaleIDs(ctx, complexID, ids)
+	linesBySale, err := s.store.ListBookingPaymentsByEntryIDs(ctx, complexID, ids)
 	if err != nil {
 		return nil, data.Metadata{}, err
 	}

@@ -12,8 +12,9 @@ import (
 )
 
 const countSaleBookingPayments = `-- name: CountSaleBookingPayments :one
-SELECT COUNT(*)::bigint FROM sale_booking_payments
-WHERE sale_id = $1 AND complex_id = $2
+SELECT COUNT(*)::bigint FROM sale_booking_payments sbp
+JOIN checkouts ch ON ch.id = sbp.checkout_id AND ch.complex_id = sbp.complex_id
+WHERE ch.sale_id = $1 AND sbp.complex_id = $2
 `
 
 type CountSaleBookingPaymentsParams struct {
@@ -21,11 +22,52 @@ type CountSaleBookingPaymentsParams struct {
 	ComplexID pgtype.UUID `json:"complex_id"`
 }
 
+// The balance lines a sale's checkout collected. A void refuses while any exist.
 func (q *Queries) CountSaleBookingPayments(ctx context.Context, arg CountSaleBookingPaymentsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSaleBookingPayments, arg.SaleID, arg.ComplexID)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const getBalanceOnlyCheckoutByID = `-- name: GetBalanceOnlyCheckoutByID :one
+SELECT ch.id, ch.complex_id, ch.session_id, ch.method, ch.created_by, ch.created_at,
+       (SELECT COALESCE(SUM(sbp.amount), 0) FROM sale_booking_payments sbp
+        WHERE sbp.checkout_id = ch.id)::int AS total
+FROM checkouts ch
+WHERE ch.id = $1 AND ch.complex_id = $2 AND ch.sale_id IS NULL
+`
+
+type GetBalanceOnlyCheckoutByIDParams struct {
+	ID        pgtype.UUID `json:"id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+type GetBalanceOnlyCheckoutByIDRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	ComplexID pgtype.UUID        `json:"complex_id"`
+	SessionID pgtype.UUID        `json:"session_id"`
+	Method    PaymentMethod      `json:"method"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Total     int32              `json:"total"`
+}
+
+// One balance-only checkout of this complex, read as a list entry. No row means
+// the id is a sale's, or none at all.
+func (q *Queries) GetBalanceOnlyCheckoutByID(ctx context.Context, arg GetBalanceOnlyCheckoutByIDParams) (GetBalanceOnlyCheckoutByIDRow, error) {
+	row := q.db.QueryRow(ctx, getBalanceOnlyCheckoutByID, arg.ID, arg.ComplexID)
+	var i GetBalanceOnlyCheckoutByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.SessionID,
+		&i.Method,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.Total,
+	)
+	return i, err
 }
 
 const getSaleByID = `-- name: GetSaleByID :one
@@ -91,6 +133,43 @@ func (q *Queries) GetSaleByIDForUpdate(ctx context.Context, arg GetSaleByIDForUp
 	return i, err
 }
 
+const insertCheckout = `-- name: InsertCheckout :one
+INSERT INTO checkouts (complex_id, session_id, method, sale_id, created_by)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, complex_id, session_id, method, sale_id, created_by, created_at
+`
+
+type InsertCheckoutParams struct {
+	ComplexID pgtype.UUID   `json:"complex_id"`
+	SessionID pgtype.UUID   `json:"session_id"`
+	Method    PaymentMethod `json:"method"`
+	SaleID    pgtype.UUID   `json:"sale_id"`
+	CreatedBy pgtype.UUID   `json:"created_by"`
+}
+
+// One checkout that collected booking balances. sale_id is NULL for a checkout
+// with no product lines; the sale is inserted first when there is one.
+func (q *Queries) InsertCheckout(ctx context.Context, arg InsertCheckoutParams) (Checkout, error) {
+	row := q.db.QueryRow(ctx, insertCheckout,
+		arg.ComplexID,
+		arg.SessionID,
+		arg.Method,
+		arg.SaleID,
+		arg.CreatedBy,
+	)
+	var i Checkout
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.SessionID,
+		&i.Method,
+		&i.SaleID,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertSale = `-- name: InsertSale :one
 INSERT INTO sales (complex_id, session_id, method, total, cash_movement_id, created_by)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -133,23 +212,23 @@ func (q *Queries) InsertSale(ctx context.Context, arg InsertSaleParams) (Sale, e
 }
 
 const insertSaleBookingPayment = `-- name: InsertSaleBookingPayment :one
-INSERT INTO sale_booking_payments (complex_id, sale_id, booking_id, payment_id, amount)
+INSERT INTO sale_booking_payments (complex_id, checkout_id, booking_id, payment_id, amount)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, complex_id, sale_id, booking_id, payment_id, amount, created_at
+RETURNING id, complex_id, booking_id, payment_id, amount, created_at, checkout_id
 `
 
 type InsertSaleBookingPaymentParams struct {
-	ComplexID pgtype.UUID `json:"complex_id"`
-	SaleID    pgtype.UUID `json:"sale_id"`
-	BookingID pgtype.UUID `json:"booking_id"`
-	PaymentID pgtype.UUID `json:"payment_id"`
-	Amount    int32       `json:"amount"`
+	ComplexID  pgtype.UUID `json:"complex_id"`
+	CheckoutID pgtype.UUID `json:"checkout_id"`
+	BookingID  pgtype.UUID `json:"booking_id"`
+	PaymentID  pgtype.UUID `json:"payment_id"`
+	Amount     int32       `json:"amount"`
 }
 
 func (q *Queries) InsertSaleBookingPayment(ctx context.Context, arg InsertSaleBookingPaymentParams) (SaleBookingPayment, error) {
 	row := q.db.QueryRow(ctx, insertSaleBookingPayment,
 		arg.ComplexID,
-		arg.SaleID,
+		arg.CheckoutID,
 		arg.BookingID,
 		arg.PaymentID,
 		arg.Amount,
@@ -158,11 +237,11 @@ func (q *Queries) InsertSaleBookingPayment(ctx context.Context, arg InsertSaleBo
 	err := row.Scan(
 		&i.ID,
 		&i.ComplexID,
-		&i.SaleID,
 		&i.BookingID,
 		&i.PaymentID,
 		&i.Amount,
 		&i.CreatedAt,
+		&i.CheckoutID,
 	)
 	return i, err
 }
@@ -206,6 +285,80 @@ func (q *Queries) InsertSaleItem(ctx context.Context, arg InsertSaleItemParams) 
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listBalanceOnlyCheckoutsByComplex = `-- name: ListBalanceOnlyCheckoutsByComplex :many
+SELECT ch.id, ch.complex_id, ch.session_id, ch.method, ch.created_by, ch.created_at,
+       (SELECT COALESCE(SUM(sbp.amount), 0) FROM sale_booking_payments sbp
+        WHERE sbp.checkout_id = ch.id)::int AS total
+FROM checkouts ch
+WHERE ch.complex_id = $1
+  AND ch.sale_id IS NULL
+  AND (NOT $2::bool OR ch.session_id = $3::uuid)
+  AND (NOT $4::bool
+       OR (ch.created_at, ch.id) < ($5::timestamptz, $6::uuid))
+ORDER BY ch.created_at DESC, ch.id DESC
+LIMIT $7::int
+`
+
+type ListBalanceOnlyCheckoutsByComplexParams struct {
+	ComplexID        pgtype.UUID        `json:"complex_id"`
+	HasSessionFilter bool               `json:"has_session_filter"`
+	SessionFilter    pgtype.UUID        `json:"session_filter"`
+	HasCursor        bool               `json:"has_cursor"`
+	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID         pgtype.UUID        `json:"cursor_id"`
+	PageLimit        int32              `json:"page_limit"`
+}
+
+type ListBalanceOnlyCheckoutsByComplexRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	ComplexID pgtype.UUID        `json:"complex_id"`
+	SessionID pgtype.UUID        `json:"session_id"`
+	Method    PaymentMethod      `json:"method"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Total     int32              `json:"total"`
+}
+
+// The checkouts of this complex that collected booking balances and no product
+// lines. They have no sales row, so the sales list merges them in (see
+// Store.ListByComplex). Same keyset and session filter as ListSalesByComplex.
+// total is what the checkout collected.
+func (q *Queries) ListBalanceOnlyCheckoutsByComplex(ctx context.Context, arg ListBalanceOnlyCheckoutsByComplexParams) ([]ListBalanceOnlyCheckoutsByComplexRow, error) {
+	rows, err := q.db.Query(ctx, listBalanceOnlyCheckoutsByComplex,
+		arg.ComplexID,
+		arg.HasSessionFilter,
+		arg.SessionFilter,
+		arg.HasCursor,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBalanceOnlyCheckoutsByComplexRow
+	for rows.Next() {
+		var i ListBalanceOnlyCheckoutsByComplexRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ComplexID,
+			&i.SessionID,
+			&i.Method,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.Total,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listBookingBalancesDue = `-- name: ListBookingBalancesDue :many
@@ -320,8 +473,9 @@ type ListBookingPaymentLinesByPaymentIDsRow struct {
 	ClientLastName  string             `json:"client_last_name"`
 }
 
-// The same booking lines as ListSaleBookingPaymentsBySaleIDs, read from the
-// payments rows directly: a booking-only checkout has no sale to hang them on.
+// The same booking lines as ListSaleBookingPaymentsByEntryIDs, read from the
+// payments rows directly: a checkout's lines are known by payment id right after
+// it is recorded, before any list query runs.
 func (q *Queries) ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error) {
 	rows, err := q.db.Query(ctx, listBookingPaymentLinesByPaymentIDs, arg.PaymentIds, arg.ComplexID)
 	if err != nil {
@@ -352,8 +506,9 @@ func (q *Queries) ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg L
 	return items, nil
 }
 
-const listSaleBookingPaymentsBySaleIDs = `-- name: ListSaleBookingPaymentsBySaleIDs :many
-SELECT sbp.sale_id, sbp.payment_id, sbp.booking_id, sbp.amount,
+const listSaleBookingPaymentsByEntryIDs = `-- name: ListSaleBookingPaymentsByEntryIDs :many
+SELECT COALESCE(ch.sale_id, ch.id)::uuid AS entry_id,
+       sbp.payment_id, sbp.booking_id, sbp.amount,
        b.date AS booking_date,
        lower(b.span)::timestamptz AS starts_at,
        upper(b.span)::timestamptz AS ends_at,
@@ -361,20 +516,23 @@ SELECT sbp.sale_id, sbp.payment_id, sbp.booking_id, sbp.amount,
        cl.first_name AS client_first_name,
        cl.last_name AS client_last_name
 FROM sale_booking_payments sbp
+JOIN checkouts ch ON ch.id = sbp.checkout_id AND ch.complex_id = sbp.complex_id
 JOIN bookings b ON b.id = sbp.booking_id AND b.complex_id = sbp.complex_id
 JOIN courts c ON c.id = b.court_id
 JOIN clients cl ON cl.id = b.client_id
-WHERE sbp.sale_id = ANY($1::uuid[]) AND sbp.complex_id = $2::uuid
+WHERE sbp.complex_id = $1::uuid
+  AND (ch.sale_id = ANY($2::uuid[])
+       OR (ch.sale_id IS NULL AND ch.id = ANY($2::uuid[])))
 ORDER BY sbp.created_at ASC, sbp.id ASC
 `
 
-type ListSaleBookingPaymentsBySaleIDsParams struct {
-	SaleIds   []pgtype.UUID `json:"sale_ids"`
+type ListSaleBookingPaymentsByEntryIDsParams struct {
 	ComplexID pgtype.UUID   `json:"complex_id"`
+	EntryIds  []pgtype.UUID `json:"entry_ids"`
 }
 
-type ListSaleBookingPaymentsBySaleIDsRow struct {
-	SaleID          pgtype.UUID        `json:"sale_id"`
+type ListSaleBookingPaymentsByEntryIDsRow struct {
+	EntryID         pgtype.UUID        `json:"entry_id"`
 	PaymentID       pgtype.UUID        `json:"payment_id"`
 	BookingID       pgtype.UUID        `json:"booking_id"`
 	Amount          int32              `json:"amount"`
@@ -386,20 +544,21 @@ type ListSaleBookingPaymentsBySaleIDsRow struct {
 	ClientLastName  string             `json:"client_last_name"`
 }
 
-// The booking lines a page of sales collected, for the receipt. Joined to the
-// booking, court and client so the response can name them without a second
-// round trip per sale.
-func (q *Queries) ListSaleBookingPaymentsBySaleIDs(ctx context.Context, arg ListSaleBookingPaymentsBySaleIDsParams) ([]ListSaleBookingPaymentsBySaleIDsRow, error) {
-	rows, err := q.db.Query(ctx, listSaleBookingPaymentsBySaleIDs, arg.SaleIds, arg.ComplexID)
+// The booking lines of a page of sales-list entries, keyed by the entry id: a
+// product sale's id, or a balance-only checkout's id (it has no sale to name).
+// Joined to the booking, court and client so the response can name them
+// without a second round trip per entry.
+func (q *Queries) ListSaleBookingPaymentsByEntryIDs(ctx context.Context, arg ListSaleBookingPaymentsByEntryIDsParams) ([]ListSaleBookingPaymentsByEntryIDsRow, error) {
+	rows, err := q.db.Query(ctx, listSaleBookingPaymentsByEntryIDs, arg.ComplexID, arg.EntryIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSaleBookingPaymentsBySaleIDsRow
+	var items []ListSaleBookingPaymentsByEntryIDsRow
 	for rows.Next() {
-		var i ListSaleBookingPaymentsBySaleIDsRow
+		var i ListSaleBookingPaymentsByEntryIDsRow
 		if err := rows.Scan(
-			&i.SaleID,
+			&i.EntryID,
 			&i.PaymentID,
 			&i.BookingID,
 			&i.Amount,

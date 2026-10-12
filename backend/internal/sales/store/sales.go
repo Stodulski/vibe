@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
@@ -97,12 +98,14 @@ const (
 // / ListItemsBySaleIDs) rather than carried on this struct, the same
 // separation cashboxstore.CashSession keeps from its own movements.
 type Sale struct {
-	ID                 uuid.UUID
-	ComplexID          uuid.UUID
-	SessionID          uuid.UUID
-	Method             string
-	Total              int
-	CashMovementID     uuid.UUID
+	ID        uuid.UUID
+	ComplexID uuid.UUID
+	SessionID uuid.UUID
+	Method    string
+	Total     int
+	// CashMovementID is the sale's own 'sale' income movement. Nil for an entry
+	// that is a balance-only checkout: it has no sale and no income (see ListByComplex).
+	CashMovementID     *uuid.UUID
 	VoidedAt           *time.Time
 	VoidedBy           *uuid.UUID
 	VoidCashMovementID *uuid.UUID
@@ -157,7 +160,8 @@ type Store struct {
 	Payments *paymentstore.Payments
 }
 
-// GetByID returns one sale of this complex, or ErrRecordNotFound.
+// GetByID returns one entry of this complex's sales list: a sale, or a
+// balance-only checkout (see ListByComplex). ErrRecordNotFound otherwise.
 func (m *Store) GetByID(ctx context.Context, complexID, saleID uuid.UUID) (*Sale, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -168,11 +172,26 @@ func (m *Store) GetByID(ctx context.Context, complexID, saleID uuid.UUID) (*Sale
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, data.ErrRecordNotFound
+			return m.balanceOnlyByID(ctx, complexID, saleID)
 		}
 		return nil, err
 	}
 	return saleFromDB(row), nil
+}
+
+// balanceOnlyByID reads one balance-only checkout as its list entry.
+func (m *Store) balanceOnlyByID(ctx context.Context, complexID, checkoutID uuid.UUID) (*Sale, error) {
+	row, err := m.Q.GetBalanceOnlyCheckoutByID(ctx, db.GetBalanceOnlyCheckoutByIDParams{
+		ID:        data.UUIDToPg(checkoutID),
+		ComplexID: data.UUIDToPg(complexID),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, data.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	return balanceOnlyFromDB(row.ID, row.ComplexID, row.SessionID, row.Method, row.CreatedBy, row.CreatedAt, row.Total), nil
 }
 
 // ListItemsBySale returns one sale's own line items, in insertion order.
@@ -220,8 +239,12 @@ func (m *Store) ListItemsBySaleIDs(ctx context.Context, complexID uuid.UUID, sal
 	return items, nil
 }
 
-// ListByComplex returns a page of this complex's sales, newest first,
-// optionally restricted to one session.
+// ListByComplex returns a page of this complex's sales-list entries, newest
+// first, optionally restricted to one session. An entry is a product sale, or a
+// checkout that collected booking balances and no product lines. The second
+// kind has no sale, so its entry carries the checkout's id, no CashMovementID
+// and no items, and its total is what the checkout collected. Both kinds share
+// one keyset order (created_at, id), so one cursor resumes either.
 func (m *Store) ListByComplex(ctx context.Context, complexID uuid.UUID, sessionID *uuid.UUID, filters data.Filters) ([]*Sale, data.Metadata, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -248,13 +271,56 @@ func (m *Store) ListByComplex(ctx context.Context, complexID uuid.UUID, sessionI
 		return nil, data.Metadata{}, fmt.Errorf("sale: list by complex: %w", err)
 	}
 
-	sales := make([]*Sale, len(rows))
-	for i, r := range rows {
-		sales[i] = saleFromDB(r)
+	checkouts, err := m.Q.ListBalanceOnlyCheckoutsByComplex(ctx, db.ListBalanceOnlyCheckoutsByComplexParams{
+		ComplexID:        data.UUIDToPg(complexID),
+		HasSessionFilter: sessionID != nil,
+		SessionFilter:    data.UUIDPtrToPg(sessionID),
+		HasCursor:        hasCursor,
+		CursorCreatedAt:  data.TimeToPg(cursorTime),
+		CursorID:         data.UUIDToPg(cursorID),
+		PageLimit:        fetchLimit,
+	})
+	if err != nil {
+		return nil, data.Metadata{}, fmt.Errorf("sale: list balance-only checkouts: %w", err)
 	}
 
-	sales, meta := data.TrimPage(sales, filters.Limit, data.BuildTimestampCursor)
-	return sales, meta, nil
+	entries := make([]*Sale, 0, len(rows)+len(checkouts))
+	for _, r := range rows {
+		entries = append(entries, saleFromDB(r))
+	}
+	for _, c := range checkouts {
+		entries = append(entries, balanceOnlyFromDB(c.ID, c.ComplexID, c.SessionID, c.Method, c.CreatedBy, c.CreatedAt, c.Total))
+	}
+	sortNewestFirst(entries)
+
+	entries, meta := data.TrimPage(entries, filters.Limit, data.BuildTimestampCursor)
+	return entries, meta, nil
+}
+
+// sortNewestFirst orders entries the way the list queries do: created_at, then
+// id, both descending.
+func sortNewestFirst(entries []*Sale) {
+	sort.SliceStable(entries, func(i, j int) bool {
+		a, b := entries[i], entries[j]
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			return a.CreatedAt.After(b.CreatedAt)
+		}
+		return bytes.Compare(a.ID[:], b.ID[:]) > 0
+	})
+}
+
+// balanceOnlyFromDB maps a balance-only checkout onto the list entry that stands
+// for it. It has no sale, so no cash income and no items.
+func balanceOnlyFromDB(id, complexID, sessionID pgtype.UUID, method db.PaymentMethod, createdBy pgtype.UUID, createdAt pgtype.Timestamptz, total int32) *Sale {
+	return &Sale{
+		ID:        data.PgToUUID(id),
+		ComplexID: data.PgToUUID(complexID),
+		SessionID: data.PgToUUID(sessionID),
+		Method:    string(method),
+		Total:     int(total),
+		CreatedAt: data.PgToTime(createdAt),
+		CreatedBy: data.PgToUUID(createdBy),
+	}
 }
 
 // Void corrects a sale in ONE transaction: it locks the sale row (refusing
@@ -296,7 +362,7 @@ func (m *Store) Void(ctx context.Context, complexID, saleID, actorID uuid.UUID, 
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return data.ErrRecordNotFound
+				return voidOfNonSale(ctx, qtx, complexID, saleID)
 			}
 			return fmt.Errorf("sale: lock for void: %w", err)
 		}
@@ -420,6 +486,23 @@ func (m *Store) Void(ctx context.Context, complexID, saleID, actorID uuid.UUID, 
 	return voided, nil
 }
 
+// voidOfNonSale answers a void of an id that is no product sale. A balance-only
+// checkout is a list entry with no reversal, so it gets the refusal a sale that
+// collected a balance gets; any other id is not found.
+func voidOfNonSale(ctx context.Context, qtx *db.Queries, complexID, id uuid.UUID) error {
+	_, err := qtx.GetBalanceOnlyCheckoutByID(ctx, db.GetBalanceOnlyCheckoutByIDParams{
+		ID:        data.UUIDToPg(id),
+		ComplexID: data.UUIDToPg(complexID),
+	})
+	if err == nil {
+		return ErrSaleHasBookingPayments
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return data.ErrRecordNotFound
+	}
+	return fmt.Errorf("sale void: look up balance-only checkout: %w", err)
+}
+
 func saleFromDB(s db.Sale) *Sale {
 	return &Sale{
 		ID:                 data.PgToUUID(s.ID),
@@ -427,7 +510,7 @@ func saleFromDB(s db.Sale) *Sale {
 		SessionID:          data.PgToUUID(s.SessionID),
 		Method:             string(s.Method),
 		Total:              int(s.Total),
-		CashMovementID:     data.PgToUUID(s.CashMovementID),
+		CashMovementID:     data.PgToUUIDPtr(s.CashMovementID),
 		VoidedAt:           data.PgToTimePtr(s.VoidedAt),
 		VoidedBy:           data.PgToUUIDPtr(s.VoidedBy),
 		VoidCashMovementID: data.PgToUUIDPtr(s.VoidCashMovementID),

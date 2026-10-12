@@ -317,6 +317,10 @@ func (f *Fixture) deleteComplexData(t *testing.T) {
 
 	statements := []string{
 		`DELETE FROM failed_refunds WHERE complex_id = $1`,
+		// Checkout balances point at payments and bookings, and the checkouts they
+		// hang off sit under the complex's sales: both go before the payments.
+		`DELETE FROM sale_booking_payments WHERE complex_id = $1`,
+		`DELETE FROM checkouts WHERE complex_id = $1`,
 		`DELETE FROM payments WHERE complex_id = $1`,
 		`DELETE FROM slot_locks WHERE court_id IN (SELECT id FROM courts WHERE complex_id = $1)`,
 		`DELETE FROM bookings WHERE complex_id = $1`,

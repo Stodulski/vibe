@@ -1284,7 +1284,7 @@ export interface paths {
         };
         /**
          * List this complex's sales
-         * @description Newest first. Paginated. Optionally restricted to one cash session.
+         * @description Newest first. Paginated. Optionally restricted to one cash session. A checkout that collected only booking balances is listed too, as an entry with no items (see the Sale schema).
          */
         get: operations["salesList"];
         put?: never;
@@ -2163,6 +2163,7 @@ export interface components {
             /** Format: uuid */
             created_by: string;
         };
+        /** @description A product sale, or a checkout that collected booking balances and no product lines. The second kind is an entry with the checkout's id, no items and a null cash_movement_id: it has no sale and writes no cash income of its own. */
         Sale: {
             /** Format: uuid */
             id: string;
@@ -2172,13 +2173,13 @@ export interface components {
             session_id: string;
             /** @enum {string} */
             method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-            /** @description Centavos ARS. Always the server-computed sum of the sale's own line totals. */
+            /** @description Centavos ARS. The sum of the line totals of the entry's items; for an entry with no items, the sum of its booking_payments amounts. Those amounts are counted once, in their payments rows, never again through this total. */
             total: number;
             /**
              * Format: uuid
-             * @description The sale's own 'sale' category income movement.
+             * @description The sale's own 'sale' category income movement. Null for a balance-only checkout.
              */
-            cash_movement_id: string;
+            cash_movement_id: string | null;
             /** Format: date-time */
             voided_at?: string | null;
             /** Format: uuid */

@@ -2495,22 +2495,22 @@ type RevenueDataPoint struct {
 	Date   openapi_types.Date `json:"date"`
 }
 
-// Sale defines model for Sale.
+// Sale A product sale, or a checkout that collected booking balances and no product lines. The second kind is an entry with the checkout's id, no items and a null cash_movement_id: it has no sale and writes no cash income of its own.
 type Sale struct {
 	// BookingPayments The booking balances collected in the same checkout as this sale (empty when there were none). Each amount is already counted in its own payments row, not in `total`. A sale with booking payments cannot be voided.
 	BookingPayments []SaleBookingPayment `json:"booking_payments"`
 
-	// CashMovementId The sale's own 'sale' category income movement.
-	CashMovementId openapi_types.UUID `json:"cash_movement_id"`
-	ComplexId      openapi_types.UUID `json:"complex_id"`
-	CreatedAt      time.Time          `json:"created_at"`
-	CreatedBy      openapi_types.UUID `json:"created_by"`
-	Id             openapi_types.UUID `json:"id"`
-	Items          []SaleItem         `json:"items"`
-	Method         SaleMethod         `json:"method"`
-	SessionId      openapi_types.UUID `json:"session_id"`
+	// CashMovementId The sale's own 'sale' category income movement. Null for a balance-only checkout.
+	CashMovementId *openapi_types.UUID `json:"cash_movement_id"`
+	ComplexId      openapi_types.UUID  `json:"complex_id"`
+	CreatedAt      time.Time           `json:"created_at"`
+	CreatedBy      openapi_types.UUID  `json:"created_by"`
+	Id             openapi_types.UUID  `json:"id"`
+	Items          []SaleItem          `json:"items"`
+	Method         SaleMethod          `json:"method"`
+	SessionId      openapi_types.UUID  `json:"session_id"`
 
-	// Total Centavos ARS. Always the server-computed sum of the sale's own line totals.
+	// Total Centavos ARS. The sum of the line totals of the entry's items; for an entry with no items, the sum of its booking_payments amounts. Those amounts are counted once, in their payments rows, never again through this total.
 	Total int `json:"total"`
 
 	// VoidCashMovementId The movement that voided the sale's income, when this sale is voided.

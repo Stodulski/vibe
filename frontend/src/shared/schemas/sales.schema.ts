@@ -60,7 +60,7 @@ export const saleSchema = exact<Sale>(
       session_id: z.string(),
       method: saleCounterMethodSchema,
       total: z.number(),
-      cash_movement_id: z.string(),
+      cash_movement_id: z.string().nullable(),
       voided_at: z.string().nullable().optional(),
       voided_by: z.string().nullable().optional(),
       void_cash_movement_id: z.string().nullable().optional(),

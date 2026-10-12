@@ -29,7 +29,7 @@ import (
 type Store interface {
 	Create(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, method string, note *string) (*salestore.Sale, []*salestore.SaleItem, []salestore.StockWarning, error)
 	Checkout(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, bookings []salestore.BookingPaymentInput, method string, note *string) (*salestore.CheckoutResult, error)
-	ListBookingPaymentsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error)
+	ListBookingPaymentsByEntryIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error)
 	ListBalancesDue(ctx context.Context, complexID uuid.UUID, day time.Time) ([]*salestore.BalanceDue, error)
 	GetByID(ctx context.Context, complexID, saleID uuid.UUID) (*salestore.Sale, error)
 	ListItemsBySale(ctx context.Context, complexID, saleID uuid.UUID) ([]*salestore.SaleItem, error)
