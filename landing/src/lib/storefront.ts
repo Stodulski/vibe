@@ -12,10 +12,13 @@ export const STOREFRONT_ORIGIN = 'https://vibe.com.ar';
 
 /**
  * The robots directive for a response with this status. Error answers are never
- * indexed, whatever the switch says.
+ * indexed, whatever the switch says. A 410 is the final answer for a deleted complex, not
+ * an error to retry: it carries no noindex of its own, so it follows the switch like a
+ * live page (the 410 status is what takes it out of search).
  */
 export function robotsDirective(status = 200): string {
-  return STOREFRONT_INDEXABLE && status < 400 ? 'index, follow' : 'noindex';
+  const answersWithPage = status < 400 || status === 410;
+  return STOREFRONT_INDEXABLE && answersWithPage ? 'index, follow' : 'noindex';
 }
 
 /** A booking step: /c/<slug>/book and everything under it. */

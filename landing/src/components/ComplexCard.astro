@@ -1,0 +1,41 @@
+---
+/**
+ * One complex in a city's list, as a link to its page. The city hub and the page of a deleted
+ * complex (which lists the other courts of its city) both render it, so the card is the same.
+ */
+import type { HubComplexView } from '../lib/hub.ts';
+
+interface Props {
+  complex: HubComplexView;
+}
+
+const { complex } = Astro.props;
+---
+<a
+  href={complex.href}
+  class="flex min-h-11 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
+>
+  {complex.coverUrl && (
+    <img
+      src={complex.coverUrl}
+      alt={complex.name}
+      loading="lazy"
+      decoding="async"
+      width="640"
+      height="360"
+      class="aspect-video w-full object-cover"
+    />
+  )}
+  <div class="flex flex-col gap-2 p-4">
+    <h3 class="text-lg font-semibold">{complex.name}</h3>
+    {complex.address && <p class="text-sm text-vibe-muted">{complex.address}</p>}
+    {complex.courtsLine && <p class="pt-1 text-sm text-vibe-muted">{complex.courtsLine}</p>}
+    {!complex.courtsLine && complex.sports.length > 0 && (
+      <div class="flex flex-wrap gap-2 pt-1">
+        {complex.sports.map((sport) => (
+          <span class="rounded-full bg-vibe-green/15 px-3 py-1 text-xs font-medium text-vibe-green">{sport}</span>
+        ))}
+      </div>
+    )}
+  </div>
+</a>

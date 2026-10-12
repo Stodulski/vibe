@@ -48,8 +48,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     headers.set('Reporting-Endpoints', STOREFRONT_REPORTING_ENDPOINTS);
   }
   // The HTML answer varies on Accept (agents get the twin), and names that twin. Booking steps
-  // have no twin, so they say nothing about one.
-  if (response.status === 200 && !isBookPath(pathname)) {
+  // have no twin, so they say nothing about one. A 410 is cached, so it varies the same way.
+  if ((response.status === 200 || response.status === 410) && !isBookPath(pathname)) {
     headers.set('Vary', 'Accept');
     headers.set('Link', `<${STOREFRONT_ORIGIN}${markdownTwinPath(pathname)}>; rel="alternate"; type="text/markdown"`);
   }

@@ -4,8 +4,10 @@
  * produces, so the two cannot disagree.
  */
 import { joinSpanish } from '../copy.ts';
+import type { GoneView } from '../complex-gone.ts';
 import type { ComplexFacts } from './complex-facts.ts';
-import { bullets, document, escapeInline, faqBlock, frontMatter, heading, link, SITE } from './format.ts';
+import { complexLine } from './hub.ts';
+import { absolute, bullets, document, escapeInline, faqBlock, frontMatter, heading, link, SITE } from './format.ts';
 
 const plural = (count: number) => `${count} ${count === 1 ? 'cancha' : 'canchas'}`;
 
@@ -57,5 +59,25 @@ export function complexMarkdown(facts: ComplexFacts, origin: string = SITE): str
       facts.citySlug ? link(`Canchas en ${facts.city}`, `${origin}/canchas/${facts.citySlug}`) : null,
       link('Todas las ciudades', `${origin}/canchas`),
     ].filter((item): item is string => item !== null)),
+  ]);
+}
+
+/**
+ * The Markdown twin of a deleted complex's page (/c/<slug> answering 410): the same headline,
+ * lead and other courts as the HTML page, with links to the city and the city index.
+ */
+export function goneMarkdown(view: GoneView, canonical: string): string {
+  const front = frontMatter({ title: view.title, description: view.description, canonical });
+  const hasAlternatives = view.alternatives.length > 0;
+  return document(front, [
+    heading(1, view.h1),
+    escapeInline(view.lead),
+    hasAlternatives ? heading(2, `Otras canchas en ${view.city}`) : null,
+    hasAlternatives ? view.alternatives.map(complexLine).join('\n') : null,
+    heading(2, 'Más en Vibe'),
+    bullets([
+      ...(view.cityHref ? [link(`Ver canchas en ${view.city}`, absolute(view.cityHref))] : []),
+      link('Ver todas las ciudades', absolute('/canchas')),
+    ]),
   ]);
 }

@@ -98,3 +98,31 @@ export function complexHead(raw: ComplexHeadInput): ComplexHead {
     locale: 'es_AR',
   };
 }
+
+/** The headline of a deleted complex's page. It is the H1, and the title when it fits. */
+export function goneHeadline(name: string): string {
+  return `${normalizeText(name)} ya no toma reservas por Vibe`;
+}
+
+/**
+ * The <title> of a deleted complex's page: the headline, or without " por Vibe" when that
+ * is over TITLE_MAX characters, the same length rule the SEO gate applies to titles.
+ */
+export function goneTitle(name: string): string {
+  const headline = goneHeadline(name);
+  return headline.length <= TITLE_MAX ? headline : `${normalizeText(name)} ya no toma reservas`;
+}
+
+/** The lead under the headline: the other courts of the city, or the other cities when there are none. */
+export function goneLead(city: string, hasAlternatives: boolean): string {
+  return hasAlternatives
+    ? `Pero hay otras canchas en ${normalizeText(city)} donde podés reservar online.`
+    : 'Mirá las canchas de otras ciudades.';
+}
+
+/** The meta description of a deleted complex's page: one sentence that points to the courts that remain. */
+export function goneDescription(city: string, hasAlternatives: boolean): string {
+  return hasAlternatives
+    ? `Mirá otras canchas en ${normalizeText(city)} que podés reservar online en Vibe.`
+    : 'Mirá las canchas de otras ciudades en Vibe.';
+}

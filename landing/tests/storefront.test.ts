@@ -33,6 +33,12 @@ test('the complex page follows the switch and the status', () => {
   assert.equal(storefrontRobots('/c/club-sur', 404), 'noindex');
 });
 
+test('a deleted complex (410) follows the switch like a live page, and is never noindex of its own', () => {
+  assert.equal(robotsDirective(410), robotsDirective(200));
+  assert.equal(storefrontRobots('/c/club-viejo', 410), robotsDirective(200));
+  if (STOREFRONT_INDEXABLE) assert.notEqual(storefrontRobots('/c/club-viejo', 410), 'noindex');
+});
+
 test('a slug that only starts with book is not a booking step', () => {
   assert.equal(storefrontRobots('/c/bookshop', 200), robotsDirective(200));
 });

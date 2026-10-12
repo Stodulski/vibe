@@ -5,7 +5,8 @@
 import type { EmptyHubView, HubView, HubComplexView } from '../hub.ts';
 import { absolute, bullets, document, escapeInline, faqBlock, frontMatter, heading, link, SITE } from './format.ts';
 
-function complexLine(complex: HubComplexView): string {
+/** One complex as a bullet: its name linked to its page, then its address and courts. */
+export function complexLine(complex: HubComplexView): string {
   const details = [complex.address, complex.courtsLine ?? (complex.sports.length ? complex.sports.join(', ') : '')]
     .filter((part) => part !== '')
     .map(escapeInline);

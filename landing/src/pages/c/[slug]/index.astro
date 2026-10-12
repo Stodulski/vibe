@@ -3,8 +3,9 @@
  * The complex page at /c/<slug>: the club and its slot picker. The server reads the
  * complex, writes the head copy and the JSON-LD, and renders the flow as an island that
  * starts from the complex it was given, so the markup names the club before any script
- * runs. 200 when the complex exists, 404 when the API has no such slug, 503 with
- * Retry-After when the read fails. Indexing follows STOREFRONT_INDEXABLE.
+ * runs. 200 when the complex exists, 404 when the API has no such slug, 410 when the API says
+ * the complex was deleted (the page names the other courts of its city), 503 with Retry-After
+ * when the read fails. Indexing follows STOREFRONT_INDEXABLE.
  */
 import { PUBLIC_API_URL } from 'astro:env/server';
 import { ComplexPageEntry } from '@vibe/booking/complex-page';
@@ -12,8 +13,13 @@ import { buildComplexSchema } from '@vibe/booking/complex-schema';
 import { publicComplexResponseSchema } from '@vibe/booking/complex-response';
 import { BOOKING_MESSAGES } from '@vibe/booking/messages';
 import type { PublicComplexResponse } from '@vibe/booking/types';
+import BookingLayout from '../../../layouts/BookingLayout.astro';
 import StorefrontLayout from '../../../layouts/StorefrontLayout.astro';
+import Nav from '../../../components/Nav.astro';
+import Footer from '../../../components/Footer.astro';
+import ComplexCard from '../../../components/ComplexCard.astro';
 import { API_TIMEOUT_MS, ApiError, createPublicApi } from '../../../lib/api.ts';
+import { GONE_CACHE_CONTROL, loadGoneView, type GoneView } from '../../../lib/complex-gone.ts';
 import { complexHead, jsonLdScript } from '../../../lib/complex-meta.ts';
 import { storefrontBookingConfig, storefrontRobots, STOREFRONT_ORIGIN } from '../../../lib/storefront.ts';
 import { normalizeText } from '../../../lib/copy.ts';
@@ -27,25 +33,32 @@ const slug = Astro.params.slug ?? '';
 let data: PublicComplexResponse | null = null;
 /** The city the complex belongs to, from the payload's city_slug. Absent on older payloads. */
 let citySlug: string | null = null;
+/** Set when the API says the complex was deleted: what the page of a deleted complex says. */
+let gone: GoneView | null = null;
 let status = 200;
 
+const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
 try {
-  const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
   const raw = await api.complex(slug);
   const parsed = publicComplexResponseSchema.safeParse(raw);
   if (!parsed.success) throw new ApiError('unavailable', 200, { cause: parsed.error });
   data = parsed.data;
   citySlug = citySlugOf(raw);
 } catch (error) {
-  const notFound = error instanceof ApiError && error.kind === 'not_found';
-  status = notFound ? 404 : 503;
-  if (!notFound) console.error('complex page unavailable', error);
+  if (error instanceof ApiError && error.kind === 'gone' && error.gone) {
+    status = 410;
+    gone = await loadGoneView(api, error.gone);
+  } else {
+    const notFound = error instanceof ApiError && error.kind === 'not_found';
+    status = notFound ? 404 : 503;
+    if (!notFound) console.error('complex page unavailable', error);
+  }
 }
 
 Astro.response.status = status;
 Astro.response.headers.set(
   'Cache-Control',
-  data ? 'public, s-maxage=60, stale-while-revalidate=300' : 'no-store',
+  gone ? GONE_CACHE_CONTROL : data ? 'public, s-maxage=60, stale-while-revalidate=300' : 'no-store',
 );
 if (status === 503) Astro.response.headers.set('Retry-After', '60');
 
@@ -101,7 +114,39 @@ const errorTitle = status === 404 ? t.publicBooking.complexNotFound : t.publicBo
 const errorLead = status === 404 ? t.publicBooking.complexNotFoundDescription : t.publicBooking.complexLoadErrorDescription;
 ---
 {
-  data && head ? (
+  gone ? (
+    <BookingLayout title={gone.title} description={gone.description} robots={robots}>
+      <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
+      <main id="contenido" class="mx-auto flex w-full max-w-3xl flex-col px-4 pb-16 pt-28 sm:pt-32">
+        <h1 class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{gone.h1}</h1>
+        <p class="mt-3 text-base text-vibe-muted">{gone.lead}</p>
+        {gone.alternatives.length > 0 && (
+          <>
+            <h2 class="mt-10 text-2xl font-bold tracking-tight">Otras canchas en {gone.city}</h2>
+            <ul class="mt-4 flex flex-col gap-3">
+              {gone.alternatives.map((complex) => (
+                <li>
+                  <ComplexCard complex={complex} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4 text-sm">
+          {gone.cityHref && (
+            <a
+              href={gone.cityHref}
+              class="inline-flex min-h-11 items-center rounded-full bg-vibe-green px-6 font-semibold text-vibe-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green"
+            >
+              Ver canchas en {gone.city}
+            </a>
+          )}
+          <a class="font-semibold text-vibe-green underline-offset-4 hover:underline" href="/canchas">Ver todas las ciudades</a>
+        </div>
+      </main>
+      <Footer linkPrefix="/" logoHref="/" />
+    </BookingLayout>
+  ) : data && head ? (
     <StorefrontLayout
       title={head.title}
       description={head.description}
