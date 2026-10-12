@@ -90,7 +90,10 @@ func BuildNextCursor(date time.Time, id uuid.UUID) string {
 	return date.Format("2006-01-02") + ":" + id.String()
 }
 
-// BuildTimestampCursor encodes a timestamp and ID into an RFC3339-precision pagination cursor string.
+// BuildTimestampCursor encodes a timestamp and ID into a pagination cursor string.
+// The timestamp keeps its sub-second digits (RFC3339Nano, trailing zeros trimmed):
+// at whole-second precision a page ending on one of several rows written in the
+// same second resumes after all of them and skips the rest.
 func BuildTimestampCursor(ts time.Time, id uuid.UUID) string {
-	return ts.UTC().Format(time.RFC3339) + ":" + id.String()
+	return ts.UTC().Format(time.RFC3339Nano) + ":" + id.String()
 }

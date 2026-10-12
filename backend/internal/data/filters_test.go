@@ -116,3 +116,24 @@ func TestBuildTimestampCursor(t *testing.T) {
 		t.Errorf("ID mismatch: want %v; got %v", id, parsedID)
 	}
 }
+
+// TestBuildTimestampCursorKeepsSubSecondPrecision: rows written in the same
+// second must not be skipped when a page ends between them. A cursor that drops
+// the fraction of a second resumes after every row of that second, not after
+// the one the page ended on.
+func TestBuildTimestampCursorKeepsSubSecondPrecision(t *testing.T) {
+	ts := time.Date(2024, 3, 15, 14, 30, 0, 123_456_000, time.UTC)
+	id := uuid.New()
+	f := Filters{Cursor: BuildTimestampCursor(ts, id)}
+
+	parsedTS, parsedID, err := f.ParseCursor()
+	if err != nil {
+		t.Fatalf("roundtrip failed: %v", err)
+	}
+	if !parsedTS.Equal(ts) {
+		t.Errorf("timestamp = %v; want %v", parsedTS, ts)
+	}
+	if parsedID != id {
+		t.Errorf("ID mismatch: want %v; got %v", id, parsedID)
+	}
+}
