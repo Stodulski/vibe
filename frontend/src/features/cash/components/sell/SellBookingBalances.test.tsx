@@ -82,3 +82,47 @@ describe('SellBookingBalances', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SellBookingBalances — the row below lg', () => {
+  it('lists the bookings as one named list, so a screen reader reads how many there are', () => {
+    renderSection();
+
+    const list = screen.getByRole('list', { name: t.cash.bookingsTitle });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByRole('region', { name: t.cash.bookingsTitle })).toBeInTheDocument();
+  });
+
+  it('keeps the same list while loading, so the row does not swap elements when the bookings arrive', () => {
+    renderSection({ bookings: [], isLoading: true });
+
+    const list = screen.getByRole('list', { name: t.cash.bookingsTitle });
+    expect(list).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('reaches each booking in order with the keyboard', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: /Cancha 2/ })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: /Cancha 1/ })).toHaveFocus();
+  });
+
+  it('brings a booking that takes keyboard focus fully into the row, even when only its edge is visible', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    // jsdom has no layout and no scrollIntoView; the test only asks that it is called.
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      renderSection();
+
+      await user.tab();
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
+      expect(screen.getByRole('button', { name: /Cancha 2/ })).toHaveFocus();
+    } finally {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+    }
+  });
+});
