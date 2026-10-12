@@ -52,14 +52,24 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-export async function refreshAccessToken(): Promise<void> {
+export interface RefreshOptions {
+  /**
+   * Retry a refused refresh once, after `REFRESH_RETRY_DELAY_MS` (the sibling-tab
+   * race above). A browser that has never signed in has no session for a sibling
+   * tab to be renewing, so there is nothing for that retry to wait on.
+   */
+  retryOnFailure?: boolean;
+}
+
+export async function refreshAccessToken({ retryOnFailure = true }: RefreshOptions = {}): Promise<void> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
     let data: RefreshResponse;
     try {
       data = await postRefresh();
-    } catch {
+    } catch (error) {
+      if (!retryOnFailure) throw error;
       await delay(REFRESH_RETRY_DELAY_MS);
       data = await postRefresh();
     }
@@ -93,7 +103,19 @@ export async function refreshAccessToken(): Promise<void> {
  * that no refresh can recover is simply "no session", answered as `null`;
  * the store is left to the caller. Any other failure propagates.
  */
-export async function bootstrapSession(signal?: AbortSignal): Promise<CurrentUserResponse | null> {
+export interface BootstrapOptions {
+  /**
+   * Whether this browser has signed in before (see `sessionHint.ts`). When it
+   * has not, a refused refresh is final: there is no session to renew, so the
+   * retry would only be answered the same way, later.
+   */
+  mayHaveSession?: boolean;
+}
+
+export async function bootstrapSession(
+  signal?: AbortSignal,
+  { mayHaveSession = true }: BootstrapOptions = {},
+): Promise<CurrentUserResponse | null> {
   try {
     return await getCurrentUser(signal);
   } catch (error) {
@@ -103,7 +125,7 @@ export async function bootstrapSession(signal?: AbortSignal): Promise<CurrentUse
   }
 
   try {
-    await refreshAccessToken();
+    await refreshAccessToken({ retryOnFailure: mayHaveSession });
   } catch {
     return null;
   }

@@ -1,4 +1,5 @@
 import { setUser } from '@/shared/lib/observability';
+import { setSessionHint } from '@/shared/lib/sessionHint';
 import type { QueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import type { User } from '@/shared/types/api.types';
@@ -50,5 +51,6 @@ export function identifySession(user: User | null): User | null {
  * pending for the signed-in account.
  */
 export function setSessionUser(queryClient: QueryClient, user: User | null, pendingEmail: string | null = null): void {
+  setSessionHint(user !== null);
   queryClient.setQueryData<SessionData>(queryKeys.auth.me, { user: identifySession(user), pendingEmail });
 }

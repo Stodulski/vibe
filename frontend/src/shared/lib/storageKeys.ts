@@ -11,4 +11,7 @@ export const STORAGE_KEYS = {
   // what tells a second open tab another tab just ended the session — see
   // `useCrossTabLogout`.
   SESSION_LOGOUT_BROADCAST: 'vibe_session_logout_broadcast',
+  // Set while this browser holds a session, cleared by every sign-out. Read
+  // before the session check answers (see `sessionHint.ts`).
+  SESSION_HINT: 'vibe_session_hint',
 } as const;

@@ -4,6 +4,7 @@ import { createAuthSlice, type AuthSlice } from './auth.slice';
 import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
 import { API_CACHE_NAME } from '@/shared/lib/apiCache';
 import { consumeMPOAuthSession, saveMPOAuthSession } from '@/shared/lib/mpOAuthSession';
+import { hasSessionHint, setSessionHint } from '@/shared/lib/sessionHint';
 
 const mockSetUser = vi.fn<(user: { id: string } | null) => void>();
 
@@ -155,5 +156,27 @@ describe('authSlice Sentry integration', () => {
     const store = createStore();
     store.logout();
     expect(mockSetUser).toHaveBeenLastCalledWith(null);
+  });
+});
+
+// The session hint tells the guest pages that this browser has signed in, so
+// they know whether to wait for the session check. Every way out of a session
+// must clear it, including the cross-tab teardown that does not broadcast.
+describe('authSlice, session hint', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setSessionHint(true);
+  });
+
+  it('logout clears the session hint', () => {
+    const store = createStore();
+    store.logout();
+    expect(hasSessionHint()).toBe(false);
+  });
+
+  it('logoutLocal, the cross-tab teardown, clears the session hint too', () => {
+    const store = createStore();
+    store.logoutLocal();
+    expect(hasSessionHint()).toBe(false);
   });
 });

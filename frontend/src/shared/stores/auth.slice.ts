@@ -4,6 +4,7 @@ import { STORAGE_KEYS } from '@/shared/lib/storageKeys';
 import { safeLocalStorage } from '@/shared/lib/safeStorage';
 import { clearMPOAuthSessions } from '@/shared/lib/mpOAuthSession';
 import { purgeApiCache } from '@/shared/lib/apiCache';
+import { setSessionHint } from '@/shared/lib/sessionHint';
 
 /**
  * What a session is, minus the part that is server state.
@@ -43,6 +44,9 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => {
   const teardown = () => {
     clearMPOAuthSessions();
     setUser(null);
+    // Both sign-outs land here, and so does the cross-tab one: the next page
+    // load must not wait on, or try to renew, a session that has ended.
+    setSessionHint(false);
     // The service worker's API cache outlives the in-memory store, so
     // clearing state is not enough to end a session on a shared device.
     purgeApiCache();
