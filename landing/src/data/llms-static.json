@@ -1,0 +1,140 @@
+{
+  "title": "Vibe",
+  "description": "Gestioná tu complejo gratis: reservas con seña, cobros, caja con arqueo, stock del bar y reportes en un solo panel.",
+  "summary": "Vibe es un sistema de gestión para complejos deportivos de Argentina, gratis para el complejo. Junta en un solo panel la caja, los cobros y los reportes. Las reservas online, con seña por MercadoPago, son un módulo. Sirve para canchas de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball.",
+  "updated": "2026-10-11",
+  "pages": [
+    {
+      "title": "Sistema de gestión gratis para complejos deportivos | Vibe",
+      "url": "https://vibe.com.ar/",
+      "md": "https://vibe.com.ar/index.md",
+      "note": "Gestioná tu complejo gratis: reservas con seña, cobros, caja con arqueo, stock del bar y reportes en un solo panel."
+    },
+    {
+      "title": "Guías para dueños de complejos deportivos | Vibe",
+      "url": "https://vibe.com.ar/guias",
+      "md": "https://vibe.com.ar/guias.md",
+      "note": "Respuestas directas, con números y fuente, a lo que te preguntás antes de sumar un sistema de gestión a tu complejo deportivo."
+    },
+    {
+      "title": "Horarios vacíos en tu complejo: cómo llenarlos | Vibe",
+      "url": "https://vibe.com.ar/guias/como-llenar-los-horarios-vacios-de-un-complejo",
+      "md": "https://vibe.com.ar/guias-como-llenar-los-horarios-vacios-de-un-complejo.md",
+      "note": "Las horas muertas no se llenan con promociones: se llenan con diagnóstico, reserva sin teléfono y seña. Cinco pasos, sin estadísticas inventadas."
+    },
+    {
+      "title": "Cuánto cobra MercadoPago por una seña: la tabla | Vibe",
+      "url": "https://vibe.com.ar/guias/cuanto-cobra-mercadopago-por-una-sena",
+      "md": "https://vibe.com.ar/guias-cuanto-cobra-mercadopago-por-una-sena.md",
+      "note": "MercadoPago se queda con 1,47% a 6,60% más IVA de cada seña, según tu provincia y tu plazo. La tabla oficial, completa."
+    },
+    {
+      "title": "Cuánto cuesta un sistema de reservas de canchas | Vibe",
+      "url": "https://vibe.com.ar/guias/cuanto-cuesta-un-sistema-de-reservas-para-canchas",
+      "md": "https://vibe.com.ar/guias-cuanto-cuesta-un-sistema-de-reservas-para-canchas.md",
+      "note": "Abono fijo desde 50 USD por mes o un cargo por reserva que paga el cliente: los dos modelos con números reales, según tu volumen."
+    },
+    {
+      "title": "Vibe o ATC Sports: abono fijo o $0 para tu complejo | Vibe",
+      "url": "https://vibe.com.ar/guias/vibe-o-atc-sports-en-que-se-diferencian",
+      "md": "https://vibe.com.ar/guias-vibe-o-atc-sports-en-que-se-diferencian.md",
+      "note": "ATC Sports cobra un abono mensual en dólares; Vibe es gratis para el complejo. Qué comparten, qué trae cada uno y cuándo conviene."
+    },
+    {
+      "title": "Vibe o CanchaFija: qué cambia y cuánto cuestan | Vibe",
+      "url": "https://vibe.com.ar/guias/vibe-o-canchafija-en-que-se-diferencian",
+      "md": "https://vibe.com.ar/guias-vibe-o-canchafija-en-que-se-diferencian.md",
+      "note": "CanchaFija cobra un abono mensual por complejo; Vibe es gratis para el complejo. Las dos con reserva online, caja y bar: cambia el modelo de cobro."
+    },
+    {
+      "title": "Vibe o Turnito para tu complejo: qué cambia | Vibe",
+      "url": "https://vibe.com.ar/guias/vibe-o-turnito-para-un-complejo-de-canchas",
+      "md": "https://vibe.com.ar/guias-vibe-o-turnito-para-un-complejo-de-canchas.md",
+      "note": "Turnito es una agenda de turnos; Vibe, un sistema para canchas. Qué cambia con varias canchas y quién paga la comisión en cada uno."
+    },
+    {
+      "title": "Política de Privacidad | Vibe",
+      "url": "https://vibe.com.ar/privacidad",
+      "md": "https://vibe.com.ar/privacidad.md",
+      "note": "Cómo Vibe recopila, usa y protege los datos de los dueños de complejos y de quienes reservan, y cómo pedir que los corrijamos o borremos."
+    },
+    {
+      "title": "Términos y Condiciones | Vibe",
+      "url": "https://vibe.com.ar/terminos",
+      "md": "https://vibe.com.ar/terminos.md",
+      "note": "Los términos de uso de Vibe, el sistema de gestión para complejos deportivos: reservas, cobros, caja, ventas y reportes, y qué hace cada parte."
+    },
+    {
+      "title": "Tutoriales: el panel de Vibe explicado | Vibe",
+      "url": "https://vibe.com.ar/tutoriales",
+      "md": "https://vibe.com.ar/tutoriales.md",
+      "note": "Tutoriales del panel de Vibe, pantalla por pantalla: grilla, precios, clientes, caja, ventas, stock, reportes y configuración."
+    },
+    {
+      "title": "Cómo abrir y cerrar la caja de tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/abrir-y-cerrar-la-caja",
+      "md": "https://vibe.com.ar/tutoriales-abrir-y-cerrar-la-caja.md",
+      "note": "Abrís la caja con el efectivo del cajón. Al cerrar, cargás lo que contaste y ves si sobra o falta, sin sacar la cuenta a mano."
+    },
+    {
+      "title": "Base de clientes para tu complejo deportivo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/base-de-clientes",
+      "md": "https://vibe.com.ar/tutoriales-base-de-clientes.md",
+      "note": "Cada persona que reserva queda guardada con su teléfono, su historial y su asistencia. Sin fichas a mano ni planillas: la base se llena sola."
+    },
+    {
+      "title": "Cómo cobrar una reserva en el mostrador | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/cobrar-una-reserva-en-el-mostrador",
+      "md": "https://vibe.com.ar/tutoriales-cobrar-una-reserva-en-el-mostrador.md",
+      "note": "Un turno confirmado sin cobrar todavía se cobra igual desde el panel: elegís el método real y queda registrado, sin pasar por MercadoPago."
+    },
+    {
+      "title": "Cómo configurar horarios y seña de tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/configuracion-del-complejo",
+      "md": "https://vibe.com.ar/tutoriales-configuracion-del-complejo.md",
+      "note": "Los datos del complejo, hasta qué hora se reserva cada día, cuánta seña pedís y el estado de MercadoPago: todo se define en una sola pantalla."
+    },
+    {
+      "title": "Grilla de reservas para un complejo deportivo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/grilla-de-reservas",
+      "md": "https://vibe.com.ar/tutoriales-grilla-de-reservas.md",
+      "note": "Todas tus canchas del día en una pantalla, cada turno con su seña y lo que falta cobrar, y cómo bloquear un horario desde el panel de Vibe."
+    },
+    {
+      "title": "Ingresos y egresos de caja en tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/ingresos-egresos-y-anulaciones",
+      "md": "https://vibe.com.ar/tutoriales-ingresos-egresos-y-anulaciones.md",
+      "note": "Cargá lo que entra o sale de la caja por categoría, desde clases hasta el alquiler del local, y anulá un movimiento sin perder el historial."
+    },
+    {
+      "title": "Panel de control para un complejo deportivo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/panel-de-control",
+      "md": "https://vibe.com.ar/tutoriales-panel-de-control.md",
+      "note": "Lo que facturaste hoy, las reservas, la ocupación y el mapa de horas muertas: qué ves apenas entrás al panel de Vibe, con la caja incluida."
+    },
+    {
+      "title": "Precios por horario y tarifa nocturna en tu cancha | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/precios-por-horario",
+      "md": "https://vibe.com.ar/tutoriales-precios-por-horario.md",
+      "note": "Cargá un precio base por día y una franja nocturna más cara. Cómo cobra Vibe un turno que cruza de una tarifa a la otra, por media hora."
+    },
+    {
+      "title": "Productos y control de stock en tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/productos-y-stock",
+      "md": "https://vibe.com.ar/tutoriales-productos-y-stock.md",
+      "note": "Cargá cada producto con su precio y, si querés, su stock. Un aviso solo cuando queda poco, y la reposición entra a la caja como cualquier gasto."
+    },
+    {
+      "title": "Reporte de facturación mensual de tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/reportes-de-facturacion",
+      "md": "https://vibe.com.ar/tutoriales-reportes-de-facturacion.md",
+      "note": "El mes cerrado solo: comparado con el anterior, abierto por método de pago y por cancha, y en Excel para el contador, con la caja incluida."
+    },
+    {
+      "title": "Vender productos desde el mostrador | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/vender-desde-el-mostrador",
+      "md": "https://vibe.com.ar/tutoriales-vender-desde-el-mostrador.md",
+      "note": "Tocás un producto, se suma al carrito, elegís el método y cobrás. La venta descuenta el stock y entra a la caja del turno sola."
+    }
+  ]
+}

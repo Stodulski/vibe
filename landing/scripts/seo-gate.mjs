@@ -27,11 +27,13 @@
  * poner. No agregar excepciones adentro de las reglas.
  */
 import { readFile, readdir } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { join, relative } from 'node:path';
 import { dateDriftProblems, junkWordIn, placeholderProblemsInHtml } from './seo-checks.mjs';
 
 const DIST = new URL('../dist/', import.meta.url).pathname;
 const SITE = 'https://vibe.com.ar';
+const LLMS_STATIC = new URL('../src/data/llms-static.json', import.meta.url).pathname;
 
 /* ------------------------------------------------------------------ reglas */
 
@@ -384,6 +386,23 @@ if (!url && !args.includes('--dist')) {
 
 const datos = url ? await leerProduccion(url.replace(/\/$/, '')) : await leerDist();
 revisar(datos, url ? `produccion (${url})` : 'dist');
+
+/* --- llms.txt: /llms.txt lo arma la funcion con src/data/llms-static.json, que el build
+   reescribe desde las paginas. Lo que se bundlea es el JSON commiteado, de antes del build;
+   si el build lo cambio, este deploy sirve el indice viejo. Por eso se compara contra HEAD.
+   Sin git no hay contra que comparar: se avisa y no se bloquea. --- */
+if (!url) {
+  const llms = spawnSync('git', ['diff', '--quiet', 'HEAD', '--', LLMS_STATIC], {
+    cwd: new URL('..', import.meta.url).pathname,
+    stdio: 'ignore',
+  });
+  if (llms.status === 1) {
+    fallar('src/data/llms-static.json', 'el build regenero el JSON de llms.txt y no coincide con el commiteado. ' +
+      'Commiteá el archivo que dejo `pnpm build`; sin eso, /llms.txt sirve el indice viejo.');
+  } else if (llms.status !== 0) {
+    notas.push('llms-static.json no se pudo comparar con git (no es un checkout); se omite esa regla');
+  }
+}
 
 notas.forEach(n => console.log(`  ${n}`));
 
