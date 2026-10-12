@@ -746,6 +746,26 @@ func captureSent(t *testing.T) []string {
 		func() error {
 			return m.SendOwnerBookingRefunded(ctx, to, complex, court, "Ana Perez", date, hours)
 		},
+		func() error {
+			return m.SendLifecycleNudge(ctx, to, "verify_email", "Ana", "", "https://vibe.test/verify?t=3",
+				"https://vibe.test/unsub?t=3", "https://vibe.test/baja?t=3")
+		},
+		func() error {
+			return m.SendLifecycleNudge(ctx, to, "create_complex", "Ana", "", "https://vibe.test/onboarding",
+				"https://vibe.test/unsub?t=4", "https://vibe.test/baja?t=4")
+		},
+		func() error {
+			return m.SendLifecycleNudge(ctx, to, "add_courts", "Ana", complex, "https://vibe.test/courts",
+				"https://vibe.test/unsub?t=5", "https://vibe.test/baja?t=5")
+		},
+		func() error {
+			return m.SendLifecycleNudge(ctx, to, "inactive", "Ana", complex, "https://vibe.test/dashboard",
+				"https://vibe.test/unsub?t=6", "https://vibe.test/baja?t=6")
+		},
+		func() error {
+			return m.SendLifecycleNudge(ctx, to, "finish_signup", "", "", "https://vibe.test/register",
+				"https://vibe.test/unsub?t=7", "https://vibe.test/baja?t=7")
+		},
 	}
 	for i, send := range sends {
 		if err := send(); err != nil {

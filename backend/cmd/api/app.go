@@ -565,10 +565,17 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
-	// The one-click opt-out. The signer keys off the JWT secret, so the links in the
-	// emails need no configuration of their own.
+	// The owner lifecycle emails. The signer keys off the JWT secret, so the opt-out
+	// links need no configuration of their own; the nudger reads the same stores the
+	// cron sweep does, and sends through the same notifier as everything else.
 	lifecycleSigner := lifecycle.NewSigner(cfg.JWT.Secret, cfg.JWT.SecretPrevious)
 	unsubscribeHandler := lifecycle.NewUnsubscribeHandler(respond, lifecycleSigner, d.models.Lifecycle)
+	lifecycleNudger := lifecycle.NewNudger(d.models.Lifecycle, d.models.Lifecycle, notify, authService,
+		lifecycleSigner, lifecycle.NudgeConfig{
+			FrontendURL:   cfg.FrontendURL,
+			PublicBaseURL: cfg.PublicBaseURL(),
+			BackendURL:    cfg.BackendURL,
+		}, d.logger)
 
 	// The export dependencies are assigned only when they exist, because a
 	// typed nil in an interface is not a nil interface: handing over a nil
@@ -696,6 +703,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.publicsite = publicsiteHandler
 	app.leads = leadsHandler
 	app.emailUnsubscribe = unsubscribeHandler
+	app.lifecycleNudger = lifecycleNudger
 	app.reporting = reportingHandler
 	app.queues = queues
 	app.health = healthHandler

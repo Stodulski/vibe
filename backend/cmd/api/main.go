@@ -63,9 +63,11 @@ type application struct {
 	leads      *leads.Handler
 	// emailUnsubscribe answers the one-click opt-out of the lifecycle emails.
 	emailUnsubscribe *lifecycle.UnsubscribeHandler
-	reporting        *reporting.Handler
-	health           *health.Handler
-	openapi          *openapi.Handler
+	// lifecycleNudger is the cron's handle on the owner and lead nudges.
+	lifecycleNudger *lifecycle.Nudger
+	reporting       *reporting.Handler
+	health          *health.Handler
+	openapi         *openapi.Handler
 	// specValidator refuses requests the OpenAPI document does not allow. It
 	// is nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off,
 	// which is the only thing routes() checks.

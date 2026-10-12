@@ -51,6 +51,7 @@ func handle[T any](taskType string, deliver func(ctx context.Context, p T) error
 //nolint:funlen // see the registration-table note above
 func (s *Service) RegisterWorkers() {
 	s.registerWaitlistWorkers()
+	s.registerLifecycleWorkers()
 
 	s.queue.RegisterHandler(handle(TaskEmailBookingConfirmation, func(ctx context.Context, p bookingConfirmationEmail) error {
 		return s.mailer.SendBookingConfirmation(ctx, p.Email, p.ComplexName, p.CourtName,
