@@ -11,6 +11,16 @@ import { saveCart } from '../../lib/cartStorage';
 
 vi.mock('@/features/complex/hooks/useSelectedComplex', () => ({ useSelectedComplex: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../../hooks/useBookingsDue', () => ({
+  useBookingsDue: () => ({
+    data: undefined,
+    isSuccess: false,
+    isLoading: false,
+    isError: false,
+    dataUpdatedAt: 0,
+    refetch: vi.fn(),
+  }),
+}));
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -147,7 +157,10 @@ describe('useSellPage — charge payload and idempotency', () => {
     server.use(
       http.post('*/complexes/:complexId/sales', async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json({ sale: makeSale({ total: 200000 }), stock_warnings: [] }, { status: 201 });
+        return HttpResponse.json(
+          { sale: makeSale({ total: 200000 }), stock_warnings: [], booking_payments: [] },
+          { status: 201 },
+        );
       }),
     );
     const { result } = renderHook(() => useSellPage(), { wrapper: createWrapper() });
@@ -167,7 +180,7 @@ describe('useSellPage — charge payload and idempotency', () => {
     await waitFor(() => {
       expect(result.current.saleResult).not.toBeNull();
     });
-    expect(body).toEqual({ items: [{ product_id: 'p1', quantity: 2 }], method: 'cash' });
+    expect(body).toEqual({ items: [{ product_id: 'p1', quantity: 2 }], booking_payments: [], method: 'cash' });
   });
 
   it('reuses the same Idempotency-Key when a failed attempt is retried', async () => {
@@ -177,7 +190,7 @@ describe('useSellPage — charge payload and idempotency', () => {
         const key = request.headers.get('Idempotency-Key') ?? '';
         keys.push(key);
         if (keys.length === 1) return HttpResponse.json({ title: 'upstream unavailable' }, { status: 503 });
-        return HttpResponse.json({ sale: makeSale(), stock_warnings: [] }, { status: 201 });
+        return HttpResponse.json({ sale: makeSale(), stock_warnings: [], booking_payments: [] }, { status: 201 });
       }),
     );
     const { result } = renderHook(() => useSellPage(), { wrapper: createWrapper() });
@@ -208,6 +221,7 @@ describe('useSellPage — charge success', () => {
           {
             sale: makeSale({ total: 555500 }),
             stock_warnings: [{ product_id: 'p1', product_name: 'Agua', stock_on_hand: -1 }],
+            booking_payments: [],
           },
           { status: 201 },
         ),
@@ -228,7 +242,7 @@ describe('useSellPage — charge success', () => {
     await waitFor(() => {
       expect(result.current.saleResult).not.toBeNull();
     });
-    expect(result.current.saleResult?.sale.total).toBe(555500);
+    expect(result.current.saleResult?.sale?.total).toBe(555500);
     expect(result.current.saleResult?.stockWarnings).toHaveLength(1);
     expect(result.current.lines).toEqual([]);
     // The persistence effect runs after the state update commits — proves
@@ -248,7 +262,7 @@ describe('useSellPage — charge success while the cart keeps changing', () => {
     server.use(
       http.post('*/complexes/:complexId/sales', async () => {
         await salePromise;
-        return HttpResponse.json({ sale: makeSale(), stock_warnings: [] }, { status: 201 });
+        return HttpResponse.json({ sale: makeSale(), stock_warnings: [], booking_payments: [] }, { status: 201 });
       }),
     );
     const { result } = renderHook(() => useSellPage(), { wrapper: createWrapper() });

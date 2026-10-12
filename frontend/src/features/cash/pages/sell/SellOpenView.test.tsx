@@ -51,6 +51,14 @@ function makeState(overrides: Partial<ReturnType<typeof useSellPage>> = {}): Ret
     isCharging: false,
     saleResult: null,
     clearSaleResult: vi.fn(),
+    balanceDue: { bookings: [], isLoading: false, isError: false, refetch: vi.fn() },
+    balanceLines: [],
+    addBalance: vi.fn(),
+    removeBalance: vi.fn(),
+    balanceChangedNotice: false,
+    droppedBalancesNotice: false,
+    dismissDroppedBalancesNotice: vi.fn(),
+    itemCount: 0,
     ...overrides,
   } as unknown as ReturnType<typeof useSellPage>;
 }

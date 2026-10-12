@@ -4,6 +4,7 @@ import { useCashSession } from '@/shared/hooks/useCashSession';
 import { useProducts } from '@/shared/hooks/useProducts';
 import { cartTotal } from '../../lib/cart';
 import { useSellCart } from './useSellCart';
+import { useBalanceDue, useSellBalances } from './useSellBalances';
 import { useSellCharge } from './useSellCharge';
 import type { Product } from '@/shared/types/api.types';
 
@@ -41,10 +42,11 @@ function useCatalog(complexId: string | null) {
 }
 
 /**
- * All of `/cash/sell`'s state: catalog, the cart (`useSellCart`), the charge
- * flow (`useSellCharge`), and search/category filters. Split into three
- * hooks so none of them grows past this repo's `max-lines-per-function`
- * limit — see each one's own doc comment.
+ * All of `/cash/sell`'s state: catalog, the product cart (`useSellCart`), the
+ * booking balances on it (`useSellBalances`), the charge flow
+ * (`useSellCharge`), and search/category filters. Split into hooks so none of
+ * them grows past this repo's `max-lines-per-function` limit — see each one's
+ * own doc comment.
  */
 export function useSellPage() {
   const { selectedComplexId } = useSelectedComplex();
@@ -54,8 +56,13 @@ export function useSellPage() {
 
   const catalog = useCatalog(complexId);
   const cart = useSellCart(complexId, catalog.products, catalog.productsQuery.isSuccess);
-  const charge = useSellCharge(complexId, sessionId, cart);
-  const total = useMemo(() => cartTotal(cart.lines, catalog.products), [cart.lines, catalog.products]);
+
+  const due = useBalanceDue(complexId, sessionId);
+  const balances = useSellBalances(complexId, due.snapshot);
+
+  const charge = useSellCharge(complexId, sessionId, cart, balances);
+  const total = cartTotal(cart.lines, catalog.products) + balances.total;
+  const itemCount = cart.lines.reduce((sum, line) => sum + line.quantity, 0) + balances.lines.length;
 
   return {
     complexId,
@@ -76,6 +83,14 @@ export function useSellPage() {
     decrementCartLine: cart.decrement,
     setCartLineQuantity: cart.setQuantity,
     removeCartLine: charge.removeCartLine,
+    balanceDue: due.list,
+    balanceLines: balances.lines,
+    addBalance: balances.add,
+    removeBalance: charge.removeBalanceLine,
+    balanceChangedNotice: charge.balanceChangedNotice,
+    droppedBalancesNotice: balances.droppedNotice,
+    dismissDroppedBalancesNotice: balances.dismissDroppedNotice,
+    itemCount,
     total,
     products: catalog.products,
     method: charge.method,

@@ -27,7 +27,7 @@ import { exact } from '@/shared/lib/apiParse';
 // `paymentDisplayStatus` is a pure function, not a wire shape — nothing to
 // validate.
 
-const bookingStatusSchema = z.enum([
+export const bookingStatusSchema = z.enum([
   'pending',
   'confirmed',
   'cancelled',

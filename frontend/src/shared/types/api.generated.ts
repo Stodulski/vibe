@@ -840,6 +840,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/complexes/{slug}/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask to be emailed when a slot on a fully booked day frees up again
+         * @description Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one day of the complex. Joining again for the same address and day answers the same `204`. The email is sent once, the first time a booking on that day is cancelled or expires. The daily cleanup drops entries whose day has passed.
+         */
+        post: operations["waitlistJoin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/complexes/{slug}/next-available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The first day after a given date with a bookable slot
+         * @description Public. Cross-tenant bypass reason `resolves`. Looks at the fourteen days after `from`, never past the booking horizon, and answers with the first one where any active court has a free slot for the requested duration. The check is the same grid the availability endpoint publishes. `date` is `null` when no day in that window has one.
+         */
+        get: operations["courtsPublicNextAvailable"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/complexes/{slug}/availability": {
         parameters: {
             query?: never;
@@ -1033,6 +1073,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/email/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop owner lifecycle email to an address
+         * @description Public. The one-click opt-out every owner lifecycle email carries: the List-Unsubscribe header (RFC 8058) and the footer link to the /baja page. The token comes from the `token` query parameter (a mail client's one-click POST) or from the JSON body (the /baja page). Answers 204 whether or not the address was already suppressed. A token this server did not mint is refused with 400. Transactional email (bookings, verification, password reset) is not affected by a suppression.
+         */
+        post: operations["emailUnsubscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/mercadopago": {
         parameters: {
             query?: never;
@@ -1195,6 +1255,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/cash/bookings-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today's bookings that still owe money, for the sell page
+         * @description Today in Argentina (America/Argentina/Buenos_Aires). Lists the complex's bookings of that day whose remaining balance is greater than zero, sorted by start time. Cancelled and no-show bookings are never listed. A pending booking is listed only while it is inside the payment window; an older pending booking no longer holds its slot. Each entry's `remaining` is the amount a checkout must send for it.
+         */
+        get: operations["salesBookingsDue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/complexes/{id}/sales": {
         parameters: {
             query?: never;
@@ -1209,8 +1289,8 @@ export interface paths {
         get: operations["salesList"];
         put?: never;
         /**
-         * Sell a set of products
-         * @description The client sends product ids and quantities only; prices and the total always come from the server. Requires an open cash session (409 otherwise). In one transaction: writes the 'sale' cash income (amount = total), the sale and its items, and one 'sale' stock movement per tracked item. Never refused for lack of stock — the response's `stock_warnings` names every tracked product that ended at zero or below. 1 to 50 items; each product id may appear once (422 on a duplicate); every product must exist in this complex and be active, or the request is refused with 422 naming the offending item's index (`items[N].product_id`); the computed total must be greater than zero (a sale where every priced item is free is refused, not silently recorded as a zero-amount income) and must not exceed 2000000000 centavos.
+         * Check out at the counter: products and/or booking balances, in one transaction
+         * @description One checkout for Caja > Vender. The client sends product ids and quantities (`items`) and/or the booking balances the player is paying now (`booking_payments`); at least one of the two must be non-empty. Prices, totals and each booking's remaining balance always come from the server. Requires an open cash session (409 otherwise). In one transaction: when there are product lines, writes the sale (its items, the 'sale' cash income with amount = products total, one 'sale' stock movement per tracked item); and for each booking payment, records a counter payment through the same booking payment logic the booking panel uses (same method, one payments row per booking, the booking's collection status moves to fully_paid). Every booking is locked for the whole transaction, so two cashiers cannot collect the same balance. Booking balances are counted once: the cash session's expected cash counts the payments row, never the sale's income for the same amount. Never refused for lack of stock — the response's `stock_warnings` names every tracked product that ended at zero or below. Product rules: 0 to 50 items; each product id may appear once (422 on a duplicate); every product must exist in this complex and be active (422 naming `items[N].product_id`); the products total must not exceed 2000000000 centavos. Booking rules: 0 to 20 booking payments; each booking once (422 on a duplicate); `amount` must equal the booking's current remaining balance, which is the full balance only in this version (409 when it differs, so a stale cart fails clearly). A checkout whose only lines are booking payments has no sale: `sale` is null and the collected balances are returned in `booking_payments`. A checkout with product lines and a zero products total is refused (422) rather than recorded as a zero-amount income.
          */
         post: operations["salesCreate"];
         delete?: never;
@@ -1328,7 +1408,7 @@ export interface paths {
         };
         /**
          * One city hub as JSON
-         * @description Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, its court counts by sport, and up to 12 other city hubs to link to. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed.
+         * @description Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, its court counts by sport, and up to 12 other city hubs to link to. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed. A city whose complexes are all switched off or deleted still answers 200, as an empty hub with an empty complexes list, so its page outlives its last complex; it stays out of the hub index and the sitemap.
          */
         get: operations["publicsiteCityHubData"];
         put?: never;
@@ -1707,6 +1787,14 @@ export interface components {
             /** @description Optimistic-concurrency counter, bumped on every update. */
             version: number;
         };
+        /** @description The 410 answer on the public page of a deleted complex. It carries the three fields below and nothing else of the deleted row. `city_slug` is empty when the city has no slug characters and so belongs to no hub. */
+        PublicComplexGone: {
+            gone: {
+                name: string;
+                city: string;
+                city_slug: string;
+            };
+        };
         /** @description The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state. */
         PublicComplex: {
             /** Format: uuid */
@@ -1812,6 +1900,11 @@ export interface components {
              * @description The complex's cover image, or null when it has none.
              */
             cover_url: string | null;
+            /**
+             * Format: uri
+             * @description The complex's logo image, or null when it has none.
+             */
+            logo_url: string | null;
             /** @description How many switched-on courts the complex has. */
             court_count: number;
             /** @description The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored. */
@@ -1824,6 +1917,7 @@ export interface components {
         };
         PublicCityHub: {
             hub: components["schemas"]["PublicHub"];
+            /** @description Empty ([]) for a city whose complexes are all switched off or deleted. Never null. */
             complexes: components["schemas"]["PublicHubComplex"][];
             /** @description Up to 12 other city hubs to link to. The same province comes first, then the most complexes, then by name. */
             other_hubs: components["schemas"]["PublicHubLink"][];
@@ -2095,10 +2189,54 @@ export interface components {
              */
             void_cash_movement_id?: string | null;
             items: components["schemas"]["SaleItem"][];
+            /** @description The booking balances collected in the same checkout as this sale (empty when there were none). Each amount is already counted in its own payments row, not in `total`. A sale with booking payments cannot be voided. */
+            booking_payments: components["schemas"]["SaleBookingPayment"][];
             /** Format: date-time */
             created_at: string;
             /** Format: uuid */
             created_by: string;
+        };
+        /** @description A booking balance collected at the counter, with the booking summary a receipt needs. */
+        SaleBookingPayment: {
+            /**
+             * Format: uuid
+             * @description The counter payment row this balance was recorded as.
+             */
+            payment_id: string;
+            /** Format: uuid */
+            booking_id: string;
+            /** @description Centavos ARS collected for this booking in this checkout. */
+            amount: number;
+            court_name: string;
+            /**
+             * Format: date
+             * @description The booking's day, in Argentina.
+             */
+            date: string;
+            /** @description HH:MM, Argentina wall clock. */
+            start_time: string;
+            /** @description HH:MM, Argentina wall clock. */
+            end_time: string;
+            /** @description First and last name, as stored on the client. */
+            client_name: string;
+        };
+        /** @description One booking of today that still owes money, for the sell page's booking picker. */
+        BalanceDue: {
+            /** Format: uuid */
+            booking_id: string;
+            court_name: string;
+            /** Format: date */
+            date: string;
+            start_time: string;
+            end_time: string;
+            client_name: string;
+            status: components["schemas"]["BookingStatus"];
+            /** @description The booking's price, centavos ARS. */
+            total: number;
+            /** @description Centavos ARS already collected for the booking. */
+            paid: number;
+            /** @description total - paid. This is the amount a checkout must send. */
+            remaining: number;
         };
         SaleItem: {
             /** Format: uuid */
@@ -4466,13 +4604,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Unknown slug, or the complex is inactive. */
+            /** @description Unknown slug, or the complex is inactive. A slug that a deleted complex held and no live complex holds answers `410` instead. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The complex was deleted and no live complex holds its slug. The body names the deleted complex's name and city and the key of its city hub, and nothing else of it. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicComplexGone"];
                 };
             };
             429: components["responses"]["RateLimited"];
@@ -5025,6 +5172,107 @@ export interface operations {
             500: components["responses"]["ServerError"];
         };
     };
+    waitlistJoin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: date
+                     * @description The day to wait for, as `YYYY-MM-DD`. From today up to 365 days ahead.
+                     */
+                    date: string;
+                    /** @description Trimmed and lowercased before it is stored. */
+                    email: string;
+                };
+            };
+        };
+        responses: {
+            /** @description On the waitlist for that day. Empty body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed JSON body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown slug, or the complex is inactive. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    courtsPublicNextAvailable: {
+        parameters: {
+            query: {
+                /** @description The day to search after, as `YYYY-MM-DD`. A day in the past starts the search today. */
+                from: string;
+                /** @description Defaults to the platform's default slot duration. Must be one of the permitted durations. */
+                duration?: number;
+            };
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The next day with a free slot, or `null` when there is none in the window. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date */
+                        date: string | null;
+                    };
+                };
+            };
+            /** @description Missing or malformed `from`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown slug, or the complex is inactive. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
     courtsPublicAvailability: {
         parameters: {
             query: {
@@ -5504,6 +5752,51 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    emailUnsubscribe: {
+        parameters: {
+            query?: {
+                /** @description The signed token from the link in the email. */
+                token?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The signed token, when it is not in the query string. */
+                    token?: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /**
+                     * @description The body a mail client sends for a one-click unsubscribe (RFC 8058).
+                     * @enum {string}
+                     */
+                    "List-Unsubscribe"?: "One-Click";
+                };
+            };
+        };
+        responses: {
+            /** @description The address is suppressed from lifecycle email. Empty body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No token, or a token this server did not mint. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             429: components["responses"]["RateLimited"];
         };
     };
@@ -5989,6 +6282,40 @@ export interface operations {
             500: components["responses"]["ServerError"];
         };
     };
+    salesBookingsDue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The day's bookings that owe money. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: date
+                         * @description Today in Argentina.
+                         */
+                        date: string;
+                        bookings: components["schemas"]["BalanceDue"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
     salesList: {
         parameters: {
             query?: {
@@ -6052,35 +6379,45 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description Product lines. May be empty when booking_payments is not. */
                     items: {
                         /** Format: uuid */
                         product_id: string;
                         /** @description Nullable for the same missing-vs-zero reason productsCreate's price is. */
                         quantity: number | null;
                     }[];
+                    /** @description Booking balances collected now. Each must equal that booking's remaining balance. */
+                    booking_payments?: {
+                        /** Format: uuid */
+                        booking_id: string;
+                        /** @description Centavos ARS. Nullable so a missing amount is a 422, not a zero. */
+                        amount: number | null;
+                    }[];
                     /** @enum {string} */
                     method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-                    /** @description Appended to the sale income movement's own note. */
+                    /** @description Appended to the sale income movement's own note. Not recorded when the checkout has no sale. */
                     note?: string;
                 };
             };
         };
         responses: {
-            /** @description The recorded sale, its items, and any stock warnings. */
+            /** @description The recorded checkout. `sale` is null when it had no product lines. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        sale: components["schemas"]["Sale"];
+                        sale: components["schemas"]["Sale"] | null;
                         stock_warnings: components["schemas"]["SaleStockWarning"][];
+                        /** @description One entry per booking balance collected in this checkout, in request order. */
+                        booking_payments: components["schemas"]["SaleBookingPayment"][];
                     };
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            /** @description No cash session is open. */
+            /** @description No cash session is open; a booking balance changed since the cart was loaded (amount differs from the remaining balance); a booking is already fully paid; or a booking cannot take a payment (cancelled, no-show, or a pending booking past its payment window). Nothing is recorded. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6163,7 +6500,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description No cash session is open, or this sale has already been voided. */
+            /** @description No cash session is open; this sale has already been voided; or the sale includes booking payments, which cannot be reverted from the sell page (a booking payment has no reversal yet). Nothing is changed. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6264,7 +6601,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description One city's hub and its switched-on complexes. */
+            /** @description One city's hub and its switched-on complexes. Empty when the city once had a complex and none is switched on now. */
             200: {
                 headers: {
                     "Cache-Control"?: string;
@@ -6274,7 +6611,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicCityHub"];
                 };
             };
-            /** @description The city has no switched-on complex. */
+            /** @description No complex was ever recorded in the city. */
             404: {
                 headers: {
                     [name: string]: unknown;

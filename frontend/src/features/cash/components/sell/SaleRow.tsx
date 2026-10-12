@@ -1,9 +1,11 @@
+import { useId } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { formatPrice } from '@/shared/lib/utils';
 import type { Sale } from '@/shared/types/api.types';
+import { bookingBalanceLabel } from '../../lib/balanceCart';
 
 const t = ES_AR;
 
@@ -14,6 +16,8 @@ interface SaleRowProps {
 
 export function SaleRow({ sale, onVoid }: SaleRowProps) {
   const isVoided = !!sale.voided_at;
+  const hasBookingPayments = sale.booking_payments.length > 0;
+  const voidBlockedNoteId = useId();
 
   return (
     <div
@@ -30,13 +34,29 @@ export function SaleRow({ sale, onVoid }: SaleRowProps) {
           {sale.items.map((item, index) => (
             <li key={`${item.product_name}-${String(index)}`}>{`${String(item.quantity)}× ${item.product_name}`}</li>
           ))}
+          {sale.booking_payments.map((payment) => (
+            <li key={payment.payment_id}>
+              {`${bookingBalanceLabel(payment.court_name, payment.start_time, payment.client_name)} · ${formatPrice(payment.amount)}`}
+            </li>
+          ))}
         </ul>
+        {hasBookingPayments && !isVoided && (
+          <p id={voidBlockedNoteId} className="text-text-tertiary text-xs">
+            {t.cash.saleVoidBookingBlocked}
+          </p>
+        )}
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         <span className="text-text-primary text-sm font-semibold whitespace-nowrap">{formatPrice(sale.total)}</span>
         {!isVoided && (
-          <Button variant="ghost" size="xs" onClick={onVoid}>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={onVoid}
+            disabled={hasBookingPayments}
+            aria-describedby={hasBookingPayments ? voidBlockedNoteId : undefined}
+          >
             {t.cash.saleVoidAction}
           </Button>
         )}

@@ -14,6 +14,16 @@ vi.mock('@/features/complex/hooks/useSelectedComplex', () => ({ useSelectedCompl
 vi.mock('@/shared/hooks/useCashSession', () => ({ useCashSession: vi.fn() }));
 vi.mock('@/shared/hooks/useProducts', () => ({ useProducts: vi.fn() }));
 vi.mock('../../hooks/useCreateSale', () => ({ useCreateSale: vi.fn() }));
+vi.mock('../../hooks/useBookingsDue', () => ({
+  useBookingsDue: () => ({
+    data: undefined,
+    isSuccess: false,
+    isLoading: false,
+    isError: false,
+    dataUpdatedAt: 0,
+    refetch: vi.fn(),
+  }),
+}));
 
 const PRODUCT = makeProduct({ id: 'p1', name: 'Agua', price: 100000 });
 

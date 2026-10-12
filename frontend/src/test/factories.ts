@@ -363,6 +363,7 @@ const defaultSale: Sale = {
   voided_by: null,
   void_cash_movement_id: null,
   items: [defaultSaleItem],
+  booking_payments: [],
   created_at: '2026-01-01T15:00:00Z',
   created_by: 'u1',
 };
@@ -371,3 +372,7 @@ const defaultSale: Sale = {
 export function makeSale(overrides: Partial<Sale> = {}): Sale {
   return { ...defaultSale, ...overrides };
 }
+
+// Booking-balance fixtures live in their own module to keep this file under the
+// repository's `max-lines` limit; re-exported so every test imports one path.
+export { makeBalanceDue, makeSaleBookingPayment } from './factories.balances';

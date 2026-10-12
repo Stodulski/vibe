@@ -68,6 +68,10 @@ export const queryKeys = {
     // restock's cash expense) without knowing that session's id at the call
     // site (`features/products`' `useRestockProduct`, which never fetches it).
     detailBase: (complexId: string) => ['cash', 'detail', complexId] as const,
+    // Today's bookings that still owe money, for the sell page. Its own key
+    // (not under `detail`), so a sale's ledger invalidation never refetches it
+    // by accident, and the sale itself invalidates it explicitly.
+    bookingsDue: (complexId: string) => ['cash', 'bookings-due', complexId] as const,
   },
   products: {
     // Split by `active` so switching the Activos/Inactivos filter never

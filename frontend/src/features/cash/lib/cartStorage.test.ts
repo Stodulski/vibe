@@ -1,7 +1,16 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { makeProduct } from '@/test/factories';
 import { MAX_CART_LINES, MAX_LINE_QUANTITY } from './cart';
-import { loadCart, saveCart, clearCart, reconcileCartAgainstProducts } from './cartStorage';
+import {
+  loadCart,
+  saveCart,
+  clearCart,
+  reconcileCartAgainstProducts,
+  loadBalanceCart,
+  saveBalanceCart,
+  clearBalanceCart,
+} from './cartStorage';
+import type { BalanceLine } from './balanceCart';
 
 /**
  * Same stub as `safeStorage.test.ts`'s `stubThrowingStorage`: happy-dom's real
@@ -139,5 +148,54 @@ describe('reconcileCartAgainstProducts', () => {
     const result = reconcileCartAgainstProducts(lines, products);
     expect(result.lines).toEqual([{ productId: 'p1', quantity: 1 }]);
     expect(result.droppedStaleLines).toBe(true);
+  });
+});
+
+describe('booking balance storage', () => {
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  const balance: BalanceLine = {
+    bookingId: 'b1',
+    courtName: 'Cancha 2',
+    startTime: '19:00',
+    clientName: 'Juan Pérez',
+    amount: 350000,
+  };
+
+  it('round-trips the balance lines of one complex', () => {
+    saveBalanceCart('c1', [balance]);
+    expect(loadBalanceCart('c1')).toEqual([balance]);
+    expect(loadBalanceCart('c2')).toEqual([]);
+  });
+
+  it('keeps balances apart from product lines under the same complex', () => {
+    saveCart('c1', [{ productId: 'p1', quantity: 2 }]);
+    saveBalanceCart('c1', [balance]);
+
+    expect(loadCart('c1')).toEqual([{ productId: 'p1', quantity: 2 }]);
+    expect(loadBalanceCart('c1')).toEqual([balance]);
+  });
+
+  it('treats a malformed or foreign stored value as an empty balance cart', () => {
+    sessionStorage.setItem('vibe_pos_balances_c1', JSON.stringify([{ bookingId: 'b1', amount: 'x' }]));
+    expect(loadBalanceCart('c1')).toEqual([]);
+  });
+
+  it('keeps one line per booking and the cap, same as a product cart', () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({ ...balance, bookingId: `b${String(i)}` }));
+    saveBalanceCart('c1', [balance, balance, ...many]);
+
+    const loaded = loadBalanceCart('c1');
+    expect(loaded).toHaveLength(20);
+    expect(loaded[0]).toEqual(balance);
+    expect(new Set(loaded.map((l) => l.bookingId)).size).toBe(loaded.length);
+  });
+
+  it('clears the key once the balance cart is cleared', () => {
+    saveBalanceCart('c1', [balance]);
+    clearBalanceCart('c1');
+    expect(loadBalanceCart('c1')).toEqual([]);
   });
 });

@@ -2,6 +2,20 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { getProblem } from '@/shared/lib/ApiError';
 
 /**
+ * The English prose the checkout answers 409 with when a booking balance can
+ * no longer be collected as shown (`backend/internal/sales/handlers.go`). All
+ * three mean the same thing to the cashier: the day's list moved. The sell
+ * page refetches that list and drops the stale balance line.
+ */
+const BOOKING_BALANCE_CONFLICT_TEXT: Record<string, string> = {
+  "a booking's balance changed since the cart was loaded, reload the balances and try again":
+    ES_AR.cash.balanceChangedNotice,
+  'this booking is already fully paid': ES_AR.cash.balanceChangedNotice,
+  'this booking cannot take a payment: it is cancelled, a no-show, or not confirmed yet':
+    ES_AR.cash.balanceChangedNotice,
+};
+
+/**
  * Text for the error codes the API returns.
  *
  * The backend answers with a code, never a sentence, for anything a person
@@ -43,7 +57,28 @@ const SERVER_ERROR_TEXT: Record<string, string> = {
   'product not found or not active': ES_AR.cash.saleItemNotSellable,
   'this sale has already been voided': ES_AR.cash.saleAlreadyVoided,
   "this sale's income movement was already voided and cannot be voided again": ES_AR.cash.saleAlreadyVoided,
+  // The checkout's booking-balance refusals (`backend/internal/sales/handlers.go`).
+  // All three mean the same thing to the cashier: the day's list moved. The
+  // sell page refetches it and drops the stale balance line.
+  ...BOOKING_BALANCE_CONFLICT_TEXT,
+  'this sale collected booking payments, which cannot be voided from the sell page': ES_AR.cash.saleVoidBookingBlocked,
+  'add at least one product or booking payment': ES_AR.cash.checkoutNothingToCharge,
+  'booking not found in this complex': ES_AR.cash.bookingNotInComplex,
+  'duplicate booking in the same checkout': ES_AR.cash.bookingDuplicateInCheckout,
 };
+
+/**
+ * Whether a failed checkout was refused because a booking's balance can no
+ * longer be collected as the cart shows it (changed, already paid, or the
+ * booking is cancelled, a no-show or not payable yet). The problem's `detail`
+ * is already translated by `normalizeProblem`, and all three refusals
+ * translate to the same notice, so the check is on that translated text
+ * together with the 409.
+ */
+export function isBookingBalanceConflict(error: unknown): boolean {
+  const problem = getProblem(error);
+  return problem?.status === 409 && problem.detail === ES_AR.cash.balanceChangedNotice;
+}
 
 /**
  * Translate one API error value.
