@@ -12,7 +12,8 @@ import { orderedAmenities } from '../../lib/amenities';
  * section in that case; this stays as its own guard so the component cannot
  * produce an empty list if it is ever used somewhere else.
  *
- * No heading of its own: the accordion trigger above it is the heading.
+ * No heading of its own: the section wrapper in ComplexLower carries a
+ * screen-reader heading for it.
  */
 export function AmenityList({ amenities }: { amenities: readonly string[] }) {
   const listed = orderedAmenities(amenities);
