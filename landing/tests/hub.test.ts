@@ -339,7 +339,7 @@ test('JSON-LD escapes characters that could close the script element', () => {
   const hostile = toHubView(parseHubData({ hub: { slug: 'banfield', name: '</script><b>&' }, complexes: [] }));
 
   for (const block of hostile.jsonLd) assert.ok(!/[<>&]/.test(block));
-  assert.equal(jsonLdOf(hostile)[0].mainEntity.name, 'Canchas en </script><b>&');
+  assert.equal(jsonLdOf(hostile)[0].itemListElement[2].name, '</script><b>&');
 });
 
 test('jsonLdScript round-trips line separators as valid JSON', () => {
@@ -504,4 +504,133 @@ test('the copy never shows a stray space before a comma or a period', () => {
   assert.equal(hubDescription('Rosario', '', [], ['Afa ']), 'Reservá canchas en Rosario. 1 complejo: Afa. Mirá los turnos libres y reservá online.');
   assert.equal(hubTitle('Rosario ', ' Santa Fe ', ['Pádel']), 'Canchas de pádel en Rosario, Santa Fe | Vibe');
   assert.equal(hubH1(' Rosario ', []), 'Canchas en Rosario');
+});
+
+// ---- a city whose last complex left -----------------------------------------
+
+const emptyCosquin = parseHubData({
+  hub: { slug: 'cosquin', name: 'Cosquín', province: 'Córdoba', court_count: 0, sports: [] },
+  complexes: [],
+  other_hubs: [
+    { slug: 'rosario', name: 'Rosario', province: 'Santa Fe', complex_count: 2 },
+    { slug: 'villa-carlos-paz', name: 'Villa Carlos Paz', province: 'Córdoba', complex_count: 1 },
+    { slug: 'cordoba', name: 'Córdoba', province: 'Córdoba', complex_count: 4 },
+    { slug: 'rio-cuarto', name: 'Río Cuarto', province: 'Cordoba', complex_count: 3 },
+    { slug: 'la-plata', name: 'La Plata', province: 'Buenos Aires', complex_count: 5 },
+    { slug: 'vacia', name: 'Vacía', province: 'Córdoba', complex_count: 0 },
+  ],
+});
+
+test('an empty hub is a view with no complexes, no FAQ and only the breadcrumb as JSON-LD', () => {
+  const view = toHubView(emptyCosquin);
+
+  assert.deepEqual(view.complexes, []);
+  assert.deepEqual(view.faq, []);
+  assert.deepEqual(jsonLdOf(view).map((block) => block['@type']), ['BreadcrumbList']);
+  assert.ok(!view.jsonLd.some((block) => block.includes('ItemList')));
+});
+
+test('an empty hub is followed but not indexed, and keeps the city URL as canonical', () => {
+  const view = toHubView(emptyCosquin);
+
+  assert.equal(view.robots, 'noindex, follow');
+  assert.equal(view.canonical, 'https://vibe.com.ar/canchas/cosquin');
+});
+
+test('an empty hub is titled with its city and province, and its H1 names no sports', () => {
+  const view = toHubView(emptyCosquin);
+
+  assert.equal(view.title, 'Canchas en Cosquín, Córdoba | Vibe');
+  assert.equal(view.h1, 'Canchas en Cosquín');
+  assert.equal(toHubView(parseHubData({ hub: { slug: 'x', name: 'Rosario' }, complexes: [] })).title, 'Canchas en Rosario | Vibe');
+  const withSports = toHubView(
+    parseHubData({ hub: { slug: 'x', name: 'Rosario', sports: [{ sport: 'padel', court_count: 3 }] }, complexes: [] }),
+  );
+  assert.equal(withSports.h1, 'Canchas en Rosario');
+});
+
+test('an empty hub describes itself truthfully and invites an owner to add a complex', () => {
+  const view = toHubView(emptyCosquin);
+
+  assert.equal(view.intro, 'Todavía no hay canchas para reservar en Cosquín con Vibe.');
+  assert.equal(view.description, 'Todavía no hay canchas para reservar en Cosquín, Córdoba con Vibe. Si tenés un complejo, podés sumarlo gratis.');
+  assert.ok(view.description.length >= 70 && view.description.length <= 165);
+});
+
+test('the owner block asks about the complex, says Vibe is free and links to the signup page', () => {
+  assert.deepEqual(toHubView(emptyCosquin).empty?.owner, {
+    heading: '¿Tenés un complejo en Cosquín?',
+    body: 'Vibe es gratis para gestionar tu complejo y tomar reservas online.',
+    cta: 'Sumar mi complejo gratis',
+    href: 'https://app.vibe.com.ar/register',
+  });
+});
+
+test('the titles and CTAs of an empty hub have no exclamation mark and no em dash', () => {
+  const view = toHubView(emptyCosquin);
+  const texts = [view.title, view.h1, view.empty?.owner.heading ?? '', view.empty?.owner.cta ?? ''];
+
+  for (const text of texts) {
+    assert.equal(/[!—]/.test(text), false, text);
+  }
+});
+
+test('nearby cities list the same province first, then by complex count, and skip cities without complexes', () => {
+  const nearby = toHubView(emptyCosquin).empty?.nearby ?? [];
+
+  assert.deepEqual(
+    nearby.map((hub) => hub.label),
+    ['Canchas en Córdoba', 'Canchas en Río Cuarto', 'Canchas en Villa Carlos Paz', 'Canchas en La Plata', 'Canchas en Rosario'],
+  );
+  assert.deepEqual(nearby[0], {
+    href: '/canchas/cordoba',
+    label: 'Canchas en Córdoba',
+    countLabel: '4 complejos',
+    sameProvince: true,
+  });
+  assert.equal(nearby.at(-1)?.countLabel, '2 complejos');
+  assert.equal(nearby.some((hub) => hub.href === '/canchas/vacia'), false);
+});
+
+test('the nearby heading is "Canchas cerca" with a city of the same province, otherwise "Otras ciudades con canchas"', () => {
+  assert.equal(toHubView(emptyCosquin).empty?.nearbyHeading, 'Canchas cerca');
+
+  const far = toHubView(
+    parseHubData({
+      hub: { slug: 'x', name: 'X', province: 'Chubut' },
+      complexes: [],
+      other_hubs: [{ slug: 'rosario', name: 'Rosario', province: 'Santa Fe', complex_count: 2 }],
+    }),
+  );
+  assert.equal(far.empty?.nearbyHeading, 'Otras ciudades con canchas');
+  assert.equal(far.empty?.nearby[0]?.sameProvince, false);
+});
+
+test('an empty hub with no other city that has complexes has no nearby section', () => {
+  const alone = toHubView(
+    parseHubData({
+      hub: { slug: 'x', name: 'X', province: 'Córdoba' },
+      complexes: [],
+      other_hubs: [{ slug: 'vacia', name: 'Vacía', province: 'Córdoba', complex_count: 0 }],
+    }),
+  );
+
+  assert.deepEqual(alone.empty?.nearby, []);
+  assert.equal(alone.empty?.nearbyHeading, null);
+});
+
+test('a hub with complexes has no empty block and keeps the other cities in the API order', () => {
+  const view = toHubView(
+    parseHubData({
+      hub: { slug: 'x', name: 'X', province: 'Córdoba' },
+      complexes: [{ slug: 'a', name: 'A' }],
+      other_hubs: [
+        { slug: 'rosario', name: 'Rosario', province: 'Santa Fe', complex_count: 2 },
+        { slug: 'cordoba', name: 'Córdoba', province: 'Córdoba', complex_count: 4 },
+      ],
+    }),
+  );
+
+  assert.equal(view.empty, null);
+  assert.deepEqual(view.otherHubs.map((hub) => hub.name), ['Rosario', 'Córdoba']);
 });

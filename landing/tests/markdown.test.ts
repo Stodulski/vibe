@@ -104,13 +104,22 @@ test('a city hub writes its FAQ as Q and A under the FAQ heading', () => {
   }
 });
 
-test('a city hub with no complexes still says so instead of printing an empty list', () => {
-  const empty = toHubView(parseHubData({ ...hubRaw, complexes: [], other_hubs: [] }));
-  const md = hubMarkdown(empty);
-  assert.match(md, /^# /m);
-  const complexesSection = (md.split('## Complejos en Rosario')[1] ?? '').split(/\n## /)[0] ?? '';
-  assert.equal(/^- \[/m.test(complexesSection), false, 'no complex bullets under the heading');
-  assert.ok(complexesSection.includes('Todavía no hay complejos'));
+test('a city hub with no complexes asks its owners to sign up instead of printing an empty list', () => {
+  const view = toHubView(parseHubData({ ...hubRaw, complexes: [] }));
+  const md = hubMarkdown(view);
+  const headings = md.split('\n').filter((line) => /^#{1,6} /.test(line));
+
+  assert.equal(headings[0], '# Canchas en Rosario');
+  assert.equal(md.includes('## Complejos en Rosario'), false, 'no complexes section');
+  assert.equal(md.includes('## Preguntas frecuentes'), false, 'no FAQ');
+  assert.ok(md.includes('Todavía no hay canchas para reservar en Rosario con Vibe.'));
+  assert.ok(md.includes('## ¿Tenés un complejo en Rosario?'));
+  assert.ok(md.includes('[Sumar mi complejo gratis](https://app.vibe.com.ar/register)'));
+  assert.ok(md.includes('## Otras ciudades con canchas'));
+  assert.ok(md.includes(`- [Canchas en Córdoba](${SITE}/canchas/cordoba): 2 complejos`));
+  assert.ok(md.includes(`[Todas las ciudades](${SITE}/canchas)`));
+  assert.equal(/!/.test(md), false, 'no exclamation mark');
+  assert.equal(/\]\(\//.test(md), false, 'no relative link survives');
 });
 
 test('the city index lists every city by province as absolute links', () => {

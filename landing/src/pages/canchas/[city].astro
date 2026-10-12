@@ -1,10 +1,11 @@
 ---
 /**
  * City hub at /canchas/[city], rendered on each request from the public API so it
- * always lists the live complexes. The answers are 200 for a city with complexes,
- * 404 for a city without any, and 503 with Retry-After when the read fails.
- * Indexing follows STOREFRONT_INDEXABLE; a city with fewer than two complexes is
- * followed but not indexed (hubRobots). The copy and JSON-LD come from lib/hub.ts.
+ * always lists the live complexes. The answers are 200 for a city with complexes, and
+ * 200 for a city whose last complex left (an empty hub: an owner block and the nearby
+ * cities). A city that never had complexes is 404, and 503 with Retry-After when the
+ * read fails. Indexing follows STOREFRONT_INDEXABLE; a city with fewer than two
+ * complexes is followed but not indexed (hubRobots). The copy and JSON-LD come from lib/hub.ts.
  */
 import { PUBLIC_API_URL } from 'astro:env/server';
 import BookingLayout from '../../layouts/BookingLayout.astro';
@@ -82,41 +83,78 @@ if (status === 503) Astro.response.headers.set('Retry-After', '60');
         </nav>
         <h1 class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{view.h1}</h1>
         {view.intro && <p class="mt-3 text-base text-vibe-muted">{view.intro}</p>}
-        <h2 class="mt-10 text-2xl font-bold tracking-tight">Complejos en {view.city}</h2>
-        <ul class="mt-4 flex flex-col gap-3">
-          {view.complexes.map((complex) => (
-            <li>
+        {view.empty && (
+          <>
+            <section class="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6" aria-labelledby="sumar-complejo">
+              <h2 id="sumar-complejo" class="text-xl font-bold tracking-tight">{view.empty.owner.heading}</h2>
+              <p class="mt-2 text-base text-vibe-muted">{view.empty.owner.body}</p>
               <a
-                href={complex.href}
-                class="flex min-h-11 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
+                href={view.empty.owner.href}
+                rel="noopener"
+                class="mt-5 inline-flex min-h-11 w-fit items-center rounded-full bg-vibe-green px-6 font-semibold text-vibe-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green"
               >
-                {complex.coverUrl && (
-                  <img
-                    src={complex.coverUrl}
-                    alt={complex.name}
-                    loading="lazy"
-                    decoding="async"
-                    width="640"
-                    height="360"
-                    class="aspect-video w-full object-cover"
-                  />
-                )}
-                <div class="flex flex-col gap-2 p-4">
-                  <h3 class="text-lg font-semibold">{complex.name}</h3>
-                  {complex.address && <p class="text-sm text-vibe-muted">{complex.address}</p>}
-                  {complex.courtsLine && <p class="pt-1 text-sm text-vibe-muted">{complex.courtsLine}</p>}
-                  {!complex.courtsLine && complex.sports.length > 0 && (
-                    <div class="flex flex-wrap gap-2 pt-1">
-                      {complex.sports.map((sport) => (
-                        <span class="rounded-full bg-vibe-green/15 px-3 py-1 text-xs font-medium text-vibe-green">{sport}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {view.empty.owner.cta}
               </a>
-            </li>
-          ))}
-        </ul>
+            </section>
+            {view.empty.nearbyHeading && (
+              <section class="mt-10" aria-labelledby="ciudades-cercanas">
+                <h2 id="ciudades-cercanas" class="text-2xl font-bold tracking-tight">{view.empty.nearbyHeading}</h2>
+                <ul class="mt-4 flex flex-col gap-3">
+                  {view.empty.nearby.map((hub) => (
+                    <li>
+                      <a
+                        href={hub.href}
+                        class="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 font-medium transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green"
+                      >
+                        <span>{hub.label}</span>
+                        <span class="text-sm font-normal text-vibe-muted">{hub.countLabel}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
+        {!view.empty && (
+          <>
+            <h2 class="mt-10 text-2xl font-bold tracking-tight">Complejos en {view.city}</h2>
+            <ul class="mt-4 flex flex-col gap-3">
+              {view.complexes.map((complex) => (
+                <li>
+                  <a
+                    href={complex.href}
+                    class="flex min-h-11 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] transition-colors hover:border-vibe-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vibe-green [overflow-wrap:anywhere]"
+                  >
+                    {complex.coverUrl && (
+                      <img
+                        src={complex.coverUrl}
+                        alt={complex.name}
+                        loading="lazy"
+                        decoding="async"
+                        width="640"
+                        height="360"
+                        class="aspect-video w-full object-cover"
+                      />
+                    )}
+                    <div class="flex flex-col gap-2 p-4">
+                      <h3 class="text-lg font-semibold">{complex.name}</h3>
+                      {complex.address && <p class="text-sm text-vibe-muted">{complex.address}</p>}
+                      {complex.courtsLine && <p class="pt-1 text-sm text-vibe-muted">{complex.courtsLine}</p>}
+                      {!complex.courtsLine && complex.sports.length > 0 && (
+                        <div class="flex flex-wrap gap-2 pt-1">
+                          {complex.sports.map((sport) => (
+                            <span class="rounded-full bg-vibe-green/15 px-3 py-1 text-xs font-medium text-vibe-green">{sport}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {view.faq.length > 0 && (
           <section class="mt-12" aria-labelledby="preguntas-frecuentes">
             <h2 id="preguntas-frecuentes" class="text-2xl font-bold tracking-tight">Preguntas frecuentes</h2>
@@ -130,7 +168,7 @@ if (status === 503) Astro.response.headers.set('Retry-After', '60');
             </dl>
           </section>
         )}
-        {view.otherHubs.length > 0 && (
+        {!view.empty && view.otherHubs.length > 0 && (
           <section class="mt-12" aria-labelledby="otras-ciudades">
             <h2 id="otras-ciudades" class="text-2xl font-bold tracking-tight">Canchas en otras ciudades</h2>
             <ul class="mt-4 flex flex-wrap gap-2">

@@ -104,6 +104,26 @@ export interface HubOtherView {
   label: string;
 }
 
+/** A city with other cities that have complexes, as the empty hub page links them. */
+export interface NearbyHubView {
+  href: string;
+  /** "Canchas en {City}". */
+  label: string;
+  /** "2 complejos". */
+  countLabel: string;
+  /** In the same province as the empty hub; provinces compare without accents or case. */
+  sameProvince: boolean;
+}
+
+/** What a hub with no complexes shows in place of its complex list. */
+export interface EmptyHubView {
+  owner: { heading: string; body: string; cta: string; href: string };
+  /** Same province first, then by complex count. Cities without complexes are left out. */
+  nearby: NearbyHubView[];
+  /** "Canchas cerca" with a same-province city, "Otras ciudades con canchas" otherwise; null with none. */
+  nearbyHeading: string | null;
+}
+
 export interface FaqItem {
   question: string;
   answer: string;
@@ -116,7 +136,7 @@ export interface HubView {
   title: string;
   description: string;
   h1: string;
-  /** Empty when the hub has no complexes. */
+  /** The intro built from the data, or the lead of a hub with no complexes. */
   intro: string;
   canonical: string;
   robots: string;
@@ -127,6 +147,8 @@ export interface HubView {
   faq: FaqItem[];
   /** Serialized JSON-LD: the CollectionPage, the BreadcrumbList and, with a FAQ, the FAQPage. */
   jsonLd: string[];
+  /** Set only for a hub with no complexes. The page then shows the owner block and the nearby cities. */
+  empty: EmptyHubView | null;
 }
 
 export interface Crumb {
@@ -459,6 +481,79 @@ function complexView(complex: HubComplex): HubComplexView {
   };
 }
 
+/** Where a complex owner signs up. The site's other CTAs link to the same URL. */
+const OWNER_SIGNUP_URL = 'https://app.vibe.com.ar/register';
+
+/**
+ * The title of a hub with no complexes: "Canchas en {City}, {Province} | Vibe", without the
+ * province when that is over 60 characters. A sport is not named: the city has none to show.
+ */
+export function emptyHubTitle(city: string, province: string): string {
+  const name = normalizeText(city);
+  const region = normalizeText(province);
+  const withProvince = region ? `Canchas en ${name}, ${region} | Vibe` : '';
+  if (withProvince && runeLength(withProvince) <= TITLE_MAX) return withProvince;
+  return `Canchas en ${name} | Vibe`;
+}
+
+/** The lead of a hub with no complexes. It says there are no courts to book yet, and nothing more. */
+export function emptyHubLead(city: string): string {
+  return `Todavía no hay canchas para reservar en ${normalizeText(city)} con Vibe.`;
+}
+
+/** The meta description of a hub with no complexes: the lead with the province, and a line for owners. */
+export function emptyHubDescription(city: string, province: string): string {
+  const name = normalizeText(city);
+  const region = normalizeText(province);
+  const place = region ? `${name}, ${region}` : name;
+  return cutAtWord(
+    `Todavía no hay canchas para reservar en ${place} con Vibe. Si tenés un complejo, podés sumarlo gratis.`,
+    HUB_DESCRIPTION_MAX,
+  );
+}
+
+/** Province key for comparing two provinces: without accents, case or extra spaces. */
+function provinceKey(province: string): string {
+  return normalizeText(province).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
+/**
+ * The other cities for a hub with no complexes: the same province first, each group by
+ * complex count, most first. A city without complexes is left out, since its page is empty too.
+ */
+function nearbyHubsOf(province: string, otherHubs: readonly HubOther[]): NearbyHubView[] {
+  const region = provinceKey(province);
+  return otherHubs
+    .filter((hub) => hub.complexCount > 0)
+    .map((hub) => ({ hub, sameProvince: region !== '' && provinceKey(hub.province) === region }))
+    .sort((a, b) => Number(b.sameProvince) - Number(a.sameProvince) || b.hub.complexCount - a.hub.complexCount)
+    .map(({ hub, sameProvince }) => ({
+      href: cityPath(hub.slug),
+      label: `Canchas en ${hub.name}`,
+      countLabel: plural(hub.complexCount, 'complejo', 'complejos'),
+      sameProvince,
+    }));
+}
+
+/** What a hub with no complexes shows: the owner block and the nearby cities. */
+function emptyHubView(city: string, province: string, otherHubs: readonly HubOther[]): EmptyHubView {
+  const nearby = nearbyHubsOf(province, otherHubs);
+  let nearbyHeading: string | null = null;
+  if (nearby.length > 0) {
+    nearbyHeading = nearby.some((hub) => hub.sameProvince) ? 'Canchas cerca' : 'Otras ciudades con canchas';
+  }
+  return {
+    owner: {
+      heading: `¿Tenés un complejo en ${normalizeText(city)}?`,
+      body: 'Vibe es gratis para gestionar tu complejo y tomar reservas online.',
+      cta: 'Sumar mi complejo gratis',
+      href: OWNER_SIGNUP_URL,
+    },
+    nearby,
+    nearbyHeading,
+  };
+}
+
 /** Maps the API payload to what the page renders, with the SEO copy and the JSON-LD. */
 export function toHubView(data: HubData, origin: string = STOREFRONT_ORIGIN): HubView {
   const slug = data.hub.slug;
@@ -467,7 +562,9 @@ export function toHubView(data: HubData, origin: string = STOREFRONT_ORIGIN): Hu
   const sports = topSports(data);
   const complexes = data.complexes.map(complexView);
   const names = complexes.map((complex) => complex.name);
-  const h1 = hubH1(city, sports);
+  // A hub with no complexes is "Canchas en {City}" whatever sports its payload lists.
+  const empty = complexes.length === 0;
+  const h1 = hubH1(city, empty ? [] : sports);
   const canonical = `${origin}${cityPath(slug)}`;
   const faq = hubFaq(city, sports, complexes);
 
@@ -498,14 +595,13 @@ export function toHubView(data: HubData, origin: string = STOREFRONT_ORIGIN): Hu
     },
   });
 
-  const jsonLd = [
-    collectionJsonLd,
-    breadcrumbJsonLd([
-      { name: 'Inicio', url: `${origin}/` },
-      { name: 'Canchas', url: `${origin}/canchas` },
-      { name: city, url: canonical },
-    ]),
-  ];
+  const breadcrumb = breadcrumbJsonLd([
+    { name: 'Inicio', url: `${origin}/` },
+    { name: 'Canchas', url: `${origin}/canchas` },
+    { name: city, url: canonical },
+  ]);
+  // A CollectionPage would list complexes, and a hub with none has nothing to list.
+  const jsonLd = empty ? [breadcrumb] : [collectionJsonLd, breadcrumb];
   if (faq.length > 0) {
     jsonLd.push(
       jsonLdScript({
@@ -524,10 +620,10 @@ export function toHubView(data: HubData, origin: string = STOREFRONT_ORIGIN): Hu
     slug,
     city,
     province,
-    title: hubTitle(city, province, sports),
-    description: hubDescription(city, province, sports, names),
+    title: empty ? emptyHubTitle(city, province) : hubTitle(city, province, sports),
+    description: empty ? emptyHubDescription(city, province) : hubDescription(city, province, sports, names),
     h1,
-    intro: complexes.length === 0 ? '' : hubIntro(city, complexes.length, data.hub.courtCount, sports),
+    intro: empty ? emptyHubLead(city) : hubIntro(city, complexes.length, data.hub.courtCount, sports),
     canonical,
     robots: hubRobots(complexes.length),
     ogImage: complexes.find((complex) => complex.coverUrl !== null)?.coverUrl ?? null,
@@ -539,5 +635,6 @@ export function toHubView(data: HubData, origin: string = STOREFRONT_ORIGIN): Hu
     })),
     faq,
     jsonLd,
+    empty: empty ? emptyHubView(city, province, data.otherHubs) : null,
   };
 }
