@@ -129,3 +129,28 @@ test('complex maps a 500 to unavailable', async () => {
   await assert.rejects(api.complex('club'), (error) => error instanceof ApiError && error.kind === 'unavailable');
 });
 
+test('complex maps a 410 that names the deleted complex to gone, carrying what it names', async () => {
+  const body = { gone: { name: 'Club Viejo', city: 'Rosario', city_slug: 'rosario' } };
+  const api = createPublicApi({ baseUrl, fetchImpl: fakeFetch(() => Response.json(body, { status: 410 })) });
+  await assert.rejects(api.complex('club-viejo'), (error) => {
+    assert.ok(error instanceof ApiError);
+    assert.equal(error.kind, 'gone');
+    assert.equal(error.status, 410);
+    assert.deepEqual(error.gone, { name: 'Club Viejo', city: 'Rosario', citySlug: 'rosario' });
+    return true;
+  });
+});
+
+test('a 410 whose body does not name the complex is unavailable, not gone and not not_found', async () => {
+  const api = createPublicApi({
+    baseUrl,
+    fetchImpl: fakeFetch(() => Response.json({ gone: { name: 'Club Viejo' } }, { status: 410 })),
+  });
+  await assert.rejects(api.complex('club-viejo'), expectApiError('unavailable', 410));
+});
+
+test('a 410 with a body that is not JSON is unavailable', async () => {
+  const api = createPublicApi({ baseUrl, fetchImpl: fakeFetch(() => new Response('<html>', { status: 410 })) });
+  await assert.rejects(api.complex('club-viejo'), expectApiError('unavailable', 410));
+});
+

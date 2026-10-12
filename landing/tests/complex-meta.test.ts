@@ -4,7 +4,16 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { complexCanonical, complexHead, jsonLdScript, joinSpanish } from '../src/lib/complex-meta.ts';
+import {
+  complexCanonical,
+  complexHead,
+  goneDescription,
+  goneHeadline,
+  goneLead,
+  goneTitle,
+  jsonLdScript,
+  joinSpanish,
+} from '../src/lib/complex-meta.ts';
 import { DEFAULT_SHARE_IMAGE } from '../src/lib/storefront.ts';
 
 const base = {
@@ -127,6 +136,42 @@ test('names are trimmed and their inner spaces collapsed before they reach the c
 
 test('locale is es_AR', () => {
   assert.equal(complexHead(base).locale, 'es_AR');
+});
+
+test('the gone title names the club and keeps "por Vibe" while it fits in 60 characters', () => {
+  assert.equal(goneTitle('Club Viejo'), 'Club Viejo ya no toma reservas por Vibe');
+});
+
+test('the gone title drops "por Vibe" when the full title is over 60 characters', () => {
+  const title = goneTitle('Club Deportivo Los Amigos de Rosario');
+  assert.equal(title, 'Club Deportivo Los Amigos de Rosario ya no toma reservas');
+  assert.ok(title.length <= 60);
+});
+
+test('the gone H1 always keeps "por Vibe", even when the title drops it', () => {
+  assert.equal(goneHeadline('Club Deportivo Los Amigos de Rosario'), 'Club Deportivo Los Amigos de Rosario ya no toma reservas por Vibe');
+});
+
+test('the gone description points to the other courts of the city, or to other cities when there are none', () => {
+  assert.equal(goneDescription('Rosario', true), 'Mirá otras canchas en Rosario que podés reservar online en Vibe.');
+  assert.equal(goneDescription('Rosario', false), 'Mirá las canchas de otras ciudades en Vibe.');
+});
+
+test('the gone lead names the city when it has courts to book, and the other cities when it has none', () => {
+  assert.equal(goneLead('Rosario', true), 'Pero hay otras canchas en Rosario donde podés reservar online.');
+  assert.equal(goneLead('Rosario', false), 'Mirá las canchas de otras ciudades.');
+});
+
+test('the gone copy has no exclamation marks and no dashes', () => {
+  const copy = [
+    goneHeadline('Club Viejo'),
+    goneTitle('Club Viejo'),
+    goneDescription('Rosario', true),
+    goneDescription('Rosario', false),
+    goneLead('Rosario', true),
+    goneLead('Rosario', false),
+  ];
+  for (const text of copy) assert.equal(/[!¡—–]/.test(text), false, text);
 });
 
 test('joinSpanish uses y before the last item', () => {

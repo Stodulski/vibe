@@ -9,7 +9,10 @@ import { parseHubData, toHubView } from '../src/lib/hub.ts';
 import { parseHubIndex, toHubIndexView } from '../src/lib/hub-index.ts';
 import { hubMarkdown } from '../src/lib/markdown/hub.ts';
 import { hubIndexMarkdown } from '../src/lib/markdown/hub-index.ts';
-import { complexMarkdown } from '../src/lib/markdown/complex.ts';
+import { complexMarkdown, goneMarkdown } from '../src/lib/markdown/complex.ts';
+import { goneView } from '../src/lib/complex-gone.ts';
+import { markdownResponse } from '../src/lib/markdown/response.ts';
+import { robotsDirective } from '../src/lib/storefront.ts';
 import { complexFactsOf, type ComplexPayload, type ComplexLabels } from '../src/lib/markdown/complex-facts.ts';
 import { escapeInline, frontMatter } from '../src/lib/markdown/format.ts';
 import { complexHead } from '../src/lib/complex-meta.ts';
@@ -306,4 +309,33 @@ test('when one band carries two prices, each line names its court so the two are
   const md = complexMarkdown(complexFactsOf('la-zona-f5', payload, labels));
   assert.ok(md.includes('- Pádel, lunes, 08:00 a 12:00 (Cancha 1): $ 15000'));
   assert.ok(md.includes('- Pádel, lunes, 08:00 a 12:00 (Cancha 3): $ 18000'));
+});
+
+const deleted = { name: 'Club Viejo', city: 'Rosario', citySlug: 'rosario' };
+const deletedUrl = `${SITE}/c/club-viejo`;
+
+test('the Markdown twin of a deleted complex names it as gone and lists the other courts of its city', () => {
+  const md = goneMarkdown(goneView(deleted, parseHubData(hubRaw)), deletedUrl);
+  assert.ok(md.includes('title: "Club Viejo ya no toma reservas por Vibe"'));
+  assert.ok(md.includes('\n# Club Viejo ya no toma reservas por Vibe\n'));
+  assert.ok(md.includes('Pero hay otras canchas en Rosario donde podés reservar online.'));
+  assert.ok(md.includes('\n## Otras canchas en Rosario\n'));
+  assert.ok(md.includes(`[La Zona F5](${SITE}/c/la-zona-f5)`));
+  assert.ok(md.includes(`[Ver canchas en Rosario](${SITE}/canchas/rosario)`));
+  assert.ok(md.includes(`[Ver todas las ciudades](${SITE}/canchas)`));
+});
+
+test('the Markdown twin of a deleted complex whose city has no courts says so, and keeps the city index', () => {
+  const md = goneMarkdown(goneView(deleted, null), deletedUrl);
+  assert.ok(md.includes('Mirá las canchas de otras ciudades.'));
+  assert.equal(md.includes('## Otras canchas'), false);
+  assert.equal(md.includes('/canchas/rosario'), false);
+  assert.ok(md.includes(`[Ver todas las ciudades](${SITE}/canchas)`));
+});
+
+test('the 410 answer of the twin keeps the cache policy and the same robots rule as the HTML page', () => {
+  const res = markdownResponse({ status: 410, body: '', canonical: deletedUrl, cacheControl: 'public, s-maxage=300' });
+  assert.equal(res.status, 410);
+  assert.equal(res.headers.get('Cache-Control'), 'public, s-maxage=300');
+  assert.equal(res.headers.get('X-Robots-Tag'), robotsDirective(410));
 });

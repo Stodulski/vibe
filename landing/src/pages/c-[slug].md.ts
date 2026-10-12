@@ -1,7 +1,8 @@
 /**
  * Markdown twin of a complex page (/c/<slug>). The payload is validated with the same schema
  * the HTML page uses, and the facts come from the same head copy and labels, so the two say the
- * same things. Status answers match the HTML page: 404 unknown, 503 when the API fails.
+ * same things. Status answers match the HTML page: 404 unknown, 410 deleted (with the other courts
+ * of its city), 503 when the API fails.
  */
 import type { APIRoute } from 'astro';
 import { PUBLIC_API_URL } from 'astro:env/server';
@@ -9,10 +10,11 @@ import { publicComplexResponseSchema } from '@vibe/booking/complex-response';
 import { BOOKING_MESSAGES } from '@vibe/booking/messages';
 import { formatPrice } from '@vibe/ui';
 import { ApiError, API_TIMEOUT_MS, createPublicApi } from '../lib/api.ts';
+import { GONE_CACHE_CONTROL, loadGoneView, type GoneView } from '../lib/complex-gone.ts';
 import { citySlugOf } from '../lib/hub.ts';
 import { complexCanonical } from '../lib/complex-meta.ts';
 import { complexFactsOf, type ComplexLabels } from '../lib/markdown/complex-facts.ts';
-import { complexMarkdown } from '../lib/markdown/complex.ts';
+import { complexMarkdown, goneMarkdown } from '../lib/markdown/complex.ts';
 import { markdownError, markdownResponse } from '../lib/markdown/response.ts';
 
 export const prerender = false;
@@ -34,9 +36,9 @@ const COPY = {
 export const GET: APIRoute = async ({ params }) => {
   const slug = params.slug ?? '';
   const canonical = complexCanonical(slug);
+  const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
 
   try {
-    const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
     const raw = await api.complex(slug);
     const parsed = publicComplexResponseSchema.safeParse(raw);
     if (!parsed.success) throw new ApiError('unavailable', 200, { cause: parsed.error });
@@ -53,11 +55,23 @@ export const GET: APIRoute = async ({ params }) => {
       cacheControl: CACHE_CONTROL,
     });
   } catch (error) {
+    if (error instanceof ApiError && error.kind === 'gone' && error.gone) {
+      return goneAnswer(await loadGoneView(api, error.gone), canonical);
+    }
     if (error instanceof ApiError && error.kind === 'not_found') return fail('not_found', canonical);
     console.error('complex page unavailable (markdown)', error);
     return fail('unavailable', canonical);
   }
 };
+
+function goneAnswer(view: GoneView, canonical: string): Response {
+  return markdownResponse({
+    status: 410,
+    body: goneMarkdown(view, canonical),
+    canonical,
+    cacheControl: GONE_CACHE_CONTROL,
+  });
+}
 
 function fail(kind: keyof typeof COPY, canonical: string): Response {
   const copy = COPY[kind];
