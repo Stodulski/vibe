@@ -65,3 +65,83 @@ describe('useAutoScrollToSelectedDate', () => {
     expect(rafSpy).toHaveBeenCalledTimes(2);
   });
 });
+
+const rect = (left: number, width: number) =>
+  ({ left, width, right: left + width, top: 0, bottom: 40, height: 40, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
+
+/** A strip of buttons, 90px apart from x=100, with a strip box of 300px at x=100 and a scrollLeft it owns. */
+function makeStrip(count: number): HTMLDivElement {
+  const strip = document.createElement('div');
+  strip.getBoundingClientRect = () => rect(100, 300);
+  let scrollLeft = 0;
+  Object.defineProperty(strip, 'scrollLeft', {
+    get: () => scrollLeft,
+    set: (value: number) => {
+      scrollLeft = value;
+    },
+    configurable: true,
+  });
+  for (let i = 0; i < count; i++) {
+    const button = document.createElement('button');
+    button.getBoundingClientRect = () => rect(100 + i * 90, 80);
+    strip.append(button);
+  }
+  return strip;
+}
+
+const days = Array.from({ length: 14 }, (_, i) => new Date(2026, 9, 12 + i));
+const dayAt = (index: number): Date => {
+  const day = days[index];
+  if (!day) throw new Error(`no day at ${String(index)}`);
+  return day;
+};
+
+describe('useAutoScrollToSelectedDate on the page', () => {
+  beforeEach(() => {
+    // Run the frame at once, so the scroll the effect schedules happens inside the test.
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
+      /* no-op */
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('moves only the strip sideways on the first placement, centring the day, and never scrolls the page', () => {
+    const strip = makeStrip(days.length);
+    const intoView = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const pageScroll = vi.spyOn(window, 'scrollTo');
+
+    renderHook(() => {
+      useAutoScrollToSelectedDate({ current: strip }, days, dayAt(5));
+    });
+
+    expect(intoView).not.toHaveBeenCalled();
+    expect(pageScroll).not.toHaveBeenCalled();
+    // The day (the sixth button, at x 550) starts 450px into the strip; centring its 80px width in the
+    // 300px strip scrolls the strip 110px further, to 340px.
+    expect(strip.scrollLeft).toBe(340);
+  });
+
+  it('still brings a later selection into view, smoothly', () => {
+    const strip = makeStrip(days.length);
+    const later = strip.children[9] as HTMLElement;
+    const intoView = vi.spyOn(later, 'scrollIntoView');
+
+    const { rerender } = renderHook(
+      ({ selectedDate }) => {
+        useAutoScrollToSelectedDate({ current: strip }, days, selectedDate);
+      },
+      { initialProps: { selectedDate: dayAt(5) } },
+    );
+    rerender({ selectedDate: dayAt(9) });
+
+    expect(intoView).toHaveBeenCalledTimes(1);
+    expect(intoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  });
+});
