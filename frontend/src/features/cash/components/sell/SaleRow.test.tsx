@@ -79,3 +79,36 @@ describe('SaleRow — booking balances', () => {
     expect(screen.queryByText('Esta venta incluye el saldo de un turno y no se puede anular.')).not.toBeInTheDocument();
   });
 });
+
+describe('SaleRow — a checkout that collected only booking balances', () => {
+  const entry = makeSale({
+    id: 'checkout1',
+    method: 'transfer',
+    total: 350000,
+    cash_movement_id: null,
+    items: [],
+    booking_payments: [
+      makeSaleBookingPayment({
+        court_name: 'Cancha 2',
+        start_time: '19:00',
+        client_name: 'Juan Pérez',
+        amount: 350000,
+      }),
+    ],
+  });
+
+  it('shows its balance line, the method and the total', () => {
+    render(<SaleRow sale={entry} onVoid={vi.fn()} />);
+
+    expect(screen.getByText('Saldo turno · Cancha 2 19:00 · Juan Pérez · $3.500')).toBeInTheDocument();
+    expect(screen.getByText('$3.500', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText(/Transferencia/)).toBeInTheDocument();
+  });
+
+  it('cannot be voided, and says why', () => {
+    render(<SaleRow sale={entry} onVoid={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Anular' })).toBeDisabled();
+    expect(screen.getByText('Esta venta incluye el saldo de un turno y no se puede anular.')).toBeInTheDocument();
+  });
+});
