@@ -240,6 +240,37 @@ describe('bootstrapSession', () => {
   });
 });
 
+// A browser that has never signed in has no session to renew, so a refused
+// refresh is final: the retry would only be answered the same way, 600 ms
+// later. A returning browser keeps the retry (see the sibling-tab cases). A
+// sibling describe, for the same reason as above.
+describe('bootstrapSession — a browser that has never signed in', () => {
+  const status401 = () => new (HTTPError as unknown as new (status: number) => HTTPError)(401);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { location: { pathname: '/', href: '/' } });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('answers null after one refused refresh, without the delayed retry', async () => {
+    const ky = await import('ky');
+    vi.mocked(ky.default.get).mockReturnValueOnce({ json: vi.fn().mockRejectedValue(status401()) } as never);
+    vi.mocked(ky.default.post).mockReturnValueOnce({ json: vi.fn().mockRejectedValue(status401()) } as never);
+
+    const pending = bootstrapSession(undefined, { mayHaveSession: false });
+    await vi.advanceTimersByTimeAsync(REFRESH_RETRY_DELAY_MS);
+
+    await expect(pending).resolves.toBeNull();
+    expect(ky.default.post).toHaveBeenCalledTimes(1);
+  });
+});
+
 /**
  * A 401 that no refresh can recover ends the session with a hard navigation —
  * the store is gone, so React never renders a `<Navigate>` and router state

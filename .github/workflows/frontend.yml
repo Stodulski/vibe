@@ -331,6 +331,16 @@ jobs:
           name: frontend-dist
           path: frontend/dist
 
+      # The auth routes ask /api/v1/auth/me on load. With nothing on the API
+      # port, the preview proxy answers 502 and the client retries it, so the
+      # job measured a visitor who never exists. This answers the way the
+      # backend answers an anonymous visitor: a fast 401, as in production.
+      # Backgrounded like the preview server, on the port vite.config.ts proxies.
+      - name: Start API stub
+        run: |
+          node scripts/lighthouse-api-stub.mjs &
+          timeout 30 bash -c 'until curl -s -o /dev/null http://localhost:8080/api/v1/auth/me; do sleep 1; done'
+
       # lighthouserc.cjs points at :5173 (the same port the dev server and
       # `make e2e` use), so `vite preview` is pinned there instead of its
       # own default port. Backgrounded and left running for the job's

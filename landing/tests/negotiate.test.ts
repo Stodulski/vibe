@@ -73,7 +73,8 @@ function publicPageRoutes(): string[] {
     const rel = relative(pages, file).replace(/\\/g, '/');
     if (!rel.endsWith('.astro')) continue;
     if (rel.startsWith('c/') && rel.includes('/book/')) continue; // booking steps: noindex
-    if (rel === '404.astro' || rel.startsWith('c/') && !rel.endsWith('index.astro')) continue;
+    // 404 and the unsubscribe page are noindex, so they have no Markdown twin to negotiate.
+    if (rel === '404.astro' || rel === 'baja.astro' || rel.startsWith('c/') && !rel.endsWith('index.astro')) continue;
     const route = '/' + rel.replace(/\.astro$/, '').replace(/\/index$/, '').replace(/\[(\w+)\]/g, ':$1');
     routes.push(route === '/index' ? '/' : route);
   }

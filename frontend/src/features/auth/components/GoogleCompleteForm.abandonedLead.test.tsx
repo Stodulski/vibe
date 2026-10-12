@@ -33,6 +33,8 @@ vi.mock('../api/leads.api', () => ({
 
 const PROFILE = { email: 'juan@test.com', first_name: 'Juan', last_name: 'Perez' };
 
+const ABANDONED_NOTICE = 'Si no terminás tu registro, te escribimos para ayudarte. Podés darte de baja cuando quieras.';
+
 describe('GoogleCompleteForm abandoned-signup lead capture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -105,5 +107,19 @@ describe('GoogleCompleteForm abandoned-signup lead capture', () => {
 
     expect(captureAbandonedRegistrationLead).not.toHaveBeenCalled();
     expect(captureAbandonedRegistrationLeadBeacon).not.toHaveBeenCalled();
+  });
+});
+
+describe('GoogleCompleteForm abandoned-signup notice', () => {
+  it('tells the owner, under the Google email, that an unfinished signup may be emailed', () => {
+    renderWithProviders(<GoogleCompleteForm profileToken="a-token" profile={PROFILE} />);
+
+    const email = screen.getByLabelText(/email/i);
+    const notice = document.getElementById('google-email-notice');
+    if (!notice) throw new Error('the notice container is missing');
+    expect(notice).toBeVisible();
+    expect(notice.querySelectorAll(':scope > p')).toHaveLength(2);
+    expect(email).toHaveAccessibleDescription(ABANDONED_NOTICE);
+    expect(email.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

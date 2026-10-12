@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@/shared/stores';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { bootstrapSession } from '@/shared/lib/ky';
+import { hasSessionHint, setSessionHint } from '@/shared/lib/sessionHint';
 import { identifySession, type SessionData } from './session';
 import type { User } from '@/shared/types/api.types';
 
@@ -38,17 +39,20 @@ export function useAuth(): AuthState {
       // spent when the access token has expired. See `bootstrapSession`.
       let session: Awaited<ReturnType<typeof bootstrapSession>>;
       try {
-        session = await bootstrapSession(signal);
+        session = await bootstrapSession(signal, { mayHaveSession: hasSessionHint() });
       } catch {
         // The session could not be read at all — treated as signed out, as a
-        // failed refresh always was; the next guarded request retries.
+        // failed refresh always was; the next guarded request retries. The hint
+        // is left alone: this is not an answer that the session has ended.
         return { user: identifySession(null), pendingEmail: null };
       }
       if (!session) {
         // No valid session — user needs to log in.
+        setSessionHint(false);
         return { user: identifySession(null), pendingEmail: null };
       }
 
+      setSessionHint(true);
       useStore.getState().setCsrfToken(session.csrf_token);
       return { user: identifySession(session.user), pendingEmail: session.pending_email };
     },

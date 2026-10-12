@@ -1,0 +1,38 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/server';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+<BaseLayout
+  title="Darte de baja de los mails | Vibe"
+  description="Dejá de recibir recordatorios y novedades de Vibe con un clic. Los mails de tus reservas y de tu cuenta se siguen enviando."
+  robots="noindex, nofollow"
+  ogTitle="Darte de baja de los mails | Vibe"
+  ogDescription="Dejá de recibir recordatorios y novedades de Vibe con un clic."
+  ogUrl="https://vibe.com.ar/baja"
+  ogImage="https://vibe.com.ar/logo.png"
+  ogImageWidth="512"
+  ogImageHeight="512"
+  ogImageAlt="Vibe - Sistema de gestión para complejos deportivos"
+  twitterCard="summary"
+  twitterTitle="Darte de baja de los mails | Vibe"
+  twitterDescription="Dejá de recibir recordatorios y novedades de Vibe con un clic."
+  twitterImage="https://vibe.com.ar/logo.png"
+  twitterImageAlt="Vibe - Sistema de gestión para complejos deportivos"
+>
+  <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
+  <main class="legal-page" data-baja data-api-url={PUBLIC_API_URL}>
+    <h1>Darte de baja de los mails de Vibe</h1>
+    <p>Vas a dejar de recibir recordatorios y novedades de Vibe. Los mails de tus reservas y de tu cuenta se siguen enviando.</p>
+    <p>
+      <button type="button" class="btn-primary" data-baja-action>Darme de baja</button>
+    </p>
+    <p role="status" aria-live="polite" data-baja-status></p>
+  </main>
+  <Footer linkPrefix="/" logoHref="/" />
+</BaseLayout>
+
+<script>
+  import '../scripts/baja.ts';
+</script>

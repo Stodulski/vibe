@@ -31,6 +31,8 @@ function registeredCallback(): () => void {
   return options.onRegistered;
 }
 
+const ABANDONED_NOTICE = 'Si no terminás tu registro, te escribimos para ayudarte. Podés darte de baja cuando quieras.';
+
 describe('RegisterForm abandoned-registration lead capture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -147,5 +149,26 @@ describe('RegisterForm abandoned-registration lead capture — unload and succes
 
     expect(captureAbandonedRegistrationLead).not.toHaveBeenCalled();
     expect(captureAbandonedRegistrationLeadBeacon).not.toHaveBeenCalled();
+  });
+
+  it('tells the owner, under the email field, that an unfinished registration may be emailed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<RegisterForm />);
+
+    const email = screen.getByLabelText(/email/i);
+    const notice = document.getElementById('email-notice');
+    if (!notice) throw new Error('the notice container is missing');
+    expect(notice).toBeVisible();
+    // Two block lines, each its own paragraph, so the sentence is not one wide
+    // text block (see the component).
+    expect(notice.querySelectorAll(':scope > p')).toHaveLength(2);
+    expect(email).toHaveAccessibleDescription(ABANDONED_NOTICE);
+    expect(email.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /siguiente/i }));
+    await waitFor(() => {
+      expect(email).toHaveAttribute('aria-invalid', 'true');
+    });
+    expect(email).toHaveAccessibleDescription(expect.stringContaining(ABANDONED_NOTICE));
   });
 });

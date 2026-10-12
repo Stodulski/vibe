@@ -20,20 +20,10 @@ import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { join, relative } from 'node:path';
 import TurndownService from 'turndown';
+import { esIndexable } from './seo-checks.mjs';
 
 const DIST = new URL('../dist/', import.meta.url).pathname;
 const SITE = 'https://vibe.com.ar';
-
-/* Which pages get an index entry is NOT a list anybody maintains. It used to be,
-   and a hand-kept list is exactly the thing that goes stale the first time
-   somebody adds a page and forgets this file: the page then exists, is indexable,
-   and is missing from both the sitemap and llms.txt without anything failing.
-
-   The page already declares it, in the one place that cannot disagree with what
-   is served: its own robots meta. Anything that says noindex (404 and the like)
-   is out; everything else is in. */
-const esIndexable = html => !/<meta[^>]*\bname="robots"[^>]*\bcontent="[^"]*noindex/i.test(html)
-  && !/<meta[^>]*\bcontent="[^"]*noindex[^"]*"[^>]*\bname="robots"/i.test(html);
 
 /* Reading order: the home, then the guides hub and its guides, then the rest.
    It is what an agent should read first, not alphabetical. */

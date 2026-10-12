@@ -7,6 +7,9 @@ module.exports = {
       // reported a 17.3 s LCP with 60 ms of spread across runs: not a slow
       // page, a timeout with a stopwatch on it. Bringing it back means running
       // the API beside the preview server, the way `make e2e` does.
+      // The auth routes are measured as an anonymous visitor sees them:
+      // scripts/lighthouse-api-stub.mjs answers /api/v1/auth/me and the refresh
+      // with the backend's 401, instead of the 502 a missing API produces.
       url: ['http://localhost:5173/login', 'http://localhost:5173/register'],
       numberOfRuns: 3,
       settings: {
