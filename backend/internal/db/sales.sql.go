@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countSaleBookingPayments = `-- name: CountSaleBookingPayments :one
+SELECT COUNT(*)::bigint FROM sale_booking_payments
+WHERE sale_id = $1 AND complex_id = $2
+`
+
+type CountSaleBookingPaymentsParams struct {
+	SaleID    pgtype.UUID `json:"sale_id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+func (q *Queries) CountSaleBookingPayments(ctx context.Context, arg CountSaleBookingPaymentsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSaleBookingPayments, arg.SaleID, arg.ComplexID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getSaleByID = `-- name: GetSaleByID :one
 SELECT id, complex_id, session_id, method, total, cash_movement_id, voided_at, voided_by, void_cash_movement_id, created_at, created_by FROM sales
 WHERE id = $1 AND complex_id = $2
@@ -115,6 +132,41 @@ func (q *Queries) InsertSale(ctx context.Context, arg InsertSaleParams) (Sale, e
 	return i, err
 }
 
+const insertSaleBookingPayment = `-- name: InsertSaleBookingPayment :one
+INSERT INTO sale_booking_payments (complex_id, sale_id, booking_id, payment_id, amount)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, complex_id, sale_id, booking_id, payment_id, amount, created_at
+`
+
+type InsertSaleBookingPaymentParams struct {
+	ComplexID pgtype.UUID `json:"complex_id"`
+	SaleID    pgtype.UUID `json:"sale_id"`
+	BookingID pgtype.UUID `json:"booking_id"`
+	PaymentID pgtype.UUID `json:"payment_id"`
+	Amount    int32       `json:"amount"`
+}
+
+func (q *Queries) InsertSaleBookingPayment(ctx context.Context, arg InsertSaleBookingPaymentParams) (SaleBookingPayment, error) {
+	row := q.db.QueryRow(ctx, insertSaleBookingPayment,
+		arg.ComplexID,
+		arg.SaleID,
+		arg.BookingID,
+		arg.PaymentID,
+		arg.Amount,
+	)
+	var i SaleBookingPayment
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.SaleID,
+		&i.BookingID,
+		&i.PaymentID,
+		&i.Amount,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertSaleItem = `-- name: InsertSaleItem :one
 INSERT INTO sale_items (complex_id, sale_id, product_id, product_name, unit_price, quantity, line_total)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -154,6 +206,218 @@ func (q *Queries) InsertSaleItem(ctx context.Context, arg InsertSaleItemParams) 
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listBookingBalancesDue = `-- name: ListBookingBalancesDue :many
+SELECT b.id, b.date AS booking_date,
+       lower(b.span)::timestamptz AS starts_at,
+       upper(b.span)::timestamptz AS ends_at,
+       b.price,
+       b.deposit_amount,
+       b.collection_status,
+       b.status,
+       c.name AS court_name,
+       cl.first_name AS client_first_name,
+       cl.last_name AS client_last_name
+FROM bookings b
+JOIN courts c ON c.id = b.court_id
+JOIN clients cl ON cl.id = b.client_id
+WHERE b.complex_id = $1::uuid
+  AND b.date = $2::date
+  AND b.status IN ('confirmed', 'completed')
+  AND b.collection_status <> 'fully_paid'
+  AND b.price > CASE WHEN b.collection_status = 'deposit_paid' THEN b.deposit_amount ELSE 0 END
+ORDER BY lower(b.span) ASC, c.name ASC, b.id ASC
+`
+
+type ListBookingBalancesDueParams struct {
+	ComplexID   pgtype.UUID `json:"complex_id"`
+	BookingDate pgtype.Date `json:"booking_date"`
+}
+
+type ListBookingBalancesDueRow struct {
+	ID               pgtype.UUID        `json:"id"`
+	BookingDate      pgtype.Date        `json:"booking_date"`
+	StartsAt         pgtype.Timestamptz `json:"starts_at"`
+	EndsAt           pgtype.Timestamptz `json:"ends_at"`
+	Price            int32              `json:"price"`
+	DepositAmount    int32              `json:"deposit_amount"`
+	CollectionStatus string             `json:"collection_status"`
+	Status           BookingStatus      `json:"status"`
+	CourtName        string             `json:"court_name"`
+	ClientFirstName  string             `json:"client_first_name"`
+	ClientLastName   string             `json:"client_last_name"`
+}
+
+// The sell page's list: one day's bookings of a complex that still owe money.
+// A balance is price less what the booking has collected (deposit_amount when
+// deposit_paid, the whole price when fully_paid). Only confirmed and completed
+// bookings qualify: cancelled, no-show and pending bookings are never sold
+// against here. A pending booking is confirmed from the booking panel, which
+// re-checks its slot, and that is the only path that may confirm one.
+func (q *Queries) ListBookingBalancesDue(ctx context.Context, arg ListBookingBalancesDueParams) ([]ListBookingBalancesDueRow, error) {
+	rows, err := q.db.Query(ctx, listBookingBalancesDue, arg.ComplexID, arg.BookingDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBookingBalancesDueRow
+	for rows.Next() {
+		var i ListBookingBalancesDueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BookingDate,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Price,
+			&i.DepositAmount,
+			&i.CollectionStatus,
+			&i.Status,
+			&i.CourtName,
+			&i.ClientFirstName,
+			&i.ClientLastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBookingPaymentLinesByPaymentIDs = `-- name: ListBookingPaymentLinesByPaymentIDs :many
+SELECT p.id AS payment_id, p.booking_id, p.amount,
+       b.date AS booking_date,
+       lower(b.span)::timestamptz AS starts_at,
+       upper(b.span)::timestamptz AS ends_at,
+       c.name AS court_name,
+       cl.first_name AS client_first_name,
+       cl.last_name AS client_last_name
+FROM payments p
+JOIN bookings b ON b.id = p.booking_id AND b.complex_id = p.complex_id
+JOIN courts c ON c.id = b.court_id
+JOIN clients cl ON cl.id = b.client_id
+WHERE p.id = ANY($1::uuid[]) AND p.complex_id = $2::uuid
+ORDER BY p.created_at ASC, p.id ASC
+`
+
+type ListBookingPaymentLinesByPaymentIDsParams struct {
+	PaymentIds []pgtype.UUID `json:"payment_ids"`
+	ComplexID  pgtype.UUID   `json:"complex_id"`
+}
+
+type ListBookingPaymentLinesByPaymentIDsRow struct {
+	PaymentID       pgtype.UUID        `json:"payment_id"`
+	BookingID       pgtype.UUID        `json:"booking_id"`
+	Amount          int32              `json:"amount"`
+	BookingDate     pgtype.Date        `json:"booking_date"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	EndsAt          pgtype.Timestamptz `json:"ends_at"`
+	CourtName       string             `json:"court_name"`
+	ClientFirstName string             `json:"client_first_name"`
+	ClientLastName  string             `json:"client_last_name"`
+}
+
+// The same booking lines as ListSaleBookingPaymentsBySaleIDs, read from the
+// payments rows directly: a booking-only checkout has no sale to hang them on.
+func (q *Queries) ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error) {
+	rows, err := q.db.Query(ctx, listBookingPaymentLinesByPaymentIDs, arg.PaymentIds, arg.ComplexID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBookingPaymentLinesByPaymentIDsRow
+	for rows.Next() {
+		var i ListBookingPaymentLinesByPaymentIDsRow
+		if err := rows.Scan(
+			&i.PaymentID,
+			&i.BookingID,
+			&i.Amount,
+			&i.BookingDate,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.CourtName,
+			&i.ClientFirstName,
+			&i.ClientLastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSaleBookingPaymentsBySaleIDs = `-- name: ListSaleBookingPaymentsBySaleIDs :many
+SELECT sbp.sale_id, sbp.payment_id, sbp.booking_id, sbp.amount,
+       b.date AS booking_date,
+       lower(b.span)::timestamptz AS starts_at,
+       upper(b.span)::timestamptz AS ends_at,
+       c.name AS court_name,
+       cl.first_name AS client_first_name,
+       cl.last_name AS client_last_name
+FROM sale_booking_payments sbp
+JOIN bookings b ON b.id = sbp.booking_id AND b.complex_id = sbp.complex_id
+JOIN courts c ON c.id = b.court_id
+JOIN clients cl ON cl.id = b.client_id
+WHERE sbp.sale_id = ANY($1::uuid[]) AND sbp.complex_id = $2::uuid
+ORDER BY sbp.created_at ASC, sbp.id ASC
+`
+
+type ListSaleBookingPaymentsBySaleIDsParams struct {
+	SaleIds   []pgtype.UUID `json:"sale_ids"`
+	ComplexID pgtype.UUID   `json:"complex_id"`
+}
+
+type ListSaleBookingPaymentsBySaleIDsRow struct {
+	SaleID          pgtype.UUID        `json:"sale_id"`
+	PaymentID       pgtype.UUID        `json:"payment_id"`
+	BookingID       pgtype.UUID        `json:"booking_id"`
+	Amount          int32              `json:"amount"`
+	BookingDate     pgtype.Date        `json:"booking_date"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	EndsAt          pgtype.Timestamptz `json:"ends_at"`
+	CourtName       string             `json:"court_name"`
+	ClientFirstName string             `json:"client_first_name"`
+	ClientLastName  string             `json:"client_last_name"`
+}
+
+// The booking lines a page of sales collected, for the receipt. Joined to the
+// booking, court and client so the response can name them without a second
+// round trip per sale.
+func (q *Queries) ListSaleBookingPaymentsBySaleIDs(ctx context.Context, arg ListSaleBookingPaymentsBySaleIDsParams) ([]ListSaleBookingPaymentsBySaleIDsRow, error) {
+	rows, err := q.db.Query(ctx, listSaleBookingPaymentsBySaleIDs, arg.SaleIds, arg.ComplexID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSaleBookingPaymentsBySaleIDsRow
+	for rows.Next() {
+		var i ListSaleBookingPaymentsBySaleIDsRow
+		if err := rows.Scan(
+			&i.SaleID,
+			&i.PaymentID,
+			&i.BookingID,
+			&i.Amount,
+			&i.BookingDate,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.CourtName,
+			&i.ClientFirstName,
+			&i.ClientLastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSaleItemsBySale = `-- name: ListSaleItemsBySale :many

@@ -41,6 +41,7 @@ type Querier interface {
 	// stored expected_cash yet appear in a summary later rebuilt over
 	// [opened_at, closed_at) — see Service.Close's own comment.
 	CloseCashSession(ctx context.Context, arg CloseCashSessionParams) (CashSession, error)
+	CountSaleBookingPayments(ctx context.Context, arg CountSaleBookingPaymentsParams) (int64, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteCourtPrice(ctx context.Context, id pgtype.UUID) error
@@ -260,6 +261,7 @@ type Querier interface {
 	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (RefreshToken, error)
 	InsertSale(ctx context.Context, arg InsertSaleParams) (Sale, error)
+	InsertSaleBookingPayment(ctx context.Context, arg InsertSaleBookingPaymentParams) (SaleBookingPayment, error)
 	InsertSaleItem(ctx context.Context, arg InsertSaleItemParams) (SaleItem, error)
 	InsertStockMovement(ctx context.Context, arg InsertStockMovementParams) (StockMovement, error)
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
@@ -281,6 +283,16 @@ type Querier interface {
 	// and the spelling a hub takes from its first row, is stable.
 	ListActiveComplexesForHubs(ctx context.Context) ([]ListActiveComplexesForHubsRow, error)
 	ListAddCourtsNudgeCandidates(ctx context.Context, maxRows int32) ([]ListAddCourtsNudgeCandidatesRow, error)
+	// The sell page's list: one day's bookings of a complex that still owe money.
+	// A balance is price less what the booking has collected (deposit_amount when
+	// deposit_paid, the whole price when fully_paid). Only confirmed and completed
+	// bookings qualify: cancelled, no-show and pending bookings are never sold
+	// against here. A pending booking is confirmed from the booking panel, which
+	// re-checks its slot, and that is the only path that may confirm one.
+	ListBookingBalancesDue(ctx context.Context, arg ListBookingBalancesDueParams) ([]ListBookingBalancesDueRow, error)
+	// The same booking lines as ListSaleBookingPaymentsBySaleIDs, read from the
+	// payments rows directly: a booking-only checkout has no sale to hang them on.
+	ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error)
 	// Oldest first: a session's ledger reads top to bottom like a receipt tape.
 	// Not paginated — a shift's movement count is bounded by a business day at
 	// the counter, the same reasoning ListBlockedSlots' unpaginated call applies.
@@ -320,6 +332,10 @@ type Querier interface {
 	// left side short-circuits instead of comparing against a meaningless
 	// active_filter value.
 	ListProductsByComplex(ctx context.Context, arg ListProductsByComplexParams) ([]Product, error)
+	// The booking lines a page of sales collected, for the receipt. Joined to the
+	// booking, court and client so the response can name them without a second
+	// round trip per sale.
+	ListSaleBookingPaymentsBySaleIDs(ctx context.Context, arg ListSaleBookingPaymentsBySaleIDsParams) ([]ListSaleBookingPaymentsBySaleIDsRow, error)
 	// One sale's own line items, in the order they were inserted — used by Get
 	// and by Void (to know which tracked products to restore stock for is a
 	// separate query, ListSaleStockMovements, below; this one is for the
