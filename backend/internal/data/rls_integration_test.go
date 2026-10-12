@@ -515,3 +515,39 @@ func TestTheTenantScopeReachesTheSessionSettings(t *testing.T) {
 		t.Fatalf("the transaction sees %d bookings, want tenant B's 1", visible)
 	}
 }
+
+// TestTheGoneLookupSeesADeletedTenantOnlyThroughTheBypass is the 410 answer's
+// half under row-level security. The public page of a deleted complex runs on
+// the cross-tenant bypass its route is granted, so the lookup must see the
+// deleted row there; a tenant scope that is not the deleted venue's must not
+// see it, and an unscoped session must see nothing at all.
+func TestTheGoneLookupSeesADeletedTenantOnlyThroughTheBypass(t *testing.T) {
+	f := newRLSFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	var slug string
+	if err := f.Admin.QueryRow(ctx, `SELECT slug FROM complexes WHERE id = $1`, f.B.ComplexID).Scan(&slug); err != nil {
+		t.Fatalf("reading tenant B's slug: %v", err)
+	}
+	// The soft-delete is the state under test, so it is written with the admin pool.
+	if _, err := f.Admin.Exec(ctx,
+		`UPDATE complexes SET deleted_at = NOW(), is_active = false WHERE id = $1`, f.B.ComplexID); err != nil {
+		t.Fatalf("soft-deleting tenant B's complex: %v", err)
+	}
+
+	gone, err := f.Stores.Complexes.GetGoneBySlug(data.ContextWithTenantBypass(context.Background()), slug)
+	if err != nil {
+		t.Fatalf("the cross-tenant bypass could not see a deleted complex's gone answer: %v", err)
+	}
+	if gone.Name != "RLS b" || gone.City != "Rosario" {
+		t.Errorf("gone = %+v; want tenant B's name and city", gone)
+	}
+
+	if _, err := f.Stores.Complexes.GetGoneBySlug(data.ContextWithTenant(context.Background(), f.A.ComplexID), slug); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("another tenant's scope read a deleted complex it does not own: %v", err)
+	}
+	if _, err := f.Stores.Complexes.GetGoneBySlug(context.Background(), slug); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("an unscoped session read a deleted complex: %v", err)
+	}
+}

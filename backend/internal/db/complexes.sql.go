@@ -61,8 +61,10 @@ WHERE slug = $1
 `
 
 // Reads active_complexes: the slug is the public URL, so this is the storefront.
-// A deleted venue keeps its slug (the name stays reserved) and must answer 404,
-// not serve a page. See the soft-delete cascade in db/migrations/001_init.sql.
+// At most one live complex holds a slug (complexes_slug_live_key), so this is
+// unambiguous. A deleted venue's slug is free for a new one; its old page is
+// answered by GetGoneComplexBySlug, not here. See the soft-delete cascade in
+// db/migrations/001_init.sql.
 func (q *Queries) GetComplexBySlug(ctx context.Context, slug string) (ActiveComplex, error) {
 	row := q.db.QueryRow(ctx, getComplexBySlug, slug)
 	var i ActiveComplex
@@ -207,6 +209,40 @@ func (q *Queries) GetComplexesByOwner(ctx context.Context, ownerID pgtype.UUID) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const getGoneComplexBySlug = `-- name: GetGoneComplexBySlug :one
+SELECT c.name, c.city
+FROM complexes c
+WHERE c.slug = $1
+  AND c.deleted_at IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM complexes live
+      WHERE live.slug = $1 AND live.deleted_at IS NULL
+  )
+ORDER BY c.deleted_at DESC
+LIMIT 1
+`
+
+type GetGoneComplexBySlugRow struct {
+	Name string `json:"name"`
+	City string `json:"city"`
+}
+
+// The public page of a complex that was deleted, for the 410 answer. It names
+// the most recently deleted complex that held the slug, and answers nothing
+// while a live complex holds it: a switched-on or switched-off live venue is
+// served (or refused) by GetComplexBySlug, never reported as gone. The NOT
+// EXISTS is in the same statement, so the two halves see one snapshot.
+//
+// Reads the table, not active_complexes, because a deleted row is the whole
+// point. Only name and city are selected: nothing else of a deleted venue is
+// public. Runs under the cross-tenant bypass of the public route.
+func (q *Queries) GetGoneComplexBySlug(ctx context.Context, slug string) (GetGoneComplexBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getGoneComplexBySlug, slug)
+	var i GetGoneComplexBySlugRow
+	err := row.Scan(&i.Name, &i.City)
+	return i, err
 }
 
 const insertComplex = `-- name: InsertComplex :one

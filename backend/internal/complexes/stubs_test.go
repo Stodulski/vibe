@@ -17,6 +17,7 @@ import (
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/storage"
@@ -30,6 +31,11 @@ type stubStore struct {
 	slugErr   error
 	getErr    error
 	insertErr error
+
+	// gone is the deleted complex GetGoneBySlug reports, nil for none; goneErr
+	// is its failure, if any.
+	gone    *complexstore.GoneComplex
+	goneErr error
 
 	// slugsWithPrefix are extra taken variants SlugsWithPrefix reports.
 	slugsWithPrefix []string
@@ -73,6 +79,16 @@ func (s *stubStore) GetBySlug(context.Context, string) (*complexstore.Complex, e
 		return nil, s.getErr
 	}
 	return s.complex, nil
+}
+
+func (s *stubStore) GetGoneBySlug(context.Context, string) (*complexstore.GoneComplex, error) {
+	if s.goneErr != nil {
+		return nil, s.goneErr
+	}
+	if s.gone == nil {
+		return nil, data.ErrRecordNotFound
+	}
+	return s.gone, nil
 }
 
 func (s *stubStore) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.Schedule, error) {

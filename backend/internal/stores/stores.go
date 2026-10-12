@@ -166,6 +166,9 @@ type ComplexCRUD interface {
 	Insert(ctx context.Context, complex *complexstore.Complex) error
 	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
+	// GetGoneBySlug names the deleted complex that last held a slug no live
+	// complex holds, for the public page's 410 answer.
+	GetGoneBySlug(ctx context.Context, slug string) (*complexstore.GoneComplex, error)
 	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
 	Update(ctx context.Context, complex *complexstore.Complex, expectedVersion *int) error
 	// SoftDeleteCascade soft-deletes the complex and returns how many of its

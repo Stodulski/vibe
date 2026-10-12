@@ -427,6 +427,12 @@ func (m *mockComplexStore) GetByID(ctx context.Context, id uuid.UUID) (*complexs
 	return &c, nil
 }
 
+// GetGoneBySlug answers no deleted holder: the mock keeps deleted rows out of
+// its live set, and the route tests that need a 410 build their own store.
+func (m *mockComplexStore) GetGoneBySlug(context.Context, string) (*complexstore.GoneComplex, error) {
+	return nil, data.ErrRecordNotFound
+}
+
 func (m *mockComplexStore) GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error) {
 	if m.GetBySlugFn != nil {
 		return m.GetBySlugFn(ctx, slug)

@@ -145,7 +145,7 @@ func (m *Store) Insert(ctx context.Context, c *Complex) error {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			switch pgErr.ConstraintName {
-			case "complexes_slug_key":
+			case "complexes_slug_live_key":
 				return ErrDuplicateSlug
 			case "complexes_owner_id_key":
 				return ErrDuplicateOwner
@@ -159,6 +159,31 @@ func (m *Store) Insert(ctx context.Context, c *Complex) error {
 	c.CreatedAt = data.PgToTime(dbComplex.CreatedAt)
 	c.UpdatedAt = data.PgToTime(dbComplex.UpdatedAt)
 	return nil
+}
+
+// GoneComplex is what a public page may still say about a deleted complex whose
+// slug no live complex holds: its name and its city, nothing else.
+type GoneComplex struct {
+	Name string
+	City string
+}
+
+// GetGoneBySlug returns the deleted complex that most recently held the given
+// slug, for the 410 answer on its old public page. It returns
+// data.ErrRecordNotFound while a live complex holds the slug, and when no
+// complex ever did.
+func (m *Store) GetGoneBySlug(ctx context.Context, slug string) (*GoneComplex, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	row, err := m.Q.GetGoneComplexBySlug(ctx, slug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, data.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	return &GoneComplex{Name: row.Name, City: row.City}, nil
 }
 
 // GetByID returns the complex with the given ID, or ErrRecordNotFound if none exists.
@@ -621,15 +646,16 @@ func (m *Store) GetWithMPConnected(ctx context.Context) ([]*Complex, error) {
 // asking that one at a time is N round trips whose answers can each go stale
 // before the next one lands.
 //
-// Like SlugExists it counts soft-deleted rows, for the same reason: the UNIQUE
-// constraint spans the whole table, so a suggestion that ignored them would be
-// refused by the insert it was made for.
+// Like SlugExists it counts live complexes only: a deleted complex's slug is
+// free for a new one (complexes_slug_live_key), so suggesting it would offer a
+// name the insert it was made for accepts.
 func (m *Store) SlugsWithPrefix(ctx context.Context, base string) ([]string, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx,
-		`SELECT slug FROM complexes WHERE slug = $1 OR slug LIKE $1 || '-%'`, base)
+		`SELECT slug FROM complexes
+		 WHERE (slug = $1 OR slug LIKE $1 || '-%') AND deleted_at IS NULL`, base)
 	if err != nil {
 		return nil, err
 	}
@@ -649,26 +675,18 @@ func (m *Store) SlugsWithPrefix(ctx context.Context, base string) ([]string, err
 	return slugs, nil
 }
 
-// SlugExists reports whether the given slug is already taken.
+// SlugExists reports whether a live complex holds the given slug.
 //
-// It counts soft-deleted complexes, because complexes.slug is UNIQUE across
-// the whole table: excluding them made this the only place in the codebase
-// that answered "free" about a name the database would refuse, so creating a
-// venue with a deleted one's slug passed validation and then failed on the
-// insert with a 500 the owner could do nothing about.
-//
-// Keeping the name reserved is the product decision behind that constraint.
-// The slug is the venue's public URL — it lives in shared links, WhatsApp
-// messages, QR codes and the sitemap (GetAllSlugs) — so releasing it would
-// point somebody else's traffic at a different business, and would make
-// restoring a soft-deleted complex impossible without renaming it.
+// It counts live complexes only, matching complexes_slug_live_key: a deleted
+// complex releases its slug, so a new complex may take it. The 410 answer on
+// the old public page is GetGoneBySlug's job, not this check's.
 func (m *Store) SlugExists(ctx context.Context, slug string) (bool, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	var exists bool
 	err := m.DB.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM complexes WHERE slug = $1)`, slug).Scan(&exists)
+		`SELECT EXISTS(SELECT 1 FROM complexes WHERE slug = $1 AND deleted_at IS NULL)`, slug).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("complexes: slug exists: %w", err)
 	}
