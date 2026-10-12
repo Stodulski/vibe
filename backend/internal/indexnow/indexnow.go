@@ -64,6 +64,12 @@ type Snapshot struct {
 	Visible bool
 }
 
+// SnapshotOf reads a complex's public presence off its row. It is the one place
+// that decides what "served" means for the purposes of this package.
+func SnapshotOf(c *complexstore.Complex) Snapshot {
+	return Snapshot{Slug: c.Slug, City: c.City, Visible: c.IsActive}
+}
+
 // Change is one write to a complex, as the complexes service saw it. Before is
 // the zero Snapshot for a create and After the zero Snapshot for a delete.
 type Change struct {

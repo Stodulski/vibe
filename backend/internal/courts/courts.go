@@ -76,10 +76,11 @@ type BookingReader interface {
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 }
 
-// ComplexReader supplies the complex a public availability request names, and
-// its opening hours.
+// ComplexReader supplies the complex a public availability request names, the
+// complex a committed court write belongs to, and its opening hours.
 type ComplexReader interface {
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
 	GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*complexstore.Schedule, error)
 }
 

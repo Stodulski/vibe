@@ -29,5 +29,5 @@ func (s *Service) pageChanged(ctx context.Context, c indexnow.Change) {
 // its page answers under, its city, and whether it is served (switched on).
 // Deleted complexes never reach the service's readers, so they are not checked here.
 func publicSnapshot(c *complexstore.Complex) indexnow.Snapshot {
-	return indexnow.Snapshot{Slug: c.Slug, City: c.City, Visible: c.IsActive}
+	return indexnow.SnapshotOf(c)
 }

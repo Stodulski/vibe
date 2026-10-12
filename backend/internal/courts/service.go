@@ -47,10 +47,12 @@ type Service struct {
 	bookings  BookingReader
 	complexes ComplexReader
 	audit     Recorder
+	pages     PageIndexer
 }
 
-// NewService returns a Service backed by the given stores.
-func NewService(store Store, bookings BookingReader, complexes ComplexReader, recorder Recorder) *Service {
+// NewService returns a Service backed by the given stores. pages may be nil, in
+// which case committed court writes announce nothing.
+func NewService(store Store, bookings BookingReader, complexes ComplexReader, recorder Recorder, pages PageIndexer) *Service {
 	return &Service{
 		courts:    store,
 		prices:    store,
@@ -58,6 +60,7 @@ func NewService(store Store, bookings BookingReader, complexes ComplexReader, re
 		bookings:  bookings,
 		complexes: complexes,
 		audit:     recorder,
+		pages:     pages,
 	}
 }
 
@@ -140,6 +143,7 @@ func (s *Service) Create(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	}
 
 	s.record(complexID, actor, "create", "court", &court.ID, nil, court)
+	s.pageChanged(ctx, complexID)
 	return court, nil
 }
 
@@ -199,6 +203,7 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	}
 
 	s.record(complexID, actor, "update", "court", &court.ID, nil, court)
+	s.pageChanged(ctx, complexID)
 	return court, nil
 }
 
@@ -221,6 +226,7 @@ func (s *Service) Delete(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	}
 
 	s.record(complexID, actor, "delete", "court", &courtID, nil, nil)
+	s.pageChanged(ctx, complexID)
 	return nil
 }
 
@@ -278,6 +284,7 @@ func (s *Service) UpdatePrices(ctx context.Context, complexID uuid.UUID, actor A
 	}
 
 	s.record(complexID, actor, "update_prices", "court", &courtID, nil, prices)
+	s.pageChanged(ctx, complexID)
 	return prices, -1, nil
 }
 

@@ -96,7 +96,7 @@ func TestServiceBlockSlot(t *testing.T) {
 			store := &stubStore{court: tt.court, getErr: tt.getErr, blockErr: tt.blockErr}
 			bookings := &stubBookings{booked: tt.booked}
 			rec := &stubRecorder{}
-			svc := NewService(store, bookings, &stubComplexes{}, rec)
+			svc := NewService(store, bookings, &stubComplexes{}, rec, nil)
 
 			userID := uuid.New()
 			slot, err := svc.BlockSlot(t.Context(), complexID, Actor{UserID: &userID, IP: "1.2.3.4"}, courtID, BlockSlotInput{
