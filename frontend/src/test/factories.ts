@@ -8,9 +8,11 @@ import type {
   Complex,
   Court,
   CourtPrice,
+  CourtWithPrices,
   Product,
   Sale,
   SaleItem,
+  Schedule,
   StockMovement,
   User,
 } from '@/shared/types/api.types';
@@ -47,6 +49,45 @@ const defaultCourt: Court = {
 /** Builds a typed `Court` fixture with sensible defaults, overridable per-field. */
 export function makeCourt(overrides: Partial<Court> = {}): Court {
   return { ...defaultCourt, ...overrides };
+}
+
+const WEEKDAYS: Schedule['day'][] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+export function makeSchedule(overrides: Partial<Schedule> = {}): Schedule {
+  return {
+    id: 's1',
+    complex_id: 'c1',
+    day: 'monday',
+    open_time: '08:00',
+    close_time: '23:00',
+    is_closed: false,
+    ...overrides,
+  };
+}
+
+/** The seven rows a complex gets at creation: every day open 08:00 to 23:00. */
+export function makeDefaultWeekSchedules(): Schedule[] {
+  return WEEKDAYS.map((day) => makeSchedule({ id: `s-${day}`, day }));
+}
+
+/** A complex with every public-profile item filled in, so a test can blank out one at a time. */
+export function makeCompleteComplex(overrides: Partial<Complex> = {}): Complex {
+  return makeComplex({
+    cover_url: 'https://cdn.example.com/cover.jpg',
+    logo_url: 'https://cdn.example.com/logo.png',
+    description:
+      'Complejo de padel con cuatro canchas cubiertas, vestuarios con duchas y estacionamiento propio sobre la avenida principal.',
+    amenities: ['parking'],
+    latitude: -34.6,
+    longitude: -58.4,
+    phone: '1155550000',
+    ...overrides,
+  });
+}
+
+/** An active court with one priced band, the minimum the profile checklist asks for. */
+export function makeActivePricedCourt(): CourtWithPrices {
+  return { ...makeCourt({ is_active: true }), prices: [makePrice({ price: 10000 })] };
 }
 
 const defaultBooking: Booking = {

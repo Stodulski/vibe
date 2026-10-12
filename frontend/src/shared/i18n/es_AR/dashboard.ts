@@ -52,6 +52,55 @@ export const dashboard = {
   decrease: 'Disminución',
   copyLink: 'Copiar enlace',
   linkCopied: 'Enlace copiado al portapapeles',
+  // "Completá tu perfil" checklist: what the public page is missing. Each
+  // `why` says what the owner gains, in one line.
+  profileChecklist: {
+    title: 'Completá tu perfil público',
+    intro: 'Un perfil completo se ve mejor en Google y ayuda a que más jugadores reserven.',
+    progress: (done: number, total: number) => `${String(done)} de ${String(total)} listos`,
+    items: {
+      cover: {
+        label: 'Foto de portada',
+        why: 'Las fotos hacen que más jugadores elijan tu complejo.',
+        action: 'Subí la foto de portada',
+      },
+      logo: {
+        label: 'Logo',
+        why: 'Tu logo ayuda a que te reconozcan en Google y en la página de tu complejo.',
+        action: 'Subí tu logo',
+      },
+      description: {
+        label: 'Descripción',
+        why: 'Una descripción clara le cuenta a Google y a los jugadores cómo es tu complejo.',
+        action: 'Escribí tu descripción',
+      },
+      amenities: {
+        label: 'Servicios',
+        why: 'Mostrar los servicios ayuda a que te encuentren quienes buscan algo puntual.',
+        action: 'Elegí tus servicios',
+      },
+      location: {
+        label: 'Ubicación en el mapa',
+        why: 'Con tu ubicación en el mapa, los jugadores llegan a tu complejo sin perderse.',
+        action: 'Marcá tu ubicación',
+      },
+      hours: {
+        label: 'Revisá tus horarios',
+        why: 'Confirmá que los días y horas reflejan cómo abrís hoy.',
+        action: 'Editá los horarios',
+      },
+      phone: {
+        label: 'Teléfono de contacto',
+        why: 'Un teléfono visible genera confianza a la hora de reservar.',
+        action: 'Cargá tu teléfono',
+      },
+      pricedCourt: {
+        label: 'Cancha con precio',
+        why: 'Con una cancha y su precio cargados, los jugadores pueden reservar en el momento.',
+        action: 'Cargá los precios',
+      },
+    },
+  },
   exportGenericError: 'No se pudo descargar el archivo. Intentá de nuevo.',
   exportTooLarge: 'El período elegido tiene demasiados pagos para exportar. Elegí un rango más corto.',
   exportTimedOut: 'La exportación tardó demasiado y no se pudo completar. Intentá de nuevo en unos minutos.',

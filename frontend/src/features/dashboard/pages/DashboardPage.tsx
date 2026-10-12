@@ -76,6 +76,7 @@ export default function DashboardPage() {
         <DashboardContent
           stats={stats}
           selectedComplexId={selectedComplexId}
+          complex={complex}
           clientInsights={clientInsights}
           clientsLoading={clientsLoading}
           clientsError={clientsError}

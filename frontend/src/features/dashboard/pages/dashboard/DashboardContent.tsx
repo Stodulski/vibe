@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { TodayBookings, PaymentOverview } from '@/features/dashboard';
 import { LowStockAlert } from '../../components/LowStockAlert';
+import { ProfileChecklist } from '../../components/profile-checklist/ProfileChecklist';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { DashboardStats, ClientInsights } from '@/shared/types/api.types';
+import type { Complex, DashboardStats, ClientInsights } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -19,6 +20,7 @@ function ChartSkeleton() {
 interface DashboardContentProps {
   stats: DashboardStats;
   selectedComplexId: string;
+  complex: Complex | null;
   clientInsights: ClientInsights | undefined;
   clientsLoading: boolean;
   clientsError: boolean;
@@ -28,6 +30,7 @@ interface DashboardContentProps {
 export function DashboardContent({
   stats,
   selectedComplexId,
+  complex,
   clientInsights,
   clientsLoading,
   clientsError,
@@ -39,6 +42,10 @@ export function DashboardContent({
           nothing to flag. The till lives on the Caja screen, not here (owner
           request, 2026-09-25). */}
       <LowStockAlert complexId={selectedComplexId} />
+
+      {/* 1c. Public-profile checklist: what the storefront still lacks. Sits
+          below the critical alert and disappears once the profile is complete. */}
+      {complex && <ProfileChecklist complex={complex} />}
 
       {/* 1b. Upcoming bookings + Payment overview (folds in today's key metrics) — "Operaciones del día" */}
       <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
