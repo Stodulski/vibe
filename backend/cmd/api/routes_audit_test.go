@@ -27,6 +27,9 @@ var publicRoutes = map[string]string{
 	"GET /api/v1/public/complexes/{slug}/availability":   "slot grid on the public booking page",
 	"GET /api/v1/public/complexes/{slug}/next-available": "looks past a full day for the next one with room on the storefront",
 	"POST /api/v1/public/complexes/{slug}/waitlist":      "adds an email to the waitlist for a fully booked day, from the storefront without an account",
+	"PUT /api/v1/social/posts/{id}":                      "public: the content sync authenticates with a GitHub Actions OIDC token, not a session",
+	"PUT /api/v1/social/posts/{id}/media/{name}":         "public: the content sync uploads media with its GitHub Actions OIDC token, not a session",
+	"POST /api/v1/social/reconcile":                      "public: the content sync reconciles with its GitHub Actions OIDC token, not a session",
 	"POST /api/v1/public/email/unsubscribe": "reached from the link in a lifecycle email, before any session " +
 		"exists; the signed token is the whole authentication",
 	"POST /api/v1/public/leads/abandoned-registration": "captures an email left on the register form " +

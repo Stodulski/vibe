@@ -640,3 +640,22 @@ func (s *apiServer) BookingsWhatsAppVerifyWebhook(w http.ResponseWriter, r *http
 func (s *apiServer) BookingsWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	s.app.bookings.WhatsAppWebhook(w, r)
 }
+
+// SocialPutPost implements gen.ServerInterface for socialPutPost
+// (PUT /api/v1/social/posts/{id}). It is public: the handler checks the GitHub
+// OIDC token itself, because the caller has no session.
+func (s *apiServer) SocialPutPost(w http.ResponseWriter, r *http.Request, id gen.SocialPostID) {
+	s.app.social.PutPost(w, r, id)
+}
+
+// SocialPutMedia implements gen.ServerInterface for socialPutMedia
+// (PUT /api/v1/social/posts/{id}/media/{name}). Public, OIDC-authenticated in the handler.
+func (s *apiServer) SocialPutMedia(w http.ResponseWriter, r *http.Request, id gen.SocialPostID, name gen.SocialMediaName) {
+	s.app.social.PutMedia(w, r, id, name)
+}
+
+// SocialReconcile implements gen.ServerInterface for socialReconcile
+// (POST /api/v1/social/reconcile). Public, OIDC-authenticated in the handler.
+func (s *apiServer) SocialReconcile(w http.ResponseWriter, r *http.Request) {
+	s.app.social.Reconcile(w, r)
+}

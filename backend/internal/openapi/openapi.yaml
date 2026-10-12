@@ -79,6 +79,8 @@ tags:
     description: Selling products from the catalog — snapshot pricing, stock movement, and a void that reverses both.
   - name: openapi
     description: This document and the interactive reference built from it.
+  - name: social
+    description: Vibe's own marketing posts, synced from the private content repository by a GitHub Actions workflow.
 
 security:
   - {}
@@ -4058,6 +4060,187 @@ paths:
               schema: {type: object}
         "429": {$ref: "#/components/responses/RateLimited"}
 
+  # ---------------------------------------------------------------------
+  # social: Vibe's own marketing posts. Written by the content sync, a GitHub
+  # Actions workflow in Stodulski/vibe-social. These operations are public to
+  # the internet and authenticated by that workflow's OIDC token, not a session.
+  # ---------------------------------------------------------------------
+  /api/v1/social/posts/{id}:
+    put:
+      tags: [social]
+      operationId: socialPutPost
+      summary: Create or update a marketing post
+      description: >-
+        Accepts only a GitHub Actions OIDC token whose repository is the configured sync repository
+        and whose ref is refs/heads/main. The media the post names must be uploaded first. A post
+        that a network has published, or that a publish run is holding, is frozen: the request
+        answers 409 and changes nothing. A draft is stored and never published.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/SocialPostID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [publish_at, networks, type, caption, media]
+              additionalProperties: false
+              properties:
+                publish_at: {type: string, format: date-time, description: RFC 3339 time with an offset.}
+                networks:
+                  type: array
+                  minItems: 1
+                  maxItems: 2
+                  uniqueItems: true
+                  items: {type: string, enum: [instagram, facebook]}
+                type: {type: string, enum: [image, carousel, reel]}
+                caption: {type: string, maxLength: 2200}
+                alt_text: {type: string, maxLength: 1000, description: Single-image posts only.}
+                media:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items: {type: string}
+                draft: {type: boolean}
+      responses:
+        "200":
+          description: The post is stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, status]
+                properties:
+                  id: {type: string}
+                  status: {type: string, enum: [scheduled, publishing, published, partial, failed, cancelled]}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409":
+          description: The post is already published or being published, so its content is frozen.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The post is invalid, or a file it names has not been uploaded.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/social/posts/{id}/media/{name}:
+    put:
+      tags: [social]
+      operationId: socialPutMedia
+      summary: Upload one file of a marketing post
+      description: >-
+        The raw file is the body. Its content type must match its extension: image/jpeg for .jpg and
+        .jpeg, video/mp4 for .mp4. A JPEG is 8 MB at most and an MP4 is 100 MB at most. The file is
+        stored under its content hash and staged for the post upsert. A frozen post answers 409.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/SocialPostID"}
+        - {$ref: "#/components/parameters/SocialMediaName"}
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: {type: string, format: binary}
+          video/mp4:
+            schema: {type: string, format: binary}
+      responses:
+        "200":
+          description: The file is stored and staged.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, url, sha256, content_type, size_bytes]
+                properties:
+                  name: {type: string}
+                  url: {type: string}
+                  sha256: {type: string}
+                  content_type: {type: string}
+                  size_bytes: {type: integer}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409":
+          description: The post is already published or being published, so its media is frozen.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "413":
+          description: The file is larger than its format allows.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "415":
+          description: The content type or the bytes do not match the file name.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The file name is not allowed, or the file is empty.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: Media storage is not configured on this deployment.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "503":
+          description: Media storage has no public URL to hand to the platforms.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
+  /api/v1/social/reconcile:
+    post:
+      tags: [social]
+      operationId: socialReconcile
+      summary: Cancel scheduled posts that left the content repository
+      description: >-
+        Sends every post id in the repository, drafts included. Each scheduled post whose id is
+        absent is cancelled. A published post is never touched. The list must be present, even when
+        empty.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              additionalProperties: false
+              properties:
+                ids:
+                  type: array
+                  maxItems: 500
+                  items: {type: string}
+      responses:
+        "200":
+          description: The posts that were cancelled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cancelled]
+                properties:
+                  cancelled: {type: array, items: {type: string}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422":
+          description: The id list is missing or holds an invalid id.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
 components:
   securitySchemes:
     cookieAuth:
@@ -4090,6 +4273,18 @@ components:
       in: query
       description: Page size. Default 50, maximum 200.
       schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+    SocialPostID:
+      name: id
+      in: path
+      required: true
+      description: Post id, which is the post's folder name in the content repository.
+      schema: {type: string, pattern: "^[a-z0-9][a-z0-9-]{0,80}$"}
+    SocialMediaName:
+      name: name
+      in: path
+      required: true
+      description: File name of the media inside the post folder.
+      schema: {type: string, pattern: "^[A-Za-z0-9._-]{1,100}$"}
     PathID:
       name: id
       in: path

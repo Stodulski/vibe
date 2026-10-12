@@ -243,3 +243,13 @@ func (r *R2Client) KeyFromPublicURL(publicURL string) (string, bool) {
 	}
 	return key, true
 }
+
+// PublicURL returns the URL an object under key is served from, or "" when
+// this client has no public base URL. It is the URL a platform such as Meta
+// fetches a media file from, so an empty result must never be published.
+func (r *R2Client) PublicURL(key string) string {
+	if r.publicBaseURL == "" || key == "" {
+		return ""
+	}
+	return r.publicBaseURL + "/" + key
+}
