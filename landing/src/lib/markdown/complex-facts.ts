@@ -84,6 +84,7 @@ export function complexFactsOf(slug: string, payload: ComplexPayload, labels: Co
     slug,
     name: complex.name,
     city: complex.city,
+    province: complex.province,
     online: complex.payments_enabled,
     sports: [...new Set(sportLabels)],
     services: complex.amenities.map((amenity) => labels.amenity(amenity)).filter((label) => label !== ''),

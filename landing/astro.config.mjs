@@ -68,6 +68,8 @@ export default defineConfig({
     // Tailwind only processes CSS that imports it (src/styles/booking.css), so the
     // existing pages, which do not import it, get no preflight and no utilities.
     plugins: [tailwindcss(), keepEdgeMiddlewareBuilderOutOfFunction()],
+    // The share card's resvg module is imported as `?inline` bytes (src/pages/og/c/[slug].png.ts).
+    assetsInclude: ['**/*.wasm'],
   },
   build: {
     // The site's whole CSS ships as one sheet (~43 KB raw), well over Astro's
