@@ -97,6 +97,9 @@ func (m *stubMailer) SendDepositRefunded(_ context.Context, to, complexName, amo
 func (m *stubMailer) SendOwnerNewBooking(_ context.Context, to, complexName, courtName, clientName, date, startTime string) error {
 	return m.record("owner_new_booking", to, complexName, courtName, clientName, date, startTime)
 }
+func (m *stubMailer) SendOwnerBookingCancelled(_ context.Context, to, complexName, courtName, clientName, date, startTime string) error {
+	return m.record("owner_booking_cancelled", to, complexName, courtName, clientName, date, startTime)
+}
 func (m *stubMailer) SendEmailVerification(_ context.Context, to, firstName, verifyURL string) error {
 	return m.record("verification", to, firstName, verifyURL)
 }
@@ -385,6 +388,98 @@ func TestOwnerIsEmailedOnlyForBookingsTheyDidNotEnter(t *testing.T) {
 	})
 }
 
+// A client's own cancellation frees the slot, and the owner is the only one who
+// can resell it, so they are told. The owner's panel cancel is their own action,
+// and an expired unpaid booking was never announced to them.
+func TestClientCancellationEmailsTheOwner(t *testing.T) {
+	s, q, _, _, _ := newTestService(t, true)
+
+	c := fullCancellation()
+	c.Source = SourceClientCancel
+	c.OwnerID = uuid.New().String()
+	c.ClientName = "Ana Pérez"
+	c.BookingID = uuid.New().String()
+	s.BookingCancelled(c)
+
+	if !q.has(TaskEmailOwnerBookingCancelled) {
+		t.Fatalf("the owner must hear about a client cancellation; got %v", q.types())
+	}
+	key, _ := q.keyOf(TaskEmailOwnerBookingCancelled)
+	if key == "" {
+		t.Error("the owner cancellation was enqueued with no deduplication key")
+	}
+	for _, task := range q.tasks {
+		if task.taskType != TaskEmailOwnerBookingCancelled {
+			continue
+		}
+		p, ok := task.payload.(ownerBookingCancelled)
+		if !ok {
+			t.Fatalf("the owner cancellation payload has type %T", task.payload)
+		}
+		if p.OwnerID != c.OwnerID || p.ClientName != "Ana Pérez" || p.CourtName != "Cancha 1" ||
+			p.ComplexName != "Vibe" || p.Date != "04/03" || p.StartTime != "18:00 - 19:30" {
+			t.Errorf("the owner cancellation carries the wrong booking: %+v", p)
+		}
+	}
+}
+
+func TestOnlyAClientCancellationEmailsTheOwner(t *testing.T) {
+	for _, source := range []string{SourceOwnerCancel, SourceExpiredUnpaid, ""} {
+		t.Run("source "+source, func(t *testing.T) {
+			s, q, _, _, _ := newTestService(t, true)
+
+			c := fullCancellation()
+			c.Source = source
+			c.OwnerID = uuid.New().String()
+			s.BookingCancelled(c)
+
+			if q.has(TaskEmailOwnerBookingCancelled) {
+				t.Errorf("the owner was emailed for a cancellation from %q; got %v", source, q.types())
+			}
+			if !q.has(TaskEmailBookingCancelled) {
+				t.Errorf("the client must still be told; got %v", q.types())
+			}
+		})
+	}
+}
+
+func TestClientCancellationNeedsAnOwnerToEmail(t *testing.T) {
+	s, q, _, _, _ := newTestService(t, true)
+
+	c := fullCancellation()
+	c.Source = SourceClientCancel
+	s.BookingCancelled(c)
+
+	if q.has(TaskEmailOwnerBookingCancelled) {
+		t.Errorf("an owner cancellation was enqueued with no owner to address; got %v", q.types())
+	}
+}
+
+func TestOwnerIsEmailedAboutAClientCancellation(t *testing.T) {
+	s, q, mailer, _, users := newTestService(t, true)
+	s.RegisterWorkers()
+
+	users.user = &authstore.User{Email: "owner@example.com"}
+	payload, _ := json.Marshal(ownerBookingCancelled{
+		OwnerID: uuid.New().String(), ComplexName: "Vibe", CourtName: "Cancha 1",
+		ClientName: "Ana Pérez", Date: "04/03", StartTime: "18:00 - 19:30",
+	})
+
+	if err := q.handlers[TaskEmailOwnerBookingCancelled](t.Context(), payload); err != nil {
+		t.Fatalf("delivering the owner cancellation email: %v", err)
+	}
+	want := []any{"Vibe", "Cancha 1", "Ana Pérez", "04/03", "18:00 - 19:30"}
+	if len(mailer.sent) != 1 || mailer.sent[0].kind != "owner_booking_cancelled" ||
+		mailer.sent[0].to != "owner@example.com" {
+		t.Fatalf("the owner cancellation was not delivered to the owner; got %v", mailer.sent)
+	}
+	for i, w := range want {
+		if mailer.sent[0].args[i] != w {
+			t.Errorf("argument %d: want %v; got %v", i, w, mailer.sent[0].args[i])
+		}
+	}
+}
+
 func TestNothingIsEnqueuedWithoutARecipient(t *testing.T) {
 	s, q, _, _, _ := newTestService(t, true)
 
@@ -407,7 +502,7 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 	// sits in Redis forever.
 	for _, taskType := range []string{
 		TaskEmailBookingConfirmation, TaskEmailReminder2h, TaskEmailBookingCancelled,
-		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailVerification,
+		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailOwnerBookingCancelled, TaskEmailVerification,
 		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
 		TaskWABookingConfirmation, TaskWAReminder2h,
 		TaskWABookingCancelled, TaskWADepositRefunded,

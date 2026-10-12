@@ -14,6 +14,7 @@ const (
 	TaskEmailBookingCancelled      = "email:booking_cancelled"
 	TaskEmailDepositRefunded       = "email:deposit_refunded"
 	TaskEmailOwnerNewBooking       = "email:owner_new_booking"
+	TaskEmailOwnerBookingCancelled = "email:owner_booking_cancelled"
 	TaskEmailVerification          = "email:verification"
 	TaskEmailPasswordReset         = "email:password_reset"
 	TaskEmailDuplicateRegistration = "email:duplicate_registration"
@@ -39,6 +40,20 @@ const (
 	// SourceOnlineCheckout is internal/payments' MercadoPago webhook
 	// confirming a public client's payment.
 	SourceOnlineCheckout = "mp webhook"
+)
+
+// The flows that cancel a booking. Only a client's own cancellation reaches the
+// owner: the owner's panel cancel is their own action, and an expired unpaid
+// booking was never announced to them, so there is nothing to take back.
+const (
+	// SourceClientCancel is internal/bookings.Service.PublicCancel, the client
+	// cancelling from the link in their confirmation.
+	SourceClientCancel = "client cancel"
+	// SourceOwnerCancel is internal/bookings.Service.Cancel, the owner or their
+	// staff cancelling from the dashboard.
+	SourceOwnerCancel = "owner cancel"
+	// SourceExpiredUnpaid is internal/bookings.Service.ReleaseExpiredPayments.
+	SourceExpiredUnpaid = "payment expired"
 )
 
 // The payloads below are serialised into Redis, so their JSON tags are a
@@ -162,6 +177,15 @@ type Cancellation struct {
 	BookPath string `json:"book_path"`
 	BookURL  string `json:"book_url"`
 
+	// ClientName and OwnerID are for the owner's email, sent only when Source is
+	// SourceClientCancel. OwnerID is the complex owner, resolved at delivery time.
+	ClientName string `json:"client_name"`
+	OwnerID    string `json:"owner_id"`
+
+	// Source names the flow that cancelled the booking. It decides whether the
+	// owner is emailed, and is a log field otherwise.
+	Source string `json:"-"`
+
 	// BookingID identifies the booking this is about. It is the business half
 	// of the queue's deduplication key (JOB-04) and never travels into the
 	// payload — the workers do not read it, and a durable queue should not
@@ -283,6 +307,18 @@ type depositRefundedEmail struct {
 // referenced by id and resolved at delivery time, so the queue does not hold a
 // stale address.
 type ownerNewBooking struct {
+	OwnerID     string `json:"owner_id"`
+	ComplexName string `json:"complex_name"`
+	CourtName   string `json:"court_name"`
+	ClientName  string `json:"client_name"`
+	Date        string `json:"date"`
+	StartTime   string `json:"start_time"`
+}
+
+// ownerBookingCancelled tells the complex owner that a client cancelled a
+// booking, which frees its slot. Like ownerNewBooking, the owner is referenced
+// by id and resolved at delivery time.
+type ownerBookingCancelled struct {
 	OwnerID     string `json:"owner_id"`
 	ComplexName string `json:"complex_name"`
 	CourtName   string `json:"court_name"`

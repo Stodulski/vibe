@@ -32,6 +32,7 @@ type Mailer interface {
 	SendBookingCancelled(ctx context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string) error
 	SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string) error
 	SendOwnerNewBooking(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
+	SendOwnerBookingCancelled(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendEmailVerification(ctx context.Context, to, firstName, verifyURL string) error
 	SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error
 	SendDuplicateRegistration(ctx context.Context, to, firstName, loginURL, resetURL string) error
@@ -188,6 +189,15 @@ func (s *Service) BookingCancelled(c Cancellation) {
 				RefundLine: c.RefundLine, BookPath: c.BookPath,
 			}, dedup(TaskWABookingCancelled, c.Phone, c.BookingID))
 		}
+	}
+
+	// The owner is told only when the client cancelled: that is the one way a
+	// slot comes back that the owner did not decide on. See SourceClientCancel.
+	if c.Source == SourceClientCancel && c.OwnerID != "" {
+		s.queue.Enqueue(TaskEmailOwnerBookingCancelled, ownerBookingCancelled{
+			OwnerID: c.OwnerID, ComplexName: c.ComplexName, CourtName: c.CourtName,
+			ClientName: c.ClientName, Date: c.Date, StartTime: c.StartTime,
+		}, dedup(TaskEmailOwnerBookingCancelled, c.OwnerID, c.BookingID))
 	}
 }
 

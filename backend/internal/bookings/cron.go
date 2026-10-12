@@ -133,7 +133,10 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 			RefundLine: notifications.ExpiredUnpaidRefundLine,
 			BookPath:   booklink.BookPath(b.ComplexSlug),
 			BookURL:    booklink.Book(s.cfg.PublicURL, b.ComplexSlug),
-			BookingID:  b.ID.String(),
+			// Never owner-facing: the owner was not told about this booking
+			// (see SourceExpiredUnpaid), so there is nothing to take back.
+			Source:    notifications.SourceExpiredUnpaid,
+			BookingID: b.ID.String(),
 		})
 
 		s.logger.Info("cron_release_expired_payments: released expired booking", "booking_id", b.ID)

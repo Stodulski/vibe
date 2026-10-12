@@ -384,8 +384,9 @@ func (s *Service) refundMethod(ctx context.Context, booking *bookingstore.Bookin
 // Both cancellation paths do exactly this, in this order, and the notification
 // is skipped when either the court or the client cannot be read — there is
 // nothing to name in the message. The release is keyed on the court, so it is
-// skipped on the same court failure.
-func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex, outcome paymentstore.RefundOutcome) {
+// skipped on the same court failure. source says which flow cancelled the
+// booking; it decides whether the owner is told (see notifications.SourceClientCancel).
+func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex, outcome paymentstore.RefundOutcome, source string) {
 	court, courterr := s.courts.GetByID(ctx, booking.CourtID)
 	client, cerr := s.clients.GetByID(ctx, booking.ClientID)
 	if cerr == nil && courterr == nil {
@@ -409,6 +410,9 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 			RefundAmount: refundAmount,
 			BookPath:     booklink.BookPath(complex.Slug),
 			BookURL:      booklink.Book(s.cfg.PublicURL, complex.Slug),
+			ClientName:   client.FirstName + " " + client.LastName,
+			OwnerID:      complex.OwnerID.String(),
+			Source:       source,
 			BookingID:    booking.ID.String(),
 		})
 	}

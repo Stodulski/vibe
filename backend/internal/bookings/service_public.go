@@ -19,6 +19,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
+	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -798,7 +799,7 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 		}
 	}
 
-	s.notifyCancelledAndRelease(ctx, booking, complex, outcome)
+	s.notifyCancelledAndRelease(ctx, booking, complex, outcome, notifications.SourceClientCancel)
 
 	// ClaimRefund clears the marker in the database but cannot reach this
 	// in-memory *Booking, so it is cleared here unconditionally: the field was
