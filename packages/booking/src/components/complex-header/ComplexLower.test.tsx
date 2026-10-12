@@ -85,6 +85,23 @@ describe('ComplexLower in the server markup', () => {
   });
 });
 
+describe('ComplexLower map in the server markup', () => {
+  // The map itself is client-only, but the Google Maps link and the 200px
+  // block that holds the map's height are plain markup: they must be in the
+  // HTML, or the block grows by ~38px once the client mounts (CLS at lg).
+  it('writes the Google Maps link for the club coordinates into the HTML', () => {
+    const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ latitude: -34.5, longitude: -58.5 })} />);
+
+    expect(html).toContain('href="https://www.google.com/maps/search/?api=1&amp;query=-34.5,-58.5"');
+  });
+
+  it('reserves the 200px map height in the HTML before the map mounts', () => {
+    const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ latitude: -34.5, longitude: -58.5 })} />);
+
+    expect(html).toContain('h-[200px]');
+  });
+});
+
 describe('ComplexLower map', () => {
   it('shows the map once the club has coordinates', async () => {
     render(<ComplexLower complex={makeComplex({ latitude: -34.5, longitude: -58.5 })} />);

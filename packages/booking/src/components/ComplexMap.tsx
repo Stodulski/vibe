@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { icon } from 'leaflet';
-import { ExternalLink } from 'lucide-react';
 import { BOOKING_MESSAGES } from '../messages';
 import { assetUrl } from '../lib/assetUrl';
 // Leaflet ships these with the package but its CSS expects them next to the
@@ -66,44 +65,31 @@ export function ComplexMap({ latitude, longitude, name, address }: ComplexMapPro
     container.setAttribute('aria-label', `${t.complex.mapOf} ${name}, ${address}`);
   }, [map, name, address]);
 
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${String(latitude)},${String(longitude)}`;
-
   return (
-    <div className="border-border-subtle overflow-hidden rounded-xl border">
-      <MapContainer
-        center={[latitude, longitude]}
-        zoom={15}
-        scrollWheelZoom={false}
-        dragging={!('ontouchstart' in window)}
-        // `public-map`: darkens only this map's tile pane and restyles its
-        // zoom control and attribution (globals.css) — scoped to a class on
-        // this instance, not a global Leaflet selector, so any other map the
-        // app grows later opts in on its own instead of inheriting this one's
-        // treatment (odd/tasks/public-pending-polish.md T3).
-        className="public-map z-0 h-[200px] w-full"
-        ref={setMap}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={[latitude, longitude]} icon={markerIcon}>
-          <Popup>
-            <span className="text-xs font-medium">{name}</span>
-            <br />
-            <span className="text-text-secondary text-xs">{address}</span>
-          </Popup>
-        </Marker>
-      </MapContainer>
-      <a
-        href={googleMapsUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bg-bg-subtle text-primary-400 hover:bg-bg-base hover:text-primary-300 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors"
-      >
-        <ExternalLink className="size-3.5" />
-        {t.complex.viewOnGoogleMaps}
-      </a>
-    </div>
+    <MapContainer
+      center={[latitude, longitude]}
+      zoom={15}
+      scrollWheelZoom={false}
+      dragging={!('ontouchstart' in window)}
+      // `public-map`: darkens only this map's tile pane and restyles its
+      // zoom control and attribution (globals.css) — scoped to a class on
+      // this instance, not a global Leaflet selector, so any other map the
+      // app grows later opts in on its own instead of inheriting this one's
+      // treatment (odd/tasks/public-pending-polish.md T3).
+      className="public-map z-0 h-[200px] w-full"
+      ref={setMap}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <Marker position={[latitude, longitude]} icon={markerIcon}>
+        <Popup>
+          <span className="text-xs font-medium">{name}</span>
+          <br />
+          <span className="text-text-secondary text-xs">{address}</span>
+        </Popup>
+      </Marker>
+    </MapContainer>
   );
 }

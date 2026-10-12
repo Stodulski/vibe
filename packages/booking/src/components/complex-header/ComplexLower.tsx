@@ -1,5 +1,6 @@
 import { lazy, Suspense, useContext } from 'react';
 import { ErrorBoundary, Skeleton } from '@vibe/ui';
+import { ExternalLink } from 'lucide-react';
 import type { PublicComplex } from '../../api/types';
 import { BookingConfigContext } from '../../config';
 import { useHasMounted } from '../../hooks/useHasMounted';
@@ -11,6 +12,10 @@ import { Section } from './ComplexDetails';
 const t = BOOKING_MESSAGES;
 
 const ComplexMap = lazy(() => import('../ComplexMap').then((m) => ({ default: m.ComplexMap })));
+
+function googleMapsSearchUrl(latitude: number, longitude: number) {
+  return `https://www.google.com/maps/search/?api=1&query=${String(latitude)},${String(longitude)}`;
+}
 
 /**
  * The services and the location of the club: what a visitor checks once the
@@ -52,27 +57,38 @@ export function ComplexLower({ complex }: { complex: PublicComplex }) {
             club's page with it — see routeHelpers.tsx's own per-page ErrorBoundary
             for the equivalent guard one level up.
           */}
-          <ErrorBoundary
-            onError={(error, info) => reportError?.(error, { componentStack: info.componentStack })}
-            fallback={
-              <div className="border-border-subtle bg-bg-subtle text-text-secondary flex h-[200px] w-full items-center justify-center rounded-xl border text-center text-sm">
-                {t.publicBooking.mapUnavailable}
-              </div>
-            }
-          >
+          <div className="border-border-subtle overflow-hidden rounded-xl border">
             {mapMounted ? (
-              <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
-                <ComplexMap
-                  latitude={complex.latitude}
-                  longitude={complex.longitude}
-                  name={complex.name}
-                  address={`${complex.address}, ${complex.city}`}
-                />
-              </Suspense>
+              <ErrorBoundary
+                onError={(error, info) => reportError?.(error, { componentStack: info.componentStack })}
+                fallback={
+                  <div className="bg-bg-subtle text-text-secondary flex h-[200px] w-full items-center justify-center text-center text-sm">
+                    {t.publicBooking.mapUnavailable}
+                  </div>
+                }
+              >
+                <Suspense fallback={<Skeleton className="h-[200px] w-full" />}>
+                  <ComplexMap
+                    latitude={complex.latitude}
+                    longitude={complex.longitude}
+                    name={complex.name}
+                    address={`${complex.address}, ${complex.city}`}
+                  />
+                </Suspense>
+              </ErrorBoundary>
             ) : (
-              <Skeleton className="h-[200px] w-full rounded-xl" />
+              <Skeleton className="h-[200px] w-full" />
             )}
-          </ErrorBoundary>
+            <a
+              href={googleMapsSearchUrl(complex.latitude, complex.longitude)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-bg-subtle text-primary-400 hover:bg-bg-base hover:text-primary-300 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors"
+            >
+              <ExternalLink className="size-3.5" />
+              {t.complex.viewOnGoogleMaps}
+            </a>
+          </div>
         </div>
       )}
     </div>
