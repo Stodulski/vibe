@@ -146,7 +146,7 @@ func TestSlotFreedEmailsEveryoneStillWaitingForTheDay(t *testing.T) {
 	if len(n.sent) != 2 {
 		t.Fatalf("want one email per entry; got %d", len(n.sent))
 	}
-	wantBookURL := "https://vibe.test/c/vibe-padel"
+	wantBookURL := "https://vibe.test/c/vibe-padel?date=" + day.Format("2006-01-02")
 	for i, want := range []struct {
 		entry uuid.UUID
 		email string

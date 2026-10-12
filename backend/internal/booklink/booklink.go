@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // QueryParam is the name the three public routes read and every link writes.
@@ -105,11 +106,11 @@ func Book(publicURL, complexSlug string) string {
 	return fmt.Sprintf("%s/c/%s/book", publicURL, complexSlug)
 }
 
-// Storefront is the complex's public page, where its booking grid is shown. The
-// storefront does not read a date from its URL, so a link to a particular day
-// lands on the page and the player picks the day there.
-func Storefront(publicURL, complexSlug string) string {
-	return fmt.Sprintf("%s/c/%s", publicURL, complexSlug)
+// StorefrontOnDate is the complex's public page opened on one day. The
+// storefront reads the day from ?date=; pages that do not read it yet ignore the
+// parameter and show the page as usual.
+func StorefrontOnDate(publicURL, complexSlug string, day time.Time) string {
+	return fmt.Sprintf("%s/c/%s?date=%s", publicURL, complexSlug, day.Format("2006-01-02"))
 }
 
 // mapsURLPrefix is the fixed base a Google Maps "search" deep link is built

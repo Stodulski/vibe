@@ -94,7 +94,7 @@ func (s *Service) SlotFreed(ctx context.Context, freed Freed) {
 		return
 	}
 
-	bookURL := booklink.Storefront(s.publicURL, freed.ComplexSlug)
+	bookURL := booklink.StorefrontOnDate(s.publicURL, freed.ComplexSlug, day)
 	for _, entry := range claimed {
 		s.notify.WaitlistSlotFreed(notifications.WaitlistSlotFreedEmail{
 			EntryID:     entry.ID.String(),
