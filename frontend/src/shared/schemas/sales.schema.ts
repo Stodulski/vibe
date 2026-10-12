@@ -37,7 +37,7 @@ export const saleItemSchema = exact<SaleItem>(
 );
 
 /** A booking balance collected in a checkout, with the summary a receipt needs. */
-export const saleBookingPaymentSchema = exact<SaleBookingPayment>(
+const saleBookingPaymentSchema = exact<SaleBookingPayment>(
   z
     .object({
       payment_id: z.string(),
@@ -73,7 +73,7 @@ export const saleSchema = exact<Sale>(
 );
 
 /** One booking of today that still owes money, for the sell page's "Turnos de hoy". */
-export const balanceDueSchema = exact<BalanceDue>(
+const balanceDueSchema = exact<BalanceDue>(
   z
     .object({
       booking_id: z.string(),
