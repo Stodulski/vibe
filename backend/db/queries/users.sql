@@ -33,3 +33,12 @@ DELETE FROM users
 WHERE email_verified = false
 AND created_at < NOW() - INTERVAL '7 days'
 AND NOT EXISTS (SELECT 1 FROM complexes WHERE owner_id = users.id);
+
+-- name: TouchOwnerLastActive :execrows
+-- The WHERE clause is the throttle: an owner's activity is written at most once
+-- an hour, however many requests they make. Callers ignore a zero row count.
+UPDATE users
+SET last_active_at = NOW()
+WHERE id = sqlc.arg(id)::uuid
+  AND role = 'owner'
+  AND (last_active_at IS NULL OR last_active_at < NOW() - INTERVAL '1 hour');

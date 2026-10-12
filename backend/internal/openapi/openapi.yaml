@@ -2785,6 +2785,53 @@ paths:
                   maxLength: 32
                   description: As far as the person got; not validated as a phone number.
 
+  /api/v1/public/email/unsubscribe:
+    post:
+      tags: [email]
+      operationId: emailUnsubscribe
+      summary: Stop owner lifecycle email to an address
+      description: >-
+        Public. The one-click opt-out every owner lifecycle email carries: the List-Unsubscribe
+        header (RFC 8058) and the footer link to the /baja page. The token comes from the `token`
+        query parameter (a mail client's one-click POST) or from the JSON body (the /baja page).
+        Answers 204 whether or not the address was already suppressed. A token this server did not
+        mint is refused with 400. Transactional email (bookings, verification, password reset) is
+        not affected by a suppression.
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema: {type: string}
+          description: The signed token from the link in the email.
+      responses:
+        "204":
+          description: The address is suppressed from lifecycle email. Empty body.
+        "400":
+          description: No token, or a token this server did not mint.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: The signed token, when it is not in the query string.
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                List-Unsubscribe:
+                  type: string
+                  enum: [One-Click]
+                  description: The body a mail client sends for a one-click unsubscribe (RFC 8058).
+
   # ---------------------------------------------------------------------
   # payments
   # ---------------------------------------------------------------------

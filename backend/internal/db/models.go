@@ -560,6 +560,12 @@ type EmailChangeRequest struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type EmailSuppression struct {
+	Email     string             `json:"email"`
+	Reason    string             `json:"reason"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type EmailVerificationToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
@@ -611,6 +617,12 @@ type JobLock struct {
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 }
 
+type OwnerNudge struct {
+	UserID pgtype.UUID        `json:"user_id"`
+	Kind   string             `json:"kind"`
+	SentAt pgtype.Timestamptz `json:"sent_at"`
+}
+
 type PasswordResetToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
@@ -659,6 +671,16 @@ type RefreshToken struct {
 	UsedAt    pgtype.Timestamptz `json:"used_at"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type RegistrationLead struct {
+	Email     string             `json:"email"`
+	FirstName string             `json:"first_name"`
+	LastName  string             `json:"last_name"`
+	Phone     string             `json:"phone"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	NudgedAt  pgtype.Timestamptz `json:"nudged_at"`
 }
 
 type Sale struct {
@@ -729,6 +751,7 @@ type User struct {
 	EmailVerified       bool               `json:"email_verified"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	LastActiveAt        pgtype.Timestamptz `json:"last_active_at"`
 }
 
 type UserIdentity struct {

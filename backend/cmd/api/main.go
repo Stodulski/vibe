@@ -26,6 +26,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/leads"
+	"github.com/stodulski/vibe-server/internal/lifecycle"
 	"github.com/stodulski/vibe-server/internal/mailer"
 	"github.com/stodulski/vibe-server/internal/middleware"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -60,9 +61,13 @@ type application struct {
 	realtime   *realtime.Handler
 	publicsite *publicsite.Handler
 	leads      *leads.Handler
-	reporting  *reporting.Handler
-	health     *health.Handler
-	openapi    *openapi.Handler
+	// emailUnsubscribe answers the one-click opt-out of the lifecycle emails.
+	emailUnsubscribe *lifecycle.UnsubscribeHandler
+	// lifecycleNudger is the cron's handle on the owner and lead nudges.
+	lifecycleNudger *lifecycle.Nudger
+	reporting       *reporting.Handler
+	health          *health.Handler
+	openapi         *openapi.Handler
 	// specValidator refuses requests the OpenAPI document does not allow. It
 	// is nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off,
 	// which is the only thing routes() checks.

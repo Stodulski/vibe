@@ -58,6 +58,8 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("clean_unverified_users", 24*time.Hour, app.cronCleanUnverifiedUsers),
 		job("clean_jobs", 24*time.Hour, app.cronCleanJobs),
 		job("clean_waitlist_entries", 24*time.Hour, app.cronCleanWaitlistEntries),
+		job("send_lifecycle_nudges", 15*time.Minute, app.cronLifecycleNudges),
+		job("clean_registration_leads", 24*time.Hour, app.cronCleanRegistrationLeads),
 
 		// The token blacklist is an in-process fallback when Redis is absent,
 		// so every instance prunes its own — this one takes no lock.
@@ -215,6 +217,24 @@ func (app *application) cronCleanWaitlistEntries(ctx context.Context) {
 		return
 	}
 	app.logger.Info("cron_clean_waitlist_entries: completed", "deleted", count)
+}
+
+// cronLifecycleNudges sends the owner and lead nudges that have fallen due. It runs
+// every fifteen minutes, so a nudge goes out at most that long after it is due.
+func (app *application) cronLifecycleNudges(ctx context.Context) {
+	sent := app.lifecycleNudger.Run(ctx)
+	app.logger.Info("cron_lifecycle_nudges: completed", "sent", sent)
+}
+
+// cronCleanRegistrationLeads deletes the registration leads captured more than
+// thirty days ago. The address is kept no longer than the nudge needs it.
+func (app *application) cronCleanRegistrationLeads(ctx context.Context) {
+	count, err := app.models.Leads.DeleteOlderThan30Days(ctx)
+	if err != nil {
+		app.logger.Error("cron_clean_registration_leads: failed", "error", err)
+		return
+	}
+	app.logger.Info("cron_clean_registration_leads: completed", "count", count)
 }
 
 // cronCleanSlotLocks removes expired slot locks to free up slots.

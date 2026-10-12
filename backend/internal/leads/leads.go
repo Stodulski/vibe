@@ -6,18 +6,27 @@
 package leads
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
-// Handler forwards abandoned-registration emails to the configured webhook.
+// LeadStore keeps the people who left a registration form. The row is what the
+// owner-lifecycle nudge reads, so it outlives a spreadsheet outage.
+type LeadStore interface {
+	Upsert(ctx context.Context, email, firstName, lastName, phone string) error
+}
+
+// Handler records abandoned-registration leads and forwards them to the
+// configured webhook.
 type Handler struct {
 	respond    *httpx.Responder
 	httpClient *http.Client
 	webhookURL string
 	token      string
+	store      LeadStore
 }
 
 // Config configures the outbound webhook.
@@ -30,12 +39,14 @@ type Config struct {
 	Token      string
 }
 
-// NewHandler returns a Handler posting to the given webhook.
-func NewHandler(respond *httpx.Responder, cfg Config) *Handler {
+// NewHandler returns a Handler that keeps each lead in store and posts it to the
+// configured webhook.
+func NewHandler(respond *httpx.Responder, cfg Config, store LeadStore) *Handler {
 	return &Handler{
 		respond:    respond,
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 		webhookURL: cfg.WebhookURL,
 		token:      cfg.Token,
+		store:      store,
 	}
 }

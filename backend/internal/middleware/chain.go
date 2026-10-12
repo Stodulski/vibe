@@ -238,6 +238,12 @@ func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		r = httpx.ContextSetUser(r, user)
+
+		// An owner's activity feeds the inactive-account nudge. The tracker decides
+		// whether this request is worth a write, so the request path does no I/O.
+		if m.activity != nil && user.Role == "owner" {
+			m.activity.TouchOwner(user.ID)
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -400,6 +406,7 @@ var csrfExemptRoutes = map[string]string{
 	"POST /api/v1/book":        "public booking: clients book without an account, so no cookie is in play",
 	"POST /api/v1/book/cancel": "same flow, authenticated by the booking's own link token",
 
+	"POST /api/v1/public/email/unsubscribe":            "reached from a mail client or an emailed link, with no session; the signed token is the authentication",
 	"POST /api/v1/public/leads/abandoned-registration": "reached before an account exists, so no cookie is in play",
 	"POST /api/v1/public/complexes/{slug}/waitlist":    "public waitlist: the player has no account, so no cookie is in play",
 

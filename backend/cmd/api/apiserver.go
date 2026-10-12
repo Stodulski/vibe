@@ -581,6 +581,12 @@ func (s *apiServer) WaitlistJoin(w http.ResponseWriter, r *http.Request, slug ge
 	s.app.waitlist.Join(w, r)
 }
 
+// EmailUnsubscribe implements gen.ServerInterface for emailUnsubscribe
+// (POST /api/v1/public/email/unsubscribe). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params gen.EmailUnsubscribeParams) {
+	s.app.emailUnsubscribe.Unsubscribe(w, r, params.Token)
+}
+
 // LeadsCaptureAbandonedRegistration implements gen.ServerInterface for leadsCaptureAbandonedRegistration
 // (POST /api/v1/public/leads/abandoned-registration). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request) {

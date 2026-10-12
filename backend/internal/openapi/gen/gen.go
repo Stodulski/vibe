@@ -1504,6 +1504,21 @@ func (e ComplexesPresignUploadJSONBodyType) Valid() bool {
 	}
 }
 
+// Defines values for EmailUnsubscribeFormdataBodyListUnsubscribe.
+const (
+	OneClick EmailUnsubscribeFormdataBodyListUnsubscribe = "One-Click"
+)
+
+// Valid indicates whether the value is a known member of the EmailUnsubscribeFormdataBodyListUnsubscribe enum.
+func (e EmailUnsubscribeFormdataBodyListUnsubscribe) Valid() bool {
+	switch e {
+	case OneClick:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LeadsCaptureAbandonedRegistrationJSONBodySource.
 const (
 	Google   LeadsCaptureAbandonedRegistrationJSONBodySource = "google"
@@ -3418,6 +3433,27 @@ type WaitlistJoinJSONBody struct {
 	Email string `json:"email"`
 }
 
+// EmailUnsubscribeJSONBody defines parameters for EmailUnsubscribe.
+type EmailUnsubscribeJSONBody struct {
+	// Token The signed token, when it is not in the query string.
+	Token *string `json:"token,omitempty"`
+}
+
+// EmailUnsubscribeFormdataBody defines parameters for EmailUnsubscribe.
+type EmailUnsubscribeFormdataBody struct {
+	// ListUnsubscribe The body a mail client sends for a one-click unsubscribe (RFC 8058).
+	ListUnsubscribe *EmailUnsubscribeFormdataBodyListUnsubscribe `form:"List-Unsubscribe,omitempty" json:"List-Unsubscribe,omitempty"`
+}
+
+// EmailUnsubscribeParams defines parameters for EmailUnsubscribe.
+type EmailUnsubscribeParams struct {
+	// Token The signed token from the link in the email.
+	Token *string `form:"token,omitempty" json:"token,omitempty"`
+}
+
+// EmailUnsubscribeFormdataBodyListUnsubscribe defines parameters for EmailUnsubscribe.
+type EmailUnsubscribeFormdataBodyListUnsubscribe string
+
 // LeadsCaptureAbandonedRegistrationJSONBody defines parameters for LeadsCaptureAbandonedRegistration.
 type LeadsCaptureAbandonedRegistrationJSONBody struct {
 	Email string `json:"email"`
@@ -3590,6 +3626,12 @@ type ComplexesPresignUploadJSONRequestBody ComplexesPresignUploadJSONBody
 
 // WaitlistJoinJSONRequestBody defines body for WaitlistJoin for application/json ContentType.
 type WaitlistJoinJSONRequestBody WaitlistJoinJSONBody
+
+// EmailUnsubscribeJSONRequestBody defines body for EmailUnsubscribe for application/json ContentType.
+type EmailUnsubscribeJSONRequestBody EmailUnsubscribeJSONBody
+
+// EmailUnsubscribeFormdataRequestBody defines body for EmailUnsubscribe for application/x-www-form-urlencoded ContentType.
+type EmailUnsubscribeFormdataRequestBody EmailUnsubscribeFormdataBody
 
 // LeadsCaptureAbandonedRegistrationJSONRequestBody defines body for LeadsCaptureAbandonedRegistration for application/json ContentType.
 type LeadsCaptureAbandonedRegistrationJSONRequestBody LeadsCaptureAbandonedRegistrationJSONBody
@@ -3933,6 +3975,9 @@ type ServerInterface interface {
 	// WaitlistJoin Ask to be emailed when a slot on a fully booked day frees up again
 	// (POST /api/v1/public/complexes/{slug}/waitlist)
 	WaitlistJoin(w http.ResponseWriter, r *http.Request, slug PathSlug)
+	// EmailUnsubscribe Stop owner lifecycle email to an address
+	// (POST /api/v1/public/email/unsubscribe)
+	EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params EmailUnsubscribeParams)
 	// PublicsiteHubs City hub index
 	// (GET /api/v1/public/hubs)
 	PublicsiteHubs(w http.ResponseWriter, r *http.Request)
@@ -7124,6 +7169,39 @@ func (siw *ServerInterfaceWrapper) WaitlistJoin(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// EmailUnsubscribe operation middleware
+func (siw *ServerInterfaceWrapper) EmailUnsubscribe(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EmailUnsubscribeParams
+
+	// ------------- Optional query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EmailUnsubscribe(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PublicsiteHubs operation middleware
 func (siw *ServerInterfaceWrapper) PublicsiteHubs(w http.ResponseWriter, r *http.Request) {
 
@@ -7565,6 +7643,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/livez", wrapper.LivenessCheck)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/healthcheck", wrapper.HealthCheck)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/leads/abandoned-registration", wrapper.LeadsCaptureAbandonedRegistration)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/email/unsubscribe", wrapper.EmailUnsubscribe)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/webhooks/mercadopago", wrapper.PaymentsMercadoPagoWebhook)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/places/autocomplete", wrapper.PlacesAutocomplete)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/places/details", wrapper.PlacesDetails)

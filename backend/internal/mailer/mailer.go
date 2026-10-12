@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/mail"
 	"net/smtp"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -251,6 +253,22 @@ func (e *brevoError) Permanent() bool {
 }
 
 func (m *Mailer) send(ctx context.Context, to, subject, htmlBody string) error {
+	return m.sendWith(ctx, to, subject, htmlBody, outbound{})
+}
+
+// outbound is what a message carries beyond its recipient, subject and bodies.
+// The transactional emails send none of it; the lifecycle nudges send the
+// List-Unsubscribe headers and a reply-to address.
+type outbound struct {
+	// headers are extra message headers by name. Each transport writes exactly
+	// these and adds none of its own.
+	headers map[string]string
+	// replyTo is where a reply goes, when it is not the sender.
+	replyTo string
+}
+
+// sendWith is send with the outbound options.
+func (m *Mailer) sendWith(ctx context.Context, to, subject, htmlBody string, opts outbound) error {
 	if err := m.cb.AllowRequest(); err != nil {
 		// Wrapped rather than swallowed: the queue recognises
 		// circuitbreaker.ErrOpen as "never attempted" and reschedules the task
@@ -260,7 +278,7 @@ func (m *Mailer) send(ctx context.Context, to, subject, htmlBody string) error {
 	}
 
 	plainText := htmlToPlainText(htmlBody)
-	err := m.deliver(ctx, to, subject, htmlBody, plainText)
+	err := m.deliver(ctx, to, subject, htmlBody, plainText, opts)
 
 	if isInfraError(err) {
 		m.cb.RecordFailure()
@@ -276,15 +294,15 @@ func (m *Mailer) send(ctx context.Context, to, subject, htmlBody string) error {
 // This is the fallback the struct comment has always claimed. The transport
 // used to be chosen once, from config, so a Brevo outage was total mail loss on
 // a deployment that had perfectly good SMTP credentials sitting unused.
-func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText string) error {
+func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText string, opts outbound) error {
 	if m.apiKey == "" {
 		if !m.smtpConfigured() {
 			return ErrNoTransport
 		}
-		return m.sendSMTP(ctx, to, subject, htmlBody, plainText)
+		return m.sendSMTP(ctx, to, subject, htmlBody, plainText, opts)
 	}
 
-	err := m.sendBrevoAPI(ctx, to, subject, htmlBody, plainText)
+	err := m.sendBrevoAPI(ctx, to, subject, htmlBody, plainText, opts)
 	if err == nil {
 		return nil
 	}
@@ -297,7 +315,7 @@ func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText s
 		return err
 	}
 
-	smtpErr := m.sendSMTP(ctx, to, subject, htmlBody, plainText)
+	smtpErr := m.sendSMTP(ctx, to, subject, htmlBody, plainText, opts)
 	if smtpErr == nil {
 		return nil
 	}
@@ -311,11 +329,13 @@ func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText s
 // ---------------------------------------------------------------------------
 
 type brevoRequest struct {
-	Sender      brevoContact   `json:"sender"`
-	To          []brevoContact `json:"to"`
-	Subject     string         `json:"subject"`
-	HTMLContent string         `json:"htmlContent"`
-	TextContent string         `json:"textContent"`
+	Sender      brevoContact      `json:"sender"`
+	To          []brevoContact    `json:"to"`
+	ReplyTo     *brevoContact     `json:"replyTo,omitempty"`
+	Subject     string            `json:"subject"`
+	HTMLContent string            `json:"htmlContent"`
+	TextContent string            `json:"textContent"`
+	Headers     map[string]string `json:"headers,omitempty"`
 }
 
 type brevoContact struct {
@@ -323,13 +343,17 @@ type brevoContact struct {
 	Email string `json:"email"`
 }
 
-func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainText string) error {
+func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainText string, opts outbound) error {
 	payload := brevoRequest{
 		Sender:      brevoContact{Name: m.senderName, Email: m.senderEmail},
 		To:          []brevoContact{{Email: to}},
 		Subject:     subject,
 		HTMLContent: htmlBody,
 		TextContent: plainText,
+		Headers:     opts.headers,
+	}
+	if opts.replyTo != "" {
+		payload.ReplyTo = &brevoContact{Email: opts.replyTo}
 	}
 
 	body, err := json.Marshal(payload)
@@ -369,11 +393,10 @@ func generateMessageID(domain string) string {
 	return fmt.Sprintf("<%s.%d@%s>", hex.EncodeToString(b), time.Now().UnixNano(), domain)
 }
 
-// message, send, close) for one operation; extraction would fragment this into a chain of
-// internal-only helpers each called exactly once.
-//
-//nolint:funlen // single cohesive SMTP send flow (dial, TLS handshake, auth, compose MIME
-func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText string) error {
+// mimeMessage composes the multipart message the SMTP transport sends. Extra
+// headers follow the standard ones, sorted by name. Every value and name has its
+// CR and LF removed, so a caller cannot start a header of its own.
+func (m *Mailer) mimeMessage(to, subject, htmlBody, plainText string, opts outbound) string {
 	sanitize := func(s string) string {
 		return strings.NewReplacer("\r", "", "\n", "").Replace(s)
 	}
@@ -388,6 +411,12 @@ func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText 
 	var msg strings.Builder
 	msg.WriteString("From: " + sanitize(m.senderRaw) + "\r\n")
 	msg.WriteString("To: " + sanitize(to) + "\r\n")
+	if opts.replyTo != "" {
+		msg.WriteString("Reply-To: " + sanitize(opts.replyTo) + "\r\n")
+	}
+	for _, name := range slices.Sorted(maps.Keys(opts.headers)) {
+		msg.WriteString(sanitize(name) + ": " + sanitize(opts.headers[name]) + "\r\n")
+	}
 	msg.WriteString("Subject: " + sanitize(subject) + "\r\n")
 	msg.WriteString("Date: " + time.Now().Format(time.RFC1123Z) + "\r\n")
 	msg.WriteString("Message-ID: " + generateMessageID(domain) + "\r\n")
@@ -412,6 +441,15 @@ func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText 
 	msg.WriteString("\r\n\r\n")
 
 	msg.WriteString("--" + boundary + "--\r\n")
+	return msg.String()
+}
+
+// message, send, close) for one operation; extraction would fragment this into a chain of
+// internal-only helpers each called exactly once.
+//
+//nolint:funlen // single cohesive SMTP send flow (dial, TLS handshake, auth, compose MIME
+func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText string, opts outbound) error {
+	msg := m.mimeMessage(to, subject, htmlBody, plainText, opts)
 
 	addr := net.JoinHostPort(m.smtpHost, fmt.Sprintf("%d", m.smtpPort))
 
@@ -450,7 +488,7 @@ func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText 
 	if err != nil {
 		return fmt.Errorf("mailer: smtp DATA failed: %w", err)
 	}
-	if _, err = w.Write([]byte(msg.String())); err != nil {
+	if _, err = w.Write([]byte(msg)); err != nil {
 		return fmt.Errorf("mailer: smtp write failed: %w", err)
 	}
 	if err = w.Close(); err != nil {

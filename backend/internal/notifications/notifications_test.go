@@ -121,6 +121,10 @@ func (m *stubMailer) SendWaitlistSlotFreed(_ context.Context, to, complexName, d
 	return m.record("waitlist_slot_freed", to, complexName, date, bookURL)
 }
 
+func (m *stubMailer) SendLifecycleNudge(_ context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error {
+	return m.record("lifecycle_nudge", to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL)
+}
+
 type sentWA struct {
 	to   string
 	tmpl whatsapp.TemplateMessage
@@ -514,6 +518,7 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
 		TaskWABookingConfirmation, TaskWAReminder2h,
 		TaskWABookingCancelled, TaskWADepositRefunded,
+		TaskEmailLifecycleNudge,
 	} {
 		if _, ok := q.handlers[taskType]; !ok {
 			t.Errorf("no worker registered for %s", taskType)
@@ -940,5 +945,42 @@ func TestTwoClientsOfOneBookingDoNotShareAKey(t *testing.T) {
 
 	if keys["ana@example.com"] == keys["beto@example.com"] {
 		t.Error("two recipients of one booking got the same deduplication key; one of them never gets their email")
+	}
+}
+
+func TestLifecycleNudgeIsDeduplicatedPerKindAndSubjectAndDelivered(t *testing.T) {
+	s, q, mailer, _, _ := newTestService(t, false)
+	s.RegisterWorkers()
+
+	e := LifecycleNudgeEmail{
+		Kind: "create_complex", Email: "ana@example.com", FirstName: "Ana",
+		CTAURL: "https://app.vibe.test/onboarding", UnsubscribeURL: "https://api.vibe.test/u?token=t",
+		OptOutURL: "https://vibe.test/baja?token=t",
+	}
+	s.LifecycleNudge(e, "owner-1")
+	first, ok := q.keyOf(TaskEmailLifecycleNudge)
+	if !ok || first == "" {
+		t.Fatalf("the nudge was not enqueued with a deduplication key (ok=%v key=%q)", ok, first)
+	}
+
+	s.LifecycleNudge(e, "owner-1")
+	s.LifecycleNudge(e, "owner-2")
+	keys := map[string]int{}
+	for _, task := range q.tasks {
+		keys[task.dedupKey]++
+	}
+	if len(keys) != 2 {
+		t.Fatalf("keys = %v; the same owner and kind must share one key and another owner must not", keys)
+	}
+
+	payload, _ := json.Marshal(e)
+	if err := q.handlers[TaskEmailLifecycleNudge](t.Context(), payload); err != nil {
+		t.Fatalf("delivering the nudge: %v", err)
+	}
+	if len(mailer.sent) != 1 || mailer.sent[0].kind != "lifecycle_nudge" || mailer.sent[0].to != "ana@example.com" {
+		t.Fatalf("delivered %+v, want one lifecycle_nudge to the recipient", mailer.sent)
+	}
+	if got := mailer.sent[0].args[len(mailer.sent[0].args)-1]; got != "https://vibe.test/baja?token=t" {
+		t.Fatalf("the opt-out link did not reach the mailer; got %v", got)
 	}
 }

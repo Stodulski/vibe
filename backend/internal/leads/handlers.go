@@ -142,6 +142,7 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	req.Email = strings.TrimSpace(req.Email)
 	v := validator.New()
 	v.Check(req.Email != "", "email", "must be provided")
 	// H-21: the same defect H-16 fixed on the public booking form, in the other
@@ -167,6 +168,8 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusAccepted)
 
+	h.keepLead(r, req)
+
 	if h.webhookURL == "" {
 		return
 	}
@@ -179,6 +182,16 @@ func (h *Handler) CaptureAbandonedRegistration(w http.ResponseWriter, r *http.Re
 		Origin:    originFor(req.Source),
 	})
 	if err != nil {
+		h.respond.LogError(r, err)
+	}
+}
+
+// keepLead writes the lead to Postgres before the spreadsheet is asked, and
+// detached from the request: the beacon's connection may close first, and the lead
+// must stay. A failed write is logged and the answer stays 202, as it always was.
+func (h *Handler) keepLead(r *http.Request, req captureRequest) {
+	email := strings.ToLower(req.Email)
+	if err := h.store.Upsert(context.WithoutCancel(r.Context()), email, req.FirstName, req.LastName, req.Phone); err != nil {
 		h.respond.LogError(r, err)
 	}
 }
