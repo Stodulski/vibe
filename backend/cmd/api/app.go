@@ -17,6 +17,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/indexnow"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/leads"
 	"github.com/stodulski/vibe-server/internal/mailer"
@@ -256,6 +257,13 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		HalfOpenMaxReqs: 1,
 		OnStateChange:   cbStateChange,
 	})
+	indexNowCB := circuitbreaker.New(circuitbreaker.Config{
+		Name:            "indexnow",
+		MaxFailures:     3,
+		ResetTimeout:    60 * time.Second,
+		HalfOpenMaxReqs: 1,
+		OnStateChange:   cbStateChange,
+	})
 
 	blacklist := auth.NewTokenBlacklist(d.rdb, d.logger, cfg.Env)
 	events := realtime.NewHub(d.rdb, d.logger, cfg.Env)
@@ -303,6 +311,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// /debug/vars still reads "notifier".
 	var pool *jobs.Pool
 	var queue notifications.Queue
+	var enqueuer *jobs.Enqueuer
 	var jobRetention jobRetentionStore
 	if d.models.Jobs != nil {
 		jobRetention = d.models.Jobs
@@ -321,14 +330,12 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 			Metrics: metrics,
 			Logger:  d.logger,
 		})
-		queue = taskQueue{
-			pool: pool,
-			enqueuer: &jobs.Enqueuer{
-				Store:   d.models.Jobs,
-				Logger:  d.logger,
-				Metrics: metrics,
-			},
+		enqueuer = &jobs.Enqueuer{
+			Store:   d.models.Jobs,
+			Logger:  d.logger,
+			Metrics: metrics,
 		}
+		queue = taskQueue{pool: pool, enqueuer: enqueuer}
 	} else {
 		queue = &memoryQueue{}
 	}
@@ -428,6 +435,19 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// Everything upstream of bookings (clients, complexes, courts, auth,
 	// reporting) reads bookings through bookingsFacade for the same reason:
 	// the booking service is built last, because it depends on all of them.
+	//
+	// IndexNow tells search engines about a complex's public pages. Its jobs go
+	// through the same durable queue as the notifications, and it does nothing
+	// outside production (see indexnow.Enabled). Without a durable queue the
+	// interface stays nil, which is the disabled case; a typed nil would not be.
+	var indexNowQueue indexnow.Queue
+	if enqueuer != nil {
+		indexNowQueue = enqueuer
+	}
+	indexNow := indexnow.NewService(cfg.Env, cfg.PublicBaseURL(), indexNowQueue,
+		indexnow.NewClient(cfg.PublicBaseURL(), indexNowCB), d.logger)
+	queue.RegisterHandler(indexnow.TaskSubmit, indexNow.Submit)
+
 	complexesConfig := complexes.Config{
 		FrontendURL:  cfg.FrontendURL,
 		TrustProxies: d.trustedProxies.Any(),
@@ -449,6 +469,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Audit:    auditor,
 		Logger:   d.logger,
 		Run:      app.background,
+		Pages:    indexNow,
 	}, complexesConfig)
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 

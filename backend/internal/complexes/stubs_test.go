@@ -100,6 +100,8 @@ func (s *stubStore) Insert(_ context.Context, c *complexstore.Complex) error {
 		return s.insertErr
 	}
 	c.ID = uuid.New()
+	// The column default (is_active DEFAULT true), which the real insert returns.
+	c.IsActive = true
 	s.inserted = c
 	return nil
 }
