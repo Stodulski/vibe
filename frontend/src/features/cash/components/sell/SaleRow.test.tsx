@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { makeSale, makeSaleItem } from '@/test/factories';
+import userEvent from '@testing-library/user-event';
+import { makeSale, makeSaleBookingPayment, makeSaleItem } from '@/test/factories';
 import { SaleRow } from './SaleRow';
 
 describe('SaleRow', () => {
@@ -37,5 +38,44 @@ describe('SaleRow', () => {
     render(<SaleRow sale={makeSale({ voided_at: null })} onVoid={onVoid} />);
     screen.getByRole('button', { name: 'Anular' }).click();
     expect(onVoid).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SaleRow — booking balances', () => {
+  it('lists the booking balances collected in the same checkout, with the booking summary', () => {
+    const sale = makeSale({
+      booking_payments: [
+        makeSaleBookingPayment({
+          court_name: 'Cancha 2',
+          start_time: '19:00',
+          client_name: 'Juan Pérez',
+          amount: 350000,
+        }),
+      ],
+    });
+    render(<SaleRow sale={sale} onVoid={vi.fn()} />);
+
+    expect(screen.getByText('Saldo turno · Cancha 2 19:00 · Juan Pérez · $3.500')).toBeInTheDocument();
+  });
+
+  it('disables Anular for a sale with booking balances and explains why', async () => {
+    const user = userEvent.setup();
+    const onVoid = vi.fn();
+    const sale = makeSale({ voided_at: null, booking_payments: [makeSaleBookingPayment()] });
+    render(<SaleRow sale={sale} onVoid={onVoid} />);
+
+    const anular = screen.getByRole('button', { name: 'Anular' });
+    expect(anular).toBeDisabled();
+    expect(screen.getByText('Esta venta incluye el saldo de un turno y no se puede anular.')).toBeInTheDocument();
+
+    await user.click(anular);
+    expect(onVoid).not.toHaveBeenCalled();
+  });
+
+  it('keeps Anular for a sale with no booking balances', () => {
+    render(<SaleRow sale={makeSale({ voided_at: null, booking_payments: [] })} onVoid={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Anular' })).toBeEnabled();
+    expect(screen.queryByText('Esta venta incluye el saldo de un turno y no se puede anular.')).not.toBeInTheDocument();
   });
 });

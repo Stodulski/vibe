@@ -29,7 +29,7 @@ describe('useCreateSale — payload and idempotency', () => {
       http.post('*/complexes/:complexId/sales', async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
         key = request.headers.get('Idempotency-Key');
-        return HttpResponse.json({ sale: makeSale(), stock_warnings: [] }, { status: 201 });
+        return HttpResponse.json({ sale: makeSale(), stock_warnings: [], booking_payments: [] }, { status: 201 });
       }),
     );
     const { wrapper } = createWrapper();
@@ -52,7 +52,7 @@ describe('useCreateSale — payload and idempotency', () => {
         const k = request.headers.get('Idempotency-Key') ?? '';
         keys.push(k);
         if (keys.length === 1) return HttpResponse.json({ title: 'upstream unavailable' }, { status: 503 });
-        return HttpResponse.json({ sale: makeSale(), stock_warnings: [] }, { status: 201 });
+        return HttpResponse.json({ sale: makeSale(), stock_warnings: [], booking_payments: [] }, { status: 201 });
       }),
     );
     const { wrapper } = createWrapper();
@@ -72,7 +72,7 @@ describe('useCreateSale — cache invalidation', () => {
   it("invalidates products, current session and this session's sales on success", async () => {
     server.use(
       http.post('*/complexes/:complexId/sales', () =>
-        HttpResponse.json({ sale: makeSale(), stock_warnings: [] }, { status: 201 }),
+        HttpResponse.json({ sale: makeSale(), stock_warnings: [], booking_payments: [] }, { status: 201 }),
       ),
     );
     const { wrapper, queryClient } = createWrapper();

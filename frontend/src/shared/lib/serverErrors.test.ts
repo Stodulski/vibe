@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { HTTPError } from 'ky';
 import type { NormalizedOptions } from 'ky';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { getFieldErrors, translateServerError } from '@/shared/lib/serverErrors';
+import { getFieldErrors, isBookingBalanceConflict, translateServerError } from '@/shared/lib/serverErrors';
 
 /** ky consumes the body before throwing, so the payload lives on `.data`. */
 function httpError(status: number, body: unknown): HTTPError {
@@ -97,5 +97,42 @@ describe('getFieldErrors', () => {
     ['no error at all', undefined],
   ])('returns nothing for %s', (_label, error) => {
     expect(getFieldErrors(error)).toEqual({});
+  });
+});
+
+describe('checkout booking-balance messages', () => {
+  it.each([
+    [
+      "a booking's balance changed since the cart was loaded, reload the balances and try again",
+      ES_AR.cash.balanceChangedNotice,
+    ],
+    ['this booking is already fully paid', ES_AR.cash.balanceChangedNotice],
+    [
+      'this booking cannot take a payment: it is cancelled, a no-show, or not confirmed yet',
+      ES_AR.cash.balanceChangedNotice,
+    ],
+    [
+      'this sale collected booking payments, which cannot be voided from the sell page',
+      ES_AR.cash.saleVoidBookingBlocked,
+    ],
+    ['add at least one product or booking payment', ES_AR.cash.checkoutNothingToCharge],
+    ['booking not found in this complex', ES_AR.cash.bookingNotInComplex],
+    ['duplicate booking in the same checkout', ES_AR.cash.bookingDuplicateInCheckout],
+  ])('translates %s to Spanish', (english, spanish) => {
+    expect(translateServerError(english)).toBe(spanish);
+  });
+
+  it('recognises every booking refusal by its 409, and nothing else', () => {
+    const stale = httpError(409, {
+      title: 'Conflict',
+      detail: "a booking's balance changed since the cart was loaded, reload the balances and try again",
+    });
+    const noSession = httpError(409, { title: 'Conflict', detail: 'no cash session is open' });
+    const wrongStatus = httpError(422, { title: 'Validation failed', detail: 'this booking is already fully paid' });
+
+    expect(isBookingBalanceConflict(stale)).toBe(true);
+    expect(isBookingBalanceConflict(noSession)).toBe(false);
+    expect(isBookingBalanceConflict(wrongStatus)).toBe(false);
+    expect(isBookingBalanceConflict(new Error('boom'))).toBe(false);
   });
 });

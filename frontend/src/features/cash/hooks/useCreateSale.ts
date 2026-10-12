@@ -33,6 +33,10 @@ export function useCreateSale(complexId: string, sessionId: string | null) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cash.current(complexId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.cash.detailBase(complexId) });
       if (sessionId) void queryClient.invalidateQueries({ queryKey: queryKeys.sales.bySession(complexId, sessionId) });
+      // A balance collected here leaves the day's list and moves its booking
+      // (collection status, payments) wherever the bookings screen shows it.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cash.bookingsDue(complexId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.byComplex(complexId) });
     },
     onError: (error: unknown) => {
       toast.error(getHttpErrorMessage(error, t.cash.cartChargeError));
@@ -45,6 +49,10 @@ export function useCreateSale(complexId: string, sessionId: string | null) {
       // render-time reconcile only drops a stale line (and shows its notice)
       // once `products` no longer contains it.
       void queryClient.invalidateQueries({ queryKey: queryKeys.products.byComplexAll(complexId) });
+      // A refused booking balance (changed, already paid, not payable) is
+      // resolved by refetching the day's list; the sell page then drops the
+      // line that no longer owes its amount.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cash.bookingsDue(complexId) });
     },
   });
 }

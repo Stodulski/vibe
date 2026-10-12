@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { safeSessionStorage } from '@/shared/lib/safeStorage';
 import { MAX_CART_LINES, MAX_LINE_QUANTITY } from './cart';
 import type { CartLine } from './cart';
+import { MAX_BALANCE_LINES, type BalanceLine } from './balanceCart';
 import type { Product } from '@/shared/types/api.types';
 
 const cartLineSchema = z.object({
@@ -74,4 +75,48 @@ export function reconcileCartAgainstProducts(lines: CartLine[], products: Produc
   const activeIds = new Set(products.map((p) => p.id));
   const kept = lines.filter((line) => activeIds.has(line.productId));
   return { lines: kept, droppedStaleLines: kept.length < lines.length };
+}
+
+const balanceLineSchema = z.object({
+  bookingId: z.string(),
+  courtName: z.string(),
+  startTime: z.string(),
+  clientName: z.string(),
+  amount: z.number().int().positive(),
+});
+
+const balanceCartSchema = z.array(balanceLineSchema);
+
+/** Per-complex, the same as the product cart. A separate key, so a product cart stored by an earlier build reads back unchanged. */
+function balanceStorageKey(complexId: string): string {
+  return `vibe_pos_balances_${complexId}`;
+}
+
+/** One line per booking and at most the checkout's cap, whatever a stored cart holds. */
+function clampStoredBalances(lines: BalanceLine[]): BalanceLine[] {
+  const seen = new Set<string>();
+  const unique = lines.filter((line) => {
+    if (seen.has(line.bookingId)) return false;
+    seen.add(line.bookingId);
+    return true;
+  });
+  return unique.slice(0, MAX_BALANCE_LINES);
+}
+
+/** Reads back the booking balances left behind by a reload; anything malformed comes back as an empty cart. */
+export function loadBalanceCart(complexId: string): BalanceLine[] {
+  const stored = safeSessionStorage.getJSON(balanceStorageKey(complexId), balanceCartSchema) ?? [];
+  return clampStoredBalances(stored);
+}
+
+export function saveBalanceCart(complexId: string, lines: BalanceLine[]): void {
+  if (lines.length === 0) {
+    safeSessionStorage.remove(balanceStorageKey(complexId));
+    return;
+  }
+  safeSessionStorage.set(balanceStorageKey(complexId), JSON.stringify(lines));
+}
+
+export function clearBalanceCart(complexId: string): void {
+  safeSessionStorage.remove(balanceStorageKey(complexId));
 }

@@ -1,20 +1,19 @@
 import { Button } from '@/shared/components/ui/button';
 import { formatPrice } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { CartLine } from '../../lib/cart';
 
 const t = ES_AR;
 
 interface SellMobileCartBarProps {
-  lines: CartLine[];
+  /** Products (by quantity) plus booking balances on the cart. */
+  itemCount: number;
   total: number;
   onOpenCart: () => void;
 }
 
 /** Sticky bottom bar — the cart's mobile collapsed form (`odd/tasks/pos-cashbox.md` T5b). Hidden with an empty cart: nothing to view or charge yet. */
-export function SellMobileCartBar({ lines, total, onOpenCart }: SellMobileCartBarProps) {
-  if (lines.length === 0) return null;
-  const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+export function SellMobileCartBar({ itemCount, total, onOpenCart }: SellMobileCartBarProps) {
+  if (itemCount === 0) return null;
 
   return (
     <div className="border-border-subtle bg-bg-elevated fixed inset-x-0 bottom-0 z-30 border-t px-4 py-3 lg:hidden">

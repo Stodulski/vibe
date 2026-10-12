@@ -2,12 +2,16 @@ import { z } from 'zod';
 import type {
   Sale,
   SaleItem,
+  SaleBookingPayment,
   SaleStockWarning,
+  BalanceDue,
   SalesListResponse,
   SaleCreateResponse,
   SaleEnvelopeResponse,
+  BalancesDueResponse,
 } from '@/shared/types/api.types';
 import { paginationMetadataSchema } from './envelope.schema';
+import { bookingStatusSchema } from './booking.schema';
 import { exact } from '@/shared/lib/apiParse';
 
 // ─── Sales (pos-cashbox T5b) ───
@@ -32,6 +36,22 @@ export const saleItemSchema = exact<SaleItem>(
     .loose(),
 );
 
+/** A booking balance collected in a checkout, with the summary a receipt needs. */
+export const saleBookingPaymentSchema = exact<SaleBookingPayment>(
+  z
+    .object({
+      payment_id: z.string(),
+      booking_id: z.string(),
+      amount: z.number(),
+      court_name: z.string(),
+      date: z.string(),
+      start_time: z.string(),
+      end_time: z.string(),
+      client_name: z.string(),
+    })
+    .loose(),
+);
+
 export const saleSchema = exact<Sale>(
   z
     .object({
@@ -45,11 +65,37 @@ export const saleSchema = exact<Sale>(
       voided_by: z.string().nullable().optional(),
       void_cash_movement_id: z.string().nullable().optional(),
       items: z.array(saleItemSchema),
+      booking_payments: z.array(saleBookingPaymentSchema),
       created_at: z.string(),
       created_by: z.string(),
     })
     .loose(),
 );
+
+/** One booking of today that still owes money, for the sell page's "Turnos de hoy". */
+export const balanceDueSchema = exact<BalanceDue>(
+  z
+    .object({
+      booking_id: z.string(),
+      court_name: z.string(),
+      date: z.string(),
+      start_time: z.string(),
+      end_time: z.string(),
+      client_name: z.string(),
+      status: bookingStatusSchema,
+      total: z.number(),
+      paid: z.number(),
+      remaining: z.number(),
+    })
+    .loose(),
+);
+
+export const balancesDueResponseSchema = z
+  .object({
+    date: z.string(),
+    bookings: z.array(balanceDueSchema),
+  })
+  .loose() satisfies z.ZodType<BalancesDueResponse>;
 
 export const saleStockWarningSchema = exact<SaleStockWarning>(
   z
@@ -68,10 +114,12 @@ export const salesListResponseSchema = z
   })
   .loose() satisfies z.ZodType<SalesListResponse>;
 
+/** `sale` is null for a checkout that only collected booking balances. */
 export const saleCreateResponseSchema = z
   .object({
-    sale: saleSchema,
+    sale: saleSchema.nullable(),
     stock_warnings: z.array(saleStockWarningSchema),
+    booking_payments: z.array(saleBookingPaymentSchema),
   })
   .loose() satisfies z.ZodType<SaleCreateResponse>;
 

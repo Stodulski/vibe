@@ -33,6 +33,7 @@ function QuantityStepper({ name, quantity, onIncrement, onDecrement }: QuantityS
         type="button"
         variant="ghost"
         size="icon-sm"
+        className="size-11 lg:size-8"
         aria-label={`${t.cash.cartDecreaseAction}: ${name}`}
         onClick={onDecrement}
       >
@@ -45,6 +46,7 @@ function QuantityStepper({ name, quantity, onIncrement, onDecrement }: QuantityS
         type="button"
         variant="ghost"
         size="icon-sm"
+        className="size-11 lg:size-8"
         aria-label={`${t.cash.cartIncreaseAction}: ${name}`}
         disabled={quantity >= MAX_LINE_QUANTITY}
         onClick={onIncrement}
@@ -52,6 +54,22 @@ function QuantityStepper({ name, quantity, onIncrement, onDecrement }: QuantityS
         <Plus className="size-3.5" aria-hidden="true" />
       </Button>
     </div>
+  );
+}
+
+/** The row's remove control: a 44px target on phones, the compact size from `lg` up. */
+function RemoveLineButton({ name, onRemove }: { name: string; onRemove: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      className="size-11 lg:size-8"
+      aria-label={`${t.cash.cartRemove}: ${name}`}
+      onClick={onRemove}
+    >
+      <X className="size-4" aria-hidden="true" />
+    </Button>
   );
 }
 
@@ -75,17 +93,12 @@ export function SellCartLine({
           <p className="text-text-primary truncate text-sm font-medium">{name}</p>
           <p className="text-text-tertiary text-xs">{formatPrice(unitPrice)}</p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`${t.cash.cartRemove}: ${name}`}
-          onClick={() => {
+        <RemoveLineButton
+          name={name}
+          onRemove={() => {
             onRemove(line.productId);
           }}
-        >
-          <X className="size-4" aria-hidden="true" />
-        </Button>
+        />
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-3">

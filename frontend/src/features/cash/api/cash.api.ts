@@ -9,17 +9,26 @@ import type {
   VoidCashMovementRequest,
   CashSession,
   CashMovement,
+  BalancesDueResponse,
 } from '@/shared/types/api.types';
 import {
   cashSessionsListResponseSchema,
   cashSessionDetailResponseSchema,
   cashSessionEnvelopeSchema,
   cashMovementEnvelopeSchema,
+  balancesDueResponseSchema,
 } from '@/shared/schemas';
 import { parseWith } from '@/shared/lib/apiParse';
 import { getCurrentCashSession } from '@/shared/api/cashSession.api';
 
 export const cashApi = {
+  /** Today's bookings of the complex that still owe money (the sell page's "Turnos de hoy"). */
+  bookingsDue: (complexId: string, signal?: AbortSignal): Promise<BalancesDueResponse> =>
+    api
+      .get(`complexes/${complexId}/cash/bookings-due`, withSignal(signal))
+      .json()
+      .then(parseWith(balancesDueResponseSchema, 'cashApi.bookingsDue')),
+
   list: (
     complexId: string,
     params?: { cursor?: string | undefined; limit?: number },
