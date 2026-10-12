@@ -282,101 +282,111 @@ func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *b
 	}
 
 	return m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
-		// H-15: booking.Status was read by ConfirmPayment well before this
-		// transaction opened — it is what that handler's own "cannot confirm a
-		// cancelled booking" check is based on — so a client cancellation
-		// committing in the gap used to reach the UPDATE below anyway, with
-		// bookings_forbid_status_reversal refusing the cancelled -> confirmed
-		// move and the plain database error falling through to a 500 after the
-		// owner had already taken the client's cash. Re-reading the status here,
-		// inside the same transaction the payment is about to be inserted in, is
-		// what closes that gap: the check and the act can no longer be separated
-		// by a race.
-		// The court-day lock is taken FIRST, ahead of the row lock below, and the
-		// order is the whole point.
-		//
-		// Two writers reach the same pair of locks from opposite directions.
-		// InsertSafe (internal/bookings/store/bookings.go) takes lockCourtDays and then
-		// UPDATEs the stale pending bookings that overlap the hours it wants
-		// (ReleaseStalePendingOverlaps), which locks those rows. This transaction
-		// used to take the booking row first — guardBookingConfirmable's
-		// SELECT ... FOR UPDATE — and then ask guardSlotStillFree for the court-day
-		// lock. Advisory lock then row, against row then advisory lock: a deadlock,
-		// and a reachable one rather than a theoretical one. The row InsertSafe
-		// wants to cancel is public, pending, unpaid and past its payment expiry —
-		// exactly the booking an owner is confirming when they take cash at the
-		// counter for a checkout that timed out. PostgreSQL breaks the tie by
-		// aborting one side with 40P01, which is neither ErrSlotUnavailable nor
-		// ErrDuplicateBooking and so falls through to the generic 500 that H-15
-		// exists to remove.
-		//
-		// Taking the court-day lock first makes both paths agree, so they queue
-		// instead of deadlocking. It is guarded by the same status test the two
-		// guards use, so the refund path — which calls this with a cancelled
-		// booking and must not be serialized against the court's day at all —
-		// still takes no lock.
-		if b.Status == "confirmed" {
-			if err := slotguard.LockCourtDay(ctx, tx, b.CourtID, b.Date); err != nil {
-				return err
-			}
-		}
-
-		if err := m.guardBookingConfirmable(ctx, tx, b); err != nil {
-			return err
-		}
-
-		// Before anything is written: the slot this booking is about to claim has to
-		// still be free. The court-day lock it asks for is already held from above;
-		// pg_advisory_xact_lock is re-entrant within a transaction, so asking twice
-		// is free rather than a second wait.
-		if err := m.guardSlotStillFree(ctx, tx, b); err != nil {
-			return err
-		}
-
-		// INSERT payment.
-		dbPayment, err := qtx.InsertPayment(ctx, db.InsertPaymentParams{
-			BookingID: data.UUIDToPg(p.BookingID),
-			ComplexID: data.UUIDToPg(p.ComplexID),
-			//nolint:gosec // G115: currency amount (cents) derived from booking.DepositAmount (validated <= Price) or
-			// MercadoPago's own payment amount; realistically far below int32 range.
-			Amount: int32(p.Amount),
-			Method: db.PaymentMethod(p.Method),
-			Status: db.PaymentStatus(p.Status),
-			//nolint:gosec // G115: currency amount (cents) derived from a bounded calculation; far below int32 range.
-			ServiceFee:     int32(p.ServiceFee),
-			MpPaymentID:    data.TextToPg(p.MPPaymentID),
-			MpPreferenceID: data.TextToPg(p.MPPreferenceID),
-			StatusDetail:   data.TextToPg(p.StatusDetail),
-		})
-		if err != nil {
-			return fmt.Errorf("insert payment: %w", err)
-		}
-
-		p.ID = data.PgToUUID(dbPayment.ID)
-		p.CreatedAt = data.PgToTime(dbPayment.CreatedAt)
-		p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
-
-		// UPDATE booking status.
-		dbBooking, err := qtx.UpdateBooking(ctx, db.UpdateBookingParams{
-			Status:           db.BookingStatus(b.Status),
-			CollectionStatus: string(b.CollectionStatus),
-			RefundStatus:     string(b.RefundStatus),
-			Notes:            data.TextToPg(b.Notes),
-			//nolint:gosec // G115: DepositAmount bounded to Price (bookings_create.go validation); far below int32 range.
-			DepositAmount: int32(b.DepositAmount),
-			ID:            data.UUIDToPg(b.ID),
-			// Neither InsertAndConfirmBooking nor ConfirmWebhookPayment sets the
-			// marker; both carry through whatever the in-memory Booking already
-			// holds (nil, for every booking reaching these two confirm paths).
-			RefundIntentAt: data.TimePtrToPg(b.RefundIntentAt),
-		})
-		if err != nil {
-			return fmt.Errorf("update booking: %w", err)
-		}
-
-		b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
-		return nil
+		return m.ConfirmInTx(ctx, tx, qtx, p, b)
 	})
+}
+
+// ConfirmInTx is InsertAndConfirmBooking's transaction body, for a caller that
+// already holds the transaction and must write the payment in the same one (the
+// sales checkout records a sale and its booking balances atomically). It takes the
+// court-day lock, the booking row lock and the slot guard exactly as
+// InsertAndConfirmBooking does, so the lock order it documents still holds: a
+// caller must lock the court day BEFORE it locks the booking row.
+func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, p *Payment, b *bookingstore.Booking) error {
+	// H-15: booking.Status was read by ConfirmPayment well before this
+	// transaction opened — it is what that handler's own "cannot confirm a
+	// cancelled booking" check is based on — so a client cancellation
+	// committing in the gap used to reach the UPDATE below anyway, with
+	// bookings_forbid_status_reversal refusing the cancelled -> confirmed
+	// move and the plain database error falling through to a 500 after the
+	// owner had already taken the client's cash. Re-reading the status here,
+	// inside the same transaction the payment is about to be inserted in, is
+	// what closes that gap: the check and the act can no longer be separated
+	// by a race.
+	// The court-day lock is taken FIRST, ahead of the row lock below, and the
+	// order is the whole point.
+	//
+	// Two writers reach the same pair of locks from opposite directions.
+	// InsertSafe (internal/bookings/store/bookings.go) takes lockCourtDays and then
+	// UPDATEs the stale pending bookings that overlap the hours it wants
+	// (ReleaseStalePendingOverlaps), which locks those rows. This transaction
+	// used to take the booking row first — guardBookingConfirmable's
+	// SELECT ... FOR UPDATE — and then ask guardSlotStillFree for the court-day
+	// lock. Advisory lock then row, against row then advisory lock: a deadlock,
+	// and a reachable one rather than a theoretical one. The row InsertSafe
+	// wants to cancel is public, pending, unpaid and past its payment expiry —
+	// exactly the booking an owner is confirming when they take cash at the
+	// counter for a checkout that timed out. PostgreSQL breaks the tie by
+	// aborting one side with 40P01, which is neither ErrSlotUnavailable nor
+	// ErrDuplicateBooking and so falls through to the generic 500 that H-15
+	// exists to remove.
+	//
+	// Taking the court-day lock first makes both paths agree, so they queue
+	// instead of deadlocking. It is guarded by the same status test the two
+	// guards use, so the refund path — which calls this with a cancelled
+	// booking and must not be serialized against the court's day at all —
+	// still takes no lock.
+	if b.Status == "confirmed" {
+		if err := slotguard.LockCourtDay(ctx, tx, b.CourtID, b.Date); err != nil {
+			return err
+		}
+	}
+
+	if err := m.guardBookingConfirmable(ctx, tx, b); err != nil {
+		return err
+	}
+
+	// Before anything is written: the slot this booking is about to claim has to
+	// still be free. The court-day lock it asks for is already held from above;
+	// pg_advisory_xact_lock is re-entrant within a transaction, so asking twice
+	// is free rather than a second wait.
+	if err := m.guardSlotStillFree(ctx, tx, b); err != nil {
+		return err
+	}
+
+	// INSERT payment.
+	dbPayment, err := qtx.InsertPayment(ctx, db.InsertPaymentParams{
+		BookingID: data.UUIDToPg(p.BookingID),
+		ComplexID: data.UUIDToPg(p.ComplexID),
+		//nolint:gosec // G115: currency amount (cents) derived from booking.DepositAmount (validated <= Price) or
+		// MercadoPago's own payment amount; realistically far below int32 range.
+		Amount: int32(p.Amount),
+		Method: db.PaymentMethod(p.Method),
+		Status: db.PaymentStatus(p.Status),
+		//nolint:gosec // G115: currency amount (cents) derived from a bounded calculation; far below int32 range.
+		ServiceFee:     int32(p.ServiceFee),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
+		StatusDetail:   data.TextToPg(p.StatusDetail),
+	})
+	if err != nil {
+		return fmt.Errorf("insert payment: %w", err)
+	}
+
+	p.ID = data.PgToUUID(dbPayment.ID)
+	p.CreatedAt = data.PgToTime(dbPayment.CreatedAt)
+	p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
+
+	// UPDATE booking status.
+	dbBooking, err := qtx.UpdateBooking(ctx, db.UpdateBookingParams{
+		Status:           db.BookingStatus(b.Status),
+		CollectionStatus: string(b.CollectionStatus),
+		RefundStatus:     string(b.RefundStatus),
+		Notes:            data.TextToPg(b.Notes),
+		//nolint:gosec // G115: DepositAmount bounded to Price (bookings_create.go validation); far below int32 range.
+		DepositAmount: int32(b.DepositAmount),
+		ID:            data.UUIDToPg(b.ID),
+		// Neither InsertAndConfirmBooking nor ConfirmWebhookPayment sets the
+		// marker; both carry through whatever the in-memory Booking already
+		// holds (nil, for every booking reaching these two confirm paths).
+		RefundIntentAt: data.TimePtrToPg(b.RefundIntentAt),
+	})
+	if err != nil {
+		return fmt.Errorf("update booking: %w", err)
+	}
+
+	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
+	return nil
 }
 
 // ConfirmWebhookPayment updates an existing payment and confirms the booking atomically in a transaction.
