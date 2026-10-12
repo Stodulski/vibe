@@ -44,4 +44,17 @@ describe('ComplexInfoRow', () => {
     render(<ComplexInfoRow complex={makeComplex()} />);
     expect(screen.getByRole('link', { name: /\+541155550000/ })).toHaveAttribute('href', 'tel:+541155550000');
   });
+
+  it('offers WhatsApp to the club in a new tab, next to the phone', () => {
+    render(<ComplexInfoRow complex={makeComplex()} />);
+    const link = screen.getByRole('link', { name: 'Escribir por WhatsApp a Club Test' });
+    expect(link).toHaveAttribute('href', 'https://wa.me/541155550000');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('offers no WhatsApp link when the club has no phone', () => {
+    render(<ComplexInfoRow complex={makeComplex({ phone: '' })} />);
+    expect(screen.queryByRole('link', { name: /WhatsApp/ })).not.toBeInTheDocument();
+  });
 });

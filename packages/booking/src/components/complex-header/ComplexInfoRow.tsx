@@ -1,7 +1,9 @@
 import { MapPin, Phone, Mail } from 'lucide-react';
+import { WhatsappIcon } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicComplex } from '../../api/types';
 import { fullAddress } from '../../lib/complexAddress';
+import { whatsappChatHref } from '../../lib/whatsapp';
 
 const t = BOOKING_MESSAGES;
 
@@ -26,6 +28,8 @@ const t = BOOKING_MESSAGES;
  * rows sit on the same 14px rhythm.
  */
 export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
+  const whatsAppHref = whatsappChatHref(complex.phone);
+
   return (
     <div className="text-micro text-text-secondary mt-3 flex flex-col gap-2 sm:text-xs lg:gap-2.5 lg:text-sm">
       {/* All three rows centre their icon against the text. The address used
@@ -38,13 +42,30 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
       </div>
 
       {complex.phone && (
-        <a
-          href={`tel:${complex.phone}`}
-          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
-        >
-          <Phone className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
-          <span>{complex.phone}</span>
-        </a>
+        // The phone and its WhatsApp chat share one line: the same number,
+        // reached two ways, with the chat beside the call.
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <a
+            href={`tel:${complex.phone}`}
+            className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+          >
+            <Phone className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
+            <span>{complex.phone}</span>
+          </a>
+
+          {whatsAppHref && (
+            <a
+              href={whatsAppHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${complex.name}`}
+              className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+            >
+              <WhatsappIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
+              <span>{BOOKING_MESSAGES.publicBooking.whatsAppLabel}</span>
+            </a>
+          )}
+        </div>
       )}
 
       {complex.email ? (

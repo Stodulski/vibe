@@ -4,6 +4,7 @@ import { formatDateFull, formatHourRange, formatPrice } from '@vibe/ui';
 import { publicComplexPath } from '../../lib/publicPaths';
 import { BOOKING_MESSAGES } from '../../messages';
 import { readStoredBookingInfo } from '../../lib/storedBookingInfo';
+import { whatsappChatHref } from '../../lib/whatsapp';
 
 const t = BOOKING_MESSAGES;
 
@@ -28,6 +29,7 @@ const t = BOOKING_MESSAGES;
  */
 export function PaymentFailedScreen({ slug }: { slug: string }) {
   const booking = readStoredBookingInfo();
+  const whatsAppHref = booking ? whatsappChatHref(booking.complexPhone) : null;
 
   return (
     <div className="animate-fade-in mx-auto flex w-full max-w-md flex-col items-center gap-5 px-2 py-10 text-center sm:gap-6 sm:px-0 sm:py-16">
@@ -55,6 +57,18 @@ export function PaymentFailedScreen({ slug }: { slug: string }) {
         <Button asChild size="lg" className="min-h-12">
           <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedChooseAnother}</a>
         </Button>
+        {booking && whatsAppHref && (
+          <Button asChild variant="ghost" className="min-h-12">
+            <a
+              href={whatsAppHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${t.publicBooking.writeOnWhatsAppTo} ${booking.complexName}`}
+            >
+              {t.publicBooking.paymentFailedWhatsApp}
+            </a>
+          </Button>
+        )}
         {booking && (
           <Button asChild variant="ghost" className="min-h-12">
             <a href={`tel:${booking.complexPhone}`}>{t.publicBooking.paymentFailedCallComplex}</a>
