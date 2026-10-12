@@ -125,7 +125,14 @@ func ContextSetRequestID(r *http.Request, id string) *http.Request {
 // ContextGetRequestID returns the correlation id, or "" when the request never
 // passed through the request-id middleware.
 func ContextGetRequestID(r *http.Request) string {
-	if id, ok := r.Context().Value(requestIDContextKey{}).(string); ok {
+	return RequestIDFromContext(r.Context())
+}
+
+// RequestIDFromContext returns the correlation id carried by ctx, or "" when none
+// was set. Work that outlives its request, such as a queued job, records the id
+// this way so its log lines can be joined to the request that caused them.
+func RequestIDFromContext(ctx context.Context) string {
+	if id, ok := ctx.Value(requestIDContextKey{}).(string); ok {
 		return id
 	}
 	return ""

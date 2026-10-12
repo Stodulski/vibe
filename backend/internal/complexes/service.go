@@ -16,6 +16,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/indexnow"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/storage"
@@ -76,6 +77,9 @@ type Dependencies struct {
 	// Run schedules background work on the application's tracked goroutines, so
 	// cleanup started here still completes during a graceful shutdown.
 	Run func(func())
+	// Pages hears about each committed change to a complex's public page. Nil
+	// publishes nothing.
+	Pages PageIndexer
 }
 
 // TokenRefresher renews a seller's MercadoPago OAuth credentials.
@@ -112,6 +116,7 @@ type Service struct {
 	audit    Recorder
 	logger   *slog.Logger
 	run      func(func())
+	pages    PageIndexer
 	cfg      Config
 
 	// refreshLockPoll and refreshLockWait pace and bound the wait for another
@@ -139,6 +144,7 @@ func NewService(deps Dependencies, cfg Config) *Service {
 		audit:    deps.Audit,
 		logger:   deps.Logger,
 		run:      deps.Run,
+		pages:    deps.Pages,
 		cfg:      cfg,
 
 		refreshLockPoll: mpRefreshLockPoll,
@@ -276,6 +282,7 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 	}
 
 	s.record(complex.ID, actor, "create", &complex.ID, nil, complex)
+	s.pageChanged(ctx, indexnow.Change{ComplexID: complex.ID, After: publicSnapshot(complex)})
 
 	// Create default schedules (Mon-Sun, 08:00-23:00).
 	days := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
@@ -384,6 +391,7 @@ type UpdateInput struct {
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, actor Actor, in UpdateInput) (*complexstore.Complex, error) {
+	before := publicSnapshot(complex)
 	oldLogoURL := complex.LogoURL
 	oldCoverURL := complex.CoverURL
 
@@ -465,6 +473,7 @@ func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, act
 	}
 
 	s.record(complex.ID, actor, "update", &complex.ID, nil, complex)
+	s.pageChanged(ctx, indexnow.Change{ComplexID: complex.ID, Before: before, After: publicSnapshot(complex)})
 
 	// Clean up old images from R2 when URLs change.
 	//
@@ -523,6 +532,7 @@ func (s *Service) Delete(ctx context.Context, complex *complexstore.Complex, act
 	}
 
 	s.record(complex.ID, actor, "delete", &complex.ID, complex, deletionOutcome{CourtsDeactivated: courtsDeactivated})
+	s.pageChanged(ctx, indexnow.Change{ComplexID: complex.ID, Before: publicSnapshot(complex)})
 
 	if err := s.bookings.CancelFutureByComplex(ctx, complex.ID); err != nil {
 		s.logger.Error("failed to cancel future bookings for complex", "error", err, "complex_id", complex.ID)

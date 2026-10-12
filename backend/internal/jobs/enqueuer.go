@@ -33,13 +33,19 @@ type Enqueuer struct {
 	MaxAttempts int
 }
 
-// Enqueue records a job. An empty dedupKey means the job is not deduplicated
-// and every call records another one.
+// Enqueue records a job that is due now. An empty dedupKey means the job is not
+// deduplicated and every call records another one.
 func (e *Enqueuer) Enqueue(jobType string, payload any, dedupKey string) {
+	e.EnqueueAt(jobType, payload, time.Time{}, dedupKey)
+}
+
+// EnqueueAt records a job that becomes due at runAt, which is now when zero.
+// The dedup rule is Enqueue's.
+func (e *Enqueuer) EnqueueAt(jobType string, payload any, runAt time.Time, dedupKey string) {
 	ctx, cancel := context.WithTimeout(context.Background(), enqueueTimeout)
 	defer cancel()
 
-	_, recorded, err := e.Store.Enqueue(ctx, jobType, payload, time.Time{}, e.MaxAttempts, dedupKey)
+	_, recorded, err := e.Store.Enqueue(ctx, jobType, payload, runAt, e.MaxAttempts, dedupKey)
 	switch {
 	case err != nil:
 		e.count("enqueue_failed", 1)
