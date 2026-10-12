@@ -1,3 +1,4 @@
+import { addDays } from 'date-fns/addDays';
 import { isValid } from 'date-fns/isValid';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -98,11 +99,23 @@ export function buildComplexSchema(
  * in the past. "Today" is the venue's calendar day, so the server render and the
  * hydrating client pick the same date.
  */
+/** How far ahead a day can be booked. Mirrors `bookingstore.MaxBookingHorizonDays` in the backend. */
+export const MAX_BOOKING_HORIZON_DAYS = 365;
+
+const DAY_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The day the `?date=` param asks for, when it names a day that can be booked:
+ * a real calendar date from today up to the booking horizon. Anything else
+ * (missing, malformed, a timestamp, a past or too distant day) falls back to
+ * today.
+ */
 export function parseDateParam(param: string | null, now: Date = new Date()): Date {
   const today = todayInVenueTz(now);
-  if (!param) return today;
+  if (!param || !DAY_PARAM_RE.test(param)) return today;
   const parsed = parseISO(param);
   if (!isValid(parsed)) return today;
   if (startOfDay(parsed) < today) return today;
+  if (startOfDay(parsed) > addDays(today, MAX_BOOKING_HORIZON_DAYS)) return today;
   return parsed;
 }

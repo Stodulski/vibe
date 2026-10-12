@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns/format';
 import { addDays } from 'date-fns/addDays';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { es } from 'date-fns/locale/es';
 import { BOOKING_MESSAGES } from '../messages';
 import type { Schedule } from '../api/types';
@@ -22,7 +23,12 @@ export function DateSelector({ selectedDate, onDateSelect, schedules }: DateSele
   // The venue's today, not the browser's: the server and the hydrating client must agree.
   const today = useMemo(() => todayInVenueTz(), []);
   const [daysCount, setDaysCount] = useState(14);
-  const days = useMemo(() => Array.from({ length: daysCount }, (_, i) => addDays(today, i)), [today, daysCount]);
+  // A day chosen from elsewhere (a fully booked day's "next free day") can lie
+  // past the strip's current end. The strip grows far enough to show it, so it
+  // is on screen and the auto-scroll below can reach it.
+  const selectedOffset = differenceInCalendarDays(selectedDate, today) + 1;
+  const visibleCount = Math.max(daysCount, selectedOffset);
+  const days = useMemo(() => Array.from({ length: visibleCount }, (_, i) => addDays(today, i)), [today, visibleCount]);
 
   const scrollRef = useLoadMoreOnScroll(() => {
     setDaysCount((prev) => prev + 14);
@@ -39,7 +45,7 @@ export function DateSelector({ selectedDate, onDateSelect, schedules }: DateSele
         ref={scrollRef}
         role="radiogroup"
         aria-label={t.publicBooking.dateStripLabel}
-        className="flex scrollbar-none gap-3 overflow-x-auto px-1 pt-1 pb-3"
+        className="scrollbar-none flex gap-3 overflow-x-auto px-1 pt-1 pb-3"
       >
         {days.map((date, index) => (
           <DateButton

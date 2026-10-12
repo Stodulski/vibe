@@ -5,6 +5,7 @@ import { useComplexPageState } from './complex-page/useComplexPageState';
 import { useSlotInvalidation, isStartTimeStillOffered } from './complex-page/useSlotInvalidation';
 import { useAvailableSports } from './complex-page/useAvailableSports';
 import { useFilteredCourts } from './complex-page/useFilteredCourts';
+import { useEmptyDay } from './complex-page/useEmptyDay';
 import { useHandleContinue } from './complex-page/useHandleContinue';
 import { NotFoundState } from './complex-page/NotFoundState';
 import { ComplexErrorState } from './complex-page/ComplexErrorState';
@@ -40,6 +41,14 @@ function useComplexAvailability(slug: string | undefined, state: ReturnType<type
   const activePendingStartTime = isStartTimeStillOffered(state.pendingStartTime, filteredCourts)
     ? state.pendingStartTime
     : null;
+  // Why an empty grid is empty: a filter, or a day with nothing left to book.
+  const emptyDay = useEmptyDay({
+    slug: slug ?? '',
+    dateStr: state.debouncedDateStr,
+    duration: state.duration,
+    availability,
+    shownCourts: filteredCourts,
+  });
 
   return {
     availability,
@@ -50,6 +59,7 @@ function useComplexAvailability(slug: string | undefined, state: ReturnType<type
     activeSlot,
     filteredCourts,
     activePendingStartTime,
+    emptyDay,
   };
 }
 
@@ -120,6 +130,7 @@ function ComplexPageBody({
     activeSlot,
     filteredCourts,
     activePendingStartTime,
+    emptyDay,
   } = availabilityBag;
 
   return (
@@ -151,6 +162,7 @@ function ComplexPageBody({
       pendingStartTime={activePendingStartTime}
       onPendingStartTimeChange={state.setPendingStartTime}
       answeredFromUrl={state.answeredFromUrl}
+      emptyDay={emptyDay}
     />
   );
 }

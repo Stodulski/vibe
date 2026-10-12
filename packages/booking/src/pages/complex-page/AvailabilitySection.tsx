@@ -4,6 +4,8 @@ import { cn } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { CourtAvailability } from '../../api/types';
 import { AvailabilityErrorState } from './AvailabilityErrorState';
+import { EmptyDayState, type FullDayContext } from './EmptyDayState';
+import type { EmptyDay } from './emptyDay';
 
 const t = BOOKING_MESSAGES;
 
@@ -23,6 +25,10 @@ interface AvailabilitySectionProps {
   onContinue: (selection?: SelectedSlot) => void;
   pendingStartTime: string | null;
   onPendingStartTimeChange: (startTime: string | null) => void;
+  /** Why the grid has nothing to offer, or `null` when it has courts to show. See `useEmptyDay`. */
+  emptyDay: EmptyDay | null;
+  /** The complex, the duration and the day selection, for the full-day panel. */
+  fullDay: FullDayContext;
 }
 
 export function AvailabilitySection({
@@ -38,6 +44,8 @@ export function AvailabilitySection({
   onContinue,
   pendingStartTime,
   onPendingStartTimeChange,
+  emptyDay,
+  fullDay,
 }: AvailabilitySectionProps) {
   if (isLoading) {
     return (
@@ -53,6 +61,10 @@ export function AvailabilitySection({
   // request itself.
   if (isError) {
     return <AvailabilityErrorState onRetry={onRetry} />;
+  }
+
+  if (isOpen && emptyDay) {
+    return <EmptyDayState emptyDay={emptyDay} dateStr={dateStr} {...fullDay} />;
   }
 
   if (isOpen) {

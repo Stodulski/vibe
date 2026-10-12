@@ -12,6 +12,9 @@ vi.mock('../../components/CourtSelector', () => ({
 vi.mock('../../components/SkeletonSlotGrid', () => ({
   SkeletonSlotGrid: () => <div data-testid="skeleton-grid">Loading</div>,
 }));
+vi.mock('./FullDayPanel', () => ({
+  FullDayPanel: () => <div data-testid="full-day-panel">FullDay</div>,
+}));
 
 const noop = () => {
   /* no-op */
@@ -32,6 +35,8 @@ function renderSection(overrides: Partial<Parameters<typeof AvailabilitySection>
       onContinue={noop}
       pendingStartTime={null}
       onPendingStartTimeChange={noop}
+      emptyDay={null}
+      fullDay={{ slug: 'club-norte', phone: '1155550000', duration: 90, onSelectDate: noop }}
       {...overrides}
     />,
   );
@@ -68,5 +73,24 @@ describe('AvailabilitySection', () => {
     renderSection({ isLoading: true, isError: true, isOpen: false });
     expect(screen.getByTestId('skeleton-grid')).toBeInTheDocument();
     expect(screen.queryByText(t.publicBooking.availabilityLoadError)).not.toBeInTheDocument();
+  });
+
+  it('renders the full-day state when the day has no free slot for any sport or duration', () => {
+    renderSection({ emptyDay: 'full' });
+    expect(screen.getByTestId('full-day-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('court-selector')).not.toBeInTheDocument();
+  });
+
+  it('renders a filter hint, not the full-day state, when a filter hides the free slots', () => {
+    renderSection({ emptyDay: 'filtered' });
+    expect(screen.getByText(t.publicBooking.noAvailability)).toBeInTheDocument();
+    expect(screen.getByText(t.publicBooking.filterHint)).toBeInTheDocument();
+    expect(screen.queryByTestId('full-day-panel')).not.toBeInTheDocument();
+  });
+
+  it('keeps the skeleton while the other durations are still being checked', () => {
+    renderSection({ emptyDay: 'checking' });
+    expect(screen.getByTestId('skeleton-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('full-day-panel')).not.toBeInTheDocument();
   });
 });

@@ -53,3 +53,10 @@ export const availabilityEnvelopeSchema = z
     availability: availabilityDataSchema,
   })
   .loose() satisfies z.ZodType<{ availability: AvailabilityData }>;
+
+/** `{ date: "YYYY-MM-DD" | null }` — `publicBookingApi.getNextAvailable`. `null` when no day in the window has a free slot. */
+export const nextAvailableSchema = z
+  .object({
+    date: z.string().nullable(),
+  })
+  .loose();

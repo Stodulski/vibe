@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { addDays } from 'date-fns/addDays';
+import { format } from 'date-fns/format';
 import { buildComplexSchema, parseDateParam } from './schema';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../../api/types';
 import { todayInVenueTz } from '../../lib/venueDate';
@@ -182,6 +184,30 @@ describe('parseDateParam', () => {
     const result = parseDateParam('2020-01-01');
     const today = todayInVenueTz();
     expect(result.toDateString()).toBe(today.toDateString());
+  });
+
+  it('accepts the last day of the booking horizon', () => {
+    const today = todayInVenueTz();
+    const lastDay = addDays(today, 365);
+    expect(format(parseDateParam(format(lastDay, 'yyyy-MM-dd')), 'yyyy-MM-dd')).toBe(format(lastDay, 'yyyy-MM-dd'));
+  });
+
+  it('returns today for a date past the booking horizon', () => {
+    const today = todayInVenueTz();
+    const beyond = addDays(today, 366);
+    expect(parseDateParam(format(beyond, 'yyyy-MM-dd')).toDateString()).toBe(today.toDateString());
+  });
+
+  it('returns today for a day that does not exist in the calendar', () => {
+    const today = todayInVenueTz();
+    const year = today.getFullYear() + 1;
+    expect(parseDateParam(`${String(year)}-02-30`).toDateString()).toBe(today.toDateString());
+  });
+
+  it('returns today for a timestamp, because the param names a day and nothing else', () => {
+    const today = todayInVenueTz();
+    const year = today.getFullYear() + 1;
+    expect(parseDateParam(`${String(year)}-06-15T10:00`).toDateString()).toBe(today.toDateString());
   });
 
   it('parses a valid future date', () => {

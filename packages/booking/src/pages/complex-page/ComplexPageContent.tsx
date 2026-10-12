@@ -14,6 +14,7 @@ import { CourtDirectory } from './CourtDirectory';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
+import type { EmptyDay } from './emptyDay';
 
 interface ComplexPageContentProps {
   complex: PublicComplex;
@@ -53,6 +54,8 @@ interface ComplexPageContentProps {
   onPendingStartTimeChange: (startTime: string | null) => void;
   /** Questions the URL already answered, so the steps open past them. */
   answeredFromUrl: { sport: boolean; duration: boolean };
+  /** Why the grid of the selected day is empty, or `null` when it has courts to show. See `useEmptyDay`. */
+  emptyDay: EmptyDay | null;
 }
 
 /**
@@ -114,16 +117,13 @@ export function ComplexPageContent({
       </div>
 
       <div className="mt-6 sm:mt-10">
-        <BookingFlow {...flow} />
+        <BookingFlow {...flow} complex={complex} onDateSelect={onDateSelect} />
       </div>
     </div>
   );
 }
 
-type BookingFlowProps = Omit<
-  ComplexPageContentProps,
-  'complex' | 'schedules' | 'courts' | 'mpConnected' | 'selectedDate' | 'onDateSelect'
->;
+type BookingFlowProps = Omit<ComplexPageContentProps, 'schedules' | 'courts' | 'mpConnected' | 'selectedDate'>;
 
 /** The questions and the hours. */
 function BookingFlow({
@@ -146,6 +146,9 @@ function BookingFlow({
   pendingStartTime,
   onPendingStartTimeChange,
   answeredFromUrl,
+  emptyDay,
+  complex,
+  onDateSelect,
 }: BookingFlowProps) {
   return (
     <BookingSteps
@@ -174,6 +177,8 @@ function BookingFlow({
         onContinue={onContinue}
         pendingStartTime={pendingStartTime}
         onPendingStartTimeChange={onPendingStartTimeChange}
+        emptyDay={emptyDay}
+        fullDay={{ slug: complex.slug, phone: complex.phone, duration: selectedDuration, onSelectDate: onDateSelect }}
       />
     </BookingSteps>
   );
