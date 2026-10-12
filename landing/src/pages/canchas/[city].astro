@@ -70,7 +70,7 @@ if (status === 503) Astro.response.headers.set('Retry-After', '60');
   jsonLd={view ? view.jsonLd : []}
 >
   <Nav startScrolled={true} linkPrefix="/" logoHref="/" />
-  <main id="contenido" class="mx-auto flex w-full max-w-3xl flex-col px-4 pb-16 pt-28 sm:pt-32">
+  <main id="contenido" class="mx-auto flex w-full max-w-3xl flex-col px-4 pb-16 pt-28 wrap-anywhere sm:pt-32">
     {view ? (
       <>
         <nav aria-label="Migas de pan" class="text-sm text-vibe-muted">
