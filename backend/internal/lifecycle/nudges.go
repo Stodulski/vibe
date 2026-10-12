@@ -136,6 +136,9 @@ func (n *Nudger) ownerEmail(ctx context.Context, kind Kind, c Candidate) (notifi
 		cta = n.cfg.FrontendURL + "/courts"
 	case KindInactive:
 		cta = n.cfg.FrontendURL + "/dashboard"
+	case KindFinishSignup:
+		// Leads have no account; nudgeLead builds their email.
+		return notifications.LifecycleNudgeEmail{}, false
 	default:
 		return notifications.LifecycleNudgeEmail{}, false
 	}

@@ -71,6 +71,8 @@ func (s *Store) ListCandidates(ctx context.Context, kind lifecycle.Kind, limit i
 		for _, r := range rows {
 			out = append(out, candidate(r.ID, r.Email, r.FirstName, r.ComplexName))
 		}
+	case lifecycle.KindFinishSignup:
+		return nil, fmt.Errorf("lifecycle store: %q is a lead kind, use ListFinishSignupCandidates", kind)
 	default:
 		return nil, fmt.Errorf("lifecycle store: no owner candidate query for kind %q", kind)
 	}
