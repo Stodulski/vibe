@@ -2,12 +2,17 @@ import { useEffect, useRef } from 'react';
 import { isSameDay } from 'date-fns/isSameDay';
 
 /**
- * Scrolls the selected date's button into view: instantly on first mount,
- * smoothly on subsequent selection changes. Deliberately reads `days` from a
- * ref updated every render rather than listing it as a dependency —
- * re-scrolling every time more days load (infinite scroll) would fight the
- * user's own scroll position — so the effect still only re-runs on
- * `selectedDate`, but the dependency array no longer lies about it.
+ * Brings the selected date's button into view in the strip. The first
+ * placement, on load, moves only the strip sideways: `scrollIntoView` also
+ * scrolls the page when the strip sits below the fold (desktop), so loading the
+ * booking would jump the visitor down. Later selections, such as a "Ver el"
+ * from the full-day panel, use `scrollIntoView` smoothly, so the chosen day is
+ * also brought into view when the strip itself is off screen.
+ *
+ * Deliberately reads `days` from a ref updated every render rather than
+ * listing it as a dependency — re-scrolling every time more days load (infinite
+ * scroll) would fight the user's own scroll position — so the effect still only
+ * re-runs on `selectedDate`, but the dependency array no longer lies about it.
  */
 export function useAutoScrollToSelectedDate(
   scrollRef: React.RefObject<HTMLDivElement | null>,
@@ -25,24 +30,32 @@ export function useAutoScrollToSelectedDate(
   });
 
   useEffect(() => {
-    const scrollToSelected = (behavior: ScrollBehavior) => {
-      if (!scrollRef.current) return;
-      const idx = daysRef.current.findIndex((d) => isSameDay(d, selectedDate));
-      const btn = scrollRef.current.children[idx];
-      if (btn instanceof HTMLElement) {
-        btn.scrollIntoView({ behavior, block: 'nearest', inline: 'center' });
-      }
-    };
-
-    // First mount: scroll instantly without animation. Subsequent date
-    // changes: scroll smoothly.
-    const behavior: ScrollBehavior = mountedRef.current ? 'smooth' : 'instant';
+    const first = !mountedRef.current;
     mountedRef.current = true;
     const frame = requestAnimationFrame(() => {
-      scrollToSelected(behavior);
+      const strip = scrollRef.current;
+      if (!strip) return;
+      const idx = daysRef.current.findIndex((d) => isSameDay(d, selectedDate));
+      const btn = strip.children[idx];
+      if (!(btn instanceof HTMLElement)) return;
+      if (first) {
+        centreInStrip(strip, btn);
+      } else {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
     });
     return () => {
       cancelAnimationFrame(frame);
     };
   }, [scrollRef, selectedDate]);
+}
+
+/**
+ * Moves the strip, and nothing else, so the day sits in its middle. Setting
+ * `scrollLeft` cannot scroll the page; `scrollIntoView` can.
+ */
+function centreInStrip(strip: HTMLElement, btn: HTMLElement) {
+  const stripBox = strip.getBoundingClientRect();
+  const btnBox = btn.getBoundingClientRect();
+  strip.scrollLeft += btnBox.left - stripBox.left - (stripBox.width - btnBox.width) / 2;
 }

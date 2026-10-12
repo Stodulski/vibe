@@ -25,6 +25,9 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate);
   const closed = isClosedDay(date, schedules);
+  // The selected fill is tinted, so the tertiary grey under it falls below AA (4.1-4.3:1).
+  // The secondary grey stays above 5:1 on it. Unselected days keep the quieter grey.
+  const labelTone = isSelected ? 'text-text-secondary' : 'text-text-tertiary';
 
   return (
     <button
@@ -66,7 +69,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
           {t.publicBooking.today}
         </span>
       )}
-      <span className="text-text-tertiary text-xs capitalize">{format(date, 'EEE', { locale: es })}</span>
+      <span className={cn(labelTone, 'text-xs capitalize')}>{format(date, 'EEE', { locale: es })}</span>
       <span
         className={cn(
           'text-lg font-bold',
@@ -75,7 +78,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
       >
         {format(date, 'd')}
       </span>
-      <span className="text-text-tertiary text-xs capitalize">{format(date, 'MMM', { locale: es })}</span>
+      <span className={cn(labelTone, 'text-xs capitalize')}>{format(date, 'MMM', { locale: es })}</span>
       {closed && <span className="text-error-text mt-0.5 text-xs font-medium">{t.publicBooking.closed}</span>}
     </button>
   );
