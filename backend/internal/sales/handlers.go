@@ -28,16 +28,22 @@ const noteMaxLen = 500
 // noteMaxTooLong is the message every note field's length check answers with.
 const noteMaxTooLong = "must not be more than 500 characters"
 
-// maxItemsPerSale and minItemsPerSale bound how many distinct products one
-// sale may name in a single request.
-const (
-	minItemsPerSale = 1
-	maxItemsPerSale = 50
-)
+// maxItemsPerSale bounds how many distinct product lines one checkout may name
+// in a single request. A checkout needs at least one product line or booking
+// payment; Create checks that.
+const maxItemsPerSale = 50
 
 // maxQuantityPerLine mirrors sale_items_quantity_check
 // (db/migrations/005_pos_sales.sql).
 const maxQuantityPerLine = 1000
+
+// maxBookingPaymentsPerCheckout bounds the balances one checkout collects, and
+// maxBookingPaymentAmount is the per-balance cap the booking payment path
+// applies (bookings.Service.ConfirmPayment).
+const (
+	maxBookingPaymentsPerCheckout = 20
+	maxBookingPaymentAmount       = 99_999_999
+)
 
 // itemNotSellableMessage is the field message for every salestore.ItemProblem
 // — deliberately the same wording whether the product does not exist or is
@@ -68,7 +74,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	v.Check(len(body.Items) >= minItemsPerSale, "items", "must contain at least 1 item")
 	v.Check(len(body.Items) <= maxItemsPerSale, "items", "must not contain more than 50 items")
 
 	seen := make(map[uuid.UUID]bool, len(body.Items))
@@ -80,11 +85,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		seen[it.ProductId] = true
 
-		// Quantity is a pointer for the same missing-vs-zero reason
-		// products' Create's Price is: a request that omits it must decode
-		// to nil, not a valid-looking 0, because the OpenAPI request
-		// validator that would otherwise catch a missing required field
-		// never runs in production (internal/middleware/openapi.go).
+		// Quantity is a pointer for the same missing-vs-zero reason products'
+		// Create's Price is: a request that omits it must decode to nil, not a
+		// valid-looking 0, because the OpenAPI request validator that would
+		// otherwise catch a missing required field never runs in production
+		// (internal/middleware/openapi.go).
 		field := fmt.Sprintf("items[%d].quantity", i)
 		v.Check(it.Quantity != nil, field, "must be provided")
 		quantity := 0
@@ -96,6 +101,33 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		items = append(items, salestore.ItemInput{ProductID: it.ProductId, Quantity: quantity})
 	}
 
+	balances := make([]salestore.BookingPaymentInput, 0)
+	if body.BookingPayments != nil {
+		entries := *body.BookingPayments
+		v.Check(len(entries) <= maxBookingPaymentsPerCheckout, "booking_payments", "must not contain more than 20 booking payments")
+		seenBooking := make(map[uuid.UUID]bool, len(entries))
+		for i, bp := range entries {
+			field := fmt.Sprintf("booking_payments[%d]", i)
+			if seenBooking[bp.BookingId] {
+				v.Check(false, field+".booking_id", "duplicate booking in the same checkout")
+				continue
+			}
+			seenBooking[bp.BookingId] = true
+
+			// Nullable for the same reason as a line's quantity: a missing amount
+			// is a 422, never a zero that could pass for a valid balance.
+			v.Check(bp.Amount != nil, field+".amount", "must be provided")
+			amount := 0
+			if bp.Amount != nil {
+				amount = *bp.Amount
+				v.Check(amount >= 1, field+".amount", "must be at least 1")
+				v.Check(amount <= maxBookingPaymentAmount, field+".amount", "amount too large")
+			}
+			balances = append(balances, salestore.BookingPaymentInput{BookingID: bp.BookingId, Amount: amount})
+		}
+	}
+
+	v.Check(len(items)+len(balances) > 0, "items", "must contain at least 1 item or 1 booking payment")
 	v.Check(paymentmethod.IsCounter(string(body.Method)), "method", paymentmethod.Message)
 	if body.Note != nil {
 		v.Check(utf8.RuneCountInString(*body.Note) <= noteMaxLen, "note", noteMaxTooLong)
@@ -105,10 +137,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sale, warnings, err := h.svc.Create(r.Context(), complex.ID, h.actor(r), user.ID, CreateInput{
-		Items:  items,
-		Method: string(body.Method),
-		Note:   body.Note,
+	res, err := h.svc.Checkout(r.Context(), complex.ID, h.actor(r), user.ID, CheckoutInput{
+		Items:           items,
+		BookingPayments: balances,
+		Method:          string(body.Method),
+		Note:            body.Note,
 	})
 	if err != nil {
 		var invalid *salestore.ErrInvalidItems
@@ -122,18 +155,62 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			h.respond.FailedValidation(w, r, fieldErrors)
 			return
 		}
+		var unknown *salestore.ErrUnknownBooking
+		if errors.As(err, &unknown) {
+			fieldErrors := map[string]string{}
+			if body.BookingPayments != nil {
+				for i, bp := range *body.BookingPayments {
+					if bp.BookingId == unknown.BookingID {
+						fieldErrors[fmt.Sprintf("booking_payments[%d].booking_id", i)] = "booking not found in this complex"
+					}
+				}
+			}
+			h.respond.FailedValidation(w, r, fieldErrors)
+			return
+		}
 		h.respond.DomainError(w, r, err)
 		return
 	}
 
-	genWarnings := make([]gen.SaleStockWarning, len(warnings))
-	for i, warning := range warnings {
+	// A booking-only checkout has no sale: the field is null, not absent.
+	var genSale any
+	if res.Sale != nil {
+		genSale = toGenSale(&SaleWithItems{Sale: res.Sale, Items: res.Items, BookingPayments: res.BookingLines})
+	}
+	genWarnings := make([]gen.SaleStockWarning, len(res.Warnings))
+	for i, warning := range res.Warnings {
 		genWarnings[i] = toGenStockWarning(warning)
 	}
 
 	h.respond.JSON(w, r, http.StatusCreated, httpx.Envelope{
-		"sale":           toGenSale(sale),
-		"stock_warnings": genWarnings,
+		"sale":             genSale,
+		"stock_warnings":   genWarnings,
+		"booking_payments": toGenSaleBookingPayments(res.BookingLines),
+	})
+}
+
+// BookingsDue handles GET /api/v1/complexes/{id}/cash/bookings-due: today's
+// bookings of the complex that still owe money, for the sell page.
+func (h *Handler) BookingsDue(w http.ResponseWriter, r *http.Request) {
+	complex, ok := httpx.ContextGetComplex(r)
+	if !ok {
+		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
+		return
+	}
+
+	day, rows, err := h.svc.BookingsDue(r.Context(), complex.ID)
+	if err != nil {
+		h.respond.DomainError(w, r, err)
+		return
+	}
+
+	bookings := make([]gen.BalanceDue, len(rows))
+	for i, row := range rows {
+		bookings[i] = toGenBalanceDue(row)
+	}
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
+		"date":     day.Format("2006-01-02"),
+		"bookings": bookings,
 	})
 }
 

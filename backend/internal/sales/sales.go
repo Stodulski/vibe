@@ -14,6 +14,7 @@ package sales
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -27,6 +28,9 @@ import (
 // (internal/sales/store) implements it.
 type Store interface {
 	Create(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, method string, note *string) (*salestore.Sale, []*salestore.SaleItem, []salestore.StockWarning, error)
+	Checkout(ctx context.Context, complexID, actorID uuid.UUID, items []salestore.ItemInput, bookings []salestore.BookingPaymentInput, method string, note *string) (*salestore.CheckoutResult, error)
+	ListBookingPaymentsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error)
+	ListBalancesDue(ctx context.Context, complexID uuid.UUID, day time.Time) ([]*salestore.BalanceDue, error)
 	GetByID(ctx context.Context, complexID, saleID uuid.UUID) (*salestore.Sale, error)
 	ListItemsBySale(ctx context.Context, complexID, saleID uuid.UUID) ([]*salestore.SaleItem, error)
 	ListItemsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) ([]*salestore.SaleItem, error)
@@ -39,6 +43,15 @@ type Store interface {
 type SaleWithItems struct {
 	*salestore.Sale
 	Items []*salestore.SaleItem
+	// BookingPayments are the booking balances this checkout collected with the
+	// sale, in the order they were recorded. Empty when there were none.
+	BookingPayments []*salestore.BookingPaymentLine
+}
+
+// BookingChangedPublisher tells the realtime hub a booking changed, so open
+// booking pages refresh. internal/realtime's hub satisfies it.
+type BookingChangedPublisher interface {
+	PublishBookingChanged(complexID uuid.UUID)
 }
 
 // Recorder writes the audit trail for a sale's lifecycle.
@@ -70,11 +83,16 @@ type Handler struct {
 // way products.ErrDuplicateProductName does, because the table can only carry
 // a flat message and this refusal names one or more fields.
 var refusals = httpx.Refusals{
-	salestore.ErrNoOpenCashSession:   httpx.Conflict("no cash session is open"),
-	salestore.ErrZeroTotal:           httpx.Unprocessable("sale total must be greater than zero"),
-	salestore.ErrTotalExceedsCap:     httpx.Unprocessable("sale total must not exceed 2000000000"),
-	salestore.ErrAlreadyVoided:       httpx.Conflict("this sale has already been voided"),
-	salestore.ErrIncomeAlreadyVoided: httpx.Conflict("this sale's income movement was already voided and cannot be voided again"),
+	salestore.ErrNoOpenCashSession:      httpx.Conflict("no cash session is open"),
+	salestore.ErrZeroTotal:              httpx.Unprocessable("sale total must be greater than zero"),
+	salestore.ErrTotalExceedsCap:        httpx.Unprocessable("sale total must not exceed 2000000000"),
+	salestore.ErrAlreadyVoided:          httpx.Conflict("this sale has already been voided"),
+	salestore.ErrIncomeAlreadyVoided:    httpx.Conflict("this sale's income movement was already voided and cannot be voided again"),
+	salestore.ErrSaleHasBookingPayments: httpx.Conflict("this sale collected booking payments, which cannot be voided from the sell page"),
+	salestore.ErrBookingBalanceMismatch: httpx.Conflict("a booking's balance changed since the cart was loaded, reload the balances and try again"),
+	salestore.ErrBookingAlreadyPaid:     httpx.Conflict("this booking is already fully paid"),
+	salestore.ErrBookingNotPayable:      httpx.Conflict("this booking cannot take a payment: it is cancelled, a no-show, or not confirmed yet"),
+	salestore.ErrNothingToCheckOut:      httpx.Unprocessable("add at least one product or booking payment"),
 }
 
 // NewHandler returns a Handler backed by the given service.

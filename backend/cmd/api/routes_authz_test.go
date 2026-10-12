@@ -234,6 +234,7 @@ var routePolicies = map[string]policy{
 	"GET /api/v1/complexes/{id}/products/{productID}/stock-movements":                   complexOwner,
 	"GET /api/v1/complexes/{id}/sales":                                                  complexOwner,
 	"POST /api/v1/complexes/{id}/sales":                                                 complexOwner,
+	"GET /api/v1/complexes/{id}/cash/bookings-due":                                      complexOwner,
 	"GET /api/v1/complexes/{id}/sales/{saleID}":                                         complexOwner,
 	"POST /api/v1/complexes/{id}/sales/{saleID}/void":                                   complexOwner,
 	"GET /api/v1/complexes/{id}/stats":                                                  complexOwner,

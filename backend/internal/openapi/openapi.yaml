@@ -3291,6 +3291,38 @@ paths:
   # ---------------------------------------------------------------------
   # sales
   # ---------------------------------------------------------------------
+  /api/v1/complexes/{id}/cash/bookings-due:
+    get:
+      tags: [sales]
+      operationId: salesBookingsDue
+      summary: Today's bookings that still owe money, for the sell page
+      description: >-
+        Today in Argentina (America/Argentina/Buenos_Aires). Lists the complex's bookings of that
+        day whose remaining balance is greater than zero, sorted by start time. Cancelled and no-show
+        bookings are never listed. A pending booking is listed only while it is inside the payment
+        window; an older pending booking no longer holds its slot. Each entry's `remaining` is the
+        amount a checkout must send for it.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The day's bookings that owe money.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [date, bookings]
+                properties:
+                  date: {type: string, format: date, description: "Today in Argentina."}
+                  bookings:
+                    type: array
+                    items: {$ref: "#/components/schemas/BalanceDue"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
   /api/v1/complexes/{id}/sales:
     get:
       tags: [sales]
@@ -3329,39 +3361,60 @@ paths:
     post:
       tags: [sales]
       operationId: salesCreate
-      summary: Sell a set of products
+      summary: "Check out at the counter: products and/or booking balances, in one transaction"
       description: >-
-        The client sends product ids and quantities only; prices and the total always come from
-        the server. Requires an open cash session (409 otherwise). In one transaction: writes the
-        'sale' cash income (amount = total), the sale and its items, and one 'sale' stock
-        movement per tracked item. Never refused for lack of stock — the response's
-        `stock_warnings` names every tracked product that ended at zero or below. 1 to 50 items;
-        each product id may appear once (422 on a duplicate); every product must exist in this
-        complex and be active, or the request is refused with 422 naming the offending item's
-        index (`items[N].product_id`); the computed total must be greater than zero (a sale where
-        every priced item is free is refused, not silently recorded as a zero-amount income) and
-        must not exceed 2000000000 centavos.
+        One checkout for Caja > Vender. The client sends product ids and quantities (`items`) and/or
+        the booking balances the player is paying now (`booking_payments`); at least one of the two
+        must be non-empty. Prices, totals and each booking's remaining balance always come from the
+        server. Requires an open cash session (409 otherwise). In one transaction: when there are
+        product lines, writes the sale (its items, the 'sale' cash income with amount = products
+        total, one 'sale' stock movement per tracked item); and for each booking payment, records a
+        counter payment through the same booking payment logic the booking panel uses (same method,
+        one payments row per booking, the booking's collection status moves to fully_paid). Every
+        booking is locked for the whole transaction, so two cashiers cannot collect the same balance.
+        Booking balances are counted once: the cash session's expected cash counts the payments row,
+        never the sale's income for the same amount. Never refused for lack of stock — the response's
+        `stock_warnings` names every tracked product that ended at zero or below. Product rules: 0 to
+        50 items; each product id may appear once (422 on a duplicate); every product must exist in
+        this complex and be active (422 naming `items[N].product_id`); the products total must not
+        exceed 2000000000 centavos. Booking rules: 0 to 20 booking payments; each booking once (422
+        on a duplicate); `amount` must equal the booking's current remaining balance, which is the
+        full balance only in this version (409 when it differs, so a stale cart fails clearly). A
+        checkout whose only lines are booking payments has no sale: `sale` is null and the
+        collected balances are returned in `booking_payments`. A checkout with product lines and a
+        zero products total is refused (422) rather than recorded as a zero-amount income.
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "201":
-          description: The recorded sale, its items, and any stock warnings.
+          description: The recorded checkout. `sale` is null when it had no product lines.
           content:
             application/json:
               schema:
                 type: object
-                required: [sale, stock_warnings]
+                required: [sale, stock_warnings, booking_payments]
                 properties:
-                  sale: {$ref: "#/components/schemas/Sale"}
+                  sale:
+                    anyOf:
+                      - {$ref: "#/components/schemas/Sale"}
+                      - {type: "null"}
                   stock_warnings:
                     type: array
                     items: {$ref: "#/components/schemas/SaleStockWarning"}
+                  booking_payments:
+                    type: array
+                    description: One entry per booking balance collected in this checkout, in request order.
+                    items: {$ref: "#/components/schemas/SaleBookingPayment"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409":
-          description: No cash session is open.
+          description: >-
+            No cash session is open; a booking balance changed since the cart was loaded (amount
+            differs from the remaining balance); a booking is already fully paid; or a booking
+            cannot take a payment (cancelled, no-show, or a pending booking past its payment window).
+            Nothing is recorded.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -3378,8 +3431,8 @@ paths:
               properties:
                 items:
                   type: array
-                  minItems: 1
                   maxItems: 50
+                  description: Product lines. May be empty when booking_payments is not.
                   items:
                     type: object
                     required: [product_id, quantity]
@@ -3390,8 +3443,22 @@ paths:
                         minimum: 1
                         maximum: 1000
                         description: Nullable for the same missing-vs-zero reason productsCreate's price is.
+                booking_payments:
+                  type: array
+                  maxItems: 20
+                  description: Booking balances collected now. Each must equal that booking's remaining balance.
+                  items:
+                    type: object
+                    required: [booking_id, amount]
+                    properties:
+                      booking_id: {type: string, format: uuid}
+                      amount:
+                        type: [integer, "null"]
+                        minimum: 1
+                        maximum: 99999999
+                        description: Centavos ARS. Nullable so a missing amount is a 422, not a zero.
                 method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
-                note: {type: string, maxLength: 500, description: "Appended to the sale income movement's own note."}
+                note: {type: string, maxLength: 500, description: "Appended to the sale income movement's own note. Not recorded when the checkout has no sale."}
 
   /api/v1/complexes/{id}/sales/{saleID}:
     get:
@@ -3452,7 +3519,10 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409":
-          description: No cash session is open, or this sale has already been voided.
+          description: >-
+            No cash session is open; this sale has already been voided; or the sale includes booking
+            payments, which cannot be reverted from the sell page (a booking payment has no reversal
+            yet). Nothing is changed.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -4786,7 +4856,7 @@ components:
     Sale:
       type: object
       required:
-        [id, complex_id, session_id, method, total, cash_movement_id, items, created_at, created_by]
+        [id, complex_id, session_id, method, total, cash_movement_id, items, booking_payments, created_at, created_by]
       properties:
         id: {type: string, format: uuid}
         complex_id: {type: string, format: uuid}
@@ -4803,8 +4873,45 @@ components:
         items:
           type: array
           items: {$ref: "#/components/schemas/SaleItem"}
+        booking_payments:
+          type: array
+          description: >-
+            The booking balances collected in the same checkout as this sale (empty when there were
+            none). Each amount is already counted in its own payments row, not in `total`. A sale with
+            booking payments cannot be voided.
+          items: {$ref: "#/components/schemas/SaleBookingPayment"}
         created_at: {type: string, format: date-time}
         created_by: {type: string, format: uuid}
+
+    SaleBookingPayment:
+      type: object
+      description: "A booking balance collected at the counter, with the booking summary a receipt needs."
+      required: [payment_id, booking_id, amount, court_name, date, start_time, end_time, client_name]
+      properties:
+        payment_id: {type: string, format: uuid, description: "The counter payment row this balance was recorded as."}
+        booking_id: {type: string, format: uuid}
+        amount: {type: integer, description: "Centavos ARS collected for this booking in this checkout."}
+        court_name: {type: string}
+        date: {type: string, format: date, description: "The booking's day, in Argentina."}
+        start_time: {type: string, pattern: "^[0-2][0-9]:[0-5][0-9]$", description: "HH:MM, Argentina wall clock."}
+        end_time: {type: string, pattern: "^[0-2][0-9]:[0-5][0-9]$", description: "HH:MM, Argentina wall clock."}
+        client_name: {type: string, description: "First and last name, as stored on the client."}
+
+    BalanceDue:
+      type: object
+      description: "One booking of today that still owes money, for the sell page's booking picker."
+      required: [booking_id, court_name, date, start_time, end_time, client_name, status, total, paid, remaining]
+      properties:
+        booking_id: {type: string, format: uuid}
+        court_name: {type: string}
+        date: {type: string, format: date}
+        start_time: {type: string, pattern: "^[0-2][0-9]:[0-5][0-9]$"}
+        end_time: {type: string, pattern: "^[0-2][0-9]:[0-5][0-9]$"}
+        client_name: {type: string}
+        status: {$ref: "#/components/schemas/BookingStatus"}
+        total: {type: integer, description: "The booking's price, centavos ARS."}
+        paid: {type: integer, description: "Centavos ARS already collected for the booking."}
+        remaining: {type: integer, minimum: 1, description: "total - paid. This is the amount a checkout must send."}
 
     SaleItem:
       type: object

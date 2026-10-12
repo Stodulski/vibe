@@ -1603,6 +1603,26 @@ type AvailabilitySlot struct {
 	StartTime string `json:"start_time"`
 }
 
+// BalanceDue One booking of today that still owes money, for the sell page's booking picker.
+type BalanceDue struct {
+	BookingId  openapi_types.UUID `json:"booking_id"`
+	ClientName string             `json:"client_name"`
+	CourtName  string             `json:"court_name"`
+	Date       openapi_types.Date `json:"date"`
+	EndTime    string             `json:"end_time"`
+
+	// Paid Centavos ARS already collected for the booking.
+	Paid int `json:"paid"`
+
+	// Remaining total - paid. This is the amount a checkout must send.
+	Remaining int           `json:"remaining"`
+	StartTime string        `json:"start_time"`
+	Status    BookingStatus `json:"status"`
+
+	// Total The booking's price, centavos ARS.
+	Total int `json:"total"`
+}
+
 // BlockedSlot defines model for BlockedSlot.
 type BlockedSlot struct {
 	CourtId openapi_types.UUID `json:"court_id"`
@@ -2477,6 +2497,9 @@ type RevenueDataPoint struct {
 
 // Sale defines model for Sale.
 type Sale struct {
+	// BookingPayments The booking balances collected in the same checkout as this sale (empty when there were none). Each amount is already counted in its own payments row, not in `total`. A sale with booking payments cannot be voided.
+	BookingPayments []SaleBookingPayment `json:"booking_payments"`
+
 	// CashMovementId The sale's own 'sale' category income movement.
 	CashMovementId openapi_types.UUID `json:"cash_movement_id"`
 	ComplexId      openapi_types.UUID `json:"complex_id"`
@@ -2498,6 +2521,29 @@ type Sale struct {
 
 // SaleMethod defines model for Sale.Method.
 type SaleMethod string
+
+// SaleBookingPayment A booking balance collected at the counter, with the booking summary a receipt needs.
+type SaleBookingPayment struct {
+	// Amount Centavos ARS collected for this booking in this checkout.
+	Amount    int                `json:"amount"`
+	BookingId openapi_types.UUID `json:"booking_id"`
+
+	// ClientName First and last name, as stored on the client.
+	ClientName string `json:"client_name"`
+	CourtName  string `json:"court_name"`
+
+	// Date The booking's day, in Argentina.
+	Date openapi_types.Date `json:"date"`
+
+	// EndTime HH:MM, Argentina wall clock.
+	EndTime string `json:"end_time"`
+
+	// PaymentId The counter payment row this balance was recorded as.
+	PaymentId openapi_types.UUID `json:"payment_id"`
+
+	// StartTime HH:MM, Argentina wall clock.
+	StartTime string `json:"start_time"`
+}
 
 // SaleItem defines model for SaleItem.
 type SaleItem struct {
@@ -3318,6 +3364,14 @@ type SalesListParams struct {
 
 // SalesCreateJSONBody defines parameters for SalesCreate.
 type SalesCreateJSONBody struct {
+	// BookingPayments Booking balances collected now. Each must equal that booking's remaining balance.
+	BookingPayments *[]struct {
+		// Amount Centavos ARS. Nullable so a missing amount is a 422, not a zero.
+		Amount    *int               `json:"amount"`
+		BookingId openapi_types.UUID `json:"booking_id"`
+	} `json:"booking_payments,omitempty"`
+
+	// Items Product lines. May be empty when booking_payments is not.
 	Items []struct {
 		ProductId openapi_types.UUID `json:"product_id"`
 
@@ -3326,7 +3380,7 @@ type SalesCreateJSONBody struct {
 	} `json:"items"`
 	Method SalesCreateJSONBodyMethod `json:"method"`
 
-	// Note Appended to the sale income movement's own note.
+	// Note Appended to the sale income movement's own note. Not recorded when the checkout has no sale.
 	Note *string `json:"note,omitempty"`
 }
 
@@ -3835,6 +3889,9 @@ type ServerInterface interface {
 	// CashMovementsVoid Void an earlier movement
 	// (POST /api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void)
 	CashMovementsVoid(w http.ResponseWriter, r *http.Request, id PathID, sessionID SessionID, movementID MovementID, params CashMovementsVoidParams)
+	// SalesBookingsDue Today's bookings that still owe money, for the sell page
+	// (GET /api/v1/complexes/{id}/cash/bookings-due)
+	SalesBookingsDue(w http.ResponseWriter, r *http.Request, id PathID)
 	// ClientsList List a complex's clients
 	// (GET /api/v1/complexes/{id}/clients)
 	ClientsList(w http.ResponseWriter, r *http.Request, id PathID, params ClientsListParams)
@@ -3912,7 +3969,7 @@ type ServerInterface interface {
 	// SalesList List this complex's sales
 	// (GET /api/v1/complexes/{id}/sales)
 	SalesList(w http.ResponseWriter, r *http.Request, id PathID, params SalesListParams)
-	// SalesCreate Sell a set of products
+	// SalesCreate Check out at the counter: products and/or booking balances, in one transaction
 	// (POST /api/v1/complexes/{id}/sales)
 	SalesCreate(w http.ResponseWriter, r *http.Request, id PathID, params SalesCreateParams)
 	// SalesGet Get one sale
@@ -5370,6 +5427,32 @@ func (siw *ServerInterfaceWrapper) CashMovementsVoid(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CashMovementsVoid(w, r, id, sessionID, movementID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SalesBookingsDue operation middleware
+func (siw *ServerInterfaceWrapper) SalesBookingsDue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SalesBookingsDue(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7654,6 +7737,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/products/{productID}/restock", wrapper.ProductsRestock)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/products/{productID}/adjustments", wrapper.ProductsAdjust)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/products/{productID}/stock-movements", wrapper.ProductsListStockMovements)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/cash/bookings-due", wrapper.SalesBookingsDue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/sales", wrapper.SalesList)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/sales", wrapper.SalesCreate)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/sales/{saleID}", wrapper.SalesGet)
