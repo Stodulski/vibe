@@ -21,10 +21,8 @@ function googleMapsSearchUrl(latitude: number, longitude: number) {
  * The services and the location of the club: what a visitor checks once the
  * hours are known.
  *
- * It is rendered once, inside `ComplexHeader`, in the markup order the card
- * shows at `lg`. Below `lg` the header's children are flex items of the page
- * column, and `max-lg:order-1` moves this block after the booking. Either way
- * the page renders it once and the DOM order is the visual order at `lg`.
+ * The page renders it once, after the booking, at every width. Its place in
+ * the markup is its place on screen and in the focus order, so no CSS moves it.
  *
  * Renders nothing when the club has neither services nor coordinates.
  */
@@ -40,17 +38,15 @@ export function ComplexLower({ complex }: { complex: PublicComplex }) {
   if (!hasAmenities && !hasMap) return null;
 
   return (
-    <div className="mt-6 max-lg:order-1 sm:mt-10 lg:mt-0">
+    <div className="mt-6 sm:mt-10">
       {hasAmenities && (
-        <div className="lg:mt-5">
-          <Section title={t.complex.amenitiesSection}>
-            <AmenityList amenities={complex.amenities} />
-          </Section>
-        </div>
+        <Section title={t.complex.amenitiesSection}>
+          <AmenityList amenities={complex.amenities} />
+        </Section>
       )}
 
       {complex.latitude != null && complex.longitude != null && (
-        <div className="mt-6 max-lg:first:mt-0">
+        <div className="mt-6 first:mt-0">
           {/*
             Leaflet is a third-party map widget loaded lazily; a failure in it (a
             bad tile server, a bundling issue) must not take down the rest of the

@@ -1,4 +1,5 @@
 import { ComplexHeader } from '../../components/ComplexHeader';
+import { ComplexLower } from '../../components/complex-header/ComplexLower';
 import { DateSelector } from '../../components/DateSelector';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import type {
@@ -97,7 +98,8 @@ export function ComplexPageContent({
         <div className="mt-6 sm:mt-10">
           <PhoneBookingPanel phone={complex.phone} />
         </div>
-        <div className="mt-6 max-lg:order-2 sm:mt-10">
+        <ComplexLower complex={complex} />
+        <div className="mt-6 sm:mt-10">
           <CourtDirectory courts={courts} />
         </div>
       </div>
@@ -119,6 +121,11 @@ export function ComplexPageContent({
       <div className="mt-6 sm:mt-10">
         <BookingFlow {...flow} complex={complex} onDateSelect={onDateSelect} />
       </div>
+
+      {/* The services and the map come after the booking, where a phone shows
+          them, so the markup order is the order a screen reader and the Tab
+          key reach them too. */}
+      <ComplexLower complex={complex} />
     </div>
   );
 }
