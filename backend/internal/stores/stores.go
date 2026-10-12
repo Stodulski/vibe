@@ -179,6 +179,9 @@ type ComplexCRUD interface {
 	// ListActiveComplexesForHubs feeds the public city hubs and the sitemap's hub
 	// entries; it reads active complexes only.
 	ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error)
+	// ListComplexCitiesForHubs feeds the city hub page of a city whose complexes
+	// are all switched off or deleted; it reads every complex's city and province.
+	ListComplexCitiesForHubs(ctx context.Context) ([]complexstore.HubCity, error)
 }
 
 // ComplexScheduleManager manages a complex's weekly opening schedule.

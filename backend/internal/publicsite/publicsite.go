@@ -19,6 +19,10 @@ type Store interface {
 	// ListActiveComplexesForHubs is every switched-on complex with its city and
 	// court sports, for the city hubs and their sitemap entries.
 	ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error)
+	// ListComplexCitiesForHubs is the city and province of every complex ever
+	// recorded, switched off and soft-deleted included. A city whose complexes are
+	// all gone is still answered as an empty hub, from this list.
+	ListComplexCitiesForHubs(ctx context.Context) ([]complexstore.HubCity, error)
 }
 
 // Handler serves the crawler-facing and hub routes. It maps the service's errors onto

@@ -79,6 +79,43 @@ func TestIntegration_ListActiveComplexesForHubsKeepsOnlyLiveSwitchedOnComplexes(
 	}
 }
 
+// TestIntegration_ListComplexCitiesForHubsKeepsEveryCityAComplexWasEverIn proves
+// the city read against a real database: a city stays listed whether its complex
+// is live, switched off or soft-deleted, each city is listed once, and only the
+// city and province come back.
+func TestIntegration_ListComplexCitiesForHubsKeepsEveryCityAComplexWasEverIn(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+
+	store := &complexstore.Store{DB: f.DB, Q: sqldb.New(f.DB)}
+
+	insertHubComplex(ctx, t, f, "Club Live", "Villa Test Live", true)
+	insertHubComplex(ctx, t, f, "Club Live Two", "Villa Test Live", true)
+	insertHubComplex(ctx, t, f, "Club Off", "Villa Test Off", false)
+	gone := insertHubComplex(ctx, t, f, "Club Gone", "Villa Test Gone", true)
+	if _, err := f.DB.Exec(ctx, `UPDATE complexes SET deleted_at = now() WHERE id = $1`, gone); err != nil {
+		t.Fatalf("soft-deleting a complex: %v", err)
+	}
+
+	cities, err := store.ListComplexCitiesForHubs(ctx)
+	if err != nil {
+		t.Fatalf("ListComplexCitiesForHubs: %v", err)
+	}
+
+	count := make(map[string]int)
+	for _, c := range cities {
+		count[c.City]++
+		if c.City == "Villa Test Live" && c.Province != "Buenos Aires" {
+			t.Errorf("province of %q = %q; want Buenos Aires", c.City, c.Province)
+		}
+	}
+	for _, city := range []string{"Villa Test Live", "Villa Test Off", "Villa Test Gone"} {
+		if count[city] != 1 {
+			t.Errorf("%q listed %d times; want once", city, count[city])
+		}
+	}
+}
+
 // insertHubComplex inserts a complex in the given city, owned by a fresh owner
 // (a complex's owner may hold only one live complex), and returns its id.
 func insertHubComplex(ctx context.Context, t *testing.T, f *datatest.Fixture, name, city string, active bool) uuid.UUID {

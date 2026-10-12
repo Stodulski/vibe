@@ -2295,6 +2295,7 @@ type PublicCancelInfoRefundMethod string
 
 // PublicCityHub defines model for PublicCityHub.
 type PublicCityHub struct {
+	// Complexes Empty ([]) for a city whose complexes are all switched off or deleted. Never null.
 	Complexes []PublicHubComplex `json:"complexes"`
 
 	// Hub One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from the spelling the complexes store.

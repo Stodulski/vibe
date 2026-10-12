@@ -3406,13 +3406,15 @@ paths:
       description: >-
         Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, its court counts by
         sport, and up to 12 other city hubs to link to. The city is matched on its slug (lowercase, accents removed,
-        spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed.
+        spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed. A city whose complexes
+        are all switched off or deleted still answers 200, as an empty hub with an empty complexes list, so its page
+        outlives its last complex; it stays out of the hub index and the sitemap.
       security: []
       parameters:
         - {$ref: "#/components/parameters/PathCity"}
       responses:
         "200":
-          description: One city's hub and its switched-on complexes.
+          description: One city's hub and its switched-on complexes. Empty when the city once had a complex and none is switched on now.
           headers:
             Cache-Control:
               schema: {type: string, example: "public, max-age=300, stale-while-revalidate=60"}
@@ -3420,7 +3422,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/PublicCityHub"}
         "404":
-          description: The city has no switched-on complex.
+          description: No complex was ever recorded in the city.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -4346,6 +4348,7 @@ components:
         hub: {$ref: "#/components/schemas/PublicHub"}
         complexes:
           type: array
+          description: Empty ([]) for a city whose complexes are all switched off or deleted. Never null.
           items: {$ref: "#/components/schemas/PublicHubComplex"}
         other_hubs:
           type: array

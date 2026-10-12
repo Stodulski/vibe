@@ -951,3 +951,10 @@ func (s *Service) GetAllSlugs(ctx context.Context) ([]complexstore.ComplexSlug, 
 func (s *Service) ListActiveComplexesForHubs(ctx context.Context) ([]complexstore.HubComplex, error) {
 	return s.venues.ListActiveComplexesForHubs(ctx)
 }
+
+// ListComplexCitiesForHubs returns the city and province of every complex ever
+// recorded, switched off or soft-deleted included, so publicsite can keep a city's
+// hub after its last switched-on complex goes.
+func (s *Service) ListComplexCitiesForHubs(ctx context.Context) ([]complexstore.HubCity, error) {
+	return s.venues.ListComplexCitiesForHubs(ctx)
+}

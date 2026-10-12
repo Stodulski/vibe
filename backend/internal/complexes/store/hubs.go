@@ -92,3 +92,29 @@ func (m *Store) ListActiveComplexesForHubs(ctx context.Context) ([]HubComplex, e
 	}
 	return complexes, nil
 }
+
+// HubCity is a city a complex was ever recorded in, with the province it names. It
+// carries nothing else, so a deleted complex's name, address and owner stay unread.
+type HubCity struct {
+	City     string
+	Province string
+}
+
+// ListComplexCitiesForHubs returns the distinct city and province of every complex,
+// switched-off and soft-deleted ones included, so a city keeps its hub after its
+// last switched-on complex goes. See db/queries/hubs.sql.
+func (m *Store) ListComplexCitiesForHubs(ctx context.Context) ([]HubCity, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.Q.ListComplexCitiesForHubs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cities := make([]HubCity, 0, len(rows))
+	for _, row := range rows {
+		cities = append(cities, HubCity{City: row.City, Province: row.Province})
+	}
+	return cities, nil
+}

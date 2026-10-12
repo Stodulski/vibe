@@ -263,6 +263,14 @@ type Querier interface {
 	// is false on the first page, so the OR's left side short-circuits instead of
 	// comparing against a zero-value timestamp.
 	ListCashSessionsByComplex(ctx context.Context, arg ListCashSessionsByComplexParams) ([]CashSession, error)
+	// A city keeps its hub after its last switched-on complex goes, so the hub read
+	// needs every city a complex was ever recorded in. This reads the complexes table
+	// itself, not active_complexes, so a switched-off or soft-deleted venue still
+	// counts. Only the city and the province are selected: nothing else of a deleted
+	// complex is public. The city is matched by slug in Go, as in
+	// ListActiveComplexesForHubs. Ordered so that a city's spelling and province are
+	// stable when several rows share one slug.
+	ListComplexCitiesForHubs(ctx context.Context) ([]ListComplexCitiesForHubsRow, error)
 	// Connected complexes whose OAuth token has no known expiry (never recorded
 	// one, e.g. rows connected before this column existed) or expires within 30
 	// days. cronRefreshMPTokens used to refresh every connected complex on every

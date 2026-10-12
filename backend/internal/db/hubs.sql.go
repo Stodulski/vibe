@@ -86,3 +86,41 @@ func (q *Queries) ListActiveComplexesForHubs(ctx context.Context) ([]ListActiveC
 	}
 	return items, nil
 }
+
+const listComplexCitiesForHubs = `-- name: ListComplexCitiesForHubs :many
+SELECT DISTINCT c.city, c.province
+FROM complexes c
+ORDER BY c.city, c.province
+`
+
+type ListComplexCitiesForHubsRow struct {
+	City     string `json:"city"`
+	Province string `json:"province"`
+}
+
+// A city keeps its hub after its last switched-on complex goes, so the hub read
+// needs every city a complex was ever recorded in. This reads the complexes table
+// itself, not active_complexes, so a switched-off or soft-deleted venue still
+// counts. Only the city and the province are selected: nothing else of a deleted
+// complex is public. The city is matched by slug in Go, as in
+// ListActiveComplexesForHubs. Ordered so that a city's spelling and province are
+// stable when several rows share one slug.
+func (q *Queries) ListComplexCitiesForHubs(ctx context.Context) ([]ListComplexCitiesForHubsRow, error) {
+	rows, err := q.db.Query(ctx, listComplexCitiesForHubs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListComplexCitiesForHubsRow
+	for rows.Next() {
+		var i ListComplexCitiesForHubsRow
+		if err := rows.Scan(&i.City, &i.Province); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
