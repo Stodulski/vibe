@@ -20,6 +20,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/indexnow"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/leads"
+	"github.com/stodulski/vibe-server/internal/lifecycle"
 	"github.com/stodulski/vibe-server/internal/mailer"
 	"github.com/stodulski/vibe-server/internal/middleware"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -90,6 +91,8 @@ func validateDeps(d deps) error {
 		{"models.Courts", d.models.Courts != nil},
 		{"models.Bookings", d.models.Bookings != nil},
 		{"models.Waitlist", d.models.Waitlist != nil},
+		{"models.Leads", d.models.Leads != nil},
+		{"models.Lifecycle", d.models.Lifecycle != nil},
 		{"models.BookingLinkTokens", d.models.BookingLinkTokens != nil},
 		{"models.Tokens", d.models.Tokens != nil},
 		{"models.Clients", d.models.Clients != nil},
@@ -354,6 +357,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		CookieDomain:      cfg.CookieDomain,
 		Environment:       cfg.Env,
 	})
+	// Owner activity feeds the inactive nudge. The tracker writes on the background
+	// runner, so an authenticated request never waits on the database for it.
+	activity := lifecycle.NewActivityTracker(d.models.Lifecycle, app.background, d.logger)
 	mw := middleware.New(middleware.Dependencies{
 		Users:     d.models.Users,
 		Complexes: d.models.Complexes,
@@ -363,6 +369,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Respond:   respond,
 		Logger:    d.logger,
 		Shutdown:  app.shutdown,
+		Activity:  activity,
 	}, middleware.Config{
 		TrustedProxies:   d.trustedProxies,
 		RateLimitEnabled: cfg.Limiter.Enabled,
@@ -396,7 +403,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	leadsHandler := leads.NewHandler(respond, leads.Config{
 		WebhookURL: cfg.Leads.AbandonedWebhookURL,
 		Token:      cfg.Leads.AbandonedWebhookToken,
-	})
+	}, d.models.Leads)
 	var queues health.QueueReporter
 	if d.db != nil {
 		queues = queueProbe{pool: d.db}
@@ -558,6 +565,11 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	}, authConfig)
 	authHandler := auth.NewHandler(authService, respond, d.logger, authConfig)
 
+	// The one-click opt-out. The signer keys off the JWT secret, so the links in the
+	// emails need no configuration of their own.
+	lifecycleSigner := lifecycle.NewSigner(cfg.JWT.Secret, cfg.JWT.SecretPrevious)
+	unsubscribeHandler := lifecycle.NewUnsubscribeHandler(respond, lifecycleSigner, d.models.Lifecycle)
+
 	// The export dependencies are assigned only when they exist, because a
 	// typed nil in an interface is not a nil interface: handing over a nil
 	// *jobs.Store would make ExportsConfigured say yes and the first call
@@ -683,6 +695,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.realtime = realtimeHandler
 	app.publicsite = publicsiteHandler
 	app.leads = leadsHandler
+	app.emailUnsubscribe = unsubscribeHandler
 	app.reporting = reportingHandler
 	app.queues = queues
 	app.health = healthHandler

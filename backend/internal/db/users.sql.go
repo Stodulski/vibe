@@ -33,7 +33,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at FROM users
+SELECT id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at, last_active_at FROM users
 WHERE email = $1
 `
 
@@ -55,12 +55,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.EmailVerified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastActiveAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at FROM users
+SELECT id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at, last_active_at FROM users
 WHERE id = $1
 `
 
@@ -82,6 +83,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.EmailVerified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastActiveAt,
 	)
 	return i, err
 }
@@ -89,7 +91,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 const insertUser = `-- name: InsertUser :one
 INSERT INTO users (email, password_hash, first_name, last_name, phone, role)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at
+RETURNING id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at, last_active_at
 `
 
 type InsertUserParams struct {
@@ -126,6 +128,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 		&i.EmailVerified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastActiveAt,
 	)
 	return i, err
 }
@@ -139,6 +142,24 @@ func (q *Queries) SetEmailVerified(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const touchOwnerLastActive = `-- name: TouchOwnerLastActive :execrows
+UPDATE users
+SET last_active_at = NOW()
+WHERE id = $1::uuid
+  AND role = 'owner'
+  AND (last_active_at IS NULL OR last_active_at < NOW() - INTERVAL '1 hour')
+`
+
+// The WHERE clause is the throttle: an owner's activity is written at most once
+// an hour, however many requests they make. Callers ignore a zero row count.
+func (q *Queries) TouchOwnerLastActive(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, touchOwnerLastActive, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET email = $1,
@@ -148,7 +169,7 @@ SET email = $1,
     is_active = $5,
     email_verified = $6
 WHERE id = $7
-RETURNING id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at
+RETURNING id, email, password_hash, first_name, last_name, phone, role, is_active, failed_login_attempts, locked_until, last_failed_login, email_verified, created_at, updated_at, last_active_at
 `
 
 type UpdateUserParams struct {
@@ -187,6 +208,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.EmailVerified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastActiveAt,
 	)
 	return i, err
 }

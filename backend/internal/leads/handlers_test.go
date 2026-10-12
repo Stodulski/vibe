@@ -2,7 +2,9 @@ package leads
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,12 +14,71 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
+// fakeLeadStore records what the capture endpoint kept.
+type fakeLeadStore struct {
+	kept []storedLead
+	err  error
+}
+
+type storedLead struct {
+	email, firstName, lastName, phone string
+}
+
+func (f *fakeLeadStore) Upsert(_ context.Context, email, firstName, lastName, phone string) error {
+	f.kept = append(f.kept, storedLead{email, firstName, lastName, phone})
+	return f.err
+}
+
 func newTestHandler(t *testing.T, webhookURL string) (*Handler, *bytes.Buffer) {
+	t.Helper()
+	h, logs := newTestHandlerWithStore(t, webhookURL, &fakeLeadStore{})
+	return h, logs
+}
+
+func newTestHandlerWithStore(t *testing.T, webhookURL string, store LeadStore) (*Handler, *bytes.Buffer) {
 	t.Helper()
 	logs := &bytes.Buffer{}
 	respond := httpx.NewResponder(slog.New(slog.NewTextHandler(logs, nil)))
-	h := NewHandler(respond, Config{WebhookURL: webhookURL, Token: "test-token"})
+	h := NewHandler(respond, Config{WebhookURL: webhookURL, Token: "test-token"}, store)
 	return h, logs
+}
+
+func TestCaptureKeepsTheLeadInPostgresNormalized(t *testing.T) {
+	store := &fakeLeadStore{}
+	h, _ := newTestHandlerWithStore(t, "", store)
+
+	rr := doCapture(t, h, `{"email":"  Ana@Example.com ","first_name":"  Ana ","last_name":" Perez","phone":" +5411 "}`)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202", rr.Code)
+	}
+	want := storedLead{"ana@example.com", "Ana", "Perez", "+5411"}
+	if len(store.kept) != 1 || store.kept[0] != want {
+		t.Fatalf("kept %+v, want one lead %+v", store.kept, want)
+	}
+}
+
+func TestCaptureKeepsTheLeadEvenWithNoWebhookConfigured(t *testing.T) {
+	store := &fakeLeadStore{}
+	h, _ := newTestHandlerWithStore(t, "", store)
+	doCapture(t, h, `{"email":"ana@example.com"}`)
+	if len(store.kept) != 1 {
+		t.Fatalf("a deployment without the spreadsheet dropped the lead; kept %d", len(store.kept))
+	}
+}
+
+func TestCaptureStillAcceptsWhenThePostgresWriteFails(t *testing.T) {
+	store := &fakeLeadStore{err: errors.New("db down")}
+	h, logs := newTestHandlerWithStore(t, "", store)
+
+	rr := doCapture(t, h, `{"email":"ana@example.com"}`)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202: the beacon is never told about storage", rr.Code)
+	}
+	if !strings.Contains(logs.String(), "db down") {
+		t.Fatal("the failed write was not logged")
+	}
 }
 
 // answerOK writes what the Apps Script web app writes on success. Its verdict

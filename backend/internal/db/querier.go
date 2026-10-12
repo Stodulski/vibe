@@ -23,6 +23,11 @@ type Querier interface {
 	// nothing: the trigger on this table fires on any UPDATE, which is the whole
 	// effect wanted here.
 	BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error)
+	// Records that a nudge is going out. The primary key makes each kind once-only
+	// per owner: a second claim inserts nothing.
+	ClaimOwnerNudge(ctx context.Context, arg ClaimOwnerNudgeParams) (int64, error)
+	// Sets nudged_at once. A lead already claimed matches no row.
+	ClaimRegistrationLeadNudge(ctx context.Context, email string) (int64, error)
 	// Marks every entry still waiting for this day as notified and returns them, in
 	// one statement, so two frees of the same day cannot both claim the same row.
 	ClaimWaitlistEntries(ctx context.Context, arg ClaimWaitlistEntriesParams) ([]ClaimWaitlistEntriesRow, error)
@@ -43,6 +48,7 @@ type Querier interface {
 	DeleteExpiredEmailVerificationTokens(ctx context.Context) error
 	DeleteExpiredRefreshTokens(ctx context.Context) error
 	DeleteRefreshToken(ctx context.Context, id pgtype.UUID) error
+	DeleteRegistrationLeadsOlderThan30Days(ctx context.Context) (int64, error)
 	DeleteUnverifiedStaleUsers(ctx context.Context) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	DeleteWaitlistEntriesBefore(ctx context.Context, today pgtype.Date) (int64, error)
@@ -247,6 +253,8 @@ type Querier interface {
 	InsertComplex(ctx context.Context, arg InsertComplexParams) (Complex, error)
 	InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error)
 	InsertCourtPrice(ctx context.Context, arg InsertCourtPriceParams) (CourtPrice, error)
+	// Idempotent: a second unsubscribe of the same address is a no-op.
+	InsertEmailSuppression(ctx context.Context, arg InsertEmailSuppressionParams) error
 	InsertEmailVerificationToken(ctx context.Context, arg InsertEmailVerificationTokenParams) (EmailVerificationToken, error)
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (Payment, error)
 	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)
@@ -272,6 +280,7 @@ type Querier interface {
 	// the rows by city themselves. The order is by city then name so the grouping,
 	// and the spelling a hub takes from its first row, is stable.
 	ListActiveComplexesForHubs(ctx context.Context) ([]ListActiveComplexesForHubsRow, error)
+	ListAddCourtsNudgeCandidates(ctx context.Context, maxRows int32) ([]ListAddCourtsNudgeCandidatesRow, error)
 	// Oldest first: a session's ledger reads top to bottom like a receipt tape.
 	// Not paginated — a shift's movement count is bounded by a business day at
 	// the counter, the same reasoning ListBlockedSlots' unpaginated call applies.
@@ -294,6 +303,12 @@ type Querier interface {
 	// 12h tick regardless of how recently its token was issued; this narrows
 	// that to the complexes that actually need it.
 	ListComplexesNeedingMPRefresh(ctx context.Context) ([]ActiveComplex, error)
+	ListCreateComplexNudgeCandidates(ctx context.Context, maxRows int32) ([]ListCreateComplexNudgeCandidatesRow, error)
+	ListFinishSignupNudgeCandidates(ctx context.Context, maxRows int32) ([]ListFinishSignupNudgeCandidatesRow, error)
+	// An owner counts as active from the last request they made, or from account
+	// creation when they have never made one. A booking from any source (the
+	// public site, the owner's panel, the WhatsApp flow) keeps the complex alive.
+	ListInactiveNudgeCandidates(ctx context.Context, maxRows int32) ([]ListInactiveNudgeCandidatesRow, error)
 	// Every payment row of a booking, oldest first (the deposit before the balance),
 	// for callers that need the whole ledger rather than one row — the refund path
 	// sums money and the booking detail shows each payment; GetPaymentByBookingID's
@@ -326,6 +341,7 @@ type Querier interface {
 	ListSalesByComplex(ctx context.Context, arg ListSalesByComplexParams) ([]Sale, error)
 	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
+	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.
@@ -345,6 +361,9 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	// Undoes a claim whose email never reached the queue, so the next pass retries it.
+	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
+	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error
 	SetEmailVerified(ctx context.Context, id pgtype.UUID) error
 	// :execrows, so the caller can tell "deleted it" from "it was already deleted"
 	// without a separate SELECT. complexstore.Store.SoftDeleteCascade is the only caller
@@ -360,6 +379,9 @@ type Querier interface {
 	// this query's rows, not a WHERE clause here, because the summary needs the
 	// other methods' rows too).
 	SumCashMovementsBySession(ctx context.Context, arg SumCashMovementsBySessionParams) ([]SumCashMovementsBySessionRow, error)
+	// The WHERE clause is the throttle: an owner's activity is written at most once
+	// an hour, however many requests they make. Callers ignore a zero row count.
+	TouchOwnerLastActive(ctx context.Context, id pgtype.UUID) (int64, error)
 	// Unconditional on the row's prior state. What refuses an illegitimate write is
 	// the bookings_forbid_status_reversal trigger, which is enforced for every
 	// writer rather than for the one query that remembered to check a counter —
@@ -409,6 +431,9 @@ type Querier interface {
 	// that column's own comment in db/migrations/004_pos_catalog_stock.sql.
 	UpdateProductStock(ctx context.Context, arg UpdateProductStockParams) (Product, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	// A repeat capture refreshes the names it has and keeps the ones it does not:
+	// a later capture with an empty field never erases an earlier, fuller one.
+	UpsertRegistrationLead(ctx context.Context, arg UpsertRegistrationLeadParams) error
 	UpsertSchedule(ctx context.Context, arg UpsertScheduleParams) (ComplexSchedule, error)
 	// WHERE voided_at IS NULL is a second, cheap guard against the same race
 	// GetSaleByIDForUpdate's lock already closes — see that query's comment and

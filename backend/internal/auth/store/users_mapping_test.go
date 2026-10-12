@@ -28,10 +28,16 @@ import (
 // remember" cannot detect and a non-zero check alone cannot either.
 
 // userColumnsDeliberatelyNotMapped names db.User fields that userFromDB is meant
-// to drop, with the reason. It is empty today: every column of users has a home
-// on authstore.User. It exists so that dropping the next one is a decision somebody
-// writes down here, rather than an omission that looks identical to a mistake.
-var userColumnsDeliberatelyNotMapped = map[string]string{}
+// to drop, with the reason. It exists so that dropping a column is a decision
+// somebody writes down here, rather than an omission that looks identical to a
+// mistake.
+var userColumnsDeliberatelyNotMapped = map[string]string{
+	// Read by the owner lifecycle's SQL and written by the activity tracker, once
+	// an hour. authstore.User is what the Redis user cache holds, so mapping this
+	// column would cache an activity stamp that is already an hour stale and that
+	// no authentication decision reads.
+	"LastActiveAt": "owner activity for the lifecycle nudges; not part of the cached user",
+}
 
 // fullyPopulatedDBUser is a db.User with every field set to a distinct non-zero
 // value. Distinct matters: if the values were interchangeable, a mapper that
@@ -41,6 +47,7 @@ func fullyPopulatedDBUser() db.User {
 	updated := time.Date(2022, 4, 5, 6, 7, 8, 0, time.UTC)
 	locked := time.Date(2023, 5, 6, 7, 8, 9, 0, time.UTC)
 	lastFailed := time.Date(2024, 6, 7, 8, 9, 10, 0, time.UTC)
+	lastActive := time.Date(2025, 7, 8, 9, 10, 11, 0, time.UTC)
 
 	return db.User{
 		ID:                  pgtype.UUID{Bytes: uuid.MustParse("11111111-2222-3333-4444-555555555555"), Valid: true},
@@ -54,6 +61,7 @@ func fullyPopulatedDBUser() db.User {
 		FailedLoginAttempts: 7,
 		LockedUntil:         pgtype.Timestamptz{Time: locked, Valid: true},
 		LastFailedLogin:     pgtype.Timestamptz{Time: lastFailed, Valid: true},
+		LastActiveAt:        pgtype.Timestamptz{Time: lastActive, Valid: true},
 		EmailVerified:       true,
 		CreatedAt:           pgtype.Timestamptz{Time: created, Valid: true},
 		UpdatedAt:           pgtype.Timestamptz{Time: updated, Valid: true},

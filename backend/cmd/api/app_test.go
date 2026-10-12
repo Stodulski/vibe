@@ -41,6 +41,8 @@ func validTestDeps(t *testing.T) deps {
 			SlotLocks:         &mockSlotLockStore{},
 			Reports:           &mockReportStore{},
 			Waitlist:          &mockWaitlistStore{},
+			Leads:             &mockLeadStore{},
+			Lifecycle:         &mockLifecycleStore{},
 			Audit:             &mockAuditStore{},
 			Locks:             &mockLockStore{},
 		},

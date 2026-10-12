@@ -20,6 +20,9 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
 	"github.com/stodulski/vibe-server/internal/jobs"
+	leadsstore "github.com/stodulski/vibe-server/internal/leads/store"
+	"github.com/stodulski/vibe-server/internal/lifecycle"
+	lifecyclestore "github.com/stodulski/vibe-server/internal/lifecycle/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
@@ -211,6 +214,23 @@ type ComplexMPManager interface {
 	// whose token has no known expiry or expires within 30 days — what
 	// cronRefreshMPTokens actually needs to refresh.
 	ListComplexesNeedingMPRefresh(ctx context.Context) ([]*complexstore.Complex, error)
+}
+
+// RegistrationLeadStore keeps the people who left a registration form before
+// finishing it, and the daily cleanup that keeps that list to thirty days.
+type RegistrationLeadStore interface {
+	Upsert(ctx context.Context, email, firstName, lastName, phone string) error
+	DeleteOlderThan30Days(ctx context.Context) (int64, error)
+}
+
+// LifecycleStore is the state the owner lifecycle emails read and write: the
+// suppression list, the nudge claims for owners and leads, and the owner
+// activity stamp. Each part is the small interface its consumer declares.
+type LifecycleStore interface {
+	lifecycle.OwnerNudgeStore
+	lifecycle.LeadNudgeStore
+	lifecycle.SuppressionStore
+	lifecycle.ActivityStore
 }
 
 // WaitlistStore holds the days players asked to hear about when a slot frees
@@ -681,6 +701,8 @@ type Stores struct {
 	Audit             AuditStore
 	Reports           reportstore.ReportStore
 	Waitlist          WaitlistStore
+	Leads             RegistrationLeadStore
+	Lifecycle         LifecycleStore
 	Locks             data.LockStore
 	// Jobs is the durable work queue (internal/jobs). It is the one member
 	// cmd/api's validateDeps does not require, because a nil one is a valid
@@ -716,6 +738,8 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Bookings:          &bookingstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
 		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
 		Waitlist:          &waitliststore.Store{Q: q},
+		Leads:             &leadsstore.Store{Q: q},
+		Lifecycle:         &lifecyclestore.Store{Q: q},
 		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
 		Clients:           &clientstore.Store{DB: pooled, Q: q},
 		Payments:          &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},

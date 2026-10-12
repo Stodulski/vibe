@@ -84,6 +84,7 @@ type Middleware struct {
 	complexes ComplexReader
 	tokens    TokenVerifier
 	blacklist Blacklist
+	activity  OwnerActivity
 	rdb       *redis.Client
 	respond   *httpx.Responder
 	logger    *slog.Logger
@@ -121,6 +122,15 @@ type Dependencies struct {
 	Logger  *slog.Logger
 	// Shutdown stops background goroutines during a graceful stop.
 	Shutdown <-chan struct{}
+	// Activity, when set, is told each time an owner makes an authenticated
+	// request. A nil value is no tracking at all, as in the test harness.
+	Activity OwnerActivity
+}
+
+// OwnerActivity records that an owner made an authenticated request. The
+// implementation must not block: it runs on the request path.
+type OwnerActivity interface {
+	TouchOwner(userID uuid.UUID)
 }
 
 // New returns a Middleware.
@@ -128,6 +138,7 @@ func New(d Dependencies, cfg Config) *Middleware {
 	return &Middleware{
 		users:     d.Users,
 		complexes: d.Complexes,
+		activity:  d.Activity,
 		tokens:    d.Tokens,
 		blacklist: d.Blacklist,
 		rdb:       d.Redis,
