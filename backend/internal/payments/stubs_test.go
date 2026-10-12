@@ -23,6 +23,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // stubPayments stands in for the payment store. Every step of the refund
@@ -670,6 +671,7 @@ func (s *stubProvider) RefundPayment(_ context.Context, _ string, amount float64
 type stubNotifier struct {
 	confirmations []notifications.BookingConfirmation
 	refunds       []notifications.Refund
+	ownerRefunds  []notifications.OwnerBookingRefund
 }
 
 func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
@@ -678,6 +680,17 @@ func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
 
 func (s *stubNotifier) DepositRefunded(r notifications.Refund) {
 	s.refunds = append(s.refunds, r)
+}
+
+func (s *stubNotifier) OwnerBookingRefunded(r notifications.OwnerBookingRefund) {
+	s.ownerRefunds = append(s.ownerRefunds, r)
+}
+
+// stubWaitlist keeps every freed slot the waitlist is handed.
+type stubWaitlist struct{ freed []waitlist.Freed }
+
+func (s *stubWaitlist) SlotFreed(_ context.Context, freed waitlist.Freed) {
+	s.freed = append(s.freed, freed)
 }
 
 // stubRecorder keeps every audit entry it is handed, whole.
@@ -738,6 +751,7 @@ type fixture struct {
 	locks         *stubLocks
 	provider      *stubProvider
 	notify        *stubNotifier
+	waitlist      *stubWaitlist
 	realtime      *stubBroadcaster
 	audit         *stubRecorder
 	trace         *callTrace
@@ -762,6 +776,7 @@ func newFixture(t *testing.T) *fixture {
 		locks:         &stubLocks{trace: trace},
 		provider:      &stubProvider{},
 		notify:        &stubNotifier{},
+		waitlist:      &stubWaitlist{},
 		realtime:      &stubBroadcaster{},
 		audit:         &stubRecorder{},
 		trace:         trace,
@@ -781,6 +796,7 @@ func newFixture(t *testing.T) *fixture {
 		Locks:         f.locks,
 		Provider:      f.provider,
 		Notify:        f.notify,
+		Waitlist:      f.waitlist,
 		Realtime:      f.realtime,
 		Audit:         f.audit,
 		Logger:        logger,

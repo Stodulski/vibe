@@ -92,6 +92,15 @@ func (s *Service) RegisterWorkers() {
 			p.ClientName, p.Date, p.StartTime)
 	}))
 
+	s.queue.RegisterHandler(handle(TaskEmailOwnerBookingRefunded, func(ctx context.Context, p ownerBookingRefunded) error {
+		to, err := s.ownerAddress(ctx, "owner booking refunded", p.OwnerID)
+		if err != nil {
+			return err
+		}
+		return s.mailer.SendOwnerBookingRefunded(ctx, to, p.ComplexName, p.CourtName,
+			p.ClientName, p.Date, p.StartTime)
+	}))
+
 	s.queue.RegisterHandler(handle(TaskEmailVerification, func(ctx context.Context, p VerificationEmail) error {
 		return s.mailer.SendEmailVerification(ctx, p.To, p.FirstName, p.VerifyURL)
 	}))

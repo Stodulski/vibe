@@ -33,6 +33,7 @@ type Mailer interface {
 	SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string) error
 	SendOwnerNewBooking(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendOwnerBookingCancelled(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
+	SendOwnerBookingRefunded(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendEmailVerification(ctx context.Context, to, firstName, verifyURL string) error
 	SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error
 	SendDuplicateRegistration(ctx context.Context, to, firstName, loginURL, resetURL string) error
@@ -200,6 +201,19 @@ func (s *Service) BookingCancelled(c Cancellation) {
 			ClientName: c.ClientName, Date: c.Date, StartTime: c.StartTime,
 		}, dedup(TaskEmailOwnerBookingCancelled, c.OwnerID, c.BookingID))
 	}
+}
+
+// OwnerBookingRefunded tells the complex owner that a refund MercadoPago issued
+// on its own side cancelled a live booking. It is the owner's only notice for
+// that cancellation; the client is told about the money through DepositRefunded.
+func (s *Service) OwnerBookingRefunded(r OwnerBookingRefund) {
+	if r.OwnerID == "" {
+		return
+	}
+	s.queue.Enqueue(TaskEmailOwnerBookingRefunded, ownerBookingRefunded{
+		OwnerID: r.OwnerID, ComplexName: r.ComplexName, CourtName: r.CourtName,
+		ClientName: r.ClientName, Date: r.Date, StartTime: r.StartTime,
+	}, dedup(TaskEmailOwnerBookingRefunded, r.OwnerID, r.BookingID))
 }
 
 // DepositRefunded notifies the client that their deposit is on its way back.

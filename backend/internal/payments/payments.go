@@ -24,6 +24,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // The payment ledger is read, written, and refunded, and the refund half is a
@@ -165,6 +166,13 @@ type Provider interface {
 type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation)
 	DepositRefunded(r notifications.Refund)
+	OwnerBookingRefunded(r notifications.OwnerBookingRefund)
+}
+
+// SlotFreedNotifier hears about a slot that a refund put back on sale when it
+// cancelled a live booking. waitlist.Service is the production implementation.
+type SlotFreedNotifier interface {
+	SlotFreed(ctx context.Context, freed waitlist.Freed)
 }
 
 // Broadcaster pushes a booking change to the owner's open dashboards.
@@ -222,6 +230,7 @@ type Service struct {
 	locks         Locker
 	provider      Provider
 	notify        Notifier
+	waitlist      SlotFreedNotifier
 	realtime      Broadcaster
 	audit         Recorder
 	logger        *slog.Logger
@@ -249,6 +258,7 @@ type Dependencies struct {
 	Audit         Recorder
 	Logger        *slog.Logger
 	Run           func(func())
+	Waitlist      SlotFreedNotifier
 }
 
 // NewService returns a Service backed by the given dependencies.
@@ -276,6 +286,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		locks:         d.Locks,
 		provider:      d.Provider,
 		notify:        d.Notify,
+		waitlist:      d.Waitlist,
 		realtime:      d.Realtime,
 		audit:         d.Audit,
 		logger:        d.Logger,

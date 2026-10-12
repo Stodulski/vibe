@@ -15,6 +15,7 @@ const (
 	TaskEmailDepositRefunded       = "email:deposit_refunded"
 	TaskEmailOwnerNewBooking       = "email:owner_new_booking"
 	TaskEmailOwnerBookingCancelled = "email:owner_booking_cancelled"
+	TaskEmailOwnerBookingRefunded  = "email:owner_booking_refunded"
 	TaskEmailVerification          = "email:verification"
 	TaskEmailPasswordReset         = "email:password_reset"
 	TaskEmailDuplicateRegistration = "email:duplicate_registration"
@@ -193,6 +194,19 @@ type Cancellation struct {
 	BookingID string `json:"-"`
 }
 
+// OwnerBookingRefund is the owner's notice that a refund MercadoPago issued on
+// its own side cancelled a live booking. OwnerID is the complex owner, resolved
+// at delivery time.
+type OwnerBookingRefund struct {
+	OwnerID     string
+	ComplexName string
+	CourtName   string
+	ClientName  string
+	Date        string
+	StartTime   string
+	BookingID   string
+}
+
 // Refund is the notice sent when a deposit is returned.
 type Refund struct {
 	Email       string `json:"email"`
@@ -319,6 +333,19 @@ type ownerNewBooking struct {
 // booking, which frees its slot. Like ownerNewBooking, the owner is referenced
 // by id and resolved at delivery time.
 type ownerBookingCancelled struct {
+	OwnerID     string `json:"owner_id"`
+	ComplexName string `json:"complex_name"`
+	CourtName   string `json:"court_name"`
+	ClientName  string `json:"client_name"`
+	Date        string `json:"date"`
+	StartTime   string `json:"start_time"`
+}
+
+// ownerBookingRefunded tells the complex owner that a refund MercadoPago issued
+// cancelled a booking. It is a separate task from ownerBookingCancelled so the
+// copy can say where the cancellation came from; the owner is referenced by id
+// and resolved at delivery time.
+type ownerBookingRefunded struct {
 	OwnerID     string `json:"owner_id"`
 	ComplexName string `json:"complex_name"`
 	CourtName   string `json:"court_name"`

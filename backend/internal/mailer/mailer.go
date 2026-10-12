@@ -738,6 +738,33 @@ func (m *Mailer) SendBookingCancelled(ctx context.Context, to, complexName, cour
 	return m.send(ctx, to, subject, m.wrap("Reserva cancelada", preheader, content))
 }
 
+// SendOwnerBookingRefunded emails the complex owner that a refund MercadoPago
+// issued on its own side cancelled a booking, so the slot is free to sell again.
+//
+// Only for a refund that cancelled a live booking: internal/notifications sends
+// this from internal/payments, and a refund Vibe issued itself is announced to
+// the client alone. Its button points at the dashboard's bookings page, the
+// same origin SendOwnerBookingCancelled uses.
+//
+// The subject says "devolución", not "reembolso": TestNoEmailUsesAForbiddenWord
+// holds every message, subject included, to the product's vocabulary.
+func (m *Mailer) SendOwnerBookingRefunded(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error {
+	subject := fmt.Sprintf("Se canceló una reserva por una devolución de MercadoPago: %s %s %s", courtName, date, startTime)
+
+	clientEsc, courtEsc := html.EscapeString(clientName), html.EscapeString(courtName)
+	complexEsc := html.EscapeString(complexName)
+	dateEsc, startEsc := html.EscapeString(date), html.EscapeString(startTime)
+
+	content := title("Se canceló una reserva.") +
+		p(fmt.Sprintf("<strong>%s</strong> reservó <strong>%s</strong> en <strong>%s</strong>, el %s de %s.",
+			clientEsc, courtEsc, complexEsc, dateEsc, startEsc), 16, 16) +
+		p("MercadoPago devolvió el pago de esta reserva y la cancelamos. El turno quedó libre para reservar.", 16, 16) +
+		button(m.appURL+"/bookings", "Ver en el panel")
+
+	preheader := fmt.Sprintf("%s el %s de %s quedó libre.", courtEsc, dateEsc, startEsc)
+	return m.send(ctx, to, subject, m.wrap("Se canceló una reserva", preheader, content))
+}
+
 // SendEmailVerification emails the user a link to verify their account, valid
 // for 24 hours.
 func (m *Mailer) SendEmailVerification(ctx context.Context, to, firstName, verifyURL string) error {

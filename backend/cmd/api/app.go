@@ -610,6 +610,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Locks:      d.models.Locks,
 		Provider:   mpClient,
 		Notify:     notify,
+		Waitlist:   waitlistService,
 		Realtime:   events,
 		Audit:      auditor,
 		Logger:     d.logger,

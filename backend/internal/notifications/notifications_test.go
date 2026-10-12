@@ -100,6 +100,10 @@ func (m *stubMailer) SendOwnerNewBooking(_ context.Context, to, complexName, cou
 func (m *stubMailer) SendOwnerBookingCancelled(_ context.Context, to, complexName, courtName, clientName, date, startTime string) error {
 	return m.record("owner_booking_cancelled", to, complexName, courtName, clientName, date, startTime)
 }
+func (m *stubMailer) SendOwnerBookingRefunded(_ context.Context, to, complexName, courtName, clientName, date, startTime string) error {
+	return m.record("owner_booking_refunded", to, complexName, courtName, clientName, date, startTime)
+}
+
 func (m *stubMailer) SendEmailVerification(_ context.Context, to, firstName, verifyURL string) error {
 	return m.record("verification", to, firstName, verifyURL)
 }
@@ -506,7 +510,7 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 	// sits in Redis forever.
 	for _, taskType := range []string{
 		TaskEmailBookingConfirmation, TaskEmailReminder2h, TaskEmailBookingCancelled,
-		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailOwnerBookingCancelled, TaskEmailVerification,
+		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailOwnerBookingCancelled, TaskEmailOwnerBookingRefunded, TaskEmailVerification,
 		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
 		TaskWABookingConfirmation, TaskWAReminder2h,
 		TaskWABookingCancelled, TaskWADepositRefunded,
