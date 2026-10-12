@@ -81,6 +81,7 @@ export function makeCompleteComplex(overrides: Partial<Complex> = {}): Complex {
     latitude: -34.6,
     longitude: -58.4,
     phone: '1155550000',
+    payments_enabled: true,
     ...overrides,
   });
 }

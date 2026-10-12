@@ -35,11 +35,13 @@ function renderChecklist(complex: Complex) {
   return renderWithProviders(<ProfileChecklist complex={complex} />);
 }
 
-/** Cover, description, hours and priced court open; logo, map, services and phone done. */
+/** Cover, description, hours and priced court open; logo, map, services, phone and MercadoPago done. */
 function fourOpen() {
   mockQueries({ schedules: makeDefaultWeekSchedules(), courts: [] });
   return makeCompleteComplex({ cover_url: null, description: null });
 }
+
+const WHY_MERCADOPAGO = 'Con MercadoPago conectado, los jugadores pueden pagar la seña al reservar.';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -59,7 +61,7 @@ describe('ProfileChecklist: collapsed', () => {
     renderChecklist(fourOpen());
 
     expect(screen.getByRole('heading', { name: 'Completá tu perfil' })).toBeInTheDocument();
-    expect(screen.getByText('4 de 8 listos')).toBeInTheDocument();
+    expect(screen.getByText('5 de 9 listos')).toBeInTheDocument();
     expect(screen.getByText(WHY_PHOTOS)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Subí la foto de portada' })).toHaveAttribute('href', '/settings');
     expect(screen.queryByRole('link', { name: 'Escribí tu descripción' })).not.toBeInTheDocument();
@@ -82,9 +84,38 @@ describe('ProfileChecklist: collapsed', () => {
     expect(screen.getByRole('link', { name: 'Escribí tu descripción' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Subí la foto de portada' })).not.toBeInTheDocument();
   });
+
+  it('shows MercadoPago as the next step once everything else is done but payments are off', () => {
+    mockQueries({ schedules: reviewedHours(), courts: [makeActivePricedCourt()] });
+
+    renderChecklist(makeCompleteComplex({ payments_enabled: false }));
+
+    expect(screen.getByText('Conectá MercadoPago para cobrar señas online')).toBeInTheDocument();
+    expect(screen.getByText(WHY_MERCADOPAGO)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Conectá tu cuenta de MercadoPago' })).toHaveAttribute(
+      'href',
+      '/settings?tab=billing',
+    );
+  });
 });
 
 describe('ProfileChecklist: expanded', () => {
+  it('lists MercadoPago last, after the priced court, with a link to the billing tab', async () => {
+    const user = userEvent.setup();
+    mockQueries({ schedules: makeDefaultWeekSchedules(), courts: [] });
+    renderChecklist(makeCompleteComplex({ cover_url: null, description: null, payments_enabled: false }));
+
+    await user.click(screen.getByRole('button', { name: 'Ver los 5 pendientes' }));
+
+    const rows = within(screen.getByRole('list')).getAllByRole('listitem');
+    expect(rows).toHaveLength(5);
+    expect(rows[4]).toHaveTextContent('Conectá MercadoPago para cobrar señas online');
+    expect(screen.getByRole('link', { name: 'Conectá tu cuenta de MercadoPago' })).toHaveAttribute(
+      'href',
+      '/settings?tab=billing',
+    );
+  });
+
   it('expanding lists every pending item once, with a chevron link to its destination', async () => {
     const user = userEvent.setup();
     renderChecklist(fourOpen());
@@ -154,8 +185,8 @@ describe('ProfileChecklist: state', () => {
     renderChecklist(fourOpen());
 
     const bar = screen.getByRole('progressbar');
-    expect(bar).toHaveAttribute('aria-valuenow', '4');
-    expect(bar).toHaveAttribute('aria-valuemax', '8');
+    expect(bar).toHaveAttribute('aria-valuenow', '5');
+    expect(bar).toHaveAttribute('aria-valuemax', '9');
   });
 
   it('renders nothing once every item is done', () => {

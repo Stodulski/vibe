@@ -41,10 +41,20 @@ function withChangedWednesday(overrides: Partial<Schedule>): Schedule[] {
 }
 
 describe('buildProfileChecklist', () => {
-  it('lists the eight profile items in the order the owner fills them', () => {
+  it('lists the nine profile items in the order the owner fills them, MercadoPago last', () => {
     const ids = buildProfileChecklist(completeInput()).map((item) => item.id);
 
-    expect(ids).toEqual(['cover', 'logo', 'description', 'amenities', 'location', 'hours', 'phone', 'pricedCourt']);
+    expect(ids).toEqual([
+      'cover',
+      'logo',
+      'description',
+      'amenities',
+      'location',
+      'hours',
+      'phone',
+      'pricedCourt',
+      'mercadoPago',
+    ]);
   });
 
   it('marks every item done for a complete profile with changed hours and a priced court', () => {
@@ -64,6 +74,7 @@ describe('buildProfileChecklist', () => {
     ['location', { latitude: null }],
     ['location', { longitude: null }],
     ['phone', { phone: '  ' }],
+    ['mercadoPago', { payments_enabled: false }],
   ])('leaves %s open when the complex has %o', (id, override) => {
     const done = doneById({ ...completeInput(), complex: makeCompleteComplex(override) });
 
