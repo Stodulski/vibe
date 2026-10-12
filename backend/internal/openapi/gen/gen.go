@@ -1537,6 +1537,75 @@ func (e LeadsCaptureAbandonedRegistrationJSONBodySource) Valid() bool {
 	}
 }
 
+// Defines values for SocialPutPostJSONBodyNetworks.
+const (
+	Facebook  SocialPutPostJSONBodyNetworks = "facebook"
+	Instagram SocialPutPostJSONBodyNetworks = "instagram"
+)
+
+// Valid indicates whether the value is a known member of the SocialPutPostJSONBodyNetworks enum.
+func (e SocialPutPostJSONBodyNetworks) Valid() bool {
+	switch e {
+	case Facebook:
+		return true
+	case Instagram:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SocialPutPostJSONBodyType.
+const (
+	Carousel SocialPutPostJSONBodyType = "carousel"
+	Image    SocialPutPostJSONBodyType = "image"
+	Reel     SocialPutPostJSONBodyType = "reel"
+)
+
+// Valid indicates whether the value is a known member of the SocialPutPostJSONBodyType enum.
+func (e SocialPutPostJSONBodyType) Valid() bool {
+	switch e {
+	case Carousel:
+		return true
+	case Image:
+		return true
+	case Reel:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SocialPutPost200JSONResponseBodyStatus.
+const (
+	SocialPutPost200JSONResponseBodyStatusCancelled  SocialPutPost200JSONResponseBodyStatus = "cancelled"
+	SocialPutPost200JSONResponseBodyStatusFailed     SocialPutPost200JSONResponseBodyStatus = "failed"
+	SocialPutPost200JSONResponseBodyStatusPartial    SocialPutPost200JSONResponseBodyStatus = "partial"
+	SocialPutPost200JSONResponseBodyStatusPublished  SocialPutPost200JSONResponseBodyStatus = "published"
+	SocialPutPost200JSONResponseBodyStatusPublishing SocialPutPost200JSONResponseBodyStatus = "publishing"
+	SocialPutPost200JSONResponseBodyStatusScheduled  SocialPutPost200JSONResponseBodyStatus = "scheduled"
+)
+
+// Valid indicates whether the value is a known member of the SocialPutPost200JSONResponseBodyStatus enum.
+func (e SocialPutPost200JSONResponseBodyStatus) Valid() bool {
+	switch e {
+	case SocialPutPost200JSONResponseBodyStatusCancelled:
+		return true
+	case SocialPutPost200JSONResponseBodyStatusFailed:
+		return true
+	case SocialPutPost200JSONResponseBodyStatusPartial:
+		return true
+	case SocialPutPost200JSONResponseBodyStatusPublished:
+		return true
+	case SocialPutPost200JSONResponseBodyStatusPublishing:
+		return true
+	case SocialPutPost200JSONResponseBodyStatusScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BookingsWhatsAppVerifyWebhookParamsHubMode.
 const (
 	Subscribe BookingsWhatsAppVerifyWebhookParamsHubMode = "subscribe"
@@ -2703,6 +2772,12 @@ type SaleSessionIDFilter = openapi_types.UUID
 // SessionID defines model for SessionID.
 type SessionID = openapi_types.UUID
 
+// SocialMediaName defines model for SocialMediaName.
+type SocialMediaName = string
+
+// SocialPostID defines model for SocialPostID.
+type SocialPostID = string
+
 // EditConflict An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type EditConflict = Problem
 
@@ -3533,6 +3608,34 @@ type ComplexesSlugAvailableParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// SocialPutPostJSONBody defines parameters for SocialPutPost.
+type SocialPutPostJSONBody struct {
+	// AltText Single-image posts only.
+	AltText  *string                         `json:"alt_text,omitempty"`
+	Caption  string                          `json:"caption"`
+	Draft    *bool                           `json:"draft,omitempty"`
+	Media    []string                        `json:"media"`
+	Networks []SocialPutPostJSONBodyNetworks `json:"networks"`
+
+	// PublishAt RFC 3339 time with an offset.
+	PublishAt time.Time                 `json:"publish_at"`
+	Type      SocialPutPostJSONBodyType `json:"type"`
+}
+
+// SocialPutPostJSONBodyNetworks defines parameters for SocialPutPost.
+type SocialPutPostJSONBodyNetworks string
+
+// SocialPutPostJSONBodyType defines parameters for SocialPutPost.
+type SocialPutPostJSONBodyType string
+
+// SocialPutPost200JSONResponseBodyStatus defines parameters for SocialPutPost.
+type SocialPutPost200JSONResponseBodyStatus string
+
+// SocialReconcileJSONBody defines parameters for SocialReconcile.
+type SocialReconcileJSONBody struct {
+	Ids []string `json:"ids"`
+}
+
 // PaymentsMercadoPagoWebhookJSONBody defines parameters for PaymentsMercadoPagoWebhook.
 type PaymentsMercadoPagoWebhookJSONBody struct {
 	Action string `json:"action"`
@@ -3689,6 +3792,12 @@ type EmailUnsubscribeFormdataRequestBody EmailUnsubscribeFormdataBody
 
 // LeadsCaptureAbandonedRegistrationJSONRequestBody defines body for LeadsCaptureAbandonedRegistration for application/json ContentType.
 type LeadsCaptureAbandonedRegistrationJSONRequestBody LeadsCaptureAbandonedRegistrationJSONBody
+
+// SocialPutPostJSONRequestBody defines body for SocialPutPost for application/json ContentType.
+type SocialPutPostJSONRequestBody SocialPutPostJSONBody
+
+// SocialReconcileJSONRequestBody defines body for SocialReconcile for application/json ContentType.
+type SocialReconcileJSONRequestBody SocialReconcileJSONBody
 
 // PaymentsMercadoPagoWebhookJSONRequestBody defines body for PaymentsMercadoPagoWebhook for application/json ContentType.
 type PaymentsMercadoPagoWebhookJSONRequestBody PaymentsMercadoPagoWebhookJSONBody
@@ -4050,6 +4159,15 @@ type ServerInterface interface {
 	// ComplexesSlugAvailable Check whether a slug is free platform-wide
 	// (GET /api/v1/slug-available)
 	ComplexesSlugAvailable(w http.ResponseWriter, r *http.Request, params ComplexesSlugAvailableParams)
+	// SocialPutPost Create or update a marketing post
+	// (PUT /api/v1/social/posts/{id})
+	SocialPutPost(w http.ResponseWriter, r *http.Request, id SocialPostID)
+	// SocialPutMedia Upload one file of a marketing post
+	// (PUT /api/v1/social/posts/{id}/media/{name})
+	SocialPutMedia(w http.ResponseWriter, r *http.Request, id SocialPostID, name SocialMediaName)
+	// SocialReconcile Cancel scheduled posts that left the content repository
+	// (POST /api/v1/social/reconcile)
+	SocialReconcile(w http.ResponseWriter, r *http.Request)
 	// PaymentsMercadoPagoWebhook Receive a MercadoPago IPN notification
 	// (POST /api/v1/webhooks/mercadopago)
 	PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Request, params PaymentsMercadoPagoWebhookParams)
@@ -7386,6 +7504,81 @@ func (siw *ServerInterfaceWrapper) ComplexesSlugAvailable(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// SocialPutPost operation middleware
+func (siw *ServerInterfaceWrapper) SocialPutPost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id SocialPostID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SocialPutPost(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SocialPutMedia operation middleware
+func (siw *ServerInterfaceWrapper) SocialPutMedia(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id SocialPostID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name SocialMediaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SocialPutMedia(w, r, id, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SocialReconcile operation middleware
+func (siw *ServerInterfaceWrapper) SocialReconcile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SocialReconcile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PaymentsMercadoPagoWebhook operation middleware
 func (siw *ServerInterfaceWrapper) PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 
@@ -7759,6 +7952,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/openapi.yaml", wrapper.OpenapiGetYAML)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/docs", wrapper.OpenapiGetDocs)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/.well-known/api-catalog", wrapper.OpenapiGetCatalog)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/social/posts/{id}", wrapper.SocialPutPost)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/social/posts/{id}/media/{name}", wrapper.SocialPutMedia)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/social/reconcile", wrapper.SocialReconcile)
 
 	return m
 }

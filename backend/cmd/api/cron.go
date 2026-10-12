@@ -43,6 +43,7 @@ func (app *application) cronJobs() []scheduler.Job {
 
 	return []scheduler.Job{
 		job("reminder_2h", 5*time.Minute, app.cronReminder2h),
+		job("publish_social_posts", 5*time.Minute, app.cronPublishSocialPosts),
 		job("release_expired_payments", 5*time.Minute, app.cronReleaseExpiredPayments),
 		job("clean_slot_locks", 5*time.Minute, app.cronCleanSlotLocks),
 		job("report_queue_depth", 5*time.Minute, app.cronReportQueueDepth),
@@ -311,4 +312,13 @@ func (app *application) cronCleanFailedRefunds(ctx context.Context) {
 // job.
 func (app *application) cronRefreshMPTokens(ctx context.Context) {
 	app.complexesService.RefreshMPTokens(ctx)
+}
+
+// cronPublishSocialPosts publishes the marketing posts that are due, to the
+// Facebook Page and the Instagram account. It does nothing without
+// META_SOCIAL_ACCESS_TOKEN, and each finished post is reported by email.
+func (app *application) cronPublishSocialPosts(ctx context.Context) {
+	if _, err := app.socialPublisher.RunDue(ctx); err != nil {
+		app.logger.Error("cron: publish social posts failed", "error", err)
+	}
 }

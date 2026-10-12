@@ -43,6 +43,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/reporting"
 	"github.com/stodulski/vibe-server/internal/sales"
 	"github.com/stodulski/vibe-server/internal/scheduler"
+	"github.com/stodulski/vibe-server/internal/social"
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/waitlist"
@@ -106,6 +107,9 @@ type application struct {
 	// routes.
 	bookingsService *bookings.Service
 	scheduler       *scheduler.Scheduler
+	// social serves the content sync; socialPublisher publishes due posts.
+	social          *social.Handler
+	socialPublisher *social.Publisher
 	middleware      *middleware.Middleware
 	db              *platformdb.Pool
 	rdb             *platformredis.Client
@@ -410,6 +414,9 @@ func main() {
 	defer func() { _ = rdb.Close() }() //nolint:errcheck // the process is exiting; a failed close reaches nobody
 	logger.Info("redis connected")
 
+	// socialMedia is the public bucket the social publisher uploads to. It stays
+	// nil without R2, and media uploads then answer 501.
+	var socialMedia social.MediaStorage
 	var objectStorage storage.ObjectStorage
 	if cfg.R2.AccountID != "" && cfg.R2.AccessKey != "" && cfg.R2.SecretKey != "" {
 		r2Client, err := storage.NewR2Client(cfg.R2.AccountID, cfg.R2.AccessKey, cfg.R2.SecretKey,
@@ -419,6 +426,7 @@ func main() {
 			os.Exit(1)
 		}
 		objectStorage = r2Client
+		socialMedia = r2Client
 		logger.Info("R2 storage initialized", "bucket", cfg.R2.BucketName)
 	}
 
@@ -455,6 +463,7 @@ func main() {
 		rdb:            rdb,
 		storage:        objectStorage,
 		privateStorage: privateStorage,
+		socialMedia:    socialMedia,
 		trustedProxies: trustedProxySet,
 	})
 	if err != nil {
