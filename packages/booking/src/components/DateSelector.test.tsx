@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import { addDays } from 'date-fns/addDays';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DateSelector } from './DateSelector';
@@ -75,6 +76,16 @@ const mockSchedules: Schedule[] = [
     is_closed: true,
   },
 ];
+
+// A sibling describe, not nested in the one below: max-lines-per-function.
+describe('DateSelector — a selected day past the first fortnight', () => {
+  it('grows the strip to show a selected date beyond the first two weeks', () => {
+    const farDay = addDays(todayInVenueTz(), 20);
+    render(<DateSelector selectedDate={farDay} onDateSelect={vi.fn()} schedules={mockSchedules} />);
+    expect(screen.getByRole('radio', { checked: true })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').length).toBeGreaterThan(14);
+  });
+});
 
 describe('DateSelector', () => {
   const today = todayInVenueTz();

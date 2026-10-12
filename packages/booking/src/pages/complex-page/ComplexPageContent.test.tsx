@@ -49,6 +49,7 @@ const baseProps: ComponentProps<typeof ComplexPageContent> = {
   pendingStartTime: null,
   onPendingStartTimeChange: vi.fn(),
   answeredFromUrl: { sport: false, duration: false },
+  emptyDay: null,
 };
 
 afterEach(() => {

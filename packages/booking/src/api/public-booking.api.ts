@@ -1,5 +1,5 @@
 import type { KyInstance } from 'ky';
-import type { PublicBookingRequest, PublicCancelBookingRequest } from './types';
+import type { PublicBookingRequest, PublicCancelBookingRequest, WaitlistJoinRequest } from './types';
 import { parseWith, type ErrorReporter } from '../lib/apiParse';
 import {
   publicComplexResponseSchema,
@@ -8,7 +8,7 @@ import {
   cancelInfoResponseSchema,
   publicCancelBookingResponseSchema,
 } from '../schemas/publicBooking.schema';
-import { availabilityEnvelopeSchema } from '../schemas/availability.schema';
+import { availabilityEnvelopeSchema, nextAvailableSchema } from '../schemas/availability.schema';
 import { withSignal } from './client';
 
 /**
@@ -31,6 +31,20 @@ export function createPublicBookingApi(client: KyInstance, report?: ErrorReporte
         })
         .json()
         .then(parseWith(availabilityEnvelopeSchema, 'publicBookingApi.getAvailability', report)),
+
+    /** The first day after `from` with a free slot for `duration`, or `null` when the window has none. */
+    getNextAvailable: (slug: string, from: string, duration: number | null, signal?: AbortSignal) =>
+      client
+        .get(`public/complexes/${slug}/next-available`, {
+          searchParams: duration === null ? { from } : { from, duration },
+          ...withSignal(signal),
+        })
+        .json()
+        .then(parseWith(nextAvailableSchema, 'publicBookingApi.getNextAvailable', report)),
+
+    /** Puts the email on the waitlist for the day. The answer is an empty `204`. */
+    joinWaitlist: (slug: string, data: WaitlistJoinRequest) =>
+      client.post(`public/complexes/${slug}/waitlist`, { json: data }).then(() => undefined),
 
     /**
      * `idempotencyKey` makes a retried submit replay the first answer instead

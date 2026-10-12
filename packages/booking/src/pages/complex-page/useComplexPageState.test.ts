@@ -1,12 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createElement, Fragment, type ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
+import { addDays } from 'date-fns/addDays';
 import { format } from 'date-fns/format';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import { hasUnsavedWork } from '@vibe/ui';
 import { setBookingUrl } from '../../test/booking';
 import { todayInVenueTz } from '../../lib/venueDate';
 import { useComplexPageState } from './useComplexPageState';
+
+// A day the deep link accepts: inside the booking horizon, so the fixture does
+// not go stale the way a fixed far-future date does.
+const BOOKABLE_DAY = format(addDays(todayInVenueTz(), 30), 'yyyy-MM-dd');
 
 // The hook reads its answers from window.location. The URL is set here, before
 // renderHook runs, so the wrapper only passes children through. Plain .ts file
@@ -26,7 +31,7 @@ beforeEach(() => {
 describe('useComplexPageState — reading a fully answered URL', () => {
   it('carries every answer from the query into state', () => {
     const { result } = renderHook(() => useComplexPageState(), {
-      wrapper: wrapperFor(['/los-alamos?date=2099-01-05&duration=60&time=08:30&sport=padel']),
+      wrapper: wrapperFor([`/los-alamos?date=${BOOKABLE_DAY}&duration=60&time=08:30&sport=padel`]),
     });
 
     expect(result.current.duration).toBe(60);
@@ -34,7 +39,7 @@ describe('useComplexPageState — reading a fully answered URL', () => {
     expect(result.current.sportFilter).toBe('padel');
     expect(result.current.pendingStartTime).toBe('08:30');
     expect(result.current.answeredFromUrl).toEqual({ sport: true, duration: true });
-    expect(result.current.dateStr).toBe('2099-01-05');
+    expect(result.current.dateStr).toBe(BOOKABLE_DAY);
   });
 });
 
@@ -162,7 +167,7 @@ describe('useComplexPageState — unsaved work while a slot is selected', () => 
   // An answer the URL carries is not work a reload can lose.
   it('does not mark the page busy for a fully answered query alone', () => {
     renderHook(() => useComplexPageState(), {
-      wrapper: wrapperFor(['/los-alamos?date=2099-01-05&duration=60&time=08:30&sport=padel']),
+      wrapper: wrapperFor([`/los-alamos?date=${BOOKABLE_DAY}&duration=60&time=08:30&sport=padel`]),
     });
 
     expect(hasUnsavedWork()).toBe(false);

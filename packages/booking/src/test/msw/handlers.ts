@@ -30,6 +30,8 @@ export const handlers = [
   http.get('*/public/complexes/:slug/availability', () =>
     HttpResponse.json({ availability: { date: '2026-03-18', day: 'wednesday', is_open: true, courts: [] } }),
   ),
+  http.get('*/public/complexes/:slug/next-available', () => HttpResponse.json({ date: null })),
+  http.post('*/public/complexes/:slug/waitlist', () => new HttpResponse(null, { status: 204 })),
   http.post('*/book', () =>
     HttpResponse.json({
       booking: {

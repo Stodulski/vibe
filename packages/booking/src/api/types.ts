@@ -155,6 +155,14 @@ export interface AvailabilityData {
   courts: CourtAvailability[];
 }
 
+// ─── Waitlist and next free day ───
+
+/** The day to wait for (`YYYY-MM-DD`) and the address to write to when a slot on it frees up. */
+export interface WaitlistJoinRequest {
+  date: string;
+  email: string;
+}
+
 // ─── Creating a booking ───
 
 export interface PublicBookingRequest {
