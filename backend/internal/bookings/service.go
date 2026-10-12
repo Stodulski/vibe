@@ -845,19 +845,7 @@ func (s *Service) ConfirmPayment(ctx context.Context, complexID uuid.UUID, actor
 
 	// Confirming payment also confirms the booking (prevents cron from
 	// expiring a paid booking that was still in "pending" status).
-	if booking.Status == "pending" {
-		booking.Status = "confirmed"
-	}
-	totalPaid := in.Amount
-	if booking.CollectionStatus == bookingstore.CollectionStatusDepositPaid {
-		totalPaid += booking.DepositAmount
-	}
-	if totalPaid >= booking.Price {
-		booking.CollectionStatus = bookingstore.CollectionStatusFullyPaid
-	} else {
-		booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
-		booking.DepositAmount = totalPaid
-	}
+	booking.RecordCounterPayment(in.Amount)
 	if err := s.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
 		return nil, nil, err
 	}
