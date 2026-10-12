@@ -91,9 +91,13 @@ type Schedule struct {
 }
 
 // ComplexSlug is the minimal projection of a complex needed to build sitemap entries.
+// CoverURL and LogoURL are the venue's photos, nil when it has none; the sitemap lists
+// them as image entries of the complex's page.
 type ComplexSlug struct {
 	Slug      string    `json:"slug"`
 	UpdatedAt time.Time `json:"updated_at"`
+	CoverURL  *string   `json:"cover_url"`
+	LogoURL   *string   `json:"logo_url"`
 }
 
 // Store implements ComplexStore against PostgreSQL.
@@ -693,13 +697,13 @@ func (m *Store) SlugExists(ctx context.Context, slug string) (bool, error) {
 	return exists, nil
 }
 
-// GetAllSlugs returns the slug and last-updated time of every active complex, for sitemap generation.
+// GetAllSlugs returns the slug, last-updated time and photos of every active complex, for sitemap generation.
 func (m *Store) GetAllSlugs(ctx context.Context) ([]ComplexSlug, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx,
-		`SELECT slug, updated_at FROM active_complexes WHERE is_active = true ORDER BY slug`)
+		`SELECT slug, updated_at, cover_url, logo_url FROM active_complexes WHERE is_active = true ORDER BY slug`)
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +712,7 @@ func (m *Store) GetAllSlugs(ctx context.Context) ([]ComplexSlug, error) {
 	var slugs []ComplexSlug
 	for rows.Next() {
 		var s ComplexSlug
-		if err := rows.Scan(&s.Slug, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.Slug, &s.UpdatedAt, &s.CoverURL, &s.LogoURL); err != nil {
 			return nil, fmt.Errorf("complexes: scan slug entry: %w", err)
 		}
 		slugs = append(slugs, s)

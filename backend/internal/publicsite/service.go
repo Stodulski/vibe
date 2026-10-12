@@ -2,10 +2,17 @@ package publicsite
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
+	"unicode"
 )
+
+// googleImageNamespace is the namespace of Google's image sitemap extension. The urlset
+// declares it, so each complex's photos can be listed as image entries of its page.
+const googleImageNamespace = "http://www.google.com/schemas/sitemap-image/1.1"
 
 // Service holds this module's rules: which complex pages and city hubs the public
 // site publishes. A venue that has switched itself off is not published on either.
@@ -30,6 +37,34 @@ func complexURL(base, slug string) string {
 	return base + "/c/" + slug
 }
 
+// writeComplexImages lists a complex's photos under its page for Google Images: the cover
+// first, then the logo. A photo that is empty or not an absolute http(s) URL is left out.
+// The extension carries no caption or title, which Google no longer reads, so none is written.
+func writeComplexImages(b *strings.Builder, cover, logo *string) {
+	for _, photo := range []*string{cover, logo} {
+		if photo == nil {
+			continue
+		}
+		u := strings.TrimSpace(*photo)
+		if !isAbsoluteHTTPURL(u) {
+			continue
+		}
+		b.WriteString("    <image:image><image:loc>")
+		_ = xml.EscapeText(b, []byte(u)) //nolint:errcheck // a strings.Builder write never fails
+		b.WriteString("</image:loc></image:image>\n")
+	}
+}
+
+// isAbsoluteHTTPURL reports whether raw is an absolute http or https URL with a host and no
+// whitespace inside it.
+func isAbsoluteHTTPURL(raw string) bool {
+	if raw == "" || strings.ContainsFunc(raw, unicode.IsSpace) {
+		return false
+	}
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
 // Sitemap builds the XML listing every published complex.
 func (s *Service) Sitemap(ctx context.Context) (string, error) {
 	slugs, err := s.store.GetAllSlugs(ctx)
@@ -41,7 +76,7 @@ func (s *Service) Sitemap(ctx context.Context) (string, error) {
 
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
-	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="` + googleImageNamespace + `">` + "\n")
 
 	// The app's own root is deliberately not listed. The host serves it with
 	// `X-Robots-Tag: noindex` — it is the signed-in dashboard, not a page
@@ -55,6 +90,7 @@ func (s *Service) Sitemap(ctx context.Context) (string, error) {
 		fmt.Fprintf(&b, "    <lastmod>%s</lastmod>\n", slug.UpdatedAt.Format("2006-01-02"))
 		b.WriteString("    <changefreq>daily</changefreq>\n")
 		b.WriteString("    <priority>0.8</priority>\n")
+		writeComplexImages(&b, slug.CoverURL, slug.LogoURL)
 		b.WriteString("  </url>\n")
 	}
 
