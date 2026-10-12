@@ -18,6 +18,8 @@ import (
 	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // processRefundedPayment handles a refund/chargeback on an already-recorded payment.
@@ -141,6 +143,13 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	payment.RefundAmount = min(refundCentavos, recordedTotal)
 	payment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
 
+	// Only a live booking can be cancelled by this refund, so only one is announced
+	// as cancelled. Whether it was live is read before the write: a booking Vibe
+	// already cancelled was announced when it was cancelled, and the webhook for the
+	// money coming back must not announce it a second time.
+	wasLive := liveBooking(booking.Status)
+	cancelledByRefund := false
+
 	if isFullRefund && booking.Status != "completed" && booking.Status != "no_show" {
 		// Full refund: update payment + cancel booking atomically.
 		// Do NOT cancel completed/no_show bookings — service was already rendered.
@@ -149,6 +158,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
 			return fmt.Errorf("record the refund of payment %s and cancel its booking: %w", mpPaymentID, err)
 		}
+		cancelledByRefund = wasLive
 	} else {
 		// Partial refund, or full refund on completed/no_show: only update payment.
 		if isFullRefund {
@@ -184,6 +194,9 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// ours holds this refund — the guard at the top of the function returned on
 	// that case rather than only muting the message.
 	s.sendRefundNotification(ctx, booking, payment.RefundAmount)
+	if cancelledByRefund {
+		s.announceRefundedCancellation(ctx, booking)
+	}
 
 	// Money left this venue's account and nobody here decided it. The amount
 	// recorded is MercadoPago's own figure for what moved on this event, not
@@ -212,6 +225,9 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 		return nil
 	}
 
+	// Read before the write below, for the same reason as in processRefundedPayment.
+	wasLive := liveBooking(booking.Status)
+
 	// Don't cancel completed/no_show bookings — service was already rendered.
 	// Only update payment status.
 	if booking.Status != "completed" && booking.Status != "no_show" {
@@ -239,6 +255,9 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 		refunded = int(math.Round(mpPayment.TransactionAmount * 100))
 	}
 	s.sendRefundNotification(ctx, booking, refunded)
+	if wasLive {
+		s.announceRefundedCancellation(ctx, booking)
+	}
 
 	// Same event as above, from the path that has no payment row to name: the
 	// refund arrived before this system ever recorded the payment it reverses.
@@ -291,6 +310,58 @@ func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingst
 		Amount:      amount,
 		BookPath:    booklink.BookPath(complex.Slug),
 		BookURL:     booklink.Book(s.cfg.PublicURL, complex.Slug),
+		BookingID:   booking.ID.String(),
+	})
+}
+
+// liveBooking reports whether a booking still holds its court: pending or
+// confirmed. A cancelled, completed or no-show booking does not.
+func liveBooking(status bookingstore.BookingStatus) bool {
+	return status == bookingstore.BookingStatusPending || status == bookingstore.BookingStatusConfirmed
+}
+
+// announceRefundedCancellation runs once a refund MercadoPago issued has cancelled
+// a live booking: it hands the freed day to the waitlist and tells the owner. It
+// runs after the cancellation has committed, and a lookup that fails is logged
+// rather than failing the webhook, because the money has already moved.
+func (s *Service) announceRefundedCancellation(ctx context.Context, booking *bookingstore.Booking) {
+	complex, err := s.complexes.GetByID(ctx, booking.ComplexID)
+	if err != nil {
+		s.logger.Error("refund cancellation: failed to fetch complex",
+			"error", err, "booking_id", booking.ID)
+		return
+	}
+
+	// The slot is free whether or not the owner can be told, so the waitlist is
+	// handed it first. Detached from the webhook's context, as the cancel paths do.
+	if s.waitlist != nil {
+		detached := context.WithoutCancel(ctx)
+		freed := waitlist.Freed{
+			ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: booking.Date,
+		}
+		s.run(func() { s.waitlist.SlotFreed(detached, freed) })
+	}
+
+	court, err := s.courts.GetByID(ctx, booking.CourtID)
+	if err != nil {
+		s.logger.Error("refund cancellation: failed to fetch court",
+			"error", err, "booking_id", booking.ID)
+		return
+	}
+	client, err := s.clients.GetByID(ctx, booking.ClientID)
+	if err != nil {
+		s.logger.Error("refund cancellation: failed to fetch client",
+			"error", err, "booking_id", booking.ID)
+		return
+	}
+
+	s.notify.OwnerBookingRefunded(notifications.OwnerBookingRefund{
+		OwnerID:     complex.OwnerID.String(),
+		ComplexName: complex.Name,
+		CourtName:   court.Name,
+		ClientName:  client.FirstName + " " + client.LastName,
+		Date:        booking.Date.Format("02/01"),
+		StartTime:   timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
 		BookingID:   booking.ID.String(),
 	})
 }

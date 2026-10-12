@@ -743,6 +743,9 @@ func captureSent(t *testing.T) []string {
 		func() error {
 			return m.SendOwnerBookingCancelled(ctx, to, complex, court, "Ana Perez", date, hours)
 		},
+		func() error {
+			return m.SendOwnerBookingRefunded(ctx, to, complex, court, "Ana Perez", date, hours)
+		},
 	}
 	for i, send := range sends {
 		if err := send(); err != nil {
@@ -873,6 +876,50 @@ func TestOwnerBookingCancelledEmail(t *testing.T) {
 	}
 	if strings.Contains(sent.Subject+sent.HTMLContent, "—") {
 		t.Error("the owner cancellation email must not use em dashes")
+	}
+}
+
+// TestOwnerBookingRefundedEmail pins what the owner reads when MercadoPago's own
+// refund cancels a booking: the subject says the cancellation came from a
+// MercadoPago refund and names the slot, the body names the client and the
+// slot and says the slot is free, and the button opens the dashboard's
+// bookings page.
+func TestOwnerBookingRefundedEmail(t *testing.T) {
+	var sent brevoRequest
+	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&sent)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer brevo.Close()
+
+	m := New(Config{BrevoAPIKey: "k", Sender: "Vibe <noreply@vibe.com.ar>", AppURL: "https://app.vibe.test"})
+	m.apiURL = brevo.URL
+
+	if err := m.SendOwnerBookingRefunded(context.Background(), "owner@example.com",
+		"Vibe Palermo", "Cancha 1", "Ana Pérez", "01/09", "18:00 - 19:30"); err != nil {
+		t.Fatalf("SendOwnerBookingRefunded = %v", err)
+	}
+
+	if want := "Se canceló una reserva por una devolución de MercadoPago: Cancha 1 01/09 18:00 - 19:30"; sent.Subject != want {
+		t.Errorf("subject: want %q; got %q", want, sent.Subject)
+	}
+	for _, want := range []string{
+		"<strong>Ana Pérez</strong>",
+		"<strong>Cancha 1</strong>",
+		"Vibe Palermo",
+		"MercadoPago devolvió el pago de esta reserva y la cancelamos. El turno quedó libre para reservar.",
+		`href="https://app.vibe.test/bookings"`,
+		"Ver en el panel",
+	} {
+		if !strings.Contains(sent.HTMLContent, want) {
+			t.Errorf("the owner refund email is missing %q", want)
+		}
+	}
+	if strings.ContainsAny(sent.Subject, "!¡") {
+		t.Error("the owner refund subject must not use exclamation marks")
+	}
+	if strings.Contains(sent.Subject+sent.HTMLContent, "—") {
+		t.Error("the owner refund email must not use em dashes")
 	}
 }
 
