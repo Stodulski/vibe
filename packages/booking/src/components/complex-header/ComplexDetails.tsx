@@ -1,13 +1,9 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@vibe/ui';
-import { useMediaQuery } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { Schedule } from '../../api/types';
 import { WeekScheduleList } from './WeekScheduleList';
 
 const t = BOOKING_MESSAGES;
-
-/** Tailwind's `lg`, where the header becomes a card with room for the week open. */
-const OPEN_SECTIONS = '(min-width: 1024px)';
 
 interface ComplexDetailsProps {
   schedules: Schedule[];
@@ -32,34 +28,23 @@ export function Section({ title, children }: { title: string; children: React.Re
 }
 
 /**
- * Opening hours — a section in the open card at `lg`, an accordion below it.
+ * Opening hours, one markup at every width.
  *
- * Beside the identity block there is room for the week at once, and a control
- * that hides content already on screen is a tap charged for nothing. Once the
- * header stacks into one column that stops being true: the slot picker follows
- * the card directly, so the hours start closed and open only when the visitor
- * asks to read the week.
- *
- * The switch is a real branch, not two trees with one hidden by CSS — hiding
- * would leave a screen reader reading every heading twice and finding a
- * button that does nothing.
+ * The week is always in the HTML, so crawlers and no-JS readers get it. Below
+ * `lg` the panel is collapsed by CSS on `data-state`, so the visitor opens the
+ * week with one tap, and the trigger is the only heading. At `lg` the card has
+ * room for the week at once: the trigger is hidden there, the panel is always
+ * shown, and the screen-reader heading takes over the trigger's role.
  */
 export function ComplexDetails({ schedules, selectedDate }: ComplexDetailsProps) {
-  const openSections = useMediaQuery(OPEN_SECTIONS);
-
-  if (openSections) {
-    return (
-      <Section title={t.complex.schedules}>
-        <WeekScheduleList schedules={schedules} selectedDate={selectedDate} />
-      </Section>
-    );
-  }
-
   return (
-    <Accordion type="single" collapsible className="border-border-subtle border-t">
-      <AccordionItem value="schedules">
-        <AccordionTrigger headingLevel={2}>{t.complex.schedules}</AccordionTrigger>
-        <AccordionContent>
+    <Accordion type="single" collapsible className="border-border-subtle border-t lg:pt-5">
+      <AccordionItem value="schedules" className="group">
+        <div className="lg:hidden">
+          <AccordionTrigger headingLevel={2}>{t.complex.schedules}</AccordionTrigger>
+        </div>
+        <h2 className="sr-only max-lg:hidden">{t.complex.schedules}</h2>
+        <AccordionContent forceMount className="max-lg:group-data-[state=closed]:hidden lg:pb-0">
           <WeekScheduleList schedules={schedules} selectedDate={selectedDate} />
         </AccordionContent>
       </AccordionItem>
