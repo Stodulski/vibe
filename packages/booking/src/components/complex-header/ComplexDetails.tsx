@@ -39,7 +39,7 @@ export function Section({ title, children }: { title: string; children: React.Re
 export function ComplexDetails({ schedules, selectedDate }: ComplexDetailsProps) {
   return (
     <Accordion type="single" collapsible className="border-border-subtle border-t lg:pt-5">
-      <AccordionItem value="schedules" className="group">
+      <AccordionItem value="schedules" className="group [&_[data-slot=accordion-content][data-state=closed]]:animate-none!">
         <div className="lg:hidden">
           <AccordionTrigger headingLevel={2}>{t.complex.schedules}</AccordionTrigger>
         </div>

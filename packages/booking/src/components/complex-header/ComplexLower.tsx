@@ -45,7 +45,7 @@ export function ComplexLower({ complex }: { complex: PublicComplex }) {
       )}
 
       {complex.latitude != null && complex.longitude != null && (
-        <div className="mt-6">
+        <div className="mt-6 max-lg:first:mt-0">
           {/*
             Leaflet is a third-party map widget loaded lazily; a failure in it (a
             bad tile server, a bundling issue) must not take down the rest of the
