@@ -55,9 +55,10 @@ export const dashboard = {
   // "Completá tu perfil" checklist: what the public page is missing. Each
   // `why` says what the owner gains, in one line.
   profileChecklist: {
-    title: 'Completá tu perfil público',
-    intro: 'Un perfil completo se ve mejor en Google y ayuda a que más jugadores reserven.',
+    title: 'Completá tu perfil',
     progress: (done: number, total: number) => `${String(done)} de ${String(total)} listos`,
+    showPending: (count: number) => `Ver los ${String(count)} pendientes`,
+    hidePending: 'Ocultar pendientes',
     items: {
       cover: {
         label: 'Foto de portada',

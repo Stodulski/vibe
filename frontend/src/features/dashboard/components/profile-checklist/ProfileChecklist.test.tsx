@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ProfileChecklist } from './ProfileChecklist';
 import { renderWithProviders } from '@/test/test-utils';
 import { useSchedules } from '@/features/complex';
@@ -11,6 +12,9 @@ import type { Complex, CourtWithPrices, Schedule } from '@/shared/types/api.type
 // under test picks up the mock through the public import path.
 vi.mock('@/features/complex/hooks/useSchedules', () => ({ useSchedules: vi.fn() }));
 vi.mock('@/features/courts/hooks/useCourts', () => ({ useCourts: vi.fn() }));
+
+const EXPANDED_KEY = 'vibe.profileChecklist.expanded';
+const WHY_PHOTOS = 'Las fotos hacen que más jugadores elijan tu complejo.';
 
 function mockQueries({
   schedules,
@@ -31,11 +35,18 @@ function renderChecklist(complex: Complex) {
   return renderWithProviders(<ProfileChecklist complex={complex} />);
 }
 
-describe('ProfileChecklist', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+/** Cover, description, hours and priced court open; logo, map, services and phone done. */
+function fourOpen() {
+  mockQueries({ schedules: makeDefaultWeekSchedules(), courts: [] });
+  return makeCompleteComplex({ cover_url: null, description: null });
+}
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  window.localStorage.clear();
+});
+
+describe('ProfileChecklist: collapsed', () => {
   it('renders nothing while the schedules or courts are still loading', () => {
     mockQueries({ schedules: undefined, courts: undefined });
 
@@ -44,35 +55,103 @@ describe('ProfileChecklist', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('lists each missing item with its reason and a link to the screen that fixes it', () => {
-    mockQueries({ schedules: makeDefaultWeekSchedules(), courts: [] });
-    const incomplete = makeCompleteComplex({ cover_url: null, description: null });
+  it('collapsed, shows the progress and only the next pending item', () => {
+    renderChecklist(fourOpen());
 
-    renderChecklist(incomplete);
-
-    expect(screen.getByRole('heading', { name: 'Completá tu perfil público' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Completá tu perfil' })).toBeInTheDocument();
     expect(screen.getByText('4 de 8 listos')).toBeInTheDocument();
-    expect(screen.getByText('Las fotos hacen que más jugadores elijan tu complejo.')).toBeInTheDocument();
+    expect(screen.getByText(WHY_PHOTOS)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Subí la foto de portada' })).toHaveAttribute('href', '/settings');
-    expect(screen.getByRole('link', { name: 'Editá los horarios' })).toHaveAttribute('href', '/settings?tab=schedules');
-    expect(screen.getByRole('link', { name: 'Cargá los precios' })).toHaveAttribute('href', '/courts');
-  });
-
-  it('does not list items that are already done', () => {
-    mockQueries({ schedules: reviewedHours(), courts: [makeActivePricedCourt()] });
-    const incomplete = makeCompleteComplex({ logo_url: null });
-
-    renderChecklist(incomplete);
-
-    expect(screen.getByRole('link', { name: 'Subí tu logo' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Escribí tu descripción' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Editá los horarios' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Cargá los precios' })).not.toBeInTheDocument();
   });
 
-  it('exposes progress as a progressbar with the completed count', () => {
-    mockQueries({ schedules: makeDefaultWeekSchedules(), courts: [] });
+  it('the disclosure reports the pending count and starts collapsed', () => {
+    renderChecklist(fourOpen());
 
-    renderChecklist(makeCompleteComplex({ cover_url: null, description: null }));
+    const toggle = screen.getByRole('button', { name: 'Ver los 4 pendientes' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('skips completed items when choosing the next one', () => {
+    mockQueries({ schedules: reviewedHours(), courts: [makeActivePricedCourt()] });
+
+    renderChecklist(makeCompleteComplex({ cover_url: 'https://cdn.example.com/c.jpg', description: null }));
+
+    expect(screen.getByRole('link', { name: 'Escribí tu descripción' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Subí la foto de portada' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ProfileChecklist: expanded', () => {
+  it('expanding lists every pending item once, with a chevron link to its destination', async () => {
+    const user = userEvent.setup();
+    renderChecklist(fourOpen());
+
+    await user.click(screen.getByRole('button', { name: 'Ver los 4 pendientes' }));
+
+    expect(screen.getByRole('button', { name: 'Ocultar pendientes' })).toHaveAttribute('aria-expanded', 'true');
+    const list = screen.getByRole('list');
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows).toHaveLength(4);
+    expect(within(list).getByText('Foto de portada')).toBeInTheDocument();
+    expect(within(list).getByText('Descripción')).toBeInTheDocument();
+    expect(within(list).getByText('Revisá tus horarios')).toBeInTheDocument();
+    expect(within(list).getByText('Cancha con precio')).toBeInTheDocument();
+    expect(within(list).queryByText('Logo')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Subí la foto de portada' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Escribí tu descripción' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Editá los horarios' })).toHaveAttribute('href', '/settings?tab=schedules');
+    expect(screen.getByRole('link', { name: 'Cargá los precios' })).toHaveAttribute('href', '/courts');
+  });
+
+  it('expanded rows carry no per-item reason text', async () => {
+    const user = userEvent.setup();
+    renderChecklist(fourOpen());
+
+    await user.click(screen.getByRole('button', { name: 'Ver los 4 pendientes' }));
+
+    expect(screen.queryByText(WHY_PHOTOS)).not.toBeInTheDocument();
+  });
+
+  it('collapsing again hides the list and brings back the next item', async () => {
+    const user = userEvent.setup();
+    renderChecklist(fourOpen());
+    await user.click(screen.getByRole('button', { name: 'Ver los 4 pendientes' }));
+
+    await user.click(screen.getByRole('button', { name: 'Ocultar pendientes' }));
+
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.getByText(WHY_PHOTOS)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver los 4 pendientes' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows no disclosure when only one item is pending, because the next item already is that item', () => {
+    mockQueries({ schedules: reviewedHours(), courts: [makeActivePricedCourt()] });
+
+    renderChecklist(makeCompleteComplex({ description: null }));
+
+    expect(screen.getByRole('link', { name: 'Escribí tu descripción' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /pendientes/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('ProfileChecklist: state', () => {
+  it('remembers an expanded choice per browser', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(EXPANDED_KEY, '1');
+    renderChecklist(fourOpen());
+
+    expect(screen.getByRole('button', { name: 'Ocultar pendientes' })).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Ocultar pendientes' }));
+
+    expect(window.localStorage.getItem(EXPANDED_KEY)).toBe('0');
+  });
+
+  it('exposes progress as a progressbar with the completed count', () => {
+    renderChecklist(fourOpen());
 
     const bar = screen.getByRole('progressbar');
     expect(bar).toHaveAttribute('aria-valuenow', '4');
