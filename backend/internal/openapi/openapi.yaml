@@ -1728,10 +1728,19 @@ paths:
                     type: array
                     items: {$ref: "#/components/schemas/Schedule"}
         "404":
-          description: Unknown slug, or the complex is inactive.
+          description: >-
+            Unknown slug, or the complex is inactive. A slug that a deleted complex held and no
+            live complex holds answers `410` instead.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
+        "410":
+          description: >-
+            The complex was deleted and no live complex holds its slug. The body names the
+            deleted complex's name and city and the key of its city hub, and nothing else of it.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicComplexGone"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -4196,6 +4205,24 @@ components:
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         version: {type: integer, description: "Optimistic-concurrency counter, bumped on every update."}
+
+    PublicComplexGone:
+      type: object
+      description: >-
+        The 410 answer on the public page of a deleted complex. It carries the three fields
+        below and nothing else of the deleted row. `city_slug` is empty when the city has no
+        slug characters and so belongs to no hub.
+      required: [gone]
+      additionalProperties: false
+      properties:
+        gone:
+          type: object
+          required: [name, city, city_slug]
+          additionalProperties: false
+          properties:
+            name: {type: string}
+            city: {type: string}
+            city_slug: {type: string}
 
     PublicComplex:
       type: object

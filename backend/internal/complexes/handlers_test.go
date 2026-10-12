@@ -722,6 +722,76 @@ func TestGetPublicReportsAnUnknownSlugAsNotFound(t *testing.T) {
 	}
 }
 
+// A slug that only a deleted complex ever held answers 410 with the name, the
+// city and the hub key of that complex, and nothing else of it.
+func TestGetPublicAnswersGoneForASlugOnlyADeletedComplexHeld(t *testing.T) {
+	f := newFixture(t)
+	f.store.getErr = data.ErrRecordNotFound
+	f.store.gone = &complexstore.GoneComplex{Name: "Vibe Palermo", City: "Caleta Olivia"}
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	r = withSlug(r, "vibe-palermo")
+
+	w := httptest.NewRecorder()
+	f.handler.GetPublic(w, r)
+
+	if w.Code != http.StatusGone {
+		t.Fatalf("want 410; got %d (%s)", w.Code, w.Body.String())
+	}
+	var body map[string]map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode 410 body: %v", err)
+	}
+	if len(body) != 1 || body["gone"] == nil {
+		t.Fatalf("the 410 body must carry only \"gone\"; got %s", w.Body.String())
+	}
+	want := map[string]any{"name": "Vibe Palermo", "city": "Caleta Olivia", "city_slug": "caleta-olivia"}
+	if len(body["gone"]) != len(want) {
+		t.Fatalf("the gone object must carry exactly three fields; got %s", w.Body.String())
+	}
+	for k, v := range want {
+		if body["gone"][k] != v {
+			t.Errorf("gone.%s = %v; want %v", k, body["gone"][k], v)
+		}
+	}
+}
+
+// A live complex holding the slug decides the answer, even when it is switched
+// off: a deactivated venue stays a 404, never a 410.
+func TestGetPublicKeepsADeactivatedComplexAt404EvenWithADeletedHolderOnRecord(t *testing.T) {
+	f := newFixture(t)
+	f.store.complex = &complexstore.Complex{ID: uuid.New(), Slug: "vibe", Name: "Vibe", IsActive: false}
+	f.store.gone = &complexstore.GoneComplex{Name: "Old Vibe", City: "Rosario"}
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	r = withSlug(r, "vibe")
+
+	w := httptest.NewRecorder()
+	f.handler.GetPublic(w, r)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("want 404 for a switched-off live complex; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+// A failed read of the gone lookup is a fault like any other failed read: 500,
+// never a 410 or a 404 that would hide it.
+func TestGetPublicAnswersAFailedGoneLookupAsAFault(t *testing.T) {
+	f := newFixture(t)
+	f.store.getErr = data.ErrRecordNotFound
+	f.store.goneErr = errors.New("connection reset")
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	r = withSlug(r, "vibe")
+
+	w := httptest.NewRecorder()
+	f.handler.GetPublic(w, r)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("want 500; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
 func TestConnectMercadoPagoStoresTheOwnersCredentials(t *testing.T) {
 	f := newFixture(t)
 	f.payments.tokens = &mp.OAuthTokens{AccessToken: "AT", RefreshToken: "RT", UserID: 12345}

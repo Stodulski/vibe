@@ -357,83 +357,12 @@ func sealUnderForeignKey(f *datatest.Fixture, t *testing.T, complexID uuid.UUID)
 	}
 }
 
-// TestIntegration_SlugOfASoftDeletedComplexStaysTaken pins the agreement
-// between the availability check and the uniqueness constraint.
-//
-// complexes.slug is UNIQUE across the whole table, so a soft-deleted venue
-// keeps its slug. SlugExists used to exclude deleted rows, which made it the
-// only place that answered "free" about a name the database would refuse: the
-// handler validated, inserted, and got a 23505 back as a 500.
-//
-// Both halves are asserted here, because fixing only the check would leave the
-// race (another request taking the slug in between) landing as a 500 again.
-func TestIntegration_SlugOfASoftDeletedComplexStaysTaken(t *testing.T) {
-	f := datatest.Isolated(t)
-	ctx := context.Background()
-
-	var slug string
-	err := f.DB.QueryRow(ctx, `SELECT slug FROM complexes WHERE id = $1`, f.ComplexID).Scan(&slug)
-	if err != nil {
-		t.Fatalf("reading the fixture's slug: %v", err)
-	}
-
-	// SoftDeleteCascade, not SoftDelete: the store no longer offers a way to
-	// stamp a complex without closing its courts (the soft-delete cascade). The count it
-	// returns is not what this test is about, and every assertion below is
-	// unchanged — the slug stays taken, which is the decision this pins.
-	if _, err := f.Stores.Complexes.SoftDeleteCascade(ctx, f.ComplexID); err != nil {
-		t.Fatalf("SoftDeleteCascade: %v", err)
-	}
-
-	// The complex is gone from every live-row query...
-	if _, err := f.Stores.Complexes.GetBySlug(ctx, slug); !errors.Is(err, data.ErrRecordNotFound) {
-		t.Errorf("a soft-deleted complex is still served publicly: %v", err)
-	}
-
-	// ...but its slug is not free, because the constraint says it is not.
-	taken, err := f.Stores.Complexes.SlugExists(ctx, slug)
-	if err != nil {
-		t.Fatalf("SlugExists: %v", err)
-	}
-	if !taken {
-		t.Error("SlugExists reported a soft-deleted complex's slug as free; the unique " +
-			"constraint will refuse the insert that follows")
-	}
-
-	// And the insert that a stale check would let through is a named domain
-	// error, not a raw constraint violation.
-	// CancellationHours is spelled out even though this test is about slugs.
-	// Insert names the column, so an omitted field here is Go's zero rather than
-	// the schema's DEFAULT 24, and complexes_cancellation_hours_range refuses zero — the check
-	// would fire before the unique constraint and this test would report the
-	// wrong error. That is not an inconvenience of the constraint; it is the
-	// constraint catching the same shape of omission that put two
-	// cancellation_hours = 0 rows in the development database.
-	err = f.Stores.Complexes.Insert(ctx, &complexstore.Complex{
-		OwnerID:           f.UserID,
-		Name:              "Reuses the deleted slug",
-		Slug:              slug,
-		Address:           "Av. Siempreviva 742",
-		City:              "Rosario",
-		Province:          "Santa Fe",
-		CountryCode:       "AR",
-		Currency:          "ARS",
-		Phone:             "+5491100000002",
-		CancellationHours: 24,
-	})
-	if !errors.Is(err, complexstore.ErrDuplicateSlug) {
-		t.Errorf("Insert on a taken slug returned %v; want ErrDuplicateSlug", err)
-	}
-}
-
 // TestIntegration_OwnerAlreadyHasAComplexIsRefused proves the database side of
 // "one account owns exactly one complex": complexes_owner_id_key is a PARTIAL
 // unique index, WHERE deleted_at IS NULL, so it refuses a second live complex
 // for f.UserID (who already owns f.ComplexID from the fixture) as a named
-// domain error rather than a raw constraint violation — the same shape as
-// TestIntegration_SlugOfASoftDeletedComplexStaysTaken above, but the opposite
-// outcome once the owner's complex is soft-deleted: a soft-deleted complex
-// frees the owner's slot, unlike a slug, which stays reserved.
+// domain error rather than a raw constraint violation. A soft-deleted complex
+// frees the owner's slot, and so does its slug (see slug_reuse_integration_test.go).
 func TestIntegration_OwnerAlreadyHasAComplexIsRefused(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := context.Background()

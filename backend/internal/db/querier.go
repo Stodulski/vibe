@@ -139,8 +139,10 @@ type Querier interface {
 	// ever resolve a soft-deleted venue. See the soft-delete cascade in db/migrations/001_init.sql.
 	GetComplexByID(ctx context.Context, id pgtype.UUID) (ActiveComplex, error)
 	// Reads active_complexes: the slug is the public URL, so this is the storefront.
-	// A deleted venue keeps its slug (the name stays reserved) and must answer 404,
-	// not serve a page. See the soft-delete cascade in db/migrations/001_init.sql.
+	// At most one live complex holds a slug (complexes_slug_live_key), so this is
+	// unambiguous. A deleted venue's slug is free for a new one; its old page is
+	// answered by GetGoneComplexBySlug, not here. See the soft-delete cascade in
+	// db/migrations/001_init.sql.
 	GetComplexBySlug(ctx context.Context, slug string) (ActiveComplex, error)
 	//
 	// Carries a court count, because a complex with no courts can take no booking
@@ -178,6 +180,16 @@ type Querier interface {
 	// after every numbered court.
 	GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID) ([]ActiveCourt, error)
 	GetEmailVerificationToken(ctx context.Context, tokenHash []byte) (EmailVerificationToken, error)
+	// The public page of a complex that was deleted, for the 410 answer. It names
+	// the most recently deleted complex that held the slug, and answers nothing
+	// while a live complex holds it: a switched-on or switched-off live venue is
+	// served (or refused) by GetComplexBySlug, never reported as gone. The NOT
+	// EXISTS is in the same statement, so the two halves see one snapshot.
+	//
+	// Reads the table, not active_complexes, because a deleted row is the whole
+	// point. Only name and city are selected: nothing else of a deleted venue is
+	// public. Runs under the cross-tenant bypass of the public route.
+	GetGoneComplexBySlug(ctx context.Context, slug string) (GetGoneComplexBySlugRow, error)
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
 	// Kept for backwards compatibility with generated code. No longer used by business logic.
 	GetNextBookingByClientPhone(ctx context.Context) (Booking, error)

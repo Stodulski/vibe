@@ -4,24 +4,21 @@ import "errors"
 
 // Sentinel errors returned by this store.
 var (
-	// ErrDuplicateSlug is returned when a complex's public slug is already
-	// taken.
+	// ErrDuplicateSlug is returned when a live complex already holds the public
+	// slug.
 	//
-	// complexes.slug is UNIQUE across the whole table (complexes_slug_key), not
-	// only across live rows: a soft-deleted venue keeps its slug. That is
-	// deliberate — the slug is the public URL clients hold in links, messages
-	// and search results, so handing it to a different venue would silently
-	// redirect one business's inbound traffic to another. Reusing a deleted
-	// complex's slug is therefore this error, not an ordinary insert. Contrast
-	// ErrDuplicateCourtName, whose constraint is partial.
+	// complexes_slug_live_key is a PARTIAL unique index (WHERE deleted_at IS
+	// NULL): a soft-deleted venue releases its slug, so a new venue may take it,
+	// and its old public page answers 410 Gone until then. Two live venues still
+	// cannot share a slug, because the slug is the public URL clients hold in
+	// links, messages and search results.
 	ErrDuplicateSlug = errors.New("duplicate slug")
 	// ErrDuplicateOwner is returned when an account already owns a live
 	// complex.
 	//
 	// complexes_owner_id_key is a PARTIAL unique index (WHERE deleted_at IS
-	// NULL), unlike complexes_slug_key: a soft-deleted complex frees the
-	// owner's slot, so the owner can open a new one. Contrast ErrDuplicateSlug,
-	// whose constraint holds across deleted rows too.
+	// NULL): a soft-deleted complex frees the owner's slot, so the owner can
+	// open a new one. ErrDuplicateSlug is the same kind of partial index.
 	ErrDuplicateOwner = errors.New("duplicate owner")
 	// ErrActiveBookings is returned by the MercadoPago connect and disconnect
 	// writes when the complex still owes someone their hours and the write

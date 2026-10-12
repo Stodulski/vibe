@@ -430,6 +430,23 @@ type PublicComplex struct {
 	CitySlug string `json:"city_slug,omitempty"`
 }
 
+// PublicGone is the body of the 410 answer on the public page of a deleted
+// complex: the name and city it had, and the key of the city hub it was listed
+// under. Nothing else of the deleted row is public.
+type PublicGone struct {
+	Name     string `json:"name"`
+	City     string `json:"city"`
+	CitySlug string `json:"city_slug"`
+}
+
+func newPublicGone(g *goneError) PublicGone {
+	return PublicGone{
+		Name:     g.venue.Name,
+		City:     g.venue.City,
+		CitySlug: complexstore.CitySlug(g.venue.City),
+	}
+}
+
 func newPublicComplex(c *complexstore.Complex) PublicComplex {
 	return PublicComplex{
 		ID:                c.ID,
@@ -471,6 +488,11 @@ func (h *Handler) GetPublic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	profile, err := h.svc.GetPublic(r.Context(), slug)
+	var gone *goneError
+	if errors.As(err, &gone) {
+		h.respond.JSON(w, r, http.StatusGone, httpx.Envelope{"gone": newPublicGone(gone)})
+		return
+	}
 	if err != nil {
 		h.respond.DomainError(w, r, err)
 		return

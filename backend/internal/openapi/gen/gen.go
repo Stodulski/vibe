@@ -2336,6 +2336,15 @@ type PublicComplex struct {
 	Version *int `json:"version,omitempty"`
 }
 
+// PublicComplexGone The 410 answer on the public page of a deleted complex. It carries the three fields below and nothing else of the deleted row. `city_slug` is empty when the city has no slug characters and so belongs to no hub.
+type PublicComplexGone struct {
+	Gone struct {
+		City     string `json:"city"`
+		CitySlug string `json:"city_slug"`
+		Name     string `json:"name"`
+	} `json:"gone"`
+}
+
 // PublicHub One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from the spelling the complexes store.
 type PublicHub struct {
 	// ComplexCount How many switched-on complexes the hub lists.

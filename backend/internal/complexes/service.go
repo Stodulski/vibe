@@ -224,7 +224,7 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 	// One account owns exactly one complex. This is the fast-path check; the
 	// database's partial unique index on complexes.owner_id is the authority
 	// (see the ErrDuplicateOwner mapping below), the same split Insert already
-	// has between SlugExists and complexes_slug_key.
+	// has between SlugExists and complexes_slug_live_key.
 	owned, err := s.venues.GetByOwner(ctx, ownerID)
 	if err != nil {
 		return nil, err
@@ -546,9 +546,15 @@ type PublicProfile struct {
 // write used to check this, so a venue that switched itself off kept serving
 // its address, phone, courts and prices, and answered every booking attempt
 // with a bare 404 the page could not explain.
+//
+// A slug that no live complex holds but a deleted one did answers with a
+// *goneError instead, which the handler turns into 410 Gone.
 func (s *Service) GetPublic(ctx context.Context, slug string) (*PublicProfile, error) {
 	complex, err := s.venues.GetBySlug(ctx, slug)
 	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) {
+			return nil, s.goneFor(ctx, slug, err)
+		}
 		return nil, err
 	}
 	if !complex.IsActive {
@@ -570,6 +576,29 @@ func (s *Service) GetPublic(ctx context.Context, slug string) (*PublicProfile, e
 		Courts:    courtsWithPrices,
 		Schedules: schedules,
 	}, nil
+}
+
+// goneError is the public page's 410 answer: the slug belonged to a complex
+// that was deleted and no live complex holds it now. It carries only the name
+// and city the body may name.
+type goneError struct {
+	venue complexstore.GoneComplex
+}
+
+func (e *goneError) Error() string { return "complex is gone" }
+
+// goneFor decides between 410 and the live lookup's own answer for a slug the
+// live lookup found nothing for. A read failure stays a failure.
+func (s *Service) goneFor(ctx context.Context, slug string, notFound error) error {
+	gone, err := s.venues.GetGoneBySlug(ctx, slug)
+	switch {
+	case err == nil:
+		return &goneError{venue: *gone}
+	case errors.Is(err, data.ErrRecordNotFound):
+		return notFound
+	default:
+		return err
+	}
 }
 
 // publicCourts returns the complex's bookable courts with their price bands.

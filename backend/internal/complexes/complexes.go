@@ -30,6 +30,9 @@ import (
 type VenueReader interface {
 	GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.Complex, error)
 	GetBySlug(ctx context.Context, slug string) (*complexstore.Complex, error)
+	// GetGoneBySlug serves the 410 answer: the deleted complex that last held a
+	// slug no live complex holds. See complexstore.Store.GetGoneBySlug.
+	GetGoneBySlug(ctx context.Context, slug string) (*complexstore.GoneComplex, error)
 	// GetByID, GetAllSlugs, ListActiveComplexesForHubs and ListComplexCitiesForHubs
 	// serve the cross-domain reads on Service; every other module enters this
 	// domain through them rather than through the complex store.
