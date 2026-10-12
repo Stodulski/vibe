@@ -54,11 +54,7 @@ export function complexMarkdown(facts: ComplexFacts, origin: string = SITE): str
     faq.length > 0 ? heading(2, 'Preguntas frecuentes') : null,
     ...faq.map(([question, answer]) => faqBlock(question, answer)),
     heading(2, 'Enlaces'),
-    bullets([
-      link(`Reservar en ${facts.name}`, booking),
-      facts.citySlug ? link(`Canchas en ${facts.city}`, `${origin}/canchas/${facts.citySlug}`) : null,
-      link('Todas las ciudades', `${origin}/canchas`),
-    ].filter((item): item is string => item !== null)),
+    bullets([link(`Reservar en ${facts.name}`, booking)]),
   ]);
 }
 

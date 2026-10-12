@@ -107,6 +107,11 @@ describe('ComplexHeader', () => {
     expect(screen.getByRole('heading', { name: 'Club Padel Norte' })).toBeInTheDocument();
   });
 
+  it('offers a share button for the club in its header', () => {
+    render(<ComplexHeader complex={mockComplex} schedules={mockSchedules} />);
+    expect(screen.getByRole('button', { name: 'Compartir Club Padel Norte' })).toBeInTheDocument();
+  });
+
   it('renders address and city', () => {
     render(<ComplexHeader complex={mockComplex} schedules={mockSchedules} />);
     expect(screen.getByText(/av\. libertador 1234.*buenos aires/i)).toBeInTheDocument();

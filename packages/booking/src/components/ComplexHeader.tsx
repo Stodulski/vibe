@@ -9,6 +9,7 @@ import { BOOKING_MESSAGES } from '../messages';
 import { CoverBanner } from './complex-header/CoverBanner';
 import { ComplexLogo } from './complex-header/ComplexLogo';
 import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
+import { ShareComplexButton } from './complex-header/ShareComplexButton';
 import { ComplexDetails } from './complex-header/ComplexDetails';
 import { CourtSummary } from './complex-header/CourtSummary';
 
@@ -74,6 +75,10 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
           </h1>
 
           <ComplexInfoRow complex={complex} />
+
+          <div className="mt-4">
+            <ShareComplexButton name={complex.name} slug={complex.slug} />
+          </div>
         </div>
       </div>
 
