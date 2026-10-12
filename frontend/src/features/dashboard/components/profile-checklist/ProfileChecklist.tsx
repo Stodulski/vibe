@@ -21,6 +21,7 @@ const FIX_TARGET: Record<ProfileItemId, string> = {
   hours: '/settings?tab=schedules',
   phone: '/settings',
   pricedCourt: '/courts',
+  mercadoPago: '/settings?tab=billing',
 };
 
 const LIST_ID = 'profile-checklist-pending';
@@ -59,7 +60,7 @@ function NextItem({ id }: { id: ProfileItemId }) {
   );
 }
 
-/** Title, "N de 8 listos" and the bar that shows it. */
+/** Title, "N de M listos" and the bar that shows it. */
 function ProgressHeader({ done, total }: { done: number; total: number }) {
   const percent = Math.round((done / total) * 100);
   return (

@@ -12,7 +12,7 @@ const DEFAULT_OPEN_TIME = '08:00';
 const DEFAULT_CLOSE_TIME = '23:00';
 
 export type ProfileItemId =
-  'cover' | 'logo' | 'description' | 'amenities' | 'location' | 'hours' | 'phone' | 'pricedCourt';
+  'cover' | 'logo' | 'description' | 'amenities' | 'location' | 'hours' | 'phone' | 'pricedCourt' | 'mercadoPago';
 
 export interface ProfileChecklistItem {
   id: ProfileItemId;
@@ -62,5 +62,7 @@ export function buildProfileChecklist({ complex, schedules, courts }: ProfileChe
     { id: 'hours', done: schedules.length > 0 && !isDefaultSchedule(schedules) },
     { id: 'phone', done: isFilled(complex.phone) },
     { id: 'pricedCourt', done: hasPricedActiveCourt(courts) },
+    // The same flag the settings billing card reads as "conectado" (mp/status `connected`).
+    { id: 'mercadoPago', done: complex.payments_enabled },
   ];
 }

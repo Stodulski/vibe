@@ -100,6 +100,11 @@ export const dashboard = {
         why: 'Con una cancha y su precio cargados, los jugadores pueden reservar en el momento.',
         action: 'Cargá los precios',
       },
+      mercadoPago: {
+        label: 'Conectá MercadoPago para cobrar señas online',
+        why: 'Con MercadoPago conectado, los jugadores pueden pagar la seña al reservar.',
+        action: 'Conectá tu cuenta de MercadoPago',
+      },
     },
   },
   exportGenericError: 'No se pudo descargar el archivo. Intentá de nuevo.',
