@@ -38,6 +38,9 @@ export interface FilteredSitemap {
   dropped: string[];
 }
 
+/** Google's image sitemap extension. */
+export const IMAGE_NS = 'http://www.google.com/schemas/sitemap-image/1.1';
+
 const URL_BLOCK = /<url>[\s\S]*?<\/url>/g;
 const LOC = /<loc>\s*([^<]*?)\s*<\/loc>/;
 
@@ -67,7 +70,10 @@ export function filterStorefrontSitemap(xml: string): FilteredSitemap {
 
   const out = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    // The image namespace is declared always: the backend lists complex photos as
+    // <image:image> inside the <url> blocks kept above, and an unbound prefix would
+    // make the whole document unparseable.
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="${IMAGE_NS}">`,
     ...entries,
     '</urlset>',
     '',
