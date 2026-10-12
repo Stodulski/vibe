@@ -16,10 +16,10 @@ const ComplexMap = lazy(() => import('../ComplexMap').then((m) => ({ default: m.
  * The services and the location of the club: what a visitor checks once the
  * hours are known.
  *
- * It has one place on the page at a time. In the open card at `lg` it sits
- * after the hours, inside the header. Below `lg` the page puts it after the
- * booking, so the slots are the first thing under the club card. Either way the
- * DOM order is the visual order, and the page never renders it twice.
+ * It is rendered once, inside `ComplexHeader`, in the markup order the card
+ * shows at `lg`. Below `lg` the header's children are flex items of the page
+ * column, and `max-lg:order-1` moves this block after the booking. Either way
+ * the page renders it once and the DOM order is the visual order at `lg`.
  *
  * Renders nothing when the club has neither services nor coordinates.
  */
@@ -35,15 +35,17 @@ export function ComplexLower({ complex }: { complex: PublicComplex }) {
   if (!hasAmenities && !hasMap) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="mt-6 max-lg:order-1 sm:mt-10 lg:mt-0">
       {hasAmenities && (
-        <Section title={t.complex.amenitiesSection}>
-          <AmenityList amenities={complex.amenities} />
-        </Section>
+        <div className="lg:mt-5">
+          <Section title={t.complex.amenitiesSection}>
+            <AmenityList amenities={complex.amenities} />
+          </Section>
+        </div>
       )}
 
       {complex.latitude != null && complex.longitude != null && (
-        <div>
+        <div className="mt-6">
           {/*
             Leaflet is a third-party map widget loaded lazily; a failure in it (a
             bad tile server, a bundling issue) must not take down the rest of the

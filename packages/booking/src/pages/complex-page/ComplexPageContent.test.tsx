@@ -1,12 +1,11 @@
 import type { ComponentProps } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
-import { renderBooking } from '../../test/booking';
+import { createBookingWrapper, renderBooking } from '../../test/booking';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicComplex } from '../../api/types';
 import { ComplexPageContent } from './ComplexPageContent';
-
-const WIDE_QUERY = '(min-width: 1024px)';
 
 const complex: PublicComplex = {
   id: 'c1',
@@ -52,39 +51,65 @@ const baseProps: ComponentProps<typeof ComplexPageContent> = {
   answeredFromUrl: { sport: false, duration: false },
 };
 
-function viewport(wide: boolean) {
-  vi.spyOn(window, 'matchMedia').mockImplementation(query => ({
-    matches: query === WIDE_QUERY && wide,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  }));
-}
-
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('ComplexPageContent placement of the services', () => {
-  it('puts the services after the date picker on a phone, and only once', () => {
-    viewport(false);
-    renderBooking(<ComplexPageContent {...baseProps} />);
+/** The server HTML, parsed back into a tree so document order can be compared. */
+function serverDom(): HTMLDivElement {
+  const Wrapper = createBookingWrapper();
+  const container = document.createElement('div');
+  container.innerHTML = renderToStaticMarkup(
+    <Wrapper>
+      <ComplexPageContent {...baseProps} />
+    </Wrapper>,
+  );
+  return container;
+}
 
-    const services = screen.getByRole('heading', { level: 2, name: BOOKING_MESSAGES.complex.amenitiesSection });
-    const dates = screen.getByRole('radiogroup', { name: BOOKING_MESSAGES.publicBooking.dateStripLabel });
-    expect(dates.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+describe('ComplexPageContent in the server markup', () => {
+  // Crawlers get this markup. The services sit once in the header, and the
+  // header comes before the date strip, which is where they sit at `lg`.
+  it('writes the services once, before the date picker', () => {
+    const container = serverDom();
+    const headings = Array.from(container.querySelectorAll('h2'));
+    const services = headings.find((h) => h.textContent === BOOKING_MESSAGES.complex.amenitiesSection);
+    const dates = Array.from(container.querySelectorAll('[role="radiogroup"]')).find(
+      (g) => g.getAttribute('aria-label') === BOOKING_MESSAGES.publicBooking.dateStripLabel,
+    );
+
+    expect(headings.filter((h) => h.textContent === BOOKING_MESSAGES.complex.amenitiesSection)).toHaveLength(1);
+    expect(
+      services && dates && services.compareDocumentPosition(dates) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
-  it('keeps the services inside the club card on a wide screen, and only once', () => {
-    viewport(true);
+  it('lays the page out as one flex column', () => {
+    const container = serverDom();
+    const root = container.firstElementChild;
+
+    expect(root?.classList.contains('flex')).toBe(true);
+    expect(root?.classList.contains('flex-col')).toBe(true);
+  });
+
+  it('never asks matchMedia where the services go', () => {
+    const spy = vi.spyOn(window, 'matchMedia');
+
+    serverDom();
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ComplexPageContent placement of the services', () => {
+  it('places the services before the date picker, and only once, in the browser too', () => {
+    const spy = vi.spyOn(window, 'matchMedia');
+
     renderBooking(<ComplexPageContent {...baseProps} />);
 
     const services = screen.getByRole('heading', { level: 2, name: BOOKING_MESSAGES.complex.amenitiesSection });
     const dates = screen.getByRole('radiogroup', { name: BOOKING_MESSAGES.publicBooking.dateStripLabel });
-    expect(dates.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(services.compareDocumentPosition(dates) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(spy).not.toHaveBeenCalled();
   });
 });

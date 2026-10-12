@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { ComplexHeader } from './ComplexHeader';
+import { BOOKING_MESSAGES } from '../messages';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
 
 const mockComplex: PublicComplex = {
@@ -132,14 +134,30 @@ describe('ComplexHeader', () => {
 
 });
 
-describe('ComplexHeader lower block', () => {
-  it('renders the block its caller passes, inside the card after the hours', () => {
-    render(
-      <ComplexHeader complex={mockComplex} schedules={mockSchedules} lower={<p>Bloque de servicios</p>} />,
-    );
+describe('ComplexHeader services', () => {
+  const withServices: PublicComplex = { ...mockComplex, amenities: ['parking', 'wifi'] };
 
-    expect(screen.getByText('Bloque de servicios')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Club Padel Norte' })).toBeInTheDocument();
+  // The services live inside the header, after the hours, at every width.
+  it('writes the services once, after the hours, inside the header', () => {
+    const container = document.createElement('div');
+    container.innerHTML = renderToStaticMarkup(<ComplexHeader complex={withServices} schedules={mockSchedules} />);
+
+    const headings = Array.from(container.querySelectorAll('h2'));
+    const services = headings.find((h) => h.textContent === BOOKING_MESSAGES.complex.amenitiesSection);
+    const hours = container.querySelector('dl');
+
+    expect(headings.filter((h) => h.textContent === BOOKING_MESSAGES.complex.amenitiesSection)).toHaveLength(1);
+    expect(
+      hours && services && hours.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('never asks matchMedia where the services go', () => {
+    const spy = vi.spyOn(window, 'matchMedia');
+
+    render(<ComplexHeader complex={withServices} schedules={mockSchedules} />);
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 

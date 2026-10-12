@@ -1,6 +1,4 @@
-import { useMediaQuery } from '@vibe/ui';
 import { ComplexHeader } from '../../components/ComplexHeader';
-import { ComplexLower } from '../../components/complex-header/ComplexLower';
 import { DateSelector } from '../../components/DateSelector';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import type {
@@ -65,10 +63,7 @@ interface ComplexPageContentProps {
  * negative margins at each breakpoint, never a `vw` calculation that a
  * scrollbar can turn into horizontal scroll.
  */
-const CONTENT_WIDTH = 'min-w-0 flex-1 space-y-6 animate-fade-in sm:space-y-10 lg:-mx-24 xl:-mx-40 2xl:-mx-64';
-
-/** The breakpoint where the club card goes wide. Same query as `ComplexDetails`. */
-const WIDE_LAYOUT = '(min-width: 1024px)';
+const CONTENT_WIDTH = 'flex min-w-0 flex-1 flex-col animate-fade-in lg:-mx-24 xl:-mx-40 2xl:-mx-64';
 
 /**
  * The storefront: what a visitor sees before they have chosen anything.
@@ -87,12 +82,6 @@ export function ComplexPageContent({
   onDateSelect,
   ...flow
 }: ComplexPageContentProps) {
-  // Where the services and the map go depends on the card's width. Wide, they
-  // sit inside the club card after the hours. Narrow, they come after the
-  // booking, so the slots are the first thing under the card. One place at a
-  // time: the DOM order is the visual order, and keyboard focus follows it.
-  const wide = useMediaQuery(WIDE_LAYOUT);
-
   // A complex that cannot be booked online is not shown the machinery for
   // booking online. It used to get all of it — date picker, sport filter and
   // every slot of every court, each one disabled — under a warning banner.
@@ -101,39 +90,32 @@ export function ComplexPageContent({
   if (!mpConnected) {
     return (
       <div className={CONTENT_WIDTH}>
-        <ComplexHeader
-          complex={complex}
-          schedules={schedules}
-          courts={courts}
-          selectedDate={selectedDate}
-          lower={wide ? <ComplexLower complex={complex} /> : undefined}
-        />
-        <PhoneBookingPanel phone={complex.phone} />
-        {!wide && <ComplexLower complex={complex} />}
-        <CourtDirectory courts={courts} />
+        <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
+        <div className="mt-6 sm:mt-10">
+          <PhoneBookingPanel phone={complex.phone} />
+        </div>
+        <div className="mt-6 max-lg:order-2 sm:mt-10">
+          <CourtDirectory courts={courts} />
+        </div>
       </div>
     );
   }
 
   return (
     <div className={CONTENT_WIDTH}>
-      <ComplexHeader
-        complex={complex}
-        schedules={schedules}
-        courts={courts}
-        selectedDate={selectedDate}
-        lower={wide ? <ComplexLower complex={complex} /> : undefined}
-      />
+      <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
 
       {/* The date frames everything below it: every question in the flow
           narrows the inventory inside one day, and this is the one that says
           which day. It is also what gets swept across most, so it never hides
           behind a step. */}
-      <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
+      <div className="mt-6 sm:mt-10">
+        <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
+      </div>
 
-      <BookingFlow {...flow} />
-
-      {!wide && <ComplexLower complex={complex} />}
+      <div className="mt-6 sm:mt-10">
+        <BookingFlow {...flow} />
+      </div>
     </div>
   );
 }

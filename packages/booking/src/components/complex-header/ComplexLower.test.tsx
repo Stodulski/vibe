@@ -68,6 +68,21 @@ describe('ComplexLower in the server markup', () => {
     expect(html).toContain(BOOKING_MESSAGES.complex.amenities.parking);
     expect(html).toContain(BOOKING_MESSAGES.complex.amenities.wifi);
   });
+
+  it('lists each service once', () => {
+    const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ amenities: ['parking', 'wifi'] })} />);
+
+    expect(html.split(BOOKING_MESSAGES.complex.amenities.parking)).toHaveLength(2);
+    expect(html.split(BOOKING_MESSAGES.complex.amenities.wifi)).toHaveLength(2);
+  });
+
+  // Below lg the page's flex column moves this block after the booking; at lg it
+  // sits in the card, so its own top margin goes.
+  it('places itself after the booking below lg and inside the card at lg', () => {
+    const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ amenities: ['parking'] })} />);
+
+    expect(html).toContain('class="mt-6 max-lg:order-1 sm:mt-10 lg:mt-0"');
+  });
 });
 
 describe('ComplexLower map', () => {
