@@ -21,6 +21,7 @@ import ComplexCard from '../../../components/ComplexCard.astro';
 import { API_TIMEOUT_MS, ApiError, createPublicApi } from '../../../lib/api.ts';
 import { GONE_CACHE_CONTROL, loadGoneView, type GoneView } from '../../../lib/complex-gone.ts';
 import { complexHead, jsonLdScript } from '../../../lib/complex-meta.ts';
+import { activeSportLabels } from '../../../lib/complex-share.ts';
 import { storefrontBookingConfig, storefrontRobots, STOREFRONT_ORIGIN } from '../../../lib/storefront.ts';
 import { normalizeText } from '../../../lib/copy.ts';
 import { breadcrumbJsonLd, cityPath, citySlugOf } from '../../../lib/hub.ts';
@@ -70,15 +71,9 @@ const head = data
       slug,
       name: data.complex.name,
       city: data.complex.city,
+      province: data.complex.province,
       online: data.complex.payments_enabled,
-      sports: [
-        ...new Set(
-          data.courts
-            .filter((court) => court.is_active)
-            .map((court) => t.courts.sportTypes[court.sport] ?? '')
-            .filter((label) => label !== ''),
-        ),
-      ],
+      sports: activeSportLabels(data.courts, t.courts.sportTypes),
       services: data.complex.amenities
         .map((amenity) => t.complex.amenities[amenity] ?? '')
         .filter((label) => label !== ''),
@@ -156,6 +151,9 @@ const errorLead = status === 404 ? t.publicBooking.complexNotFoundDescription : 
       ogDescription={head.description}
       ogUrl={head.canonical}
       ogImage={head.image}
+      ogImageWidth={head.imageWidth ?? undefined}
+      ogImageHeight={head.imageHeight ?? undefined}
+      ogImageAlt={head.imageAlt ?? undefined}
       jsonLd={jsonLd}
       homeHref={`/c/${encodeURIComponent(slug)}`}
     >

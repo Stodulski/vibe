@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import {
   complexCanonical,
   complexHead,
+  type ComplexHeadInput,
   goneDescription,
   goneHeadline,
   goneLead,
@@ -114,10 +115,39 @@ test('canonical is the storefront URL of the complex, with the slug encoded', ()
   assert.equal(complexHead(base).canonical, 'https://vibe.com.ar/c/club-sur');
 });
 
-test('share image is the cover, else the logo, else the site share image', () => {
+test('share image is the cover or logo when the complex has one, else the generated card of the complex', () => {
   assert.equal(complexHead({ ...base, ownImage: 'https://cdn.example/cover.jpg' }).image, 'https://cdn.example/cover.jpg');
-  assert.equal(complexHead({ ...base, ownImage: null }).image, 'https://vibe.com.ar/og-image.png');
-  assert.equal(complexHead({ ...base, ownImage: '' }).image, 'https://vibe.com.ar/og-image.png');
+  assert.match(complexHead({ ...base, ownImage: null }).image, /^https:\/\/vibe\.com\.ar\/og\/c\/club-sur\.png\?v=[0-9a-f]{8}$/);
+  assert.match(complexHead({ ...base, ownImage: '' }).image, /^https:\/\/vibe\.com\.ar\/og\/c\/club-sur\.png\?v=[0-9a-f]{8}$/);
+});
+
+test('a complex with its own picture keeps it and has no generated size or alt', () => {
+  const head = complexHead({ ...base, ownImage: 'https://cdn.example/cover.jpg' });
+  assert.equal(head.imageWidth, null);
+  assert.equal(head.imageHeight, null);
+  assert.equal(head.imageAlt, null);
+});
+
+test('the generated card declares its 1200x630 size and an alt text without exclamation marks', () => {
+  const head = complexHead({ ...base, province: 'Santa Cruz', ownImage: null });
+  assert.equal(head.imageWidth, 1200);
+  assert.equal(head.imageHeight, 630);
+  assert.match(head.imageAlt ?? '', /Club Sur/);
+  assert.match(head.imageAlt ?? '', /Banfield/);
+  assert.equal((head.imageAlt ?? '').includes('!'), false);
+});
+
+test('the generated image URL changes with the facts the card draws and not with the rest of the head copy', () => {
+  const image = (input: Partial<ComplexHeadInput> = {}) =>
+    complexHead({ ...base, province: 'Santa Cruz', ownImage: null, ...input }).image;
+  const version = image({});
+  assert.notEqual(image({ name: 'Club Norte' }), version);
+  assert.notEqual(image({ city: 'Adrogué' }), version);
+  assert.notEqual(image({ province: 'Chubut' }), version);
+  assert.notEqual(image({ sports: ['Pádel'] }), version);
+  assert.equal(image({ online: false }), version);
+  assert.equal(image({ services: ['Bar'] }), version);
+  assert.equal(image({ courtCount: 9 }), version);
 });
 
 test('the fallback share image is the 1200x630 site image, not the 300x300 app logo', () => {

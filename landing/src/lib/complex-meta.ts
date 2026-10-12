@@ -4,8 +4,9 @@
  * page passes in the labels it looked up, so this module has no package imports and
  * node:test can run it.
  */
-import { DEFAULT_SHARE_IMAGE, STOREFRONT_ORIGIN } from './storefront.ts';
+import { STOREFRONT_ORIGIN } from './storefront.ts';
 import { cutAtWord, joinSpanish, jsonLdScript, normalizeText } from './copy.ts';
+import { SHARE_IMAGE_HEIGHT, SHARE_IMAGE_WIDTH, shareImageUrl } from './complex-share.ts';
 
 export { joinSpanish, jsonLdScript };
 
@@ -22,6 +23,8 @@ export interface ComplexHeadInput {
   slug: string;
   name: string;
   city: string;
+  /** The province, which the generated share image draws next to the city. */
+  province?: string | null | undefined;
   /** Online payments on: the description says "online"; otherwise "por WhatsApp". */
   online: boolean;
   /** Spanish labels of the active courts' sports, unique, in order. */
@@ -38,7 +41,12 @@ export interface ComplexHead {
   title: string;
   description: string;
   canonical: string;
+  /** The complex's own picture when it has one, else the generated card of the complex. */
   image: string;
+  /** Set only for the generated card, whose size and text this module knows. */
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imageAlt: string | null;
   locale: 'es_AR';
 }
 
@@ -63,14 +71,24 @@ function complexTitle(name: string, city: string, sports: readonly string[]): st
   return top.length <= TITLE_MAX ? top : generic;
 }
 
+/** The alt text of the generated card: the complex, its city and the sports it has courts for. */
+function shareImageAlt(name: string, city: string, sports: readonly string[]): string {
+  const where = city ? `${name} en ${city}` : name;
+  if (sports.length === 0) return `${where}. Reservá tu cancha en Vibe.`;
+  return `${where}. Canchas de ${joinSpanish(sports.map((sport) => sport.toLowerCase()))}.`;
+}
+
 export function complexHead(raw: ComplexHeadInput): ComplexHead {
   const input = {
     ...raw,
     name: normalizeText(raw.name),
     city: normalizeText(raw.city),
+    province: normalizeText(raw.province ?? ''),
     sports: raw.sports.map(normalizeText).filter((sport) => sport !== ''),
     services: raw.services.map(normalizeText).filter((service) => service !== ''),
   };
+  const ownImage = raw.ownImage || null;
+  const generated = ownImage === null;
   const sports = input.sports.slice(0, MAX_DESCRIPTION_SPORTS).map((sport) => sport.toLowerCase());
   const courts = input.courtCount && input.courtCount > 0 ? input.courtCount : null;
   const noun = courts === null ? 'canchas' : `${courts} ${courts === 1 ? 'cancha' : 'canchas'}`;
@@ -94,7 +112,17 @@ export function complexHead(raw: ComplexHeadInput): ComplexHead {
     title: complexTitle(input.name, input.city, sports),
     description,
     canonical: complexCanonical(input.slug),
-    image: input.ownImage || DEFAULT_SHARE_IMAGE,
+    image:
+      ownImage ??
+      shareImageUrl(input.slug, {
+        name: input.name,
+        city: input.city,
+        province: input.province,
+        sports: input.sports,
+      }),
+    imageWidth: generated ? SHARE_IMAGE_WIDTH : null,
+    imageHeight: generated ? SHARE_IMAGE_HEIGHT : null,
+    imageAlt: generated ? shareImageAlt(input.name, input.city, input.sports) : null,
     locale: 'es_AR',
   };
 }
