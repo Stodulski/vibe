@@ -4336,7 +4336,7 @@ components:
     PublicHubComplex:
       type: object
       description: A switched-on complex as its city hub lists it.
-      required: [slug, name, address, city, province, cover_url, court_count, sports, courts_by_sport]
+      required: [slug, name, address, city, province, cover_url, logo_url, court_count, sports, courts_by_sport]
       properties:
         slug: {type: string}
         name: {type: string}
@@ -4347,6 +4347,10 @@ components:
           type: [string, "null"]
           format: uri
           description: The complex's cover image, or null when it has none.
+        logo_url:
+          type: [string, "null"]
+          format: uri
+          description: The complex's logo image, or null when it has none.
         court_count:
           type: integer
           minimum: 0

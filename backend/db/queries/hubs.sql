@@ -16,6 +16,7 @@ SELECT
     cx.city,
     cx.province,
     cx.cover_url,
+    cx.logo_url,
     cx.is_active,
     cx.updated_at,
     ARRAY(

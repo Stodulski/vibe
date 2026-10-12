@@ -46,6 +46,7 @@ type hubComplexJSON struct {
 	City          string         `json:"city"`
 	Province      string         `json:"province"`
 	CoverURL      *string        `json:"cover_url"`
+	LogoURL       *string        `json:"logo_url"`
 	CourtCount    int            `json:"court_count"`
 	Sports        []string       `json:"sports"`
 	CourtsBySport []hubSportJSON `json:"courts_by_sport"`
@@ -93,6 +94,7 @@ func hubComplexesOf(hub cityHub) []hubComplexJSON {
 			City:          displayName(c.City),
 			Province:      displayName(c.Province),
 			CoverURL:      c.CoverURL,
+			LogoURL:       c.LogoURL,
 			CourtCount:    len(c.CourtSports),
 			Sports:        hubSportLabelList(c.CourtSports),
 			CourtsBySport: hubSportsOf(courtCountsBySport(c.CourtSports)),

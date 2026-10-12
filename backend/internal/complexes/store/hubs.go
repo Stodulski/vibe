@@ -21,6 +21,7 @@ type HubComplex struct {
 	City     string
 	Province string
 	CoverURL *string
+	LogoURL  *string
 	IsActive bool
 	// CourtSports has one entry per switched-on court, sorted by sport, so a
 	// sport's court count is how many times it appears.
@@ -85,6 +86,7 @@ func (m *Store) ListActiveComplexesForHubs(ctx context.Context) ([]HubComplex, e
 			City:        row.City,
 			Province:    row.Province,
 			CoverURL:    data.PgToTextPtr(row.CoverUrl),
+			LogoURL:     data.PgToTextPtr(row.LogoUrl),
 			IsActive:    row.IsActive,
 			CourtSports: row.CourtSports,
 			UpdatedAt:   data.PgToTime(row.UpdatedAt),

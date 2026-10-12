@@ -20,6 +20,7 @@ SELECT
     cx.city,
     cx.province,
     cx.cover_url,
+    cx.logo_url,
     cx.is_active,
     cx.updated_at,
     ARRAY(
@@ -42,6 +43,7 @@ type ListActiveComplexesForHubsRow struct {
 	City        string             `json:"city"`
 	Province    string             `json:"province"`
 	CoverUrl    pgtype.Text        `json:"cover_url"`
+	LogoUrl     pgtype.Text        `json:"logo_url"`
 	IsActive    bool               `json:"is_active"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	CourtSports []string           `json:"court_sports"`
@@ -73,6 +75,7 @@ func (q *Queries) ListActiveComplexesForHubs(ctx context.Context) ([]ListActiveC
 			&i.City,
 			&i.Province,
 			&i.CoverUrl,
+			&i.LogoUrl,
 			&i.IsActive,
 			&i.UpdatedAt,
 			&i.CourtSports,
