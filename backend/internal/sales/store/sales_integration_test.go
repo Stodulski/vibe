@@ -97,7 +97,7 @@ func TestIntegration_CreateWritesSaleItemsIncomeAndStockAtomically(t *testing.T)
 		t.Errorf("want no stock warnings (stock stayed positive); got %+v", warnings)
 	}
 
-	cashMovement, err := f.Stores.Cashbox.GetMovementByID(ctx, f.ComplexID, sale.CashMovementID)
+	cashMovement, err := f.Stores.Cashbox.GetMovementByID(ctx, f.ComplexID, *sale.CashMovementID)
 	if err != nil {
 		t.Fatalf("reading the linked cash movement: %v", err)
 	}
@@ -342,7 +342,7 @@ func TestIntegration_VoidRestoresStockAndVoidsTheIncome(t *testing.T) {
 	if voidMovement.Kind != "expense" || voidMovement.Category != "sale" || voidMovement.Amount != sale.Total {
 		t.Errorf("want an expense voiding the %d sale income; got %+v", sale.Total, voidMovement)
 	}
-	if voidMovement.VoidsMovementID == nil || *voidMovement.VoidsMovementID != sale.CashMovementID {
+	if voidMovement.VoidsMovementID == nil || *voidMovement.VoidsMovementID != *sale.CashMovementID {
 		t.Errorf("want the void to point at the sale's own income movement; got %+v", voidMovement.VoidsMovementID)
 	}
 }

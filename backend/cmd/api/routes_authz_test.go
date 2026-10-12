@@ -623,7 +623,7 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 		SessionID:      id,
 		Method:         "cash",
 		Total:          500,
-		CashMovementID: id,
+		CashMovementID: &id,
 		CreatedBy:      target.OwnerID,
 	}
 	sales.GetByIDFn = func(_ context.Context, _, _ uuid.UUID) (*salestore.Sale, error) { return sale, nil }

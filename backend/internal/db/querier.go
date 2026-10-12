@@ -41,6 +41,7 @@ type Querier interface {
 	// stored expected_cash yet appear in a summary later rebuilt over
 	// [opened_at, closed_at) — see Service.Close's own comment.
 	CloseCashSession(ctx context.Context, arg CloseCashSessionParams) (CashSession, error)
+	// The balance lines a sale's checkout collected. A void refuses while any exist.
 	CountSaleBookingPayments(ctx context.Context, arg CountSaleBookingPaymentsParams) (int64, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error
@@ -54,6 +55,9 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	DeleteWaitlistEntriesBefore(ctx context.Context, today pgtype.Date) (int64, error)
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
+	// One balance-only checkout of this complex, read as a list entry. No row means
+	// the id is a sale's, or none at all.
+	GetBalanceOnlyCheckoutByID(ctx context.Context, arg GetBalanceOnlyCheckoutByIDParams) (GetBalanceOnlyCheckoutByIDRow, error)
 	GetBlockedSlotByID(ctx context.Context, id pgtype.UUID) (BlockedSlot, error)
 	GetBlockedSlots(ctx context.Context, arg GetBlockedSlotsParams) ([]BlockedSlot, error)
 	// GetBookedSlots returns the hours already taken on the given courts and date.
@@ -250,6 +254,9 @@ type Querier interface {
 	// query is deliberately the same one call for both.
 	InsertCashMovement(ctx context.Context, arg InsertCashMovementParams) (CashMovement, error)
 	InsertCashSession(ctx context.Context, arg InsertCashSessionParams) (CashSession, error)
+	// One checkout that collected booking balances. sale_id is NULL for a checkout
+	// with no product lines; the sale is inserted first when there is one.
+	InsertCheckout(ctx context.Context, arg InsertCheckoutParams) (Checkout, error)
 	InsertClient(ctx context.Context, arg InsertClientParams) (Client, error)
 	InsertComplex(ctx context.Context, arg InsertComplexParams) (Complex, error)
 	InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error)
@@ -283,6 +290,11 @@ type Querier interface {
 	// and the spelling a hub takes from its first row, is stable.
 	ListActiveComplexesForHubs(ctx context.Context) ([]ListActiveComplexesForHubsRow, error)
 	ListAddCourtsNudgeCandidates(ctx context.Context, maxRows int32) ([]ListAddCourtsNudgeCandidatesRow, error)
+	// The checkouts of this complex that collected booking balances and no product
+	// lines. They have no sales row, so the sales list merges them in (see
+	// Store.ListByComplex). Same keyset and session filter as ListSalesByComplex.
+	// total is what the checkout collected.
+	ListBalanceOnlyCheckoutsByComplex(ctx context.Context, arg ListBalanceOnlyCheckoutsByComplexParams) ([]ListBalanceOnlyCheckoutsByComplexRow, error)
 	// The sell page's list: one day's bookings of a complex that still owe money.
 	// A balance is price less what the booking has collected (deposit_amount when
 	// deposit_paid, the whole price when fully_paid). Only confirmed and completed
@@ -290,8 +302,9 @@ type Querier interface {
 	// against here. A pending booking is confirmed from the booking panel, which
 	// re-checks its slot, and that is the only path that may confirm one.
 	ListBookingBalancesDue(ctx context.Context, arg ListBookingBalancesDueParams) ([]ListBookingBalancesDueRow, error)
-	// The same booking lines as ListSaleBookingPaymentsBySaleIDs, read from the
-	// payments rows directly: a booking-only checkout has no sale to hang them on.
+	// The same booking lines as ListSaleBookingPaymentsByEntryIDs, read from the
+	// payments rows directly: a checkout's lines are known by payment id right after
+	// it is recorded, before any list query runs.
 	ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error)
 	// Oldest first: a session's ledger reads top to bottom like a receipt tape.
 	// Not paginated — a shift's movement count is bounded by a business day at
@@ -332,10 +345,11 @@ type Querier interface {
 	// left side short-circuits instead of comparing against a meaningless
 	// active_filter value.
 	ListProductsByComplex(ctx context.Context, arg ListProductsByComplexParams) ([]Product, error)
-	// The booking lines a page of sales collected, for the receipt. Joined to the
-	// booking, court and client so the response can name them without a second
-	// round trip per sale.
-	ListSaleBookingPaymentsBySaleIDs(ctx context.Context, arg ListSaleBookingPaymentsBySaleIDsParams) ([]ListSaleBookingPaymentsBySaleIDsRow, error)
+	// The booking lines of a page of sales-list entries, keyed by the entry id: a
+	// product sale's id, or a balance-only checkout's id (it has no sale to name).
+	// Joined to the booking, court and client so the response can name them
+	// without a second round trip per entry.
+	ListSaleBookingPaymentsByEntryIDs(ctx context.Context, arg ListSaleBookingPaymentsByEntryIDsParams) ([]ListSaleBookingPaymentsByEntryIDsRow, error)
 	// One sale's own line items, in the order they were inserted — used by Get
 	// and by Void (to know which tracked products to restore stock for is a
 	// separate query, ListSaleStockMovements, below; this one is for the

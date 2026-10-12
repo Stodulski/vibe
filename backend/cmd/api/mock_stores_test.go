@@ -1481,7 +1481,7 @@ func (m *mockSalesStore) Checkout(ctx context.Context, complexID, actorID uuid.U
 	return m.CheckoutFn(ctx, complexID, actorID, items, bookings, method, note)
 }
 
-func (m *mockSalesStore) ListBookingPaymentsBySaleIDs(_ context.Context, _ uuid.UUID, _ []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error) {
+func (m *mockSalesStore) ListBookingPaymentsByEntryIDs(_ context.Context, _ uuid.UUID, _ []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error) {
 	return nil, nil
 }
 

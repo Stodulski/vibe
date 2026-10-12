@@ -153,7 +153,7 @@ func (m *Store) Checkout(ctx context.Context, complexID, actorID uuid.UUID, item
 		}
 
 		if len(bookings) > 0 {
-			lines, err := m.collectBalances(ctx, tx, qtx, complexID, bookings, method, sale)
+			lines, err := m.collectBalances(ctx, tx, qtx, complexID, data.PgToUUID(session.ID), actorID, bookings, method, sale)
 			if err != nil {
 				return err
 			}
@@ -316,7 +316,8 @@ func writeProductSale(ctx context.Context, qtx *db.Queries, complexID, actorID, 
 }
 
 // collectBalances is the booking half of a checkout. It runs inside the
-// checkout's transaction and, when sale is non-nil, links each payment to it.
+// checkout's transaction. It records the checkout itself (a checkouts row, with
+// the sale when there is one) and links each balance's payment to that checkout.
 //
 // Lock order is the one payments.Payments.ConfirmInTx documents: every court
 // day this checkout touches is locked BEFORE any booking row, because the
@@ -325,7 +326,7 @@ func writeProductSale(ctx context.Context, qtx *db.Queries, complexID, actorID, 
 // sharing bookings cannot deadlock each other.
 //
 //nolint:funlen // one cohesive pass: read, lock, validate and record each balance, then link them.
-func (m *Store) collectBalances(ctx context.Context, tx pgx.Tx, qtx *db.Queries, complexID uuid.UUID, requested []BookingPaymentInput, method string, sale *Sale) ([]*BookingPaymentLine, error) {
+func (m *Store) collectBalances(ctx context.Context, tx pgx.Tx, qtx *db.Queries, complexID, sessionID, actorID uuid.UUID, requested []BookingPaymentInput, method string, sale *Sale) ([]*BookingPaymentLine, error) {
 	amounts := make(map[uuid.UUID]int, len(requested))
 	ids := make([]uuid.UUID, 0, len(requested))
 	for _, r := range requested {
@@ -433,6 +434,21 @@ func (m *Store) collectBalances(ctx context.Context, tx pgx.Tx, qtx *db.Queries,
 		byPayment[line.PaymentID] = line
 	}
 
+	var saleID *uuid.UUID
+	if sale != nil {
+		saleID = &sale.ID
+	}
+	checkout, err := qtx.InsertCheckout(ctx, db.InsertCheckoutParams{
+		ComplexID: data.UUIDToPg(complexID),
+		SessionID: data.UUIDToPg(sessionID),
+		Method:    db.PaymentMethod(method),
+		SaleID:    data.UUIDPtrToPg(saleID),
+		CreatedBy: data.UUIDToPg(actorID),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("sale: record checkout: %w", err)
+	}
+
 	// Lines come back in request order, not lock order.
 	lines := make([]*BookingPaymentLine, 0, len(requested))
 	for _, r := range requested {
@@ -441,43 +457,42 @@ func (m *Store) collectBalances(ctx context.Context, tx pgx.Tx, qtx *db.Queries,
 			return nil, fmt.Errorf("sale: booking payment line missing for booking %s", r.BookingID)
 		}
 		lines = append(lines, line)
-		if sale != nil {
-			if _, err := qtx.InsertSaleBookingPayment(ctx, db.InsertSaleBookingPaymentParams{
-				ComplexID: data.UUIDToPg(complexID),
-				SaleID:    data.UUIDToPg(sale.ID),
-				BookingID: data.UUIDToPg(r.BookingID),
-				PaymentID: data.UUIDToPg(line.PaymentID),
-				//nolint:gosec // G115: amount is bounded by the remaining balance, far below int32 range.
-				Amount: int32(line.Amount),
-			}); err != nil {
-				return nil, fmt.Errorf("sale: link booking payment: %w", err)
-			}
+		if _, err := qtx.InsertSaleBookingPayment(ctx, db.InsertSaleBookingPaymentParams{
+			ComplexID:  data.UUIDToPg(complexID),
+			CheckoutID: checkout.ID,
+			BookingID:  data.UUIDToPg(r.BookingID),
+			PaymentID:  data.UUIDToPg(line.PaymentID),
+			//nolint:gosec // G115: amount is bounded by the remaining balance, far below int32 range.
+			Amount: int32(line.Amount),
+		}); err != nil {
+			return nil, fmt.Errorf("sale: link booking payment: %w", err)
 		}
 	}
 	return lines, nil
 }
 
-// ListBookingPaymentsBySaleIDs returns, per sale, the booking balances it
-// collected, in the order they were recorded. A sale with none has no key.
-func (m *Store) ListBookingPaymentsBySaleIDs(ctx context.Context, complexID uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*BookingPaymentLine, error) {
+// ListBookingPaymentsByEntryIDs returns, per sales-list entry, the booking
+// balances it collected, in the order they were recorded. An entry is a sale's
+// id or a balance-only checkout's id. An entry with none has no key.
+func (m *Store) ListBookingPaymentsByEntryIDs(ctx context.Context, complexID uuid.UUID, entryIDs []uuid.UUID) (map[uuid.UUID][]*BookingPaymentLine, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	out := make(map[uuid.UUID][]*BookingPaymentLine)
-	if len(saleIDs) == 0 {
+	if len(entryIDs) == 0 {
 		return out, nil
 	}
-	rows, err := m.Q.ListSaleBookingPaymentsBySaleIDs(ctx, db.ListSaleBookingPaymentsBySaleIDsParams{
-		SaleIds:   data.UUIDSliceToPg(saleIDs),
+	rows, err := m.Q.ListSaleBookingPaymentsByEntryIDs(ctx, db.ListSaleBookingPaymentsByEntryIDsParams{
+		EntryIds:  data.UUIDSliceToPg(entryIDs),
 		ComplexID: data.UUIDToPg(complexID),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("sale: list booking payments by sale ids: %w", err)
+		return nil, fmt.Errorf("sale: list booking payments by entry ids: %w", err)
 	}
 	for _, r := range rows {
 		line := bookingLineFromDB(r.PaymentID, r.BookingID, r.Amount, r.BookingDate, r.StartsAt, r.EndsAt, r.CourtName, r.ClientFirstName, r.ClientLastName)
-		saleID := data.PgToUUID(r.SaleID)
-		out[saleID] = append(out[saleID], line)
+		entryID := data.PgToUUID(r.EntryID)
+		out[entryID] = append(out[entryID], line)
 	}
 	return out, nil
 }

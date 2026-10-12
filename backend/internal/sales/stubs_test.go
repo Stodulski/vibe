@@ -109,7 +109,7 @@ func (s *stubStore) Checkout(_ context.Context, complexID, actorID uuid.UUID, it
 	return &salestore.CheckoutResult{Sale: sale, Items: s.createItems, Warnings: s.createWarnings}, nil
 }
 
-func (s *stubStore) ListBookingPaymentsBySaleIDs(_ context.Context, _ uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error) {
+func (s *stubStore) ListBookingPaymentsByEntryIDs(_ context.Context, _ uuid.UUID, saleIDs []uuid.UUID) (map[uuid.UUID][]*salestore.BookingPaymentLine, error) {
 	out := make(map[uuid.UUID][]*salestore.BookingPaymentLine)
 	for _, id := range saleIDs {
 		if lines, ok := s.bookingLines[id]; ok {

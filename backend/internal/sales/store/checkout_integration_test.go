@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	salestore "github.com/stodulski/vibe-server/internal/sales/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -111,15 +112,15 @@ func TestIntegration_CheckoutMixedCountsTheSaleOnceAndLinksTheBalance(t *testing
 	if res.Sale == nil || res.Sale.Total != 1_600 {
 		t.Fatalf("want a sale totalling the products (1600); got %+v", res.Sale)
 	}
-	if got := countRows(t, f, `SELECT amount FROM cash_movements WHERE id = $1`, res.Sale.CashMovementID); got != 1_600 {
+	if got := countRows(t, f, `SELECT amount FROM cash_movements WHERE id = $1`, *res.Sale.CashMovementID); got != 1_600 {
 		t.Errorf("sale cash income = %d; want the products total only (1600)", got)
 	}
 	if got := paymentsSum(t, f, booking.ID); got != 350_000 {
 		t.Errorf("booking payments sum to %d; want 350000 once", got)
 	}
-	lines, err := f.Stores.Sales.ListBookingPaymentsBySaleIDs(ctx, f.ComplexID, []uuid.UUID{res.Sale.ID})
+	lines, err := f.Stores.Sales.ListBookingPaymentsByEntryIDs(ctx, f.ComplexID, []uuid.UUID{res.Sale.ID})
 	if err != nil {
-		t.Fatalf("ListBookingPaymentsBySaleIDs: %v", err)
+		t.Fatalf("ListBookingPaymentsByEntryIDs: %v", err)
 	}
 	if got := lines[res.Sale.ID]; len(got) != 1 || got[0].Amount != 350_000 || got[0].BookingID != booking.ID {
 		t.Fatalf("sale should link the balance once; got %+v", got)
@@ -361,5 +362,163 @@ func TestIntegration_CheckoutCountsTheBalanceOnceInExpectedCash(t *testing.T) {
 	cashSales := countRows(t, f, `SELECT COALESCE(SUM(amount), 0)::int FROM cash_movements WHERE session_id = $1 AND kind = 'income' AND category = 'sale'`, session.ID)
 	if cashSales != 1_600 {
 		t.Errorf("sale income in the session = %d; want the products only (1600)", cashSales)
+	}
+}
+
+// listSales reads every page of the sales list through the store, the way the
+// sell page pages through it, newest first. The guard bounds a cursor that
+// never ends.
+func listSales(t *testing.T, f *datatest.Fixture, sessionID *uuid.UUID, limit int) []*salestore.Sale {
+	t.Helper()
+	ctx := f.Scoped(context.Background())
+	var out []*salestore.Sale
+	cursor := ""
+	for range 100 {
+		page, meta, err := f.Stores.Sales.ListByComplex(ctx, f.ComplexID, sessionID, data.Filters{Limit: limit, Cursor: cursor})
+		if err != nil {
+			t.Fatalf("listing sales: %v", err)
+		}
+		out = append(out, page...)
+		if !meta.HasMore {
+			return out
+		}
+		cursor = meta.NextCursor
+	}
+	t.Fatal("the sales list never ended")
+	return nil
+}
+
+// TestIntegration_ListShowsABalanceOnlyCheckoutBesideTheProductSales: a
+// checkout that collected only court balances has no sale row, yet the
+// session's sales list shows it between the product sales around it, with its
+// balance lines, method and total, and it writes no cash income of its own.
+func TestIntegration_ListShowsABalanceOnlyCheckoutBesideTheProductSales(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	product := insertProduct(t, f, "Tubo de pelotas", 800, true)
+	session := openSession(t, f, 0)
+	booking := bookingOn(t, f, artDay(time.Now()), datatest.BookingOptions{StartTime: "18:00", EndTime: "19:00"})
+
+	before, err := f.Stores.Sales.Checkout(ctx, f.ComplexID, f.UserID,
+		[]salestore.ItemInput{{ProductID: product.ID, Quantity: 1}}, nil, "cash", nil)
+	if err != nil {
+		t.Fatalf("product checkout: %v", err)
+	}
+	cashBefore := countRows(t, f, `SELECT COUNT(*)::int FROM cash_movements WHERE session_id = $1`, session.ID)
+
+	if _, err := f.Stores.Sales.Checkout(ctx, f.ComplexID, f.UserID, nil,
+		[]salestore.BookingPaymentInput{{BookingID: booking.ID, Amount: 350_000}}, "transfer", nil); err != nil {
+		t.Fatalf("balance-only checkout: %v", err)
+	}
+	if got := countRows(t, f, `SELECT COUNT(*)::int FROM cash_movements WHERE session_id = $1`, session.ID); got != cashBefore {
+		t.Errorf("a balance-only checkout wrote %d cash movements; want none", got-cashBefore)
+	}
+
+	after, err := f.Stores.Sales.Checkout(ctx, f.ComplexID, f.UserID,
+		[]salestore.ItemInput{{ProductID: product.ID, Quantity: 2}}, nil, "cash", nil)
+	if err != nil {
+		t.Fatalf("second product checkout: %v", err)
+	}
+
+	entries := listSales(t, f, &session.ID, 20)
+	if len(entries) != 3 {
+		t.Fatalf("list holds %d entries; want the two sales and the balance checkout", len(entries))
+	}
+	if entries[0].ID != after.Sale.ID || entries[2].ID != before.Sale.ID {
+		t.Fatalf("list is not newest first around the balance checkout: %v, %v, %v", entries[0].ID, entries[1].ID, entries[2].ID)
+	}
+
+	balance := entries[1]
+	if balance.CashMovementID != nil {
+		t.Errorf("balance-only entry names a cash movement %v; want none", balance.CashMovementID)
+	}
+	if balance.Total != 350_000 || balance.Method != "transfer" || balance.SessionID != session.ID {
+		t.Errorf("balance-only entry = total %d method %q session %v; want 350000, transfer, the session", balance.Total, balance.Method, balance.SessionID)
+	}
+	if balance.IsVoided() {
+		t.Error("balance-only entry reads as voided")
+	}
+	items, err := f.Stores.Sales.ListItemsBySaleIDs(ctx, f.ComplexID, []uuid.UUID{balance.ID})
+	if err != nil {
+		t.Fatalf("items of the balance-only entry: %v", err)
+	}
+	if len(items) != 0 {
+		t.Errorf("balance-only entry has %d product lines; want none", len(items))
+	}
+	lines, err := f.Stores.Sales.ListBookingPaymentsByEntryIDs(ctx, f.ComplexID, []uuid.UUID{balance.ID})
+	if err != nil {
+		t.Fatalf("balance lines of the entry: %v", err)
+	}
+	if got := lines[balance.ID]; len(got) != 1 || got[0].Amount != 350_000 || got[0].BookingID != booking.ID {
+		t.Errorf("balance-only entry lines = %+v; want the one 350000 balance of the booking", got)
+	}
+
+	if got := listSales(t, f, nil, 20); len(got) != 3 {
+		t.Errorf("complex-wide list holds %d entries; want 3", len(got))
+	}
+}
+
+// TestIntegration_ListPagesThroughBalanceOnlyCheckoutsInOrder: the sales list
+// is one keyset page sequence. A page of one entry at a time must visit every
+// entry, product sales and balance checkouts alike, in the same order a single
+// page returns them.
+func TestIntegration_ListPagesThroughBalanceOnlyCheckoutsInOrder(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	product := insertProduct(t, f, "Overgrip", 800, true)
+	openSession(t, f, 0)
+	booking := bookingOn(t, f, artDay(time.Now()), datatest.BookingOptions{StartTime: "18:00", EndTime: "19:00"})
+
+	if _, err := f.Stores.Sales.Checkout(ctx, f.ComplexID, f.UserID,
+		[]salestore.ItemInput{{ProductID: product.ID, Quantity: 1}}, nil, "cash", nil); err != nil {
+		t.Fatalf("product checkout: %v", err)
+	}
+	if _, err := f.Stores.Sales.Checkout(ctx, f.ComplexID, f.UserID, nil,
+		[]salestore.BookingPaymentInput{{BookingID: booking.ID, Amount: 350_000}}, "cash", nil); err != nil {
+		t.Fatalf("balance-only checkout: %v", err)
+	}
+	if _, err := f.Stores.Sales.Checkout(ctx, f.ComplexID, f.UserID,
+		[]salestore.ItemInput{{ProductID: product.ID, Quantity: 1}}, nil, "cash", nil); err != nil {
+		t.Fatalf("second product checkout: %v", err)
+	}
+
+	whole := listSales(t, f, nil, 20)
+	paged := listSales(t, f, nil, 1)
+	if len(whole) != 3 || len(paged) != 3 {
+		t.Fatalf("whole list %d entries, paged list %d; want 3 and 3", len(whole), len(paged))
+	}
+	for i := range whole {
+		if paged[i].ID != whole[i].ID {
+			t.Errorf("page %d holds entry %v; the single page holds %v", i, paged[i].ID, whole[i].ID)
+		}
+	}
+}
+
+// TestIntegration_VoidRefusesABalanceOnlyCheckout: the balance-only entry
+// answers the same refusal as a sale that collected a balance, and its lines
+// stay as they were.
+func TestIntegration_VoidRefusesABalanceOnlyCheckout(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	openSession(t, f, 0)
+	booking := bookingOn(t, f, artDay(time.Now()), datatest.BookingOptions{StartTime: "18:00", EndTime: "19:00"})
+	if _, err := f.Stores.Sales.Checkout(ctx, f.ComplexID, f.UserID, nil,
+		[]salestore.BookingPaymentInput{{BookingID: booking.ID, Amount: 350_000}}, "cash", nil); err != nil {
+		t.Fatalf("balance-only checkout: %v", err)
+	}
+	entries := listSales(t, f, nil, 20)
+	if len(entries) != 1 {
+		t.Fatalf("list holds %d entries; want the balance checkout", len(entries))
+	}
+
+	if _, err := f.Stores.Sales.Void(ctx, f.ComplexID, entries[0].ID, f.UserID, nil); !errors.Is(err, salestore.ErrSaleHasBookingPayments) {
+		t.Fatalf("void of a balance-only checkout = %v; want ErrSaleHasBookingPayments", err)
+	}
+	got, err := f.Stores.Sales.GetByID(ctx, f.ComplexID, entries[0].ID)
+	if err != nil {
+		t.Fatalf("reading the balance-only entry after a refused void: %v", err)
+	}
+	if got.IsVoided() || got.Total != 350_000 {
+		t.Errorf("refused void changed the entry: voided=%v total=%d", got.IsVoided(), got.Total)
 	}
 }

@@ -73,16 +73,25 @@ SELECT * FROM stock_movements
 WHERE sale_id = $1 AND complex_id = $2 AND kind = 'sale'
 ORDER BY product_id;
 
--- name: InsertSaleBookingPayment :one
-INSERT INTO sale_booking_payments (complex_id, sale_id, booking_id, payment_id, amount)
+-- name: InsertCheckout :one
+-- One checkout that collected booking balances. sale_id is NULL for a checkout
+-- with no product lines; the sale is inserted first when there is one.
+INSERT INTO checkouts (complex_id, session_id, method, sale_id, created_by)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
--- name: ListSaleBookingPaymentsBySaleIDs :many
--- The booking lines a page of sales collected, for the receipt. Joined to the
--- booking, court and client so the response can name them without a second
--- round trip per sale.
-SELECT sbp.sale_id, sbp.payment_id, sbp.booking_id, sbp.amount,
+-- name: InsertSaleBookingPayment :one
+INSERT INTO sale_booking_payments (complex_id, checkout_id, booking_id, payment_id, amount)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListSaleBookingPaymentsByEntryIDs :many
+-- The booking lines of a page of sales-list entries, keyed by the entry id: a
+-- product sale's id, or a balance-only checkout's id (it has no sale to name).
+-- Joined to the booking, court and client so the response can name them
+-- without a second round trip per entry.
+SELECT COALESCE(ch.sale_id, ch.id)::uuid AS entry_id,
+       sbp.payment_id, sbp.booking_id, sbp.amount,
        b.date AS booking_date,
        lower(b.span)::timestamptz AS starts_at,
        upper(b.span)::timestamptz AS ends_at,
@@ -90,15 +99,19 @@ SELECT sbp.sale_id, sbp.payment_id, sbp.booking_id, sbp.amount,
        cl.first_name AS client_first_name,
        cl.last_name AS client_last_name
 FROM sale_booking_payments sbp
+JOIN checkouts ch ON ch.id = sbp.checkout_id AND ch.complex_id = sbp.complex_id
 JOIN bookings b ON b.id = sbp.booking_id AND b.complex_id = sbp.complex_id
 JOIN courts c ON c.id = b.court_id
 JOIN clients cl ON cl.id = b.client_id
-WHERE sbp.sale_id = ANY(sqlc.arg(sale_ids)::uuid[]) AND sbp.complex_id = sqlc.arg(complex_id)::uuid
+WHERE sbp.complex_id = sqlc.arg(complex_id)::uuid
+  AND (ch.sale_id = ANY(sqlc.arg(entry_ids)::uuid[])
+       OR (ch.sale_id IS NULL AND ch.id = ANY(sqlc.arg(entry_ids)::uuid[])))
 ORDER BY sbp.created_at ASC, sbp.id ASC;
 
 -- name: ListBookingPaymentLinesByPaymentIDs :many
--- The same booking lines as ListSaleBookingPaymentsBySaleIDs, read from the
--- payments rows directly: a booking-only checkout has no sale to hang them on.
+-- The same booking lines as ListSaleBookingPaymentsByEntryIDs, read from the
+-- payments rows directly: a checkout's lines are known by payment id right after
+-- it is recorded, before any list query runs.
 SELECT p.id AS payment_id, p.booking_id, p.amount,
        b.date AS booking_date,
        lower(b.span)::timestamptz AS starts_at,
@@ -114,8 +127,36 @@ WHERE p.id = ANY(sqlc.arg(payment_ids)::uuid[]) AND p.complex_id = sqlc.arg(comp
 ORDER BY p.created_at ASC, p.id ASC;
 
 -- name: CountSaleBookingPayments :one
-SELECT COUNT(*)::bigint FROM sale_booking_payments
-WHERE sale_id = $1 AND complex_id = $2;
+-- The balance lines a sale's checkout collected. A void refuses while any exist.
+SELECT COUNT(*)::bigint FROM sale_booking_payments sbp
+JOIN checkouts ch ON ch.id = sbp.checkout_id AND ch.complex_id = sbp.complex_id
+WHERE ch.sale_id = $1 AND sbp.complex_id = $2;
+
+-- name: ListBalanceOnlyCheckoutsByComplex :many
+-- The checkouts of this complex that collected booking balances and no product
+-- lines. They have no sales row, so the sales list merges them in (see
+-- Store.ListByComplex). Same keyset and session filter as ListSalesByComplex.
+-- total is what the checkout collected.
+SELECT ch.id, ch.complex_id, ch.session_id, ch.method, ch.created_by, ch.created_at,
+       (SELECT COALESCE(SUM(sbp.amount), 0) FROM sale_booking_payments sbp
+        WHERE sbp.checkout_id = ch.id)::int AS total
+FROM checkouts ch
+WHERE ch.complex_id = $1
+  AND ch.sale_id IS NULL
+  AND (NOT sqlc.arg(has_session_filter)::bool OR ch.session_id = sqlc.arg(session_filter)::uuid)
+  AND (NOT sqlc.arg(has_cursor)::bool
+       OR (ch.created_at, ch.id) < (sqlc.arg(cursor_created_at)::timestamptz, sqlc.arg(cursor_id)::uuid))
+ORDER BY ch.created_at DESC, ch.id DESC
+LIMIT sqlc.arg(page_limit)::int;
+
+-- name: GetBalanceOnlyCheckoutByID :one
+-- One balance-only checkout of this complex, read as a list entry. No row means
+-- the id is a sale's, or none at all.
+SELECT ch.id, ch.complex_id, ch.session_id, ch.method, ch.created_by, ch.created_at,
+       (SELECT COALESCE(SUM(sbp.amount), 0) FROM sale_booking_payments sbp
+        WHERE sbp.checkout_id = ch.id)::int AS total
+FROM checkouts ch
+WHERE ch.id = $1 AND ch.complex_id = $2 AND ch.sale_id IS NULL;
 
 -- name: ListBookingBalancesDue :many
 -- The sell page's list: one day's bookings of a complex that still owe money.

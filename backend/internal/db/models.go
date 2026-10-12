@@ -465,6 +465,16 @@ type CashSession struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Checkout struct {
+	ID        pgtype.UUID        `json:"id"`
+	ComplexID pgtype.UUID        `json:"complex_id"`
+	SessionID pgtype.UUID        `json:"session_id"`
+	Method    PaymentMethod      `json:"method"`
+	SaleID    pgtype.UUID        `json:"sale_id"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Client struct {
 	ID            pgtype.UUID        `json:"id"`
 	ComplexID     pgtype.UUID        `json:"complex_id"`
@@ -698,13 +708,13 @@ type Sale struct {
 }
 
 type SaleBookingPayment struct {
-	ID        pgtype.UUID        `json:"id"`
-	ComplexID pgtype.UUID        `json:"complex_id"`
-	SaleID    pgtype.UUID        `json:"sale_id"`
-	BookingID pgtype.UUID        `json:"booking_id"`
-	PaymentID pgtype.UUID        `json:"payment_id"`
-	Amount    int32              `json:"amount"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID         pgtype.UUID        `json:"id"`
+	ComplexID  pgtype.UUID        `json:"complex_id"`
+	BookingID  pgtype.UUID        `json:"booking_id"`
+	PaymentID  pgtype.UUID        `json:"payment_id"`
+	Amount     int32              `json:"amount"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	CheckoutID pgtype.UUID        `json:"checkout_id"`
 }
 
 type SaleItem struct {
