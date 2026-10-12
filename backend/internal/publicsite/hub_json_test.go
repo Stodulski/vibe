@@ -44,6 +44,7 @@ type hubComplexBody struct {
 	City          string         `json:"city"`
 	Province      string         `json:"province"`
 	CoverURL      *string        `json:"cover_url"`
+	LogoURL       *string        `json:"logo_url"`
 	CourtCount    int            `json:"court_count"`
 	Sports        []string       `json:"sports"`
 	CourtsBySport []hubSportBody `json:"courts_by_sport"`
@@ -96,6 +97,37 @@ func decodeHubBody(t *testing.T, w *httptest.ResponseRecorder, v any) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// A complex's logo is its logo URL when it has one and null when it has none, as its
+// cover is: the hub card reads the logo from the same document.
+func TestCityHubJSONCarriesEachComplexLogoOrNull(t *testing.T) {
+	now := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
+	withLogo := hubRow("Club Norte", "club-norte", "Av. Rivadavia 100", "Banfield", []string{"padel"}, now, true)
+	withLogo.LogoURL = strPtr("https://cdn.example.test/norte-logo.png")
+	bare := hubRow("Canchas Sur", "canchas-sur", "Calle 9 200", "Banfield", []string{"tennis"}, now, true)
+	bare.CoverURL = strPtr("https://cdn.example.test/sur.jpg")
+	store := &stubStore{hubs: []complexstore.HubComplex{withLogo, bare}}
+
+	w := serveHubJSON(newHubHandler(store), "banfield")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want 200", w.Code)
+	}
+
+	var body cityHubBody
+	decodeHubBody(t, w, &body)
+	if len(body.Complexes) != 2 {
+		t.Fatalf("complexes = %+v; want two", body.Complexes)
+	}
+	if got := body.Complexes[0].LogoURL; got == nil || *got != "https://cdn.example.test/norte-logo.png" {
+		t.Errorf("club-norte logo_url = %v; want its logo", got)
+	}
+	if got := body.Complexes[1].LogoURL; got != nil {
+		t.Errorf("canchas-sur logo_url = %q; want null, the complex has none", *got)
+	}
+	if !strings.Contains(w.Body.String(), `"logo_url":null`) {
+		t.Errorf("a complex without a logo must encode logo_url as null:\n%s", w.Body.String())
+	}
+}
 
 func TestCityHubJSONIsServedWithItsCacheHeader(t *testing.T) {
 	jan := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)

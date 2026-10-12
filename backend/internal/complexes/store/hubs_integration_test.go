@@ -42,6 +42,11 @@ func TestIntegration_ListActiveComplexesForHubsKeepsOnlyLiveSwitchedOnComplexes(
 		t.Fatalf("soft-deleting a court: %v", err)
 	}
 
+	const logo = "https://cdn.example.test/club-live-logo.png"
+	if _, err := f.DB.Exec(ctx, `UPDATE complexes SET logo_url = $2 WHERE id = $1`, live, logo); err != nil {
+		t.Fatalf("setting the live complex's logo: %v", err)
+	}
+
 	rows, err := store.ListActiveComplexesForHubs(ctx)
 	if err != nil {
 		t.Fatalf("ListActiveComplexesForHubs: %v", err)
@@ -71,6 +76,9 @@ func TestIntegration_ListActiveComplexesForHubsKeepsOnlyLiveSwitchedOnComplexes(
 	}
 	if got.CoverURL != nil {
 		t.Errorf("cover_url = %q; want nil, the complex has none", *got.CoverURL)
+	}
+	if got.LogoURL == nil || *got.LogoURL != logo {
+		t.Errorf("logo_url = %v; want %q", got.LogoURL, logo)
 	}
 	// One entry per switched-on court: both padel courts and the tennis court.
 	// The switched-off and the soft-deleted court contribute nothing.

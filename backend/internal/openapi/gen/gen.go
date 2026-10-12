@@ -2377,7 +2377,10 @@ type PublicHubComplex struct {
 
 	// CoverUrl The complex's cover image, or null when it has none.
 	CoverUrl *string `json:"cover_url"`
-	Name     string  `json:"name"`
+
+	// LogoUrl The complex's logo image, or null when it has none.
+	LogoUrl *string `json:"logo_url"`
+	Name    string  `json:"name"`
 
 	// Province The province's display name. Empty when the complex names none.
 	Province string `json:"province"`
