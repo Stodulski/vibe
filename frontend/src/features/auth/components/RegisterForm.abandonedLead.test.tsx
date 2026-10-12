@@ -31,6 +31,8 @@ function registeredCallback(): () => void {
   return options.onRegistered;
 }
 
+const ABANDONED_NOTICE = 'Si no terminás tu registro, te escribimos para ayudarte. Podés darte de baja cuando quieras.';
+
 describe('RegisterForm abandoned-registration lead capture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -147,5 +149,23 @@ describe('RegisterForm abandoned-registration lead capture — unload and succes
 
     expect(captureAbandonedRegistrationLead).not.toHaveBeenCalled();
     expect(captureAbandonedRegistrationLeadBeacon).not.toHaveBeenCalled();
+  });
+
+  it('tells the owner, under the email field, that an unfinished registration may be emailed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<RegisterForm />);
+
+    const email = screen.getByLabelText(/email/i);
+    expect(screen.getByText(ABANDONED_NOTICE)).toBeVisible();
+    expect(email).toHaveAccessibleDescription(ABANDONED_NOTICE);
+    expect(
+      email.compareDocumentPosition(screen.getByText(ABANDONED_NOTICE)) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /siguiente/i }));
+    await waitFor(() => {
+      expect(email).toHaveAttribute('aria-invalid', 'true');
+    });
+    expect(email).toHaveAccessibleDescription(expect.stringContaining(ABANDONED_NOTICE));
   });
 });

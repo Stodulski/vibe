@@ -14,23 +14,22 @@ interface RegisterEmailFieldProps {
 
 export function RegisterEmailField({ register, errors }: RegisterEmailFieldProps) {
   return (
-    <FormField
-      className="auth-stagger-1 space-y-1.5"
-      label={t.auth.email}
-      htmlFor="email"
-      icon={Mail}
-      error={errors.email?.message}
-    >
-      <Input
-        id="email"
-        type="email"
-        placeholder={t.placeholders.email}
-        autoComplete="email"
-        aria-invalid={!!errors.email}
-        aria-describedby={errors.email ? 'email-error' : undefined}
-        className="h-11 pl-9 text-sm sm:h-10"
-        {...register('email')}
-      />
-    </FormField>
+    <div className="auth-stagger-1 space-y-1.5">
+      <FormField label={t.auth.email} htmlFor="email" icon={Mail} error={errors.email?.message}>
+        <Input
+          id="email"
+          type="email"
+          placeholder={t.placeholders.email}
+          autoComplete="email"
+          aria-invalid={!!errors.email}
+          aria-describedby={errors.email ? 'email-error email-notice' : 'email-notice'}
+          className="h-11 pl-9 text-sm sm:h-10"
+          {...register('email')}
+        />
+      </FormField>
+      <p id="email-notice" className="text-micro text-text-tertiary">
+        {t.auth.abandonedLeadNotice}
+      </p>
+    </div>
   );
 }

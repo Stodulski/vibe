@@ -91,6 +91,7 @@ export const auth = {
   orDivider: 'o',
   googleCompleteTitle: 'Completá tu perfil',
   googleCompleteHint: 'Solo falta tu teléfono para terminar de crear la cuenta.',
+  abandonedLeadNotice: 'Si no terminás tu registro, te escribimos para ayudarte. Podés darte de baja cuando quieras.',
   googleCompleteSubmit: 'Completar registro',
   googleAccountExists: 'Ya existe una cuenta con ese email. Iniciá sesión.',
   googleSessionExpired: 'El registro con Google venció. Volvé a intentar.',
