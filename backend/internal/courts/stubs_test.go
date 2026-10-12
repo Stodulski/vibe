@@ -201,6 +201,13 @@ func (c *stubComplexes) GetBySlug(context.Context, string) (*complexstore.Comple
 	return c.complex, nil
 }
 
+func (c *stubComplexes) GetByID(context.Context, uuid.UUID) (*complexstore.Complex, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.complex, nil
+}
+
 func (c *stubComplexes) GetSchedules(context.Context, uuid.UUID) ([]*complexstore.Schedule, error) {
 	return c.schedules, nil
 }
@@ -243,7 +250,7 @@ func newTestHandlerWithAuditTrail(store *stubStore, bookings *stubBookings, comp
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	rec := audit.NewRecorder(table, logger, deferRun)
 
-	h := NewHandler(NewService(store, bookings, complexes, rec), httpx.NewResponder(logger), false)
+	h := NewHandler(NewService(store, bookings, complexes, rec, nil), httpx.NewResponder(logger), false)
 	return h, table, func() {
 		for _, fn := range scheduled {
 			fn()
@@ -254,7 +261,7 @@ func newTestHandlerWithAuditTrail(store *stubStore, bookings *stubBookings, comp
 func newTestHandler(store *stubStore, bookings *stubBookings, complexes *stubComplexes) (*Handler, *stubRecorder) {
 	rec := &stubRecorder{}
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	return NewHandler(NewService(store, bookings, complexes, rec), responder, false), rec
+	return NewHandler(NewService(store, bookings, complexes, rec, nil), responder, false), rec
 }
 
 // ownerRequest builds a request from the complex's authenticated owner, with
