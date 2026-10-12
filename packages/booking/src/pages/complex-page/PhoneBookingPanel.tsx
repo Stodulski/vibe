@@ -1,6 +1,7 @@
 import { Button } from '@vibe/ui';
 import { WhatsappIcon } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
+import { whatsappChatHref } from '../../lib/whatsapp';
 
 const t = BOOKING_MESSAGES;
 
@@ -20,8 +21,11 @@ const t = BOOKING_MESSAGES;
  * already asked.
  */
 export function PhoneBookingPanel({ phone }: { phone: string }) {
-  const digits = phone.replace(/\D/g, '');
-  const href = `https://wa.me/${digits}?text=${encodeURIComponent(t.publicBooking.phoneOnlyMessage)}`;
+  const href = whatsappChatHref(phone, t.publicBooking.phoneOnlyMessage);
+  // Without a usable number there is nothing to contact: the panel is left out
+  // rather than shown with a heading and no way to act on it.
+  if (!href) return null;
+
   return (
     <section className="lg:border-border-subtle lg:bg-bg-subtle flex flex-col items-start gap-4 py-10 text-left lg:rounded-2xl lg:border lg:px-6">
       <div className="space-y-2">

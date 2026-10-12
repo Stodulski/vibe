@@ -38,9 +38,12 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
         <dd className="text-primary-400 text-xl font-bold tabular-nums">{formatPrice(totalOnline)}</dd>
       </div>
       {remainingAmount > 0 && (
-        <div className="flex justify-between gap-2 py-3">
-          <dt className="text-text-secondary">{t.publicBooking.remaining}</dt>
-          <dd className="text-text-primary font-bold tabular-nums">{formatPrice(remainingAmount)}</dd>
+        <div className="py-3">
+          <div className="flex justify-between gap-2">
+            <dt className="text-text-secondary">{t.publicBooking.remaining}</dt>
+            <dd className="text-text-primary font-bold tabular-nums">{formatPrice(remainingAmount)}</dd>
+          </div>
+          <p className="text-text-tertiary mt-1 text-xs">{t.publicBooking.remainingAtClub}</p>
         </div>
       )}
     </dl>

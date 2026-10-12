@@ -141,18 +141,10 @@ describe('ComplexMap rendering', () => {
     expect(screen.getByText('Av. Libertador 1234, Buenos Aires')).toBeInTheDocument();
   });
 
-  it('renders Google Maps link', () => {
+  // The Google Maps link is server-rendered by ComplexLower, outside this
+  // client-only map, so the link must not be rendered here as well.
+  it('does not render the Google Maps link', () => {
     render(<ComplexMap {...defaultProps} />);
-    const link = screen.getByRole('link', { name: /google maps/i });
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', expect.stringContaining('google.com/maps'));
-    expect(link).toHaveAttribute('target', '_blank');
-  });
-
-  it('includes coordinates in Google Maps link', () => {
-    render(<ComplexMap {...defaultProps} />);
-    const link = screen.getByRole('link', { name: /google maps/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('-34.5875'));
-    expect(link).toHaveAttribute('href', expect.stringContaining('-58.3974'));
+    expect(screen.queryByRole('link', { name: /google maps/i })).not.toBeInTheDocument();
   });
 });

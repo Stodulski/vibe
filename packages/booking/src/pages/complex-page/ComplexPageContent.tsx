@@ -63,7 +63,7 @@ interface ComplexPageContentProps {
  * negative margins at each breakpoint, never a `vw` calculation that a
  * scrollbar can turn into horizontal scroll.
  */
-const CONTENT_WIDTH = 'min-w-0 flex-1 space-y-6 animate-fade-in sm:space-y-10 lg:-mx-24 xl:-mx-40 2xl:-mx-64';
+const CONTENT_WIDTH = 'flex min-w-0 flex-1 flex-col animate-fade-in lg:-mx-24 xl:-mx-40 2xl:-mx-64';
 
 /**
  * The storefront: what a visitor sees before they have chosen anything.
@@ -91,8 +91,12 @@ export function ComplexPageContent({
     return (
       <div className={CONTENT_WIDTH}>
         <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
-        <PhoneBookingPanel phone={complex.phone} />
-        <CourtDirectory courts={courts} />
+        <div className="mt-6 sm:mt-10">
+          <PhoneBookingPanel phone={complex.phone} />
+        </div>
+        <div className="mt-6 max-lg:order-2 sm:mt-10">
+          <CourtDirectory courts={courts} />
+        </div>
       </div>
     );
   }
@@ -105,9 +109,13 @@ export function ComplexPageContent({
           narrows the inventory inside one day, and this is the one that says
           which day. It is also what gets swept across most, so it never hides
           behind a step. */}
-      <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
+      <div className="mt-6 sm:mt-10">
+        <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
+      </div>
 
-      <BookingFlow {...flow} />
+      <div className="mt-6 sm:mt-10">
+        <BookingFlow {...flow} />
+      </div>
     </div>
   );
 }

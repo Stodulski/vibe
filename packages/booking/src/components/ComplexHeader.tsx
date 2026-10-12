@@ -1,8 +1,4 @@
-import { lazy, Suspense, useContext } from 'react';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
-import { ErrorBoundary, Skeleton } from '@vibe/ui';
-import { BookingConfigContext } from '../config';
-import { useHasMounted } from '../hooks/useHasMounted';
 import { sportSummaries } from '../lib/courtPrices';
 import { complexCoverAlt } from '../lib/complexImageAlt';
 import { BOOKING_MESSAGES } from '../messages';
@@ -11,11 +7,10 @@ import { ComplexLogo } from './complex-header/ComplexLogo';
 import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
 import { ShareComplexButton } from './complex-header/ShareComplexButton';
 import { ComplexDetails } from './complex-header/ComplexDetails';
+import { ComplexLower } from './complex-header/ComplexLower';
 import { CourtSummary } from './complex-header/CourtSummary';
 
 const t = BOOKING_MESSAGES;
-
-const ComplexMap = lazy(() => import('./ComplexMap').then((m) => ({ default: m.ComplexMap })));
 
 interface ComplexHeaderProps {
   complex: PublicComplex;
@@ -37,9 +32,13 @@ interface ComplexHeaderProps {
  *
  * One column at every width. WHO the club is — cover, logo over its corner,
  * name, contact — comes first and keeps the same internal arrangement at
- * every width. WHAT the club offers — hours and services — follows underneath,
- * spanning the full width of the card, so the week's hours fit on one line
- * and the services wrap into a few short rows.
+ * every width. WHAT the club offers — the hours, then the services and the
+ * map — follows underneath, spanning the full width of the card, so the week's
+ * hours fit on one line and the services wrap into a few short rows.
+ *
+ * Below `lg` the card's own box is dropped (`max-lg:contents`), so its three
+ * blocks become items of the page column and the page can move the services
+ * and the map after the booking. At `lg` they stay inside the card.
  *
  * This used to split into two columns from `lg`, identity left and details
  * right. The split was dropped so the details get the whole width instead of
@@ -52,17 +51,12 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
     city: complex.city,
     sports: sportSummaries(courts).map(({ sport }) => t.courts.sportTypes[sport]),
   });
-  // Optional: the header also renders on its own (tests, previews), without a BookingRoot.
-  const reportError = useContext(BookingConfigContext)?.reportError;
-  // Leaflet touches `window` when it loads, so the map is requested only after
-  // mount. The server markup and the first client render both show the skeleton.
-  const mapMounted = useHasMounted();
 
   return (
-    // The bordered card arrives at `lg`. Below that a panel spanning the whole
-    // screen frames the page and then indents its contents inside the page's
-    // own gutter — two nested paddings for one column of content.
-    <div className="lg:border-border-subtle lg:bg-bg-subtle relative lg:rounded-2xl lg:border lg:p-7">
+    // The bordered card arrives at `lg`. Below that the box is dropped entirely
+    // (`contents`): the page column lays out the blocks directly, and the
+    // padding is not doubled.
+    <div className="lg:border-border-subtle lg:bg-bg-subtle relative max-lg:contents lg:rounded-2xl lg:border lg:p-7">
       {/* Identity: cover, logo, name, contact — one block, one order. */}
       <div>
         <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
@@ -82,43 +76,14 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
         </div>
       </div>
 
-      {/* What it offers: the courts and their hourly prices, then the hours and services. */}
+      {/* What it offers: the courts and their hourly prices, then the hours. */}
       <div>
         <CourtSummary courts={courts} />
-        <ComplexDetails schedules={schedules} amenities={complex.amenities} selectedDate={selectedDate} />
-
-        {complex.latitude != null && complex.longitude != null && (
-          <div className="mt-6">
-            {/*
-              Leaflet is a third-party map widget loaded lazily; a failure in
-              it (a bad tile server, a bundling issue) must not take down the
-              rest of the club's page with it — see routeHelpers.tsx's own
-              per-page ErrorBoundary for the equivalent guard one level up.
-            */}
-            <ErrorBoundary
-              onError={(error, info) => reportError?.(error, { componentStack: info.componentStack })}
-              fallback={
-                <div className="border-border-subtle bg-bg-subtle text-text-secondary flex h-[200px] w-full items-center justify-center rounded-xl border text-center text-sm">
-                  {t.publicBooking.mapUnavailable}
-                </div>
-              }
-            >
-              {mapMounted ? (
-                <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
-                  <ComplexMap
-                    latitude={complex.latitude}
-                    longitude={complex.longitude}
-                    name={complex.name}
-                    address={`${complex.address}, ${complex.city}`}
-                  />
-                </Suspense>
-              ) : (
-                <Skeleton className="h-[200px] w-full rounded-xl" />
-              )}
-            </ErrorBoundary>
-          </div>
-        )}
+        <ComplexDetails schedules={schedules} selectedDate={selectedDate} />
       </div>
+
+      {/* The services and the map. Their own block, so the page can move it below `lg`. */}
+      <ComplexLower complex={complex} />
     </div>
   );
 }

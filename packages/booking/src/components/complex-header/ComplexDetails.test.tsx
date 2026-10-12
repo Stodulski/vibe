@@ -1,47 +1,48 @@
 import { render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BOOKING_MESSAGES } from '../../messages';
+import type { Schedule } from '../../api/types';
 import { ComplexDetails } from './ComplexDetails';
 
-const noop = () => undefined;
+const t = BOOKING_MESSAGES;
 
-/* Por debajo de lg el encabezado se apila y los dos bloques son acordeones. */
-function stackedViewport() {
-  vi.spyOn(window, 'matchMedia').mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: noop,
-    removeEventListener: noop,
-    addListener: noop,
-    removeListener: noop,
-    dispatchEvent: () => false,
-  }));
-}
+const schedules: Schedule[] = [
+  { id: 's1', complex_id: 'c1', day: 'monday', open_time: '08:00', close_time: '23:00', is_closed: false },
+];
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+describe('ComplexDetails in the server markup', () => {
+  // Crawlers and no-JS readers get only the server HTML. The week must be in it
+  // at every width, not only inside an open panel.
+  it('writes the weekly hours into the HTML, not only inside a collapsed panel', () => {
+    const html = renderToStaticMarkup(<ComplexDetails schedules={schedules} />);
 
-describe('ComplexDetails heading outline', () => {
-  it('opens the schedules accordion header as h2, right under the page h1', () => {
-    stackedViewport();
-    render(<ComplexDetails schedules={[]} amenities={[]} />);
+    expect(html).toContain('08:00 - 23:00');
+  });
 
-    expect(screen.getByRole('heading', { level: 2, name: BOOKING_MESSAGES.complex.schedules })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
+  it('writes the schedules trigger as collapsed', () => {
+    const html = renderToStaticMarkup(<ComplexDetails schedules={schedules} />);
+
+    expect(html).toContain('aria-expanded="false"');
+  });
+
+  it('never asks matchMedia where the hours go', () => {
+    const spy = vi.spyOn(window, 'matchMedia');
+
+    renderToStaticMarkup(<ComplexDetails schedules={schedules} />);
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 
-describe('ComplexDetails in the server markup', () => {
-  // Crawlers and no-JS readers get the server HTML only. A closed accordion
-  // panel is not rendered there at all, so the services must sit outside it.
-  it('writes every service into the HTML, not only inside a collapsed panel', () => {
-    const html = renderToStaticMarkup(<ComplexDetails schedules={[]} amenities={['parking', 'wifi']} />);
+describe('ComplexDetails in the browser', () => {
+  it('renders one schedules trigger, collapsed, at every width', () => {
+    const spy = vi.spyOn(window, 'matchMedia');
 
-    expect(html).toContain(BOOKING_MESSAGES.complex.amenities.parking);
-    expect(html).toContain(BOOKING_MESSAGES.complex.amenities.wifi);
+    render(<ComplexDetails schedules={schedules} />);
+
+    expect(screen.getByRole('button', { name: t.complex.schedules, expanded: false })).toBeInTheDocument();
+    expect(spy).not.toHaveBeenCalled();
   });
 });

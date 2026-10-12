@@ -1,27 +1,9 @@
-import { beforeAll, afterAll, describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { ComplexHeader } from './ComplexHeader';
+import { BOOKING_MESSAGES } from '../messages';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
-
-vi.mock('./ComplexMap', () => ({
-  ComplexMap: () => <div data-testid="mock-map">Map</div>,
-}));
-
-// Suppress the expected "Leaflet failed to load" console noise React logs
-// for the caught render error in the map-failure test below, same pattern
-// as ErrorBoundary's own test helpers.
-const originalError = console.error;
-beforeAll(() => {
-  console.error = (...args: unknown[]) => {
-    if (typeof args[0] === 'string' && args[0].includes('Leaflet failed to load')) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
-});
-afterAll(() => {
-  console.error = originalError;
-});
 
 const mockComplex: PublicComplex = {
   id: 'c1',
@@ -150,20 +132,32 @@ describe('ComplexHeader', () => {
     expect(screen.queryByText('+5491155550000')).not.toBeInTheDocument();
   });
 
-  it('shows a fallback instead of crashing the whole page when the map fails to render', async () => {
-    vi.doMock('./ComplexMap', () => ({
-      ComplexMap: () => {
-        throw new Error('Leaflet failed to load');
-      },
-    }));
-    vi.resetModules();
-    const { ComplexHeader: ComplexHeaderWithBrokenMap } = await import('./ComplexHeader');
+});
 
-    render(<ComplexHeaderWithBrokenMap complex={mockComplex} schedules={mockSchedules} />);
+describe('ComplexHeader services', () => {
+  const withServices: PublicComplex = { ...mockComplex, amenities: ['parking', 'wifi'] };
 
-    expect(await screen.findByText('No pudimos cargar el mapa')).toBeInTheDocument();
-    // The rest of the club's page — outside the map's own boundary — is unaffected.
-    expect(screen.getByRole('heading', { name: 'Club Padel Norte' })).toBeInTheDocument();
+  // The services live inside the header, after the hours, at every width.
+  it('writes the services once, after the hours, inside the header', () => {
+    const container = document.createElement('div');
+    container.innerHTML = renderToStaticMarkup(<ComplexHeader complex={withServices} schedules={mockSchedules} />);
+
+    const headings = Array.from(container.querySelectorAll('h2'));
+    const services = headings.find((h) => h.textContent === BOOKING_MESSAGES.complex.amenitiesSection);
+    const hours = container.querySelector('dl');
+
+    expect(headings.filter((h) => h.textContent === BOOKING_MESSAGES.complex.amenitiesSection)).toHaveLength(1);
+    expect(
+      hours && services && hours.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('never asks matchMedia where the services go', () => {
+    const spy = vi.spyOn(window, 'matchMedia');
+
+    render(<ComplexHeader complex={withServices} schedules={mockSchedules} />);
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 
