@@ -62,9 +62,12 @@ func TestConnectorQueuesOneOKEmailAndNeverCarriesTheToken(t *testing.T) {
 	if !slices.Contains(call.payload.Lines, "Página: Vibe (page-1).") || !slices.Contains(call.payload.Lines, "Instagram: @vibe.padel (ig-1).") {
 		t.Fatalf("lines = %v, want the page and the Instagram account", call.payload.Lines)
 	}
-	raw, _ := json.Marshal(call)
-	if strings.Contains(string(raw), connectionToken) {
-		t.Fatal("the connection email must never carry the token")
+	raw, err := json.Marshal(call.payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	if strings.Contains(string(raw), connectionToken) || strings.Contains(call.key, connectionToken) {
+		t.Fatal("the connection email and its dedup key must never carry the token")
 	}
 }
 

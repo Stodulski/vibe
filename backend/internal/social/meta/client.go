@@ -450,7 +450,10 @@ type graphErrorBody struct {
 // 429 is permanent, because the same request would fail the same way again.
 func apiError(status int, raw []byte) error {
 	var body graphErrorBody
-	_ = json.Unmarshal(raw, &body)
+	if err := json.Unmarshal(raw, &body); err != nil {
+		// A body that is not Graph's error shape leaves only the status text.
+		body = graphErrorBody{}
+	}
 	msg := body.Error.Message
 	if msg == "" {
 		msg = http.StatusText(status)

@@ -127,7 +127,7 @@ func authed(r *http.Request) *http.Request {
 
 func postRequest(t *testing.T, body string) *http.Request {
 	t.Helper()
-	r := httptest.NewRequest(http.MethodPut, "/api/v1/social/posts/p1", strings.NewReader(body))
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/social/posts/p1", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	return authed(r)
 }
@@ -159,7 +159,7 @@ func TestPutPostRequiresAnAcceptedToken(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			rg := newRig(tc.auth)
-			r := httptest.NewRequest(http.MethodPut, "/api/v1/social/posts/p1", strings.NewReader(imagePost))
+			r := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/social/posts/p1", strings.NewReader(imagePost))
 			r.Header.Set("Content-Type", "application/json")
 			if tc.header != "" {
 				r.Header.Set("Authorization", tc.header)
@@ -234,7 +234,7 @@ func TestPutPostRejectsInvalidContent(t *testing.T) {
 }
 
 func uploadRequest(name, contentType string, body []byte) *http.Request {
-	r := httptest.NewRequest(http.MethodPut, "/api/v1/social/posts/p1/media/"+name, bytes.NewReader(body))
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/social/posts/p1/media/"+name, bytes.NewReader(body))
 	r.Header.Set("Content-Type", contentType)
 	return authed(r)
 }
@@ -318,7 +318,7 @@ func TestPutMediaRefusesAPublishedPost(t *testing.T) {
 }
 
 func reconcileRequest(body string) *http.Request {
-	r := httptest.NewRequest(http.MethodPost, "/api/v1/social/reconcile", strings.NewReader(body))
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/social/reconcile", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	return authed(r)
 }

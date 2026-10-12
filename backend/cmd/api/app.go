@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
-	"context"
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/bookings"
@@ -47,7 +48,6 @@ import (
 	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/waitlist"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
-	"net/http"
 )
 
 // deps holds the values newApplication cannot derive from cfg: the

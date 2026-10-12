@@ -42,8 +42,8 @@ func newFakeIDP(t *testing.T) *fakeIDP {
 		idp.fetches.Add(1)
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "kid": testKID, "use": "sig", "alg": "RS256",
-			"n": base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes()),
-			"e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.PublicKey.E)).Bytes()),
+			"n": base64.RawURLEncoding.EncodeToString(key.N.Bytes()),
+			"e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.E)).Bytes()),
 		}}})
 	}))
 	t.Cleanup(idp.server.Close)
