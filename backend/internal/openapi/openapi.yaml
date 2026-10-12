@@ -2256,6 +2256,49 @@ paths:
   # ---------------------------------------------------------------------
   # courts
   # ---------------------------------------------------------------------
+  /api/v1/public/complexes/{slug}/next-available:
+    get:
+      tags: [courts]
+      operationId: courtsPublicNextAvailable
+      summary: The first day after a given date with a bookable slot
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Looks at the fourteen days after `from`,
+        never past the booking horizon, and answers with the first one where any active court has
+        a free slot for the requested duration. The check is the same grid the availability
+        endpoint publishes. `date` is `null` when no day in that window has one.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+        - name: from
+          in: query
+          required: true
+          description: The day to search after, as `YYYY-MM-DD`. A day in the past starts the search today.
+          schema: {type: string, format: date}
+        - name: duration
+          in: query
+          description: Defaults to the platform's default slot duration. Must be one of the permitted durations.
+          schema: {type: integer}
+      responses:
+        "200":
+          description: The next day with a free slot, or `null` when there is none in the window.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [date]
+                properties:
+                  date: {type: string, format: date, nullable: true}
+        "400":
+          description: Missing or malformed `from`.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404":
+          description: Unknown slug, or the complex is inactive.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
   /api/v1/public/complexes/{slug}/availability:
     get:
       tags: [courts]

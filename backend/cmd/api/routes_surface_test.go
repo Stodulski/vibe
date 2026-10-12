@@ -66,6 +66,7 @@ var apiSurface = map[string]struct{}{
 	"GET /api/v1/places/details":                                                        {},
 	"GET /api/v1/public/complexes/{slug}":                                               {},
 	"GET /api/v1/public/complexes/{slug}/availability":                                  {},
+	"GET /api/v1/public/complexes/{slug}/next-available":                                {},
 	"GET /api/v1/public/hubs":                                                           {},
 	"GET /api/v1/public/hubs/{city}/data":                                               {},
 	"GET /api/v1/webhooks/whatsapp":                                                     {},
