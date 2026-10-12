@@ -3,6 +3,8 @@ import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
 import { ErrorBoundary, Skeleton } from '@vibe/ui';
 import { BookingConfigContext } from '../config';
 import { useHasMounted } from '../hooks/useHasMounted';
+import { sportSummaries } from '../lib/courtPrices';
+import { complexCoverAlt } from '../lib/complexImageAlt';
 import { BOOKING_MESSAGES } from '../messages';
 import { CoverBanner } from './complex-header/CoverBanner';
 import { ComplexLogo } from './complex-header/ComplexLogo';
@@ -44,6 +46,11 @@ interface ComplexHeaderProps {
  */
 export function ComplexHeader({ complex, schedules, courts = [], selectedDate }: ComplexHeaderProps) {
   const coverUrl = complex.cover_url ?? null;
+  const coverAlt = complexCoverAlt({
+    name: complex.name,
+    city: complex.city,
+    sports: sportSummaries(courts).map(({ sport }) => t.courts.sportTypes[sport]),
+  });
   // Optional: the header also renders on its own (tests, previews), without a BookingRoot.
   const reportError = useContext(BookingConfigContext)?.reportError;
   // Leaflet touches `window` when it loads, so the map is requested only after
@@ -57,7 +64,7 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
     <div className="lg:border-border-subtle lg:bg-bg-subtle relative lg:rounded-2xl lg:border lg:p-7">
       {/* Identity: cover, logo, name, contact — one block, one order. */}
       <div>
-        <CoverBanner coverUrl={coverUrl} />
+        <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
 
         <div className="relative pb-5 sm:pb-7">
           <ComplexLogo logoUrl={complex.logo_url ?? null} name={complex.name} />

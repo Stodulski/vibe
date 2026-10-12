@@ -8,7 +8,7 @@ import { renderToString } from 'react-dom/server';
 import { useQueryParams } from '../lib/navigation';
 import { BookingRoot } from '../BookingRoot';
 import type { BookingConfig } from '../config';
-import type { PublicComplexResponse } from '../api/types';
+import type { CourtWithPrices, PublicComplexResponse } from '../api/types';
 import { ComplexPageEntry } from './complex-page';
 import { BookCancelEntry } from './book-cancel';
 import { BookConfirmEntry } from './book-confirm';
@@ -138,5 +138,47 @@ describe('entries render on the server', () => {
     expect(() =>
       renderToString(<BookSuccessEntry slug="club-ejemplo" config={config} initialSearch="?status=pending" toaster={false} />),
     ).not.toThrow();
+  });
+});
+
+describe('complex images on the server', () => {
+  const padelCourt: CourtWithPrices = {
+    id: 'k1',
+    complex_id: 'c1',
+    name: 'Cancha 1',
+    sport: 'padel',
+    court_type: 'indoor',
+    is_active: true,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    prices: [],
+  };
+
+  it('renders the cover and the logo as <img> tags with descriptive alt text', () => {
+    const html = renderToString(
+      <ComplexPageEntry
+        slug="club-ejemplo"
+        config={config}
+        initialComplex={{
+          slug: 'club-ejemplo',
+          data: {
+            ...complexResponse,
+            complex: {
+              ...complexResponse.complex,
+              cover_url: 'https://img.example.test/cover.jpg',
+              logo_url: 'https://img.example.test/logo.png',
+            },
+            courts: [padelCourt],
+          },
+        }}
+        toaster={false}
+      />,
+    );
+
+    // HTML attribute names are case-insensitive: React may emit fetchPriority, browsers read fetchpriority.
+    expect(html).toMatch(
+      /<img[^>]*src="https:\/\/img\.example\.test\/cover\.jpg"[^>]*alt="Club Ejemplo, canchas de pádel en Banfield"[^>]*fetchpriority="high"/i,
+    );
+    expect(html).toMatch(/<img[^>]*src="https:\/\/img\.example\.test\/logo\.png"[^>]*alt="Logo de Club Ejemplo"/);
   });
 });

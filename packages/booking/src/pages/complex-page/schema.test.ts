@@ -57,9 +57,19 @@ describe('buildComplexSchema', () => {
     expect(schema.geo).toEqual({ '@type': 'GeoCoordinates', latitude: -34.5, longitude: -58.5 });
   });
 
-  it('uses the cover as the image when the complex has one, before the logo', () => {
+  it('lists the cover first and the logo after it when the complex has both', () => {
     const schema = buildComplexSchema(
       { ...complex, cover_url: 'https://example.com/cover.jpg' },
+      schedules,
+      'https://app.test/club-norte',
+    );
+    expect(schema.image).toEqual(['https://example.com/cover.jpg', 'https://example.com/logo.png']);
+  });
+
+  it('gives the cover alone as the image when the complex has no logo', () => {
+    const { logo_url, ...withoutLogo } = complex;
+    const schema = buildComplexSchema(
+      { ...withoutLogo, cover_url: 'https://example.com/cover.jpg' },
       schedules,
       'https://app.test/club-norte',
     );
