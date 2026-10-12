@@ -1,6 +1,7 @@
 /**
  * Markdown twin of a city hub (/canchas/<city>). Same data, builder and status answers as the
- * HTML page: 200 for a city with complexes, 404 for one without, 503 when the API fails.
+ * HTML page: 200 for a city with complexes or whose last complex left, 404 for a city that never
+ * had any, 503 when the API fails.
  */
 import type { APIRoute } from 'astro';
 import { PUBLIC_API_URL } from 'astro:env/server';

@@ -2,7 +2,7 @@
  * The Markdown twin of a city hub (/canchas/<city>). It reads the HubView the HTML page
  * renders, so the complexes, the FAQ and the links are the same ones.
  */
-import type { HubView, HubComplexView } from '../hub.ts';
+import type { EmptyHubView, HubView, HubComplexView } from '../hub.ts';
 import { absolute, bullets, document, escapeInline, faqBlock, frontMatter, heading, link, SITE } from './format.ts';
 
 function complexLine(complex: HubComplexView): string {
@@ -11,6 +11,33 @@ function complexLine(complex: HubComplexView): string {
     .map(escapeInline);
   const tail = details.length ? `: ${details.join(' · ')}` : '';
   return `- ${link(complex.name, absolute(complex.href))}${tail}`;
+}
+
+/** The complex list, the FAQ and the other cities of a hub with complexes. */
+function complexBlocks(view: HubView, origin: string): (string | null)[] {
+  return [
+    heading(2, `Complejos en ${view.city}`),
+    view.complexes.map(complexLine).join('\n'),
+    view.faq.length > 0 ? heading(2, 'Preguntas frecuentes') : null,
+    ...view.faq.map((item) => faqBlock(item.question, item.answer)),
+    view.otherHubs.length > 0 ? heading(2, 'Canchas en otras ciudades') : null,
+    view.otherHubs.length > 0
+      ? bullets(view.otherHubs.map((other) => link(other.label, absolute(other.href, origin))))
+      : null,
+  ];
+}
+
+/** The owner block and the nearby cities of a hub with no complexes, in place of its complex list. */
+function emptyBlocks(empty: EmptyHubView, origin: string): (string | null)[] {
+  return [
+    heading(2, empty.owner.heading),
+    escapeInline(empty.owner.body),
+    link(empty.owner.cta, empty.owner.href),
+    empty.nearbyHeading ? heading(2, empty.nearbyHeading) : null,
+    empty.nearby.length > 0
+      ? bullets(empty.nearby.map((hub) => `${link(hub.label, absolute(hub.href, origin))}: ${hub.countLabel}`))
+      : null,
+  ];
 }
 
 export function hubMarkdown(view: HubView, origin: string = SITE): string {
@@ -22,16 +49,7 @@ export function hubMarkdown(view: HubView, origin: string = SITE): string {
     heading(1, view.h1),
     place,
     escapeInline(view.intro),
-    heading(2, `Complejos en ${view.city}`),
-    view.complexes.length === 0
-      ? 'Todavía no hay complejos de Vibe en esta ciudad.'
-      : view.complexes.map(complexLine).join('\n'),
-    view.faq.length > 0 ? heading(2, 'Preguntas frecuentes') : null,
-    ...view.faq.map((item) => faqBlock(item.question, item.answer)),
-    view.otherHubs.length > 0 ? heading(2, 'Canchas en otras ciudades') : null,
-    view.otherHubs.length > 0
-      ? bullets(view.otherHubs.map((other) => link(other.label, absolute(other.href, origin))))
-      : null,
+    ...(view.empty ? emptyBlocks(view.empty, origin) : complexBlocks(view, origin)),
     heading(2, 'Más en Vibe'),
     bullets([link('Todas las ciudades', `${origin}/canchas`), link('Inicio', `${origin}/`)]),
   ]);
