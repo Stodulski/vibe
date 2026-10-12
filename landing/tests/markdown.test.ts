@@ -195,6 +195,14 @@ test('a complex page states its name as the H1 and its booking URL as a link', (
   assert.ok(md.includes(`${SITE}/c/la-zona-f5`));
 });
 
+test('a complex page links to no city hub and no city index, though its city is known', () => {
+  const md = complexMarkdown(complexFactsOf('la-zona-f5', complexPayload, labels));
+  assert.equal(complexPayload.complex.city_slug, 'rosario');
+  assert.equal(md.includes('/canchas'), false, 'no link to /canchas/<city> or /canchas');
+  assert.equal(md.includes('Todas las ciudades'), false);
+  assert.equal(md.includes('Canchas en Rosario'), false);
+});
+
 test('a complex page lists active courts by sport and leaves out inactive ones', () => {
   const md = complexMarkdown(complexFactsOf('la-zona-f5', complexPayload, labels));
   assert.ok(md.includes('- Pádel: 2 canchas'));
@@ -234,12 +242,6 @@ test('a complex page answers with the amenity labels and a data-only FAQ', () =>
   assert.ok(md.includes('Estacionamiento'));
   assert.ok(md.includes('### ¿Dónde queda La Zona F5?'));
   assert.ok(md.includes('### ¿Cómo reservo en La Zona F5?'));
-});
-
-test('a complex page links back to its city hub and the city index', () => {
-  const md = complexMarkdown(complexFactsOf('la-zona-f5', complexPayload, labels));
-  assert.ok(md.includes(`${SITE}/canchas/rosario`));
-  assert.ok(md.includes(`${SITE}/canchas)`));
 });
 
 test('the complex description comes from the complex, or from the page copy when it has none', () => {

@@ -141,6 +141,21 @@ describe('entries render on the server', () => {
   });
 });
 
+describe('the share button on the server', () => {
+  it('renders the share button of the complex page', () => {
+    const html = renderToString(
+      <ComplexPageEntry
+        slug="club-ejemplo"
+        config={config}
+        initialComplex={{ slug: 'club-ejemplo', data: complexResponse }}
+        toaster={false}
+      />,
+    );
+
+    expect(html).toContain('aria-label="Compartir Club Ejemplo"');
+  });
+});
+
 describe('complex images on the server', () => {
   const padelCourt: CourtWithPrices = {
     id: 'k1',
