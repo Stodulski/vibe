@@ -56,7 +56,7 @@ test('the filter keeps the storefront entries with their metadata and reports th
     'https://vibe.com.ar/canchas/banfield',
   ]);
   assert.deepEqual(dropped, ['https://app.vibe.com.ar/c/club-sur', 'https://vibe.com.ar/']);
-  assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'));
+  assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n'));
   assert.equal((xml.match(/<url>/g) ?? []).length, 3);
   assert.ok(xml.includes('<lastmod>2026-10-01</lastmod>'));
   assert.equal(xml.includes('app.vibe.com.ar'), false);
@@ -148,4 +148,15 @@ test('the sitemap request goes to the API root under /sitemap.xml', async () => 
   const api = createPublicApi({ baseUrl: 'https://api.test/api/v1/', fetchImpl });
   await api.sitemapXml();
   assert.deepEqual(calls, ['https://api.test/api/v1/sitemap.xml']);
+});
+
+test('complex photos listed by the backend are kept, with their namespace declared', () => {
+  const backend =
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n' +
+    '  <url>\n    <loc>https://vibe.com.ar/c/club-sur</loc>\n' +
+    '    <image:image><image:loc>https://img.example/cover.webp</image:loc></image:image>\n  </url>\n</urlset>\n';
+  const { xml } = filterStorefrontSitemap(backend);
+  assert.ok(xml.includes('<image:image><image:loc>https://img.example/cover.webp</image:loc></image:image>'));
+  assert.ok(xml.includes('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"'));
 });
