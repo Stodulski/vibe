@@ -47,6 +47,7 @@ export const BOOKING_MESSAGES = {
     totalOnline: 'Pagás ahora',
     deposit: 'Seña',
     remaining: 'Resta pagar',
+    remainingAtClub: 'El saldo restante se abona directamente en el complejo.',
     paySecurely: 'Pagar de manera segura',
     slotSuffixUnavailable: ', no disponible',
     slotSuffixSelected: ', seleccionado',

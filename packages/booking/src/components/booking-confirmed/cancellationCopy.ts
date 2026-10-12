@@ -24,11 +24,16 @@ export function cancellationLineText(bookingInfo: BookingInfo): string | null {
     return t.publicBooking.cancelRefundWindowPassed;
   }
 
-  if (bookingInfo.cancellationHours > 0) {
-    return `${t.publicBooking.cancellationPolicyBefore} ${String(bookingInfo.cancellationHours)}h ${t.publicBooking.cancellationPolicyAfter}`;
-  }
+  return cancellationWindowText(bookingInfo.cancellationHours);
+}
 
-  return null;
+/**
+ * The cancellation window as one sentence, for a summary shown before paying.
+ * Null when the club sets no window (zero, or a value that is not a number).
+ */
+export function cancellationWindowText(hours: number): string | null {
+  if (!(hours > 0)) return null;
+  return `${t.publicBooking.cancellationPolicyBefore} ${String(hours)}h ${t.publicBooking.cancellationPolicyAfter}`;
 }
 
 /**
