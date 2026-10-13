@@ -160,6 +160,8 @@ func (c *Client) PublishFacebook(ctx context.Context, post social.Post) (string,
 		return c.facebookCarousel(ctx, acct, post)
 	case social.TypeReel:
 		return c.facebookReel(ctx, acct, post)
+	case social.TypeStory:
+		return c.facebookStory(ctx, acct, post)
 	case social.TypeText:
 		return "", fmt.Errorf("%w: text posts go to threads only", social.ErrPermanent)
 	default:
@@ -169,6 +171,8 @@ func (c *Client) PublishFacebook(ctx context.Context, post social.Post) (string,
 
 func (c *Client) instagramContainer(ctx context.Context, igID string, post social.Post) (string, error) {
 	switch post.Kind {
+	case social.TypeStory:
+		return c.createContainer(ctx, igID, instagramStoryForm(post.Media[0]))
 	case social.TypeImage:
 		form := url.Values{"image_url": {post.Media[0].URL}, "caption": {post.Caption}}
 		if post.AltText != "" {
@@ -294,20 +298,11 @@ func (c *Client) facebookReel(ctx context.Context, acct account, post social.Pos
 	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/video_reels", url.Values{"upload_phase": {"start"}}, &start); err != nil {
 		return "", err
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.UploadBase+"/"+start.VideoID, nil)
+	accepted, err := c.uploadHostedVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
 	if err != nil {
-		return "", fmt.Errorf("meta: build reel upload: %w", err)
-	}
-	req.Header.Set("Authorization", "OAuth "+acct.pageToken)
-	req.Header.Set("file_url", post.Media[0].URL)
-	var up struct {
-		Success bool `json:"success"`
-	}
-	if err := c.send(req, &up); err != nil {
 		return "", err
 	}
-	if !up.Success {
+	if !accepted {
 		return "", errors.New("meta: reel upload was not accepted")
 	}
 
@@ -325,6 +320,110 @@ func (c *Client) facebookReel(ctx context.Context, acct account, post social.Pos
 		return "", errors.New("meta: reel publish was not accepted")
 	}
 	return start.VideoID, nil
+}
+
+// uploadHostedVideo asks Meta to fetch fileURL into an open video session. The
+// answer is the upload's success flag; a transport or status failure is an error.
+func (c *Client) uploadHostedVideo(ctx context.Context, token, videoID, fileURL string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.UploadBase+"/"+videoID, nil)
+	if err != nil {
+		return false, fmt.Errorf("meta: build video upload: %w", err)
+	}
+	req.Header.Set("Authorization", "OAuth "+token)
+	req.Header.Set("file_url", fileURL)
+	var up struct {
+		Success bool `json:"success"`
+	}
+	if err := c.send(req, &up); err != nil {
+		return false, err
+	}
+	return up.Success, nil
+}
+
+// facebookStory publishes a Page story. A photo is one unpublished upload and a
+// photo story; a video is the same three-step session a reel uses.
+func (c *Client) facebookStory(ctx context.Context, acct account, post social.Post) (string, error) {
+	if post.Media[0].IsVideo() {
+		return c.facebookVideoStory(ctx, acct, post)
+	}
+	return c.facebookPhotoStory(ctx, acct, post)
+}
+
+func (c *Client) facebookPhotoStory(ctx context.Context, acct account, post social.Post) (string, error) {
+	var up struct {
+		ID string `json:"id"`
+	}
+	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/photos", url.Values{"url": {post.Media[0].URL}, "published": {"false"}}, &up); err != nil {
+		return "", err
+	}
+	var out struct {
+		Success bool    `json:"success"`
+		PostID  graphID `json:"post_id"`
+	}
+	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/photo_stories", url.Values{"photo_id": {up.ID}}, &out); err != nil {
+		return "", err
+	}
+	if !out.Success || out.PostID == "" {
+		return "", errors.New("meta: photo story was not accepted")
+	}
+	return string(out.PostID), nil
+}
+
+func (c *Client) facebookVideoStory(ctx context.Context, acct account, post social.Post) (string, error) {
+	var start struct {
+		VideoID string `json:"video_id"`
+	}
+	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/video_stories", url.Values{"upload_phase": {"start"}}, &start); err != nil {
+		return "", err
+	}
+	accepted, err := c.uploadHostedVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
+	if err != nil {
+		return "", err
+	}
+	if !accepted {
+		return "", errors.New("meta: video story upload was not accepted")
+	}
+	var fin struct {
+		Success bool    `json:"success"`
+		PostID  graphID `json:"post_id"`
+	}
+	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/video_stories", url.Values{"upload_phase": {"finish"}, "video_id": {start.VideoID}}, &fin); err != nil {
+		return "", err
+	}
+	if !fin.Success || fin.PostID == "" {
+		return "", errors.New("meta: video story publish was not accepted")
+	}
+	return string(fin.PostID), nil
+}
+
+// instagramStoryForm is the container for an Instagram story. Stories take
+// neither a caption nor alt text, so only the media is sent.
+func instagramStoryForm(m social.Media) url.Values {
+	if m.IsVideo() {
+		return url.Values{"media_type": {"STORIES"}, "video_url": {m.URL}}
+	}
+	return url.Values{"media_type": {"STORIES"}, "image_url": {m.URL}}
+}
+
+// graphID is an id Graph answers either as a JSON string or as a bare number,
+// as the Page story endpoints do for post_id.
+type graphID string
+
+func (g *graphID) UnmarshalJSON(raw []byte) error {
+	if string(raw) == "null" {
+		*g = ""
+		return nil
+	}
+	if len(raw) > 0 && raw[0] == '"' {
+		var s string
+		if err := json.Unmarshal(raw, &s); err != nil {
+			return fmt.Errorf("meta: decode post_id: %w", err)
+		}
+		*g = graphID(s)
+		return nil
+	}
+	*g = graphID(raw)
+	return nil
 }
 
 // account finds the Page and its Instagram account once per process and keeps

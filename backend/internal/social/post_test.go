@@ -36,6 +36,21 @@ func TestValidatePostAcceptsWellFormedPosts(t *testing.T) {
 			f.Media = []string{"clip.mp4"}
 			f.Draft = true
 		}},
+		"story image without caption": {id: "historia-1", kind: TypeStory, media: 1, mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Caption = ""
+			f.Media = []string{"1.jpg"}
+		}},
+		"story video": {id: "historia-2", kind: TypeStory, media: 1, mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Networks = []string{"instagram"}
+			f.Media = []string{"1.mp4"}
+		}},
+		"story with a caption the story does not send": {id: "historia-3", kind: TypeStory, media: 1, mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Networks = []string{"facebook"}
+			f.Media = []string{"1.jpeg"}
+		}},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -72,7 +87,41 @@ func TestValidatePostRejectsMalformedPosts(t *testing.T) {
 		"no networks":       {id: "p", mutate: func(f *Fields) { f.Networks = nil }, field: "networks"},
 		"duplicate network": {id: "p", mutate: func(f *Fields) { f.Networks = []string{"facebook", "facebook"} }, field: "networks"},
 		"unknown network":   {id: "p", mutate: func(f *Fields) { f.Networks = []string{"tiktok"} }, field: "networks"},
-		"unknown type":      {id: "p", mutate: func(f *Fields) { f.Type = "story" }, field: "type"},
+		"unknown type":      {id: "p", mutate: func(f *Fields) { f.Type = "live" }, field: "type"},
+		"story to threads": {id: "p", mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Networks = []string{"instagram", "threads"}
+			f.Media = []string{"1.jpg"}
+		}, field: "networks"},
+		"story to threads alone": {id: "p", mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Networks = []string{"threads"}
+			f.Media = []string{"1.jpg"}
+		}, field: "networks"},
+		"story with threads text": {id: "p", mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Networks = []string{"facebook"}
+			f.Media = []string{"1.jpg"}
+			f.ThreadsText = "hola"
+		}, field: "threads_text"},
+		"story with no file": {id: "p", mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Media = nil
+		}, field: "media"},
+		"story with a png": {id: "p", mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Media = []string{"1.png"}
+		}, field: "media"},
+		"story with a cover": {id: "p", mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Media = []string{"1.jpg"}
+			f.Cover = "portada.jpg"
+		}, field: "cover"},
+		"story caption too long": {id: "p", mutate: func(f *Fields) {
+			f.Type = "story"
+			f.Media = []string{"1.jpg"}
+			f.Caption = strings.Repeat("x", 2201)
+		}, field: "caption"},
 		"empty caption":     {id: "p", mutate: func(f *Fields) { f.Caption = "   " }, field: "caption"},
 		"caption too long":  {id: "p", mutate: func(f *Fields) { f.Caption = strings.Repeat("x", 2201) }, field: "caption"},
 		"alt text too long": {id: "p", mutate: func(f *Fields) { f.AltText = strings.Repeat("x", 1001) }, field: "alt_text"},
