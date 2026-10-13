@@ -1563,6 +1563,7 @@ const (
 	Carousel SocialPutPostJSONBodyType = "carousel"
 	Image    SocialPutPostJSONBodyType = "image"
 	Reel     SocialPutPostJSONBodyType = "reel"
+	Story    SocialPutPostJSONBodyType = "story"
 	Text     SocialPutPostJSONBodyType = "text"
 )
 
@@ -1574,6 +1575,8 @@ func (e SocialPutPostJSONBodyType) Valid() bool {
 	case Image:
 		return true
 	case Reel:
+		return true
+	case Story:
 		return true
 	case Text:
 		return true
@@ -3616,13 +3619,20 @@ type ComplexesSlugAvailableParams struct {
 
 // SocialPutPostJSONBody defines parameters for SocialPutPost.
 type SocialPutPostJSONBody struct {
+	// After Story only: the feed post id the story sequence waits for on each network.
+	After *string `json:"after,omitempty"`
+
 	// AltText Single-image posts only.
 	AltText *string `json:"alt_text,omitempty"`
-	Caption string  `json:"caption"`
+
+	// Caption Required except for a story, which has no caption.
+	Caption *string `json:"caption,omitempty"`
 
 	// Cover JPEG file in the post folder, reel posts only. Instagram shows it as the reel cover.
-	Cover    *string                         `json:"cover,omitempty"`
-	Draft    *bool                           `json:"draft,omitempty"`
+	Cover *string `json:"cover,omitempty"`
+	Draft *bool   `json:"draft,omitempty"`
+
+	// Media Carousel images or videos, 2 to 10 files. A story lists 1 to 6 files, published in this order a minute apart.
 	Media    *[]string                       `json:"media,omitempty"`
 	Networks []SocialPutPostJSONBodyNetworks `json:"networks"`
 
@@ -3635,7 +3645,7 @@ type SocialPutPostJSONBody struct {
 	// ThreadsTopic Threads topic tag, without periods or ampersands.
 	ThreadsTopic *string `json:"threads_topic,omitempty"`
 
-	// Type Text posts go to threads alone and list no media.
+	// Type Text posts go to threads alone and list no media. Stories go to instagram or facebook, list exactly one file and have no required caption.
 	Type SocialPutPostJSONBodyType `json:"type"`
 }
 

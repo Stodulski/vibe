@@ -76,6 +76,7 @@ func (h *Handler) PutPost(w http.ResponseWriter, r *http.Request, id string) {
 		Cover        string   `json:"cover"`
 		ThreadsText  string   `json:"threads_text"`
 		ThreadsTopic string   `json:"threads_topic"`
+		After        string   `json:"after"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
@@ -86,6 +87,7 @@ func (h *Handler) PutPost(w http.ResponseWriter, r *http.Request, id string) {
 		PublishAt: input.PublishAt, Networks: input.Networks, Type: input.Type,
 		Caption: input.Caption, AltText: input.AltText, Media: input.Media, Draft: input.Draft,
 		Cover: input.Cover, ThreadsText: input.ThreadsText, ThreadsTopic: input.ThreadsTopic,
+		After: input.After,
 	})
 	if errs != nil {
 		h.respond.FailedValidation(w, r, errs)

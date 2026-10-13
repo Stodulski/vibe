@@ -36,6 +36,8 @@ type PublishStore interface {
 	ClaimDue(ctx context.Context, now time.Time, limit int, lease time.Duration) ([]Post, error)
 	// RecordResult writes a post's publishing state back.
 	RecordResult(ctx context.Context, p Post) error
+	// Lookup returns the post with id, and whether it exists.
+	Lookup(ctx context.Context, id string) (Post, bool, error)
 }
 
 // Reporter is told once when a post reaches a final status.
@@ -47,7 +49,10 @@ type Reporter interface {
 type Report struct {
 	Post        Post
 	IGPermalink string
-	ThreadsLink string
+	// IGStoryLinks are the permalinks of the Instagram stories that have one,
+	// in publish order. Stories expire, so a missing link is normal.
+	IGStoryLinks []string
+	ThreadsLink  string
 }
 
 // quotaDeferDelay is how long a post waits when Instagram's daily limit is
@@ -103,6 +108,10 @@ func (p *Publisher) RunDue(ctx context.Context) (int, error) {
 }
 
 func (p *Publisher) publish(ctx context.Context, post Post) {
+	if post.Kind == TypeStory {
+		p.publishStory(ctx, &post)
+		return
+	}
 	if !p.instagramAllowed(ctx, &post) {
 		return
 	}
@@ -219,10 +228,14 @@ func (p *Publisher) finish(ctx context.Context, post *Post, errs []error, perman
 
 // deferAttempt reschedules a post without spending an attempt.
 func (p *Publisher) deferAttempt(ctx context.Context, post *Post, reason string, delay time.Duration) {
-	next := p.cfg.Now().Add(delay)
+	p.deferUntil(ctx, post, reason, p.cfg.Now().Add(delay))
+}
+
+// deferUntil reschedules a post for at, without spending an attempt.
+func (p *Publisher) deferUntil(ctx context.Context, post *Post, reason string, at time.Time) {
 	post.Status = liveStatus(*post)
 	post.LastError = reason
-	post.NextAttemptAt = &next
+	post.NextAttemptAt = &at
 	p.save(ctx, *post)
 }
 
@@ -243,7 +256,9 @@ func (p *Publisher) report(ctx context.Context, post Post) {
 		return
 	}
 	rep := Report{Post: post}
-	if post.IGMediaID != "" {
+	if post.Kind == TypeStory {
+		rep.IGStoryLinks = p.storyPermalinks(ctx, post)
+	} else if post.IGMediaID != "" {
 		link, err := p.platform.InstagramPermalink(ctx, post.IGMediaID)
 		if err != nil {
 			p.logger.Warn("social: no instagram permalink for the report", "post", post.ID, "error", p.scrub(err.Error()))
@@ -262,6 +277,26 @@ func (p *Publisher) report(ctx context.Context, post Post) {
 	}
 }
 
+// storyPermalinks reads the Instagram permalink of each published story. A
+// story whose link cannot be read is left out of the report, not retried.
+func (p *Publisher) storyPermalinks(ctx context.Context, post Post) []string {
+	var links []string
+	for _, item := range post.StoryItems {
+		if item.IGMediaID == "" {
+			continue
+		}
+		link, err := p.platform.InstagramPermalink(ctx, item.IGMediaID)
+		if err != nil {
+			p.logger.Warn("social: no instagram story permalink for the report", "post", post.ID, "error", p.scrub(err.Error()))
+			continue
+		}
+		if link != "" {
+			links = append(links, link)
+		}
+	}
+	return links
+}
+
 // scrub removes the access token from text before it is stored or logged.
 func (p *Publisher) scrub(text string) string {
 	if p.cfg.Secret == "" {
@@ -273,20 +308,50 @@ func (p *Publisher) scrub(text string) string {
 func pendingNetworks(post Post) []Network {
 	var out []Network
 	for _, n := range post.Networks {
-		switch {
-		case n == NetworkInstagram && post.IGMediaID == "":
-			out = append(out, n)
-		case n == NetworkFacebook && post.FBPostID == "":
-			out = append(out, n)
-		case n == NetworkThreads && post.ThreadsMediaID == "":
+		if !networkDone(post, n) {
 			out = append(out, n)
 		}
 	}
 	return out
 }
 
+// networkDone reports whether every part of post is published on network. A
+// story is done on a network when each of its items has an id there.
+func networkDone(post Post, network Network) bool {
+	if post.Kind == TypeStory {
+		if len(post.StoryItems) == 0 {
+			return false
+		}
+		for _, item := range post.StoryItems {
+			if itemNetworkID(item, network) == "" {
+				return false
+			}
+		}
+		return true
+	}
+	switch network {
+	case NetworkInstagram:
+		return post.IGMediaID != ""
+	case NetworkFacebook:
+		return post.FBPostID != ""
+	case NetworkThreads:
+		return post.ThreadsMediaID != ""
+	default:
+		return false
+	}
+}
+
+// hasNetworkID reports whether any network, or any story item, already has an id.
 func hasNetworkID(post Post) bool {
-	return post.IGMediaID != "" || post.FBPostID != "" || post.ThreadsMediaID != ""
+	if post.IGMediaID != "" || post.FBPostID != "" || post.ThreadsMediaID != "" {
+		return true
+	}
+	for _, item := range post.StoryItems {
+		if item.IGMediaID != "" || item.FBPostID != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // liveStatus is the status of a post that will be tried again.

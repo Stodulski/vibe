@@ -29,15 +29,17 @@ const (
 	NetworkThreads   Network = "threads"
 )
 
-// Kind is the shape of a post: one image, a carousel of images, one reel, or a
-// text-only Threads post.
+// Kind is the shape of a post: one image, a carousel of images, one reel, one
+// story, or a text-only Threads post.
 type Kind string
 
-// The four post shapes. A text post goes to Threads alone.
+// The five post shapes. A text post goes to Threads alone; a story goes to
+// Instagram or Facebook, never Threads.
 const (
 	TypeImage    Kind = "image"
 	TypeCarousel Kind = "carousel"
 	TypeReel     Kind = "reel"
+	TypeStory    Kind = "story"
 	TypeText     Kind = "text"
 )
 
@@ -68,6 +70,13 @@ const (
 	// MaxThreadsTopicLength is the longest topic tag Threads accepts.
 	MaxThreadsTopicLength = 50
 )
+
+// StoryGap is the time between one story of a sequence and the next, so the
+// stories land in the tray in the order the post lists them.
+const StoryGap = 60 * time.Second
+
+// MaxStoryFiles is the most files one story sequence may hold.
+const MaxStoryFiles = 6
 
 // MediaFormat is the container of one uploaded file.
 type MediaFormat string
@@ -112,6 +121,7 @@ type Fields struct {
 	Cover        string
 	ThreadsText  string
 	ThreadsTopic string
+	After        string
 }
 
 // Media is one uploaded file of a post, stored under a content-hash key.
@@ -121,6 +131,21 @@ type Media struct {
 	ContentType string `json:"content_type"`
 	SHA256      string `json:"sha256"`
 	SizeBytes   int64  `json:"size_bytes"`
+}
+
+// IsVideo reports whether the file is an MP4. The extension is checked at
+// validation, so the name says which container the file is.
+func (m Media) IsVideo() bool {
+	return strings.EqualFold(path.Ext(m.Name), ".mp4")
+}
+
+// StoryItem is one story of a sequence: its place, its time, and the id each
+// network gave it once it went out. Item i is the post's Media[i].
+type StoryItem struct {
+	Position    int       `json:"position"`
+	ScheduledAt time.Time `json:"scheduled_at"`
+	IGMediaID   string    `json:"ig_media_id,omitempty"`
+	FBPostID    string    `json:"fb_post_id,omitempty"`
 }
 
 // Post is a validated marketing post and its publishing state.
@@ -148,6 +173,12 @@ type Post struct {
 	// ThreadsTopic is the Threads topic tag, empty for none.
 	ThreadsTopic   string
 	ThreadsMediaID string
+	// StoryItems holds one entry per file of a story, in publish order. It is
+	// empty for every other type.
+	StoryItems []StoryItem
+	// After is the id of the feed post a story sequence waits for on each
+	// network. Empty means the sequence does not wait.
+	After string
 }
 
 // ValidatePost checks the content of one post and returns it ready to store.
@@ -163,13 +194,18 @@ func ValidatePost(id string, f Fields) (Post, map[string]string) {
 	networks := validateNetworks(v, f.Networks)
 
 	kind := Kind(strings.TrimSpace(f.Type))
-	v.Check(validKind(kind), "type", "must be image, carousel, reel or text")
+	v.Check(validKind(kind), "type", "must be image, carousel, reel, text or story")
 	if kind == TypeText {
 		v.Check(isThreadsOnly(networks), "type", "a text post goes to threads alone")
 	}
+	if kind == TypeStory {
+		v.Check(!slices.Contains(networks, NetworkThreads), "networks", "a story goes to instagram or facebook only")
+	}
 
 	caption := strings.TrimSpace(f.Caption)
-	v.Check(caption != "", "caption", "must be provided")
+	if kind != TypeStory {
+		v.Check(caption != "", "caption", "must be provided")
+	}
 	v.Check(utf8.RuneCountInString(caption) <= MaxCaptionRunes, "caption", "must be 2200 characters at most")
 
 	alt := strings.TrimSpace(f.AltText)
@@ -178,6 +214,8 @@ func ValidatePost(id string, f Fields) (Post, map[string]string) {
 	media := validateMediaNames(v, kind, f.Media)
 	cover := validateCover(v, kind, f.Cover, f.Media)
 	threadsText, threadsTopic := validateThreads(v, networks, caption, f.ThreadsText, f.ThreadsTopic)
+	after := strings.TrimSpace(f.After)
+	validateAfter(v, kind, id, after)
 
 	if !v.Valid() {
 		return Post{}, v.Errors
@@ -196,7 +234,33 @@ func ValidatePost(id string, f Fields) (Post, map[string]string) {
 		Cover:         cover,
 		ThreadsText:   threadsText,
 		ThreadsTopic:  threadsTopic,
+		StoryItems:    storyItems(kind, publishAt, len(media)),
+		After:         after,
 	}, nil
+}
+
+// validateAfter checks the optional feed-post gate of a story. Only a story may
+// name one, and it must name a different, well-formed post id.
+func validateAfter(v *validator.Validator, kind Kind, id, after string) {
+	if after == "" {
+		return
+	}
+	v.Check(kind == TypeStory, "after", "only a story takes after")
+	v.Check(postIDPattern.MatchString(after), "after", "must be a post id")
+	v.Check(after != id, "after", "must name another post")
+}
+
+// storyItems gives each file of a story its place and its time: the first
+// story at the publish time, each next one StoryGap later. Other types have none.
+func storyItems(kind Kind, publishAt time.Time, n int) []StoryItem {
+	if kind != TypeStory {
+		return nil
+	}
+	items := make([]StoryItem, n)
+	for i := range items {
+		items[i] = StoryItem{Position: i, ScheduledAt: publishAt.Add(time.Duration(i) * StoryGap)}
+	}
+	return items
 }
 
 func validateNetworks(v *validator.Validator, raw []string) []Network {
@@ -281,13 +345,15 @@ func validateMediaNames(v *validator.Validator, kind Kind, raw []string) []Media
 }
 
 func validKind(kind Kind) bool {
-	return validator.PermittedValue(kind, TypeImage, TypeCarousel, TypeReel, TypeText)
+	return validator.PermittedValue(kind, TypeImage, TypeCarousel, TypeReel, TypeStory, TypeText)
 }
 
 func mediaCountAllowed(kind Kind, n int) bool {
 	switch kind {
 	case TypeImage, TypeReel:
 		return n == 1
+	case TypeStory:
+		return n >= 1 && n <= MaxStoryFiles
 	case TypeCarousel:
 		return n >= MinCarouselItems && n <= MaxCarouselItems
 	case TypeText:
@@ -301,6 +367,8 @@ func mediaCountMessage(kind Kind) string {
 	switch kind {
 	case TypeImage, TypeReel:
 		return "must list exactly one file"
+	case TypeStory:
+		return "a story lists 1 to 6 files"
 	case TypeCarousel:
 		return "must list 2 to 10 files"
 	case TypeText:
@@ -317,6 +385,8 @@ func extensionAllowed(kind Kind, name string) bool {
 		return ext == ".jpg" || ext == ".jpeg"
 	case TypeReel:
 		return ext == ".mp4"
+	case TypeStory:
+		return ext == ".jpg" || ext == ".jpeg" || ext == ".mp4"
 	case TypeText:
 		return false
 	default:

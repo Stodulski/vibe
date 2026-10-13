@@ -268,6 +268,8 @@ func (c *Client) createPost(ctx context.Context, conn social.ThreadsConnection, 
 		return c.container(ctx, conn, mediaForm(base, "IMAGE", post, post.Media[0].URL, false))
 	case social.TypeReel:
 		return c.container(ctx, conn, mediaForm(base, "VIDEO", post, post.Media[0].URL, false))
+	case social.TypeStory:
+		return "", fmt.Errorf("%w: stories go to instagram and facebook only", social.ErrPermanent)
 	case social.TypeCarousel:
 		children := make([]string, 0, len(post.Media))
 		for _, m := range post.Media {

@@ -4084,7 +4084,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [publish_at, networks, type, caption]
+              required: [publish_at, networks, type]
               additionalProperties: false
               properties:
                 publish_at: {type: string, format: date-time, description: RFC 3339 time with an offset.}
@@ -4094,14 +4094,16 @@ paths:
                   maxItems: 3
                   uniqueItems: true
                   items: {type: string, enum: [instagram, facebook, threads]}
-                type: {type: string, enum: [image, carousel, reel, text], description: "Text posts go to threads alone and list no media."}
-                caption: {type: string, maxLength: 2200}
+                type: {type: string, enum: [image, carousel, reel, story, text], description: "Text posts go to threads alone and list no media. Stories go to instagram or facebook, list exactly one file and have no required caption."}
+                caption: {type: string, maxLength: 2200, description: "Required except for a story, which has no caption."}
                 alt_text: {type: string, maxLength: 1000, description: Single-image posts only.}
                 media:
                   type: array
                   maxItems: 10
                   items: {type: string}
+                  description: "Carousel images or videos, 2 to 10 files. A story lists 1 to 6 files, published in this order a minute apart."
                 draft: {type: boolean}
+                after: {type: string, minLength: 1, maxLength: 81, description: "Story only: the feed post id the story sequence waits for on each network."}
                 cover: {type: string, pattern: "^[A-Za-z0-9._-]{1,100}$", description: "JPEG file in the post folder, reel posts only. Instagram shows it as the reel cover."}
                 threads_text: {type: string, minLength: 1, maxLength: 500, description: "Text for Threads. Defaults to the caption, which must then fit in 500 characters."}
                 threads_topic: {type: string, minLength: 1, maxLength: 50, description: "Threads topic tag, without periods or ampersands."}

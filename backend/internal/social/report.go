@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/stodulski/vibe-server/internal/jobs"
 )
@@ -53,12 +54,13 @@ func (q *QueueReporter) Report(_ context.Context, r Report) error {
 // lines are plain text, with no exclamation marks and no secrets.
 func BuildReport(to string, r Report) ReportPayload {
 	label := statusLabel(r.Post.Status)
-	lines := []string{
-		"Publicación: " + r.Post.ID + ".",
-		"Estado: " + label + ".",
+	lines := []string{"Publicación: " + r.Post.ID + "."}
+	if r.Post.Kind == TypeStory {
+		lines = append(lines, "Formato: Historia.")
 	}
+	lines = append(lines, "Estado: "+label+".")
 	if slices.Contains(r.Post.Networks, NetworkInstagram) {
-		lines = append(lines, "Instagram: "+instagramLine(r))
+		lines = append(lines, instagramReportLines(r)...)
 	}
 	if slices.Contains(r.Post.Networks, NetworkThreads) {
 		lines = append(lines, "Threads: "+threadsLine(r))
@@ -95,6 +97,34 @@ func statusLabel(status Status) string {
 	}
 }
 
+// instagramReportLines writes the Instagram lines. A story sequence gets a
+// count and, when Meta still gives them, the links of its stories.
+func instagramReportLines(r Report) []string {
+	if r.Post.Kind != TypeStory {
+		return []string{"Instagram: " + instagramLine(r)}
+	}
+	lines := []string{"Instagram: " + storyLine(r.Post, NetworkInstagram)}
+	if len(r.IGStoryLinks) > 0 {
+		lines = append(lines, "Enlaces de Instagram: "+strings.Join(r.IGStoryLinks, " "))
+	}
+	return lines
+}
+
+// storyLine counts how many stories of a sequence went out on network. Stories
+// expire after 24 hours, so the line says so.
+func storyLine(post Post, network Network) string {
+	done := 0
+	for _, item := range post.StoryItems {
+		if itemNetworkID(item, network) != "" {
+			done++
+		}
+	}
+	if done == 0 {
+		return "no publicada."
+	}
+	return fmt.Sprintf("%d de %d historias publicadas; expiran en 24 horas.", done, len(post.StoryItems))
+}
+
 func instagramLine(r Report) string {
 	switch {
 	case r.Post.IGMediaID == "":
@@ -108,6 +138,8 @@ func instagramLine(r Report) string {
 
 func facebookLine(post Post) string {
 	switch {
+	case post.Kind == TypeStory:
+		return storyLine(post, NetworkFacebook)
 	case post.FBPostID == "":
 		return "no publicada."
 	case post.Kind == TypeReel:

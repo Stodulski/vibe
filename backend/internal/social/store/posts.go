@@ -30,7 +30,12 @@ func NewPosts(db *data.DB) *Posts {
 
 const postColumns = `id, publish_at, networks, type, caption, alt_text, media, draft, status,
 	ig_media_id, fb_post_id, attempts, last_error, next_attempt_at, published_at,
-	threads_media_id, threads_text, threads_topic, cover`
+	threads_media_id, threads_text, threads_topic, cover, story_items, after_post_id`
+
+// storyPublishedSQL is true when a story sequence already has an id on some
+// network. Such a story is frozen like any other published post.
+const storyPublishedSQL = `EXISTS (SELECT 1 FROM jsonb_array_elements(social_posts.story_items) AS e
+		WHERE e->>'ig_media_id' IS NOT NULL OR e->>'fb_post_id' IS NOT NULL)`
 
 // upsertSQL writes a post's content. The WHERE clause is the freeze: a row
 // that a network has published, or that a run holds, is left alone and the
@@ -38,8 +43,8 @@ const postColumns = `id, publish_at, networks, type, caption, alt_text, media, d
 const upsertSQL = `
 INSERT INTO social_posts
 	(id, publish_at, networks, type, caption, alt_text, media, draft, status, attempts, next_attempt_at,
-	 threads_text, threads_topic, cover)
-VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, 'scheduled', 0, $2, $9, $10, $11::jsonb)
+	 threads_text, threads_topic, cover, story_items, after_post_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, 'scheduled', 0, $2, $9, $10, $11::jsonb, $12::jsonb, $13)
 ON CONFLICT (id) DO UPDATE SET
 	publish_at      = EXCLUDED.publish_at,
 	networks        = EXCLUDED.networks,
@@ -51,6 +56,8 @@ ON CONFLICT (id) DO UPDATE SET
 	threads_text    = EXCLUDED.threads_text,
 	threads_topic   = EXCLUDED.threads_topic,
 	cover           = EXCLUDED.cover,
+	story_items     = EXCLUDED.story_items,
+	after_post_id   = EXCLUDED.after_post_id,
 	status          = 'scheduled',
 	attempts        = 0,
 	last_error      = NULL,
@@ -58,6 +65,7 @@ ON CONFLICT (id) DO UPDATE SET
 WHERE social_posts.ig_media_id IS NULL
 	AND social_posts.fb_post_id IS NULL
 	AND social_posts.threads_media_id IS NULL
+	AND NOT ` + storyPublishedSQL + `
 	AND social_posts.status <> 'publishing'
 RETURNING id`
 
@@ -79,10 +87,15 @@ func (s *Posts) Upsert(ctx context.Context, p social.Post) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
+	items, err := json.Marshal(nonNilItems(p.StoryItems))
+	if err != nil {
+		return fmt.Errorf("social: encode story items: %w", err)
+	}
+
 	var id string
 	err = s.DB.QueryRow(ctx, upsertSQL,
 		p.ID, p.PublishAt, networkStrings(p.Networks), string(p.Kind), p.Caption, p.AltText, string(media), p.Draft,
-		nullable(p.ThreadsText), nullable(p.ThreadsTopic), cover,
+		nullable(p.ThreadsText), nullable(p.ThreadsTopic), cover, string(items), nullable(p.After),
 	).Scan(&id)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -152,7 +165,7 @@ func (s *Posts) IsFrozen(ctx context.Context, id string) (bool, error) {
 	var frozen bool
 	err := s.DB.QueryRow(ctx, `
 		SELECT ig_media_id IS NOT NULL OR fb_post_id IS NOT NULL OR threads_media_id IS NOT NULL
-			OR status = 'publishing'
+			OR status = 'publishing' OR `+storyPublishedSQL+`
 		FROM social_posts WHERE id = $1`, id).Scan(&frozen)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -176,6 +189,7 @@ func (s *Posts) CancelUnpublished(ctx context.Context, keep []string) ([]string,
 			AND ig_media_id IS NULL
 			AND fb_post_id IS NULL
 			AND threads_media_id IS NULL
+			AND NOT `+storyPublishedSQL+`
 			AND NOT (id = ANY($1::text[]))
 		RETURNING id`, nonNilStrings(keep))
 	if err != nil {
@@ -242,7 +256,11 @@ func (s *Posts) RecordResult(ctx context.Context, p social.Post) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	_, err := s.DB.Exec(ctx, `
+	items, err := json.Marshal(nonNilItems(p.StoryItems))
+	if err != nil {
+		return fmt.Errorf("social: encode story items: %w", err)
+	}
+	_, err = s.DB.Exec(ctx, `
 		UPDATE social_posts SET
 			status          = $2,
 			ig_media_id     = $3,
@@ -251,10 +269,11 @@ func (s *Posts) RecordResult(ctx context.Context, p social.Post) error {
 			last_error      = $6,
 			next_attempt_at = $7,
 			published_at    = $8,
-			threads_media_id = $9
+			threads_media_id = $9,
+			story_items     = $10::jsonb
 		WHERE id = $1`,
 		p.ID, string(p.Status), nullable(p.IGMediaID), nullable(p.FBPostID), p.Attempts,
-		nullable(p.LastError), p.NextAttemptAt, p.PublishedAt, nullable(p.ThreadsMediaID))
+		nullable(p.LastError), p.NextAttemptAt, p.PublishedAt, nullable(p.ThreadsMediaID), string(items))
 	if err != nil {
 		return fmt.Errorf("social: record publish result: %w", err)
 	}
@@ -281,9 +300,12 @@ func scanPost(row scanner) (social.Post, error) {
 		threadsTxt *string
 		topic      *string
 		coverJSON  []byte
+		itemsJSON  []byte
+		afterID    *string
 	)
 	err := row.Scan(&p.ID, &p.PublishAt, &networks, &kind, &p.Caption, &p.AltText, &mediaJSON, &p.Draft, &status,
-		&igID, &fbID, &p.Attempts, &lastErr, &nextAt, &publishedA, &threadsID, &threadsTxt, &topic, &coverJSON)
+		&igID, &fbID, &p.Attempts, &lastErr, &nextAt, &publishedA, &threadsID, &threadsTxt, &topic, &coverJSON,
+		&itemsJSON, &afterID)
 	if err != nil {
 		return social.Post{}, fmt.Errorf("social: scan post: %w", err)
 	}
@@ -308,7 +330,37 @@ func scanPost(row scanner) (social.Post, error) {
 	p.ThreadsMediaID = deref(threadsID)
 	p.ThreadsText = deref(threadsTxt)
 	p.ThreadsTopic = deref(topic)
+	p.After = deref(afterID)
+	if len(itemsJSON) > 0 {
+		if err := json.Unmarshal(itemsJSON, &p.StoryItems); err != nil {
+			return social.Post{}, fmt.Errorf("social: decode story items of %s: %w", p.ID, err)
+		}
+	}
 	return p, nil
+}
+
+// Lookup returns the post with id, and whether it exists.
+func (s *Posts) Lookup(ctx context.Context, id string) (social.Post, bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	row := s.DB.QueryRow(ctx, `SELECT `+postColumns+` FROM social_posts WHERE id = $1`, id)
+	p, err := scanPost(row)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return social.Post{}, false, nil
+	case err != nil:
+		return social.Post{}, false, fmt.Errorf("social: look up post: %w", err)
+	default:
+		return p, true, nil
+	}
+}
+
+func nonNilItems(items []social.StoryItem) []social.StoryItem {
+	if items == nil {
+		return []social.StoryItem{}
+	}
+	return items
 }
 
 func networkStrings(networks []social.Network) []string {
