@@ -158,6 +158,10 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 		"GitHub repository whose OIDC token may sync posts, ref main only (SOCIAL_SYNC_REPOSITORY)")
 	fs.StringVar(&cfg.Social.ReportEmail, "social-report-email", "hola@vibe.com.ar",
 		"Address that receives a report when a post finishes publishing (SOCIAL_REPORT_EMAIL)")
+	fs.StringVar(&cfg.Social.ThreadsAppID, "threads-app-id", "", "Meta app ID for the Threads connection (THREADS_APP_ID)")
+	fs.StringVar(&cfg.Social.ThreadsAppSecret, "threads-app-secret", "", "Meta app secret for the Threads connection (THREADS_APP_SECRET)")
+	fs.StringVar(&cfg.Social.APIBaseURL, "social-api-base-url", "https://api.vibe.com.ar",
+		"Public origin of this API, used for the Threads redirect URI (SOCIAL_API_BASE_URL)")
 
 	fs.StringVar(&cfg.FrontendURL, "frontend-url", "http://localhost:5173", "Frontend URL (FRONTEND_URL)")
 	fs.StringVar(&cfg.PublicURL, "public-url", "",
@@ -264,6 +268,9 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("META_SOCIAL_PAGE_ID", &cfg.Social.PageID)
 	env.strVal("SOCIAL_SYNC_REPOSITORY", &cfg.Social.SyncRepository)
 	env.strVal("SOCIAL_REPORT_EMAIL", &cfg.Social.ReportEmail)
+	env.strVal("THREADS_APP_ID", &cfg.Social.ThreadsAppID)
+	env.strVal("THREADS_APP_SECRET", &cfg.Social.ThreadsAppSecret)
+	env.strVal("SOCIAL_API_BASE_URL", &cfg.Social.APIBaseURL)
 
 	env.strVal("FRONTEND_URL", &cfg.FrontendURL)
 	env.strVal("PUBLIC_URL", &cfg.PublicURL)

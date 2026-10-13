@@ -30,6 +30,7 @@ var publicRoutes = map[string]string{
 	"PUT /api/v1/social/posts/{id}":                      "public: the content sync authenticates with a GitHub Actions OIDC token, not a session",
 	"PUT /api/v1/social/posts/{id}/media/{name}":         "public: the content sync uploads media with its GitHub Actions OIDC token, not a session",
 	"POST /api/v1/social/reconcile":                      "public: the content sync reconciles with its GitHub Actions OIDC token, not a session",
+	"GET /api/v1/social/threads/callback":                "public: Meta redirects the owner's browser here; the state cookie set by connect is the check, and the code is exchanged server-side",
 	"POST /api/v1/public/email/unsubscribe": "reached from the link in a lifecycle email, before any session " +
 		"exists; the signed token is the whole authentication",
 	"POST /api/v1/public/leads/abandoned-registration": "captures an email left on the register form " +

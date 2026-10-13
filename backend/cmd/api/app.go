@@ -16,6 +16,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/clients"
 	"github.com/stodulski/vibe-server/internal/complexes"
 	"github.com/stodulski/vibe-server/internal/courts"
+	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/health"
@@ -43,6 +44,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/social"
 	socialmeta "github.com/stodulski/vibe-server/internal/social/meta"
 	socialstore "github.com/stodulski/vibe-server/internal/social/store"
+	socialthreads "github.com/stodulski/vibe-server/internal/social/threads"
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/turnstile"
@@ -73,6 +75,9 @@ type deps struct {
 	// socialMedia stores the media of Vibe's own posts. It MAY be nil (no R2), and
 	// the sync's media uploads then answer 501.
 	socialMedia social.MediaStorage
+	// keys seals the Threads token at rest. It is the credential keyring, the
+	// same one that seals MercadoPago credentials. Nil makes Threads refuse to store.
+	keys *crypto.Keyring
 	// trustedProxies is the parsed -trusted-proxies/TRUSTED_PROXIES set: the
 	// peers allowed to rewrite the client address. It arrives through deps
 	// rather than through cfg because parsing it produces an internal/httpx
@@ -492,26 +497,73 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		JWKSURL:    social.GitHubJWKSURL,
 	})
 	socialHandler := social.NewHandler(socialVerifier, socialStore, d.socialMedia, respond, d.logger)
+
+	// Threads is a second network for the same posts. It stays off until its app
+	// ID and secret are set, and the owner connects the account once from the
+	// browser. Its token is sealed with the credential keyring.
+	apiBase := strings.TrimSuffix(cfg.Social.APIBaseURL, "/")
+	threadsRedirectURI := apiBase + "/api/v1/social/threads/callback"
+	threadsConnectURL := apiBase + "/api/v1/social/threads/connect"
+	threadsConfigured := cfg.Social.ThreadsAppID != "" && cfg.Social.ThreadsAppSecret != ""
+	socialThreadsStore := socialstore.NewThreads(data.NewDB(d.db), d.keys)
+	threadsCB := circuitbreaker.New(circuitbreaker.Config{
+		Name:            "meta_threads",
+		MaxFailures:     3,
+		ResetTimeout:    60 * time.Second,
+		HalfOpenMaxReqs: 1,
+		OnStateChange:   cbStateChange,
+	})
+	socialThreadsClient := socialthreads.New(socialthreads.Config{
+		AppID:       cfg.Social.ThreadsAppID,
+		AppSecret:   cfg.Social.ThreadsAppSecret,
+		RedirectURI: threadsRedirectURI,
+		CB:          threadsCB,
+		HTTP:        &http.Client{Timeout: 30 * time.Second},
+	}, socialThreadsStore)
+	socialAuth := social.NewThreadsAuth(socialThreadsClient, socialThreadsStore, social.ThreadsAuthConfig{
+		Configured:  threadsConfigured,
+		Secure:      cfg.Env != "development",
+		FrontendURL: cfg.FrontendURL,
+	}, respond, d.logger)
+	socialThreadsMaintenance := social.NewThreadsMaintenance(socialThreadsStore, socialThreadsClient, queue, social.ThreadsMaintenanceConfig{
+		To:         cfg.Social.ReportEmail,
+		ConnectURL: threadsConnectURL,
+	}, d.logger)
 	socialPublisher := social.NewPublisher(social.PublisherConfig{
-		Enabled:    cfg.Social.AccessToken != "",
+		Enabled:    cfg.Social.AccessToken != "" || threadsConfigured,
 		Secret:     cfg.Social.AccessToken,
 		Batch:      10,
 		Lease:      15 * time.Minute,
 		Backoff:    []time.Duration{5 * time.Minute, 15 * time.Minute, time.Hour},
 		DeferDelay: 5 * time.Minute,
-	}, socialMeta, socialStore, social.NewQueueReporter(queue, cfg.Social.ReportEmail), d.logger)
+	}, socialPlatform{meta: socialMeta, threads: socialThreadsClient}, socialStore, social.NewQueueReporter(queue, cfg.Social.ReportEmail), d.logger)
 	queue.RegisterHandler(social.TaskReport, social.DeliverReport(mailerClient))
 	queue.RegisterHandler(social.TaskConnection, social.DeliverReport(mailerClient))
+	queue.RegisterHandler(social.TaskThreadsReconnect, social.DeliverReport(mailerClient))
 
 	// The connection check runs once at boot. Its email is deduplicated by a
 	// digest of the token and the result, so the same token in the same state
 	// is reported once.
 	if cfg.Social.AccessToken != "" {
-		connector := social.NewConnector(socialMeta, queue, cfg.Social.ReportEmail, cfg.Social.AccessToken, d.logger)
 		app.background(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
-			connector.Run(ctx)
+			// The probe image is uploaded first, so Meta can fetch it. Without R2
+			// there is no public URL, and the email says the probe did not run.
+			probeURL := ""
+			if d.socialMedia != nil {
+				u, err := social.EnsureProbeImage(ctx, d.socialMedia)
+				if err != nil {
+					d.logger.Warn("social: 3:4 probe image not uploaded", "error", err)
+				}
+				probeURL = u
+			}
+			social.NewConnector(socialMeta, queue, cfg.Social.ReportEmail, cfg.Social.AccessToken, d.logger).
+				WithChecks(
+					socialmeta.NewAspectProbe(socialMeta, probeURL, d.logger),
+					social.NewThreadsCheck(socialThreadsStore, threadsConfigured, threadsConnectURL),
+				).
+				Run(ctx)
 		})
 	}
 
@@ -792,6 +844,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.jobRetention = jobRetention
 	app.queue = queue
 	app.social = socialHandler
+	app.socialThreads = socialAuth
+	app.socialThreadsMaintenance = socialThreadsMaintenance
 	app.socialPublisher = socialPublisher
 	app.blacklist = blacklist
 	app.events = events

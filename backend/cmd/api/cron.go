@@ -44,6 +44,7 @@ func (app *application) cronJobs() []scheduler.Job {
 	return []scheduler.Job{
 		job("reminder_2h", 5*time.Minute, app.cronReminder2h),
 		job("publish_social_posts", 5*time.Minute, app.cronPublishSocialPosts),
+		job("threads_token_maintenance", 24*time.Hour, app.cronThreadsMaintenance),
 		job("release_expired_payments", 5*time.Minute, app.cronReleaseExpiredPayments),
 		job("clean_slot_locks", 5*time.Minute, app.cronCleanSlotLocks),
 		job("report_queue_depth", 5*time.Minute, app.cronReportQueueDepth),
@@ -312,6 +313,17 @@ func (app *application) cronCleanFailedRefunds(ctx context.Context) {
 // job.
 func (app *application) cronRefreshMPTokens(ctx context.Context) {
 	app.complexesService.RefreshMPTokens(ctx)
+}
+
+// cronThreadsMaintenance refreshes the Threads token when it is due and queues
+// the reconnect email when it cannot be refreshed or the consent is near its end.
+func (app *application) cronThreadsMaintenance(ctx context.Context) {
+	outcome, err := app.socialThreadsMaintenance.Run(ctx)
+	if err != nil {
+		app.logger.Error("cron: threads token maintenance failed", "error", err)
+		return
+	}
+	app.logger.Info("cron: threads token maintenance", "outcome", outcome)
 }
 
 // cronPublishSocialPosts publishes the marketing posts that are due, to the

@@ -149,6 +149,8 @@ var routeGuards = map[string]routeGuard{
 	"PUT /api/v1/social/posts/{id}":                                                     {kind: guardPublic},
 	"PUT /api/v1/social/posts/{id}/media/{name}":                                        {kind: guardPublic},
 	"POST /api/v1/social/reconcile":                                                     {kind: guardPublic},
+	"GET /api/v1/social/threads/connect":                                                {kind: guardSuperAdmin},
+	"GET /api/v1/social/threads/callback":                                               {kind: guardPublic},
 	"POST /api/v1/public/email/unsubscribe":                                             {kind: guardPublic},
 	"POST /api/v1/public/leads/abandoned-registration":                                  {kind: guardPublic},
 	"GET /api/v1/public/hubs":                                                           {kind: guardPublic},

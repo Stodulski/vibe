@@ -60,6 +60,9 @@ func BuildReport(to string, r Report) ReportPayload {
 	if slices.Contains(r.Post.Networks, NetworkInstagram) {
 		lines = append(lines, "Instagram: "+instagramLine(r))
 	}
+	if slices.Contains(r.Post.Networks, NetworkThreads) {
+		lines = append(lines, "Threads: "+threadsLine(r))
+	}
 	if slices.Contains(r.Post.Networks, NetworkFacebook) {
 		lines = append(lines, "Facebook: "+facebookLine(r.Post))
 	}
@@ -125,5 +128,16 @@ func DeliverReport(mailer ReportMailer) func(ctx context.Context, raw json.RawMe
 			return fmt.Errorf("social: send report: %w", err)
 		}
 		return nil
+	}
+}
+
+func threadsLine(r Report) string {
+	switch {
+	case r.Post.ThreadsMediaID == "":
+		return "no publicada."
+	case r.ThreadsLink == "":
+		return "publicada, sin enlace."
+	default:
+		return r.ThreadsLink
 	}
 }

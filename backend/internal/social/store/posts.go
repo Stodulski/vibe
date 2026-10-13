@@ -1,5 +1,6 @@
 // Package store persists marketing posts and their staged uploads in
-// social_posts and social_post_media. The tables are not tenant data, so the
+// social_posts and social_post_media, and the Threads connection in
+// social_threads_connection. The post tables are not tenant data, so their
 // queries carry no tenant scope.
 package store
 
@@ -28,15 +29,17 @@ func NewPosts(db *data.DB) *Posts {
 }
 
 const postColumns = `id, publish_at, networks, type, caption, alt_text, media, draft, status,
-	ig_media_id, fb_post_id, attempts, last_error, next_attempt_at, published_at`
+	ig_media_id, fb_post_id, attempts, last_error, next_attempt_at, published_at,
+	threads_media_id, threads_text, threads_topic, cover`
 
 // upsertSQL writes a post's content. The WHERE clause is the freeze: a row
 // that a network has published, or that a run holds, is left alone and the
 // statement returns no row. A cancelled or failed post is reset to scheduled.
 const upsertSQL = `
 INSERT INTO social_posts
-	(id, publish_at, networks, type, caption, alt_text, media, draft, status, attempts, next_attempt_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, 'scheduled', 0, $2)
+	(id, publish_at, networks, type, caption, alt_text, media, draft, status, attempts, next_attempt_at,
+	 threads_text, threads_topic, cover)
+VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, 'scheduled', 0, $2, $9, $10, $11::jsonb)
 ON CONFLICT (id) DO UPDATE SET
 	publish_at      = EXCLUDED.publish_at,
 	networks        = EXCLUDED.networks,
@@ -45,12 +48,16 @@ ON CONFLICT (id) DO UPDATE SET
 	alt_text        = EXCLUDED.alt_text,
 	media           = EXCLUDED.media,
 	draft           = EXCLUDED.draft,
+	threads_text    = EXCLUDED.threads_text,
+	threads_topic   = EXCLUDED.threads_topic,
+	cover           = EXCLUDED.cover,
 	status          = 'scheduled',
 	attempts        = 0,
 	last_error      = NULL,
 	next_attempt_at = EXCLUDED.publish_at
 WHERE social_posts.ig_media_id IS NULL
 	AND social_posts.fb_post_id IS NULL
+	AND social_posts.threads_media_id IS NULL
 	AND social_posts.status <> 'publishing'
 RETURNING id`
 
@@ -61,12 +68,21 @@ func (s *Posts) Upsert(ctx context.Context, p social.Post) error {
 	if err != nil {
 		return fmt.Errorf("social: encode media: %w", err)
 	}
+	var cover any
+	if p.Cover != nil {
+		raw, err := json.Marshal(p.Cover)
+		if err != nil {
+			return fmt.Errorf("social: encode cover: %w", err)
+		}
+		cover = string(raw)
+	}
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	var id string
 	err = s.DB.QueryRow(ctx, upsertSQL,
 		p.ID, p.PublishAt, networkStrings(p.Networks), string(p.Kind), p.Caption, p.AltText, string(media), p.Draft,
+		nullable(p.ThreadsText), nullable(p.ThreadsTopic), cover,
 	).Scan(&id)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -135,7 +151,8 @@ func (s *Posts) IsFrozen(ctx context.Context, id string) (bool, error) {
 
 	var frozen bool
 	err := s.DB.QueryRow(ctx, `
-		SELECT ig_media_id IS NOT NULL OR fb_post_id IS NOT NULL OR status = 'publishing'
+		SELECT ig_media_id IS NOT NULL OR fb_post_id IS NOT NULL OR threads_media_id IS NOT NULL
+			OR status = 'publishing'
 		FROM social_posts WHERE id = $1`, id).Scan(&frozen)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -158,6 +175,7 @@ func (s *Posts) CancelUnpublished(ctx context.Context, keep []string) ([]string,
 		WHERE status = 'scheduled'
 			AND ig_media_id IS NULL
 			AND fb_post_id IS NULL
+			AND threads_media_id IS NULL
 			AND NOT (id = ANY($1::text[]))
 		RETURNING id`, nonNilStrings(keep))
 	if err != nil {
@@ -232,10 +250,11 @@ func (s *Posts) RecordResult(ctx context.Context, p social.Post) error {
 			attempts        = $5,
 			last_error      = $6,
 			next_attempt_at = $7,
-			published_at    = $8
+			published_at    = $8,
+			threads_media_id = $9
 		WHERE id = $1`,
 		p.ID, string(p.Status), nullable(p.IGMediaID), nullable(p.FBPostID), p.Attempts,
-		nullable(p.LastError), p.NextAttemptAt, p.PublishedAt)
+		nullable(p.LastError), p.NextAttemptAt, p.PublishedAt, nullable(p.ThreadsMediaID))
 	if err != nil {
 		return fmt.Errorf("social: record publish result: %w", err)
 	}
@@ -258,14 +277,25 @@ func scanPost(row scanner) (social.Post, error) {
 		lastErr    *string
 		nextAt     *time.Time
 		publishedA *time.Time
+		threadsID  *string
+		threadsTxt *string
+		topic      *string
+		coverJSON  []byte
 	)
 	err := row.Scan(&p.ID, &p.PublishAt, &networks, &kind, &p.Caption, &p.AltText, &mediaJSON, &p.Draft, &status,
-		&igID, &fbID, &p.Attempts, &lastErr, &nextAt, &publishedA)
+		&igID, &fbID, &p.Attempts, &lastErr, &nextAt, &publishedA, &threadsID, &threadsTxt, &topic, &coverJSON)
 	if err != nil {
 		return social.Post{}, fmt.Errorf("social: scan post: %w", err)
 	}
 	if err := json.Unmarshal(mediaJSON, &p.Media); err != nil {
 		return social.Post{}, fmt.Errorf("social: decode media of %s: %w", p.ID, err)
+	}
+	if len(coverJSON) > 0 {
+		var cover social.Media
+		if err := json.Unmarshal(coverJSON, &cover); err != nil {
+			return social.Post{}, fmt.Errorf("social: decode cover of %s: %w", p.ID, err)
+		}
+		p.Cover = &cover
 	}
 	p.Networks = toNetworks(networks)
 	p.Kind = social.Kind(kind)
@@ -275,6 +305,9 @@ func scanPost(row scanner) (social.Post, error) {
 	p.LastError = deref(lastErr)
 	p.NextAttemptAt = nextAt
 	p.PublishedAt = publishedA
+	p.ThreadsMediaID = deref(threadsID)
+	p.ThreadsText = deref(threadsTxt)
+	p.ThreadsTopic = deref(topic)
 	return p, nil
 }
 

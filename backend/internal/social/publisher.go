@@ -23,6 +23,10 @@ type Platform interface {
 	PublishFacebook(ctx context.Context, post Post) (string, error)
 	// InstagramPermalink returns the public URL of a published Instagram media.
 	InstagramPermalink(ctx context.Context, mediaID string) (string, error)
+	// PublishThreads publishes post to the Threads account and returns the media id.
+	PublishThreads(ctx context.Context, post Post) (string, error)
+	// ThreadsPermalink returns the public URL of a published Threads post.
+	ThreadsPermalink(ctx context.Context, mediaID string) (string, error)
 }
 
 // PublishStore is the part of the post store the publisher uses.
@@ -43,6 +47,7 @@ type Reporter interface {
 type Report struct {
 	Post        Post
 	IGPermalink string
+	ThreadsLink string
 }
 
 // quotaDeferDelay is how long a post waits when Instagram's daily limit is
@@ -84,7 +89,7 @@ func NewPublisher(cfg PublisherConfig, platform Platform, store PublishStore, re
 // does nothing when the publisher is disabled.
 func (p *Publisher) RunDue(ctx context.Context) (int, error) {
 	if !p.cfg.Enabled {
-		p.logger.Info("social: publishing skipped, META_SOCIAL_ACCESS_TOKEN is not set")
+		p.logger.Info("social: publishing skipped, no social publishing credential is set")
 		return 0, nil
 	}
 	due, err := p.store.ClaimDue(ctx, p.cfg.Now(), p.cfg.Batch, p.cfg.Lease)
@@ -153,6 +158,8 @@ func (p *Publisher) publishNetwork(ctx context.Context, post Post, network Netwo
 		id, err = p.platform.PublishInstagram(ctx, post)
 	case NetworkFacebook:
 		id, err = p.platform.PublishFacebook(ctx, post)
+	case NetworkThreads:
+		id, err = p.platform.PublishThreads(ctx, post)
 	default:
 		return "", fmt.Errorf("%w: unknown network %q", ErrPermanent, network)
 	}
@@ -168,6 +175,8 @@ func setNetworkID(post *Post, network Network, id string) {
 		post.IGMediaID = id
 	case NetworkFacebook:
 		post.FBPostID = id
+	case NetworkThreads:
+		post.ThreadsMediaID = id
 	}
 }
 
@@ -241,6 +250,13 @@ func (p *Publisher) report(ctx context.Context, post Post) {
 		}
 		rep.IGPermalink = link
 	}
+	if post.ThreadsMediaID != "" {
+		link, err := p.platform.ThreadsPermalink(ctx, post.ThreadsMediaID)
+		if err != nil {
+			p.logger.Warn("social: no threads permalink for the report", "post", post.ID, "error", p.scrub(err.Error()))
+		}
+		rep.ThreadsLink = link
+	}
 	if err := p.reporter.Report(ctx, rep); err != nil {
 		p.logger.Error("social: could not queue the report", "post", post.ID, "error", p.scrub(err.Error()))
 	}
@@ -262,13 +278,15 @@ func pendingNetworks(post Post) []Network {
 			out = append(out, n)
 		case n == NetworkFacebook && post.FBPostID == "":
 			out = append(out, n)
+		case n == NetworkThreads && post.ThreadsMediaID == "":
+			out = append(out, n)
 		}
 	}
 	return out
 }
 
 func hasNetworkID(post Post) bool {
-	return post.IGMediaID != "" || post.FBPostID != ""
+	return post.IGMediaID != "" || post.FBPostID != "" || post.ThreadsMediaID != ""
 }
 
 // liveStatus is the status of a post that will be tried again.

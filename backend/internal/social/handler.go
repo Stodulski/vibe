@@ -66,13 +66,16 @@ func (h *Handler) PutPost(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	var input struct {
-		PublishAt string   `json:"publish_at"`
-		Networks  []string `json:"networks"`
-		Type      string   `json:"type"`
-		Caption   string   `json:"caption"`
-		AltText   string   `json:"alt_text"`
-		Media     []string `json:"media"`
-		Draft     bool     `json:"draft"`
+		PublishAt    string   `json:"publish_at"`
+		Networks     []string `json:"networks"`
+		Type         string   `json:"type"`
+		Caption      string   `json:"caption"`
+		AltText      string   `json:"alt_text"`
+		Media        []string `json:"media"`
+		Draft        bool     `json:"draft"`
+		Cover        string   `json:"cover"`
+		ThreadsText  string   `json:"threads_text"`
+		ThreadsTopic string   `json:"threads_topic"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
@@ -82,6 +85,7 @@ func (h *Handler) PutPost(w http.ResponseWriter, r *http.Request, id string) {
 	post, errs := ValidatePost(id, Fields{
 		PublishAt: input.PublishAt, Networks: input.Networks, Type: input.Type,
 		Caption: input.Caption, AltText: input.AltText, Media: input.Media, Draft: input.Draft,
+		Cover: input.Cover, ThreadsText: input.ThreadsText, ThreadsTopic: input.ThreadsTopic,
 	})
 	if errs != nil {
 		h.respond.FailedValidation(w, r, errs)
@@ -106,9 +110,14 @@ func (h *Handler) PutPost(w http.ResponseWriter, r *http.Request, id string) {
 // the order the post lists them. It answers and returns false when one is
 // missing or the store fails.
 func (h *Handler) attachStagedMedia(w http.ResponseWriter, r *http.Request, post *Post) bool {
-	names := make([]string, 0, len(post.Media))
+	names := make([]string, 0, len(post.Media)+1)
 	for _, m := range post.Media {
 		names = append(names, m.Name)
+	}
+	coverName := ""
+	if post.Cover != nil {
+		coverName = post.Cover.Name
+		names = append(names, coverName)
 	}
 	staged, err := h.store.StagedMedia(r.Context(), post.ID, names)
 	if err != nil {
@@ -119,12 +128,17 @@ func (h *Handler) attachStagedMedia(w http.ResponseWriter, r *http.Request, post
 	for _, m := range staged {
 		byName[m.Name] = m
 	}
-	media := make([]Media, 0, len(names))
+	media := make([]Media, 0, len(post.Media))
 	var missing []string
 	for _, n := range names {
 		m, ok := byName[n]
 		if !ok {
 			missing = append(missing, n)
+			continue
+		}
+		if coverName != "" && n == coverName {
+			cover := m
+			post.Cover = &cover
 			continue
 		}
 		media = append(media, m)

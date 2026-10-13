@@ -4084,25 +4084,27 @@ paths:
           application/json:
             schema:
               type: object
-              required: [publish_at, networks, type, caption, media]
+              required: [publish_at, networks, type, caption]
               additionalProperties: false
               properties:
                 publish_at: {type: string, format: date-time, description: RFC 3339 time with an offset.}
                 networks:
                   type: array
                   minItems: 1
-                  maxItems: 2
+                  maxItems: 3
                   uniqueItems: true
-                  items: {type: string, enum: [instagram, facebook]}
-                type: {type: string, enum: [image, carousel, reel]}
+                  items: {type: string, enum: [instagram, facebook, threads]}
+                type: {type: string, enum: [image, carousel, reel, text], description: "Text posts go to threads alone and list no media."}
                 caption: {type: string, maxLength: 2200}
                 alt_text: {type: string, maxLength: 1000, description: Single-image posts only.}
                 media:
                   type: array
-                  minItems: 1
                   maxItems: 10
                   items: {type: string}
                 draft: {type: boolean}
+                cover: {type: string, pattern: "^[A-Za-z0-9._-]{1,100}$", description: "JPEG file in the post folder, reel posts only. Instagram shows it as the reel cover."}
+                threads_text: {type: string, minLength: 1, maxLength: 500, description: "Text for Threads. Defaults to the caption, which must then fit in 500 characters."}
+                threads_topic: {type: string, minLength: 1, maxLength: 50, description: "Threads topic tag, without periods or ampersands."}
       responses:
         "200":
           description: The post is stored.
@@ -4197,6 +4199,59 @@ paths:
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
+
+  /api/v1/social/threads/connect:
+    get:
+      tags: [social]
+      operationId: socialThreadsConnect
+      summary: Start connecting Vibe's Threads account
+      description: >-
+        Superadmin only. Sets a short-lived state cookie bound to this browser and redirects to
+        Meta's consent page for the Threads account. The session cookie must be fresh: open the
+        app first when this answers 401.
+      security: [{cookieAuth: []}]
+      responses:
+        "302":
+          description: Redirect to Meta's consent page.
+          headers:
+            Location: {schema: {type: string}}
+        "401":
+          description: No valid session.
+        "403":
+          description: The caller is not a superadmin.
+        "503":
+          description: THREADS_APP_ID or THREADS_APP_SECRET is not set.
+
+  /api/v1/social/threads/callback:
+    get:
+      tags: [social]
+      operationId: socialThreadsCallback
+      summary: Finish connecting Vibe's Threads account
+      description: >-
+        Meta's redirect target. Public, because the browser arrives from Meta: the state must match
+        the cookie set by the connect call, and then the code is exchanged for a long-lived token that
+        is stored sealed. Answers an HTML page, never JSON.
+      security: []
+      parameters:
+        - {name: code, in: query, required: false, schema: {type: string}}
+        - {name: state, in: query, required: false, schema: {type: string}}
+        - {name: error, in: query, required: false, schema: {type: string}}
+      responses:
+        "200":
+          description: The account is connected.
+          content:
+            text/html:
+              schema: {type: string}
+        "400":
+          description: Meta refused, or the state does not match this browser.
+          content:
+            text/html:
+              schema: {type: string}
+        "502":
+          description: The exchange with Meta failed. Nothing was stored.
+          content:
+            text/html:
+              schema: {type: string}
 
   /api/v1/social/reconcile:
     post:

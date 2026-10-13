@@ -174,6 +174,9 @@ func wantStatus(p policy, c callerClass) int {
 // publicRoutes. It is checked against the live route table in both directions,
 // so a new endpoint fails the test until its policy is written down here.
 var routePolicies = map[string]policy{
+	// Platform-wide: connects Vibe's own Threads account. Superadmin only.
+	"GET /api/v1/social/threads/connect": superAdmin,
+
 	// Session-scoped: the caller's own account and their own list of complexes.
 	"GET /api/v1/auth/me":        authOnly,
 	"PUT /api/v1/auth/me":        authOnly,

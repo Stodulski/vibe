@@ -160,6 +160,8 @@ func (c *Client) PublishFacebook(ctx context.Context, post social.Post) (string,
 		return c.facebookCarousel(ctx, acct, post)
 	case social.TypeReel:
 		return c.facebookReel(ctx, acct, post)
+	case social.TypeText:
+		return "", fmt.Errorf("%w: text posts go to threads only", social.ErrPermanent)
 	default:
 		return "", fmt.Errorf("%w: unknown post kind %q", social.ErrPermanent, post.Kind)
 	}
@@ -177,7 +179,12 @@ func (c *Client) instagramContainer(ctx context.Context, igID string, post socia
 		return c.instagramCarousel(ctx, igID, post)
 	case social.TypeReel:
 		form := url.Values{"media_type": {"REELS"}, "video_url": {post.Media[0].URL}, "caption": {post.Caption}, "share_to_feed": {"true"}}
+		if post.Cover != nil {
+			form.Set("cover_url", post.Cover.URL)
+		}
 		return c.createContainer(ctx, igID, form)
+	case social.TypeText:
+		return "", fmt.Errorf("%w: text posts go to threads only", social.ErrPermanent)
 	default:
 		return "", fmt.Errorf("%w: unknown post kind %q", social.ErrPermanent, post.Kind)
 	}

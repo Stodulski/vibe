@@ -11,6 +11,7 @@ import (
 	"mime"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -25,16 +26,19 @@ type Network string
 const (
 	NetworkInstagram Network = "instagram"
 	NetworkFacebook  Network = "facebook"
+	NetworkThreads   Network = "threads"
 )
 
-// Kind is the shape of a post: one image, a carousel of images, or one reel.
+// Kind is the shape of a post: one image, a carousel of images, one reel, or a
+// text-only Threads post.
 type Kind string
 
-// The three post shapes.
+// The four post shapes. A text post goes to Threads alone.
 const (
 	TypeImage    Kind = "image"
 	TypeCarousel Kind = "carousel"
 	TypeReel     Kind = "reel"
+	TypeText     Kind = "text"
 )
 
 // Status is where a post is in its life. Only scheduled, publishing and partial
@@ -59,6 +63,10 @@ const (
 	MaxCarouselItems       = 10
 	MaxImageBytes    int64 = 8 << 20
 	MaxVideoBytes    int64 = 100 << 20
+	// MaxThreadsTextLength is Threads' post limit, measured by ThreadsLength.
+	MaxThreadsTextLength = 500
+	// MaxThreadsTopicLength is the longest topic tag Threads accepts.
+	MaxThreadsTopicLength = 50
 )
 
 // MediaFormat is the container of one uploaded file.
@@ -94,13 +102,16 @@ var (
 
 // Fields is the content of one post as the sync sends it, before validation.
 type Fields struct {
-	PublishAt string
-	Networks  []string
-	Type      string
-	Caption   string
-	AltText   string
-	Media     []string
-	Draft     bool
+	PublishAt    string
+	Networks     []string
+	Type         string
+	Caption      string
+	AltText      string
+	Media        []string
+	Draft        bool
+	Cover        string
+	ThreadsText  string
+	ThreadsTopic string
 }
 
 // Media is one uploaded file of a post, stored under a content-hash key.
@@ -129,6 +140,14 @@ type Post struct {
 	LastError     string
 	NextAttemptAt *time.Time
 	PublishedAt   *time.Time
+	// Cover is the reel cover, a JPEG Instagram shows on the Reels tab. It is
+	// not one of Media, so a reel's media count stays one video.
+	Cover *Media
+	// ThreadsText is the Threads text. Empty means the caption is the text.
+	ThreadsText string
+	// ThreadsTopic is the Threads topic tag, empty for none.
+	ThreadsTopic   string
+	ThreadsMediaID string
 }
 
 // ValidatePost checks the content of one post and returns it ready to store.
@@ -144,7 +163,10 @@ func ValidatePost(id string, f Fields) (Post, map[string]string) {
 	networks := validateNetworks(v, f.Networks)
 
 	kind := Kind(strings.TrimSpace(f.Type))
-	v.Check(validKind(kind), "type", "must be image, carousel or reel")
+	v.Check(validKind(kind), "type", "must be image, carousel, reel or text")
+	if kind == TypeText {
+		v.Check(isThreadsOnly(networks), "type", "a text post goes to threads alone")
+	}
 
 	caption := strings.TrimSpace(f.Caption)
 	v.Check(caption != "", "caption", "must be provided")
@@ -154,6 +176,8 @@ func ValidatePost(id string, f Fields) (Post, map[string]string) {
 	v.Check(utf8.RuneCountInString(alt) <= MaxAltTextRunes, "alt_text", "must be 1000 characters at most")
 
 	media := validateMediaNames(v, kind, f.Media)
+	cover := validateCover(v, kind, f.Cover, f.Media)
+	threadsText, threadsTopic := validateThreads(v, networks, caption, f.ThreadsText, f.ThreadsTopic)
 
 	if !v.Valid() {
 		return Post{}, v.Errors
@@ -169,6 +193,9 @@ func ValidatePost(id string, f Fields) (Post, map[string]string) {
 		Draft:         f.Draft,
 		Status:        StatusScheduled,
 		NextAttemptAt: &publishAt,
+		Cover:         cover,
+		ThreadsText:   threadsText,
+		ThreadsTopic:  threadsTopic,
 	}, nil
 }
 
@@ -177,11 +204,68 @@ func validateNetworks(v *validator.Validator, raw []string) []Network {
 	networks := make([]Network, 0, len(raw))
 	for _, r := range raw {
 		n := Network(strings.TrimSpace(r))
-		v.Check(validator.PermittedValue(n, NetworkInstagram, NetworkFacebook), "networks", "must be instagram or facebook")
+		v.Check(validator.PermittedValue(n, NetworkInstagram, NetworkFacebook, NetworkThreads), "networks", "must be instagram, facebook or threads")
 		networks = append(networks, n)
 	}
 	v.Check(validator.Unique(networks), "networks", "must not repeat a network")
 	return networks
+}
+
+func isThreadsOnly(networks []Network) bool {
+	return len(networks) == 1 && networks[0] == NetworkThreads
+}
+
+// validateCover checks the optional reel cover. It is a plain JPEG name that
+// is not also a media file, and it is allowed on reels only.
+func validateCover(v *validator.Validator, kind Kind, raw string, media []string) *Media {
+	name := strings.TrimSpace(raw)
+	if name == "" {
+		return nil
+	}
+	v.Check(kind == TypeReel, "cover", "only a reel takes a cover")
+	v.Check(mediaNamePattern.MatchString(name), "cover", "must be a plain file name")
+	format, ok := formatForName(name)
+	v.Check(ok && format == FormatJPEG, "cover", "must be a JPEG file")
+	v.Check(!slices.Contains(media, name), "cover", "must not also be listed as media")
+	return &Media{Name: name}
+}
+
+// validateThreads checks the Threads fields. The Threads text is threads_text
+// or, when that is empty, the caption; either must fit Threads' limit. The
+// Threads fields are allowed only when Threads is one of the networks.
+func validateThreads(v *validator.Validator, networks []Network, caption, rawText, rawTopic string) (string, string) {
+	text := strings.TrimSpace(rawText)
+	topic := strings.TrimSpace(rawTopic)
+	if !slices.Contains(networks, NetworkThreads) {
+		v.Check(text == "", "threads_text", "needs threads in networks")
+		v.Check(topic == "", "threads_topic", "needs threads in networks")
+		return "", ""
+	}
+	if text == "" {
+		v.Check(ThreadsLength(caption) <= MaxThreadsTextLength, "threads_text", "is required when the caption is longer than 500 characters")
+	} else {
+		v.Check(ThreadsLength(text) <= MaxThreadsTextLength, "threads_text", "must be 500 characters at most")
+	}
+	if topic != "" {
+		v.Check(ThreadsLength(topic) <= MaxThreadsTopicLength, "threads_topic", "must be 50 characters at most")
+		v.Check(!strings.ContainsAny(topic, ".&"), "threads_topic", "must not contain periods or ampersands")
+	}
+	return text, topic
+}
+
+// ThreadsLength measures text the way Threads does: a character outside the
+// Basic Multilingual Plane, which covers most emoji, counts as its four UTF-8
+// bytes, and every other character counts as one.
+func ThreadsLength(s string) int {
+	n := 0
+	for _, r := range s {
+		if r > 0xFFFF {
+			n += 4
+		} else {
+			n++
+		}
+	}
+	return n
 }
 
 func validateMediaNames(v *validator.Validator, kind Kind, raw []string) []Media {
@@ -197,7 +281,7 @@ func validateMediaNames(v *validator.Validator, kind Kind, raw []string) []Media
 }
 
 func validKind(kind Kind) bool {
-	return validator.PermittedValue(kind, TypeImage, TypeCarousel, TypeReel)
+	return validator.PermittedValue(kind, TypeImage, TypeCarousel, TypeReel, TypeText)
 }
 
 func mediaCountAllowed(kind Kind, n int) bool {
@@ -206,6 +290,8 @@ func mediaCountAllowed(kind Kind, n int) bool {
 		return n == 1
 	case TypeCarousel:
 		return n >= MinCarouselItems && n <= MaxCarouselItems
+	case TypeText:
+		return n == 0
 	default:
 		return false
 	}
@@ -217,6 +303,8 @@ func mediaCountMessage(kind Kind) string {
 		return "must list exactly one file"
 	case TypeCarousel:
 		return "must list 2 to 10 files"
+	case TypeText:
+		return "a text post lists no files"
 	default:
 		return "the post type is unknown"
 	}
@@ -229,6 +317,8 @@ func extensionAllowed(kind Kind, name string) bool {
 		return ext == ".jpg" || ext == ".jpeg"
 	case TypeReel:
 		return ext == ".mp4"
+	case TypeText:
+		return false
 	default:
 		return false
 	}
