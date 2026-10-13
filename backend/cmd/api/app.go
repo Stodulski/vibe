@@ -11,6 +11,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/bookings"
+	"github.com/stodulski/vibe-server/internal/campaign"
 	"github.com/stodulski/vibe-server/internal/cashbox"
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/clients"
@@ -688,6 +689,19 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 			BackendURL:    cfg.BackendURL,
 		}, d.logger)
 
+	// The one-off benefits email (2026-10). It schedules each owner's email on the
+	// durable queue, so it exists only when there is one, and the cron sends nothing
+	// outside production. Remove with the campaign.
+	var campaignBenefits *campaign.Campaign
+	if enqueuer != nil && d.models.Campaign != nil {
+		campaignBenefits = campaign.New(d.models.Campaign, enqueuer, lifecycleSigner, campaign.Config{
+			Env:           cfg.Env,
+			FrontendURL:   cfg.FrontendURL,
+			PublicBaseURL: cfg.PublicBaseURL(),
+			BackendURL:    cfg.BackendURL,
+		}, d.logger)
+	}
+
 	// The export dependencies are assigned only when they exist, because a
 	// typed nil in an interface is not a nil interface: handing over a nil
 	// *jobs.Store would make ExportsConfigured say yes and the first call
@@ -815,6 +829,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.leads = leadsHandler
 	app.emailUnsubscribe = unsubscribeHandler
 	app.lifecycleNudger = lifecycleNudger
+	app.campaignBenefits = campaignBenefits
 	app.reporting = reportingHandler
 	app.queues = queues
 	app.health = healthHandler

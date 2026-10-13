@@ -61,6 +61,8 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("clean_jobs", 24*time.Hour, app.cronCleanJobs),
 		job("clean_waitlist_entries", 24*time.Hour, app.cronCleanWaitlistEntries),
 		job("send_lifecycle_nudges", 15*time.Minute, app.cronLifecycleNudges),
+		// One-off campaign (2026-10). Remove after it has been sent.
+		job("campaign_benefits_2026_10", 10*time.Minute, app.cronCampaignBenefits),
 		job("clean_registration_leads", 24*time.Hour, app.cronCleanRegistrationLeads),
 
 		// The token blacklist is an in-process fallback when Redis is absent,
@@ -226,6 +228,17 @@ func (app *application) cronCleanWaitlistEntries(ctx context.Context) {
 func (app *application) cronLifecycleNudges(ctx context.Context) {
 	sent := app.lifecycleNudger.Run(ctx)
 	app.logger.Info("cron_lifecycle_nudges: completed", "sent", sent)
+}
+
+// cronCampaignBenefits schedules the one-off benefits email (2026-10). Each owner is
+// claimed durably, so a pass only reaches owners not yet reached, and nothing is
+// scheduled outside production. One-off campaign (2026-10). Remove after it has been sent.
+func (app *application) cronCampaignBenefits(ctx context.Context) {
+	if app.campaignBenefits == nil {
+		return
+	}
+	scheduled := app.campaignBenefits.Run(ctx)
+	app.logger.Info("cron_campaign_benefits: completed", "scheduled", scheduled)
 }
 
 // cronCleanRegistrationLeads deletes the registration leads captured more than

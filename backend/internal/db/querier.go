@@ -23,6 +23,10 @@ type Querier interface {
 	// nothing: the trigger on this table fires on any UPDATE, which is the whole
 	// effect wanted here.
 	BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error)
+	// One-off campaign (2026-10). Remove after it has been sent.
+	// Records that an owner is being sent the campaign. The primary key makes it
+	// once-only per owner: a second claim inserts nothing.
+	ClaimCampaign(ctx context.Context, arg ClaimCampaignParams) (int64, error)
 	// Records that a nudge is going out. The primary key makes each kind once-only
 	// per owner: a second claim inserts nothing.
 	ClaimOwnerNudge(ctx context.Context, arg ClaimOwnerNudgeParams) (int64, error)
@@ -306,6 +310,12 @@ type Querier interface {
 	// payments rows directly: a checkout's lines are known by payment id right after
 	// it is recorded, before any list query runs.
 	ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error)
+	// The owners the campaign has not reached yet, oldest account first, at most
+	// max_rows. Each carries the segment that picks the email's last line, and the
+	// slug of their live complex (empty when they have none). complexes_owner_id_key
+	// allows one live complex per owner, so the join yields at most one row per owner.
+	// "Connected" means the live complex has its mp_user_id set.
+	ListCampaignRecipients(ctx context.Context, arg ListCampaignRecipientsParams) ([]ListCampaignRecipientsRow, error)
 	// Oldest first: a session's ledger reads top to bottom like a receipt tape.
 	// Not paginated — a shift's movement count is bounded by a business day at
 	// the counter, the same reasoning ListBlockedSlots' unpaginated call applies.
