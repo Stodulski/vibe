@@ -41,6 +41,8 @@ type Mailer interface {
 	SendWaitlistSlotFreed(ctx context.Context, to, complexName, date, bookURL string) error
 	SendLifecycleNudge(ctx context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error
 	SendWelcome(ctx context.Context, to, firstName string) error
+	// SendBenefitsCampaign is the one-off benefits email. See campaign.go.
+	SendBenefitsCampaign(ctx context.Context, to, firstName, segment, segmentURL, panelURL, unsubscribeURL, optOutURL string) error
 }
 
 // WhatsAppSender is the WhatsApp side of delivery.

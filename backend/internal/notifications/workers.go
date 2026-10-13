@@ -52,6 +52,7 @@ func handle[T any](taskType string, deliver func(ctx context.Context, p T) error
 func (s *Service) RegisterWorkers() {
 	s.registerWaitlistWorkers()
 	s.registerLifecycleWorkers()
+	s.registerCampaignWorkers()
 
 	s.queue.RegisterHandler(handle(TaskEmailBookingConfirmation, func(ctx context.Context, p bookingConfirmationEmail) error {
 		return s.mailer.SendBookingConfirmation(ctx, p.Email, p.ComplexName, p.CourtName,
