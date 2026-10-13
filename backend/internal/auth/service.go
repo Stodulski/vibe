@@ -437,6 +437,17 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 		return err
 	}
 
+	// Read the account before the write: the welcome belongs to the verification
+	// that proves the address, so a repeat of one queues nothing.
+	user, err := s.users.GetByID(ctx, vToken.UserID)
+	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) {
+			return ErrInvalidToken
+		}
+		return err
+	}
+	alreadyVerified := user.EmailVerified
+
 	// SetEmailVerified is idempotent — safe against concurrent requests.
 	if err := s.credentials.SetEmailVerified(ctx, vToken.UserID); err != nil {
 		return err
@@ -448,7 +459,21 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 		s.logger.Error("failed to delete verification tokens", "error", delErr)
 	}
 
+	// Two verifications racing past the read above both queue here; the welcome's
+	// dedup key turns that into one send.
+	if !alreadyVerified {
+		s.queueWelcome(user)
+	}
 	return nil
+}
+
+// queueWelcome queues the welcome for an account that has just become usable.
+// Only owners are welcomed; a superadmin account never is.
+func (s *Service) queueWelcome(user *authstore.User) {
+	if user.Role != "owner" {
+		return
+	}
+	s.notify.Welcome(notifications.WelcomeEmail{To: user.Email, FirstName: user.FirstName}, user.ID.String())
 }
 
 // ResendVerification sends another verification link.
@@ -1396,6 +1421,7 @@ func (s *Service) GoogleComplete(ctx context.Context, actor Actor, claims *Googl
 	user.EmailVerified = true
 
 	s.linkGoogleIdentity(ctx, user.ID, &googleid.Claims{Subject: claims.Subject, Email: claims.Email})
+	s.queueWelcome(user)
 
 	return s.startSession(ctx, actor, user, googleIdentityProvider)
 }
@@ -1438,6 +1464,7 @@ func (s *Service) claimUnverifiedAccount(ctx context.Context, actor Actor, user 
 		return nil
 	}
 	user.EmailVerified = true
+	s.queueWelcome(user)
 
 	// This function replaced the password hash and flipped email_verified,
 	// and both are cached fields (RED-03). startSession invalidates too, and

@@ -138,6 +138,10 @@ func (s *stubUsers) ResetFailedAttempts(context.Context, uuid.UUID) error {
 
 func (s *stubUsers) SetEmailVerified(_ context.Context, id uuid.UUID) error {
 	s.verified = &id
+	// Like the database, the flag is what the next read of the account sees.
+	if u, ok := s.byID[id]; ok {
+		u.EmailVerified = true
+	}
 	return nil
 }
 
@@ -252,6 +256,12 @@ func (s *stubVerifications) GetByHash(_ context.Context, hash []byte) (*authstor
 
 func (s *stubVerifications) DeleteByUser(_ context.Context, userID uuid.UUID) error {
 	s.deleted = append(s.deleted, userID)
+	// Like the store, a consumed link is gone: presenting it again finds nothing.
+	for hash, t := range s.tokens {
+		if t.UserID == userID {
+			delete(s.tokens, hash)
+		}
+	}
 	return nil
 }
 
@@ -403,11 +413,22 @@ func (s *stubBlacklist) InvalidateUserTokens(_ context.Context, userID uuid.UUID
 	return s.err
 }
 
+// welcomeSent is one Welcome call: the email, and the owner it was queued under.
+type welcomeSent struct {
+	email  notifications.WelcomeEmail
+	userID string
+}
+
 type stubNotifier struct {
 	verifications []notifications.VerificationEmail
 	resets        []notifications.PasswordResetEmail
 	duplicates    []notifications.DuplicateRegistrationEmail
 	emailChanges  []notifications.EmailChangeRequestedEmail
+	welcomes      []welcomeSent
+}
+
+func (s *stubNotifier) Welcome(e notifications.WelcomeEmail, userID string) {
+	s.welcomes = append(s.welcomes, welcomeSent{email: e, userID: userID})
 }
 
 func (s *stubNotifier) EmailVerification(e notifications.VerificationEmail) {

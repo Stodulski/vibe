@@ -150,6 +150,9 @@ type Notifier interface {
 	// EmailChangeRequested tells the account's CURRENT address that a session
 	// asked to move it elsewhere, with a link to confirm.
 	EmailChangeRequested(e notifications.EmailChangeRequestedEmail)
+	// Welcome queues the owner's one welcome email. userID is the account it is
+	// deduplicated under.
+	Welcome(e notifications.WelcomeEmail, userID string)
 }
 
 // UserCache is the cached-user invalidation this module triggers when an
