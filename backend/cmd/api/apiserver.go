@@ -25,6 +25,7 @@ import (
 	"net/http"
 
 	gen "github.com/stodulski/vibe-server/internal/openapi/gen"
+	"github.com/stodulski/vibe-server/internal/social"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -658,4 +659,27 @@ func (s *apiServer) SocialPutMedia(w http.ResponseWriter, r *http.Request, id ge
 // (POST /api/v1/social/reconcile). Public, OIDC-authenticated in the handler.
 func (s *apiServer) SocialReconcile(w http.ResponseWriter, r *http.Request) {
 	s.app.social.Reconcile(w, r)
+}
+
+// SocialThreadsConnect implements gen.ServerInterface for socialThreadsConnect
+// (GET /api/v1/social/threads/connect). Superadmin only, by the route guard.
+func (s *apiServer) SocialThreadsConnect(w http.ResponseWriter, r *http.Request) {
+	s.app.socialThreads.Connect(w, r)
+}
+
+// SocialThreadsCallback implements gen.ServerInterface for socialThreadsCallback
+// (GET /api/v1/social/threads/callback). Public: Meta's redirect lands here.
+func (s *apiServer) SocialThreadsCallback(w http.ResponseWriter, r *http.Request, params gen.SocialThreadsCallbackParams) {
+	s.app.socialThreads.Callback(w, r, social.ThreadsCallback{
+		Code:      stringValue(params.Code),
+		State:     stringValue(params.State),
+		ErrorCode: stringValue(params.Error),
+	})
+}
+
+func stringValue(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

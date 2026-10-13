@@ -86,12 +86,32 @@ type Connector struct {
 	queue   Enqueuer
 	to      string
 	token   string
+	checks  []Check
 	logger  *slog.Logger
+}
+
+// ReportLine is one line of the connection email. Problem makes the verdict
+// "con problemas"; an informational line never does.
+type ReportLine struct {
+	Text    string
+	Problem bool
+}
+
+// Check adds one line to the connection email. It sees the Meta report, so a
+// check can depend on the account the report found.
+type Check interface {
+	Check(ctx context.Context, report ConnectionReport) ReportLine
 }
 
 // NewConnector returns a Connector that mails to. A blank token disables it.
 func NewConnector(checker ConnectionChecker, queue Enqueuer, to, token string, logger *slog.Logger) *Connector {
 	return &Connector{checker: checker, queue: queue, to: to, token: token, logger: logger}
+}
+
+// WithChecks adds checks whose lines follow the Meta lines in the email.
+func (c *Connector) WithChecks(checks ...Check) *Connector {
+	c.checks = append(c.checks, checks...)
+	return c
 }
 
 // Run checks the connection once and queues the report email. It returns the
@@ -103,9 +123,15 @@ func (c *Connector) Run(ctx context.Context) (ConnectionReport, bool) {
 	}
 	report := c.checker.CheckConnection(ctx)
 	lines := report.Lines()
+	ok := report.OK()
+	for _, check := range c.checks {
+		line := check.Check(ctx, report)
+		lines = append(lines, line.Text)
+		ok = ok && !line.Problem
+	}
 
 	verdict := "OK"
-	if !report.OK() {
+	if !ok {
 		verdict = "con problemas"
 	}
 	payload := ReportPayload{To: c.to, Subject: "Conexión con Meta: " + verdict, Lines: lines}

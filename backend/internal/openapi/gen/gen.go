@@ -1541,6 +1541,7 @@ func (e LeadsCaptureAbandonedRegistrationJSONBodySource) Valid() bool {
 const (
 	Facebook  SocialPutPostJSONBodyNetworks = "facebook"
 	Instagram SocialPutPostJSONBodyNetworks = "instagram"
+	Threads   SocialPutPostJSONBodyNetworks = "threads"
 )
 
 // Valid indicates whether the value is a known member of the SocialPutPostJSONBodyNetworks enum.
@@ -1549,6 +1550,8 @@ func (e SocialPutPostJSONBodyNetworks) Valid() bool {
 	case Facebook:
 		return true
 	case Instagram:
+		return true
+	case Threads:
 		return true
 	default:
 		return false
@@ -1560,6 +1563,7 @@ const (
 	Carousel SocialPutPostJSONBodyType = "carousel"
 	Image    SocialPutPostJSONBodyType = "image"
 	Reel     SocialPutPostJSONBodyType = "reel"
+	Text     SocialPutPostJSONBodyType = "text"
 )
 
 // Valid indicates whether the value is a known member of the SocialPutPostJSONBodyType enum.
@@ -1570,6 +1574,8 @@ func (e SocialPutPostJSONBodyType) Valid() bool {
 	case Image:
 		return true
 	case Reel:
+		return true
+	case Text:
 		return true
 	default:
 		return false
@@ -3611,15 +3617,26 @@ type ComplexesSlugAvailableParams struct {
 // SocialPutPostJSONBody defines parameters for SocialPutPost.
 type SocialPutPostJSONBody struct {
 	// AltText Single-image posts only.
-	AltText  *string                         `json:"alt_text,omitempty"`
-	Caption  string                          `json:"caption"`
+	AltText *string `json:"alt_text,omitempty"`
+	Caption string  `json:"caption"`
+
+	// Cover JPEG file in the post folder, reel posts only. Instagram shows it as the reel cover.
+	Cover    *string                         `json:"cover,omitempty"`
 	Draft    *bool                           `json:"draft,omitempty"`
-	Media    []string                        `json:"media"`
+	Media    *[]string                       `json:"media,omitempty"`
 	Networks []SocialPutPostJSONBodyNetworks `json:"networks"`
 
 	// PublishAt RFC 3339 time with an offset.
-	PublishAt time.Time                 `json:"publish_at"`
-	Type      SocialPutPostJSONBodyType `json:"type"`
+	PublishAt time.Time `json:"publish_at"`
+
+	// ThreadsText Text for Threads. Defaults to the caption, which must then fit in 500 characters.
+	ThreadsText *string `json:"threads_text,omitempty"`
+
+	// ThreadsTopic Threads topic tag, without periods or ampersands.
+	ThreadsTopic *string `json:"threads_topic,omitempty"`
+
+	// Type Text posts go to threads alone and list no media.
+	Type SocialPutPostJSONBodyType `json:"type"`
 }
 
 // SocialPutPostJSONBodyNetworks defines parameters for SocialPutPost.
@@ -3634,6 +3651,13 @@ type SocialPutPost200JSONResponseBodyStatus string
 // SocialReconcileJSONBody defines parameters for SocialReconcile.
 type SocialReconcileJSONBody struct {
 	Ids []string `json:"ids"`
+}
+
+// SocialThreadsCallbackParams defines parameters for SocialThreadsCallback.
+type SocialThreadsCallbackParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
 // PaymentsMercadoPagoWebhookJSONBody defines parameters for PaymentsMercadoPagoWebhook.
@@ -4168,6 +4192,12 @@ type ServerInterface interface {
 	// SocialReconcile Cancel scheduled posts that left the content repository
 	// (POST /api/v1/social/reconcile)
 	SocialReconcile(w http.ResponseWriter, r *http.Request)
+	// SocialThreadsCallback Finish connecting Vibe's Threads account
+	// (GET /api/v1/social/threads/callback)
+	SocialThreadsCallback(w http.ResponseWriter, r *http.Request, params SocialThreadsCallbackParams)
+	// SocialThreadsConnect Start connecting Vibe's Threads account
+	// (GET /api/v1/social/threads/connect)
+	SocialThreadsConnect(w http.ResponseWriter, r *http.Request)
 	// PaymentsMercadoPagoWebhook Receive a MercadoPago IPN notification
 	// (POST /api/v1/webhooks/mercadopago)
 	PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Request, params PaymentsMercadoPagoWebhookParams)
@@ -7579,6 +7609,79 @@ func (siw *ServerInterfaceWrapper) SocialReconcile(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// SocialThreadsCallback operation middleware
+func (siw *ServerInterfaceWrapper) SocialThreadsCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SocialThreadsCallbackParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SocialThreadsCallback(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SocialThreadsConnect operation middleware
+func (siw *ServerInterfaceWrapper) SocialThreadsConnect(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SocialThreadsConnect(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PaymentsMercadoPagoWebhook operation middleware
 func (siw *ServerInterfaceWrapper) PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 
@@ -7954,6 +8057,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/.well-known/api-catalog", wrapper.OpenapiGetCatalog)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/social/posts/{id}", wrapper.SocialPutPost)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/social/posts/{id}/media/{name}", wrapper.SocialPutMedia)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/social/threads/connect", wrapper.SocialThreadsConnect)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/social/threads/callback", wrapper.SocialThreadsCallback)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/social/reconcile", wrapper.SocialReconcile)
 
 	return m

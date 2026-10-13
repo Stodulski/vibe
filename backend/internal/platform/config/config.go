@@ -222,6 +222,13 @@ type Social struct {
 	SyncRepository string
 	// ReportEmail receives one report per post when it finishes publishing.
 	ReportEmail string
+	// ThreadsAppID and ThreadsAppSecret are the Meta app that Threads uses.
+	// Empty leaves Threads off: its connection and publishing stay disabled.
+	ThreadsAppID     string
+	ThreadsAppSecret string
+	// APIBaseURL is the public origin of this API. The Threads redirect URI and
+	// the connect link are built on it.
+	APIBaseURL string
 }
 
 // Brevo is the transactional email provider's configuration.

@@ -110,11 +110,15 @@ type application struct {
 	// social serves the content sync; socialPublisher publishes due posts.
 	social          *social.Handler
 	socialPublisher *social.Publisher
-	middleware      *middleware.Middleware
-	db              *platformdb.Pool
-	rdb             *platformredis.Client
-	models          stores.Stores
-	mp              *mp.MPClient
+	// socialThreads connects the Threads account; socialThreadsMaintenance
+	// refreshes its token each day and asks for a reconnect when needed.
+	socialThreads            *social.ThreadsAuth
+	socialThreadsMaintenance *social.ThreadsMaintenance
+	middleware               *middleware.Middleware
+	db                       *platformdb.Pool
+	rdb                      *platformredis.Client
+	models                   stores.Stores
+	mp                       *mp.MPClient
 	// mpOAuth is the same provider on its own circuit breaker, used only by the
 	// bulk token-refresh cron. See newApplication for why it is separate.
 	mpOAuth *mp.MPClient
@@ -464,6 +468,7 @@ func main() {
 		storage:        objectStorage,
 		privateStorage: privateStorage,
 		socialMedia:    socialMedia,
+		keys:           mpKeyring,
 		trustedProxies: trustedProxySet,
 	})
 	if err != nil {

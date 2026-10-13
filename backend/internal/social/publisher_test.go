@@ -23,6 +23,23 @@ type fakePlatform struct {
 	lastKind       Kind
 	permalink      string
 	permalinkCalls int
+	thErr          error
+	thCalls        int
+	thKind         Kind
+	thLink         string
+}
+
+func (f *fakePlatform) PublishThreads(_ context.Context, p Post) (string, error) {
+	f.thCalls++
+	f.thKind = p.Kind
+	if f.thErr != nil {
+		return "", f.thErr
+	}
+	return "th-1", nil
+}
+
+func (f *fakePlatform) ThreadsPermalink(context.Context, string) (string, error) {
+	return f.thLink, nil
 }
 
 func (f *fakePlatform) InstagramQuota(context.Context) (int, int, error) {

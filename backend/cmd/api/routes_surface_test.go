@@ -109,6 +109,8 @@ var apiSurface = map[string]struct{}{
 	"PUT /api/v1/social/posts/{id}":                                                     {},
 	"PUT /api/v1/social/posts/{id}/media/{name}":                                        {},
 	"POST /api/v1/social/reconcile":                                                     {},
+	"GET /api/v1/social/threads/connect":                                                {},
+	"GET /api/v1/social/threads/callback":                                               {},
 	"POST /api/v1/public/email/unsubscribe":                                             {},
 	"POST /api/v1/public/leads/abandoned-registration":                                  {},
 	"POST /api/v1/webhooks/mercadopago":                                                 {},

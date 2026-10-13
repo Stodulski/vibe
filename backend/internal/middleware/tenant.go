@@ -48,6 +48,10 @@ import (
 //	platform    the route looks across tenants, or writes a platform-level row
 //	            with no complex at all.
 var crossTenantRoutes = map[string]string{
+	// platform — the Threads connection is Vibe's own account, not tenant data.
+	// The connect route reads and writes social_threads_connection only.
+	"GET /api/v1/social/threads/connect": "superadmin: connects the platform's Threads account; touches no tenant table",
+
 	// platform — the auth routes write audit_log rows whose complex_id is
 	// deliberately NULL (internal/auth/trail.go), and none of them knows a
 	// complex.
