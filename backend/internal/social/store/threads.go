@@ -39,9 +39,9 @@ func (s *Threads) LoadThreads(ctx context.Context) (social.ThreadsConnection, bo
 	var conn social.ThreadsConnection
 	var sealed string
 	err := s.DB.QueryRow(ctx, `
-		SELECT user_id, username, access_token, connected_at, refreshed_at, expires_at
+		SELECT user_id, username, access_token, connected_at, refreshed_at, expires_at, keyword_search_requested
 		FROM social_threads_connection WHERE id = 1`).
-		Scan(&conn.UserID, &conn.Username, &sealed, &conn.ConnectedAt, &conn.RefreshedAt, &conn.ExpiresAt)
+		Scan(&conn.UserID, &conn.Username, &sealed, &conn.ConnectedAt, &conn.RefreshedAt, &conn.ExpiresAt, &conn.KeywordSearchRequested)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return social.ThreadsConnection{}, false, nil
@@ -67,18 +67,38 @@ func (s *Threads) SaveThreads(ctx context.Context, conn social.ThreadsConnection
 	defer cancel()
 
 	_, err = s.DB.Exec(ctx, `
-		INSERT INTO social_threads_connection (id, user_id, username, access_token, connected_at, refreshed_at, expires_at)
-		VALUES (1, $1, $2, $3, $4, $5, $6)
+		INSERT INTO social_threads_connection (id, user_id, username, access_token, connected_at, refreshed_at, expires_at, keyword_search_requested)
+		VALUES (1, $1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (id) DO UPDATE SET
-			user_id      = EXCLUDED.user_id,
-			username     = EXCLUDED.username,
-			access_token = EXCLUDED.access_token,
-			connected_at = EXCLUDED.connected_at,
-			refreshed_at = EXCLUDED.refreshed_at,
-			expires_at   = EXCLUDED.expires_at`,
-		conn.UserID, conn.Username, sealed, conn.ConnectedAt, conn.RefreshedAt, conn.ExpiresAt)
+			user_id                 = EXCLUDED.user_id,
+			username                = EXCLUDED.username,
+			access_token            = EXCLUDED.access_token,
+			connected_at            = EXCLUDED.connected_at,
+			refreshed_at            = EXCLUDED.refreshed_at,
+			expires_at              = EXCLUDED.expires_at,
+			keyword_search_requested = EXCLUDED.keyword_search_requested`,
+		conn.UserID, conn.Username, sealed, conn.ConnectedAt, conn.RefreshedAt, conn.ExpiresAt, conn.KeywordSearchRequested)
 	if err != nil {
 		return fmt.Errorf("social: save threads connection: %w", err)
 	}
 	return nil
+}
+
+// DisconnectThreads removes the connection when it belongs to userID, and
+// reports the username it removed. Another account's request removes nothing.
+func (s *Threads) DisconnectThreads(ctx context.Context, userID string) (string, bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	var username string
+	err := s.DB.QueryRow(ctx, `
+		DELETE FROM social_threads_connection WHERE id = 1 AND user_id = $1
+		RETURNING username`, userID).Scan(&username)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return "", false, nil
+	case err != nil:
+		return "", false, fmt.Errorf("social: disconnect threads: %w", err)
+	}
+	return username, true, nil
 }

@@ -114,11 +114,15 @@ type application struct {
 	// refreshes its token each day and asks for a reconnect when needed.
 	socialThreads            *social.ThreadsAuth
 	socialThreadsMaintenance *social.ThreadsMaintenance
-	middleware               *middleware.Middleware
-	db                       *platformdb.Pool
-	rdb                      *platformredis.Client
-	models                   stores.Stores
-	mp                       *mp.MPClient
+	// socialThreadsDeauth answers Meta's uninstall and data-deletion callbacks;
+	// socialThreadsDigest mails the weekly keyword conversations.
+	socialThreadsDeauth *social.ThreadsDeauth
+	socialThreadsDigest *social.ThreadsDigest
+	middleware          *middleware.Middleware
+	db                  *platformdb.Pool
+	rdb                 *platformredis.Client
+	models              stores.Stores
+	mp                  *mp.MPClient
 	// mpOAuth is the same provider on its own circuit breaker, used only by the
 	// bulk token-refresh cron. See newApplication for why it is separate.
 	mpOAuth *mp.MPClient

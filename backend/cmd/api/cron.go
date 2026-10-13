@@ -45,6 +45,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("reminder_2h", 5*time.Minute, app.cronReminder2h),
 		job("publish_social_posts", 5*time.Minute, app.cronPublishSocialPosts),
 		job("threads_token_maintenance", 24*time.Hour, app.cronThreadsMaintenance),
+		job("threads_keyword_digest", time.Hour, app.cronThreadsKeywordDigest),
 		job("release_expired_payments", 5*time.Minute, app.cronReleaseExpiredPayments),
 		job("clean_slot_locks", 5*time.Minute, app.cronCleanSlotLocks),
 		job("report_queue_depth", 5*time.Minute, app.cronReportQueueDepth),
@@ -324,6 +325,17 @@ func (app *application) cronThreadsMaintenance(ctx context.Context) {
 		return
 	}
 	app.logger.Info("cron: threads token maintenance", "outcome", outcome)
+}
+
+// cronThreadsKeywordDigest runs the weekly keyword digest. It is hourly because
+// the digest itself answers only in the Monday-morning window.
+func (app *application) cronThreadsKeywordDigest(ctx context.Context) {
+	outcome, err := app.socialThreadsDigest.Run(ctx)
+	if err != nil {
+		app.logger.Error("cron: threads keyword digest failed", "error", err)
+		return
+	}
+	app.logger.Info("cron: threads keyword digest", "outcome", outcome)
 }
 
 // cronPublishSocialPosts publishes the marketing posts that are due, to the

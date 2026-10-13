@@ -3660,6 +3660,16 @@ type SocialThreadsCallbackParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
+// SocialThreadsDeleteFormdataBody defines parameters for SocialThreadsDelete.
+type SocialThreadsDeleteFormdataBody struct {
+	SignedRequest string `form:"signed_request" json:"signed_request"`
+}
+
+// SocialThreadsUninstallFormdataBody defines parameters for SocialThreadsUninstall.
+type SocialThreadsUninstallFormdataBody struct {
+	SignedRequest string `form:"signed_request" json:"signed_request"`
+}
+
 // PaymentsMercadoPagoWebhookJSONBody defines parameters for PaymentsMercadoPagoWebhook.
 type PaymentsMercadoPagoWebhookJSONBody struct {
 	Action string `json:"action"`
@@ -3822,6 +3832,12 @@ type SocialPutPostJSONRequestBody SocialPutPostJSONBody
 
 // SocialReconcileJSONRequestBody defines body for SocialReconcile for application/json ContentType.
 type SocialReconcileJSONRequestBody SocialReconcileJSONBody
+
+// SocialThreadsDeleteFormdataRequestBody defines body for SocialThreadsDelete for application/x-www-form-urlencoded ContentType.
+type SocialThreadsDeleteFormdataRequestBody SocialThreadsDeleteFormdataBody
+
+// SocialThreadsUninstallFormdataRequestBody defines body for SocialThreadsUninstall for application/x-www-form-urlencoded ContentType.
+type SocialThreadsUninstallFormdataRequestBody SocialThreadsUninstallFormdataBody
 
 // PaymentsMercadoPagoWebhookJSONRequestBody defines body for PaymentsMercadoPagoWebhook for application/json ContentType.
 type PaymentsMercadoPagoWebhookJSONRequestBody PaymentsMercadoPagoWebhookJSONBody
@@ -4198,6 +4214,12 @@ type ServerInterface interface {
 	// SocialThreadsConnect Start connecting Vibe's Threads account
 	// (GET /api/v1/social/threads/connect)
 	SocialThreadsConnect(w http.ResponseWriter, r *http.Request)
+	// SocialThreadsDelete Meta's data-deletion callback for the Threads app
+	// (POST /api/v1/social/threads/delete)
+	SocialThreadsDelete(w http.ResponseWriter, r *http.Request)
+	// SocialThreadsUninstall Meta's uninstall callback for the Threads app
+	// (POST /api/v1/social/threads/uninstall)
+	SocialThreadsUninstall(w http.ResponseWriter, r *http.Request)
 	// PaymentsMercadoPagoWebhook Receive a MercadoPago IPN notification
 	// (POST /api/v1/webhooks/mercadopago)
 	PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Request, params PaymentsMercadoPagoWebhookParams)
@@ -7682,6 +7704,34 @@ func (siw *ServerInterfaceWrapper) SocialThreadsConnect(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// SocialThreadsDelete operation middleware
+func (siw *ServerInterfaceWrapper) SocialThreadsDelete(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SocialThreadsDelete(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SocialThreadsUninstall operation middleware
+func (siw *ServerInterfaceWrapper) SocialThreadsUninstall(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SocialThreadsUninstall(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PaymentsMercadoPagoWebhook operation middleware
 func (siw *ServerInterfaceWrapper) PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 
@@ -8059,6 +8109,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/social/posts/{id}/media/{name}", wrapper.SocialPutMedia)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/social/threads/connect", wrapper.SocialThreadsConnect)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/social/threads/callback", wrapper.SocialThreadsCallback)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/social/threads/uninstall", wrapper.SocialThreadsUninstall)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/social/threads/delete", wrapper.SocialThreadsDelete)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/social/reconcile", wrapper.SocialReconcile)
 
 	return m

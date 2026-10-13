@@ -667,6 +667,18 @@ func (s *apiServer) SocialThreadsConnect(w http.ResponseWriter, r *http.Request)
 	s.app.socialThreads.Connect(w, r)
 }
 
+// SocialThreadsUninstall implements gen.ServerInterface for socialThreadsUninstall
+// (POST /api/v1/social/threads/uninstall). Public: Meta signs the request.
+func (s *apiServer) SocialThreadsUninstall(w http.ResponseWriter, r *http.Request) {
+	s.app.socialThreadsDeauth.Uninstall(w, r)
+}
+
+// SocialThreadsDelete implements gen.ServerInterface for socialThreadsDelete
+// (POST /api/v1/social/threads/delete). Public: Meta signs the request.
+func (s *apiServer) SocialThreadsDelete(w http.ResponseWriter, r *http.Request) {
+	s.app.socialThreadsDeauth.Delete(w, r)
+}
+
 // SocialThreadsCallback implements gen.ServerInterface for socialThreadsCallback
 // (GET /api/v1/social/threads/callback). Public: Meta's redirect lands here.
 func (s *apiServer) SocialThreadsCallback(w http.ResponseWriter, r *http.Request, params gen.SocialThreadsCallbackParams) {

@@ -43,12 +43,13 @@ func connected() *fakeStore {
 // IN_PROGRESS on their first poll and FINISHED after that, unless the test
 // marks them as errors.
 type fakeGraph struct {
-	mu        sync.Mutex
-	calls     []call
-	polls     map[string]int
-	errorIDs  map[string]bool
-	apiErr    string
-	publishID string
+	mu         sync.Mutex
+	calls      []call
+	polls      map[string]int
+	errorIDs   map[string]bool
+	apiErr     string
+	publishID  string
+	searchBody string
 }
 
 type call struct {
@@ -97,6 +98,8 @@ func (g *fakeGraph) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			status = "FINISHED"
 		}
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": status})
+	case r.URL.Path == "/v1.0/keyword_search":
+		_, _ = w.Write([]byte(g.searchBody))
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1.0/m"):
 		_, _ = w.Write([]byte(`{"permalink":"https://www.threads.net/@vibe.padel/post/abc"}`))
 	default:
@@ -142,7 +145,7 @@ func TestAuthorizeURLNamesTheScopesAndTheRedirect(t *testing.T) {
 		t.Fatalf("authorize host and path = %s%s", u.Host, u.Path)
 	}
 	if q.Get("client_id") != "app-1" || q.Get("redirect_uri") != "https://api.vibe.test/cb" ||
-		q.Get("scope") != "threads_basic,threads_content_publish" || q.Get("response_type") != "code" || q.Get("state") != "state-1" {
+		q.Get("scope") != "threads_basic,threads_content_publish,threads_keyword_search" || q.Get("response_type") != "code" || q.Get("state") != "state-1" {
 		t.Fatalf("query = %v", q)
 	}
 }
@@ -333,5 +336,32 @@ func TestErrorsNeverShowTheToken(t *testing.T) {
 	_, err := c.Refresh(context.Background(), "tok-secret")
 	if err == nil || strings.Contains(err.Error(), "tok-secret") || strings.Contains(err.Error(), secret) {
 		t.Fatalf("err = %v; a transport error must not carry the token or the secret", err)
+	}
+}
+
+func TestKeywordSearchReadsPostsWithTheConnectedAccount(t *testing.T) {
+	t.Parallel()
+	g := newGraph()
+	g.searchBody = `{"data":[{"id":"p1","text":"hola cancha","permalink":"https://www.threads.net/@jugador/post/p1","timestamp":"2026-10-10T18:04:05+0000","username":"jugador","has_replies":true}]}`
+	store := connected()
+	c := newClient(t, g, store)
+
+	posts, err := c.KeywordSearch(context.Background(), "complejo de pádel", social.KeywordSearchRecent)
+	if err != nil {
+		t.Fatalf("KeywordSearch() error = %v", err)
+	}
+	if len(posts) != 1 || posts[0].ID != "p1" || posts[0].Username != "jugador" || !posts[0].HasReplies {
+		t.Fatalf("posts = %+v; want the one post decoded", posts)
+	}
+	if want := time.Date(2026, 10, 10, 18, 4, 5, 0, time.UTC); !posts[0].Timestamp.Equal(want) {
+		t.Fatalf("timestamp = %v; want %v", posts[0].Timestamp, want)
+	}
+	call := g.calls[len(g.calls)-1]
+	if call.path != "/v1.0/keyword_search" || call.query.Get("q") != "complejo de pádel" ||
+		call.query.Get("search_type") != "RECENT" || call.query.Get("access_token") != "tok-secret" {
+		t.Fatalf("request = %+v; want q, RECENT and the connected token", call)
+	}
+	if !strings.Contains(call.query.Get("fields"), "has_replies") {
+		t.Fatalf("fields = %q; want has_replies", call.query.Get("fields"))
 	}
 }

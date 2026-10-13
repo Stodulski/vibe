@@ -529,6 +529,16 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		To:         cfg.Social.ReportEmail,
 		ConnectURL: threadsConnectURL,
 	}, d.logger)
+	socialThreadsDeauth := social.NewThreadsDeauth(socialThreadsStore, queue, social.ThreadsDeauthConfig{
+		Configured: threadsConfigured,
+		AppSecret:  cfg.Social.ThreadsAppSecret,
+		To:         cfg.Social.ReportEmail,
+		StatusURL:  "https://vibe.com.ar/privacidad",
+	}, respond, d.logger)
+	socialThreadsDigest := social.NewThreadsDigest(socialThreadsStore, socialThreadsClient, queue, social.ThreadsDigestConfig{
+		To:       cfg.Social.ReportEmail,
+		Keywords: cfg.Social.ThreadsKeywords,
+	}, d.logger)
 	socialPublisher := social.NewPublisher(social.PublisherConfig{
 		Enabled:    cfg.Social.AccessToken != "" || threadsConfigured,
 		Secret:     cfg.Social.AccessToken,
@@ -562,6 +572,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 				WithChecks(
 					socialmeta.NewAspectProbe(socialMeta, probeURL, d.logger),
 					social.NewThreadsCheck(socialThreadsStore, threadsConfigured, threadsConnectURL),
+					social.NewThreadsSearchCheck(socialThreadsStore, socialThreadsClient, cfg.Social.ThreadsKeywords),
 				).
 				Run(ctx)
 		})
@@ -846,6 +857,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.social = socialHandler
 	app.socialThreads = socialAuth
 	app.socialThreadsMaintenance = socialThreadsMaintenance
+	app.socialThreadsDeauth = socialThreadsDeauth
+	app.socialThreadsDigest = socialThreadsDigest
 	app.socialPublisher = socialPublisher
 	app.blacklist = blacklist
 	app.events = events
