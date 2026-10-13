@@ -139,3 +139,64 @@ func TestIntegration_TextPostsAreThreadsOnlyInTheDatabase(t *testing.T) {
 		t.Fatalf("a threads-only text post must be stored: %v", err)
 	}
 }
+
+func TestIntegration_ThreadsDisconnectRemovesOnlyTheMatchingAccount(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+	threads := store.NewThreads(f.DB, integrationKeys(t))
+	now := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	conn := social.ThreadsConnection{
+		UserID: "42", Username: "vibe.padel", AccessToken: "long-token-value",
+		ConnectedAt: now, RefreshedAt: now, ExpiresAt: now.Add(60 * 24 * time.Hour),
+		KeywordSearchRequested: true,
+	}
+	if err := threads.SaveThreads(ctx, conn); err != nil {
+		t.Fatalf("SaveThreads() = %v", err)
+	}
+
+	username, removed, err := threads.DisconnectThreads(ctx, "99")
+	if err != nil || removed || username != "" {
+		t.Fatalf("another account's disconnect = (%q, %v, %v); want nothing removed", username, removed, err)
+	}
+	got, ok, err := threads.LoadThreads(ctx)
+	if err != nil || !ok || !got.KeywordSearchRequested {
+		t.Fatalf("connection after a foreign disconnect = %+v, ok %v, err %v; want it kept with its keyword flag", got, ok, err)
+	}
+
+	username, removed, err = threads.DisconnectThreads(ctx, "42")
+	if err != nil || !removed || username != "vibe.padel" {
+		t.Fatalf("disconnect = (%q, %v, %v); want the account removed", username, removed, err)
+	}
+	if _, ok, _ := threads.LoadThreads(ctx); ok {
+		t.Fatal("the connection must be gone after disconnect")
+	}
+	if _, removed, _ := threads.DisconnectThreads(ctx, "42"); removed {
+		t.Fatal("a repeated disconnect must find nothing to remove")
+	}
+}
+
+func TestIntegration_ThreadsKeywordSearchFlagRoundTrips(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+	threads := store.NewThreads(f.DB, integrationKeys(t))
+	now := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	conn := social.ThreadsConnection{
+		UserID: "42", Username: "vibe.padel", AccessToken: "long-token-value",
+		ConnectedAt: now, RefreshedAt: now, ExpiresAt: now.Add(60 * 24 * time.Hour),
+	}
+	if err := threads.SaveThreads(ctx, conn); err != nil {
+		t.Fatalf("SaveThreads() = %v", err)
+	}
+	got, _, _ := threads.LoadThreads(ctx)
+	if got.KeywordSearchRequested {
+		t.Fatal("a connection saved without the keyword scope must read back as not requested")
+	}
+	conn.KeywordSearchRequested = true
+	if err := threads.SaveThreads(ctx, conn); err != nil {
+		t.Fatalf("SaveThreads() = %v", err)
+	}
+	got, _, _ = threads.LoadThreads(ctx)
+	if !got.KeywordSearchRequested {
+		t.Fatal("the keyword flag must survive a save and load")
+	}
+}

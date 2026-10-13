@@ -407,6 +407,8 @@ var csrfExemptRoutes = map[string]string{
 	"POST /api/v1/book/cancel": "same flow, authenticated by the booking's own link token",
 
 	"POST /api/v1/public/email/unsubscribe":            "reached from a mail client or an emailed link, with no session; the signed token is the authentication",
+	"POST /api/v1/social/threads/uninstall":            "Meta's uninstall callback: sent by Meta with no session or cookie, authenticated by the signed_request HMAC keyed by the app secret",
+	"POST /api/v1/social/threads/delete":               "Meta's data-deletion callback: sent by Meta with no session or cookie, authenticated by the signed_request HMAC keyed by the app secret",
 	"PUT /api/v1/social/posts/{id}":                    "the content sync is authenticated by a GitHub Actions OIDC bearer token, not a cookie, so no cookie-borne CSRF token is in play",
 	"PUT /api/v1/social/posts/{id}/media/{name}":       "the content sync is authenticated by a GitHub Actions OIDC bearer token, not a cookie, so no cookie-borne CSRF token is in play",
 	"POST /api/v1/social/reconcile":                    "the content sync is authenticated by a GitHub Actions OIDC bearer token, not a cookie, so no cookie-borne CSRF token is in play",

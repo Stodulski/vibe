@@ -58,6 +58,31 @@ func Usage(w io.Writer) {
 	fs.PrintDefaults()
 }
 
+// defaultThreadsKeywords are the phrases the weekly Threads digest searches for
+// until SOCIAL_THREADS_KEYWORDS replaces them.
+var defaultThreadsKeywords = []string{
+	"complejo de pádel",
+	"canchas de pádel",
+	"reservar cancha",
+	"turnos de pádel",
+	"seña cancha",
+	"club de pádel",
+	"cancha de fútbol 5",
+	"sistema de reservas canchas",
+}
+
+// commaList reads a comma-separated list, trimming blanks and dropping empty
+// entries.
+func commaList(v string) []string {
+	var out []string
+	for _, entry := range strings.Split(v, ",") {
+		if e := strings.TrimSpace(entry); e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
 // newFlagSet declares the whole configuration surface: every flag, its default,
 // and in its usage text the environment variable that overrides it.
 //
@@ -162,6 +187,11 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.StringVar(&cfg.Social.ThreadsAppSecret, "threads-app-secret", "", "Meta app secret for the Threads connection (THREADS_APP_SECRET)")
 	fs.StringVar(&cfg.Social.APIBaseURL, "social-api-base-url", "https://api.vibe.com.ar",
 		"Public origin of this API, used for the Threads redirect URI (SOCIAL_API_BASE_URL)")
+	cfg.Social.ThreadsKeywords = append([]string(nil), defaultThreadsKeywords...)
+	fs.Func("threads-keywords", "comma-separated phrases for the weekly Threads digest (SOCIAL_THREADS_KEYWORDS)", func(v string) error {
+		cfg.Social.ThreadsKeywords = commaList(v)
+		return nil
+	})
 
 	fs.StringVar(&cfg.FrontendURL, "frontend-url", "http://localhost:5173", "Frontend URL (FRONTEND_URL)")
 	fs.StringVar(&cfg.PublicURL, "public-url", "",
@@ -271,6 +301,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("THREADS_APP_ID", &cfg.Social.ThreadsAppID)
 	env.strVal("THREADS_APP_SECRET", &cfg.Social.ThreadsAppSecret)
 	env.strVal("SOCIAL_API_BASE_URL", &cfg.Social.APIBaseURL)
+	env.str("SOCIAL_THREADS_KEYWORDS", func(v string) { cfg.Social.ThreadsKeywords = commaList(v) })
 
 	env.strVal("FRONTEND_URL", &cfg.FrontendURL)
 	env.strVal("PUBLIC_URL", &cfg.PublicURL)

@@ -111,6 +111,8 @@ var apiSurface = map[string]struct{}{
 	"POST /api/v1/social/reconcile":                                                     {},
 	"GET /api/v1/social/threads/connect":                                                {},
 	"GET /api/v1/social/threads/callback":                                               {},
+	"POST /api/v1/social/threads/uninstall":                                             {},
+	"POST /api/v1/social/threads/delete":                                                {},
 	"POST /api/v1/public/email/unsubscribe":                                             {},
 	"POST /api/v1/public/leads/abandoned-registration":                                  {},
 	"POST /api/v1/webhooks/mercadopago":                                                 {},

@@ -164,6 +164,22 @@ func TestCallbackStoresTheLongLivedTokenAndSaysSo(t *testing.T) {
 	}
 }
 
+func TestCallbackRecordsThatTheConsentAskedForKeywordSearch(t *testing.T) {
+	t.Parallel()
+	api := &fakeThreadsAPI{userID: "42", username: "vibe.padel", longToken: "long-1"}
+	store := &fakeThreadsStore{}
+	a := newThreadsAuth(true, api, store)
+
+	w := httptest.NewRecorder()
+	a.Callback(w, callbackRequest("s1"), ThreadsCallback{Code: "abc", State: "s1"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want 200", w.Code)
+	}
+	if !store.conn.KeywordSearchRequested {
+		t.Fatal("a connection made by this build asks for threads_keyword_search and must say so")
+	}
+}
+
 func TestCallbackRejectsAStateThatDoesNotMatch(t *testing.T) {
 	t.Parallel()
 	api := &fakeThreadsAPI{userID: "42", longToken: "long-1"}

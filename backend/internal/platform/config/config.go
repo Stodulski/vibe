@@ -229,6 +229,8 @@ type Social struct {
 	// APIBaseURL is the public origin of this API. The Threads redirect URI and
 	// the connect link are built on it.
 	APIBaseURL string
+	// ThreadsKeywords are the phrases the weekly Threads digest searches for.
+	ThreadsKeywords []string
 }
 
 // Brevo is the transactional email provider's configuration.

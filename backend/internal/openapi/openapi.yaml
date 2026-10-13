@@ -4253,6 +4253,72 @@ paths:
             text/html:
               schema: {type: string}
 
+  /api/v1/social/threads/uninstall:
+    post:
+      tags: [social]
+      operationId: socialThreadsUninstall
+      summary: Meta's uninstall callback for the Threads app
+      description: >-
+        Public and CSRF-exempt: Meta posts it with no session. The signed_request is verified with
+        the app secret (HMAC-SHA256, constant-time). A valid request for the connected account
+        removes its stored connection and queues one notice email; a valid request for another
+        account removes nothing. Answers 501 when Threads is not configured.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [signed_request]
+              properties:
+                signed_request: {type: string}
+      responses:
+        "200":
+          description: The callback was verified and handled.
+          content:
+            application/json:
+              schema: {type: object}
+        "400":
+          description: The signed_request is missing, malformed, or not signed by this app.
+        "501":
+          description: THREADS_APP_ID or THREADS_APP_SECRET is not set.
+
+  /api/v1/social/threads/delete:
+    post:
+      tags: [social]
+      operationId: socialThreadsDelete
+      summary: Meta's data-deletion callback for the Threads app
+      description: >-
+        Public and CSRF-exempt, verified like the uninstall callback. Removes the Threads connection
+        for the named account, if stored, and answers with the status page and a confirmation code
+        that Meta shows the person who asked for deletion.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [signed_request]
+              properties:
+                signed_request: {type: string}
+      responses:
+        "200":
+          description: The request was verified; the confirmation code identifies it.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, confirmation_code]
+                properties:
+                  url: {type: string}
+                  confirmation_code: {type: string}
+        "400":
+          description: The signed_request is missing, malformed, or not signed by this app.
+        "501":
+          description: THREADS_APP_ID or THREADS_APP_SECRET is not set.
+
   /api/v1/social/reconcile:
     post:
       tags: [social]

@@ -25,12 +25,15 @@ const (
 	defaultBase          = "https://graph.threads.net"
 	defaultAuthorizeBase = "https://threads.net"
 	apiVersion           = "/v1.0"
-	scopes               = "threads_basic,threads_content_publish"
-	defaultPollEvery     = 30 * time.Second
-	defaultPollFor       = 10 * time.Minute
-	defaultTimeout       = 30 * time.Second
-	defaultTokenLife     = 60 * 24 * time.Hour
-	maxResponseBytes     = 1 << 20
+	scopes               = "threads_basic,threads_content_publish," + social.ThreadsKeywordScope
+	keywordSearchLimit   = 25
+	// graphTimeLayout is how Graph writes timestamps: ISO 8601 with a +0000 offset.
+	graphTimeLayout  = "2006-01-02T15:04:05-0700"
+	defaultPollEvery = 30 * time.Second
+	defaultPollFor   = 10 * time.Minute
+	defaultTimeout   = 30 * time.Second
+	defaultTokenLife = 60 * 24 * time.Hour
+	maxResponseBytes = 1 << 20
 	// tokenErrorCode is Graph's "invalid or expired access token" code. The post
 	// waits for a reconnect instead of ending, so it is never permanent.
 	tokenErrorCode = 190
@@ -155,6 +158,59 @@ func (c *Client) Me(ctx context.Context, token string) (string, string, error) {
 		return "", "", err
 	}
 	return out.ID.String(), out.Username, nil
+}
+
+// KeywordSearch returns the public posts that match query, as the connected
+// account. searchType is social.KeywordSearchTop or social.KeywordSearchRecent.
+// While the app lacks the keyword permission, Meta answers with the account's
+// own posts only.
+func (c *Client) KeywordSearch(ctx context.Context, query, searchType string) ([]social.ThreadsKeywordPost, error) {
+	conn, err := c.connection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Data []struct {
+			ID         string `json:"id"`
+			Text       string `json:"text"`
+			Permalink  string `json:"permalink"`
+			Username   string `json:"username"`
+			Timestamp  string `json:"timestamp"`
+			HasReplies bool   `json:"has_replies"`
+		} `json:"data"`
+	}
+	q := url.Values{
+		"q":            {query},
+		"search_type":  {searchType},
+		"fields":       {"id,text,permalink,timestamp,username,has_replies"},
+		"limit":        {strconv.Itoa(keywordSearchLimit)},
+		"access_token": {conn.AccessToken},
+	}
+	if err := c.get(ctx, c.cfg.Base+apiVersion+"/keyword_search", q, &out); err != nil {
+		return nil, err
+	}
+	posts := make([]social.ThreadsKeywordPost, 0, len(out.Data))
+	for _, p := range out.Data {
+		posts = append(posts, social.ThreadsKeywordPost{
+			ID:         p.ID,
+			Text:       p.Text,
+			Permalink:  p.Permalink,
+			Username:   p.Username,
+			Timestamp:  parseGraphTime(p.Timestamp),
+			HasReplies: p.HasReplies,
+		})
+	}
+	return posts, nil
+}
+
+// parseGraphTime reads a Graph timestamp. A value in another shape becomes the
+// zero time, which falls outside every window the digest keeps.
+func parseGraphTime(s string) time.Time {
+	t, err := time.Parse(graphTimeLayout, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 // ThreadsPermalink returns the public URL of a published Threads post.

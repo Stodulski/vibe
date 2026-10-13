@@ -144,6 +144,8 @@ func (a *ThreadsAuth) connect(ctx context.Context, code string) (ThreadsConnecti
 		ConnectedAt: now,
 		RefreshedAt: now,
 		ExpiresAt:   now.Add(long.ExpiresIn),
+		// The consent page of this build asks for ThreadsKeywordScope.
+		KeywordSearchRequested: true,
 	}
 	if err := a.store.SaveThreads(ctx, conn); err != nil {
 		return ThreadsConnection{}, fmt.Errorf("social: store threads connection: %w", err)

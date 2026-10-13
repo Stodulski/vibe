@@ -23,6 +23,10 @@ type ThreadsConnection struct {
 	RefreshedAt time.Time
 	// ExpiresAt is when the current token stops working.
 	ExpiresAt time.Time
+	// KeywordSearchRequested is true when the consent that produced this token
+	// asked for ThreadsKeywordScope. A connection made before that scope existed
+	// reads false, and keyword search needs the owner to authorize again.
+	KeywordSearchRequested bool
 }
 
 // ThreadsStore keeps the Threads connection. The table holds one row.
@@ -31,6 +35,13 @@ type ThreadsStore interface {
 	LoadThreads(ctx context.Context) (conn ThreadsConnection, ok bool, err error)
 	// SaveThreads replaces the connection and seals its token.
 	SaveThreads(ctx context.Context, conn ThreadsConnection) error
+}
+
+// ThreadsDisconnecter removes the connection when Meta reports that the owner
+// removed the app or asked for their data to be deleted. It removes only the
+// account the request names, and reports the username it removed.
+type ThreadsDisconnecter interface {
+	DisconnectThreads(ctx context.Context, userID string) (username string, removed bool, err error)
 }
 
 // ThreadsToken is what a Threads OAuth call returns. The short-lived exchange
