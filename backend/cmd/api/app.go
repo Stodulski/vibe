@@ -299,6 +299,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Sender:       cfg.Brevo.Sender,
 		LogoURL:      cfg.FrontendURL + "/logo.png",
 		AppURL:       cfg.FrontendURL,
+		PublicURL:    cfg.PublicBaseURL(),
 		CB:           mailerCB,
 	})
 	whatsappEnabled := cfg.WhatsApp.Token != "" && cfg.WhatsApp.PhoneID != ""

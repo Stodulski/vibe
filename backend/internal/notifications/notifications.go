@@ -40,6 +40,7 @@ type Mailer interface {
 	SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error
 	SendWaitlistSlotFreed(ctx context.Context, to, complexName, date, bookURL string) error
 	SendLifecycleNudge(ctx context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error
+	SendWelcome(ctx context.Context, to, firstName string) error
 }
 
 // WhatsAppSender is the WhatsApp side of delivery.

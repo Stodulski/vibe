@@ -106,6 +106,10 @@ func (s *Service) RegisterWorkers() {
 		return s.mailer.SendEmailVerification(ctx, p.To, p.FirstName, p.VerifyURL)
 	}))
 
+	s.queue.RegisterHandler(handle(TaskEmailWelcome, func(ctx context.Context, p WelcomeEmail) error {
+		return s.mailer.SendWelcome(ctx, p.To, p.FirstName)
+	}))
+
 	s.queue.RegisterHandler(handle(TaskEmailPasswordReset, func(ctx context.Context, p PasswordResetEmail) error {
 		return s.mailer.SendPasswordReset(ctx, p.To, p.FirstName, p.ResetURL)
 	}))
