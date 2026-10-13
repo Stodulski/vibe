@@ -36,7 +36,9 @@ async function answerDurationQuestion(page: Page): Promise<void> {
 // Empty-state copy of the slot list, `t.publicBooking.noAvailability`
 // (src/shared/i18n/es_AR/publicBooking.ts). The e2e tsconfig only includes
 // e2e/, so the string is mirrored here instead of imported; keep both in sync.
-const NO_AVAILABILITY_COPY = 'Sin horarios para esta fecha';
+// After the last slot of the day a date shows the full-day panel instead of the
+// empty-filter copy, so late runs see either one.
+const NO_AVAILABILITY_COPY = /Sin horarios para esta fecha|Este día ya está completo/;
 
 test.describe('Public Booking Flow', () => {
   let setupDone = false;
