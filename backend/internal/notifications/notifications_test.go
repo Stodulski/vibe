@@ -125,6 +125,10 @@ func (m *stubMailer) SendLifecycleNudge(_ context.Context, to, kind, firstName, 
 	return m.record("lifecycle_nudge", to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL)
 }
 
+func (m *stubMailer) SendWelcome(_ context.Context, to, firstName string) error {
+	return m.record("welcome", to, firstName)
+}
+
 type sentWA struct {
 	to   string
 	tmpl whatsapp.TemplateMessage
@@ -518,7 +522,7 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
 		TaskWABookingConfirmation, TaskWAReminder2h,
 		TaskWABookingCancelled, TaskWADepositRefunded,
-		TaskEmailLifecycleNudge,
+		TaskEmailLifecycleNudge, TaskEmailWelcome,
 	} {
 		if _, ok := q.handlers[taskType]; !ok {
 			t.Errorf("no worker registered for %s", taskType)
