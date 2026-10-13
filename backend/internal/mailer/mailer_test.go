@@ -734,6 +734,10 @@ func captureSent(t *testing.T) []string {
 				"REFUND_LINE", "$5.000", "https://vibe.test/book")
 		},
 		func() error { return m.SendDepositRefunded(ctx, to, complex, "$5.000", "https://vibe.test/book") },
+		func() error {
+			return m.SendBenefitsCampaign(ctx, to, "Ana", "share_page", "https://vibe.test/c/cancha",
+				"https://vibe.test/dashboard", "https://vibe.test/unsub", "https://vibe.test/baja")
+		},
 		func() error { return m.SendOwnerNewBooking(ctx, to, complex, court, "Ana Perez", date, hours) },
 		func() error { return m.SendEmailVerification(ctx, to, "Ana", "https://vibe.test/verify?t=1") },
 		func() error { return m.SendPasswordReset(ctx, to, "Ana", "https://vibe.test/reset?t=2") },

@@ -129,6 +129,10 @@ func (m *stubMailer) SendWelcome(_ context.Context, to, firstName string) error 
 	return m.record("welcome", to, firstName)
 }
 
+func (m *stubMailer) SendBenefitsCampaign(_ context.Context, to, firstName, segment, _, _, _, _ string) error {
+	return m.record("benefits_campaign", to, firstName+"|"+segment)
+}
+
 type sentWA struct {
 	to   string
 	tmpl whatsapp.TemplateMessage

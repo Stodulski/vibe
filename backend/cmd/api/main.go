@@ -16,6 +16,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/audit"
 	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/bookings"
+	"github.com/stodulski/vibe-server/internal/campaign"
 	"github.com/stodulski/vibe-server/internal/cashbox"
 	"github.com/stodulski/vibe-server/internal/clients"
 	"github.com/stodulski/vibe-server/internal/complexes"
@@ -66,9 +67,12 @@ type application struct {
 	emailUnsubscribe *lifecycle.UnsubscribeHandler
 	// lifecycleNudger is the cron's handle on the owner and lead nudges.
 	lifecycleNudger *lifecycle.Nudger
-	reporting       *reporting.Handler
-	health          *health.Handler
-	openapi         *openapi.Handler
+	// campaignBenefits is the cron's handle on the one-off benefits email (2026-10).
+	// Nil without a durable queue. Remove with the campaign.
+	campaignBenefits *campaign.Campaign
+	reporting        *reporting.Handler
+	health           *health.Handler
+	openapi          *openapi.Handler
 	// specValidator refuses requests the OpenAPI document does not allow. It
 	// is nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off,
 	// which is the only thing routes() checks.
