@@ -52,7 +52,10 @@ type Mailer struct {
 	// points at. It is a separate field from logoURL — which is the frontend
 	// origin plus "/logo.png" — because a future asset-CDN split for the logo
 	// must not silently move the owner's dashboard link with it.
-	appURL     string
+	appURL string
+	// publicURL is the storefront origin the welcome email's tutorial links point
+	// at. It is config.PublicBaseURL, the same origin the public site lives on.
+	publicURL  string
 	httpClient *http.Client
 	cb         *circuitbreaker.CircuitBreaker
 }
@@ -69,7 +72,9 @@ type Config struct {
 	// AppURL is the dashboard origin used for the owner's "Ver en el panel"
 	// button on the new-booking email.
 	AppURL string
-	CB     *circuitbreaker.CircuitBreaker
+	// PublicURL is the storefront origin the welcome email's tutorial links point at.
+	PublicURL string
+	CB        *circuitbreaker.CircuitBreaker
 }
 
 // New creates a new Mailer. Uses Brevo API if apiKey is set, otherwise SMTP.
@@ -92,6 +97,7 @@ func New(cfg Config) *Mailer {
 		senderRaw:    cfg.Sender,
 		logoURL:      cfg.LogoURL,
 		appURL:       cfg.AppURL,
+		publicURL:    cfg.PublicURL,
 		httpClient:   &http.Client{Timeout: 5 * time.Second},
 		cb:           cfg.CB,
 	}

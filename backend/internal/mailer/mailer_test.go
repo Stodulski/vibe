@@ -708,7 +708,7 @@ func captureSent(t *testing.T) []string {
 	}))
 	defer brevo.Close()
 
-	m := New(Config{BrevoAPIKey: "k", Sender: "Vibe <noreply@vibe.com.ar>"})
+	m := New(Config{BrevoAPIKey: "k", Sender: "Vibe <noreply@vibe.com.ar>", AppURL: welcomeAppURL, PublicURL: welcomePublicURL})
 	m.apiURL = brevo.URL
 
 	ctx := context.Background()
@@ -766,6 +766,7 @@ func captureSent(t *testing.T) []string {
 			return m.SendLifecycleNudge(ctx, to, "finish_signup", "", "", "https://vibe.test/register",
 				"https://vibe.test/unsub?t=7", "https://vibe.test/baja?t=7")
 		},
+		func() error { return m.SendWelcome(ctx, to, "Ana") },
 	}
 	for i, send := range sends {
 		if err := send(); err != nil {
