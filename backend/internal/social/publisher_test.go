@@ -95,10 +95,28 @@ func (s *fakePublishStore) ClaimDue(_ context.Context, now time.Time, limit int,
 	return out, nil
 }
 
-func (s *fakePublishStore) RecordResult(_ context.Context, p Post) error {
+// RecordResult honors the run context as the real store does: a write on a
+// finished context fails, so a result that is saved late is lost.
+func (s *fakePublishStore) RecordResult(ctx context.Context, p Post) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	s.saves++
 	s.posts[p.ID] = p
 	return nil
+}
+
+// cancelAfterPublish cancels the run context the moment Meta accepts an
+// Instagram publish, as happens when the cron deadline falls mid-run.
+type cancelAfterPublish struct {
+	Platform
+	cancel context.CancelFunc
+}
+
+func (c cancelAfterPublish) PublishInstagram(ctx context.Context, p Post) (string, error) {
+	id, err := c.Platform.PublishInstagram(ctx, p)
+	c.cancel()
+	return id, err
 }
 
 type fakeReporter struct{ reports []Report }
@@ -311,6 +329,38 @@ func TestPublishedNetworksAreNeverRepeated(t *testing.T) {
 	}
 	if got := h.post("p1"); got.IGMediaID != "ig-old" || got.Status != StatusPublished {
 		t.Fatalf("post = %+v, want the old id kept and published", got)
+	}
+}
+
+func TestSaveRecordsTheIDEvenWhenTheRunContextIsCancelled(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, true, duePost("p1", NetworkInstagram))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	h.pub.platform = cancelAfterPublish{Platform: h.platform, cancel: cancel}
+
+	if _, err := h.pub.RunDue(ctx); err != nil {
+		t.Fatalf("RunDue() = %v", err)
+	}
+	if got := h.post("p1"); got.IGMediaID != "ig-1" || got.Status != StatusPublished {
+		t.Fatalf("stored post = %+v, want the Instagram id kept and the post published", got)
+	}
+}
+
+func TestAFeedPostNearTheRunDeadlineIsDeferredWithoutAnAttempt(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, true, duePost("p1", NetworkInstagram))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(20*time.Second))
+	defer cancel()
+
+	if _, err := h.pub.RunDue(ctx); err != nil {
+		t.Fatalf("RunDue() = %v", err)
+	}
+	if h.platform.igCalls != 0 {
+		t.Fatalf("instagram publish calls = %d, want none with 20s of the run left", h.platform.igCalls)
+	}
+	if got := h.post("p1"); got.Attempts != 0 || got.Status != StatusScheduled || got.LastError == "" {
+		t.Fatalf("post = %+v, want deferred with no attempt spent", got)
 	}
 }
 
