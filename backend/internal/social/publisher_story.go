@@ -107,6 +107,9 @@ func (p *Publisher) publishSequence(ctx context.Context, post *Post, network Net
 		if now.Before(item.ScheduledAt) {
 			return nil, false, &waitUntil{at: item.ScheduledAt, reason: "the next story is not due yet"}
 		}
+		if nearDeadline(ctx) {
+			return nil, false, &waitUntil{at: p.cfg.Now().Add(deadlineDeferDelay), reason: deadlineReason}
+		}
 		if network == NetworkInstagram {
 			wait, err := p.storyQuota(ctx)
 			switch {

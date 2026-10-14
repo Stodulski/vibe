@@ -59,6 +59,31 @@ type Report struct {
 // used up. The window is a rolling 24 hours, so an hour is a sensible check.
 const quotaDeferDelay = time.Hour
 
+// runDeadlineMargin is how much of a run must be left before it starts a Meta
+// call. The cron job runs under a two-minute deadline (scheduler jobTimeout), and
+// one publish (container create, poll until ready, publish) can take tens of
+// seconds. A publish started with less than this left would be cut mid-flight,
+// so the work waits for the next run instead, without spending an attempt.
+const runDeadlineMargin = 45 * time.Second
+
+// deadlineDeferDelay is how long work held back by runDeadlineMargin waits. It
+// is short, so the next five-minute cron tick claims it.
+const deadlineDeferDelay = time.Minute
+
+// deadlineReason is the post's last error while it waits for a run with time left.
+const deadlineReason = "the run is close to its deadline, retrying on a later run"
+
+// saveTimeout bounds one write of a publish result. The write is detached from
+// the run's context: a result Meta has already returned must be recorded even
+// when the run's deadline has passed, or the post is republished after its lease.
+const saveTimeout = 10 * time.Second
+
+// nearDeadline reports whether ctx has a deadline with less than runDeadlineMargin left.
+func nearDeadline(ctx context.Context) bool {
+	deadline, ok := ctx.Deadline()
+	return ok && time.Until(deadline) < runDeadlineMargin
+}
+
 // PublisherConfig tunes the publisher. Backoff holds the wait before each
 // retry, so its length plus one is the attempt budget. Secret is scrubbed from
 // every error the publisher stores or logs.
@@ -112,10 +137,18 @@ func (p *Publisher) publish(ctx context.Context, post Post) {
 		p.publishStory(ctx, &post)
 		return
 	}
+	if nearDeadline(ctx) {
+		p.deferUntil(ctx, &post, deadlineReason, p.cfg.Now().Add(deadlineDeferDelay))
+		return
+	}
 	if !p.instagramAllowed(ctx, &post) {
 		return
 	}
-	errs, permanent := p.publishPending(ctx, &post)
+	errs, permanent, wait := p.publishPending(ctx, &post)
+	if wait != nil && len(errs) == 0 {
+		p.deferUntil(ctx, &post, wait.reason, wait.at)
+		return
+	}
 	p.finish(ctx, &post, errs, permanent)
 }
 
@@ -142,11 +175,15 @@ func (p *Publisher) instagramAllowed(ctx context.Context, post *Post) bool {
 }
 
 // publishPending publishes each network that has no id yet, saving each id as
-// soon as Meta returns it. It returns the failures and whether any is permanent.
-func (p *Publisher) publishPending(ctx context.Context, post *Post) ([]error, bool) {
+// soon as Meta returns it. It returns the failures, whether any is permanent, and
+// a wait when it stopped short because the run is nearly out of time.
+func (p *Publisher) publishPending(ctx context.Context, post *Post) ([]error, bool, *waitUntil) {
 	var errs []error
 	permanent := false
 	for _, network := range pendingNetworks(*post) {
+		if nearDeadline(ctx) {
+			return errs, permanent, &waitUntil{at: p.cfg.Now().Add(deadlineDeferDelay), reason: deadlineReason}
+		}
 		id, err := p.publishNetwork(ctx, *post, network)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", network, err))
@@ -156,7 +193,7 @@ func (p *Publisher) publishPending(ctx context.Context, post *Post) ([]error, bo
 		setNetworkID(post, network, id)
 		p.save(ctx, *post)
 	}
-	return errs, permanent
+	return errs, permanent, nil
 }
 
 func (p *Publisher) publishNetwork(ctx context.Context, post Post, network Network) (string, error) {
@@ -244,8 +281,12 @@ func (p *Publisher) maxAttempts() int {
 }
 
 // save writes a post's state back. A failure is logged, not returned: the
-// claim lease expires and the post is picked up again.
+// claim lease expires and the post is picked up again. The write is detached
+// from the run's cancellation and deadline, so a result that arrives after the
+// deadline is still recorded.
 func (p *Publisher) save(ctx context.Context, post Post) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), saveTimeout)
+	defer cancel()
 	if err := p.store.RecordResult(ctx, post); err != nil {
 		p.logger.Error("social: could not record the publish result", "post", post.ID, "error", p.scrub(err.Error()))
 	}

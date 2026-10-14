@@ -80,12 +80,20 @@ func (s *sequenceStore) ClaimDue(_ context.Context, now time.Time, limit int, le
 		until := now.Add(lease)
 		p.NextAttemptAt = &until
 		s.posts[id] = p
-		out = append(out, p)
+		claimed := p
+		claimed.StoryItems = slices.Clone(p.StoryItems)
+		out = append(out, claimed)
 	}
 	return out, nil
 }
 
-func (s *sequenceStore) RecordResult(_ context.Context, p Post) error {
+// The store keeps its own copy of the story items, as a database would: a
+// publisher that edits its in-memory post must not change the stored row.
+func (s *sequenceStore) RecordResult(ctx context.Context, p Post) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	p.StoryItems = slices.Clone(p.StoryItems)
 	s.posts[p.ID] = p
 	return nil
 }
@@ -288,6 +296,59 @@ func TestStoryFailsWhenTheFeedPostDoesNotGoToItsNetwork(t *testing.T) {
 	rig.run(t)
 	if got := rig.post("historia-6"); got.Status != StatusFailed || !strings.Contains(got.LastError, "does not publish to instagram") {
 		t.Fatalf("story = %+v, want failed because the feed post never reaches instagram", got)
+	}
+}
+
+func TestStorySavesEachIDEvenWhenTheRunContextIsCancelled(t *testing.T) {
+	t.Parallel()
+	rig := newSequenceRig(storyWith("historia-7", storyT0.Add(-time.Minute), []Network{NetworkInstagram}, "1.jpg", "2.jpg"))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rig.pub.platform = cancelAfterPublish{Platform: rig.platform, cancel: cancel}
+
+	if _, err := rig.pub.RunDue(ctx); err != nil {
+		t.Fatalf("RunDue() = %v", err)
+	}
+	got := rig.post("historia-7")
+	if got.StoryItems[0].IGMediaID != "ig-1" || got.StoryItems[1].IGMediaID != "ig-2" {
+		t.Fatalf("stored items = %+v, want both Instagram ids kept", got.StoryItems)
+	}
+}
+
+func TestStoryWithLittleTimeLeftPublishesNothingAndSpendsNoAttempt(t *testing.T) {
+	t.Parallel()
+	names := []string{"1.jpg", "2.jpg", "3.jpg"}
+	rig := newSequenceRig(storyWith("historia-8", storyT0.Add(-time.Minute), []Network{NetworkInstagram, NetworkFacebook}, names...))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(20*time.Second))
+	defer cancel()
+
+	if _, err := rig.pub.RunDue(ctx); err != nil {
+		t.Fatalf("RunDue() = %v", err)
+	}
+	if len(rig.platform.igAttempts) != 0 || len(rig.platform.fbAttempts) != 0 {
+		t.Fatalf("publishes instagram=%v facebook=%v, want none with 20s of the run left", rig.platform.igAttempts, rig.platform.fbAttempts)
+	}
+	if got := rig.post("historia-8"); got.Attempts != 0 || got.Status != StatusScheduled || got.LastError == "" {
+		t.Fatalf("story = %+v, want deferred with no attempt spent", got)
+	}
+}
+
+func TestStoryItemThatAlreadyHasAnIDIsNotSentAgainAfterTheLeaseExpires(t *testing.T) {
+	t.Parallel()
+	names := []string{"1.jpg", "2.jpg"}
+	post := storyWith("historia-9", storyT0.Add(-2*time.Hour), []Network{NetworkInstagram}, names...)
+	post.Status = StatusPublishing
+	post.StoryItems[0].IGMediaID = "ig-saved"
+	lapsed := storyT0.Add(-time.Hour)
+	post.NextAttemptAt = &lapsed
+	rig := newSequenceRig(post)
+
+	rig.run(t)
+	if !slices.Equal(rig.platform.igAttempts, []string{"2.jpg"}) {
+		t.Fatalf("instagram attempts = %v, want only 2.jpg; 1.jpg already has an id", rig.platform.igAttempts)
+	}
+	if got := rig.post("historia-9"); got.StoryItems[0].IGMediaID != "ig-saved" {
+		t.Fatalf("item 1 id = %q, want the saved one kept", got.StoryItems[0].IGMediaID)
 	}
 }
 
