@@ -78,7 +78,8 @@ export const auth = {
   resetPasswordSubmitting: 'Restableciendo...',
   resetPasswordError: 'El enlace es inválido o expiró. Solicitá uno nuevo.',
   rateLimitError: 'Demasiados intentos. Esperá un momento antes de reintentar.',
-  checkInboxIfUnverified: 'Si no verificaste tu email, revisá tu bandeja de entrada.',
+  checkInboxIfUnverified:
+    'Si te registraste con Google, entrá con Google o creá una contraseña desde «¿Olvidaste tu contraseña?». Si no verificaste tu email, revisá tu bandeja de entrada.',
   registerStepProgress: 'Progreso del registro',
   registerStep1: 'Email',
   registerStep2: 'Datos personales',
