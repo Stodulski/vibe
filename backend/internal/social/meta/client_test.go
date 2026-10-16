@@ -183,7 +183,7 @@ func TestInstagramCarouselCreatesChildrenThenTheParent(t *testing.T) {
 			return http.StatusOK, `{"id":"child-2"}`
 		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media":
 			return http.StatusOK, `{"id":"parent"}`
-		case e.method == http.MethodGet && e.path == "/v25.0/parent":
+		case e.method == http.MethodGet && (e.path == "/v25.0/parent" || e.path == "/v25.0/child-1" || e.path == "/v25.0/child-2"):
 			return http.StatusOK, `{"status_code":"FINISHED"}`
 		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media_publish":
 			return http.StatusOK, `{"id":"m2"}`
@@ -395,5 +395,106 @@ func TestAnOpenBreakerIsReportedWithoutAnotherCall(t *testing.T) {
 	}
 	if n := len(fake.calls()); n != 1 {
 		t.Fatalf("server calls = %d, want 1: an open breaker must not reach Meta", n)
+	}
+}
+
+func TestInstagramCarouselWaitsForEveryChildBeforeTheParent(t *testing.T) {
+	t.Parallel()
+	var childPolls atomic.Int32
+	fake, client := newFake(t, func(e exchange) (int, string) {
+		if code, body, ok := standardAccount(e); ok {
+			return code, body
+		}
+		switch {
+		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media" && e.params.Get("is_carousel_item") == "true":
+			return http.StatusOK, `{"id":"child-1"}`
+		case e.method == http.MethodGet && e.path == "/v25.0/child-1":
+			if childPolls.Add(1) == 1 {
+				return http.StatusOK, `{"status_code":"IN_PROGRESS"}`
+			}
+			return http.StatusOK, `{"status_code":"FINISHED"}`
+		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media":
+			if childPolls.Load() < 2 {
+				return http.StatusBadRequest, `{"error":{"message":"child not ready","code":100}}`
+			}
+			return http.StatusOK, `{"id":"parent"}`
+		case e.method == http.MethodGet && e.path == "/v25.0/parent":
+			return http.StatusOK, `{"status_code":"FINISHED"}`
+		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media_publish":
+			return http.StatusOK, `{"id":"m3"}`
+		}
+		return http.StatusNotFound, `{"error":{"message":"no route"}}`
+	})
+
+	post := imagePost(social.TypeCarousel, "1.jpg", "2.jpg")
+	id, err := client.PublishInstagram(context.Background(), post)
+	if err != nil || id != "m3" {
+		t.Fatalf("PublishInstagram() = %q, %v; want m3 after the children finish", id, err)
+	}
+	if got := childPolls.Load(); got < 2 {
+		t.Fatalf("child polls = %d, want the child polled until FINISHED", got)
+	}
+	var parentAt, lastChildPoll int
+	for i, c := range fake.calls() {
+		if c.params.Get("media_type") == "CAROUSEL" {
+			parentAt = i
+		}
+		if c.path == "/v25.0/child-1" {
+			lastChildPoll = i
+		}
+	}
+	if parentAt < lastChildPoll {
+		t.Fatalf("parent created at call %d before the last child poll at %d", parentAt, lastChildPoll)
+	}
+}
+
+func TestInstagramPublishRetriesWhileTheMediaIsNotReady(t *testing.T) {
+	t.Parallel()
+	var publishes atomic.Int32
+	_, client := newFake(t, func(e exchange) (int, string) {
+		if code, body, ok := standardAccount(e); ok {
+			return code, body
+		}
+		switch {
+		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media":
+			return http.StatusOK, `{"id":"c1"}`
+		case e.method == http.MethodGet && e.path == "/v25.0/c1":
+			return http.StatusOK, `{"status_code":"FINISHED"}`
+		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media_publish":
+			if publishes.Add(1) < 3 {
+				return http.StatusBadRequest, `{"error":{"message":"Media ID is not available","code":9007,"error_subcode":2207027}}`
+			}
+			return http.StatusOK, `{"id":"m4"}`
+		}
+		return http.StatusNotFound, `{"error":{"message":"no route"}}`
+	})
+
+	id, err := client.PublishInstagram(context.Background(), imagePost(social.TypeImage, "1.jpg"))
+	if err != nil || id != "m4" {
+		t.Fatalf("PublishInstagram() = %q, %v; want m4 on the third media_publish", id, err)
+	}
+	if got := publishes.Load(); got != 3 {
+		t.Fatalf("media_publish calls = %d, want 3", got)
+	}
+}
+
+func TestMediaNotReadyIsRetryableWhenItOutlastsTheWait(t *testing.T) {
+	t.Parallel()
+	_, client := newFake(t, func(e exchange) (int, string) {
+		if code, body, ok := standardAccount(e); ok {
+			return code, body
+		}
+		switch {
+		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media":
+			return http.StatusOK, `{"id":"c1"}`
+		case e.method == http.MethodGet && e.path == "/v25.0/c1":
+			return http.StatusOK, `{"status_code":"FINISHED"}`
+		}
+		return http.StatusBadRequest, `{"error":{"message":"Media ID is not available","code":9007,"error_subcode":2207027}}`
+	})
+
+	_, err := client.PublishInstagram(context.Background(), imagePost(social.TypeImage, "1.jpg"))
+	if err == nil || errors.Is(err, social.ErrPermanent) {
+		t.Fatalf("PublishInstagram() = %v, want a retryable not-ready error", err)
 	}
 }

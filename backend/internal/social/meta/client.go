@@ -126,13 +126,31 @@ func (c *Client) PublishInstagram(ctx context.Context, post social.Post) (string
 	if err := c.awaitContainer(ctx, creation); err != nil {
 		return "", err
 	}
-	var out struct {
-		ID string `json:"id"`
+	return c.publishContainer(ctx, acct.igUserID, creation)
+}
+
+// publishContainer publishes a FINISHED container. Meta can still answer that
+// the media is not ready for a short while after FINISHED, so that answer is
+// retried within PollFor before it is returned as a retryable error.
+func (c *Client) publishContainer(ctx context.Context, igID, creation string) (string, error) {
+	deadline := time.Now().Add(c.cfg.PollFor)
+	for {
+		var out struct {
+			ID string `json:"id"`
+		}
+		err := c.post(ctx, c.cfg.Token, "/"+igID+"/media_publish", url.Values{"creation_id": {creation}}, &out)
+		if err == nil {
+			return out.ID, nil
+		}
+		if !errors.Is(err, errMediaNotReady) || time.Now().After(deadline) {
+			return "", err
+		}
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("wait for instagram media: %w", ctx.Err())
+		case <-time.After(c.cfg.PollEvery):
+		}
 	}
-	if err := c.post(ctx, c.cfg.Token, "/"+acct.igUserID+"/media_publish", url.Values{"creation_id": {creation}}, &out); err != nil {
-		return "", err
-	}
-	return out.ID, nil
 }
 
 // InstagramPermalink returns the public URL of a published Instagram media.
@@ -202,6 +220,13 @@ func (c *Client) instagramCarousel(ctx context.Context, igID string, post social
 			return "", err
 		}
 		children = append(children, id)
+	}
+	// Every child must be FINISHED before the parent is built, or the parent
+	// can report FINISHED while media_publish still refuses it as not ready.
+	for _, id := range children {
+		if err := c.awaitContainer(ctx, id); err != nil {
+			return "", err
+		}
 	}
 	form := url.Values{"media_type": {"CAROUSEL"}, "children": {strings.Join(children, ",")}, "caption": {post.Caption}}
 	return c.createContainer(ctx, igID, form)
@@ -552,8 +577,16 @@ type graphErrorBody struct {
 	} `json:"error"`
 }
 
+// codeMediaNotReady is Graph's answer to media_publish while the media is still
+// processing (code 9007, subcode 2207027). Meta documents it as wait and retry.
+const codeMediaNotReady = 9007
+
+// errMediaNotReady marks that answer. It is retryable, not permanent.
+var errMediaNotReady = errors.New("instagram media is not ready")
+
 // apiError turns a Graph error answer into an error. A client error other than
-// 429 is permanent, because the same request would fail the same way again.
+// 429 or media not ready is permanent, because the same request would fail the
+// same way again.
 func apiError(status int, raw []byte) error {
 	var body graphErrorBody
 	if err := json.Unmarshal(raw, &body); err != nil {
@@ -565,6 +598,9 @@ func apiError(status int, raw []byte) error {
 		msg = http.StatusText(status)
 	}
 	text := fmt.Sprintf("meta answered %d (code %d): %s", status, body.Error.Code, msg)
+	if body.Error.Code == codeMediaNotReady {
+		return fmt.Errorf("%w: %s", errMediaNotReady, text)
+	}
 	if status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusTooManyRequests {
 		return fmt.Errorf("%w: %s", social.ErrPermanent, text)
 	}
