@@ -47,7 +47,9 @@ export function useLogin(options?: UseLoginOptions) {
       // Generic error for all auth failures (prevents account enumeration —
       // the backend answers "wrong password" and "unverified email" the
       // same way, on purpose). The hint applies either way without telling
-      // an attacker which case it actually was.
+      // an attacker which case it actually was. It also names Google: an
+      // account created with Google has a password nobody knows, so the
+      // owner needs Google or a reset to sign in.
       toast.error(t.auth.invalidCredentials, { description: t.auth.checkInboxIfUnverified });
     },
   });
