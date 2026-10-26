@@ -700,3 +700,76 @@ func TestGraphErrorMessageIsUnchanged(t *testing.T) {
 		t.Fatalf("account() = %v, want exactly %q", err, want)
 	}
 }
+
+// assertTokenHidden fails when err is nil, when it still holds the token in
+// any form, or when it lacks the marker that replaced the token.
+func assertTokenHidden(t *testing.T, err error, token string) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	for _, form := range []string{token, url.QueryEscape(token)} {
+		if strings.Contains(err.Error(), form) {
+			t.Fatalf("error %q leaks the token form %q", err, form)
+		}
+	}
+	if !strings.Contains(err.Error(), "[redacted]") {
+		t.Fatalf("error %q, want the token replaced by [redacted]", err)
+	}
+}
+
+// The request's token never reaches an error, whatever form the answer echoes it
+// in: raw, query-escaped, in JSON, in escaped JSON, or in a Graph message.
+func TestThePageTokenOfTheRequestIsRedactedInAnyForm(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		token  string
+		status int
+		body   string
+	}{
+		{"json member", "EAABpage-secret", http.StatusUnprocessableEntity, `{"token":"EAABpage-secret"}`},
+		{"message text", "EAABpage-secret", http.StatusUnprocessableEntity, `{"message":"page token EAABpage-secret echoed"}`},
+		{"query escaped pair", "EAABpage-secret", http.StatusUnprocessableEntity, `access_token%3DEAABpage-secret&x=1`},
+		{"escaped json", "EAABpage-secret", http.StatusUnprocessableEntity, `{"x":"{\"access_token\":\"EAABpage-secret\"}"}`},
+		{"graph message", "EAABpage-secret", http.StatusBadRequest, `{"error":{"message":"bad EAABpage-secret","code":190}}`},
+		{"query escaped token", "EAAB|p+1", http.StatusUnprocessableEntity, `{"echo":"EAAB%7Cp%2B1"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, client := newFake(t, func(e exchange) (int, string) {
+				if e.path == "/v25.0/me/accounts" {
+					return http.StatusOK, `{"data":[{"id":"page-1","access_token":"` + tc.token + `","instagram_business_account":{"id":"ig-1"}}]}`
+				}
+				return tc.status, tc.body
+			})
+			_, err := client.PublishFacebook(context.Background(), imagePost(social.TypeImage, "1.jpg"))
+			assertTokenHidden(t, err, tc.token)
+		})
+	}
+}
+
+// The upload step sends the token in its Authorization header, not in the query.
+// Its answer is redacted just the same.
+func TestTheTokenIsRedactedOnTheUploadStep(t *testing.T) {
+	t.Parallel()
+	_, client := newFake(t, func(e exchange) (int, string) {
+		if e.path == "/v25.0/me/accounts" {
+			return http.StatusOK, `{"data":[{"id":"page-1","access_token":"EAABpage-secret","instagram_business_account":{"id":"ig-1"}}]}`
+		}
+		switch {
+		case e.path == "/v25.0/page-1/video_reels":
+			return http.StatusOK, `{"video_id":"vid-9"}`
+		case e.path == "/upload/v25.0/vid-9":
+			return http.StatusUnprocessableEntity, `{"debug_info":{"type":"OAuthException","message":"EAABpage-secret rejected"}}`
+		}
+		return http.StatusNotFound, `{"error":{"message":"no route"}}`
+	})
+
+	_, err := client.PublishFacebook(context.Background(), imagePost(social.TypeReel, "clip.mp4"))
+	assertTokenHidden(t, err, "EAABpage-secret")
+	if err != nil && !strings.HasPrefix(err.Error(), "reel upload: ") {
+		t.Fatalf("PublishFacebook() = %v, want the upload step named", err)
+	}
+}

@@ -364,7 +364,7 @@ func (c *Client) uploadHostedVideo(ctx context.Context, token, videoID, fileURL 
 	var up struct {
 		Success bool `json:"success"`
 	}
-	if err := c.send(req, &up); err != nil {
+	if err := c.send(req, token, &up); err != nil {
 		return false, err
 	}
 	return up.Success, nil
@@ -517,7 +517,7 @@ func (c *Client) get(ctx context.Context, token, path string, params url.Values,
 	if err != nil {
 		return fmt.Errorf("meta: build request: %w", err)
 	}
-	return c.send(req, out)
+	return c.send(req, token, out)
 }
 
 func (c *Client) post(ctx context.Context, token, path string, form url.Values, out any) error {
@@ -527,13 +527,14 @@ func (c *Client) post(ctx context.Context, token, path string, form url.Values, 
 		return fmt.Errorf("meta: build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	return c.send(req, out)
+	return c.send(req, token, out)
 }
 
 // send is the one place a request leaves this package. It is guarded by the
 // breaker, the response is read to the end, and any failure is returned with
-// the URL and the token removed.
-func (c *Client) send(req *http.Request, out any) error {
+// the URL removed. token is the token the request carried; an error answer
+// never shows it, in any form.
+func (c *Client) send(req *http.Request, token string, out any) error {
 	if err := c.cb.AllowRequest(); err != nil {
 		return fmt.Errorf("meta: %w", err)
 	}
@@ -555,7 +556,7 @@ func (c *Client) send(req *http.Request, out any) error {
 		c.cb.RecordSuccess()
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return apiError(resp.StatusCode, raw)
+		return apiError(resp.StatusCode, raw, token)
 	}
 	if out != nil && len(raw) > 0 {
 		if err := json.Unmarshal(raw, out); err != nil {
@@ -599,27 +600,29 @@ const codeMediaNotReady = 9007
 var errMediaNotReady = errors.New("instagram media is not ready")
 
 // apiError turns an error answer into an error. A Graph error object keeps its
-// message as before. Any other body adds a redacted snippet of the body, so the
-// refusal can be read. A client error other than 429 or media not ready is
-// permanent, because the same request would fail the same way again.
-func apiError(status int, raw []byte) error {
+// message as before, with the request's token redacted. Any other body adds a
+// redacted snippet of the body, so the refusal can be read. A client error other
+// than 429 or media not ready is permanent, because the same request would fail
+// the same way again.
+func apiError(status int, raw []byte, token string) error {
 	var body graphErrorBody
 	if err := json.Unmarshal(raw, &body); err != nil {
 		body = graphErrorBody{}
 	}
+	redact := requestTokenReplacer(token)
 	code, msg := 0, ""
 	switch {
 	case body.Error != nil:
-		code, msg = body.Error.Code, body.Error.Message
+		code, msg = body.Error.Code, redact.Replace(body.Error.Message)
 	case body.DebugInfo != nil:
-		msg = redactToken(debugText(body.DebugInfo.Type, body.DebugInfo.Message))
+		msg = redactToken(redact.Replace(debugText(body.DebugInfo.Type, body.DebugInfo.Message)))
 	}
 	if msg == "" {
 		msg = http.StatusText(status)
 	}
 	text := fmt.Sprintf("meta answered %d (code %d): %s", status, code, msg)
 	if body.Error == nil {
-		if snippet := bodySnippet(raw); snippet != "" {
+		if snippet := bodySnippet(raw, redact); snippet != "" {
 			text += ": body " + snippet
 		}
 	}
@@ -648,10 +651,11 @@ func debugText(kind, message string) string {
 // maxSnippetBytes bounds the body text an error carries, ellipsis included.
 const maxSnippetBytes = 300
 
-// bodySnippet returns the body as one line with any access token redacted. It
-// is cut to at most maxSnippetBytes on a rune boundary.
-func bodySnippet(raw []byte) string {
-	s := redactToken(strings.Join(strings.Fields(string(raw)), " "))
+// bodySnippet returns the body as one line with the request's token and any
+// access token pair redacted. It is cut to at most maxSnippetBytes on a rune
+// boundary. The token is replaced before the cut, so no part of it survives.
+func bodySnippet(raw []byte, redact *strings.Replacer) string {
+	s := redactToken(strings.Join(strings.Fields(redact.Replace(string(raw))), " "))
 	if len(s) <= maxSnippetBytes {
 		return s
 	}
@@ -673,6 +677,19 @@ var (
 func redactToken(s string) string {
 	s = tokenParam.ReplaceAllString(s, "access_token=[redacted]")
 	return tokenMember.ReplaceAllString(s, `${1}[redacted]`)
+}
+
+// requestTokenReplacer replaces the token of one request, raw and query-escaped,
+// with the redaction marker. An empty token replaces nothing.
+func requestTokenReplacer(token string) *strings.Replacer {
+	if token == "" {
+		return strings.NewReplacer()
+	}
+	pairs := []string{token, "[redacted]"}
+	if esc := url.QueryEscape(token); esc != token {
+		pairs = append(pairs, esc, "[redacted]")
+	}
+	return strings.NewReplacer(pairs...)
 }
 
 // redactTransport keeps the failure and drops the URL, which carries the
