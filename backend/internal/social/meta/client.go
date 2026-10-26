@@ -57,6 +57,12 @@ type Client struct {
 
 	mu   sync.Mutex
 	acct *account
+
+	// tokenMu guards pageToken, the Page token account() caches. It is a lock of
+	// its own because account() holds mu while it makes its own request, and
+	// that request's error needs this token.
+	tokenMu   sync.Mutex
+	pageToken string
 }
 
 type account struct {
@@ -487,6 +493,9 @@ func (c *Client) account(ctx context.Context) (account, error) {
 	}
 	acct := account{pageID: page.ID, pageToken: page.AccessToken, igUserID: page.InstagramBusinessAccount.ID}
 	c.acct = &acct
+	c.tokenMu.Lock()
+	c.pageToken = acct.pageToken
+	c.tokenMu.Unlock()
 	return acct, nil
 }
 
@@ -532,8 +541,8 @@ func (c *Client) post(ctx context.Context, token, path string, form url.Values, 
 
 // send is the one place a request leaves this package. It is guarded by the
 // breaker, the response is read to the end, and any failure is returned with
-// the URL removed. token is the token the request carried; an error answer
-// never shows it, in any form.
+// the URL removed. An error answer never shows any token the client holds, in
+// any form.
 func (c *Client) send(req *http.Request, token string, out any) error {
 	if err := c.cb.AllowRequest(); err != nil {
 		return fmt.Errorf("meta: %w", err)
@@ -556,7 +565,7 @@ func (c *Client) send(req *http.Request, token string, out any) error {
 		c.cb.RecordSuccess()
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return apiError(resp.StatusCode, raw, token)
+		return apiError(resp.StatusCode, raw, c.redactor(token))
 	}
 	if out != nil && len(raw) > 0 {
 		if err := json.Unmarshal(raw, out); err != nil {
@@ -600,16 +609,15 @@ const codeMediaNotReady = 9007
 var errMediaNotReady = errors.New("instagram media is not ready")
 
 // apiError turns an error answer into an error. A Graph error object keeps its
-// message as before, with the request's token redacted. Any other body adds a
+// message as before, with every held token redacted. Any other body adds a
 // redacted snippet of the body, so the refusal can be read. A client error other
 // than 429 or media not ready is permanent, because the same request would fail
 // the same way again.
-func apiError(status int, raw []byte, token string) error {
+func apiError(status int, raw []byte, redact *strings.Replacer) error {
 	var body graphErrorBody
 	if err := json.Unmarshal(raw, &body); err != nil {
 		body = graphErrorBody{}
 	}
-	redact := requestTokenReplacer(token)
 	code, msg := 0, ""
 	switch {
 	case body.Error != nil:
@@ -679,15 +687,22 @@ func redactToken(s string) string {
 	return tokenMember.ReplaceAllString(s, `${1}[redacted]`)
 }
 
-// requestTokenReplacer replaces the token of one request, raw and query-escaped,
-// with the redaction marker. An empty token replaces nothing.
-func requestTokenReplacer(token string) *strings.Replacer {
-	if token == "" {
-		return strings.NewReplacer()
-	}
-	pairs := []string{token, "[redacted]"}
-	if esc := url.QueryEscape(token); esc != token {
-		pairs = append(pairs, esc, "[redacted]")
+// redactor replaces every token the client holds with the redaction marker, raw
+// and query-escaped: the system token, the cached Page token, and the token of
+// the request itself. An empty token replaces nothing.
+func (c *Client) redactor(requestToken string) *strings.Replacer {
+	c.tokenMu.Lock()
+	page := c.pageToken
+	c.tokenMu.Unlock()
+	var pairs []string
+	for _, t := range []string{requestToken, c.cfg.Token, page} {
+		if t == "" {
+			continue
+		}
+		pairs = append(pairs, t, "[redacted]")
+		if esc := url.QueryEscape(t); esc != t {
+			pairs = append(pairs, esc, "[redacted]")
+		}
 	}
 	return strings.NewReplacer(pairs...)
 }

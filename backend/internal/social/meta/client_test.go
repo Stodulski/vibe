@@ -773,3 +773,41 @@ func TestTheTokenIsRedactedOnTheUploadStep(t *testing.T) {
 		t.Fatalf("PublishFacebook() = %v, want the upload step named", err)
 	}
 }
+
+// Every token the client holds is redacted, not only the request's own. A page
+// token echoed on a system-token call, and a system token echoed on a page call,
+// never reach an error.
+func TestEveryHeldTokenIsRedactedFromAnyRequest(t *testing.T) {
+	t.Parallel()
+	quota := func(c *Client) error {
+		_, _, err := c.InstagramQuota(context.Background())
+		return err
+	}
+	photo := func(c *Client) error {
+		_, err := c.PublishFacebook(context.Background(), imagePost(social.TypeImage, "1.jpg"))
+		return err
+	}
+	cases := []struct {
+		name  string
+		token string
+		body  string
+		call  func(*Client) error
+	}{
+		{"page token on a system call as json", pageToken, `{"token":"page-token-value"}`, quota},
+		{"page token on a system call as text", pageToken, `Bad token page-token-value here`, quota},
+		{"system token on a page call as json", systemToken, `{"token":"system-token-value"}`, photo},
+		{"system token on a page call as text", systemToken, `Bad token system-token-value here`, photo},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, client := newFake(t, func(e exchange) (int, string) {
+				if code, body, ok := standardAccount(e); ok {
+					return code, body
+				}
+				return http.StatusUnprocessableEntity, tc.body
+			})
+			assertTokenHidden(t, tc.call(client), tc.token)
+		})
+	}
+}
