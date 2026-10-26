@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/getsentry/sentry-go"
@@ -35,7 +36,10 @@ func (h socialFailureHandler) Handle(ctx context.Context, r slog.Record) error {
 	if r.Level >= slog.LevelError && r.Message == social.FailureLogMessage {
 		h.hub.CaptureEvent(socialFailureEvent(r))
 	}
-	return h.inner.Handle(ctx, r)
+	if err := h.inner.Handle(ctx, r); err != nil {
+		return fmt.Errorf("social sentry log: %w", err)
+	}
+	return nil
 }
 
 func (h socialFailureHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
