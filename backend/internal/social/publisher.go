@@ -226,6 +226,11 @@ func setNetworkID(post *Post, network Network, id string) {
 	}
 }
 
+// FailureLogMessage is the message of the error record written when a post ends
+// partial or failed. cmd/api forwards this record, and only this one, to Sentry,
+// so the text is the contract between the two packages.
+const FailureLogMessage = "social: post did not fully publish"
+
 // finish settles one run. Every network published makes the post published.
 // A breaker that is open defers without an attempt. A permanent refusal or the
 // last attempt makes the post final. Anything else schedules the next retry.
@@ -254,6 +259,7 @@ func (p *Publisher) finish(ctx context.Context, post *Post, errs []error, perman
 		post.Status = terminalStatus(*post)
 		post.NextAttemptAt = nil
 		p.save(ctx, *post)
+		p.logFailure(*post)
 		p.report(ctx, *post)
 		return
 	}
@@ -261,6 +267,13 @@ func (p *Publisher) finish(ctx context.Context, post *Post, errs []error, perman
 	next := now.Add(p.cfg.Backoff[post.Attempts-1])
 	post.NextAttemptAt = &next
 	p.save(ctx, *post)
+}
+
+// logFailure writes the one error record for a post that ended partial or
+// failed. It is called only from the terminal branch of finish, so a post yields
+// one record. The error is post.LastError, which scrub has already applied.
+func (p *Publisher) logFailure(post Post) {
+	p.logger.Error(FailureLogMessage, "post", post.ID, "status", string(post.Status), "type", string(post.Kind), "error", post.LastError)
 }
 
 // deferAttempt reschedules a post without spending an attempt.

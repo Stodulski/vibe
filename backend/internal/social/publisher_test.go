@@ -1,7 +1,9 @@
 package social
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -134,6 +136,7 @@ type harness struct {
 	store    *fakePublishStore
 	reporter *fakeReporter
 	now      time.Time
+	logs     *bytes.Buffer
 }
 
 func newHarness(t *testing.T, enabled bool, posts ...Post) *harness {
@@ -143,6 +146,7 @@ func newHarness(t *testing.T, enabled bool, posts ...Post) *harness {
 		store:    &fakePublishStore{posts: map[string]Post{}},
 		reporter: &fakeReporter{},
 		now:      t0,
+		logs:     &bytes.Buffer{},
 	}
 	for _, p := range posts {
 		h.store.posts[p.ID] = p
@@ -155,7 +159,7 @@ func newHarness(t *testing.T, enabled bool, posts ...Post) *harness {
 		Backoff:    []time.Duration{5 * time.Minute, 15 * time.Minute, time.Hour},
 		DeferDelay: 5 * time.Minute,
 		Now:        func() time.Time { return h.now },
-	}, h.platform, h.store, h.reporter, slog.New(slog.DiscardHandler))
+	}, h.platform, h.store, h.reporter, slog.New(slog.NewJSONHandler(h.logs, nil)))
 	return h
 }
 
@@ -388,5 +392,97 @@ func TestErrorTextNeverCarriesTheToken(t *testing.T) {
 	last := h.post("p1").LastError
 	if last == "" || strings.Contains(last, testSecret) || !strings.Contains(last, "[redacted]") {
 		t.Fatalf("last error = %q, must not carry the token", last)
+	}
+}
+
+// failureLines returns the error records the publisher wrote when a post ended
+// partial or failed. cmd/api forwards exactly these records to Sentry.
+func failureLines(t *testing.T, logs *bytes.Buffer) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(logs.String()), "\n") {
+		if line == "" {
+			continue
+		}
+		var rec map[string]any
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("log line is not JSON: %v: %q", err, line)
+		}
+		if rec["msg"] == "social: post did not fully publish" {
+			out = append(out, rec)
+		}
+	}
+	return out
+}
+
+func TestAPostThatEndsPartialLogsOneErrorLineForSentry(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, true, duePost("p1", NetworkInstagram, NetworkFacebook))
+	h.platform.fbErr = fmt.Errorf("%w: meta 400: refused for %s", ErrPermanent, testSecret)
+
+	if _, err := h.pub.RunDue(context.Background()); err != nil {
+		t.Fatalf("RunDue() = %v", err)
+	}
+	lines := failureLines(t, h.logs)
+	if len(lines) != 1 {
+		t.Fatalf("failure lines = %d, want exactly one", len(lines))
+	}
+	line := lines[0]
+	if line["level"] != "ERROR" || line["post"] != "p1" || line["status"] != string(StatusPartial) || line["type"] != string(TypeImage) {
+		t.Fatalf("failure line = %v, want an ERROR for p1 with status partial and type image", line)
+	}
+	last := h.post("p1").LastError
+	if line["error"] != last || strings.Contains(fmt.Sprint(line["error"]), testSecret) {
+		t.Fatalf("logged error = %v, want the stored scrubbed last error %q", line["error"], last)
+	}
+}
+
+func TestAPostThatFailsLogsOneErrorLine(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, true, duePost("p1", NetworkFacebook))
+	h.platform.fbErr = fmt.Errorf("%w: meta 400: invalid image", ErrPermanent)
+
+	if _, err := h.pub.RunDue(context.Background()); err != nil {
+		t.Fatalf("RunDue() = %v", err)
+	}
+	lines := failureLines(t, h.logs)
+	if len(lines) != 1 || lines[0]["status"] != string(StatusFailed) {
+		t.Fatalf("failure lines = %v, want exactly one with status failed", lines)
+	}
+}
+
+func TestAPublishedPostLogsNoFailureLine(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, true, duePost("p1", NetworkFacebook))
+
+	if _, err := h.pub.RunDue(context.Background()); err != nil {
+		t.Fatalf("RunDue() = %v", err)
+	}
+	if got := h.post("p1"); got.Status != StatusPublished {
+		t.Fatalf("status = %s, want published", got.Status)
+	}
+	if lines := failureLines(t, h.logs); len(lines) != 0 {
+		t.Fatalf("failure lines = %v, want none for a published post", lines)
+	}
+}
+
+func TestARetryingPostLogsItsErrorLineOnlyWhenItBecomesTerminal(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, true, duePost("p1", NetworkInstagram, NetworkFacebook))
+	h.platform.fbErr = errors.New("meta 500")
+
+	steps := []time.Duration{0, 5 * time.Minute, 20 * time.Minute, 80 * time.Minute}
+	for i, at := range steps {
+		h.now = t0.Add(at)
+		if _, err := h.pub.RunDue(context.Background()); err != nil {
+			t.Fatalf("RunDue() at %v = %v", at, err)
+		}
+		want := 0
+		if i == len(steps)-1 {
+			want = 1
+		}
+		if got := len(failureLines(t, h.logs)); got != want {
+			t.Fatalf("after attempt %d: failure lines = %d, want %d", i+1, got, want)
+		}
 	}
 }

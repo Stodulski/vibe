@@ -175,6 +175,9 @@ func baseLogger(cfg config.Config, w io.Writer) *slog.Logger {
 	} else {
 		handler = slog.NewTextHandler(w, nil)
 	}
+	// The one record a failed social post writes also becomes a Sentry error
+	// (see social_sentry.go). Every other record is unaffected.
+	handler = socialFailureReporting(handler, sentry.CurrentHub())
 	return slog.New(handler).With(
 		"service", serviceName,
 		"env", cfg.Env,
