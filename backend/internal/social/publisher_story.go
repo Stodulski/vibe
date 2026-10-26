@@ -28,7 +28,9 @@ func earlierWait(current *waitUntil, at time.Time, reason string) *waitUntil {
 // publishStory publishes each network's sequence of stories in order. Each
 // network is independent of the others. On one network, a story goes out only
 // after the stories before it have an id there, and a story that already has
-// an id is never sent again.
+// an id is never sent again. A permanent failure on one network does not end a
+// sequence that another network is still waiting on; the story waits for it and
+// keeps the failure as its last error.
 func (p *Publisher) publishStory(ctx context.Context, post *Post) {
 	if len(post.Media) != len(post.StoryItems) {
 		p.finish(ctx, post, []error{fmt.Errorf("%w: the story's files and its schedule do not match", ErrPermanent)}, true)
@@ -57,8 +59,12 @@ func (p *Publisher) publishStory(ctx context.Context, post *Post) {
 			wait = earlierWait(wait, seqWait.at, seqWait.reason)
 		}
 	}
-	if len(errs) == 0 && wait != nil {
-		p.deferUntil(ctx, post, wait.reason, wait.at)
+	if wait != nil && (len(errs) == 0 || permanent) {
+		reason := wait.reason
+		if len(errs) > 0 {
+			reason = p.scrub(errors.Join(errs...).Error()) + "; " + wait.reason
+		}
+		p.deferUntil(ctx, post, reason, wait.at)
 		return
 	}
 	p.finish(ctx, post, errs, permanent)

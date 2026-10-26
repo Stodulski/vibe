@@ -12,11 +12,13 @@ import (
 )
 
 // storyPlatform records every Instagram and Facebook publish in call order and
-// fails the names it is told to fail, as a transient Meta error.
+// fails the names it is told to fail, as a transient Meta error. refuseFB names
+// the files Facebook refuses for good.
 type storyPlatform struct {
 	igAttempts, fbAttempts []string
 	igOrder, fbOrder       []string
 	failIG                 map[string]bool
+	refuseFB               map[string]bool
 	quotaUsed, quotaTotal  int
 	seq                    int
 }
@@ -43,6 +45,9 @@ func (s *storyPlatform) PublishInstagram(_ context.Context, p Post) (string, err
 func (s *storyPlatform) PublishFacebook(_ context.Context, p Post) (string, error) {
 	name := p.Media[0].Name
 	s.fbAttempts = append(s.fbAttempts, name)
+	if s.refuseFB[name] {
+		return "", fmt.Errorf("%w: facebook refused %s", ErrPermanent, name)
+	}
 	s.fbOrder = append(s.fbOrder, name)
 	s.seq++
 	return fmt.Sprintf("fb-%d", s.seq), nil
@@ -349,6 +354,54 @@ func TestStoryItemThatAlreadyHasAnIDIsNotSentAgainAfterTheLeaseExpires(t *testin
 	}
 	if got := rig.post("historia-9"); got.StoryItems[0].IGMediaID != "ig-saved" {
 		t.Fatalf("item 1 id = %q, want the saved one kept", got.StoryItems[0].IGMediaID)
+	}
+}
+
+func TestStoryKeepsPublishingOnInstagramWhenTheFeedPostFailedOnFacebook(t *testing.T) {
+	t.Parallel()
+	rig := newSequenceRig(storyWith("historia-10", storyT0, []Network{NetworkInstagram, NetworkFacebook}, "1.jpg", "2.jpg"))
+	rig.store.posts["historia-10"] = withAfter(rig.store.posts["historia-10"], "reel")
+	rig.store.feeds["reel"] = Post{ID: "reel", Networks: []Network{NetworkInstagram, NetworkFacebook}, Status: StatusPartial, IGMediaID: "ig-reel"}
+	rig.now = storyT0
+
+	rig.run(t)
+	if !slices.Equal(rig.platform.igOrder, []string{"1.jpg"}) || len(rig.platform.fbAttempts) != 0 {
+		t.Fatalf("first run: instagram = %v, facebook attempts = %v; want only 1.jpg on instagram and no facebook call", rig.platform.igOrder, rig.platform.fbAttempts)
+	}
+	waiting := rig.post("historia-10")
+	frame2 := waiting.StoryItems[1].ScheduledAt
+	if waiting.Status != StatusPartial || waiting.NextAttemptAt == nil || !waiting.NextAttemptAt.Equal(frame2) || waiting.Attempts != 0 {
+		t.Fatalf("while instagram waits = %+v, want partial, no attempt spent, and the next attempt at %v", waiting, frame2)
+	}
+	if !strings.Contains(waiting.LastError, "facebook") {
+		t.Fatalf("last error = %q, want the facebook reason kept", waiting.LastError)
+	}
+
+	rig.now = frame2
+	rig.run(t)
+	if !slices.Equal(rig.platform.igOrder, []string{"1.jpg", "2.jpg"}) || len(rig.platform.fbAttempts) != 0 {
+		t.Fatalf("after frame 2 is due: instagram = %v, facebook attempts = %v; want both frames on instagram and still no facebook call", rig.platform.igOrder, rig.platform.fbAttempts)
+	}
+	done := rig.post("historia-10")
+	if done.Status != StatusPartial || done.NextAttemptAt != nil || done.StoryItems[1].IGMediaID == "" {
+		t.Fatalf("after frame 2 = %+v, want partial and final, since facebook can never follow", done)
+	}
+}
+
+func TestStoryKeepsPublishingOnOneNetworkWhenAFrameIsRefusedOnTheOther(t *testing.T) {
+	t.Parallel()
+	rig := newSequenceRig(storyWith("historia-11", storyT0, []Network{NetworkInstagram, NetworkFacebook}, "1.jpg", "2.jpg"))
+	rig.platform.refuseFB = map[string]bool{"1.jpg": true}
+	rig.now = storyT0
+
+	rig.run(t)
+	if !slices.Equal(rig.platform.igOrder, []string{"1.jpg"}) {
+		t.Fatalf("instagram = %v, want 1.jpg", rig.platform.igOrder)
+	}
+	got := rig.post("historia-11")
+	frame2 := got.StoryItems[1].ScheduledAt
+	if got.Status != StatusPartial || got.NextAttemptAt == nil || !got.NextAttemptAt.Equal(frame2) || got.Attempts != 0 {
+		t.Fatalf("after the refusal = %+v, want partial, deferred to %v, and no attempt spent", got, frame2)
 	}
 }
 
