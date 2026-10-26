@@ -89,6 +89,8 @@ func (p *Publisher) storyGate(ctx context.Context, post Post, network Network) (
 	switch {
 	case !found:
 		return wait, nil
+	case feed.Draft:
+		return nil, fmt.Errorf("%w: feed post %s is a draft and never publishes, so the story cannot follow it", ErrPermanent, post.After)
 	case !slices.Contains(feed.Networks, network):
 		return nil, fmt.Errorf("%w: feed post %s does not publish to %s, so the story cannot follow it", ErrPermanent, post.After, network)
 	case networkDone(feed, network):

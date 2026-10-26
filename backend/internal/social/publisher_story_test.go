@@ -403,6 +403,30 @@ func TestStoryKeepsPublishingOnOneNetworkWhenAFrameIsRefusedOnTheOther(t *testin
 	if got.Status != StatusPartial || got.NextAttemptAt == nil || !got.NextAttemptAt.Equal(frame2) || got.Attempts != 0 {
 		t.Fatalf("after the refusal = %+v, want partial, deferred to %v, and no attempt spent", got, frame2)
 	}
+	if !slices.Equal(rig.platform.fbAttempts, []string{"1.jpg"}) || !strings.Contains(got.LastError, "facebook") {
+		t.Fatalf("facebook attempts = %v, last error = %q; want one facebook call for 1.jpg and the refusal kept", rig.platform.fbAttempts, got.LastError)
+	}
+}
+
+func TestStoryFailsWhenTheFeedPostIsADraft(t *testing.T) {
+	t.Parallel()
+	rig := newSequenceRig(storyWith("historia-12", storyT0, []Network{NetworkInstagram, NetworkFacebook}, "1.jpg", "2.jpg"))
+	rig.store.posts["historia-12"] = withAfter(rig.store.posts["historia-12"], "draft-reel")
+	feedAt := storyT0
+	rig.store.feeds["draft-reel"] = Post{ID: "draft-reel", Networks: []Network{NetworkInstagram}, Draft: true, Status: StatusScheduled, NextAttemptAt: &feedAt}
+	rig.now = storyT0
+
+	rig.run(t)
+	if len(rig.platform.igAttempts) != 0 || len(rig.platform.fbAttempts) != 0 {
+		t.Fatalf("publishes instagram=%v facebook=%v; want none for a story that follows a draft", rig.platform.igAttempts, rig.platform.fbAttempts)
+	}
+	failed := rig.post("historia-12")
+	if failed.Status != StatusFailed || failed.NextAttemptAt != nil {
+		t.Fatalf("after the draft check = %+v, want a final failed story", failed)
+	}
+	if !strings.Contains(failed.LastError, "draft") {
+		t.Fatalf("last error = %q, want the draft reason", failed.LastError)
+	}
 }
 
 func withAfter(p Post, after string) Post {
