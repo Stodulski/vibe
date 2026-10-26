@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/social"
@@ -496,5 +497,206 @@ func TestMediaNotReadyIsRetryableWhenItOutlastsTheWait(t *testing.T) {
 	_, err := client.PublishInstagram(context.Background(), imagePost(social.TypeImage, "1.jpg"))
 	if err == nil || errors.Is(err, social.ErrPermanent) {
 		t.Fatalf("PublishInstagram() = %v, want a retryable not-ready error", err)
+	}
+}
+
+// A non-Graph body keeps its text in the message, so the failure can be read.
+func TestNonGraphErrorBodyIsKeptInTheMessage(t *testing.T) {
+	t.Parallel()
+	_, client := newFake(t, func(e exchange) (int, string) {
+		return http.StatusUnprocessableEntity, "{\"unexpected\":\n  \"shape\"}"
+	})
+
+	_, err := client.account(context.Background())
+	want := `meta answered 422 (code 0): Unprocessable Entity: body {"unexpected": "shape"}`
+	if err == nil || !errors.Is(err, social.ErrPermanent) || !strings.HasSuffix(err.Error(), want) {
+		t.Fatalf("account() = %v, want a permanent refusal ending %q", err, want)
+	}
+}
+
+// A long body is cut to at most 300 bytes, on a rune boundary, with an ellipsis.
+func TestLongNonGraphBodyIsCutToAUTF8Snippet(t *testing.T) {
+	t.Parallel()
+	_, client := newFake(t, func(e exchange) (int, string) {
+		return http.StatusUnprocessableEntity, strings.Repeat("ñ", 400)
+	})
+
+	_, err := client.account(context.Background())
+	const prefix = "meta answered 422 (code 0): Unprocessable Entity: body "
+	if err == nil {
+		t.Fatal("account() = nil, want an error")
+	}
+	i := strings.Index(err.Error(), prefix)
+	if i < 0 {
+		t.Fatalf("account() = %v, want the body snippet after %q", err, prefix)
+	}
+	snippet := err.Error()[i+len(prefix):]
+	if len(snippet) > 300 || !utf8.ValidString(snippet) || !strings.HasSuffix(snippet, "…") {
+		t.Fatalf("snippet = %q (%d bytes), want at most 300 valid UTF-8 bytes ending in an ellipsis", snippet, len(snippet))
+	}
+	if kept := strings.TrimSuffix(snippet, "…"); strings.Trim(kept, "ñ") != "" || kept == "" {
+		t.Fatalf("snippet head = %q, want only the start of the body", kept)
+	}
+}
+
+// A rupload answer carries its reason in debug_info, which becomes the message.
+func TestRuploadDebugInfoBecomesTheMessage(t *testing.T) {
+	t.Parallel()
+	body := `{"debug_info":{"retriable":false,"type":"OAuthException","message":"Invalid upload session"}}`
+	_, client := newFake(t, func(e exchange) (int, string) {
+		return http.StatusUnprocessableEntity, body
+	})
+
+	_, err := client.account(context.Background())
+	want := "meta answered 422 (code 0): OAuthException: Invalid upload session: body " + body
+	if err == nil || !strings.HasSuffix(err.Error(), want) {
+		t.Fatalf("account() = %v, want it to end %q", err, want)
+	}
+}
+
+// Each step of a reel and of a video story names itself in its error, and a
+// refused step stays permanent.
+func TestEachPublishStepNamesItselfInItsError(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		step string
+		kind social.Kind
+		fail string
+	}{
+		{"reel start", social.TypeReel, "reel start"},
+		{"reel upload", social.TypeReel, "reel upload"},
+		{"reel finish", social.TypeReel, "reel finish"},
+		{"video story start", social.TypeStory, "video story start"},
+		{"video story upload", social.TypeStory, "video story upload"},
+		{"video story finish", social.TypeStory, "video story finish"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.step, func(t *testing.T) {
+			t.Parallel()
+			_, client := newFake(t, func(e exchange) (int, string) {
+				if code, body, ok := standardAccount(e); ok {
+					return code, body
+				}
+				refuse := func(step string) (int, string) {
+					if tc.fail == step {
+						return http.StatusUnprocessableEntity, `{"debug_info":{"message":"refused"}}`
+					}
+					return 0, ""
+				}
+				switch {
+				case e.path == "/v25.0/page-1/video_reels" && e.params.Get("upload_phase") == "start":
+					if code, body := refuse("reel start"); code != 0 {
+						return code, body
+					}
+					return http.StatusOK, `{"video_id":"vid-9"}`
+				case e.path == "/upload/v25.0/vid-9":
+					if code, body := refuse("reel upload"); code != 0 {
+						return code, body
+					}
+					if code, body := refuse("video story upload"); code != 0 {
+						return code, body
+					}
+					return http.StatusOK, `{"success":true}`
+				case e.path == "/v25.0/page-1/video_reels" && e.params.Get("upload_phase") == "finish":
+					if code, body := refuse("reel finish"); code != 0 {
+						return code, body
+					}
+					return http.StatusOK, `{"success":true}`
+				case e.path == "/v25.0/page-1/video_stories" && e.params.Get("upload_phase") == "start":
+					if code, body := refuse("video story start"); code != 0 {
+						return code, body
+					}
+					return http.StatusOK, `{"video_id":"vid-9"}`
+				case e.path == "/v25.0/page-1/video_stories" && e.params.Get("upload_phase") == "finish":
+					if code, body := refuse("video story finish"); code != 0 {
+						return code, body
+					}
+					return http.StatusOK, `{"success":true,"post_id":"page-1_99"}`
+				}
+				return http.StatusNotFound, `{"error":{"message":"no route"}}`
+			})
+
+			_, err := client.PublishFacebook(context.Background(), imagePost(tc.kind, "clip.mp4"))
+			if err == nil || !strings.HasPrefix(err.Error(), tc.step+": ") {
+				t.Fatalf("PublishFacebook() = %v, want an error starting with %q", err, tc.step+": ")
+			}
+			if !errors.Is(err, social.ErrPermanent) {
+				t.Fatalf("PublishFacebook() = %v, want the wrapped refusal to stay ErrPermanent", err)
+			}
+		})
+	}
+}
+
+// A start answer without a video id stops before any upload is attempted.
+func TestMissingVideoIDStopsBeforeTheUpload(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		kind social.Kind
+		want string
+	}{
+		{social.TypeReel, "reel start: meta returned no video id"},
+		{social.TypeStory, "video story start: meta returned no video id"},
+	}
+	for _, tc := range cases {
+		fake, client := newFake(t, func(e exchange) (int, string) {
+			if code, body, ok := standardAccount(e); ok {
+				return code, body
+			}
+			return http.StatusOK, `{"success":true}`
+		})
+
+		_, err := client.PublishFacebook(context.Background(), imagePost(tc.kind, "clip.mp4"))
+		if err == nil || err.Error() != tc.want {
+			t.Fatalf("PublishFacebook(%s) = %v, want %q", tc.kind, err, tc.want)
+		}
+		if errors.Is(err, social.ErrPermanent) {
+			t.Fatalf("PublishFacebook(%s) = %v, want a retryable error like the other not-accepted answers", tc.kind, err)
+		}
+		for _, c := range fake.calls() {
+			if strings.HasPrefix(c.path, "/upload/") {
+				t.Fatalf("upload was attempted without a video id: %v", c)
+			}
+		}
+	}
+}
+
+// The access token is never in the message: body text is redacted, and only the
+// body is ever included, never the request.
+func TestTheAccessTokenIsRedactedFromTheMessage(t *testing.T) {
+	t.Parallel()
+	body := `{"debug_info":{"type":"OAuthException","message":"rejected access_token=XYZ"},` +
+		`"echo":"access_token=XYZ&x=1","json":{"access_token":"JSONVAL"}}`
+	_, client := newFake(t, func(e exchange) (int, string) {
+		return http.StatusUnprocessableEntity, body
+	})
+
+	_, err := client.account(context.Background())
+	if err == nil {
+		t.Fatal("account() = nil, want an error")
+	}
+	msg := err.Error()
+	for _, secret := range []string{"XYZ", "JSONVAL", systemToken, pageToken} {
+		if strings.Contains(msg, secret) {
+			t.Fatalf("error %q leaks %q", msg, secret)
+		}
+	}
+	for _, want := range []string{"rejected access_token=[redacted]", `"echo":"access_token=[redacted]&x=1"`, `"json":{"access_token":"[redacted]"}`} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("error %q, want it to contain %q", msg, want)
+		}
+	}
+}
+
+// A Graph error keeps its exact message: the new body text never replaces it.
+func TestGraphErrorMessageIsUnchanged(t *testing.T) {
+	t.Parallel()
+	_, client := newFake(t, func(e exchange) (int, string) {
+		return http.StatusBadRequest, `{"error":{"message":"Invalid image","code":100}}`
+	})
+
+	_, err := client.account(context.Background())
+	const want = "social: permanent platform refusal: meta answered 400 (code 100): Invalid image"
+	if err == nil || err.Error() != want {
+		t.Fatalf("account() = %v, want exactly %q", err, want)
 	}
 }

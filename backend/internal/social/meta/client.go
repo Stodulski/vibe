@@ -11,9 +11,11 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/social"
@@ -315,20 +317,23 @@ func (c *Client) facebookCarousel(ctx context.Context, acct account, post social
 }
 
 // facebookReel runs the Page reel session: start, upload from the hosted URL,
-// then finish with PUBLISHED.
+// then finish with PUBLISHED. Each step names itself in its error.
 func (c *Client) facebookReel(ctx context.Context, acct account, post social.Post) (string, error) {
 	var start struct {
 		VideoID string `json:"video_id"`
 	}
 	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/video_reels", url.Values{"upload_phase": {"start"}}, &start); err != nil {
-		return "", err
+		return "", fmt.Errorf("reel start: %w", err)
+	}
+	if start.VideoID == "" {
+		return "", errors.New("reel start: meta returned no video id")
 	}
 	accepted, err := c.uploadHostedVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reel upload: %w", err)
 	}
 	if !accepted {
-		return "", errors.New("meta: reel upload was not accepted")
+		return "", errors.New("reel upload: meta did not accept the upload")
 	}
 
 	form := url.Values{
@@ -339,10 +344,10 @@ func (c *Client) facebookReel(ctx context.Context, acct account, post social.Pos
 		Success bool `json:"success"`
 	}
 	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/video_reels", form, &fin); err != nil {
-		return "", err
+		return "", fmt.Errorf("reel finish: %w", err)
 	}
 	if !fin.Success {
-		return "", errors.New("meta: reel publish was not accepted")
+		return "", errors.New("reel finish: meta did not accept the publish")
 	}
 	return start.VideoID, nil
 }
@@ -399,24 +404,27 @@ func (c *Client) facebookVideoStory(ctx context.Context, acct account, post soci
 		VideoID string `json:"video_id"`
 	}
 	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/video_stories", url.Values{"upload_phase": {"start"}}, &start); err != nil {
-		return "", err
+		return "", fmt.Errorf("video story start: %w", err)
+	}
+	if start.VideoID == "" {
+		return "", errors.New("video story start: meta returned no video id")
 	}
 	accepted, err := c.uploadHostedVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("video story upload: %w", err)
 	}
 	if !accepted {
-		return "", errors.New("meta: video story upload was not accepted")
+		return "", errors.New("video story upload: meta did not accept the upload")
 	}
 	var fin struct {
 		Success bool    `json:"success"`
 		PostID  graphID `json:"post_id"`
 	}
 	if err := c.post(ctx, acct.pageToken, "/"+acct.pageID+"/video_stories", url.Values{"upload_phase": {"finish"}, "video_id": {start.VideoID}}, &fin); err != nil {
-		return "", err
+		return "", fmt.Errorf("video story finish: %w", err)
 	}
 	if !fin.Success || fin.PostID == "" {
-		return "", errors.New("meta: video story publish was not accepted")
+		return "", errors.New("video story finish: meta did not accept the publish")
 	}
 	return string(fin.PostID), nil
 }
@@ -570,11 +578,17 @@ func transient(status int) bool {
 	return status >= http.StatusInternalServerError || status == http.StatusTooManyRequests
 }
 
+// graphErrorBody is Graph's error answer. Error is nil when the body has no
+// error object. A rupload answer has none and carries debug_info instead.
 type graphErrorBody struct {
-	Error struct {
+	Error *struct {
 		Message string `json:"message"`
 		Code    int    `json:"code"`
 	} `json:"error"`
+	DebugInfo *struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"debug_info"`
 }
 
 // codeMediaNotReady is Graph's answer to media_publish while the media is still
@@ -584,27 +598,81 @@ const codeMediaNotReady = 9007
 // errMediaNotReady marks that answer. It is retryable, not permanent.
 var errMediaNotReady = errors.New("instagram media is not ready")
 
-// apiError turns a Graph error answer into an error. A client error other than
-// 429 or media not ready is permanent, because the same request would fail the
-// same way again.
+// apiError turns an error answer into an error. A Graph error object keeps its
+// message as before. Any other body adds a redacted snippet of the body, so the
+// refusal can be read. A client error other than 429 or media not ready is
+// permanent, because the same request would fail the same way again.
 func apiError(status int, raw []byte) error {
 	var body graphErrorBody
 	if err := json.Unmarshal(raw, &body); err != nil {
-		// A body that is not Graph's error shape leaves only the status text.
 		body = graphErrorBody{}
 	}
-	msg := body.Error.Message
+	code, msg := 0, ""
+	switch {
+	case body.Error != nil:
+		code, msg = body.Error.Code, body.Error.Message
+	case body.DebugInfo != nil:
+		msg = redactToken(debugText(body.DebugInfo.Type, body.DebugInfo.Message))
+	}
 	if msg == "" {
 		msg = http.StatusText(status)
 	}
-	text := fmt.Sprintf("meta answered %d (code %d): %s", status, body.Error.Code, msg)
-	if body.Error.Code == codeMediaNotReady {
+	text := fmt.Sprintf("meta answered %d (code %d): %s", status, code, msg)
+	if body.Error == nil {
+		if snippet := bodySnippet(raw); snippet != "" {
+			text += ": body " + snippet
+		}
+	}
+	if code == codeMediaNotReady {
 		return fmt.Errorf("%w: %s", errMediaNotReady, text)
 	}
 	if status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusTooManyRequests {
 		return fmt.Errorf("%w: %s", social.ErrPermanent, text)
 	}
 	return errors.New(text)
+}
+
+// debugText joins a rupload debug_info type and message as "type: message".
+// Whichever of the two is present is used alone.
+func debugText(kind, message string) string {
+	switch {
+	case kind != "" && message != "":
+		return kind + ": " + message
+	case message != "":
+		return message
+	default:
+		return kind
+	}
+}
+
+// maxSnippetBytes bounds the body text an error carries, ellipsis included.
+const maxSnippetBytes = 300
+
+// bodySnippet returns the body as one line with any access token redacted. It
+// is cut to at most maxSnippetBytes on a rune boundary.
+func bodySnippet(raw []byte) string {
+	s := redactToken(strings.Join(strings.Fields(string(raw)), " "))
+	if len(s) <= maxSnippetBytes {
+		return s
+	}
+	const ellipsis = "…"
+	cut := maxSnippetBytes - len(ellipsis)
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + ellipsis
+}
+
+// tokenParam and tokenMember find an access token echoed in a body, as a query
+// pair or as a JSON member. The value is replaced, never kept.
+var (
+	tokenParam  = regexp.MustCompile(`access_token=[^&\s"]*`)
+	tokenMember = regexp.MustCompile(`("access_token"\s*:\s*")[^"]*`)
+)
+
+func redactToken(s string) string {
+	s = tokenParam.ReplaceAllString(s, "access_token=[redacted]")
+	return tokenMember.ReplaceAllString(s, `${1}[redacted]`)
 }
 
 // redactTransport keeps the failure and drops the URL, which carries the
