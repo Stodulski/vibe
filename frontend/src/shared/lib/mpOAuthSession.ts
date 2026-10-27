@@ -1,25 +1,36 @@
 import { z } from 'zod';
-import { safeSessionStorage } from './safeStorage';
+import { safeLocalStorage, safeSessionStorage } from './safeStorage';
 
 /**
- * One sessionStorage entry per MercadoPago OAuth attempt, keyed by the
+ * One localStorage entry per MercadoPago OAuth attempt, keyed by the
  * `state` nonce that goes out in the authorization URL and comes back on the
  * callback. Binding the PKCE verifier to its own nonce is what lets two
  * attempts coexist (a second click, a second tab, a back-button retry): the
  * callback looks up exactly the verifier that matches the challenge it was
  * started with, instead of whichever one was written last.
+ *
+ * localStorage, not sessionStorage: on a phone the authorization link often
+ * opens the MercadoPago app, which sends the owner back in a new browser tab.
+ * sessionStorage belongs to the tab that started, so the callback found no
+ * attempt and told the owner the link had expired.
  */
 const ENTRY_PREFIX = 'mp_oauth_';
 
 // Keys written before the entries were bound to their nonce: one global
 // verifier, one return path, and a complexId-only entry per nonce. Nothing
-// reads them any more; they are swept on the next write and on logout.
+// reads them any more; they are swept on the next write and on logout, along
+// with the per-nonce entries sessionStorage held before the move to
+// localStorage.
 const LEGACY_VERIFIER_KEY = 'mp_code_verifier';
 const LEGACY_RETURN_PATH_KEY = 'mp_return_path';
 const LEGACY_NONCE_PREFIX = 'mp_oauth_complex_';
 
-/** An attempt older than this is abandoned: MercadoPago's own code is short-lived. */
-const MAX_AGE_MS = 10 * 60 * 1000;
+/**
+ * An attempt older than this is abandoned. It covers an owner who creates or
+ * verifies a MercadoPago account midway; the code MercadoPago returns is
+ * single-use either way.
+ */
+const MAX_AGE_MS = 30 * 60 * 1000;
 /** Upper bound on entries kept, so repeated clicks can never grow storage. */
 const MAX_ENTRIES = 5;
 
@@ -61,23 +72,23 @@ function removeLegacyKeys(): void {
   safeSessionStorage.remove(LEGACY_VERIFIER_KEY);
   safeSessionStorage.remove(LEGACY_RETURN_PATH_KEY);
   for (const key of safeSessionStorage.keys()) {
-    if (key.startsWith(LEGACY_NONCE_PREFIX)) safeSessionStorage.remove(key);
+    if (key.startsWith(ENTRY_PREFIX)) safeSessionStorage.remove(key);
   }
 }
 
 /** Drops expired and unreadable entries, then the oldest ones beyond the cap. */
 function prune(now: number, keep: number): void {
   const live: { key: string; createdAt: number }[] = [];
-  for (const key of safeSessionStorage.keys().filter(isEntryKey)) {
-    const entry = safeSessionStorage.getJSON(key, entrySchema);
+  for (const key of safeLocalStorage.keys().filter(isEntryKey)) {
+    const entry = safeLocalStorage.getJSON(key, entrySchema);
     if (!entry || now - entry.createdAt > MAX_AGE_MS) {
-      safeSessionStorage.remove(key);
+      safeLocalStorage.remove(key);
       continue;
     }
     live.push({ key, createdAt: entry.createdAt });
   }
   live.sort((a, b) => b.createdAt - a.createdAt);
-  for (const { key } of live.slice(keep)) safeSessionStorage.remove(key);
+  for (const { key } of live.slice(keep)) safeLocalStorage.remove(key);
 }
 
 /**
@@ -92,24 +103,24 @@ export function saveMPOAuthSession(
 ): void {
   removeLegacyKeys();
   prune(now, MAX_ENTRIES - 1);
-  safeSessionStorage.set(entryKey(state), JSON.stringify({ ...session, createdAt: now }));
+  safeLocalStorage.set(entryKey(state), JSON.stringify({ ...session, createdAt: now }));
 }
 
 /**
  * Reads and deletes the attempt for `state` in one step. The entry is gone
  * before the caller does anything with it, so a reload of the callback URL
  * cannot replay a single-use authorization code. `null` for an unknown,
- * already-consumed, expired (same ten minutes as pruning) or unreadable entry.
+ * already-consumed, expired (same thirty minutes as pruning) or unreadable entry.
  */
 export function consumeMPOAuthSession(state: string, now: number = Date.now()): MPOAuthSession | null {
   const key = entryKey(state);
-  const entry = safeSessionStorage.getJSON(key, entrySchema);
-  safeSessionStorage.remove(key);
+  const entry = safeLocalStorage.getJSON(key, entrySchema);
+  safeLocalStorage.remove(key);
   return entry && now - entry.createdAt <= MAX_AGE_MS ? entry : null;
 }
 
 /** Removes every OAuth attempt, current and legacy — on logout. */
 export function clearMPOAuthSessions(): void {
   removeLegacyKeys();
-  for (const key of safeSessionStorage.keys().filter(isEntryKey)) safeSessionStorage.remove(key);
+  for (const key of safeLocalStorage.keys().filter(isEntryKey)) safeLocalStorage.remove(key);
 }

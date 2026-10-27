@@ -6,6 +6,7 @@ const MINUTE = 60 * 1000;
 
 describe('mpOAuthSession', () => {
   beforeEach(() => {
+    localStorage.clear();
     sessionStorage.clear();
   });
 
@@ -22,7 +23,7 @@ describe('mpOAuthSession', () => {
 
     expect(consumeMPOAuthSession('state-a')).not.toBeNull();
     expect(consumeMPOAuthSession('state-a')).toBeNull();
-    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
   });
 
   it('returns null for an unknown state and leaves other entries alone', () => {
@@ -33,12 +34,12 @@ describe('mpOAuthSession', () => {
   });
 
   it('drops and rejects an unreadable entry', () => {
-    sessionStorage.setItem('mp_oauth_bad', '{not json');
-    sessionStorage.setItem('mp_oauth_wrong-shape', JSON.stringify({ complexId: 'c1' }));
+    localStorage.setItem('mp_oauth_bad', '{not json');
+    localStorage.setItem('mp_oauth_wrong-shape', JSON.stringify({ complexId: 'c1' }));
 
     expect(consumeMPOAuthSession('bad')).toBeNull();
     expect(consumeMPOAuthSession('wrong-shape')).toBeNull();
-    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
   });
 
   it.each([
@@ -52,51 +53,68 @@ describe('mpOAuthSession', () => {
     'settings',
     '',
   ])('rejects the return path %j', (returnPath) => {
-    sessionStorage.setItem('mp_oauth_evil', JSON.stringify({ ...session(1), returnPath, createdAt: Date.now() }));
+    localStorage.setItem('mp_oauth_evil', JSON.stringify({ ...session(1), returnPath, createdAt: Date.now() }));
     expect(consumeMPOAuthSession('evil')).toBeNull();
   });
 
   it.each(['/settings', '/onboarding', '/settings?tab=billing'])('accepts the same-origin path %j', (returnPath) => {
-    sessionStorage.setItem('mp_oauth_ok', JSON.stringify({ ...session(1), returnPath, createdAt: Date.now() }));
+    localStorage.setItem('mp_oauth_ok', JSON.stringify({ ...session(1), returnPath, createdAt: Date.now() }));
     expect(consumeMPOAuthSession('ok')?.returnPath).toBe(returnPath);
   });
 
-  it('rejects and deletes an entry older than ten minutes on consume', () => {
+  it('rejects and deletes an entry older than thirty minutes on consume', () => {
     const now = Date.now();
-    saveMPOAuthSession('stale', session(1), now - 11 * MINUTE);
-    saveMPOAuthSession('edge', session(2), now - 10 * MINUTE);
+    saveMPOAuthSession('stale', session(1), now - 31 * MINUTE);
+    saveMPOAuthSession('edge', session(2), now - 30 * MINUTE);
 
     expect(consumeMPOAuthSession('stale', now)).toBeNull();
-    expect(sessionStorage.getItem('mp_oauth_stale')).toBeNull();
+    expect(localStorage.getItem('mp_oauth_stale')).toBeNull();
     expect(consumeMPOAuthSession('edge', now)?.codeVerifier).toBe('v2');
+  });
+});
+
+describe('mpOAuthSession across tabs', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  // On a phone the MercadoPago app sends the owner back in a new tab, which
+  // starts with an empty sessionStorage. The attempt must still be found.
+  it('finds the attempt from a tab other than the one that started it', () => {
+    saveMPOAuthSession('state-a', session(1));
+    sessionStorage.clear();
+
+    expect(consumeMPOAuthSession('state-a')?.codeVerifier).toBe('v1');
   });
 });
 
 describe('mpOAuthSession pruning', () => {
   beforeEach(() => {
+    localStorage.clear();
     sessionStorage.clear();
   });
 
-  it('prunes entries older than ten minutes when writing', () => {
+  it('prunes entries older than thirty minutes when writing', () => {
     const now = Date.now();
-    saveMPOAuthSession('old', session(1), now - 11 * MINUTE);
+    saveMPOAuthSession('old', session(1), now - 31 * MINUTE);
     saveMPOAuthSession('fresh', session(2), now - 2 * MINUTE);
 
     saveMPOAuthSession('new', session(3), now);
 
-    expect(sessionStorage.getItem('mp_oauth_old')).toBeNull();
-    expect(sessionStorage.getItem('mp_oauth_fresh')).not.toBeNull();
-    expect(sessionStorage.getItem('mp_oauth_new')).not.toBeNull();
+    expect(localStorage.getItem('mp_oauth_old')).toBeNull();
+    expect(localStorage.getItem('mp_oauth_fresh')).not.toBeNull();
+    expect(localStorage.getItem('mp_oauth_new')).not.toBeNull();
   });
 
   it('caps the number of entries kept, dropping the oldest', () => {
     const now = Date.now();
     for (let i = 0; i < 8; i += 1) saveMPOAuthSession(`s${String(i)}`, session(i), now + i);
 
-    const kept = Object.keys(sessionStorage).filter((k) => k.startsWith('mp_oauth_'));
+    const kept = Object.keys(localStorage).filter((k) => k.startsWith('mp_oauth_'));
     expect(kept).toHaveLength(5);
-    expect(sessionStorage.getItem('mp_oauth_s7')).not.toBeNull();
-    expect(sessionStorage.getItem('mp_oauth_s0')).toBeNull();
+    expect(localStorage.getItem('mp_oauth_s7')).not.toBeNull();
+    expect(localStorage.getItem('mp_oauth_s0')).toBeNull();
   });
 
   it('sweeps the legacy single-verifier and nonce-to-complexId keys on write', () => {
@@ -111,6 +129,14 @@ describe('mpOAuthSession pruning', () => {
     expect(sessionStorage.getItem('mp_oauth_complex_abc')).toBeNull();
   });
 
+  it('sweeps the attempts sessionStorage held before the move to localStorage', () => {
+    sessionStorage.setItem('mp_oauth_state-old', JSON.stringify({ ...session(1), createdAt: Date.now() }));
+
+    saveMPOAuthSession('state-a', session(2));
+
+    expect(sessionStorage.getItem('mp_oauth_state-old')).toBeNull();
+  });
+
   it('never reads a legacy complexId-only entry as an attempt', () => {
     sessionStorage.setItem('mp_oauth_complex_abc', 'c1');
     expect(consumeMPOAuthSession('complex_abc')).toBeNull();
@@ -119,12 +145,12 @@ describe('mpOAuthSession pruning', () => {
   it('clearMPOAuthSessions removes every entry and the legacy keys', () => {
     saveMPOAuthSession('state-a', session(1));
     sessionStorage.setItem('mp_code_verifier', 'legacy');
-    sessionStorage.setItem('unrelated', 'keep');
+    localStorage.setItem('unrelated', 'keep');
 
     clearMPOAuthSessions();
 
-    expect(sessionStorage.getItem('mp_oauth_state-a')).toBeNull();
+    expect(localStorage.getItem('mp_oauth_state-a')).toBeNull();
     expect(sessionStorage.getItem('mp_code_verifier')).toBeNull();
-    expect(sessionStorage.getItem('unrelated')).toBe('keep');
+    expect(localStorage.getItem('unrelated')).toBe('keep');
   });
 });

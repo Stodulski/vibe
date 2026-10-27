@@ -94,6 +94,7 @@ describe('useMPConnect options', () => {
 describe('useMPConnect OAuth attempt', () => {
   beforeEach(() => {
     attemptCount = 0;
+    localStorage.clear();
     sessionStorage.clear();
     server.use(
       http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
@@ -106,7 +107,7 @@ describe('useMPConnect OAuth attempt', () => {
     await waitFor(() => {
       expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-1');
     });
-    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
   });
 
   it('binds the verifier and return path to the state nonce on click', async () => {
@@ -134,13 +135,14 @@ describe('useMPConnect OAuth attempt', () => {
     act(() => {
       result.current.handleConnectClick();
     });
-    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
   });
 });
 
 describe('useMPConnect attempt rotation', () => {
   beforeEach(() => {
     attemptCount = 0;
+    localStorage.clear();
     sessionStorage.clear();
     server.use(
       http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
