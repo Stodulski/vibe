@@ -2,9 +2,14 @@
  * The robots directive follows the one STOREFRONT_INDEXABLE switch, and error answers
  * stay out of the index whatever the switch says. Run with `pnpm test:unit`.
  */
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import astroIslandScript from 'astro/runtime/server/astro-island.prebuilt.js';
+import loadDirectiveScript from 'astro/runtime/client/load.prebuilt.js';
+import onlyDirectiveScript from 'astro/runtime/client/only.prebuilt.js';
 import {
+  ASTRO_INLINE_SCRIPT_HASHES,
   robotsDirective,
   STOREFRONT_INDEXABLE,
   storefrontBookingConfig,
@@ -55,7 +60,7 @@ test('the storefront CSP is report-only policy that keeps the directives the flo
   const directives = STOREFRONT_CSP_REPORT_ONLY.split('; ');
   assert.ok(directives.includes("frame-ancestors 'none'"));
   assert.ok(directives.includes("connect-src 'self' https://api.vibe.com.ar https://vibe.com.ar https://cloudflareinsights.com"));
-  assert.ok(directives.includes("script-src 'self' https://static.cloudflareinsights.com"));
+  assert.ok(directives.includes(`script-src 'self' ${ASTRO_INLINE_SCRIPT_HASHES.join(' ')} https://static.cloudflareinsights.com`));
   assert.ok(directives.some((d) => d.startsWith('img-src ') && d.includes('https://*.tile.openstreetmap.org')));
 });
 
@@ -68,4 +73,15 @@ test('the storefront CSP reports to the same-origin /_r/s endpoint, as the app d
 
 test('the storefront CSP names no Turnstile host (the booking flow loads none)', () => {
   assert.ok(!STOREFRONT_CSP_REPORT_ONLY.includes('challenges.cloudflare.com'));
+});
+
+// The islands on /c/<slug> need Astro's inline scripts. Hashed from Astro's own copies,
+// so an upgrade that changes them fails here instead of in the browser.
+test('the storefront CSP allows the inline scripts Astro writes for its islands', () => {
+  const sha256 = (script: string) => `'sha256-${createHash('sha256').update(script).digest('base64')}'`;
+  const scriptSrc = STOREFRONT_CSP_REPORT_ONLY.split('; ').find((d) => d.startsWith('script-src '));
+  for (const script of [loadDirectiveScript, onlyDirectiveScript, astroIslandScript]) {
+    assert.ok(scriptSrc?.split(' ').includes(sha256(script)), `script-src is missing ${sha256(script)}`);
+  }
+  assert.ok(!scriptSrc?.includes("'unsafe-inline'"));
 });

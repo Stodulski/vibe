@@ -59,6 +59,19 @@ export function storefrontBookingConfig(apiBaseUrl: string) {
 }
 
 /**
+ * The inline scripts Astro writes into a page with islands: the `client:load` and
+ * `client:only` directive loaders and the `<astro-island>` element. They are the same
+ * bytes on every page, so script-src allows them by hash instead of 'unsafe-inline'.
+ * An Astro upgrade can change them; tests/storefront.test.ts hashes Astro's own copies
+ * and fails until these are updated.
+ */
+export const ASTRO_INLINE_SCRIPT_HASHES = [
+  "'sha256-QzWFZi+FLIx23tnm9SBU4aEgx4x8DsuASP07mfqol/c='",
+  "'sha256-eIXWvAmxkr251LJZkjniEK5LcPF3NkapbJepohwYRIc='",
+  "'sha256-Ya0pUYrC7nM5Cn/056TyVuEiz6dFGrzmkWzgON0pF0U='",
+];
+
+/**
  * The storefront's Content-Security-Policy, Report-Only first. It mirrors the app's
  * policy (frontend/vercel.json) with three changes, all because the storefront does not
  * use them:
@@ -75,7 +88,7 @@ export const STOREFRONT_CSP_REPORT_ONLY = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' https://static.cloudflareinsights.com",
+  `script-src 'self' ${ASTRO_INLINE_SCRIPT_HASHES.join(' ')} https://static.cloudflareinsights.com`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data: https://*.tile.openstreetmap.org https://*.r2.dev https://*.vibe.com.ar",
