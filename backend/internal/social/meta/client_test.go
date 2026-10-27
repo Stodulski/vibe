@@ -755,13 +755,12 @@ func TestThePageTokenOfTheRequestIsRedactedInAnyForm(t *testing.T) {
 func TestTheTokenIsRedactedOnTheUploadStep(t *testing.T) {
 	t.Parallel()
 	_, client := newFake(t, func(e exchange) (int, string) {
-		if e.path == "/v25.0/me/accounts" {
+		switch e.path {
+		case "/v25.0/me/accounts":
 			return http.StatusOK, `{"data":[{"id":"page-1","access_token":"EAABpage-secret","instagram_business_account":{"id":"ig-1"}}]}`
-		}
-		switch {
-		case e.path == "/v25.0/page-1/video_reels":
+		case "/v25.0/page-1/video_reels":
 			return http.StatusOK, `{"video_id":"vid-9"}`
-		case e.path == "/upload/v25.0/vid-9":
+		case "/upload/v25.0/vid-9":
 			return http.StatusUnprocessableEntity, `{"debug_info":{"type":"OAuthException","message":"EAABpage-secret rejected"}}`
 		}
 		return http.StatusNotFound, `{"error":{"message":"no route"}}`
