@@ -34,6 +34,7 @@ type Complex struct {
 	LogoURL           *string   `json:"logo_url"`
 	CoverURL          *string   `json:"cover_url"`
 	Description       *string   `json:"description"`
+	Instagram         *string   `json:"instagram"`
 	DepositPercentage int       `json:"deposit_percentage"`
 	CancellationHours int       `json:"cancellation_hours"`
 	Latitude          *float64  `json:"latitude"`
@@ -144,6 +145,7 @@ func (m *Store) Insert(ctx context.Context, c *Complex) error {
 		// takes as the value rather than as "use the default". Never send nil.
 		Amenities:   orEmpty(c.Amenities),
 		Description: data.TextToPg(c.Description),
+		Instagram:   data.TextToPg(c.Instagram),
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -244,6 +246,7 @@ func (m *Store) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, 
 			MpRefreshToken: c.MpRefreshToken, MpUserID: c.MpUserID,
 			Latitude: c.Latitude, Longitude: c.Longitude, Amenities: c.Amenities,
 			Description: c.Description,
+			Instagram:   c.Instagram,
 			DeletedAt:   c.DeletedAt,
 			CreatedAt:   c.CreatedAt, UpdatedAt: c.UpdatedAt,
 		}, m.Keys)
@@ -294,6 +297,7 @@ func (m *Store) Update(ctx context.Context, c *Complex, expectedVersion *int) er
 		Longitude:         data.Float8ToPg(c.Longitude),
 		Amenities:         c.Amenities,
 		Description:       data.TextToPg(c.Description),
+		Instagram:         data.TextToPg(c.Instagram),
 		ID:                data.UUIDToPg(c.ID),
 		UpdatedAt:         data.TimeToPg(c.UpdatedAt),
 	})
@@ -761,6 +765,7 @@ func complexFromDB(c db.Complex, keys *crypto.Keyring) *Complex {
 		LogoURL:           data.PgToTextPtr(c.LogoUrl),
 		CoverURL:          data.PgToTextPtr(c.CoverUrl),
 		Description:       data.PgToTextPtr(c.Description),
+		Instagram:         data.PgToTextPtr(c.Instagram),
 		DepositPercentage: int(c.DepositPercentage),
 		CancellationHours: int(c.CancellationHours),
 		Latitude:          data.PgToFloat8Ptr(c.Latitude),

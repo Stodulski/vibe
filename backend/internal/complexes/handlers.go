@@ -70,6 +70,15 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		depositPercentage = *input.DepositPercentage
 	}
 	email := input.Email
+	var instagram *string
+	instagramOK := true
+	if input.Instagram != nil {
+		var handle string
+		handle, instagramOK = normalizeInstagram(*input.Instagram)
+		if handle != "" {
+			instagram = &handle
+		}
+	}
 
 	v := validator.New()
 	v.Check(input.Name != "", "name", "must be provided")
@@ -98,6 +107,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if email != nil {
 		v.Check(validator.Matches(*email, validator.EmailRX), "email", "must be a valid email address")
 	}
+	v.Check(instagramOK, "instagram", instagramMessage)
 
 	// Omitted or `[]` both mean none: cleanAmenities on a nil/empty slice
 	// returns an empty, non-nil slice, so both shapes end up identical by the
@@ -131,6 +141,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Province:          input.Province,
 		Phone:             input.Phone,
 		Email:             email,
+		Instagram:         instagram,
 		DepositPercentage: depositPercentage,
 		CancellationHours: input.CancellationHours,
 		Latitude:          input.Latitude,
@@ -334,6 +345,12 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		v.Check(utf8.RuneCountInString(trimmed) <= descriptionMaxLen, "description", descriptionMessage)
 		in.Description = &trimmed
 	}
+	if input.Instagram != nil {
+		// Reduced to the bare handle; "" is a clear, which the service stores as NULL.
+		handle, ok := normalizeInstagram(*input.Instagram)
+		v.Check(ok, "instagram", instagramMessage)
+		in.Instagram = &handle
+	}
 
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -415,6 +432,7 @@ type PublicComplex struct {
 	LogoURL           *string   `json:"logo_url,omitempty"`
 	CoverURL          *string   `json:"cover_url,omitempty"`
 	Description       *string   `json:"description,omitempty"`
+	Instagram         *string   `json:"instagram,omitempty"`
 	DepositPercentage int       `json:"deposit_percentage"`
 	CancellationHours int       `json:"cancellation_hours"`
 	Latitude          *float64  `json:"latitude,omitempty"`
@@ -462,6 +480,7 @@ func newPublicComplex(c *complexstore.Complex) PublicComplex {
 		LogoURL:           c.LogoURL,
 		CoverURL:          c.CoverURL,
 		Description:       c.Description,
+		Instagram:         c.Instagram,
 		DepositPercentage: c.DepositPercentage,
 		CancellationHours: c.CancellationHours,
 		Latitude:          c.Latitude,

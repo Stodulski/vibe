@@ -1935,9 +1935,12 @@ type Complex struct {
 	DepositPercentage int       `json:"deposit_percentage"`
 
 	// Description The owner's plain-text description, or null when none is set.
-	Description      *string            `json:"description,omitempty"`
-	Email            *string            `json:"email,omitempty"`
-	Id               openapi_types.UUID `json:"id"`
+	Description *string            `json:"description,omitempty"`
+	Email       *string            `json:"email,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Instagram The club's Instagram handle, without the @, or null when none is set.
+	Instagram        *string            `json:"instagram,omitempty"`
 	IsActive         bool               `json:"is_active"`
 	Latitude         *float64           `json:"latitude,omitempty"`
 	LogoUrl          *string            `json:"logo_url,omitempty"`
@@ -2433,17 +2436,20 @@ type PublicComplex struct {
 	DepositPercentage int     `json:"deposit_percentage"`
 
 	// Description The owner's plain-text description. Omitted when none is set.
-	Description     *string            `json:"description,omitempty"`
-	Email           *string            `json:"email,omitempty"`
-	Id              openapi_types.UUID `json:"id"`
-	Latitude        *float64           `json:"latitude,omitempty"`
-	LogoUrl         *string            `json:"logo_url,omitempty"`
-	Longitude       *float64           `json:"longitude,omitempty"`
-	Name            string             `json:"name"`
-	PaymentsEnabled bool               `json:"payments_enabled"`
-	Phone           string             `json:"phone"`
-	Province        string             `json:"province"`
-	Slug            string             `json:"slug"`
+	Description *string            `json:"description,omitempty"`
+	Email       *string            `json:"email,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Instagram The club's Instagram handle, without the @. Omitted when none is set.
+	Instagram       *string  `json:"instagram,omitempty"`
+	Latitude        *float64 `json:"latitude,omitempty"`
+	LogoUrl         *string  `json:"logo_url,omitempty"`
+	Longitude       *float64 `json:"longitude,omitempty"`
+	Name            string   `json:"name"`
+	PaymentsEnabled bool     `json:"payments_enabled"`
+	Phone           string   `json:"phone"`
+	Province        string   `json:"province"`
+	Slug            string   `json:"slug"`
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -3000,14 +3006,17 @@ type ComplexesCreateJSONBody struct {
 	City              string                              `json:"city"`
 
 	// DepositPercentage Defaults to 0 (no deposit required) when omitted.
-	DepositPercentage *int     `json:"deposit_percentage,omitempty"`
-	Email             *string  `json:"email,omitempty"`
-	Latitude          *float64 `json:"latitude,omitempty"`
-	Longitude         *float64 `json:"longitude,omitempty"`
-	Name              string   `json:"name"`
-	Phone             string   `json:"phone"`
-	Province          string   `json:"province"`
-	Slug              string   `json:"slug"`
+	DepositPercentage *int    `json:"deposit_percentage,omitempty"`
+	Email             *string `json:"email,omitempty"`
+
+	// Instagram A handle, an @handle or a profile link; stored as the bare handle. Blank or omitted means none.
+	Instagram *string  `json:"instagram,omitempty"`
+	Latitude  *float64 `json:"latitude,omitempty"`
+	Longitude *float64 `json:"longitude,omitempty"`
+	Name      string   `json:"name"`
+	Phone     string   `json:"phone"`
+	Province  string   `json:"province"`
+	Slug      string   `json:"slug"`
 }
 
 // ComplexesCreateJSONBodyAmenities defines parameters for ComplexesCreate.
@@ -3023,16 +3032,19 @@ type ComplexesUpdateJSONBody struct {
 	DepositPercentage *int                                `json:"deposit_percentage,omitempty"`
 
 	// Description Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it.
-	Description *string  `json:"description,omitempty"`
-	Email       *string  `json:"email,omitempty"`
-	IsActive    *bool    `json:"is_active,omitempty"`
-	Latitude    *float64 `json:"latitude,omitempty"`
-	LogoUrl     *string  `json:"logo_url,omitempty"`
-	Longitude   *float64 `json:"longitude,omitempty"`
-	Name        *string  `json:"name,omitempty"`
-	Phone       *string  `json:"phone,omitempty"`
-	Province    *string  `json:"province,omitempty"`
-	Slug        *string  `json:"slug,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Email       *string `json:"email,omitempty"`
+
+	// Instagram A handle, an @handle or a profile link; stored as the bare handle. A blank value clears it.
+	Instagram *string  `json:"instagram,omitempty"`
+	IsActive  *bool    `json:"is_active,omitempty"`
+	Latitude  *float64 `json:"latitude,omitempty"`
+	LogoUrl   *string  `json:"logo_url,omitempty"`
+	Longitude *float64 `json:"longitude,omitempty"`
+	Name      *string  `json:"name,omitempty"`
+	Phone     *string  `json:"phone,omitempty"`
+	Province  *string  `json:"province,omitempty"`
+	Slug      *string  `json:"slug,omitempty"`
 
 	// Version The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins.
 	Version *int `json:"version,omitempty"`

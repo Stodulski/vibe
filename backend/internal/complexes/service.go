@@ -190,13 +190,15 @@ func (s *Service) List(ctx context.Context, ownerID uuid.UUID) ([]*complexstore.
 // CreateInput is a validated request to open a venue. Slug is already
 // normalised and checked for shape by the handler.
 type CreateInput struct {
-	Name              string
-	Slug              string
-	Address           string
-	City              string
-	Province          string
-	Phone             string
-	Email             *string
+	Name     string
+	Slug     string
+	Address  string
+	City     string
+	Province string
+	Phone    string
+	Email    *string
+	// Instagram is the bare handle the handler reduced the input to, or nil.
+	Instagram         *string
 	DepositPercentage int
 	CancellationHours int
 	Latitude          *float64
@@ -259,6 +261,7 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, actor Actor, in
 		Currency:          "ARS",
 		Phone:             in.Phone,
 		Email:             in.Email,
+		Instagram:         in.Instagram,
 		DepositPercentage: in.DepositPercentage,
 		CancellationHours: in.CancellationHours,
 		Latitude:          in.Latitude,
@@ -353,16 +356,18 @@ func (s *Service) SlugAvailable(ctx context.Context, raw string) (SlugStatus, er
 // UpdateInput is a validated partial update. A nil field keeps its current
 // value. Slug is already normalised and checked for shape by the handler.
 type UpdateInput struct {
-	Name              *string
-	Slug              *string
-	Address           *string
-	City              *string
-	Province          *string
-	Phone             *string
-	Email             *string
-	LogoURL           *string
-	CoverURL          *string
-	Description       *string
+	Name        *string
+	Slug        *string
+	Address     *string
+	City        *string
+	Province    *string
+	Phone       *string
+	Email       *string
+	LogoURL     *string
+	CoverURL    *string
+	Description *string
+	// Instagram is the bare handle; "" clears it.
+	Instagram         *string
 	DepositPercentage *int
 	CancellationHours *int
 	IsActive          *bool
@@ -447,6 +452,13 @@ func (s *Service) Update(ctx context.Context, complex *complexstore.Complex, act
 		complex.Description = nil
 		if *in.Description != "" {
 			complex.Description = in.Description
+		}
+	}
+	if in.Instagram != nil {
+		// Same rule as the description: blank is none, nil in memory as in the row.
+		complex.Instagram = nil
+		if *in.Instagram != "" {
+			complex.Instagram = in.Instagram
 		}
 	}
 	if in.DepositPercentage != nil {
