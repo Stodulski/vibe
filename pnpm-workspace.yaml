@@ -45,3 +45,5 @@ overrides:
   # Also reached through astro (high): http-cache-semantics max-stale disclosure, sharp's librsvg CVE-2026-96889.
   'http-cache-semantics@<4.3.0': '>=4.3.0 <5'
   'sharp@<0.35.5': '>=0.35.5 <0.36'
+  # GHSA-mrhx-c7xc-m3w5 (high): zod 4.1 pinned by @vercel/cli-config, reached through @astrojs/vercel.
+  'zod@>=4 <4.6.6': '>=4.6.6 <5'
