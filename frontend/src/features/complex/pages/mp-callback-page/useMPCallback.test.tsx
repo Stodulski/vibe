@@ -37,6 +37,7 @@ function renderCallback(query: string) {
 
 beforeEach(() => {
   navigate.mockClear();
+  localStorage.clear();
   sessionStorage.clear();
 });
 
@@ -97,14 +98,14 @@ describe('useMPCallback single use', () => {
     let sawEntryDuringPost = true;
     server.use(
       http.post('*/complexes/:complexId/mp/connect', () => {
-        sawEntryDuringPost = sessionStorage.getItem('mp_oauth_state-1') !== null;
+        sawEntryDuringPost = localStorage.getItem('mp_oauth_state-1') !== null;
         return HttpResponse.json({ connected: true, mp_user_id: 'MP-1' });
       }),
     );
 
     const { result } = renderCallback('?code=abc&state=state-1');
     // Gone as soon as the hook mounted, before the response arrives.
-    expect(sessionStorage.getItem('mp_oauth_state-1')).toBeNull();
+    expect(localStorage.getItem('mp_oauth_state-1')).toBeNull();
     await waitFor(() => {
       expect(result.current.status).toBe('success');
     });
