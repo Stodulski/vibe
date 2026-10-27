@@ -35,6 +35,10 @@ func TestNormalizeInstagram(t *testing.T) {
 		{raw: "https://facebook.com/clubpadel", wantOK: false},
 		{raw: "https://www.instagram.com/club.padel/reels", wantOK: false},
 		{raw: "https://www.instagram.com/", wantOK: false},
+		{raw: "www.instagram.com", wantOK: false},
+		{raw: ".club", wantOK: false},
+		{raw: "club.", wantOK: false},
+		{raw: "club..padel", wantOK: false},
 	}
 	for _, tt := range tests {
 		got, ok := normalizeInstagram(tt.raw)

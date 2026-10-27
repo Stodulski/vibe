@@ -53,5 +53,11 @@ func normalizeInstagram(raw string) (handle string, ok bool) {
 	if !instagramHandleRX.MatchString(s) {
 		return "", false
 	}
+	// Instagram refuses a dot at either end or two in a row, and a bare
+	// "instagram.com" is the site, not an account.
+	if strings.HasPrefix(s, ".") || strings.HasSuffix(s, ".") || strings.Contains(s, "..") ||
+		strings.HasSuffix(s, "instagram.com") {
+		return "", false
+	}
 	return s, true
 }
