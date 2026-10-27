@@ -67,7 +67,7 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
 
           <ComplexInfoRow complex={complex} />
 
-          <div className="mt-4">
+          <div className="mt-2">
             <ShareComplexButton name={complex.name} slug={complex.slug} />
           </div>
         </div>

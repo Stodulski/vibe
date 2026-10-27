@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 import { Share2 } from 'lucide-react';
-import { Button } from '@vibe/ui';
 import { BookingConfigContext } from '../../config';
 import { publicComplexPath } from '../../lib/publicPaths';
 import { browserShareEnvironment, shareComplexPage } from '../../lib/shareComplex';
@@ -49,22 +48,20 @@ export function ShareComplexButton({ name, slug }: ShareComplexButtonProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      {/* A small chip, sized like the contact rows above it. On a touch screen the
-          global stylesheet lifts every button to 44px; the button takes that back
-          and keeps the 44px tap area as an invisible overlay instead. */}
-      <Button
+    <div className="text-micro text-text-secondary flex flex-wrap items-center gap-x-3 gap-y-2 sm:text-xs lg:text-sm">
+      {/* Drawn as one more contact row, not a button: an icon and a word, on the
+          rows' own size and colour. On a touch screen it keeps the 44px tap area
+          as padding and takes it back as negative margin, like the phone link. */}
+      <button
         type="button"
-        variant="outline"
-        size="sm"
-        className="relative text-xs after:absolute after:inset-x-0 after:-inset-y-1.5 pointer-coarse:min-h-0"
+        className="hover:text-primary-400 flex w-fit cursor-pointer items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
         aria-label={`${t.publicBooking.shareAction} ${name}`}
         onClick={() => void share()}
       >
-        <Share2 className="size-3.5" aria-hidden="true" />
-        {t.publicBooking.shareAction}
-      </Button>
-      <span role="status" aria-live="polite" className="text-primary-400 text-sm">
+        <Share2 className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
+        <span>{t.publicBooking.shareAction}</span>
+      </button>
+      <span role="status" aria-live="polite" className="text-primary-400">
         {copied ? t.publicBooking.shareCopied : ''}
       </span>
     </div>
