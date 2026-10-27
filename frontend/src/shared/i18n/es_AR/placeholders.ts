@@ -5,6 +5,7 @@ export const placeholders = {
   city: 'Ej: Buenos Aires',
   province: 'Provincia',
   contactEmail: 'Ej: info@miclub.com',
+  instagram: 'Ej: @miclub',
   email: 'Ej: juan@email.com',
   clientEmail: 'Ej: cliente@email.com',
   firstName: 'Ej: Juan',

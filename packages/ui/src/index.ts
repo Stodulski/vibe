@@ -22,6 +22,7 @@ export * from './components/common/Skeletons';
 export { StatusHero } from './components/common/StatusHero';
 export { StepBreadcrumbs, type Crumb } from './components/common/StepBreadcrumbs';
 export { WhatsappIcon } from './components/common/WhatsappIcon';
+export { InstagramIcon } from './components/common/InstagramIcon';
 
 export { MeshBackdrop } from './components/layout/MeshBackdrop';
 

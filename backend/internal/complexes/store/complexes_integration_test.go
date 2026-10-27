@@ -293,6 +293,70 @@ func TestIntegration_DescriptionRoundTripsThroughTheActiveView(t *testing.T) {
 	}
 }
 
+// The Instagram handle is read through the active_complexes view like the
+// description, so it must come back through every reader, and the column's
+// CHECK refuses a value the handler would never have produced.
+func TestIntegration_InstagramRoundTripsThroughTheActiveView(t *testing.T) {
+	f := datatest.Shared(t)
+	ctx := context.Background()
+
+	t.Cleanup(func() {
+		current, err := f.Stores.Complexes.GetByID(context.Background(), f.ComplexID)
+		if err != nil {
+			t.Errorf("GetByID (cleanup): %v", err)
+			return
+		}
+		current.Instagram = nil
+		if err := f.Stores.Complexes.Update(context.Background(), current, nil); err != nil {
+			t.Errorf("clearing the instagram (cleanup): %v", err)
+		}
+	})
+
+	c, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if c.Instagram != nil {
+		t.Fatalf("a fresh complex must have no instagram; got %q", *c.Instagram)
+	}
+
+	handle := "vibe.palermo"
+	c.Instagram = &handle
+	if err := f.Stores.Complexes.Update(ctx, c, nil); err != nil {
+		t.Fatalf("Update with an instagram: %v", err)
+	}
+
+	byID, err := f.Stores.Complexes.GetByID(ctx, f.ComplexID)
+	if err != nil {
+		t.Fatalf("GetByID after write: %v", err)
+	}
+	if byID.Instagram == nil || *byID.Instagram != handle {
+		t.Errorf("GetByID: instagram = %v, want %q", byID.Instagram, handle)
+	}
+	bySlug, err := f.Stores.Complexes.GetBySlug(ctx, c.Slug)
+	if err != nil {
+		t.Fatalf("GetBySlug after write: %v", err)
+	}
+	if bySlug.Instagram == nil || *bySlug.Instagram != handle {
+		t.Errorf("GetBySlug: instagram = %v, want %q", bySlug.Instagram, handle)
+	}
+	owned, err := f.Stores.Complexes.GetByOwner(ctx, c.OwnerID)
+	if err != nil {
+		t.Fatalf("GetByOwner after write: %v", err)
+	}
+	for _, o := range owned {
+		if o.ID == f.ComplexID && (o.Instagram == nil || *o.Instagram != handle) {
+			t.Errorf("GetByOwner: instagram = %v, want %q", o.Instagram, handle)
+		}
+	}
+
+	bad := "not a handle"
+	byID.Instagram = &bad
+	if err := f.Stores.Complexes.Update(ctx, byID, nil); err == nil {
+		t.Errorf("the column must refuse %q", bad)
+	}
+}
+
 // insertComplexForNewOwner creates one more complex, under a freshly
 // inserted owner rather than the fixture's own f.UserID, with no
 // MercadoPago credential yet — sealUnderForeignKey fills that in.

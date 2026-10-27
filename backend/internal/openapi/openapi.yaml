@@ -1842,6 +1842,7 @@ paths:
                 province: {type: string}
                 phone: {type: string}
                 email: {type: string}
+                instagram: {type: string, maxLength: 200, description: "A handle, an @handle or a profile link; stored as the bare handle. Blank or omitted means none."}
                 deposit_percentage:
                   type: integer
                   minimum: 0
@@ -1945,6 +1946,7 @@ paths:
                 logo_url: {type: string}
                 cover_url: {type: string}
                 description: {type: string, maxLength: 600, description: "Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it."}
+                instagram: {type: string, maxLength: 200, description: "A handle, an @handle or a profile link; stored as the bare handle. A blank value clears it."}
                 deposit_percentage: {type: integer, minimum: 0, maximum: 100}
                 cancellation_hours: {type: integer, minimum: 1, maximum: 168}
                 is_active: {type: boolean}
@@ -4711,6 +4713,7 @@ components:
         logo_url: {type: [string, "null"], format: uri}
         cover_url: {type: [string, "null"], format: uri}
         description: {type: [string, "null"], maxLength: 600, description: "The owner's plain-text description, or null when none is set."}
+        instagram: {type: [string, "null"], pattern: "^[a-z0-9._]{1,30}$", description: "The club's Instagram handle, without the @, or null when none is set."}
         deposit_percentage: {type: integer, minimum: 0, maximum: 100}
         cancellation_hours: {type: integer, minimum: 1, maximum: 168}
         latitude: {type: [number, "null"], format: double}
@@ -4772,6 +4775,7 @@ components:
         logo_url: {type: string, format: uri}
         cover_url: {type: string, format: uri}
         description: {type: string, maxLength: 600, description: "The owner's plain-text description. Omitted when none is set."}
+        instagram: {type: string, pattern: "^[a-z0-9._]{1,30}$", description: "The club's Instagram handle, without the @. Omitted when none is set."}
         deposit_percentage: {type: integer}
         cancellation_hours: {type: integer}
         latitude: {type: number, format: double}

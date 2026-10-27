@@ -12,7 +12,7 @@ import (
 )
 
 const getComplexByID = `-- name: GetComplexByID :one
-SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description FROM active_complexes
+SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description, instagram FROM active_complexes
 WHERE id = $1
 `
 
@@ -51,12 +51,13 @@ func (q *Queries) GetComplexByID(ctx context.Context, id pgtype.UUID) (ActiveCom
 		&i.MpTokenExpiresAt,
 		&i.Version,
 		&i.Description,
+		&i.Instagram,
 	)
 	return i, err
 }
 
 const getComplexBySlug = `-- name: GetComplexBySlug :one
-SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description FROM active_complexes
+SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description, instagram FROM active_complexes
 WHERE slug = $1
 `
 
@@ -97,12 +98,13 @@ func (q *Queries) GetComplexBySlug(ctx context.Context, slug string) (ActiveComp
 		&i.MpTokenExpiresAt,
 		&i.Version,
 		&i.Description,
+		&i.Instagram,
 	)
 	return i, err
 }
 
 const getComplexesByOwner = `-- name: GetComplexesByOwner :many
-SELECT c.id, c.owner_id, c.name, c.slug, c.address, c.city, c.province, c.country_code, c.currency, c.phone, c.email, c.logo_url, c.cover_url, c.deposit_percentage, c.cancellation_hours, c.latitude, c.longitude, c.is_active, c.mp_access_token, c.mp_refresh_token, c.mp_user_id, c.deleted_at, c.created_at, c.updated_at, c.amenities, c.mp_token_expires_at, c.version, c.description, (
+SELECT c.id, c.owner_id, c.name, c.slug, c.address, c.city, c.province, c.country_code, c.currency, c.phone, c.email, c.logo_url, c.cover_url, c.deposit_percentage, c.cancellation_hours, c.latitude, c.longitude, c.is_active, c.mp_access_token, c.mp_refresh_token, c.mp_user_id, c.deleted_at, c.created_at, c.updated_at, c.amenities, c.mp_token_expires_at, c.version, c.description, c.instagram, (
     SELECT COUNT(*) FROM active_courts ct WHERE ct.complex_id = c.id
 ) AS court_count
 FROM active_complexes c
@@ -139,6 +141,7 @@ type GetComplexesByOwnerRow struct {
 	MpTokenExpiresAt  pgtype.Timestamptz `json:"mp_token_expires_at"`
 	Version           int32              `json:"version"`
 	Description       pgtype.Text        `json:"description"`
+	Instagram         pgtype.Text        `json:"instagram"`
 	CourtCount        int64              `json:"court_count"`
 }
 
@@ -199,6 +202,7 @@ func (q *Queries) GetComplexesByOwner(ctx context.Context, ownerID pgtype.UUID) 
 			&i.MpTokenExpiresAt,
 			&i.Version,
 			&i.Description,
+			&i.Instagram,
 			&i.CourtCount,
 		); err != nil {
 			return nil, err
@@ -251,10 +255,10 @@ INSERT INTO complexes (
     address, city, province, country_code, currency,
     phone, email, logo_url, cover_url,
     deposit_percentage, cancellation_hours,
-    latitude, longitude, amenities, description
+    latitude, longitude, amenities, description, instagram
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description, instagram
 `
 
 type InsertComplexParams struct {
@@ -276,6 +280,7 @@ type InsertComplexParams struct {
 	Longitude         pgtype.Float8 `json:"longitude"`
 	Amenities         []string      `json:"amenities"`
 	Description       pgtype.Text   `json:"description"`
+	Instagram         pgtype.Text   `json:"instagram"`
 }
 
 func (q *Queries) InsertComplex(ctx context.Context, arg InsertComplexParams) (Complex, error) {
@@ -298,6 +303,7 @@ func (q *Queries) InsertComplex(ctx context.Context, arg InsertComplexParams) (C
 		arg.Longitude,
 		arg.Amenities,
 		arg.Description,
+		arg.Instagram,
 	)
 	var i Complex
 	err := row.Scan(
@@ -329,12 +335,13 @@ func (q *Queries) InsertComplex(ctx context.Context, arg InsertComplexParams) (C
 		&i.MpTokenExpiresAt,
 		&i.Version,
 		&i.Description,
+		&i.Instagram,
 	)
 	return i, err
 }
 
 const listComplexesNeedingMPRefresh = `-- name: ListComplexesNeedingMPRefresh :many
-SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description FROM active_complexes
+SELECT id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description, instagram FROM active_complexes
 WHERE mp_refresh_token IS NOT NULL
   AND is_active = true
   AND (mp_token_expires_at IS NULL OR mp_token_expires_at < now() + interval '30 days')
@@ -383,6 +390,7 @@ func (q *Queries) ListComplexesNeedingMPRefresh(ctx context.Context) ([]ActiveCo
 			&i.MpTokenExpiresAt,
 			&i.Version,
 			&i.Description,
+			&i.Instagram,
 		); err != nil {
 			return nil, err
 		}
@@ -431,13 +439,14 @@ SET name = $1,
     latitude = $13,
     longitude = $14,
     amenities = $15,
-    description = $18
+    description = $18,
+    instagram = $19
 WHERE id = $16
   AND deleted_at IS NULL
   AND updated_at = $17
-  AND ($19::int IS NULL
-       OR version = $19::int)
-RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description
+  AND ($20::int IS NULL
+       OR version = $20::int)
+RETURNING id, owner_id, name, slug, address, city, province, country_code, currency, phone, email, logo_url, cover_url, deposit_percentage, cancellation_hours, latitude, longitude, is_active, mp_access_token, mp_refresh_token, mp_user_id, deleted_at, created_at, updated_at, amenities, mp_token_expires_at, version, description, instagram
 `
 
 type UpdateComplexParams struct {
@@ -459,6 +468,7 @@ type UpdateComplexParams struct {
 	ID                pgtype.UUID        `json:"id"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	Description       pgtype.Text        `json:"description"`
+	Instagram         pgtype.Text        `json:"instagram"`
 	ExpectedVersion   pgtype.Int4        `json:"expected_version"`
 }
 
@@ -502,6 +512,7 @@ func (q *Queries) UpdateComplex(ctx context.Context, arg UpdateComplexParams) (C
 		arg.ID,
 		arg.UpdatedAt,
 		arg.Description,
+		arg.Instagram,
 		arg.ExpectedVersion,
 	)
 	var i Complex
@@ -534,6 +545,7 @@ func (q *Queries) UpdateComplex(ctx context.Context, arg UpdateComplexParams) (C
 		&i.MpTokenExpiresAt,
 		&i.Version,
 		&i.Description,
+		&i.Instagram,
 	)
 	return i, err
 }

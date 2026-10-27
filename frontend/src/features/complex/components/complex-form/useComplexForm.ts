@@ -22,6 +22,8 @@ function buildDefaultValues(complex: Complex | undefined) {
       longitude: complex.longitude ?? undefined,
       phone: complex.phone,
       email: complex.email ?? '',
+      // Stored as the bare handle; shown the way people write it.
+      instagram: complex.instagram ? `@${complex.instagram}` : '',
       deposit_percentage: complex.deposit_percentage,
       cancellation_hours: complex.cancellation_hours,
       // Runtime-checked: a complex cached from before this field existed has
@@ -56,15 +58,21 @@ interface UseComplexFormArgs {
 // `email`/`latitude`/`longitude` on `CreateComplexRequest`/
 // `UpdateComplexRequest` are absent-or-present, not present-with-`undefined`
 // — only include each when it has a value.
-function cleanComplexPayload(data: CreateComplexDto) {
+//
+// `instagram` is sent as typed: the server reduces a link or an @handle to the
+// bare handle. Blank is left out of a create, but sent on an edit, where
+// leaving it out would keep the account the owner just erased.
+function cleanComplexPayload(data: CreateComplexDto, isEdit: boolean) {
   // Destructure slug/formatted_address out — slug is sent explicitly by both
   // callers below (the field is editable in both create and edit mode);
   // formatted_address is a UI-only field never sent to the API.
-  const { slug, formatted_address, email, latitude, longitude, ...rest } = data;
+  const { slug, formatted_address, email, instagram, latitude, longitude, ...rest } = data;
   const cleanEmail = blankToUndefined(email);
+  const cleanInstagram = isEdit ? instagram : blankToUndefined(instagram);
   const cleaned = {
     ...rest,
     ...(cleanEmail !== undefined ? { email: cleanEmail } : {}),
+    ...(cleanInstagram !== undefined ? { instagram: cleanInstagram } : {}),
     ...(latitude !== undefined ? { latitude } : {}),
     ...(longitude !== undefined ? { longitude } : {}),
   };
@@ -117,7 +125,7 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
   };
 
   const onSubmit = (data: CreateComplexDto) => {
-    const { slug, cleaned } = cleanComplexPayload(data);
+    const { slug, cleaned } = cleanComplexPayload(data, isEdit);
 
     // Branched instead of calling through a `mutation = isEdit ? update : create`
     // union: create and update hit different endpoints with differently-typed

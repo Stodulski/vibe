@@ -70,6 +70,8 @@ export interface PublicComplex {
   logo_url?: string;
   cover_url?: string;
   description?: string;
+  /** The bare Instagram handle, without the `@`. */
+  instagram?: string;
   deposit_percentage: number;
   cancellation_hours: number;
   latitude?: number;

@@ -69,6 +69,7 @@ const publicComplexSchema = exact<PublicComplex>(
       email: nullableToAbsent(z.string()),
       logo_url: nullableToAbsent(z.string()),
       cover_url: nullableToAbsent(z.string()),
+      instagram: nullableToAbsent(z.string()),
       deposit_percentage: z.number(),
       cancellation_hours: z.number(),
       latitude: nullableToAbsent(z.number()),

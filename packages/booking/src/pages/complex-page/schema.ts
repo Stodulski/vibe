@@ -6,6 +6,7 @@ import { formatPrice } from '@vibe/ui';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../../api/types';
 import { orderedAmenities } from '../../lib/amenities';
 import { priceRange } from '../../lib/courtPrices';
+import { instagramProfileUrl } from '../../lib/instagram';
 import { todayInVenueTz } from '../../lib/venueDate';
 
 const SCHEMA_DAY_MAP: Record<string, string> = {
@@ -17,6 +18,18 @@ const SCHEMA_DAY_MAP: Record<string, string> = {
   saturday: 'Saturday',
   sunday: 'Sunday',
 };
+
+/**
+ * The complex's own pictures: the cover first, since it is the larger image for rich
+ * results, then the logo. schema.org takes a list, so both go in when both exist.
+ */
+function schemaImage(complex: PublicComplex): string | string[] | undefined {
+  const images = [complex.cover_url, complex.logo_url].filter(
+    (url): url is string => typeof url === 'string' && url !== '',
+  );
+  if (images.length > 1) return images;
+  return images[0];
+}
 
 /**
  * The complex as a schema.org `SportsActivityLocation`. `courts` feeds the
@@ -51,14 +64,10 @@ export function buildComplexSchema(
     },
   };
 
-  // The complex's own pictures: the cover first, since it is the larger image for rich
-  // results, then the logo. schema.org takes a list, so both go in when both exist.
-  const images = [complex.cover_url, complex.logo_url].filter(
-    (url): url is string => typeof url === 'string' && url !== '',
-  );
-  if (images.length === 1) schema.image = images[0];
-  if (images.length > 1) schema.image = images;
+  const image = schemaImage(complex);
+  if (image) schema.image = image;
   if (complex.email) schema.email = complex.email;
+  if (complex.instagram) schema.sameAs = [instagramProfileUrl(complex.instagram)];
   if (complex.latitude && complex.longitude) {
     schema.geo = {
       '@type': 'GeoCoordinates',

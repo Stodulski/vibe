@@ -37,6 +37,7 @@ const complexShape = {
   longitude: z.number().optional(),
   phone: z.string().trim().min(1, t.validation.phoneRequired),
   email: optionalEmailField,
+  instagram: z.string().trim().max(200, t.validation.maxChars200).optional(),
   deposit_percentage: z.number().min(0, t.validation.min0Percent).max(100, t.validation.max100Percent),
   cancellation_hours: z.number().min(1, t.validation.min1Hour).max(168, t.validation.max168HoursWeek),
   amenities: z.array(z.enum(AMENITY_VALUES)),

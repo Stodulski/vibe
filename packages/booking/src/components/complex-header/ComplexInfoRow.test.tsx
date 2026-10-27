@@ -53,6 +53,20 @@ describe('ComplexInfoRow', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
+  it('links the club\'s Instagram profile in a new tab', () => {
+    render(<ComplexInfoRow complex={makeComplex({ instagram: 'club.test' })} />);
+    const link = screen.getByRole('link', { name: 'Instagram de Club Test: @club.test' });
+    expect(link).toHaveAttribute('href', 'https://www.instagram.com/club.test/');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link).toHaveTextContent('@club.test');
+  });
+
+  it('shows no Instagram row when the club has none', () => {
+    render(<ComplexInfoRow complex={makeComplex()} />);
+    expect(screen.queryByRole('link', { name: /Instagram/ })).not.toBeInTheDocument();
+  });
+
   it('offers no WhatsApp link when the club has no phone', () => {
     render(<ComplexInfoRow complex={makeComplex({ phone: '' })} />);
     expect(screen.queryByRole('link', { name: /WhatsApp/ })).not.toBeInTheDocument();

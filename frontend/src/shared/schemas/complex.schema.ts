@@ -38,6 +38,7 @@ export const complexSchema = exact<Complex>(
       email: z.string().nullable().optional(),
       logo_url: z.string().nullable().optional(),
       cover_url: z.string().nullable().optional(),
+      instagram: z.string().nullable().optional(),
       deposit_percentage: z.number(),
       cancellation_hours: z.number(),
       latitude: z.number().nullable().optional(),

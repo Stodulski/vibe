@@ -117,6 +117,7 @@ export const BOOKING_MESSAGES = {
     stepOfPrefix: 'Paso',
     stepOfMiddle: 'de',
     noEmail: 'Sin email',
+    instagramOf: 'Instagram de',
     shareAction: 'Compartir',
     shareTextPrefix: 'Reservá tu cancha en',
     shareCopied: 'Link copiado',

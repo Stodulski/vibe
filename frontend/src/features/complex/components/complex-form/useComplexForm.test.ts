@@ -82,3 +82,45 @@ describe('useComplexForm', () => {
     expect(updatePayload.slug).toBe('club-test-renamed');
   });
 });
+
+describe('useComplexForm, Instagram', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // The server stores the bare handle; the form shows it the way people write it.
+  it('shows a stored Instagram handle with its @ when editing', () => {
+    const complex = { id: 'c1', ...baseValues, instagram: 'club.test' } as unknown as Complex;
+    const { result } = renderHook(() => useComplexForm({ complex }));
+    expect(result.current.form.getValues('instagram')).toBe('@club.test');
+  });
+
+  it('leaves Instagram out of a new complex when it is blank', () => {
+    const { result } = renderHook(() => useComplexForm({}));
+    act(() => {
+      result.current.onSubmit({ ...baseValues, instagram: '' });
+    });
+    const payload = mockCreateMutate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('instagram');
+  });
+
+  it('sends what the owner typed, for the server to reduce to a handle', () => {
+    const { result } = renderHook(() => useComplexForm({}));
+    act(() => {
+      result.current.onSubmit({ ...baseValues, instagram: 'https://www.instagram.com/club.test/' });
+    });
+    const payload = mockCreateMutate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.instagram).toBe('https://www.instagram.com/club.test/');
+  });
+
+  // On an edit, blank is a clear: an omitted key would leave the old account on the page.
+  it('sends a blank Instagram on an edit, so the server clears it', () => {
+    const complex = { id: 'c1', ...baseValues, instagram: 'club.test' } as unknown as Complex;
+    const { result } = renderHook(() => useComplexForm({ complex }));
+    act(() => {
+      result.current.onSubmit({ ...baseValues, instagram: '' });
+    });
+    const payload = mockUpdateMutate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.instagram).toBe('');
+  });
+});

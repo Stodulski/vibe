@@ -15,6 +15,37 @@ interface ContactFieldsProps {
   errors: FieldErrors<CreateComplexDto>;
 }
 
+// Takes a handle, an @handle or a pasted profile link: the server reduces it to the handle.
+function InstagramField({
+  register,
+  error,
+}: {
+  register: UseFormRegister<CreateComplexDto>;
+  error?: string | undefined;
+}) {
+  return (
+    <FormField
+      label={
+        <>
+          {t.complex.instagram} <span className="text-text-tertiary">(opcional)</span>
+        </>
+      }
+      htmlFor="instagram"
+      error={error}
+    >
+      <Input
+        id="instagram"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder={t.placeholders.instagram}
+        aria-invalid={!!error}
+        {...register('instagram')}
+      />
+    </FormField>
+  );
+}
+
 export function ContactFields({ register, control, errors }: ContactFieldsProps) {
   return (
     <>
@@ -59,6 +90,8 @@ export function ContactFields({ register, control, errors }: ContactFieldsProps)
       >
         <Input id="email" type="email" aria-invalid={!!errors.email} {...register('email')} />
       </FormField>
+
+      <InstagramField register={register} error={errors.instagram?.message} />
     </>
   );
 }
