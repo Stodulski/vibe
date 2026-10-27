@@ -165,6 +165,15 @@ describe('buildComplexSchema, facts from the payload', () => {
     const schema = buildComplexSchema({ ...complex, description: '   ' }, schedules, url);
     expect(schema.description).toBeUndefined();
   });
+
+  it('links the Instagram profile as sameAs when the club has one', () => {
+    const schema = buildComplexSchema({ ...complex, instagram: 'club.norte' }, schedules, url);
+    expect(schema.sameAs).toEqual(['https://www.instagram.com/club.norte/']);
+  });
+
+  it('leaves sameAs out when the club has no Instagram', () => {
+    expect(buildComplexSchema(complex, schedules, url).sameAs).toBeUndefined();
+  });
 });
 
 describe('parseDateParam', () => {

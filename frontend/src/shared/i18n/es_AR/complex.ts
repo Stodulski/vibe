@@ -38,6 +38,7 @@ export const complex = {
   province: 'Provincia',
   phone: 'Teléfono',
   email: 'Email de contacto',
+  instagram: 'Instagram',
   description: 'Descripción',
   // Accessible name of the storefront map, completed with the club's name
   // and address.

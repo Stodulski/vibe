@@ -1766,6 +1766,8 @@ export interface components {
             cover_url?: string | null;
             /** @description The owner's plain-text description, or null when none is set. */
             description?: string | null;
+            /** @description The club's Instagram handle, without the @, or null when none is set. */
+            instagram?: string | null;
             deposit_percentage: number;
             cancellation_hours: number;
             /** Format: double */
@@ -1818,6 +1820,8 @@ export interface components {
             cover_url?: string;
             /** @description The owner's plain-text description. Omitted when none is set. */
             description?: string;
+            /** @description The club's Instagram handle, without the @. Omitted when none is set. */
+            instagram?: string;
             deposit_percentage: number;
             cancellation_hours: number;
             /** Format: double */
@@ -4694,6 +4698,8 @@ export interface operations {
                     province: string;
                     phone: string;
                     email?: string;
+                    /** @description A handle, an @handle or a profile link; stored as the bare handle. Blank or omitted means none. */
+                    instagram?: string;
                     /**
                      * @description Defaults to 0 (no deposit required) when omitted.
                      * @default 0
@@ -4795,6 +4801,8 @@ export interface operations {
                     cover_url?: string;
                     /** @description Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it. */
                     description?: string;
+                    /** @description A handle, an @handle or a profile link; stored as the bare handle. A blank value clears it. */
+                    instagram?: string;
                     deposit_percentage?: number;
                     cancellation_hours?: number;
                     is_active?: boolean;

@@ -1,14 +1,31 @@
 import { MapPin, Phone, Mail } from 'lucide-react';
-import { WhatsappIcon } from '@vibe/ui';
+import { InstagramIcon, WhatsappIcon } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicComplex } from '../../api/types';
 import { fullAddress } from '../../lib/complexAddress';
+import { instagramProfileUrl } from '../../lib/instagram';
 import { whatsappChatHref } from '../../lib/whatsapp';
 
 const t = BOOKING_MESSAGES;
 
+/** The club's Instagram profile, opened in a new tab, on the same row rhythm as the phone and email. */
+function InstagramLink({ name, handle }: { name: string; handle: string }) {
+  return (
+    <a
+      href={instagramProfileUrl(handle)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`${t.publicBooking.instagramOf} ${name}: @${handle}`}
+      className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+    >
+      <InstagramIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
+      <span>@{handle}</span>
+    </a>
+  );
+}
+
 /**
- * How to find the club and how to reach it: address, phone, email.
+ * How to find the club and how to reach it: address, phone, email, Instagram.
  *
  * A column, not a row. These were laid out side by side, which reads as one
  * run-on line of unrelated facts and gives each of them whatever width is
@@ -82,6 +99,8 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
           <span>{t.publicBooking.noEmail}</span>
         </div>
       )}
+
+      {complex.instagram && <InstagramLink name={complex.name} handle={complex.instagram} />}
     </div>
   );
 }
