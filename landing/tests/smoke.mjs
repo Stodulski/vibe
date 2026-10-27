@@ -22,6 +22,7 @@
  * deployed site with a real browser; a runner would add weight without adding
  * a single check.
  */
+import { createHash } from 'node:crypto';
 import { chromium, devices } from 'playwright';
 import { guias } from '../src/data/guias.ts';
 import {
@@ -720,6 +721,11 @@ async function testStorefront() {
   check(`/c/${slug} sends the storefront CSP in report-only`,
     /default-src 'self'/.test(complex.headers()['content-security-policy-report-only'] || ''));
   const html = await complex.text();
+  const policy = complex.headers()['content-security-policy-report-only'] || '';
+  const unhashed = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .map((m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`)
+    .filter((hash) => !policy.includes(hash));
+  check(`/c/${slug} CSP allows every inline script on the page`, unhashed.length === 0, unhashed.join(' '));
   check(`/c/${slug} carries a canonical link`, new RegExp(`<link rel="canonical" href="https://vibe.com.ar/c/${slug}"`).test(html));
   check(`/c/${slug} carries JSON-LD`, /application\/ld\+json/.test(html));
 
