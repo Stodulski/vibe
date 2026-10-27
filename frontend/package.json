@@ -48,7 +48,7 @@
     "ky": "^2.1.0",
     "lucide-react": "^1.44.0",
     "radix-ui": "^1.6.7",
-    "react": "^19.3.0",
+    "react": "^19.3.1",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.3.0",
     "react-hook-form": "^7.87.0",
