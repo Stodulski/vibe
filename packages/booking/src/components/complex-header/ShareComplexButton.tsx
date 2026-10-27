@@ -50,14 +50,18 @@ export function ShareComplexButton({ name, slug }: ShareComplexButtonProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      {/* A small chip, sized like the contact rows above it. On a touch screen the
+          global stylesheet lifts every button to 44px; the button takes that back
+          and keeps the 44px tap area as an invisible overlay instead. */}
       <Button
         type="button"
         variant="outline"
-        className="h-11"
+        size="sm"
+        className="relative text-xs after:absolute after:inset-x-0 after:-inset-y-1.5 pointer-coarse:min-h-0"
         aria-label={`${t.publicBooking.shareAction} ${name}`}
         onClick={() => void share()}
       >
-        <Share2 className="size-4" aria-hidden="true" />
+        <Share2 className="size-3.5" aria-hidden="true" />
         {t.publicBooking.shareAction}
       </Button>
       <span role="status" aria-live="polite" className="text-primary-400 text-sm">
