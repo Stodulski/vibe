@@ -199,6 +199,38 @@ func fullRefund() Refund {
 	}
 }
 
+// A booking refunded in two parts gets two notices. The deduplication key used to
+// be the booking alone, so the queue treated the second part as a redelivery of the
+// first and the client was never told about the second refund.
+func TestEachPartialRefundOfABookingHasItsOwnNoticeKey(t *testing.T) {
+	s, q, _, _, _ := newTestService(t, false)
+	bookingID := uuid.New().String()
+
+	first := fullRefund()
+	first.BookingID, first.RefundID = bookingID, "mp-1:1000"
+	second := fullRefund()
+	second.BookingID, second.RefundID = bookingID, "mp-1:2000"
+
+	s.DepositRefunded(first)
+	s.DepositRefunded(second)
+
+	var keys []string
+	for _, task := range q.tasks {
+		if task.taskType == TaskEmailDepositRefunded {
+			keys = append(keys, task.dedupKey)
+		}
+	}
+	if len(keys) != 2 {
+		t.Fatalf("each refund must be enqueued; got %d deposit-refunded emails", len(keys))
+	}
+	if keys[0] == "" || keys[1] == "" {
+		t.Fatalf("a refund notice with no deduplication key is sent twice on a redelivery; got %q and %q", keys[0], keys[1])
+	}
+	if keys[0] == keys[1] {
+		t.Errorf("two partial refunds of one booking share the deduplication key %q, so the second client email is dropped", keys[0])
+	}
+}
+
 func fullReminder() Reminder {
 	return Reminder{
 		Email: "ana@example.com", Phone: "+5411",
@@ -879,6 +911,7 @@ func TestEachDeliveryCarriesADeduplicationKey(t *testing.T) {
 
 	refund := fullRefund()
 	refund.BookingID = bookingID
+	refund.RefundID = "mp-123:500000"
 	s.DepositRefunded(refund)
 
 	reminder := fullReminder()

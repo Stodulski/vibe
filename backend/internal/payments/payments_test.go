@@ -87,7 +87,8 @@ func TestTheIdempotencyLockIsAlwaysReleased(t *testing.T) {
 }
 
 // A booking that is already confirmed, completed or played must not be
-// re-confirmed: it would resend the confirmation and rewrite the payment.
+// re-confirmed: it would resend the confirmation and rewrite the payment. This is
+// the redelivery of a payment already recorded on the booking, so it is a no-op.
 func TestApprovedPaymentSkipsABookingThatIsAlreadySettled(t *testing.T) {
 	for _, status := range []bookingstore.BookingStatus{
 		bookingstore.BookingStatusConfirmed,
@@ -98,6 +99,10 @@ func TestApprovedPaymentSkipsABookingThatIsAlreadySettled(t *testing.T) {
 			f := newFixture(t)
 			booking, _ := paidBooking(uuid.New())
 			booking.Status = status
+			replayed := "mp-123"
+			f.payments.byBooking = &paymentstore.Payment{
+				ID: uuid.New(), BookingID: booking.ID, Status: "deposit_paid", MPPaymentID: &replayed,
+			}
 
 			_ = f.service.processApprovedPayment(t.Context(), booking, &mp.Payment{ID: 123}, "mp-123")
 

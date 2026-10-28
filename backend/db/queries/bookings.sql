@@ -29,9 +29,14 @@ WHERE id = $1
        OR complex_id = sqlc.narg('complex_id')::uuid);
 
 -- name: GetBookingsByComplex :many
+-- Overlapping the days asked for, not starting on them: a booking that runs
+-- 23:00 to 01:00 occupies both days, and an owner looking at the next morning
+-- has to see the hours it is still holding. Same predicate as the owner list in
+-- internal/bookings/store (GetByComplex); see local_day() in
+-- db/migrations/001_init.sql.
 SELECT * FROM bookings
 WHERE complex_id = $1
-  AND date BETWEEN $2 AND $3
+  AND span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
   AND (date, id) > ($4, $5)
 ORDER BY date ASC, id ASC
 LIMIT $6;
@@ -71,6 +76,28 @@ SET status = $2,
     deposit_amount = $6,
     refund_intent_at = $7
 WHERE id = $1
+RETURNING *;
+
+-- name: UpdateBookingIfUnchanged :one
+-- The owner's edit, applied only while the row is still the one the owner read.
+-- updated_at is stamped by the set_updated_at trigger on every write, so an
+-- equal value means nothing has written the row since. The whole-row write
+-- below is built from the owner's snapshot, and the trigger does not refuse
+-- every stale one: a cancellation reverted to no_show, or a deposit reverted
+-- from fully_paid, is a legal-looking transition. A row that moved matches
+-- nothing and comes back as no rows, which the store answers as an edit
+-- conflict instead of writing the stale snapshot over the other writer's change.
+--
+-- UpdateBooking stays unconditional for every other writer.
+UPDATE bookings
+SET status = $2,
+    collection_status = $3,
+    refund_status = $4,
+    notes = $5,
+    deposit_amount = $6,
+    refund_intent_at = $7
+WHERE id = $1
+  AND updated_at = sqlc.arg(expected_updated_at)
 RETURNING *;
 
 -- GetBookedSlots returns the hours already taken on the given courts and date.
@@ -154,3 +181,13 @@ SELECT * FROM bookings WHERE false;
 -- name: GetNextBookingByClientPhone :one
 -- Kept for backwards compatibility with generated code. No longer used by business logic.
 SELECT * FROM bookings WHERE false LIMIT 1;
+
+-- name: MarkBookingManualBalanceOwed :execrows
+-- Marks a cancelled booking's cash or transfer balance as owed back by hand, so
+-- the owner's manual-refund action becomes available. Only refund_status moves,
+-- and only from 'none': the refund path runs after its own read, and a
+-- whole-row write from that snapshot would revert whatever another writer (an
+-- owner edit) changed in between. A row already past 'none' is left alone.
+UPDATE bookings
+SET refund_status = 'partial'
+WHERE id = $1 AND refund_status = 'none';

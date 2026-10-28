@@ -11,6 +11,12 @@ import (
 )
 
 type Querier interface {
+	// Whether an owner's blocked slot on the booking's court covers any of the hours
+	// the booking is about to claim. It asks the same generated span column, and the
+	// same half-open range, as the bookings exclusion constraint and SlotTaken, so a
+	// block that starts exactly when the booking ends is not an overlap. The caller
+	// holds the court-day lock, which the owner's block insert takes too.
+	BlockedSlotOverlapsBooking(ctx context.Context, arg BlockedSlotOverlapsBookingParams) (bool, error)
 	// Bumps the court's version without changing any of its own columns, so that
 	// replacing its price bands moves a counter a client can hold.
 	//
@@ -123,6 +129,11 @@ type Querier interface {
 	//
 	// Tenant-scoped like GetBookingByID above, and optional for the same reason.
 	GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByIDForUpdateParams) (Booking, error)
+	// Overlapping the days asked for, not starting on them: a booking that runs
+	// 23:00 to 01:00 occupies both days, and an owner looking at the next morning
+	// has to see the hours it is still holding. Same predicate as the owner list in
+	// internal/bookings/store (GetByComplex); see local_day() in
+	// db/migrations/001_init.sql.
 	GetBookingsByComplex(ctx context.Context, arg GetBookingsByComplexParams) ([]Booking, error)
 	GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourtParams) ([]Booking, error)
 	// GetBookingsForReminder2h returns the confirmed bookings whose game starts
@@ -382,6 +393,12 @@ type Querier interface {
 	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
+	// Marks a cancelled booking's cash or transfer balance as owed back by hand, so
+	// the owner's manual-refund action becomes available. Only refund_status moves,
+	// and only from 'none': the refund path runs after its own read, and a
+	// whole-row write from that snapshot would revert whatever another writer (an
+	// owner edit) changed in between. A row already past 'none' is left alone.
+	MarkBookingManualBalanceOwed(ctx context.Context, id pgtype.UUID) (int64, error)
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.
@@ -427,6 +444,17 @@ type Querier interface {
 	// writer rather than for the one query that remembered to check a counter —
 	// see the bookings section of db/migrations/001_init.sql for why the counter was removed.
 	UpdateBooking(ctx context.Context, arg UpdateBookingParams) (Booking, error)
+	// The owner's edit, applied only while the row is still the one the owner read.
+	// updated_at is stamped by the set_updated_at trigger on every write, so an
+	// equal value means nothing has written the row since. The whole-row write
+	// below is built from the owner's snapshot, and the trigger does not refuse
+	// every stale one: a cancellation reverted to no_show, or a deposit reverted
+	// from fully_paid, is a legal-looking transition. A row that moved matches
+	// nothing and comes back as no rows, which the store answers as an edit
+	// conflict instead of writing the stale snapshot over the other writer's change.
+	//
+	// UpdateBooking stays unconditional for every other writer.
+	UpdateBookingIfUnchanged(ctx context.Context, arg UpdateBookingIfUnchangedParams) (Booking, error)
 	// Tenant-scoped: see the note on GetClientByID for why the predicate is optional.
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	// H-14: an unconditional UPDATE let two concurrent edits race — each loads the

@@ -92,6 +92,7 @@ type waWebhookPayload struct {
 }
 
 type waMessage struct {
+	ID        string `json:"id"`
 	From      string `json:"from"`
 	Timestamp string `json:"timestamp"`
 	Type      string `json:"type"`
@@ -151,5 +152,8 @@ func (s *Service) processWhatsAppMessage(msg waMessage) {
 
 	// WhatsApp messages from clients are logged but no action is taken.
 	// Confirmations and cancellations are handled through the web app only.
-	s.logger.Info("wa webhook: received message", "from", maskPhone(phone), "text", responseText)
+	// The text stays out of the log: it is the client's own words, and the log
+	// is read by people who have no business reading them. The message id, the
+	// length and the masked sender are enough to find the message.
+	s.logger.Info("wa webhook: received message", "message_id", msg.ID, "from", maskPhone(phone), "text_len", len(responseText))
 }

@@ -48,12 +48,24 @@ type Service struct {
 	complexes ComplexReader
 	audit     Recorder
 	pages     PageIndexer
+	// realtime is set by WithRealtime. Nil means a committed block change
+	// announces nothing, the same as a nil pages indexer.
+	realtime Broadcaster
+}
+
+// ServiceOption configures the optional collaborators of a Service.
+type ServiceOption func(*Service)
+
+// WithRealtime makes committed block changes announce their complex on the
+// realtime hub, so the owner's calendar redraws the hours that changed.
+func WithRealtime(b Broadcaster) ServiceOption {
+	return func(s *Service) { s.realtime = b }
 }
 
 // NewService returns a Service backed by the given stores. pages may be nil, in
-// which case committed court writes announce nothing.
-func NewService(store Store, bookings BookingReader, complexes ComplexReader, recorder Recorder, pages PageIndexer) *Service {
-	return &Service{
+// which case committed court writes announce nothing to the search index.
+func NewService(store Store, bookings BookingReader, complexes ComplexReader, recorder Recorder, pages PageIndexer, opts ...ServiceOption) *Service {
+	s := &Service{
 		courts:    store,
 		prices:    store,
 		blocked:   store,
@@ -61,6 +73,20 @@ func NewService(store Store, bookings BookingReader, complexes ComplexReader, re
 		complexes: complexes,
 		audit:     recorder,
 		pages:     pages,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// announce tells the realtime hub that this complex's bookings changed. It is
+// called only after a block change has committed: an announcement for a write
+// that never landed would send the owner's calendar to redraw hours that did
+// not change.
+func (s *Service) announce(complexID uuid.UUID) {
+	if s.realtime != nil {
+		s.realtime.PublishBookingChanged(complexID)
 	}
 }
 
@@ -349,6 +375,7 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 	slot.CourtName = court.Name
 
 	s.record(complexID, actor, "create", "blocked_slot", &slot.ID, nil, slot)
+	s.announce(complexID)
 	return slot, nil
 }
 
@@ -397,6 +424,7 @@ func (s *Service) DeleteBlockedSlot(ctx context.Context, complexID uuid.UUID, ac
 	}
 
 	s.record(complexID, actor, "delete", "blocked_slot", &slotID, slot, nil)
+	s.announce(complexID)
 	return nil
 }
 
@@ -533,6 +561,25 @@ func (s *Service) Availability(ctx context.Context, slug, dateStr string, date t
 		return nil, err
 	}
 
+	// A venue trading past midnight sells hours that fall on the next calendar
+	// day, and a booking or block taken for that morning is filed under that day.
+	// Its occupancy has to be read here too, or the storefront offers hours that
+	// are already sold. The grid's own day is read above; the next one is read
+	// only when the window actually runs past midnight.
+	if slots.NewGrid(schedule.OpenTime, schedule.CloseTime).SpansMidnight() {
+		nextDay := date.AddDate(0, 0, 1)
+		nextBooked, err := s.bookings.GetBookedSlotsByCourtIDs(ctx, courtIDs, nextDay)
+		if err != nil {
+			return nil, err
+		}
+		nextBlocked, err := s.blocked.GetBlockedSlotsByCourtIDs(ctx, courtIDs, nextDay)
+		if err != nil {
+			return nil, err
+		}
+		allBookedSlots = append(allBookedSlots, nextBooked...)
+		allBlockedSlots = append(allBlockedSlots, nextBlocked...)
+	}
+
 	return &AvailabilityResponse{
 		Date:   dateStr,
 		Day:    dayName,
@@ -571,8 +618,6 @@ func buildGrid(
 	}
 
 	now := time.Now().In(timezone.Argentina)
-	isToday := date.Year() == now.Year() && date.YearDay() == now.YearDay()
-	currentTime := now.Format("15:04")
 
 	courtResults := make([]CourtAvailability, 0, len(activeCourts))
 
@@ -582,9 +627,10 @@ func buildGrid(
 
 		// The grid is derived, not generated here: slots.NewGrid is the same
 		// value the booking handlers validate a write against, so this loop
-		// cannot offer a position that the write path would refuse. Every
-		// start it yields ends before midnight, which is also why the
-		// lexicographic comparisons below are safe — no time string wraps.
+		// cannot offer a position that the write path would refuse. A window that
+		// trades past midnight yields starts whose clock reading wraps, so nothing
+		// below compares clock readings: each start is placed on its calendar day
+		// first, and occupancy and the past are read from that instant.
 		grid := slots.NewGrid(schedule.OpenTime, schedule.CloseTime)
 		gridSlots := grid.Slots(duration)
 
@@ -614,13 +660,19 @@ func buildGrid(
 			// The end is derived by adding the duration rather than reading
 			// gs.End, so it stays right if the grid is ever allowed to emit a
 			// slot whose end lands on the following day.
-			slotStart := slots.At(date, gs.Start)
+			// The slot's instant is the calendar day it falls on, which for the hours
+			// past midnight is the day after the grid's. Its occupancy and its
+			// past-ness are read at that instant, never at the clock reading on the
+			// grid's day: 00:30 of a Thursday 08:00-01:30 window is Friday 00:30.
+			slotStart := slots.At(date.AddDate(0, 0, slots.CalendarDays(gs.StartMin)), gs.Start)
 			slotEnd := slotStart.Add(time.Duration(duration) * time.Minute)
 
-			available := slotIsFree(slotStart, slotEnd, date, bookedSlots, blockedSlots)
+			available := slotIsFree(slotStart, slotEnd, bookedSlots, blockedSlots)
 
-			// Check if slot is in the past (if today).
-			if available && isToday && gs.Start <= currentTime {
+			// A slot that has begun is not for sale. Compared as instants: a clock
+			// reading cannot tell tonight's 00:30 from one that already passed, and
+			// the grid's day is not the day the slot falls on.
+			if available && !slotStart.After(now.Truncate(time.Minute)) {
 				available = false
 			}
 
@@ -649,24 +701,26 @@ func buildGrid(
 
 // slotIsFree reports whether a grid position collides with nothing already on
 // the books and nothing the owner has taken off sale.
-func slotIsFree(slotStart, slotEnd, date time.Time, booked []bookingstore.BookedSpan, blocked []*courtstore.BlockedSlot) bool {
+func slotIsFree(slotStart, slotEnd time.Time, booked []bookingstore.BookedSpan, blocked []*courtstore.BlockedSlot) bool {
 	for _, b := range booked {
 		if slots.OverlapAt(slotStart, slotEnd, b.StartsAt, b.EndsAt) {
 			return false
 		}
 	}
 	for _, b := range blocked {
-		// Placed on `date` rather than on b.Date: the query that fetched these
-		// was scoped to this day, so they are the same calendar date, and
-		// `date` is the one already anchored in the product's wall-clock.
-		// Anchoring the two sides of a comparison differently is a three-hour
-		// error that looks like nothing.
+		// Placed on the calendar day the block is filed under, b.Date, and not on
+		// the grid's day: a block taken for the next morning shares its clock
+		// reading with this day's grid and must not hide it. The store hands the
+		// date back at midnight UTC, so it is anchored through timezone.Day before
+		// any time is built on it; a time built on the raw value is three hours
+		// off.
 		//
 		// A blocked slot cannot itself cross midnight — blocked_slots has
 		// carried CHECK (start_time < end_time) since the initial schema — so
 		// its two times of day belong to that date and placing them there is
 		// exact.
-		if slots.OverlapAt(slotStart, slotEnd, slots.At(date, b.StartTime), slots.At(date, b.EndTime)) {
+		day := timezone.Day(b.Date)
+		if slots.OverlapAt(slotStart, slotEnd, slots.At(day, b.StartTime), slots.At(day, b.EndTime)) {
 			return false
 		}
 	}

@@ -135,7 +135,7 @@ func TestARequestStillInProgressIsRefused(t *testing.T) {
 	if w.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "in progress") {
+	if !strings.Contains(w.Body.String(), IdempotencyInProgressDetail) {
 		t.Errorf("the refusal does not say the first request is still running: %s", w.Body.String())
 	}
 	if runs.Load() != 1 {

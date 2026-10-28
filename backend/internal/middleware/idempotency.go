@@ -76,6 +76,12 @@ type idempotencyRecord struct {
 	Body        []byte `json:"body,omitempty"`
 }
 
+// IdempotencyInProgressDetail is the detail of the 409 answered while the first
+// request under a key is still running. The frontend matches this exact text
+// (packages/ui/src/lib/idempotency.ts) to keep the same key for its retry, since
+// the refusal shares the generic conflict type: change both together.
+const IdempotencyInProgressDetail = "a request with this Idempotency-Key is still in progress, retry shortly"
+
 // NewIdempotency returns the middleware. A nil client disables it: the same
 // degradation every other Redis-backed feature here makes, and the same
 // behaviour as a request that sends no key.
@@ -144,8 +150,7 @@ func (i *Idempotency) serve(scope string, w http.ResponseWriter, r *http.Request
 			return
 		}
 		if !existing.Done {
-			i.respond.Refuse(w, r, httpx.Conflict(
-				"a request with this Idempotency-Key is still in progress, retry shortly"))
+			i.respond.Refuse(w, r, httpx.Conflict(IdempotencyInProgressDetail))
 			return
 		}
 		i.replay(w, existing)

@@ -171,17 +171,49 @@ func OnGridStep(start string) bool {
 // past midnight is told that, not that their start time is off by fifteen
 // minutes.
 func (g Grid) Validate(start string, durationMinutes int) error {
+	_, err := g.Place(start, durationMinutes)
+	return err
+}
+
+// Place is Validate with the answer it works out on the way: where the start
+// sits in the window, in minutes from the window's own day's midnight. A start
+// past midnight on a window that trades past it reads 1440 and up, the same
+// number Slot.StartMin reports for that position. The price and the calendar
+// date of the booking are both read from it, so the storefront and the write
+// path cannot disagree about either.
+//
+// A clock reading belongs to the window's own day or to the day after it, never
+// to both. OwnsSameDay and OwnsNextDay are those two readings, and at most one
+// of them can fall inside the window.
+func (g Grid) Place(start string, durationMinutes int) (int, error) {
 	if durationMinutes <= 0 {
-		return ErrOffGrid
+		return 0, ErrOffGrid
 	}
 
-	startMin := ToMinutes(start)
+	minute, owned := g.OwnsSameDay(start)
+	if !owned {
+		minute, owned = g.OwnsNextDay(start)
+	}
+	if !owned || minute+durationMinutes > g.closes {
+		return 0, ErrOutsideSchedule
+	}
+	if (minute-g.open)%gridStep != 0 {
+		return 0, ErrOffGrid
+	}
+	return minute, nil
+}
 
-	if startMin < g.open || startMin+durationMinutes > g.closes {
-		return ErrOutsideSchedule
-	}
-	if (startMin-g.open)%gridStep != 0 {
-		return ErrOffGrid
-	}
-	return nil
+// SpansMidnight reports whether the window runs past midnight, so that a
+// booking starting late in it ends on the following calendar day. A window that
+// closes exactly at midnight does not: its last slot ends before the day does.
+func (g Grid) SpansMidnight() bool {
+	return g.closes > minutesPerDay
+}
+
+// CalendarDays reports how many calendar days after the window's own day a
+// position falls: 0 for the window's own day, 1 for the hours carried past
+// midnight. A booking is filed under the calendar day it starts on, so this is
+// the amount its date moves by from the day the storefront listed it under.
+func CalendarDays(minute int) int {
+	return minute / minutesPerDay
 }

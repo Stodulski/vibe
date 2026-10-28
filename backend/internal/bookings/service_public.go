@@ -117,6 +117,13 @@ var ErrClientBlocked = errors.New("bookings: the client is blocked")
 // committed booking.
 var ErrSlotTaken = errors.New("bookings: the selected time slot is no longer available")
 
+// checkoutCleanupBudget bounds the detached writes a failed checkout makes: the
+// cancellation of its booking and the release of its slot lock. Each is one
+// statement and fits well inside it. The bound is needed because
+// context.WithoutCancel strips the caller's deadline as well as its cancellation,
+// and this repository sets no statement timeout.
+const checkoutCleanupBudget = 5 * time.Second
+
 // PublicBook holds a slot, creates the booking as pending, and creates the
 // MercadoPago checkout. The booking is only confirmed when the payment webhook
 // lands. If anything fails after the slot is held it is released, or it stays
@@ -204,12 +211,20 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	if gridErr != nil && !errors.Is(gridErr, errComplexClosed) {
 		return PublicBookResult{}, gridErr
 	}
+	// The storefront lists a start past midnight under the day its window was
+	// sold from, so in.Date is that grid day. Place says how far into it the
+	// start falls, and the booking is then filed, timed, priced and locked on the
+	// calendar day the start actually falls on, startDate. A booking is stored
+	// under its calendar day everywhere else (see the owner path and grid.go),
+	// and this path must agree with them.
+	var minute int
 	if gridErr == nil {
-		gridErr = grid.Validate(in.StartTime, in.DurationMinutes)
+		minute, gridErr = grid.Place(in.StartTime, in.DurationMinutes)
 	}
 	if gridErr != nil {
 		return PublicBookResult{}, &ConflictError{Message: gridRefusal(gridErr)}
 	}
+	startDate := in.Date.AddDate(0, 0, slots.CalendarDays(minute))
 
 	// A slot the owner blocked is not for sale, and this path had no way of
 	// knowing it was blocked: the storefront omits it, and nothing between the
@@ -222,10 +237,10 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// here, and slots.At carries a date's location through, so leaving it
 	// unanchored put both sides three hours out — which happened to cancel out
 	// on this path and did not on the confirmation path (see grid.go).
-	startAt := slots.At(timezone.Day(in.Date), in.StartTime)
+	startAt := slots.At(timezone.Day(startDate), in.StartTime)
 	endAt := startAt.Add(time.Duration(in.DurationMinutes) * time.Minute)
 
-	blocked, err := s.slotIsBlocked(ctx, court.ID, in.Date, startAt, endAt)
+	blocked, err := s.slotIsBlocked(ctx, court.ID, startDate, startAt, endAt)
 	if err != nil {
 		return PublicBookResult{}, err
 	}
@@ -233,14 +248,14 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		return PublicBookResult{}, &ConflictError{Message: blockedSlotMessage}
 	}
 
-	// Reject past slots if booking for today.
+	// Reject slots that have already begun. Compared as instants: an after-
+	// midnight slot of today's grid is tomorrow's, and is not in the past.
 	now := time.Now().In(timezone.Argentina)
-	isToday := in.Date.Year() == now.Year() && in.Date.YearDay() == now.YearDay()
-	if isToday && in.StartTime <= now.Format("15:04") {
+	if !startAt.After(now.Truncate(time.Minute)) {
 		return PublicBookResult{}, &ConflictError{Message: "cannot book a time slot that has already passed"}
 	}
 
-	totalPrice, priceErr := s.findPrice(ctx, court.ComplexID, court.ID, in.Date, in.StartTime, in.DurationMinutes)
+	totalPrice, priceErr := s.findPrice(ctx, court.ComplexID, court.ID, startDate, in.StartTime, in.DurationMinutes)
 	if priceErr != nil {
 		// A booking no rule fully covers is not for sale — the same sentence
 		// the availability grid says by omitting it. This used to fall back to
@@ -284,7 +299,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		ComplexID:        complex.ID,
 		CourtID:          in.CourtID,
 		ClientID:         client.ID,
-		Date:             in.Date,
+		Date:             startDate,
 		StartTime:        in.StartTime,
 		DurationMinutes:  in.DurationMinutes,
 		Price:            totalPrice,
@@ -306,7 +321,12 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// the booking spanned. Now that a booking's length is chosen per request
 	// rather than assembled from repeats of the court's own slot length, there
 	// is one span and one lock for it.
-	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, in.Date, in.StartTime, lockEndTime, nil, s.cfg.SlotLockTTL); lockErr != nil {
+	//
+	// holder names this checkout's lock. Every release this checkout makes names
+	// it too, so a lock whose TTL ran out and was taken over by another checkout
+	// is never freed from here.
+	holder := uuid.NewString()
+	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, startDate, in.StartTime, lockEndTime, nil, holder, s.cfg.SlotLockTTL); lockErr != nil {
 		if errors.Is(lockErr, bookingstore.ErrSlotLocked) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -315,7 +335,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 
 	if err := s.store.InsertSafe(ctx, booking); err != nil {
 		// Release the slot lock on insert failure.
-		s.releaseSlotLock(ctx, in.CourtID, in.Date, in.StartTime)
+		s.releaseCheckoutLock(ctx, in.CourtID, startDate, in.StartTime, holder)
 		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -401,14 +421,23 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		)
 		// Cancel the booking so the slot is freed immediately instead of
 		// blocking it for 15 minutes until the expiration sweep runs.
+		//
+		// The client may have left while MercadoPago was refusing the checkout,
+		// and that cancels ctx. A cancelled context fails the write before it
+		// reaches PostgreSQL, so the booking would stay pending and the slot
+		// taken until the sweep. Detach from that cancellation, and keep a
+		// deadline so a wedged database cannot hold this request's goroutine.
 		booking.Status = "cancelled"
-		if cancelErr := s.store.Update(ctx, booking); cancelErr != nil {
+		cancelCtx, cancelWrite := context.WithTimeout(context.WithoutCancel(ctx), checkoutCleanupBudget)
+		cancelErr := s.store.Update(cancelCtx, booking)
+		cancelWrite()
+		if cancelErr != nil {
 			s.logger.Error("public booking: failed to cancel booking after MP preference failure",
 				"error", cancelErr,
 				"booking_id", booking.ID,
 			)
 		}
-		s.releaseSlotLock(ctx, in.CourtID, in.Date, in.StartTime)
+		s.releaseCheckoutLock(ctx, in.CourtID, startDate, in.StartTime, holder)
 		return PublicBookResult{}, ErrCheckoutUnavailable
 	}
 
@@ -436,6 +465,23 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 
 	result.Preference = pref
 	return result, nil
+}
+
+// releaseCheckoutLock frees the slot lock this checkout took, and only while the
+// lock still names this checkout's holder token. A plain release would free the
+// lock of whichever checkout took the slot over after this one's TTL ran out.
+// Errors are logged rather than returned: the lock's own TTL is the backstop,
+// as it is for releaseSlotLock.
+//
+// Detached from the caller's cancellation, for the reason checkoutCleanupBudget
+// gives: every call site is a failure path, and the client may have left.
+func (s *Service) releaseCheckoutLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkoutCleanupBudget)
+	defer cancel()
+
+	if relErr := s.locks.ReleaseHeldLock(ctx, courtID, date, startTime, holder); relErr != nil {
+		s.logger.Error("failed to release checkout slot lock", "error", relErr, "court_id", courtID, "slot_start", startTime)
+	}
 }
 
 // createMPPreferenceWithRetry creates a MercadoPago preference, retrying once

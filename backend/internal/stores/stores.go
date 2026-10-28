@@ -307,6 +307,9 @@ type CourtStore interface {
 type BookingCreator interface {
 	Insert(ctx context.Context, booking *bookingstore.Booking) error
 	InsertSafe(ctx context.Context, booking *bookingstore.Booking) error
+	// InsertSafeWithPayment is InsertSafe plus the counter payment taken for the
+	// booking, written in the same transaction. A nil payment is a plain InsertSafe.
+	InsertSafeWithPayment(ctx context.Context, booking *bookingstore.Booking, payment *bookingstore.CounterPayment) error
 }
 
 // BookingReader queries bookings and the slots they occupy.
@@ -320,6 +323,12 @@ type BookingReader interface {
 // BookingUpdater persists changes to an existing booking.
 type BookingUpdater interface {
 	Update(ctx context.Context, booking *bookingstore.Booking) error
+	// UpdateIfUnchanged writes only while the row still carries the updated_at
+	// the caller read; a row that moved answers data.ErrEditConflict.
+	UpdateIfUnchanged(ctx context.Context, booking *bookingstore.Booking) error
+	// MarkManualBalanceOwed moves refund_status from 'none' to 'partial' and
+	// writes no other column.
+	MarkManualBalanceOwed(ctx context.Context, booking *bookingstore.Booking) error
 }
 
 // BookingStatsQuerier computes dashboard and reporting aggregates over bookings.
@@ -347,7 +356,7 @@ type BookingLifecycleManager interface {
 	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
-	CompletePastBookings(ctx context.Context) (int64, error)
+	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
 	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error
 }
 
@@ -524,8 +533,9 @@ type WebhookEventStore interface {
 
 // SlotLockStore manages short-lived locks that reserve a court slot during checkout.
 type SlotLockStore interface {
-	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error
+	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, holder string, ttl time.Duration) error
 	ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error
+	ReleaseHeldLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) error
 	ReleaseByBooking(ctx context.Context, bookingID uuid.UUID) error
 	CleanExpired(ctx context.Context) (int64, error)
 }

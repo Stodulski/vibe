@@ -151,6 +151,16 @@ func (s RefundStatus) Valid() bool {
 // String returns the stored spelling.
 func (s RefundStatus) String() string { return string(s) }
 
+// CounterPayment is the payment an owner takes at the counter while creating a
+// booking. InsertSafeWithPayment writes it in the same transaction as the
+// booking. It names only what the booking store needs: the payments store
+// imports this package, so this package cannot import the payments store.
+type CounterPayment struct {
+	Amount int
+	Method string
+	Status string
+}
+
 // Booking represents a reserved court slot for a client.
 type Booking struct {
 	ID        uuid.UUID `json:"id"`
@@ -365,9 +375,18 @@ func (m *Store) Insert(ctx context.Context, b *Booking) error {
 // AND blocked slots atomically before inserting.
 // (begin tx, lock/check overlap, insert, commit); matches this codebase's store method
 // conventions (wrap sqlc queries, map to domain structs, translate PostgreSQL errors).
+func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
+	return m.InsertSafeWithPayment(ctx, b, nil)
+}
+
+// InsertSafeWithPayment is InsertSafe that also records the counter payment
+// taken for the booking, in the same transaction. The booking and its payment
+// commit together or not at all: a payment that cannot be written takes the
+// booking with it, so the owner is never told a booking exists for money the
+// books do not hold. A nil payment is a plain InsertSafe.
 //
 //nolint:funlen // single cohesive SQL-building-and-execution flow for one store operation
-func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
+func (m *Store) InsertSafeWithPayment(ctx context.Context, b *Booking, p *CounterPayment) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -384,8 +403,29 @@ func (m *Store) InsertSafe(ctx context.Context, b *Booking) error {
 	// whole transaction is what PostgreSQL's own answer to a deadlock assumes
 	// the client will do. Nothing outside the transaction happens here, so a
 	// second run duplicates nothing.
-	return m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, _ *db.Queries) error {
-		return m.insertSafe(ctx, tx, b)
+	return m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, q *db.Queries) error {
+		if err := m.insertSafe(ctx, tx, b); err != nil {
+			return err
+		}
+		if p == nil {
+			return nil
+		}
+		// Written through the transaction's own queries, so a failure here rolls
+		// back the booking inserted above. The payments store owns the rest of a
+		// payment's vocabulary; a counter payment at creation carries no service
+		// fee and no provider reference, so those columns stay NULL or zero.
+		_, err := q.InsertPayment(ctx, db.InsertPaymentParams{
+			BookingID: data.UUIDToPg(b.ID),
+			ComplexID: data.UUIDToPg(b.ComplexID),
+			//nolint:gosec // G115: currency amount (cents) derived from a validated price or deposit; far below int32 range.
+			Amount: int32(p.Amount),
+			Method: db.PaymentMethod(p.Method),
+			Status: db.PaymentStatus(p.Status),
+		})
+		if err != nil {
+			return fmt.Errorf("record counter payment: %w", err)
+		}
+		return nil
 	})
 }
 
@@ -565,6 +605,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 	var courtName, clientName, clientPhone string
 	err := m.DB.QueryRow(ctx, `
 		SELECT `+BookingColumns+`,
+		       b.refund_intent_at,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
 		       COALESCE(cl.phone, '') AS client_phone
@@ -581,6 +622,10 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		&b.CollectionStatus, &b.RefundStatus,
 		&b.ReminderSent2h,
 		&b.Notes, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
+		// Read so that a booking loaded here and written back (the owner's
+		// edit) keeps the refund it still owes. Left out, every such write
+		// stored NULL over a pending refund intent.
+		&b.RefundIntentAt,
 		&courtName, &clientName, &clientPhone,
 	)
 	if err != nil {
@@ -684,14 +729,13 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 
 // Update persists changes to an existing booking.
 //
-// It carries no optimistic-concurrency predicate. It used to match on a
-// `version` counter that three of the four writers of this table bumped without
-// checking, or did not touch at all, so a stale version still matched and the
-// check never fired on the one race it was supposed to catch; the counter's removal
-// removed the column and states the measurement. What refuses an illegitimate
-// concurrent write is the bookings_forbid_status_reversal trigger from
-// the schema, which every writer goes through — including the bulk sweeps
-// and psql — and which returns SQLSTATE 23514 with the rule's name.
+// It is the unconditional write: whatever the caller holds is what lands. The
+// caller decides what the row must still be. An owner's edit is built from a
+// snapshot read outside any lock, so it goes through UpdateIfUnchanged instead.
+// The bookings_forbid_status_reversal trigger refuses only a terminal status
+// returning to pending or confirmed, and a collection status returning to
+// unpaid (SQLSTATE 23514). It does not refuse a stale cancellation being
+// reverted to no_show, which is why it cannot stand in for that check.
 //
 // Zero rows now means one thing only: no booking with that id. It comes back as
 // ErrRecordNotFound rather than the removed ErrEditConflict, which is the same
@@ -724,6 +768,65 @@ func (m *Store) Update(ctx context.Context, b *Booking) error {
 	}
 
 	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
+	return nil
+}
+
+// UpdateIfUnchanged persists an owner's edit only while the row still carries
+// the updated_at the caller read, which is b.UpdatedAt as loaded. A write that
+// lost a race — a cancellation, a payment confirmation or a sweep committed in
+// between — matches no row and comes back as data.ErrEditConflict, so the caller
+// answers 409 rather than writing its stale snapshot over that change. The
+// updated_at column is stamped on every write by the set_updated_at trigger, so
+// an unchanged value means nothing has written the row since.
+//
+// A zero b.UpdatedAt matches no row. Callers pass a booking read from the
+// database, never one built in memory.
+func (m *Store) UpdateIfUnchanged(ctx context.Context, b *Booking) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
+
+	dbBooking, err := m.Q.UpdateBookingIfUnchanged(ctx, db.UpdateBookingIfUnchangedParams{
+		ID:               data.UUIDToPg(b.ID),
+		Status:           db.BookingStatus(b.Status),
+		CollectionStatus: string(b.CollectionStatus),
+		RefundStatus:     string(b.RefundStatus),
+		Notes:            data.TextToPg(b.Notes),
+		//nolint:gosec // G115: DepositAmount is accumulated from validated per-payment amounts (bookings_actions.go)
+		// bounded to the same currency-amount range as Price; far below int32 range.
+		DepositAmount:     int32(b.DepositAmount),
+		RefundIntentAt:    data.TimePtrToPg(b.RefundIntentAt),
+		ExpectedUpdatedAt: data.TimeToPg(b.UpdatedAt),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return data.ErrEditConflict
+		}
+		return err
+	}
+
+	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
+	return nil
+}
+
+// MarkManualBalanceOwed moves the booking's refund_status from 'none' to
+// 'partial' and writes no other column (see MarkBookingManualBalanceOwed in
+// db/queries/bookings.sql). A row already past 'none' is left as it is, which
+// is not an error: something else already decided where its refund stands.
+func (m *Store) MarkManualBalanceOwed(ctx context.Context, b *Booking) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
+
+	if _, err := m.Q.MarkBookingManualBalanceOwed(ctx, data.UUIDToPg(b.ID)); err != nil {
+		return fmt.Errorf("mark booking %s manual balance owed: %w", b.ID, err)
+	}
 	return nil
 }
 
@@ -1235,19 +1338,38 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 // past midnight; `date < today` was true the moment the clock rolled over, so
 // the cron marked a game completed while it was in progress — and a completed
 // booking no longer blocks deleting its court.
-func (m *Store) CompletePastBookings(ctx context.Context) (int64, error) {
+//
+// It returns the complex of every booking it completed, one entry per booking,
+// so the caller knows which owners' calendars changed and how many bookings
+// moved. RETURNING reads the rows that the same statement updated, so the list
+// is exactly the set the update committed.
+func (m *Store) CompletePastBookings(ctx context.Context) ([]uuid.UUID, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	result, err := m.DB.Exec(ctx, `
+	rows, err := m.DB.Query(ctx, `
 		UPDATE bookings
 		SET status = 'completed', updated_at = NOW()
 		WHERE status = 'confirmed'
-		  AND upper(span) <= NOW()`)
+		  AND upper(span) <= NOW()
+		RETURNING complex_id`)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+
+	var complexIDs []uuid.UUID
+	for rows.Next() {
+		var complexID pgtype.UUID
+		if err := rows.Scan(&complexID); err != nil {
+			return nil, fmt.Errorf("bookings: scan completed booking: %w", err)
+		}
+		complexIDs = append(complexIDs, data.PgToUUID(complexID))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: complete past bookings: %w", err)
+	}
+	return complexIDs, nil
 }
 
 // HasActiveBookingsByCourt reports whether the court still owes anyone their

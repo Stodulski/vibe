@@ -19,6 +19,20 @@ import (
 // and the refusal are the same statement, and only the database decides which of
 // them a given row gets.
 
+// lockHolder reads the lock on a slot back: how many rows there are, and the
+// holder token the row names. A slot with no row reads as an empty holder.
+func lockHolder(t *testing.T, f *datatest.Fixture, date time.Time, startTime string) (rows int, holder string) {
+	t.Helper()
+
+	if err := f.DB.QueryRow(context.Background(),
+		`SELECT count(*), COALESCE(max(locked_by), '') FROM slot_locks WHERE court_id = $1 AND date = $2 AND start_time = $3`,
+		f.CourtID, date, startTime,
+	).Scan(&rows, &holder); err != nil {
+		t.Fatalf("reading the lock back: %v", err)
+	}
+	return rows, holder
+}
+
 // The ordinary case, unchanged: a live lock is a live lock.
 func TestAcquireLockRefusesASlotThatIsStillHeld(t *testing.T) {
 	f := datatest.Isolated(t)
@@ -26,11 +40,11 @@ func TestAcquireLockRefusesASlotThatIsStillHeld(t *testing.T) {
 	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute); err != nil {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-a", 15*time.Minute); err != nil {
 		t.Fatalf("first acquisition: %v", err)
 	}
 
-	err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute)
+	err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-b", 15*time.Minute)
 	if !errors.Is(err, bookingstore.ErrSlotLocked) {
 		t.Errorf("a slot held by a live lock must be refused; got %v", err)
 	}
@@ -48,11 +62,11 @@ func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
 	// A lock that expired a minute ago: exactly what an abandoned checkout leaves.
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, -time.Minute); err != nil {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-a", -time.Minute); err != nil {
 		t.Fatalf("seeding the expired lock: %v", err)
 	}
 
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute); err != nil {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-b", 15*time.Minute); err != nil {
 		t.Fatalf("an expired lock must not hold the slot: %v", err)
 	}
 
@@ -71,7 +85,7 @@ func TestAcquireLockTakesOverAnExpiredLock(t *testing.T) {
 	if !expiresAt.After(time.Now()) {
 		t.Errorf("the taken-over lock must carry the new TTL; expires_at is %s", expiresAt)
 	}
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, 15*time.Minute); !errors.Is(err, bookingstore.ErrSlotLocked) {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-c", 15*time.Minute); !errors.Is(err, bookingstore.ErrSlotLocked) {
 		t.Errorf("the slot must now be held by the caller that took it over; got %v", err)
 	}
 }
@@ -85,7 +99,7 @@ func TestTwoCallersRacingForAnExpiredLockYieldOneWinner(t *testing.T) {
 	locks := f.Stores.SlotLocks
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "20:00", "21:30", nil, -time.Minute); err != nil {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "20:00", "21:30", nil, "checkout-a", -time.Minute); err != nil {
 		t.Fatalf("seeding the expired lock: %v", err)
 	}
 
@@ -97,7 +111,7 @@ func TestTwoCallersRacingForAnExpiredLockYieldOneWinner(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			results[i] = locks.AcquireLock(context.Background(), f.CourtID, date, "20:00", "21:30", nil, 15*time.Minute)
+			results[i] = locks.AcquireLock(context.Background(), f.CourtID, date, "20:00", "21:30", nil, uuid.NewString(), 15*time.Minute)
 		}()
 	}
 	close(start)
@@ -127,12 +141,12 @@ func TestATakenOverLockCarriesTheNewHoldersBooking(t *testing.T) {
 	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 
 	first := f.CreateBooking(t, datatest.BookingOptions{StartTime: "07:00", EndTime: "08:30"})
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "21:00", "22:30", &first.ID, -time.Minute); err != nil {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "21:00", "22:30", &first.ID, "checkout-a", -time.Minute); err != nil {
 		t.Fatalf("seeding the expired lock: %v", err)
 	}
 
 	second := f.CreateBooking(t, datatest.BookingOptions{StartTime: "09:00", EndTime: "10:30"})
-	if err := locks.AcquireLock(ctx, f.CourtID, date, "21:00", "22:30", &second.ID, 15*time.Minute); err != nil {
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "21:00", "22:30", &second.ID, "checkout-b", 15*time.Minute); err != nil {
 		t.Fatalf("taking over the expired lock: %v", err)
 	}
 
@@ -145,5 +159,106 @@ func TestATakenOverLockCarriesTheNewHoldersBooking(t *testing.T) {
 	}
 	if held != second.ID {
 		t.Errorf("the lock must name whoever holds it now; want %s, got %s", second.ID, held)
+	}
+}
+
+// The checkout that took a lock records its holder token on it, and frees the
+// lock with that same token. The slot is takeable again afterwards.
+func TestReleaseHeldLockFreesTheLockForItsHolder(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+	locks := f.Stores.SlotLocks
+	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
+
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-a", 15*time.Minute); err != nil {
+		t.Fatalf("taking the lock: %v", err)
+	}
+	if _, holder := lockHolder(t, f, date, "18:00"); holder != "checkout-a" {
+		t.Fatalf("the acquired lock must record its holder token; got %q", holder)
+	}
+
+	if err := locks.ReleaseHeldLock(ctx, f.CourtID, date, "18:00", "checkout-a"); err != nil {
+		t.Fatalf("releasing with the holder token: %v", err)
+	}
+	if rows, _ := lockHolder(t, f, date, "18:00"); rows != 0 {
+		t.Errorf("the holder must free its own lock; %d row(s) remain", rows)
+	}
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-b", 15*time.Minute); err != nil {
+		t.Errorf("a freed slot must be takeable again: %v", err)
+	}
+}
+
+// A token that does not hold the lock frees nothing, and the lock keeps the holder
+// it was taken with. Nothing to free is not an error.
+func TestReleaseHeldLockLeavesALockItDoesNotHold(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+	locks := f.Stores.SlotLocks
+	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
+
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-a", 15*time.Minute); err != nil {
+		t.Fatalf("taking the lock: %v", err)
+	}
+
+	if err := locks.ReleaseHeldLock(ctx, f.CourtID, date, "18:00", "checkout-b"); err != nil {
+		t.Fatalf("a release by a non-holder must not fail: %v", err)
+	}
+	if rows, holder := lockHolder(t, f, date, "18:00"); rows != 1 || holder != "checkout-a" {
+		t.Errorf("a release by a non-holder must leave the lock as it was; got %d row(s) held by %q", rows, holder)
+	}
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-c", 15*time.Minute); !errors.Is(err, bookingstore.ErrSlotLocked) {
+		t.Errorf("the lock must still refuse other checkouts after a non-holder release; got %v", err)
+	}
+}
+
+// The takeover writes the new holder's token onto the row. If it kept the old
+// one, the checkout whose TTL ran out would still be the holder on record.
+func TestTakeoverRewritesTheHolderToken(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+	locks := f.Stores.SlotLocks
+	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
+
+	// A lock that expired a minute ago, still naming the checkout that abandoned it.
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-a", -time.Minute); err != nil {
+		t.Fatalf("seeding the expired lock: %v", err)
+	}
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-b", 15*time.Minute); err != nil {
+		t.Fatalf("taking over the expired lock: %v", err)
+	}
+
+	if rows, holder := lockHolder(t, f, date, "18:00"); rows != 1 || holder != "checkout-b" {
+		t.Errorf("the takeover must rewrite the holder token; got %d row(s) held by %q", rows, holder)
+	}
+}
+
+// The case the holder check exists for. A checkout's TTL ran out, another checkout
+// took the slot over, and then the first checkout releases late. That late release
+// must not free the other checkout's lock. The new holder's own release still does.
+func TestAStaleHolderCannotFreeALockTakenOverFromIt(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+	locks := f.Stores.SlotLocks
+	date := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
+
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-a", -time.Minute); err != nil {
+		t.Fatalf("seeding the expired lock: %v", err)
+	}
+	if err := locks.AcquireLock(ctx, f.CourtID, date, "18:00", "19:30", nil, "checkout-b", 15*time.Minute); err != nil {
+		t.Fatalf("taking over the expired lock: %v", err)
+	}
+
+	if err := locks.ReleaseHeldLock(ctx, f.CourtID, date, "18:00", "checkout-a"); err != nil {
+		t.Fatalf("the stale holder's late release must not fail: %v", err)
+	}
+	if rows, holder := lockHolder(t, f, date, "18:00"); rows != 1 || holder != "checkout-b" {
+		t.Fatalf("the stale release must leave the new holder's lock in place; got %d row(s) held by %q", rows, holder)
+	}
+
+	if err := locks.ReleaseHeldLock(ctx, f.CourtID, date, "18:00", "checkout-b"); err != nil {
+		t.Fatalf("the new holder releasing its own lock: %v", err)
+	}
+	if rows, _ := lockHolder(t, f, date, "18:00"); rows != 0 {
+		t.Errorf("the new holder must free its own lock; %d row(s) remain", rows)
 	}
 }

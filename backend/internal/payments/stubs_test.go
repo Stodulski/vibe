@@ -331,6 +331,8 @@ type stubBookings struct {
 	booking *bookingstore.Booking
 	err     error
 	updated *bookingstore.Booking
+	// markedOwed lists the bookings MarkManualBalanceOwed was called for.
+	markedOwed []uuid.UUID
 }
 
 func (s *stubBookings) GetByID(context.Context, uuid.UUID) (*bookingstore.Booking, error) {
@@ -345,6 +347,11 @@ func (s *stubBookings) GetByID(context.Context, uuid.UUID) (*bookingstore.Bookin
 
 func (s *stubBookings) Update(_ context.Context, b *bookingstore.Booking) error {
 	s.updated = b
+	return nil
+}
+
+func (s *stubBookings) MarkManualBalanceOwed(_ context.Context, b *bookingstore.Booking) error {
+	s.markedOwed = append(s.markedOwed, b.ID)
 	return nil
 }
 

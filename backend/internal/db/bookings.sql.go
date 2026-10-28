@@ -195,7 +195,7 @@ func (q *Queries) GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByI
 const getBookingsByComplex = `-- name: GetBookingsByComplex :many
 SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
 WHERE complex_id = $1
-  AND date BETWEEN $2 AND $3
+  AND span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
   AND (date, id) > ($4, $5)
 ORDER BY date ASC, id ASC
 LIMIT $6
@@ -203,20 +203,25 @@ LIMIT $6
 
 type GetBookingsByComplexParams struct {
 	ComplexID pgtype.UUID `json:"complex_id"`
+	D         pgtype.Date `json:"d"`
+	D_2       pgtype.Date `json:"d_2"`
 	Date      pgtype.Date `json:"date"`
 	Date_2    pgtype.Date `json:"date_2"`
-	Date_3    pgtype.Date `json:"date_3"`
-	Date_4    pgtype.Date `json:"date_4"`
 	Limit     int32       `json:"limit"`
 }
 
+// Overlapping the days asked for, not starting on them: a booking that runs
+// 23:00 to 01:00 occupies both days, and an owner looking at the next morning
+// has to see the hours it is still holding. Same predicate as the owner list in
+// internal/bookings/store (GetByComplex); see local_day() in
+// db/migrations/001_init.sql.
 func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByComplexParams) ([]Booking, error) {
 	rows, err := q.db.Query(ctx, getBookingsByComplex,
 		arg.ComplexID,
+		arg.D,
+		arg.D_2,
 		arg.Date,
 		arg.Date_2,
-		arg.Date_3,
-		arg.Date_4,
 		arg.Limit,
 	)
 	if err != nil {
@@ -518,6 +523,25 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 	return i, err
 }
 
+const markBookingManualBalanceOwed = `-- name: MarkBookingManualBalanceOwed :execrows
+UPDATE bookings
+SET refund_status = 'partial'
+WHERE id = $1 AND refund_status = 'none'
+`
+
+// Marks a cancelled booking's cash or transfer balance as owed back by hand, so
+// the owner's manual-refund action becomes available. Only refund_status moves,
+// and only from 'none': the refund path runs after its own read, and a
+// whole-row write from that snapshot would revert whatever another writer (an
+// owner edit) changed in between. A row already past 'none' is left alone.
+func (q *Queries) MarkBookingManualBalanceOwed(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markBookingManualBalanceOwed, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const markReminderSent2h = `-- name: MarkReminderSent2h :exec
 UPDATE bookings
 SET reminder_sent_2h = true, updated_at = NOW()
@@ -564,6 +588,76 @@ func (q *Queries) UpdateBooking(ctx context.Context, arg UpdateBookingParams) (B
 		arg.Notes,
 		arg.DepositAmount,
 		arg.RefundIntentAt,
+	)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.CourtID,
+		&i.ClientID,
+		&i.Date,
+		&i.StartTime,
+		&i.DurationMinutes,
+		&i.Price,
+		&i.DepositAmount,
+		&i.Status,
+		&i.ReminderSent2h,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RefundIntentAt,
+		&i.Span,
+		&i.CollectionStatus,
+		&i.RefundStatus,
+	)
+	return i, err
+}
+
+const updateBookingIfUnchanged = `-- name: UpdateBookingIfUnchanged :one
+UPDATE bookings
+SET status = $2,
+    collection_status = $3,
+    refund_status = $4,
+    notes = $5,
+    deposit_amount = $6,
+    refund_intent_at = $7
+WHERE id = $1
+  AND updated_at = $8
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status
+`
+
+type UpdateBookingIfUnchangedParams struct {
+	ID                pgtype.UUID        `json:"id"`
+	Status            BookingStatus      `json:"status"`
+	CollectionStatus  string             `json:"collection_status"`
+	RefundStatus      string             `json:"refund_status"`
+	Notes             pgtype.Text        `json:"notes"`
+	DepositAmount     int32              `json:"deposit_amount"`
+	RefundIntentAt    pgtype.Timestamptz `json:"refund_intent_at"`
+	ExpectedUpdatedAt pgtype.Timestamptz `json:"expected_updated_at"`
+}
+
+// The owner's edit, applied only while the row is still the one the owner read.
+// updated_at is stamped by the set_updated_at trigger on every write, so an
+// equal value means nothing has written the row since. The whole-row write
+// below is built from the owner's snapshot, and the trigger does not refuse
+// every stale one: a cancellation reverted to no_show, or a deposit reverted
+// from fully_paid, is a legal-looking transition. A row that moved matches
+// nothing and comes back as no rows, which the store answers as an edit
+// conflict instead of writing the stale snapshot over the other writer's change.
+//
+// UpdateBooking stays unconditional for every other writer.
+func (q *Queries) UpdateBookingIfUnchanged(ctx context.Context, arg UpdateBookingIfUnchangedParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, updateBookingIfUnchanged,
+		arg.ID,
+		arg.Status,
+		arg.CollectionStatus,
+		arg.RefundStatus,
+		arg.Notes,
+		arg.DepositAmount,
+		arg.RefundIntentAt,
+		arg.ExpectedUpdatedAt,
 	)
 	var i Booking
 	err := row.Scan(

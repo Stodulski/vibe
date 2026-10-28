@@ -497,6 +497,15 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 			return fmt.Errorf("list payments for manual refund: %w", err)
 		}
 
+		// A MercadoPago refund still pending on this booking means its automatic
+		// half has not settled, and closing the booking to 'full' would say it had.
+		// Nothing is written: the owner closes the cash balance once it settles.
+		for _, row := range rows {
+			if row.MpPaymentID.Valid && row.MpPaymentID.String != "" && string(row.Status) == "refund_pending" {
+				return ErrMercadoPagoRefundPending
+			}
+		}
+
 		returned, err = applyManualRefundRows(ctx, qtx, rows)
 		if err != nil {
 			return err
@@ -522,6 +531,19 @@ func (m *Payments) RecordManualRefund(ctx context.Context, bookingID uuid.UUID) 
 	return returned, nil
 }
 
+// ReceivedMoney reports whether a payment row's status says the club holds money
+// from it. It is the single definition both sides of the manual balance use:
+// the amount owed by hand (internal/payments/refund.go manualBalance) and the
+// close-out below. 'unpaid' is a checkout the client never paid, and 'refunded' or
+// 'refund_pending' is money already on its way back through the refund path.
+func ReceivedMoney(status string) bool {
+	switch status {
+	case "deposit_paid", "fully_paid", "partial_refund":
+		return true
+	}
+	return false
+}
+
 // applyManualRefundRows writes 'refunded' onto every unrefunded payment row
 // carrying no MercadoPago id, inside RecordManualRefund's transaction, and
 // returns the total moved. It is split out from RecordManualRefund only to
@@ -542,6 +564,13 @@ func applyManualRefundRows(ctx context.Context, qtx *db.Queries, rows []db.Payme
 		if row.MpPaymentID.Valid && row.MpPaymentID.String != "" {
 			// Automatic rows are the refund pipeline's own business, already
 			// settled by the time this booking could read 'partial_refund'.
+			continue
+		}
+		// Only money the club actually holds can be handed back by hand. A
+		// checkout row the client never paid is 'unpaid' and has no payment id,
+		// so it reaches this point; marking it refunded would both invent a
+		// refund and subtract money that was never collected from the cashbox.
+		if !ReceivedMoney(string(row.Status)) {
 			continue
 		}
 		owed := int(row.Amount) + int(row.ServiceFee) - int(row.RefundAmount)

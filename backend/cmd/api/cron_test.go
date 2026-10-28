@@ -59,8 +59,8 @@ func TestCronCleanExpiredTokens(t *testing.T) {
 func TestCronCompleteBookings_NothingToComplete(t *testing.T) {
 	app, _ := newTestApplicationWithStores(t, func(m *stores.Stores) {
 		m.Bookings = &mockBookingStore{
-			CompletePastBookingsFn: func(ctx context.Context) (int64, error) {
-				return 0, nil
+			CompletePastBookingsFn: func(ctx context.Context) ([]uuid.UUID, error) {
+				return nil, nil
 			},
 		}
 	})
@@ -73,9 +73,11 @@ func TestCronCompleteBookings_CompletesBookings(t *testing.T) {
 	var count int64
 	app, _ := newTestApplicationWithStores(t, func(m *stores.Stores) {
 		m.Bookings = &mockBookingStore{
-			CompletePastBookingsFn: func(ctx context.Context) (int64, error) {
+			CompletePastBookingsFn: func(ctx context.Context) ([]uuid.UUID, error) {
+				// Five bookings completed, all in one complex.
+				complexID := uuid.New()
 				count = 5
-				return 5, nil
+				return []uuid.UUID{complexID, complexID, complexID, complexID, complexID}, nil
 			},
 		}
 	})

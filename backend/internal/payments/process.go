@@ -37,14 +37,25 @@ import (
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
-	// Skip if booking is already confirmed, completed, or no_show (duplicate/late webhook).
-	if booking.Status == "confirmed" || booking.Status == "completed" || booking.Status == "no_show" {
-		s.logger.Info("mp webhook: booking already confirmed/completed, skipping",
-			"mp_payment_id", mpPaymentID,
-			"booking_id", booking.ID,
-			"booking_status", booking.Status,
-		)
-		return nil
+	// A settled booking (confirmed, completed or no_show) takes exactly one payment,
+	// the one already recorded on it. Its redelivery is the no-op. Any other approved
+	// payment on it is money the complex collected for a slot it has already sold (a
+	// second card, or cash taken at the counter before the online payment landed), so
+	// it is reported rather than dropped: see reportSettledBookingPayment.
+	alreadySettled := booking.Status == "confirmed" || booking.Status == "completed" || booking.Status == "no_show"
+	if alreadySettled {
+		recorded, err := s.paymentRecordedForBooking(ctx, booking.ID, mpPaymentID)
+		if err != nil {
+			return err
+		}
+		if recorded {
+			s.logger.Info("mp webhook: booking already confirmed/completed, skipping",
+				"mp_payment_id", mpPaymentID,
+				"booking_id", booking.ID,
+				"booking_status", booking.Status,
+			)
+			return nil
+		}
 	}
 
 	// Verify the money actually landed in this complex's MercadoPago account.
@@ -89,6 +100,13 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		// not move on behalf of a refund nothing durable knows about — which is the
 		// exact failure this whole flow was rewritten to remove.
 		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+	}
+
+	// Reached only for a settled booking whose recorded payment is a different one, and
+	// only after the collector check above proved the money is this complex's.
+	if alreadySettled {
+		s.reportSettledBookingPayment(booking, mpPayment, mpPaymentID)
+		return nil
 	}
 
 	// Verify amount: MP sends pesos (float), our DB stores centavos (int).
@@ -158,10 +176,9 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 	}
 	if booking.Status == "confirmed" || booking.Status == "completed" {
-		s.logger.Info("mp webhook: booking was confirmed/completed concurrently, skipping",
-			"mp_payment_id", mpPaymentID,
-			"booking_id", booking.ID,
-		)
+		// Settled by another payment while this one was being checked. The same
+		// money-not-dropped rule as at the top of this function applies.
+		s.reportSettledBookingPayment(booking, mpPayment, mpPaymentID)
 		return nil
 	}
 
@@ -220,10 +237,15 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		settled = payment
 	}
 
-	// GetByID's error path already returns a nil client, so a lookup failure
-	// here degrades to skipping the confirmation notification below rather
-	// than failing the webhook — the payment is already recorded.
-	client, _ := s.clients.GetByID(ctx, booking.ClientID) //nolint:errcheck // a nil client skips the notification; the payment is already recorded
+	// The payment is committed by now, so a failed read below must not fail the
+	// webhook: the event would be retried and the retry returns at the top of this
+	// function, so the confirmation would never be sent. A failed read is reported
+	// instead of skipped silently. A client that does not exist is simply nothing
+	// to tell.
+	client, err := s.clients.GetByID(ctx, booking.ClientID)
+	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
+		s.reportUnsentConfirmation(booking, mpPaymentID, err)
+	}
 
 	s.logger.Info("mp webhook: payment approved and booking confirmed",
 		"mp_payment_id", mpPaymentID,
@@ -249,7 +271,9 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	if client != nil {
 		complex, cerr := s.complexes.GetByID(ctx, booking.ComplexID)
 		court, courterr := s.courts.GetByID(ctx, booking.CourtID)
-		if cerr == nil && courterr == nil {
+		if cerr != nil || courterr != nil {
+			s.reportUnsentConfirmation(booking, mpPaymentID, errors.Join(cerr, courterr))
+		} else {
 			// Mint before building any link. InsertSafe already minted a token
 			// for this booking at checkout, but that mint happened in a
 			// different request and its plaintext cannot be read back — see
@@ -301,6 +325,57 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		}
 	}
 	return nil
+}
+
+// paymentRecordedForBooking reports whether mpPaymentID is already a payment row on
+// the booking's ledger. That is what makes a redelivery a true replay, rather than
+// a second payment on a booking that a different payment already settled.
+func (s *Service) paymentRecordedForBooking(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) (bool, error) {
+	payments, err := s.payments.ListByBookingID(ctx, bookingID)
+	if err != nil {
+		return false, fmt.Errorf("look up the payments of booking %s: %w", bookingID, err)
+	}
+	for _, p := range payments {
+		if p.MPPaymentID != nil && *p.MPPaymentID == mpPaymentID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// reportSettledBookingPayment is the answer for an approved payment, collected by
+// this complex, that lands on a booking another payment has already settled. The
+// money is captured and nothing here sends it back, so it is not dropped in silence:
+// it is logged and sent to Sentry for a person to refund in MercadoPago. The booking
+// and the payment already recorded are left alone, because this payment did not
+// settle them.
+//
+// The automatic refund path is not used here. Its last step (RecordRefundSuccess in
+// store/refunds.go) cancels the booking once a payment is refunded in full, and this
+// booking has to stay confirmed.
+func (s *Service) reportSettledBookingPayment(booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) {
+	amount := int(math.Round(mpPayment.TransactionAmount * 100))
+	s.logger.Error("mp webhook: an approved payment landed on a booking already settled by another payment, recorded nothing, refund it by hand",
+		"mp_payment_id", mpPaymentID,
+		"booking_id", booking.ID,
+		"booking_status", booking.Status,
+		"amount_centavos", amount,
+	)
+	sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID AGAIN (refund by hand, nothing recorded): mp_payment_id=%s booking_id=%s booking_status=%s amount_centavos=%d",
+		mpPaymentID, booking.ID, booking.Status, amount))
+}
+
+// reportUnsentConfirmation records a confirmation that could not be sent because a
+// record it needs could not be read. The payment is committed by then, so the
+// webhook is not failed for it; the gap is made visible instead.
+func (s *Service) reportUnsentConfirmation(booking *bookingstore.Booking, mpPaymentID string, cause error) {
+	s.logger.Error("mp webhook: payment approved but the booking confirmation was not sent, a record could not be read",
+		"error", cause,
+		"mp_payment_id", mpPaymentID,
+		"booking_id", booking.ID,
+	)
+	sentry.CaptureMessage(fmt.Sprintf("CONFIRMATION NOT SENT (record unreadable, payment recorded): mp_payment_id=%s booking_id=%s error=%v",
+		mpPaymentID, booking.ID, cause))
 }
 
 // expectedCharge returns the deposit and the service fee a MercadoPago payment
@@ -585,13 +660,29 @@ func (s *Service) collectorMatchesComplex(ctx context.Context, booking *bookings
 	return true, nil
 }
 
-// processRejectedPayment cancels the booking a rejected payment failed to pay
-// for, and reports whether the webhook event behind it should be tried again.
+// processRejectedPayment records why a payment was rejected and leaves the booking
+// as it is. A rejected card is one failed attempt: the client can pay the same
+// booking with another card until the normal expiry cron releases it. Cancelling
+// on the first decline handed the slot away and then refunded the client's later
+// approval. A rejection is an answer rather than a failure, so it reports nothing
+// to retry.
 func (s *Service) processRejectedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
-	// Only cancel if the booking is still pending. If it was already confirmed
-	// (e.g. a different payment attempt succeeded), do NOT cancel it.
+	// Verified before anything is written, as processApprovedPayment does: a
+	// rejection another seller collected is not this complex's to record.
+	matches, err := s.collectorMatchesComplex(ctx, booking, mpPayment, mpPaymentID)
+	if err != nil {
+		return err
+	}
+	if !matches {
+		return nil
+	}
+
+	// Only a pending booking takes the rejection's reason. On a settled booking the
+	// payment row GetByBookingID returns is the money that settled it, and writing
+	// this rejection's payment id onto it would repoint that row's refund at a
+	// payment that never captured anything.
 	if booking.Status != "pending" {
-		s.logger.Info("mp webhook: payment rejected but booking is not pending, skipping cancellation",
+		s.logger.Info("mp webhook: payment rejected but booking is not pending, nothing recorded",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 			"booking_status", booking.Status,
@@ -599,16 +690,9 @@ func (s *Service) processRejectedPayment(ctx context.Context, booking *bookingst
 		return nil
 	}
 
-	booking.Status = "cancelled"
-	if err := s.bookings.Update(ctx, booking); err != nil {
-		return fmt.Errorf("cancel booking %s after a rejected payment: %w", booking.ID, err)
-	}
-
 	s.recordRejectedPaymentDetail(ctx, booking.ID, mpPayment, mpPaymentID)
 
-	s.realtime.PublishBookingChanged(booking.ComplexID)
-
-	s.logger.Info("mp webhook: payment rejected/cancelled, booking cancelled",
+	s.logger.Info("mp webhook: payment rejected, booking left pending for another attempt",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 		"status", mpPayment.Status,
@@ -621,8 +705,8 @@ func (s *Service) processRejectedPayment(ctx context.Context, booking *bookingst
 // onto the payment row the public checkout flow inserted at 'unpaid', so the
 // specific decline reason (e.g. "cc_rejected_insufficient_amount") survives
 // past this log line. A read/write failure here is logged and swallowed: the
-// booking is already cancelled by the time this runs, and losing the detail
-// column is not worth requeuing the whole webhook event for.
+// booking stays pending and retrying the whole webhook event is not worth it
+// for the detail column.
 func (s *Service) recordRejectedPaymentDetail(ctx context.Context, bookingID uuid.UUID, mpPayment *mp.Payment, mpPaymentID string) {
 	existingPayment, err := s.payments.GetByBookingID(ctx, bookingID)
 	if err != nil {

@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -23,6 +25,14 @@ import (
 // Reminder2h sends the two-hour reminder (email, and WhatsApp when it is
 // configured). Reminders are informational only — bookings are never
 // auto-cancelled for lack of confirmation.
+//
+// A booking is queued first and flagged second. The flag is what stops later
+// ticks from selecting it again, so it is written only once the reminder is in
+// the queue: the other order loses the reminder for good if the process dies
+// between the two. The cost of this order is a repeat, and the job's dedup key
+// absorbs it: a failed flag write leaves the booking selectable, the next tick
+// queues it again, and that second enqueue is a no-op for as long as the first
+// job's row is kept.
 func (s *Service) Reminder2h(ctx context.Context) {
 	// time.Now() and not timezone.Now(): the store compares instants, so the
 	// location this value carries changes nothing. Argentina enters the
@@ -36,11 +46,6 @@ func (s *Service) Reminder2h(ctx context.Context) {
 
 	sent := 0
 	for _, b := range bookings {
-		if err := s.store.MarkReminderSent2h(ctx, b.ID); err != nil {
-			s.logger.Error("cron_reminder_2h: failed to mark sent", "error", err, "booking_id", b.ID)
-			continue
-		}
-
 		// A fresh access token per reminder, rather than the one the booking
 		// was confirmed with: booking_link_tokens stores only a hash, so the
 		// plaintext minted at confirmation is unreadable from here — see
@@ -79,6 +84,15 @@ func (s *Service) Reminder2h(ctx context.Context) {
 
 		s.logger.Info("cron_reminder_2h: sent reminder", "booking_id", b.ID)
 		sent++
+
+		// Flagged only now that the reminder is queued (see Reminder2h). A failed
+		// write does not drop the reminder: the booking is selected again on the
+		// next tick and queued once more, and the dedup key makes that enqueue a
+		// no-op.
+		if err := s.store.MarkReminderSent2h(ctx, b.ID); err != nil {
+			s.logger.Error("cron_reminder_2h: failed to flag sent; the next tick queues it again and the dedup key absorbs the repeat",
+				"error", err, "booking_id", b.ID)
+		}
 	}
 
 	s.logger.Info("cron_reminder_2h: completed", "candidates", len(bookings), "sent", sent)
@@ -154,12 +168,23 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 // CompletePastBookings marks confirmed bookings whose hours have passed as
 // completed.
 func (s *Service) CompletePastBookings(ctx context.Context) {
-	count, err := s.store.CompletePastBookings(ctx)
+	complexIDs, err := s.store.CompletePastBookings(ctx)
 	if err != nil {
 		s.logger.Error("cron_complete_bookings: failed", "error", err)
 		return
 	}
-	s.logger.Info("cron_complete_bookings: completed", "count", count)
+	// The completion is committed by the time the store returns, so every owner
+	// whose calendar changed can be told now. A complex with several bookings
+	// completed in this sweep gets one broadcast, not one per booking.
+	told := make(map[uuid.UUID]struct{}, len(complexIDs))
+	for _, complexID := range complexIDs {
+		if _, seen := told[complexID]; seen {
+			continue
+		}
+		told[complexID] = struct{}{}
+		s.realtime.PublishBookingChanged(complexID)
+	}
+	s.logger.Info("cron_complete_bookings: completed", "count", len(complexIDs))
 }
 
 // LinkTokenRetention is how long past its stored expiry a terminal booking's

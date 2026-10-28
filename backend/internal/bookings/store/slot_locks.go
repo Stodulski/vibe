@@ -41,21 +41,27 @@ type SlotLocks struct {
 // DO UPDATE makes PostgreSQL refuse the update — reporting zero rows affected —
 // when the existing lock is still live, and two callers racing for an expired
 // lock serialise on the same row, so exactly one of them wins it.
-func (m *SlotLocks) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error {
+//
+// holder is the token that names this checkout. It is stored in locked_by, and
+// ReleaseHeldLock frees the lock only for the holder that is recorded there. The
+// takeover writes the new holder too: a lock taken over must never still name
+// the checkout whose TTL ran out, or that checkout could free the new one.
+func (m *SlotLocks) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, holder string, ttl time.Duration) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	expiresAt := time.Now().Add(ttl)
 	result, err := m.DB.Exec(ctx, `
-		INSERT INTO slot_locks (court_id, date, start_time, end_time, booking_id, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO slot_locks (court_id, date, start_time, end_time, booking_id, locked_by, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (court_id, date, start_time) DO UPDATE
 		SET end_time   = EXCLUDED.end_time,
 		    booking_id = EXCLUDED.booking_id,
+		    locked_by  = EXCLUDED.locked_by,
 		    locked_at  = NOW(),
 		    expires_at = EXCLUDED.expires_at
 		WHERE slot_locks.expires_at <= NOW()`,
-		courtID, date, startTime, endTime, bookingID, expiresAt)
+		courtID, date, startTime, endTime, bookingID, holder, expiresAt)
 	if err != nil {
 		return err
 	}
@@ -65,7 +71,8 @@ func (m *SlotLocks) AcquireLock(ctx context.Context, courtID uuid.UUID, date tim
 	return nil
 }
 
-// ReleaseLock removes a specific slot lock.
+// ReleaseLock removes a specific slot lock, whoever holds it. The cancel path
+// relies on that: cancelling a booking deliberately frees the slot.
 func (m *SlotLocks) ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -73,6 +80,23 @@ func (m *SlotLocks) ReleaseLock(ctx context.Context, courtID uuid.UUID, date tim
 	_, err := m.DB.Exec(ctx,
 		`DELETE FROM slot_locks WHERE court_id = $1 AND date = $2 AND start_time = $3`,
 		courtID, date, startTime)
+	return err
+}
+
+// ReleaseHeldLock removes the slot lock only if it is still held by holder.
+//
+// A checkout whose TTL ran out while MercadoPago was slow can find the slot
+// already taken over by another checkout. An unconditional delete would free
+// that live lock too, and a second buyer could then book a slot somebody has
+// already started paying for. The holder check makes the statement a no-op in
+// that case: zero rows deleted, the other checkout's lock left in place.
+func (m *SlotLocks) ReleaseHeldLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	_, err := m.DB.Exec(ctx,
+		`DELETE FROM slot_locks WHERE court_id = $1 AND date = $2 AND start_time = $3 AND locked_by = $4`,
+		courtID, date, startTime, holder)
 	return err
 }
 

@@ -171,6 +171,29 @@ func (s *Store) Complete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// ClearPayload replaces a finished job's payload with an empty object.
+//
+// The row stays for the retention window, and so does its DedupKey, because the
+// key is what refuses a second copy of the work. Only the payload goes. Some
+// payloads are single-use links and contact details that nothing reads after
+// the attempt, and a finished row is otherwise kept for days (a dead letter,
+// for good). The status predicate is the guard: a pending or claimed job still
+// needs its payload, because a retry or a reclaim runs the handler again with
+// exactly those bytes.
+func (s *Store) ClearPayload(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.DetachedQueryContext(ctx)
+	defer cancel()
+
+	_, err := s.DB.Exec(ctx, `
+		UPDATE jobs
+		SET payload = '{}'::jsonb
+		WHERE id = $1 AND status IN ('done', 'failed')`, id)
+	if err != nil {
+		return fmt.Errorf("clear job payload: %w", err)
+	}
+	return nil
+}
+
 // Fail spends an attempt and reports whether that was the last one.
 //
 // A true return means the job is in 'failed' — the dead letter. Nothing

@@ -14,12 +14,14 @@ import (
 
 // Queue is the durable task queue this package publishes to and consumes from.
 //
-// dedupKey is what makes one delivery idempotent. The queue is at-least-once:
-// a redelivered provider webhook, or a claim whose acknowledgement was lost,
-// runs the same task again, and for this package "again" means a second
-// confirmation email and a second WhatsApp message for one booking (JOB-04).
-// An enqueue carrying a key already in the queue does nothing. An empty key
-// means this delivery is not deduplicated.
+// dedupKey stops the same delivery being queued twice: an enqueue carrying a key
+// already in the queue does nothing, so a redelivered provider webhook adds no
+// second task for one booking. It does not make the delivery idempotent. The
+// queue is at-least-once, so a claim whose acknowledgement was lost, or a crash
+// after the provider accepted the message, runs the task again, and for this
+// package "again" can mean a second confirmation email or WhatsApp message for
+// one booking. Neither the mail nor the WhatsApp client in this repository sends
+// an idempotency key. An empty key means this delivery is not deduplicated.
 type Queue interface {
 	Enqueue(taskType string, payload any, dedupKey string)
 	RegisterHandler(taskType string, h func(ctx context.Context, payload json.RawMessage) error)
@@ -226,7 +228,7 @@ func (s *Service) DepositRefunded(ref Refund) {
 		s.queue.Enqueue(TaskEmailDepositRefunded, depositRefundedEmail{
 			Email: ref.Email, ComplexName: ref.ComplexName,
 			Amount: ref.Amount, BookURL: ref.BookURL,
-		}, dedup(TaskEmailDepositRefunded, ref.Email, ref.BookingID))
+		}, dedup(TaskEmailDepositRefunded, ref.Email, refundSubject(ref)))
 	}
 	if s.wantsWhatsApp(ref.Phone) {
 		if ref.BookPath == "" {
@@ -235,9 +237,21 @@ func (s *Service) DepositRefunded(ref Refund) {
 			s.queue.Enqueue(TaskWADepositRefunded, waDepositRefunded{
 				Phone: ref.Phone, ComplexName: ref.ComplexName,
 				Amount: ref.Amount, BookPath: ref.BookPath,
-			}, dedup(TaskWADepositRefunded, ref.Phone, ref.BookingID))
+			}, dedup(TaskWADepositRefunded, ref.Phone, refundSubject(ref)))
 		}
 	}
+}
+
+// refundSubject is what a refund notice is about, for its deduplication key: the
+// booking and which refund of it this is. A booking refunded in parts has one
+// notice per part, so the booking alone would let the queue drop every part after
+// the first as a redelivery. A notice missing either half gets no key at all, the
+// same honest answer dedup gives every other blank subject.
+func refundSubject(ref Refund) string {
+	if ref.BookingID == "" || ref.RefundID == "" {
+		return ""
+	}
+	return ref.BookingID + ":" + ref.RefundID
 }
 
 // EmailVerification asks a new account to confirm its address.

@@ -81,6 +81,9 @@ type PaymentStore interface {
 type BookingStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
 	Update(ctx context.Context, booking *bookingstore.Booking) error
+	// MarkManualBalanceOwed moves refund_status from 'none' to 'partial' and
+	// writes nothing else (see markManualBalanceOwed in refund.go).
+	MarkManualBalanceOwed(ctx context.Context, booking *bookingstore.Booking) error
 }
 
 // RefundIntentStore is the reconciliation sweep's store layer

@@ -43,12 +43,19 @@ type Store interface {
 	FacadeStore
 
 	InsertSafe(ctx context.Context, b *bookingstore.Booking) error
+	// InsertSafeWithPayment writes an owner-created booking and the counter
+	// payment taken for it in one transaction: both commit or neither does.
+	InsertSafeWithPayment(ctx context.Context, b *bookingstore.Booking, p *bookingstore.CounterPayment) error
+	// UpdateIfUnchanged is the owner's edit: it writes only while the row still
+	// carries the updated_at the caller read, and answers data.ErrEditConflict
+	// when it does not.
+	UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booking) error
 
 	// The scheduled sweeps.
 	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
 	MarkReminderSent2h(ctx context.Context, id uuid.UUID) error
 	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
-	CompletePastBookings(ctx context.Context) (int64, error)
+	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
 }
 
 // ClientStore resolves the person a booking is for. Public bookings create the
@@ -107,8 +114,12 @@ type PaymentStore interface {
 // Without it two people can both reach MercadoPago for the same court and
 // time, and one of them pays for a slot that is already gone.
 type SlotLocker interface {
-	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error
+	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, holder string, ttl time.Duration) error
+	// ReleaseLock frees the slot whoever holds it; the cancel path uses it.
 	ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error
+	// ReleaseHeldLock frees the slot only while holder still holds it; a checkout
+	// uses it so it never frees a lock another checkout took over.
+	ReleaseHeldLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) error
 }
 
 // Checkout is the MercadoPago side of a public booking.

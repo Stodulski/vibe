@@ -36,6 +36,12 @@ type stubStore struct {
 	getErr    error
 	listErr   error
 	insertErr error
+	// counterPaymentErr fails InsertSafeWithPayment the way a payment insert
+	// that rolls the whole transaction back does: no booking may be recorded.
+	counterPaymentErr error
+	// payments receives the counter payment InsertSafeWithPayment writes, the
+	// way the real transaction lands it in the payments table. newFixture links it.
+	payments *stubPayments
 
 	// onUpdate runs inside Update, so a test can put an event — a client
 	// disconnecting, in particular — between two steps of a handler.
@@ -46,6 +52,9 @@ type stubStore struct {
 
 	inserted []*bookingstore.Booking
 	updated  []*bookingstore.Booking
+	// abandonedUpdates counts writes that were handed a context already done,
+	// so they never reached the database. See Update.
+	abandonedUpdates int
 
 	// The scheduled sweeps' inputs and what they were called with.
 	dueForReminder []*bookingstore.CronBooking
@@ -56,9 +65,11 @@ type stubStore struct {
 	expiredPending []*bookingstore.CronBooking
 	expiredErr     error
 	expiryWindows  []time.Duration
-	completed      int64
-	completeErr    error
-	completeCalls  int
+	// completed is the complex of each booking the sweep reports completing, one
+	// entry per booking, as the store returns them.
+	completed     []uuid.UUID
+	completeErr   error
+	completeCalls int
 }
 
 func (s *stubStore) GetByComplex(context.Context, uuid.UUID, time.Time, time.Time, data.Filters) ([]*bookingstore.Booking, data.Metadata, error) {
@@ -96,7 +107,52 @@ func (s *stubStore) InsertSafe(_ context.Context, b *bookingstore.Booking) error
 	return nil
 }
 
-func (s *stubStore) Update(_ context.Context, b *bookingstore.Booking) error {
+// InsertSafeWithPayment writes the booking and its counter payment as one unit,
+// as the real store does inside one transaction: when the payment fails, the
+// booking is not recorded either.
+func (s *stubStore) InsertSafeWithPayment(ctx context.Context, b *bookingstore.Booking, p *bookingstore.CounterPayment) error {
+	if s.counterPaymentErr != nil {
+		return s.counterPaymentErr
+	}
+	if err := s.InsertSafe(ctx, b); err != nil {
+		return err
+	}
+	if p != nil && s.payments != nil {
+		s.payments.inserted = append(s.payments.inserted, &paymentstore.Payment{
+			BookingID: b.ID, ComplexID: b.ComplexID,
+			Amount: p.Amount, Method: p.Method, Status: p.Status,
+		})
+	}
+	return nil
+}
+
+// UpdateIfUnchanged writes through Update. The stub's row is the caller's own
+// pointer, so nothing can move it between the read and the write; a test that
+// needs a racing writer uses its own store (see racingStore).
+func (s *stubStore) UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booking) error {
+	return s.Update(ctx, b)
+}
+
+// MarkManualBalanceOwed applies the same single-column write the real store
+// does to the stub's own row: refund_status moves only from 'none'.
+func (s *stubStore) MarkManualBalanceOwed(_ context.Context, b *bookingstore.Booking) error {
+	if b.RefundStatus == bookingstore.RefundStatusNone {
+		b.RefundStatus = bookingstore.RefundStatusPartial
+	}
+	return nil
+}
+
+func (s *stubStore) Update(ctx context.Context, b *bookingstore.Booking) error {
+	// bookingstore hands ctx to pgx, which fails a statement on a context that is
+	// already done when the statement is issued, so the write never lands. The
+	// check happens on entry, before onUpdate: a disconnect that fires inside the
+	// write is not a write that was refused. The stub has to refuse the same way,
+	// or a cancelled cleanup looks like a success and the test cannot see the
+	// write being lost.
+	if err := ctx.Err(); err != nil {
+		s.abandonedUpdates++
+		return err
+	}
 	if s.onUpdate != nil {
 		s.onUpdate()
 	}
@@ -202,7 +258,7 @@ func (s *stubStore) GetExpiredPendingEnriched(_ context.Context, expiry time.Dur
 	return s.expiredPending, nil
 }
 
-func (s *stubStore) CompletePastBookings(context.Context) (int64, error) {
+func (s *stubStore) CompletePastBookings(context.Context) ([]uuid.UUID, error) {
 	s.completeCalls++
 	return s.completed, s.completeErr
 }
@@ -459,11 +515,21 @@ func (s *stubPayments) RecordManualRefund(_ context.Context, _ uuid.UUID) (int, 
 
 type stubLocks struct {
 	acquireErr error
-	// releaseErr fails ReleaseLock, standing in for the database refusing to free
-	// a held slot. A release that cannot fail cannot prove the caller survives it.
+	// releaseErr fails ReleaseLock and ReleaseHeldLock, standing in for the database
+	// refusing to free a held slot. A release that cannot fail cannot prove the
+	// caller survives it.
 	releaseErr error
 	acquired   []string
+	// acquiredBy is the holder token each acquire took its lock with, in order.
+	acquiredBy []string
 	released   []string
+	// releasedWith is the holder token each ReleaseHeldLock call presented, in order.
+	releasedWith []string
+	// refusedHeld is every ReleaseHeldLock that found the slot named for another
+	// holder and left it alone.
+	refusedHeld []string
+	// holderOf is the holder token each slot's live lock currently names.
+	holderOf map[string]string
 	// abandoned is every release that never reached the database because the
 	// context handed to it was already finished.
 	abandoned []string
@@ -475,15 +541,52 @@ type stubLocks struct {
 // that happened from one that was abandoned, and on the disconnect path that is
 // the entire question. Honouring ctx.Err() here is what makes the difference
 // observable.
-func (s *stubLocks) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, _ string, _ *uuid.UUID, _ time.Duration) error {
+func (s *stubLocks) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, _ string, _ *uuid.UUID, holder string, _ time.Duration) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if s.acquireErr != nil {
 		return s.acquireErr
 	}
-	s.acquired = append(s.acquired, slotKey(courtID, date, startTime))
+	key := slotKey(courtID, date, startTime)
+	s.acquired = append(s.acquired, key)
+	s.acquiredBy = append(s.acquiredBy, holder)
+	if s.holderOf == nil {
+		s.holderOf = map[string]string{}
+	}
+	s.holderOf[key] = holder
 	return nil
+}
+
+// ReleaseHeldLock is the release a checkout makes. Like the database's DELETE
+// ... AND locked_by, it frees the slot only while the lock still names holder;
+// a lock taken over since then belongs to another checkout and is left alone.
+func (s *stubLocks) ReleaseHeldLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) error {
+	key := slotKey(courtID, date, startTime)
+	s.releasedWith = append(s.releasedWith, holder)
+	if err := ctx.Err(); err != nil {
+		s.abandoned = append(s.abandoned, key)
+		return err
+	}
+	if s.releaseErr != nil {
+		return s.releaseErr
+	}
+	if s.holderOf[key] != holder {
+		s.refusedHeld = append(s.refusedHeld, key)
+		return nil
+	}
+	delete(s.holderOf, key)
+	s.released = append(s.released, key)
+	return nil
+}
+
+// takeOver stands in for what happens while a checkout waits on MercadoPago: its
+// lock's TTL runs out and another checkout takes the slot, so the live lock now
+// names a different holder.
+func (s *stubLocks) takeOver() {
+	for key := range s.holderOf {
+		s.holderOf[key] = "another-checkout"
+	}
 }
 
 func (s *stubLocks) ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error {
@@ -768,6 +871,7 @@ func newFixture(t *testing.T) *fixture {
 		WhatsAppEnabled: true, LinkTokenBuffer: 24 * time.Hour,
 	})
 	f.handler = NewHandler(f.service, f.whatsapp, httpx.NewResponder(logger), logger, false)
+	f.store.payments = f.payments
 	return f
 }
 
