@@ -13,6 +13,7 @@ const (
 	TaskEmailReminder2h            = "email:reminder_2h"
 	TaskEmailBookingCancelled      = "email:booking_cancelled"
 	TaskEmailDepositRefunded       = "email:deposit_refunded"
+	TaskEmailRefundDelayed         = "email:refund_delayed"
 	TaskEmailOwnerNewBooking       = "email:owner_new_booking"
 	TaskEmailOwnerBookingCancelled = "email:owner_booking_cancelled"
 	TaskEmailOwnerBookingRefunded  = "email:owner_booking_refunded"
@@ -223,6 +224,12 @@ type Refund struct {
 	// payload — the workers do not read it, and a durable queue should not
 	// store a field nobody consumes.
 	BookingID string `json:"-"`
+
+	// RefundID tells one refund of that booking from another. A booking can be
+	// refunded more than once, in parts, and each part is its own notice; it is
+	// the other half of the deduplication key, so a redelivery of the same notice
+	// is dropped while the next partial refund is not.
+	RefundID string `json:"-"`
 }
 
 // The three transactional account messages each get their own type.
@@ -311,6 +318,15 @@ type bookingCancelledEmail struct {
 }
 
 type depositRefundedEmail struct {
+	Email       string `json:"email"`
+	ComplexName string `json:"complex_name"`
+	Amount      string `json:"amount"`
+	BookURL     string `json:"book_url"`
+}
+
+// refundDelayedEmail is what the worker for a refund that is still being processed needs, and nothing else.
+// It follows the same rule depositRefundedEmail follows.
+type refundDelayedEmail struct {
 	Email       string `json:"email"`
 	ComplexName string `json:"complex_name"`
 	Amount      string `json:"amount"`

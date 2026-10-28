@@ -845,6 +845,30 @@ func (m *Mailer) SendDepositRefunded(ctx context.Context, to, complexName, amoun
 	return m.send(ctx, to, subject, m.wrap("Devolución realizada", preheader, content))
 }
 
+// SendRefundDelayed emails the client that the return of their deposit is taking
+// longer than expected and is still being processed.
+//
+// It is the notice for a refund that spent its retry budget. The refund can still
+// arrive through MercadoPago, so the copy never invites the complex to pay by hand.
+// It promises only what the product does: if the refund cannot be completed, the
+// complex contacts the client. Nobody is named as having failed.
+//
+// A WhatsApp variant needs a Meta-approved template first; there is none yet.
+func (m *Mailer) SendRefundDelayed(ctx context.Context, to, complexName, amount, bookURL string) error {
+	subject := fmt.Sprintf("Devolución en proceso · %s", complexName)
+	amountEsc := html.EscapeString(amount)
+
+	content := title("Devolución en proceso.") +
+		p(fmt.Sprintf("La devolución de <strong>%s</strong> de la seña de su reserva en <strong>%s</strong> se está demorando. Sigue en proceso. Si no pudiera completarse, el complejo se comunicará con usted.",
+			amountEsc, html.EscapeString(complexName)), 16, 16)
+	if bookURL != "" {
+		content += button(bookURL, "Nueva reserva")
+	}
+
+	preheader := fmt.Sprintf("Su devolución de %s sigue en proceso.", amountEsc)
+	return m.send(ctx, to, subject, m.wrap("Devolución en proceso", preheader, content))
+}
+
 // SendPasswordReset emails the user a link to reset their password, valid for
 // 1 hour.
 func (m *Mailer) SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error {

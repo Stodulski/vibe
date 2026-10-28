@@ -94,6 +94,9 @@ func (m *stubMailer) SendBookingCancelled(_ context.Context, to, complexName, co
 func (m *stubMailer) SendDepositRefunded(_ context.Context, to, complexName, amount, bookURL string) error {
 	return m.record("refunded", to, complexName, amount, bookURL)
 }
+func (m *stubMailer) SendRefundDelayed(_ context.Context, to, complexName, amount, bookURL string) error {
+	return m.record("refund_delayed", to, complexName, amount, bookURL)
+}
 func (m *stubMailer) SendOwnerNewBooking(_ context.Context, to, complexName, courtName, clientName, date, startTime string) error {
 	return m.record("owner_new_booking", to, complexName, courtName, clientName, date, startTime)
 }
@@ -196,6 +199,81 @@ func fullRefund() Refund {
 		Email: "ana@example.com", Phone: "+5411",
 		ComplexName: "Vibe", Amount: "$5.000",
 		BookPath: "vibe/book", BookURL: "https://vibe.test/vibe/book",
+	}
+}
+
+// A booking refunded in two parts gets two notices. The deduplication key used to
+// be the booking alone, so the queue treated the second part as a redelivery of the
+// first and the client was never told about the second refund.
+// The notice for a refund that is still being processed is one email per refund,
+// keyed the same way as the deposit notice, and its worker hands the copy to the
+// mailer with the amount and the book link it was given.
+func TestRefundDelayedIsKeyedAndDelivered(t *testing.T) {
+	s, q, mailer, _, _ := newTestService(t, false)
+	s.RegisterWorkers()
+
+	ref := fullRefund()
+	ref.BookingID = uuid.New().String()
+	ref.RefundID = "mp-1:150000"
+	s.RefundDelayed(ref)
+
+	key, ok := q.keyOf(TaskEmailRefundDelayed)
+	if !ok {
+		t.Fatal("the delayed-refund notice was not enqueued")
+	}
+	if key == "" {
+		t.Error("the delayed-refund notice was enqueued with no deduplication key, so a redelivery sends it twice")
+	}
+
+	for _, task := range q.tasks {
+		if task.taskType != TaskEmailRefundDelayed {
+			continue
+		}
+		raw, err := json.Marshal(task.payload)
+		if err != nil {
+			t.Fatalf("marshalling the queued payload: %v", err)
+		}
+		if err := q.handlers[TaskEmailRefundDelayed](t.Context(), raw); err != nil {
+			t.Fatalf("delivering the delayed-refund notice: %v", err)
+		}
+	}
+	if len(mailer.sent) != 1 || mailer.sent[0].kind != "refund_delayed" {
+		t.Fatalf("the delayed-refund notice was not delivered by the mailer; got %v", mailer.sent)
+	}
+	if got := mailer.sent[0].args[1]; got != "$5.000" {
+		t.Errorf("the notice must quote the amount it was given; want $5.000, got %v", got)
+	}
+	if got := mailer.sent[0].args[2]; got != "https://vibe.test/vibe/book" {
+		t.Errorf("the notice must carry the book link it was given; got %v", got)
+	}
+}
+
+func TestEachPartialRefundOfABookingHasItsOwnNoticeKey(t *testing.T) {
+	s, q, _, _, _ := newTestService(t, false)
+	bookingID := uuid.New().String()
+
+	first := fullRefund()
+	first.BookingID, first.RefundID = bookingID, "mp-1:1000"
+	second := fullRefund()
+	second.BookingID, second.RefundID = bookingID, "mp-1:2000"
+
+	s.DepositRefunded(first)
+	s.DepositRefunded(second)
+
+	var keys []string
+	for _, task := range q.tasks {
+		if task.taskType == TaskEmailDepositRefunded {
+			keys = append(keys, task.dedupKey)
+		}
+	}
+	if len(keys) != 2 {
+		t.Fatalf("each refund must be enqueued; got %d deposit-refunded emails", len(keys))
+	}
+	if keys[0] == "" || keys[1] == "" {
+		t.Fatalf("a refund notice with no deduplication key is sent twice on a redelivery; got %q and %q", keys[0], keys[1])
+	}
+	if keys[0] == keys[1] {
+		t.Errorf("two partial refunds of one booking share the deduplication key %q, so the second client email is dropped", keys[0])
 	}
 }
 
@@ -522,7 +600,7 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 	// sits in Redis forever.
 	for _, taskType := range []string{
 		TaskEmailBookingConfirmation, TaskEmailReminder2h, TaskEmailBookingCancelled,
-		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailOwnerBookingCancelled, TaskEmailOwnerBookingRefunded, TaskEmailVerification,
+		TaskEmailDepositRefunded, TaskEmailRefundDelayed, TaskEmailOwnerNewBooking, TaskEmailOwnerBookingCancelled, TaskEmailOwnerBookingRefunded, TaskEmailVerification,
 		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
 		TaskWABookingConfirmation, TaskWAReminder2h,
 		TaskWABookingCancelled, TaskWADepositRefunded,
@@ -879,6 +957,7 @@ func TestEachDeliveryCarriesADeduplicationKey(t *testing.T) {
 
 	refund := fullRefund()
 	refund.BookingID = bookingID
+	refund.RefundID = "mp-123:500000"
 	s.DepositRefunded(refund)
 
 	reminder := fullReminder()

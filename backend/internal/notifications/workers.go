@@ -73,6 +73,10 @@ func (s *Service) RegisterWorkers() {
 		return s.mailer.SendDepositRefunded(ctx, p.Email, p.ComplexName, p.Amount, p.BookURL)
 	}))
 
+	s.queue.RegisterHandler(handle(TaskEmailRefundDelayed, func(ctx context.Context, p refundDelayedEmail) error {
+		return s.mailer.SendRefundDelayed(ctx, p.Email, p.ComplexName, p.Amount, p.BookURL)
+	}))
+
 	// The owner's address is resolved here rather than captured at enqueue
 	// time, so a task sitting in the queue cannot deliver to an address the
 	// owner has since changed.

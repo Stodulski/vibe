@@ -137,6 +137,12 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// larger and the write would fail outright. The cap is why the recorded and
 	// charged totals are kept apart above rather than collapsed: the comparison
 	// wants MercadoPago's figure, and the column will only hold ours.
+	// What this event moved. MercadoPago's transaction_amount_refunded is the total
+	// refunded on the payment so far, so this instalment is the difference from what
+	// the row already holds. Reading the total as the instalment is what made the
+	// trail record a later partial refund as everything refunded to date.
+	movedNow := max(refundCentavos-payment.RefundAmount, 0)
+
 	if isFullRefund {
 		payment.Status = "refunded"
 	}
@@ -180,7 +186,8 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		"mp_status", mpPayment.Status,
 		"mp_status_detail", mpPayment.StatusDetail,
 		"booking_id", booking.ID,
-		"refund_centavos", refundCentavos,
+		"refund_centavos", movedNow,
+		"refunded_total_centavos", refundCentavos,
 		"full_refund", isFullRefund,
 	)
 
@@ -193,7 +200,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// It is unconditional now because reaching this line already means no claim of
 	// ours holds this refund — the guard at the top of the function returned on
 	// that case rather than only muting the message.
-	s.sendRefundNotification(ctx, booking, payment.RefundAmount)
+	s.sendRefundNotification(ctx, booking, payment.RefundAmount, refundKey(mpPaymentID, payment.RefundAmount))
 	if cancelledByRefund {
 		s.announceRefundedCancellation(ctx, booking)
 	}
@@ -206,7 +213,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		Actor:          actorProvider,
 		PaymentID:      &payment.ID,
 		MPPaymentID:    mpPaymentID,
-		AmountCentavos: refundCentavos,
+		AmountCentavos: movedNow,
 		Result:         string(paymentstore.RefundIssued),
 		Reason:         mpPayment.StatusDetail,
 	})
@@ -254,7 +261,7 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 	if refunded <= 0 {
 		refunded = int(math.Round(mpPayment.TransactionAmount * 100))
 	}
-	s.sendRefundNotification(ctx, booking, refunded)
+	s.sendRefundNotification(ctx, booking, refunded, refundKey(mpPaymentID, refunded))
 	if wasLive {
 		s.announceRefundedCancellation(ctx, booking)
 	}
@@ -279,14 +286,29 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 // and a refund that arrives for a booking with no payment record at all only has
 // MercadoPago's own figure. Passing the struct is how a notification that
 // announced whatever the stale in-memory copy happened to hold used to happen.
-func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int) {
+//
+// refundID names which refund of the booking this notice is about (see refundKey).
+// It is the deduplication key's half that tells a second partial refund from a
+// redelivery of the first; without it the queue dropped the second notice.
+func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string) {
+	ref, ok := s.refundNotice(ctx, booking, refundCentavos, refundID)
+	if !ok {
+		return
+	}
+	s.notify.DepositRefunded(ref)
+}
+
+// refundNotice reads what every refund notice names (the client, the complex and
+// its book link) and builds the notice for refundCentavos. ok is false when the
+// client or the complex cannot be read; the failure is logged here.
+func (s *Service) refundNotice(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string) (notifications.Refund, bool) {
 	client, err := s.clients.GetByID(ctx, booking.ClientID)
 	if err != nil {
 		s.logger.Error("refund notification: failed to fetch client",
 			"error", err,
 			"booking_id", booking.ID,
 		)
-		return
+		return notifications.Refund{}, false
 	}
 
 	complex, err := s.complexes.GetByID(ctx, booking.ComplexID)
@@ -295,23 +317,57 @@ func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingst
 			"error", err,
 			"booking_id", booking.ID,
 		)
-		return
+		return notifications.Refund{}, false
 	}
 
 	clientEmail := ""
 	if client.Email != nil {
 		clientEmail = *client.Email
 	}
-	amount := formatARS(refundCentavos)
-	s.notify.DepositRefunded(notifications.Refund{
+	return notifications.Refund{
 		Email:       clientEmail,
 		Phone:       client.Phone,
 		ComplexName: complex.Name,
-		Amount:      amount,
+		Amount:      formatARS(refundCentavos),
 		BookPath:    booklink.BookPath(complex.Slug),
 		BookURL:     booklink.Book(s.cfg.PublicURL, complex.Slug),
 		BookingID:   booking.ID.String(),
-	})
+		RefundID:    refundID,
+	}, true
+}
+
+// notifyRefundDelayed runs once an automatic refund has spent its retry budget. The
+// refund is not abandoned: the retry job keeps re-selecting exhausted rows, so
+// MercadoPago can still pay it. The client is told, once per refund, that it is
+// taking longer than expected and is still being processed. When cash is still
+// owed by hand, the booking is left at 'partial' so the owner can close that
+// balance out; that money is genuinely owed by hand. The automatic half is not
+// back, so nothing here marks the booking as anything more than that.
+func (s *Service) notifyRefundDelayed(ctx context.Context, claim paymentstore.RefundClaim) {
+	booking, err := s.bookings.GetByID(ctx, claim.BookingID)
+	if err != nil {
+		s.logger.Error("refund: failed to fetch the booking for the delayed-refund notice",
+			"error", err, "booking_id", claim.BookingID, "attempt_id", claim.AttemptID)
+		return
+	}
+
+	if manualOwed := s.manualOwedForBooking(ctx, booking.ID); manualOwed > 0 {
+		s.markManualBalanceOwed(ctx, booking)
+	}
+
+	ref, ok := s.refundNotice(ctx, booking, claim.RefundCentavos, refundKey(claim.MPPaymentID, claim.RefundCentavos))
+	if !ok {
+		return
+	}
+	s.notify.RefundDelayed(ref)
+}
+
+// refundKey names one refund of a booking for its client notice: the MercadoPago
+// payment it came back on, and the running total it reached on that payment. A
+// further partial refund reaches a higher total, so it is a new notice, while a
+// redelivery of the same event reaches the same total and is still one notice.
+func refundKey(mpPaymentID string, totalCentavos int) string {
+	return fmt.Sprintf("%s:%d", mpPaymentID, totalCentavos)
 }
 
 // liveBooking reports whether a booking still holds its court: pending or
@@ -438,8 +494,10 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 
 	if len(auto) == 0 {
 		// Every unrefunded row is cash or a transfer: there is nothing to send
-		// to MercadoPago, and the whole remainder is owed by hand. This is
-		// exactly today's single-row cash behavior when there is only one row.
+		// to MercadoPago, and the whole remainder is owed by hand. The booking
+		// is marked 'partial' so the owner's manual-refund action can close it
+		// out (markManualBalanceOwed).
+		s.markManualBalanceOwed(ctx, booking)
 		return s.owedManually(booking, manualOwed, manualReason)
 	}
 
@@ -448,13 +506,11 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 	// cancelled halfway through by an unrelated HTTP request ending.
 	ctx = context.WithoutCancel(ctx)
 
-	var outcome paymentstore.RefundOutcome
-	autoTotal := 0
+	rowOutcomes := make([]paymentstore.RefundOutcome, 0, len(auto))
 	for _, payment := range auto {
-		outcome = s.autoRefundOnePayment(ctx, booking, payment, manualOwed, &committed)
-		autoTotal += outcome.AmountCentavos
+		rowOutcomes = append(rowOutcomes, s.autoRefundOnePayment(ctx, booking, payment, manualOwed, &committed))
 	}
-	outcome.AmountCentavos = autoTotal
+	outcome := combineRefundOutcomes(rowOutcomes)
 
 	if manualOwed > 0 {
 		// The auto row(s) above are handled exactly as before; the cash/transfer
@@ -462,7 +518,7 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 		// "two entries rather than one merged" precedent process.go's
 		// refundCancelledBookingPayment uses for a shortfall (see reportShortfall).
 		manual := s.owedManually(booking, manualOwed, manualReason)
-		outcome.ManualAmountCentavos = manual.AmountCentavos
+		outcome.ManualAmountCentavos += manual.AmountCentavos
 		s.record(booking.ComplexID, booking.ID, "refund", refundEvent(actorSystem, manual))
 	}
 
@@ -537,7 +593,7 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 		"booking_id", booking.ID, "mp_payment_id", settled.MPPaymentID, "amount", centavosToPesos(settled.RefundCentavos))
 	// The client is only told once the refund is recorded, and told the amount that
 	// was actually written rather than whatever the in-memory struct still holds.
-	s.sendRefundNotification(ctx, booking, refundTotal)
+	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(claim.MPPaymentID, refundTotal))
 
 	// MercadoPago moved less than was claimed. The part that did move is back and
 	// the client has been told about it; the rest is owed with the attempt row
@@ -656,8 +712,18 @@ func (s *Service) handleRefundRequestError(ctx context.Context, claim paymentsto
 		return claim, &outcome
 	}
 
+	// MercadoPago reports the total refunded on the payment, not what this claim
+	// moved. The claim's share is that total less what the row already records, so
+	// money recorded by an earlier refund is never counted again as this one.
+	recorded, err := s.recordedRefundedCentavos(ctx, claim)
+	if err != nil {
+		s.logger.Error("refund: could not read the payment's recorded refunds after a 4xx refund rejection",
+			"error", err, "booking_id", claim.BookingID, "mp_payment_id", claim.MPPaymentID)
+		outcome := s.recordRefundFailure(ctx, claim, cause)
+		return claim, &outcome
+	}
 	refundedCentavos := int(math.Round(payment.TransactionAmountRefunded * 100))
-	if refundedCentavos < claim.RefundCentavos {
+	if refundedCentavos-recorded < claim.RefundCentavos {
 		outcome := s.recordRefundFailure(ctx, claim, cause)
 		return claim, &outcome
 	}
@@ -667,8 +733,10 @@ func (s *Service) handleRefundRequestError(ctx context.Context, claim paymentsto
 		"mp_payment_id", claim.MPPaymentID,
 		"claimed_centavos", claim.RefundCentavos,
 		"refunded_centavos", refundedCentavos,
+		"recorded_centavos", recorded,
 	)
-	claim.RefundCentavos = refundedCentavos
+	// The claim keeps the amount it asked for. MercadoPago now shows at least that much
+	// moved on top of what was recorded, and that is all this refund may account for.
 	return claim, nil
 }
 
@@ -830,7 +898,8 @@ func (s *Service) refundable(ctx context.Context, booking *bookingstore.Booking)
 // which methods carried it, given every payment row on the booking.
 //
 // A row is manual when it carries no MercadoPago id — cash, a transfer, or a
-// MercadoPago payment that never got an id — and still has money owed on it.
+// MercadoPago payment that never got an id — was actually paid (see ReceivedMoney),
+// and still has money owed on it.
 // This used to be inlined in refundable()'s own loop; it is shared now
 // because every other place that has to answer "is cash still owed on this
 // booking" needs the identical rule: the partial-refund status write in
@@ -839,7 +908,10 @@ func (s *Service) refundable(ctx context.Context, booking *bookingstore.Booking)
 func manualBalance(payments []*paymentstore.Payment) (owedCentavos int, methods []string) {
 	for _, payment := range payments {
 		owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
-		if payment.Status == "refunded" || owed <= 0 {
+		// A checkout row is written 'unpaid' before the client pays anything, and it
+		// has no MercadoPago id until they do. Without the status check it reads as a
+		// counter payment that was never made, and its full price is owed back.
+		if payment.Status == "refunded" || owed <= 0 || !paymentstore.ReceivedMoney(payment.Status) {
 			continue
 		}
 		if payment.MPPaymentID == nil || *payment.MPPaymentID == "" {
@@ -890,6 +962,99 @@ func bookingRefundStatusAfterRefund(manualOwedCentavos int) bookingstore.RefundS
 		return bookingstore.RefundStatusPartial
 	}
 	return bookingstore.RefundStatusFull
+}
+
+// markManualBalanceOwed writes refund_status 'partial' on a booking whose only money
+// is a cash or transfer balance. The owner's "mark manual refund" action is offered
+// on 'partial' alone, and the mixed MercadoPago-plus-cash path reaches that status
+// through RecordRefundSuccess. A booking with no MercadoPago row never reaches that
+// writer, so it stayed 'none' and the owner had nothing to act on.
+//
+// It is called only from autoRefundIfPaid's cash-only exit, which runs only once the
+// cancellation policy has said the client is owed a refund, and when no automatic
+// row was claimed, so nothing else writes the booking's refund status in this call.
+// A failed write is alerted, and the caller's booking keeps the status the row holds.
+func (s *Service) markManualBalanceOwed(ctx context.Context, booking *bookingstore.Booking) {
+	if booking.RefundStatus != bookingstore.RefundStatusNone {
+		return
+	}
+	written := *booking
+	written.RefundStatus = bookingstore.RefundStatusPartial
+	// Detached from the caller: a client closing the tab must not leave the owner
+	// without the status that lets them act on the money.
+	if err := s.bookings.Update(context.WithoutCancel(ctx), &written); err != nil {
+		s.logger.Error("auto-refund: could not record the cash balance as owed by hand",
+			"error", err, "booking_id", booking.ID)
+		sentry.CaptureMessage(fmt.Sprintf("MANUAL BALANCE NOT RECORDED (booking reads 'none', owed by hand): booking_id=%s complex_id=%s", booking.ID, booking.ComplexID))
+		return
+	}
+	booking.RefundStatus = bookingstore.RefundStatusPartial
+}
+
+// combineRefundOutcomes folds the answers for a booking's automatic rows into the
+// one outcome its caller reports. A booking paid through several MercadoPago rows
+// has each of them refunded, and the outcome used to be whichever row came last, so
+// a refund still queued behind a claim could be hidden by a later success. The
+// worst automatic answer wins, and the sum covers every automatic row.
+//
+// A row handed to a person (RefundManual) is not automatic: its money is reported
+// as ManualAmountCentavos beside the automatic half, which is where NeedsAHuman
+// looks. When no automatic row exists, the manual answer stands on its own.
+func combineRefundOutcomes(results []paymentstore.RefundOutcome) paymentstore.RefundOutcome {
+	var (
+		combined      paymentstore.RefundOutcome
+		manualTotal   int
+		manualReason  string
+		automaticSeen bool
+	)
+	for _, r := range results {
+		if r.Result == paymentstore.RefundManual {
+			if manualReason == "" {
+				manualReason = r.Reason
+			}
+			manualTotal += r.AmountCentavos
+			continue
+		}
+		if !automaticSeen || refundResultRank(r.Result) > refundResultRank(combined.Result) {
+			combined.Result = r.Result
+			combined.Reason = r.Reason
+		}
+		combined.AmountCentavos += r.AmountCentavos
+		automaticSeen = true
+	}
+	if !automaticSeen {
+		return paymentstore.RefundOutcome{Result: paymentstore.RefundManual, AmountCentavos: manualTotal, Reason: manualReason}
+	}
+	combined.ManualAmountCentavos = manualTotal
+	return combined
+}
+
+// refundResultRank orders automatic answers from best to worst, so the one a
+// multi-row refund reports is the one that most needs attention.
+func refundResultRank(result paymentstore.RefundResult) int {
+	switch result {
+	case paymentstore.RefundQueued:
+		return 2
+	case paymentstore.RefundIssued:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// recordedRefundedCentavos reads how much the claim's own payment row already holds
+// as refunded. That is the baseline MercadoPago's running total is measured from.
+func (s *Service) recordedRefundedCentavos(ctx context.Context, claim paymentstore.RefundClaim) (int, error) {
+	payments, err := s.payments.ListByBookingID(ctx, claim.BookingID)
+	if err != nil {
+		return 0, err
+	}
+	for _, payment := range payments {
+		if payment.ID == claim.PaymentID {
+			return payment.RefundAmount, nil
+		}
+	}
+	return 0, data.ErrRecordNotFound
 }
 
 // uniqueOrdered returns values with duplicates removed, keeping the order of
@@ -956,6 +1121,7 @@ func (s *Service) recordRefundFailure(ctx context.Context, claim paymentstore.Re
 			"amount", claim.RefundCentavos,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("REFUND EXHAUSTED: booking_id=%s mp_payment_id=%s amount=%d — manual refund required", claim.BookingID, claim.MPPaymentID, claim.RefundCentavos))
+		s.notifyRefundDelayed(ctx, claim)
 		return paymentstore.RefundOutcome{
 			Result:         paymentstore.RefundManual,
 			AmountCentavos: claim.RefundCentavos,
@@ -1159,7 +1325,7 @@ func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.Fail
 		s.logger.Error("refund-retry: failed to fetch booking", "error", bErr, "booking_id", fr.BookingID)
 		return
 	}
-	s.sendRefundNotification(ctx, booking, refundTotal)
+	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(fr.MPPaymentID, refundTotal))
 }
 
 // refundIntentGrace is how long a booking's refund-intent marker

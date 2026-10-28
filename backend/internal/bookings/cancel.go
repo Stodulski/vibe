@@ -416,6 +416,16 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 			Source:       source,
 			BookingID:    booking.ID.String(),
 		})
+	} else {
+		// The cancellation is already committed, so a failed read must not fail it.
+		// But the client is now owed a notice that will never be sent, and the skip
+		// used to leave no trace at all. The booking id goes to the log only: the
+		// captured message names the complex alone, the rule expireCheckoutPreference
+		// follows on this same public path.
+		readErr := errors.Join(courterr, cerr)
+		s.logger.Error("cancel: the cancellation notice was not sent, a read failed",
+			"error", readErr, "booking_id", booking.ID, "complex_id", complex.ID)
+		sentry.CaptureMessage(fmt.Sprintf("CANCELLATION NOTICE NOT SENT (a read failed, client not told): complex_id=%s", complex.ID))
 	}
 
 	// The slot is free now; the checkout lock that was holding it is not.
