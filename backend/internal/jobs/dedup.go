@@ -13,11 +13,13 @@ import (
 // booking) and the event that produced it. Two Enqueues that agree on all of
 // those are the same delivery, and the second one does nothing.
 //
-// That is the property JOB-04 was missing. The notifier was at-least-once with
-// no key at all, so a webhook MercadoPago delivered twice, or a sweep that
-// reclaimed a claim whose acknowledgement had been lost, sent the client a
-// second confirmation email and a second WhatsApp message. Idempotency at the
-// provider does not help: both deliveries are honest, distinct sends.
+// That closes one way a second copy of a notification gets queued (JOB-04): a
+// webhook MercadoPago delivered twice, or a caller that enqueued the same
+// delivery again, used to add a second job and so a second confirmation email
+// and a second WhatsApp message. It does not close the other way. A job already
+// queued whose claim is reclaimed after a lost acknowledgement runs again, and
+// the provider is called again. Idempotency at the provider would not help even
+// if it existed: each call is an honest, distinct send.
 //
 // It is hashed rather than concatenated because the parts are caller data —
 // an email address, a phone number — and the queue is durable storage that

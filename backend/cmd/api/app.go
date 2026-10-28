@@ -350,6 +350,10 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 			},
 			Metrics: metrics,
 			Logger:  d.logger,
+			// Notification payloads carry single-use cancel and reset links, so
+			// they are emptied once their job is done or dead-lettered. Other
+			// queues keep theirs: the payments export reads its payload back.
+			ScrubPayload: notifications.ScrubsPayload,
 		})
 		enqueuer = &jobs.Enqueuer{
 			Store:   d.models.Jobs,

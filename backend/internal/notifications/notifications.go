@@ -14,12 +14,14 @@ import (
 
 // Queue is the durable task queue this package publishes to and consumes from.
 //
-// dedupKey is what makes one delivery idempotent. The queue is at-least-once:
-// a redelivered provider webhook, or a claim whose acknowledgement was lost,
-// runs the same task again, and for this package "again" means a second
-// confirmation email and a second WhatsApp message for one booking (JOB-04).
-// An enqueue carrying a key already in the queue does nothing. An empty key
-// means this delivery is not deduplicated.
+// dedupKey stops the same delivery being queued twice: an enqueue carrying a key
+// already in the queue does nothing, so a redelivered provider webhook adds no
+// second task for one booking. It does not make the delivery idempotent. The
+// queue is at-least-once, so a claim whose acknowledgement was lost, or a crash
+// after the provider accepted the message, runs the task again, and for this
+// package "again" can mean a second confirmation email or WhatsApp message for
+// one booking. Neither the mail nor the WhatsApp client in this repository sends
+// an idempotency key. An empty key means this delivery is not deduplicated.
 type Queue interface {
 	Enqueue(taskType string, payload any, dedupKey string)
 	RegisterHandler(taskType string, h func(ctx context.Context, payload json.RawMessage) error)
