@@ -347,7 +347,10 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	// Both cancel paths write the booking as cancelled before they refund it, so this
+	// is the state a cash remainder is refunded from. A live booking whose one
+	// MercadoPago payment is refunded is the duplicate case, covered further below.
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
 	mpPaymentID := "mp-" + uuid.NewString()
 	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 	cashPayment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)
@@ -395,6 +398,117 @@ func TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed(t *testing.T)
 	}
 }
 
+// bookingRow is every column the refund recorder could change on a booking, read on a
+// statement of its own.
+type bookingRow struct {
+	status       string
+	collection   string
+	refund       string
+	deposit      int
+	refundIntent bool
+}
+
+func readBookingRow(t *testing.T, f *datatest.Fixture, bookingID uuid.UUID) bookingRow {
+	t.Helper()
+
+	var row bookingRow
+	if err := f.DB.QueryRow(context.Background(),
+		`SELECT status, collection_status, refund_status, deposit_amount, refund_intent_at IS NOT NULL
+		   FROM bookings WHERE id = $1`,
+		bookingID,
+	).Scan(&row.status, &row.collection, &row.refund, &row.deposit, &row.refundIntent); err != nil {
+		t.Fatalf("reading the booking row: %v", err)
+	}
+	return row
+}
+
+// A booking is cancelled by a refund only when nothing else still pays for it. A
+// second MercadoPago payment on a live booking is refunded while the first one, or
+// money taken at the counter, still stands for that slot, so refunding it must leave
+// the booking row exactly as the claim left it.
+func TestRefundingADuplicatePaymentLeavesALiveBookingUntouched(t *testing.T) {
+	tests := []struct {
+		name    string
+		sibling func(f *datatest.Fixture, t *testing.T, bookingID uuid.UUID) *paymentstore.Payment
+	}{
+		{
+			name: "another MercadoPago payment settled the booking",
+			sibling: func(f *datatest.Fixture, t *testing.T, bookingID uuid.UUID) *paymentstore.Payment {
+				settledID := "mp-" + uuid.NewString()
+				return f.CreatePayment(t, bookingID, 150_000, 7_500, &settledID)
+			},
+		},
+		{
+			name: "cash taken at the counter settled the booking",
+			sibling: func(f *datatest.Fixture, t *testing.T, bookingID uuid.UUID) *paymentstore.Payment {
+				return f.CreatePayment(t, bookingID, 150_000, 7_500, nil)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := datatest.Isolated(t)
+			ctx := context.Background()
+
+			booking := f.CreateBooking(t, datatest.BookingOptions{})
+			settling := tt.sibling(f, t, booking.ID)
+			duplicateID := "mp-" + uuid.NewString()
+			duplicate := f.CreatePayment(t, booking.ID, 150_000, 7_500, &duplicateID)
+
+			claim, err := f.Stores.Payments.ClaimRefund(ctx, duplicate.ID)
+			if err != nil {
+				t.Fatalf("ClaimRefund: %v", err)
+			}
+			// The claim writes the booking itself, to clear its marker, so the row is
+			// read after the claim: the recorder is what must leave it alone.
+			before := readBookingRow(t, f, booking.ID)
+
+			if _, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, 0); err != nil {
+				t.Fatalf("RecordRefundSuccess: %v", err)
+			}
+
+			if status, _ := f.ReadPaymentState(t, duplicate.ID); status != "refunded" {
+				t.Errorf("the duplicate must read as refunded; got %q", status)
+			}
+			if status, refundAmount := f.ReadPaymentState(t, settling.ID); status != "deposit_paid" || refundAmount != 0 {
+				t.Errorf("the payment that settled the booking must be untouched; got status=%q refund_amount=%d", status, refundAmount)
+			}
+
+			after := readBookingRow(t, f, booking.ID)
+			if after != before {
+				t.Errorf("the booking row must be left as the claim left it; before=%+v after=%+v", before, after)
+			}
+		})
+	}
+}
+
+// The other side of the same invariant: when the refunded payment is the only money
+// left on a live booking, the refund still cancels it and marks it fully refunded.
+func TestRefundingTheOnlyPaymentStillCancelsALiveBooking(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+
+	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	mpPaymentID := "mp-" + uuid.NewString()
+	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+
+	claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
+	if err != nil {
+		t.Fatalf("ClaimRefund: %v", err)
+	}
+	if _, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, 0); err != nil {
+		t.Fatalf("RecordRefundSuccess: %v", err)
+	}
+
+	bookingStatus, _, bookingRefund := f.ReadBookingState(t, booking.ID)
+	if bookingStatus != "cancelled" {
+		t.Errorf("a refund of the only money on a live booking must cancel it; got %q", bookingStatus)
+	}
+	if bookingRefund != bookingstore.RefundStatusFull {
+		t.Errorf("the booking must read refund_status full; got %q", bookingRefund)
+	}
+}
+
 // RecordManualRefund is the write behind the owner confirming, by hand, that
 // they returned a partially refunded booking's remaining cash balance. It has
 // to close out every unrefunded manual row and move the booking's refund_status
@@ -405,7 +519,9 @@ func TestRecordManualRefund(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	// Cancelled, as both cancel paths leave it before a refund: see the note on
+	// TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed.
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
 	mpPaymentID := "mp-" + uuid.NewString()
 	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 	cashPayment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)
@@ -495,7 +611,9 @@ func TestRecordManualRefundOwedAmountWithPriorPartialRefund(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	// Cancelled, as both cancel paths leave it before a refund: see the note on
+	// TestRecordRefundSuccessWritesPartialRefundWhenCashIsStillOwed.
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
 	mpPaymentID := "mp-" + uuid.NewString()
 	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 	cashPayment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)

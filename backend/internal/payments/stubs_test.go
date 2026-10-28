@@ -50,6 +50,9 @@ type stubPayments struct {
 	// insertErr fails InsertAndConfirmBooking, standing in for the database being
 	// unavailable — the same condition that makes a refund fail.
 	insertErr error
+	// insertRowErr fails Insert, the plain row write a duplicate payment is recorded
+	// with. It is apart from insertErr, which fails the write that confirms a booking.
+	insertRowErr error
 	// confirmErr fails ConfirmWebhookPayment, standing in for the database being
 	// unavailable while a captured payment is being written against its booking.
 	// A stub that always confirms is how an unretryable confirmation would ship
@@ -211,11 +214,13 @@ func (s *stubPayments) remember(p *paymentstore.Payment) {
 	s.byBookingAll = append(s.byBookingAll, p)
 }
 
-// Insert and RecordManualRefund are the two methods no rule in this module
-// calls: they exist on PaymentStore so Service can proxy the payment ledger for
-// the booking domain, and are recorded here so a test could see one if a rule
-// ever did reach for them.
+// RecordManualRefund is the method no rule in this module calls: it exists on
+// PaymentStore so Service can proxy the payment ledger for the booking domain, and
+// is recorded here so a test could see it if a rule ever did reach for it.
 func (s *stubPayments) Insert(_ context.Context, p *paymentstore.Payment) error {
+	if s.insertRowErr != nil {
+		return s.insertRowErr
+	}
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
 	}
