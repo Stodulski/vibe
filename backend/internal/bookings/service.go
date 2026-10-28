@@ -793,6 +793,12 @@ type ConfirmPaymentInput struct {
 	Amount int
 }
 
+// overBalanceMessage is the one wording an over-collection is answered with, whether
+// the snapshot check in ConfirmPayment or the store's locked check refuses it.
+func overBalanceMessage(balance int) string {
+	return fmt.Sprintf("must not exceed the outstanding balance of %d", balance)
+}
+
 // ConfirmPayment records a payment the owner took at the counter, and confirms
 // the booking it pays for.
 //
@@ -826,7 +832,7 @@ func (s *Service) ConfirmPayment(ctx context.Context, complexID uuid.UUID, actor
 	// balance would overstate what the venue collected for this booking.
 	v := validator.New()
 	balance := booking.BalanceDue()
-	v.Check(in.Amount <= balance, "amount", fmt.Sprintf("must not exceed the outstanding balance of %d", balance))
+	v.Check(in.Amount <= balance, "amount", overBalanceMessage(balance))
 	if !v.Valid() {
 		return nil, nil, &ValidationError{Errors: v.Errors}
 	}
@@ -862,6 +868,14 @@ func (s *Service) ConfirmPayment(ctx context.Context, complexID uuid.UUID, actor
 	// expiring a paid booking that was still in "pending" status).
 	booking.RecordCounterPayment(in.Amount)
 	if err := s.payments.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
+		// The store measures the amount again under the booking's row lock, because the
+		// check above reads an unlocked snapshot that a concurrent collection can get
+		// ahead of. Its refusal names the balance the locked row still owed, so the owner
+		// gets the same 422 as the check above, with the figure that is true now.
+		var over *paymentstore.AmountExceedsBalanceError
+		if errors.As(err, &over) {
+			return nil, nil, &ValidationError{Errors: map[string]string{"amount": overBalanceMessage(over.Balance)}}
+		}
 		return nil, nil, err
 	}
 
