@@ -27,12 +27,18 @@ import (
 // auto-cancelled for lack of confirmation.
 //
 // A booking is queued first and flagged second. The flag is what stops later
-// ticks from selecting it again, so it is written only once the reminder is in
-// the queue: the other order loses the reminder for good if the process dies
-// between the two. The cost of this order is a repeat, and the job's dedup key
-// absorbs it: a failed flag write leaves the booking selectable, the next tick
-// queues it again, and that second enqueue is a no-op for as long as the first
-// job's row is kept.
+// ticks from selecting it again, so it is written only once ReminderDue has
+// returned nil: the reminder is in the queue, or the queue already had it. A
+// refused enqueue leaves the booking unflagged, and the next tick tries again.
+// The other order loses the reminder for good if the process dies between the
+// two.
+//
+// The cost of this order is a repeat when the flag write fails after a
+// successful enqueue: the next tick queues the reminder again, and the dedup key
+// makes that a no-op only while the first job's row is kept. Each tick also
+// mints a fresh cancel link before it enqueues, so every tick whose enqueue is
+// refused leaves one more booking_link_tokens row behind; CleanLinkTokens deletes
+// them once they pass retention.
 func (s *Service) Reminder2h(ctx context.Context) {
 	// time.Now() and not timezone.Now(): the store compares instants, so the
 	// location this value carries changes nothing. Argentina enters the
@@ -63,7 +69,7 @@ func (s *Service) Reminder2h(ctx context.Context) {
 			cancelURL = booklink.Cancel(s.cfg.PublicURL, b.ComplexSlug, token)
 		}
 
-		s.notify.ReminderDue(notifications.Reminder{
+		if err := s.notify.ReminderDue(notifications.Reminder{
 			Email:       b.ClientEmail,
 			Phone:       b.ClientPhone,
 			ComplexName: b.ComplexName,
@@ -80,15 +86,21 @@ func (s *Service) Reminder2h(ctx context.Context) {
 			CancelPath:    cancelPath,
 			CancelURL:     cancelURL,
 			BookingID:     b.ID.String(),
-		})
+		}); err != nil {
+			// Not queued, so not flagged: the next tick selects this booking again
+			// and the reminder is attempted once more.
+			s.logger.Error("cron_reminder_2h: failed to queue reminder, not flagged; the next tick retries",
+				"error", err, "booking_id", b.ID)
+			continue
+		}
 
 		s.logger.Info("cron_reminder_2h: sent reminder", "booking_id", b.ID)
 		sent++
 
-		// Flagged only now that the reminder is queued (see Reminder2h). A failed
-		// write does not drop the reminder: the booking is selected again on the
-		// next tick and queued once more, and the dedup key makes that enqueue a
-		// no-op.
+		// Flagged only once the reminder is queued (see Reminder2h). A failed flag
+		// write leaves the booking selectable: the next tick queues it again, and
+		// the dedup key makes that enqueue a no-op while the first job's row is
+		// kept.
 		if err := s.store.MarkReminderSent2h(ctx, b.ID); err != nil {
 			s.logger.Error("cron_reminder_2h: failed to flag sent; the next tick queues it again and the dedup key absorbs the repeat",
 				"error", err, "booking_id", b.ID)

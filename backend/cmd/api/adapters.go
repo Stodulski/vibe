@@ -149,6 +149,13 @@ func (q *memoryQueue) Enqueue(taskType string, payload any, dedupKey string) {
 func (q *memoryQueue) RegisterHandler(string, func(context.Context, json.RawMessage) error) {
 }
 
+// TryEnqueue records the task like Enqueue. It never refuses, so a test sees
+// the same dedup rule production runs and no failure to simulate here.
+func (q *memoryQueue) TryEnqueue(taskType string, payload any, dedupKey string) error {
+	q.Enqueue(taskType, payload, dedupKey)
+	return nil
+}
+
 // payloadsOf returns the payloads enqueued under taskType, in order.
 func (q *memoryQueue) payloadsOf(taskType string) []any {
 	q.mu.Lock()
@@ -191,6 +198,10 @@ type taskQueue struct {
 
 func (q taskQueue) Enqueue(taskType string, payload any, dedupKey string) {
 	q.enqueuer.Enqueue(taskType, payload, dedupKey)
+}
+
+func (q taskQueue) TryEnqueue(taskType string, payload any, dedupKey string) error {
+	return q.enqueuer.TryEnqueue(taskType, payload, dedupKey)
 }
 
 func (q taskQueue) RegisterHandler(taskType string, h func(ctx context.Context, payload json.RawMessage) error) {
