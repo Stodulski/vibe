@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/msw/server';
 import { createWrapper } from '@/test/test-utils';
+import { makeComplex } from '@/test/factories';
 import { consumeMPOAuthSession, saveMPOAuthSession } from '@/shared/lib/mpOAuthSession';
 import { useMPCallback } from './useMPCallback';
 
@@ -16,6 +17,12 @@ interface ConnectBody {
   code: string;
   redirect_uri: string;
   code_verifier?: string;
+  state?: string;
+}
+
+// The signed-in owner's complex, as `GET /complexes` lists it (0 or 1 items).
+function mockOwnerComplexes(ids: string[]) {
+  server.use(http.get('*/complexes', () => HttpResponse.json({ complexes: ids.map((id) => makeComplex({ id })) })));
 }
 
 // Records every POST to mp/connect and answers with `status`.
@@ -58,6 +65,7 @@ describe('useMPCallback success path', () => {
           code: 'abc',
           redirect_uri: `${window.location.origin}/settings/mp/callback`,
           code_verifier: 'verifier-1',
+          state: 'state-1',
         },
       },
     ]);
@@ -111,19 +119,23 @@ describe('useMPCallback single use', () => {
     });
     expect(sawEntryDuringPost).toBe(false);
 
-    // A reload of the same callback URL finds nothing and sends nothing.
-    const calls = mockConnect();
+    // A reload of the same callback URL finds no local verifier to replay:
+    // it can only hand the spent state to the server, which refuses it.
+    const calls = mockConnect(400);
     const reloaded = renderCallback('?code=abc&state=state-1');
-    expect(reloaded.result.current.status).toBe('error');
-    expect(calls).toHaveLength(0);
+    await waitFor(() => {
+      expect(reloaded.result.current.status).toBe('error');
+    });
+    expect(reloaded.result.current.errorReason).toBe('expired');
+    expect(calls.map((c) => c.body.code_verifier)).toEqual([undefined]);
   });
 });
 
 describe('useMPCallback without a usable attempt', () => {
-  it('errors with a retry path for an unknown state, without calling the API or redirecting', async () => {
+  it('errors without calling the API when the callback carries no state', async () => {
     const calls = mockConnect();
 
-    const { result } = renderCallback('?code=abc&state=unknown');
+    const { result } = renderCallback('?code=abc');
 
     expect(result.current.status).toBe('error');
     expect(result.current.errorReason).toBe('expired');
@@ -189,5 +201,92 @@ describe('useMPCallback API errors', () => {
       expect(result.current.status).toBe('error');
     });
     expect(result.current.errorReason).toBe('failed');
+  });
+});
+
+// The OAuth return often lands where the attempt was not started (the
+// MercadoPago app opens a new tab, another browser, the installed PWA), so
+// local storage is empty. The server holds the attempt under its state.
+describe('useMPCallback with the attempt held by the server', () => {
+  it('posts code, redirect_uri and state to the owner complex and succeeds', async () => {
+    mockOwnerComplexes(['owner-c']);
+    const calls = mockConnect();
+
+    const { result } = renderCallback('?code=abc&state=server-state');
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+    expect(calls).toEqual([
+      {
+        complexId: 'owner-c',
+        body: {
+          code: 'abc',
+          redirect_uri: `${window.location.origin}/settings/mp/callback`,
+          state: 'server-state',
+        },
+      },
+    ]);
+    expect(result.current.returnPath).toBe('/settings');
+    await waitFor(
+      () => {
+        expect(navigate).toHaveBeenCalledWith('/settings', { replace: true });
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it('reports an expired link when the server does not know the state', async () => {
+    mockOwnerComplexes(['owner-c']);
+    mockConnect(400);
+
+    const { result } = renderCallback('?code=abc&state=spent');
+
+    expect(result.current.status).toBe('processing');
+    await waitFor(() => {
+      expect(result.current.status).toBe('error');
+    });
+    expect(result.current.errorReason).toBe('expired');
+  });
+
+  it('reports a conflict for a 409', async () => {
+    mockOwnerComplexes(['owner-c']);
+    mockConnect(409);
+
+    const { result } = renderCallback('?code=abc&state=server-state');
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('error');
+    });
+    expect(result.current.errorReason).toBe('conflict');
+  });
+
+  it('errors without calling the API when the owner has no complex', async () => {
+    mockOwnerComplexes([]);
+    const calls = mockConnect();
+
+    const { result } = renderCallback('?code=abc&state=server-state');
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('error');
+    });
+    expect(result.current.errorReason).toBe('expired');
+    expect(calls).toHaveLength(0);
+  });
+});
+
+// A sibling describe: max-lines-per-function counts a describe callback's body.
+describe('useMPCallback when the owner complex cannot be loaded', () => {
+  it('reports a generic failure, not an expired link, and sends nothing', async () => {
+    server.use(http.get('*/complexes', () => HttpResponse.json({ title: 'down' }, { status: 503 })));
+    const calls = mockConnect();
+
+    const { result } = renderCallback('?code=abc&state=server-state');
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('error');
+    });
+    expect(result.current.errorReason).toBe('failed');
+    expect(calls).toHaveLength(0);
   });
 });

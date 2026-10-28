@@ -44,9 +44,13 @@ export const googleCompleteSchema = z.object({
 // edited URL bar, none of which type-check against it. safeParse instead of
 // trusting an `as` cast (see 06-auth-shared-tooling.md M9).
 
-/** `location.state` on `/login`, set by `ProtectedRoute`'s redirect. */
+/**
+ * `location.state` on `/login`, set by `ProtectedRoute`'s redirect. `search`
+ * is the query string of the page that was interrupted (`ProtectedRoute`
+ * passes the whole location); `useGoogleFinish` sends only `pathname`.
+ */
 export const loginRedirectStateSchema = z.object({
-  from: z.object({ pathname: z.string() }),
+  from: z.object({ pathname: z.string(), search: z.string().optional() }),
 });
 
 /** `location.state` on `/verify-email-sent`, set by `useRegister`'s redirect. */

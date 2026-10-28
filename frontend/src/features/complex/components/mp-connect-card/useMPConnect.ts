@@ -7,11 +7,33 @@ import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { buildMPAuthUrl, createMPAuthAttempt, type MPAuthAttempt } from '@/shared/lib/mpAuth';
 import { saveMPOAuthSession } from '@/shared/lib/mpOAuthSession';
+import { captureException } from '@/shared/lib/observability';
 import { parseWith } from '@/shared/lib/apiParse';
 import { mpStatusResponseSchema } from '@/shared/schemas/publicBooking.schema';
 import type { MPStatusResponse } from '@/shared/types/api.types';
+import { complexApi } from '../../api/complex.api';
 
 const t = ES_AR;
+
+/**
+ * How often an open card swaps its prepared attempt for a fresh one. The
+ * server keeps a registered attempt for an hour; renewing ten minutes earlier
+ * means the link on screen always carries a state the server still holds.
+ */
+const ATTEMPT_REFRESH_MS = 50 * 60 * 1000;
+
+/**
+ * Stores the attempt server-side so the callback can finish anywhere. A
+ * failure is reported but does not withhold the link: the same-browser path
+ * (the verifier saved locally on click) still completes the connection.
+ */
+async function registerAttempt(complexId: string, attempt: MPAuthAttempt): Promise<void> {
+  try {
+    await complexApi.registerMPOAuthAttempt(complexId, { state: attempt.state, code_verifier: attempt.verifier });
+  } catch (error) {
+    captureException(error, { tags: { flow: 'mp_oauth_register' } });
+  }
+}
 
 interface UseMPConnectOptions {
   enabled?: boolean;
@@ -42,12 +64,65 @@ function useDisconnectMutation(
   });
 }
 
+/**
+ * Prepares one attempt (PKCE pair + state nonce), registers it with the
+ * server, and only then builds its auth URL, so the <a> tag has a real href
+ * on tap and the state it carries is one the server can resolve wherever the
+ * owner comes back. Waits on mpStatus so the URL can carry its app_id — the
+ * app id the API can actually exchange a code with — rather than build one
+ * from the build-time env var and possibly send the seller through the wrong
+ * app. Skipped while connected: the card then offers no link. Local storage is
+ * not written here: that happens on click, so loading the card (or each status
+ * refetch) leaves no state behind in the browser.
+ */
+function usePreparedAttempt(
+  complexId: string,
+  needsAttempt: boolean,
+  appId: string | undefined,
+  attemptSeq: number,
+  setAttemptSeq: React.Dispatch<React.SetStateAction<number>>,
+) {
+  const [prepared, setPrepared] = useState<{ attempt: MPAuthAttempt; authUrl: string } | null>(null);
+
+  useEffect(() => {
+    if (!needsAttempt) return;
+    // Read through a function: the cleanup flips the flag while the promise
+    // below is awaiting, which control-flow narrowing cannot see.
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+    void createMPAuthAttempt().then(async (attempt) => {
+      if (isCancelled()) return;
+      await registerAttempt(complexId, attempt);
+      if (isCancelled()) return;
+      setPrepared({ attempt, authUrl: buildMPAuthUrl(attempt, appId) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsAttempt, appId, attemptSeq, complexId]);
+
+  // A card left open past the server's one-hour window would offer a state the
+  // server has forgotten; rotate to a freshly registered attempt before that.
+  useEffect(() => {
+    if (!needsAttempt) return;
+    const id = setInterval(() => {
+      setAttemptSeq((n) => n + 1);
+    }, ATTEMPT_REFRESH_MS);
+    return () => {
+      clearInterval(id);
+    };
+  }, [needsAttempt, setAttemptSeq]);
+
+  return prepared;
+}
+
 export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
   const queryClient = useQueryClient();
   const [showDisconnect, setShowDisconnect] = useState(false);
-  const [prepared, setPrepared] = useState<{ attempt: MPAuthAttempt; authUrl: string } | null>(null);
   // Bumped after each persisted attempt so the next click, tab or menu use gets
-  // a fresh state nonce and verifier instead of reusing a spent pair.
+  // a fresh state nonce and verifier instead of reusing a spent pair, and by
+  // the refresh timer in `usePreparedAttempt` before the server forgets the
+  // current one.
   const [attemptSeq, setAttemptSeq] = useState(0);
 
   const {
@@ -78,33 +153,17 @@ export function useMPConnect(complexId: string, options?: UseMPConnectOptions) {
     ...(options?.refetchInterval !== undefined ? { refetchInterval: options.refetchInterval } : {}),
   });
 
-  // Prepare one attempt (PKCE pair + state nonce) and its auth URL so the <a>
-  // tag has a real href on tap. Waits on mpStatus so the URL can carry its
-  // app_id — the app id the API can actually exchange a code with — rather
-  // than build one from the build-time env var and possibly send the seller
-  // through the wrong app. Nothing is written to storage here: that happens
-  // on click, so loading the card (or each status refetch) leaves no state
-  // behind.
-  const hasStatus = mpStatus !== undefined;
-  const appId = mpStatus?.app_id;
-  useEffect(() => {
-    if (!hasStatus) return;
-    let cancelled = false;
-    void createMPAuthAttempt().then((attempt) => {
-      if (cancelled) return;
-      setPrepared({ attempt, authUrl: buildMPAuthUrl(attempt, appId) });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [hasStatus, appId, attemptSeq]);
+  const needsAttempt = mpStatus !== undefined && !mpStatus.connected;
+  const prepared = usePreparedAttempt(complexId, needsAttempt, mpStatus?.app_id, attemptSeq, setAttemptSeq);
 
   const disconnectMutation = useDisconnectMutation(complexId, queryClient, setShowDisconnect);
 
-  // Persist the attempt right before the browser follows the link, bound to
-  // its own state nonce so a callback can only ever pick up the verifier that
-  // matches it. Wired to click, auxclick (middle-click) and contextmenu ("open
-  // in new tab"): sessionStorage is copied into a tab opened from this one, so
+  // Also keep the attempt locally right before the browser follows the link,
+  // bound to its own state nonce so a callback can only ever pick up the
+  // verifier that matches it. The server already holds it; this copy is a
+  // same-browser shortcut that still works if registration failed. Wired
+  // to click, auxclick (middle-click) and contextmenu ("open in new tab"):
+  // sessionStorage is copied into a tab opened from this one, so
   // it has to be written before that tab exists. Saving is idempotent per
   // state, and the link keeps its current href until the fresh attempt is
   // ready, so a repeat event persists the same pair the href carries.
