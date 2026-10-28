@@ -336,17 +336,17 @@ func (s *Service) refundNotice(ctx context.Context, booking *bookingstore.Bookin
 	}, true
 }
 
-// notifyRefundDelayed runs once an automatic refund has spent its retry budget. The
-// refund is not abandoned: the retry job keeps re-selecting exhausted rows, so
-// MercadoPago can still pay it. The client is told, once per refund, that it is
-// taking longer than expected and is still being processed. When cash is still
+// leaveCashOwedAfterExhaustedRefund runs once an automatic refund has spent its
+// retry budget. The refund is not abandoned: the retry job keeps re-selecting
+// exhausted rows, so MercadoPago can still pay it. The client is told nothing
+// until the money is actually back (the refunded notice). When cash is still
 // owed by hand, the booking is left at 'partial' so the owner can close that
 // balance out; that money is genuinely owed by hand. The automatic half is not
 // back, so nothing here marks the booking as anything more than that.
-func (s *Service) notifyRefundDelayed(ctx context.Context, claim paymentstore.RefundClaim) {
+func (s *Service) leaveCashOwedAfterExhaustedRefund(ctx context.Context, claim paymentstore.RefundClaim) {
 	booking, err := s.bookings.GetByID(ctx, claim.BookingID)
 	if err != nil {
-		s.logger.Error("refund: failed to fetch the booking for the delayed-refund notice",
+		s.logger.Error("refund: failed to fetch the booking after an exhausted refund",
 			"error", err, "booking_id", claim.BookingID, "attempt_id", claim.AttemptID)
 		return
 	}
@@ -354,12 +354,6 @@ func (s *Service) notifyRefundDelayed(ctx context.Context, claim paymentstore.Re
 	if manualOwed := s.manualOwedForBooking(ctx, booking.ID); manualOwed > 0 {
 		s.markManualBalanceOwed(ctx, booking)
 	}
-
-	ref, ok := s.refundNotice(ctx, booking, claim.RefundCentavos, refundKey(claim.MPPaymentID, claim.RefundCentavos))
-	if !ok {
-		return
-	}
-	s.notify.RefundDelayed(ref)
 }
 
 // refundKey names one refund of a booking for its client notice: the MercadoPago
@@ -1123,7 +1117,7 @@ func (s *Service) recordRefundFailure(ctx context.Context, claim paymentstore.Re
 			"amount", claim.RefundCentavos,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("REFUND EXHAUSTED: booking_id=%s mp_payment_id=%s amount=%d — manual refund required", claim.BookingID, claim.MPPaymentID, claim.RefundCentavos))
-		s.notifyRefundDelayed(ctx, claim)
+		s.leaveCashOwedAfterExhaustedRefund(ctx, claim)
 		return paymentstore.RefundOutcome{
 			Result:         paymentstore.RefundManual,
 			AmountCentavos: claim.RefundCentavos,

@@ -679,13 +679,6 @@ type stubNotifier struct {
 	confirmations []notifications.BookingConfirmation
 	refunds       []notifications.Refund
 	ownerRefunds  []notifications.OwnerBookingRefund
-	// refundDelayed is every notice that a refund still being processed was asked to
-	// send, in order.
-	refundDelayed []notifications.Refund
-}
-
-func (s *stubNotifier) RefundDelayed(r notifications.Refund) {
-	s.refundDelayed = append(s.refundDelayed, r)
 }
 
 func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {

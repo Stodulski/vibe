@@ -15,7 +15,6 @@ const (
 	TaskEmailReminder2h            = "email:reminder_2h"
 	TaskEmailBookingCancelled      = "email:booking_cancelled"
 	TaskEmailDepositRefunded       = "email:deposit_refunded"
-	TaskEmailRefundDelayed         = "email:refund_delayed"
 	TaskEmailOwnerNewBooking       = "email:owner_new_booking"
 	TaskEmailOwnerBookingCancelled = "email:owner_booking_cancelled"
 	TaskEmailOwnerBookingRefunded  = "email:owner_booking_refunded"
@@ -330,15 +329,6 @@ type bookingCancelledEmail struct {
 }
 
 type depositRefundedEmail struct {
-	Email       string `json:"email"`
-	ComplexName string `json:"complex_name"`
-	Amount      string `json:"amount"`
-	BookURL     string `json:"book_url"`
-}
-
-// refundDelayedEmail is what the worker for a refund that is still being processed needs, and nothing else.
-// It follows the same rule depositRefundedEmail follows.
-type refundDelayedEmail struct {
 	Email       string `json:"email"`
 	ComplexName string `json:"complex_name"`
 	Amount      string `json:"amount"`

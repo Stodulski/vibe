@@ -771,9 +771,6 @@ func captureSent(t *testing.T) []string {
 				"https://vibe.test/unsub?t=7", "https://vibe.test/baja?t=7")
 		},
 		func() error { return m.SendWelcome(ctx, to, "Ana") },
-		func() error {
-			return m.SendRefundDelayed(ctx, to, complex, "AMOUNT", "https://vibe.test/book")
-		},
 	}
 	for i, send := range sends {
 		if err := send(); err != nil {
@@ -948,55 +945,6 @@ func TestOwnerBookingRefundedEmail(t *testing.T) {
 	}
 	if strings.Contains(sent.Subject+sent.HTMLContent, "—") {
 		t.Error("the owner refund email must not use em dashes")
-	}
-}
-
-// TestRefundDelayedEmail pins the notice a client gets when their refund is taking
-// longer than expected and is still being processed. It quotes the amount and the
-// complex, promises only what the product does (the complex contacts them if the
-// refund cannot be completed), and it blames nobody: no provider name and no
-// technical word about how the delay happened. It must never invite the complex to
-// pay by hand, because the refund can still arrive through MercadoPago.
-func TestRefundDelayedEmail(t *testing.T) {
-	var sent brevoRequest
-	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewDecoder(r.Body).Decode(&sent)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer brevo.Close()
-
-	m := New(Config{BrevoAPIKey: "k", Sender: "Vibe <noreply@vibe.com.ar>", AppURL: "https://app.vibe.test"})
-	m.apiURL = brevo.URL
-
-	if err := m.SendRefundDelayed(context.Background(), "ana@example.com",
-		"Vibe Palermo", "$1.500", "https://vibe.test/vibe-palermo"); err != nil {
-		t.Fatalf("SendRefundDelayed = %v", err)
-	}
-
-	if want := "Devolución en proceso · Vibe Palermo"; sent.Subject != want {
-		t.Errorf("subject: want %q; got %q", want, sent.Subject)
-	}
-	for _, want := range []string{
-		"Devolución en proceso.",
-		"La devolución de <strong>$1.500</strong> de la seña de su reserva en <strong>Vibe Palermo</strong> se está demorando.",
-		"Sigue en proceso.",
-		"Si no pudiera completarse, el complejo se comunicará con usted.",
-		`href="https://vibe.test/vibe-palermo"`,
-	} {
-		if !strings.Contains(sent.HTMLContent, want) {
-			t.Errorf("the delayed refund email is missing %q", want)
-		}
-	}
-	for _, blame := range []string{"MercadoPago", "error", "falló", "fallo", "reintent", "webhook", "automática", "a cargo", "directamente", "club"} {
-		if strings.Contains(sent.Subject+sent.HTMLContent, blame) {
-			t.Errorf("the delayed refund email must not contain %q", blame)
-		}
-	}
-	if strings.ContainsAny(sent.Subject, "!¡") {
-		t.Error("the delayed refund subject must not use exclamation marks")
-	}
-	if strings.Contains(sent.Subject+sent.HTMLContent, "—") {
-		t.Error("the delayed refund email must not use em dashes")
 	}
 }
 
