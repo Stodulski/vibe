@@ -274,7 +274,10 @@ func TestRecordRefundSuccessWritesTheMoneyAndTheBookingAndTheAttempt(t *testing.
 	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	// Cancelled, as both cancel paths leave the booking before they refund it. A refund
+	// writes the booking only once it is cancelled; a live booking is never cancelled
+	// by a refund (see TestRefundingTheOnlyPaymentLeavesALiveBookingUntouched).
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
 	mpPaymentID := "mp-" + uuid.NewString()
 	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 
@@ -482,30 +485,62 @@ func TestRefundingADuplicatePaymentLeavesALiveBookingUntouched(t *testing.T) {
 	}
 }
 
-// The other side of the same invariant: when the refunded payment is the only money
-// left on a live booking, the refund still cancels it and marks it fully refunded.
-func TestRefundingTheOnlyPaymentStillCancelsALiveBooking(t *testing.T) {
-	f := datatest.Isolated(t)
-	ctx := context.Background()
-
-	booking := f.CreateBooking(t, datatest.BookingOptions{})
-	mpPaymentID := "mp-" + uuid.NewString()
-	payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
-
-	claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
-	if err != nil {
-		t.Fatalf("ClaimRefund: %v", err)
+// A refund never cancels a live booking. A booking is confirmed by its payment, and
+// a booking that is still confirmed is not cancelled by refunding the money that
+// confirmed it, so the booking row is left exactly as it was. This holds even when
+// the refunded row is the only money on the booking: an owner who confirmed the
+// booking before the client paid is not undone by the refund of a payment that
+// arrived afterwards.
+func TestRefundingTheOnlyPaymentLeavesALiveBookingUntouched(t *testing.T) {
+	tests := []struct {
+		name    string
+		sibling func(f *datatest.Fixture, t *testing.T, bookingID uuid.UUID) *paymentstore.Payment
+	}{
+		{
+			name:    "the refunded row is the only payment",
+			sibling: nil,
+		},
+		{
+			name: "an unpaid checkout row is left beside it",
+			sibling: func(f *datatest.Fixture, t *testing.T, bookingID uuid.UUID) *paymentstore.Payment {
+				return f.CreatePayment(t, bookingID, 150_000, 7_500, nil)
+			},
+		},
 	}
-	if _, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, 0); err != nil {
-		t.Fatalf("RecordRefundSuccess: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := datatest.Isolated(t)
+			ctx := context.Background()
 
-	bookingStatus, _, bookingRefund := f.ReadBookingState(t, booking.ID)
-	if bookingStatus != "cancelled" {
-		t.Errorf("a refund of the only money on a live booking must cancel it; got %q", bookingStatus)
-	}
-	if bookingRefund != bookingstore.RefundStatusFull {
-		t.Errorf("the booking must read refund_status full; got %q", bookingRefund)
+			booking := f.CreateBooking(t, datatest.BookingOptions{})
+			if tt.sibling != nil {
+				unpaid := tt.sibling(f, t, booking.ID)
+				if _, err := f.DB.Exec(ctx,
+					`UPDATE payments SET status = 'unpaid', method = 'mercadopago' WHERE id = $1`, unpaid.ID,
+				); err != nil {
+					t.Fatalf("setup: marking the checkout row unpaid: %v", err)
+				}
+			}
+			mpPaymentID := "mp-" + uuid.NewString()
+			payment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
+
+			claim, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID)
+			if err != nil {
+				t.Fatalf("ClaimRefund: %v", err)
+			}
+			before := readBookingRow(t, f, booking.ID)
+
+			if _, err := f.Stores.Payments.RecordRefundSuccess(ctx, *claim, 0); err != nil {
+				t.Fatalf("RecordRefundSuccess: %v", err)
+			}
+
+			if status, _ := f.ReadPaymentState(t, payment.ID); status != "refunded" {
+				t.Errorf("the refunded payment must read as refunded; got %q", status)
+			}
+			if after := readBookingRow(t, f, booking.ID); after != before {
+				t.Errorf("a refund must not cancel a live booking; before=%+v after=%+v", before, after)
+			}
+		})
 	}
 }
 

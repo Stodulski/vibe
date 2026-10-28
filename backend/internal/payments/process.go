@@ -37,12 +37,12 @@ import (
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
-	// A settled booking (confirmed, completed or no_show) takes exactly one payment,
-	// the one already recorded on it. Its redelivery is the no-op. Any other approved
-	// payment on it is money the complex collected for a slot it has already sold (a
-	// second card, or cash taken at the counter before the online payment landed), so
-	// it is refunded and the booking is left as it is: see refundSettledBookingPayment.
-	alreadySettled := booking.Status == "confirmed" || booking.Status == "completed" || booking.Status == "no_show"
+	// A settled booking (confirmed, completed or no_show) whose recorded payment is this
+	// one is the redelivery, and that is the no-op. Any other approved payment on a
+	// settled booking is handled by handleSettledBooking: a payment on a booking that
+	// already holds money is a duplicate and is refunded, and a booking with no money yet
+	// takes it as its first.
+	alreadySettled := isSettled(booking.Status)
 	if alreadySettled {
 		recorded, err := s.paymentRecordedForBooking(ctx, booking.ID, mpPaymentID)
 		if err != nil {
@@ -102,10 +102,9 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 	}
 
-	// Reached only for a settled booking whose recorded payment is a different one, and
-	// only after the collector check above proved the money is this complex's.
-	if alreadySettled {
-		return s.refundSettledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+	// Only after the collector check above proved the money is this complex's.
+	if handled, err := s.handleSettledBooking(ctx, booking, mpPayment, mpPaymentID); handled || err != nil {
+		return err
 	}
 
 	// Verify amount: MP sends pesos (float), our DB stores centavos (int).
@@ -174,10 +173,9 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		// ALERT log line.
 		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 	}
-	if booking.Status == "confirmed" || booking.Status == "completed" {
-		// Settled by another payment while this one was being checked. The same
-		// refund rule as at the top of this function applies.
-		return s.refundSettledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+	// Settled while this payment was being checked: the same rule as at the top applies.
+	if handled, err := s.handleSettledBooking(ctx, booking, mpPayment, mpPaymentID); handled || err != nil {
+		return err
 	}
 
 	booking.Status = "confirmed"
@@ -388,6 +386,73 @@ func (s *Service) refundSettledBookingPayment(ctx context.Context, booking *book
 	// event is recorded as failed rather than as done.
 	claimed := false
 	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, "settled", &claimed)
+}
+
+// handleSettledBooking decides what an approved payment does on a booking that is
+// settled (confirmed, completed or no_show). It reports whether the payment was dealt
+// with here. When it was not, the caller goes on to confirm the booking.
+//
+// A settled booking that already holds money from another payment is a duplicate: the
+// payment is refunded and the booking is left as it is (refundSettledBookingPayment).
+//
+// A settled booking with no money yet was settled by the owner before the client paid.
+// A confirmed one takes this payment as its first money, through the normal
+// confirmation. A completed or no-show booking cannot be confirmed, so the payment is
+// reported and not recorded (reportSettledWithoutMoney).
+func (s *Service) handleSettledBooking(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
+	if !isSettled(booking.Status) {
+		return false, nil
+	}
+	paid, err := s.bookingHasReceivedMoney(ctx, booking.ID, mpPaymentID)
+	if err != nil {
+		return false, err
+	}
+	if paid {
+		return true, s.refundSettledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+	}
+	if booking.Status != "confirmed" {
+		s.reportSettledWithoutMoney(booking, mpPaymentID)
+		return true, nil
+	}
+	return false, nil
+}
+
+// isSettled reports whether a booking status is one a payment settles.
+func isSettled(status bookingstore.BookingStatus) bool {
+	return status == "confirmed" || status == "completed" || status == "no_show"
+}
+
+// bookingHasReceivedMoney reports whether a payment row of the booking, other than the
+// MercadoPago payment being processed, already holds money the complex received.
+func (s *Service) bookingHasReceivedMoney(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) (bool, error) {
+	payments, err := s.payments.ListByBookingID(ctx, bookingID)
+	if err != nil {
+		return false, fmt.Errorf("look up the payments of booking %s: %w", bookingID, err)
+	}
+	for _, p := range payments {
+		if p.MPPaymentID != nil && *p.MPPaymentID == mpPaymentID {
+			continue
+		}
+		if paymentstore.ReceivedMoney(p.Status) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// reportSettledWithoutMoney is the answer for an approved payment on a completed or
+// no-show booking that holds no money. The booking cannot be confirmed, and a refund
+// here would cancel a booking that stands as played or missed, so nothing is recorded
+// and nothing is refunded. The money is captured, so it is logged and sent to Sentry
+// for a person to resolve.
+func (s *Service) reportSettledWithoutMoney(booking *bookingstore.Booking, mpPaymentID string) {
+	s.logger.Error("mp webhook: an approved payment landed on a completed or no-show booking that holds no money, recorded nothing, a person has to resolve it",
+		"mp_payment_id", mpPaymentID,
+		"booking_id", booking.ID,
+		"booking_status", booking.Status,
+	)
+	sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID WITHOUT RECORD (nothing recorded, money held): mp_payment_id=%s booking_id=%s booking_status=%s",
+		mpPaymentID, booking.ID, booking.Status))
 }
 
 // recordDuplicatePayment writes the row for an approved payment that landed on a

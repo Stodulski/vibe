@@ -9,10 +9,12 @@ import (
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/pricing"
 )
 
 // A second approved payment on a booking that is already settled is money the
@@ -189,6 +191,102 @@ func TestASecondApprovedPaymentWhoseRefundFailsIsQueuedWithoutTheBookingMarker(t
 	}
 	if booking.Status != bookingstore.BookingStatusConfirmed || booking.RefundIntentAt != nil {
 		t.Errorf("the booking must stay confirmed and unmarked; got status=%q intent=%v", booking.Status, booking.RefundIntentAt)
+	}
+}
+
+// An owner can confirm a booking before the client has paid. The client then pays
+// through the checkout preference that is still open. That payment is the booking's
+// first money, so it is recorded the way any confirmation is recorded. It is not a
+// duplicate, and refunding it would cancel the booking the owner confirmed.
+func TestAnApprovedPaymentOnAConfirmedBookingWithNoMoneyIsRecordedNotRefunded(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, mpPayment := pendingBooking(complexID)
+	booking.Status = bookingstore.BookingStatusConfirmed
+	mpPayment.CollectorID = 111111111
+
+	// The checkout row the public flow left behind: unpaid, with the preference open.
+	preference := "pref-123"
+	checkout := &paymentstore.Payment{
+		ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID,
+		Amount: booking.DepositAmount, ServiceFee: pricing.ServiceFee(booking.DepositAmount),
+		Status: "unpaid", MPPreferenceID: &preference,
+	}
+	f.payments.byBooking = checkout
+	f.payments.byBookingAll = []*paymentstore.Payment{checkout}
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
+
+	if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+		t.Fatalf("the money is captured, so the event must not fail; got %v", err)
+	}
+
+	if len(f.provider.refunds) != 0 {
+		t.Errorf("the first money on a confirmed booking must be kept, not refunded; got %d refunds", len(f.provider.refunds))
+	}
+	if f.payments.confirmed == nil || f.payments.confirmed.ID != checkout.ID {
+		t.Fatal("the payment must be recorded against the booking's checkout row as received")
+	}
+	if f.payments.confirmed.Status != "deposit_paid" || f.payments.confirmed.MPPaymentID == nil || *f.payments.confirmed.MPPaymentID != "mp-123" {
+		t.Errorf("the checkout row must read as received and carry the MercadoPago id; got status=%q mp=%v",
+			f.payments.confirmed.Status, f.payments.confirmed.MPPaymentID)
+	}
+	if booking.Status != bookingstore.BookingStatusConfirmed || booking.CollectionStatus != bookingstore.CollectionStatusDepositPaid {
+		t.Errorf("the booking must stay confirmed and read as deposit paid; got status=%q collection=%q",
+			booking.Status, booking.CollectionStatus)
+	}
+	if len(f.notify.confirmations) != 1 {
+		t.Errorf("the client must be told the booking is confirmed; got %d notifications", len(f.notify.confirmations))
+	}
+}
+
+// A completed or no-show booking cannot be confirmed, and a payment on one with no
+// money recorded is not a duplicate either. Nothing is recorded and nothing refunded
+// (a refund would cancel a booking that stands as played or missed), so the money is
+// reported for a person to resolve.
+func TestAnApprovedPaymentOnACompletedBookingWithNoMoneyIsReportedNotRefunded(t *testing.T) {
+	for _, status := range []bookingstore.BookingStatus{
+		bookingstore.BookingStatusCompleted,
+		bookingstore.BookingStatusNoShow,
+	} {
+		t.Run(status.String(), func(t *testing.T) {
+			sentryEvents := withCapturedSentryEvents(t)
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, mpPayment := pendingBooking(complexID)
+			booking.Status = status
+			mpPayment.CollectorID = 111111111
+
+			preference := "pref-123"
+			checkout := &paymentstore.Payment{
+				ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID,
+				Amount: booking.DepositAmount, ServiceFee: pricing.ServiceFee(booking.DepositAmount),
+				Status: "unpaid", MPPreferenceID: &preference,
+			}
+			f.payments.byBooking = checkout
+			f.payments.byBookingAll = []*paymentstore.Payment{checkout}
+			f.complexes.complex = linkedComplex(complexID, "111111111")
+			f.bookings.booking = booking
+
+			if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+				t.Fatalf("the money is captured, so the event must not be requeued; got %v", err)
+			}
+
+			if len(f.provider.refunds) != 0 {
+				t.Errorf("nothing may be refunded on a %s booking with no money; got %d refunds", status, len(f.provider.refunds))
+			}
+			if f.payments.confirmed != nil || len(f.payments.insertedRows) != 0 || f.bookings.updated != nil {
+				t.Error("nothing may be recorded or written for the payment")
+			}
+			if booking.Status != status || booking.CollectionStatus != bookingstore.CollectionStatusUnpaid {
+				t.Errorf("the booking must not move; got status=%q collection=%q", booking.Status, booking.CollectionStatus)
+			}
+			if _, found := findMessage(sentryEvents.messages(), "SETTLED BOOKING PAID WITHOUT RECORD"); !found {
+				t.Errorf("the unrecorded payment must reach Sentry; captured %q", sentryEvents.messages())
+			}
+		})
 	}
 }
 
