@@ -48,7 +48,12 @@ export function ShareComplexButton({ name, slug }: ShareComplexButtonProps) {
   }
 
   return (
-    <div className="text-micro text-text-secondary flex flex-wrap items-center gap-x-3 gap-y-2 sm:text-xs lg:text-sm">
+    <div className="text-micro text-text-secondary flex flex-wrap items-center gap-y-2 sm:text-xs lg:text-sm">
+      {/* The feedback comes first: the button sits at the right edge of the header,
+          so "Link copiado" appears to its left and the button does not move. */}
+      <span role="status" aria-live="polite" className="text-primary-400 not-empty:mr-3">
+        {copied ? t.publicBooking.shareCopied : ''}
+      </span>
       {/* Drawn as one more contact row, not a button: an icon and a word, on the
           rows' own size and colour. On a touch screen it keeps the 44px tap area
           as padding and takes it back as negative margin, like the phone link. */}
@@ -61,9 +66,6 @@ export function ShareComplexButton({ name, slug }: ShareComplexButtonProps) {
         <Share2 className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
         <span>{t.publicBooking.shareAction}</span>
       </button>
-      <span role="status" aria-live="polite" className="text-primary-400">
-        {copied ? t.publicBooking.shareCopied : ''}
-      </span>
     </div>
   );
 }

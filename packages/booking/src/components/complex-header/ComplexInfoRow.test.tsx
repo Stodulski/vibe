@@ -62,9 +62,10 @@ describe('ComplexInfoRow', () => {
     expect(link).toHaveTextContent('@club.test');
   });
 
-  it('shows no Instagram row when the club has none', () => {
+  it('shows a "Sin Instagram" placeholder when the club has none', () => {
     render(<ComplexInfoRow complex={makeComplex()} />);
     expect(screen.queryByRole('link', { name: /Instagram/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Sin Instagram')).toBeInTheDocument();
   });
 
   it('offers no WhatsApp link when the club has no phone', () => {
