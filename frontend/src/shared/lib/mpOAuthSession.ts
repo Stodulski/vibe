@@ -2,7 +2,16 @@ import { z } from 'zod';
 import { safeLocalStorage, safeSessionStorage } from './safeStorage';
 
 /**
- * One localStorage entry per MercadoPago OAuth attempt, keyed by the
+ * The same-browser shortcut for a MercadoPago OAuth attempt. The attempt of
+ * record lives on the server: the connect card registers each prepared
+ * `state` and PKCE verifier (`POST complexes/{id}/mp/oauth-attempts`) before
+ * it enables the link, and the callback always sends `state`, so the
+ * connection completes in whatever tab, browser or installed app MercadoPago
+ * returns the owner to. When the callback lands in the browser that clicked,
+ * this entry also supplies the verifier, the complex and the return path —
+ * and it is what still works if registering the attempt failed.
+ *
+ * One localStorage entry per attempt, keyed by the
  * `state` nonce that goes out in the authorization URL and comes back on the
  * callback. Binding the PKCE verifier to its own nonce is what lets two
  * attempts coexist (a second click, a second tab, a back-button retry): the

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/msw/server';
@@ -19,6 +19,29 @@ vi.mock('@/shared/lib/mpAuth', () => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+interface RegisteredAttempt {
+  complexId: string;
+  body: { state: string; code_verifier: string };
+}
+
+// Records every POST to mp/oauth-attempts. `gate`, when given, holds the
+// response until it resolves, to observe the hook while registration is in flight.
+function mockRegister(status = 204, gate?: Promise<void>) {
+  const calls: RegisteredAttempt[] = [];
+  server.use(
+    http.post('*/complexes/:complexId/mp/oauth-attempts', async ({ request, params }) => {
+      calls.push({
+        complexId: String(params.complexId),
+        body: (await request.json()) as RegisteredAttempt['body'],
+      });
+      if (gate) await gate;
+      if (status === 204) return new HttpResponse(null, { status: 204 });
+      return HttpResponse.json({ type: 'about:blank', title: 'nope', status }, { status });
+    }),
+  );
+  return calls;
+}
 
 describe('useMPConnect mp/status response validation', () => {
   it('resolves with a valid mp/status response', async () => {
@@ -99,6 +122,7 @@ describe('useMPConnect OAuth attempt', () => {
     server.use(
       http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
     );
+    mockRegister();
   });
 
   it('prepares the auth URL without persisting anything', async () => {
@@ -147,6 +171,7 @@ describe('useMPConnect attempt rotation', () => {
     server.use(
       http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
     );
+    mockRegister();
   });
 
   it('prepares a fresh attempt after a persist, so a second tab gets its own state and verifier', async () => {
@@ -183,5 +208,115 @@ describe('useMPConnect attempt rotation', () => {
     });
 
     expect(result.current.authUrl).not.toBeNull();
+  });
+});
+
+// The callback often lands in another tab, browser or the installed PWA, where
+// local storage is empty, so the server has to hold the attempt the link carries.
+describe('useMPConnect attempt registration', () => {
+  beforeEach(() => {
+    attemptCount = 0;
+    localStorage.clear();
+    sessionStorage.clear();
+    server.use(
+      http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
+    );
+  });
+
+  it('enables the link only after the server stored the state and verifier the link carries', async () => {
+    let release!: () => void;
+    const calls = mockRegister(
+      204,
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+
+    await waitFor(() => {
+      expect(calls).toHaveLength(1);
+    });
+    expect(calls[0]).toEqual({ complexId: 'c1', body: { state: 'state-1', code_verifier: 'v1' } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(result.current.authUrl).toBeNull();
+
+    release();
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-1');
+    });
+  });
+
+  it('still enables the link when the server refuses the attempt', async () => {
+    const calls = mockRegister(500);
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-1');
+    });
+    expect(calls).toHaveLength(1);
+  });
+
+  it('prepares nothing for a complex that is already connected', async () => {
+    server.use(
+      http.get('*/complexes/:complexId/mp/status', () =>
+        HttpResponse.json({ connected: true, mp_user_id: 'MP-1', app_id: 'app-1' }),
+      ),
+    );
+    const calls = mockRegister();
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.connected).toBe(true);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(calls).toHaveLength(0);
+    expect(result.current.authUrl).toBeNull();
+  });
+});
+
+describe('useMPConnect attempt refresh', () => {
+  beforeEach(() => {
+    attemptCount = 0;
+    localStorage.clear();
+    sessionStorage.clear();
+    server.use(
+      http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // The server keeps an attempt for an hour; a card left open longer than that
+  // must not offer a link whose state the server has already forgotten.
+  it('registers and links a fresh attempt every 50 minutes while mounted', async () => {
+    // Fake timers would also freeze `waitFor`'s own polling, so the hook's
+    // interval is captured instead and fired by hand.
+    const refreshTicks: (() => void)[] = [];
+    const realSetInterval = globalThis.setInterval;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((handler: () => void, ms?: number) => {
+      if (ms === 50 * 60 * 1000) refreshTicks.push(handler);
+      return realSetInterval(handler, ms);
+    }) as typeof setInterval);
+    const calls = mockRegister();
+    const { useMPConnect } = await import('./useMPConnect');
+    const { result } = renderHook(() => useMPConnect('c1'), { wrapper: createQueryWrapper() });
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-1');
+    });
+
+    expect(refreshTicks).toHaveLength(1);
+    act(() => {
+      refreshTicks[0]?.();
+    });
+
+    await waitFor(() => {
+      expect(result.current.authUrl).toBe('https://mp.test/auth?state=state-2');
+    });
+    expect(calls.map((c) => c.body.state)).toEqual(['state-1', 'state-2']);
   });
 });

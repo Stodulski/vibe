@@ -56,14 +56,29 @@ export const complexApi = {
       .then(parseWith(publicComplexResponseSchema, 'complexApi.getPublicComplex')),
 
   /**
+   * Hands the server one prepared MercadoPago OAuth attempt before its link is
+   * offered: the `state` nonce the authorization URL carries and the PKCE
+   * verifier that matches its challenge. The server keeps it, single use, for
+   * an hour, so the callback can finish in whatever tab, browser or installed
+   * app MercadoPago sends the owner back to. 204, no body.
+   */
+  registerMPOAuthAttempt: (complexId: string, body: { state: string; code_verifier: string }): Promise<void> =>
+    api.post(`complexes/${complexId}/mp/oauth-attempts`, { json: body }).then(() => undefined),
+
+  /**
    * Exchanges the MercadoPago OAuth `code` for a linked seller account.
    *
-   * Called once from the `/settings/mp/callback` page. `code_verifier` is the
-   * PKCE half the authorize step stored in `sessionStorage`; it is absent when
-   * the authorize step ran without PKCE, which is why it is not on
-   * `MPConnectRequest` — the wire contract the server documents.
+   * Called once from the `/settings/mp/callback` page, always with the `state`
+   * the callback came back with. With `state` alone the server uses the
+   * verifier it stored through {@link complexApi.registerMPOAuthAttempt};
+   * `code_verifier` is sent only when this browser still holds the attempt
+   * locally (and by bundles older than the server-held attempt). Neither field
+   * is on `MPConnectRequest`, the generated wire contract, yet.
    */
-  connectMP: (complexId: string, body: MPConnectRequest & { code_verifier?: string }): Promise<MPConnectResponse> =>
+  connectMP: (
+    complexId: string,
+    body: MPConnectRequest & { code_verifier?: string; state?: string },
+  ): Promise<MPConnectResponse> =>
     api
       .post(`complexes/${complexId}/mp/connect`, { json: body })
       .json()

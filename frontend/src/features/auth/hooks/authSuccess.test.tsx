@@ -107,3 +107,38 @@ describe('useAuthSuccessHandler — an explicit destination from the caller', ()
     expect(mockNavigate).toHaveBeenCalledWith('/clients', { replace: true });
   });
 });
+
+/**
+ * `ProtectedRoute` puts the whole router location in state, and the query
+ * string is part of where the visitor was going: the MercadoPago callback
+ * cannot complete without its `code` and `state`.
+ */
+describe('useAuthSuccessHandler — the router state ProtectedRoute leaves behind', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+  });
+
+  function loginFromProtectedRoute(from: { pathname: string; search: string; hash: string }) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    const { result } = renderHook(() => useAuthSuccessHandler(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { ...from, state: null, key: 'k' } } }]}>
+            {children}
+          </MemoryRouter>
+        </QueryClientProvider>
+      ),
+    });
+    result.current({ user: makeUser({ role: 'owner' }), csrf_token: 'csrf' });
+  }
+
+  it('returns to the protected page with its query string intact', () => {
+    loginFromProtectedRoute({ pathname: '/settings/mp/callback', search: '?code=abc&state=xyz', hash: '' });
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/mp/callback?code=abc&state=xyz', { replace: true });
+  });
+
+  it('returns to a protected page that had no query string', () => {
+    loginFromProtectedRoute({ pathname: '/bookings', search: '', hash: '' });
+    expect(mockNavigate).toHaveBeenCalledWith('/bookings', { replace: true });
+  });
+});

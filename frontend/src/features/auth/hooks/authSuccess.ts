@@ -45,7 +45,9 @@ export function isSafeRedirect(path: string | undefined): path is string {
  */
 export function readIntendedFrom(state: unknown, search: string): string | undefined {
   const parsedState = loginRedirectStateSchema.safeParse(state);
-  if (parsedState.success) return parsedState.data.from.pathname;
+  // The query string is part of the destination: the MercadoPago callback
+  // (`/settings/mp/callback?code=…&state=…`) cannot complete without it.
+  if (parsedState.success) return parsedState.data.from.pathname + (parsedState.data.from.search ?? '');
   return new URLSearchParams(search).get('from') ?? undefined;
 }
 
