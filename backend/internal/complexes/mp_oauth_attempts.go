@@ -141,16 +141,24 @@ func (s *MPOAuthAttempts) Consume(ctx context.Context, scope, state string) ([]b
 		ctx, cancel := context.WithTimeout(ctx, mpOAuthAttemptOpTimeout)
 		defer cancel()
 
-		payload, err := s.rdb.GetDel(ctx, s.key(scope, state)).Bytes()
+		// Spending the attempt and dropping it from the index are one
+		// transaction, so a re-registration cannot slip in between them.
+		var got *redis.StringCmd
+		_, err := s.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
+			got = p.GetDel(ctx, s.key(scope, state))
+			p.LRem(ctx, s.indexKey(scope), 0, state)
+			return nil
+		})
+		if err != nil && !errors.Is(err, redis.Nil) {
+			return nil, fmt.Errorf("complexes: consuming mercadopago oauth attempt: %w", err)
+		}
+		payload, err := got.Bytes()
 		switch {
 		case errors.Is(err, redis.Nil):
 			return nil, ErrOAuthAttemptInvalid
 		case err != nil:
 			return nil, fmt.Errorf("complexes: consuming mercadopago oauth attempt: %w", err)
 		}
-		// The index only bounds how many attempts a scope holds; a stale entry
-		// in it costs nothing, so failing to trim it is not the owner's problem.
-		_ = s.rdb.LRem(ctx, s.indexKey(scope), 0, state).Err()
 		return payload, nil
 	}
 
