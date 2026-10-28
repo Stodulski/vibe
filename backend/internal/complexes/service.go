@@ -838,7 +838,9 @@ func (s *Service) spendMPOAuthAttempt(ctx context.Context, complexID uuid.UUID, 
 // callback that failed on MercadoPago's side can be retried. MercadoPago's own
 // code expires long before that, which is what really bounds the retry.
 func (s *Service) restoreMPOAuthAttempt(ctx context.Context, complexID uuid.UUID, spent *spentMPOAuthAttempt) {
-	if err := s.attempts.Store(ctx, spent.scope, spent.state, spent.payload, mpOAuthAttemptTTL); err != nil {
+	// The exchange may have failed because the client went away; putting the
+	// attempt back must not depend on the request still being alive.
+	if err := s.attempts.Store(context.WithoutCancel(ctx), spent.scope, spent.state, spent.payload, mpOAuthAttemptTTL); err != nil {
 		s.logger.Warn("mp connect: could not put the oauth attempt back", "error", err, "complex_id", complexID)
 	}
 }

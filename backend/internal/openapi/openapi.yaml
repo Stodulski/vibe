@@ -2211,13 +2211,15 @@ paths:
                     used as is, and a `state` sent alongside it is only spent.
                 state:
                   type: string
+                  minLength: 16
                   maxLength: 128
                   description: >-
                     The OAuth `state` of an attempt registered through
                     `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the
                     attempt is spent before the exchange and its verifier is used; an unknown,
                     expired, already spent attempt, or one registered by another owner or for
-                    another complex, is a 422 on `state` and nothing is exchanged.
+                    another complex, is a 422 on `state` and nothing is exchanged. When MercadoPago
+                    cannot be reached, a spent attempt is kept so the same callback can be retried.
     delete:
       tags: [complexes]
       operationId: complexesDisconnectMercadoPago

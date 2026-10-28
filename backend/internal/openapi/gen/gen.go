@@ -3333,7 +3333,7 @@ type ComplexesConnectMercadoPagoJSONBody struct {
 	CodeVerifier *string `json:"code_verifier,omitempty"`
 	RedirectUri  string  `json:"redirect_uri"`
 
-	// State The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged.
+	// State The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged. When MercadoPago cannot be reached, a spent attempt is kept so the same callback can be retried.
 	State *string `json:"state,omitempty"`
 }
 
