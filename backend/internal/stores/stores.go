@@ -307,6 +307,9 @@ type CourtStore interface {
 type BookingCreator interface {
 	Insert(ctx context.Context, booking *bookingstore.Booking) error
 	InsertSafe(ctx context.Context, booking *bookingstore.Booking) error
+	// InsertSafeWithPayment is InsertSafe plus the counter payment taken for the
+	// booking, written in the same transaction. A nil payment is a plain InsertSafe.
+	InsertSafeWithPayment(ctx context.Context, booking *bookingstore.Booking, payment *bookingstore.CounterPayment) error
 }
 
 // BookingReader queries bookings and the slots they occupy.
@@ -320,6 +323,9 @@ type BookingReader interface {
 // BookingUpdater persists changes to an existing booking.
 type BookingUpdater interface {
 	Update(ctx context.Context, booking *bookingstore.Booking) error
+	// UpdateIfUnchanged writes only while the row still carries the updated_at
+	// the caller read; a row that moved answers data.ErrEditConflict.
+	UpdateIfUnchanged(ctx context.Context, booking *bookingstore.Booking) error
 }
 
 // BookingStatsQuerier computes dashboard and reporting aggregates over bookings.

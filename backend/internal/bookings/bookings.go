@@ -43,6 +43,13 @@ type Store interface {
 	FacadeStore
 
 	InsertSafe(ctx context.Context, b *bookingstore.Booking) error
+	// InsertSafeWithPayment writes an owner-created booking and the counter
+	// payment taken for it in one transaction: both commit or neither does.
+	InsertSafeWithPayment(ctx context.Context, b *bookingstore.Booking, p *bookingstore.CounterPayment) error
+	// UpdateIfUnchanged is the owner's edit: it writes only while the row still
+	// carries the updated_at the caller read, and answers data.ErrEditConflict
+	// when it does not.
+	UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booking) error
 
 	// The scheduled sweeps.
 	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)

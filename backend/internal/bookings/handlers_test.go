@@ -317,21 +317,18 @@ func TestConfirmPaymentAnswersConflictWhenTheStoreCatchesAConcurrentCancellation
 	}
 }
 
-// A generic staff edit must not be able to move a partially refunded booking
-// anywhere but refund_status 'full' — that transition, and only it, is what the
-// manual-refund endpoint itself makes once the owner confirms the cash
-// portion came back. Before the equivalent entry existed, the transition map
-// had no key for that state at all, so the map lookup's `ok` came back
-// false and the whole guard silently let a generic edit move it anywhere,
-// including back to 'none' with the manual balance still unpaid.
+// A generic staff edit must not move a partially refunded booking's
+// refund_status at all. The move to 'full' is the manual-refund endpoint's
+// alone: it is the one that confirms the cash portion came back by hand. A
+// generic PUT that sets 'full' skips that confirmation, so it is refused with
+// 422, the same as any other refund change on this booking.
 func TestUpdateGuardsThePartialRefundTransition(t *testing.T) {
 	tests := []struct {
 		name   string
 		target string
-		wantOK bool
 	}{
-		{"to a full refund is the one allowed move", bookingstore.RefundStatusFull, true},
-		{"back to no refund at all is refused", bookingstore.RefundStatusNone, false},
+		{"to a full refund is refused: manual refund owns it", bookingstore.RefundStatusFull},
+		{"back to no refund at all is refused", bookingstore.RefundStatusNone},
 	}
 
 	for _, tt := range tests {
@@ -348,20 +345,11 @@ func TestUpdateGuardsThePartialRefundTransition(t *testing.T) {
 			f.handler.Update(w, ownerRequest(t, http.MethodPut, "/", complexID,
 				map[string]string{"bookingID": booking.ID.String()}, body))
 
-			if tt.wantOK {
-				if w.Code != http.StatusOK {
-					t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
-				}
-				if len(f.store.updated) != 1 || f.store.updated[0].RefundStatus != bookingstore.RefundStatus(tt.target) {
-					t.Errorf("want the booking written with refund_status %q; got %+v", tt.target, f.store.updated)
-				}
-			} else {
-				if w.Code != http.StatusConflict {
-					t.Errorf("want 409; got %d (%s)", w.Code, w.Body.String())
-				}
-				if len(f.store.updated) != 0 {
-					t.Error("a refused transition must not be persisted")
-				}
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+			}
+			if len(f.store.updated) != 0 {
+				t.Error("a refused refund change must not be persisted")
 			}
 		})
 	}
