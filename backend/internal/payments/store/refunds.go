@@ -79,60 +79,108 @@ func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*Refun
 	// unit cannot move money twice.
 	var claim *RefundClaim
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
-		locked, err := qtx.GetPaymentByIDForUpdate(ctx, db.GetPaymentByIDForUpdateParams{
-			ID:        data.UUIDToPg(paymentID),
-			ComplexID: data.TenantParam(ctx),
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return data.ErrRecordNotFound
-			}
-			return fmt.Errorf("lock payment: %w", err)
-		}
+		var err error
+		claim, err = claimInTx(ctx, tx, qtx, paymentID, true)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return claim, nil
+}
 
-		mpPaymentID, remaining, err := claimable(locked)
+// InsertAndClaimRefund writes a new payment row and claims its refund in one
+// transaction. It is for money that is refunded the moment it is recorded: a
+// duplicate payment on a booking another payment already settled. Written apart,
+// a claim that failed after the insert committed left a row that read as already
+// processed, so MercadoPago's retry of the event skipped it and the money stayed
+// held. Here either both are committed or neither is, and the retry starts over.
+func (m *Payments) InsertAndClaimRefund(ctx context.Context, p *Payment) (*RefundClaim, error) {
+	ctx, cancel := data.TxContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return nil, err
+	}
+
+	var claim *RefundClaim
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
+		dbPayment, err := qtx.InsertPayment(ctx, insertPaymentParams(p))
+		if err != nil {
+			return fmt.Errorf("insert payment: %w", err)
+		}
+		// The booking is settled, so it carries no refund-intent marker
+		// (bookings_refund_intent_only_when_cancelled), and clearing one would only
+		// bump its updated_at and refuse an owner edit in progress as a conflict.
+		claim, err = claimInTx(ctx, tx, qtx, data.PgToUUID(dbPayment.ID), false)
 		if err != nil {
 			return err
 		}
-
-		dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
-			Status:         db.PaymentStatus("refund_pending"),
-			MpPaymentID:    locked.MpPaymentID,
-			MpPreferenceID: locked.MpPreferenceID,
-			// Written back unchanged: the money has not moved yet, so the amount
-			// already refunded must not be touched by the claim.
-			RefundAmount: locked.RefundAmount,
-			ID:           locked.ID,
-		})
-		if err != nil {
-			return fmt.Errorf("claim payment: %w", err)
-		}
-
-		claim = &RefundClaim{
-			PaymentID:      data.PgToUUID(dbPayment.ID),
-			BookingID:      data.PgToUUID(dbPayment.BookingID),
-			ComplexID:      data.PgToUUID(dbPayment.ComplexID),
-			MPPaymentID:    mpPaymentID,
-			RefundCentavos: remaining,
-		}
-		if err := recordRefundAttempt(ctx, tx, claim); err != nil {
-			return err
-		}
-
-		// The claim just committed a durable attempt row, so the intent marker
-		// (refund-intent-durability spec) has done its job for this booking: from
-		// here the attempt row is the durable record, not the marker. Clearing it
-		// inside this same transaction — rather than through ClearRefundIntent,
-		// a separate round trip — is what keeps the crash window closed: a crash
-		// between this commit and a later clear would reopen exactly the gap the
-		// marker exists to cover.
-		if err := clearRefundIntent(ctx, tx, claim.BookingID); err != nil {
-			return err
-		}
+		p.fillInserted(dbPayment)
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	return claim, nil
+}
+
+// claimInTx is the claim itself, run inside the caller's transaction: lock the
+// payment, check it may be refunded, mark it refund_pending and commit a durable
+// attempt row with it. clearIntent clears the booking's refund-intent marker in the
+// same transaction, for the claims that marker was set ahead of.
+func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.UUID, clearIntent bool) (*RefundClaim, error) {
+	locked, err := qtx.GetPaymentByIDForUpdate(ctx, db.GetPaymentByIDForUpdateParams{
+		ID:        data.UUIDToPg(paymentID),
+		ComplexID: data.TenantParam(ctx),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, data.ErrRecordNotFound
+		}
+		return nil, fmt.Errorf("lock payment: %w", err)
+	}
+
+	mpPaymentID, remaining, err := claimable(locked)
+	if err != nil {
+		return nil, err
+	}
+
+	dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
+		Status:         db.PaymentStatus("refund_pending"),
+		MpPaymentID:    locked.MpPaymentID,
+		MpPreferenceID: locked.MpPreferenceID,
+		// Written back unchanged: the money has not moved yet, so the amount
+		// already refunded must not be touched by the claim.
+		RefundAmount: locked.RefundAmount,
+		ID:           locked.ID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("claim payment: %w", err)
+	}
+
+	claim := &RefundClaim{
+		PaymentID:      data.PgToUUID(dbPayment.ID),
+		BookingID:      data.PgToUUID(dbPayment.BookingID),
+		ComplexID:      data.PgToUUID(dbPayment.ComplexID),
+		MPPaymentID:    mpPaymentID,
+		RefundCentavos: remaining,
+	}
+	if err := recordRefundAttempt(ctx, tx, claim); err != nil {
+		return nil, err
+	}
+
+	// The claim just committed a durable attempt row, so the intent marker
+	// (refund-intent-durability spec) has done its job for this booking: from
+	// here the attempt row is the durable record, not the marker. Clearing it
+	// inside this same transaction — rather than through ClearRefundIntent,
+	// a separate round trip — is what keeps the crash window closed: a crash
+	// between this commit and a later clear would reopen exactly the gap the
+	// marker exists to cover.
+	if clearIntent {
+		if err := clearRefundIntent(ctx, tx, claim.BookingID); err != nil {
+			return nil, err
+		}
 	}
 	return claim, nil
 }
