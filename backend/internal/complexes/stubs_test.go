@@ -232,9 +232,16 @@ func (b *stubBookings) CancelFutureByComplex(_ context.Context, id uuid.UUID) er
 type stubPayments struct {
 	tokens *mp.OAuthTokens
 	err    error
+
+	// calls and gotVerifier record what the exchange was asked to do, so a
+	// test can prove an exchange did not happen, or which verifier it used.
+	calls       int
+	gotVerifier string
 }
 
-func (p *stubPayments) ExchangeOAuthCode(context.Context, string, string, string) (*mp.OAuthTokens, error) {
+func (p *stubPayments) ExchangeOAuthCode(_ context.Context, _, _, codeVerifier string) (*mp.OAuthTokens, error) {
+	p.calls++
+	p.gotVerifier = codeVerifier
 	if p.err != nil {
 		return nil, p.err
 	}
@@ -308,6 +315,7 @@ type fixture struct {
 	courts   *stubCourts
 	bookings *stubBookings
 	payments *stubPayments
+	attempts *MPOAuthAttempts
 	oauth    *stubOAuth
 	storage  *stubStorage
 	audit    *stubRecorder
@@ -322,6 +330,7 @@ func newFixture(t *testing.T) *fixture {
 		courts:   &stubCourts{},
 		bookings: &stubBookings{},
 		payments: &stubPayments{},
+		attempts: NewMPOAuthAttempts(nil, "test"),
 		oauth:    &stubOAuth{},
 		storage:  &stubStorage{uploadURL: "https://cdn.example/upload", publicURL: "https://cdn.example/logo.png"},
 		audit:    &stubRecorder{},
@@ -337,6 +346,7 @@ func newFixture(t *testing.T) *fixture {
 		Courts:   nil,
 		Bookings: f.bookings,
 		Payments: f.payments,
+		Attempts: f.attempts,
 		OAuth:    f.oauth,
 		Storage:  f.storage,
 		Audit:    f.audit,

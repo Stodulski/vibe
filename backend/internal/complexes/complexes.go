@@ -9,6 +9,7 @@ package complexes
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -107,6 +108,15 @@ type BookingStore interface {
 // owner's own account.
 type PaymentConnector interface {
 	ExchangeOAuthCode(ctx context.Context, code, redirectURI, codeVerifier string) (*mp.OAuthTokens, error)
+}
+
+// OAuthAttemptStore keeps MercadoPago OAuth attempts between the redirect to
+// MercadoPago and the callback, single use and bounded in time. Consume
+// answers ErrOAuthAttemptInvalid for an unknown, expired or spent state.
+// MPOAuthAttempts satisfies it.
+type OAuthAttemptStore interface {
+	Store(ctx context.Context, state string, payload []byte, ttl time.Duration) error
+	Consume(ctx context.Context, state string) ([]byte, error)
 }
 
 // Recorder writes the audit trail.

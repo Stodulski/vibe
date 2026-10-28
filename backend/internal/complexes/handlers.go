@@ -623,21 +623,32 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	codeVerifier := ""
+	if input.CodeVerifier != nil {
+		codeVerifier = *input.CodeVerifier
+	}
+	state := ""
+	if input.State != nil {
+		state = *input.State
+	}
+
 	v := validator.New()
 	v.Check(input.Code != "", "code", "must be provided")
 	v.Check(input.RedirectUri != "", "redirect_uri", "must be provided")
+	v.Check(utf8.RuneCountInString(state) <= mpOAuthStateMaxLen, "state", "must not be more than 128 characters")
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
 	}
 
-	codeVerifier := ""
-	if input.CodeVerifier != nil {
-		codeVerifier = *input.CodeVerifier
-	}
-
-	mpUserID, err := h.svc.ConnectMercadoPago(r.Context(), complex.ID, h.actor(r), input.Code, input.RedirectUri, codeVerifier)
+	mpUserID, err := h.svc.ConnectMercadoPago(r.Context(), complex.ID, h.actor(r), input.Code, input.RedirectUri, codeVerifier, state)
 	if err != nil {
+		if errors.Is(err, ErrOAuthAttemptInvalid) {
+			// The client reads any non-409 4xx here as "the link expired, start
+			// again", which is exactly what the owner has to do.
+			h.respond.FailedValidation(w, r, map[string]string{"state": "is unknown or expired, start the connection again"})
+			return
+		}
 		if errors.Is(err, ErrActiveBookings) {
 			h.respond.DomainErrorWith(w, r, err,
 				"cannot connect a different MercadoPago account while you have active bookings, cancel them first")
@@ -651,6 +662,60 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 		"connected":  true,
 		"mp_user_id": mpUserID,
 	})
+}
+
+// The bounds of a MercadoPago OAuth attempt. The verifier's are RFC 7636's
+// (43 to 128 unreserved characters); the state is ours, random and opaque.
+const (
+	mpOAuthStateMinLen    = 16
+	mpOAuthStateMaxLen    = 128
+	mpOAuthVerifierMinLen = 43
+	mpOAuthVerifierMaxLen = 128
+)
+
+var pkceVerifierRX = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
+
+// RegisterMercadoPagoOAuthAttempt handles POST
+// /api/v1/complexes/{id}/mp/oauth-attempts: the client registers the state and
+// PKCE verifier of the attempt it is about to send the owner on, so the
+// callback can finish in whichever browser it lands in.
+func (h *Handler) RegisterMercadoPagoOAuthAttempt(w http.ResponseWriter, r *http.Request) {
+	complex, ok := httpx.ContextGetComplex(r)
+	if !ok {
+		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
+		return
+	}
+	user, ok := httpx.ContextGetAuthenticatedUser(r)
+	if !ok {
+		h.respond.ServerError(w, r, fmt.Errorf("missing user in context"))
+		return
+	}
+
+	var input gen.ComplexesRegisterMercadoPagoOAuthAttemptJSONBody
+	if err := httpx.ReadJSON(w, r, &input); err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+
+	v := validator.New()
+	v.Check(input.State != "", "state", "must be provided")
+	v.Check(len(input.State) >= mpOAuthStateMinLen && len(input.State) <= mpOAuthStateMaxLen,
+		"state", "must be between 16 and 128 characters")
+	v.Check(input.CodeVerifier != "", "code_verifier", "must be provided")
+	v.Check(len(input.CodeVerifier) >= mpOAuthVerifierMinLen && len(input.CodeVerifier) <= mpOAuthVerifierMaxLen,
+		"code_verifier", "must be between 43 and 128 characters")
+	v.Check(validator.Matches(input.CodeVerifier, pkceVerifierRX),
+		"code_verifier", "must contain only letters, digits, '-', '.', '_' and '~'")
+	if !v.Valid() {
+		h.respond.FailedValidation(w, r, v.Errors)
+		return
+	}
+
+	if err := h.svc.RegisterMercadoPagoOAuthAttempt(r.Context(), complex.ID, user.ID, input.State, input.CodeVerifier); err != nil {
+		h.respond.ServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // DisconnectMercadoPago handles DELETE /api/v1/complexes/{id}/mp/connect.

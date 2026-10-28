@@ -368,6 +368,12 @@ func (s *apiServer) ComplexesConnectMercadoPago(w http.ResponseWriter, r *http.R
 	s.app.complexes.ConnectMercadoPago(w, r)
 }
 
+// ComplexesRegisterMercadoPagoOAuthAttempt implements gen.ServerInterface for complexesRegisterMercadoPagoOAuthAttempt
+// (POST /api/v1/complexes/{id}/mp/oauth-attempts). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ComplexesRegisterMercadoPagoOAuthAttempt(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.complexes.RegisterMercadoPagoOAuthAttempt(w, r)
+}
+
 // ComplexesMercadoPagoStatus implements gen.ServerInterface for complexesMercadoPagoStatus
 // (GET /api/v1/complexes/{id}/mp/status). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ComplexesMercadoPagoStatus(w http.ResponseWriter, r *http.Request, id gen.PathID) {

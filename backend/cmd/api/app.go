@@ -595,6 +595,11 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Courts:   nil,
 		Bookings: bookingsFacade,
 		Payments: mpClient,
+		// The OAuth attempt is registered on whichever instance the owner's
+		// browser reached and spent on whichever one the callback reaches,
+		// often from another browser — so it lives in Redis, like the Google
+		// sign-in state (auth.GoogleCodes).
+		Attempts: complexes.NewMPOAuthAttempts(d.rdb, cfg.Env),
 		OAuth:    mpOAuthClient,
 		Locks:    d.models.Locks,
 		Storage:  d.storage,

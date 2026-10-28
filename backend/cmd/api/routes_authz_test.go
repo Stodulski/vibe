@@ -199,6 +199,7 @@ var routePolicies = map[string]policy{
 	"POST /api/v1/complexes/{id}/uploads/presign":                                       complexOwner,
 	"DELETE /api/v1/complexes/{id}/uploads":                                             complexOwner,
 	"POST /api/v1/complexes/{id}/mp/connect":                                            complexOwner,
+	"POST /api/v1/complexes/{id}/mp/oauth-attempts":                                     complexOwner,
 	"DELETE /api/v1/complexes/{id}/mp/connect":                                          complexOwner,
 	"GET /api/v1/complexes/{id}/mp/status":                                              complexOwner,
 	"GET /api/v1/complexes/{id}/cash-session":                                           complexOwner,

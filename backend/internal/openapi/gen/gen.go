@@ -3327,9 +3327,21 @@ type CourtsUpdatePricesParams struct {
 
 // ComplexesConnectMercadoPagoJSONBody defines parameters for ComplexesConnectMercadoPago.
 type ComplexesConnectMercadoPagoJSONBody struct {
-	Code         string  `json:"code"`
+	Code string `json:"code"`
+
+	// CodeVerifier The PKCE verifier, sent by clients that kept it in the browser. When present it is used as is, and a `state` sent alongside it is only spent.
 	CodeVerifier *string `json:"code_verifier,omitempty"`
 	RedirectUri  string  `json:"redirect_uri"`
+
+	// State The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged.
+	State *string `json:"state,omitempty"`
+}
+
+// ComplexesRegisterMercadoPagoOAuthAttemptJSONBody defines parameters for ComplexesRegisterMercadoPagoOAuthAttempt.
+type ComplexesRegisterMercadoPagoOAuthAttemptJSONBody struct {
+	// CodeVerifier RFC 7636 code verifier (unreserved characters only).
+	CodeVerifier string `json:"code_verifier"`
+	State        string `json:"state"`
 }
 
 // ProductsListParams defines parameters for ProductsList.
@@ -3807,6 +3819,9 @@ type CourtsUpdatePricesJSONRequestBody CourtsUpdatePricesJSONBody
 // ComplexesConnectMercadoPagoJSONRequestBody defines body for ComplexesConnectMercadoPago for application/json ContentType.
 type ComplexesConnectMercadoPagoJSONRequestBody ComplexesConnectMercadoPagoJSONBody
 
+// ComplexesRegisterMercadoPagoOAuthAttemptJSONRequestBody defines body for ComplexesRegisterMercadoPagoOAuthAttempt for application/json ContentType.
+type ComplexesRegisterMercadoPagoOAuthAttemptJSONRequestBody ComplexesRegisterMercadoPagoOAuthAttemptJSONBody
+
 // ProductsCreateJSONRequestBody defines body for ProductsCreate for application/json ContentType.
 type ProductsCreateJSONRequestBody ProductsCreateJSONBody
 
@@ -4099,6 +4114,9 @@ type ServerInterface interface {
 	// ComplexesConnectMercadoPago Connect the complex's MercadoPago account (OAuth PKCE exchange)
 	// (POST /api/v1/complexes/{id}/mp/connect)
 	ComplexesConnectMercadoPago(w http.ResponseWriter, r *http.Request, id PathID)
+	// ComplexesRegisterMercadoPagoOAuthAttempt Register a MercadoPago OAuth attempt (state and PKCE verifier) before the redirect
+	// (POST /api/v1/complexes/{id}/mp/oauth-attempts)
+	ComplexesRegisterMercadoPagoOAuthAttempt(w http.ResponseWriter, r *http.Request, id PathID)
 	// ComplexesMercadoPagoStatus Get the complex's MercadoPago connection status
 	// (GET /api/v1/complexes/{id}/mp/status)
 	ComplexesMercadoPagoStatus(w http.ResponseWriter, r *http.Request, id PathID)
@@ -6110,6 +6128,32 @@ func (siw *ServerInterfaceWrapper) ComplexesConnectMercadoPago(w http.ResponseWr
 	handler.ServeHTTP(w, r)
 }
 
+// ComplexesRegisterMercadoPagoOAuthAttempt operation middleware
+func (siw *ServerInterfaceWrapper) ComplexesRegisterMercadoPagoOAuthAttempt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ComplexesRegisterMercadoPagoOAuthAttempt(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ComplexesMercadoPagoStatus operation middleware
 func (siw *ServerInterfaceWrapper) ComplexesMercadoPagoStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -8079,6 +8123,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/complexes/{id}/uploads", wrapper.ComplexesDeleteUpload)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/connect", wrapper.ComplexesDisconnectMercadoPago)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/connect", wrapper.ComplexesConnectMercadoPago)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/oauth-attempts", wrapper.ComplexesRegisterMercadoPagoOAuthAttempt)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/status", wrapper.ComplexesMercadoPagoStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist", wrapper.WaitlistJoin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/next-available", wrapper.CourtsPublicNextAvailable)
