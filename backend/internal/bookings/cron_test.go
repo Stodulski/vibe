@@ -35,11 +35,13 @@ func cronCandidate(status bookingstore.BookingStatus) *bookingstore.CronBooking 
 	return b
 }
 
-// TestTheReminderSweepOnlyRemindsWhatItCanMarkSent is the property the whole
-// job hangs on: the flag is what keeps the next five-minute tick from
-// reminding the same client again, so a candidate whose flag could not be
-// written must not be messaged at all.
-func TestTheReminderSweepOnlyRemindsWhatItCanMarkSent(t *testing.T) {
+// TestTheReminderSweepQueuesBeforeItFlags pins the contract the sweep runs on.
+// A candidate is queued before it is flagged, so a flag that cannot be written
+// does not cost the client the reminder: the candidate is queued again on the
+// next tick, and the job's dedup key turns that second enqueue into a no-op.
+// Once a flag write succeeds, it stops every later tick from selecting the
+// booking.
+func TestTheReminderSweepQueuesBeforeItFlags(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		markSentErr error
@@ -54,8 +56,10 @@ func TestTheReminderSweepOnlyRemindsWhatItCanMarkSent(t *testing.T) {
 			wantSent: 1,
 		},
 		{
-			name:        "not reminded at all when the flag cannot be written",
+			name:        "reminded, and flagged by a later tick, when the flag cannot be written",
 			markSentErr: errors.New("database is down"),
+			wantSent:    1,
+			wantLink:    true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -67,6 +71,9 @@ func TestTheReminderSweepOnlyRemindsWhatItCanMarkSent(t *testing.T) {
 
 			f.service.Reminder2h(t.Context())
 
+			if tc.markSentErr == nil && len(f.store.markedSent) != 1 {
+				t.Errorf("want the reminded booking flagged once; got %d flag write(s)", len(f.store.markedSent))
+			}
 			if got := len(f.notify.reminders); got != tc.wantSent {
 				t.Fatalf("want %d reminder(s) sent; got %d", tc.wantSent, got)
 			}
@@ -81,6 +88,32 @@ func TestTheReminderSweepOnlyRemindsWhatItCanMarkSent(t *testing.T) {
 				t.Errorf("want the reminder addressed to the client; got %q", sent.Email)
 			}
 		})
+	}
+}
+
+// crashAtEnqueue stands in for a worker that dies once the reminder reaches the
+// queue. The panic is the crash: nothing after it runs.
+type crashAtEnqueue struct{ *stubNotifier }
+
+func (crashAtEnqueue) ReminderDue(notifications.Reminder) {
+	panic("worker died before the reminder was queued")
+}
+
+// TestAReminderIsFlaggedOnlyAfterItIsQueued is the reason the sweep queues before
+// it flags. Flagged first, a crash between the two leaves a flag that says the
+// reminder went out while no job exists, and every later tick skips the booking.
+func TestAReminderIsFlaggedOnlyAfterItIsQueued(t *testing.T) {
+	f := newFixture(t)
+	f.store.dueForReminder = []*bookingstore.CronBooking{cronCandidate("confirmed")}
+	f.service.notify = crashAtEnqueue{f.notify}
+
+	func() {
+		defer func() { recover() }()
+		f.service.Reminder2h(t.Context())
+	}()
+
+	if got := f.store.markedSent; len(got) != 0 {
+		t.Errorf("the booking was flagged before its reminder was queued, so a crash between the two loses it: flagged %v", got)
 	}
 }
 

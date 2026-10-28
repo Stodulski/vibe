@@ -22,10 +22,12 @@
 // from Enqueue until Complete, so a worker that dies mid-handle loses nothing
 // — ReclaimStale hands its claim back once the lease has lapsed.
 //
-// At-least-once means a job can run twice. DedupKey is how a caller says that
-// must not happen for this particular piece of work: an Enqueue carrying a key
-// already in the table is a no-op, so a redelivered webhook cannot produce a
-// second email for the same booking and event.
+// At-least-once means a job can run twice, and nothing here prevents that. A
+// claim whose acknowledgement is lost is reclaimed and runs again, and so does a
+// job whose provider accepted the message before a crash stopped the worker from
+// recording it. DedupKey is narrower: it makes a second Enqueue of the same work
+// a no-op, so a redelivered webhook adds no second job for the same booking and
+// event. It does not stop a job that is already queued from running twice.
 package jobs
 
 import (

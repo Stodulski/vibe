@@ -6,6 +6,8 @@
 // outage cannot delay — or fail — the booking that triggered it.
 package notifications
 
+import "strings"
+
 // Task types on the durable queue. They are stored in Redis, so renaming one
 // strands whatever is already enqueued under the old name.
 const (
@@ -26,6 +28,16 @@ const (
 	TaskWABookingCancelled         = "wa:booking_cancelled"
 	TaskWADepositRefunded          = "wa:deposit_refunded"
 )
+
+// ScrubsPayload reports whether a notification task's payload is emptied once
+// its job finishes (see jobs.Config.ScrubPayload). Every notification payload
+// is a recipient, often with a single-use link (cancel, reset, verification),
+// and nothing reads it after the attempt. Every task type above is named
+// "email:..." or "wa:...", which is the prefix this policy keys on. Other queues
+// keep their payloads: the payments export reads its own back after it is done.
+func ScrubsPayload(taskType string) bool {
+	return strings.HasPrefix(taskType, "email:") || strings.HasPrefix(taskType, "wa:")
+}
 
 // The flows that confirm a booking. Source is a log field for every consumer
 // but one: the owner's "Nueva reserva" email is suppressed for the staff route,

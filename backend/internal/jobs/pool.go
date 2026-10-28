@@ -58,6 +58,12 @@ type Config struct {
 	// clean_jobs cron deletes it. Default: 7 days — also how long DedupKey
 	// keeps protecting.
 	Retention time.Duration
+	// ScrubPayload names the job types whose payload is emptied once the job
+	// is finished, done or dead-lettered (see Store.ClearPayload). Nil keeps
+	// every payload. The policy is injected by the composition root: this
+	// package does not know which job types carry single-use links or contact
+	// details.
+	ScrubPayload func(jobType string) bool
 
 	// Metrics is the counter surface, published by whoever registered the map.
 	//
@@ -327,7 +333,25 @@ func (p *Pool) settle(job *Job, outcome Outcome, cause error, start time.Time) {
 		result, err = p.retry(ctx, job, text)
 	}
 
+	if err == nil && (result == "done" || result == "dead_lettered") {
+		p.scrub(ctx, job)
+	}
 	p.log(job, result, cause, err, start)
+}
+
+// scrub empties the payload of a finished job when the configured policy names
+// its type. It runs only after the settlement succeeded, so the row is already
+// acknowledged or dead-lettered. A failure is logged and changes nothing else:
+// the payload then stays until the retention sweep, which is the behaviour
+// before the policy existed.
+func (p *Pool) scrub(ctx context.Context, job *Job) {
+	if p.cfg.ScrubPayload == nil || !p.cfg.ScrubPayload(job.Type) {
+		return
+	}
+	if err := p.store.ClearPayload(ctx, job.ID); err != nil {
+		p.cfg.Logger.Error("jobs: failed to clear a finished job's payload",
+			"job_id", job.ID, "type", job.Type, "error", err)
+	}
 }
 
 // expired reports whether job has sat past MaxAge without completing an
@@ -341,6 +365,9 @@ func (p *Pool) expired(job *Job) bool {
 func (p *Pool) expire(job *Job, reason string, start time.Time) {
 	text := fmt.Sprintf("expired after %s without an attempt: %s", p.cfg.MaxAge, reason)
 	err := p.store.Kill(context.Background(), job.ID, text)
+	if err == nil {
+		p.scrub(context.Background(), job)
+	}
 	p.count("expired", 1)
 	p.log(job, "expired", errors.New(reason), err, start)
 }
