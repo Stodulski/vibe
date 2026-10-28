@@ -686,6 +686,10 @@ func greeting(firstName string) string {
 
 // SendBookingConfirmation emails the client that their booking was confirmed.
 //
+// cancelURL is empty when the booking link token could not be minted, and then the
+// cancel button is left out rather than rendered with an empty href, the way
+// SendReminder2h leaves it out.
+//
 // address and mapsURL render the "Cómo llegar" line and are both required for
 // it to appear at all — see addressLine — because a link with nowhere to
 // point is worse than no line. depositAmount, balanceAmount and
@@ -714,7 +718,9 @@ func (m *Mailer) SendBookingConfirmation(ctx context.Context, to, complexName, c
 	content += p(fmt.Sprintf("Seña abonada: <strong>%s</strong>. Resta pagar en el complejo: <strong>%s</strong>.",
 		html.EscapeString(depositAmount), html.EscapeString(balanceAmount)), 16, 16)
 	content += muted("Cancelación " + html.EscapeString(cancellationLine))
-	content += button(cancelURL, "Cancelar reserva")
+	if cancelURL != "" {
+		content += button(cancelURL, "Cancelar reserva")
+	}
 	content += p("Gracias por su reserva.", 16, 0)
 
 	preheader := fmt.Sprintf("%s en %s, el %s de %s.", courtEsc, complexEsc, dateEsc, startEsc)

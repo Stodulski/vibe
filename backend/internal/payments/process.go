@@ -37,12 +37,12 @@ import (
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
-	// A settled booking (confirmed, completed or no_show) takes exactly one payment,
-	// the one already recorded on it. Its redelivery is the no-op. Any other approved
-	// payment on it is money the complex collected for a slot it has already sold (a
-	// second card, or cash taken at the counter before the online payment landed), so
-	// it is reported rather than dropped: see reportSettledBookingPayment.
-	alreadySettled := booking.Status == "confirmed" || booking.Status == "completed" || booking.Status == "no_show"
+	// A settled booking (confirmed, completed or no_show) whose recorded payment is this
+	// one is the redelivery, and that is the no-op. Any other approved payment on a
+	// settled booking is handled by handleSettledBooking: a payment on a booking that
+	// already holds money is a duplicate and is refunded, and a booking with no money yet
+	// takes it as its first.
+	alreadySettled := isSettled(booking.Status)
 	if alreadySettled {
 		recorded, err := s.paymentRecordedForBooking(ctx, booking.ID, mpPaymentID)
 		if err != nil {
@@ -102,11 +102,9 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 	}
 
-	// Reached only for a settled booking whose recorded payment is a different one, and
-	// only after the collector check above proved the money is this complex's.
-	if alreadySettled {
-		s.reportSettledBookingPayment(booking, mpPayment, mpPaymentID)
-		return nil
+	// Only after the collector check above proved the money is this complex's.
+	if handled, err := s.handleSettledBooking(ctx, booking, mpPayment, mpPaymentID); handled || err != nil {
+		return err
 	}
 
 	// Verify amount: MP sends pesos (float), our DB stores centavos (int).
@@ -175,11 +173,9 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		// ALERT log line.
 		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
 	}
-	if booking.Status == "confirmed" || booking.Status == "completed" {
-		// Settled by another payment while this one was being checked. The same
-		// money-not-dropped rule as at the top of this function applies.
-		s.reportSettledBookingPayment(booking, mpPayment, mpPaymentID)
-		return nil
+	// Settled while this payment was being checked: the same rule as at the top applies.
+	if handled, err := s.handleSettledBooking(ctx, booking, mpPayment, mpPaymentID); handled || err != nil {
+		return err
 	}
 
 	booking.Status = "confirmed"
@@ -278,19 +274,32 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			// for this booking at checkout, but that mint happened in a
 			// different request and its plaintext cannot be read back — see
 			// design.md's "two live tokens" consequence — so this path mints
-			// its own rather than reusing it. A failed mint must not send a
-			// confirmation email: returning an error here (rather than
-			// logging and continuing) makes the webhook handler requeue the
-			// event instead. The checkout token minted at InsertSafe is
-			// deliberately not revoked here: MercadoPago redirects the
-			// browser to the success back_url at roughly the moment this
-			// webhook fires, and revoking it would break that redirect.
-			confirmationToken, mintErr := s.linkTokens.Mint(ctx, booking.ID, booking.EndsAt.Add(s.cfg.LinkTokenBuffer))
+			// its own rather than reusing it. The checkout token minted at
+			// InsertSafe is deliberately not revoked here: MercadoPago
+			// redirects the browser to the success back_url at roughly the
+			// moment this webhook fires, and revoking it would break that
+			// redirect.
+			//
+			// When the mint still fails after its retry, the confirmation goes out
+			// without its cancel link rather than not at all: the client has paid
+			// and must learn the booking is confirmed. The email template leaves
+			// the cancel button out when the link is empty (see
+			// mailer.SendBookingConfirmation), as the reminder cron already does.
+			// The WhatsApp confirmation is skipped in that case, because its
+			// template binds the cancel button as a required URL parameter
+			// (notifications.BookingConfirmed). The gap is reported so it can be
+			// followed up. The event is settled rather than requeued: a retry
+			// would hit the replay no-op at the top of this function, which
+			// returns without sending anything, so requeueing could only spend
+			// the event's retry budget.
+			var cancelURL, cancelPath string
+			confirmationToken, mintErr := s.mintConfirmationToken(ctx, booking)
 			if mintErr != nil {
-				return fmt.Errorf("mint booking link token for confirmation email %s: %w", booking.ID, mintErr)
+				s.reportConfirmationWithoutCancelLink(booking, mpPaymentID, mintErr)
+			} else {
+				cancelURL = booklink.Cancel(s.cfg.PublicURL, complex.Slug, confirmationToken)
+				cancelPath = booklink.CancelPath(complex.Slug, confirmationToken)
 			}
-			cancelURL := booklink.Cancel(s.cfg.PublicURL, complex.Slug, confirmationToken)
-			cancelPath := booklink.CancelPath(complex.Slug, confirmationToken)
 			mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			address := booklink.Address(complex.Address, complex.City)
@@ -343,26 +352,178 @@ func (s *Service) paymentRecordedForBooking(ctx context.Context, bookingID uuid.
 	return false, nil
 }
 
-// reportSettledBookingPayment is the answer for an approved payment, collected by
-// this complex, that lands on a booking another payment has already settled. The
-// money is captured and nothing here sends it back, so it is not dropped in silence:
-// it is logged and sent to Sentry for a person to refund in MercadoPago. The booking
-// and the payment already recorded are left alone, because this payment did not
-// settle them.
+// refundSettledBookingPayment refunds an approved payment that landed on a booking
+// another payment has already settled, and leaves the booking as it is.
 //
-// The automatic refund path is not used here. Its last step (RecordRefundSuccess in
-// store/refunds.go) cancels the booking once a payment is refunded in full, and this
-// booking has to stay confirmed.
-func (s *Service) reportSettledBookingPayment(booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) {
-	amount := int(math.Round(mpPayment.TransactionAmount * 100))
-	s.logger.Error("mp webhook: an approved payment landed on a booking already settled by another payment, recorded nothing, refund it by hand",
+// The money is the complex's (the collector check has run), and it is not the payment
+// that settled the slot, so the client paid twice for it. The payment is recorded as a
+// row of its own and refunded through the same claim, call and record as every other
+// refund. A refund MercadoPago refuses is then queued at payment level, like any other.
+// Nothing else follows from it. The booking gets no refund-intent marker, because the
+// orphan sweep would refund every payment on the booking, the one that settled it
+// included. The booking row is not written either, so it stays confirmed or completed.
+//
+// Nothing here tells the client or the owner that the booking was cancelled. The
+// client gets no refund notice, which matches the cancelled late-payment path.
+func (s *Service) refundSettledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+	payment, err := s.recordDuplicatePayment(ctx, booking, mpPayment, mpPaymentID)
+	if err != nil {
+		// Nothing was written, so the event is retried and the replay records the payment
+		// from the start. The money is held until then, which is why this is alerted.
+		s.logger.Error("mp webhook: an approved payment landed on a settled booking and could not be recorded, so it cannot be refunded yet",
+			"error", err,
+			"mp_payment_id", mpPaymentID,
+			"booking_id", booking.ID,
+		)
+		sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID AGAIN NOT RECORDED (payment record failed, money still held): mp_payment_id=%s booking_id=%s",
+			mpPaymentID, booking.ID))
+		return fmt.Errorf("record the duplicate payment for settled booking %s: %w", booking.ID, err)
+	}
+
+	// The row is committed by now, so the replay of this event returns at
+	// paymentRecordedForBooking and cannot claim the refund again. If the claim fails
+	// here, the shared tail has already alerted on it, and the error is returned so the
+	// event is recorded as failed rather than as done.
+	claimed := false
+	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, "settled", &claimed)
+}
+
+// handleSettledBooking decides what an approved payment does on a booking that is
+// settled (confirmed, completed or no_show). It reports whether the payment was dealt
+// with here. When it was not, the caller goes on to confirm the booking.
+//
+// A settled booking that already holds money from another payment is a duplicate: the
+// payment is refunded and the booking is left as it is (refundSettledBookingPayment).
+//
+// A settled booking with no money yet was settled by the owner before the client paid.
+// A confirmed one takes this payment as its first money, through the normal
+// confirmation. A completed or no-show booking cannot be confirmed, so the payment is
+// reported and not recorded (reportSettledWithoutMoney).
+func (s *Service) handleSettledBooking(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
+	if !isSettled(booking.Status) {
+		return false, nil
+	}
+	paid, err := s.bookingHasReceivedMoney(ctx, booking.ID, mpPaymentID)
+	if err != nil {
+		return false, err
+	}
+	if paid {
+		return true, s.refundSettledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+	}
+	if booking.Status != "confirmed" {
+		s.reportSettledWithoutMoney(booking, mpPaymentID)
+		return true, nil
+	}
+	return false, nil
+}
+
+// isSettled reports whether a booking status is one a payment settles.
+func isSettled(status bookingstore.BookingStatus) bool {
+	return status == "confirmed" || status == "completed" || status == "no_show"
+}
+
+// bookingHasReceivedMoney reports whether a payment row of the booking, other than the
+// MercadoPago payment being processed, already holds money the complex received.
+func (s *Service) bookingHasReceivedMoney(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) (bool, error) {
+	payments, err := s.payments.ListByBookingID(ctx, bookingID)
+	if err != nil {
+		return false, fmt.Errorf("look up the payments of booking %s: %w", bookingID, err)
+	}
+	for _, p := range payments {
+		if p.MPPaymentID != nil && *p.MPPaymentID == mpPaymentID {
+			continue
+		}
+		if paymentstore.ReceivedMoney(p.Status) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// reportSettledWithoutMoney is the answer for an approved payment on a completed or
+// no-show booking that holds no money. The booking cannot be confirmed, and a refund
+// here would cancel a booking that stands as played or missed, so nothing is recorded
+// and nothing is refunded. The money is captured, so it is logged and sent to Sentry
+// for a person to resolve.
+func (s *Service) reportSettledWithoutMoney(booking *bookingstore.Booking, mpPaymentID string) {
+	s.logger.Error("mp webhook: an approved payment landed on a completed or no-show booking that holds no money, recorded nothing, a person has to resolve it",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 		"booking_status", booking.Status,
-		"amount_centavos", amount,
 	)
-	sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID AGAIN (refund by hand, nothing recorded): mp_payment_id=%s booking_id=%s booking_status=%s amount_centavos=%d",
-		mpPaymentID, booking.ID, booking.Status, amount))
+	sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID WITHOUT RECORD (nothing recorded, money held): mp_payment_id=%s booking_id=%s booking_status=%s",
+		mpPaymentID, booking.ID, booking.Status))
+}
+
+// recordDuplicatePayment writes the row for an approved payment that landed on a
+// booking another payment has already settled.
+//
+// It is always a new row. recordPaymentOwedARefund reuses the booking's checkout row,
+// and on a settled booking that row is the payment which settled it, so reusing it
+// would point that payment at this one. The write is a plain insert, so the booking is
+// not confirmed, cancelled or marked.
+func (s *Service) recordDuplicatePayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
+	amount, serviceFee := splitPaidAmount(booking, mpPayment)
+	payment := &paymentstore.Payment{
+		BookingID:   booking.ID,
+		ComplexID:   booking.ComplexID,
+		Amount:      amount,
+		ServiceFee:  serviceFee,
+		Method:      "mercadopago",
+		Status:      "deposit_paid",
+		MPPaymentID: &mpPaymentID,
+	}
+	if err := s.ledger.Insert(ctx, payment); err != nil {
+		return nil, err
+	}
+	return payment, nil
+}
+
+// splitPaidAmount splits what MercadoPago says the client paid into the deposit and
+// the service fee, for a payment row that has no checkout row to trust. With no row
+// there is no stored fee to trust, so the current flat fee is the best available split
+// of what was paid. MercadoPago sending no usable figure falls back to what was asked
+// for, which is the only other number in play.
+func splitPaidAmount(booking *bookingstore.Booking, mpPayment *mp.Payment) (amount, serviceFee int) {
+	paid := int(math.Round(mpPayment.TransactionAmount * 100))
+	serviceFee = pricing.ServiceFee(booking.DepositAmount)
+	amount = paid - serviceFee
+	if paid <= 0 || amount < 0 {
+		amount, serviceFee = booking.DepositAmount, pricing.ServiceFee(booking.DepositAmount)
+	}
+	return amount, serviceFee
+}
+
+// mintConfirmationToken mints the booking link token the confirmation's cancel link
+// is built from. A mint is one short insert, so it is tried twice in-process: a
+// transient failure is absorbed here, and a persistent one is left to the caller
+// to report. More attempts would only hold the webhook open while the database
+// is struggling.
+func (s *Service) mintConfirmationToken(ctx context.Context, booking *bookingstore.Booking) (string, error) {
+	const attempts = 2
+	var err error
+	for range attempts {
+		var token string
+		token, err = s.linkTokens.Mint(ctx, booking.ID, booking.EndsAt.Add(s.cfg.LinkTokenBuffer))
+		if err == nil {
+			return token, nil
+		}
+	}
+	return "", fmt.Errorf("mint booking link token for confirmation email %s: %w", booking.ID, err)
+}
+
+// reportConfirmationWithoutCancelLink records a confirmation that was sent without its
+// cancel link because the link token could not be minted. The payment is committed and
+// the confirmation is sent, so the webhook is not failed for it; the missing link is
+// made visible instead.
+func (s *Service) reportConfirmationWithoutCancelLink(booking *bookingstore.Booking, mpPaymentID string, cause error) {
+	s.logger.Error("mp webhook: payment approved, booking confirmation sent without a cancel link, the link token could not be minted",
+		"error", cause,
+		"mp_payment_id", mpPaymentID,
+		"booking_id", booking.ID,
+	)
+	sentry.CaptureMessage(fmt.Sprintf("CONFIRMATION SENT WITHOUT CANCEL LINK (mint failed, payment recorded): mp_payment_id=%s booking_id=%s error=%v",
+		mpPaymentID, booking.ID, cause))
 }
 
 // reportUnsentConfirmation records a confirmation that could not be sent because a
@@ -468,9 +629,19 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	committed := false
 	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
 
-	claim, err := s.refunds.ClaimRefund(ctx, payment.ID)
+	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, "cancelled", &committed)
+}
+
+// refundRecordedPayment claims, issues and records the refund of a payment row the
+// caller has already committed. It is the part the cancelled-booking and the
+// settled-booking paths share, and it never writes the booking: whether a refund-intent
+// marker stands on the booking is the caller's to manage. *committed is set as soon as
+// ClaimRefund commits, which is the point the marker stops being the caller's to clear.
+// kind names the booking's state in the log lines.
+func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingstore.Booking, paymentID uuid.UUID, mpPaymentID, kind string, committed *bool) error {
+	claim, err := s.refunds.ClaimRefund(ctx, paymentID)
 	if err != nil {
-		s.logger.Error("mp webhook: failed to claim the refund for a cancelled booking",
+		s.logger.Error("mp webhook: failed to claim the refund for a "+kind+" booking",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -480,10 +651,10 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 			// Another claim owns this refund, or it is already back. Not ours to retry.
 			return nil
 		}
-		return fmt.Errorf("claim the refund for cancelled booking %s: %w", booking.ID, err)
+		return fmt.Errorf("claim the refund for %s booking %s: %w", kind, booking.ID, err)
 	}
 	// The claim committed and already cleared the marker in its own transaction.
-	committed = true
+	*committed = true
 
 	// The claim already committed a queued attempt before either the seller
 	// token or the provider was asked for, so the refund queue owns this from
@@ -515,7 +686,7 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 		return nil
 	}
 
-	s.logger.Info("mp webhook: auto-refund issued for cancelled booking",
+	s.logger.Info("mp webhook: auto-refund issued for "+kind+" booking",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 		"refund_amount", centavosToPesos(settled.RefundCentavos),
@@ -581,17 +752,8 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 	}
 
 	// No checkout row: split what MercadoPago says the client paid rather than
-	// what the booking currently says it should have cost.
-	// With no row there is no stored fee to trust, so the current flat fee is
-	// the best available split of what was paid.
-	paid := int(math.Round(mpPayment.TransactionAmount * 100))
-	serviceFee := pricing.ServiceFee(booking.DepositAmount)
-	amount := paid - serviceFee
-	if paid <= 0 || amount < 0 {
-		// MercadoPago sent no usable figure. Fall back to what was asked for,
-		// which is the only other number in play.
-		amount, serviceFee = booking.DepositAmount, pricing.ServiceFee(booking.DepositAmount)
-	}
+	// what the booking currently says it should have cost (see splitPaidAmount).
+	amount, serviceFee := splitPaidAmount(booking, mpPayment)
 
 	payment := &paymentstore.Payment{
 		BookingID:   booking.ID,

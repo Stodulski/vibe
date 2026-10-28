@@ -317,6 +317,35 @@ func TestConfirmPaymentAnswersConflictWhenTheStoreCatchesAConcurrentCancellation
 	}
 }
 
+// Two counter collections can both pass the snapshot balance check above. The
+// second is refused by the store under the booking's row lock, with the balance
+// that row still owed. That must reach the owner as the same 422 the snapshot
+// check answers, naming the locked balance rather than a figure read earlier, and
+// it must not fall through to a 500.
+func TestConfirmPaymentAnswers422WhenTheStoreCatchesAnOverCollection(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking := futureBooking(complexID)
+	booking.Status = "pending"
+	f.store.booking = booking
+	f.linkResolver.booking = booking
+	f.payments.insertAndConfirmErr = &paymentstore.AmountExceedsBalanceError{Balance: 12_345}
+
+	w := httptest.NewRecorder()
+	f.handler.ConfirmPayment(w, ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"bookingID": booking.ID.String()}, `{"method":"cash","amount":100000}`))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 when the store refuses an over-collection; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "must not exceed the outstanding balance of 12345") {
+		t.Errorf("want the 422 to name the locked balance; got %s", w.Body.String())
+	}
+	if len(f.payments.confirmed) != 0 {
+		t.Error("no payment may be confirmed when the store refuses it")
+	}
+}
+
 // A generic staff edit must not move a partially refunded booking's
 // refund_status at all. The move to 'full' is the manual-refund endpoint's
 // alone: it is the one that confirms the cash portion came back by hand. A

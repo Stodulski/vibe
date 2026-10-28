@@ -135,10 +135,15 @@ const checkoutCleanupBudget = 5 * time.Second
 //
 //nolint:funlen,gocyclo,cyclop,maintidx // see the cohesion note above
 func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInput) (PublicBookResult, error) {
-	// Reject past dates.
+	// Cheap early bound on the grid day, before any lookup. It stops one day
+	// short of today rather than at today: yesterday's grid carries
+	// after-midnight slots that start on today's calendar day, and a 00:30
+	// start is still bookable at 00:10. Whether a start has already passed is
+	// the instant check's call below; a booking whose calendar day is over is
+	// refused on startDate, once the grid has placed the start.
 	todayArg := time.Now().In(timezone.Argentina)
 	todayDate := time.Date(todayArg.Year(), todayArg.Month(), todayArg.Day(), 0, 0, 0, 0, time.UTC)
-	if in.Date.Before(todayDate) {
+	if in.Date.Before(todayDate.AddDate(0, 0, -1)) {
 		return PublicBookResult{}, &ConflictError{Message: "cannot book a past date"}
 	}
 
@@ -149,8 +154,10 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// and is never reaped: the completion sweep only completes a booking
 	// whose end time has already passed. It is a standing way for an
 	// anonymous visitor — this endpoint needs no account — to leave permanent
-	// rows behind, one request at a time.
-	if in.Date.After(todayDate.AddDate(0, 0, bookingstore.MaxBookingHorizonDays)) {
+	// rows behind, one request at a time. This early bound allows one day past
+	// the horizon, because an after-midnight start of the last bookable grid day
+	// falls on the day after it; the exact horizon is applied to startDate below.
+	if in.Date.After(todayDate.AddDate(0, 0, bookingstore.MaxBookingHorizonDays+1)) {
 		return PublicBookResult{}, &ConflictError{Message: fmt.Sprintf(
 			"cannot book more than %d days in advance", bookingstore.MaxBookingHorizonDays)}
 	}
@@ -225,6 +232,16 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		return PublicBookResult{}, &ConflictError{Message: gridRefusal(gridErr)}
 	}
 	startDate := in.Date.AddDate(0, 0, slots.CalendarDays(minute))
+	// The two calendar-day rules are checked on startDate, the day the booking
+	// is stored under. Checked on in.Date, an after-midnight slot of the last
+	// bookable day would pass the horizon one day late.
+	if startDate.Before(todayDate) {
+		return PublicBookResult{}, &ConflictError{Message: "cannot book a past date"}
+	}
+	if startDate.After(todayDate.AddDate(0, 0, bookingstore.MaxBookingHorizonDays)) {
+		return PublicBookResult{}, &ConflictError{Message: fmt.Sprintf(
+			"cannot book more than %d days in advance", bookingstore.MaxBookingHorizonDays)}
+	}
 
 	// A slot the owner blocked is not for sale, and this path had no way of
 	// knowing it was blocked: the storefront omits it, and nothing between the

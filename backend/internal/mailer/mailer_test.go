@@ -952,6 +952,44 @@ func TestOwnerBookingRefundedEmail(t *testing.T) {
 // Round 3: HTML redesign — escaping, bulletproof buttons, font declarations
 // ---------------------------------------------------------------------------
 
+// TestBookingConfirmationWithoutACancelLinkOmitsTheCancelButton pins the empty-link
+// confirmation. The webhook sends the confirmation without a cancel link when its
+// booking link token cannot be minted. A button with an empty href is a dead control
+// in the client's inbox, so the confirmation renders without it, the way
+// SendReminder2h already does, and still states the booking, the amounts and the
+// cancellation rule.
+func TestBookingConfirmationWithoutACancelLinkOmitsTheCancelButton(t *testing.T) {
+	var raw string
+	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		raw = string(b)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer brevo.Close()
+
+	m := New(Config{BrevoAPIKey: "k", Sender: "Vibe <noreply@vibe.com.ar>"})
+	m.apiURL = brevo.URL
+
+	if err := m.SendBookingConfirmation(context.Background(), "ana@example.com", "Vibe Palermo", "Cancha 1",
+		"15/03", "09:00 a 10:30", "Av. Santa Fe 1200", "https://maps.example/?q=1", "",
+		"$5.000", "$15.000", "con devolución hasta 24 horas antes del turno."); err != nil {
+		t.Fatalf("SendBookingConfirmation = %v", err)
+	}
+
+	htmlBody, plain := brevoPayload(t, raw)
+
+	for _, artifact := range []string{`href=""`, "Cancelar reserva"} {
+		if strings.Contains(htmlBody, artifact) || strings.Contains(plain, artifact) {
+			t.Errorf("a confirmation without a cancel link must not carry %q; got:\n%s", artifact, htmlBody)
+		}
+	}
+	for _, want := range []string{"Su reserva está confirmada.", "Cancha 1", "$5.000", "$15.000", "Gracias por su reserva."} {
+		if !strings.Contains(htmlBody, want) {
+			t.Errorf("the confirmation must still state %q without a cancel link; got:\n%s", want, htmlBody)
+		}
+	}
+}
+
 // TestComplexNameIsHTMLEscaped pins that a complex name carrying literal
 // markup cannot inject into the rendered email: every dynamic value is
 // escaped at the point it is written into the template, not trusted from the

@@ -99,6 +99,43 @@ func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *bo
 	return nil
 }
 
+// guardAmountWithinBalance refuses a payment that would collect more than the booking
+// still owes, judged on the row as it stands under the lock. ConfirmPayment checks the
+// amount against the booking it read before any lock, so two counter collections can
+// both pass that check; the second one is refused here, after the first has committed.
+//
+// It applies to the transitions that take money on a live booking: a confirmation
+// (status 'confirmed', the same test guardBookingConfirmable uses) and a collection on
+// a completed booking. A cancelled booking is left alone. Its payment is recorded so
+// the money can be refunded, and the amount is what MercadoPago sent, which need not
+// match what the booking still owes (see recordPaymentOwedARefund in internal/payments).
+//
+// The price, deposit and collection status are read from the locked row, never from b:
+// the caller has already moved b's in-memory collection status to its post-payment value.
+// The balance itself is BalanceDue on the locked row, so this check cannot drift from
+// the definition the service and the sales checkout use.
+func (m *Payments) guardAmountWithinBalance(ctx context.Context, qtx *db.Queries, p *Payment, b *bookingstore.Booking) error {
+	if b.Status != "confirmed" && b.Status != "completed" {
+		return nil
+	}
+
+	row, err := qtx.GetBookingByIDForUpdate(ctx, db.GetBookingByIDForUpdateParams{
+		ID:        data.UUIDToPg(b.ID),
+		ComplexID: data.UUIDToPg(b.ComplexID),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return data.ErrRecordNotFound
+		}
+		return fmt.Errorf("payments: lock booking %s for its balance: %w", b.ID, err)
+	}
+
+	if balance := bookingstore.BookingFromDB(row).BalanceDue(); p.Amount > balance {
+		return &AmountExceedsBalanceError{Balance: balance}
+	}
+	return nil
+}
+
 // guardSlotStillFree refuses to confirm a booking whose slot was taken while its
 // payment was in flight. InsertAndConfirmBooking takes the court-day lock
 // before calling it (see the comment there), so the lock covers the row read
@@ -351,6 +388,15 @@ func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, 
 	}
 
 	if err := m.guardBookingConfirmable(ctx, tx, b); err != nil {
+		return err
+	}
+
+	// Before anything is written: the payment must still fit what the booking owes.
+	// Like the status guard above, it reads the row under its lock. For a confirmation
+	// that lock comes after the court-day lock taken at the top, the order the comment
+	// at the top of this function documents; a completed booking takes no court-day lock
+	// at all, so there is no later court-day lock for it to invert.
+	if err := m.guardAmountWithinBalance(ctx, qtx, p, b); err != nil {
 		return err
 	}
 

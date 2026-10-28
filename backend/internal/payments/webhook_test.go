@@ -15,6 +15,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 )
@@ -64,12 +65,16 @@ func TestWebhookStillConfirmsABookingThroughThePlatformAppOwnerToken(t *testing.
 	}
 }
 
-// TestWebhookRequeuesWhenTheLinkTokenMintFails pins task 3.4: a failed mint
-// for the confirmation-email's booking link token must not send that email,
-// and must leave the webhook event retryable rather than marked processed —
-// exactly the same shape TestAWebhookProcessingFailureLeavesTheEventRetryable
-// covers for a database or provider failure.
-func TestWebhookRequeuesWhenTheLinkTokenMintFails(t *testing.T) {
+// TestWebhookSettlesWhenTheLinkTokenMintFails pins the contract for a mint that
+// fails after the payment and the booking confirmation are committed. The mint
+// is tried twice in-process; if both attempts fail, the event is not requeued.
+// A retry would reach the replay no-op at the top of processApprovedPayment,
+// which returns without sending anything, so a requeue could only spend the
+// event's retry budget and still never send the confirmation. The event is
+// settled, and the confirmation goes out without its cancel link (the client has
+// paid and must learn the booking is confirmed). The gap is reported to Sentry.
+func TestWebhookSettlesWhenTheLinkTokenMintFails(t *testing.T) {
+	sentryEvents := withCapturedSentryEvents(t)
 	f := newFixture(t)
 	complexID := uuid.New()
 	booking, mpPayment := pendingBooking(complexID)
@@ -88,16 +93,71 @@ func TestWebhookRequeuesWhenTheLinkTokenMintFails(t *testing.T) {
 	f.handler.MercadoPagoWebhook(w, webhookRequest(t, webhookBody))
 
 	if w.Code != http.StatusOK {
-		t.Fatalf("a recorded event must still be acknowledged; got %d", w.Code)
+		t.Fatalf("a committed payment must be acknowledged; got %d", w.Code)
 	}
-	if len(f.webhookEvents.processed) != 0 {
-		t.Error("an event whose confirmation-token mint failed must not be marked processed")
+	if len(f.webhookEvents.failed) != 0 {
+		t.Errorf("a failed mint must not requeue the event: its retry is a replay no-op; got %d requeues", len(f.webhookEvents.failed))
 	}
-	if len(f.webhookEvents.failed) != 1 {
-		t.Fatalf("a failed mint must requeue the event; got %d", len(f.webhookEvents.failed))
+	if len(f.webhookEvents.processed) != 1 {
+		t.Errorf("the event must be settled once the payment is committed; got %d processed", len(f.webhookEvents.processed))
 	}
-	if len(f.notify.confirmations) != 0 {
-		t.Errorf("no confirmation email may be sent when the link token mint failed; got %d", len(f.notify.confirmations))
+	if f.linkTokens.calls != 2 {
+		t.Errorf("the mint must be attempted exactly twice; got %d attempts", f.linkTokens.calls)
+	}
+	if len(f.notify.confirmations) != 1 {
+		t.Fatalf("the confirmation must still be enqueued without its cancel link; got %d", len(f.notify.confirmations))
+	}
+	c := f.notify.confirmations[0]
+	if c.CancelURL != "" || c.CancelPath != "" {
+		t.Errorf("a confirmation after a failed mint must carry no cancel link; got url=%q path=%q", c.CancelURL, c.CancelPath)
+	}
+	// The owner's "Nueva reserva" notice travels in the same BookingConfirmed call, so
+	// it is enqueued too: the sale is online and the owner did not enter it.
+	if c.Source != notifications.SourceOnlineCheckout || c.OwnerID == "" {
+		t.Errorf("the owner must still be told of the sale; got source=%q owner=%q", c.Source, c.OwnerID)
+	}
+	if _, found := findMessage(sentryEvents.messages(), "CONFIRMATION SENT WITHOUT CANCEL LINK"); !found {
+		t.Errorf("the confirmation sent without its cancel link must reach Sentry; captured %q", sentryEvents.messages())
+	}
+}
+
+// TestWebhookSendsTheConfirmationWhenAMintRetrySucceeds is the case the second
+// attempt exists for: a transient mint failure is absorbed in-process, so the
+// confirmation goes out with its cancel link instead of not at all.
+func TestWebhookSendsTheConfirmationWhenAMintRetrySucceeds(t *testing.T) {
+	sentryEvents := withCapturedSentryEvents(t)
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, mpPayment := pendingBooking(complexID)
+	mpPayment.ExternalReference = booking.ID.String()
+	sellerID := "111111111"
+	mpPayment.CollectorID = 111111111
+
+	f.provider.payment = mpPayment
+	f.bookings.booking = booking
+	f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
+	f.linkTokens.mintErr = errDatabase
+	f.linkTokens.failures = 1
+
+	w := httptest.NewRecorder()
+	f.handler.MercadoPagoWebhook(w, webhookRequest(t, webhookBody))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("a committed payment must be acknowledged; got %d", w.Code)
+	}
+	if len(f.notify.confirmations) != 1 {
+		t.Fatalf("the retried mint must let the confirmation go out; got %d", len(f.notify.confirmations))
+	}
+	if !strings.Contains(f.notify.confirmations[0].CancelURL, "stub-link-token-") {
+		t.Errorf("the confirmation must carry the cancel link built from the retried token; got %q", f.notify.confirmations[0].CancelURL)
+	}
+	if len(f.webhookEvents.failed) != 0 || len(f.webhookEvents.processed) != 1 {
+		t.Errorf("a recovered mint must settle the event; failed=%d processed=%d", len(f.webhookEvents.failed), len(f.webhookEvents.processed))
+	}
+	if _, found := findMessage(sentryEvents.messages(), "CONFIRMATION NOT SENT"); found {
+		t.Error("a confirmation that was sent must not be reported as unsent")
 	}
 }
 

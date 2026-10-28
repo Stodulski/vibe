@@ -743,9 +743,18 @@ type stubNotifier struct {
 	confirmed []notifications.BookingConfirmation
 	cancelled []notifications.Cancellation
 	reminders []notifications.Reminder
+	// reminderErr is what ReminderDue returns instead of queueing, as when the
+	// queue refuses the insert.
+	reminderErr error
 }
 
-func (s *stubNotifier) ReminderDue(r notifications.Reminder) { s.reminders = append(s.reminders, r) }
+func (s *stubNotifier) ReminderDue(r notifications.Reminder) error {
+	if s.reminderErr != nil {
+		return s.reminderErr
+	}
+	s.reminders = append(s.reminders, r)
+	return nil
+}
 
 func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
 	s.confirmed = append(s.confirmed, c)
