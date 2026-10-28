@@ -208,7 +208,18 @@ func (m *Payments) Insert(ctx context.Context, p *Payment) error {
 		return err
 	}
 
-	dbPayment, err := m.Q.InsertPayment(ctx, db.InsertPaymentParams{
+	dbPayment, err := m.Q.InsertPayment(ctx, insertPaymentParams(p))
+	if err != nil {
+		return err
+	}
+	p.fillInserted(dbPayment)
+	return nil
+}
+
+// insertPaymentParams maps a new payment onto the insert query. Insert and
+// InsertAndClaimRefund share it, so a new column reaches both.
+func insertPaymentParams(p *Payment) db.InsertPaymentParams {
+	return db.InsertPaymentParams{
 		BookingID: data.UUIDToPg(p.BookingID),
 		ComplexID: data.UUIDToPg(p.ComplexID),
 		//nolint:gosec // G115: currency amount (cents) derived from booking.DepositAmount (validated <= Price) or
@@ -221,15 +232,14 @@ func (m *Payments) Insert(ctx context.Context, p *Payment) error {
 		MpPaymentID:    data.TextToPg(p.MPPaymentID),
 		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
 		StatusDetail:   data.TextToPg(p.StatusDetail),
-	})
-	if err != nil {
-		return err
 	}
+}
 
-	p.ID = data.PgToUUID(dbPayment.ID)
-	p.CreatedAt = data.PgToTime(dbPayment.CreatedAt)
-	p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
-	return nil
+// fillInserted writes back the columns the database generated for a new row.
+func (p *Payment) fillInserted(row db.Payment) {
+	p.ID = data.PgToUUID(row.ID)
+	p.CreatedAt = data.PgToTime(row.CreatedAt)
+	p.UpdatedAt = data.PgToTime(row.UpdatedAt)
 }
 
 // GetByBookingID returns the payment for the given booking, or ErrRecordNotFound if none exists.

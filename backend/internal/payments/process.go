@@ -371,12 +371,12 @@ func (s *Service) refundSettledBookingPayment(ctx context.Context, booking *book
 		// The row and its claim are one write, so nothing was written: the event is
 		// retried and the replay records and claims the payment from the start. The
 		// money is held until then, which is why this is alerted.
-		s.logger.Error("mp webhook: an approved payment landed on a settled booking and could not be recorded, so it cannot be refunded yet",
+		s.logger.Error("mp webhook: an approved payment landed on a settled booking and could not be recorded and claimed, so it cannot be refunded yet",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID AGAIN NOT RECORDED (payment record failed, money still held): mp_payment_id=%s booking_id=%s",
+		sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID AGAIN NOT RECORDED (payment record or refund claim failed, money still held): mp_payment_id=%s booking_id=%s",
 			mpPaymentID, booking.ID))
 		return fmt.Errorf("record the duplicate payment for settled booking %s: %w", booking.ID, err)
 	}
@@ -425,19 +425,27 @@ func isSettled(status bookingstore.BookingStatus) bool {
 // bookingHasReceivedMoney reports whether a payment row of the booking, other than the
 // MercadoPago payment being processed, already holds money the complex received.
 func (s *Service) bookingHasReceivedMoney(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) (bool, error) {
+	holding, err := s.otherPaymentsHoldingMoney(ctx, bookingID, mpPaymentID)
+	return len(holding) > 0, err
+}
+
+// otherPaymentsHoldingMoney returns the payment rows of the booking, other than the
+// MercadoPago payment mpPaymentID, that hold money the complex received.
+func (s *Service) otherPaymentsHoldingMoney(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) ([]*paymentstore.Payment, error) {
 	payments, err := s.payments.ListByBookingID(ctx, bookingID)
 	if err != nil {
-		return false, fmt.Errorf("look up the payments of booking %s: %w", bookingID, err)
+		return nil, fmt.Errorf("look up the payments of booking %s: %w", bookingID, err)
 	}
+	var holding []*paymentstore.Payment
 	for _, p := range payments {
 		if p.MPPaymentID != nil && *p.MPPaymentID == mpPaymentID {
 			continue
 		}
 		if paymentstore.ReceivedMoney(p.Status) {
-			return true, nil
+			holding = append(holding, p)
 		}
 	}
-	return false, nil
+	return holding, nil
 }
 
 // reportSettledWithoutMoney is the answer for an approved payment on a completed or
@@ -636,10 +644,9 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 // set as soon as ClaimRefund commits, which is the point the marker stops being the
 // caller's to clear.
 func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingstore.Booking, paymentID uuid.UUID, mpPaymentID string, committed *bool) error {
-	const kind = "cancelled"
 	claim, err := s.refunds.ClaimRefund(ctx, paymentID)
 	if err != nil {
-		s.logger.Error("mp webhook: failed to claim the refund for a "+kind+" booking",
+		s.logger.Error("mp webhook: failed to claim the refund for a cancelled booking",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -649,11 +656,11 @@ func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingsto
 			// Another claim owns this refund, or it is already back. Not ours to retry.
 			return nil
 		}
-		return fmt.Errorf("claim the refund for %s booking %s: %w", kind, booking.ID, err)
+		return fmt.Errorf("claim the refund for cancelled booking %s: %w", booking.ID, err)
 	}
 	// The claim committed and already cleared the marker in its own transaction.
 	*committed = true
-	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, kind)
+	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, "cancelled")
 	return nil
 }
 

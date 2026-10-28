@@ -80,7 +80,7 @@ func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*Refun
 	var claim *RefundClaim
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
 		var err error
-		claim, err = claimInTx(ctx, tx, qtx, paymentID)
+		claim, err = claimInTx(ctx, tx, qtx, paymentID, true)
 		return err
 	})
 	if err != nil {
@@ -105,29 +105,18 @@ func (m *Payments) InsertAndClaimRefund(ctx context.Context, p *Payment) (*Refun
 
 	var claim *RefundClaim
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
-		dbPayment, err := qtx.InsertPayment(ctx, db.InsertPaymentParams{
-			BookingID: data.UUIDToPg(p.BookingID),
-			ComplexID: data.UUIDToPg(p.ComplexID),
-			//nolint:gosec // G115: currency amount (cents) from MercadoPago's own payment amount; far below int32 range.
-			Amount: int32(p.Amount),
-			Method: db.PaymentMethod(p.Method),
-			Status: db.PaymentStatus(p.Status),
-			//nolint:gosec // G115: currency amount (cents) derived from a bounded calculation; far below int32 range.
-			ServiceFee:     int32(p.ServiceFee),
-			MpPaymentID:    data.TextToPg(p.MPPaymentID),
-			MpPreferenceID: data.TextToPg(p.MPPreferenceID),
-			StatusDetail:   data.TextToPg(p.StatusDetail),
-		})
+		dbPayment, err := qtx.InsertPayment(ctx, insertPaymentParams(p))
 		if err != nil {
 			return fmt.Errorf("insert payment: %w", err)
 		}
-		claim, err = claimInTx(ctx, tx, qtx, data.PgToUUID(dbPayment.ID))
+		// The booking is settled, so it carries no refund-intent marker
+		// (bookings_refund_intent_only_when_cancelled), and clearing one would only
+		// bump its updated_at and refuse an owner edit in progress as a conflict.
+		claim, err = claimInTx(ctx, tx, qtx, data.PgToUUID(dbPayment.ID), false)
 		if err != nil {
 			return err
 		}
-		p.ID = data.PgToUUID(dbPayment.ID)
-		p.CreatedAt = data.PgToTime(dbPayment.CreatedAt)
-		p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
+		p.fillInserted(dbPayment)
 		return nil
 	})
 	if err != nil {
@@ -138,8 +127,9 @@ func (m *Payments) InsertAndClaimRefund(ctx context.Context, p *Payment) (*Refun
 
 // claimInTx is the claim itself, run inside the caller's transaction: lock the
 // payment, check it may be refunded, mark it refund_pending and commit a durable
-// attempt row with it.
-func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.UUID) (*RefundClaim, error) {
+// attempt row with it. clearIntent clears the booking's refund-intent marker in the
+// same transaction, for the claims that marker was set ahead of.
+func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.UUID, clearIntent bool) (*RefundClaim, error) {
 	locked, err := qtx.GetPaymentByIDForUpdate(ctx, db.GetPaymentByIDForUpdateParams{
 		ID:        data.UUIDToPg(paymentID),
 		ComplexID: data.TenantParam(ctx),
@@ -187,8 +177,10 @@ func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.U
 	// a separate round trip — is what keeps the crash window closed: a crash
 	// between this commit and a later clear would reopen exactly the gap the
 	// marker exists to cover.
-	if err := clearRefundIntent(ctx, tx, claim.BookingID); err != nil {
-		return nil, err
+	if clearIntent {
+		if err := clearRefundIntent(ctx, tx, claim.BookingID); err != nil {
+			return nil, err
+		}
 	}
 	return claim, nil
 }

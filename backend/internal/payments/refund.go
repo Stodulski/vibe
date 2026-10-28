@@ -156,12 +156,12 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	wasLive := liveBooking(booking.Status)
 	cancelledByRefund := false
 
-	// A live booking another MercadoPago payment still holds money for stays as it is:
+	// A booking another MercadoPago payment still holds money for stays as it is:
 	// the refund is of this payment alone, a duplicate refunded from MercadoPago's own
 	// panel. Cash and transfer rows do not count here, so refunding the deposit of a
 	// booking with a counter payment still cancels it as before.
 	paidElsewhere := false
-	if isFullRefund && liveBooking(booking.Status) {
+	if isFullRefund && booking.Status != bookingstore.BookingStatusCancelled {
 		var err error
 		paidElsewhere, err = s.bookingHoldsOtherMercadoPagoMoney(ctx, booking.ID, mpPaymentID)
 		if err != nil {
@@ -170,6 +170,12 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	}
 
 	switch {
+	case paidElsewhere && mpPayment.Status == "charged_back":
+		// The booking's status and refund state are written back unchanged; the write
+		// is for the chargeback note added above.
+		if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+			return fmt.Errorf("record the chargeback of payment %s on a booking paid by another: %w", mpPaymentID, err)
+		}
 	case paidElsewhere:
 		if err := s.ledger.Update(ctx, payment); err != nil {
 			return fmt.Errorf("record the refund of payment %s on a booking paid by another: %w", mpPaymentID, err)
@@ -241,15 +247,12 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 // bookingHoldsOtherMercadoPagoMoney reports whether a MercadoPago payment of the
 // booking, other than mpPaymentID, still holds money the complex received.
 func (s *Service) bookingHoldsOtherMercadoPagoMoney(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) (bool, error) {
-	payments, err := s.payments.ListByBookingID(ctx, bookingID)
+	holding, err := s.otherPaymentsHoldingMoney(ctx, bookingID, mpPaymentID)
 	if err != nil {
-		return false, fmt.Errorf("look up the payments of booking %s: %w", bookingID, err)
+		return false, err
 	}
-	for _, p := range payments {
-		if p.MPPaymentID == nil || *p.MPPaymentID == "" || *p.MPPaymentID == mpPaymentID {
-			continue
-		}
-		if paymentstore.ReceivedMoney(p.Status) {
+	for _, p := range holding {
+		if p.MPPaymentID != nil && *p.MPPaymentID != "" {
 			return true, nil
 		}
 	}

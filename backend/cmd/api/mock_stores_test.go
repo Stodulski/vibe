@@ -1057,7 +1057,7 @@ type mockPaymentStore struct {
 	ListByBookingIDFn         func(ctx context.Context, bookingID uuid.UUID) ([]*paymentstore.Payment, error)
 	GetByMPPaymentFn          func(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
 	UpdateFn                  func(ctx context.Context, payment *paymentstore.Payment) error
-	InsertAndClaimRefundFn func(ctx context.Context, payment *paymentstore.Payment) (*paymentstore.RefundClaim, error)
+	InsertAndClaimRefundFn    func(ctx context.Context, payment *paymentstore.Payment) (*paymentstore.RefundClaim, error)
 	ClaimRefundFn             func(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
 	RecordRefundSuccessFn     func(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (int, error)
 	RecordRefundFailureFn     func(ctx context.Context, claim paymentstore.RefundClaim, cause string) (bool, error)
