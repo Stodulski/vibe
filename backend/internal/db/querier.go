@@ -393,6 +393,12 @@ type Querier interface {
 	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
+	// Marks a cancelled booking's cash or transfer balance as owed back by hand, so
+	// the owner's manual-refund action becomes available. Only refund_status moves,
+	// and only from 'none': the refund path runs after its own read, and a
+	// whole-row write from that snapshot would revert whatever another writer (an
+	// owner edit) changed in between. A row already past 'none' is left alone.
+	MarkBookingManualBalanceOwed(ctx context.Context, id pgtype.UUID) (int64, error)
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.

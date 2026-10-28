@@ -974,15 +974,17 @@ func bookingRefundStatusAfterRefund(manualOwedCentavos int) bookingstore.RefundS
 // cancellation policy has said the client is owed a refund, and when no automatic
 // row was claimed, so nothing else writes the booking's refund status in this call.
 // A failed write is alerted, and the caller's booking keeps the status the row holds.
+//
+// Only refund_status is written (MarkManualBalanceOwed), never the whole row: the
+// booking here is the snapshot read before the refund ran, and writing it back
+// would revert an owner edit that landed in between.
 func (s *Service) markManualBalanceOwed(ctx context.Context, booking *bookingstore.Booking) {
 	if booking.RefundStatus != bookingstore.RefundStatusNone {
 		return
 	}
-	written := *booking
-	written.RefundStatus = bookingstore.RefundStatusPartial
 	// Detached from the caller: a client closing the tab must not leave the owner
 	// without the status that lets them act on the money.
-	if err := s.bookings.Update(context.WithoutCancel(ctx), &written); err != nil {
+	if err := s.bookings.MarkManualBalanceOwed(context.WithoutCancel(ctx), booking); err != nil {
 		s.logger.Error("auto-refund: could not record the cash balance as owed by hand",
 			"error", err, "booking_id", booking.ID)
 		sentry.CaptureMessage(fmt.Sprintf("MANUAL BALANCE NOT RECORDED (booking reads 'none', owed by hand): booking_id=%s complex_id=%s", booking.ID, booking.ComplexID))

@@ -326,6 +326,9 @@ type BookingUpdater interface {
 	// UpdateIfUnchanged writes only while the row still carries the updated_at
 	// the caller read; a row that moved answers data.ErrEditConflict.
 	UpdateIfUnchanged(ctx context.Context, booking *bookingstore.Booking) error
+	// MarkManualBalanceOwed moves refund_status from 'none' to 'partial' and
+	// writes no other column.
+	MarkManualBalanceOwed(ctx context.Context, booking *bookingstore.Booking) error
 }
 
 // BookingStatsQuerier computes dashboard and reporting aggregates over bookings.

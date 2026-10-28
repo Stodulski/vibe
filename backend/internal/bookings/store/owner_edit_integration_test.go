@@ -196,3 +196,62 @@ func TestInsertSafeWithPaymentWritesTheBookingAndItsPayment(t *testing.T) {
 		t.Errorf("want exactly one counter payment for the booking; found %d", payments)
 	}
 }
+
+// Marking a cancelled booking's cash balance as owed moves refund_status and
+// nothing else, so an owner edit that landed after the refund path read the
+// booking survives it. A row already past 'none' is left where it is.
+func TestMarkManualBalanceOwedMovesOnlyTheRefundStatus(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+
+	booking := f.NewBooking(datatest.BookingOptions{Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusDepositPaid})
+	if err := f.Stores.Bookings.InsertSafe(ctx, booking); err != nil {
+		t.Fatalf("inserting the booking: %v", err)
+	}
+
+	// The refund path's snapshot, taken before the owner's edit below.
+	snapshot, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
+	if err != nil {
+		t.Fatalf("reading the booking: %v", err)
+	}
+
+	edited, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
+	if err != nil {
+		t.Fatalf("reading the booking for the edit: %v", err)
+	}
+	note := "client called to cancel"
+	edited.Notes = &note
+	if err := f.Stores.Bookings.Update(ctx, edited); err != nil {
+		t.Fatalf("the owner's edit: %v", err)
+	}
+
+	if err := f.Stores.Bookings.MarkManualBalanceOwed(ctx, snapshot); err != nil {
+		t.Fatalf("marking the balance owed: %v", err)
+	}
+
+	stored, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
+	if err != nil {
+		t.Fatalf("reading the booking back: %v", err)
+	}
+	if stored.RefundStatus != bookingstore.RefundStatusPartial {
+		t.Errorf("want refund_status %q; got %q", bookingstore.RefundStatusPartial, stored.RefundStatus)
+	}
+	if stored.Notes == nil || *stored.Notes != note {
+		t.Errorf("the owner's edit must survive; want notes %q, got %v", note, stored.Notes)
+	}
+
+	stored.RefundStatus = bookingstore.RefundStatusFull
+	if err := f.Stores.Bookings.Update(ctx, stored); err != nil {
+		t.Fatalf("settling the refund: %v", err)
+	}
+	if err := f.Stores.Bookings.MarkManualBalanceOwed(ctx, snapshot); err != nil {
+		t.Fatalf("marking a settled booking: %v", err)
+	}
+	again, err := f.Stores.Bookings.GetByID(ctx, booking.ID)
+	if err != nil {
+		t.Fatalf("reading the booking again: %v", err)
+	}
+	if again.RefundStatus != bookingstore.RefundStatusFull {
+		t.Errorf("a row past 'none' must be left alone; got %q", again.RefundStatus)
+	}
+}

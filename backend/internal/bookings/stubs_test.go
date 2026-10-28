@@ -133,6 +133,15 @@ func (s *stubStore) UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booki
 	return s.Update(ctx, b)
 }
 
+// MarkManualBalanceOwed applies the same single-column write the real store
+// does to the stub's own row: refund_status moves only from 'none'.
+func (s *stubStore) MarkManualBalanceOwed(_ context.Context, b *bookingstore.Booking) error {
+	if b.RefundStatus == bookingstore.RefundStatusNone {
+		b.RefundStatus = bookingstore.RefundStatusPartial
+	}
+	return nil
+}
+
 func (s *stubStore) Update(ctx context.Context, b *bookingstore.Booking) error {
 	// bookingstore hands ctx to pgx, which fails a statement on a context that is
 	// already done when the statement is issued, so the write never lands. The

@@ -44,12 +44,13 @@ func TestCancellingACashOnlyBookingLeavesItOpenForTheManualRefund(t *testing.T) 
 		t.Fatalf("the cash balance is owed by hand; want %q for 150000, got %q for %d (reason %q)",
 			paymentstore.RefundManual, outcome.Result, outcome.AmountCentavos, outcome.Reason)
 	}
-	if f.bookings.updated == nil {
-		t.Fatal("the cash-only booking must be written with its balance owed by hand; nothing was written")
+	if len(f.bookings.markedOwed) != 1 || f.bookings.markedOwed[0] != booking.ID {
+		t.Fatalf("the cash-only booking must be marked with its balance owed by hand (refund_status partial) so the owner can mark the manual refund; marked %v", f.bookings.markedOwed)
 	}
-	if got := f.bookings.updated.RefundStatus; got != bookingstore.RefundStatusPartial {
-		t.Errorf("want refund_status %q so the owner can mark the manual refund; got %q",
-			bookingstore.RefundStatusPartial, got)
+	// A whole-row write from the snapshot read before the refund would revert
+	// any change another writer (an owner edit) made in between.
+	if f.bookings.updated != nil {
+		t.Errorf("the balance must be marked without rewriting the whole booking; got a full write %+v", f.bookings.updated)
 	}
 	if booking.RefundStatus != bookingstore.RefundStatusPartial {
 		t.Errorf("the caller's booking must carry the status that was written; got %q", booking.RefundStatus)

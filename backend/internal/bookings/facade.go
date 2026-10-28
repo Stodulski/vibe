@@ -17,6 +17,7 @@ import (
 type FacadeStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
 	Update(ctx context.Context, b *bookingstore.Booking) error
+	MarkManualBalanceOwed(ctx context.Context, b *bookingstore.Booking) error
 	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
 	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
@@ -77,6 +78,13 @@ func (f *Facade) GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booki
 // payments.BookingStore declares this signature.
 func (f *Facade) Update(ctx context.Context, b *bookingstore.Booking) error {
 	return f.store.Update(ctx, b)
+}
+
+// MarkManualBalanceOwed moves a booking's refund_status from 'none' to
+// 'partial' and writes nothing else. Exported for payments, which marks a
+// cancelled booking's cash balance as owed by hand without rewriting the row.
+func (f *Facade) MarkManualBalanceOwed(ctx context.Context, b *bookingstore.Booking) error {
+	return f.store.MarkManualBalanceOwed(ctx, b)
 }
 
 // GetByComplex returns a complex's bookings for a date range. Exported for

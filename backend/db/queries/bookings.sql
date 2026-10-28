@@ -181,3 +181,13 @@ SELECT * FROM bookings WHERE false;
 -- name: GetNextBookingByClientPhone :one
 -- Kept for backwards compatibility with generated code. No longer used by business logic.
 SELECT * FROM bookings WHERE false LIMIT 1;
+
+-- name: MarkBookingManualBalanceOwed :execrows
+-- Marks a cancelled booking's cash or transfer balance as owed back by hand, so
+-- the owner's manual-refund action becomes available. Only refund_status moves,
+-- and only from 'none': the refund path runs after its own read, and a
+-- whole-row write from that snapshot would revert whatever another writer (an
+-- owner edit) changed in between. A row already past 'none' is left alone.
+UPDATE bookings
+SET refund_status = 'partial'
+WHERE id = $1 AND refund_status = 'none';

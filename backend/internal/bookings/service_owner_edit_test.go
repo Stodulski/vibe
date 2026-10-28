@@ -40,6 +40,13 @@ func (r *racingStore) Update(_ context.Context, b *bookingstore.Booking) error {
 	return nil
 }
 
+func (r *racingStore) MarkManualBalanceOwed(_ context.Context, _ *bookingstore.Booking) error {
+	if r.row.RefundStatus == bookingstore.RefundStatusNone {
+		r.row.RefundStatus = bookingstore.RefundStatusPartial
+	}
+	return nil
+}
+
 func (r *racingStore) UpdateIfUnchanged(_ context.Context, b *bookingstore.Booking) error {
 	if !r.row.UpdatedAt.Equal(b.UpdatedAt) {
 		return data.ErrEditConflict

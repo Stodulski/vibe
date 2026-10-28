@@ -811,6 +811,10 @@ func (m *mockBookingStore) UpdateIfUnchanged(ctx context.Context, booking *booki
 	return m.Update(ctx, booking)
 }
 
+func (m *mockBookingStore) MarkManualBalanceOwed(context.Context, *bookingstore.Booking) error {
+	return nil
+}
+
 func (m *mockBookingStore) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error) {
 	return nil, nil
 }

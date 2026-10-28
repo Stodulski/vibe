@@ -523,6 +523,25 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 	return i, err
 }
 
+const markBookingManualBalanceOwed = `-- name: MarkBookingManualBalanceOwed :execrows
+UPDATE bookings
+SET refund_status = 'partial'
+WHERE id = $1 AND refund_status = 'none'
+`
+
+// Marks a cancelled booking's cash or transfer balance as owed back by hand, so
+// the owner's manual-refund action becomes available. Only refund_status moves,
+// and only from 'none': the refund path runs after its own read, and a
+// whole-row write from that snapshot would revert whatever another writer (an
+// owner edit) changed in between. A row already past 'none' is left alone.
+func (q *Queries) MarkBookingManualBalanceOwed(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markBookingManualBalanceOwed, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const markReminderSent2h = `-- name: MarkReminderSent2h :exec
 UPDATE bookings
 SET reminder_sent_2h = true, updated_at = NOW()

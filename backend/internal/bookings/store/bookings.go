@@ -812,6 +812,24 @@ func (m *Store) UpdateIfUnchanged(ctx context.Context, b *Booking) error {
 	return nil
 }
 
+// MarkManualBalanceOwed moves the booking's refund_status from 'none' to
+// 'partial' and writes no other column (see MarkBookingManualBalanceOwed in
+// db/queries/bookings.sql). A row already past 'none' is left as it is, which
+// is not an error: something else already decided where its refund stands.
+func (m *Store) MarkManualBalanceOwed(ctx context.Context, b *Booking) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
+
+	if _, err := m.Q.MarkBookingManualBalanceOwed(ctx, data.UUIDToPg(b.ID)); err != nil {
+		return fmt.Errorf("mark booking %s manual balance owed: %w", b.ID, err)
+	}
+	return nil
+}
+
 // GetBookedSlotsByCourtIDs returns the time slots already booked across multiple courts on the given date.
 //
 // "Booked" here is the canonical predicate — see db/queries/bookings.sql. It
