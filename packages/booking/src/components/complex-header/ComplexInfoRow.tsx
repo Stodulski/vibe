@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import { MapPin, Phone, Mail } from "lucide-react";
 import { InstagramIcon, WhatsappIcon } from "@vibe/ui";
 import { BOOKING_MESSAGES } from "../../messages";
@@ -21,6 +22,38 @@ function InstagramLink({ name, handle }: { name: string; handle: string }) {
       <InstagramIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
       <span>@{handle}</span>
     </a>
+  );
+}
+
+/** The club's WhatsApp chat for the same number as the phone, opened in a new tab. */
+function WhatsAppLink({ name, href }: { name: string; href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${name}`}
+      className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+    >
+      <WhatsappIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
+      <span>{BOOKING_MESSAGES.publicBooking.whatsAppLabel}</span>
+    </a>
+  );
+}
+
+/** A detail the club has not filled in, muted so it reads as missing rather than as a link. */
+function MissingDetail({
+  icon: Icon,
+  label,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  return (
+    <div className="text-text-tertiary flex items-center gap-2">
+      <Icon className="size-3 shrink-0 sm:size-3.5" />
+      <span>{label}</span>
+    </div>
   );
 }
 
@@ -76,18 +109,7 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
       )}
 
       {/* The same number, reached by chat: its own row, under the call. */}
-      {whatsAppHref && (
-        <a
-          href={whatsAppHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${complex.name}`}
-          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
-        >
-          <WhatsappIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
-          <span>{BOOKING_MESSAGES.publicBooking.whatsAppLabel}</span>
-        </a>
-      )}
+      {whatsAppHref && <WhatsAppLink name={complex.name} href={whatsAppHref} />}
 
       {complex.email ? (
         <a
@@ -101,19 +123,16 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
           <span>{complex.email}</span>
         </a>
       ) : (
-        <div className="text-text-tertiary flex items-center gap-2">
-          <Mail className="size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
-          <span>{t.publicBooking.noEmail}</span>
-        </div>
+        <MissingDetail icon={Mail} label={t.publicBooking.noEmail} />
       )}
 
       {complex.instagram ? (
         <InstagramLink name={complex.name} handle={complex.instagram} />
       ) : (
-        <div className="text-text-tertiary flex items-center gap-2">
-          <InstagramIcon className="size-3 shrink-0 sm:size-3.5" />
-          <span>{t.publicBooking.noInstagram}</span>
-        </div>
+        <MissingDetail
+          icon={InstagramIcon}
+          label={t.publicBooking.noInstagram}
+        />
       )}
     </div>
   );
