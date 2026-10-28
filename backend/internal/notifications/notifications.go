@@ -31,6 +31,7 @@ type Mailer interface {
 	SendReminder2h(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, balanceAmount, cancelURL string) error
 	SendBookingCancelled(ctx context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string) error
 	SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string) error
+	SendRefundDelayed(ctx context.Context, to, complexName, amount, bookURL string) error
 	SendOwnerNewBooking(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendOwnerBookingCancelled(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendOwnerBookingRefunded(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
@@ -226,7 +227,7 @@ func (s *Service) DepositRefunded(ref Refund) {
 		s.queue.Enqueue(TaskEmailDepositRefunded, depositRefundedEmail{
 			Email: ref.Email, ComplexName: ref.ComplexName,
 			Amount: ref.Amount, BookURL: ref.BookURL,
-		}, dedup(TaskEmailDepositRefunded, ref.Email, ref.BookingID))
+		}, dedup(TaskEmailDepositRefunded, ref.Email, refundSubject(ref)))
 	}
 	if s.wantsWhatsApp(ref.Phone) {
 		if ref.BookPath == "" {
@@ -235,9 +236,38 @@ func (s *Service) DepositRefunded(ref Refund) {
 			s.queue.Enqueue(TaskWADepositRefunded, waDepositRefunded{
 				Phone: ref.Phone, ComplexName: ref.ComplexName,
 				Amount: ref.Amount, BookPath: ref.BookPath,
-			}, dedup(TaskWADepositRefunded, ref.Phone, ref.BookingID))
+			}, dedup(TaskWADepositRefunded, ref.Phone, refundSubject(ref)))
 		}
 	}
+}
+
+// refundSubject is what a refund notice is about, for its deduplication key: the
+// booking and which refund of it this is. A booking refunded in parts has one
+// notice per part, so the booking alone would let the queue drop every part after
+// the first as a redelivery. A notice missing either half gets no key at all, the
+// same honest answer dedup gives every other blank subject.
+func refundSubject(ref Refund) string {
+	if ref.BookingID == "" || ref.RefundID == "" {
+		return ""
+	}
+	return ref.BookingID + ":" + ref.RefundID
+}
+
+// RefundDelayed tells the client that their refund is taking longer than expected
+// and is still being processed, and that the complex will contact them if it cannot
+// be completed. It is the notice for a refund that spent its retry budget. The refund
+// can still arrive through MercadoPago, so the copy never asks the club to pay by
+// hand. It is keyed the way every refund notice is, so a redelivery is one email.
+// Email only: a WhatsApp variant needs a Meta-approved template for this notice first,
+// and there is none yet.
+func (s *Service) RefundDelayed(ref Refund) {
+	if ref.Email == "" {
+		return
+	}
+	s.queue.Enqueue(TaskEmailRefundDelayed, refundDelayedEmail{
+		Email: ref.Email, ComplexName: ref.ComplexName,
+		Amount: ref.Amount, BookURL: ref.BookURL,
+	}, dedup(TaskEmailRefundDelayed, ref.Email, refundSubject(ref)))
 }
 
 // EmailVerification asks a new account to confirm its address.

@@ -892,6 +892,12 @@ func (s *Service) ManualRefund(ctx context.Context, complexID uuid.UUID, actor A
 			// the read above and the write.
 			return ManualRefundResult{}, &StateError{Message: noManualRefundOwedMessage}
 		}
+		if errors.Is(err, paymentstore.ErrMercadoPagoRefundPending) {
+			// A conflict with the booking's current refund, not a request the
+			// owner got wrong: it is answered 409 like a double-booking, and it
+			// clears itself once the MercadoPago refund settles.
+			return ManualRefundResult{}, &ConflictError{Message: mercadoPagoRefundPendingMessage}
+		}
 		return ManualRefundResult{}, err
 	}
 
@@ -912,3 +918,8 @@ func (s *Service) ManualRefund(ctx context.Context, complexID uuid.UUID, actor A
 // pre-check against the booking as it was read, and the store's own re-check
 // under the lock.
 const noManualRefundOwedMessage = "esta reserva no tiene una devolución manual pendiente"
+
+// mercadoPagoRefundPendingMessage is the sentence the owner reads while a MercadoPago
+// refund on the booking has not settled. It names the one thing blocking the close-out
+// and what clears it.
+const mercadoPagoRefundPendingMessage = "esta reserva tiene una devolución de MercadoPago pendiente; hasta que se resuelva no se puede cerrar la devolución manual"

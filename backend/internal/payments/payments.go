@@ -166,6 +166,9 @@ type Provider interface {
 type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation)
 	DepositRefunded(r notifications.Refund)
+	// RefundDelayed tells the client a refund is taking longer than expected and is
+	// still being processed (the retry budget is spent, and the refund can still arrive).
+	RefundDelayed(r notifications.Refund)
 	OwnerBookingRefunded(r notifications.OwnerBookingRefund)
 }
 

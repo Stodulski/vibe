@@ -19,4 +19,10 @@ var (
 	// it locks does not read 'partial_refund' at write time — either it never
 	// did, or another request already closed it out.
 	ErrNoManualRefundOwed = errors.New("no manual refund owed")
+	// ErrMercadoPagoRefundPending is returned by RecordManualRefund while a
+	// MercadoPago payment on the booking still reads refund_pending. Its money is
+	// on its way back (or has exhausted its retries and is still owed), so closing
+	// the booking out now would read as fully returned while that payment is still
+	// unsettled. The close-out waits for it.
+	ErrMercadoPagoRefundPending = errors.New("mercadopago refund pending on booking")
 )
