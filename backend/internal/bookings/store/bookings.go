@@ -1235,19 +1235,38 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 // past midnight; `date < today` was true the moment the clock rolled over, so
 // the cron marked a game completed while it was in progress — and a completed
 // booking no longer blocks deleting its court.
-func (m *Store) CompletePastBookings(ctx context.Context) (int64, error) {
+//
+// It returns the complex of every booking it completed, one entry per booking,
+// so the caller knows which owners' calendars changed and how many bookings
+// moved. RETURNING reads the rows that the same statement updated, so the list
+// is exactly the set the update committed.
+func (m *Store) CompletePastBookings(ctx context.Context) ([]uuid.UUID, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	result, err := m.DB.Exec(ctx, `
+	rows, err := m.DB.Query(ctx, `
 		UPDATE bookings
 		SET status = 'completed', updated_at = NOW()
 		WHERE status = 'confirmed'
-		  AND upper(span) <= NOW()`)
+		  AND upper(span) <= NOW()
+		RETURNING complex_id`)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+
+	var complexIDs []uuid.UUID
+	for rows.Next() {
+		var complexID pgtype.UUID
+		if err := rows.Scan(&complexID); err != nil {
+			return nil, fmt.Errorf("bookings: scan completed booking: %w", err)
+		}
+		complexIDs = append(complexIDs, data.PgToUUID(complexID))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: complete past bookings: %w", err)
+	}
+	return complexIDs, nil
 }
 
 // HasActiveBookingsByCourt reports whether the court still owes anyone their

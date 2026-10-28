@@ -117,6 +117,13 @@ var ErrClientBlocked = errors.New("bookings: the client is blocked")
 // committed booking.
 var ErrSlotTaken = errors.New("bookings: the selected time slot is no longer available")
 
+// checkoutCleanupBudget bounds the detached writes a failed checkout makes: the
+// cancellation of its booking and the release of its slot lock. Each is one
+// statement and fits well inside it. The bound is needed because
+// context.WithoutCancel strips the caller's deadline as well as its cancellation,
+// and this repository sets no statement timeout.
+const checkoutCleanupBudget = 5 * time.Second
+
 // PublicBook holds a slot, creates the booking as pending, and creates the
 // MercadoPago checkout. The booking is only confirmed when the payment webhook
 // lands. If anything fails after the slot is held it is released, or it stays
@@ -306,7 +313,12 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// the booking spanned. Now that a booking's length is chosen per request
 	// rather than assembled from repeats of the court's own slot length, there
 	// is one span and one lock for it.
-	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, in.Date, in.StartTime, lockEndTime, nil, s.cfg.SlotLockTTL); lockErr != nil {
+	//
+	// holder names this checkout's lock. Every release this checkout makes names
+	// it too, so a lock whose TTL ran out and was taken over by another checkout
+	// is never freed from here.
+	holder := uuid.NewString()
+	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, in.Date, in.StartTime, lockEndTime, nil, holder, s.cfg.SlotLockTTL); lockErr != nil {
 		if errors.Is(lockErr, bookingstore.ErrSlotLocked) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -315,7 +327,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 
 	if err := s.store.InsertSafe(ctx, booking); err != nil {
 		// Release the slot lock on insert failure.
-		s.releaseSlotLock(ctx, in.CourtID, in.Date, in.StartTime)
+		s.releaseCheckoutLock(ctx, in.CourtID, in.Date, in.StartTime, holder)
 		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -401,14 +413,23 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		)
 		// Cancel the booking so the slot is freed immediately instead of
 		// blocking it for 15 minutes until the expiration sweep runs.
+		//
+		// The client may have left while MercadoPago was refusing the checkout,
+		// and that cancels ctx. A cancelled context fails the write before it
+		// reaches PostgreSQL, so the booking would stay pending and the slot
+		// taken until the sweep. Detach from that cancellation, and keep a
+		// deadline so a wedged database cannot hold this request's goroutine.
 		booking.Status = "cancelled"
-		if cancelErr := s.store.Update(ctx, booking); cancelErr != nil {
+		cancelCtx, cancelWrite := context.WithTimeout(context.WithoutCancel(ctx), checkoutCleanupBudget)
+		cancelErr := s.store.Update(cancelCtx, booking)
+		cancelWrite()
+		if cancelErr != nil {
 			s.logger.Error("public booking: failed to cancel booking after MP preference failure",
 				"error", cancelErr,
 				"booking_id", booking.ID,
 			)
 		}
-		s.releaseSlotLock(ctx, in.CourtID, in.Date, in.StartTime)
+		s.releaseCheckoutLock(ctx, in.CourtID, in.Date, in.StartTime, holder)
 		return PublicBookResult{}, ErrCheckoutUnavailable
 	}
 
@@ -436,6 +457,23 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 
 	result.Preference = pref
 	return result, nil
+}
+
+// releaseCheckoutLock frees the slot lock this checkout took, and only while the
+// lock still names this checkout's holder token. A plain release would free the
+// lock of whichever checkout took the slot over after this one's TTL ran out.
+// Errors are logged rather than returned: the lock's own TTL is the backstop,
+// as it is for releaseSlotLock.
+//
+// Detached from the caller's cancellation, for the reason checkoutCleanupBudget
+// gives: every call site is a failure path, and the client may have left.
+func (s *Service) releaseCheckoutLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkoutCleanupBudget)
+	defer cancel()
+
+	if relErr := s.locks.ReleaseHeldLock(ctx, courtID, date, startTime, holder); relErr != nil {
+		s.logger.Error("failed to release checkout slot lock", "error", relErr, "court_id", courtID, "slot_start", startTime)
+	}
 }
 
 // createMPPreferenceWithRetry creates a MercadoPago preference, retrying once
