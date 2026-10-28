@@ -723,10 +723,13 @@ func (s *Service) UpdateSchedules(ctx context.Context, complexID uuid.UUID, acto
 // verifier; it must have been registered by the acting user for this venue,
 // and anything else is ErrOAuthAttemptInvalid with no exchange made. With a
 // codeVerifier (clients that kept it in the browser), that verifier is used
-// and the attempt, if any, is only spent so it cannot be used again.
+// and the attempt, if any, is only spent so it cannot be used again. Either
+// way, a spent attempt is put back when MercadoPago could not answer
+// (mp.ErrOAuthUnavailable), so the owner can retry the same callback.
 func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, actor Actor, code, redirectURI, codeVerifier, state string) (string, error) {
+	var spent *spentMPOAuthAttempt
 	if state != "" {
-		verifier, err := s.spendMPOAuthAttempt(ctx, complexID, actor, state)
+		attempt, err := s.spendMPOAuthAttempt(ctx, complexID, actor, state)
 		switch {
 		case codeVerifier != "":
 			if err != nil && !errors.Is(err, ErrOAuthAttemptInvalid) {
@@ -735,8 +738,9 @@ func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, a
 		case err != nil:
 			return "", err
 		default:
-			codeVerifier = verifier
+			codeVerifier = attempt.verifier
 		}
+		spent = attempt
 	}
 
 	tokens, err := s.payments.ExchangeOAuthCode(ctx, code, redirectURI, codeVerifier)
@@ -747,6 +751,9 @@ func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, a
 			s.logger.Warn("mp connect: oauth code rejected", "error", err, "complex_id", complexID)
 		} else {
 			s.logger.Error("mp connect: oauth exchange failed", "error", err, "complex_id", complexID)
+		}
+		if errors.Is(err, mp.ErrOAuthUnavailable) && spent != nil {
+			s.restoreMPOAuthAttempt(ctx, complexID, spent)
 		}
 		return "", fmt.Errorf("failed to connect MercadoPago: %w", err)
 	}
@@ -773,33 +780,69 @@ type mpOAuthAttemptRecord struct {
 	CodeVerifier string    `json:"code_verifier"`
 }
 
+// mpOAuthAttemptScope is what an attempt is stored under besides its state:
+// the venue and the user who started it. Only the same user connecting the
+// same venue reaches it.
+func mpOAuthAttemptScope(complexID, userID uuid.UUID) string {
+	return complexID.String() + ":" + userID.String()
+}
+
 // RegisterMercadoPagoOAuthAttempt stores the PKCE verifier of an OAuth attempt
 // userID is starting for complexID under its state, for one hour and one use.
-// Registering the same state again replaces it.
+// Registering the same state again replaces it; the owner's oldest attempts
+// beyond mpOAuthAttemptsPerOwner are dropped.
 func (s *Service) RegisterMercadoPagoOAuthAttempt(ctx context.Context, complexID, userID uuid.UUID, state, codeVerifier string) error {
 	payload, err := json.Marshal(mpOAuthAttemptRecord{ComplexID: complexID, UserID: userID, CodeVerifier: codeVerifier})
 	if err != nil {
 		return fmt.Errorf("encoding mercadopago oauth attempt: %w", err)
 	}
-	return s.attempts.Store(ctx, state, payload, mpOAuthAttemptTTL)
+	return s.attempts.Store(ctx, mpOAuthAttemptScope(complexID, userID), state, payload, mpOAuthAttemptTTL)
 }
 
-// spendMPOAuthAttempt consumes the attempt under state and returns its
-// verifier, provided it belongs to this venue and this user.
-func (s *Service) spendMPOAuthAttempt(ctx context.Context, complexID uuid.UUID, actor Actor, state string) (string, error) {
-	payload, err := s.attempts.Consume(ctx, state)
+// spentMPOAuthAttempt is an attempt taken out of the store, with what it takes
+// to put it back.
+type spentMPOAuthAttempt struct {
+	scope, state string
+	payload      []byte
+	verifier     string
+}
+
+// spendMPOAuthAttempt consumes the acting user's attempt under state for this
+// venue and returns it. Nobody else's attempt is ever touched: the scope is
+// part of the key.
+func (s *Service) spendMPOAuthAttempt(ctx context.Context, complexID uuid.UUID, actor Actor, state string) (*spentMPOAuthAttempt, error) {
+	if actor.UserID == nil {
+		return nil, ErrOAuthAttemptInvalid
+	}
+	scope := mpOAuthAttemptScope(complexID, *actor.UserID)
+	payload, err := s.attempts.Consume(ctx, scope, state)
 	if err != nil {
-		return "", err
+		if errors.Is(err, ErrOAuthAttemptInvalid) {
+			s.logger.Warn("mp connect: no oauth attempt for this owner and venue", "complex_id", complexID)
+		}
+		return nil, err
 	}
 	var rec mpOAuthAttemptRecord
 	if err := json.Unmarshal(payload, &rec); err != nil {
-		return "", fmt.Errorf("decoding mercadopago oauth attempt: %w", err)
+		return nil, fmt.Errorf("decoding mercadopago oauth attempt: %w", err)
 	}
-	if rec.ComplexID != complexID || actor.UserID == nil || rec.UserID != *actor.UserID {
+	// The scope already says whose it is; the record agreeing is a second check.
+	if rec.ComplexID != complexID || rec.UserID != *actor.UserID {
 		s.logger.Warn("mp connect: oauth attempt does not belong to this owner or venue", "complex_id", complexID)
-		return "", ErrOAuthAttemptInvalid
+		return nil, ErrOAuthAttemptInvalid
 	}
-	return rec.CodeVerifier, nil
+	return &spentMPOAuthAttempt{scope: scope, state: state, payload: payload, verifier: rec.CodeVerifier}, nil
+}
+
+// restoreMPOAuthAttempt puts a spent attempt back for another full TTL, so a
+// callback that failed on MercadoPago's side can be retried. MercadoPago's own
+// code expires long before that, which is what really bounds the retry.
+func (s *Service) restoreMPOAuthAttempt(ctx context.Context, complexID uuid.UUID, spent *spentMPOAuthAttempt) {
+	// The exchange may have failed because the client went away; putting the
+	// attempt back must not depend on the request still being alive.
+	if err := s.attempts.Store(context.WithoutCancel(ctx), spent.scope, spent.state, spent.payload, mpOAuthAttemptTTL); err != nil {
+		s.logger.Warn("mp connect: could not put the oauth attempt back", "error", err, "complex_id", complexID)
+	}
 }
 
 // DisconnectMercadoPago drops the owner's stored credentials. It is refused
