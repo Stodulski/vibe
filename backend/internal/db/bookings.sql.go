@@ -195,7 +195,7 @@ func (q *Queries) GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByI
 const getBookingsByComplex = `-- name: GetBookingsByComplex :many
 SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
 WHERE complex_id = $1
-  AND date BETWEEN $2 AND $3
+  AND span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
   AND (date, id) > ($4, $5)
 ORDER BY date ASC, id ASC
 LIMIT $6
@@ -203,20 +203,25 @@ LIMIT $6
 
 type GetBookingsByComplexParams struct {
 	ComplexID pgtype.UUID `json:"complex_id"`
+	D         pgtype.Date `json:"d"`
+	D_2       pgtype.Date `json:"d_2"`
 	Date      pgtype.Date `json:"date"`
 	Date_2    pgtype.Date `json:"date_2"`
-	Date_3    pgtype.Date `json:"date_3"`
-	Date_4    pgtype.Date `json:"date_4"`
 	Limit     int32       `json:"limit"`
 }
 
+// Overlapping the days asked for, not starting on them: a booking that runs
+// 23:00 to 01:00 occupies both days, and an owner looking at the next morning
+// has to see the hours it is still holding. Same predicate as the owner list in
+// internal/bookings/store (GetByComplex); see local_day() in
+// db/migrations/001_init.sql.
 func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByComplexParams) ([]Booking, error) {
 	rows, err := q.db.Query(ctx, getBookingsByComplex,
 		arg.ComplexID,
+		arg.D,
+		arg.D_2,
 		arg.Date,
 		arg.Date_2,
-		arg.Date_3,
-		arg.Date_4,
 		arg.Limit,
 	)
 	if err != nil {

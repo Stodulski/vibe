@@ -29,9 +29,14 @@ WHERE id = $1
        OR complex_id = sqlc.narg('complex_id')::uuid);
 
 -- name: GetBookingsByComplex :many
+-- Overlapping the days asked for, not starting on them: a booking that runs
+-- 23:00 to 01:00 occupies both days, and an owner looking at the next morning
+-- has to see the hours it is still holding. Same predicate as the owner list in
+-- internal/bookings/store (GetByComplex); see local_day() in
+-- db/migrations/001_init.sql.
 SELECT * FROM bookings
 WHERE complex_id = $1
-  AND date BETWEEN $2 AND $3
+  AND span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
   AND (date, id) > ($4, $5)
 ORDER BY date ASC, id ASC
 LIMIT $6;

@@ -89,6 +89,13 @@ type Recorder interface {
 	Record(e audit.Entry)
 }
 
+// Broadcaster announces that a complex's bookings changed, so an owner's open
+// calendar refreshes without a reload. It is the same port the booking domain
+// publishes through; the realtime hub satisfies it.
+type Broadcaster interface {
+	PublishBookingChanged(complexID uuid.UUID)
+}
+
 // Handler serves the court routes. It decodes, validates, and maps the
 // service's domain errors onto HTTP; every rule lives in the Service.
 type Handler struct {

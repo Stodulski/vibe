@@ -179,7 +179,9 @@ FROM bookings b
 JOIN courts c ON c.id = b.court_id
 JOIN clients cl ON cl.id = b.client_id
 WHERE b.complex_id = sqlc.arg(complex_id)::uuid
-  AND b.date = sqlc.arg(booking_date)::date
+  -- Occupies the day rather than starting on it: a 23:00-00:30 booking is
+  -- cash owed on the night it starts and on the next morning's list alike.
+  AND b.span && local_day(sqlc.arg(booking_date)::date)
   AND b.status IN ('confirmed', 'completed')
   AND b.collection_status <> 'fully_paid'
   AND b.price > CASE WHEN b.collection_status = 'deposit_paid' THEN b.deposit_amount ELSE 0 END

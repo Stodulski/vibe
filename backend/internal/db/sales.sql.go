@@ -376,7 +376,9 @@ FROM bookings b
 JOIN courts c ON c.id = b.court_id
 JOIN clients cl ON cl.id = b.client_id
 WHERE b.complex_id = $1::uuid
-  AND b.date = $2::date
+  -- Occupies the day rather than starting on it: a 23:00-00:30 booking is
+  -- cash owed on the night it starts and on the next morning's list alike.
+  AND b.span && local_day($2::date)
   AND b.status IN ('confirmed', 'completed')
   AND b.collection_status <> 'fully_paid'
   AND b.price > CASE WHEN b.collection_status = 'deposit_paid' THEN b.deposit_amount ELSE 0 END
