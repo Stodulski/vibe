@@ -42,10 +42,9 @@ type PaymentReader interface {
 
 // PaymentWriter records a payment and the booking state that follows from it.
 type PaymentWriter interface {
-	// Insert is used by no rule in this module: it is here because the booking
-	// domain reaches the payment ledger through Service rather than through
-	// the payment store, and a service cannot proxy a method its own store
-	// interface does not declare.
+	// Insert writes a payment row and leaves its booking alone. The duplicate-payment
+	// refund is the rule that calls it. The booking domain reaches it through Service
+	// too, since a service can only proxy a method its store interface declares.
 	Insert(ctx context.Context, p *paymentstore.Payment) error
 	Update(ctx context.Context, payment *paymentstore.Payment) error
 	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error

@@ -15,10 +15,12 @@ import (
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
-// A second approved payment on a booking that is already settled used to be
-// dropped without a trace. It is money the complex collected, so it has to be
-// reported; the booking and the payment already recorded must not move.
-func TestASecondApprovedPaymentOnASettledBookingIsReportedNotDropped(t *testing.T) {
+// A second approved payment on a booking that is already settled is money the
+// complex collected for a slot it has already sold, so it goes back to the client
+// in full. Only that payment is recorded and refunded. The booking and the payment
+// that settled it stay exactly as they were, and nothing says the booking was
+// cancelled.
+func TestASecondApprovedPaymentOnASettledBookingIsRefundedAndTheBookingStaysPut(t *testing.T) {
 	for _, status := range []bookingstore.BookingStatus{
 		bookingstore.BookingStatusConfirmed,
 		bookingstore.BookingStatusCompleted,
@@ -31,41 +33,75 @@ func TestASecondApprovedPaymentOnASettledBookingIsReportedNotDropped(t *testing.
 			booking, deposit := paidBooking(complexID)
 			booking.Status = status
 
-			// The deposit already recorded is a different MercadoPago payment from
-			// the one arriving now, which is the case that used to vanish.
+			// The deposit already recorded is a different MercadoPago payment from the
+			// one arriving now. It is the whole ledger, so the second payment is read
+			// alongside it, as the store would read it.
 			recorded := "mp-OLD"
 			deposit.MPPaymentID = &recorded
 			f.payments.byBooking = deposit
+			f.payments.byBookingAll = []*paymentstore.Payment{deposit}
 			f.complexes.complex = linkedComplex(complexID, "111111111")
-
-			mpPayment := &mp.Payment{
+			f.bookings.booking = booking
+			f.provider.payment = &mp.Payment{
 				ID: 123, Status: "approved", TransactionAmount: 1500,
 				CollectorID: 111111111, ExternalReference: booking.ID.String(),
 			}
-			if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
-				t.Fatalf("the money is already captured, so the event must not be requeued; got %v", err)
+
+			// MercadoPago delivers the same event twice. The first delivery refunds the
+			// payment; the second finds it already recorded and does nothing.
+			for delivery := 1; delivery <= 2; delivery++ {
+				if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err != nil {
+					t.Fatalf("delivery %d: the money is captured, so the event must not fail; got %v", delivery, err)
+				}
+			}
+
+			if len(f.payments.insertedRows) != 1 {
+				t.Fatalf("the second payment must be recorded exactly once; got %d rows", len(f.payments.insertedRows))
+			}
+			row := f.payments.insertedRows[0]
+			if row.MPPaymentID == nil || *row.MPPaymentID != "mp-123" {
+				t.Errorf("the recorded row must be the second payment; got %v", row.MPPaymentID)
+			}
+			if row.Status != "refunded" {
+				t.Errorf("the second payment must end refunded; got %q", row.Status)
+			}
+			if len(f.provider.refunds) != 1 {
+				t.Fatalf("one MercadoPago refund across both deliveries; got %d", len(f.provider.refunds))
+			}
+			if want := float64(row.Amount+row.ServiceFee) / 100; f.provider.refunds[0] != want {
+				t.Errorf("the refund must be for that payment's amount, %v pesos; got %v", want, f.provider.refunds[0])
 			}
 
 			if booking.Status != status {
 				t.Errorf("the booking status must not change; got %q, want %q", booking.Status, status)
 			}
+			if booking.RefundStatus != bookingstore.RefundStatusNone || booking.RefundIntentAt != nil {
+				t.Errorf("the booking must not gain a refund or a refund-intent marker; got refund_status=%q intent=%v",
+					booking.RefundStatus, booking.RefundIntentAt)
+			}
 			if deposit.MPPaymentID == nil || *deposit.MPPaymentID != recorded {
 				t.Error("the payment already recorded must not be rewritten to point at the second payment")
 			}
-			if f.payments.inserted != nil || f.payments.confirmed != nil || f.bookings.updated != nil {
-				t.Error("nothing may be written for the second payment")
+			if f.bookings.updated != nil || f.payments.confirmed != nil || f.payments.confirmedBooking != nil || f.payments.insertedBooking != nil {
+				t.Error("the booking must not be written for the second payment")
 			}
-			if _, found := findMessage(sentryEvents.messages(), "SETTLED BOOKING PAID AGAIN"); !found {
-				t.Errorf("the second payment must be reported; captured %q", sentryEvents.messages())
+			if len(f.refundIntents.claimed) != 0 || len(f.refundIntents.cleared) != 0 {
+				t.Error("the refund-intent marker belongs to the cancelled path; this path must not touch it")
+			}
+			if len(f.notify.ownerRefunds) != 0 || len(f.waitlist.freed) != 0 {
+				t.Error("nothing cancelled the booking, so the owner is not told it was refunded and no slot goes to the waitlist")
+			}
+			if len(sentryEvents.messages()) != 0 {
+				t.Errorf("a refund that went through needs no alert; captured %q", sentryEvents.messages())
 			}
 		})
 	}
 }
 
-// The report is only for money the complex actually collected. A payment from
-// another seller is not this club's to chase, so it stays a fraud-alert log
-// line and nothing more.
-func TestASecondPaymentOnASettledBookingFromAForeignCollectorIsNotReported(t *testing.T) {
+// The duplicate path is only for money the complex actually collected. A payment
+// from another seller is neither recorded nor refunded by this complex, so it stays
+// a fraud-alert log line and nothing more.
+func TestASecondPaymentOnASettledBookingFromAForeignCollectorIsNotRefunded(t *testing.T) {
 	sentryEvents := withCapturedSentryEvents(t)
 	f := newFixture(t)
 	complexID := uuid.New()
@@ -82,11 +118,77 @@ func TestASecondPaymentOnASettledBookingFromAForeignCollectorIsNotReported(t *te
 	}
 	_ = f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123")
 
-	if _, found := findMessage(sentryEvents.messages(), "SETTLED BOOKING PAID AGAIN"); found {
-		t.Error("a payment collected by another seller must not be reported as the complex's money")
+	if len(f.payments.insertedRows) != 0 || len(f.provider.refunds) != 0 {
+		t.Error("a payment collected by another seller must neither be recorded nor refunded by this complex")
 	}
 	if _, found := findMessage(sentryEvents.messages(), "FRAUD ALERT: collector mismatch"); !found {
 		t.Errorf("the collector mismatch must still be reported; captured %q", sentryEvents.messages())
+	}
+}
+
+// A duplicate whose row cannot be written has nothing to claim, so it is not
+// refunded. Nothing was written, so the event fails and is retried cleanly, and the
+// money still held is reported.
+func TestASecondApprovedPaymentThatCannotBeRecordedIsRetriedAndAlerted(t *testing.T) {
+	sentryEvents := withCapturedSentryEvents(t)
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, deposit := paidBooking(complexID)
+	booking.Status = bookingstore.BookingStatusConfirmed
+	recorded := "mp-OLD"
+	deposit.MPPaymentID = &recorded
+	f.payments.byBooking = deposit
+	f.payments.byBookingAll = []*paymentstore.Payment{deposit}
+	f.payments.insertRowErr = errDatabase
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	f.provider.payment = &mp.Payment{
+		ID: 123, Status: "approved", TransactionAmount: 1500,
+		CollectorID: 111111111, ExternalReference: booking.ID.String(),
+	}
+
+	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err == nil {
+		t.Fatal("a payment that could not be recorded must fail the event so MercadoPago's delivery is retried")
+	}
+	if len(f.provider.refunds) != 0 {
+		t.Error("nothing may be refunded for a payment that was not recorded")
+	}
+	if _, found := findMessage(sentryEvents.messages(), "SETTLED BOOKING PAID AGAIN NOT RECORDED"); !found {
+		t.Errorf("money held without a record must reach Sentry; captured %q", sentryEvents.messages())
+	}
+}
+
+// A duplicate whose refund MercadoPago refuses is queued at payment level, the same
+// way as any refund. The queue does not read the booking's refund-intent marker, and
+// this path never sets it.
+func TestASecondApprovedPaymentWhoseRefundFailsIsQueuedWithoutTheBookingMarker(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, deposit := paidBooking(complexID)
+	booking.Status = bookingstore.BookingStatusConfirmed
+	recorded := "mp-OLD"
+	deposit.MPPaymentID = &recorded
+	f.payments.byBooking = deposit
+	f.payments.byBookingAll = []*paymentstore.Payment{deposit}
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	f.provider.payment = &mp.Payment{
+		ID: 123, Status: "approved", TransactionAmount: 1500,
+		CollectorID: 111111111, ExternalReference: booking.ID.String(),
+	}
+	f.provider.refundErr = errProvider
+
+	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err != nil {
+		t.Fatalf("a refund MercadoPago refuses is queued, not retried as the webhook; got %v", err)
+	}
+	if len(f.payments.recordedFailure) != 1 {
+		t.Fatalf("the refused refund must be queued once at payment level; got %d", len(f.payments.recordedFailure))
+	}
+	if len(f.refundIntents.cleared) != 0 || len(f.refundIntents.claimed) != 0 {
+		t.Error("the queued refund must not depend on, or touch, the booking's refund-intent marker")
+	}
+	if booking.Status != bookingstore.BookingStatusConfirmed || booking.RefundIntentAt != nil {
+		t.Errorf("the booking must stay confirmed and unmarked; got status=%q intent=%v", booking.Status, booking.RefundIntentAt)
 	}
 }
 

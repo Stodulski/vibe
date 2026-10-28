@@ -278,9 +278,18 @@ func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, m
 			return fmt.Errorf("record refunded payment: %w", err)
 		}
 
+		// A full refund cancels the booking only when nothing else still pays for it
+		// (see refundLeavesBookingAlone). Otherwise the booking row is not written and
+		// this refund moves the payment alone.
 		if isFullRefund {
-			if err := cancelRefundedBooking(ctx, qtx, claim.BookingID, manualOwedCentavos > 0); err != nil {
+			alone, err := refundLeavesBookingAlone(ctx, qtx, claim.BookingID, claim.PaymentID)
+			if err != nil {
 				return err
+			}
+			if !alone {
+				if err := cancelRefundedBooking(ctx, qtx, claim.BookingID, manualOwedCentavos > 0); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -354,6 +363,56 @@ func cancelRefundedBooking(ctx context.Context, qtx *db.Queries, bookingID uuid.
 		return fmt.Errorf("cancel refunded booking: %w", err)
 	}
 	return nil
+}
+
+// refundLeavesBookingAlone reports whether a full refund of refundedID must leave its
+// booking row untouched. It runs inside the caller's transaction.
+//
+// A booking is cancelled by a refund only when nothing else still pays for it. So a
+// refund leaves a booking alone while another payment row of that booking still holds
+// received money: a second MercadoPago payment on a slot that another payment has
+// settled, refunded while that payment stands, is the case this exists for. The test
+// is the status ReceivedMoney reads, so money taken at the counter counts the same as
+// an online payment.
+//
+// A booking already cancelled is never left alone by this check. Both cancel paths
+// cancel the booking before they refund it, so the refund only settles the refund
+// axis there. A cash remainder then still reads 'partial', which RecordManualRefund
+// needs in order to close it out.
+//
+// The booking row is locked before the sibling rows are read, and the order matters.
+// Two refunds of sibling payments that finish together would otherwise each read the
+// other as still paying, so neither would cancel and the booking would stay live with
+// no money behind it. The second one to take the lock reads the first one's committed
+// status instead.
+func refundLeavesBookingAlone(ctx context.Context, qtx *db.Queries, bookingID, refundedID uuid.UUID) (bool, error) {
+	locked, err := qtx.GetBookingByIDForUpdate(ctx, db.GetBookingByIDForUpdateParams{
+		ID:        data.UUIDToPg(bookingID),
+		ComplexID: data.TenantParam(ctx),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, data.ErrRecordNotFound
+		}
+		return false, fmt.Errorf("lock booking: %w", err)
+	}
+	if string(locked.Status) == "cancelled" {
+		return false, nil
+	}
+
+	payments, err := qtx.ListPaymentsByBookingID(ctx, data.UUIDToPg(bookingID))
+	if err != nil {
+		return false, fmt.Errorf("list payments of booking: %w", err)
+	}
+	for _, payment := range payments {
+		if data.PgToUUID(payment.ID) == refundedID {
+			continue
+		}
+		if ReceivedMoney(string(payment.Status)) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // RecordRefundFailure leaves a claimed refund queued for another attempt, in one

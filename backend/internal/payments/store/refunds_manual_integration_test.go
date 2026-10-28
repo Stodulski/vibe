@@ -25,7 +25,9 @@ func TestRecordManualRefundLeavesAnUnpaidCheckoutRowAlone(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	// Cancelled, as both cancel paths leave it before a refund: 'partial' is a
+	// cancelled booking's state, and a live booking is never refunded this way.
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
 	mpPaymentID := "mp-" + uuid.NewString()
 	mpPayment := f.CreatePayment(t, booking.ID, 150_000, 7_500, &mpPaymentID)
 	cashPayment := f.CreatePayment(t, booking.ID, 50_000, 0, nil)
@@ -86,7 +88,9 @@ func setupPendingMercadoPagoRefund(t *testing.T) (f *datatest.Fixture, bookingID
 	ctx := context.Background()
 	f = datatest.Isolated(t)
 
-	booking := f.CreateBooking(t, datatest.BookingOptions{})
+	// Cancelled, as both cancel paths leave it before a refund: see the note on
+	// TestRecordManualRefundLeavesAnUnpaidCheckoutRowAlone.
+	booking := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled"})
 	settledID := "mp-" + uuid.NewString()
 	settled := f.CreatePayment(t, booking.ID, 150_000, 7_500, &settledID)
 	pendingID := "mp-" + uuid.NewString()
