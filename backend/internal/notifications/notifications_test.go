@@ -23,6 +23,9 @@ type enqueued struct {
 type stubQueue struct {
 	tasks    []enqueued
 	handlers map[string]func(context.Context, json.RawMessage) error
+	// failOn makes TryEnqueue refuse a task type with the error given, the way
+	// a failed insert does, and records nothing for it.
+	failOn map[string]error
 }
 
 func newStubQueue() *stubQueue {
@@ -31,6 +34,14 @@ func newStubQueue() *stubQueue {
 
 func (q *stubQueue) Enqueue(taskType string, payload any, dedupKey string) {
 	q.tasks = append(q.tasks, enqueued{taskType, payload, dedupKey})
+}
+
+func (q *stubQueue) TryEnqueue(taskType string, payload any, dedupKey string) error {
+	if err := q.failOn[taskType]; err != nil {
+		return err
+	}
+	q.tasks = append(q.tasks, enqueued{taskType, payload, dedupKey})
+	return nil
 }
 
 // keyOf returns the dedup key the service asked for a task type, and whether
@@ -400,6 +411,38 @@ func TestReminderWhatsAppIsSkippedWithoutACancelLink(t *testing.T) {
 	}
 	if !q.has(TaskEmailReminder2h) {
 		t.Error("the reminder email must still go out")
+	}
+}
+
+// The cron flags a booking only when its reminder is queued, so ReminderDue
+// must report a channel the queue refused. Either channel counts: the email
+// is queued first, and a refused WhatsApp fails the reminder all the same.
+func TestReminderReturnsTheChannelTheQueueRefused(t *testing.T) {
+	for _, taskType := range []string{TaskEmailReminder2h, TaskWAReminder2h} {
+		t.Run(taskType, func(t *testing.T) {
+			s, q, _, _, _ := newTestService(t, true)
+			refusal := errors.New("database is down")
+			q.failOn = map[string]error{taskType: refusal}
+
+			err := s.ReminderDue(fullReminder())
+
+			if !errors.Is(err, refusal) {
+				t.Fatalf("a refused %s must fail the reminder so the booking stays unflagged; got %v", taskType, err)
+			}
+		})
+	}
+}
+
+// A queue that accepts both channels leaves ReminderDue with nothing to report.
+// That includes a dedup hit, which the queue itself reports as success.
+func TestReminderSucceedsWhenTheQueueAcceptsEveryChannel(t *testing.T) {
+	s, q, _, _, _ := newTestService(t, true)
+
+	if err := s.ReminderDue(fullReminder()); err != nil {
+		t.Fatalf("both channels queued: want no error; got %v", err)
+	}
+	if !q.has(TaskEmailReminder2h) || !q.has(TaskWAReminder2h) {
+		t.Errorf("want both reminder channels queued; got %v", q.types())
 	}
 }
 

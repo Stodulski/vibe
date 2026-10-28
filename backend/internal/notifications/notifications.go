@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -24,6 +25,10 @@ import (
 // an idempotency key. An empty key means this delivery is not deduplicated.
 type Queue interface {
 	Enqueue(taskType string, payload any, dedupKey string)
+	// TryEnqueue is Enqueue for a task whose caller must know it was not
+	// recorded: it returns the failure instead of logging it. A dedup hit is
+	// not a failure and returns nil.
+	TryEnqueue(taskType string, payload any, dedupKey string) error
 	RegisterHandler(taskType string, h func(ctx context.Context, payload json.RawMessage) error)
 }
 
@@ -152,10 +157,18 @@ func (s *Service) BookingConfirmed(c BookingConfirmation) {
 	}
 }
 
-// ReminderDue notifies the client that their booking starts in two hours.
-func (s *Service) ReminderDue(rem Reminder) {
+// ReminderDue queues the client's two-hour reminder: by email, and by WhatsApp
+// when it is configured and the reminder can carry its cancel button.
+//
+// It returns the first channel the queue refused, so the caller can leave the
+// booking unflagged and try again. A channel already in the queue is not a
+// refusal: the queue reports a dedup hit as success, and a retry queues the
+// email again under the same key, which does nothing.
+func (s *Service) ReminderDue(rem Reminder) error {
 	if rem.Email != "" {
-		s.queue.Enqueue(TaskEmailReminder2h, rem, dedup(TaskEmailReminder2h, rem.Email, rem.BookingID))
+		if err := s.queue.TryEnqueue(TaskEmailReminder2h, rem, dedup(TaskEmailReminder2h, rem.Email, rem.BookingID)); err != nil {
+			return fmt.Errorf("queue 2h reminder email: %w", err)
+		}
 	}
 	if s.wantsWhatsApp(rem.Phone) {
 		// Same unbound-button rule as the confirmation. The cancel path is the
@@ -167,15 +180,16 @@ func (s *Service) ReminderDue(rem Reminder) {
 				"cancel_path_empty", rem.CancelPath == "",
 				"maps_query_empty", rem.MapsQuery == "",
 			)
-		} else {
-			s.queue.Enqueue(TaskWAReminder2h, waReminder{
-				Phone: rem.Phone, ComplexName: rem.ComplexName, CourtName: rem.CourtName,
-				Date: rem.Date, StartTime: rem.StartTime,
-				Address: rem.Address, BalanceAmount: rem.BalanceAmount,
-				MapsQuery: rem.MapsQuery, CancelPath: rem.CancelPath,
-			}, dedup(TaskWAReminder2h, rem.Phone, rem.BookingID))
+		} else if err := s.queue.TryEnqueue(TaskWAReminder2h, waReminder{
+			Phone: rem.Phone, ComplexName: rem.ComplexName, CourtName: rem.CourtName,
+			Date: rem.Date, StartTime: rem.StartTime,
+			Address: rem.Address, BalanceAmount: rem.BalanceAmount,
+			MapsQuery: rem.MapsQuery, CancelPath: rem.CancelPath,
+		}, dedup(TaskWAReminder2h, rem.Phone, rem.BookingID)); err != nil {
+			return fmt.Errorf("queue 2h reminder whatsapp: %w", err)
 		}
 	}
+	return nil
 }
 
 // BookingCancelled notifies the client that their booking is off, and what

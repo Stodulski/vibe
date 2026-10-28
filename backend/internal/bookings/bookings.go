@@ -184,8 +184,10 @@ type LinkTokenStore interface {
 type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation)
 	BookingCancelled(c notifications.Cancellation)
-	// ReminderDue is the two-hour reminder the scheduler sends.
-	ReminderDue(r notifications.Reminder)
+	// ReminderDue is the two-hour reminder the scheduler sends. It returns an
+	// error when the reminder was not queued, and the scheduler then leaves the
+	// booking unflagged so the next tick tries again.
+	ReminderDue(r notifications.Reminder) error
 }
 
 // Broadcaster pushes a change to the owner's open dashboards.
