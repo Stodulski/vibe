@@ -451,3 +451,118 @@ func TestAvailabilityMarksSlotsTakenByLastNightsBooking(t *testing.T) {
 		t.Fatalf("the grid did not publish the four slots this test is about; got %d of them", seen)
 	}
 }
+
+// The 00:30 slot of an 18:00-02:00 day is the calendar instant after midnight,
+// and availability has to test it against what is on the books at that instant.
+// It was tested at 00:30 of the day the grid is for, which no booking taken for
+// the next morning ever touched, so a court sold for 00:00-01:00 stayed on sale.
+func TestAvailabilityTestsAfterMidnightSlotsAgainstTheNextMorning(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	date := futureDate()
+	day := mustParseDate(t, date)
+
+	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: everyDaySchedule("20:00", "02:00")}
+	store := &stubStore{
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		prices: everyDayBand(courtID, "20:00", "02:00", 500_000),
+	}
+	// Midnight to one in the morning, on the calendar day after the grid's day.
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
+		CourtID:  courtID,
+		StartsAt: slots.At(day.AddDate(0, 0, 1), "00:00"),
+		EndsAt:   slots.At(day.AddDate(0, 0, 1), "01:00"),
+	}}}
+
+	got := gridForDuration(t, store, bookings, complexes, date, 60)
+
+	taken := map[string]bool{"23:30": true, "00:00": true, "00:30": true}
+	free := map[string]bool{"20:00": true, "01:00": true}
+	seen := 0
+	for _, s := range got {
+		start, _ := s["start_time"].(string)
+		switch {
+		case taken[start]:
+			seen++
+			if s["available"] != false {
+				t.Errorf("%s runs into the booking that starts at 00:00 the next morning and must not be offered; got %v", start, s)
+			}
+		case free[start]:
+			seen++
+			if s["available"] != true {
+				t.Errorf("%s is clear of every booking and must stay bookable; got %v", start, s)
+			}
+		}
+	}
+	if seen != len(taken)+len(free) {
+		t.Fatalf("the grid did not publish the slots this test is about; matched %d of %d", seen, len(taken)+len(free))
+	}
+}
+
+// A block is filed under the calendar day it is taken on. A block on the next
+// morning hides that morning's clock reading, and never the same reading on the
+// day the grid is for: the grid's 10:00 is not the next morning's 10:00.
+func TestAvailabilityFilesBlocksOnTheCalendarDayTheyAreFiledUnder(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	date := futureDate()
+	day := mustParseDate(t, date)
+
+	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: everyDaySchedule("08:00", "02:00")}
+	store := &stubStore{
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		prices: everyDayBand(courtID, "08:00", "02:00", 500_000),
+		blockedSlots: []*courtstore.BlockedSlot{
+			{ID: uuid.New(), CourtID: courtID, Date: day.AddDate(0, 0, 1), StartTime: "00:00", EndTime: "01:00"},
+			{ID: uuid.New(), CourtID: courtID, Date: day.AddDate(0, 0, 1), StartTime: "10:00", EndTime: "11:00"},
+		},
+	}
+
+	got := gridForDuration(t, store, &stubBookings{}, complexes, date, 60)
+
+	want := map[string]bool{"00:00": false, "00:30": false, "10:00": true, "01:00": true}
+	seen := 0
+	for _, s := range got {
+		start, _ := s["start_time"].(string)
+		wantAvailable, ok := want[start]
+		if !ok {
+			continue
+		}
+		seen++
+		if s["available"] != wantAvailable {
+			t.Errorf("%s: want available=%v, got %v (the block is on the next morning, not on this day)", start, wantAvailable, s)
+		}
+	}
+	if seen != len(want) {
+		t.Fatalf("the grid did not publish the slots this test is about; matched %d of %d", seen, len(want))
+	}
+}
+
+// Availability is asked for today, and the grid's after-midnight starts are
+// tomorrow's. A slot that has not begun is for sale, however late the evening
+// is: comparing its clock reading against the current time put it in the past.
+func TestAvailabilityOffersTodaysAfterMidnightSlotsBeforeTheyBegin(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	date := timezone.Today().Format("2006-01-02")
+
+	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: everyDaySchedule("20:00", "02:00")}
+	store := &stubStore{
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		prices: everyDayBand(courtID, "20:00", "02:00", 500_000),
+	}
+
+	got := gridForDuration(t, store, &stubBookings{}, complexes, date, 60)
+
+	seen := 0
+	for _, s := range got {
+		start, _ := s["start_time"].(string)
+		if start != "00:00" && start != "00:30" {
+			continue
+		}
+		seen++
+		if s["available"] != true {
+			t.Errorf("%s is tomorrow's slot and has not begun; it must be available; got %v", start, s)
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("the grid did not publish today's 00:00 and 00:30; matched %d", seen)
+	}
+}

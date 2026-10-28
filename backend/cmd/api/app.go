@@ -610,7 +610,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	}, complexesConfig)
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 
-	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor, indexNow)
+	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor, indexNow, courts.WithRealtime(events))
 	courtsHandler := courts.NewHandler(courtsService, respond, d.trustedProxies.Any())
 
 	// cashbox reads booking payments through d.models.Reports (the same

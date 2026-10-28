@@ -9,8 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/slots"
 )
 
 // R3-blocked-slots-silent-truncation: no test in the candidate that introduced
@@ -112,5 +114,61 @@ func TestListBlockedSlotsAppliesLimitAndCursorWhenRequested(t *testing.T) {
 	}
 	if page2.Metadata.HasMore {
 		t.Errorf("the last page must not claim more pages remain")
+	}
+}
+
+// recordingBroadcaster stands in for the realtime hub and keeps every complex
+// it was asked to announce.
+type recordingBroadcaster struct{ complexIDs []uuid.UUID }
+
+func (r *recordingBroadcaster) PublishBookingChanged(complexID uuid.UUID) {
+	r.complexIDs = append(r.complexIDs, complexID)
+}
+
+// An owner's open calendar refreshes from the realtime hub, and taking hours off
+// sale or putting them back changes what that calendar draws. Each committed
+// block change has to announce its complex the way a booking change does; a
+// block refused for a booking it would overlap commits nothing and announces
+// nothing.
+func TestBlockChangesAnnounceTheComplexOnTheRealtimeHub(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	date := mustParseDate(t, futureDate())
+	court := &courtstore.Court{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}
+	input := BlockSlotInput{Date: date, StartTime: "10:00", EndTime: "11:00", CreatedBy: uuid.New()}
+
+	hub := &recordingBroadcaster{}
+	store := &stubStore{court: court}
+	svc := NewService(store, &stubBookings{}, &stubComplexes{}, &stubRecorder{}, nil, WithRealtime(hub))
+
+	slot, err := svc.BlockSlot(t.Context(), complexID, Actor{}, courtID, input)
+	if err != nil {
+		t.Fatalf("BlockSlot: %v", err)
+	}
+	if len(hub.complexIDs) != 1 || hub.complexIDs[0] != complexID {
+		t.Fatalf("a committed block must announce its complex once; got %v", hub.complexIDs)
+	}
+
+	store.blockedSlot = slot
+	if err := svc.DeleteBlockedSlot(t.Context(), complexID, Actor{}, slot.ID); err != nil {
+		t.Fatalf("DeleteBlockedSlot: %v", err)
+	}
+	if len(hub.complexIDs) != 2 || hub.complexIDs[1] != complexID {
+		t.Fatalf("a committed delete must announce its complex too; got %v", hub.complexIDs)
+	}
+
+	// A block the owner's own bookings refuse is never written, so there is
+	// nothing for the calendar to refresh for.
+	refused := &recordingBroadcaster{}
+	booked := &stubBookings{booked: []bookingstore.BookedSpan{{
+		CourtID:  courtID,
+		StartsAt: slots.At(date, "10:30"),
+		EndsAt:   slots.At(date, "11:30"),
+	}}}
+	svc = NewService(&stubStore{court: court}, booked, &stubComplexes{}, &stubRecorder{}, nil, WithRealtime(refused))
+	if _, err := svc.BlockSlot(t.Context(), complexID, Actor{}, courtID, input); err == nil {
+		t.Fatal("a block overlapping a booking must be refused")
+	}
+	if len(refused.complexIDs) != 0 {
+		t.Errorf("a refused block commits nothing and must announce nothing; got %v", refused.complexIDs)
 	}
 }

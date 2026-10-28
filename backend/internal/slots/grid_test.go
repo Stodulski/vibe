@@ -237,3 +237,39 @@ func TestOwnsPrefersTheNightStillOpen(t *testing.T) {
 	// only says where the hour sits in each. See priceWindow in
 	// internal/bookings/grid.go, which asks the night first.
 }
+
+// A venue that trades past midnight offers its after-midnight starts under the
+// day they were sold from: "00:30" on an 18:00-02:00 day is that day's own
+// 00:30 slot, and the storefront lists it. The write path has to accept exactly
+// what the storefront lists. Validate read "00:30" as the clock's early morning,
+// found it before the window opened, and refused a slot the venue sells.
+func TestValidateAcceptsAfterMidnightStartsTheGridOffers(t *testing.T) {
+	g := NewGrid("18:00", "02:00")
+
+	if err := g.Validate("00:30", 60); err != nil {
+		t.Fatalf("00:30 is the 18:00-02:00 day's own 00:30 slot and the grid offers it; got %v", err)
+	}
+}
+
+// The property TestEveryPublishedSlotValidatesAndNothingBetweenThemDoes states
+// for a day that closes in the morning, stated for one that trades past
+// midnight: for every clock reading, the write path accepts it exactly when the
+// storefront lists it.
+func TestTheStorefrontAndTheWritePathAgreeAcrossMidnight(t *testing.T) {
+	g := NewGrid("18:00", "02:00")
+
+	for _, duration := range []int{60, 90, 120} {
+		offered := map[string]bool{}
+		for _, s := range g.Slots(duration) {
+			offered[s.Start] = true
+		}
+		for m := 0; m < 1440; m++ {
+			start := FromMinutes(m)
+			accepted := g.Validate(start, duration) == nil
+			if accepted != offered[start] {
+				t.Fatalf("%d-minute booking at %s: write path accepts=%v, storefront offers=%v",
+					duration, start, accepted, offered[start])
+			}
+		}
+	}
+}

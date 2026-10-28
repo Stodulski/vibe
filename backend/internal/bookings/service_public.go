@@ -204,12 +204,20 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	if gridErr != nil && !errors.Is(gridErr, errComplexClosed) {
 		return PublicBookResult{}, gridErr
 	}
+	// The storefront lists a start past midnight under the day its window was
+	// sold from, so in.Date is that grid day. Place says how far into it the
+	// start falls, and the booking is then filed, timed, priced and locked on the
+	// calendar day the start actually falls on, startDate. A booking is stored
+	// under its calendar day everywhere else (see the owner path and grid.go),
+	// and this path must agree with them.
+	var minute int
 	if gridErr == nil {
-		gridErr = grid.Validate(in.StartTime, in.DurationMinutes)
+		minute, gridErr = grid.Place(in.StartTime, in.DurationMinutes)
 	}
 	if gridErr != nil {
 		return PublicBookResult{}, &ConflictError{Message: gridRefusal(gridErr)}
 	}
+	startDate := in.Date.AddDate(0, 0, slots.CalendarDays(minute))
 
 	// A slot the owner blocked is not for sale, and this path had no way of
 	// knowing it was blocked: the storefront omits it, and nothing between the
@@ -222,10 +230,10 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// here, and slots.At carries a date's location through, so leaving it
 	// unanchored put both sides three hours out — which happened to cancel out
 	// on this path and did not on the confirmation path (see grid.go).
-	startAt := slots.At(timezone.Day(in.Date), in.StartTime)
+	startAt := slots.At(timezone.Day(startDate), in.StartTime)
 	endAt := startAt.Add(time.Duration(in.DurationMinutes) * time.Minute)
 
-	blocked, err := s.slotIsBlocked(ctx, court.ID, in.Date, startAt, endAt)
+	blocked, err := s.slotIsBlocked(ctx, court.ID, startDate, startAt, endAt)
 	if err != nil {
 		return PublicBookResult{}, err
 	}
@@ -233,14 +241,14 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		return PublicBookResult{}, &ConflictError{Message: blockedSlotMessage}
 	}
 
-	// Reject past slots if booking for today.
+	// Reject slots that have already begun. Compared as instants: an after-
+	// midnight slot of today's grid is tomorrow's, and is not in the past.
 	now := time.Now().In(timezone.Argentina)
-	isToday := in.Date.Year() == now.Year() && in.Date.YearDay() == now.YearDay()
-	if isToday && in.StartTime <= now.Format("15:04") {
+	if !startAt.After(now.Truncate(time.Minute)) {
 		return PublicBookResult{}, &ConflictError{Message: "cannot book a time slot that has already passed"}
 	}
 
-	totalPrice, priceErr := s.findPrice(ctx, court.ComplexID, court.ID, in.Date, in.StartTime, in.DurationMinutes)
+	totalPrice, priceErr := s.findPrice(ctx, court.ComplexID, court.ID, startDate, in.StartTime, in.DurationMinutes)
 	if priceErr != nil {
 		// A booking no rule fully covers is not for sale — the same sentence
 		// the availability grid says by omitting it. This used to fall back to
@@ -284,7 +292,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		ComplexID:        complex.ID,
 		CourtID:          in.CourtID,
 		ClientID:         client.ID,
-		Date:             in.Date,
+		Date:             startDate,
 		StartTime:        in.StartTime,
 		DurationMinutes:  in.DurationMinutes,
 		Price:            totalPrice,
@@ -306,7 +314,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// the booking spanned. Now that a booking's length is chosen per request
 	// rather than assembled from repeats of the court's own slot length, there
 	// is one span and one lock for it.
-	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, in.Date, in.StartTime, lockEndTime, nil, s.cfg.SlotLockTTL); lockErr != nil {
+	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, startDate, in.StartTime, lockEndTime, nil, s.cfg.SlotLockTTL); lockErr != nil {
 		if errors.Is(lockErr, bookingstore.ErrSlotLocked) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -315,7 +323,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 
 	if err := s.store.InsertSafe(ctx, booking); err != nil {
 		// Release the slot lock on insert failure.
-		s.releaseSlotLock(ctx, in.CourtID, in.Date, in.StartTime)
+		s.releaseSlotLock(ctx, in.CourtID, startDate, in.StartTime)
 		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -408,7 +416,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 				"booking_id", booking.ID,
 			)
 		}
-		s.releaseSlotLock(ctx, in.CourtID, in.Date, in.StartTime)
+		s.releaseSlotLock(ctx, in.CourtID, startDate, in.StartTime)
 		return PublicBookResult{}, ErrCheckoutUnavailable
 	}
 
