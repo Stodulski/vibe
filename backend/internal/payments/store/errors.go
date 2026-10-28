@@ -1,6 +1,9 @@
 package store
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Sentinel errors returned by this store.
 var (
@@ -25,4 +28,25 @@ var (
 	// the booking out now would read as fully returned while that payment is still
 	// unsettled. The close-out waits for it.
 	ErrMercadoPagoRefundPending = errors.New("mercadopago refund pending on booking")
+	// ErrAmountExceedsBalance is returned by ConfirmInTx when a payment would collect
+	// more than the booking still owes. The check reads the booking row under its lock,
+	// because two counter collections can both pass the caller's check on an unlocked
+	// snapshot and only the second one, read after the first commits, is over the balance.
+	ErrAmountExceedsBalance = errors.New("payment amount exceeds the outstanding balance")
 )
+
+// AmountExceedsBalanceError is ErrAmountExceedsBalance carrying the balance the locked
+// booking still owed, so the caller can name that figure to the owner rather than
+// one read before the lock. errors.Is(err, ErrAmountExceedsBalance) holds for it.
+type AmountExceedsBalanceError struct {
+	Balance int
+}
+
+func (e *AmountExceedsBalanceError) Error() string {
+	return fmt.Sprintf("%s: the outstanding balance is %d", ErrAmountExceedsBalance, e.Balance)
+}
+
+// Unwrap makes the sentinel match with errors.Is.
+func (e *AmountExceedsBalanceError) Unwrap() error {
+	return ErrAmountExceedsBalance
+}

@@ -278,19 +278,32 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			// for this booking at checkout, but that mint happened in a
 			// different request and its plaintext cannot be read back — see
 			// design.md's "two live tokens" consequence — so this path mints
-			// its own rather than reusing it. A failed mint must not send a
-			// confirmation email: returning an error here (rather than
-			// logging and continuing) makes the webhook handler requeue the
-			// event instead. The checkout token minted at InsertSafe is
-			// deliberately not revoked here: MercadoPago redirects the
-			// browser to the success back_url at roughly the moment this
-			// webhook fires, and revoking it would break that redirect.
-			confirmationToken, mintErr := s.linkTokens.Mint(ctx, booking.ID, booking.EndsAt.Add(s.cfg.LinkTokenBuffer))
+			// its own rather than reusing it. The checkout token minted at
+			// InsertSafe is deliberately not revoked here: MercadoPago
+			// redirects the browser to the success back_url at roughly the
+			// moment this webhook fires, and revoking it would break that
+			// redirect.
+			//
+			// When the mint still fails after its retry, the confirmation goes out
+			// without its cancel link rather than not at all: the client has paid
+			// and must learn the booking is confirmed. The email template leaves
+			// the cancel button out when the link is empty (see
+			// mailer.SendBookingConfirmation), as the reminder cron already does.
+			// The WhatsApp confirmation is skipped in that case, because its
+			// template binds the cancel button as a required URL parameter
+			// (notifications.BookingConfirmed). The gap is reported so it can be
+			// followed up. The event is settled rather than requeued: a retry
+			// would hit the replay no-op at the top of this function, which
+			// returns without sending anything, so requeueing could only spend
+			// the event's retry budget.
+			var cancelURL, cancelPath string
+			confirmationToken, mintErr := s.mintConfirmationToken(ctx, booking)
 			if mintErr != nil {
-				return fmt.Errorf("mint booking link token for confirmation email %s: %w", booking.ID, mintErr)
+				s.reportConfirmationWithoutCancelLink(booking, mpPaymentID, mintErr)
+			} else {
+				cancelURL = booklink.Cancel(s.cfg.PublicURL, complex.Slug, confirmationToken)
+				cancelPath = booklink.CancelPath(complex.Slug, confirmationToken)
 			}
-			cancelURL := booklink.Cancel(s.cfg.PublicURL, complex.Slug, confirmationToken)
-			cancelPath := booklink.CancelPath(complex.Slug, confirmationToken)
 			mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			address := booklink.Address(complex.Address, complex.City)
@@ -363,6 +376,38 @@ func (s *Service) reportSettledBookingPayment(booking *bookingstore.Booking, mpP
 	)
 	sentry.CaptureMessage(fmt.Sprintf("SETTLED BOOKING PAID AGAIN (refund by hand, nothing recorded): mp_payment_id=%s booking_id=%s booking_status=%s amount_centavos=%d",
 		mpPaymentID, booking.ID, booking.Status, amount))
+}
+
+// mintConfirmationToken mints the booking link token the confirmation's cancel link
+// is built from. A mint is one short insert, so it is tried twice in-process: a
+// transient failure is absorbed here, and a persistent one is left to the caller
+// to report. More attempts would only hold the webhook open while the database
+// is struggling.
+func (s *Service) mintConfirmationToken(ctx context.Context, booking *bookingstore.Booking) (string, error) {
+	const attempts = 2
+	var err error
+	for range attempts {
+		var token string
+		token, err = s.linkTokens.Mint(ctx, booking.ID, booking.EndsAt.Add(s.cfg.LinkTokenBuffer))
+		if err == nil {
+			return token, nil
+		}
+	}
+	return "", fmt.Errorf("mint booking link token for confirmation email %s: %w", booking.ID, err)
+}
+
+// reportConfirmationWithoutCancelLink records a confirmation that was sent without its
+// cancel link because the link token could not be minted. The payment is committed and
+// the confirmation is sent, so the webhook is not failed for it; the missing link is
+// made visible instead.
+func (s *Service) reportConfirmationWithoutCancelLink(booking *bookingstore.Booking, mpPaymentID string, cause error) {
+	s.logger.Error("mp webhook: payment approved, booking confirmation sent without a cancel link, the link token could not be minted",
+		"error", cause,
+		"mp_payment_id", mpPaymentID,
+		"booking_id", booking.ID,
+	)
+	sentry.CaptureMessage(fmt.Sprintf("CONFIRMATION SENT WITHOUT CANCEL LINK (mint failed, payment recorded): mp_payment_id=%s booking_id=%s error=%v",
+		mpPaymentID, booking.ID, cause))
 }
 
 // reportUnsentConfirmation records a confirmation that could not be sent because a

@@ -361,11 +361,18 @@ func (s *stubBookings) MarkManualBalanceOwed(_ context.Context, b *bookingstore.
 // reach that refusal.
 type stubLinkTokens struct {
 	mintErr error
-	minted  []uuid.UUID
+	// failures is how many Mint calls fail with mintErr before the stub
+	// recovers, for a transient failure a retry is meant to absorb. Zero means
+	// every call fails once mintErr is set.
+	failures int
+	// calls counts every Mint call, failed or not.
+	calls  int
+	minted []uuid.UUID
 }
 
 func (s *stubLinkTokens) Mint(_ context.Context, bookingID uuid.UUID, _ time.Time) (string, error) {
-	if s.mintErr != nil {
+	s.calls++
+	if s.mintErr != nil && (s.failures == 0 || s.calls <= s.failures) {
 		return "", s.mintErr
 	}
 	s.minted = append(s.minted, bookingID)
