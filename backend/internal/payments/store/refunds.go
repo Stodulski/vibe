@@ -282,14 +282,8 @@ func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, m
 		// (see refundLeavesBookingAlone). Otherwise the booking row is not written and
 		// this refund moves the payment alone.
 		if isFullRefund {
-			alone, err := refundLeavesBookingAlone(ctx, qtx, claim.BookingID, claim.PaymentID)
-			if err != nil {
+			if err := cancelUnlessPaidElsewhere(ctx, qtx, claim, manualOwedCentavos > 0); err != nil {
 				return err
-			}
-			if !alone {
-				if err := cancelRefundedBooking(ctx, qtx, claim.BookingID, manualOwedCentavos > 0); err != nil {
-					return err
-				}
 			}
 		}
 
@@ -363,6 +357,20 @@ func cancelRefundedBooking(ctx context.Context, qtx *db.Queries, bookingID uuid.
 		return fmt.Errorf("cancel refunded booking: %w", err)
 	}
 	return nil
+}
+
+// cancelUnlessPaidElsewhere cancels the booking behind a fully refunded payment,
+// unless another payment of that booking still holds money (refundLeavesBookingAlone),
+// in which case the booking row is not written. It runs inside the caller's transaction.
+func cancelUnlessPaidElsewhere(ctx context.Context, qtx *db.Queries, claim RefundClaim, manualBalanceRemains bool) error {
+	alone, err := refundLeavesBookingAlone(ctx, qtx, claim.BookingID, claim.PaymentID)
+	if err != nil {
+		return err
+	}
+	if alone {
+		return nil
+	}
+	return cancelRefundedBooking(ctx, qtx, claim.BookingID, manualBalanceRemains)
 }
 
 // refundLeavesBookingAlone reports whether a full refund of refundedID must leave its
