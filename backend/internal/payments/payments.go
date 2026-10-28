@@ -56,6 +56,9 @@ type PaymentWriter interface {
 // resource held, and exactly one of the two recorders closes the attempt out.
 type RefundStore interface {
 	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
+	// InsertAndClaimRefund records a new payment and claims its refund in one
+	// transaction, for a duplicate payment that is refunded as it is recorded.
+	InsertAndClaimRefund(ctx context.Context, payment *paymentstore.Payment) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's cash/transfer balance still owed by
 	// hand — computed by manualBalance or manualOwedForBooking — so the
 	// booking is written 'partial_refund' rather than 'refunded' whenever this

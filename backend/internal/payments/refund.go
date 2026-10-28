@@ -156,7 +156,25 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	wasLive := liveBooking(booking.Status)
 	cancelledByRefund := false
 
-	if isFullRefund && booking.Status != "completed" && booking.Status != "no_show" {
+	// A live booking another MercadoPago payment still holds money for stays as it is:
+	// the refund is of this payment alone, a duplicate refunded from MercadoPago's own
+	// panel. Cash and transfer rows do not count here, so refunding the deposit of a
+	// booking with a counter payment still cancels it as before.
+	paidElsewhere := false
+	if isFullRefund && liveBooking(booking.Status) {
+		var err error
+		paidElsewhere, err = s.bookingHoldsOtherMercadoPagoMoney(ctx, booking.ID, mpPaymentID)
+		if err != nil {
+			return fmt.Errorf("check the other payments of booking %s for a refunded payment: %w", booking.ID, err)
+		}
+	}
+
+	switch {
+	case paidElsewhere:
+		if err := s.ledger.Update(ctx, payment); err != nil {
+			return fmt.Errorf("record the refund of payment %s on a booking paid by another: %w", mpPaymentID, err)
+		}
+	case isFullRefund && booking.Status != "completed" && booking.Status != "no_show":
 		// Full refund: update payment + cancel booking atomically.
 		// Do NOT cancel completed/no_show bookings — service was already rendered.
 		booking.Status = "cancelled"
@@ -165,7 +183,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 			return fmt.Errorf("record the refund of payment %s and cancel its booking: %w", mpPaymentID, err)
 		}
 		cancelledByRefund = wasLive
-	} else {
+	default:
 		// Partial refund, or full refund on completed/no_show: only update payment.
 		if isFullRefund {
 			booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
@@ -218,6 +236,24 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		Reason:         mpPayment.StatusDetail,
 	})
 	return nil
+}
+
+// bookingHoldsOtherMercadoPagoMoney reports whether a MercadoPago payment of the
+// booking, other than mpPaymentID, still holds money the complex received.
+func (s *Service) bookingHoldsOtherMercadoPagoMoney(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) (bool, error) {
+	payments, err := s.payments.ListByBookingID(ctx, bookingID)
+	if err != nil {
+		return false, fmt.Errorf("look up the payments of booking %s: %w", bookingID, err)
+	}
+	for _, p := range payments {
+		if p.MPPaymentID == nil || *p.MPPaymentID == "" || *p.MPPaymentID == mpPaymentID {
+			continue
+		}
+		if paymentstore.ReceivedMoney(p.Status) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // processRefundedPaymentFromBooking handles a refund/chargeback when we don't have a payment record yet.

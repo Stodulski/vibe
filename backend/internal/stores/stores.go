@@ -447,6 +447,9 @@ type PaymentWriter interface {
 // responsibility from writing a payment row.
 type PaymentRefunder interface {
 	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
+	// InsertAndClaimRefund records a new payment and claims its refund in one
+	// transaction; see payments.RefundStore.
+	InsertAndClaimRefund(ctx context.Context, payment *paymentstore.Payment) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's still-outstanding cash/transfer
 	// balance; see the identical parameter on payments.PaymentStore.
 	RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)

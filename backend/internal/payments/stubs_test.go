@@ -239,6 +239,18 @@ func (s *stubPayments) Update(_ context.Context, p *paymentstore.Payment) error 
 	return nil
 }
 
+// InsertAndClaimRefund is one transaction in the real store, so a refused claim
+// leaves no row behind here either.
+func (s *stubPayments) InsertAndClaimRefund(ctx context.Context, p *paymentstore.Payment) (*paymentstore.RefundClaim, error) {
+	if s.claimErr != nil {
+		return nil, s.claimErr
+	}
+	if err := s.Insert(ctx, p); err != nil {
+		return nil, err
+	}
+	return s.ClaimRefund(ctx, p.ID)
+}
+
 func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error) {
 	if s.claimErr != nil {
 		return nil, s.claimErr
