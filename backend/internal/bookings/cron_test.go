@@ -203,7 +203,8 @@ func TestTheExpirySweepFinishesTheBatchAfterOneFailure(t *testing.T) {
 // that drops the link tokens of terminal ones.
 func TestTheHousekeepingSweepsReportWhatTheyDid(t *testing.T) {
 	f := newFixture(t)
-	f.store.completed = 5
+	first, second := uuid.New(), uuid.New()
+	f.store.completed = []uuid.UUID{first, first, second}
 
 	f.service.CompletePastBookings(t.Context())
 	if f.store.completeCalls != 1 {
@@ -213,5 +214,21 @@ func TestTheHousekeepingSweepsReportWhatTheyDid(t *testing.T) {
 	f.service.CleanLinkTokens(t.Context())
 	if len(f.linkTokens.retention) != 1 || f.linkTokens.retention[0] != LinkTokenRetention {
 		t.Errorf("want the sweep to pass the package's own retention window; got %v", f.linkTokens.retention)
+	}
+}
+
+// Completing a played booking changes its complex's owner calendar, and the
+// owner's open dashboard only shows the change after a broadcast. A sweep that
+// completes several bookings in one complex tells that complex once, not once
+// per booking, and every complex it touched is told.
+func TestCompletingPastBookingsTellsEachAffectedComplexOnce(t *testing.T) {
+	f := newFixture(t)
+	first, second := uuid.New(), uuid.New()
+	f.store.completed = []uuid.UUID{first, first, second}
+
+	f.service.CompletePastBookings(t.Context())
+
+	if len(f.realtime.published) != 2 || f.realtime.published[0] != first || f.realtime.published[1] != second {
+		t.Errorf("want each affected complex told once, in sweep order; got %v", f.realtime.published)
 	}
 }

@@ -353,7 +353,7 @@ type BookingLifecycleManager interface {
 	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
-	CompletePastBookings(ctx context.Context) (int64, error)
+	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
 	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error
 }
 
@@ -530,8 +530,9 @@ type WebhookEventStore interface {
 
 // SlotLockStore manages short-lived locks that reserve a court slot during checkout.
 type SlotLockStore interface {
-	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error
+	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, holder string, ttl time.Duration) error
 	ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error
+	ReleaseHeldLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) error
 	ReleaseByBooking(ctx context.Context, bookingID uuid.UUID) error
 	CleanExpired(ctx context.Context) (int64, error)
 }

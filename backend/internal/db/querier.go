@@ -129,6 +129,11 @@ type Querier interface {
 	//
 	// Tenant-scoped like GetBookingByID above, and optional for the same reason.
 	GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByIDForUpdateParams) (Booking, error)
+	// Overlapping the days asked for, not starting on them: a booking that runs
+	// 23:00 to 01:00 occupies both days, and an owner looking at the next morning
+	// has to see the hours it is still holding. Same predicate as the owner list in
+	// internal/bookings/store (GetByComplex); see local_day() in
+	// db/migrations/001_init.sql.
 	GetBookingsByComplex(ctx context.Context, arg GetBookingsByComplexParams) ([]Booking, error)
 	GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourtParams) ([]Booking, error)
 	// GetBookingsForReminder2h returns the confirmed bookings whose game starts

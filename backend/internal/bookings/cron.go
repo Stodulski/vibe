@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -166,12 +168,23 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 // CompletePastBookings marks confirmed bookings whose hours have passed as
 // completed.
 func (s *Service) CompletePastBookings(ctx context.Context) {
-	count, err := s.store.CompletePastBookings(ctx)
+	complexIDs, err := s.store.CompletePastBookings(ctx)
 	if err != nil {
 		s.logger.Error("cron_complete_bookings: failed", "error", err)
 		return
 	}
-	s.logger.Info("cron_complete_bookings: completed", "count", count)
+	// The completion is committed by the time the store returns, so every owner
+	// whose calendar changed can be told now. A complex with several bookings
+	// completed in this sweep gets one broadcast, not one per booking.
+	told := make(map[uuid.UUID]struct{}, len(complexIDs))
+	for _, complexID := range complexIDs {
+		if _, seen := told[complexID]; seen {
+			continue
+		}
+		told[complexID] = struct{}{}
+		s.realtime.PublishBookingChanged(complexID)
+	}
+	s.logger.Info("cron_complete_bookings: completed", "count", len(complexIDs))
 }
 
 // LinkTokenRetention is how long past its stored expiry a terminal booking's

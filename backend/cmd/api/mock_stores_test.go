@@ -757,7 +757,7 @@ type mockBookingStore struct {
 	GetByClientFn               func(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 	HasActiveBookingsFn         func(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourtFn  func(ctx context.Context, courtID uuid.UUID) (bool, error)
-	CompletePastBookingsFn      func(ctx context.Context) (int64, error)
+	CompletePastBookingsFn      func(ctx context.Context) ([]uuid.UUID, error)
 	GetForReminder2hEnrichedFn  func(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
 	GetExpiredPendingEnrichedFn func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
 }
@@ -885,11 +885,11 @@ func (m *mockBookingStore) HasActiveBookings(ctx context.Context, complexID uuid
 	return false, nil
 }
 
-func (m *mockBookingStore) CompletePastBookings(ctx context.Context) (int64, error) {
+func (m *mockBookingStore) CompletePastBookings(ctx context.Context) ([]uuid.UUID, error) {
 	if m.CompletePastBookingsFn != nil {
 		return m.CompletePastBookingsFn(ctx)
 	}
-	return 0, nil
+	return nil, nil
 }
 
 func (m *mockBookingStore) GetPaymentSummary(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.PaymentSummary, error) {
@@ -1230,11 +1230,15 @@ func (m *mockAuditStore) InsertAuditLog(ctx context.Context, userID, complexID *
 
 type mockSlotLockStore struct{}
 
-func (m *mockSlotLockStore) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error {
+func (m *mockSlotLockStore) AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, holder string, ttl time.Duration) error {
 	return nil
 }
 
 func (m *mockSlotLockStore) ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error {
+	return nil
+}
+
+func (m *mockSlotLockStore) ReleaseHeldLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) error {
 	return nil
 }
 

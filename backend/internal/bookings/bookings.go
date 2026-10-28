@@ -55,7 +55,7 @@ type Store interface {
 	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
 	MarkReminderSent2h(ctx context.Context, id uuid.UUID) error
 	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
-	CompletePastBookings(ctx context.Context) (int64, error)
+	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
 }
 
 // ClientStore resolves the person a booking is for. Public bookings create the
@@ -114,8 +114,12 @@ type PaymentStore interface {
 // Without it two people can both reach MercadoPago for the same court and
 // time, and one of them pays for a slot that is already gone.
 type SlotLocker interface {
-	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, ttl time.Duration) error
+	AcquireLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, endTime string, bookingID *uuid.UUID, holder string, ttl time.Duration) error
+	// ReleaseLock frees the slot whoever holds it; the cancel path uses it.
 	ReleaseLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime string) error
+	// ReleaseHeldLock frees the slot only while holder still holds it; a checkout
+	// uses it so it never frees a lock another checkout took over.
+	ReleaseHeldLock(ctx context.Context, courtID uuid.UUID, date time.Time, startTime, holder string) error
 }
 
 // Checkout is the MercadoPago side of a public booking.
