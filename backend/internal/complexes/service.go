@@ -2,6 +2,7 @@ package complexes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -63,6 +64,9 @@ type Dependencies struct {
 	Bookings BookingStore
 	// Payments exchanges an OAuth code for an owner's own credentials.
 	Payments PaymentConnector
+	// Attempts holds the MercadoPago OAuth attempts registered before the
+	// redirect, so the callback can finish in any browser.
+	Attempts OAuthAttemptStore
 	// OAuth refreshes those credentials before they expire. It is a separate
 	// client from Payments in cmd/api, on its own circuit breaker: a sweep over
 	// other people's expired credentials must not be able to take checkout down
@@ -110,6 +114,7 @@ type Service struct {
 	courts   CourtStore
 	bookings BookingStore
 	payments PaymentConnector
+	attempts OAuthAttemptStore
 	oauth    TokenRefresher
 	locks    Locker
 	storage  storage.ObjectStorage
@@ -138,6 +143,7 @@ func NewService(deps Dependencies, cfg Config) *Service {
 		courts:   deps.Courts,
 		bookings: deps.Bookings,
 		payments: deps.Payments,
+		attempts: deps.Attempts,
 		oauth:    deps.OAuth,
 		locks:    deps.Locks,
 		storage:  deps.Storage,
@@ -711,7 +717,28 @@ func (s *Service) UpdateSchedules(ctx context.Context, complexID uuid.UUID, acto
 // mp.ErrOAuthUnavailable (MercadoPago could not be reached or failed), and
 // ErrActiveBookings (the code names a different seller account than the one
 // connected, and live bookings still depend on the connected one).
-func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, actor Actor, code, redirectURI, codeVerifier string) (string, error) {
+//
+// state names an attempt registered by RegisterMercadoPagoOAuthAttempt. With
+// no codeVerifier, the attempt is spent before the exchange and supplies the
+// verifier; it must have been registered by the acting user for this venue,
+// and anything else is ErrOAuthAttemptInvalid with no exchange made. With a
+// codeVerifier (clients that kept it in the browser), that verifier is used
+// and the attempt, if any, is only spent so it cannot be used again.
+func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, actor Actor, code, redirectURI, codeVerifier, state string) (string, error) {
+	if state != "" {
+		verifier, err := s.spendMPOAuthAttempt(ctx, complexID, actor, state)
+		switch {
+		case codeVerifier != "":
+			if err != nil && !errors.Is(err, ErrOAuthAttemptInvalid) {
+				s.logger.Warn("mp connect: could not spend the oauth attempt", "error", err, "complex_id", complexID)
+			}
+		case err != nil:
+			return "", err
+		default:
+			codeVerifier = verifier
+		}
+	}
+
 	tokens, err := s.payments.ExchangeOAuthCode(ctx, code, redirectURI, codeVerifier)
 	if err != nil {
 		// A rejected code is an owner mistake, not a fault of ours: warn, with
@@ -737,6 +764,42 @@ func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, a
 	s.record(complexID, actor, "mp_connect", &complexID, nil, nil)
 
 	return mpUserID, nil
+}
+
+// mpOAuthAttemptRecord is what an attempt stores under its state.
+type mpOAuthAttemptRecord struct {
+	ComplexID    uuid.UUID `json:"complex_id"`
+	UserID       uuid.UUID `json:"user_id"`
+	CodeVerifier string    `json:"code_verifier"`
+}
+
+// RegisterMercadoPagoOAuthAttempt stores the PKCE verifier of an OAuth attempt
+// userID is starting for complexID under its state, for one hour and one use.
+// Registering the same state again replaces it.
+func (s *Service) RegisterMercadoPagoOAuthAttempt(ctx context.Context, complexID, userID uuid.UUID, state, codeVerifier string) error {
+	payload, err := json.Marshal(mpOAuthAttemptRecord{ComplexID: complexID, UserID: userID, CodeVerifier: codeVerifier})
+	if err != nil {
+		return fmt.Errorf("encoding mercadopago oauth attempt: %w", err)
+	}
+	return s.attempts.Store(ctx, state, payload, mpOAuthAttemptTTL)
+}
+
+// spendMPOAuthAttempt consumes the attempt under state and returns its
+// verifier, provided it belongs to this venue and this user.
+func (s *Service) spendMPOAuthAttempt(ctx context.Context, complexID uuid.UUID, actor Actor, state string) (string, error) {
+	payload, err := s.attempts.Consume(ctx, state)
+	if err != nil {
+		return "", err
+	}
+	var rec mpOAuthAttemptRecord
+	if err := json.Unmarshal(payload, &rec); err != nil {
+		return "", fmt.Errorf("decoding mercadopago oauth attempt: %w", err)
+	}
+	if rec.ComplexID != complexID || actor.UserID == nil || rec.UserID != *actor.UserID {
+		s.logger.Warn("mp connect: oauth attempt does not belong to this owner or venue", "complex_id", complexID)
+		return "", ErrOAuthAttemptInvalid
+	}
+	return rec.CodeVerifier, nil
 }
 
 // DisconnectMercadoPago drops the owner's stored credentials. It is refused

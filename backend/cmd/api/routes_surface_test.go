@@ -105,6 +105,7 @@ var apiSurface = map[string]struct{}{
 	"POST /api/v1/complexes/{id}/sales/{saleID}/void":                                   {},
 	"POST /api/v1/complexes/{id}/reports/exports":                                       {},
 	"POST /api/v1/complexes/{id}/mp/connect":                                            {},
+	"POST /api/v1/complexes/{id}/mp/oauth-attempts":                                     {},
 	"POST /api/v1/complexes/{id}/uploads/presign":                                       {},
 	"PUT /api/v1/social/posts/{id}":                                                     {},
 	"PUT /api/v1/social/posts/{id}/media/{name}":                                        {},

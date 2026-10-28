@@ -123,6 +123,7 @@ var routeGuards = map[string]routeGuard{
 	"GET /api/v1/complexes/{id}/sales/{saleID}":                                         {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/sales/{saleID}/void":                                   {kind: guardOwner, idempotentKey: "sales-void"},
 	"POST /api/v1/complexes/{id}/mp/connect":                                            {kind: guardOwner},
+	"POST /api/v1/complexes/{id}/mp/oauth-attempts":                                     {kind: guardOwner},
 	"GET /api/v1/complexes/{id}/mp/status":                                              {kind: guardOwner},
 	"GET /api/v1/complexes/{id}/reports/export":                                         {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/reports/exports":                                       {kind: guardOwner},

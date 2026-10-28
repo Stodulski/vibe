@@ -2204,7 +2204,20 @@ paths:
               properties:
                 code: {type: string}
                 redirect_uri: {type: string, format: uri}
-                code_verifier: {type: string}
+                code_verifier:
+                  type: string
+                  description: >-
+                    The PKCE verifier, sent by clients that kept it in the browser. When present it is
+                    used as is, and a `state` sent alongside it is only spent.
+                state:
+                  type: string
+                  maxLength: 128
+                  description: >-
+                    The OAuth `state` of an attempt registered through
+                    `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the
+                    attempt is spent before the exchange and its verifier is used; an unknown,
+                    expired, already spent attempt, or one registered by another owner or for
+                    another complex, is a 422 on `state` and nothing is exchanged.
     delete:
       tags: [complexes]
       operationId: complexesDisconnectMercadoPago
@@ -2229,6 +2242,47 @@ paths:
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/mp/oauth-attempts:
+    post:
+      tags: [complexes]
+      operationId: complexesRegisterMercadoPagoOAuthAttempt
+      summary: Register a MercadoPago OAuth attempt (state and PKCE verifier) before the redirect
+      description: >-
+        Stores the attempt server-side for one hour, single use, so the OAuth callback can finish
+        in any tab, browser or installed app: `POST .../mp/connect` with the same `state` spends
+        it. Registering the same `state` again replaces the earlier attempt.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state, code_verifier]
+              properties:
+                state: {type: string, minLength: 16, maxLength: 128}
+                code_verifier:
+                  type: string
+                  minLength: 43
+                  maxLength: 128
+                  pattern: "^[A-Za-z0-9._~-]+$"
+                  description: RFC 7636 code verifier (unreserved characters only).
+      responses:
+        "204":
+          description: Registered. Empty body.
+        "400":
+          description: The body is not valid JSON or carries an unknown field.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 

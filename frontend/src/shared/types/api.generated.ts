@@ -823,6 +823,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/mp/oauth-attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a MercadoPago OAuth attempt (state and PKCE verifier) before the redirect
+         * @description Stores the attempt server-side for one hour, single use, so the OAuth callback can finish in any tab, browser or installed app: `POST .../mp/connect` with the same `state` spends it. Registering the same `state` again replaces the earlier attempt.
+         */
+        post: operations["complexesRegisterMercadoPagoOAuthAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/complexes/{id}/mp/status": {
         parameters: {
             query?: never;
@@ -1662,6 +1682,146 @@ export interface paths {
         get: operations["openapiGetCatalog"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/posts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Create or update a marketing post
+         * @description Accepts only a GitHub Actions OIDC token whose repository is the configured sync repository and whose ref is refs/heads/main. The media the post names must be uploaded first. A post that a network has published, or that a publish run is holding, is frozen: the request answers 409 and changes nothing. A draft is stored and never published.
+         */
+        put: operations["socialPutPost"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/posts/{id}/media/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload one file of a marketing post
+         * @description The raw file is the body. Its content type must match its extension: image/jpeg for .jpg and .jpeg, video/mp4 for .mp4. A JPEG is 8 MB at most and an MP4 is 100 MB at most. The file is stored under its content hash and staged for the post upsert. A frozen post answers 409.
+         */
+        put: operations["socialPutMedia"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/threads/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start connecting Vibe's Threads account
+         * @description Superadmin only. Sets a short-lived state cookie bound to this browser and redirects to Meta's consent page for the Threads account. The session cookie must be fresh: open the app first when this answers 401.
+         */
+        get: operations["socialThreadsConnect"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/threads/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Finish connecting Vibe's Threads account
+         * @description Meta's redirect target. Public, because the browser arrives from Meta: the state must match the cookie set by the connect call, and then the code is exchanged for a long-lived token that is stored sealed. Answers an HTML page, never JSON.
+         */
+        get: operations["socialThreadsCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/threads/uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Meta's uninstall callback for the Threads app
+         * @description Public and CSRF-exempt: Meta posts it with no session. The signed_request is verified with the app secret (HMAC-SHA256, constant-time). A valid request for the connected account removes its stored connection and queues one notice email; a valid request for another account removes nothing. Answers 501 when Threads is not configured.
+         */
+        post: operations["socialThreadsUninstall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/threads/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Meta's data-deletion callback for the Threads app
+         * @description Public and CSRF-exempt, verified like the uninstall callback. Removes the Threads connection for the named account, if stored, and answers with the status page and a confirmation code that Meta shows the person who asked for deletion.
+         */
+        post: operations["socialThreadsDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel scheduled posts that left the content repository
+         * @description Sends every post id in the repository, drafts included. Each scheduled post whose id is absent is cancelled. A published post is never touched. The list must be present, even when empty.
+         */
+        post: operations["socialReconcile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2775,6 +2935,10 @@ export interface components {
         Cursor: string;
         /** @description Page size. Default 50, maximum 200. */
         Limit: number;
+        /** @description Post id, which is the post's folder name in the content repository. */
+        SocialPostID: string;
+        /** @description File name of the media inside the post folder. */
+        SocialMediaName: string;
         /** @description Complex id. */
         PathID: string;
         PathSlug: string;
@@ -5057,7 +5221,10 @@ export interface operations {
                     code: string;
                     /** Format: uri */
                     redirect_uri: string;
+                    /** @description The PKCE verifier, sent by clients that kept it in the browser. When present it is used as is, and a `state` sent alongside it is only spent. */
                     code_verifier?: string;
+                    /** @description The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged. */
+                    state?: string;
                 };
             };
         };
@@ -5144,6 +5311,49 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    complexesRegisterMercadoPagoOAuthAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    state: string;
+                    /** @description RFC 7636 code verifier (unreserved characters only). */
+                    code_verifier: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Registered. Empty body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The body is not valid JSON or carries an unknown field. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
         };
@@ -7093,6 +7303,386 @@ export interface operations {
                 };
             };
             429: components["responses"]["RateLimited"];
+        };
+    };
+    socialPutPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Post id, which is the post's folder name in the content repository. */
+                id: components["parameters"]["SocialPostID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: date-time
+                     * @description RFC 3339 time with an offset.
+                     */
+                    publish_at: string;
+                    networks: ("instagram" | "facebook" | "threads")[];
+                    /**
+                     * @description Text posts go to threads alone and list no media. Stories go to instagram or facebook, list exactly one file and have no required caption.
+                     * @enum {string}
+                     */
+                    type: "image" | "carousel" | "reel" | "story" | "text";
+                    /** @description Required except for a story, which has no caption. */
+                    caption?: string;
+                    /** @description Single-image posts only. */
+                    alt_text?: string;
+                    /** @description Carousel images or videos, 2 to 10 files. A story lists 1 to 6 files, published in this order a minute apart. */
+                    media?: string[];
+                    draft?: boolean;
+                    /** @description Story only: the feed post id the story sequence waits for on each network. */
+                    after?: string;
+                    /** @description JPEG file in the post folder, reel posts only. Instagram shows it as the reel cover. */
+                    cover?: string;
+                    /** @description Text for Threads. Defaults to the caption, which must then fit in 500 characters. */
+                    threads_text?: string;
+                    /** @description Threads topic tag, without periods or ampersands. */
+                    threads_topic?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The post is stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "publishing" | "published" | "partial" | "failed" | "cancelled";
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description The post is already published or being published, so its content is frozen. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The post is invalid, or a file it names has not been uploaded. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    socialPutMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Post id, which is the post's folder name in the content repository. */
+                id: components["parameters"]["SocialPostID"];
+                /** @description File name of the media inside the post folder. */
+                name: components["parameters"]["SocialMediaName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "video/mp4": string;
+            };
+        };
+        responses: {
+            /** @description The file is stored and staged. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        name: string;
+                        url: string;
+                        sha256: string;
+                        content_type: string;
+                        size_bytes: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description The post is already published or being published, so its media is frozen. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The file is larger than its format allows. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The content type or the bytes do not match the file name. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The file name is not allowed, or the file is empty. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description Media storage is not configured on this deployment. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Media storage has no public URL to hand to the platforms. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    socialThreadsConnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to Meta's consent page. */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller is not a superadmin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    socialThreadsCallback: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account is connected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Meta refused, or the state does not match this browser. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description The exchange with Meta failed. Nothing was stored. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+        };
+    };
+    socialThreadsUninstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    signed_request: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The callback was verified and handled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description The signed_request is missing, malformed, or not signed by this app. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    socialThreadsDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    signed_request: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The request was verified; the confirmation code identifies it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                        confirmation_code: string;
+                    };
+                };
+            };
+            /** @description The signed_request is missing, malformed, or not signed by this app. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    socialReconcile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The posts that were cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cancelled: string[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description The id list is missing or holds an invalid id. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
         };
     };
 }
