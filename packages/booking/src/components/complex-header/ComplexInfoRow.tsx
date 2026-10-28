@@ -1,10 +1,10 @@
-import { MapPin, Phone, Mail } from 'lucide-react';
-import { InstagramIcon, WhatsappIcon } from '@vibe/ui';
-import { BOOKING_MESSAGES } from '../../messages';
-import type { PublicComplex } from '../../api/types';
-import { fullAddress } from '../../lib/complexAddress';
-import { instagramProfileUrl } from '../../lib/instagram';
-import { whatsappChatHref } from '../../lib/whatsapp';
+import { MapPin, Phone, Mail } from "lucide-react";
+import { InstagramIcon, WhatsappIcon } from "@vibe/ui";
+import { BOOKING_MESSAGES } from "../../messages";
+import type { PublicComplex } from "../../api/types";
+import { fullAddress } from "../../lib/complexAddress";
+import { instagramProfileUrl } from "../../lib/instagram";
+import { whatsappChatHref } from "../../lib/whatsapp";
 
 const t = BOOKING_MESSAGES;
 
@@ -25,7 +25,8 @@ function InstagramLink({ name, handle }: { name: string; handle: string }) {
 }
 
 /**
- * How to find the club and how to reach it: address, phone, email, Instagram.
+ * How to find the club and how to reach it: address, phone, WhatsApp, email,
+ * Instagram, one per row.
  *
  * A column, not a row. These were laid out side by side, which reads as one
  * run-on line of unrelated facts and gives each of them whatever width is
@@ -54,35 +55,38 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
           pixels lower than the phone's and the mail's — the rows are evenly
           spaced, but three icons on two different baselines read as uneven. */}
       <div className="flex items-center gap-2">
-        <MapPin className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
+        <MapPin
+          className="text-primary-400 size-3 shrink-0 sm:size-3.5"
+          aria-hidden="true"
+        />
         <span>{fullAddress(complex)}</span>
       </div>
 
       {complex.phone && (
-        // The phone and its WhatsApp chat share one line: the same number,
-        // reached two ways, with the chat beside the call.
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <a
-            href={`tel:${complex.phone}`}
-            className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
-          >
-            <Phone className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
-            <span>{complex.phone}</span>
-          </a>
+        <a
+          href={`tel:${complex.phone}`}
+          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+        >
+          <Phone
+            className="text-primary-400 size-3 shrink-0 sm:size-3.5"
+            aria-hidden="true"
+          />
+          <span>{complex.phone}</span>
+        </a>
+      )}
 
-          {whatsAppHref && (
-            <a
-              href={whatsAppHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${complex.name}`}
-              className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
-            >
-              <WhatsappIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
-              <span>{BOOKING_MESSAGES.publicBooking.whatsAppLabel}</span>
-            </a>
-          )}
-        </div>
+      {/* The same number, reached by chat: its own row, under the call. */}
+      {whatsAppHref && (
+        <a
+          href={whatsAppHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${complex.name}`}
+          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+        >
+          <WhatsappIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
+          <span>{BOOKING_MESSAGES.publicBooking.whatsAppLabel}</span>
+        </a>
       )}
 
       {complex.email ? (
@@ -90,7 +94,10 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
           href={`mailto:${complex.email}`}
           className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
         >
-          <Mail className="text-primary-400 size-3 shrink-0 sm:size-3.5" aria-hidden="true" />
+          <Mail
+            className="text-primary-400 size-3 shrink-0 sm:size-3.5"
+            aria-hidden="true"
+          />
           <span>{complex.email}</span>
         </a>
       ) : (
@@ -100,7 +107,14 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
         </div>
       )}
 
-      {complex.instagram && <InstagramLink name={complex.name} handle={complex.instagram} />}
+      {complex.instagram ? (
+        <InstagramLink name={complex.name} handle={complex.instagram} />
+      ) : (
+        <div className="text-text-tertiary flex items-center gap-2">
+          <InstagramIcon className="size-3 shrink-0 sm:size-3.5" />
+          <span>{t.publicBooking.noInstagram}</span>
+        </div>
+      )}
     </div>
   );
 }

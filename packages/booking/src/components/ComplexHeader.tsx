@@ -59,17 +59,20 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
         <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
 
         <div className="relative pb-5 sm:pb-7">
-          <ComplexLogo logoUrl={complex.logo_url ?? null} name={complex.name} />
+          {/* The logo climbs over the cover; "Compartir" sits on its right, just
+              below the cover's bottom edge. */}
+          <div className="flex items-start justify-between gap-4">
+            <ComplexLogo logoUrl={complex.logo_url ?? null} name={complex.name} />
+            <div className="pt-3">
+              <ShareComplexButton name={complex.name} slug={complex.slug} />
+            </div>
+          </div>
 
           <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">
             {complex.name}
           </h1>
 
           <ComplexInfoRow complex={complex} />
-
-          <div className="mt-2">
-            <ShareComplexButton name={complex.name} slug={complex.slug} />
-          </div>
         </div>
       </div>
 
