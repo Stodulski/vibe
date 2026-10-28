@@ -1033,9 +1033,10 @@ func refundResultRank(result paymentstore.RefundResult) int {
 		return 2
 	case paymentstore.RefundIssued:
 		return 1
-	default:
+	case paymentstore.RefundNone, paymentstore.RefundNotEligible, paymentstore.RefundAlreadyIssued, paymentstore.RefundManual:
 		return 0
 	}
+	return 0
 }
 
 // recordedRefundedCentavos reads how much the claim's own payment row already holds

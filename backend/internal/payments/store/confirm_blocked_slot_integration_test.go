@@ -42,10 +42,9 @@ func blockedPendingBooking(t *testing.T, f *datatest.Fixture) *bookingstore.Book
 // Both confirmation writes are exercised, because the webhook takes one or the
 // other depending on whether a checkout row already exists.
 func TestConfirmationRefusesASlotTheOwnerBlockedAfterTheBookingWasMade(t *testing.T) {
-	ctx := context.Background()
-
 	t.Run("a new payment row", func(t *testing.T) {
 		f := datatest.Isolated(t)
+		ctx := context.Background()
 		b := blockedPendingBooking(t, f)
 		// The webhook sets the confirmed status before the write, as processApprovedPayment does.
 		b.Status = "confirmed"
@@ -67,6 +66,7 @@ func TestConfirmationRefusesASlotTheOwnerBlockedAfterTheBookingWasMade(t *testin
 
 	t.Run("the checkout row the webhook settles", func(t *testing.T) {
 		f := datatest.Isolated(t)
+		ctx := context.Background()
 		b := blockedPendingBooking(t, f)
 		checkout := f.CreatePayment(t, b.ID, b.DepositAmount, 10_500, nil)
 		b.Status = "confirmed"
