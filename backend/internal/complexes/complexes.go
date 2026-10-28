@@ -111,12 +111,12 @@ type PaymentConnector interface {
 }
 
 // OAuthAttemptStore keeps MercadoPago OAuth attempts between the redirect to
-// MercadoPago and the callback, single use and bounded in time. Consume
-// answers ErrOAuthAttemptInvalid for an unknown, expired or spent state.
-// MPOAuthAttempts satisfies it.
+// MercadoPago and the callback, single use, bounded in time and in number per
+// scope. Consume answers ErrOAuthAttemptInvalid for an unknown, expired or
+// spent attempt. MPOAuthAttempts satisfies it.
 type OAuthAttemptStore interface {
-	Store(ctx context.Context, state string, payload []byte, ttl time.Duration) error
-	Consume(ctx context.Context, state string) ([]byte, error)
+	Store(ctx context.Context, scope, state string, payload []byte, ttl time.Duration) error
+	Consume(ctx context.Context, scope, state string) ([]byte, error)
 }
 
 // Recorder writes the audit trail.

@@ -3,6 +3,7 @@ package complexes
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -57,7 +58,7 @@ func TestRegisterMercadoPagoOAuthAttemptStoresItAndAnswers204(t *testing.T) {
 		t.Errorf("a 204 carries no body; got %q", w.Body.String())
 	}
 
-	raw, err := f.attempts.Consume(t.Context(), testState)
+	raw, err := f.attempts.Consume(t.Context(), mpOAuthAttemptScope(complex.ID, owner), testState)
 	if err != nil {
 		t.Fatalf("the attempt was not stored: %v", err)
 	}
@@ -111,10 +112,11 @@ func TestRegisterMercadoPagoOAuthAttemptValidates(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)
+			owner := uuid.New()
 			complex := &complexstore.Complex{ID: uuid.New()}
 
 			w := httptest.NewRecorder()
-			f.handler.RegisterMercadoPagoOAuthAttempt(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil, registerBody(tc.state, tc.verifier)))
+			f.handler.RegisterMercadoPagoOAuthAttempt(w, ownerRequest(t, http.MethodPost, "/", owner, complex, nil, registerBody(tc.state, tc.verifier)))
 
 			if w.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
@@ -123,7 +125,7 @@ func TestRegisterMercadoPagoOAuthAttemptValidates(t *testing.T) {
 				t.Errorf("the error must name %q; got %s", tc.field, w.Body.String())
 			}
 			if tc.state != "" {
-				if _, err := f.attempts.Consume(t.Context(), tc.state); !errors.Is(err, ErrOAuthAttemptInvalid) {
+				if _, err := f.attempts.Consume(t.Context(), mpOAuthAttemptScope(complex.ID, owner), tc.state); !errors.Is(err, ErrOAuthAttemptInvalid) {
 					t.Errorf("a rejected registration must store nothing; got %v", err)
 				}
 			}
@@ -262,7 +264,7 @@ func TestConnectMercadoPagoWithAVerifierAndStateSpendsTheAttempt(t *testing.T) {
 	if f.payments.gotVerifier != "verifier" {
 		t.Errorf("the client's verifier must be used; got %q", f.payments.gotVerifier)
 	}
-	if _, err := f.attempts.Consume(t.Context(), testState); !errors.Is(err, ErrOAuthAttemptInvalid) {
+	if _, err := f.attempts.Consume(t.Context(), mpOAuthAttemptScope(complex.ID, owner), testState); !errors.Is(err, ErrOAuthAttemptInvalid) {
 		t.Errorf("the attempt must be spent; got %v", err)
 	}
 
@@ -270,6 +272,115 @@ func TestConnectMercadoPagoWithAVerifierAndStateSpendsTheAttempt(t *testing.T) {
 	f.handler.ConnectMercadoPago(again, ownerRequest(t, http.MethodPost, "/", owner, complex, nil, body))
 	if again.Code != http.StatusOK {
 		t.Errorf("an unknown state beside a verifier is ignored; got %d (%s)", again.Code, again.Body.String())
+	}
+}
+
+// Someone else's request naming the state must not cost its owner the attempt.
+func TestConnectMercadoPagoMismatchLeavesTheAttemptToItsOwner(t *testing.T) {
+	f := newFixture(t)
+	owner := uuid.New()
+	complex := &complexstore.Complex{ID: uuid.New()}
+	f.payments.tokens = &mp.OAuthTokens{AccessToken: "AT", RefreshToken: "RT", UserID: 1}
+	register(t, f, owner, complex, testState, testVerifier)
+
+	stranger := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(stranger, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil, connectWithState(testState)))
+	assertStateRejected(t, stranger)
+
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", owner, complex, nil, connectWithState(testState)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("the owner must still be able to use the attempt; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.payments.gotVerifier != testVerifier {
+		t.Errorf("exchanged with %q", f.payments.gotVerifier)
+	}
+}
+
+// MercadoPago failing on its side is not the owner's doing: reloading the
+// callback must be able to try the same attempt again.
+func TestConnectMercadoPagoUnavailableKeepsTheAttempt(t *testing.T) {
+	f := newFixture(t)
+	owner := uuid.New()
+	complex := &complexstore.Complex{ID: uuid.New()}
+	register(t, f, owner, complex, testState, testVerifier)
+	f.payments.err = fmt.Errorf("%w: status 503", mp.ErrOAuthUnavailable)
+
+	failed := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(failed, ownerRequest(t, http.MethodPost, "/", owner, complex, nil, connectWithState(testState)))
+	if failed.Code < 500 {
+		t.Fatalf("want a 5xx while MercadoPago is down; got %d (%s)", failed.Code, failed.Body.String())
+	}
+
+	f.payments.err = nil
+	f.payments.tokens = &mp.OAuthTokens{AccessToken: "AT", RefreshToken: "RT", UserID: 1}
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", owner, complex, nil, connectWithState(testState)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("the retry must find the attempt; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.payments.gotVerifier != testVerifier {
+		t.Errorf("exchanged with %q", f.payments.gotVerifier)
+	}
+}
+
+// A code MercadoPago refused is spent at MercadoPago too: so is the attempt.
+func TestConnectMercadoPagoRejectedCodeSpendsTheAttempt(t *testing.T) {
+	f := newFixture(t)
+	owner := uuid.New()
+	complex := &complexstore.Complex{ID: uuid.New()}
+	register(t, f, owner, complex, testState, testVerifier)
+	f.payments.err = fmt.Errorf("%w: invalid_grant", mp.ErrOAuthRejected)
+
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", owner, complex, nil, connectWithState(testState)))
+
+	if _, err := f.attempts.Consume(t.Context(), mpOAuthAttemptScope(complex.ID, owner), testState); !errors.Is(err, ErrOAuthAttemptInvalid) {
+		t.Errorf("a rejected code must spend the attempt; got %v", err)
+	}
+}
+
+// Connect and register agree on what a state looks like.
+func TestConnectMercadoPagoValidatesTheState(t *testing.T) {
+	for name, state := range map[string]string{
+		"state too short": strings.Repeat("s", 15),
+		"state too long":  strings.Repeat("s", 129),
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			w := httptest.NewRecorder()
+			f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), &complexstore.Complex{ID: uuid.New()}, nil, connectWithState(state)))
+			assertStateRejected(t, w)
+			if !strings.Contains(w.Body.String(), "between 16 and 128 characters") {
+				t.Errorf("want the register endpoint's message; got %s", w.Body.String())
+			}
+			if f.payments.calls != 0 {
+				t.Errorf("an invalid state must not reach MercadoPago; exchanges = %d", f.payments.calls)
+			}
+		})
+	}
+}
+
+// One owner keeps at most mpOAuthAttemptsPerOwner live attempts; registering
+// one more drops the oldest.
+func TestRegisterMercadoPagoOAuthAttemptKeepsTheNewestPerOwner(t *testing.T) {
+	f := newFixture(t)
+	owner := uuid.New()
+	complex := &complexstore.Complex{ID: uuid.New()}
+	states := make([]string, mpOAuthAttemptsPerOwner+1)
+	for i := range states {
+		states[i] = fmt.Sprintf("state-%02d-0123456789", i)
+		register(t, f, owner, complex, states[i], testVerifier)
+	}
+
+	scope := mpOAuthAttemptScope(complex.ID, owner)
+	if _, err := f.attempts.Consume(t.Context(), scope, states[0]); !errors.Is(err, ErrOAuthAttemptInvalid) {
+		t.Errorf("the oldest attempt must be dropped; got %v", err)
+	}
+	for _, state := range states[1:] {
+		if _, err := f.attempts.Consume(t.Context(), scope, state); err != nil {
+			t.Errorf("attempt %s must be kept; got %v", state, err)
+		}
 	}
 }
 
@@ -287,35 +398,35 @@ func assertStateRejected(t *testing.T, w *httptest.ResponseRecorder) {
 
 func TestMPOAuthAttemptsInMemoryIsSingleUse(t *testing.T) {
 	s := NewMPOAuthAttempts(nil, "test")
-	if err := s.Store(t.Context(), "k", []byte("v"), time.Minute); err != nil {
+	if err := s.Store(t.Context(), "sc", "k", []byte("v"), time.Minute); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.Consume(t.Context(), "k")
+	got, err := s.Consume(t.Context(), "sc", "k")
 	if err != nil || string(got) != "v" {
 		t.Fatalf("first consume: got %q, %v", got, err)
 	}
-	if _, err := s.Consume(t.Context(), "k"); !errors.Is(err, ErrOAuthAttemptInvalid) {
+	if _, err := s.Consume(t.Context(), "sc", "k"); !errors.Is(err, ErrOAuthAttemptInvalid) {
 		t.Errorf("second consume: want ErrOAuthAttemptInvalid; got %v", err)
 	}
 }
 
 func TestMPOAuthAttemptsInMemoryExpires(t *testing.T) {
 	s := NewMPOAuthAttempts(nil, "test")
-	if err := s.Store(t.Context(), "k", []byte("v"), time.Nanosecond); err != nil {
+	if err := s.Store(t.Context(), "sc", "k", []byte("v"), time.Nanosecond); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(time.Millisecond)
-	if _, err := s.Consume(t.Context(), "k"); !errors.Is(err, ErrOAuthAttemptInvalid) {
+	if _, err := s.Consume(t.Context(), "sc", "k"); !errors.Is(err, ErrOAuthAttemptInvalid) {
 		t.Errorf("an expired attempt: want ErrOAuthAttemptInvalid; got %v", err)
 	}
 }
 
 func TestMPOAuthAttemptsInMemorySweepsExpiredEntries(t *testing.T) {
 	s := NewMPOAuthAttempts(nil, "test")
-	_ = s.Store(t.Context(), "old", []byte("v"), time.Nanosecond)
+	_ = s.Store(t.Context(), "sc", "old", []byte("v"), time.Nanosecond)
 	time.Sleep(time.Millisecond)
-	_ = s.Store(t.Context(), "new", []byte("v"), time.Minute)
-	if _, ok := s.mem.Load("old"); ok {
+	_ = s.Store(t.Context(), "sc", "new", []byte("v"), time.Minute)
+	if _, ok := s.entries[s.key("sc", "old")]; ok {
 		t.Error("storing must sweep expired attempts")
 	}
 }
@@ -326,28 +437,76 @@ func TestMPOAuthAttemptsRedisIsNamespacedSingleUseAndExpires(t *testing.T) {
 	t.Cleanup(func() { _ = rdb.Close() })
 	s := NewMPOAuthAttempts(rdb, "test")
 
-	if err := s.Store(t.Context(), "k", []byte("v"), time.Hour); err != nil {
+	if err := s.Store(t.Context(), "sc", "k", []byte("v"), time.Hour); err != nil {
 		t.Fatal(err)
 	}
-	const key = "vibe:test:mpoauth:k"
+	const key = "vibe:test:mpoauth:sc:k"
 	if !mr.Exists(key) {
 		t.Fatalf("want key %q; have %v", key, mr.Keys())
 	}
 	if ttl := mr.TTL(key); ttl != time.Hour {
 		t.Errorf("want a 1h TTL; got %v", ttl)
 	}
-	got, err := s.Consume(t.Context(), "k")
+	got, err := s.Consume(t.Context(), "sc", "k")
 	if err != nil || string(got) != "v" {
 		t.Fatalf("consume: got %q, %v", got, err)
 	}
-	if _, err := s.Consume(t.Context(), "k"); !errors.Is(err, ErrOAuthAttemptInvalid) {
+	if _, err := s.Consume(t.Context(), "sc", "k"); !errors.Is(err, ErrOAuthAttemptInvalid) {
 		t.Errorf("second consume: want ErrOAuthAttemptInvalid; got %v", err)
 	}
 
-	_ = s.Store(t.Context(), "e", []byte("v"), time.Hour)
+	_ = s.Store(t.Context(), "sc", "e", []byte("v"), time.Hour)
 	mr.FastForward(time.Hour + time.Second)
-	if _, err := s.Consume(t.Context(), "e"); !errors.Is(err, ErrOAuthAttemptInvalid) {
+	if _, err := s.Consume(t.Context(), "sc", "e"); !errors.Is(err, ErrOAuthAttemptInvalid) {
 		t.Errorf("expired: want ErrOAuthAttemptInvalid; got %v", err)
+	}
+}
+
+func TestMPOAuthAttemptsInMemoryCapsEachScope(t *testing.T) {
+	s := NewMPOAuthAttempts(nil, "test")
+	for i := 0; i <= mpOAuthAttemptsPerOwner; i++ {
+		_ = s.Store(t.Context(), "sc", fmt.Sprint(i), []byte("v"), time.Minute)
+	}
+	_ = s.Store(t.Context(), "other", "x", []byte("v"), time.Minute)
+	// Registering a kept state again refreshes it rather than taking a second slot.
+	_ = s.Store(t.Context(), "sc", "1", []byte("v2"), time.Minute)
+
+	if _, err := s.Consume(t.Context(), "sc", "0"); !errors.Is(err, ErrOAuthAttemptInvalid) {
+		t.Errorf("the oldest must be dropped; got %v", err)
+	}
+	for i := 1; i <= mpOAuthAttemptsPerOwner; i++ {
+		if _, err := s.Consume(t.Context(), "sc", fmt.Sprint(i)); err != nil {
+			t.Errorf("attempt %d must be kept; got %v", i, err)
+		}
+	}
+	if _, err := s.Consume(t.Context(), "other", "x"); err != nil {
+		t.Errorf("another scope is not affected; got %v", err)
+	}
+}
+
+func TestMPOAuthAttemptsRedisCapsEachScope(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := platformredis.NewClient(&platformredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	s := NewMPOAuthAttempts(rdb, "test")
+
+	for i := 0; i <= mpOAuthAttemptsPerOwner; i++ {
+		if err := s.Store(t.Context(), "sc", fmt.Sprint(i), []byte("v"), time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = s.Store(t.Context(), "sc", "1", []byte("v2"), time.Hour)
+
+	if mr.Exists("vibe:test:mpoauth:sc:0") {
+		t.Error("the oldest attempt must be deleted")
+	}
+	if ttl := mr.TTL("vibe:test:mpoauthidx:sc"); ttl <= 0 || ttl > time.Hour {
+		t.Errorf("the index must expire with its attempts; TTL %v", ttl)
+	}
+	for i := 1; i <= mpOAuthAttemptsPerOwner; i++ {
+		if _, err := s.Consume(t.Context(), "sc", fmt.Sprint(i)); err != nil {
+			t.Errorf("attempt %d must be kept; got %v", i, err)
+		}
 	}
 }
 

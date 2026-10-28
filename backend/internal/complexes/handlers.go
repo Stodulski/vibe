@@ -635,7 +635,9 @@ func (h *Handler) ConnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 	v := validator.New()
 	v.Check(input.Code != "", "code", "must be provided")
 	v.Check(input.RedirectUri != "", "redirect_uri", "must be provided")
-	v.Check(utf8.RuneCountInString(state) <= mpOAuthStateMaxLen, "state", "must not be more than 128 characters")
+	if state != "" {
+		checkMPOAuthState(v, state)
+	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -675,6 +677,13 @@ const (
 
 var pkceVerifierRX = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
 
+// checkMPOAuthState is the one rule for what a state looks like, shared by the
+// endpoint that registers an attempt and the one that spends it.
+func checkMPOAuthState(v *validator.Validator, state string) {
+	v.Check(len(state) >= mpOAuthStateMinLen && len(state) <= mpOAuthStateMaxLen,
+		"state", "must be between 16 and 128 characters")
+}
+
 // RegisterMercadoPagoOAuthAttempt handles POST
 // /api/v1/complexes/{id}/mp/oauth-attempts: the client registers the state and
 // PKCE verifier of the attempt it is about to send the owner on, so the
@@ -699,8 +708,7 @@ func (h *Handler) RegisterMercadoPagoOAuthAttempt(w http.ResponseWriter, r *http
 
 	v := validator.New()
 	v.Check(input.State != "", "state", "must be provided")
-	v.Check(len(input.State) >= mpOAuthStateMinLen && len(input.State) <= mpOAuthStateMaxLen,
-		"state", "must be between 16 and 128 characters")
+	checkMPOAuthState(v, input.State)
 	v.Check(input.CodeVerifier != "", "code_verifier", "must be provided")
 	v.Check(len(input.CodeVerifier) >= mpOAuthVerifierMinLen && len(input.CodeVerifier) <= mpOAuthVerifierMaxLen,
 		"code_verifier", "must be between 43 and 128 characters")
