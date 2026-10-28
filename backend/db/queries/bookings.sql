@@ -73,6 +73,28 @@ SET status = $2,
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateBookingIfUnchanged :one
+-- The owner's edit, applied only while the row is still the one the owner read.
+-- updated_at is stamped by the set_updated_at trigger on every write, so an
+-- equal value means nothing has written the row since. The whole-row write
+-- below is built from the owner's snapshot, and the trigger does not refuse
+-- every stale one: a cancellation reverted to no_show, or a deposit reverted
+-- from fully_paid, is a legal-looking transition. A row that moved matches
+-- nothing and comes back as no rows, which the store answers as an edit
+-- conflict instead of writing the stale snapshot over the other writer's change.
+--
+-- UpdateBooking stays unconditional for every other writer.
+UPDATE bookings
+SET status = $2,
+    collection_status = $3,
+    refund_status = $4,
+    notes = $5,
+    deposit_amount = $6,
+    refund_intent_at = $7
+WHERE id = $1
+  AND updated_at = sqlc.arg(expected_updated_at)
+RETURNING *;
+
 -- GetBookedSlots returns the hours already taken on the given courts and date.
 --
 -- Its status predicate must stay identical to releasedBookingStatuses in

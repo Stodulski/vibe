@@ -589,3 +589,73 @@ func (q *Queries) UpdateBooking(ctx context.Context, arg UpdateBookingParams) (B
 	)
 	return i, err
 }
+
+const updateBookingIfUnchanged = `-- name: UpdateBookingIfUnchanged :one
+UPDATE bookings
+SET status = $2,
+    collection_status = $3,
+    refund_status = $4,
+    notes = $5,
+    deposit_amount = $6,
+    refund_intent_at = $7
+WHERE id = $1
+  AND updated_at = $8
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status
+`
+
+type UpdateBookingIfUnchangedParams struct {
+	ID                pgtype.UUID        `json:"id"`
+	Status            BookingStatus      `json:"status"`
+	CollectionStatus  string             `json:"collection_status"`
+	RefundStatus      string             `json:"refund_status"`
+	Notes             pgtype.Text        `json:"notes"`
+	DepositAmount     int32              `json:"deposit_amount"`
+	RefundIntentAt    pgtype.Timestamptz `json:"refund_intent_at"`
+	ExpectedUpdatedAt pgtype.Timestamptz `json:"expected_updated_at"`
+}
+
+// The owner's edit, applied only while the row is still the one the owner read.
+// updated_at is stamped by the set_updated_at trigger on every write, so an
+// equal value means nothing has written the row since. The whole-row write
+// below is built from the owner's snapshot, and the trigger does not refuse
+// every stale one: a cancellation reverted to no_show, or a deposit reverted
+// from fully_paid, is a legal-looking transition. A row that moved matches
+// nothing and comes back as no rows, which the store answers as an edit
+// conflict instead of writing the stale snapshot over the other writer's change.
+//
+// UpdateBooking stays unconditional for every other writer.
+func (q *Queries) UpdateBookingIfUnchanged(ctx context.Context, arg UpdateBookingIfUnchangedParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, updateBookingIfUnchanged,
+		arg.ID,
+		arg.Status,
+		arg.CollectionStatus,
+		arg.RefundStatus,
+		arg.Notes,
+		arg.DepositAmount,
+		arg.RefundIntentAt,
+		arg.ExpectedUpdatedAt,
+	)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.CourtID,
+		&i.ClientID,
+		&i.Date,
+		&i.StartTime,
+		&i.DurationMinutes,
+		&i.Price,
+		&i.DepositAmount,
+		&i.Status,
+		&i.ReminderSent2h,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RefundIntentAt,
+		&i.Span,
+		&i.CollectionStatus,
+		&i.RefundStatus,
+	)
+	return i, err
+}

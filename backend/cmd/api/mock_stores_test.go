@@ -801,6 +801,16 @@ func (m *mockBookingStore) Update(ctx context.Context, booking *bookingstore.Boo
 	return nil
 }
 
+// The two conditional writes answer through the fakes the plain writes already
+// use, so a test sees the same write whichever path the service takes.
+func (m *mockBookingStore) InsertSafeWithPayment(ctx context.Context, booking *bookingstore.Booking, _ *bookingstore.CounterPayment) error {
+	return m.InsertSafe(ctx, booking)
+}
+
+func (m *mockBookingStore) UpdateIfUnchanged(ctx context.Context, booking *bookingstore.Booking) error {
+	return m.Update(ctx, booking)
+}
+
 func (m *mockBookingStore) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error) {
 	return nil, nil
 }

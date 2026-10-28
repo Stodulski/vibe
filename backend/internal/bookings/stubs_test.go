@@ -36,6 +36,12 @@ type stubStore struct {
 	getErr    error
 	listErr   error
 	insertErr error
+	// counterPaymentErr fails InsertSafeWithPayment the way a payment insert
+	// that rolls the whole transaction back does: no booking may be recorded.
+	counterPaymentErr error
+	// payments receives the counter payment InsertSafeWithPayment writes, the
+	// way the real transaction lands it in the payments table. newFixture links it.
+	payments *stubPayments
 
 	// onUpdate runs inside Update, so a test can put an event — a client
 	// disconnecting, in particular — between two steps of a handler.
@@ -94,6 +100,32 @@ func (s *stubStore) InsertSafe(_ context.Context, b *bookingstore.Booking) error
 	b.LinkToken = "stub-link-token-" + b.ID.String()
 	s.inserted = append(s.inserted, b)
 	return nil
+}
+
+// InsertSafeWithPayment writes the booking and its counter payment as one unit,
+// as the real store does inside one transaction: when the payment fails, the
+// booking is not recorded either.
+func (s *stubStore) InsertSafeWithPayment(ctx context.Context, b *bookingstore.Booking, p *bookingstore.CounterPayment) error {
+	if s.counterPaymentErr != nil {
+		return s.counterPaymentErr
+	}
+	if err := s.InsertSafe(ctx, b); err != nil {
+		return err
+	}
+	if p != nil && s.payments != nil {
+		s.payments.inserted = append(s.payments.inserted, &paymentstore.Payment{
+			BookingID: b.ID, ComplexID: b.ComplexID,
+			Amount: p.Amount, Method: p.Method, Status: p.Status,
+		})
+	}
+	return nil
+}
+
+// UpdateIfUnchanged writes through Update. The stub's row is the caller's own
+// pointer, so nothing can move it between the read and the write; a test that
+// needs a racing writer uses its own store (see racingStore).
+func (s *stubStore) UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booking) error {
+	return s.Update(ctx, b)
 }
 
 func (s *stubStore) Update(_ context.Context, b *bookingstore.Booking) error {
@@ -768,6 +800,7 @@ func newFixture(t *testing.T) *fixture {
 		WhatsAppEnabled: true, LinkTokenBuffer: 24 * time.Hour,
 	})
 	f.handler = NewHandler(f.service, f.whatsapp, httpx.NewResponder(logger), logger, false)
+	f.store.payments = f.payments
 	return f
 }
 

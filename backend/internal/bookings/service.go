@@ -218,11 +218,11 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		return nil, err
 	}
 
-	// No version field: the request carries no optimistic-concurrency token
-	// because the column behind it was removed with the version counter. What refuses a
-	// write that races a bulk cancel or a payment confirmation is the
-	// bookings_forbid_status_reversal trigger, in the database, for every
-	// writer — the version check provably never fired on that path.
+	// The snapshot above was read outside any lock, and the write below
+	// rebuilds every column from it. UpdateIfUnchanged applies it only while
+	// the row is still the one read, so a cancellation or payment that
+	// committed in between refuses the edit instead of being reverted. The
+	// bookings_forbid_status_reversal trigger does not cover that case.
 	v := validator.New()
 
 	if in.Status != nil {
@@ -315,19 +315,15 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		booking.CollectionStatus = wantCollection
 	}
 	if in.RefundStatus != nil {
-		// 'partial' is deliberately absent from validRefundStatuses: it names a
+		// 'partial' is deliberately absent from the settable statuses: it names a
 		// booking whose MercadoPago-backed rows were refunded automatically and
 		// whose cash/transfer rows are still owed by hand, and only the refund
-		// pipeline that computed that split may set it
-		// (internal/payments/refund.go). It IS a key of the transition matrix
-		// below, though, and that is not an oversight — before the equivalent
-		// entry existed on the merged enum, a booking sitting in that state
-		// matched no key at all, `allowed, ok := ...` left ok false, the whole
-		// guard fell through, and a generic edit could move it anywhere,
-		// including back to fully collected with the manual balance still
-		// unpaid. The only transition a staff edit may make from 'partial' is
-		// the one the manual-refund endpoint makes, to 'full', once the owner
-		// confirms the cash portion was actually returned.
+		// pipeline that computed that split may set it (internal/payments/refund.go).
+		// A staff edit may not move a booking off 'partial' either. The move to
+		// 'full' belongs to the manual-refund endpoint, which runs once the owner
+		// confirms the cash portion came back by hand. A generic edit that sets
+		// 'full' skips that confirmation, so any change away from 'partial' is
+		// refused below with 422.
 		wantRefund := bookingstore.RefundStatus(*in.RefundStatus)
 		// Not RefundStatus.Valid(): that answers "could this be in the column",
 		// which includes 'partial', and this answers the narrower "may a staff
@@ -343,7 +339,6 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		validRefundTransitions := map[bookingstore.RefundStatus]map[bookingstore.RefundStatus]bool{
 			bookingstore.RefundStatusNone:    {bookingstore.RefundStatusPending: true},
 			bookingstore.RefundStatusPending: {bookingstore.RefundStatusFull: true},
-			bookingstore.RefundStatusPartial: {bookingstore.RefundStatusFull: true},
 			bookingstore.RefundStatusFull:    {},
 		}
 		refundLabels := map[bookingstore.RefundStatus]string{
@@ -352,7 +347,13 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 			bookingstore.RefundStatusPartial: "reembolso parcial",
 			bookingstore.RefundStatusFull:    "reembolsado",
 		}
-		if allowed, ok := validRefundTransitions[booking.RefundStatus]; ok {
+		// Checked before the matrix, so a partial booking can never fall through
+		// it: any change away from 'partial' is a 422 on the field.
+		if booking.RefundStatus == bookingstore.RefundStatusPartial {
+			if wantRefund != booking.RefundStatus {
+				v.AddError("refund_status", "a partial refund is closed only by the manual refund endpoint")
+			}
+		} else if allowed, ok := validRefundTransitions[booking.RefundStatus]; ok {
 			if !allowed[wantRefund] && wantRefund != booking.RefundStatus {
 				return nil, &ConflictError{Message: fmt.Sprintf(
 					"cannot change payment status from '%s' to '%s'",
@@ -370,10 +371,10 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		return nil, &ValidationError{Errors: v.Errors}
 	}
 
-	if err := s.store.Update(ctx, booking); err != nil {
-		// The row was deleted between the read above and this write. Same 409
-		// the other Update handlers give for it.
-		if errors.Is(err, data.ErrRecordNotFound) {
+	if err := s.store.UpdateIfUnchanged(ctx, booking); err != nil {
+		// The row moved, or was removed, between the read above and this write.
+		// Either way the snapshot is stale, and the owner is answered 409.
+		if errors.Is(err, data.ErrEditConflict) {
 			return nil, ErrEditConflict
 		}
 		return nil, err
@@ -607,32 +608,30 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		CreatedBy:        actor.UserID,
 	}
 
-	if err := s.store.InsertSafe(ctx, booking); err != nil {
-		return nil, err
-	}
-
-	s.record(actor, complex.ID, "create", &booking.ID, booking)
-
-	// Record payment when staff marks deposit or full payment at creation.
+	// The counter payment taken at creation is written in the same transaction
+	// as the booking. If it cannot be recorded, neither is the booking: the owner
+	// gets an error instead of a 201 for money the books do not hold. Retrying is
+	// safe because nothing was written.
+	var counter *bookingstore.CounterPayment
 	if in.PaymentMethod != "" && collectionStatus != bookingstore.CollectionStatusUnpaid {
 		paymentAmount := totalPrice
 		if collectionStatus == bookingstore.CollectionStatusDepositPaid {
 			paymentAmount = depositAmount
 		}
-		payment := &paymentstore.Payment{
-			BookingID: booking.ID,
-			ComplexID: booking.ComplexID,
-			Amount:    paymentAmount,
-			Method:    in.PaymentMethod,
+		counter = &bookingstore.CounterPayment{
+			Amount: paymentAmount,
+			Method: in.PaymentMethod,
 			// payments.status still carries the shared payment_status enum
 			// (the payment_status split took only bookings off it), and these two values
 			// are legal in it.
 			Status: collectionStatus.String(),
 		}
-		if err := s.payments.Insert(ctx, payment); err != nil {
-			s.logger.Error("create booking: failed to insert payment", "error", err, "booking_id", booking.ID)
-		}
 	}
+	if err := s.store.InsertSafeWithPayment(ctx, booking, counter); err != nil {
+		return nil, err
+	}
+
+	s.record(actor, complex.ID, "create", &booking.ID, booking)
 
 	// Send booking confirmation notification.
 	clientEmail := ""
@@ -814,6 +813,22 @@ func (s *Service) ConfirmPayment(ctx context.Context, complexID uuid.UUID, actor
 	}
 	if booking.CollectionStatus == bookingstore.CollectionStatusFullyPaid {
 		return nil, nil, &StateError{Message: "esta reserva ya tiene pago confirmado"}
+	}
+
+	// A no-show is settled by the deposit it forfeited, not by collecting its
+	// balance at the counter. The sales checkout refuses the same booking for
+	// the same reason (salestore.ErrBookingNotPayable).
+	if booking.Status == "no_show" {
+		return nil, nil, &ConflictError{Message: "cannot confirm payment for a no-show booking"}
+	}
+
+	// The counter takes at most what the booking still owes. Anything above the
+	// balance would overstate what the venue collected for this booking.
+	v := validator.New()
+	balance := booking.BalanceDue()
+	v.Check(in.Amount <= balance, "amount", fmt.Sprintf("must not exceed the outstanding balance of %d", balance))
+	if !v.Valid() {
+		return nil, nil, &ValidationError{Errors: v.Errors}
 	}
 
 	// Confirming a pending booking is what makes it hold its slot: until this

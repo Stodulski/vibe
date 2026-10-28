@@ -433,6 +433,17 @@ type Querier interface {
 	// writer rather than for the one query that remembered to check a counter —
 	// see the bookings section of db/migrations/001_init.sql for why the counter was removed.
 	UpdateBooking(ctx context.Context, arg UpdateBookingParams) (Booking, error)
+	// The owner's edit, applied only while the row is still the one the owner read.
+	// updated_at is stamped by the set_updated_at trigger on every write, so an
+	// equal value means nothing has written the row since. The whole-row write
+	// below is built from the owner's snapshot, and the trigger does not refuse
+	// every stale one: a cancellation reverted to no_show, or a deposit reverted
+	// from fully_paid, is a legal-looking transition. A row that moved matches
+	// nothing and comes back as no rows, which the store answers as an edit
+	// conflict instead of writing the stale snapshot over the other writer's change.
+	//
+	// UpdateBooking stays unconditional for every other writer.
+	UpdateBookingIfUnchanged(ctx context.Context, arg UpdateBookingIfUnchangedParams) (Booking, error)
 	// Tenant-scoped: see the note on GetClientByID for why the predicate is optional.
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	// H-14: an unconditional UPDATE let two concurrent edits race — each loads the
