@@ -11,6 +11,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const blockedSlotOverlapsBooking = `-- name: BlockedSlotOverlapsBooking :one
+SELECT EXISTS (
+    SELECT 1 FROM blocked_slots
+    WHERE court_id = $1
+      AND span && tstzrange(
+            booking_starts_at($2::date, $3::time),
+            booking_starts_at($2::date, $3::time)
+              + make_interval(mins => $4::int),
+            '[)')
+) AS taken
+`
+
+type BlockedSlotOverlapsBookingParams struct {
+	CourtID         pgtype.UUID `json:"court_id"`
+	BookingDate     pgtype.Date `json:"booking_date"`
+	StartTime       pgtype.Time `json:"start_time"`
+	DurationMinutes int32       `json:"duration_minutes"`
+}
+
+// Whether an owner's blocked slot on the booking's court covers any of the hours
+// the booking is about to claim. It asks the same generated span column, and the
+// same half-open range, as the bookings exclusion constraint and SlotTaken, so a
+// block that starts exactly when the booking ends is not an overlap. The caller
+// holds the court-day lock, which the owner's block insert takes too.
+func (q *Queries) BlockedSlotOverlapsBooking(ctx context.Context, arg BlockedSlotOverlapsBookingParams) (bool, error) {
+	row := q.db.QueryRow(ctx, blockedSlotOverlapsBooking,
+		arg.CourtID,
+		arg.BookingDate,
+		arg.StartTime,
+		arg.DurationMinutes,
+	)
+	var taken bool
+	err := row.Scan(&taken)
+	return taken, err
+}
+
 const getPaymentByBookingID = `-- name: GetPaymentByBookingID :one
 SELECT id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at FROM payments
 WHERE booking_id = $1

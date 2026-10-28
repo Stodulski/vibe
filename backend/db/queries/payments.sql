@@ -69,3 +69,19 @@ WHERE id = $1
   AND (sqlc.narg('complex_id')::uuid IS NULL
        OR complex_id = sqlc.narg('complex_id')::uuid)
 FOR UPDATE;
+
+-- name: BlockedSlotOverlapsBooking :one
+-- Whether an owner's blocked slot on the booking's court covers any of the hours
+-- the booking is about to claim. It asks the same generated span column, and the
+-- same half-open range, as the bookings exclusion constraint and SlotTaken, so a
+-- block that starts exactly when the booking ends is not an overlap. The caller
+-- holds the court-day lock, which the owner's block insert takes too.
+SELECT EXISTS (
+    SELECT 1 FROM blocked_slots
+    WHERE court_id = sqlc.arg(court_id)
+      AND span && tstzrange(
+            booking_starts_at(sqlc.arg(booking_date)::date, sqlc.arg(start_time)::time),
+            booking_starts_at(sqlc.arg(booking_date)::date, sqlc.arg(start_time)::time)
+              + make_interval(mins => sqlc.arg(duration_minutes)::int),
+            '[)')
+) AS taken;

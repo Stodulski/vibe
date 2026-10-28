@@ -11,6 +11,12 @@ import (
 )
 
 type Querier interface {
+	// Whether an owner's blocked slot on the booking's court covers any of the hours
+	// the booking is about to claim. It asks the same generated span column, and the
+	// same half-open range, as the bookings exclusion constraint and SlotTaken, so a
+	// block that starts exactly when the booking ends is not an overlap. The caller
+	// holds the court-day lock, which the owner's block insert takes too.
+	BlockedSlotOverlapsBooking(ctx context.Context, arg BlockedSlotOverlapsBookingParams) (bool, error)
 	// Bumps the court's version without changing any of its own columns, so that
 	// replacing its price bands moves a counter a client can hold.
 	//

@@ -119,7 +119,11 @@ func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *bo
 // no_show does not claim the slot, so it is none of this function's business —
 // which is what keeps the auto-refund path (a cancelled booking whose payment is
 // being recorded so it can be sent back) working.
-func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *bookingstore.Booking) error {
+//
+// The owner's blocked slots count as taken too. A public booking made before the
+// owner blocked its hours is still pending once the payment expiry has passed, and
+// a late payment must not sell those hours after the owner withdrew them.
+func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b *bookingstore.Booking) error {
 	if b.Status != "confirmed" {
 		return nil
 	}
@@ -135,6 +139,20 @@ func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, b *booking
 		return err
 	}
 	if taken {
+		return bookingstore.ErrSlotUnavailable
+	}
+
+	blocked, err := qtx.BlockedSlotOverlapsBooking(ctx, db.BlockedSlotOverlapsBookingParams{
+		CourtID:     data.UUIDToPg(b.CourtID),
+		BookingDate: data.DateToPg(b.Date),
+		StartTime:   data.TimeStrToPg(b.StartTime),
+		//nolint:gosec // G115: a booking's length is bounded to one day in minutes; far below int32 range.
+		DurationMinutes: int32(b.DurationMinutes),
+	})
+	if err != nil {
+		return fmt.Errorf("check blocked slots: %w", err)
+	}
+	if blocked {
 		return bookingstore.ErrSlotUnavailable
 	}
 	return nil
@@ -340,7 +358,7 @@ func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, 
 	// still be free. The court-day lock it asks for is already held from above;
 	// pg_advisory_xact_lock is re-entrant within a transaction, so asking twice
 	// is free rather than a second wait.
-	if err := m.guardSlotStillFree(ctx, tx, b); err != nil {
+	if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {
 		return err
 	}
 
@@ -408,7 +426,7 @@ func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 	return m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
 		// Before anything is written: the slot this booking is about to claim has to
 		// still be free.
-		if err := m.guardSlotStillFree(ctx, tx, b); err != nil {
+		if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {
 			return err
 		}
 

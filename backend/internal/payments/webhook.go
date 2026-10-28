@@ -123,6 +123,10 @@ func (h *Handler) MercadoPagoWebhook(w http.ResponseWriter, r *http.Request) {
 			"remote_addr", r.RemoteAddr,
 			"data_id", dataID,
 		)
+		// A wrong webhook secret drops every payment notification with a 200, so the
+		// log line alone hides an outage. Only the reason and the payment id go to
+		// Sentry: never the secret or the request headers.
+		sentry.CaptureMessage(fmt.Sprintf("MP WEBHOOK SIGNATURE REJECTED: data_id=%s error=%v", dataID, err))
 		// Respond 200 to prevent MP from retrying invalid requests. Nothing was
 		// written, so this 200 acknowledges a request we are deliberately dropping
 		// rather than one we have taken responsibility for.
@@ -479,6 +483,18 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		return s.processRejectedPayment(ctx, booking, mpPayment, mpPaymentID)
 	case "refunded", "charged_back":
 		// Refund/chargeback on a payment we haven't recorded yet — cancel the booking.
+		// Only money the complex collected may cancel its booking, so the collector is
+		// checked first, as it is for an approval. A payment already recorded takes the
+		// existing-payment refund path above instead, which does not repeat this check: it
+		// was verified when it was recorded, and a complex that reconnected MercadoPago
+		// would otherwise lose the record of money MercadoPago has already sent back.
+		matches, err := s.collectorMatchesComplex(ctx, booking, mpPayment, mpPaymentID)
+		if err != nil {
+			return err
+		}
+		if !matches {
+			return nil
+		}
 		return s.processRefundedPaymentFromBooking(ctx, booking, mpPayment, mpPaymentID)
 	case "in_process", "pending":
 		// Payment is being reviewed or waiting for offline payment.
