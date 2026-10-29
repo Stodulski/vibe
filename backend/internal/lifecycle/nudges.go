@@ -12,7 +12,7 @@ import (
 
 // ownerKinds is the order of precedence. A pass sends an owner at most one nudge,
 // the first of these that is due for them.
-var ownerKinds = []Kind{KindVerifyEmail, KindCreateComplex, KindAddCourts, KindInactive}
+var ownerKinds = []Kind{KindVerifyEmail, KindCreateComplex, KindAddCourts, KindConnectMP, KindInactive}
 
 // perKindLimit bounds one pass's work per kind, so a backlog cannot turn into a
 // burst of email. The next pass takes the rest.
@@ -134,6 +134,8 @@ func (n *Nudger) ownerEmail(ctx context.Context, kind Kind, c Candidate) (notifi
 		cta = n.cfg.FrontendURL + "/onboarding"
 	case KindAddCourts:
 		cta = n.cfg.FrontendURL + "/courts"
+	case KindConnectMP:
+		cta = n.cfg.FrontendURL + "/settings?tab=billing"
 	case KindInactive:
 		cta = n.cfg.FrontendURL + "/dashboard"
 	case KindFinishSignup:

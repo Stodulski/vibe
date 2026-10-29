@@ -349,6 +349,9 @@ type Querier interface {
 	// 12h tick regardless of how recently its token was issued; this narrows
 	// that to the complexes that actually need it.
 	ListComplexesNeedingMPRefresh(ctx context.Context) ([]ActiveComplex, error)
+	// A complex with a live court and no MercadoPago account, a day after it was
+	// created: it takes bookings but cannot take the deposit online.
+	ListConnectMPNudgeCandidates(ctx context.Context, maxRows int32) ([]ListConnectMPNudgeCandidatesRow, error)
 	ListCreateComplexNudgeCandidates(ctx context.Context, maxRows int32) ([]ListCreateComplexNudgeCandidatesRow, error)
 	ListFinishSignupNudgeCandidates(ctx context.Context, maxRows int32) ([]ListFinishSignupNudgeCandidatesRow, error)
 	// An owner counts as active from the last request they made, or from account

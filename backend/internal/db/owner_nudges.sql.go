@@ -79,6 +79,56 @@ func (q *Queries) ListAddCourtsNudgeCandidates(ctx context.Context, maxRows int3
 	return items, nil
 }
 
+const listConnectMPNudgeCandidates = `-- name: ListConnectMPNudgeCandidates :many
+SELECT u.id, u.email::text AS email, u.first_name, c.name AS complex_name
+FROM complexes c
+JOIN users u ON u.id = c.owner_id
+WHERE c.deleted_at IS NULL
+  AND u.role = 'owner'
+  AND u.is_active
+  AND c.mp_access_token IS NULL
+  AND c.created_at <= NOW() - INTERVAL '24 hours'
+  AND EXISTS (SELECT 1 FROM courts k WHERE k.complex_id = c.id AND k.deleted_at IS NULL)
+  AND NOT EXISTS (SELECT 1 FROM owner_nudges n WHERE n.user_id = u.id AND n.kind = 'connect_mp')
+  AND NOT EXISTS (SELECT 1 FROM email_suppressions s WHERE s.email = lower(u.email::text))
+ORDER BY c.created_at
+LIMIT $1::int
+`
+
+type ListConnectMPNudgeCandidatesRow struct {
+	ID          pgtype.UUID `json:"id"`
+	Email       string      `json:"email"`
+	FirstName   string      `json:"first_name"`
+	ComplexName string      `json:"complex_name"`
+}
+
+// A complex with a live court and no MercadoPago account, a day after it was
+// created: it takes bookings but cannot take the deposit online.
+func (q *Queries) ListConnectMPNudgeCandidates(ctx context.Context, maxRows int32) ([]ListConnectMPNudgeCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listConnectMPNudgeCandidates, maxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListConnectMPNudgeCandidatesRow
+	for rows.Next() {
+		var i ListConnectMPNudgeCandidatesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.FirstName,
+			&i.ComplexName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCreateComplexNudgeCandidates = `-- name: ListCreateComplexNudgeCandidates :many
 SELECT u.id, u.email::text AS email, u.first_name, ''::text AS complex_name
 FROM users u

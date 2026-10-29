@@ -283,3 +283,46 @@ func TestNudgeOwnerClaimFailureSendsNothingAndDoesNotPanic(t *testing.T) {
 		t.Fatalf("sent %d with a failing claim", sent)
 	}
 }
+
+// connect_mp sends the owner to the payments tab of the settings, where the
+// MercadoPago connection lives.
+func TestNudgeConnectMPLinksToThePaymentsSettings(t *testing.T) {
+	owners := newFakeOwners()
+	owners.candidates[KindConnectMP] = []Candidate{{UserID: uuid.New(), Email: "ana@example.com", FirstName: "Ana", ComplexName: "Padel Norte"}}
+	sender := &fakeNudgeSender{}
+
+	newTestNudger(owners, &fakeLeads{}, sender, &fakeIssuer{}).Run(context.Background())
+
+	if len(sender.sent) != 1 || sender.sent[0].Kind != string(KindConnectMP) {
+		t.Fatalf("sent %+v, want one connect_mp nudge", sender.sent)
+	}
+	if got, want := sender.sent[0].CTAURL, "https://app.vibe.test/settings?tab=billing"; got != want {
+		t.Fatalf("CTA = %q, want %q", got, want)
+	}
+}
+
+// connect_mp comes after add_courts and before inactive: an owner due both of the
+// first two hears about the courts first, and one due connect_mp and inactive hears
+// about MercadoPago.
+func TestNudgeConnectMPRanksBetweenAddCourtsAndInactive(t *testing.T) {
+	for _, tc := range []struct {
+		due  []Kind
+		want Kind
+	}{
+		{[]Kind{KindConnectMP, KindAddCourts}, KindAddCourts},
+		{[]Kind{KindInactive, KindConnectMP}, KindConnectMP},
+	} {
+		owners := newFakeOwners()
+		u := uuid.New()
+		for _, k := range tc.due {
+			owners.candidates[k] = []Candidate{{UserID: u, Email: "ana@example.com"}}
+		}
+		sender := &fakeNudgeSender{}
+
+		newTestNudger(owners, &fakeLeads{}, sender, &fakeIssuer{}).Run(context.Background())
+
+		if len(sender.sent) != 1 || sender.sent[0].Kind != string(tc.want) {
+			t.Errorf("due %v: sent %+v, want only %s", tc.due, sender.sent, tc.want)
+		}
+	}
+}

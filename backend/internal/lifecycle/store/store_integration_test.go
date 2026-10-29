@@ -357,3 +357,49 @@ func TestLeadFinishSignupIsDueOnceAfterTwoHours(t *testing.T) {
 		t.Fatalf("a nudged lead is still due: %+v", cs)
 	}
 }
+
+// connect_mp is due for a complex with a live court and no MercadoPago account, a
+// day after the complex was created, and carries its name for the email. It is not
+// due once MercadoPago is connected, before the day is up, or with no court yet.
+func TestConnectMPIsDueForAComplexWithCourtsAndNoMercadoPagoAfterADay(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newLifecycleStore(f)
+	ctx := f.Scoped(context.Background())
+
+	// The fixture complex has a court and no MercadoPago account.
+	if _, err := f.DB.Exec(ctx, `UPDATE complexes SET created_at = NOW() - interval '25 hours' WHERE id = $1`, f.ComplexID); err != nil {
+		t.Fatalf("setup: ageing the fixture complex: %v", err)
+	}
+	c, ok := listFor(t, st, ctx, lifecycle.KindConnectMP)[f.UserID]
+	if !ok {
+		t.Fatal("a complex a day old with a court and no MercadoPago was not due connect_mp")
+	}
+	var name string
+	if err := f.DB.QueryRow(ctx, `SELECT name FROM complexes WHERE id = $1`, f.ComplexID).Scan(&name); err != nil {
+		t.Fatalf("reading the complex name: %v", err)
+	}
+	if c.ComplexName != name {
+		t.Errorf("complex name = %q, want %q for the email", c.ComplexName, name)
+	}
+
+	// A newer complex is not due yet, and one with no court gets add_courts instead.
+	young := insertUser(t, f, true, 30*time.Hour)
+	insertComplex(t, f, young, "Recién Creado", 2*time.Hour)
+	noCourts := insertUser(t, f, true, 50*time.Hour)
+	insertComplex(t, f, noCourts, "Sin Canchas", 49*time.Hour)
+	due := listFor(t, st, ctx, lifecycle.KindConnectMP)
+	if _, ok := due[young]; ok {
+		t.Error("a complex created two hours ago was listed for connect_mp")
+	}
+	if _, ok := due[noCourts]; ok {
+		t.Error("a complex with no court was listed for connect_mp")
+	}
+
+	// Connecting MercadoPago takes the complex off the list.
+	if _, err := f.DB.Exec(ctx, `UPDATE complexes SET mp_access_token = 'connected', mp_user_id = '123' WHERE id = $1`, f.ComplexID); err != nil {
+		t.Fatalf("setup: connecting MercadoPago: %v", err)
+	}
+	if _, ok := listFor(t, st, ctx, lifecycle.KindConnectMP)[f.UserID]; ok {
+		t.Error("a complex with MercadoPago connected was listed for connect_mp")
+	}
+}

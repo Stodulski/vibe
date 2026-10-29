@@ -15,6 +15,7 @@ const (
 	KindVerifyEmail   Kind = "verify_email"
 	KindCreateComplex Kind = "create_complex"
 	KindAddCourts     Kind = "add_courts"
+	KindConnectMP     Kind = "connect_mp"
 	KindInactive      Kind = "inactive"
 	KindFinishSignup  Kind = "finish_signup"
 )
