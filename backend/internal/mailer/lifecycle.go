@@ -53,6 +53,14 @@ func nudgeCopyFor(kind, firstName, complexName string) (nudgeCopy, bool) {
 			body:      hi + " " + venue + " ya está en Vibe. Cargá tus canchas y precios para empezar a usar el turnero y tomar reservas.",
 			cta:       "Cargar mis canchas",
 		}, true
+	case "connect_mp":
+		return nudgeCopy{
+			subject:   "Conectá MercadoPago y cobrá la seña online",
+			preheader: "Tus clientes pagan la seña al reservar y la plata va a tu cuenta.",
+			body: hi + " " + venue + " ya tiene sus canchas en Vibe. Conectá tu cuenta de MercadoPago y tus clientes pagan " +
+				"la seña cuando reservan online. La plata va directo a tu cuenta. Si algo te frenó, respondé este mail.",
+			cta: "Conectar MercadoPago",
+		}, true
 	case "inactive":
 		return nudgeCopy{
 			subject:   "¿Te ayudo a arrancar con Vibe?",

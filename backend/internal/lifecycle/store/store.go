@@ -63,6 +63,14 @@ func (s *Store) ListCandidates(ctx context.Context, kind lifecycle.Kind, limit i
 		for _, r := range rows {
 			out = append(out, candidate(r.ID, r.Email, r.FirstName, r.ComplexName))
 		}
+	case lifecycle.KindConnectMP:
+		rows, err := s.Q.ListConnectMPNudgeCandidates(ctx, limit)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range rows {
+			out = append(out, candidate(r.ID, r.Email, r.FirstName, r.ComplexName))
+		}
 	case lifecycle.KindInactive:
 		rows, err := s.Q.ListInactiveNudgeCandidates(ctx, limit)
 		if err != nil {

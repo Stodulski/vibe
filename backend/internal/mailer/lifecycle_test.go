@@ -53,6 +53,9 @@ func TestLifecycleNudgeCopyPerKind(t *testing.T) {
 		{"add_courts", "Cargá tus canchas en Vibe",
 			"Padel Norte ya está en Vibe. Cargá tus canchas y precios para empezar a usar el turnero y tomar reservas.",
 			"Cargar mis canchas"},
+		{"connect_mp", "Conectá MercadoPago y cobrá la seña online",
+			"Padel Norte ya tiene sus canchas en Vibe. Conectá tu cuenta de MercadoPago y tus clientes pagan la seña cuando reservan online. La plata va directo a tu cuenta. Si algo te frenó, respondé este mail.",
+			"Conectar MercadoPago"},
 		{"inactive", "¿Te ayudo a arrancar con Vibe?",
 			"Vi que hace unos días no entrás a Vibe. Si algo te frenó, respondé este mail y te ayudo a dejar Padel Norte andando. Mientras tanto, podés cargar tus turnos de la semana en el turnero.",
 			"Ir a mi panel"},
@@ -133,7 +136,7 @@ func TestLifecycleNudgeFooterLinksTheOptOutPage(t *testing.T) {
 }
 
 func TestLifecycleNudgeCopyUsesNoForbiddenPunctuation(t *testing.T) {
-	for _, kind := range []string{"verify_email", "create_complex", "add_courts", "inactive", "finish_signup"} {
+	for _, kind := range []string{"verify_email", "create_complex", "add_courts", "connect_mp", "inactive", "finish_signup"} {
 		c, ok := nudgeCopyFor(kind, "Ana", "Padel Norte")
 		if !ok {
 			t.Fatalf("no copy for %s", kind)
