@@ -6,6 +6,7 @@ import { CoverBanner } from './complex-header/CoverBanner';
 import { ComplexLogo } from './complex-header/ComplexLogo';
 import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
 import { ShareComplexButton } from './complex-header/ShareComplexButton';
+import { BackToLandingLink } from './complex-header/BackToLandingLink';
 import { ComplexDetails } from './complex-header/ComplexDetails';
 import { CourtSummary } from './complex-header/CourtSummary';
 
@@ -56,6 +57,7 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
     <div className="lg:border-border-subtle lg:bg-bg-subtle relative lg:rounded-2xl lg:border lg:p-7">
       {/* Identity: cover, logo, name, contact — one block, one order. */}
       <div>
+        <BackToLandingLink />
         <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
 
         <div className="relative pb-5 sm:pb-7">

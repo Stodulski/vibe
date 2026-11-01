@@ -119,6 +119,7 @@ export const BOOKING_MESSAGES = {
     noEmail: 'Sin email',
     noInstagram: 'Sin Instagram',
     instagramOf: 'Instagram de',
+    backToLanding: 'Volver',
     shareAction: 'Compartir',
     shareTextPrefix: 'Reservá tu cancha en',
     shareCopied: 'Link copiado',
