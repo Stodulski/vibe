@@ -810,3 +810,31 @@ func TestEveryHeldTokenIsRedactedFromAnyRequest(t *testing.T) {
 		})
 	}
 }
+
+// Graph answers code 24 ("The requested resource does not exist") now and then
+// for a container it has just created. It is retryable, so the next attempt
+// builds a new container, and the subcode is kept so the cause can be read.
+func TestResourceDoesNotExistIsRetryableAndKeepsItsSubcode(t *testing.T) {
+	t.Parallel()
+	_, client := newFake(t, func(e exchange) (int, string) {
+		if code, body, ok := standardAccount(e); ok {
+			return code, body
+		}
+		switch {
+		case e.method == http.MethodPost && e.path == "/v25.0/ig-1/media":
+			return http.StatusOK, `{"id":"c1"}`
+		case e.method == http.MethodGet && e.path == "/v25.0/c1":
+			return http.StatusOK, `{"status_code":"FINISHED"}`
+		}
+		return http.StatusBadRequest, `{"error":{"message":"The requested resource does not exist","code":24,"error_subcode":2207006}}`
+	})
+
+	_, err := client.PublishInstagram(context.Background(), imagePost(social.TypeImage, "1.jpg"))
+	if err == nil || errors.Is(err, social.ErrPermanent) {
+		t.Fatalf("PublishInstagram() = %v, want a retryable error", err)
+	}
+	const want = "meta answered 400 (code 24, subcode 2207006): The requested resource does not exist"
+	if !strings.HasSuffix(err.Error(), want) {
+		t.Fatalf("error %q, want it to end %q", err, want)
+	}
+}

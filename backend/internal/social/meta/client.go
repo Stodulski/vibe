@@ -594,6 +594,7 @@ type graphErrorBody struct {
 	Error *struct {
 		Message string `json:"message"`
 		Code    int    `json:"code"`
+		Subcode int    `json:"error_subcode"`
 	} `json:"error"`
 	DebugInfo *struct {
 		Type    string `json:"type"`
@@ -608,27 +609,36 @@ const codeMediaNotReady = 9007
 // errMediaNotReady marks that answer. It is retryable, not permanent.
 var errMediaNotReady = errors.New("instagram media is not ready")
 
+// codeResourceMissing is Graph's "The requested resource does not exist". Meta
+// gives it now and then for a container it has just created, so it is retried:
+// the next attempt builds a new container.
+const codeResourceMissing = 24
+
 // apiError turns an error answer into an error. A Graph error object keeps its
 // message as before, with every held token redacted. Any other body adds a
 // redacted snippet of the body, so the refusal can be read. A client error other
-// than 429 or media not ready is permanent, because the same request would fail
-// the same way again.
+// than 429, media not ready or resource missing is permanent, because the same
+// request would fail the same way again.
 func apiError(status int, raw []byte, redact *strings.Replacer) error {
 	var body graphErrorBody
 	if err := json.Unmarshal(raw, &body); err != nil {
 		body = graphErrorBody{}
 	}
-	code, msg := 0, ""
+	code, subcode, msg := 0, 0, ""
 	switch {
 	case body.Error != nil:
-		code, msg = body.Error.Code, redact.Replace(body.Error.Message)
+		code, subcode, msg = body.Error.Code, body.Error.Subcode, redact.Replace(body.Error.Message)
 	case body.DebugInfo != nil:
 		msg = redactToken(redact.Replace(debugText(body.DebugInfo.Type, body.DebugInfo.Message)))
 	}
 	if msg == "" {
 		msg = http.StatusText(status)
 	}
-	text := fmt.Sprintf("meta answered %d (code %d): %s", status, code, msg)
+	codes := fmt.Sprintf("code %d", code)
+	if subcode != 0 {
+		codes += fmt.Sprintf(", subcode %d", subcode)
+	}
+	text := fmt.Sprintf("meta answered %d (%s): %s", status, codes, msg)
 	if body.Error == nil {
 		if snippet := bodySnippet(raw, redact); snippet != "" {
 			text += ": body " + snippet
@@ -636,6 +646,9 @@ func apiError(status int, raw []byte, redact *strings.Replacer) error {
 	}
 	if code == codeMediaNotReady {
 		return fmt.Errorf("%w: %s", errMediaNotReady, text)
+	}
+	if code == codeResourceMissing {
+		return errors.New(text)
 	}
 	if status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusTooManyRequests {
 		return fmt.Errorf("%w: %s", social.ErrPermanent, text)
