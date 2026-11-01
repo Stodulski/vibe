@@ -10,6 +10,7 @@ import { useAutoScrollToSelectedDate } from './date-selector/useAutoScrollToSele
 import { useDateStripKeyboardNav } from './date-selector/useDateStripKeyboardNav';
 import { DateButton } from './date-selector/DateButton';
 import { todayInVenueTz } from '../lib/venueDate';
+import { useVenueNow } from '../hooks/useVenueNow';
 
 const t = BOOKING_MESSAGES;
 
@@ -21,7 +22,8 @@ interface DateSelectorProps {
 
 export function DateSelector({ selectedDate, onDateSelect, schedules }: DateSelectorProps) {
   // The venue's today, not the browser's: the server and the hydrating client must agree.
-  const today = useMemo(() => todayInVenueTz(), []);
+  const now = useVenueNow();
+  const today = useMemo(() => todayInVenueTz(now), [now]);
   const [daysCount, setDaysCount] = useState(14);
   // A day chosen from elsewhere (a fully booked day's "next free day") can lie
   // past the strip's current end. The strip grows far enough to show it, so it
