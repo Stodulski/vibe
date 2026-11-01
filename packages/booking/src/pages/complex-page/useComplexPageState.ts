@@ -5,6 +5,7 @@ import type { SelectedSlot } from '../../components/CourtSelector';
 import { useUnsavedWork } from '@vibe/ui';
 import type { DurationMinutes, Sport } from '../../api/types';
 import { parseDateParam } from './schema';
+import { useVenueNow } from '../../hooks/useVenueNow';
 
 // Matches the availability endpoint's own default, so the initial fetch (made
 // before the visitor has answered anything) asks for the same duration the
@@ -126,8 +127,11 @@ export function useComplexPageState() {
   // unrelated re-renders. That stability matters here — `DateSelector`'s
   // auto-scroll effect depends on `selectedDate` by reference, and a new
   // instance every render would re-trigger it even when the day is unchanged.
+  // `now` moves on when a tab left open overnight is visited again, so a day
+  // that has since passed falls back to the new today.
   const dateParam = searchParams.get('date');
-  const selectedDate = useMemo(() => parseDateParam(dateParam), [dateParam]);
+  const now = useVenueNow();
+  const selectedDate = useMemo(() => parseDateParam(dateParam, now), [dateParam, now]);
 
   const sportFilter = flow.sport;
   // Two different questions share `flow.duration`: what to request, and what

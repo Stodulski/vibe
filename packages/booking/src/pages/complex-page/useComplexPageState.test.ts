@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createElement, Fragment, type ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { addDays } from 'date-fns/addDays';
@@ -186,5 +186,27 @@ describe('useComplexPageState — unsaved work while a slot is selected', () => 
     unmount();
 
     expect(hasUnsavedWork()).toBe(false);
+  });
+});
+
+describe('useComplexPageState — a tab left open overnight', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('moves the day to the new today when the visitor comes back to the tab', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 23:00 in Buenos Aires (UTC-3) on Oct 31.
+    vi.setSystemTime(new Date('2026-11-01T02:00:00Z'));
+    const { result } = renderHook(() => useComplexPageState(), { wrapper: wrapperFor(['/los-alamos']) });
+    expect(result.current.dateStr).toBe('2026-10-31');
+
+    // 09:00 the next morning: the tab becomes visible again.
+    vi.setSystemTime(new Date('2026-11-01T12:00:00Z'));
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(result.current.dateStr).toBe('2026-11-01');
   });
 });
