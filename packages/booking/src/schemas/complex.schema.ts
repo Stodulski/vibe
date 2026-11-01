@@ -1,3 +1,4 @@
+import '../lib/zodConfig';
 import { z } from 'zod';
 import type { Amenity, Schedule, Weekday } from '../api/types';
 

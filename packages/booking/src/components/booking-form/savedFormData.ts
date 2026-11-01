@@ -1,3 +1,4 @@
+import '../../lib/zodConfig';
 import { z } from 'zod';
 import { STORAGE_KEYS } from '../../lib/storageKeys';
 import { safeLocalStorage } from '@vibe/ui';

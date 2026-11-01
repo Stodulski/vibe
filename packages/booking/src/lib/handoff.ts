@@ -1,3 +1,4 @@
+import './zodConfig';
 import { z } from 'zod';
 import { safeSessionStorage } from '@vibe/ui';
 import { bookingSlotInfoSchema, type BookingSlotInfo } from '../components/booking-form/types';

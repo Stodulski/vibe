@@ -1,3 +1,4 @@
+import '../lib/zodConfig';
 import { z } from 'zod';
 import type { CourtPrice, CourtType, CourtWithPrices, DurationMinutes, Sport, Weekday } from '../api/types';
 import { exact } from '../lib/apiParse';
