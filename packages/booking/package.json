@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/lib/zodConfig.ts"
+  ],
   "exports": {
     "./complex-page": "./src/entries/complex-page.tsx",
     "./book-confirm": "./src/entries/book-confirm.tsx",

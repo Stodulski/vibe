@@ -1,3 +1,4 @@
+import '../lib/zodConfig';
 import { z } from 'zod';
 import type { CourtAvailability, AvailabilitySlot, AvailabilityData } from '../api/types';
 import { exact } from '../lib/apiParse';

@@ -1,3 +1,4 @@
+import '../lib/zodConfig';
 import { z } from 'zod';
 import { optionalEmailField, phoneField, firstNameField, lastNameField } from '../lib/validations';
 
