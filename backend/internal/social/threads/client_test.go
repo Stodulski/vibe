@@ -327,6 +327,20 @@ func TestClientErrorsArePermanentButTokenErrorsAreNot(t *testing.T) {
 	}
 }
 
+func TestResourceMissingIsRetriedNotPermanent(t *testing.T) {
+	t.Parallel()
+	g := newGraph()
+	g.apiErr = `{"error":{"message":"The requested resource does not exist","code":24}}`
+	c := newClient(t, g, connected())
+	_, err := c.PublishThreads(context.Background(), post(social.TypeText, "x"))
+	if err == nil || errors.Is(err, social.ErrPermanent) {
+		t.Fatalf("code 24 must be retried with a new container, not end the post; got %v", err)
+	}
+	if !strings.Contains(err.Error(), "code 24") {
+		t.Fatalf("err = %v; want Threads' code kept in the message", err)
+	}
+}
+
 func TestErrorsNeverShowTheToken(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
