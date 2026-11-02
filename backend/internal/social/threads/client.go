@@ -37,6 +37,10 @@ const (
 	// tokenErrorCode is Graph's "invalid or expired access token" code. The post
 	// waits for a reconnect instead of ending, so it is never permanent.
 	tokenErrorCode = 190
+	// resourceMissingCode is Graph's "The requested resource does not exist".
+	// Threads gives it now and then for a container it has just finished, as
+	// Instagram does, so it is retried: the next attempt builds a new container.
+	resourceMissingCode = 24
 )
 
 // Config is the Threads side of the publisher and the connection flow. Base is
@@ -432,7 +436,8 @@ type graphErrorBody struct {
 }
 
 // apiError turns a Graph error into an error. A client error other than 429 is
-// permanent, except a token error, which waits for a reconnect.
+// permanent, except a token error, which waits for a reconnect, and a missing
+// resource, which is retried.
 func apiError(status int, raw []byte) error {
 	var body graphErrorBody
 	if err := json.Unmarshal(raw, &body); err != nil {
@@ -444,7 +449,8 @@ func apiError(status int, raw []byte) error {
 		msg = http.StatusText(status)
 	}
 	text := fmt.Sprintf("threads answered %s (code %s): %s", strconv.Itoa(status), strconv.Itoa(body.Error.Code), msg)
-	if body.Error.Code != tokenErrorCode && status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusTooManyRequests {
+	retryable := body.Error.Code == tokenErrorCode || body.Error.Code == resourceMissingCode
+	if !retryable && status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusTooManyRequests {
 		return fmt.Errorf("%w: %s", social.ErrPermanent, text)
 	}
 	return errors.New(text)
