@@ -144,7 +144,8 @@ func (b *TokenBlacklist) IsBlacklisted(ctx context.Context, rawToken string, use
 
 		// redis.Nil is expected: it only means the user has no invalidation
 		// cutoff recorded. Redis answered.
-		if pipeErr == nil || errors.Is(pipeErr, redis.Nil) {
+		switch {
+		case pipeErr == nil || errors.Is(pipeErr, redis.Nil):
 			if existsCmd.Val() > 0 {
 				return true
 			}
@@ -164,7 +165,11 @@ func (b *TokenBlacklist) IsBlacklisted(ctx context.Context, rawToken string, use
 			// maps below in both cases; they only ever hold revocations this
 			// instance was actually asked for, and Cleanup evicts them once
 			// every token they cover has expired.
-		} else {
+		case errors.Is(pipeErr, context.Canceled):
+			// The caller hung up mid-request and took the check with it. Redis
+			// did not fail, so this is no alarm; the in-memory maps below still
+			// answer for whatever this instance revoked.
+		default:
 			// Redis is unreachable or broken. Returning false here would make
 			// every revoked token valid again for the rest of its 15 minutes —
 			// logout, account deletion, password reset and the response to a
