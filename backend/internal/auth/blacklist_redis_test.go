@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -449,5 +450,29 @@ func TestEveryRevocationKeyCarriesTheEnvironment(t *testing.T) {
 			t.Errorf("key %q is not namespaced by application and environment; another deployment on this "+
 				"Redis would revoke this one's sessions", key)
 		}
+	}
+}
+
+// TestBlacklistCanceledCheckIsNotDegraded: a client that hangs up mid-request
+// cancels the context the Redis check runs under. That is not Redis failing,
+// so it must not raise the degraded alarm (Sentry VIBE-BACKEND-4), and the
+// in-memory revocations still answer.
+func TestBlacklistCanceledCheckIsNotDegraded(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr(), MaxRetries: -1})
+	t.Cleanup(func() { _ = rdb.Close() })
+	var logs strings.Builder
+	bl := NewTokenBlacklist(rdb, slog.New(slog.NewTextHandler(&logs, nil)), "test")
+
+	userID := uuid.New()
+	bl.userInvalidatedAt.Store(userID, time.Now())
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if !bl.IsBlacklisted(ctx, "tok", userID, time.Now().Add(-time.Minute)) {
+		t.Error("a token revoked in memory was allowed after a canceled check")
+	}
+	if strings.Contains(logs.String(), "degraded") {
+		t.Errorf("a canceled request raised the degraded alarm: %s", logs.String())
 	}
 }
