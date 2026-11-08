@@ -2,7 +2,6 @@ import { cn } from '@vibe/ui';
 import { formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { COURT_TYPE_LABELS } from './constants';
-import { needsCourtChoice } from './courtChoice';
 import type { CourtAtTime, TimeOption } from './timeOptions';
 
 const t = BOOKING_MESSAGES;
@@ -66,22 +65,17 @@ interface CourtPickerProps {
 }
 
 /**
- * The second question, asked only when there is one: which of the courts free
- * at the chosen hour.
+ * The second question, always asked: which of the courts free at the chosen
+ * hour. With a single court it is one card, and tapping it continues.
  *
  * One flat list of cards, in the order the API sent them. Each card carries
  * what a player compares before choosing: the court's type, its sport, the
  * owner's description, and the price at this hour. The courts used to be
  * grouped under a type-and-price heading as name-only chips; the heading did
  * the comparing for the player and hid the description entirely.
- *
- * Renders nothing when `needsCourtChoice` finds nothing to choose between —
- * the caller has already assigned a court in that case, so a panel here would
- * be an empty ceremony around a decision already made.
+
  */
 export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerProps) {
-  if (!needsCourtChoice(option.courts)) return null;
-
   return (
     <div className="mt-3">
       {/* The hour is already on the answered chip above; repeating it here
@@ -89,7 +83,11 @@ export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerPr
       <p className="text-text-secondary text-xs font-semibold">{t.publicBooking.selectCourt}</p>
       {/* One card per row on a phone, so the name and the sport line never
           fight for width; three across from sm, four on a desktop. */}
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <div
+        className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-4"
+        role="group"
+        aria-label={t.publicBooking.selectCourt}
+      >
         {option.courts.map((entry) => (
           <CourtCard
             key={entry.court.court_id}

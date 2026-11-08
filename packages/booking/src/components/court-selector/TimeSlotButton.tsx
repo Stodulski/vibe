@@ -15,6 +15,8 @@ interface TimeSlotButtonProps {
    * varies.
    */
   typesVary: boolean;
+  /** Whether the venue has more than one court; without that, "última" says nothing. */
+  severalCourts: boolean;
   onSelect: (option: TimeOption) => void;
 }
 
@@ -31,10 +33,11 @@ interface TimeSlotButtonProps {
  *
  * The count of free courts is deliberately absent except at one: a number
  * that does not change the decision is noise on forty-five buttons, but
- * "última cancha" changes whether someone books now or thinks about it.
+ * "última cancha" changes whether someone books now or thinks about it. At a
+ * venue with a single court every hour has one court, so it is never said there.
  */
-export function TimeSlotButton({ option, isSelected, typesVary, onSelect }: TimeSlotButtonProps) {
-  const isLast = option.courts.length === 1;
+export function TimeSlotButton({ option, isSelected, typesVary, severalCourts, onSelect }: TimeSlotButtonProps) {
+  const isLast = severalCourts && option.courts.length === 1;
   // Said only when this hour has narrowed to one type at a venue that has
   // several — the moment the answer stops being "whichever you like".
   const typeLabel = typesVary && option.soleType ? (COURT_TYPE_LABELS[option.soleType] ?? option.soleType) : null;

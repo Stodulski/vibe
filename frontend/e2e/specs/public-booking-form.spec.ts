@@ -53,7 +53,7 @@ test.describe('Public Booking Form Submission', () => {
     const slotFound = await findAndClickAvailableSlot(dateBtns);
     test.skip(!slotFound, 'No available slots found');
 
-    await publicPage.continueButton.click();
+    await publicPage.chooseFirstCourt();
     await expect(page).toHaveURL(new RegExp(`${SLUG}/book/confirm`));
 
     await publicPage.fillBookingForm({

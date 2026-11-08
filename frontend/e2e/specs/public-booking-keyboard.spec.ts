@@ -123,6 +123,11 @@ test.describe('Public booking flow, keyboard only', () => {
     await tabTo(page, enabledSlot);
     await page.keyboard.press('Enter');
 
-    await expect(enabledSlot).toHaveAttribute('aria-pressed', 'true');
+    // The hour opens the court question; choosing a court continues.
+    const court = page.getByRole('group', { name: 'Elegí la cancha' }).getByRole('button').first();
+    await expect(court).toBeVisible({ timeout: 10_000 });
+    await tabTo(page, court);
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/book\/confirm/, { timeout: 15_000 });
   });
 });

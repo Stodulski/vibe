@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { buildTimeOptions, groupTimeOptions } from './timeOptions';
-import { needsCourtChoice } from './courtChoice';
 import type { AvailabilitySlot, CourtAvailability } from '../../api/types';
 
 /**
@@ -126,44 +125,5 @@ describe('groupTimeOptions', () => {
     expect(grouped.get('morning')?.map((o) => o.startTime)).toEqual(['08:00']);
     expect(grouped.get('afternoon')?.map((o) => o.startTime)).toEqual(['14:00']);
     expect(grouped.get('evening')?.map((o) => o.startTime)).toEqual(['20:00']);
-  });
-});
-
-describe('needsCourtChoice', () => {
-  function entriesFor(courts: CourtAvailability[]) {
-    const [option] = buildTimeOptions(courts);
-    if (!option) throw new Error('fixture must produce one time option');
-    return option.courts;
-  }
-
-  it('asks nothing when a single court is free', () => {
-    expect(needsCourtChoice(entriesFor([court('1', 'indoor', [slot('20:00', 5000)])]))).toBe(false);
-  });
-
-  it('asks nothing when the free courts match on type and price', () => {
-    const entries = entriesFor([
-      court('1', 'indoor', [slot('20:00', 5000)]),
-      court('2', 'indoor', [slot('20:00', 5000)]),
-    ]);
-
-    expect(needsCourtChoice(entries)).toBe(false);
-  });
-
-  it('asks when the type differs', () => {
-    const entries = entriesFor([
-      court('1', 'indoor', [slot('20:00', 5000)]),
-      court('2', 'outdoor', [slot('20:00', 5000)]),
-    ]);
-
-    expect(needsCourtChoice(entries)).toBe(true);
-  });
-
-  it('asks when only the price differs', () => {
-    const entries = entriesFor([
-      court('1', 'outdoor', [slot('20:00', 8000)]),
-      court('2', 'outdoor', [slot('20:00', 6000)]),
-    ]);
-
-    expect(needsCourtChoice(entries)).toBe(true);
   });
 });
