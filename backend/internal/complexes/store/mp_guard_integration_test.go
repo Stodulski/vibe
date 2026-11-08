@@ -106,3 +106,26 @@ func TestIntegration_ConnectMPCredentialsGuardsAgainstSwappingTheSellerAccount(t
 		t.Errorf("mp_user_id = %v, want seller-2", got)
 	}
 }
+
+// The disconnect's pre-check: a storefront booking still waiting for payment is
+// not the owner's, so it does not count; any other live booking does.
+func TestIntegration_HasBookingsOtherThanUnpaidHoldsLeavesOutUnpaidHolds(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+
+	hold := f.NewBooking(datatest.BookingOptions{
+		StartTime: "09:00", EndTime: "10:30", Status: "pending",
+		CollectionStatus: "unpaid", RefundStatus: "none", Public: true,
+	})
+	if err := f.Stores.Bookings.Insert(ctx, hold); err != nil {
+		t.Fatalf("inserting the hold: %v", err)
+	}
+	if got, err := f.Stores.Bookings.HasBookingsOtherThanUnpaidHolds(ctx, f.ComplexID); err != nil || got {
+		t.Fatalf("with only an unpaid hold = (%v, %v), want (false, nil)", got, err)
+	}
+
+	f.CreateBooking(t, datatest.BookingOptions{StartTime: "12:00", EndTime: "13:30"})
+	if got, err := f.Stores.Bookings.HasBookingsOtherThanUnpaidHolds(ctx, f.ComplexID); err != nil || !got {
+		t.Fatalf("with an owner booking = (%v, %v), want (true, nil)", got, err)
+	}
+}

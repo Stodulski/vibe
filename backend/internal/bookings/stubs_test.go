@@ -195,6 +195,9 @@ func (s *stubStore) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.
 }
 
 func (s *stubStore) HasActiveBookings(context.Context, uuid.UUID) (bool, error) { return false, nil }
+func (s *stubStore) HasBookingsOtherThanUnpaidHolds(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
 
 func (s *stubStore) HasActiveBookingsByCourt(context.Context, uuid.UUID) (bool, error) {
 	return false, nil

@@ -1445,6 +1445,20 @@ func (m *Store) HasActiveBookings(ctx context.Context, complexID uuid.UUID) (boo
 	return exists, nil
 }
 
+// HasBookingsOtherThanUnpaidHolds is HasActiveBookings without the storefront
+// bookings still waiting for their payment. See
+// slotguard.ComplexHasBookingsOtherThanUnpaidHolds.
+func (m *Store) HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	exists, err := slotguard.ComplexHasBookingsOtherThanUnpaidHolds(ctx, m.DB, complexID)
+	if err != nil {
+		return false, fmt.Errorf("bookings: has owner bookings: %w", err)
+	}
+	return exists, nil
+}
+
 // CancelFutureByComplex cancels every future, non-terminal booking in the complex, used when a complex is deactivated.
 func (m *Store) CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error {
 	ctx, cancel := data.QueryContext(ctx)

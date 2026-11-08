@@ -308,3 +308,38 @@ func TestReleasingUnpaidHoldsRefusesWhenACheckoutStaysOpen(t *testing.T) {
 		t.Errorf("a hold whose link is still payable must not be cancelled; updated %v", f.store.updated)
 	}
 }
+
+// A hold whose checkout is still being set up has no payment row yet, and the
+// link it is about to receive would be payable after the disconnect. It is
+// left alone until it either gets its row or is old enough to be abandoned.
+func TestReleasingUnpaidHoldsWaitsForACheckoutBeingSetUp(t *testing.T) {
+	f := newFixture(t)
+	hold := cronCandidate("pending")
+	hold.CreatedAt = time.Now()
+	f.store.unpaidHolds = []*bookingstore.CronBooking{hold}
+
+	err := f.service.ReleaseUnpaidHolds(t.Context(), hold.ComplexID)
+	if !errors.Is(err, ErrCheckoutStillOpen) {
+		t.Fatalf("ReleaseUnpaidHolds = %v, want ErrCheckoutStillOpen", err)
+	}
+	if len(f.store.updated) != 0 {
+		t.Errorf("a hold still being set up must not be cancelled; updated %v", f.store.updated)
+	}
+}
+
+// A payment row that cannot be read is not proof the link is closed.
+func TestReleasingUnpaidHoldsRefusesWhenThePaymentCannotBeRead(t *testing.T) {
+	f := newFixture(t)
+	hold := cronCandidate("pending")
+	hold.CreatedAt = time.Now().Add(-time.Hour)
+	f.store.unpaidHolds = []*bookingstore.CronBooking{hold}
+	f.payments.getErr = errors.New("database is down")
+
+	err := f.service.ReleaseUnpaidHolds(t.Context(), hold.ComplexID)
+	if !errors.Is(err, ErrCheckoutStillOpen) {
+		t.Fatalf("ReleaseUnpaidHolds = %v, want ErrCheckoutStillOpen", err)
+	}
+	if len(f.store.updated) != 0 {
+		t.Errorf("a hold whose payment could not be read must not be cancelled; updated %v", f.store.updated)
+	}
+}

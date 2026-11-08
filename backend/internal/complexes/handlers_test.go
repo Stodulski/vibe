@@ -935,6 +935,27 @@ func TestDisconnectMercadoPagoIsRefusedWhileBookingsAreActive(t *testing.T) {
 	}
 }
 
+// A disconnect the owner's own bookings will refuse must not touch the
+// visitors still paying: refused, it releases nothing and clears nothing.
+func TestARefusedDisconnectLeavesUnpaidHoldsAlone(t *testing.T) {
+	f := newFixture(t)
+	f.bookings.hasOwnerBookings = true
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.DisconnectMercadoPago(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil, ""))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.holds.released) != 0 {
+		t.Errorf("a refused disconnect released unpaid holds: %v", f.holds.released)
+	}
+	if f.store.mpCleared != nil {
+		t.Error("a refused disconnect must clear nothing")
+	}
+}
+
 func TestDisconnectMercadoPagoClearsTheCredentials(t *testing.T) {
 	f := newFixture(t)
 	complex := &complexstore.Complex{ID: uuid.New()}

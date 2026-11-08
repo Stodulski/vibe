@@ -264,6 +264,27 @@ func ComplexHasActiveBookings(ctx context.Context, q rowQuerier, complexID uuid.
 	return exists, nil
 }
 
+// ComplexHasBookingsOtherThanUnpaidHolds is ComplexHasActiveBookings without
+// the storefront bookings still waiting for their payment (see
+// UnpaidPublicBooking): the bookings that are really the owner's. Disconnecting
+// MercadoPago asks it before releasing any of those holds, so a disconnect that
+// is going to be refused does not cancel a visitor's checkout for nothing.
+func ComplexHasBookingsOtherThanUnpaidHolds(ctx context.Context, q rowQuerier, complexID uuid.UUID) (bool, error) {
+	var exists bool
+	err := q.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM bookings
+			WHERE complex_id = $1
+			  AND upper(span) > NOW()
+			  AND status NOT IN `+ReleasedBookingStatuses+`
+			  AND NOT `+UnpaidPublicBooking("bookings")+`
+		)`, data.UUIDToPg(complexID)).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check owner bookings: %w", err)
+	}
+	return exists, nil
+}
+
 // SpanTaken reports whether a live booking already covers an arbitrary stretch
 // of a court's calendar. The caller must hold LockCourtDays for the local days
 // that stretch touches.

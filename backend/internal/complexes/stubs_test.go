@@ -216,8 +216,14 @@ func (c *stubCourts) GetPricesByCourtIDs(context.Context, []uuid.UUID) ([]*court
 
 type stubBookings struct {
 	hasActive bool
-	err       error
-	cancelled *uuid.UUID
+	// hasOwnerBookings answers HasBookingsOtherThanUnpaidHolds.
+	hasOwnerBookings bool
+	err              error
+	cancelled        *uuid.UUID
+}
+
+func (b *stubBookings) HasBookingsOtherThanUnpaidHolds(context.Context, uuid.UUID) (bool, error) {
+	return b.hasOwnerBookings, b.err
 }
 
 func (b *stubBookings) HasActiveBookings(context.Context, uuid.UUID) (bool, error) {

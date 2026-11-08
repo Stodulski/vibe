@@ -912,6 +912,10 @@ func (m *mockBookingStore) GetDayMoneyTotals(ctx context.Context, complexID uuid
 	return &bookingstore.DayMoneyTotals{ByMethod: map[string]int64{}}, nil
 }
 
+func (m *mockBookingStore) HasBookingsOtherThanUnpaidHolds(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 func (m *mockBookingStore) HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error) {
 	if m.HasActiveBookingsByCourtFn != nil {
 		return m.HasActiveBookingsByCourtFn(ctx, courtID)

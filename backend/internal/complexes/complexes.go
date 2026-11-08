@@ -101,6 +101,9 @@ type CourtStore interface {
 // cancellation that follows if the owner goes ahead.
 type BookingStore interface {
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
+	// HasBookingsOtherThanUnpaidHolds leaves out storefront bookings still
+	// waiting for their payment, which disconnecting MercadoPago releases.
+	HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error)
 	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error
 }
 

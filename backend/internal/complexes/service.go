@@ -880,6 +880,16 @@ func (s *Service) restoreMPOAuthAttempt(ctx context.Context, complexID uuid.UUID
 // stay valid at MercadoPago until they expire or the seller revokes the
 // authorization from their own MercadoPago account.
 func (s *Service) DisconnectMercadoPago(ctx context.Context, complexID uuid.UUID, actor Actor) error {
+	// Refuse before touching anything: releasing a visitor's checkout for a
+	// disconnect that is refused anyway would cancel it for nothing. The store's
+	// own check below stays the guard of record, inside its transaction.
+	owned, err := s.bookings.HasBookingsOtherThanUnpaidHolds(ctx, complexID)
+	if err != nil {
+		return err
+	}
+	if owned {
+		return ErrActiveBookings
+	}
 	if err := s.holds.ReleaseUnpaidHolds(ctx, complexID); err != nil {
 		return fmt.Errorf("%w: %w", ErrUnpaidHoldsNotReleased, err)
 	}

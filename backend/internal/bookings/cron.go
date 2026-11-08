@@ -10,6 +10,7 @@ package bookings
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/waitlist"
@@ -160,6 +162,10 @@ func (s *Service) ReleaseUnpaidHolds(ctx context.Context, complexID uuid.UUID) e
 
 	var stillOpen error
 	for _, b := range holds {
+		if s.checkoutBeingSetUp(ctx, b) {
+			stillOpen = ErrCheckoutStillOpen
+			continue
+		}
 		if err := s.closeCheckout(ctx, &b.Booking, b); err != nil {
 			stillOpen = err
 			continue
@@ -170,6 +176,20 @@ func (s *Service) ReleaseUnpaidHolds(ctx context.Context, complexID uuid.UUID) e
 		s.logger.Info("mp_disconnect: released unpaid booking", "booking_id", b.ID, "complex_id", complexID)
 	}
 	return stillOpen
+}
+
+// checkoutSetupGrace is how long a storefront booking may go without a payment
+// row before it counts as abandoned rather than still being set up. The public
+// path inserts the booking, then asks MercadoPago for the checkout link, then
+// writes the row; MercadoPago's call is bounded well under this.
+const checkoutSetupGrace = 2 * time.Minute
+
+// checkoutBeingSetUp reports a hold whose checkout link may be created right
+// now: no payment row yet, and recent. Cancelling it would let the public path
+// hand the visitor a live link for a booking that no longer exists.
+func (s *Service) checkoutBeingSetUp(ctx context.Context, b *bookingstore.CronBooking) bool {
+	_, err := s.payments.GetByBookingID(ctx, b.ID)
+	return errors.Is(err, data.ErrRecordNotFound) && time.Since(b.CreatedAt) < checkoutSetupGrace
 }
 
 // cancelUnpaidHold cancels a storefront booking that was never paid, whose

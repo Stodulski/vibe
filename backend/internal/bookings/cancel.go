@@ -21,6 +21,7 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
@@ -259,7 +260,16 @@ func (s *Service) closeCheckout(ctx context.Context, booking *bookingstore.Booki
 	defer cancelBudget()
 
 	payment, err := s.payments.GetByBookingID(ctx, booking.ID)
-	if err != nil || payment.MPPreferenceID == nil || *payment.MPPreferenceID == "" {
+	if errors.Is(err, data.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		// Not knowing the link is not knowing it is closed.
+		s.logger.Error("cancel: the payment row could not be read, so the checkout link may still be open",
+			"error", err, "booking_id", booking.ID)
+		return ErrCheckoutStillOpen
+	}
+	if payment.MPPreferenceID == nil || *payment.MPPreferenceID == "" {
 		return nil
 	}
 	preferenceID := *payment.MPPreferenceID
