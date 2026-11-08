@@ -96,3 +96,20 @@ describe('complexApi.connectMP', () => {
     );
   });
 });
+
+describe('complexApi.registerMPOAuthAttempt', () => {
+  // Tapping the MercadoPago link registers the next attempt while the browser
+  // is already leaving. Without keepalive, iOS Safari aborts that POST and the
+  // abort reached Sentry as "Load failed" (VIBE-FRONTEND-F).
+  it('posts the attempt with keepalive so navigating to MercadoPago does not abort it', async () => {
+    const seen: { keepalive: boolean; body: unknown }[] = [];
+    server.use(
+      http.post('*/complexes/:complexId/mp/oauth-attempts', async ({ request }) => {
+        seen.push({ keepalive: request.keepalive, body: await request.json() });
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await complexApi.registerMPOAuthAttempt('c1', { state: 's1', code_verifier: 'v1' });
+    expect(seen).toEqual([{ keepalive: true, body: { state: 's1', code_verifier: 'v1' } }]);
+  });
+});

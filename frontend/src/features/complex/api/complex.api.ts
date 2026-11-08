@@ -63,7 +63,10 @@ export const complexApi = {
    * app MercadoPago sends the owner back to. 204, no body.
    */
   registerMPOAuthAttempt: (complexId: string, body: { state: string; code_verifier: string }): Promise<void> =>
-    api.post(`complexes/${complexId}/mp/oauth-attempts`, { json: body }).then(() => undefined),
+    // keepalive: the owner's tap on the MercadoPago link registers the next
+    // attempt while the page is already navigating away; without it the
+    // browser aborts the request.
+    api.post(`complexes/${complexId}/mp/oauth-attempts`, { json: body, keepalive: true }).then(() => undefined),
 
   /**
    * Exchanges the MercadoPago OAuth `code` for a linked seller account.
