@@ -115,8 +115,6 @@ export const BOOKING_MESSAGES = {
     stepChange: 'Cambiar',
     stepOfPrefix: 'Paso',
     stepOfMiddle: 'de',
-    noEmail: 'Sin email',
-    noInstagram: 'Sin Instagram',
     instagramOf: 'Instagram de',
     backToLanding: 'Volver',
     shareAction: 'Compartir',

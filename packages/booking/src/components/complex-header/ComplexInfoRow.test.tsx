@@ -62,10 +62,24 @@ describe('ComplexInfoRow', () => {
     expect(link).toHaveTextContent('@club.test');
   });
 
-  it('shows a "Sin Instagram" placeholder when the club has none', () => {
+  it('leaves out the email and Instagram rows when the club has neither', () => {
     render(<ComplexInfoRow complex={makeComplex()} />);
     expect(screen.queryByRole('link', { name: /Instagram/ })).not.toBeInTheDocument();
-    expect(screen.getByText('Sin Instagram')).toBeInTheDocument();
+    expect(screen.queryByText('Sin Instagram')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin email')).not.toBeInTheDocument();
+  });
+
+  it('shows WhatsApp as a button, after the contact rows', () => {
+    render(<ComplexInfoRow complex={makeComplex()} />);
+    const link = screen.getByRole('link', { name: 'Escribir por WhatsApp a Club Test' });
+    expect(link).toHaveAttribute('data-slot', 'button');
+    expect(link).toHaveTextContent('WhatsApp');
+  });
+
+  it('leaves WhatsApp to the booking panel when the club does not book online', () => {
+    render(<ComplexInfoRow complex={makeComplex({ payments_enabled: false })} />);
+    expect(screen.queryByRole('link', { name: /WhatsApp/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /\+541155550000/ })).toBeInTheDocument();
   });
 
   it('offers no WhatsApp link when the club has no phone', () => {

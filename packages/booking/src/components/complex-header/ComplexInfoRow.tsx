@@ -1,6 +1,5 @@
-import type { ComponentType } from "react";
 import { MapPin, Phone, Mail } from "lucide-react";
-import { InstagramIcon, WhatsappIcon } from "@vibe/ui";
+import { Button, InstagramIcon, WhatsappIcon } from "@vibe/ui";
 import { BOOKING_MESSAGES } from "../../messages";
 import type { PublicComplex } from "../../api/types";
 import { fullAddress } from "../../lib/complexAddress";
@@ -25,41 +24,31 @@ function InstagramLink({ name, handle }: { name: string; handle: string }) {
   );
 }
 
-/** The club's WhatsApp chat for the same number as the phone, opened in a new tab. */
-function WhatsAppLink({ name, href }: { name: string; href: string }) {
+/**
+ * The club's WhatsApp chat for the same number as the phone, opened in a new
+ * tab. A real button under the contact rows: as one more row it read as a
+ * label, not as something to press.
+ */
+function WhatsAppButton({ name, href }: { name: string; href: string }) {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${name}`}
-      className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
-    >
-      <WhatsappIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
-      <span>{BOOKING_MESSAGES.publicBooking.whatsAppLabel}</span>
-    </a>
-  );
-}
-
-/** A detail the club has not filled in, muted so it reads as missing rather than as a link. */
-function MissingDetail({
-  icon: Icon,
-  label,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  return (
-    <div className="text-text-tertiary flex items-center gap-2">
-      <Icon className="size-3 shrink-0 sm:size-3.5" />
-      <span>{label}</span>
-    </div>
+    <Button asChild variant="outline" className="mt-4 w-full sm:w-fit">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${name}`}
+      >
+        <WhatsappIcon className="text-primary-400 size-4" />
+        {BOOKING_MESSAGES.publicBooking.whatsAppLabel}
+      </a>
+    </Button>
   );
 }
 
 /**
- * How to find the club and how to reach it: address, phone, WhatsApp, email,
- * Instagram, one per row.
+ * How to find the club and how to reach it: address, phone, email and
+ * Instagram, one per row, then a WhatsApp button. A detail the club has not
+ * filled in is left out rather than shown as "Sin email".
  *
  * A column, not a row. These were laid out side by side, which reads as one
  * run-on line of unrelated facts and gives each of them whatever width is
@@ -108,10 +97,7 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
         </a>
       )}
 
-      {/* The same number, reached by chat: its own row, under the call. */}
-      {whatsAppHref && <WhatsAppLink name={complex.name} href={whatsAppHref} />}
-
-      {complex.email ? (
+      {complex.email && (
         <a
           href={`mailto:${complex.email}`}
           className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
@@ -122,17 +108,16 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
           />
           <span>{complex.email}</span>
         </a>
-      ) : (
-        <MissingDetail icon={Mail} label={t.publicBooking.noEmail} />
       )}
 
-      {complex.instagram ? (
+      {complex.instagram && (
         <InstagramLink name={complex.name} handle={complex.instagram} />
-      ) : (
-        <MissingDetail
-          icon={InstagramIcon}
-          label={t.publicBooking.noInstagram}
-        />
+      )}
+
+      {/* Without online booking, the booking panel below already offers this
+          chat as its main button; a second one up here would compete. */}
+      {whatsAppHref && complex.payments_enabled && (
+        <WhatsAppButton name={complex.name} href={whatsAppHref} />
       )}
     </div>
   );
