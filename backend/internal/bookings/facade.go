@@ -22,6 +22,7 @@ type FacadeStore interface {
 	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
+	HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error
 	GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
@@ -108,6 +109,13 @@ func (f *Facade) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.U
 // for complexes and auth, both of which refuse a deletion while it does.
 func (f *Facade) HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error) {
 	return f.store.HasActiveBookings(ctx, complexID)
+}
+
+// HasBookingsOtherThanUnpaidHolds is HasActiveBookings without the storefront
+// bookings still waiting for their payment. Exported for the MercadoPago
+// disconnect, which releases those itself.
+func (f *Facade) HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error) {
+	return f.store.HasBookingsOtherThanUnpaidHolds(ctx, complexID)
 }
 
 // HasActiveBookingsByCourt is the same question for one court. Exported for

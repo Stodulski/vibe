@@ -2240,12 +2240,22 @@ paths:
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409":
-          description: The complex has active bookings.
+          description: >-
+            The complex has upcoming bookings that may still need MercadoPago. Storefront bookings
+            still waiting for their payment do not count: they are cancelled, and their checkout
+            links closed, before the credentials are cleared.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
+        "502":
+          description: >-
+            A storefront booking waiting for its payment could not be released because its
+            MercadoPago checkout link could not be closed. Nothing was disconnected; try again.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
 
   /api/v1/complexes/{id}/mp/oauth-attempts:
     post:

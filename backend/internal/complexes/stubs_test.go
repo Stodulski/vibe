@@ -216,8 +216,14 @@ func (c *stubCourts) GetPricesByCourtIDs(context.Context, []uuid.UUID) ([]*court
 
 type stubBookings struct {
 	hasActive bool
-	err       error
-	cancelled *uuid.UUID
+	// hasOwnerBookings answers HasBookingsOtherThanUnpaidHolds.
+	hasOwnerBookings bool
+	err              error
+	cancelled        *uuid.UUID
+}
+
+func (b *stubBookings) HasBookingsOtherThanUnpaidHolds(context.Context, uuid.UUID) (bool, error) {
+	return b.hasOwnerBookings, b.err
 }
 
 func (b *stubBookings) HasActiveBookings(context.Context, uuid.UUID) (bool, error) {
@@ -308,12 +314,28 @@ type stubRecorder struct{ entries []audit.Entry }
 
 func (r *stubRecorder) Record(e audit.Entry) { r.entries = append(r.entries, e) }
 
+// stubHolds records which complex had its unpaid storefront bookings released,
+// and whether the credentials were still there at that moment.
+type stubHolds struct {
+	store        *stubStore
+	err          error
+	released     []uuid.UUID
+	clearedFirst bool
+}
+
+func (h *stubHolds) ReleaseUnpaidHolds(_ context.Context, complexID uuid.UUID) error {
+	h.released = append(h.released, complexID)
+	h.clearedFirst = h.store.mpCleared != nil
+	return h.err
+}
+
 type fixture struct {
 	handler  *Handler
 	service  *Service
 	store    *stubStore
 	courts   *stubCourts
 	bookings *stubBookings
+	holds    *stubHolds
 	payments *stubPayments
 	attempts *MPOAuthAttempts
 	oauth    *stubOAuth
@@ -354,6 +376,8 @@ func newFixture(t *testing.T) *fixture {
 		Run:      func(fn func()) { fn() }, // run background work inline so tests can observe it
 	}, cfg)
 	f.service.SetCourts(f.courts)
+	f.holds = &stubHolds{store: f.store}
+	f.service.SetHoldReleaser(f.holds)
 	f.handler = NewHandler(f.service, responder, cfg)
 	return f
 }

@@ -354,7 +354,9 @@ type BookingReminderManager interface {
 // BookingLifecycleManager drives booking state transitions such as expiry, completion and bulk cancellation.
 type BookingLifecycleManager interface {
 	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
+	GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
+	HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
 	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error

@@ -260,3 +260,86 @@ func TestCompletingPastBookingsTellsEachAffectedComplexOnce(t *testing.T) {
 		t.Errorf("want each affected complex told once, in sweep order; got %v", f.realtime.published)
 	}
 }
+
+// Disconnecting MercadoPago releases the venue's unpaid storefront bookings
+// first: their checkout links are closed and the bookings cancelled the way the
+// expiry sweep does it, so nobody can pay for one after the seller identity
+// that matches a payment to the venue is gone.
+func TestReleasingUnpaidHoldsClosesTheCheckoutAndCancels(t *testing.T) {
+	f := newFixture(t)
+	hold := cronCandidate("pending")
+	preferenceID := "pref-1"
+	f.store.unpaidHolds = []*bookingstore.CronBooking{hold}
+	f.payments.payment = &paymentstore.Payment{BookingID: hold.ID, ComplexID: hold.ComplexID, MPPreferenceID: &preferenceID}
+
+	if err := f.service.ReleaseUnpaidHolds(t.Context(), hold.ComplexID); err != nil {
+		t.Fatalf("ReleaseUnpaidHolds: %v", err)
+	}
+
+	if len(f.store.unpaidHoldsAsked) != 1 || f.store.unpaidHoldsAsked[0] != hold.ComplexID {
+		t.Fatalf("want the holds of this one complex read; asked for %v", f.store.unpaidHoldsAsked)
+	}
+	if len(f.checkout.expired) != 1 || f.checkout.expired[0] != preferenceID {
+		t.Fatalf("want the checkout link closed; got %v", f.checkout.expired)
+	}
+	if len(f.store.updated) != 1 || f.store.updated[0].Status != "cancelled" {
+		t.Fatalf("want the hold cancelled; got %v", f.store.updated)
+	}
+	if len(f.notify.cancelled) != 1 || f.notify.cancelled[0].RefundLine != notifications.ExpiredUnpaidRefundLine {
+		t.Fatalf("want the player told, with the never-paid refund line; got %v", f.notify.cancelled)
+	}
+}
+
+// A checkout link MercadoPago will not close is still payable, so its booking
+// is left alone and the caller is told: the disconnect must not go ahead.
+func TestReleasingUnpaidHoldsRefusesWhenACheckoutStaysOpen(t *testing.T) {
+	f := newFixture(t)
+	hold := cronCandidate("pending")
+	preferenceID := "pref-1"
+	f.store.unpaidHolds = []*bookingstore.CronBooking{hold}
+	f.payments.payment = &paymentstore.Payment{BookingID: hold.ID, ComplexID: hold.ComplexID, MPPreferenceID: &preferenceID}
+	f.checkout.expireErr = errors.New("mercadopago is down")
+
+	err := f.service.ReleaseUnpaidHolds(t.Context(), hold.ComplexID)
+	if !errors.Is(err, ErrCheckoutStillOpen) {
+		t.Fatalf("ReleaseUnpaidHolds = %v, want ErrCheckoutStillOpen", err)
+	}
+	if len(f.store.updated) != 0 {
+		t.Errorf("a hold whose link is still payable must not be cancelled; updated %v", f.store.updated)
+	}
+}
+
+// A hold whose checkout is still being set up has no payment row yet, and the
+// link it is about to receive would be payable after the disconnect. It is
+// left alone until it either gets its row or is old enough to be abandoned.
+func TestReleasingUnpaidHoldsWaitsForACheckoutBeingSetUp(t *testing.T) {
+	f := newFixture(t)
+	hold := cronCandidate("pending")
+	hold.CreatedAt = time.Now()
+	f.store.unpaidHolds = []*bookingstore.CronBooking{hold}
+
+	err := f.service.ReleaseUnpaidHolds(t.Context(), hold.ComplexID)
+	if !errors.Is(err, ErrCheckoutStillOpen) {
+		t.Fatalf("ReleaseUnpaidHolds = %v, want ErrCheckoutStillOpen", err)
+	}
+	if len(f.store.updated) != 0 {
+		t.Errorf("a hold still being set up must not be cancelled; updated %v", f.store.updated)
+	}
+}
+
+// A payment row that cannot be read is not proof the link is closed.
+func TestReleasingUnpaidHoldsRefusesWhenThePaymentCannotBeRead(t *testing.T) {
+	f := newFixture(t)
+	hold := cronCandidate("pending")
+	hold.CreatedAt = time.Now().Add(-time.Hour)
+	f.store.unpaidHolds = []*bookingstore.CronBooking{hold}
+	f.payments.getErr = errors.New("database is down")
+
+	err := f.service.ReleaseUnpaidHolds(t.Context(), hold.ComplexID)
+	if !errors.Is(err, ErrCheckoutStillOpen) {
+		t.Fatalf("ReleaseUnpaidHolds = %v, want ErrCheckoutStillOpen", err)
+	}
+	if len(f.store.updated) != 0 {
+		t.Errorf("a hold whose payment could not be read must not be cancelled; updated %v", f.store.updated)
+	}
+}

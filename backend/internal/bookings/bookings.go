@@ -55,6 +55,7 @@ type Store interface {
 	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
 	MarkReminderSent2h(ctx context.Context, id uuid.UUID) error
 	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
+	GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error)
 	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
 }
 

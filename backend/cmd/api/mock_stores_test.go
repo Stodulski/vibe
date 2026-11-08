@@ -743,23 +743,24 @@ func (m *mockCourtStore) DeleteBlockedSlot(ctx context.Context, id uuid.UUID) er
 // ---------------------------------------------------------------------------
 
 type mockBookingStore struct {
-	InsertFn                    func(ctx context.Context, booking *bookingstore.Booking) error
-	InsertSafeFn                func(ctx context.Context, booking *bookingstore.Booking) error
-	GetByIDFn                   func(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
-	GetByComplexFn              func(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
-	UpdateFn                    func(ctx context.Context, booking *bookingstore.Booking) error
-	GetForReminder2hFn          func(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error)
-	MarkReminderSent2hFn        func(ctx context.Context, id uuid.UUID) error
-	GetDashboardStatsFn         func(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
-	GetUpcomingTodayFn          func(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
-	GetRevenueByDayFn           func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
-	GetOccupancyByHourDayFn     func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
-	GetByClientFn               func(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
-	HasActiveBookingsFn         func(ctx context.Context, complexID uuid.UUID) (bool, error)
-	HasActiveBookingsByCourtFn  func(ctx context.Context, courtID uuid.UUID) (bool, error)
-	CompletePastBookingsFn      func(ctx context.Context) ([]uuid.UUID, error)
-	GetForReminder2hEnrichedFn  func(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
-	GetExpiredPendingEnrichedFn func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
+	InsertFn                         func(ctx context.Context, booking *bookingstore.Booking) error
+	InsertSafeFn                     func(ctx context.Context, booking *bookingstore.Booking) error
+	GetByIDFn                        func(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
+	GetByComplexFn                   func(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
+	UpdateFn                         func(ctx context.Context, booking *bookingstore.Booking) error
+	GetForReminder2hFn               func(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error)
+	MarkReminderSent2hFn             func(ctx context.Context, id uuid.UUID) error
+	GetDashboardStatsFn              func(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error)
+	GetUpcomingTodayFn               func(ctx context.Context, complexID uuid.UUID, today time.Time, nowTime string, limit int) ([]*bookingstore.Booking, error)
+	GetRevenueByDayFn                func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.RevenueDataPoint, error)
+	GetOccupancyByHourDayFn          func(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.OccupancyDataPoint, error)
+	GetByClientFn                    func(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
+	HasActiveBookingsFn              func(ctx context.Context, complexID uuid.UUID) (bool, error)
+	HasActiveBookingsByCourtFn       func(ctx context.Context, courtID uuid.UUID) (bool, error)
+	CompletePastBookingsFn           func(ctx context.Context) ([]uuid.UUID, error)
+	GetForReminder2hEnrichedFn       func(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
+	GetExpiredPendingEnrichedFn      func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
+	GetUnpaidPublicPendingEnrichedFn func(ctx context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error)
 }
 
 func (m *mockBookingStore) Insert(ctx context.Context, booking *bookingstore.Booking) error {
@@ -847,6 +848,13 @@ func (m *mockBookingStore) GetExpiredPendingEnriched(ctx context.Context, expiry
 	return nil, nil
 }
 
+func (m *mockBookingStore) GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error) {
+	if m.GetUnpaidPublicPendingEnrichedFn != nil {
+		return m.GetUnpaidPublicPendingEnrichedFn(ctx, complexID)
+	}
+	return nil, nil
+}
+
 func (m *mockBookingStore) GetDashboardStats(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DashboardStats, error) {
 	if m.GetDashboardStatsFn != nil {
 		return m.GetDashboardStatsFn(ctx, complexID, today)
@@ -902,6 +910,10 @@ func (m *mockBookingStore) GetPaymentSummary(ctx context.Context, complexID uuid
 
 func (m *mockBookingStore) GetDayMoneyTotals(ctx context.Context, complexID uuid.UUID, today time.Time) (*bookingstore.DayMoneyTotals, error) {
 	return &bookingstore.DayMoneyTotals{ByMethod: map[string]int64{}}, nil
+}
+
+func (m *mockBookingStore) HasBookingsOtherThanUnpaidHolds(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
 }
 
 func (m *mockBookingStore) HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error) {

@@ -735,9 +735,13 @@ func (h *Handler) DisconnectMercadoPago(w http.ResponseWriter, r *http.Request) 
 	}
 
 	err := h.svc.DisconnectMercadoPago(r.Context(), complex.ID, h.actor(r))
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrActiveBookings):
 		h.respond.DomainErrorWith(w, r, err,
-			"cannot disconnect MercadoPago while you have active bookings, cancel them first")
+			"cannot disconnect MercadoPago while you have upcoming bookings that may still need it")
+		return
+	case err != nil:
+		h.respond.DomainError(w, r, err)
 		return
 	}
 

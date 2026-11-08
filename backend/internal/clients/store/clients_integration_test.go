@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -87,5 +88,31 @@ func TestIntegration_UpdateClientScopesToTenant(t *testing.T) {
 	}
 	if got.FirstName != "Ana" {
 		t.Errorf("FirstName = %q, want unchanged %q (the foreign update must not have touched the row)", got.FirstName, "Ana")
+	}
+}
+
+// A visitor's unpaid checkout is not a client visit the owner has: it stays out
+// of the top clients and the active-client counts (owner decision 2026-11-08).
+func TestIntegration_ClientInsightsLeaveOutUnpaidPublicBookings(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+	today := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+
+	_, err := f.DB.Exec(ctx, `
+		INSERT INTO bookings (complex_id, court_id, client_id, date, start_time, duration_minutes, price, status, collection_status, created_by)
+		VALUES ($1, $2, $3, '2026-01-15', '10:00', 60, 15000, 'pending', 'unpaid', NULL)`,
+		f.ComplexID, f.CourtID, f.ClientID,
+	)
+	if err != nil {
+		t.Fatalf("inserting the unpaid public booking: %v", err)
+	}
+
+	insights, err := f.Stores.Clients.GetInsights(ctx, f.ComplexID, today)
+	if err != nil {
+		t.Fatalf("GetInsights: %v", err)
+	}
+	if len(insights.TopClients) != 0 || insights.TotalActive != 0 {
+		t.Errorf("an unpaid public booking was counted: top=%d active=%d, want 0 and 0",
+			len(insights.TopClients), insights.TotalActive)
 	}
 }

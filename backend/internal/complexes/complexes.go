@@ -101,7 +101,18 @@ type CourtStore interface {
 // cancellation that follows if the owner goes ahead.
 type BookingStore interface {
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
+	// HasBookingsOtherThanUnpaidHolds leaves out storefront bookings still
+	// waiting for their payment, which disconnecting MercadoPago releases.
+	HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error)
 	CancelFutureByComplex(ctx context.Context, complexID uuid.UUID) error
+}
+
+// HoldReleaser cancels a venue's storefront bookings that are still waiting
+// for their MercadoPago payment, closing their checkout links first. The
+// bookings domain implements it; disconnecting MercadoPago calls it before the
+// credentials are cleared.
+type HoldReleaser interface {
+	ReleaseUnpaidHolds(ctx context.Context, complexID uuid.UUID) error
 }
 
 // PaymentConnector is the MercadoPago OAuth exchange behind connecting an
@@ -167,6 +178,8 @@ func refusals() httpx.Refusals {
 			"MercadoPago did not accept the authorization, start the connection again"),
 		mp.ErrOAuthUnavailable: httpx.BadGateway(
 			"MercadoPago is not available right now, try again in a moment"),
+		ErrUnpaidHoldsNotReleased: httpx.BadGateway(
+			"a payment in progress could not be closed at MercadoPago, try again in a moment"),
 	}
 }
 

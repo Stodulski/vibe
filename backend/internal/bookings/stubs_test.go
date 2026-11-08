@@ -63,8 +63,12 @@ type stubStore struct {
 	markSentErr    error
 	markedSent     []uuid.UUID
 	expiredPending []*bookingstore.CronBooking
-	expiredErr     error
-	expiryWindows  []time.Duration
+	// unpaidHolds is what GetUnpaidPublicPendingEnriched answers, and
+	// unpaidHoldsAsked the complex each call asked about.
+	unpaidHolds      []*bookingstore.CronBooking
+	unpaidHoldsAsked []uuid.UUID
+	expiredErr       error
+	expiryWindows    []time.Duration
 	// completed is the complex of each booking the sweep reports completing, one
 	// entry per booking, as the store returns them.
 	completed     []uuid.UUID
@@ -191,6 +195,9 @@ func (s *stubStore) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.
 }
 
 func (s *stubStore) HasActiveBookings(context.Context, uuid.UUID) (bool, error) { return false, nil }
+func (s *stubStore) HasBookingsOtherThanUnpaidHolds(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
 
 func (s *stubStore) HasActiveBookingsByCourt(context.Context, uuid.UUID) (bool, error) {
 	return false, nil
@@ -256,6 +263,11 @@ func (s *stubStore) GetExpiredPendingEnriched(_ context.Context, expiry time.Dur
 		return nil, s.expiredErr
 	}
 	return s.expiredPending, nil
+}
+
+func (s *stubStore) GetUnpaidPublicPendingEnriched(_ context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error) {
+	s.unpaidHoldsAsked = append(s.unpaidHoldsAsked, complexID)
+	return s.unpaidHolds, nil
 }
 
 func (s *stubStore) CompletePastBookings(context.Context) ([]uuid.UUID, error) {

@@ -21,6 +21,7 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/mpcred"
@@ -237,6 +238,22 @@ const preferenceExpiryBudget = 25 * time.Second
 // token and no complex row (bookingstore.CronBooking). Everything else it needs
 // is on the booking.
 func (s *Service) expireCheckoutPreference(ctx context.Context, booking *bookingstore.Booking, creds sellerCredentials) {
+	if err := s.closeCheckout(ctx, booking, creds); err != nil {
+		// Already logged and alerted inside closeCheckout; these callers go on
+		// with the cancellation either way.
+		return
+	}
+}
+
+// ErrCheckoutStillOpen reports that a booking's MercadoPago checkout link could
+// not be closed, so its client can still pay it.
+var ErrCheckoutStillOpen = errors.New("bookings: a checkout link could not be closed")
+
+// closeCheckout is expireCheckoutPreference that also says whether the link is
+// closed: nil when there was no link or it was closed, ErrCheckoutStillOpen
+// when it may still be paid. Every failure is already logged and alerted here,
+// so the callers that cannot act on it go through expireCheckoutPreference.
+func (s *Service) closeCheckout(ctx context.Context, booking *bookingstore.Booking, creds sellerCredentials) error {
 	// Detached from the caller's cancellation for the same reason
 	// releaseSlotLocks is: every call site hands this the request's own context,
 	// and a client who cancels and closes the tab cancelled it. The read below
@@ -247,8 +264,17 @@ func (s *Service) expireCheckoutPreference(ctx context.Context, booking *booking
 	defer cancelBudget()
 
 	payment, err := s.payments.GetByBookingID(ctx, booking.ID)
-	if err != nil || payment.MPPreferenceID == nil || *payment.MPPreferenceID == "" {
-		return
+	if errors.Is(err, data.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		// Not knowing the link is not knowing it is closed.
+		s.logger.Error("cancel: the payment row could not be read, so the checkout link may still be open",
+			"error", err, "booking_id", booking.ID)
+		return ErrCheckoutStillOpen
+	}
+	if payment.MPPreferenceID == nil || *payment.MPPreferenceID == "" {
+		return nil
 	}
 	preferenceID := *payment.MPPreferenceID
 
@@ -260,12 +286,12 @@ func (s *Service) expireCheckoutPreference(ctx context.Context, booking *booking
 			"error", credErr, "booking_id", booking.ID, "complex_id", booking.ComplexID, "preference_id", preferenceID)
 		sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION SKIPPED, CREDENTIAL UNREADABLE (client may still pay): complex_id=%s preference_id=%s",
 			booking.ComplexID, preferenceID))
-		return
+		return ErrCheckoutStillOpen
 	}
 
 	expErr := s.checkout.UpdatePreferenceExpired(ctx, preferenceID, caller)
 	if expErr == nil {
-		return
+		return nil
 	}
 	s.logger.Error("cancel: first attempt to expire the MercadoPago preference failed, retrying",
 		"error", expErr, "booking_id", booking.ID, "preference_id", preferenceID)
@@ -275,7 +301,9 @@ func (s *Service) expireCheckoutPreference(ctx context.Context, booking *booking
 			"error", retryErr, "booking_id", booking.ID, "complex_id", booking.ComplexID, "preference_id", preferenceID)
 		sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION FAILED (client may still pay): complex_id=%s preference_id=%s",
 			booking.ComplexID, preferenceID))
+		return ErrCheckoutStillOpen
 	}
+	return nil
 }
 
 // sellerCredentials is where the token a checkout link's owner is addressed

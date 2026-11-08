@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -392,6 +393,7 @@ func (m *Store) GetInsights(ctx context.Context, complexID uuid.UUID, today time
 		FROM bookings b
 		JOIN clients cl ON cl.id = b.client_id
 		WHERE b.complex_id = $1 AND b.date BETWEEN $2 AND $3 AND b.status != 'cancelled'
+		  AND NOT `+slotguard.UnpaidPublicBooking("b")+`
 		GROUP BY cl.id, cl.first_name, cl.last_name, cl.phone
 		ORDER BY COUNT(*) DESC
 		LIMIT 10`,
@@ -438,7 +440,8 @@ func (m *Store) GetInsights(ctx context.Context, complexID uuid.UUID, today time
 			COUNT(DISTINCT b.client_id)::int
 		FROM bookings b
 		JOIN clients cl ON cl.id = b.client_id
-		WHERE b.complex_id = $1 AND b.date BETWEEN $3 AND $4 AND b.status != 'cancelled'`,
+		WHERE b.complex_id = $1 AND b.date BETWEEN $3 AND $4 AND b.status != 'cancelled'
+		  AND NOT `+slotguard.UnpaidPublicBooking("b"),
 		data.UUIDToPg(complexID), data.TimeToPg(from), data.DateToPg(from), data.DateToPg(today),
 	).Scan(&insights.NewClients, &insights.TotalActive)
 	if err != nil {

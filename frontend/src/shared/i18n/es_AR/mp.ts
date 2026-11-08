@@ -6,7 +6,8 @@ export const mp = {
   connectDescription: 'Conectá tu cuenta para recibir pagos de reservas directamente',
   connecting: 'Conectando...',
   disconnectConfirm: '¿Estás seguro que querés desconectar MercadoPago?',
-  disconnectBlocked: 'No podés desconectar MercadoPago mientras tengas reservas activas. Cancelalas primero.',
+  disconnectBlocked:
+    'Tenés reservas próximas que pueden necesitar MercadoPago para cobrar o devolver una seña. Vas a poder desconectarlo cuando hayan pasado.',
   userId: 'ID de cuenta',
   connectSuccess: 'MercadoPago conectado exitosamente',
   connectError: 'Error al conectar MercadoPago',
