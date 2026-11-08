@@ -42,7 +42,6 @@ export const BOOKING_MESSAGES = {
     phoneOnlyDescription: 'Este complejo todavía no toma reservas online. Escribile para reservar.',
     phoneOnlyCallLabel: 'Escribir al complejo por WhatsApp',
     phoneOnlyMessage: 'Hola, quiero reservar una cancha.',
-    whatsAppLabel: 'WhatsApp',
     writeOnWhatsAppTo: 'Escribir por WhatsApp a',
     courtsTitle: 'Canchas',
     available: 'Disponible',

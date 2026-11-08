@@ -1,10 +1,9 @@
 import { MapPin, Phone, Mail } from "lucide-react";
-import { Button, InstagramIcon, WhatsappIcon } from "@vibe/ui";
+import { InstagramIcon } from "@vibe/ui";
 import { BOOKING_MESSAGES } from "../../messages";
 import type { PublicComplex } from "../../api/types";
 import { fullAddress } from "../../lib/complexAddress";
 import { instagramProfileUrl } from "../../lib/instagram";
-import { whatsappChatHref } from "../../lib/whatsapp";
 
 const t = BOOKING_MESSAGES;
 
@@ -25,30 +24,11 @@ function InstagramLink({ name, handle }: { name: string; handle: string }) {
 }
 
 /**
- * The club's WhatsApp chat for the same number as the phone, opened in a new
- * tab. A real button under the contact rows: as one more row it read as a
- * label, not as something to press.
- */
-function WhatsAppButton({ name, href }: { name: string; href: string }) {
-  return (
-    <Button asChild variant="outline" className="mt-4 w-full sm:w-fit">
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`${BOOKING_MESSAGES.publicBooking.writeOnWhatsAppTo} ${name}`}
-      >
-        <WhatsappIcon className="text-primary-400 size-4" />
-        {BOOKING_MESSAGES.publicBooking.whatsAppLabel}
-      </a>
-    </Button>
-  );
-}
-
-/**
  * How to find the club and how to reach it: address, phone, email and
- * Instagram, one per row, then a WhatsApp button. A detail the club has not
- * filled in is left out rather than shown as "Sin email".
+ * Instagram, one per row. A detail the club has not filled in is left out
+ * rather than shown as "Sin email". No WhatsApp chat: players book through
+ * the platform (owner decision, 2026-11-08); a club without online booking
+ * still gets one in the booking panel, where it is the only way to book.
  *
  * A column, not a row. These were laid out side by side, which reads as one
  * run-on line of unrelated facts and gives each of them whatever width is
@@ -68,8 +48,6 @@ function WhatsAppButton({ name, href }: { name: string; href: string }) {
  * rows sit on the same 14px rhythm.
  */
 export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
-  const whatsAppHref = whatsappChatHref(complex.phone);
-
   return (
     <div className="text-micro text-text-secondary mt-3 flex flex-col gap-2 sm:text-xs lg:gap-2.5 lg:text-sm">
       {/* All three rows centre their icon against the text. The address used
@@ -112,12 +90,6 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
 
       {complex.instagram && (
         <InstagramLink name={complex.name} handle={complex.instagram} />
-      )}
-
-      {/* Without online booking, the booking panel below already offers this
-          chat as its main button; a second one up here would compete. */}
-      {whatsAppHref && complex.payments_enabled && (
-        <WhatsAppButton name={complex.name} href={whatsAppHref} />
       )}
     </div>
   );
