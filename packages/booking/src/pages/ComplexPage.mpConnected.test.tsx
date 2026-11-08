@@ -159,7 +159,7 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     mockUseAvailability.mockReturnValue({ data: buildAvailability(), isLoading: false });
   });
 
-  it('payments_enabled: true — slots are bookable and the Continue path is reachable', async () => {
+  it('payments_enabled: true — slots are bookable and choosing a court continues', async () => {
     mockUseComplexBySlug.mockReturnValue({
       data: buildComplexData(true),
       isLoading: false,
@@ -180,8 +180,11 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     expect(slotButton).not.toBeDisabled();
     fireEvent.click(slotButton);
 
-    const continueButton = await screen.findByRole('button', { name: /continuar/i });
-    fireEvent.click(continueButton);
+    // The court comes next, even with one free, and tapping it continues.
+    const courts = await screen.findByRole('group', { name: 'Elegí la cancha' });
+    const [courtCard] = within(courts).getAllByRole('button');
+    if (!courtCard) throw new Error('expected a court card');
+    fireEvent.click(courtCard);
 
     expect(assignSpy).toHaveBeenCalledWith('/c/test-club/book/confirm');
     expect(readConfirmDraft('test-club')).toEqual(expect.objectContaining({ complexId: 'c1' }));

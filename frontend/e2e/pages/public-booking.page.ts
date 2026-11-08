@@ -8,8 +8,12 @@ export class PublicBookingPage {
     return this.page.locator('h1').first();
   }
 
-  get continueButton() {
-    return this.page.getByRole('button', { name: 'Continuar' });
+  /**
+   * After an hour, the free courts are listed and tapping one continues to
+   * the confirm page; there is no Continue button.
+   */
+  async chooseFirstCourt() {
+    await this.page.getByRole('group', { name: 'Elegí la cancha' }).getByRole('button').first().click();
   }
 
   get noAvailabilityMessage() {

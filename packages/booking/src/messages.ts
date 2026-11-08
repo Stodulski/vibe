@@ -47,7 +47,6 @@ export const BOOKING_MESSAGES = {
     courtsTitle: 'Canchas',
     available: 'Disponible',
     occupied: 'Ocupado',
-    continue: 'Continuar',
     firstName: 'Nombre',
     lastName: 'Apellido',
     phone: 'Teléfono',

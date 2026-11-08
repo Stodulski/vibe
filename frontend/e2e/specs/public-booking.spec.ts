@@ -120,7 +120,7 @@ test.describe('Public Booking Flow', () => {
     const slotFound = await findAndClickAvailableSlot(dateBtns);
     test.skip(!slotFound, 'No available slots found in the next 7 days');
 
-    await publicPage.continueButton.click();
+    await publicPage.chooseFirstCourt();
     await expect(page).toHaveURL(new RegExp(`${SLUG}/book/confirm`));
   });
 });

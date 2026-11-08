@@ -1,5 +1,4 @@
 import { TimeSlotButton } from './TimeSlotButton';
-import { ContinueAction } from './ContinueAction';
 import { TIME_GROUPS } from './constants';
 import type { TimeOption } from './timeOptions';
 import type { TimeGroup } from './slotMath';
@@ -8,11 +7,9 @@ interface TimeGroupGridProps {
   groupKey: TimeGroup;
   options: TimeOption[];
   typesVary: boolean;
+  severalCourts: boolean;
   selectedStartTime: string | null;
-  /** Whether the settled selection belongs to this group, so the action shows here. */
-  showContinue: boolean;
   onSelectTime: (option: TimeOption) => void;
-  onContinue: () => void;
 }
 
 /**
@@ -26,10 +23,9 @@ export function TimeGroupGrid({
   groupKey,
   options,
   typesVary,
+  severalCourts,
   selectedStartTime,
-  showContinue,
   onSelectTime,
-  onContinue,
 }: TimeGroupGridProps) {
   const group = TIME_GROUPS.find((g) => g.key === groupKey);
   if (!group) return null; // type-level only: keys come from TIME_GROUPS
@@ -52,11 +48,11 @@ export function TimeGroupGrid({
             option={option}
             isSelected={option.startTime === selectedStartTime}
             typesVary={typesVary}
+            severalCourts={severalCourts}
             onSelect={onSelectTime}
           />
         ))}
       </div>
-      {showContinue && <ContinueAction onContinue={onContinue} />}
     </div>
   );
 }

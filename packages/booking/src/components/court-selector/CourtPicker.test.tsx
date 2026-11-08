@@ -34,8 +34,7 @@ function court(
   };
 }
 
-// Two courts differing in type so `needsCourtChoice` is true and the picker
-// actually renders its cards.
+// Two courts differing in type, one with a description.
 function mixedOption() {
   const [option] = buildTimeOptions([court('1', 'indoor', 5000, 'Césped sintético'), court('2', 'outdoor', 5000)]);
   if (!option) throw new Error('fixture must produce one time option');
@@ -96,13 +95,13 @@ describe('CourtPicker — selection', () => {
   });
 });
 
-describe('CourtPicker — nothing to choose between', () => {
-  it('renders nothing when the free courts are identical in type and price', () => {
-    const [option] = buildTimeOptions([court('1', 'indoor', 5000), court('2', 'indoor', 5000)]);
+describe('CourtPicker — a single free court', () => {
+  it('still renders its card, so the player sees the court before confirming', () => {
+    const [option] = buildTimeOptions([court('1', 'indoor', 5000)]);
     if (!option) throw new Error('fixture must produce one time option');
 
-    const { container } = render(<CourtPicker option={option} selectedCourtId={null} onSelect={vi.fn()} />);
+    render(<CourtPicker option={option} selectedCourtId={null} onSelect={vi.fn()} />);
 
-    expect(container.firstChild).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 });

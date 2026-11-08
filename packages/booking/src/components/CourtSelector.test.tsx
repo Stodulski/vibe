@@ -156,19 +156,22 @@ describe('CourtSelector — the hour is the question', () => {
   });
 });
 
-describe('CourtSelector — the court is asked only when it varies', () => {
-  it('assigns the court without asking when there is only one', async () => {
+describe('CourtSelector — the court is always asked after the hour', () => {
+  it('shows the only court after the hour, and tapping it continues', async () => {
     const user = userEvent.setup();
     render(<Harness {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
+    expect(defaultProps.onSelect).not.toHaveBeenCalled();
+    expect(defaultProps.onContinue).not.toHaveBeenCalled();
 
-    expect(defaultProps.onSelect).toHaveBeenCalledWith(
+    await user.click(screen.getByRole('button', { name: /^Cancha 1\b/ }));
+    expect(defaultProps.onContinue).toHaveBeenCalledWith(
       expect.objectContaining({ courtId: 'court-1', courtName: 'Cancha 1' }),
     );
   });
 
-  it('assigns without asking when the free courts are interchangeable', async () => {
+  it('lists every free court even when they are interchangeable', async () => {
     const user = userEvent.setup();
     const twins = [
       court('court-1', 'Cancha 1', 'indoor', [slot('08:00', '09:30', 500000)]),
@@ -178,9 +181,9 @@ describe('CourtSelector — the court is asked only when it varies', () => {
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
 
-    // Same type, same price: there is no decision here, so no question.
-    expect(screen.queryByRole('button', { name: 'Cancha 2' })).not.toBeInTheDocument();
-    expect(defaultProps.onSelect).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /^Cancha 1\b/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancha 2\b/ })).toBeInTheDocument();
+    expect(defaultProps.onSelect).not.toHaveBeenCalled();
   });
 
   it('asks which court when they differ, and books the one chosen', async () => {
@@ -200,6 +203,24 @@ describe('CourtSelector — the court is asked only when it varies', () => {
     expect(defaultProps.onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ courtId: 'court-2', courtType: 'outdoor' }),
     );
+  });
+});
+
+describe('CourtSelector — "Última cancha"', () => {
+  it('is not said at a venue with a single court', () => {
+    render(<Harness {...defaultProps} />);
+    expect(screen.queryByText(t.publicBooking.lastCourtLeft)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '08:00' })).toBeInTheDocument();
+  });
+
+  it('is said when only one of several courts is still free at that hour', () => {
+    const twoCourts = [
+      court('court-1', 'Cancha 1', 'indoor', [slot('08:00', '09:30', 500000), slot('11:00', '12:30', 500000)]),
+      court('court-2', 'Cancha 2', 'indoor', [slot('11:00', '12:30', 500000)]),
+    ];
+    render(<Harness {...defaultProps} courts={twoCourts} />);
+    expect(screen.getByRole('button', { name: `08:00, ${t.publicBooking.lastCourtLeft}` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '11:00' })).toBeInTheDocument();
   });
 });
 
@@ -279,38 +300,21 @@ describe('CourtSelector — the question owns the screen', () => {
   });
 });
 
-describe('CourtSelector — U-06: a restored hour that never needed a court choice', () => {
-  // "Cambiar horario" on the confirm page sends the visitor back to
-  // `/:slug` with the previously chosen hour still in `?time=`, regardless of
-  // whether that hour ever needed a court question — the confirm page reads
-  // it from `slotInfo`, not from whatever `CourtSelector` last wrote. On a
-  // single-court hour (or one where every free court is interchangeable),
-  // `pendingStartTime` arrives already set to an hour `needsCourtChoice`
-  // would say no to. `CourtPicker` renders nothing in that case (by design,
-  // for the normal mid-flow path, where the caller has already assigned a
-  // court) — so before this fix, the returning visitor's crumb read
-  // "Horario 08:00" over a blank panel: no grid, no cards, nothing to tap.
-  it('reopens the hour grid, not a blank panel, when the restored hour never needed a court choice', () => {
-    // `oneCourt` (single court, three hours): 08:00 has only one free court,
-    // so `needsCourtChoice` is false for it.
+describe('CourtSelector — U-06: an hour restored from the confirm page', () => {
+  // "Cambiar horario" on the confirm page sends the visitor back with the
+  // chosen hour in `?time=`, so `pendingStartTime` arrives already set.
+  it('reopens the court question for that hour, even with a single court', () => {
     render(<CourtSelector {...defaultProps} pendingStartTime="08:00" onPendingStartTimeChange={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: /^08:00\b/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^11:00\b/ })).toBeInTheDocument();
-    expect(screen.queryByText(t.publicBooking.selectCourt)).not.toBeInTheDocument();
+    expect(screen.getByText(t.publicBooking.selectCourt)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancha 1\b/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^11:00\b/ })).not.toBeInTheDocument();
   });
 });
 
-describe('CourtSelector continue action', () => {
-  it('shows the Continue bar once an hour is settled', () => {
+describe('CourtSelector — no Continue button', () => {
+  it('shows no Continue button even with a settled selection', () => {
     render(<Harness {...defaultProps} selected={selection} />);
-    expect(screen.getByRole('button', { name: /continuar/i })).toBeInTheDocument();
-  });
-
-  it('calls onContinue when Continue is clicked', async () => {
-    const user = userEvent.setup();
-    render(<Harness {...defaultProps} selected={selection} />);
-    await user.click(screen.getByRole('button', { name: /continuar/i }));
-    expect(defaultProps.onContinue).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
   });
 });
