@@ -238,7 +238,11 @@ const preferenceExpiryBudget = 25 * time.Second
 // token and no complex row (bookingstore.CronBooking). Everything else it needs
 // is on the booking.
 func (s *Service) expireCheckoutPreference(ctx context.Context, booking *bookingstore.Booking, creds sellerCredentials) {
-	_ = s.closeCheckout(ctx, booking, creds)
+	if err := s.closeCheckout(ctx, booking, creds); err != nil {
+		// Already logged and alerted inside closeCheckout; these callers go on
+		// with the cancellation either way.
+		return
+	}
 }
 
 // ErrCheckoutStillOpen reports that a booking's MercadoPago checkout link could
