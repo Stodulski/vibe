@@ -827,6 +827,10 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		WhatsAppEnabled: whatsappEnabled,
 		LinkTokenBuffer: cfg.Booking.LinkTokenBuffer,
 	})
+	// Disconnecting MercadoPago releases the venue's unpaid storefront bookings
+	// first, and that lives in the bookings domain, built only here — after the
+	// complexes service. Closed the same way as SetCourts, before any request.
+	complexesService.SetHoldReleaser(bookingsService)
 	// The WhatsApp webhook verifies Meta's own handshake and signature, so the
 	// handler takes the client alongside the service: both are computed over
 	// the request, which never reaches the service.

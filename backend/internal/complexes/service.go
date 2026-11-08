@@ -40,6 +40,11 @@ var (
 	// store's sentinel, re-exported, because the two MercadoPago refusals come
 	// out of the store's own transaction.
 	ErrActiveBookings = complexstore.ErrActiveBookings
+	// ErrUnpaidHoldsNotReleased reports that disconnecting MercadoPago stopped
+	// because a storefront booking still waiting for its payment could not be
+	// released: its checkout link may still be paid, and once the credentials
+	// are cleared that payment could not be matched to the venue.
+	ErrUnpaidHoldsNotReleased = errors.New("unpaid storefront bookings could not be released")
 	// ErrUploadsNotConfigured reports that no object storage is wired, so the
 	// image endpoints have nothing to sign against.
 	ErrUploadsNotConfigured = errors.New("image uploads are not configured")
@@ -113,6 +118,7 @@ type Service struct {
 
 	courts   CourtStore
 	bookings BookingStore
+	holds    HoldReleaser
 	payments PaymentConnector
 	attempts OAuthAttemptStore
 	oauth    TokenRefresher
@@ -171,6 +177,14 @@ func NewService(deps Dependencies, cfg Config) *Service {
 // courts on it.
 func (s *Service) SetCourts(courts CourtStore) {
 	s.courts = courts
+}
+
+// SetHoldReleaser supplies the bookings port that releases unpaid storefront
+// bookings, after construction and for the same reason as SetCourts: the
+// bookings service is built after this one. Like SetCourts it is called once,
+// in cmd/api, before any request is served.
+func (s *Service) SetHoldReleaser(holds HoldReleaser) {
+	s.holds = holds
 }
 
 // record writes an audit entry for a change to a complex. Every write in this
@@ -851,6 +865,12 @@ func (s *Service) restoreMPOAuthAttempt(ctx context.Context, complexID uuid.UUID
 // refusal and the clear are one atomic store operation, so a booking committed
 // between a separate check and a separate write cannot slip through.
 //
+// A storefront booking still waiting for its payment is not one of those: the
+// owner never had it (owner decision 2026-11-08). It is released first, its
+// checkout link closed and the booking cancelled, because the webhook matches a
+// payment to the venue by the seller identity cleared here. If one cannot be
+// released the disconnect stops with ErrUnpaidHoldsNotReleased.
+//
 // The grant is not revoked at MercadoPago: its API documents no endpoint for a
 // seller's authorization to be revoked by the application (the docs list
 // revocation only as something the seller does, or that follows a password
@@ -860,6 +880,9 @@ func (s *Service) restoreMPOAuthAttempt(ctx context.Context, complexID uuid.UUID
 // stay valid at MercadoPago until they expire or the seller revokes the
 // authorization from their own MercadoPago account.
 func (s *Service) DisconnectMercadoPago(ctx context.Context, complexID uuid.UUID, actor Actor) error {
+	if err := s.holds.ReleaseUnpaidHolds(ctx, complexID); err != nil {
+		return fmt.Errorf("%w: %w", ErrUnpaidHoldsNotReleased, err)
+	}
 	if err := s.credentials.DisconnectMPCredentials(ctx, complexID); err != nil {
 		return err
 	}

@@ -116,3 +116,44 @@ func hasBooking(list []*bookingstore.Booking, id uuid.UUID) bool {
 	}
 	return false
 }
+
+// Disconnecting MercadoPago releases exactly the bookings still waiting for
+// their payment, however recent: a hold made a minute ago has a live checkout
+// link too. A booking the owner made, or one already cancelled, is not one.
+func TestGetUnpaidPublicPendingEnrichedReadsOnlyLiveUnpaidHolds(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	cases := ownerReadCases()
+	var holdID uuid.UUID
+	for i, tc := range cases {
+		tc.opts.StartTime = []string{"08:00", "10:00", "12:00", "14:00"}[i]
+		tc.opts.EndTime = []string{"09:00", "11:00", "13:00", "15:00"}[i]
+		b := f.NewBooking(tc.opts)
+		if err := f.Stores.Bookings.Insert(ctx, b); err != nil {
+			t.Fatalf("inserting %q: %v", tc.name, err)
+		}
+		if i == 0 {
+			holdID = b.ID
+		}
+	}
+
+	holds, err := f.Stores.Bookings.GetUnpaidPublicPendingEnriched(ctx, f.ComplexID)
+	if err != nil {
+		t.Fatalf("GetUnpaidPublicPendingEnriched: %v", err)
+	}
+	if len(holds) != 1 || holds[0].ID != holdID {
+		ids := make([]uuid.UUID, 0, len(holds))
+		for _, h := range holds {
+			ids = append(ids, h.ID)
+		}
+		t.Fatalf("want only the fresh unpaid public booking %s; got %v", holdID, ids)
+	}
+
+	other, err := f.Stores.Bookings.GetUnpaidPublicPendingEnriched(ctx, uuid.New())
+	if err != nil {
+		t.Fatalf("GetUnpaidPublicPendingEnriched for another complex: %v", err)
+	}
+	if len(other) != 0 {
+		t.Errorf("another complex's read returned %d holds, want 0", len(other))
+	}
+}

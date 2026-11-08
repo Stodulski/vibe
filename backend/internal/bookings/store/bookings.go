@@ -1262,6 +1262,22 @@ func (m *Store) GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]
 // GetExpiredPendingEnriched returns pending bookings older than expiry, enriched with client,
 // complex and court data needed to notify the client and release the slot.
 func (m *Store) GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*CronBooking, error) {
+	return m.getUnpaidPublicPendingEnriched(ctx,
+		`b.created_at < NOW() - $1::interval`, fmt.Sprintf("%d seconds", int(expiry.Seconds())))
+}
+
+// GetUnpaidPublicPendingEnriched returns one complex's storefront bookings that
+// are still waiting for their payment, whatever their age, enriched the same
+// way as GetExpiredPendingEnriched. Disconnecting MercadoPago releases them
+// first: once the seller identity is cleared, a payment made on one of their
+// checkout links could no longer be matched to the venue.
+func (m *Store) GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uuid.UUID) ([]*CronBooking, error) {
+	return m.getUnpaidPublicPendingEnriched(ctx, `b.complex_id = $1`, data.UUIDToPg(complexID))
+}
+
+// getUnpaidPublicPendingEnriched is the one query behind both readers above:
+// public, pending and unpaid, narrowed by extra (which reads arg as $1).
+func (m *Store) getUnpaidPublicPendingEnriched(ctx context.Context, extra string, arg any) ([]*CronBooking, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
@@ -1277,7 +1293,7 @@ func (m *Store) GetExpiredPendingEnriched(ctx context.Context, expiry time.Durat
 		WHERE b.status = 'pending'
 		  AND b.collection_status = 'unpaid'
 		  AND b.created_by IS NULL
-		  AND b.created_at < NOW() - $1::interval`, fmt.Sprintf("%d seconds", int(expiry.Seconds())))
+		  AND `+extra, arg)
 	if err != nil {
 		return nil, err
 	}

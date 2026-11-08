@@ -927,7 +927,7 @@ func TestDisconnectMercadoPagoIsRefusedWhileBookingsAreActive(t *testing.T) {
 	if w.Code != http.StatusConflict {
 		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "cannot disconnect MercadoPago while you have active bookings") {
+	if !strings.Contains(w.Body.String(), "cannot disconnect MercadoPago while you have upcoming bookings") {
 		t.Errorf("the 409 must say what was refused; got %s", w.Body.String())
 	}
 	if f.store.mpCleared != nil {
@@ -947,6 +947,33 @@ func TestDisconnectMercadoPagoClearsTheCredentials(t *testing.T) {
 	}
 	if f.store.mpCleared == nil || *f.store.mpCleared != complex.ID {
 		t.Error("the credentials were not cleared")
+	}
+	// Unpaid storefront bookings are released before, not after: once the
+	// credentials are gone a payment on their links cannot be matched.
+	if len(f.holds.released) != 1 || f.holds.released[0] != complex.ID || f.holds.clearedFirst {
+		t.Errorf("want the unpaid holds released once, before clearing; released=%v clearedFirst=%v",
+			f.holds.released, f.holds.clearedFirst)
+	}
+}
+
+// A checkout link that could not be closed may still be paid, so the
+// credentials that match that payment to the venue must stay.
+func TestDisconnectMercadoPagoStopsWhenAnUnpaidHoldCannotBeReleased(t *testing.T) {
+	f := newFixture(t)
+	f.holds.err = errors.New("checkout still open")
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.DisconnectMercadoPago(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil, ""))
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("want 502; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "a payment in progress could not be closed") {
+		t.Errorf("the 502 must say why; got %s", w.Body.String())
+	}
+	if f.store.mpCleared != nil {
+		t.Error("the credentials must stay while a checkout may still be paid")
 	}
 }
 

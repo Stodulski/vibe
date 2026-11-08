@@ -131,50 +131,87 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 		// Expire the MP preference FIRST so the client can't pay while we cancel.
 		s.expireCheckoutPreference(ctx, &b.Booking, b)
 
-		// Cancel booking after preference is expired.
-		b.Status = "cancelled"
-		notes := fmt.Sprintf("Cancelado automáticamente: tiempo de pago expirado (%v)", s.cfg.PaymentExpiry)
-		if b.Notes != nil {
-			notes = *b.Notes + " | " + notes
-		}
-		b.Notes = &notes
-
-		if err := s.store.Update(ctx, &b.Booking); err != nil {
+		note := fmt.Sprintf("Cancelado automáticamente: tiempo de pago expirado (%v)", s.cfg.PaymentExpiry)
+		if err := s.cancelUnpaidHold(ctx, b, note); err != nil {
 			s.logger.Error("cron_release_expired_payments: failed to cancel booking", "error", err, "booking_id", b.ID)
 			continue
 		}
-
-		s.realtime.PublishBookingChanged(b.ComplexID)
-
-		s.notify.BookingCancelled(notifications.Cancellation{
-			Email:       b.ClientEmail,
-			Phone:       b.ClientPhone,
-			ComplexName: b.ComplexName,
-			CourtName:   b.CourtName,
-			Date:        b.Date.Format("02/01"),
-			StartTime:   timezone.HoursLabel(b.StartsAt, b.EndsAt),
-			// This booking was never paid, so none of the six refund outcomes
-			// applies and there is no amount. The client's question here is
-			// why their booking vanished, which the generic cancellation copy
-			// never answered.
-			RefundLine: notifications.ExpiredUnpaidRefundLine,
-			BookPath:   booklink.BookPath(b.ComplexSlug),
-			BookURL:    booklink.Book(s.cfg.PublicURL, b.ComplexSlug),
-			// Never owner-facing: the owner was not told about this booking
-			// (see SourceExpiredUnpaid), so there is nothing to take back.
-			Source:    notifications.SourceExpiredUnpaid,
-			BookingID: b.ID.String(),
-		})
-
-		s.freeWaitlistSlot(ctx, waitlist.Freed{
-			ComplexID: b.ComplexID, ComplexName: b.ComplexName, ComplexSlug: b.ComplexSlug, Day: b.Date,
-		})
-
 		s.logger.Info("cron_release_expired_payments: released expired booking", "booking_id", b.ID)
 		released++
 	}
 
 	s.logger.Info("cron_release_expired_payments: completed", "candidates", len(bookings), "released", released)
+}
+
+// ReleaseUnpaidHolds cancels every storefront booking of one complex that is
+// still waiting for its payment, closing its checkout link first. Disconnecting
+// MercadoPago calls it before clearing the credentials: the webhook matches a
+// payment to the venue by the seller identity those credentials carry, so a
+// link paid after the disconnect would be neither confirmed nor refunded.
+//
+// A link that cannot be closed leaves its booking as it is and the call answers
+// ErrCheckoutStillOpen, so the disconnect does not go ahead; the other holds are
+// still released.
+func (s *Service) ReleaseUnpaidHolds(ctx context.Context, complexID uuid.UUID) error {
+	holds, err := s.store.GetUnpaidPublicPendingEnriched(ctx, complexID)
+	if err != nil {
+		return fmt.Errorf("bookings: read unpaid holds: %w", err)
+	}
+
+	var stillOpen error
+	for _, b := range holds {
+		if err := s.closeCheckout(ctx, &b.Booking, b); err != nil {
+			stillOpen = err
+			continue
+		}
+		if err := s.cancelUnpaidHold(ctx, b, "Cancelado automáticamente: el complejo desconectó MercadoPago"); err != nil {
+			return fmt.Errorf("bookings: cancel unpaid hold %s: %w", b.ID, err)
+		}
+		s.logger.Info("mp_disconnect: released unpaid booking", "booking_id", b.ID, "complex_id", complexID)
+	}
+	return stillOpen
+}
+
+// cancelUnpaidHold cancels a storefront booking that was never paid, whose
+// checkout link the caller has already closed, and tells the client why it went
+// away. The owner is not told: they never had this booking.
+func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBooking, note string) error {
+	b.Status = "cancelled"
+	if b.Notes != nil {
+		note = *b.Notes + " | " + note
+	}
+	b.Notes = &note
+
+	if err := s.store.Update(ctx, &b.Booking); err != nil {
+		return err
+	}
+
+	s.realtime.PublishBookingChanged(b.ComplexID)
+
+	s.notify.BookingCancelled(notifications.Cancellation{
+		Email:       b.ClientEmail,
+		Phone:       b.ClientPhone,
+		ComplexName: b.ComplexName,
+		CourtName:   b.CourtName,
+		Date:        b.Date.Format("02/01"),
+		StartTime:   timezone.HoursLabel(b.StartsAt, b.EndsAt),
+		// This booking was never paid, so none of the six refund outcomes
+		// applies and there is no amount. The client's question here is
+		// why their booking vanished, which the generic cancellation copy
+		// never answered.
+		RefundLine: notifications.ExpiredUnpaidRefundLine,
+		BookPath:   booklink.BookPath(b.ComplexSlug),
+		BookURL:    booklink.Book(s.cfg.PublicURL, b.ComplexSlug),
+		// Never owner-facing: the owner was not told about this booking
+		// (see SourceExpiredUnpaid), so there is nothing to take back.
+		Source:    notifications.SourceExpiredUnpaid,
+		BookingID: b.ID.String(),
+	})
+
+	s.freeWaitlistSlot(ctx, waitlist.Freed{
+		ComplexID: b.ComplexID, ComplexName: b.ComplexName, ComplexSlug: b.ComplexSlug, Day: b.Date,
+	})
+	return nil
 }
 
 // CompletePastBookings marks confirmed bookings whose hours have passed as
