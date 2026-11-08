@@ -213,6 +213,21 @@ func LocalInstant(date time.Time, hhmm string) time.Time {
 // though the court was released — see the comment there.
 const ReleasedBookingStatuses = `('cancelled', 'no_show')`
 
+// UnpaidPublicBooking is the SQL predicate, over the bookings row aliased
+// alias, for a storefront booking that has not been paid: made by a visitor
+// (created_by NULL), nothing collected, and either still waiting in the
+// MercadoPago checkout or cancelled without ever being paid.
+//
+// It is not a booking the owner has. The owner's reads (calendar, client
+// history, dashboard counts, occupancy) leave it out: owner decision
+// 2026-11-08, after an owner saw a visitor's abandoned checkouts on the
+// calendar and cancelled them by hand. While it waits it still holds its slot
+// for the payment window, so it is NOT excluded from the slot guards; see the
+// stale-pending carve-out in SlotTaken and SpanTaken for when that ends.
+func UnpaidPublicBooking(alias string) string {
+	return fmt.Sprintf(`(%[1]s.created_by IS NULL AND %[1]s.collection_status = 'unpaid' AND %[1]s.status IN ('pending', 'cancelled'))`, alias)
+}
+
 // rowQuerier is the part of a pool or a transaction that runs one statement and
 // reads one row. Both *data.DB and pgx.Tx satisfy it, which is what lets a
 // question be asked either on its own or inside a transaction that already

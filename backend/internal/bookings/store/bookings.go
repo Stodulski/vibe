@@ -681,6 +681,8 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 		  -- local_day() in db/migrations/001_init.sql for why "occupies day X" beat "started on day X".
 		  AND b.span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
 		  AND (b.date, b.id) > ($4, $5)
+		  -- A visitor's unpaid checkout is not the owner's booking yet.
+		  AND NOT `+slotguard.UnpaidPublicBooking("b")+`
 		ORDER BY b.date ASC, b.id ASC
 		LIMIT $6`,
 		data.UUIDToPg(complexID),
@@ -966,21 +968,24 @@ func (m *Store) GetDashboardStats(ctx context.Context, complexID uuid.UUID, toda
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
+	// A visitor's unpaid checkout is not counted as the owner's booking.
+	unpaidPublic := slotguard.UnpaidPublicBooking("bookings")
+
 	var s DashboardStats
 	err := m.DB.QueryRow(ctx, `
 		SELECT
-			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date = $2 AND status NOT IN `+slotguard.ReleasedBookingStatuses+`),
-			(SELECT COALESCE(SUM(duration_minutes), 0) FROM bookings WHERE complex_id = $1 AND date = $2 AND status NOT IN `+slotguard.ReleasedBookingStatuses+`),
+			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date = $2 AND status NOT IN `+slotguard.ReleasedBookingStatuses+` AND NOT `+unpaidPublic+`),
+			(SELECT COALESCE(SUM(duration_minutes), 0) FROM bookings WHERE complex_id = $1 AND date = $2 AND status NOT IN `+slotguard.ReleasedBookingStatuses+` AND NOT `+unpaidPublic+`),
 			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2),
-			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date = $2 - INTERVAL '1 day' AND status NOT IN `+slotguard.ReleasedBookingStatuses+`),
+			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date = $2 - INTERVAL '1 day' AND status NOT IN `+slotguard.ReleasedBookingStatuses+` AND NOT `+unpaidPublic+`),
 			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date = $2 - INTERVAL '1 day'),
 			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN $2 - INTERVAL '6 days' AND $2),
 			(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.complex_id = $1 AND p.status IN `+paymentstatus.CollectedStatuses+`
 			    AND (p.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN $2 - INTERVAL '29 days' AND $2),
-			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date BETWEEN $2 AND $2 + INTERVAL '30 days' AND status = 'pending')
+			(SELECT COUNT(*) FROM bookings WHERE complex_id = $1 AND date BETWEEN $2 AND $2 + INTERVAL '30 days' AND status = 'pending' AND NOT `+unpaidPublic+`)
 	`, data.UUIDToPg(complexID), data.DateToPg(today)).Scan(
 		&s.TodayBookings, &s.TodayBookedMinutes, &s.TodayRevenue,
 		&s.YesterdayBookings, &s.YesterdayRevenue,
@@ -1095,6 +1100,7 @@ func (m *Store) GetOccupancyByHourDay(ctx context.Context, complexID uuid.UUID, 
 		WHERE complex_id = $1
 		  AND date BETWEEN $2 AND $3
 		  AND status NOT IN `+slotguard.ReleasedBookingStatuses+`
+		  AND NOT `+slotguard.UnpaidPublicBooking("bookings")+`
 		GROUP BY dow, hr
 		ORDER BY dow, hr`,
 		data.UUIDToPg(complexID), data.DateToPg(from), data.DateToPg(to),
@@ -1133,6 +1139,7 @@ func (m *Store) GetByClient(ctx context.Context, complexID, clientID uuid.UUID, 
 		WHERE b.complex_id = $1
 		  AND b.client_id = $2
 		  AND b.date BETWEEN CURRENT_DATE - INTERVAL '365 days' AND CURRENT_DATE + INTERVAL '30 days'
+		  AND NOT `+slotguard.UnpaidPublicBooking("b")+`
 		ORDER BY b.date DESC, b.start_time DESC
 		LIMIT $3`,
 		//nolint:gosec // G115: limit is a hardcoded literal (20) at the only call site (clients.go), never user input.
