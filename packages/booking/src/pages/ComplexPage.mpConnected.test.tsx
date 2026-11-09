@@ -6,6 +6,9 @@ import type { AvailabilityData, CourtWithPrices, PublicComplexResponse } from '.
 
 import { makeCourt } from '../test/factories';
 import { formatPrice } from '@vibe/ui';
+import { BOOKING_MESSAGES } from '../messages';
+
+const t = BOOKING_MESSAGES;
 
 // ─── Regression test for the server contract migration ───
 //
@@ -53,8 +56,18 @@ vi.mock('../hooks/useAvailability', () => ({
 vi.mock('../components/ComplexHeader', () => ({
   ComplexHeader: () => <div data-testid="complex-header">Header</div>,
 }));
+// One button standing in for a tap on another day, enough to drive a date change.
 vi.mock('../components/DateSelector', () => ({
-  DateSelector: () => <div data-testid="date-selector">DateSelector</div>,
+  DateSelector: ({ onDateSelect }: { onDateSelect: (date: Date) => void }) => (
+    <button
+      type="button"
+      onClick={() => {
+        onDateSelect(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
+      }}
+    >
+      another day
+    </button>
+  ),
 }));
 
 // CourtSelector, PhoneBookingPanel, and everything below them are the REAL
@@ -235,6 +248,30 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     expect(screen.queryByRole('button', { name: /^10:00\b/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
     expect(assignSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ComplexPage — changing the day', () => {
+  beforeEach(() => {
+    mockUseAvailability.mockReturnValue({ data: buildAvailability(), isLoading: false });
+  });
+
+  it('swaps the hours for the loading grid the moment another day is tapped', async () => {
+    // The date waits 300 ms before it reaches the request. The previous day's
+    // hours used to stay on screen through that wait, as if the tap did nothing.
+    mockUseComplexBySlug.mockReturnValue({
+      data: buildComplexData(true),
+      isLoading: false,
+      error: null,
+    });
+    await renderComplexPage();
+    fireEvent.click(screen.getByRole('button', { name: '90 min' }));
+    expect(screen.getByRole('button', { name: /^10:00\b/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'another day' }));
+
+    expect(screen.getByRole('status', { name: t.publicBooking.checkingAvailability })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^10:00\b/ })).not.toBeInTheDocument();
   });
 });
 

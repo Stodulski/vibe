@@ -28,10 +28,15 @@ function useComplexAvailability(slug: string | undefined, state: ReturnType<type
   const {
     data: availability,
     isLoading: availLoading,
-    isPlaceholderData: availStale,
+    isPlaceholderData: availPlaceholder,
     isError: availError,
     refetch: refetchAvailability,
   } = useAvailability(slug, state.debouncedDateStr, state.duration);
+
+  // Stale from the tap, not from the request: the date waits 300 ms
+  // (`useDebouncedDateStr`) before the query key changes, and in that window
+  // the previous day's hours would still be on screen as if nothing happened.
+  const availStale = availPlaceholder || state.dateStr !== state.debouncedDateStr;
 
   const activeSlot = useSlotInvalidation(state.selectedSlot, availability);
   const filteredCourts = useFilteredCourts(availability, state.sportFilter);
