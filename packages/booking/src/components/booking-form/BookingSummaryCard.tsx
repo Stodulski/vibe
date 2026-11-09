@@ -18,7 +18,7 @@ export function BookingSummaryCard({ slotInfo, pricing }: BookingSummaryCardProp
     // A solid green card at every width, the same ticket as the confirmed
     // booking. The ink inside it is near-black, so the text stays legible on
     // the brand green.
-    <section aria-label="Resumen de la reserva" className="bg-primary-500 text-text-inverse rounded-3xl p-5">
+    <section aria-label="Resumen de la reserva" className="bg-primary-500 text-text-inverse rounded-3xl p-6 sm:p-8">
       <SlotHeaderRow slotInfo={slotInfo} />
       <PriceBreakdown depositPercentage={slotInfo.depositPercentage} pricing={pricing} />
       {cancellationWindow && <p className="text-text-inverse mt-3 text-sm">{cancellationWindow}</p>}
