@@ -29,7 +29,10 @@ export function ComplexLogo({ logoUrl, name }: ComplexLogoProps) {
           decoding="async"
           width={512}
           height={512}
-          className="border-bg-subtle size-20 rounded-2xl border-2 object-cover shadow-md sm:size-24"
+          // Opaque tile and `contain`: a transparent logo otherwise shows the
+          // cover through its top half and the page through its bottom half,
+          // and a non-square one loses its edges to the crop.
+          className="border-bg-subtle bg-bg-elevated size-20 rounded-2xl border-2 object-contain p-1.5 shadow-md sm:size-24"
         />
       ) : (
         // Opaque on purpose: a translucent tint let the cover show through the
