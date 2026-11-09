@@ -21,7 +21,7 @@ export function BookingSummaryCard({ slotInfo, pricing }: BookingSummaryCardProp
     <section aria-label="Resumen de la reserva" className="bg-primary-500 text-text-inverse rounded-3xl p-6 sm:p-8">
       <SlotHeaderRow slotInfo={slotInfo} />
       <PriceBreakdown depositPercentage={slotInfo.depositPercentage} pricing={pricing} />
-      {cancellationWindow && <p className="text-text-inverse mt-3 text-sm">{cancellationWindow}</p>}
+      {cancellationWindow && <p className="text-text-inverse mt-6 text-sm">{cancellationWindow}</p>}
     </section>
   );
 }

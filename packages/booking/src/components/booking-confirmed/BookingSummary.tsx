@@ -24,15 +24,15 @@ function courtLines(bookingInfo: BookingInfo): string[] {
 // message the complex sends, so repeating it here is noise.
 function TicketHeader({ bookingInfo }: BookingSummaryProps) {
   return (
-    <div className="divide-text-inverse/20 divide-y">
-      <p className="text-text-inverse pb-3 text-sm font-semibold">{bookingInfo.complexName}</p>
-      <div className="py-3">
+    <div className="space-y-6">
+      <p className="text-text-inverse text-sm font-semibold">{bookingInfo.complexName}</p>
+      <div>
         <p className="text-text-inverse text-sm first-letter:uppercase">{formatDateFull(bookingInfo.date)}</p>
         <p className="text-text-inverse text-3xl font-bold tabular-nums">
           {formatHourRange(bookingInfo.startsAt, bookingInfo.endsAt, `\u00A0${t.publicBooking.timeRangeTo}\u00A0`)}
         </p>
       </div>
-      <div className="space-y-1 pt-3">
+      <div className="space-y-1">
         <p className="text-text-inverse text-base font-semibold">{bookingInfo.courtName}</p>
         {courtLines(bookingInfo).map((line) => (
           <p key={line} className="text-text-inverse text-sm">
@@ -50,7 +50,7 @@ function TicketHeader({ bookingInfo }: BookingSummaryProps) {
 // a plain rule cutting the card in half.
 function TicketStub() {
   return (
-    <div className="relative -mx-5 my-4">
+    <div className="relative -mx-6 my-6 sm:-mx-8">
       <div className="border-text-inverse/30 border-t border-dashed" />
       <span
         aria-hidden="true"
@@ -73,12 +73,12 @@ function MoneySummary({ bookingInfo }: BookingSummaryProps) {
   const remaining = bookingInfo.remainingAmount ?? bookingInfo.price - bookingInfo.depositAmount;
 
   return (
-    <dl className="divide-text-inverse/20 divide-y text-sm">
-      <div className="flex justify-between gap-2 pb-3">
+    <dl className="space-y-3 text-sm">
+      <div className="flex justify-between gap-2">
         <dt className="text-text-inverse">{t.publicBooking.paidLabel}</dt>
         <dd className="text-text-inverse tabular-nums">{formatPrice(paidAmount)}</dd>
       </div>
-      <div className="flex justify-between gap-2 py-3">
+      <div className="flex justify-between gap-2">
         <dt className="text-text-inverse">{t.publicBooking.oweAtClubLabel}</dt>
         <dd className="text-text-inverse font-bold tabular-nums">{formatPrice(remaining)}</dd>
       </div>
