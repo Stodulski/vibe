@@ -7,7 +7,6 @@ import { useHasMounted } from '../../hooks/useHasMounted';
 import { orderedAmenities } from '../../lib/amenities';
 import { BOOKING_MESSAGES } from '../../messages';
 import { AmenityList } from './AmenityList';
-import { Section } from './ComplexDetails';
 
 const t = BOOKING_MESSAGES;
 
@@ -40,9 +39,11 @@ export function ComplexLower({ complex }: { complex: PublicComplex }) {
   return (
     <div className="mt-6 sm:mt-10">
       {hasAmenities && (
-        <Section title={t.complex.amenitiesSection}>
+        // No rule above: the card before it already closes the block above.
+        <section>
+          <h2 className="sr-only">{t.complex.amenitiesSection}</h2>
           <AmenityList amenities={complex.amenities} />
-        </Section>
+        </section>
       )}
 
       {complex.latitude != null && complex.longitude != null && (
