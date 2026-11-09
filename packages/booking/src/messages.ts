@@ -44,6 +44,7 @@ export const BOOKING_MESSAGES = {
     phoneOnlyMessage: 'Hola, quiero reservar una cancha.',
     writeOnWhatsAppTo: 'Escribir por WhatsApp a',
     courtsTitle: 'Canchas',
+    courtNoDescription: 'Sin descripción',
     available: 'Disponible',
     occupied: 'Ocupado',
     firstName: 'Nombre',
