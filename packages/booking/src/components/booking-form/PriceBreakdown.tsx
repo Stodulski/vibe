@@ -17,28 +17,28 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
   const { hasDeposit, mpAmount, serviceFee, totalOnline, remainingAmount } = pricing;
 
   return (
-    <dl className="divide-text-inverse/20 border-text-inverse/20 divide-y border-t text-sm">
+    <dl className="mt-3 space-y-3 text-sm">
       {hasDeposit && (
-        <div className="flex justify-between gap-2 py-3">
+        <div className="flex justify-between gap-2">
           <dt className="text-text-inverse">
             {t.publicBooking.deposit} ({depositPercentage}%)
           </dt>
           <dd className="text-text-inverse tabular-nums">{formatPrice(mpAmount)}</dd>
         </div>
       )}
-      <div className="py-3">
+      <div>
         <div className="flex justify-between gap-2">
           <dt className="text-text-inverse">{t.serviceFee.label}</dt>
           <dd className="text-text-inverse tabular-nums">{formatPrice(serviceFee)}</dd>
         </div>
         <p className="text-text-inverse mt-1 text-xs">{t.serviceFee.notDeductedFromCourtPrice}</p>
       </div>
-      <div className="flex items-baseline justify-between gap-2 py-3">
+      <div className="flex items-baseline justify-between gap-2 pt-3">
         <dt className="text-text-inverse font-semibold">{t.publicBooking.totalOnline}</dt>
         <dd className="text-text-inverse text-xl font-bold tabular-nums">{formatPrice(totalOnline)}</dd>
       </div>
       {remainingAmount > 0 && (
-        <div className="py-3">
+        <div className="pt-3">
           <div className="flex justify-between gap-2">
             <dt className="text-text-inverse">{t.publicBooking.remaining}</dt>
             <dd className="text-text-inverse font-bold tabular-nums">{formatPrice(remainingAmount)}</dd>

@@ -30,9 +30,9 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
   ].filter((line): line is string => Boolean(line));
 
   return (
-    <div className="divide-text-inverse/20 divide-y">
-      <p className="text-text-inverse pb-3 text-sm font-semibold">{slotInfo.complexName}</p>
-      <div className="py-3">
+    <div className="space-y-6">
+      <p className="text-text-inverse text-sm font-semibold">{slotInfo.complexName}</p>
+      <div>
         <p className="text-text-inverse text-sm first-letter:uppercase">
           {format(dateObj, "EEEE d 'de' MMMM", { locale: es })}
         </p>
@@ -40,7 +40,7 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
           {`${slotInfo.startTime}\u00A0${t.publicBooking.timeRangeTo}\u00A0${slotInfo.endTime}`}
         </p>
       </div>
-      <div className="space-y-1 py-3">
+      <div className="space-y-1">
         <p className="text-text-inverse text-base font-semibold">{slotInfo.courtName}</p>
         {courtLines.map((line) => (
           <p key={line} className="text-text-inverse text-sm">
@@ -48,7 +48,7 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
           </p>
         ))}
       </div>
-      <div className="flex justify-between gap-2 py-3 text-sm">
+      <div className="flex justify-between gap-2 text-sm">
         <span className="text-text-inverse">{t.publicBooking.courtPrice}</span>
         <span className="text-text-inverse tabular-nums">{formatPrice(slotInfo.price)}</span>
       </div>
