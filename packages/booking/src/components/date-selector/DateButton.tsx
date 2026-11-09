@@ -71,7 +71,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
         <span
           aria-hidden="true"
           className={cn(
-            'absolute top-2 right-2 size-1.5 rounded-full',
+            'absolute top-3 right-3 size-1.5 rounded-full',
             isSelected ? 'bg-text-inverse' : 'bg-primary-400',
           )}
         />
