@@ -32,13 +32,13 @@ function renderButton(selected: boolean) {
 }
 
 describe('DateButton labels', () => {
-  // The selected fill is the primary colour at 20% over the page. The tertiary grey measures
-  // 4.1-4.3:1 on it, below AA; the secondary grey clears 4.5:1 with room to spare.
-  it('reads the weekday and the month of the selected day in the secondary grey', () => {
+  // The selected fill is solid brand green, so the labels take the inverse ink at 80%
+  // (about 5.7:1 on #1db954).
+  it('reads the weekday and the month of the selected day in the inverse ink', () => {
     renderButton(true);
 
-    expect(screen.getByText('mié')).toHaveClass('text-text-secondary');
-    expect(screen.getByText('oct')).toHaveClass('text-text-secondary');
+    expect(screen.getByText('mié')).toHaveClass('text-text-inverse/80');
+    expect(screen.getByText('oct')).toHaveClass('text-text-inverse/80');
     expect(screen.getByText('mié')).not.toHaveClass('text-text-tertiary');
   });
 
@@ -47,5 +47,13 @@ describe('DateButton labels', () => {
 
     expect(screen.getByText('mié')).toHaveClass('text-text-tertiary');
     expect(screen.getByText('oct')).toHaveClass('text-text-tertiary');
+  });
+});
+
+describe('DateButton selected fill', () => {
+  it('fills the selected day solid brand green with the inverse ink', () => {
+    renderButton(true);
+
+    expect(screen.getByRole('radio')).toHaveClass('bg-primary-500', 'text-text-inverse');
   });
 });

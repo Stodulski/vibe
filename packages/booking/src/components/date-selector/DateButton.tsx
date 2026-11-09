@@ -25,9 +25,9 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate);
   const closed = isClosedDay(date, schedules);
-  // The selected fill is tinted, so the tertiary grey under it falls below AA (4.1-4.3:1).
-  // The secondary grey stays above 5:1 on it. Unselected days keep the quieter grey.
-  const labelTone = isSelected ? 'text-text-secondary' : 'text-text-tertiary';
+  // The selected fill is solid brand green, so the labels take the inverse ink at 80%
+  // (about 5.7:1 on #1db954). Unselected days keep the quieter grey.
+  const labelTone = isSelected ? 'text-text-inverse/80' : 'text-text-tertiary';
 
   return (
     <button
@@ -54,7 +54,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
         // alone, and that opacity would wash the "Cerrado" label back out.
         'opacity-self press-scale flex min-w-[72px] shrink-0 flex-col items-center rounded-2xl border px-3.5 py-2.5 text-center transition-colors duration-200',
         isSelected
-          ? 'border-primary-500 bg-primary-500/20 text-primary-400 shadow-brand'
+          ? 'border-primary-500 bg-primary-500 text-text-inverse shadow-brand'
           : closed
             ? // No `opacity-30` on the whole button — that also washed out
               // the "Cerrado" text itself down to ~1.6:1. A closed day reads
@@ -65,7 +65,12 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
       )}
     >
       {isToday && (
-        <span className="text-primary-400 mb-0.5 text-xs font-bold tracking-wider uppercase">
+        <span
+          className={cn(
+            isSelected ? 'text-text-inverse' : 'text-primary-400',
+            'mb-0.5 text-xs font-bold tracking-wider uppercase',
+          )}
+        >
           {t.publicBooking.today}
         </span>
       )}
@@ -73,7 +78,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
       <span
         className={cn(
           'text-lg font-bold',
-          isSelected ? 'text-primary-400' : closed ? 'text-text-tertiary' : 'text-text-primary',
+          isSelected ? 'text-text-inverse' : closed ? 'text-text-tertiary' : 'text-text-primary',
         )}
       >
         {format(date, 'd')}

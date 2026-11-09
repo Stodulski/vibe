@@ -30,7 +30,9 @@ export function CourtDirectory({ courts }: { courts: DirectoryCourt[] }) {
             <p className="text-text-secondary text-sm">
               {t.courts.sportTypes[court.sport]} · {t.courts.courtTypes[court.court_type]}
             </p>
-            {court.description ? <p className="text-text-tertiary mt-2 text-sm">{court.description}</p> : null}
+            <p className="text-text-tertiary mt-2 text-sm">
+              {court.description?.trim() ? court.description : t.publicBooking.courtNoDescription}
+            </p>
           </li>
         ))}
       </ul>
