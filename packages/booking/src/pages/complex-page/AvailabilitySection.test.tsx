@@ -43,6 +43,18 @@ function renderSection(overrides: Partial<Parameters<typeof AvailabilitySection>
 }
 
 describe('AvailabilitySection', () => {
+  it('shows the loading grid, not the previous hours, while a new date or duration is fetched', () => {
+    renderSection({ isStale: true });
+    expect(screen.getByTestId('skeleton-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('court-selector')).not.toBeInTheDocument();
+  });
+
+  it('shows the hours once the fetch settles', () => {
+    renderSection();
+    expect(screen.getByTestId('court-selector')).toBeInTheDocument();
+    expect(screen.queryByTestId('skeleton-grid')).not.toBeInTheDocument();
+  });
+
   it('renders the error state with a retry button when isError is true, not "closed"', () => {
     renderSection({ isError: true, isOpen: false });
     expect(screen.getByText(t.publicBooking.availabilityLoadError)).toBeInTheDocument();

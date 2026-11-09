@@ -1,6 +1,5 @@
 import { SkeletonSlotGrid } from '../../components/SkeletonSlotGrid';
 import { CourtSelector, type SelectedSlot } from '../../components/CourtSelector';
-import { cn } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { CourtAvailability } from '../../api/types';
 import { AvailabilityErrorState } from './AvailabilityErrorState';
@@ -47,7 +46,10 @@ export function AvailabilitySection({
   emptyDay,
   fullDay,
 }: AvailabilitySectionProps) {
-  if (isLoading) {
+  // A change of date or duration refetches. The previous hours stay in the
+  // query as placeholder data, but showing them (even dimmed) read as a page
+  // that did not react: the skeleton says the new hours are on their way.
+  if (isLoading || isStale) {
     return (
       <div key="skeleton" className="animate-fade-in">
         <SkeletonSlotGrid />
@@ -71,12 +73,7 @@ export function AvailabilitySection({
     return (
       <div
         key={`courts-${dateStr}`}
-        // Dimmed rather than replaced by a skeleton: the previous times are
-        // still true until the new ones land, and someone comparing durations
-        // needs them to stay put. `aria-busy` says the same thing to a screen
-        // reader that the opacity says to an eye.
-        className={cn('animate-fade-in transition-opacity', isStale && 'pointer-events-none opacity-50')}
-        aria-busy={isStale}
+        className="animate-fade-in"
       >
         <CourtSelector
           courts={courts}
