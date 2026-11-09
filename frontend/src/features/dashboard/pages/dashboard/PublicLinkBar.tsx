@@ -24,7 +24,7 @@ export function PublicLinkBar({ publicUrl, copied, onCopy }: PublicLinkBarProps)
           the 44px target from the global pointer:coarse rule. */}
       <button
         onClick={onCopy}
-        className="border-border-subtle bg-bg-base text-primary-400 hover:bg-bg-overlay inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium transition-colors"
+        className="border-border-subtle bg-bg-base text-primary-400 hover:bg-bg-overlay inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-sm font-medium transition-colors"
       >
         {copied ? <Check className="text-success-text size-3.5" /> : <Copy className="text-primary-400 size-3.5" />}
         <span className="hidden sm:inline">{t.dashboard.copyLink}</span>

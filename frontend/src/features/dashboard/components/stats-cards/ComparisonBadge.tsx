@@ -1,5 +1,6 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { Tag } from '@/shared/components/common/Tag';
+import { cn } from '@/shared/lib/utils';
 
 const t = ES_AR;
 
@@ -16,11 +17,14 @@ export function ComparisonBadge({
   current,
   previous,
   versus,
+  className,
 }: {
   current: number;
   previous: number;
   /** What the comparison is against, e.g. "ayer" or "el mes pasado". */
   versus: string;
+  /** Extra classes merged onto the chip, after its tone defaults. */
+  className?: string;
 }) {
   if (previous === 0) return null;
 
@@ -33,7 +37,7 @@ export function ComparisonBadge({
   return (
     <Tag
       tone={isPositive ? 'success' : 'error'}
-      className="gap-1 px-1.5 text-sm"
+      className={cn('gap-1 px-1.5 text-sm', className)}
       role="status"
       aria-label={`${isPositive ? t.dashboard.increase : t.dashboard.decrease} de ${String(Math.abs(pct))}% vs ${versus}`}
     >

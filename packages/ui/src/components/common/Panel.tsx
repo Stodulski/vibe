@@ -22,8 +22,8 @@ const PANEL_SIZES: Record<PanelSize, Record<PanelMobile, string>> = {
 // `card` keeps the box at every width, unchanged from what `Panel` always
 // rendered.
 const PANEL_SURFACE: Record<PanelMobile, string> = {
-  flat: 'rounded-none border-0 bg-transparent sm:rounded-2xl sm:border sm:border-border-subtle sm:bg-bg-subtle',
-  card: 'rounded-2xl border border-border-subtle bg-bg-subtle',
+  flat: 'rounded-none border-0 bg-transparent sm:rounded-3xl sm:border sm:border-border-subtle sm:bg-bg-subtle',
+  card: 'rounded-3xl border border-border-subtle bg-bg-subtle',
 };
 
 interface PanelProps extends ComponentProps<'div'> {
@@ -39,7 +39,7 @@ interface PanelProps extends ComponentProps<'div'> {
  * Shared content-section recipe. Below `sm` it is flat and full-width — a
  * plain container separated from its neighbors by the page's own spacing and
  * its own heading, not a box (odd/tasks/app-dark-contrast.md T2). From `sm:`
- * up (and always, when `mobile="card"`) it is the `rounded-2xl border
+ * up (and always, when `mobile="card"`) it is the `rounded-3xl border
  * border-border-subtle bg-bg-subtle` card recipe hand-rolled across 25+
  * dashboard/owner/public-booking/admin sites. `size` captures the real
  * density variants observed across those sites (sm/md/lg), defaulting to

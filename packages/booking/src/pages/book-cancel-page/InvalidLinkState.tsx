@@ -18,7 +18,7 @@ export function InvalidLinkState({ onBack }: InvalidLinkStateProps) {
       title={t.publicBooking.bookingNotFound}
       description={t.publicBooking.invalidCancelLink}
     >
-      <Button variant="outline" className="mt-4 min-h-12 rounded-xl" onClick={onBack}>
+      <Button variant="outline" className="mt-4 min-h-12" onClick={onBack}>
         {t.common.back}
       </Button>
     </StatusHero>

@@ -26,13 +26,13 @@ export function TodayRevenueHeader({ totals }: TodayRevenueHeaderProps) {
 
   return (
     <div className="mb-4">
-      <h3 className="text-text-primary mb-1 text-sm font-semibold">{t.dashboard.todayRevenue}</h3>
-      <p className="score-text text-text-primary text-lg font-bold">{formatPrice(totals.total_income)}</p>
-      <p className="text-text-tertiary mt-1 flex flex-wrap gap-x-2 text-xs">
+      <h3 className="text-text-inverse mb-1 text-sm font-semibold">{t.dashboard.todayRevenue}</h3>
+      <p className="score-text text-text-inverse text-lg font-bold">{formatPrice(totals.total_income)}</p>
+      <p className="text-text-inverse/80 mt-1 flex flex-wrap gap-x-2 text-xs">
         {parts.map((part, index) => (
           <span key={part.label} className="whitespace-nowrap">
             {index > 0 && <span aria-hidden="true">· </span>}
-            {part.label} <span className="score-text text-text-secondary">{formatPrice(part.value)}</span>
+            {part.label} <span className="score-text text-text-inverse font-semibold">{formatPrice(part.value)}</span>
           </span>
         ))}
       </p>

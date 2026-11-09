@@ -40,7 +40,7 @@ export function CancelledState({ bookingInfo, collectionStatus, onRetry }: Cance
       titleClassName="text-2xl"
       description={rejected ? t.publicBooking.paymentFailedDescription : t.publicBooking.bookingCancelledDescription}
     >
-      <Button onClick={onRetry} className="mt-2 rounded-xl">
+      <Button onClick={onRetry} className="mt-2">
         {rejected ? t.publicBooking.tryAgain : t.publicBooking.makeAnother}
       </Button>
       {bookingInfo?.complexPhone && (

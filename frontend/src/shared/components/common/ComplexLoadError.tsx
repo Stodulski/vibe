@@ -28,7 +28,7 @@ export function ComplexLoadError({ onRetry, isFetching = false }: ComplexLoadErr
         title={t.complex.loadError}
         description={t.complex.loadErrorDescription}
       >
-        <Button size="lg" className="mt-4 min-h-12 rounded-xl" onClick={onRetry} disabled={isFetching}>
+        <Button size="lg" className="mt-4 min-h-12" onClick={onRetry} disabled={isFetching}>
           {isFetching ? (
             <>
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />

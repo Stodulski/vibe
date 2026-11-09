@@ -29,7 +29,7 @@ export function BookingsPageHeader({ isPast, hasCourts, onBlockSlot, onCreateBoo
       {/* Most important action first, so it's what the eye reaches first
           reading left-to-right (and top-down once these stack on a phone). */}
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row md:ml-auto">
-        <Button onClick={onCreateBooking} disabled={isPast} className="flex-1 gap-2 rounded-xl sm:flex-none">
+        <Button onClick={onCreateBooking} disabled={isPast} className="flex-1 gap-2 sm:flex-none">
           <Plus className="size-4" />
           {t.bookings.create}
         </Button>
@@ -37,7 +37,7 @@ export function BookingsPageHeader({ isPast, hasCourts, onBlockSlot, onCreateBoo
           variant="outline"
           onClick={onBlockSlot}
           disabled={isPast || !hasCourts}
-          className="flex-1 gap-2 rounded-xl sm:flex-none"
+          className="flex-1 gap-2 sm:flex-none"
         >
           <Ban className="size-4" />
           {t.courts.block}

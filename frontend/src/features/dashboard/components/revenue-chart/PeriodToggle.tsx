@@ -13,7 +13,7 @@ interface PeriodToggleProps {
 export function PeriodToggle({ period, onChange }: PeriodToggleProps) {
   return (
     <div
-      className="border-border-subtle bg-bg-base flex rounded-lg border p-0.5"
+      className="border-border-subtle bg-bg-base flex rounded-full border p-0.5"
       role="group"
       aria-label={t.dashboard.revenuePeriodLabel}
     >
@@ -25,7 +25,7 @@ export function PeriodToggle({ period, onChange }: PeriodToggleProps) {
           }}
           aria-pressed={period === p}
           className={cn(
-            'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150',
+            'rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150',
             period === p ? 'bg-bg-elevated text-text-primary' : 'text-text-tertiary hover:text-text-secondary',
           )}
         >

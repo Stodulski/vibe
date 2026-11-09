@@ -11,19 +11,24 @@ interface TodayMetricsProps {
 
 export function TodayMetrics({ todayBookings, yesterdayBookings, occupancyRate }: TodayMetricsProps) {
   return (
-    <div className="mb-4 flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <div>
         <div className="flex items-center gap-2">
-          <span className="text-text-tertiary text-sm font-medium">{t.dashboard.bookingsToday}</span>
-          <ComparisonBadge current={todayBookings} previous={yesterdayBookings} versus={t.dashboard.versusYesterday} />
+          <span className="text-text-inverse/80 text-sm font-medium">{t.dashboard.bookingsToday}</span>
+          <ComparisonBadge
+            current={todayBookings}
+            previous={yesterdayBookings}
+            versus={t.dashboard.versusYesterday}
+            className="bg-bg-base"
+          />
         </div>
-        <p className="score-text text-text-primary mt-1 text-lg font-bold">{todayBookings}</p>
+        <p className="score-text text-text-inverse mt-1 text-lg font-bold">{todayBookings}</p>
       </div>
       <div>
-        <span className="text-text-tertiary text-sm font-medium">{t.dashboard.occupancyRate}</span>
-        <p className="score-text text-text-primary mt-1 text-lg font-bold">{occupancyRate}%</p>
+        <span className="text-text-inverse/80 text-sm font-medium">{t.dashboard.occupancyRate}</span>
+        <p className="score-text text-text-inverse mt-1 text-lg font-bold">{occupancyRate}%</p>
         <div
-          className="bg-bg-base mt-2 h-1 w-full overflow-hidden rounded-full"
+          className="bg-text-inverse/20 mt-2 h-1 w-full overflow-hidden rounded-full"
           role="progressbar"
           aria-valuenow={occupancyRate}
           aria-valuemin={0}
@@ -31,7 +36,7 @@ export function TodayMetrics({ todayBookings, yesterdayBookings, occupancyRate }
           aria-label={`${t.dashboard.occupancyRate}: ${String(occupancyRate)}%`}
         >
           <div
-            className="bg-primary-500 h-1 rounded-full transition-[width] duration-700 ease-out"
+            className="bg-text-inverse h-1 rounded-full transition-[width] duration-700 ease-out"
             style={{ width: `${String(Math.min(occupancyRate, 100))}%` }}
           />
         </div>

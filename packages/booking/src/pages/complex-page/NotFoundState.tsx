@@ -36,7 +36,7 @@ export function NotFoundState({ slug }: { slug?: string }) {
       }
       description={description}
     >
-      <Button asChild size="lg" className="mt-4 min-h-12 rounded-xl">
+      <Button asChild size="lg" className="mt-4 min-h-12">
         <a href="/">{t.layout.backHome}</a>
       </Button>
     </StatusHero>
