@@ -37,8 +37,8 @@ describe('DateButton labels', () => {
   it('reads the weekday and the month of the selected day in the inverse ink', () => {
     renderButton(true);
 
-    expect(screen.getByText('mié')).toHaveClass('text-text-inverse/80');
-    expect(screen.getByText('oct')).toHaveClass('text-text-inverse/80');
+    expect(screen.getByText('mié')).toHaveClass('text-text-inverse');
+    expect(screen.getByText('oct')).toHaveClass('text-text-inverse');
     expect(screen.getByText('mié')).not.toHaveClass('text-text-tertiary');
   });
 

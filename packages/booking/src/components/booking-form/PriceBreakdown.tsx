@@ -20,7 +20,7 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
     <dl className="divide-text-inverse/20 border-text-inverse/20 divide-y border-t text-sm">
       {hasDeposit && (
         <div className="flex justify-between gap-2 py-3">
-          <dt className="text-text-inverse/80">
+          <dt className="text-text-inverse">
             {t.publicBooking.deposit} ({depositPercentage}%)
           </dt>
           <dd className="text-text-inverse tabular-nums">{formatPrice(mpAmount)}</dd>
@@ -28,10 +28,10 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
       )}
       <div className="py-3">
         <div className="flex justify-between gap-2">
-          <dt className="text-text-inverse/80">{t.serviceFee.label}</dt>
+          <dt className="text-text-inverse">{t.serviceFee.label}</dt>
           <dd className="text-text-inverse tabular-nums">{formatPrice(serviceFee)}</dd>
         </div>
-        <p className="text-text-inverse/80 mt-1 text-xs">{t.serviceFee.notDeductedFromCourtPrice}</p>
+        <p className="text-text-inverse mt-1 text-xs">{t.serviceFee.notDeductedFromCourtPrice}</p>
       </div>
       <div className="flex items-baseline justify-between gap-2 py-3">
         <dt className="text-text-inverse font-semibold">{t.publicBooking.totalOnline}</dt>
@@ -40,10 +40,10 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
       {remainingAmount > 0 && (
         <div className="py-3">
           <div className="flex justify-between gap-2">
-            <dt className="text-text-inverse/80">{t.publicBooking.remaining}</dt>
+            <dt className="text-text-inverse">{t.publicBooking.remaining}</dt>
             <dd className="text-text-inverse font-bold tabular-nums">{formatPrice(remainingAmount)}</dd>
           </div>
-          <p className="text-text-inverse/80 mt-1 text-xs">{t.publicBooking.remainingAtClub}</p>
+          <p className="text-text-inverse mt-1 text-xs">{t.publicBooking.remainingAtClub}</p>
         </div>
       )}
     </dl>

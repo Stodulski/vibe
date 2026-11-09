@@ -33,7 +33,7 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
     <div className="divide-text-inverse/20 divide-y">
       <p className="text-text-inverse pb-3 text-sm font-semibold">{slotInfo.complexName}</p>
       <div className="py-3">
-        <p className="text-text-inverse/80 text-sm first-letter:uppercase">
+        <p className="text-text-inverse text-sm first-letter:uppercase">
           {format(dateObj, "EEEE d 'de' MMMM", { locale: es })}
         </p>
         <p className="text-text-inverse text-3xl font-bold tabular-nums">
@@ -43,13 +43,13 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
       <div className="space-y-1 py-3">
         <p className="text-text-inverse text-base font-semibold">{slotInfo.courtName}</p>
         {courtLines.map((line) => (
-          <p key={line} className="text-text-inverse/80 text-sm">
+          <p key={line} className="text-text-inverse text-sm">
             {line}
           </p>
         ))}
       </div>
       <div className="flex justify-between gap-2 py-3 text-sm">
-        <span className="text-text-inverse/80">{t.publicBooking.courtPrice}</span>
+        <span className="text-text-inverse">{t.publicBooking.courtPrice}</span>
         <span className="text-text-inverse tabular-nums">{formatPrice(slotInfo.price)}</span>
       </div>
     </div>

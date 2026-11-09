@@ -258,10 +258,12 @@ describe('ComplexPage — phone-only courts directory', () => {
 
     const directory = screen.getByRole('region', { name: /canchas/i });
     expect(within(directory).getByText('Cancha 1')).toBeInTheDocument();
-    expect(within(directory).getByText('Pádel · Techada')).toBeInTheDocument();
+    expect(within(directory).getByText('Pádel')).toBeInTheDocument();
+    expect(within(directory).getByText('Techada')).toBeInTheDocument();
     expect(within(directory).getByText('Con iluminación LED')).toBeInTheDocument();
     expect(within(directory).getByText('Cancha 2')).toBeInTheDocument();
-    expect(within(directory).getByText('Tenis · Descubierta')).toBeInTheDocument();
+    expect(within(directory).getByText('Tenis')).toBeInTheDocument();
+    expect(within(directory).getByText('Descubierta')).toBeInTheDocument();
   });
 
   it('renders the owner description as text, never as markup', async () => {
