@@ -27,7 +27,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
   const closed = isClosedDay(date, schedules);
   // The selected fill is solid brand green, so the labels take the inverse ink at 80%
   // (about 5.7:1 on #1db954). Unselected days keep the quieter grey.
-  const labelTone = isSelected ? 'text-text-inverse/80' : 'text-text-tertiary';
+  const labelTone = isSelected ? 'text-text-inverse' : 'text-text-tertiary';
 
   return (
     <button

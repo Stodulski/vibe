@@ -27,7 +27,7 @@ function TicketHeader({ bookingInfo }: BookingSummaryProps) {
     <div className="divide-text-inverse/20 divide-y">
       <p className="text-text-inverse pb-3 text-sm font-semibold">{bookingInfo.complexName}</p>
       <div className="py-3">
-        <p className="text-text-inverse/80 text-sm first-letter:uppercase">{formatDateFull(bookingInfo.date)}</p>
+        <p className="text-text-inverse text-sm first-letter:uppercase">{formatDateFull(bookingInfo.date)}</p>
         <p className="text-text-inverse text-3xl font-bold tabular-nums">
           {formatHourRange(bookingInfo.startsAt, bookingInfo.endsAt, `\u00A0${t.publicBooking.timeRangeTo}\u00A0`)}
         </p>
@@ -35,7 +35,7 @@ function TicketHeader({ bookingInfo }: BookingSummaryProps) {
       <div className="space-y-1 pt-3">
         <p className="text-text-inverse text-base font-semibold">{bookingInfo.courtName}</p>
         {courtLines(bookingInfo).map((line) => (
-          <p key={line} className="text-text-inverse/80 text-sm">
+          <p key={line} className="text-text-inverse text-sm">
             {line}
           </p>
         ))}
@@ -75,11 +75,11 @@ function MoneySummary({ bookingInfo }: BookingSummaryProps) {
   return (
     <dl className="divide-text-inverse/20 divide-y text-sm">
       <div className="flex justify-between gap-2 pb-3">
-        <dt className="text-text-inverse/80">{t.publicBooking.paidLabel}</dt>
+        <dt className="text-text-inverse">{t.publicBooking.paidLabel}</dt>
         <dd className="text-text-inverse tabular-nums">{formatPrice(paidAmount)}</dd>
       </div>
       <div className="flex justify-between gap-2 py-3">
-        <dt className="text-text-inverse/80">{t.publicBooking.oweAtClubLabel}</dt>
+        <dt className="text-text-inverse">{t.publicBooking.oweAtClubLabel}</dt>
         <dd className="text-text-inverse font-bold tabular-nums">{formatPrice(remaining)}</dd>
       </div>
     </dl>
