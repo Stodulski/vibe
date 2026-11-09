@@ -90,7 +90,7 @@ export function BookingSummary({ bookingInfo }: BookingSummaryProps) {
   return (
     <section
       aria-label="Detalle de la reserva"
-      className="bg-primary-500 text-text-inverse w-full rounded-3xl p-5 text-left"
+      className="bg-primary-500 text-text-inverse w-full rounded-3xl p-6 sm:p-8 text-left"
     >
       <TicketHeader bookingInfo={bookingInfo} />
       <TicketStub />
