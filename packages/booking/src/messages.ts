@@ -36,7 +36,6 @@ export const BOOKING_MESSAGES = {
     waitlistSuccessSuffix: 'si se libera un turno ese día.',
     waitlistError: 'No pudimos anotarte. Probá de nuevo.',
     waitlistRateLimited: 'Hiciste muchos intentos. Probá de nuevo en unos minutos.',
-    today: 'Hoy',
     closed: 'Cerrado',
     phoneOnlyTitle: 'Reservá por WhatsApp',
     phoneOnlyDescription: 'Este complejo todavía no toma reservas online. Escribile para reservar.',

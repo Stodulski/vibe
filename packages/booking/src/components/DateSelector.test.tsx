@@ -111,9 +111,12 @@ describe('DateSelector', () => {
     expect(buttons.length).toBe(14);
   });
 
-  it('shows "Hoy" label for today', () => {
+  it('marks today for assistive tech without a visible "Hoy" tag', () => {
     render(<DateSelector {...defaultProps} />);
-    expect(screen.getByText(/hoy/i)).toBeInTheDocument();
+    expect(screen.queryByText(/hoy/i)).not.toBeInTheDocument();
+    const current = screen.getAllByRole('radio').filter((b) => b.getAttribute('aria-current') === 'date');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toBe(screen.getAllByRole('radio')[0]);
   });
 
   it('disables buttons for closed days', () => {

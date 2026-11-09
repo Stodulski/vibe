@@ -35,6 +35,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
       key={date.toISOString()}
       role="radio"
       aria-checked={isSelected}
+      aria-current={isToday ? 'date' : undefined}
       // Roving tabindex: only the selected date sits in the Tab order.
       tabIndex={isSelected ? 0 : -1}
       onClick={() => {
@@ -52,7 +53,7 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
         // `opacity-self`: opts out of the global `:disabled` 50% opacity
         // (globals.css) — closed already reads as unavailable through color
         // alone, and that opacity would wash the "Cerrado" label back out.
-        'opacity-self press-scale flex min-w-[72px] shrink-0 flex-col items-center rounded-2xl border px-3.5 py-2.5 text-center transition-colors duration-200',
+        'opacity-self press-scale relative flex min-w-[72px] shrink-0 flex-col items-center rounded-2xl border px-3.5 py-2.5 text-center transition-colors duration-200',
         isSelected
           ? 'border-primary-500 bg-primary-500 text-text-inverse shadow-brand'
           : closed
@@ -64,15 +65,16 @@ export const DateButton = forwardRef<HTMLButtonElement, DateButtonProps>(functio
             : 'border-border-interactive bg-bg-subtle text-text-secondary hover:border-border-interactive-hover hover:bg-bg-highlight',
       )}
     >
+      {/* Today is a dot in the top corner, out of the flow so every day keeps
+          the same height. Screen readers get `aria-current="date"` instead. */}
       {isToday && (
         <span
+          aria-hidden="true"
           className={cn(
-            isSelected ? 'text-text-inverse' : 'text-primary-400',
-            'mb-0.5 text-xs font-bold tracking-wider uppercase',
+            'absolute top-2 right-2 size-1.5 rounded-full',
+            isSelected ? 'bg-text-inverse' : 'bg-primary-400',
           )}
-        >
-          {t.publicBooking.today}
-        </span>
+        />
       )}
       <span className={cn(labelTone, 'text-xs capitalize')}>{format(date, 'EEE', { locale: es })}</span>
       <span
