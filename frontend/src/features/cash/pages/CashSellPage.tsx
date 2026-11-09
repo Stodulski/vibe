@@ -70,7 +70,7 @@ function SellNeedsOpenTill() {
     <section className="animate-fade-in flex flex-col items-center justify-center py-20 text-center">
       <Wallet className="text-text-tertiary mb-4 size-8" aria-hidden="true" />
       <h3 className="text-text-primary text-sm font-semibold">{t.cash.sellNeedsOpenTill}</h3>
-      <Button asChild className="mt-6 min-h-12 rounded-lg" size="sm">
+      <Button asChild className="mt-6 min-h-12" size="sm">
         <Link to="/cash">{t.cash.sellGoToShift}</Link>
       </Button>
     </section>

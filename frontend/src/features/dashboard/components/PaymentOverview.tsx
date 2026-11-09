@@ -30,12 +30,14 @@ export function PaymentOverview({ stats }: PaymentOverviewProps) {
 
   return (
     <Panel as="section" size="sm" className="flex h-full flex-col py-4 sm:p-4">
-      <TodayRevenueHeader totals={today_money} />
-      <TodayMetrics
-        todayBookings={today_bookings}
-        yesterdayBookings={yesterday_bookings}
-        occupancyRate={occupancy_rate}
-      />
+      <div className="bg-primary-500 text-text-inverse mb-4 rounded-3xl p-4">
+        <TodayRevenueHeader totals={today_money} />
+        <TodayMetrics
+          todayBookings={today_bookings}
+          yesterdayBookings={yesterday_bookings}
+          occupancyRate={occupancy_rate}
+        />
+      </div>
       <PaymentStatusBreakdown statusEntries={statusEntries} />
       <PaymentMethodBreakdown methodEntries={methodEntries} />
     </Panel>

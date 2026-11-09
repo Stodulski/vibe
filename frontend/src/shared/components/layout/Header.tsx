@@ -18,7 +18,7 @@ export function Header({ onMenuClick, to = '/', label }: HeaderProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="size-10 shrink-0 rounded-lg"
+        className="size-10 shrink-0"
         onClick={onMenuClick}
         aria-label={ES_AR.layout.openMenu}
       >

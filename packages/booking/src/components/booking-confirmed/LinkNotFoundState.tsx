@@ -25,7 +25,7 @@ export function LinkNotFoundState({ onBack }: LinkNotFoundStateProps) {
       title={t.publicBooking.bookingNotFound}
       description={t.publicBooking.linkNotFoundDescription}
     >
-      <Button size="lg" className="mt-4 min-h-12 rounded-xl" onClick={onBack}>
+      <Button size="lg" className="mt-4 min-h-12" onClick={onBack}>
         {t.publicBooking.makeAnother}
       </Button>
     </StatusHero>

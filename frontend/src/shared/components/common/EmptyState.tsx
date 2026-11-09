@@ -36,7 +36,7 @@ export function EmptyState({
       </h3>
       {description && <p className="text-text-tertiary mt-2 max-w-xs text-sm leading-relaxed">{description}</p>}
       {actionLabel && onAction && (
-        <Button onClick={onAction} variant={actionVariant} className="mt-6 min-h-12 rounded-lg" size="sm">
+        <Button onClick={onAction} variant={actionVariant} className="mt-6 min-h-12" size="sm">
           {actionLabel}
         </Button>
       )}

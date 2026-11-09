@@ -34,7 +34,7 @@ export function PaymentUnderReviewState({ bookingInfo, onRetry }: PaymentUnderRe
           {bookingInfo.complexPhone}
         </a>
       )}
-      <Button variant="outline" className="mt-2 min-h-12 rounded-xl" onClick={onRetry}>
+      <Button variant="outline" className="mt-2 min-h-12" onClick={onRetry}>
         {t.publicBooking.makeAnother}
       </Button>
     </StatusHero>

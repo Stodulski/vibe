@@ -44,7 +44,7 @@ export function CancelledResultState({ refund, onBack }: CancelledResultStatePro
           <p className="text-text-primary text-base font-semibold">{formatPrice(refund.manual_amount)}</p>
         </div>
       )}
-      <Button variant="outline" className="mt-4 min-h-12 rounded-xl" onClick={onBack}>
+      <Button variant="outline" className="mt-4 min-h-12" onClick={onBack}>
         {t.publicBooking.makeAnother}
       </Button>
     </StatusHero>
