@@ -58,7 +58,7 @@ export function ComplexLower({ complex, divided = false }: { complex: PublicComp
             club's page with it — see routeHelpers.tsx's own per-page ErrorBoundary
             for the equivalent guard one level up.
           */}
-          <div className="border-border-subtle overflow-hidden rounded-xl border">
+          <div className="border-primary-500 overflow-hidden rounded-xl border">
             {mapMounted ? (
               <ErrorBoundary
                 onError={(error, info) => reportError?.(error, { componentStack: info.componentStack })}
@@ -84,7 +84,7 @@ export function ComplexLower({ complex, divided = false }: { complex: PublicComp
               href={googleMapsSearchUrl(complex.latitude, complex.longitude)}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-bg-subtle text-primary-400 hover:bg-bg-base hover:text-primary-300 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors"
+              className="bg-primary-500 text-text-inverse hover:bg-primary-400 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
             >
               <ExternalLink className="size-3.5" />
               {t.complex.viewOnGoogleMaps}
