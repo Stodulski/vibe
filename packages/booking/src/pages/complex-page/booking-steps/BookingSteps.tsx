@@ -83,8 +83,8 @@ export function BookingSteps({
 }: BookingStepsProps) {
   const steps = useBookingSteps({ availableSports, duration, initiallyAnswered: answeredFromUrl });
 
-  // A question asked on the way in owns the screen; one re-opened from a
-  // breadcrumb sits above the hours it is about to change.
+  // A question owns the screen, whether asked on the way in or re-opened
+  // from a breadcrumb.
   const question =
     steps.activeStep === 'sport' ? (
       <StepChoice
@@ -119,12 +119,10 @@ export function BookingSteps({
 
   if (question && steps.isFirstPass) return question;
 
-  // A question re-opened while the court question was open goes back to
-  // being just the question: the hours it would sit above belong to the
-  // answer that is about to change, and the court cards even more so.
-  // Answering it drops the open hour (see `useComplexPageState`), and the
-  // new grid appears underneath as usual.
-  const showsHours = !question || timeAnswer === null;
+  // A re-opened question hides the hours: they belong to the answer that is
+  // about to change, and the court cards even more so. Answering it drops
+  // any open hour (see `useComplexPageState`) and the new grid comes back.
+  const showsHours = !question;
 
   return (
     <div className="space-y-5">

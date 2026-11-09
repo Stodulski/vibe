@@ -46,6 +46,17 @@ describe('BookingSteps — answered questions collapse to crumbs', () => {
     expect(screen.queryByRole('button', { name: /Horario/ })).not.toBeInTheDocument();
   });
 
+  it('hides the hours while the duration question is reopened, even with no hour open', async () => {
+    const user = userEvent.setup();
+    renderSteps({ timeAnswer: null });
+    expect(screen.getByText('HOURS')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Duración/ }));
+
+    expect(screen.getByText('¿Cuánto tiempo?')).toBeInTheDocument();
+    expect(screen.queryByText('HOURS')).not.toBeInTheDocument();
+  });
+
   it('reports the newly chosen duration once an answer is picked from the reopened question', async () => {
     const user = userEvent.setup();
     const { onDurationChange } = renderSteps();

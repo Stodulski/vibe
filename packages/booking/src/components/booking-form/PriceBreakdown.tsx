@@ -33,7 +33,7 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
         </div>
         <p className="text-text-inverse mt-1 text-xs">{t.serviceFee.notDeductedFromCourtPrice}</p>
       </div>
-      <div className="bg-text-inverse/10 flex items-baseline justify-between gap-2 rounded-2xl px-4 py-3.5">
+      <div className="bg-text-inverse/10 flex items-center justify-between gap-2 rounded-2xl px-4 py-3.5">
         <dt className="text-text-inverse font-semibold">{t.publicBooking.totalOnline}</dt>
         <dd className="text-text-inverse text-2xl font-bold tabular-nums">{formatPrice(totalOnline)}</dd>
       </div>
