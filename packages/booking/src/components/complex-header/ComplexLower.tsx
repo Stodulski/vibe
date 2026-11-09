@@ -24,8 +24,11 @@ function googleMapsSearchUrl(latitude: number, longitude: number) {
  * the markup is its place on screen and in the focus order, so no CSS moves it.
  *
  * Renders nothing when the club has neither services nor coordinates.
+ *
+ * `divided` draws a rule above the services: the caller sets it when what
+ * comes before is not a card.
  */
-export function ComplexLower({ complex }: { complex: PublicComplex }) {
+export function ComplexLower({ complex, divided = false }: { complex: PublicComplex; divided?: boolean }) {
   const hasAmenities = orderedAmenities(complex.amenities).length > 0;
   const hasMap = complex.latitude != null && complex.longitude != null;
   // Optional: this also renders on its own (tests, previews), without a BookingRoot.
@@ -39,8 +42,9 @@ export function ComplexLower({ complex }: { complex: PublicComplex }) {
   return (
     <div className="mt-6 sm:mt-10">
       {hasAmenities && (
-        // No rule above: the card before it already closes the block above.
-        <section>
+        // A rule above only when asked: after the hour grid it marks where the
+        // booking ends; after a card, the card's own edge already does.
+        <section className={divided ? 'border-border-subtle border-t pt-5' : undefined}>
           <h2 className="sr-only">{t.complex.amenitiesSection}</h2>
           <AmenityList amenities={complex.amenities} />
         </section>
