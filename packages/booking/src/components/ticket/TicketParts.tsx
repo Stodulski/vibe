@@ -47,7 +47,7 @@ export function TicketCourt({ name, tags, description }: TicketCourtProps) {
           {tags.map((tag) => (
             <span
               key={tag}
-              className="bg-text-inverse/10 text-text-inverse rounded-full px-2.5 py-0.5 text-xs font-medium"
+              className="bg-text-inverse text-primary-400 rounded-full px-2.5 py-0.5 text-xs font-medium"
             >
               {tag}
             </span>
