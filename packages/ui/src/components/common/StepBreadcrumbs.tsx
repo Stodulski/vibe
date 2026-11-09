@@ -43,11 +43,11 @@ export function StepBreadcrumbs<Id extends string>({ crumbs, onEdit }: StepBread
           onClick={() => {
             onEdit(crumb.id);
           }}
-          className="border-border-subtle bg-bg-subtle hover:border-border-default hover:bg-bg-overlay flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors"
+          className="border-primary-500 bg-primary-500 hover:border-primary-400 hover:bg-primary-400 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors"
         >
           <span className="sr-only">{crumb.label}</span>
-          <span className="text-text-primary font-semibold">{crumb.answer}</span>
-          <Pencil className="text-primary-400 size-3 shrink-0" aria-hidden="true" />
+          <span className="text-text-inverse font-semibold">{crumb.answer}</span>
+          <Pencil className="text-text-inverse size-3 shrink-0" aria-hidden="true" />
         </button>
       ))}
     </div>
