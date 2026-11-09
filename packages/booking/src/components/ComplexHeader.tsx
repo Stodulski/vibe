@@ -1,3 +1,4 @@
+import { cn } from '@vibe/ui';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
 import { sportSummaries } from '../lib/courtPrices';
 import { complexCoverAlt } from '../lib/complexImageAlt';
@@ -52,8 +53,24 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
   });
 
   return (
-    // The bordered card arrives at `lg`. Below that it is a plain block.
-    <div className="lg:border-border-subtle lg:bg-bg-subtle relative lg:rounded-2xl lg:border lg:p-7">
+    // The card arrives at `lg`, solid brand green like the booking tickets.
+    // Below that it is a plain block on the page.
+    //
+    // The green is applied by re-pointing the theme's text, accent and rule
+    // colours inside the card, so every child (contact row, share button,
+    // courts, hours) takes the near-black ink without its own `lg:` variant.
+    // The cover and the logo tile keep their own surfaces.
+    <div
+      className={cn(
+        'relative lg:rounded-2xl lg:border lg:p-7',
+        'lg:border-primary-500 lg:bg-primary-500 lg:font-medium',
+        'lg:[--color-text-primary:var(--color-text-inverse)]',
+        'lg:[--color-text-secondary:var(--color-text-inverse)]',
+        'lg:[--color-text-tertiary:var(--color-text-inverse)]',
+        'lg:[--color-primary-400:var(--color-text-inverse)]',
+        'lg:[--color-border-subtle:rgb(11_11_11/0.2)]',
+      )}
+    >
       {/* Identity: cover, logo, name, contact — one block, one order. */}
       <div>
         <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
