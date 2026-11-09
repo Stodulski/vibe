@@ -31,9 +31,9 @@ export function AmenityList({ amenities }: { amenities: readonly string[] }) {
           key={value}
           // 12px on a phone, 14px on a desktop. The list is a secondary
           // fact about the club, read after the name and the hours.
-          className="border-primary-500 bg-bg-elevated text-primary-400 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs whitespace-nowrap lg:text-sm"
+          className="border-border-subtle bg-bg-elevated text-text-secondary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs whitespace-nowrap lg:text-sm"
         >
-          <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+          <Icon className="text-primary-400 size-3.5 shrink-0" aria-hidden="true" />
           <span>{label}</span>
         </li>
       ))}
