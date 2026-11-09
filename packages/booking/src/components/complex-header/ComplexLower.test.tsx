@@ -52,6 +52,18 @@ describe('ComplexLower services', () => {
     expect(screen.getByText(BOOKING_MESSAGES.complex.amenities.wifi)).toBeInTheDocument();
   });
 
+  it('draws a rule above the services only when the caller asks for one', () => {
+    const complex = makeComplex({ amenities: ['parking'] });
+    const heading = { level: 2, name: BOOKING_MESSAGES.complex.amenitiesSection } as const;
+
+    const { unmount } = render(<ComplexLower complex={complex} divided />);
+    expect(screen.getByRole('heading', heading).parentElement).toHaveClass('border-t');
+    unmount();
+
+    render(<ComplexLower complex={complex} />);
+    expect(screen.getByRole('heading', heading).parentElement).not.toHaveClass('border-t');
+  });
+
   it('renders no services section when the club lists none', () => {
     render(<ComplexLower complex={makeComplex({ amenities: [] })} />);
 

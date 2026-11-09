@@ -127,8 +127,9 @@ export function ComplexPageContent({
 
       {/* The services and the map come after the booking, where a phone shows
           them, so the markup order is the order a screen reader and the Tab
-          key reach them too. */}
-      <ComplexLower complex={complex} />
+          key reach them too. The hour grid has no edge of its own, so a rule
+          marks where the booking ends. */}
+      <ComplexLower complex={complex} divided />
     </div>
   );
 }
