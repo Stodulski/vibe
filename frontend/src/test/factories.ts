@@ -12,7 +12,6 @@ import type {
   Product,
   Sale,
   SaleItem,
-  Schedule,
   StockMovement,
   User,
 } from '@/shared/types/api.types';
@@ -49,25 +48,6 @@ const defaultCourt: Court = {
 /** Builds a typed `Court` fixture with sensible defaults, overridable per-field. */
 export function makeCourt(overrides: Partial<Court> = {}): Court {
   return { ...defaultCourt, ...overrides };
-}
-
-const WEEKDAYS: Schedule['day'][] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-export function makeSchedule(overrides: Partial<Schedule> = {}): Schedule {
-  return {
-    id: 's1',
-    complex_id: 'c1',
-    day: 'monday',
-    open_time: '08:00',
-    close_time: '23:00',
-    is_closed: false,
-    ...overrides,
-  };
-}
-
-/** The seven rows a complex gets at creation: every day open 08:00 to 23:00. */
-export function makeDefaultWeekSchedules(): Schedule[] {
-  return WEEKDAYS.map((day) => makeSchedule({ id: `s-${day}`, day }));
 }
 
 /** A complex with every public-profile item filled in, so a test can blank out one at a time. */
