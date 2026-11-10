@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useState, type ComponentProps } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CourtSelector, type SelectedSlot } from './CourtSelector';
 import type { AvailabilitySlot, CourtAvailability } from '../api/types';
@@ -309,6 +309,28 @@ describe('CourtSelector — U-06: an hour restored from the confirm page', () =>
     expect(screen.getByText(t.publicBooking.selectCourt)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Cancha 1\b/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^11:00\b/ })).not.toBeInTheDocument();
+  });
+
+  it('brings the reopened court question into view, since the page loads at the top', async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined);
+    render(<CourtSelector {...defaultProps} pendingStartTime="08:00" onPendingStartTimeChange={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    scrollIntoView.mockRestore();
+  });
+
+  it('does not scroll when the hours open with nothing chosen', async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined);
+    render(<CourtSelector {...defaultProps} pendingStartTime={null} onPendingStartTimeChange={vi.fn()} />);
+
+    await new Promise((resolve) => {
+      requestAnimationFrame(resolve);
+    });
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    scrollIntoView.mockRestore();
   });
 });
 
