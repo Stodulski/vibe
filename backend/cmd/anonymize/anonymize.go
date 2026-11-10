@@ -146,10 +146,18 @@ func anonymizeClient(ctx context.Context, tx pgx.Tx, clientID uuid.UUID) (Result
 		return result, err
 	}
 
-	// The counts of what is kept are part of the answer, not decoration: the
-	// operator writing back to the requester has to be able to say "your name
-	// and number are gone, these N bookings and M payments remain as
-	// anonymous rows, and here is why".
+	if err := countKept(ctx, tx, clientID, &result); err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+// countKept fills what the run keeps. The counts are part of the answer, not
+// decoration: the operator writing back to the requester has to be able to say
+// "your name and number are gone, these N bookings and M payments remain as
+// anonymous rows, and here is why".
+func countKept(ctx context.Context, tx pgx.Tx, clientID uuid.UUID, result *Result) error {
 	for _, kept := range []struct {
 		query string
 		into  *int64
@@ -163,11 +171,10 @@ func anonymizeClient(ctx context.Context, tx pgx.Tx, clientID uuid.UUID) (Result
 			arg = result.Complex
 		}
 		if err := tx.QueryRow(ctx, kept.query, arg).Scan(kept.into); err != nil {
-			return result, fmt.Errorf("counting what is kept: %w", err)
+			return fmt.Errorf("counting what is kept: %w", err)
 		}
 	}
-
-	return result, nil
+	return nil
 }
 
 // anonymizedUnpaidPhone replaces the phone on the snapshot of someone who never
