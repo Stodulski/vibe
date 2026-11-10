@@ -105,4 +105,5 @@ export const validation = {
   quantityNonNegative: 'La cantidad no puede ser negativa',
   countedMustBeWhole: 'La cantidad contada debe ser un número entero',
   selectReason: 'Seleccioná un motivo',
+  maxChars600: 'Máximo 600 caracteres',
 } as const;

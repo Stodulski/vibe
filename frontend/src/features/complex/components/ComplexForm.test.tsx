@@ -33,6 +33,11 @@ describe('ComplexForm', () => {
     expect(screen.getByRole('button', { name: /crear complejo/i })).toBeInTheDocument();
   });
 
+  it('asks for no description when creating, since the create endpoint does not take one', () => {
+    renderWithProviders(<ComplexForm />);
+    expect(screen.queryByLabelText('Descripción')).not.toBeInTheDocument();
+  });
+
   it('renders address input', () => {
     renderWithProviders(<ComplexForm />);
     expect(screen.getByTestId('address-input')).toBeInTheDocument();

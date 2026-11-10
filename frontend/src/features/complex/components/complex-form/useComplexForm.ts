@@ -29,6 +29,7 @@ function buildDefaultValues(complex: Complex | undefined) {
       // Runtime-checked: a complex cached from before this field existed has
       // no `amenities` key, and the checkbox group would read undefined.
       amenities: Array.isArray(complex.amenities) ? complex.amenities : [],
+      description: complex.description ?? '',
     };
   }
   return {
@@ -66,7 +67,9 @@ function cleanComplexPayload(data: CreateComplexDto, isEdit: boolean) {
   // Destructure slug/formatted_address out — slug is sent explicitly by both
   // callers below (the field is editable in both create and edit mode);
   // formatted_address is a UI-only field never sent to the API.
-  const { slug, formatted_address, email, instagram, latitude, longitude, ...rest } = data;
+  // `description` is only editable once the complex exists: the create
+  // endpoint does not take it, so it is sent on an edit and dropped otherwise.
+  const { slug, formatted_address, email, instagram, latitude, longitude, description, ...rest } = data;
   const cleanEmail = blankToUndefined(email);
   const cleanInstagram = isEdit ? instagram : blankToUndefined(instagram);
   const cleaned = {
@@ -75,6 +78,7 @@ function cleanComplexPayload(data: CreateComplexDto, isEdit: boolean) {
     ...(cleanInstagram !== undefined ? { instagram: cleanInstagram } : {}),
     ...(latitude !== undefined ? { latitude } : {}),
     ...(longitude !== undefined ? { longitude } : {}),
+    ...(isEdit && description !== undefined ? { description } : {}),
   };
   return { slug, cleaned };
 }
