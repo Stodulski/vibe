@@ -16,3 +16,4 @@ export { useDeleteComplex } from './hooks/useDeleteComplex';
 export { useMPConnect } from './components/mp-connect-card/useMPConnect';
 
 export { complexApi } from './api/complex.api';
+export { MIN_DESCRIPTION_LENGTH } from './lib/description';

@@ -14,7 +14,7 @@ export function TodayMetrics({ todayBookings, yesterdayBookings, occupancyRate }
     <div className="flex flex-col gap-4">
       <div>
         <div className="flex items-center gap-2">
-          <span className="text-text-inverse/80 text-sm font-medium">{t.dashboard.bookingsToday}</span>
+          <span className="text-text-inverse text-sm font-medium">{t.dashboard.bookingsToday}</span>
           <ComparisonBadge
             current={todayBookings}
             previous={yesterdayBookings}
@@ -25,7 +25,7 @@ export function TodayMetrics({ todayBookings, yesterdayBookings, occupancyRate }
         <p className="score-text text-text-inverse mt-1 text-lg font-bold">{todayBookings}</p>
       </div>
       <div>
-        <span className="text-text-inverse/80 text-sm font-medium">{t.dashboard.occupancyRate}</span>
+        <span className="text-text-inverse text-sm font-medium">{t.dashboard.occupancyRate}</span>
         <p className="score-text text-text-inverse mt-1 text-lg font-bold">{occupancyRate}%</p>
         <div
           className="bg-text-inverse/20 mt-2 h-1 w-full overflow-hidden rounded-full"

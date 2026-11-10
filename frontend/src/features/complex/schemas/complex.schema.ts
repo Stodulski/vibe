@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { optionalEmailField } from '@/shared/lib/validations';
+import { DESCRIPTION_MAX_LENGTH } from '../lib/description';
 
 const t = ES_AR;
 
@@ -41,6 +42,7 @@ const complexShape = {
   deposit_percentage: z.number().min(0, t.validation.min0Percent).max(100, t.validation.max100Percent),
   cancellation_hours: z.number().min(1, t.validation.min1Hour).max(168, t.validation.max168HoursWeek),
   amenities: z.array(z.enum(AMENITY_VALUES)),
+  description: z.string().trim().max(DESCRIPTION_MAX_LENGTH, t.validation.maxChars600).optional(),
 };
 
 // Creating a complex requires resolved coordinates (the address autocomplete must

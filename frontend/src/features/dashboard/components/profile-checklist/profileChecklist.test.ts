@@ -1,22 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import {
-  buildProfileChecklist,
-  isDefaultSchedule,
-  MIN_DESCRIPTION_LENGTH,
-  type ProfileItemId,
-} from './profileChecklist';
-import {
-  makeActivePricedCourt,
-  makeCompleteComplex,
-  makeCourt,
-  makeDefaultWeekSchedules,
-  makePrice,
-} from '@/test/factories';
-import type { Complex, CourtWithPrices, Schedule } from '@/shared/types/api.types';
+import { buildProfileChecklist, MIN_DESCRIPTION_LENGTH, type ProfileItemId } from './profileChecklist';
+import { makeActivePricedCourt, makeCompleteComplex, makeCourt, makePrice } from '@/test/factories';
+import type { Complex, CourtWithPrices } from '@/shared/types/api.types';
 
 interface Input {
   complex: Complex;
-  schedules: Schedule[];
   courts: CourtWithPrices[];
 }
 
@@ -27,21 +15,16 @@ function doneById(input: Input): Record<ProfileItemId, boolean> {
   >;
 }
 
-/** Everything done: a complete complex, hours changed on one day, and a priced active court. */
+/** Everything done: a complete complex and a priced active court. */
 function completeInput(): Input {
   return {
     complex: makeCompleteComplex(),
-    schedules: withChangedWednesday({ open_time: '09:00' }),
     courts: [makeActivePricedCourt()],
   };
 }
 
-function withChangedWednesday(overrides: Partial<Schedule>): Schedule[] {
-  return makeDefaultWeekSchedules().map((s) => (s.day === 'wednesday' ? { ...s, ...overrides } : s));
-}
-
 describe('buildProfileChecklist', () => {
-  it('lists the nine profile items in the order the owner fills them, MercadoPago last', () => {
+  it('lists the eight profile items in the order the owner fills them, MercadoPago last', () => {
     const ids = buildProfileChecklist(completeInput()).map((item) => item.id);
 
     expect(ids).toEqual([
@@ -50,14 +33,13 @@ describe('buildProfileChecklist', () => {
       'description',
       'amenities',
       'location',
-      'hours',
       'phone',
       'pricedCourt',
       'mercadoPago',
     ]);
   });
 
-  it('marks every item done for a complete profile with changed hours and a priced court', () => {
+  it('marks every item done for a complete profile with a priced court', () => {
     const done = doneById(completeInput());
 
     expect(Object.values(done).every(Boolean)).toBe(true);
@@ -96,7 +78,7 @@ describe('buildProfileChecklist', () => {
   });
 });
 
-describe('buildProfileChecklist: courts and hours', () => {
+describe('buildProfileChecklist: courts', () => {
   it('leaves the court item open when there are no courts', () => {
     expect(doneById({ ...completeInput(), courts: [] }).pricedCourt).toBe(false);
   });
@@ -117,39 +99,5 @@ describe('buildProfileChecklist: courts and hours', () => {
     const free = { ...makeCourt({ is_active: true }), prices: [makePrice({ price: 0 })] };
 
     expect(doneById({ ...completeInput(), courts: [free] }).pricedCourt).toBe(false);
-  });
-
-  it('treats the default seven-day week as not yet reviewed', () => {
-    const done = doneById({ ...completeInput(), schedules: makeDefaultWeekSchedules() });
-
-    expect(done.hours).toBe(false);
-  });
-
-  it.each<[string, Partial<Schedule>]>([
-    ['opening time', { open_time: '09:00' }],
-    ['closing time', { close_time: '22:00' }],
-    ['closed flag', { is_closed: true }],
-  ])('treats one day changed by its %s as reviewed', (_label, overrides) => {
-    const done = doneById({ ...completeInput(), schedules: withChangedWednesday(overrides) });
-
-    expect(done.hours).toBe(true);
-  });
-
-  it('leaves hours open when no schedule exists at all', () => {
-    expect(doneById({ ...completeInput(), schedules: [] }).hours).toBe(false);
-  });
-});
-
-describe('isDefaultSchedule', () => {
-  it('is true for the seven rows seeded at creation', () => {
-    expect(isDefaultSchedule(makeDefaultWeekSchedules())).toBe(true);
-  });
-
-  it('is false once any single day differs from the seeded default', () => {
-    expect(isDefaultSchedule(withChangedWednesday({ close_time: '22:30' }))).toBe(false);
-  });
-
-  it('is false for an empty schedule list', () => {
-    expect(isDefaultSchedule([])).toBe(false);
   });
 });

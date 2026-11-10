@@ -129,4 +129,7 @@ export const complex = {
   imageInvalidType: 'Solo se permiten imagenes JPG, PNG o WebP',
   deleteImageConfirm: 'Eliminar imagen',
   deleteImageConfirmDescription: 'Se eliminara la imagen del complejo.',
+  descriptionPlaceholder: 'Contá cómo es tu complejo: las canchas, los servicios y qué lo hace distinto.',
+  descriptionMinHint: (min: number) => `Con ${String(min)} caracteres o más, tu perfil la cuenta como completa.`,
+  descriptionCount: (count: number, max: number) => `${String(count)} de ${String(max)}`,
 } as const;

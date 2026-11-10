@@ -85,11 +85,6 @@ export const dashboard = {
         why: 'Con tu ubicación en el mapa, los jugadores llegan a tu complejo sin perderse.',
         action: 'Marcá tu ubicación',
       },
-      hours: {
-        label: 'Revisá tus horarios',
-        why: 'Confirmá que los días y horas reflejan cómo abrís hoy.',
-        action: 'Editá los horarios',
-      },
       phone: {
         label: 'Teléfono de contacto',
         why: 'Un teléfono visible genera confianza a la hora de reservar.',

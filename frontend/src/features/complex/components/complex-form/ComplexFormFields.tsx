@@ -2,6 +2,7 @@ import { NameSlugFields } from './NameSlugFields';
 import { AddressField } from './AddressField';
 import { ContactFields } from './ContactFields';
 import { AmenitiesFieldset } from './AmenitiesFieldset';
+import { ComplexDescriptionField } from './ComplexDescriptionField';
 import { DepositPercentageField } from '../deposit-config/DepositPercentageField';
 import { CancellationHoursField } from '../deposit-config/CancellationHoursField';
 
@@ -58,6 +59,10 @@ export function IdentityGroup({ form, isEdit, slugValue, onSlugManualEdit, onNam
           form.setValue('slug', slug, { shouldValidate: true });
         }}
       />
+      {/* Edit only: the create endpoint does not take a description. */}
+      {isEdit && (
+        <ComplexDescriptionField register={form.register} control={form.control} errors={form.formState.errors} />
+      )}
     </FieldGroup>
   );
 }

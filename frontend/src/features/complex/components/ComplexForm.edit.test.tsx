@@ -78,4 +78,31 @@ describe('ComplexForm edit mode and interactions', () => {
     });
     expect(screen.queryByText(/seleccion.*direcci.n de la lista/i)).not.toBeInTheDocument();
   });
+
+  it('edits the description and sends it trimmed, with the checklist minimum shown until it is reached', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ComplexForm complex={complexWithoutCoordinates} />);
+
+    const field = screen.getByLabelText('Descripción');
+    expect(screen.getByText('Con 80 caracteres o más, tu perfil la cuenta como completa.')).toBeInTheDocument();
+    expect(screen.getByText('0 de 600')).toBeInTheDocument();
+
+    const text = 'Cuatro canchas de pádel techadas, vestuarios con duchas, bar y estacionamiento propio.';
+    await user.type(field, `  ${text}  `);
+    expect(screen.getByText(`${String(text.length)} de 600`)).toBeInTheDocument();
+    expect(screen.queryByText(/tu perfil la cuenta como completa/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    await waitFor(() => {
+      expect(mockUpdateMutate).toHaveBeenCalledTimes(1);
+    });
+    expect(mockUpdateMutate.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ description: text }));
+  });
+
+  it('caps the description at the 600 characters the API stores', () => {
+    renderWithProviders(<ComplexForm complex={complexWithoutCoordinates} />);
+
+    expect(screen.getByLabelText('Descripción')).toHaveAttribute('maxlength', '600');
+  });
 });

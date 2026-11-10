@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { useSchedules } from '@/features/complex';
 import { useCourts } from '@/features/courts';
 import type { Complex } from '@/shared/types/api.types';
 import { buildProfileChecklist, type ProfileItemId } from './profileChecklist';
@@ -17,7 +16,6 @@ const FIX_TARGET: Record<ProfileItemId, string> = {
   description: '/settings',
   amenities: '/settings',
   location: '/settings',
-  hours: '/settings?tab=schedules',
   phone: '/settings',
   pricedCourt: '/courts',
   mercadoPago: '/settings?tab=billing',
@@ -86,21 +84,28 @@ function ProgressHeader({ done, total }: { done: number; total: number }) {
   );
 }
 
-/** One compact row per pending item: its label, and a chevron to the screen that fixes it. */
+/** One compact row per pending item, the whole row a link to the screen that fixes it. */
 function PendingList({ ids }: { ids: ProfileItemId[] }) {
   return (
     <ul id={LIST_ID} className="divide-border-subtle flex flex-col divide-y">
       {ids.map((id) => {
         const copy = t.dashboard.profileChecklist.items[id];
         return (
-          <li key={id} className="flex items-center justify-between gap-3 py-2">
-            <span className="text-text-primary text-sm">{copy.label}</span>
+          <li key={id}>
+            {/* The whole row is the link, not only the chevron: a 16px arrow
+                is a hard target, and the label is what people aim at. */}
             <Link
               to={FIX_TARGET[id]}
               aria-label={copy.action}
-              className="text-text-tertiary hover:text-text-primary shrink-0"
+              className="group flex items-center justify-between gap-3 py-2"
             >
-              <ChevronRight aria-hidden="true" className="size-4" />
+              <span className="text-text-primary text-sm group-hover:underline group-hover:underline-offset-4">
+                {copy.label}
+              </span>
+              <ChevronRight
+                aria-hidden="true"
+                className="text-text-tertiary group-hover:text-text-primary size-4 shrink-0 transition-colors"
+              />
             </Link>
           </li>
         );
@@ -120,12 +125,11 @@ interface ProfileChecklistProps {
  * the data loads, and nothing once the profile is complete.
  */
 export function ProfileChecklist({ complex }: ProfileChecklistProps) {
-  const { data: schedules } = useSchedules(complex.id, complex.slug);
   const { data: courts } = useCourts(complex.id);
   const [expanded, setExpanded] = useState(readExpanded);
-  if (!schedules || !courts) return null;
+  if (!courts) return null;
 
-  const items = buildProfileChecklist({ complex, schedules, courts });
+  const items = buildProfileChecklist({ complex, courts });
   const pending = items.filter((item) => !item.done).map((item) => item.id);
   if (pending.length === 0) return null;
 
