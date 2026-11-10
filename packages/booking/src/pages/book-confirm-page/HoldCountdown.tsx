@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Clock } from 'lucide-react';
 import { BOOKING_MESSAGES } from '../../messages';
 import { formatRemaining, secondsUntil, thresholdMessage } from './holdTime';
 
@@ -50,12 +49,17 @@ export function HoldCountdown({ expiresAt, onExpire }: HoldCountdownProps) {
     onExpireRef.current();
   }, [clock.remaining]);
 
+  // Only the time, large and in the brand green. The sentence it stands for is
+  // its accessible name, so a screen reader still says what the count is.
   return (
-    <div className="border-border-subtle bg-bg-elevated flex items-center gap-2 rounded-xl border px-4 py-3 text-sm">
-      <Clock className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-      <p role="timer" aria-atomic="true" className="text-text-secondary">
-        {t.publicBooking.holdCountdownLabel}{' '}
-        <span className="text-text-primary font-semibold tabular-nums">{formatRemaining(clock.remaining)}</span>
+    <div>
+      <p
+        role="timer"
+        aria-atomic="true"
+        aria-label={t.publicBooking.holdCountdownLabel}
+        className="font-display text-primary-400 text-3xl font-bold tabular-nums"
+      >
+        {formatRemaining(clock.remaining)}
       </p>
       <span data-testid="hold-countdown-announcement" aria-live="polite" className="sr-only">
         {clock.announcement}

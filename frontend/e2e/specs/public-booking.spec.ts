@@ -123,7 +123,7 @@ test.describe('Public Booking Flow', () => {
     const hold = await publicPage.chooseFirstCourt();
     expect(hold.status()).toBe(201);
     await expect(page).toHaveURL(new RegExp(`${SLUG}/book/confirm`));
-    await expect(publicPage.holdCountdown).toContainText(/Te guardamos el turno por \d{2}:\d{2}/);
+    await expect(publicPage.holdCountdown).toHaveText(/^\d{2}:\d{2}$/);
   });
 });
 

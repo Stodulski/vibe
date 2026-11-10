@@ -23,7 +23,7 @@ export class PublicBookingPage {
     return hold;
   }
 
-  /** The hold countdown of the confirm page ("Te guardamos el turno por mm:ss"). */
+  /** The hold countdown of the confirm page: "mm:ss" on screen, named "Te guardamos el turno por". */
   get holdCountdown() {
     return this.page.getByRole('timer');
   }

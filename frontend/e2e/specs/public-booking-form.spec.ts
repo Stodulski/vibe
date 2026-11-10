@@ -58,7 +58,7 @@ test.describe('Public Booking Form Submission', () => {
     expect(hold.status()).toBe(201);
     await expect(page).toHaveURL(new RegExp(`${SLUG}/book/confirm`));
     // The slot is held from the court pick: the confirm step counts it down.
-    await expect(publicPage.holdCountdown).toContainText(/Te guardamos el turno por \d{2}:\d{2}/);
+    await expect(publicPage.holdCountdown).toHaveText(/^\d{2}:\d{2}$/);
 
     await publicPage.fillBookingForm({
       firstName: TEST_CLIENT.firstName,
