@@ -14,7 +14,7 @@ function blankToUndefined(value: string | undefined): string | undefined {
 export function buildBookingRequest(
   slotInfo: BookingSlotInfo,
   formData: PublicBookingFormData,
-  turnstileToken?: string,
+  holdToken: string,
 ): PublicBookingRequest {
   const clientNotes = blankToUndefined(formData.client_notes);
 
@@ -32,8 +32,8 @@ export function buildBookingRequest(
     // `client_notes?: string` on `PublicBookingRequest` is absent-or-present,
     // not present-with-`undefined` — only include it when there is one.
     ...(clientNotes !== undefined ? { client_notes: clientNotes } : {}),
-    // Absent when the storefront runs without Turnstile, so the body is the
-    // one it always was.
-    ...(turnstileToken ? { turnstile_token: turnstileToken } : {}),
+    // The hold taken on court pick. It answered the Turnstile challenge, so
+    // this request carries no token of its own.
+    hold_token: holdToken,
   };
 }

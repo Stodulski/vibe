@@ -2970,10 +2970,13 @@ type BookingsPublicCreateJSONBody struct {
 	Date        openapi_types.Date `json:"date"`
 
 	// DurationMinutes Must be one of the permitted slot durations.
-	DurationMinutes int    `json:"duration_minutes"`
-	StartTime       string `json:"start_time"`
+	DurationMinutes int `json:"duration_minutes"`
 
-	// TurnstileToken Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through.
+	// HoldToken The slot hold taken with `POST /api/v1/book/holds`. With it the held booking is converted: the hours come from the hold (the request's court, date, start and duration must match it or 409 `conflict`), no Turnstile token is checked, and the checkout expires when the hold does. An unknown, released, already converted or expired hold answers 409 `hold-expired`. Without it the booking is created as before holds existed.
+	HoldToken *string `json:"hold_token,omitempty"`
+	StartTime string  `json:"start_time"`
+
+	// TurnstileToken Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), and only when no `hold_token` is sent. A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through.
 	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
@@ -2992,6 +2995,23 @@ type BookingsPublicCancelJSONBody struct {
 type BookingsPublicCancelInfoParams struct {
 	// Token The opaque booking-link token, never the booking's primary key.
 	Token BookingToken `form:"token" json:"token"`
+}
+
+// BookingsPublicHoldCreateJSONBody defines parameters for BookingsPublicHoldCreate.
+type BookingsPublicHoldCreateJSONBody struct {
+	ComplexId openapi_types.UUID `json:"complex_id"`
+	CourtId   openapi_types.UUID `json:"court_id"`
+	Date      openapi_types.Date `json:"date"`
+
+	// DurationMinutes Must be one of the permitted slot durations.
+	DurationMinutes int `json:"duration_minutes"`
+
+	// Replaces The visitor's previous hold token, released before this hold is taken: one browser holds one slot.
+	Replaces  *string `json:"replaces,omitempty"`
+	StartTime string  `json:"start_time"`
+
+	// TurnstileToken Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the hold through.
+	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
 // BookingsPublicStatusParams defines parameters for BookingsPublicStatus.
@@ -3775,6 +3795,9 @@ type BookingsPublicCreateJSONRequestBody BookingsPublicCreateJSONBody
 // BookingsPublicCancelJSONRequestBody defines body for BookingsPublicCancel for application/json ContentType.
 type BookingsPublicCancelJSONRequestBody BookingsPublicCancelJSONBody
 
+// BookingsPublicHoldCreateJSONRequestBody defines body for BookingsPublicHoldCreate for application/json ContentType.
+type BookingsPublicHoldCreateJSONRequestBody BookingsPublicHoldCreateJSONBody
+
 // ComplexesCreateJSONRequestBody defines body for ComplexesCreate for application/json ContentType.
 type ComplexesCreateJSONRequestBody ComplexesCreateJSONBody
 
@@ -4010,6 +4033,12 @@ type ServerInterface interface {
 	// BookingsPublicCancelInfo Preview refund terms before cancelling a public booking
 	// (GET /api/v1/book/cancel-info)
 	BookingsPublicCancelInfo(w http.ResponseWriter, r *http.Request, params BookingsPublicCancelInfoParams)
+	// BookingsPublicHoldCreate Hold a slot while the visitor fills in their details
+	// (POST /api/v1/book/holds)
+	BookingsPublicHoldCreate(w http.ResponseWriter, r *http.Request)
+	// BookingsPublicHoldRelease Release a slot hold
+	// (POST /api/v1/book/holds/{token}/release)
+	BookingsPublicHoldRelease(w http.ResponseWriter, r *http.Request, token string)
 	// BookingsPublicStatus Look up a public booking by its link token
 	// (GET /api/v1/book/status)
 	BookingsPublicStatus(w http.ResponseWriter, r *http.Request, params BookingsPublicStatusParams)
@@ -4601,6 +4630,46 @@ func (siw *ServerInterfaceWrapper) BookingsPublicCancelInfo(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.BookingsPublicCancelInfo(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingsPublicHoldCreate operation middleware
+func (siw *ServerInterfaceWrapper) BookingsPublicHoldCreate(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingsPublicHoldCreate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingsPublicHoldRelease operation middleware
+func (siw *ServerInterfaceWrapper) BookingsPublicHoldRelease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", r.PathValue("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingsPublicHoldRelease(w, r, token)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8095,6 +8164,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/webhooks/whatsapp", wrapper.BookingsWhatsAppVerifyWebhook)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/webhooks/whatsapp", wrapper.BookingsWhatsAppWebhook)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book", wrapper.BookingsPublicCreate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds", wrapper.BookingsPublicHoldCreate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds/{token}/release", wrapper.BookingsPublicHoldRelease)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/book/status", wrapper.BookingsPublicStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/book/cancel-info", wrapper.BookingsPublicCancelInfo)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/cancel", wrapper.BookingsPublicCancel)

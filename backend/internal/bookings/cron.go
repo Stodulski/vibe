@@ -122,6 +122,8 @@ func (s *Service) Reminder2h(ctx context.Context) {
 // attempt against the cancel path's two, and a credential it could not decrypt
 // quietly became a call made as the platform.
 func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
+	s.releaseExpiredHolds(ctx)
+
 	bookings, err := s.store.GetExpiredPendingEnriched(ctx, s.cfg.PaymentExpiry)
 	if err != nil {
 		s.logger.Error("cron_release_expired_payments: failed to get bookings", "error", err)
@@ -145,6 +147,39 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 	s.logger.Info("cron_release_expired_payments: completed", "candidates", len(bookings), "released", released)
 }
 
+// releaseExpiredHolds deletes the slot holds nobody converted within the
+// payment window (see bookingstore.Store.ReleaseHold for why they are deleted)
+// and tells each affected complex's grid once and the waitlist once per venue
+// and day. There is nobody else to notify and no checkout to close: an
+// untouched hold has neither.
+func (s *Service) releaseExpiredHolds(ctx context.Context) {
+	freed, err := s.store.DeleteExpiredHolds(ctx, s.cfg.PaymentExpiry)
+	if err != nil {
+		s.logger.Error("cron_release_expired_payments: failed to delete expired slot holds", "error", err)
+		return
+	}
+	type venueDay struct {
+		complexID uuid.UUID
+		day       string
+	}
+	told := make(map[uuid.UUID]struct{}, len(freed))
+	handed := make(map[venueDay]struct{}, len(freed))
+	for _, h := range freed {
+		if _, seen := told[h.ComplexID]; !seen {
+			told[h.ComplexID] = struct{}{}
+			s.realtime.PublishBookingChanged(h.ComplexID)
+		}
+		key := venueDay{h.ComplexID, h.Day.Format(time.DateOnly)}
+		if _, seen := handed[key]; !seen {
+			handed[key] = struct{}{}
+			s.freeHeldSlot(ctx, h)
+		}
+	}
+	if len(freed) > 0 {
+		s.logger.Info("cron_release_expired_payments: deleted expired slot holds", "count", len(freed))
+	}
+}
+
 // ReleaseUnpaidHolds cancels every storefront booking of one complex that is
 // still waiting for its payment, closing its checkout link first. Disconnecting
 // MercadoPago calls it before clearing the credentials: the webhook matches a
@@ -155,6 +190,12 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 // ErrCheckoutStillOpen, so the disconnect does not go ahead; the other holds are
 // still released.
 func (s *Service) ReleaseUnpaidHolds(ctx context.Context, complexID uuid.UUID) error {
+	// Slot holds nobody has converted have no checkout link to close: they go
+	// first, and the read below no longer sees them.
+	if err := s.store.DeleteComplexHolds(ctx, complexID); err != nil {
+		return fmt.Errorf("bookings: delete slot holds: %w", err)
+	}
+
 	holds, err := s.store.GetUnpaidPublicPendingEnriched(ctx, complexID)
 	if err != nil {
 		return fmt.Errorf("bookings: read unpaid holds: %w", err)
@@ -208,6 +249,18 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 
 	s.realtime.PublishBookingChanged(b.ComplexID)
 
+	s.freeWaitlistSlot(ctx, waitlist.Freed{
+		ComplexID: b.ComplexID, ComplexName: b.ComplexName, ComplexSlug: b.ComplexSlug, Day: b.Date,
+	})
+
+	// A booking that never named anybody has nobody to tell. The sweeps read
+	// no untouched slot hold, so this is a guard rather than a path: such a
+	// booking is still released, quietly, instead of queueing a notice with no
+	// address.
+	if b.ClientEmail == "" && b.ClientPhone == "" {
+		return nil
+	}
+
 	s.notify.BookingCancelled(notifications.Cancellation{
 		Email:       b.ClientEmail,
 		Phone:       b.ClientPhone,
@@ -226,10 +279,6 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 		// (see SourceExpiredUnpaid), so there is nothing to take back.
 		Source:    notifications.SourceExpiredUnpaid,
 		BookingID: b.ID.String(),
-	})
-
-	s.freeWaitlistSlot(ctx, waitlist.Freed{
-		ComplexID: b.ComplexID, ComplexName: b.ComplexName, ComplexSlug: b.ComplexSlug, Day: b.Date,
 	})
 	return nil
 }

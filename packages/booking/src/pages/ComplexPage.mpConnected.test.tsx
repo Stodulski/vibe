@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
-import { screen, fireEvent, within } from '@testing-library/react';
+import { screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { renderBooking, setBookingUrl } from '../test/booking';
 import { readConfirmDraft } from '../lib/handoff';
 import type { AvailabilityData, CourtWithPrices, PublicComplexResponse } from '../api/types';
@@ -199,8 +199,11 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     if (!courtCard) throw new Error('expected a court card');
     fireEvent.click(courtCard);
 
-    expect(assignSpy).toHaveBeenCalledWith('/c/test-club/book/confirm');
-    expect(readConfirmDraft('test-club')).toEqual(expect.objectContaining({ complexId: 'c1' }));
+    // The tap takes a hold on the slot first, then moves on.
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledWith('/c/test-club/book/confirm');
+    });
+    expect(readConfirmDraft('test-club')).toEqual(expect.objectContaining({ complexId: 'c1', holdToken: 'hold-1' }));
   });
 
   it('asks the duration before the hours, and only once', async () => {

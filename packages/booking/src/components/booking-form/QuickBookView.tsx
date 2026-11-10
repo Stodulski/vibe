@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { DEFAULT_PHONE_PREFIX } from '@vibe/ui';
 import { publicBookingSchema, type PublicBookingFormData } from '../../schemas/public-booking.schema';
 import type { SavedClientData } from './savedFormData';
@@ -23,9 +23,6 @@ interface QuickBookViewProps {
    * empty before switching to `FullFormView`.
    */
   onNotMe: () => void;
-  /** The Turnstile challenge, shown with the submit button once the identity is confirmed. */
-  challenge?: ReactNode;
-  submitBlocked?: boolean | undefined;
 }
 
 export function QuickBookView({
@@ -36,8 +33,6 @@ export function QuickBookView({
   onSubmit,
   onEdit,
   onNotMe,
-  challenge,
-  submitBlocked,
 }: QuickBookViewProps) {
   // A saved identity used to be submitted with one tap and no confirmation —
   // on a shared or public device, the next visitor's booking (and payment)
@@ -48,7 +43,7 @@ export function QuickBookView({
   const [confirmed, setConfirmed] = useState(false);
 
   const handleQuickSubmit = () => {
-    if (!confirmed || submitBlocked) return;
+    if (!confirmed) return;
     // Argentina is the only prefix ever emitted now — a stale non-AR
     // `phone_prefix` from before the country selector was removed must not
     // be trusted (see savedFormData.ts).
@@ -91,8 +86,6 @@ export function QuickBookView({
           totalOnline={pricing.totalOnline}
           type="button"
           onClick={handleQuickSubmit}
-          challenge={challenge}
-          disabled={submitBlocked}
         />
       )}
     </div>

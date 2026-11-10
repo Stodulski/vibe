@@ -74,6 +74,82 @@ type stubStore struct {
 	completed     []uuid.UUID
 	completeErr   error
 	completeCalls int
+
+	// Slot holds. holdErr fails InsertHold; holds, holdHashes, holdIPs and
+	// holdCaps record what each InsertHold was handed. held is the hold
+	// GetHold finds for heldHash; convertErr fails ConvertHold and converted
+	// records the conversions. releaseFinds says whether ReleaseHold finds a
+	// hold to delete. holdCalls records "insert"/"release" in call order.
+	holdErr             error
+	holds               []*bookingstore.Booking
+	holdHashes          [][]byte
+	holdIPs             []string
+	holdCaps            []int
+	held                *bookingstore.Booking
+	heldHash            []byte
+	convertErr          error
+	converted           []*bookingstore.Booking
+	releaseFinds        bool
+	releasedHolds       [][]byte
+	holdCalls           []string
+	expiredHolds        []bookingstore.ReleasedHold
+	expiredHoldWindows  []time.Duration
+	complexHoldsDeleted []uuid.UUID
+}
+
+func (s *stubStore) InsertHold(_ context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error {
+	s.holdCalls = append(s.holdCalls, "insert")
+	if s.holdErr != nil {
+		return s.holdErr
+	}
+	b.ID = uuid.New()
+	b.CreatedAt = time.Now()
+	b.StartsAt = slots.At(timezone.Day(b.Date), b.StartTime)
+	b.EndsAt = b.StartsAt.Add(time.Duration(b.DurationMinutes) * time.Minute)
+	s.holds = append(s.holds, b)
+	s.holdHashes = append(s.holdHashes, tokenHash)
+	s.holdIPs = append(s.holdIPs, ip)
+	s.holdCaps = append(s.holdCaps, maxPerIP)
+	return nil
+}
+
+func (s *stubStore) GetHold(_ context.Context, tokenHash []byte) (*bookingstore.Booking, error) {
+	if s.held == nil || !bytes.Equal(tokenHash, s.heldHash) {
+		return nil, data.ErrRecordNotFound
+	}
+	held := *s.held
+	return &held, nil
+}
+
+func (s *stubStore) ConvertHold(_ context.Context, b *bookingstore.Booking, tokenHash []byte) error {
+	if s.convertErr != nil {
+		return s.convertErr
+	}
+	if !bytes.Equal(tokenHash, s.heldHash) {
+		return bookingstore.ErrHoldNotFound
+	}
+	b.LinkToken = "stub-converted-link-token"
+	s.converted = append(s.converted, b)
+	return nil
+}
+
+func (s *stubStore) ReleaseHold(_ context.Context, tokenHash []byte) (bookingstore.ReleasedHold, bool, error) {
+	s.holdCalls = append(s.holdCalls, "release")
+	s.releasedHolds = append(s.releasedHolds, tokenHash)
+	if !s.releaseFinds {
+		return bookingstore.ReleasedHold{}, false, nil
+	}
+	return bookingstore.ReleasedHold{ComplexID: uuid.New(), Day: time.Now()}, true, nil
+}
+
+func (s *stubStore) DeleteExpiredHolds(_ context.Context, expiry time.Duration) ([]bookingstore.ReleasedHold, error) {
+	s.expiredHoldWindows = append(s.expiredHoldWindows, expiry)
+	return s.expiredHolds, nil
+}
+
+func (s *stubStore) DeleteComplexHolds(_ context.Context, complexID uuid.UUID) error {
+	s.complexHoldsDeleted = append(s.complexHoldsDeleted, complexID)
+	return nil
 }
 
 func (s *stubStore) GetByComplex(context.Context, uuid.UUID, time.Time, time.Time, data.Filters) ([]*bookingstore.Booking, data.Metadata, error) {

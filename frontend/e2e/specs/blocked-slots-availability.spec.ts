@@ -3,7 +3,7 @@ import { test, expect } from '../helpers/auth.fixture';
 import { createApiHelper } from '../helpers/api.helper';
 import type { ApiComplex, ApiCourt } from '../helpers/api.helper';
 import { getFutureDate, TEST_OWNER_C, TURNSTILE_TEST_TOKEN } from '../helpers/test-data';
-import { landingComplexUrl } from '../helpers/landing';
+import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
 
 const API = `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 const SLUG = 'complejo-e2e-blocked-availability';
@@ -107,7 +107,7 @@ test.describe('Blocked Slots — Public Availability', () => {
     // until it's answered. 90 min is the pre-selected default and matches
     // this test's own 18:00-19:30 blocked range. The landing hydrates after it
     // server-renders, so let the scripts settle before the click.
-    await page.waitForLoadState('networkidle');
+    await waitForStorefrontHydration(page);
     await page.getByRole('button', { name: '90 min' }).click();
     await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 

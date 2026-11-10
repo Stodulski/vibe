@@ -54,10 +54,12 @@ var publicRoutes = map[string]string{
 	"POST /api/v1/auth/confirm-email-change": "authenticated by the emailed token, not a session, " +
 		"the same posture as /auth/reset-password",
 
-	"POST /api/v1/book":            "public booking: clients book without an account",
-	"GET /api/v1/book/status":      "clients check their booking by token, without an account",
-	"GET /api/v1/book/cancel-info": "same, before cancelling",
-	"POST /api/v1/book/cancel":     "clients cancel their own booking without an account",
+	"POST /api/v1/book":                       "public booking: clients book without an account",
+	"GET /api/v1/book/status":                 "clients check their booking by token, without an account",
+	"GET /api/v1/book/cancel-info":            "same, before cancelling",
+	"POST /api/v1/book/cancel":                "clients cancel their own booking without an account",
+	"POST /api/v1/book/holds":                 "the storefront holds the slot a visitor picked, before they have an account or a booking",
+	"POST /api/v1/book/holds/{token}/release": "the visitor lets their slot hold go, authenticated by the hold's own token",
 
 	"POST /api/v1/webhooks/mercadopago": "authenticated by MercadoPago's signature, not a session",
 	"GET /api/v1/webhooks/whatsapp":     "Meta's webhook verification handshake",

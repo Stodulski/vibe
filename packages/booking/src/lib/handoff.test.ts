@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { safeSessionStorage } from '@vibe/ui';
-import type { BookingSlotInfo } from '../components/booking-form/types';
 import {
   bookingResultKey,
   clearBookingResult,
@@ -10,9 +9,13 @@ import {
   readConfirmDraft,
   saveBookingResult,
   saveConfirmDraft,
+  saveHoldExpiredNotice,
+  hasHoldExpiredNotice,
+  clearHoldExpiredNotice,
+  type ConfirmDraft,
 } from './handoff';
 
-const DRAFT: BookingSlotInfo = {
+const DRAFT: ConfirmDraft = {
   complexId: 'c1',
   complexName: 'Club Norte',
   complexPhone: '1155550000',
@@ -26,6 +29,8 @@ const DRAFT: BookingSlotInfo = {
   price: 1000,
   depositPercentage: 30,
   cancellationHours: 24,
+  holdToken: 'hold-1',
+  holdExpiresAt: '2026-03-18T13:15:00.000Z',
 };
 
 beforeEach(() => {
@@ -90,5 +95,28 @@ describe('booking result', () => {
 
     expect(readBookingResult('club-norte')).toBeNull();
     expect(safeSessionStorage.get(confirmDraftKey('club-norte'))).not.toBeNull();
+  });
+});
+
+describe('hold-expired notice', () => {
+  it('waits until cleared', () => {
+    expect(hasHoldExpiredNotice('club-norte')).toBe(false);
+    saveHoldExpiredNotice('club-norte');
+    expect(hasHoldExpiredNotice('club-norte')).toBe(true);
+    clearHoldExpiredNotice('club-norte');
+    expect(hasHoldExpiredNotice('club-norte')).toBe(false);
+  });
+
+  it('is kept per slug', () => {
+    saveHoldExpiredNotice('club-norte');
+    expect(hasHoldExpiredNotice('club-sur')).toBe(false);
+  });
+});
+
+describe('confirm draft hold', () => {
+  it('rejects a draft without a hold token', () => {
+    const { holdToken: _holdToken, ...withoutHold } = DRAFT;
+    safeSessionStorage.set(confirmDraftKey('club-norte'), JSON.stringify(withoutHold));
+    expect(readConfirmDraft('club-norte')).toBeNull();
   });
 });

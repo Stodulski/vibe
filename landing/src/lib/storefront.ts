@@ -49,8 +49,8 @@ export const DEFAULT_SHARE_IMAGE = 'https://vibe.com.ar/og-image.png';
 /**
  * The config the booking entries run with on the storefront. The API base is absolute,
  * and the privacy link points at this origin's /privacidad. The Turnstile site key
- * (PUBLIC_TURNSTILE_SITE_KEY) is passed only when set: without it the confirm step shows
- * no challenge and sends no token.
+ * (PUBLIC_TURNSTILE_SITE_KEY) is passed only when set: without it the complex page runs
+ * no challenge and the slot hold carries no token.
  */
 export function storefrontBookingConfig(apiBaseUrl: string, turnstileSiteKey?: string) {
   return {
@@ -84,7 +84,7 @@ export const ASTRO_INLINE_SCRIPT_HASHES = [
  * `style-src 'unsafe-inline'` stays because React sets inline styles, and frame-ancestors
  * is kept in the header, where it applies (a meta tag cannot set it).
  * challenges.cloudflare.com is allowed in script-src and frame-src, as in the app: the
- * confirm step loads the Turnstile widget when PUBLIC_TURNSTILE_SITE_KEY is set.
+ * complex page loads the Turnstile widget when PUBLIC_TURNSTILE_SITE_KEY is set.
  */
 export const STOREFRONT_CSP_REPORT_ONLY = [
   "default-src 'self'",

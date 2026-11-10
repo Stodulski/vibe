@@ -1,7 +1,7 @@
 import { test, expect, request as apiRequest } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { PublicBookingPage } from '../pages/public-booking.page';
-import { landingComplexUrl } from '../helpers/landing';
+import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
 import {
   registerAndLoginOwner,
   ensureTestComplex,
@@ -24,7 +24,7 @@ const SLUG = 'complejo-publico-e2e';
 async function answerDurationQuestion(page: Page): Promise<void> {
   // The landing server-renders the question and hydrates it afterwards; a
   // click that lands before hydration does nothing, so let the scripts settle.
-  await page.waitForLoadState('networkidle');
+  await waitForStorefrontHydration(page);
   // 90 min is already the pre-selected default (see DEFAULT_DURATION in
   // useComplexPageState.ts) -- clicking it answers the step (steps.answer)
   // without necessarily changing `duration`, so it may not trigger a new
@@ -120,8 +120,10 @@ test.describe('Public Booking Flow', () => {
     const slotFound = await findAndClickAvailableSlot(dateBtns);
     test.skip(!slotFound, 'No available slots found in the next 7 days');
 
-    await publicPage.chooseFirstCourt();
+    const hold = await publicPage.chooseFirstCourt();
+    expect(hold.status()).toBe(201);
     await expect(page).toHaveURL(new RegExp(`${SLUG}/book/confirm`));
+    await expect(publicPage.holdCountdown).toContainText(/Te guardamos el turno por \d{2}:\d{2}/);
   });
 });
 

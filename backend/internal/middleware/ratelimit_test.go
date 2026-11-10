@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -322,5 +323,30 @@ func TestADifferentIPv6Slash64KeepsItsOwnAuthBudget(t *testing.T) {
 	}
 	if got := send("[2001:db8:1:3::1]:1000"); got != http.StatusOK {
 		t.Errorf("a different /64 must still be served; got %d", got)
+	}
+}
+
+// The slot hold is throttled like POST /book — the same numbers — in a bucket
+// of its own, so a visitor who changes their mind about the court a couple of
+// times does not spend the attempts their booking needs. Releasing a hold is
+// throttled by the general ceiling only: it is called by sendBeacon as the
+// page goes away, and refusing it would only leave the slot held longer.
+func TestTheSlotHoldIsThrottledLikeABookingInItsOwnBucket(t *testing.T) {
+	cases := []struct {
+		method, path string
+		want         []int
+	}{
+		{http.MethodPost, "/api/v1/book", []int{indexGeneral, indexBooking}},
+		{http.MethodPost, "/api/v1/book/holds", []int{indexGeneral, indexHold}},
+		{http.MethodPost, "/api/v1/book/holds/abc/release", []int{indexGeneral}},
+	}
+	for _, tc := range cases {
+		r := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, nil)
+		if got := ceilingsFor(r); !slices.Equal(got, tc.want) {
+			t.Errorf("%s %s: ceilings %v, want %v", tc.method, tc.path, got, tc.want)
+		}
+	}
+	if holdCeiling.rps != bookingCeiling.rps || holdCeiling.burst != bookingCeiling.burst || holdCeiling.name == bookingCeiling.name {
+		t.Errorf("the hold ceiling must have POST /book's numbers under its own name; got %+v vs %+v", holdCeiling, bookingCeiling)
 	}
 }

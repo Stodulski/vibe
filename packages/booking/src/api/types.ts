@@ -178,8 +178,32 @@ export interface PublicBookingRequest {
   client_phone: string;
   client_email?: string;
   client_notes?: string;
+  /**
+   * The hold taken when the court was picked (`POST /book/holds`). The booking
+   * converts that hold, so this request carries no Turnstile token: the
+   * challenge was answered when the hold was taken.
+   */
+  hold_token: string;
+}
+
+/** `POST /book/holds`: holds a slot for the visitor while they fill in their details. */
+export interface PublicHoldRequest {
+  complex_id: string;
+  court_id: string;
+  date: string;
+  start_time: string;
+  duration_minutes: DurationMinutes;
   /** Cloudflare Turnstile token, sent only when the storefront has a site key. Single use. */
   turnstile_token?: string;
+  /** The visitor's previous hold, released first: one active hold per browser. */
+  replaces?: string;
+}
+
+/** A slot hold: its secret token and the instant the server lets it go. */
+export interface PublicHold {
+  token: string;
+  /** RFC 3339 instant. The countdown runs to this, never to a client-side 15:00. */
+  expiresAt: string;
 }
 
 /** The confirmation projection of a booking. No primary key is sent. */

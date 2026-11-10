@@ -1,5 +1,10 @@
 import type { KyInstance } from 'ky';
-import type { PublicBookingRequest, PublicCancelBookingRequest, WaitlistJoinRequest } from './types';
+import type {
+  PublicBookingRequest,
+  PublicCancelBookingRequest,
+  PublicHoldRequest,
+  WaitlistJoinRequest,
+} from './types';
 import { parseWith, type ErrorReporter } from '../lib/apiParse';
 import {
   publicComplexResponseSchema,
@@ -7,6 +12,7 @@ import {
   bookingStatusResponseSchema,
   cancelInfoResponseSchema,
   publicCancelBookingResponseSchema,
+  holdResponseSchema,
 } from '../schemas/publicBooking.schema';
 import { availabilityEnvelopeSchema, nextAvailableSchema } from '../schemas/availability.schema';
 import { withSignal } from './client';
@@ -45,6 +51,17 @@ export function createPublicBookingApi(client: KyInstance, report?: ErrorReporte
     /** Puts the email on the waitlist for the day. The answer is an empty `204`. */
     joinWaitlist: (slug: string, data: WaitlistJoinRequest) =>
       client.post(`public/complexes/${slug}/waitlist`, { json: data }).then(() => undefined),
+
+    /**
+     * Holds the slot the visitor picked until the returned `expiresAt`. Not
+     * idempotent: every call spends its Turnstile token, and `replaces`
+     * releases the previous hold first, so a retry is a new hold.
+     */
+    createHold: (data: PublicHoldRequest) =>
+      client
+        .post('book/holds', { json: data })
+        .json()
+        .then(parseWith(holdResponseSchema, 'publicBookingApi.createHold', report)),
 
     /**
      * `idempotencyKey` makes a retried submit replay the first answer instead

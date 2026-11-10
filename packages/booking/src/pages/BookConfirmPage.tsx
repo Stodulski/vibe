@@ -1,82 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
-import { BookingForm, type BookingSlotInfo } from '../components/BookingForm';
-import { TurnstileField, type TurnstileFieldHandle } from '../components/booking-form/TurnstileField';
-import { useBookingConfig } from '../config';
+import { BookingForm } from '../components/BookingForm';
 import { StepIndicator } from '../components/StepIndicator';
 import { LoadingSpinner } from '@vibe/ui';
 import { Button } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../messages';
 import { publicComplexPath } from '../lib/publicPaths';
 import { useConfirmBookingSubmit } from './book-confirm-page/useConfirmBookingSubmit';
+import { useSlotHold } from './book-confirm-page/useSlotHold';
+import { HoldCountdown } from './book-confirm-page/HoldCountdown';
 import { navigateTo } from '../lib/navigation';
-import { clearConfirmDraft, readConfirmDraft } from '../lib/handoff';
-import { HOURS_ANCHOR } from '../components/CourtSelector';
+import { readConfirmDraft, type ConfirmDraft } from '../lib/handoff';
 
 const t = BOOKING_MESSAGES;
 
 export default function BookConfirmPage({ slug }: { slug: string }) {
-  // The draft is the slot the person chose on the complex page, parked in
-  // sessionStorage for this slug. It is read once, when the page mounts. A
-  // missing or invalid draft (a direct visit, a stale tab) sends the person
-  // back to the complex page, as the old router state did.
-  const slotInfo = useMemo(() => readConfirmDraft(slug), [slug]);
+  // The draft is the slot the person chose on the complex page and the hold
+  // taken on it, parked in sessionStorage for this slug. It is read once, when
+  // the page mounts. A missing or invalid draft, or one without a hold (a
+  // direct visit, a stale tab), sends the person back to the complex page.
+  const draft = useMemo(() => readConfirmDraft(slug), [slug]);
 
   useEffect(() => {
-    if (!slotInfo) {
+    if (!draft) {
       navigateTo(publicComplexPath(slug), { replace: true });
     }
-  }, [slotInfo, slug]);
+  }, [draft, slug]);
 
-  if (!slotInfo) {
+  if (!draft) {
     return null;
   }
 
-  // "Cambiar horario" lands on the hours: the query keeps the date, duration
-  // and sport already answered, the hour is left out so the grid shows instead
-  // of the court question, and `#horarios` tells the grid to bring itself into
-  // view (`CourtSelector`).
-  const back = new URLSearchParams({
-    date: slotInfo.date,
-    duration: String(slotInfo.durationMinutes),
-  });
-  if (slotInfo.sport) back.set('sport', slotInfo.sport);
-
-  return (
-    <BookConfirmPageContent
-      slug={slug}
-      slotInfo={slotInfo}
-      onBack={() => {
-        clearConfirmDraft(slug);
-        navigateTo(`${publicComplexPath(slug)}?${back.toString()}${HOURS_ANCHOR}`, { replace: true });
-      }}
-    />
-  );
+  return <BookConfirmPageContent slug={slug} draft={draft} />;
 }
 
 interface BookConfirmPageContentProps {
-  slug: string | undefined;
-  slotInfo: BookingSlotInfo;
-  onBack: () => void;
+  slug: string;
+  draft: ConfirmDraft;
 }
 
-function BookConfirmPageContent({ slug, slotInfo, onBack }: BookConfirmPageContentProps) {
-  const { turnstileSiteKey } = useBookingConfig();
-  // The Turnstile token lives here, above both submit paths, so a switch
-  // between quick-book and the full form keeps it.
-  const [turnstileToken, setTurnstileToken] = useState<string>();
-  const turnstileRef = useRef<TurnstileFieldHandle>(null);
-  const { handleSubmit, isLoading, submitBlocked, redirecting, paymentLinkError, retry } = useConfirmBookingSubmit(
-    slug,
-    slotInfo,
-    {
-      required: Boolean(turnstileSiteKey),
-      token: turnstileToken,
-      reset: () => {
-        turnstileRef.current?.reset();
-      },
-    },
-  );
+function BookConfirmPageContent({ slug, draft }: BookConfirmPageContentProps) {
+  const hold = useSlotHold(slug, draft);
+  const { handleSubmit, isLoading, redirecting, paymentLinkError, retry } = useConfirmBookingSubmit(slug, draft, {
+    onExpired: hold.expire,
+    onConverted: hold.markConverted,
+  });
 
   if (redirecting) {
     return (
@@ -92,25 +60,21 @@ function BookConfirmPageContent({ slug, slotInfo, onBack }: BookConfirmPageConte
     <div className="animate-fade-in w-full space-y-6 sm:space-y-8">
       <StepIndicator currentStep={2} />
 
-      {/* Back to slot selection */}
+      {/* Back to slot selection, giving the held slot back */}
       <button
         type="button"
-        onClick={onBack}
+        onClick={hold.changeTime}
         className="text-text-tertiary hover:text-text-secondary flex min-h-12 items-center gap-1.5 text-sm transition-colors sm:min-h-0"
       >
         <ArrowLeft className="size-3.5" />
         {t.publicBooking.changeTimeSlot}
       </button>
 
-      <BookingForm
-        slotInfo={slotInfo}
-        onSubmit={handleSubmit}
-        isLoading={isLoading}
-        submitBlocked={submitBlocked}
-        challenge={<TurnstileField ref={turnstileRef} onTokenChange={setTurnstileToken} />}
-      />
+      <HoldCountdown expiresAt={draft.holdExpiresAt} onExpire={hold.expire} />
 
-      {paymentLinkError && <PaymentLinkErrorAlert onRetry={retry} retryDisabled={submitBlocked} />}
+      <BookingForm slotInfo={draft} onSubmit={handleSubmit} isLoading={isLoading} />
+
+      {paymentLinkError && <PaymentLinkErrorAlert onRetry={retry} retryDisabled={isLoading} />}
     </div>
   );
 }
@@ -118,8 +82,7 @@ function BookConfirmPageContent({ slug, slotInfo, onBack }: BookConfirmPageConte
 /**
  * Stays on screen until the person acts, unlike the toast it replaces for this
  * one case: the data they typed survived, and "Reintentar" resubmits it as-is
- * instead of asking them to start over. Disabled while a Turnstile challenge
- * waits for a fresh token.
+ * instead of asking them to start over. Disabled while that resubmit runs.
  */
 function PaymentLinkErrorAlert({ onRetry, retryDisabled }: { onRetry: () => void; retryDisabled: boolean }) {
   return (

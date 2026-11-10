@@ -45,7 +45,12 @@ const (
 	// optimistic-concurrency write that named an If-Match/version the row no
 	// longer carries, so the frontend can switch on it without parsing Detail.
 	KindStaleVersion Kind = "stale-version"
-	KindGone         Kind = "gone"
+	// KindHoldExpired is a 409 distinct from the generic KindConflict: the
+	// storefront's slot hold named by a booking request is gone (unknown,
+	// released, already converted or past its window), so the visitor has to
+	// pick a time again rather than retry.
+	KindHoldExpired Kind = "hold-expired"
+	KindGone        Kind = "gone"
 	// KindUnsupportedMediaType is the 415 ReadJSON answers when a request's
 	// Content-Type does not declare application/json — see
 	// UnsupportedMediaTypeError in json.go for why this exists.
@@ -123,6 +128,7 @@ var titles = map[Kind]string{
 	KindDuplicateBooking:     "Duplicate Booking",
 	KindSlotUnavailable:      "Slot Unavailable",
 	KindStaleVersion:         "Stale Version",
+	KindHoldExpired:          "Hold Expired",
 	KindGone:                 "Gone",
 	KindUnsupportedMediaType: "Unsupported Media Type",
 	KindTooLarge:             "Payload Too Large",

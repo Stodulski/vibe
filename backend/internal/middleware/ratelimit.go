@@ -76,6 +76,11 @@ func (c ceiling) retryAfter() time.Duration {
 var (
 	authCeiling    = ceiling{name: "auth", rps: 1.0 / 6.0, burst: 10}
 	bookingCeiling = ceiling{name: "book", rps: 1.0 / 20.0, burst: 3}
+	// holdCeiling throttles POST /book/holds with POST /book's own numbers, in
+	// a bucket of its own: taking a hold is the step that now takes the slot,
+	// and a visitor who changes court a couple of times must not spend the
+	// attempts their booking needs.
+	holdCeiling = ceiling{name: "hold", rps: bookingCeiling.rps, burst: bookingCeiling.burst}
 )
 
 // ttlMillis is how long an idle bucket is kept: long enough to refill
@@ -119,12 +124,14 @@ var (
 	generalOnly    = []int{indexGeneral}
 	generalAndAuth = []int{indexGeneral, indexAuth}
 	generalAndBook = []int{indexGeneral, indexBooking}
+	generalAndHold = []int{indexGeneral, indexHold}
 )
 
 const (
 	indexGeneral = iota
 	indexAuth
 	indexBooking
+	indexHold
 	// indexUser is not in any ceilingsFor slice: it is enforced by
 	// RateLimitUser, which runs further in than the others because the account
 	// it keys on is not known until Authenticate has resolved it.
@@ -167,6 +174,8 @@ func ceilingsFor(r *http.Request) []int {
 		return generalAndAuth
 	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/book":
 		return generalAndBook
+	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/book/holds":
+		return generalAndHold
 	default:
 		return generalOnly
 	}
@@ -228,7 +237,7 @@ func (m *Middleware) RateLimit(next http.Handler) http.Handler {
 
 // ceilings returns the limits in index order.
 func (m *Middleware) ceilings() [ceilingCount]ceiling {
-	return [ceilingCount]ceiling{m.generalCeiling(), authCeiling, bookingCeiling, m.userCeiling()}
+	return [ceilingCount]ceiling{m.generalCeiling(), authCeiling, bookingCeiling, holdCeiling, m.userCeiling()}
 }
 
 // refuseRateLimited answers a refused request with the ordinary 429 problem

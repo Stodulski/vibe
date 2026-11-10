@@ -143,6 +143,7 @@ describe('publicBookingApi', () => {
       client_last_name: 'Garcia',
       client_phone: '1155550000',
       client_email: 'juan@test.com',
+      hold_token: 'hold-1',
     };
     await publicBookingApi.createBooking(data, 'attempt-key-1');
 
@@ -204,5 +205,41 @@ describe('publicBookingApi — booking status and cancellation', () => {
     server.use(http.get('*/book/status', () => HttpResponse.json({ booking: { status: 'not-a-real-status' } })));
 
     await expect(publicBookingApi.getBookingStatus('tok1')).rejects.toThrow(ApiResponseError);
+  });
+});
+
+describe('publicBookingApi — slot holds', () => {
+  it('createHold calls POST book/holds with the body and returns the parsed hold', async () => {
+    let captured: unknown;
+    server.use(
+      http.post('*/book/holds', async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json(
+          { hold: { token: 'hold-1', expires_at: '2030-01-01T12:15:00Z' } },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const result = await publicBookingApi.createHold({
+      complex_id: 'c1',
+      court_id: 'ct1',
+      date: '2030-01-01',
+      start_time: '10:00',
+      duration_minutes: 60,
+      turnstile_token: 'tok',
+      replaces: 'hold-0',
+    });
+
+    expect(captured).toEqual({
+      complex_id: 'c1',
+      court_id: 'ct1',
+      date: '2030-01-01',
+      start_time: '10:00',
+      duration_minutes: 60,
+      turnstile_token: 'tok',
+      replaces: 'hold-0',
+    });
+    expect(result).toEqual({ token: 'hold-1', expiresAt: '2030-01-01T12:15:00Z' });
   });
 });

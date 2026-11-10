@@ -56,6 +56,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 		ClientEmail     string `json:"client_email"`
 		ClientNotes     string `json:"client_notes"`
 		TurnstileToken  string `json:"turnstile_token"`
+		HoldToken       string `json:"hold_token"`
 	}
 
 	err := httpx.ReadJSON(w, r, &input)
@@ -105,6 +106,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 
 	v.Check(validator.PermittedValue(input.DurationMinutes, slots.PermittedDurations()...), "duration_minutes", durationMessage)
 	v.Check(len(input.ClientNotes) <= 2000, "client_notes", "must not exceed 2000 characters")
+	v.Check(len(input.HoldToken) <= 256, "hold_token", "must not be more than 256 characters")
 
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
@@ -113,7 +115,12 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 
 	// The bot check runs before anything holds a slot, creates a client or
 	// reaches MercadoPago: a refused token must cost this server nothing.
-	if !h.checkTurnstile(w, r, input.TurnstileToken) {
+	//
+	// A request converting a slot hold is not checked again: the visitor
+	// passed the check when they took the hold (POST /book/holds), and the
+	// hold's token is a secret only that check handed out. One challenge per
+	// booking (owner decision 2026-11-10).
+	if input.HoldToken == "" && !h.checkTurnstile(w, r, input.TurnstileToken) {
 		return
 	}
 
@@ -150,6 +157,7 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 		ClientPhone:     input.ClientPhone,
 		ClientEmail:     input.ClientEmail,
 		ClientNotes:     input.ClientNotes,
+		HoldToken:       input.HoldToken,
 	})
 	if err != nil {
 		h.refuse(w, r, err)

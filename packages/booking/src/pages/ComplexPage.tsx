@@ -7,6 +7,8 @@ import { useAvailableSports } from './complex-page/useAvailableSports';
 import { useFilteredCourts } from './complex-page/useFilteredCourts';
 import { useEmptyDay } from './complex-page/useEmptyDay';
 import { useHandleContinue } from './complex-page/useHandleContinue';
+import { useHoldChallenge } from './complex-page/useHoldChallenge';
+import { TurnstileField } from '../components/booking-form/TurnstileField';
 import { NotFoundState } from './complex-page/NotFoundState';
 import { ComplexErrorState } from './complex-page/ComplexErrorState';
 import { ComplexPageLoadingSkeleton } from './complex-page/ComplexPageLoadingSkeleton';
@@ -100,8 +102,9 @@ function useComplexContinue(
   dateStr: string,
 ) {
   const mpConnected = !!complexData?.complex.payments_enabled;
-  const handleContinue = useHandleContinue(slug, complexData?.complex, mpConnected, activeSlot, dateStr);
-  return { mpConnected, handleContinue };
+  const hold = useHoldChallenge();
+  const handleContinue = useHandleContinue(slug, complexData?.complex, mpConnected, activeSlot, dateStr, hold.challenge);
+  return { mpConnected, handleContinue, hold };
 }
 
 /**
@@ -115,17 +118,16 @@ function ComplexPageBody({
   state,
   availableSports,
   availabilityBag,
-  mpConnected,
-  handleContinue,
+  continueBag,
 }: {
   complexData: NonNullable<ReturnType<typeof useComplexBySlug>['data']>;
   state: ReturnType<typeof useComplexPageState>;
   availableSports: ReturnType<typeof useAvailableSports>;
   availabilityBag: ReturnType<typeof useComplexAvailability>;
-  mpConnected: boolean;
-  handleContinue: ReturnType<typeof useComplexContinue>['handleContinue'];
+  continueBag: ReturnType<typeof useComplexContinue>;
 }) {
   const { complex, schedules, courts } = complexData;
+  const { mpConnected, handleContinue, hold } = continueBag;
   const {
     availability,
     availLoading,
@@ -168,6 +170,7 @@ function ComplexPageBody({
       onPendingStartTimeChange={state.setPendingStartTime}
       answeredFromUrl={state.answeredFromUrl}
       emptyDay={emptyDay}
+      challenge={<TurnstileField key={hold.generation} onTokenChange={hold.onTokenChange} />}
     />
   );
 }
@@ -179,7 +182,7 @@ export default function ComplexPage({ slug }: { slug: string }) {
   const availableSports = useAvailableSports(complexData);
 
   const availabilityBag = useComplexAvailability(slug, state);
-  const { mpConnected, handleContinue } = useComplexContinue(
+  const continueBag = useComplexContinue(
     slug,
     complexData,
     availabilityBag.activeSlot,
@@ -206,8 +209,7 @@ export default function ComplexPage({ slug }: { slug: string }) {
       state={state}
       availableSports={availableSports}
       availabilityBag={availabilityBag}
-      mpConnected={mpConnected}
-      handleContinue={handleContinue}
+      continueBag={continueBag}
     />
   );
 }

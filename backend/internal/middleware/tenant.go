@@ -47,7 +47,7 @@ import (
 //	            complex one.
 //	platform    the route looks across tenants, or writes a platform-level row
 //	            with no complex at all.
-var crossTenantRoutes = map[string]string{
+var crossTenantRoutes = map[string]string{ //nolint:gosec // G101: route patterns such as {token} are paths, not credentials
 	// platform — the Threads connection is Vibe's own account, not tenant data.
 	// The connect route reads and writes social_threads_connection only.
 	"GET /api/v1/social/threads/connect": "superadmin: connects the platform's Threads account; touches no tenant table",
@@ -92,6 +92,9 @@ var crossTenantRoutes = map[string]string{
 	"GET /api/v1/book/status":                            "resolves: the booking link authenticates by token hash, which yields the booking",
 	"GET /api/v1/book/cancel-info":                       "resolves: same token hash, same booking",
 	"POST /api/v1/book/cancel":                           "resolves: same token hash, same booking",
+	"POST /api/v1/book/holds": "resolves: the slot hold is handed a complex id and validates it, " +
+		"and counts the address's live holds across every complex",
+	"POST /api/v1/book/holds/{token}/release": "resolves: the hold token's hash yields the booking",
 
 	// resolves — MercadoPago arrives with a payment id and nothing else.
 	"POST /api/v1/webhooks/mercadopago": "resolves: the tenant is found from the payment's external reference",

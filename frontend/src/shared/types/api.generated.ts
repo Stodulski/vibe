@@ -341,6 +341,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/book/holds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hold a slot while the visitor fills in their details
+         * @description Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned token converts it, and the hold ends by itself at `expires_at`. Refused with the same answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address (429).
+         */
+        post: operations["bookingsPublicHoldCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/book/holds/{token}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release a slot hold
+         * @description Public, and a POST so `navigator.sendBeacon` can call it when the page goes away. Releases the hold if it is still an untouched hold; a converted or paid booking is never touched. Answers 204 whatever happened, so it says nothing about which tokens exist. Cross-tenant bypass reason `resolves`.
+         */
+        post: operations["bookingsPublicHoldRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/book/status": {
         parameters: {
             query?: never;
@@ -3734,8 +3774,10 @@ export interface operations {
                     client_phone: string;
                     client_email?: string;
                     client_notes?: string;
-                    /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through. */
+                    /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), and only when no `hold_token` is sent. A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through. */
                     turnstile_token?: string;
+                    /** @description The slot hold taken with `POST /api/v1/book/holds`. With it the held booking is converted: the hours come from the hold (the request's court, date, start and duration must match it or 409 `conflict`), no Turnstile token is checked, and the checkout expires when the hold does. An unknown, released, already converted or expired hold answers 409 `hold-expired`. Without it the booking is created as before holds existed. */
+                    hold_token?: string;
                 };
             };
         };
@@ -3767,7 +3809,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. */
+            /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. With `hold_token`: the request does not match the hold (`conflict`), or the hold is gone (`hold-expired`). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3788,6 +3830,103 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    bookingsPublicHoldCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    complex_id: string;
+                    /** Format: uuid */
+                    court_id: string;
+                    /** Format: date */
+                    date: string;
+                    start_time: string;
+                    /** @description Must be one of the permitted slot durations. */
+                    duration_minutes: number;
+                    /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the hold through. */
+                    turnstile_token?: string;
+                    /** @description The visitor's previous hold token, released before this hold is taken: one browser holds one slot. */
+                    replaces?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Slot held. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hold: {
+                            /** @description Opaque secret naming the hold. Only its hash is stored. */
+                            token: string;
+                            /** Format: date-time */
+                            expires_at: string;
+                        };
+                    };
+                };
+            };
+            /** @description Malformed body, or the complex has no MercadoPago connected. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown or inactive complex or court, or the court belongs to a different complex. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    bookingsPublicHoldRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Released, or there was nothing to release. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
         };
     };
     bookingsPublicStatus: {

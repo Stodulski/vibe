@@ -848,6 +848,32 @@ func (m *mockBookingStore) GetExpiredPendingEnriched(ctx context.Context, expiry
 	return nil, nil
 }
 
+// The slot hold methods answer as if no hold exists: no cmd/api test drives
+// a hold through the mock store (the hold rules are tested in
+// internal/bookings and against the database).
+
+func (m *mockBookingStore) InsertHold(context.Context, *bookingstore.Booking, []byte, string, int) error {
+	return nil
+}
+
+func (m *mockBookingStore) GetHold(context.Context, []byte) (*bookingstore.Booking, error) {
+	return nil, data.ErrRecordNotFound
+}
+
+func (m *mockBookingStore) ConvertHold(context.Context, *bookingstore.Booking, []byte) error {
+	return bookingstore.ErrHoldNotFound
+}
+
+func (m *mockBookingStore) ReleaseHold(context.Context, []byte) (bookingstore.ReleasedHold, bool, error) {
+	return bookingstore.ReleasedHold{}, false, nil
+}
+
+func (m *mockBookingStore) DeleteExpiredHolds(context.Context, time.Duration) ([]bookingstore.ReleasedHold, error) {
+	return nil, nil
+}
+
+func (m *mockBookingStore) DeleteComplexHolds(context.Context, uuid.UUID) error { return nil }
+
 func (m *mockBookingStore) GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error) {
 	if m.GetUnpaidPublicPendingEnrichedFn != nil {
 		return m.GetUnpaidPublicPendingEnrichedFn(ctx, complexID)

@@ -6,14 +6,11 @@ package bookings
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
-	"github.com/stodulski/vibe-server/internal/booklink"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
@@ -23,7 +20,6 @@ import (
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
-	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // publicActor is what the audit trail records as the actor for the two
@@ -86,6 +82,18 @@ type PublicBookInput struct {
 	ClientPhone     string
 	ClientEmail     string
 	ClientNotes     string
+	// HoldToken is the slot hold the visitor took when they picked the court.
+	// Empty is the pre-hold flow, which a storefront still running that code
+	// keeps using during a deploy.
+	HoldToken string
+}
+
+// slot is the part of the request that names the hours.
+func (in PublicBookInput) slot() publicSlotRequest {
+	return publicSlotRequest{
+		ComplexID: in.ComplexID, CourtID: in.CourtID, Date: in.Date,
+		StartTime: in.StartTime, DurationMinutes: in.DurationMinutes,
+	}
 }
 
 // PublicBookResult is a booking held for a client while they pay for it.
@@ -124,60 +132,30 @@ var ErrSlotTaken = errors.New("bookings: the selected time slot is no longer ava
 // and this repository sets no statement timeout.
 const checkoutCleanupBudget = 5 * time.Second
 
-// PublicBook holds a slot, creates the booking as pending, and creates the
-// MercadoPago checkout. The booking is only confirmed when the payment webhook
-// lands. If anything fails after the slot is held it is released, or it stays
-// locked until the TTL expires and nobody can book it.
+// PublicBook creates the pending storefront booking and its MercadoPago
+// checkout. The booking is only confirmed when the payment webhook lands.
 //
-// It is one cohesive request lifecycle — check, price, hold the slot, insert,
-// create the checkout — and splitting it would spread a single
+// With a hold token it converts the slot hold the visitor took when they
+// picked the court (bookFromHold, hold.go). Without one it is the flow the
+// storefront used before holds existed, kept unchanged for a storefront still
+// running that code during a deploy: it checks the slot, holds it under a slot
+// lock, inserts the booking and creates the checkout. If anything fails after
+// the slot is held it is released, or it stays locked until the TTL expires
+// and nobody can book it.
+//
+// It is one cohesive request lifecycle — check, hold the slot, insert, create
+// the checkout — and splitting it further would spread a single
 // transaction-like sequence across helpers.
 //
-//nolint:funlen,gocyclo,cyclop,maintidx // see the cohesion note above
+//nolint:funlen // see the cohesion note above
 func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInput) (PublicBookResult, error) {
-	// Cheap early bound on the grid day, before any lookup. It stops one day
-	// short of today rather than at today: yesterday's grid carries
-	// after-midnight slots that start on today's calendar day, and a 00:30
-	// start is still bookable at 00:10. Whether a start has already passed is
-	// the instant check's call below; a booking whose calendar day is over is
-	// refused on startDate, once the grid has placed the start.
-	todayArg := time.Now().In(timezone.Argentina)
-	todayDate := time.Date(todayArg.Year(), todayArg.Month(), todayArg.Day(), 0, 0, 0, 0, time.UTC)
-	if in.Date.Before(todayDate.AddDate(0, 0, -1)) {
-		return PublicBookResult{}, &ConflictError{Message: "cannot book a past date"}
+	if in.HoldToken != "" {
+		return s.bookFromHold(ctx, actor, in)
 	}
 
-	// H-08: the upper end of the date was never bounded at all — "9999-12-31"
-	// was accepted with a real MercadoPago preference created. Unlike a block
-	// dated that far out (internal/courts.BlockSlot has the same bound, for
-	// the schedules to agree), a booking left standing holds a slot forever
-	// and is never reaped: the completion sweep only completes a booking
-	// whose end time has already passed. It is a standing way for an
-	// anonymous visitor — this endpoint needs no account — to leave permanent
-	// rows behind, one request at a time. This early bound allows one day past
-	// the horizon, because an after-midnight start of the last bookable grid day
-	// falls on the day after it; the exact horizon is applied to startDate below.
-	if in.Date.After(todayDate.AddDate(0, 0, bookingstore.MaxBookingHorizonDays+1)) {
-		return PublicBookResult{}, &ConflictError{Message: fmt.Sprintf(
-			"cannot book more than %d days in advance", bookingstore.MaxBookingHorizonDays)}
-	}
-
-	// Verify complex exists and is active.
-	complex, err := s.complexes.GetByID(ctx, in.ComplexID)
+	complex, court, err := s.publicVenue(ctx, in.slot())
 	if err != nil {
 		return PublicBookResult{}, err
-	}
-	if !complex.IsActive {
-		return PublicBookResult{}, data.ErrRecordNotFound
-	}
-
-	// Verify court belongs to complex and is active.
-	court, err := s.courts.GetByID(ctx, in.CourtID)
-	if err != nil {
-		return PublicBookResult{}, err
-	}
-	if court.ComplexID != complex.ID || !court.IsActive {
-		return PublicBookResult{}, data.ErrRecordNotFound
 	}
 
 	// No client is created here (owner rule 2026-11-10: a client exists only
@@ -186,11 +164,12 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// client (bookingstore.AttachClientFromSnapshot). The blocked rule still
 	// holds, read by phone without writing anything: a phone the venue blocked
 	// is refused, an unknown one carries on.
-	known, err := s.clients.GetByPhone(ctx, complex.ID, in.ClientPhone)
-	switch {
-	case err == nil && known.IsBlocked:
-		return PublicBookResult{}, ErrClientBlocked
-	case err != nil && !errors.Is(err, data.ErrRecordNotFound):
+	if err := s.refuseBlockedPhone(ctx, complex.ID, in.ClientPhone); err != nil {
+		return PublicBookResult{}, err
+	}
+
+	offer, err := s.publicOffer(ctx, complex, court, in.slot())
+	if err != nil {
 		return PublicBookResult{}, err
 	}
 
@@ -202,115 +181,6 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// no longer stores.
 	lockEndTime := slots.Add(in.StartTime, in.DurationMinutes)
 
-	// One derivation of "a bookable position on this court today", shared with
-	// the storefront that offered it. This replaced three separate rules that
-	// lived here: a schedule lookup, a midnight guard with the day's length
-	// written out as a literal, and a containment check that carried an
-	// after-midnight closing past 1440 a second time. What none of them asked is
-	// whether the start is a position on the 30-minute grid at all — see grid.go
-	// for what an off-grid booking costs.
-	//
-	// The order of the refusals is preserved: a venue that is shut is told so
-	// before anything about the hours, and a request that reaches midnight is
-	// told that rather than that it is outside the schedule.
-	grid, gridErr := s.courtGrid(ctx, complex.ID, in.Date)
-	if gridErr != nil && !errors.Is(gridErr, errComplexClosed) {
-		return PublicBookResult{}, gridErr
-	}
-	// The storefront lists a start past midnight under the day its window was
-	// sold from, so in.Date is that grid day. Place says how far into it the
-	// start falls, and the booking is then filed, timed, priced and locked on the
-	// calendar day the start actually falls on, startDate. A booking is stored
-	// under its calendar day everywhere else (see the owner path and grid.go),
-	// and this path must agree with them.
-	var minute int
-	if gridErr == nil {
-		minute, gridErr = grid.Place(in.StartTime, in.DurationMinutes)
-	}
-	if gridErr != nil {
-		return PublicBookResult{}, &ConflictError{Message: gridRefusal(gridErr)}
-	}
-	startDate := in.Date.AddDate(0, 0, slots.CalendarDays(minute))
-	// The two calendar-day rules are checked on startDate, the day the booking
-	// is stored under. Checked on in.Date, an after-midnight slot of the last
-	// bookable day would pass the horizon one day late.
-	if startDate.Before(todayDate) {
-		return PublicBookResult{}, &ConflictError{Message: "cannot book a past date"}
-	}
-	if startDate.After(todayDate.AddDate(0, 0, bookingstore.MaxBookingHorizonDays)) {
-		return PublicBookResult{}, &ConflictError{Message: fmt.Sprintf(
-			"cannot book more than %d days in advance", bookingstore.MaxBookingHorizonDays)}
-	}
-
-	// A slot the owner blocked is not for sale, and this path had no way of
-	// knowing it was blocked: the storefront omits it, and nothing between the
-	// storefront and the insert asked again.
-	// The end comes from adding the duration to the start instant, never from
-	// parsing the end string: slots.Add wraps at midnight, so a 23:00 booking of
-	// sixty minutes would read as ending before it began.
-	// The candidate's instants are built on the product's wall-clock, the same
-	// one blockedDays anchors the block side to. date is parsed as midnight UTC
-	// here, and slots.At carries a date's location through, so leaving it
-	// unanchored put both sides three hours out — which happened to cancel out
-	// on this path and did not on the confirmation path (see grid.go).
-	startAt := slots.At(timezone.Day(startDate), in.StartTime)
-	endAt := startAt.Add(time.Duration(in.DurationMinutes) * time.Minute)
-
-	blocked, err := s.slotIsBlocked(ctx, court.ID, startDate, startAt, endAt)
-	if err != nil {
-		return PublicBookResult{}, err
-	}
-	if blocked {
-		return PublicBookResult{}, &ConflictError{Message: blockedSlotMessage}
-	}
-
-	// Reject slots that have already begun. Compared as instants: an after-
-	// midnight slot of today's grid is tomorrow's, and is not in the past.
-	now := time.Now().In(timezone.Argentina)
-	if !startAt.After(now.Truncate(time.Minute)) {
-		return PublicBookResult{}, &ConflictError{Message: "cannot book a time slot that has already passed"}
-	}
-
-	totalPrice, priceErr := s.findPrice(ctx, court.ComplexID, court.ID, startDate, in.StartTime, in.DurationMinutes)
-	if priceErr != nil {
-		// A booking no rule fully covers is not for sale — the same sentence
-		// the availability grid says by omitting it. This used to fall back to
-		// another band and charge a real amount for it.
-		if errors.Is(priceErr, pricing.ErrNoPriceRule) {
-			return PublicBookResult{}, &ConflictError{Message: unpricedSlotMessage}
-		}
-		return PublicBookResult{}, priceErr
-	}
-
-	depositAmount := totalPrice * complex.DepositPercentage / 100
-
-	// Public bookings always require MercadoPago payment.
-	// If no deposit configured, charge full price.
-	if depositAmount == 0 {
-		depositAmount = totalPrice
-	}
-	mpAmount := depositAmount
-
-	// Verify that the complex has MercadoPago connected (marketplace). The
-	// checkout is created as this seller and nobody else — mp.AsSeller has no
-	// arm that reaches MercadoPago as the platform, which is where the money
-	// would otherwise land.
-	var seller mp.Caller
-	sellerToken, sellerErr := complex.SellerAccessToken()
-	if sellerErr == nil {
-		seller, sellerErr = mp.AsSeller(sellerToken)
-	}
-	if sellerErr != nil {
-		if errors.Is(sellerErr, mpcred.ErrMPCredentialUnreadable) {
-			sentry.CaptureMessage(fmt.Sprintf("SELLER TOKEN UNREADABLE (refusing checkout): complex_id=%s error=%v", complex.ID, sellerErr))
-		}
-		return PublicBookResult{}, ErrMercadoPagoNotConnected
-	}
-
-	// Calculate the flat service fee, paid by client.
-	serviceFee := pricing.ServiceFee(mpAmount)
-	totalClientPays := mpAmount + serviceFee
-
 	booking := &bookingstore.Booking{
 		ComplexID: complex.ID,
 		CourtID:   in.CourtID,
@@ -320,11 +190,11 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 			Phone:     in.ClientPhone,
 			Email:     in.ClientEmail,
 		},
-		Date:             startDate,
+		Date:             offer.startDate,
 		StartTime:        in.StartTime,
 		DurationMinutes:  in.DurationMinutes,
-		Price:            totalPrice,
-		DepositAmount:    depositAmount,
+		Price:            offer.price,
+		DepositAmount:    offer.deposit,
 		Status:           "pending",
 		CollectionStatus: bookingstore.CollectionStatusUnpaid,
 		RefundStatus:     bookingstore.RefundStatusNone,
@@ -347,7 +217,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// it too, so a lock whose TTL ran out and was taken over by another checkout
 	// is never freed from here.
 	holder := uuid.NewString()
-	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, startDate, in.StartTime, lockEndTime, nil, holder, s.cfg.SlotLockTTL); lockErr != nil {
+	if lockErr := s.locks.AcquireLock(ctx, in.CourtID, offer.startDate, in.StartTime, lockEndTime, nil, holder, s.cfg.SlotLockTTL); lockErr != nil {
 		if errors.Is(lockErr, bookingstore.ErrSlotLocked) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -356,7 +226,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 
 	if err := s.store.InsertSafe(ctx, booking); err != nil {
 		// Release the slot lock on insert failure.
-		s.releaseCheckoutLock(ctx, in.CourtID, startDate, in.StartTime, holder)
+		s.releaseCheckoutLock(ctx, in.CourtID, offer.startDate, in.StartTime, holder)
 		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -368,123 +238,16 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	}
 
 	s.realtime.PublishBookingChanged(complex.ID)
+	s.recordPublicBook(actor, booking)
 
-	// The slot is now held by a booking a stranger created, which until now was
-	// the one mutation on this system that left no trail at all: everything an
-	// owner does is recorded and everything an unauthenticated caller does was
-	// not.
-	//
-	// It is recorded here, at the commit, and not at the end. The checkout
-	// failure below cancels this booking again a few hundred milliseconds
-	// later, but that is this request undoing its own work rather than an actor
-	// doing something, and a second nil-actor row for it would say somebody
-	// cancelled a booking when nobody did. Anyone following the entity id reads
-	// the booking's real current status.
-	//
-	// The entity id is the booking's primary key. specs/booking-link-credential
-	// forbids that id reaching Sentry from the three public token routes, and
-	// forbids it appearing in these routes' response bodies — both because the
-	// id was doing duty as a bearer credential and Sentry has no scrubber rule
-	// for a bare UUID. Neither applies here. The trail is a first-party table
-	// scoped by complex_id and readable only by the complex that owns the
-	// booking (internal/audit/handler.go) or by a superadmin, so holding the id
-	// there authorizes nothing; the staff cancel path already writes the same
-	// id (Service.Cancel); and an entry with no entity id would say that
-	// somebody booked something, with no way to tell what — which is not a
-	// trail. What the spec does reach is the token, and the encoding above
-	// keeps it out.
-	s.record(actor, complex.ID, "public_book", &booking.ID, publicBooking{
-		Actor:    publicActor,
-		ClientID: booking.ClientID,
-		Booking:  booking,
+	result, err := s.openCheckout(ctx, checkoutRequest{
+		booking: booking, complex: complex, court: court, seller: offer.seller,
+		rawDate: in.RawDate, expiresIn: s.cfg.PaymentExpiry, payer: in,
 	})
-
-	result := PublicBookResult{
-		Booking:         booking,
-		Complex:         complex,
-		Court:           court,
-		ServiceFee:      serviceFee,
-		TotalClientPays: totalClientPays,
-	}
-
-	// Always create MercadoPago preference for public bookings. back_urls are
-	// built through booklink, keyed on the booking's access token — the
-	// credential the three public routes now authorize on, not the primary
-	// key. mp.CreatePreferenceInput no longer builds any client-facing URL
-	// itself.
-	prefInput := mp.CreatePreferenceInput{
-		BookingID:      booking.ID,
-		ComplexName:    complex.Name,
-		CourtName:      court.Name,
-		Date:           in.RawDate,
-		StartTime:      in.StartTime,
-		Amount:         totalClientPays,
-		MarketplaceFee: serviceFee,
-		Caller:         seller,
-		BackURLs: mp.BackURLs{
-			Success: booklink.Success(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
-			Failure: booklink.Failure(s.cfg.PublicURL, complex.Slug),
-			Pending: booklink.SuccessPending(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
-		},
-		BackendURL:     s.cfg.BackendURL,
-		ExpiresIn:      s.cfg.PaymentExpiry,
-		PayerEmail:     in.ClientEmail,
-		PayerFirstName: in.ClientFirstName,
-		PayerLastName:  in.ClientLastName,
-		PayerPhone:     in.ClientPhone,
-	}
-
-	pref, err := s.createMPPreferenceWithRetry(ctx, prefInput, complex)
 	if err != nil {
-		s.logger.Error("public booking: failed to create MP preference",
-			"error", err,
-			"booking_id", booking.ID,
-		)
-		// Cancel the booking so the slot is freed immediately instead of
-		// blocking it for 15 minutes until the expiration sweep runs.
-		//
-		// The client may have left while MercadoPago was refusing the checkout,
-		// and that cancels ctx. A cancelled context fails the write before it
-		// reaches PostgreSQL, so the booking would stay pending and the slot
-		// taken until the sweep. Detach from that cancellation, and keep a
-		// deadline so a wedged database cannot hold this request's goroutine.
-		booking.Status = "cancelled"
-		cancelCtx, cancelWrite := context.WithTimeout(context.WithoutCancel(ctx), checkoutCleanupBudget)
-		cancelErr := s.store.Update(cancelCtx, booking)
-		cancelWrite()
-		if cancelErr != nil {
-			s.logger.Error("public booking: failed to cancel booking after MP preference failure",
-				"error", cancelErr,
-				"booking_id", booking.ID,
-			)
-		}
-		s.releaseCheckoutLock(ctx, in.CourtID, startDate, in.StartTime, holder)
-		return PublicBookResult{}, ErrCheckoutUnavailable
+		s.releaseCheckoutLock(ctx, in.CourtID, offer.startDate, in.StartTime, holder)
+		return PublicBookResult{}, err
 	}
-
-	payment := &paymentstore.Payment{
-		BookingID:      booking.ID,
-		ComplexID:      booking.ComplexID,
-		Amount:         mpAmount,
-		ServiceFee:     serviceFee,
-		Method:         "mercadopago",
-		Status:         "unpaid",
-		MPPreferenceID: &pref.ID,
-	}
-
-	if err := s.payments.Insert(ctx, payment); err != nil {
-		s.logger.Error("public booking: failed to save payment record",
-			"error", err,
-			"booking_id", booking.ID,
-		)
-	}
-
-	s.logger.Info("mp preference created",
-		"init_point", pref.InitPoint,
-		"env", s.cfg.Environment,
-	)
-
-	result.Preference = pref
 	return result, nil
 }
 
