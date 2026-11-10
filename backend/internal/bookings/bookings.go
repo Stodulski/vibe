@@ -59,8 +59,8 @@ type Store interface {
 	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
 }
 
-// ClientStore resolves the person a booking is for. Public bookings create the
-// client record on the fly, since they arrive with no account.
+// ClientStore resolves the person a booking is for. Owner bookings create the
+// client record on the fly; public ones only once paid (see PublicBook).
 type ClientStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Client, error)
 	// allowNameUpdate must be true only from the authenticated owner path
@@ -68,6 +68,9 @@ type ClientStore interface {
 	// clientstore.Store.GetOrCreate's comment for why an unauthenticated
 	// caller must never be able to overwrite an existing client's name.
 	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
+	// GetByPhone is how the public path applies the blocked rule without
+	// creating a client (see PublicBook).
+	GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*clientstore.Client, error)
 	IncrementNoShows(ctx context.Context, clientID uuid.UUID) error
 }
 

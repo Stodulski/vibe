@@ -120,8 +120,8 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Clien
 	return s.store.GetByID(ctx, id)
 }
 
-// GetOrCreate resolves the person a booking is for, creating the record when a
-// public booking arrives with no account behind it. Exported for bookings.
+// GetOrCreate resolves the person an owner booking is for, creating the record
+// when there is none. Exported for bookings.
 //
 // allowNameUpdate must be true only from the authenticated owner path and false
 // from the public one — see clientstore.Store.GetOrCreate's comment for why an
@@ -129,6 +129,13 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*clientstore.Clien
 // name.
 func (s *Service) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error) {
 	return s.store.GetOrCreate(ctx, complexID, firstName, lastName, phone, email, allowNameUpdate)
+}
+
+// GetByPhone finds a complex's client by phone without creating one: the
+// public booking path asks it whether the phone is blocked. Exported for
+// bookings.
+func (s *Service) GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*clientstore.Client, error) {
+	return s.store.GetByPhone(ctx, complexID, phone)
 }
 
 // IncrementNoShows records that a client did not turn up. Exported for

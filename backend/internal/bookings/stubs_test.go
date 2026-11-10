@@ -282,6 +282,20 @@ type stubClients struct {
 	noShows              []uuid.UUID
 	updated              []*clientstore.Client
 	allowNameUpdateCalls []bool
+	// byPhone is what GetByPhone finds; nil answers ErrRecordNotFound.
+	byPhone      *clientstore.Client
+	phoneLookups []string
+}
+
+func (s *stubClients) GetByPhone(_ context.Context, _ uuid.UUID, phone string) (*clientstore.Client, error) {
+	s.phoneLookups = append(s.phoneLookups, phone)
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.byPhone == nil {
+		return nil, data.ErrRecordNotFound
+	}
+	return s.byPhone, nil
 }
 
 func (s *stubClients) GetByID(context.Context, uuid.UUID) (*clientstore.Client, error) {

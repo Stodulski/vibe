@@ -988,28 +988,12 @@ func TestPublicBookResponseCarriesTheTokenAndNeverTheBookingID(t *testing.T) {
 	}
 }
 
-// The client is created from the booking form, since they have no account.
-func TestPublicBookCreatesTheClientFromTheForm(t *testing.T) {
-	f := newFixture(t)
-	complexID, courtID := preparePublicBooking(f)
-
-	w := httptest.NewRecorder()
-	f.handler.PublicBook(w, publicRequest(t, http.MethodPost, "/", publicBookBody(complexID, courtID, 90)))
-
-	if w.Code != http.StatusCreated {
-		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
-	}
-	if len(f.clients.created) != 1 || f.clients.created[0] != "+541100000000" {
-		t.Errorf("the client was not created from the form; got %v", f.clients.created)
-	}
-}
-
 // R1-client-name-overwrite: PublicBook needs no account, so it must never be
-// able to overwrite an existing client's stored name on a phone match — only
-// the authenticated owner path (create.go) is trusted with that correction.
-// This pins the value PublicBook passes to GetOrCreate, since the stub always
-// succeeds regardless of it and a regression here would otherwise be invisible
-// to every other assertion in this file.
+// able to overwrite an existing client's stored name on a phone match. Since
+// 2026-11-10 it reaches no client write at all — the client is attached when
+// the payment is approved, through clientstore.UpsertByPhone with
+// allowNameUpdate=false (pinned by the payments store integration tests). This
+// pins that the booking request itself never calls GetOrCreate.
 func TestPublicBookNeverAllowsOverwritingAnExistingClientsName(t *testing.T) {
 	f := newFixture(t)
 	complexID, courtID := preparePublicBooking(f)
@@ -1020,8 +1004,8 @@ func TestPublicBookNeverAllowsOverwritingAnExistingClientsName(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
 	}
-	if len(f.clients.allowNameUpdateCalls) != 1 || f.clients.allowNameUpdateCalls[0] {
-		t.Errorf("the public booking endpoint must call GetOrCreate with allowNameUpdate=false; got %v", f.clients.allowNameUpdateCalls)
+	if len(f.clients.allowNameUpdateCalls) != 0 {
+		t.Errorf("the public booking endpoint must not write a client; GetOrCreate ran with %v", f.clients.allowNameUpdateCalls)
 	}
 }
 

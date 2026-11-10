@@ -108,8 +108,10 @@ func TestPublicBookIsRecordedWithTheClientAsActor(t *testing.T) {
 	if value["actor"] != publicActor {
 		t.Errorf("a nil user id also means a system action, so the actor must be named; got %v", value["actor"])
 	}
-	if value["client_id"] != booking.ClientID.String() {
-		t.Errorf("want the client the booking was made for; got %v", value["client_id"])
+	// A storefront booking has no client until it is paid (see
+	// TestPublicBookAuditEntryRecordsNoClientID), so the entry names none.
+	if v, ok := value["client_id"]; ok {
+		t.Errorf("want no client id on an unpaid public booking; got %v", v)
 	}
 	recorded, ok := value["booking"].(map[string]any)
 	if !ok {
