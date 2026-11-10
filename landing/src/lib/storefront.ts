@@ -48,13 +48,16 @@ export const DEFAULT_SHARE_IMAGE = 'https://vibe.com.ar/og-image.png';
 
 /**
  * The config the booking entries run with on the storefront. The API base is absolute,
- * and the privacy link points at this origin's /privacidad.
+ * and the privacy link points at this origin's /privacidad. The Turnstile site key
+ * (PUBLIC_TURNSTILE_SITE_KEY) is passed only when set: without it the confirm step shows
+ * no challenge and sends no token.
  */
-export function storefrontBookingConfig(apiBaseUrl: string) {
+export function storefrontBookingConfig(apiBaseUrl: string, turnstileSiteKey?: string) {
   return {
     apiBaseUrl,
     publicSiteUrl: STOREFRONT_ORIGIN,
     privacyUrl: `${STOREFRONT_ORIGIN}/privacidad`,
+    ...(turnstileSiteKey ? { turnstileSiteKey } : {}),
   };
 }
 
@@ -73,14 +76,15 @@ export const ASTRO_INLINE_SCRIPT_HASHES = [
 
 /**
  * The storefront's Content-Security-Policy, Report-Only first. It mirrors the app's
- * policy (frontend/vercel.json) with three changes, all because the storefront does not
+ * policy (frontend/vercel.json) with two changes, both because the storefront does not
  * use them:
- * - no challenges.cloudflare.com: the public booking flow loads no Turnstile widget;
  * - no *.r2.cloudflarestorage.com in connect-src: uploads live in the owner panel;
  * - no report-uri/report-to: the app's report endpoint is a rewrite in frontend/vercel.json,
  *   and this site has no such rewrite yet. Add it when the reports need to be collected.
  * `style-src 'unsafe-inline'` stays because React sets inline styles, and frame-ancestors
  * is kept in the header, where it applies (a meta tag cannot set it).
+ * challenges.cloudflare.com is allowed in script-src and frame-src, as in the app: the
+ * confirm step loads the Turnstile widget when PUBLIC_TURNSTILE_SITE_KEY is set.
  */
 export const STOREFRONT_CSP_REPORT_ONLY = [
   "default-src 'self'",
@@ -88,9 +92,10 @@ export const STOREFRONT_CSP_REPORT_ONLY = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  `script-src 'self' ${ASTRO_INLINE_SCRIPT_HASHES.join(' ')} https://static.cloudflareinsights.com`,
+  `script-src 'self' ${ASTRO_INLINE_SCRIPT_HASHES.join(' ')} https://static.cloudflareinsights.com https://challenges.cloudflare.com`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
+  'frame-src https://challenges.cloudflare.com',
   "img-src 'self' data: https://*.tile.openstreetmap.org https://*.r2.dev https://*.vibe.com.ar",
   "connect-src 'self' https://api.vibe.com.ar https://vibe.com.ar https://cloudflareinsights.com",
   "worker-src 'self' blob:",

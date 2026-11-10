@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { Control, FieldErrors, UseFormHandleSubmit, UseFormRegister } from 'react-hook-form';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useBookingConfig } from '../../config';
@@ -22,6 +23,8 @@ interface FullFormViewProps {
   control: Control<PublicBookingFormData>;
   errors: FieldErrors<PublicBookingFormData>;
   onSubmit: (data: PublicBookingFormData) => void;
+  challenge?: ReactNode;
+  submitBlocked?: boolean | undefined;
 }
 
 export function FullFormView({
@@ -33,6 +36,8 @@ export function FullFormView({
   control,
   errors,
   onSubmit,
+  challenge,
+  submitBlocked,
 }: FullFormViewProps) {
   const { privacyUrl } = useBookingConfig();
   return (
@@ -43,7 +48,13 @@ export function FullFormView({
         <NameFields register={register} errors={errors} />
         <PhoneAndEmailFields register={register} control={control} errors={errors} />
         <NotesField register={register} />
-        <SubmitFooter isLoading={isLoading} totalOnline={pricing.totalOnline} type="submit" />
+        <SubmitFooter
+          isLoading={isLoading}
+          totalOnline={pricing.totalOnline}
+          type="submit"
+          challenge={challenge}
+          disabled={submitBlocked}
+        />
         <p className="text-text-tertiary text-center text-xs">
           {t.publicBooking.privacyNotice}{' '}
           <a

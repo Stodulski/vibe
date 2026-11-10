@@ -178,6 +178,8 @@ export interface PublicBookingRequest {
   client_phone: string;
   client_email?: string;
   client_notes?: string;
+  /** Cloudflare Turnstile token, sent only when the storefront has a site key. Single use. */
+  turnstile_token?: string;
 }
 
 /** The confirmation projection of a booking. No primary key is sent. */

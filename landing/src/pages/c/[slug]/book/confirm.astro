@@ -7,6 +7,7 @@
 import { BookConfirmEntry } from '@vibe/booking/book-confirm';
 import { SkeletonBookConfirm } from '@vibe/ui';
 import { PUBLIC_API_URL } from 'astro:env/server';
+import { PUBLIC_TURNSTILE_SITE_KEY } from 'astro:env/client';
 import { BOOKING_MESSAGES } from '@vibe/booking/messages';
 import StorefrontLayout from '../../../../layouts/StorefrontLayout.astro';
 import { DEFAULT_DESCRIPTION, storefrontBookingConfig, storefrontRobots } from '../../../../lib/storefront.ts';
@@ -15,7 +16,7 @@ export const prerender = false;
 
 const slug = Astro.params.slug ?? '';
 Astro.response.headers.set('Cache-Control', 'private, no-store');
-const config = storefrontBookingConfig(PUBLIC_API_URL);
+const config = storefrontBookingConfig(PUBLIC_API_URL, PUBLIC_TURNSTILE_SITE_KEY);
 ---
 <StorefrontLayout
   title={`${BOOKING_MESSAGES.publicBooking.confirmBooking} - Vibe`}

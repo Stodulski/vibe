@@ -2971,6 +2971,9 @@ type BookingsPublicCreateJSONBody struct {
 	// DurationMinutes Must be one of the permitted slot durations.
 	DurationMinutes int    `json:"duration_minutes"`
 	StartTime       string `json:"start_time"`
+
+	// TurnstileToken Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through.
+	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
 // BookingsPublicCreateParams defines parameters for BookingsPublicCreate.

@@ -874,6 +874,13 @@ paths:
                 client_phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
                 client_email: {type: string}
                 client_notes: {type: string, maxLength: 2000}
+                turnstile_token:
+                  type: string
+                  description: >-
+                    Required only when Cloudflare Turnstile is configured and booking enforcement
+                    is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on
+                    this field with `required` or `invalid`; Cloudflare being unreachable lets the
+                    booking through.
 
   /api/v1/book/status:
     get:

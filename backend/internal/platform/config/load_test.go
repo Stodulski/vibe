@@ -444,3 +444,29 @@ func TestHelpIsNotAMisconfiguration(t *testing.T) {
 		}
 	}
 }
+
+// TestTurnstileBookingEnforceIsOptIn pins the storefront bot check's switch:
+// off unless the operator says so, so a deploy that never heard of it keeps
+// taking bookings exactly as before.
+func TestTurnstileBookingEnforceIsOptIn(t *testing.T) {
+	cfg, err := config.Load(nil, env(nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Turnstile.BookingEnforce {
+		t.Error("BookingEnforce must default to false")
+	}
+
+	cfg, err = config.Load(nil, env(map[string]string{"TURNSTILE_BOOKING_ENFORCE": "true"}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.Turnstile.BookingEnforce {
+		t.Error("TURNSTILE_BOOKING_ENFORCE=true must turn BookingEnforce on")
+	}
+
+	_, err = config.Load(nil, env(map[string]string{"TURNSTILE_BOOKING_ENFORCE": "maybe"}))
+	if err == nil || !strings.Contains(err.Error(), "TURNSTILE_BOOKING_ENFORCE") {
+		t.Errorf("an unparseable TURNSTILE_BOOKING_ENFORCE must be an error naming it; got %v", err)
+	}
+}

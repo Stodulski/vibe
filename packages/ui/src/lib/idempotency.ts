@@ -28,7 +28,7 @@ const IN_PROGRESS_DETAIL = 'a request with this Idempotency-Key is still in prog
  * conflicts share the 409 and the problem type, so the detail is what names
  * this case; the status alone proves nothing.
  */
-function isStillInProgress(error: unknown): boolean {
+export function isStillInProgress(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const { response, data } = error as { response?: { status?: unknown }; data?: unknown };
   if (response?.status !== 409 || typeof data !== 'object' || data === null) return false;

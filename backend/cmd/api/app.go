@@ -832,8 +832,11 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	complexesService.SetHoldReleaser(bookingsService)
 	// The WhatsApp webhook verifies Meta's own handshake and signature, so the
 	// handler takes the client alongside the service: both are computed over
-	// the request, which never reaches the service.
-	bookingsHandler := bookings.NewHandler(bookingsService, waClient, respond, d.logger, d.trustedProxies)
+	// the request, which never reaches the service. The Turnstile client rides
+	// along for the same reason; it only gates POST /book when the operator
+	// set TURNSTILE_BOOKING_ENFORCE and the client is enabled.
+	bookingsHandler := bookings.NewHandler(bookingsService, waClient, turnstileClient, cfg.Turnstile.BookingEnforce,
+		respond, d.logger, d.trustedProxies)
 
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a

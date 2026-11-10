@@ -82,7 +82,7 @@ func newIntegrationFixture(t *testing.T) *integrationFixture {
 		Environment: "test", GracePeriod: 15 * time.Minute,
 		PaymentExpiry: 15 * time.Minute, SlotLockTTL: 15 * time.Minute,
 	})
-	f.handler = NewHandler(svc, &stubWhatsApp{}, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
+	f.handler = NewHandler(svc, &stubWhatsApp{}, nil, false, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
 	return f
 }
 
