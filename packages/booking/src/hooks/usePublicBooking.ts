@@ -48,6 +48,25 @@ function conflictCopy(kind: string | undefined): string {
   }
 }
 
+/**
+ * The text for a `turnstile_token` validation error, by the code the backend
+ * puts in the message (`required`, `invalid`, `unavailable`, as auth does), or
+ * `undefined` when the 422 is about something else. An unknown code reads as
+ * a failed check rather than leaking the raw code.
+ */
+function turnstileCopy(error: HTTPError): string | undefined {
+  const code = getProblem(error)?.errors.find((e) => e.field === 'turnstile_token')?.message;
+  if (code === undefined) return undefined;
+  switch (code) {
+    case 'required':
+      return t.publicBooking.turnstileRequired;
+    case 'unavailable':
+      return t.publicBooking.turnstileUnavailable;
+    default:
+      return t.publicBooking.turnstileInvalid;
+  }
+}
+
 export function usePublicBooking(options?: UsePublicBookingOptions) {
   const api = usePublicBookingApi();
   return useIdempotentMutation({
@@ -66,6 +85,13 @@ export function usePublicBooking(options?: UsePublicBookingOptions) {
         if (error.response.status === 403) {
           toast.error(t.publicBooking.accountBlocked);
           return;
+        }
+        if (error.response.status === 422) {
+          const copy = turnstileCopy(error);
+          if (copy) {
+            toast.error(copy);
+            return;
+          }
         }
         if (error.response.status === 503) {
           options?.onPaymentLinkError?.();

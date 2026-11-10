@@ -14,6 +14,12 @@ export interface BookingConfig {
   privacyUrl: string;
   /** Receives every failed query and mutation. Optional: failures still render inline. */
   reportError?: (error: unknown, context?: Record<string, unknown>) => void;
+  /**
+   * Cloudflare Turnstile site key. When set, the confirm step shows the
+   * challenge and every booking request carries its token. Unset: no widget,
+   * no token, and the API must not be enforcing the challenge.
+   */
+  turnstileSiteKey?: string | undefined;
 }
 
 /** Provided by `BookingRoot`. Kept in a `.ts` file so the `.tsx` files export components only. */

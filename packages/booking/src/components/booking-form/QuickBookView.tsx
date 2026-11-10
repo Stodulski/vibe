@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { DEFAULT_PHONE_PREFIX } from '@vibe/ui';
 import { publicBookingSchema, type PublicBookingFormData } from '../../schemas/public-booking.schema';
 import type { SavedClientData } from './savedFormData';
@@ -23,9 +23,22 @@ interface QuickBookViewProps {
    * empty before switching to `FullFormView`.
    */
   onNotMe: () => void;
+  /** The Turnstile challenge, shown with the submit button once the identity is confirmed. */
+  challenge?: ReactNode;
+  submitBlocked?: boolean | undefined;
 }
 
-export function QuickBookView({ slotInfo, pricing, saved, isLoading, onSubmit, onEdit, onNotMe }: QuickBookViewProps) {
+export function QuickBookView({
+  slotInfo,
+  pricing,
+  saved,
+  isLoading,
+  onSubmit,
+  onEdit,
+  onNotMe,
+  challenge,
+  submitBlocked,
+}: QuickBookViewProps) {
   // A saved identity used to be submitted with one tap and no confirmation —
   // on a shared or public device, the next visitor's booking (and payment)
   // went out under whoever used it last. Requiring an explicit "Sí, soy yo"
@@ -35,7 +48,7 @@ export function QuickBookView({ slotInfo, pricing, saved, isLoading, onSubmit, o
   const [confirmed, setConfirmed] = useState(false);
 
   const handleQuickSubmit = () => {
-    if (!confirmed) return;
+    if (!confirmed || submitBlocked) return;
     // Argentina is the only prefix ever emitted now — a stale non-AR
     // `phone_prefix` from before the country selector was removed must not
     // be trusted (see savedFormData.ts).
@@ -78,6 +91,8 @@ export function QuickBookView({ slotInfo, pricing, saved, isLoading, onSubmit, o
           totalOnline={pricing.totalOnline}
           type="button"
           onClick={handleQuickSubmit}
+          challenge={challenge}
+          disabled={submitBlocked}
         />
       )}
     </div>

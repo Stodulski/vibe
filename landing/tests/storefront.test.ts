@@ -56,11 +56,29 @@ test('the booking config points at the storefront origin and its privacy page', 
   });
 });
 
+test('the booking config carries the Turnstile site key when one is set', () => {
+  assert.deepEqual(storefrontBookingConfig('https://api.vibe.com.ar/api/v1', '1x00000000000000000000AA'), {
+    apiBaseUrl: 'https://api.vibe.com.ar/api/v1',
+    publicSiteUrl: 'https://vibe.com.ar',
+    privacyUrl: 'https://vibe.com.ar/privacidad',
+    turnstileSiteKey: '1x00000000000000000000AA',
+  });
+});
+
+test('the booking config leaves the Turnstile site key out when it is unset or empty', () => {
+  assert.ok(!('turnstileSiteKey' in storefrontBookingConfig('https://api.vibe.com.ar/api/v1', undefined)));
+  assert.ok(!('turnstileSiteKey' in storefrontBookingConfig('https://api.vibe.com.ar/api/v1', '')));
+});
+
 test('the storefront CSP is report-only policy that keeps the directives the flow needs', () => {
   const directives = STOREFRONT_CSP_REPORT_ONLY.split('; ');
   assert.ok(directives.includes("frame-ancestors 'none'"));
   assert.ok(directives.includes("connect-src 'self' https://api.vibe.com.ar https://vibe.com.ar https://cloudflareinsights.com"));
-  assert.ok(directives.includes(`script-src 'self' ${ASTRO_INLINE_SCRIPT_HASHES.join(' ')} https://static.cloudflareinsights.com`));
+  assert.ok(
+    directives.includes(
+      `script-src 'self' ${ASTRO_INLINE_SCRIPT_HASHES.join(' ')} https://static.cloudflareinsights.com https://challenges.cloudflare.com`,
+    ),
+  );
   assert.ok(directives.some((d) => d.startsWith('img-src ') && d.includes('https://*.tile.openstreetmap.org')));
 });
 
@@ -71,8 +89,11 @@ test('the storefront CSP reports to the same-origin /_r/s endpoint, as the app d
   assert.equal(STOREFRONT_REPORTING_ENDPOINTS, 'csp-endpoint="https://vibe.com.ar/_r/s"');
 });
 
-test('the storefront CSP names no Turnstile host (the booking flow loads none)', () => {
-  assert.ok(!STOREFRONT_CSP_REPORT_ONLY.includes('challenges.cloudflare.com'));
+test('the storefront CSP allows the Turnstile script and frame the confirm step loads', () => {
+  const directives = STOREFRONT_CSP_REPORT_ONLY.split('; ');
+  const scriptSrc = directives.find((d) => d.startsWith('script-src '));
+  assert.ok(scriptSrc?.split(' ').includes('https://challenges.cloudflare.com'));
+  assert.ok(directives.includes('frame-src https://challenges.cloudflare.com'));
 });
 
 // The islands on /c/<slug> need Astro's inline scripts. Hashed from Astro's own copies,

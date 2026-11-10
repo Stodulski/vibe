@@ -62,6 +62,15 @@ export default defineConfig({
         access: 'public',
         optional: true,
       }),
+      /*
+       * Cloudflare Turnstile site key for the booking confirm step. Unset means no widget
+       * and no token; set it together with the API's TURNSTILE_BOOKING_ENFORCE.
+       */
+      PUBLIC_TURNSTILE_SITE_KEY: envField.string({
+        context: 'client',
+        access: 'public',
+        optional: true,
+      }),
     },
   },
   vite: {

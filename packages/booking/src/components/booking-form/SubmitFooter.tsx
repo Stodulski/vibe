@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Lock } from 'lucide-react';
 import { LoadingButton } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
@@ -10,6 +11,10 @@ interface SubmitFooterProps {
   totalOnline: number;
   type: 'submit' | 'button';
   onClick?: () => void;
+  /** Rendered above the button: the Turnstile challenge, when the storefront has one. */
+  challenge?: ReactNode;
+  /** Keeps the button disabled while the challenge has no token yet. */
+  disabled?: boolean | undefined;
 }
 
 /**
@@ -21,9 +26,10 @@ interface SubmitFooterProps {
  * on a phone that card can be a scroll away by the time the visitor reaches
  * this button, so it is restated here, right next to the action it belongs to.
  */
-export function SubmitFooter({ isLoading, totalOnline, type, onClick }: SubmitFooterProps) {
+export function SubmitFooter({ isLoading, totalOnline, type, onClick, challenge, disabled }: SubmitFooterProps) {
   return (
     <div className="space-y-2 pt-1">
+      {challenge}
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-text-secondary">{t.publicBooking.totalOnline}</span>
         <span className="text-text-primary font-semibold tabular-nums">{formatPrice(totalOnline)}</span>
@@ -32,6 +38,7 @@ export function SubmitFooter({ isLoading, totalOnline, type, onClick }: SubmitFo
         type={type}
         className="shadow-brand h-14 w-full rounded-xl text-base font-semibold"
         loading={isLoading}
+        disabled={disabled}
         loadingText={t.publicBooking.generatingPaymentLink}
         onClick={onClick}
       >

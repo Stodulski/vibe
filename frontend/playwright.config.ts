@@ -124,7 +124,15 @@ export default defineConfig({
       // detects an AI agent shell, which Playwright reads as an early exit.
       // ASTRO_DEV_BACKGROUND turns that detection off so the server stays
       // in the foreground.
-      env: { PUBLIC_API_URL: LANDING_API_URL, ASTRO_DEV_BACKGROUND: '0' },
+      // PUBLIC_TURNSTILE_SITE_KEY is Cloudflare's always-pass test site key, the
+      // landing's twin of the app's VITE_TURNSTILE_SITE_KEY in e2e-run.sh: the
+      // confirm step renders the widget and sends a token the backend's test
+      // secret accepts.
+      env: {
+        PUBLIC_API_URL: LANDING_API_URL,
+        ASTRO_DEV_BACKGROUND: '0',
+        PUBLIC_TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+      },
       timeout: 180_000,
     },
   ],

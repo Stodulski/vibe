@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useAppForm } from '@vibe/ui';
 import { useUnsavedWork } from '@vibe/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +17,10 @@ interface BookingFormProps {
   slotInfo: BookingSlotInfo;
   onSubmit: (data: PublicBookingFormData) => void;
   isLoading: boolean;
+  /** The Turnstile challenge, rendered beside the submit button of either view. */
+  challenge?: ReactNode;
+  /** True while a configured challenge has no token: submit stays disabled. */
+  submitBlocked?: boolean | undefined;
 }
 
 /**
@@ -33,7 +37,7 @@ const EMPTY_QUICK_BOOK_VALUES: PublicBookingFormData = {
   client_notes: '',
 };
 
-export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps) {
+export function BookingForm({ slotInfo, onSubmit, isLoading, challenge, submitBlocked }: BookingFormProps) {
   const saved = getSavedFormData();
   const [quickBookMode, setQuickBookMode] = useState(() => hasCompleteSavedData(saved));
 
@@ -76,6 +80,8 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
         saved={saved}
         isLoading={isLoading}
         onSubmit={onSubmit}
+        challenge={challenge}
+        submitBlocked={submitBlocked}
         onEdit={() => {
           setQuickBookMode(false);
         }}
@@ -98,6 +104,8 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
       control={control}
       errors={errors}
       onSubmit={onSubmit}
+      challenge={challenge}
+      submitBlocked={submitBlocked}
     />
   );
 }
