@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { Panel } from '@/shared/components/common/Panel';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useSchedules } from '@/features/complex';
@@ -53,7 +52,7 @@ function NextItem({ id }: { id: ProfileItemId }) {
         <p className="text-text-primary text-sm font-medium">{copy.label}</p>
         <p className="text-text-tertiary text-sm">{copy.why}</p>
       </div>
-      <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+      <Button asChild size="sm" variant="outline" className="w-full sm:w-fit sm:self-start">
         <Link to={FIX_TARGET[id]}>{copy.action}</Link>
       </Button>
     </div>
@@ -142,7 +141,9 @@ export function ProfileChecklist({ complex }: ProfileChecklistProps) {
   };
 
   return (
-    <Panel as="section" size="sm" className="flex flex-col gap-2 px-4 py-3" aria-labelledby="profile-checklist-title">
+    // No card: a short block on the page, capped in width so the progress
+    // bar and the next step do not stretch across the whole dashboard.
+    <section className="flex max-w-xl flex-col gap-2" aria-labelledby="profile-checklist-title">
       <ProgressHeader done={items.length - pending.length} total={items.length} />
 
       {!showList && nextId && <NextItem id={nextId} />}
@@ -165,6 +166,6 @@ export function ProfileChecklist({ complex }: ProfileChecklistProps) {
       )}
 
       {showList && <PendingList ids={pending} />}
-    </Panel>
+    </section>
   );
 }

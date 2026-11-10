@@ -4,6 +4,7 @@ import { TodayMetrics } from './payment-overview/TodayMetrics';
 import { PaymentStatusBreakdown } from './payment-overview/PaymentStatusBreakdown';
 import { PaymentMethodBreakdown } from './payment-overview/PaymentMethodBreakdown';
 import { Panel } from '@/shared/components/common/Panel';
+import { cn } from '@/shared/lib/utils';
 
 interface PaymentOverviewProps {
   stats: DashboardStats;
@@ -29,8 +30,22 @@ export function PaymentOverview({ stats }: PaymentOverviewProps) {
   const methodEntries = Object.entries(today_money.by_method).sort((a, b) => b[1] - a[1]);
 
   return (
-    <Panel as="section" size="sm" className="flex h-full flex-col py-4 sm:p-4">
-      <div className="bg-primary-500 text-text-inverse mb-4 rounded-3xl p-4">
+    // The whole card is solid brand green at every width (owner decision,
+    // 2026-11-09), not just the key-figures block. The theme's text tokens are
+    // re-pointed to the near-black ink inside it, so the status and method
+    // breakdowns below follow without their own variants.
+    <Panel
+      as="section"
+      size="sm"
+      mobile="card"
+      className={cn(
+        'border-primary-500 bg-primary-500 text-text-inverse flex h-full flex-col p-4',
+        '[--color-text-primary:var(--color-text-inverse)]',
+        '[--color-text-secondary:var(--color-text-inverse)]',
+        '[--color-text-tertiary:var(--color-text-inverse)]',
+      )}
+    >
+      <div className="mb-4">
         <TodayRevenueHeader totals={today_money} />
         <TodayMetrics
           todayBookings={today_bookings}
