@@ -62,8 +62,8 @@ type Store interface {
 	InsertHold(ctx context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error
 	GetHold(ctx context.Context, tokenHash []byte) (*bookingstore.Booking, error)
 	ConvertHold(ctx context.Context, b *bookingstore.Booking, tokenHash []byte) error
-	ReleaseHold(ctx context.Context, tokenHash []byte) (complexID uuid.UUID, released bool, err error)
-	DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([]uuid.UUID, error)
+	ReleaseHold(ctx context.Context, tokenHash []byte) (freed bookingstore.ReleasedHold, released bool, err error)
+	DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([]bookingstore.ReleasedHold, error)
 	DeleteComplexHolds(ctx context.Context, complexID uuid.UUID) error
 }
 

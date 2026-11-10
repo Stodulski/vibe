@@ -197,7 +197,7 @@ func (m *Store) ConvertHold(ctx context.Context, b *Booking, tokenHash []byte) e
 	})
 }
 
-// ReleaseHold deletes the untouched hold a token names and reports its complex,
+// ReleaseHold deletes the untouched hold a token names and reports the slot it freed,
 // or released false when there is none (unknown, already released, converted,
 // paid). It is safe to call any number of times.
 //
@@ -208,47 +208,74 @@ func (m *Store) ConvertHold(ctx context.Context, b *Booking, tokenHash []byte) e
 // no audit entry is written for a hold (the trail starts at the conversion,
 // as public_book), and its only dependent row, the link token InsertSafe
 // minted with it, goes with it by ON DELETE CASCADE.
-func (m *Store) ReleaseHold(ctx context.Context, tokenHash []byte) (uuid.UUID, bool, error) {
+func (m *Store) ReleaseHold(ctx context.Context, tokenHash []byte) (ReleasedHold, bool, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	var complexID pgtype.UUID
+	var (
+		complexID pgtype.UUID
+		day       pgtype.Date
+		out       ReleasedHold
+	)
 	err := m.DB.QueryRow(ctx, `
 		DELETE FROM bookings b
-		WHERE b.hold_token_hash = $1
+		USING complexes c
+		WHERE c.id = b.complex_id
+		  AND b.hold_token_hash = $1
 		  AND `+untouchedHold+`
-		RETURNING b.complex_id`, tokenHash).Scan(&complexID)
+		RETURNING b.complex_id, c.name, c.slug, b.date`, tokenHash).Scan(&complexID, &out.ComplexName, &out.ComplexSlug, &day)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, false, nil
+			return ReleasedHold{}, false, nil
 		}
-		return uuid.Nil, false, fmt.Errorf("bookings: release slot hold: %w", err)
+		return ReleasedHold{}, false, fmt.Errorf("bookings: release slot hold: %w", err)
 	}
-	return data.PgToUUID(complexID), true, nil
+	out.ComplexID = data.PgToUUID(complexID)
+	out.Day = data.PgToDate(day)
+	return out, true, nil
+}
+
+// ReleasedHold is the slot a deleted hold freed: enough for the caller to tell
+// the venue's grid and hand the day to the waitlist (waitlist.Freed).
+type ReleasedHold struct {
+	ComplexID   uuid.UUID
+	ComplexName string
+	ComplexSlug string
+	Day         time.Time
 }
 
 // DeleteExpiredHolds deletes every untouched hold older than expiry, the
-// payment window it held its slot for, and returns the complex of each one so
-// the caller can tell their grids. See ReleaseHold for why it deletes.
-func (m *Store) DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([]uuid.UUID, error) {
+// payment window it held its slot for, and returns the slot each one freed so
+// the caller can tell the grids and the waitlist. See ReleaseHold for why it deletes.
+func (m *Store) DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([]ReleasedHold, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
 	rows, err := m.DB.Query(ctx, `
 		DELETE FROM bookings b
-		WHERE b.created_at < NOW() - make_interval(secs => $1)
+		USING complexes c
+		WHERE c.id = b.complex_id
+		  AND b.created_at < NOW() - make_interval(secs => $1)
 		  AND `+untouchedHold+`
-		RETURNING b.complex_id`, expiry.Seconds())
+		RETURNING b.complex_id, c.name, c.slug, b.date`, expiry.Seconds())
 	if err != nil {
 		return nil, fmt.Errorf("bookings: delete expired slot holds: %w", err)
 	}
-	ids, err := pgx.CollectRows(rows, pgx.RowTo[pgtype.UUID])
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ReleasedHold, error) {
+		var (
+			complexID pgtype.UUID
+			day       pgtype.Date
+			h         ReleasedHold
+		)
+		if err := row.Scan(&complexID, &h.ComplexName, &h.ComplexSlug, &day); err != nil {
+			return h, err
+		}
+		h.ComplexID = data.PgToUUID(complexID)
+		h.Day = data.PgToDate(day)
+		return h, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("bookings: delete expired slot holds: %w", err)
-	}
-	out := make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		out[i] = data.PgToUUID(id)
 	}
 	return out, nil
 }

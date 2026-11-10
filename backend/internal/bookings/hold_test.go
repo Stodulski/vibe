@@ -14,6 +14,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/turnstile"
@@ -203,6 +204,9 @@ func TestReleaseHoldAlwaysAnswers204(t *testing.T) {
 		if got := len(f.realtime.published); (got == 1) != known {
 			t.Errorf("known=%v: the grid is told only when a hold went away; got %d broadcasts", known, got)
 		}
+		if got := len(f.waitlist.freed); (got == 1) != known {
+			t.Errorf("known=%v: the waitlist is handed the day only when a hold went away; got %d", known, got)
+		}
 	}
 }
 
@@ -364,7 +368,12 @@ func TestPublicBookConvertsAHold(t *testing.T) {
 func TestTheExpirySweepDeletesUntouchedHolds(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
-	f.store.expiredHoldComplexes = []uuid.UUID{complexID, complexID}
+	day := time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
+	f.store.expiredHolds = []bookingstore.ReleasedHold{
+		{ComplexID: complexID, ComplexName: "Vibe", ComplexSlug: "vibe", Day: day},
+		{ComplexID: complexID, ComplexName: "Vibe", ComplexSlug: "vibe", Day: day},
+		{ComplexID: complexID, ComplexName: "Vibe", ComplexSlug: "vibe", Day: day.AddDate(0, 0, 1)},
+	}
 	nobody := cronCandidate("pending")
 	nobody.ClientEmail, nobody.ClientPhone = "", ""
 	f.store.expiredPending = []*bookingstore.CronBooking{nobody}
@@ -383,6 +392,17 @@ func TestTheExpirySweepDeletesUntouchedHolds(t *testing.T) {
 	if told != 1 {
 		t.Errorf("want the hold's complex told once; got %d", told)
 	}
+	// A visitor who found the day full may be waiting behind a hold: each
+	// venue and day a hold freed goes to the waitlist, once.
+	var handed []string
+	for _, freed := range f.waitlist.freed {
+		if freed.ComplexID == complexID && freed.ComplexSlug == "vibe" {
+			handed = append(handed, freed.Day.Format(time.DateOnly))
+		}
+	}
+	if len(handed) != 2 || handed[0] == handed[1] {
+		t.Errorf("want each freed day handed to the waitlist once; got %v", handed)
+	}
 	if len(f.store.updated) != 1 || f.store.updated[0].Status != "cancelled" {
 		t.Errorf("the booking with no contact is still released; got %v", f.store.updated)
 	}
@@ -400,5 +420,26 @@ func TestDisconnectingMercadoPagoDeletesTheComplexsHolds(t *testing.T) {
 	}
 	if len(f.store.complexHoldsDeleted) != 1 || f.store.complexHoldsDeleted[0] != complexID {
 		t.Errorf("want the complex's holds deleted; got %v", f.store.complexHoldsDeleted)
+	}
+}
+
+// The live-hold cap counts per network the way the rate limiter does: one
+// IPv6 client owns a whole /64, so keyed on the full address every one of its
+// addresses would get a cap of its own (httpx.RateLimitKey).
+func TestTheHoldCapCountsAnIPv6ClientByItsSlash64(t *testing.T) {
+	f := newFixture(t)
+	complexID, courtID := preparePublicBooking(f)
+
+	for _, addr := range []string{"[2001:db8::1]:1234", "[2001:db8::2]:1234"} {
+		r := publicRequest(t, http.MethodPost, "/", holdBody(complexID, courtID, ""))
+		r.RemoteAddr = addr
+		f.handler.TakeHold(httptest.NewRecorder(), r)
+	}
+
+	if len(f.store.holdIPs) != 2 {
+		t.Fatalf("want two holds asked for; got %d", len(f.store.holdIPs))
+	}
+	if f.store.holdIPs[0] != f.store.holdIPs[1] || f.store.holdIPs[0] != httpx.RateLimitKey("2001:db8::1") {
+		t.Errorf("want both addresses of one /64 counted under one key; got %q", f.store.holdIPs)
 	}
 }

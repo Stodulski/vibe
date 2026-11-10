@@ -25,6 +25,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/validator"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // maxActiveHoldsPerIP is how many live holds one address may have at once.
@@ -119,7 +120,10 @@ func (s *Service) TakeHold(ctx context.Context, actor Actor, in HoldInput) (Hold
 		CollectionStatus: bookingstore.CollectionStatusUnpaid,
 		RefundStatus:     bookingstore.RefundStatusNone,
 	}
-	if err := s.store.InsertHold(ctx, booking, hash, actor.IP, maxActiveHoldsPerIP); err != nil {
+	// Counted per network, the key the rate limiter uses: an IPv6 client owns a
+	// whole /64, and keyed on the full address each of its addresses would get
+	// a cap of its own.
+	if err := s.store.InsertHold(ctx, booking, hash, httpx.RateLimitKey(actor.IP), maxActiveHoldsPerIP); err != nil {
 		switch {
 		case errors.Is(err, bookingstore.ErrHoldLimit):
 			return Hold{}, ErrTooManyHolds
@@ -140,14 +144,25 @@ func (s *Service) ReleaseHold(ctx context.Context, token string) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkoutCleanupBudget)
 	defer cancel()
 
-	complexID, released, err := s.store.ReleaseHold(ctx, bookingstore.HashHoldToken(token))
+	freed, released, err := s.store.ReleaseHold(ctx, bookingstore.HashHoldToken(token))
 	if err != nil {
 		s.logger.Error("slot hold: release failed; it ends with its window", "error", err)
 		return
 	}
 	if released {
-		s.realtime.PublishBookingChanged(complexID)
+		s.realtime.PublishBookingChanged(freed.ComplexID)
+		s.freeHeldSlot(ctx, freed)
 	}
+}
+
+// freeHeldSlot hands the day a released hold freed to the waitlist. A hold
+// takes a slot from the court pick, so a visitor who found the day full may
+// have joined the waitlist behind it, exactly as behind any unpaid booking
+// (cancelUnpaidHold does the same when one of those is released).
+func (s *Service) freeHeldSlot(ctx context.Context, freed bookingstore.ReleasedHold) {
+	s.freeWaitlistSlot(ctx, waitlist.Freed{
+		ComplexID: freed.ComplexID, ComplexName: freed.ComplexName, ComplexSlug: freed.ComplexSlug, Day: freed.Day,
+	})
 }
 
 // bookFromHold is POST /book with a hold token: the held booking is converted

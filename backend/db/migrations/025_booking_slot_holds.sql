@@ -24,7 +24,7 @@ SET LOCAL lock_timeout = '3s';
 -- booking_link_tokens: a hold token has exactly one booking and lives exactly as
 -- long as the booking is an untouched hold, so it needs no expiry or table of
 -- its own, and it must not authorize the link routes (status, cancel) the link
--- token does. hold_ip is the address that took it, for the per-address cap on
+-- token does. hold_ip is the network that took it (httpx.RateLimitKey: the address, or its /64 for IPv6), for the per-address cap on
 -- live holds. Converting the hold clears both, so a booking that names somebody
 -- carries neither the token nor the address.
 --

@@ -864,11 +864,11 @@ func (m *mockBookingStore) ConvertHold(context.Context, *bookingstore.Booking, [
 	return bookingstore.ErrHoldNotFound
 }
 
-func (m *mockBookingStore) ReleaseHold(context.Context, []byte) (uuid.UUID, bool, error) {
-	return uuid.Nil, false, nil
+func (m *mockBookingStore) ReleaseHold(context.Context, []byte) (bookingstore.ReleasedHold, bool, error) {
+	return bookingstore.ReleasedHold{}, false, nil
 }
 
-func (m *mockBookingStore) DeleteExpiredHolds(context.Context, time.Duration) ([]uuid.UUID, error) {
+func (m *mockBookingStore) DeleteExpiredHolds(context.Context, time.Duration) ([]bookingstore.ReleasedHold, error) {
 	return nil, nil
 }
 

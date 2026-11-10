@@ -127,9 +127,12 @@ func TestReleaseDeletesAnUntouchedHoldAndIsIdempotent(t *testing.T) {
 	hold := newHold(f, "18:00", "19:30")
 	hash := takeHold(t, f, hold)
 
-	complexID, released, err := f.Stores.Bookings.ReleaseHold(context.Background(), hash)
-	if err != nil || !released || complexID != f.ComplexID {
-		t.Fatalf("ReleaseHold = (%v, %v, %v), want (%v, true, nil)", complexID, released, err, f.ComplexID)
+	freed, released, err := f.Stores.Bookings.ReleaseHold(context.Background(), hash)
+	if err != nil || !released || freed.ComplexID != f.ComplexID {
+		t.Fatalf("ReleaseHold = (%+v, %v, %v), want complex %v, true, nil", freed, released, err, f.ComplexID)
+	}
+	if freed.Day.Format(time.DateOnly) != hold.Date.Format(time.DateOnly) || freed.ComplexSlug == "" || freed.ComplexName == "" {
+		t.Errorf("want the freed slot's day and venue for the waitlist; got %+v (hold on %v)", freed, hold.Date)
 	}
 	if bookingExists(t, f, hold.ID) {
 		t.Error("a released untouched hold must be gone")
@@ -219,12 +222,12 @@ func TestAnExpiredHoldCannotBeConvertedAndTheSweepDeletesIt(t *testing.T) {
 		}
 	}
 
-	complexes, err := f.Stores.Bookings.DeleteExpiredHolds(f.Scoped(context.Background()), 15*time.Minute)
+	freed, err := f.Stores.Bookings.DeleteExpiredHolds(f.Scoped(context.Background()), 15*time.Minute)
 	if err != nil {
 		t.Fatalf("DeleteExpiredHolds: %v", err)
 	}
-	if len(complexes) != 1 || complexes[0] != f.ComplexID {
-		t.Errorf("want the hold's complex reported once; got %v", complexes)
+	if len(freed) != 1 || freed[0].ComplexID != f.ComplexID || freed[0].Day.Format(time.DateOnly) != hold.Date.Format(time.DateOnly) || freed[0].ComplexSlug == "" {
+		t.Errorf("want the hold's venue and day reported once; got %+v", freed)
 	}
 	if bookingExists(t, f, hold.ID) {
 		t.Error("an expired untouched hold must be deleted")

@@ -149,24 +149,34 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 
 // releaseExpiredHolds deletes the slot holds nobody converted within the
 // payment window (see bookingstore.Store.ReleaseHold for why they are deleted)
-// and tells each affected complex's grid once. There is nobody to notify and
-// no checkout to close: an untouched hold has neither.
+// and tells each affected complex's grid once and the waitlist once per venue
+// and day. There is nobody else to notify and no checkout to close: an
+// untouched hold has neither.
 func (s *Service) releaseExpiredHolds(ctx context.Context) {
-	complexIDs, err := s.store.DeleteExpiredHolds(ctx, s.cfg.PaymentExpiry)
+	freed, err := s.store.DeleteExpiredHolds(ctx, s.cfg.PaymentExpiry)
 	if err != nil {
 		s.logger.Error("cron_release_expired_payments: failed to delete expired slot holds", "error", err)
 		return
 	}
-	told := make(map[uuid.UUID]struct{}, len(complexIDs))
-	for _, complexID := range complexIDs {
-		if _, seen := told[complexID]; seen {
-			continue
-		}
-		told[complexID] = struct{}{}
-		s.realtime.PublishBookingChanged(complexID)
+	type venueDay struct {
+		complexID uuid.UUID
+		day       string
 	}
-	if len(complexIDs) > 0 {
-		s.logger.Info("cron_release_expired_payments: deleted expired slot holds", "count", len(complexIDs))
+	told := make(map[uuid.UUID]struct{}, len(freed))
+	handed := make(map[venueDay]struct{}, len(freed))
+	for _, h := range freed {
+		if _, seen := told[h.ComplexID]; !seen {
+			told[h.ComplexID] = struct{}{}
+			s.realtime.PublishBookingChanged(h.ComplexID)
+		}
+		key := venueDay{h.ComplexID, h.Day.Format(time.DateOnly)}
+		if _, seen := handed[key]; !seen {
+			handed[key] = struct{}{}
+			s.freeHeldSlot(ctx, h)
+		}
+	}
+	if len(freed) > 0 {
+		s.logger.Info("cron_release_expired_payments: deleted expired slot holds", "count", len(freed))
 	}
 }
 

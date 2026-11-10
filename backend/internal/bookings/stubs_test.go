@@ -80,21 +80,21 @@ type stubStore struct {
 	// GetHold finds for heldHash; convertErr fails ConvertHold and converted
 	// records the conversions. releaseFinds says whether ReleaseHold finds a
 	// hold to delete. holdCalls records "insert"/"release" in call order.
-	holdErr              error
-	holds                []*bookingstore.Booking
-	holdHashes           [][]byte
-	holdIPs              []string
-	holdCaps             []int
-	held                 *bookingstore.Booking
-	heldHash             []byte
-	convertErr           error
-	converted            []*bookingstore.Booking
-	releaseFinds         bool
-	releasedHolds        [][]byte
-	holdCalls            []string
-	expiredHoldComplexes []uuid.UUID
-	expiredHoldWindows   []time.Duration
-	complexHoldsDeleted  []uuid.UUID
+	holdErr             error
+	holds               []*bookingstore.Booking
+	holdHashes          [][]byte
+	holdIPs             []string
+	holdCaps            []int
+	held                *bookingstore.Booking
+	heldHash            []byte
+	convertErr          error
+	converted           []*bookingstore.Booking
+	releaseFinds        bool
+	releasedHolds       [][]byte
+	holdCalls           []string
+	expiredHolds        []bookingstore.ReleasedHold
+	expiredHoldWindows  []time.Duration
+	complexHoldsDeleted []uuid.UUID
 }
 
 func (s *stubStore) InsertHold(_ context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error {
@@ -133,18 +133,18 @@ func (s *stubStore) ConvertHold(_ context.Context, b *bookingstore.Booking, toke
 	return nil
 }
 
-func (s *stubStore) ReleaseHold(_ context.Context, tokenHash []byte) (uuid.UUID, bool, error) {
+func (s *stubStore) ReleaseHold(_ context.Context, tokenHash []byte) (bookingstore.ReleasedHold, bool, error) {
 	s.holdCalls = append(s.holdCalls, "release")
 	s.releasedHolds = append(s.releasedHolds, tokenHash)
 	if !s.releaseFinds {
-		return uuid.Nil, false, nil
+		return bookingstore.ReleasedHold{}, false, nil
 	}
-	return uuid.New(), true, nil
+	return bookingstore.ReleasedHold{ComplexID: uuid.New(), Day: time.Now()}, true, nil
 }
 
-func (s *stubStore) DeleteExpiredHolds(_ context.Context, expiry time.Duration) ([]uuid.UUID, error) {
+func (s *stubStore) DeleteExpiredHolds(_ context.Context, expiry time.Duration) ([]bookingstore.ReleasedHold, error) {
 	s.expiredHoldWindows = append(s.expiredHoldWindows, expiry)
-	return s.expiredHoldComplexes, nil
+	return s.expiredHolds, nil
 }
 
 func (s *stubStore) DeleteComplexHolds(_ context.Context, complexID uuid.UUID) error {
