@@ -84,7 +84,7 @@ export function ComplexLower({ complex, divided = false }: { complex: PublicComp
               href={googleMapsSearchUrl(complex.latitude, complex.longitude)}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-primary-500 text-text-inverse hover:bg-primary-400 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
+              className="bg-primary-500 text-text-inverse hover:bg-primary-600 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
             >
               <ExternalLink className="size-3.5" />
               {t.complex.viewOnGoogleMaps}
