@@ -1,4 +1,3 @@
-import { Panel } from '@/shared/components/common/Panel';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { MovementRow } from './MovementRow';
 import type { CashMovement } from '@/shared/types/api.types';
@@ -14,7 +13,8 @@ interface MovementListProps {
 
 export function MovementList({ movements, onVoid }: MovementListProps) {
   return (
-    <Panel size="sm">
+    // No card: the list sits on the page, under the green till card.
+    <section>
       <h2 className="text-text-tertiary mb-2 text-sm font-semibold tracking-wider uppercase">
         {t.cash.movementsTitle}
       </h2>
@@ -27,6 +27,6 @@ export function MovementList({ movements, onVoid }: MovementListProps) {
           ))}
         </div>
       )}
-    </Panel>
+    </section>
   );
 }

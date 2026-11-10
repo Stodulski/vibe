@@ -14,7 +14,10 @@ export function CashDifference({ difference }: { difference: number }) {
   const { label, colorClass } = cashDifferenceLabel(difference);
 
   return (
-    <div className="bg-bg-base flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm">
+    // The box is always dark, so it pins the grey label back to the theme's
+    // value: inside the green till card the tertiary token is re-pointed to
+    // near-black, which would vanish on this background.
+    <div className="bg-bg-base flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm [--color-text-tertiary:#8a8a8a]">
       <span className="text-text-tertiary">{t.cash.difference}</span>
       <span className={cn('font-semibold', colorClass)}>
         {label}

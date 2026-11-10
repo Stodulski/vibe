@@ -1,6 +1,6 @@
 import { Panel } from '@/shared/components/common/Panel';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatPrice } from '@/shared/lib/utils';
+import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { CashDifference } from './CashDifference';
 import type { CashSession, CashSessionSummary } from '@/shared/types/api.types';
@@ -27,7 +27,21 @@ export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
     // row can show the same peso figures, and e2e needs to assert this
     // card's own expected-cash value without matching a history row's (see
     // cash.spec.ts).
-    <Panel size="sm" className="space-y-3" data-testid="cash-expected-card">
+    // Solid brand green at every width, the till's key figure the way the
+    // dashboard's today card is (owner decision, 2026-11-09). The theme's
+    // text and rule tokens are re-pointed to the near-black ink inside it.
+    <Panel
+      size="sm"
+      mobile="card"
+      className={cn(
+        'border-primary-500 bg-primary-500 text-text-inverse space-y-3 font-medium',
+        '[--color-text-primary:var(--color-text-inverse)]',
+        '[--color-text-secondary:var(--color-text-inverse)]',
+        '[--color-text-tertiary:var(--color-text-inverse)]',
+        '[--color-border-subtle:rgb(11_11_11/0.2)]',
+      )}
+      data-testid="cash-expected-card"
+    >
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
         <span className="text-text-tertiary">
           {t.cash.openedAt}: {formatVenueDayTime(session.opened_at)}
