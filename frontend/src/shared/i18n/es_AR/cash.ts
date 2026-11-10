@@ -122,7 +122,6 @@ export const cash = {
   sellOutOfStock: 'Sin stock',
   sellStockLeftPrefix: 'Quedan',
   cartTitle: 'Carrito',
-  sellInCart: (count: number) => `${String(count)} en el carrito`,
   cartEmpty: 'El carrito está vacío. Tocá un producto para agregarlo.',
   cartRemove: 'Quitar',
   cartDecreaseAction: 'Restar',

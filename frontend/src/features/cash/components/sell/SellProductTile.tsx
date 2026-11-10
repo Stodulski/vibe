@@ -34,7 +34,10 @@ export const SellProductTile = memo(function SellProductTile({ product, quantity
         setTapCount((count) => count + 1);
         onTap(product);
       }}
-      buttonLabel={quantity > 0 ? `${product.name}, ${t.cash.sellInCart(quantity)}` : product.name}
+      // The name stays the product's alone: changing it on every tap would
+      // rename the button under a screen reader and under anything that finds
+      // it by name. The cart lines already announce each quantity.
+      buttonLabel={product.name}
       // A product already in the cart wears a green edge, and its count sits
       // in the corner, so the grid says what was added without a look at the cart.
       buttonClassName={`focus-self relative flex w-full touch-manipulation flex-col items-start gap-2 rounded-2xl border ${quantity > 0 ? 'border-primary-500' : 'border-border-subtle'} bg-bg-subtle p-4 text-left transition-[color,background-color,border-color,transform] duration-150 hover:border-border-default hover:bg-bg-highlight focus-visible:border-primary-400 focus-visible:bg-bg-elevated active:scale-[0.96] active:border-primary-400 active:bg-bg-elevated min-h-24`}
