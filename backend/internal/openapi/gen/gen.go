@@ -1718,7 +1718,8 @@ type BlockedSlot struct {
 
 // Booking defines model for Booking.
 type Booking struct {
-	ClientId openapi_types.UUID `json:"client_id"`
+	// ClientId Null while a storefront booking waits for its payment: its client is created, or matched by phone, only once the payment is approved. client_name and client_phone still carry who it is for.
+	ClientId *openapi_types.UUID `json:"client_id"`
 
 	// ClientName Enrichment, present when joined.
 	ClientName *string `json:"client_name,omitempty"`

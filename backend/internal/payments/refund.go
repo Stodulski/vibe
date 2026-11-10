@@ -341,7 +341,7 @@ func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingst
 // its book link) and builds the notice for refundCentavos. ok is false when the
 // client or the complex cannot be read; the failure is logged here.
 func (s *Service) refundNotice(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string) (notifications.Refund, bool) {
-	client, err := s.clients.GetByID(ctx, booking.ClientID)
+	client, err := bookingstore.ContactOf(ctx, s.clients, booking)
 	if err != nil {
 		s.logger.Error("refund notification: failed to fetch client",
 			"error", err,
@@ -359,12 +359,8 @@ func (s *Service) refundNotice(ctx context.Context, booking *bookingstore.Bookin
 		return notifications.Refund{}, false
 	}
 
-	clientEmail := ""
-	if client.Email != nil {
-		clientEmail = *client.Email
-	}
 	return notifications.Refund{
-		Email:       clientEmail,
+		Email:       client.Email,
 		Phone:       client.Phone,
 		ComplexName: complex.Name,
 		Amount:      formatARS(refundCentavos),
@@ -437,7 +433,7 @@ func (s *Service) announceRefundedCancellation(ctx context.Context, booking *boo
 			"error", err, "booking_id", booking.ID)
 		return
 	}
-	client, err := s.clients.GetByID(ctx, booking.ClientID)
+	client, err := bookingstore.ContactOf(ctx, s.clients, booking)
 	if err != nil {
 		s.logger.Error("refund cancellation: failed to fetch client",
 			"error", err, "booking_id", booking.ID)
@@ -448,7 +444,7 @@ func (s *Service) announceRefundedCancellation(ctx context.Context, booking *boo
 		OwnerID:     complex.OwnerID.String(),
 		ComplexName: complex.Name,
 		CourtName:   court.Name,
-		ClientName:  client.FirstName + " " + client.LastName,
+		ClientName:  client.FullName(),
 		Date:        booking.Date.Format("02/01"),
 		StartTime:   timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
 		BookingID:   booking.ID.String(),

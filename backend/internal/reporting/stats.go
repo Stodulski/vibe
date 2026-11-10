@@ -99,7 +99,7 @@ func toGenDayMoneyTotals(dm *bookingstore.DayMoneyTotals) gen.DayMoneyTotals {
 // (HTTP-08).
 func toGenBooking(b *bookingstore.Booking) gen.Booking {
 	return gen.Booking{
-		ClientId:         b.ClientID,
+		ClientId:         b.ClientIDOrNil(),
 		ClientName:       &b.ClientName,
 		ClientPhone:      &b.ClientPhone,
 		CollectionStatus: gen.CollectionStatus(b.CollectionStatus),

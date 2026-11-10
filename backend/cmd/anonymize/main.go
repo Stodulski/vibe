@@ -122,6 +122,7 @@ func report(w *os.File, clientID uuid.UUID, result Result, apply bool) {
 	fmt.Fprintf(w, "client %s of complex %s %s\n", clientID, result.Complex, verb)
 	fmt.Fprintf(w, "  erased:  name, phone, email, client notes\n")
 	fmt.Fprintf(w, "  erased:  notes on %d booking(s)\n", result.BookingNotesCleared)
+	fmt.Fprintf(w, "  erased:  the name and contact on %d unpaid booking(s)\n", result.SnapshotsCleared)
 	fmt.Fprintf(w, "  phone is now %q\n", result.Phone)
 	fmt.Fprintf(w, "  kept:    %d booking(s), %d payment(s) — the venue's books and the refund state\n",
 		result.Bookings, result.Payments)

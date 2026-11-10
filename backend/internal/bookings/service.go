@@ -163,9 +163,13 @@ func (s *Service) Get(ctx context.Context, complexID, bookingID uuid.UUID) (Deta
 		return Detail{}, err
 	}
 
-	client, err := s.clients.GetByID(ctx, booking.ClientID)
-	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
-		return Detail{}, err
+	// A storefront booking still waiting for its payment has no client yet.
+	var client *clientstore.Client
+	if booking.HasClient() {
+		client, err = s.clients.GetByID(ctx, booking.ClientID)
+		if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
+			return Detail{}, err
+		}
 	}
 
 	payment, err := s.payments.GetByBookingID(ctx, booking.ID)
@@ -383,7 +387,7 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	s.record(actor, complexID, "update", &booking.ID, booking)
 
 	// Increment no_shows counter when owner marks a booking as no_show.
-	if in.Status != nil && *in.Status == "no_show" {
+	if in.Status != nil && *in.Status == "no_show" && booking.HasClient() {
 		if err := s.clients.IncrementNoShows(ctx, booking.ClientID); err != nil {
 			s.logger.Error("update booking: failed to increment no_shows", "error", err, "client_id", booking.ClientID)
 		}

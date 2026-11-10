@@ -11,6 +11,8 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 )
 
 // Owner rule (2026-11-10): "no deberian de crearse clientes si no hay una
@@ -109,5 +111,58 @@ func TestPublicBookAuditEntryRecordsNoClientID(t *testing.T) {
 		if strings.Contains(string(encoded), pii) {
 			t.Errorf("the snapshot is personal data and stays out of the trail; found %q in %s", pii, encoded)
 		}
+	}
+}
+
+// snapshotHold is an unpaid storefront booking with no client, the way POST
+// /book leaves it.
+func snapshotHold(complexID uuid.UUID) *bookingstore.Booking {
+	b := futureBooking(complexID)
+	b.ClientID = uuid.Nil
+	b.Status = "pending"
+	b.CollectionStatus = bookingstore.CollectionStatusUnpaid
+	b.ClientSnapshot = &bookingstore.ClientSnapshot{FirstName: "Ana", LastName: "Perez", Phone: "+541100000000", Email: "ana@example.com"}
+	return b
+}
+
+// A visitor cancelling their own unpaid booking is told so, from the snapshot:
+// there is no client row to read.
+func TestPublicCancelOfABookingWithNoClientNotifiesFromTheSnapshot(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking := snapshotHold(complexID)
+	f.store.booking = booking
+	f.linkResolver.booking = booking
+	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
+	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Cancha 1"}
+
+	w := httptest.NewRecorder()
+	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.notify.cancelled) != 1 {
+		t.Fatalf("want the cancellation notice sent; got %d", len(f.notify.cancelled))
+	}
+	n := f.notify.cancelled[0]
+	if n.Email != "ana@example.com" || n.Phone != "+541100000000" || n.ClientName != "Ana Perez" {
+		t.Errorf("want the notice addressed from the snapshot; got %q %q %q", n.Email, n.Phone, n.ClientName)
+	}
+	value := auditValue(t, auditEntry(t, f, "public_cancel"))
+	if v, ok := value["client_id"]; ok {
+		t.Errorf("a booking with no client records no client id; got %v", v)
+	}
+}
+
+// The wire never hands out the zero UUID as somebody's id.
+func TestTheWireCarriesNoClientIDForABookingWithNoClient(t *testing.T) {
+	b := snapshotHold(uuid.New())
+	if got := toGenBooking(b).ClientId; got != nil {
+		t.Errorf("want client_id null for a booking with no client; got %v", *got)
+	}
+	b.ClientID = uuid.New()
+	if got := toGenBooking(b).ClientId; got == nil || *got != b.ClientID {
+		t.Errorf("want the client id on the wire; got %v", got)
 	}
 }

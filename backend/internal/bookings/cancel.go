@@ -417,19 +417,17 @@ func (s *Service) refundMethod(ctx context.Context, booking *bookingstore.Bookin
 // booking; it decides whether the owner is told (see notifications.SourceClientCancel).
 func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex, outcome paymentstore.RefundOutcome, source string) {
 	court, courterr := s.courts.GetByID(ctx, booking.CourtID)
-	client, cerr := s.clients.GetByID(ctx, booking.ClientID)
+	// A storefront booking cancelled before it was paid has no client; the
+	// snapshot it was held under names who to tell (see ContactOf).
+	client, cerr := bookingstore.ContactOf(ctx, s.clients, booking)
 	if cerr == nil && courterr == nil {
-		clientEmail := ""
-		if client.Email != nil {
-			clientEmail = *client.Email
-		}
 		// The refund decision made above travels with the message. It used to
 		// stop here: the client was told their booking was off and nothing
 		// about their deposit, and found out about the money — or did not —
 		// from a separate email that only fires when one is actually sent.
 		refundLine, refundAmount := refundNotice(outcome)
 		s.notify.BookingCancelled(notifications.Cancellation{
-			Email:        clientEmail,
+			Email:        client.Email,
 			Phone:        client.Phone,
 			ComplexName:  complex.Name,
 			CourtName:    court.Name,
@@ -439,7 +437,7 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 			RefundAmount: refundAmount,
 			BookPath:     booklink.BookPath(complex.Slug),
 			BookURL:      booklink.Book(s.cfg.PublicURL, complex.Slug),
-			ClientName:   client.FirstName + " " + client.LastName,
+			ClientName:   client.FullName(),
 			OwnerID:      complex.OwnerID.String(),
 			Source:       source,
 			BookingID:    booking.ID.String(),
