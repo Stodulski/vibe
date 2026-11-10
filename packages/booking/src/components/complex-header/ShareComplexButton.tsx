@@ -59,7 +59,7 @@ export function ShareComplexButton({ name, slug }: ShareComplexButtonProps) {
           as padding and takes it back as negative margin, like the phone link. */}
       <button
         type="button"
-        className="hover:text-primary-400 flex w-fit cursor-pointer items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+        className="hover:underline underline-offset-4 flex w-fit cursor-pointer items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
         aria-label={`${t.publicBooking.shareAction} ${name}`}
         onClick={() => void share()}
       >

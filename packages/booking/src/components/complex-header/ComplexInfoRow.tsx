@@ -15,7 +15,7 @@ function InstagramLink({ name, handle }: { name: string; handle: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`${t.publicBooking.instagramOf} ${name}: @${handle}`}
-      className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+      className="hover:underline underline-offset-4 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
     >
       <InstagramIcon className="text-primary-400 size-3 shrink-0 sm:size-3.5" />
       <span>@{handle}</span>
@@ -65,7 +65,7 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
       {complex.phone && (
         <a
           href={`tel:${complex.phone}`}
-          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+          className="hover:underline underline-offset-4 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
         >
           <Phone
             className="text-primary-400 size-3 shrink-0 sm:size-3.5"
@@ -78,7 +78,7 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
       {complex.email && (
         <a
           href={`mailto:${complex.email}`}
-          className="hover:text-primary-400 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
+          className="hover:underline underline-offset-4 flex w-fit items-center gap-2 transition-colors pointer-coarse:-my-[15px] pointer-coarse:min-h-0 pointer-coarse:py-[15px]"
         >
           <Mail
             className="text-primary-400 size-3 shrink-0 sm:size-3.5"
