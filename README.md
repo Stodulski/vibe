@@ -38,7 +38,7 @@ Railway and Vercel each build one package, so every project is configured with i
 - Railway (`backend`): root directory `backend`, where the Dockerfile is read from. The service settings are Infrastructure as Code in `backend/.railway/railway.ts` (`railway config plan`, then `railway config apply`, from `backend/`).
 - Vercel (`frontend`, `landing`): root directory set to the package; `vercel.json` in the landing applies from there.
 
-The landing has server-rendered routes (`/canchas/[city]`), so its build uses the Vercel adapter and writes `.vercel/output`, which Vercel deploys instead of `dist/`. The `build:mirror` step therefore copies the generated sitemap, `llms.txt` and Markdown twins into `.vercel/output/static`. `PUBLIC_API_URL` is inlined at build time, so changing it needs a new deployment.
+The landing has server-rendered routes (`/canchas/[city]`), so its build uses the Vercel adapter and writes `.vercel/output`, which Vercel deploys instead of `dist/`. The `build:mirror` step therefore copies the generated sitemap, `llms.txt` and Markdown twins into `.vercel/output/static`. `PUBLIC_API_URL` is inlined at build time, so changing it needs a new deployment. `PUBLIC_TURNSTILE_SITE_KEY` (optional) is the Cloudflare Turnstile site key the storefront's confirm step shows; its widget must list `vibe.com.ar` among its hostnames, and the API only requires the token once `TURNSTILE_BOOKING_ENFORCE=true` is set on the backend.
 
 All three projects watch this one repository, so before 2026-09-14 every push built every one of
 them whatever it touched: a backend-only commit rebuilt two frontends, and a copy fix in the app
