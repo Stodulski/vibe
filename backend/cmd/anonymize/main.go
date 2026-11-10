@@ -13,6 +13,12 @@
 // Usage:
 //
 //	go run ./cmd/anonymize -client=<uuid> [-db-dsn=<dsn>] [-apply]
+//	go run ./cmd/anonymize -complex=<uuid> -phone=<phone> [-db-dsn=<dsn>] [-apply]
+//
+// The second form is for someone who booked on the storefront and never paid:
+// since migration 024 such a person has no clients row, only the snapshot on
+// their bookings, so the venue and the phone they gave are the only handle.
+// When the phone does belong to a client, it erases that client, whole.
 //
 // Without -apply it is a dry run: the transaction is opened, the work is done,
 // the summary is printed, and the transaction is rolled back. That is the
@@ -46,36 +52,71 @@ const runTimeout = 2 * time.Minute
 
 func main() {
 	var (
-		clientSpec string
-		dsn        string
-		apply      bool
+		clientSpec  string
+		complexSpec string
+		phone       string
+		dsn         string
+		apply       bool
 	)
 	fs := flag.NewFlagSet("anonymize", flag.ExitOnError)
-	fs.StringVar(&clientSpec, "client", "", "id of the client to anonymize (required)")
+	fs.StringVar(&clientSpec, "client", "", "id of the client to anonymize")
+	fs.StringVar(&complexSpec, "complex", "", "id of the venue, with -phone, for someone who has no client row")
+	fs.StringVar(&phone, "phone", "", "phone the person booked with, exactly as stored, with -complex")
 	fs.StringVar(&dsn, "db-dsn", os.Getenv("DATABASE_URL"), "PostgreSQL DSN (defaults to DATABASE_URL)")
 	fs.BoolVar(&apply, "apply", false, "write the changes; without it the run is rolled back and only reported")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		log.Fatal(err)
 	}
 
-	if clientSpec == "" {
+	byClient := clientSpec != ""
+	byPhone := complexSpec != "" || phone != ""
+	if byClient == byPhone {
 		fs.Usage()
-		log.Fatal("anonymize: -client is required")
+		log.Fatal("anonymize: give either -client, or -complex with -phone")
 	}
-	clientID, err := uuid.Parse(clientSpec)
-	if err != nil {
-		log.Fatalf("anonymize: -client is not a uuid: %v", err)
+	if byPhone && (complexSpec == "" || phone == "") {
+		fs.Usage()
+		log.Fatal("anonymize: -complex and -phone go together")
 	}
 	if dsn == "" {
 		log.Fatal("anonymize: -db-dsn is empty and DATABASE_URL is not set")
 	}
 
-	if err := run(clientID, dsn, apply); err != nil {
+	var who target
+	if byClient {
+		clientID, err := uuid.Parse(clientSpec)
+		if err != nil {
+			log.Fatalf("anonymize: -client is not a uuid: %v", err)
+		}
+		who = target{clientID: clientID}
+	} else {
+		complexID, err := uuid.Parse(complexSpec)
+		if err != nil {
+			log.Fatalf("anonymize: -complex is not a uuid: %v", err)
+		}
+		who = target{complexID: complexID, phone: phone}
+	}
+
+	if err := run(who, dsn, apply); err != nil {
 		log.Fatalf("anonymize: %v", err)
 	}
 }
 
-func run(clientID uuid.UUID, dsn string, apply bool) error {
+// target is who to erase: a client id, or a venue and a phone.
+type target struct {
+	clientID  uuid.UUID
+	complexID uuid.UUID
+	phone     string
+}
+
+func (t target) String() string {
+	if t.phone != "" {
+		return fmt.Sprintf("phone %s at complex %s", t.phone, t.complexID)
+	}
+	return "client " + t.clientID.String()
+}
+
+func run(who target, dsn string, apply bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
 	defer cancel()
 
@@ -94,12 +135,18 @@ func run(clientID uuid.UUID, dsn string, apply bool) error {
 	// it found, and nothing is kept.
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	result, err := anonymizeClient(ctx, tx, clientID)
+	var result Result
+	if who.phone != "" {
+		result, err = anonymizeByPhone(ctx, tx, who.complexID, who.phone)
+	} else {
+		result, err = anonymizeClient(ctx, tx, who.clientID)
+	}
 	if err != nil {
 		return err
 	}
-	if !result.ClientFound {
-		return fmt.Errorf("no client with id %s", clientID)
+	// Nobody found is reported, not passed off as a successful no-op.
+	if !result.ClientFound && result.SnapshotsCleared == 0 {
+		return fmt.Errorf("nobody found for %s", who)
 	}
 
 	if apply {
@@ -108,19 +155,23 @@ func run(clientID uuid.UUID, dsn string, apply bool) error {
 		}
 	}
 
-	report(os.Stdout, clientID, result, apply)
+	report(os.Stdout, who, result, apply)
 	return nil
 }
 
 // report prints what happened, in the shape an operator can paste into the
 // record of the request.
-func report(w *os.File, clientID uuid.UUID, result Result, apply bool) {
+func report(w *os.File, who target, result Result, apply bool) {
 	verb := "would be anonymized (dry run; re-run with -apply to write)"
 	if apply {
 		verb = "anonymized"
 	}
-	fmt.Fprintf(w, "client %s of complex %s %s\n", clientID, result.Complex, verb)
-	fmt.Fprintf(w, "  erased:  name, phone, email, client notes\n")
+	fmt.Fprintf(w, "%s of complex %s %s\n", who, result.Complex, verb)
+	if result.ClientFound {
+		fmt.Fprintf(w, "  erased:  name, phone, email, client notes\n")
+	} else {
+		fmt.Fprintf(w, "  no client row: the person never paid a booking here\n")
+	}
 	fmt.Fprintf(w, "  erased:  notes on %d booking(s)\n", result.BookingNotesCleared)
 	fmt.Fprintf(w, "  erased:  the name and contact on %d unpaid booking(s)\n", result.SnapshotsCleared)
 	fmt.Fprintf(w, "  phone is now %q\n", result.Phone)

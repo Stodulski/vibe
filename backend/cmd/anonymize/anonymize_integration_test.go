@@ -269,3 +269,84 @@ func TestAnonymizeErasesTheSnapshotOnTheirUnpaidBookings(t *testing.T) {
 		t.Errorf("another person's hold must be untouched; got %q %q %v %v", first, gotPhone, email, notes)
 	}
 }
+
+// Someone who booked on the storefront and never paid has no clients row
+// (migration 024): the venue and the phone they gave are the only handle on
+// them, and the snapshot on their bookings must still be erasable.
+func TestAnonymizeByPhoneErasesSomeoneWhoNeverPaid(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	const neverPaid = "+5491177777777"
+	insertHold := func(start, holdPhone string) uuid.UUID {
+		t.Helper()
+		var id uuid.UUID
+		if err := f.DB.QueryRow(ctx, `
+			INSERT INTO bookings (complex_id, court_id, date, start_time, duration_minutes, price, notes,
+			                      client_first_name, client_last_name, client_phone, client_email)
+			VALUES ($1, $2, CURRENT_DATE + 122, $3, 90, 500000, 'llamar antes',
+			        'Ana', 'Diaz', $4, 'ana@example.test')
+			RETURNING id`, f.ComplexID, f.CourtID, start, holdPhone).Scan(&id); err != nil {
+			t.Fatalf("seeding a hold: %v", err)
+		}
+		return id
+	}
+	theirs := insertHold("10:00", neverPaid)
+	strangers := insertHold("12:00", "+5491199999999")
+
+	var result Result
+	f.inTx(t, func(tx pgx.Tx) error {
+		var err error
+		result, err = anonymizeByPhone(ctx, tx, f.ComplexID, neverPaid)
+		return err
+	})
+	if result.ClientFound {
+		t.Errorf("no clients row exists for that phone; want ClientFound false")
+	}
+	if result.SnapshotsCleared != 1 {
+		t.Fatalf("want one unpaid booking's snapshot erased; got %d", result.SnapshotsCleared)
+	}
+
+	if _, err := f.DB.Exec(ctx, `SET app.bypass_tenant = 'on'`); err != nil {
+		t.Fatalf("declaring the cross-tenant scope: %v", err)
+	}
+	read := func(id uuid.UUID) (first, gotPhone string, email, notes *string) {
+		t.Helper()
+		if err := f.DB.QueryRow(ctx, `
+			SELECT client_first_name, client_phone, client_email::text, notes
+			FROM bookings WHERE id = $1`, id).Scan(&first, &gotPhone, &email, &notes); err != nil {
+			t.Fatalf("reading the hold: %v", err)
+		}
+		return
+	}
+	first, gotPhone, email, notes := read(theirs)
+	if first != anonymizedFirstName || gotPhone == neverPaid || email != nil || notes != nil {
+		t.Errorf("want their snapshot erased; got %q %q %v %v", first, gotPhone, email, notes)
+	}
+	first, gotPhone, email, notes = read(strangers)
+	if first != "Ana" || gotPhone != "+5491199999999" || email == nil || notes == nil {
+		t.Errorf("another person's hold must be untouched; got %q %q %v %v", first, gotPhone, email, notes)
+	}
+}
+
+// A phone that does belong to a client is the client's erasure, whole: the
+// row and every snapshot, the same as -client.
+func TestAnonymizeByPhoneOfAClientErasesTheClient(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	var phone string
+	if err := f.DB.QueryRow(ctx, `SELECT phone FROM clients WHERE id = $1`, f.clientID).Scan(&phone); err != nil {
+		t.Fatalf("reading the phone: %v", err)
+	}
+
+	var result Result
+	f.inTx(t, func(tx pgx.Tx) error {
+		var err error
+		result, err = anonymizeByPhone(ctx, tx, f.ComplexID, phone)
+		return err
+	})
+	if !result.ClientFound || result.Phone != anonymizedPhone(f.clientID) {
+		t.Errorf("want the client row anonymized; got %+v", result)
+	}
+}

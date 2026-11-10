@@ -141,19 +141,10 @@ func anonymizeClient(ctx context.Context, tx pgx.Tx, clientID uuid.UUID) (Result
 	// held until a moment ago, within the same venue — the key a paid booking
 	// would have attached them by. The placeholders are the client's own, so
 	// bookings_client_or_snapshot still holds.
-	tag, err = tx.Exec(ctx, `
-		UPDATE bookings
-		SET client_first_name = $3,
-		    client_last_name  = $4,
-		    client_phone      = $5,
-		    client_email      = NULL,
-		    notes             = NULL
-		WHERE complex_id = $1 AND client_id IS NULL AND client_phone = $2`,
-		result.Complex, phone, anonymizedFirstName, anonymizedLastName, result.Phone)
+	result.SnapshotsCleared, err = eraseSnapshots(ctx, tx, result.Complex, phone, result.Phone)
 	if err != nil {
-		return result, fmt.Errorf("erasing the unpaid bookings' snapshot: %w", err)
+		return result, err
 	}
-	result.SnapshotsCleared = tag.RowsAffected()
 
 	// The counts of what is kept are part of the answer, not decoration: the
 	// operator writing back to the requester has to be able to say "your name
@@ -177,4 +168,62 @@ func anonymizeClient(ctx context.Context, tx pgx.Tx, clientID uuid.UUID) (Result
 	}
 
 	return result, nil
+}
+
+// anonymizedUnpaidPhone replaces the phone on the snapshot of someone who never
+// got a clients row. Like anonymizedPhone it must not look like a number; the
+// snapshot has no uniqueness to satisfy, so one constant serves everyone.
+const anonymizedUnpaidPhone = "anonymized-unpaid"
+
+// anonymizeByPhone erases a person named by the venue and the phone they gave.
+//
+// It exists because since migration 024 a storefront booking that was never
+// paid creates no clients row: the person lives only in the snapshot columns
+// of their bookings, and -client has no id to be handed. When the phone does
+// belong to a client, this is that client's erasure, whole (anonymizeClient,
+// which also clears their snapshots); otherwise only the snapshots are
+// erased, by the same statement anonymizeClient uses.
+func anonymizeByPhone(ctx context.Context, tx pgx.Tx, complexID uuid.UUID, phone string) (Result, error) {
+	result := Result{Complex: complexID}
+
+	if _, err := tx.Exec(ctx, `SET LOCAL app.bypass_tenant = 'on'`); err != nil {
+		return result, fmt.Errorf("declaring the cross-tenant scope: %w", err)
+	}
+
+	var clientID uuid.UUID
+	err := tx.QueryRow(ctx,
+		`SELECT id FROM clients WHERE complex_id = $1 AND phone = $2`, complexID, phone).Scan(&clientID)
+	switch {
+	case err == nil:
+		return anonymizeClient(ctx, tx, clientID)
+	case !errors.Is(err, pgx.ErrNoRows):
+		return result, fmt.Errorf("looking the phone up: %w", err)
+	}
+
+	result.Phone = anonymizedUnpaidPhone
+	cleared, err := eraseSnapshots(ctx, tx, complexID, phone, anonymizedUnpaidPhone)
+	if err != nil {
+		return result, err
+	}
+	result.SnapshotsCleared = cleared
+	return result, nil
+}
+
+// eraseSnapshots erases the snapshot, and the notes, on the unpaid storefront
+// bookings at complexID made with phone. The placeholders keep
+// bookings_client_or_snapshot satisfied.
+func eraseSnapshots(ctx context.Context, tx pgx.Tx, complexID uuid.UUID, phone, placeholderPhone string) (int64, error) {
+	tag, err := tx.Exec(ctx, `
+		UPDATE bookings
+		SET client_first_name = $3,
+		    client_last_name  = $4,
+		    client_phone      = $5,
+		    client_email      = NULL,
+		    notes             = NULL
+		WHERE complex_id = $1 AND client_id IS NULL AND client_phone = $2`,
+		complexID, phone, anonymizedFirstName, anonymizedLastName, placeholderPhone)
+	if err != nil {
+		return 0, fmt.Errorf("erasing the unpaid bookings' snapshot: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }

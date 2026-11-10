@@ -89,12 +89,26 @@ go run ./cmd/anonymize -client=<client id>
 go run ./cmd/anonymize -client=<client id> -apply
 ```
 
+Someone who booked on the storefront and never paid has **no client row**: an
+unpaid storefront booking keeps the name, phone and email on the booking
+itself until the payment is approved (migration 024). Find them by the venue
+and the phone they gave, exactly as stored, and use the same dry run first:
+
+```bash
+go run ./cmd/anonymize -complex=<complex id> -phone=<phone>
+go run ./cmd/anonymize -complex=<complex id> -phone=<phone> -apply
+```
+
+If that phone does belong to a client, this erases that client, the same as
+`-client`. Nobody found under either form is an error, not a silent no-op.
+
 The output is the record to keep against the request:
 
 ```
 client 5f2b… of complex 9a1c… anonymized
   erased:  name, phone, email, client notes
   erased:  notes on 3 booking(s)
+  erased:  the name and contact on 1 unpaid booking(s)
   phone is now "anonymized-5f2b…"
   kept:    7 booking(s), 5 payment(s) — the venue's books and the refund state
   kept:    41 audit entry/entries for this complex — the record of who did what
