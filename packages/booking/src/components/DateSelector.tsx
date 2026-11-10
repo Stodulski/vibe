@@ -47,7 +47,11 @@ export function DateSelector({ selectedDate, onDateSelect, schedules }: DateSele
         ref={scrollRef}
         role="radiogroup"
         aria-label={t.publicBooking.dateStripLabel}
-        className="scrollbar-none flex gap-3 overflow-x-auto px-1 pt-1 pb-3"
+        // Below `lg` the strip runs to the screen edges (the margins cancel the
+        // page gutter, the padding puts the first day back in line), so a day
+        // cut in half sits at the edge of the phone, where it reads as "swipe
+        // for more", not at the edge of the column, where it reads as broken.
+        className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto scroll-px-4 px-4 pt-1 pb-3 sm:-mx-8 sm:scroll-px-8 sm:px-8 lg:mx-0 lg:scroll-px-1 lg:px-1"
       >
         {days.map((date, index) => (
           <DateButton

@@ -53,22 +53,28 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
   });
 
   return (
-    // The card arrives at `lg`, solid brand green like the booking tickets.
-    // Below that it is a plain block on the page.
+    // Solid brand green at every width, like the booking tickets. At `lg` it
+    // is a bordered card inside the page; below that, a full-bleed band.
     //
     // The green is applied by re-pointing the theme's text, accent and rule
-    // colours inside the card, so every child (contact row, share button,
-    // courts, hours) takes the near-black ink without its own `lg:` variant.
+    // colours inside the block, so every child (contact row, share button,
+    // courts, hours) takes the near-black ink without a variant of its own.
     // The cover and the logo tile keep their own surfaces.
     <div
       className={cn(
-        'relative lg:rounded-2xl lg:border lg:p-7',
-        'lg:border-primary-500 lg:bg-primary-500 lg:font-medium',
-        'lg:[--color-text-primary:var(--color-text-inverse)]',
-        'lg:[--color-text-secondary:var(--color-text-inverse)]',
-        'lg:[--color-text-tertiary:var(--color-text-inverse)]',
-        'lg:[--color-primary-400:var(--color-text-inverse)]',
-        'lg:[--color-border-subtle:rgb(11_11_11/0.2)]',
+        'bg-primary-500 relative font-medium',
+        // Below `lg` the green bleeds to the screen edges and up to the navbar:
+        // the margins cancel the page gutter (`px-4 py-5`, `sm:p-8` on <main>)
+        // and the same padding puts the content back where it was. The bottom
+        // gets a bit more than the side gutter, and rounded corners.
+        '-mx-4 -mt-5 rounded-b-3xl px-4 pt-5 pb-6 sm:-mx-8 sm:-mt-8 sm:px-8 sm:pt-8 sm:pb-10',
+        'lg:m-0 lg:rounded-2xl lg:border lg:p-7',
+        'lg:border-primary-500',
+        '[--color-text-primary:var(--color-text-inverse)]',
+        '[--color-text-secondary:var(--color-text-inverse)]',
+        '[--color-text-tertiary:var(--color-text-inverse)]',
+        '[--color-primary-400:var(--color-text-inverse)]',
+        '[--color-border-subtle:rgb(11_11_11/0.2)]',
       )}
     >
       {/* Identity: cover, logo, name, contact — one block, one order. */}
