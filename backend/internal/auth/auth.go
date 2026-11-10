@@ -274,9 +274,10 @@ type Config struct {
 	// binary passes bcrypt.MinCost so that a suite which registers or signs in
 	// hundreds of users does not spend a quarter of a second on each one.
 	PasswordHashCost int
-	// TrustProxies decides which address the audit trail records — the peer, or
-	// the one the forwarded headers claim. Same flag every other module's
-	// trail reads (cfg.trustedProxies).
+	// TrustedProxies decides which address the audit trail and Turnstile see —
+	// the peer, or the one the forwarded headers claim. It is the parsed
+	// TRUSTED_PROXIES set the rate limiter and every other trail read
+	// (d.trustedProxies in cmd/api).
 	TrustedProxies httpx.TrustedProxies
 }
 

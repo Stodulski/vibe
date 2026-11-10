@@ -139,7 +139,8 @@ type Recorder interface {
 type Config struct {
 	// FrontendURL is the origin the MercadoPago OAuth redirect returns to.
 	FrontendURL string
-	// TrustProxies decides which address the audit trail records.
+	// TrustedProxies decides which address the audit trail records: the same
+	// TRUSTED_PROXIES set the rate limiter reads.
 	TrustedProxies httpx.TrustedProxies
 	// MPAppID is the MercadoPago application the OAuth connect flow runs
 	// against. The client builds the authorize URL, so it must use the same
