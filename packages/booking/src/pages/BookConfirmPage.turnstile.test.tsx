@@ -259,6 +259,25 @@ describe('BookConfirmPage with a Turnstile site key', () => {
 });
 
 describe('BookConfirmPage with a Turnstile site key, after an attempt', () => {
+  it('keeps the token after a 409 "still in progress", so the retry reuses the same Idempotency-Key', async () => {
+    createBooking.mockRejectedValueOnce(
+      await makeConsumedHttpError(409, {
+        type: 'https://vibe.com.ar/problems/conflict',
+        title: 'Conflict',
+        status: 409,
+        detail: 'a request with this Idempotency-Key is still in progress, retry shortly',
+      }),
+    );
+    await submitSolvedFullForm();
+
+    await waitFor(() => {
+      expect(createBooking).toHaveBeenCalledTimes(1);
+    });
+    // The first request is still running on the server: a fresh token would
+    // change the payload, and with it the key, and lose that request's answer.
+    expect(turnstile.reset.calls).toBe(0);
+  });
+
   it('resets the widget after an answered attempt, so the next one needs a fresh token', async () => {
     createBooking.mockRejectedValueOnce(await makeConsumedHttpError(500, {}));
     await submitSolvedFullForm();

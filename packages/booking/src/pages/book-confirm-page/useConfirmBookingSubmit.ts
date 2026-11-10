@@ -6,7 +6,7 @@ import type { BookingSlotInfo } from '../../components/BookingForm';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 import { buildBookingRequest } from './buildBookingRequest';
 import { buildBookingInfo } from './buildBookingInfo';
-import { safeSessionStorage } from '@vibe/ui';
+import { isStillInProgress, safeSessionStorage } from '@vibe/ui';
 import { publicComplexPath } from '../../lib/publicPaths';
 import { navigateTo } from '../../lib/navigation';
 import { clearBookingResult, clearConfirmDraft, saveBookingResult } from '../../lib/handoff';
@@ -51,11 +51,12 @@ export function useConfirmBookingSubmit(
     mutation.mutate(buildBookingRequest(slotInfo, formData, turnstile?.token), {
       onError: (error) => {
         // Any HTTP answer spent the token, so the next attempt needs a fresh
-        // one. A timeout or network failure got no answer: the token may never
-        // have reached the server, and keeping it keeps the payload, and with
-        // it the Idempotency-Key, identical for the retry that replays the
-        // first attempt.
-        if (error instanceof HTTPError) turnstile?.reset();
+        // one. Two cases keep it, because keeping the payload keeps the
+        // Idempotency-Key, and the retry must reuse that key to receive the
+        // first attempt's answer: a timeout or network failure (no answer at
+        // all), and a 409 "still in progress" (the first request is still
+        // running on the server).
+        if (error instanceof HTTPError && !isStillInProgress(error)) turnstile?.reset();
       },
       onSuccess: (data) => {
         turnstile?.reset();

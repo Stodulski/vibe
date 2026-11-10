@@ -54,7 +54,7 @@ export {
 export { addMinutes, generateTimeSlots, parseHhMm, parseYmd, timeToMinutes, type HhMm, type Ymd } from './lib/time';
 export { safeLocalStorage, safeSessionStorage, type SafeStorage } from './lib/safeStorage';
 export { submitHandler, useAppForm } from './lib/form';
-export { useIdempotentMutation, type WithAttemptKey } from './lib/idempotency';
+export { isStillInProgress, useIdempotentMutation, type WithAttemptKey } from './lib/idempotency';
 export { hasUnsavedWork, markUnsavedWork } from './lib/unsavedWork';
 export { useUnsavedWork } from './hooks/useUnsavedWork';
 export { useMediaQuery } from './hooks/useMediaQuery';
