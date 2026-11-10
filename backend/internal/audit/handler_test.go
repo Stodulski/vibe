@@ -77,7 +77,7 @@ func newTrailFixture(t *testing.T) *trailFixture {
 	// entry is asserted as it reaches persistence, encoding included.
 	recorder := NewRecorder(f.store, logger, runInline)
 	f.service = NewService(f.reader, recorder)
-	f.handler = NewHandler(f.service, httpx.NewResponder(logger), false)
+	f.handler = NewHandler(f.service, httpx.NewResponder(logger), httpx.TrustedProxies{})
 	return f
 }
 

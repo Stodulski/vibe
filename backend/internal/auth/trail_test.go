@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -493,21 +494,28 @@ func TestARecordedAddressCannotBeUsedToInflateTheTable(t *testing.T) {
 }
 
 // The trail records where an act came from, and which address that is depends on
-// whether the deployment sits behind a proxy — the same one flag every other
-// module's trail reads.
+// whether the peer is in the configured TRUSTED_PROXIES set — the same set the
+// rate limiter reads, so the two always name the same client.
 func TestTheForwardedAddressIsRecordedOnlyWhenProxiesAreTrusted(t *testing.T) {
+	onlyTenNet, err := httpx.ParseTrustedProxies("10.0.0.0/8")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tt := range []struct {
 		name    string
-		trust   bool
+		trust   httpx.TrustedProxies
 		wantIP  string
 		forward string
 	}{
-		{"untrusted proxies", false, "127.0.0.1", "203.0.113.9"},
-		{"trusted proxies", true, "203.0.113.9", "203.0.113.9"},
+		{"untrusted proxies", httpx.TrustedProxies{}, "127.0.0.1", "203.0.113.9"},
+		{"trusted proxies", httpx.DefaultTrustedProxies(), "203.0.113.9", "203.0.113.9"},
+		// A custom set that leaves the peer out is honoured, not widened to the
+		// default private ranges as the old yes/no flag did.
+		{"custom set without the peer", onlyTenNet, "127.0.0.1", "203.0.113.9"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
-			f.handler.cfg.TrustProxies = tt.trust
+			f.handler.cfg.TrustedProxies = tt.trust
 			f.users.add(verifiedUser(t, "ana@example.com", "correct-horse-battery"))
 
 			r := postJSON(t, `{"email":"ana@example.com","password":"correct-horse-battery"}`)

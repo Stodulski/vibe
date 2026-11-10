@@ -286,17 +286,3 @@ func TestParseTrustedProxies(t *testing.T) {
 		}
 	})
 }
-
-// ClientIP is the boolean entry point the audit-log call sites still take. It
-// must resolve to the same set, or the rate limiter and the audit trail
-// disagree about who made the request.
-func TestClientIPBooleanFormMatchesTheDefaultSet(t *testing.T) {
-	r := request(t, "10.0.0.1:443", map[string]string{"X-Forwarded-For": "198.51.100.99, 203.0.113.7"})
-
-	if got, want := ClientIP(r, true), ClientIPFrom(r, DefaultTrustedProxies()); got != want {
-		t.Errorf("ClientIP(r, true) = %q; DefaultTrustedProxies gives %q", got, want)
-	}
-	if got := ClientIP(r, false); got != "10.0.0.1" {
-		t.Errorf("ClientIP(r, false) must ignore the headers entirely; got %q", got)
-	}
-}

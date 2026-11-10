@@ -33,13 +33,14 @@ type Reader interface {
 type Handler struct {
 	svc     *Service
 	respond *httpx.Responder
-	// trustProxies decides which address is recorded as the caller's.
-	trustProxies bool
+	// trustedProxies decides which address is recorded as the caller's: the
+	// same TRUSTED_PROXIES set the rate limiter reads, so the two agree.
+	trustedProxies httpx.TrustedProxies
 }
 
 // NewHandler returns a Handler backed by the given service.
-func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Handler {
-	return &Handler{svc: svc, respond: respond, trustProxies: trustProxies}
+func NewHandler(svc *Service, respond *httpx.Responder, trustedProxies httpx.TrustedProxies) *Handler {
+	return &Handler{svc: svc, respond: respond, trustedProxies: trustedProxies}
 }
 
 // Routes registers the tenant-facing trail. It is scoped to one complex and
@@ -157,5 +158,5 @@ func (h *Handler) actor(r *http.Request) Actor {
 	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
 		userID = &user.ID
 	}
-	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.trustProxies)}
+	return Actor{UserID: userID, IP: httpx.ClientIPFrom(r, h.trustedProxies)}
 }

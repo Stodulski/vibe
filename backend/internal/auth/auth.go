@@ -277,7 +277,7 @@ type Config struct {
 	// TrustProxies decides which address the audit trail records — the peer, or
 	// the one the forwarded headers claim. Same flag every other module's
 	// trail reads (cfg.trustedProxies).
-	TrustProxies bool
+	TrustedProxies httpx.TrustedProxies
 }
 
 // Handler serves the auth routes. It decodes, validates, sets and clears the

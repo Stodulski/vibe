@@ -367,7 +367,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 
 	auditor := audit.NewRecorder(d.models.Audit, d.logger, app.background)
 	auditService := audit.NewService(d.models.Audit, auditor)
-	auditTrailHandler := audit.NewHandler(auditService, respond, d.trustedProxies.Any())
+	auditTrailHandler := audit.NewHandler(auditService, respond, d.trustedProxies)
 
 	tokens := auth.NewTokenService(auth.TokenServiceConfig{
 		JWTSecret:         cfg.JWT.Secret,
@@ -585,9 +585,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	}
 
 	complexesConfig := complexes.Config{
-		FrontendURL:  cfg.FrontendURL,
-		TrustProxies: d.trustedProxies.Any(),
-		MPAppID:      cfg.MP.AppID,
+		FrontendURL:    cfg.FrontendURL,
+		TrustedProxies: d.trustedProxies,
+		MPAppID:        cfg.MP.AppID,
 	}
 	// complexesService is built before courtsService because the court domain
 	// reads venues and their opening hours through it, and with no court port
@@ -615,7 +615,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 
 	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor, indexNow, courts.WithRealtime(events))
-	courtsHandler := courts.NewHandler(courtsService, respond, d.trustedProxies.Any())
+	courtsHandler := courts.NewHandler(courtsService, respond, d.trustedProxies)
 
 	// cashbox reads booking payments through d.models.Reports (the same
 	// aggregate store the monthly report uses), not through payments or
@@ -623,7 +623,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// what already owns "what counts as collected money", and cashbox's cash
 	// reconciliation must never disagree with the monthly report about that.
 	cashboxService := cashbox.NewService(d.models.Cashbox, d.models.Reports, auditor)
-	cashboxHandler := cashbox.NewHandler(cashboxService, respond, d.trustedProxies.Any())
+	cashboxHandler := cashbox.NewHandler(cashboxService, respond, d.trustedProxies)
 
 	// products' own Restock writes directly to cash_movements (the shared
 	// generated *db.Queries, not a call into cashbox's service or store) so
@@ -631,7 +631,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// internal/products/store.Store.Restock's own comment for why that
 	// crosses domain tables without crossing Go package boundaries.
 	productsService := products.NewService(d.models.Products, auditor)
-	productsHandler := products.NewHandler(productsService, respond, d.trustedProxies.Any())
+	productsHandler := products.NewHandler(productsService, respond, d.trustedProxies)
 
 	// sales writes directly to cash_movements and stock_movements (the
 	// shared generated queries, not a call into cashbox's or products' own
@@ -639,7 +639,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// commit in one transaction — see internal/sales/store.Store.Create's
 	// own comment, the same reasoning products' own Restock gives.
 	salesService := sales.NewService(d.models.Sales, auditor).WithBookingPublisher(events)
-	salesHandler := sales.NewHandler(salesService, respond, d.trustedProxies.Any())
+	salesHandler := sales.NewHandler(salesService, respond, d.trustedProxies)
 
 	// The one edge that cannot be a constructor argument, closed the moment the
 	// other side exists: before any handler is built, before the router is
@@ -666,7 +666,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Environment:       cfg.Env,
 		FrontendURL:       cfg.FrontendURL,
 		OAuthClientID:     cfg.Google.OAuthClientID,
-		TrustProxies:      d.trustedProxies.Any(),
+		TrustedProxies:    d.trustedProxies,
 		PasswordHashCost:  cfg.PasswordHashCost,
 	}
 
@@ -823,7 +823,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		GracePeriod:     cfg.Booking.GracePeriod,
 		PaymentExpiry:   cfg.Booking.PaymentExpiry,
 		SlotLockTTL:     cfg.Booking.SlotLockTTL,
-		TrustProxies:    d.trustedProxies.Any(),
 		WhatsAppEnabled: whatsappEnabled,
 		LinkTokenBuffer: cfg.Booking.LinkTokenBuffer,
 	})
@@ -834,7 +833,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// The WhatsApp webhook verifies Meta's own handshake and signature, so the
 	// handler takes the client alongside the service: both are computed over
 	// the request, which never reaches the service.
-	bookingsHandler := bookings.NewHandler(bookingsService, waClient, respond, d.logger, d.trustedProxies.Any())
+	bookingsHandler := bookings.NewHandler(bookingsService, waClient, respond, d.logger, d.trustedProxies)
 
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a

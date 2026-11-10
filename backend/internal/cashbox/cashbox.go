@@ -86,9 +86,9 @@ type Actor struct {
 // validates, and maps the service's domain errors onto HTTP; every rule
 // lives in the Service.
 type Handler struct {
-	svc          *Service
-	respond      *httpx.Refuser
-	trustProxies bool
+	svc            *Service
+	respond        *httpx.Refuser
+	trustedProxies httpx.TrustedProxies
 }
 
 // refusals is this module's whole error-to-status table. Everything absent
@@ -104,11 +104,11 @@ var refusals = httpx.Refusals{
 }
 
 // NewHandler returns a Handler backed by the given service.
-func NewHandler(svc *Service, respond *httpx.Responder, trustProxies bool) *Handler {
+func NewHandler(svc *Service, respond *httpx.Responder, trustedProxies httpx.TrustedProxies) *Handler {
 	return &Handler{
-		svc:          svc,
-		respond:      respond.WithRefusals(refusals),
-		trustProxies: trustProxies,
+		svc:            svc,
+		respond:        respond.WithRefusals(refusals),
+		trustedProxies: trustedProxies,
 	}
 }
 
@@ -119,5 +119,5 @@ func (h *Handler) actor(r *http.Request) Actor {
 	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
 		userID = &user.ID
 	}
-	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.trustProxies)}
+	return Actor{UserID: userID, IP: httpx.ClientIPFrom(r, h.trustedProxies)}
 }
