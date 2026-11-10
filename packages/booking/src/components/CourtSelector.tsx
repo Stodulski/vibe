@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { BOOKING_MESSAGES } from '../messages';
 import type { CourtAvailability } from '../api/types';
 import { TimeGroupList } from './court-selector/TimeGroupList';
@@ -76,6 +76,27 @@ export function CourtSelector({
   // (`?time=`) reopens its court question directly.
   const pendingTime = options.find((o) => o.startTime === pendingStartTime) ?? null;
 
+  // An hour that was already chosen when the grid first appeared came from
+  // the URL: "Cambiar horario" on the confirm page, or the browser's back.
+  // The page would otherwise open at the top, a header and a date strip away
+  // from the question it reopened, so it is brought into view once. An hour
+  // tapped on this page is already where the person is looking.
+  const questionRef = useRef<HTMLDivElement>(null);
+  const restoredOnMount = useRef(pendingTime !== null);
+  useEffect(() => {
+    if (!restoredOnMount.current) return;
+    // Cleared inside the frame, not before it: under StrictMode the effect
+    // runs twice and the first frame is cancelled, so the second run must
+    // still find the flag set.
+    const frame = requestAnimationFrame(() => {
+      restoredOnMount.current = false;
+      questionRef.current?.scrollIntoView({ block: 'start' });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
   function handleSelectTime(option: TimeOption) {
     onPendingStartTimeChange(option.startTime);
   }
@@ -93,7 +114,11 @@ export function CourtSelector({
 
   // Either the hours or the courts, never both — see `CourtQuestion`.
   if (pendingTime) {
-    return <CourtQuestion option={pendingTime} selected={selected} onSelectCourt={handleSelectCourt} />;
+    return (
+      <div ref={questionRef} className="scroll-mt-6">
+        <CourtQuestion option={pendingTime} selected={selected} onSelectCourt={handleSelectCourt} />
+      </div>
+    );
   }
 
   return (
