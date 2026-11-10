@@ -9,6 +9,8 @@ const t = ES_AR;
 
 interface SellProductTileProps {
   product: Product;
+  /** Units of this product already in the cart; 0 when it is not in it. */
+  quantity: number;
   onTap: (product: Product) => void;
 }
 
@@ -22,7 +24,7 @@ interface SellProductTileProps {
  * is no hover on touch, so each tap also replays a short ring flash (keyed
  * by a tap counter) that confirms the add where the finger is.
  */
-export const SellProductTile = memo(function SellProductTile({ product, onTap }: SellProductTileProps) {
+export const SellProductTile = memo(function SellProductTile({ product, quantity, onTap }: SellProductTileProps) {
   const outOfStock = product.tracks_stock && product.stock_on_hand <= 0;
   const [tapCount, setTapCount] = useState(0);
 
@@ -32,8 +34,13 @@ export const SellProductTile = memo(function SellProductTile({ product, onTap }:
         setTapCount((count) => count + 1);
         onTap(product);
       }}
+      // The name stays the product's alone: changing it on every tap would
+      // rename the button under a screen reader and under anything that finds
+      // it by name. The cart lines already announce each quantity.
       buttonLabel={product.name}
-      buttonClassName="focus-self relative flex w-full touch-manipulation flex-col items-start gap-2 rounded-2xl border border-border-subtle bg-bg-subtle p-4 text-left transition-[color,background-color,border-color,transform] duration-150 hover:border-border-default hover:bg-bg-highlight focus-visible:border-primary-400 focus-visible:bg-bg-elevated active:scale-[0.96] active:border-primary-400 active:bg-bg-elevated min-h-24"
+      // A product already in the cart wears a green edge, and its count sits
+      // in the corner, so the grid says what was added without a look at the cart.
+      buttonClassName={`focus-self relative flex w-full touch-manipulation flex-col items-start gap-2 rounded-2xl border ${quantity > 0 ? 'border-primary-500' : 'border-border-subtle'} bg-bg-subtle p-4 text-left transition-[color,background-color,border-color,transform] duration-150 hover:border-border-default hover:bg-bg-highlight focus-visible:border-primary-400 focus-visible:bg-bg-elevated active:scale-[0.96] active:border-primary-400 active:bg-bg-elevated min-h-24`}
     >
       {tapCount > 0 && (
         <span
@@ -42,7 +49,17 @@ export const SellProductTile = memo(function SellProductTile({ product, onTap }:
           className="animate-tile-added ring-primary-400 pointer-events-none absolute inset-0 rounded-2xl ring-2"
         />
       )}
-      <p className="text-text-primary line-clamp-2 text-sm font-semibold">{product.name}</p>
+      {quantity > 0 && (
+        <span
+          aria-hidden="true"
+          className="bg-primary-500 text-text-inverse absolute top-3 right-3 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+        >
+          ×{quantity}
+        </span>
+      )}
+      <p className={`text-text-primary line-clamp-2 text-sm font-semibold ${quantity > 0 ? 'pr-10' : ''}`}>
+        {product.name}
+      </p>
       <div className="mt-auto flex w-full flex-wrap items-end justify-between gap-x-2 gap-y-1">
         <span className="score-text text-text-primary text-base font-bold whitespace-nowrap">
           {formatPrice(product.price)}
