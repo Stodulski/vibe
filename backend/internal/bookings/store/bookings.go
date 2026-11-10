@@ -166,7 +166,10 @@ type Booking struct {
 	ID        uuid.UUID `json:"id"`
 	ComplexID uuid.UUID `json:"complex_id"`
 	CourtID   uuid.UUID `json:"court_id"`
-	ClientID  uuid.UUID `json:"client_id"`
+	// ClientID is uuid.Nil for a storefront booking that has not been paid:
+	// it is held under ClientSnapshot until AttachClientFromSnapshot runs.
+	// omitzero keeps the zero id out of anything encoded (the audit trail).
+	ClientID uuid.UUID `json:"client_id,omitzero"`
 	// StartsAt and EndsAt are the booking's span, read straight off the
 	// bookings.span column rather than rebuilt from the two fields below.
 	// They are what a client should read: a time of day cannot say which day it
@@ -210,6 +213,10 @@ type Booking struct {
 	// one place in the process the plaintext exists after the mint call
 	// returns. Never persisted on the bookings row itself.
 	LinkToken string `json:"-"`
+	// ClientSnapshot is who an unpaid storefront booking is for (see
+	// client_snapshot.go); nil once a client is attached. Personal data, so
+	// never encoded.
+	ClientSnapshot *ClientSnapshot `json:"-"`
 
 	// Enrichment fields populated by JOINs in GetByComplex/GetByID.
 	CourtName   string `json:"court_name"`
@@ -329,10 +336,11 @@ func (m *Store) Insert(ctx context.Context, b *Booking) error {
 		return err
 	}
 
+	first, last, phone, email := snapshotParams(b)
 	dbBooking, err := m.Q.InsertBooking(ctx, db.InsertBookingParams{
 		ComplexID: data.UUIDToPg(b.ComplexID),
 		CourtID:   data.UUIDToPg(b.CourtID),
-		ClientID:  data.UUIDToPg(b.ClientID),
+		ClientID:  clientIDParam(b),
 		Date:      data.DateToPg(b.Date),
 		StartTime: data.TimeStrToPg(b.StartTime),
 		//nolint:gosec // G115: DurationMinutes = slotDuration * SlotCount, and SlotCount is validated to 1..3 at
@@ -349,6 +357,10 @@ func (m *Store) Insert(ctx context.Context, b *Booking) error {
 		RefundStatus:     string(b.RefundStatus),
 		Notes:            data.TextToPg(b.Notes),
 		CreatedBy:        data.UUIDPtrToPg(b.CreatedBy),
+		ClientFirstName:  data.TextToPg(first),
+		ClientLastName:   data.TextToPg(last),
+		ClientPhone:      data.TextToPg(phone),
+		ClientEmail:      data.TextToPg(email),
 	})
 	if err != nil {
 		if isSlotAlreadySold(err) {
@@ -539,6 +551,7 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
 	}
 
 	// Insert the booking within the same transaction.
+	first, last, phone, email := snapshotParams(b)
 	var id pgtype.UUID
 	var reminderSent2h bool
 	var createdAt, updatedAt pgtype.Timestamptz
@@ -547,17 +560,19 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
 			complex_id, court_id, client_id, date,
 			start_time, duration_minutes,
 			price, deposit_amount, status, collection_status, refund_status,
-			notes, created_by
+			notes, created_by,
+			client_first_name, client_last_name, client_phone, client_email
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, reminder_sent_2h, created_at, updated_at, lower(span), upper(span)`,
-		data.UUIDToPg(b.ComplexID), data.UUIDToPg(b.CourtID), data.UUIDToPg(b.ClientID),
+		data.UUIDToPg(b.ComplexID), data.UUIDToPg(b.CourtID), clientIDParam(b),
 		data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
 		//nolint:gosec // G115: same bound as Store.Insert above — DurationMinutes/Price/DepositAmount are
 		// validated at the bookings_create.go handler (SlotCount 1..3, DepositAmount <= Price); far below int32 range.
 		int32(b.DurationMinutes), int32(b.Price), int32(b.DepositAmount),
 		db.BookingStatus(b.Status), b.CollectionStatus, b.RefundStatus,
 		data.TextToPg(b.Notes), data.UUIDPtrToPg(b.CreatedBy),
+		data.TextToPg(first), data.TextToPg(last), data.TextToPg(phone), data.TextToPg(email),
 	).Scan(&id, &reminderSent2h, &createdAt, &updatedAt, &b.StartsAt, &b.EndsAt)
 	if err != nil {
 		if isSlotAlreadySold(err) {
@@ -607,8 +622,9 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		SELECT `+BookingColumns+`,
 		       b.refund_intent_at,
 		       COALESCE(co.name, '') AS court_name,
-		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
-		       COALESCE(cl.phone, '') AS client_phone
+		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
+		       COALESCE(cl.phone, b.client_phone, '') AS client_phone,
+		       b.client_first_name, b.client_last_name, b.client_phone, b.client_email
 		FROM bookings b
 		LEFT JOIN courts co ON co.id = b.court_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -627,6 +643,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		// stored NULL over a pending refund intent.
 		&b.RefundIntentAt,
 		&courtName, &clientName, &clientPhone,
+		&b.ClientFirstName, &b.ClientLastName, &b.ClientPhone, &b.ClientEmail,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -669,8 +686,8 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
 		       COALESCE(co.name, '') AS court_name,
-		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
-		       COALESCE(cl.phone, '') AS client_phone
+		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
+		       COALESCE(cl.phone, b.client_phone, '') AS client_phone
 		FROM bookings b
 		LEFT JOIN courts co ON co.id = b.court_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -770,6 +787,10 @@ func (m *Store) Update(ctx context.Context, b *Booking) error {
 	}
 
 	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
+	// The row as written says who the booking is for while it has no client,
+	// which a booking resolved through its public link was not read with; the
+	// cancellation notice that follows a public cancel needs it.
+	b.ClientSnapshot = snapshotFromDB(dbBooking)
 	return nil
 }
 
@@ -811,6 +832,7 @@ func (m *Store) UpdateIfUnchanged(ctx context.Context, b *Booking) error {
 	}
 
 	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
+	b.ClientSnapshot = snapshotFromDB(dbBooking)
 	return nil
 }
 
@@ -915,6 +937,7 @@ func BookingFromDB(b db.Booking) *Booking {
 		CreatedAt:        data.PgToTime(b.CreatedAt),
 		UpdatedAt:        data.PgToTime(b.UpdatedAt),
 		RefundIntentAt:   data.PgToTimePtr(b.RefundIntentAt),
+		ClientSnapshot:   snapshotFromDB(b),
 	}
 }
 
@@ -1015,8 +1038,8 @@ func (m *Store) GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
 		       COALESCE(co.name, '') AS court_name,
-		       COALESCE(cl.first_name || ' ' || cl.last_name, '') AS client_name,
-		       COALESCE(cl.phone, '') AS client_phone
+		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
+		       COALESCE(cl.phone, b.client_phone, '') AS client_phone
 		FROM bookings b
 		LEFT JOIN courts co ON co.id = b.court_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -1240,11 +1263,11 @@ func (m *Store) GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
-		       cl.phone, COALESCE(cl.email, ''), cx.name, co.name,
+		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(cl.email, b.client_email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours
 		FROM bookings b
-		JOIN clients cl ON cl.id = b.client_id
+		LEFT JOIN clients cl ON cl.id = b.client_id
 		JOIN complexes cx ON cx.id = b.complex_id
 		JOIN courts co ON co.id = b.court_id
 		WHERE booking_starts_at(b.date, b.start_time) > $1::timestamptz
@@ -1283,11 +1306,11 @@ func (m *Store) getUnpaidPublicPendingEnriched(ctx context.Context, extra string
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
-		       cl.phone, COALESCE(cl.email, ''), cx.name, co.name,
+		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(cl.email, b.client_email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours
 		FROM bookings b
-		JOIN clients cl ON cl.id = b.client_id
+		LEFT JOIN clients cl ON cl.id = b.client_id
 		JOIN complexes cx ON cx.id = b.complex_id
 		JOIN courts co ON co.id = b.court_id
 		WHERE b.status = 'pending'

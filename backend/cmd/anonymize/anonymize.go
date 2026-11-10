@@ -21,6 +21,10 @@ type Result struct {
 	// BookingNotesCleared is how many of the client's bookings carried
 	// free-text notes that were erased.
 	BookingNotesCleared int64
+	// SnapshotsCleared is how many of the person's unpaid storefront bookings,
+	// which carry who they were for on the booking itself rather than in
+	// clients (migration 024), had that snapshot erased.
+	SnapshotsCleared int64
 	// Bookings is how many booking rows the client has, all of which are kept.
 	Bookings int64
 	// Payments is how many payment rows are kept untouched.
@@ -60,9 +64,13 @@ func anonymizedPhone(clientID uuid.UUID) string {
 //   - clients.first_name, last_name, phone, email — the identity itself.
 //   - clients.notes — staff free text about the person ("prefers court 2,
 //     husband is Juan"), which is about them even when it does not name them.
-//   - bookings.notes — the same free text on the booking, and the one place a
-//     name or a phone number reaches a table that is not clients. Nothing else
-//     in bookings is about the person: the row is a court, a date and a price.
+//   - bookings.notes — the same free text on the booking, where a name or a
+//     phone number reaches a table that is not clients.
+//   - bookings.client_first_name, client_last_name, client_phone, client_email
+//     — the snapshot an unpaid storefront booking carries instead of a
+//     client_id (migration 024), on this person's bookings at this venue,
+//     matched by their phone. Nothing else in bookings is about the person:
+//     the row is a court, a date and a price.
 //
 // WHAT IS KEPT, deliberately:
 //
@@ -93,8 +101,9 @@ func anonymizeClient(ctx context.Context, tx pgx.Tx, clientID uuid.UUID) (Result
 	// FOR UPDATE: a booking being created for this client while the run is in
 	// flight would otherwise land after the notes were cleared and carry the
 	// person's name past the erasure.
+	var phone string
 	err := tx.QueryRow(ctx,
-		`SELECT complex_id FROM clients WHERE id = $1 FOR UPDATE`, clientID).Scan(&result.Complex)
+		`SELECT complex_id, phone FROM clients WHERE id = $1 FOR UPDATE`, clientID).Scan(&result.Complex, &phone)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return result, nil
@@ -127,10 +136,28 @@ func anonymizeClient(ctx context.Context, tx pgx.Tx, clientID uuid.UUID) (Result
 	}
 	result.BookingNotesCleared = tag.RowsAffected()
 
-	// The counts of what is kept are part of the answer, not decoration: the
-	// operator writing back to the requester has to be able to say "your name
-	// and number are gone, these N bookings and M payments remain as
-	// anonymous rows, and here is why".
+	// A storefront booking that was never paid has no client_id: it names the
+	// person in its own snapshot columns. Matched by the phone the client row
+	// held until a moment ago, within the same venue — the key a paid booking
+	// would have attached them by. The placeholders are the client's own, so
+	// bookings_client_or_snapshot still holds.
+	result.SnapshotsCleared, err = eraseSnapshots(ctx, tx, result.Complex, phone, result.Phone)
+	if err != nil {
+		return result, err
+	}
+
+	if err := countKept(ctx, tx, clientID, &result); err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+// countKept fills what the run keeps. The counts are part of the answer, not
+// decoration: the operator writing back to the requester has to be able to say
+// "your name and number are gone, these N bookings and M payments remain as
+// anonymous rows, and here is why".
+func countKept(ctx context.Context, tx pgx.Tx, clientID uuid.UUID, result *Result) error {
 	for _, kept := range []struct {
 		query string
 		into  *int64
@@ -144,9 +171,66 @@ func anonymizeClient(ctx context.Context, tx pgx.Tx, clientID uuid.UUID) (Result
 			arg = result.Complex
 		}
 		if err := tx.QueryRow(ctx, kept.query, arg).Scan(kept.into); err != nil {
-			return result, fmt.Errorf("counting what is kept: %w", err)
+			return fmt.Errorf("counting what is kept: %w", err)
 		}
 	}
+	return nil
+}
 
+// anonymizedUnpaidPhone replaces the phone on the snapshot of someone who never
+// got a clients row. Like anonymizedPhone it must not look like a number; the
+// snapshot has no uniqueness to satisfy, so one constant serves everyone.
+const anonymizedUnpaidPhone = "anonymized-unpaid"
+
+// anonymizeByPhone erases a person named by the venue and the phone they gave.
+//
+// It exists because since migration 024 a storefront booking that was never
+// paid creates no clients row: the person lives only in the snapshot columns
+// of their bookings, and -client has no id to be handed. When the phone does
+// belong to a client, this is that client's erasure, whole (anonymizeClient,
+// which also clears their snapshots); otherwise only the snapshots are
+// erased, by the same statement anonymizeClient uses.
+func anonymizeByPhone(ctx context.Context, tx pgx.Tx, complexID uuid.UUID, phone string) (Result, error) {
+	result := Result{Complex: complexID}
+
+	if _, err := tx.Exec(ctx, `SET LOCAL app.bypass_tenant = 'on'`); err != nil {
+		return result, fmt.Errorf("declaring the cross-tenant scope: %w", err)
+	}
+
+	var clientID uuid.UUID
+	err := tx.QueryRow(ctx,
+		`SELECT id FROM clients WHERE complex_id = $1 AND phone = $2`, complexID, phone).Scan(&clientID)
+	switch {
+	case err == nil:
+		return anonymizeClient(ctx, tx, clientID)
+	case !errors.Is(err, pgx.ErrNoRows):
+		return result, fmt.Errorf("looking the phone up: %w", err)
+	}
+
+	result.Phone = anonymizedUnpaidPhone
+	cleared, err := eraseSnapshots(ctx, tx, complexID, phone, anonymizedUnpaidPhone)
+	if err != nil {
+		return result, err
+	}
+	result.SnapshotsCleared = cleared
 	return result, nil
+}
+
+// eraseSnapshots erases the snapshot, and the notes, on the unpaid storefront
+// bookings at complexID made with phone. The placeholders keep
+// bookings_client_or_snapshot satisfied.
+func eraseSnapshots(ctx context.Context, tx pgx.Tx, complexID uuid.UUID, phone, placeholderPhone string) (int64, error) {
+	tag, err := tx.Exec(ctx, `
+		UPDATE bookings
+		SET client_first_name = $3,
+		    client_last_name  = $4,
+		    client_phone      = $5,
+		    client_email      = NULL,
+		    notes             = NULL
+		WHERE complex_id = $1 AND client_id IS NULL AND client_phone = $2`,
+		complexID, phone, anonymizedFirstName, anonymizedLastName, placeholderPhone)
+	if err != nil {
+		return 0, fmt.Errorf("erasing the unpaid bookings' snapshot: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }

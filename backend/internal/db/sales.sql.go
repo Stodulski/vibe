@@ -370,11 +370,11 @@ SELECT b.id, b.date AS booking_date,
        b.collection_status,
        b.status,
        c.name AS court_name,
-       cl.first_name AS client_first_name,
-       cl.last_name AS client_last_name
+       COALESCE(cl.first_name, b.client_first_name, '')::text AS client_first_name,
+       COALESCE(cl.last_name, b.client_last_name, '')::text AS client_last_name
 FROM bookings b
 JOIN courts c ON c.id = b.court_id
-JOIN clients cl ON cl.id = b.client_id
+LEFT JOIN clients cl ON cl.id = b.client_id
 WHERE b.complex_id = $1::uuid
   -- Occupies the day rather than starting on it: a 23:00-00:30 booking is
   -- cash owed on the night it starts and on the next morning's list alike.
@@ -448,12 +448,12 @@ SELECT p.id AS payment_id, p.booking_id, p.amount,
        lower(b.span)::timestamptz AS starts_at,
        upper(b.span)::timestamptz AS ends_at,
        c.name AS court_name,
-       cl.first_name AS client_first_name,
-       cl.last_name AS client_last_name
+       COALESCE(cl.first_name, b.client_first_name, '')::text AS client_first_name,
+       COALESCE(cl.last_name, b.client_last_name, '')::text AS client_last_name
 FROM payments p
 JOIN bookings b ON b.id = p.booking_id AND b.complex_id = p.complex_id
 JOIN courts c ON c.id = b.court_id
-JOIN clients cl ON cl.id = b.client_id
+LEFT JOIN clients cl ON cl.id = b.client_id
 WHERE p.id = ANY($1::uuid[]) AND p.complex_id = $2::uuid
 ORDER BY p.created_at ASC, p.id ASC
 `
@@ -515,13 +515,13 @@ SELECT COALESCE(ch.sale_id, ch.id)::uuid AS entry_id,
        lower(b.span)::timestamptz AS starts_at,
        upper(b.span)::timestamptz AS ends_at,
        c.name AS court_name,
-       cl.first_name AS client_first_name,
-       cl.last_name AS client_last_name
+       COALESCE(cl.first_name, b.client_first_name, '')::text AS client_first_name,
+       COALESCE(cl.last_name, b.client_last_name, '')::text AS client_last_name
 FROM sale_booking_payments sbp
 JOIN checkouts ch ON ch.id = sbp.checkout_id AND ch.complex_id = sbp.complex_id
 JOIN bookings b ON b.id = sbp.booking_id AND b.complex_id = sbp.complex_id
 JOIN courts c ON c.id = b.court_id
-JOIN clients cl ON cl.id = b.client_id
+LEFT JOIN clients cl ON cl.id = b.client_id
 WHERE sbp.complex_id = $1::uuid
   AND (ch.sale_id = ANY($2::uuid[])
        OR (ch.sale_id IS NULL AND ch.id = ANY($2::uuid[])))

@@ -43,6 +43,7 @@ type Store interface {
 	// them itself; they are here so that bookings, payments and reporting enter
 	// the client domain through its service rather than through its store.
 	GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (*clientstore.Client, error)
+	GetByPhone(ctx context.Context, complexID uuid.UUID, phone string) (*clientstore.Client, error)
 	IncrementNoShows(ctx context.Context, clientID uuid.UUID) error
 	CountByComplex(ctx context.Context, complexID uuid.UUID) (int, error)
 	GetInsights(ctx context.Context, complexID uuid.UUID, today time.Time) (*clientstore.ClientInsights, error)
@@ -125,7 +126,7 @@ func toGenBooking(b *bookingstore.Booking) gen.Booking {
 	courtName, clientName, clientPhone := b.CourtName, b.ClientName, b.ClientPhone
 
 	return gen.Booking{
-		ClientId:         b.ClientID,
+		ClientId:         b.ClientIDOrNil(),
 		ClientName:       &clientName,
 		ClientPhone:      &clientPhone,
 		CollectionStatus: gen.CollectionStatus(b.CollectionStatus),

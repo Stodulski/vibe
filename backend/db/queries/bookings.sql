@@ -3,10 +3,31 @@ INSERT INTO bookings (
     complex_id, court_id, client_id, date,
     start_time, duration_minutes,
     price, deposit_amount, status, collection_status, refund_status,
-    notes, created_by
+    notes, created_by,
+    client_first_name, client_last_name, client_phone, client_email
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING *;
+
+-- name: GetUnattachedBookingClientSnapshot :one
+-- Who a storefront booking is for, while it has no client yet: the snapshot
+-- POST /book stored instead of creating a clients row (024). No row means the
+-- booking already names its client, which is what makes attaching idempotent.
+SELECT complex_id, client_first_name, client_last_name, client_phone, client_email
+FROM bookings
+WHERE id = $1 AND client_id IS NULL;
+
+-- name: AttachBookingClient :one
+-- Names the booking's client and drops the snapshot it was held under, so the
+-- person is recorded in one place (clients) once the booking succeeded.
+UPDATE bookings
+SET client_id = $2,
+    client_first_name = NULL,
+    client_last_name = NULL,
+    client_phone = NULL,
+    client_email = NULL
+WHERE id = $1 AND client_id IS NULL
+RETURNING client_id;
 
 -- name: GetBookingByID :one
 --

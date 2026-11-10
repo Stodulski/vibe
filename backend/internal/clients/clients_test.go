@@ -65,6 +65,10 @@ func (s *stubStore) GetOrCreate(context.Context, uuid.UUID, string, string, stri
 	return s.client, s.getErr
 }
 
+func (s *stubStore) GetByPhone(context.Context, uuid.UUID, string) (*clientstore.Client, error) {
+	return s.client, s.getErr
+}
+
 func (s *stubStore) IncrementNoShows(context.Context, uuid.UUID) error { return nil }
 
 func (s *stubStore) CountByComplex(context.Context, uuid.UUID) (int, error) { return 0, nil }

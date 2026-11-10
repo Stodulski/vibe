@@ -307,13 +307,39 @@ func (m *Store) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName,
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
+	id, err := UpsertByPhone(ctx, m.DB, complexID, firstName, lastName, phone, email, allowNameUpdate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read back through GetByID rather than building the Client from the
+	// RETURNING clause above, so this keeps computing total_bookings live —
+	// see GetByID's comment for why the stored column cannot be trusted — the
+	// same way the check-then-insert version did by way of GetByPhone.
+	return m.GetByID(ctx, id)
+}
+
+// RowQuerier is the part of a pool or a transaction UpsertByPhone needs. Both
+// *data.DB and pgx.Tx satisfy it.
+type RowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// UpsertByPhone is GetOrCreate's statement, on whatever q is: the pool for
+// GetOrCreate, or the transaction that records a storefront booking's payment
+// (internal/bookings/store AttachClientFromSnapshot), which creates the client
+// only once the booking succeeded. Every rule in GetOrCreate's comment —
+// ON CONFLICT on (complex_id, phone), allowNameUpdate, email backfilled only
+// when missing — lives here, once. It never writes is_blocked: blocking a
+// client is the owner's manual edit alone.
+func UpsertByPhone(ctx context.Context, q RowQuerier, complexID uuid.UUID, firstName, lastName, phone, email string, allowNameUpdate bool) (uuid.UUID, error) {
 	var emailPtr *string
 	if email != "" {
 		emailPtr = &email
 	}
 
 	var id pgtype.UUID
-	err := m.DB.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		INSERT INTO clients (complex_id, first_name, last_name, phone, email)
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (complex_id, phone) DO UPDATE SET
@@ -324,14 +350,9 @@ func (m *Store) GetOrCreate(ctx context.Context, complexID uuid.UUID, firstName,
 		data.UUIDToPg(complexID), firstName, lastName, phone, data.TextToPg(emailPtr), allowNameUpdate,
 	).Scan(&id)
 	if err != nil {
-		return nil, fmt.Errorf("clients: get or create: %w", err)
+		return uuid.Nil, fmt.Errorf("clients: get or create: %w", err)
 	}
-
-	// Read back through GetByID rather than building the Client from the
-	// RETURNING clause above, so this keeps computing total_bookings live —
-	// see GetByID's comment for why the stored column cannot be trusted — the
-	// same way the check-then-insert version did by way of GetByPhone.
-	return m.GetByID(ctx, data.PgToUUID(id))
+	return data.PgToUUID(id), nil
 }
 
 // IncrementNoShows increments the client's no-show counter by one.

@@ -49,7 +49,7 @@ const publicActor = "client"
 // it. TestPublicBookAuditEntryCarriesNoLinkToken pins that.
 type publicBooking struct {
 	Actor    string                `json:"actor"`
-	ClientID uuid.UUID             `json:"client_id"`
+	ClientID uuid.UUID             `json:"client_id,omitzero"`
 	Booking  *bookingstore.Booking `json:"booking"`
 }
 
@@ -65,7 +65,7 @@ type publicBooking struct {
 // internal/payments' entry to write, not this one's.
 type publicCancellation struct {
 	Actor              string                `json:"actor"`
-	ClientID           uuid.UUID             `json:"client_id"`
+	ClientID           uuid.UUID             `json:"client_id,omitzero"`
 	Booking            *bookingstore.Booking `json:"booking"`
 	WithinRefundWindow bool                  `json:"within_refund_window"`
 	OwesRefund         bool                  `json:"owes_refund"`
@@ -180,19 +180,18 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		return PublicBookResult{}, data.ErrRecordNotFound
 	}
 
-	// Get or create client. This endpoint needs no account (R1-client-name-
-	// overwrite), so a phone match here must never overwrite an existing
-	// client's stored name — only the authenticated owner path (Create) is
-	// trusted with that — see clientstore.Store.GetOrCreate's comment on
-	// allowNameUpdate.
-	client, err := s.clients.GetOrCreate(ctx, complex.ID, in.ClientFirstName, in.ClientLastName, in.ClientPhone, in.ClientEmail, false)
-	if err != nil {
-		return PublicBookResult{}, err
-	}
-
-	// Verify client is not blocked.
-	if client.IsBlocked {
+	// No client is created here (owner rule 2026-11-10: a client exists only
+	// once a booking succeeds). The booking is held under a snapshot of who it
+	// is for, and the transaction that records its payment gets or creates the
+	// client (bookingstore.AttachClientFromSnapshot). The blocked rule still
+	// holds, read by phone without writing anything: a phone the venue blocked
+	// is refused, an unknown one carries on.
+	known, err := s.clients.GetByPhone(ctx, complex.ID, in.ClientPhone)
+	switch {
+	case err == nil && known.IsBlocked:
 		return PublicBookResult{}, ErrClientBlocked
+	case err != nil && !errors.Is(err, data.ErrRecordNotFound):
+		return PublicBookResult{}, err
 	}
 
 	// The slot lock is keyed on a date and two times of day, so it still needs
@@ -313,9 +312,14 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	totalClientPays := mpAmount + serviceFee
 
 	booking := &bookingstore.Booking{
-		ComplexID:        complex.ID,
-		CourtID:          in.CourtID,
-		ClientID:         client.ID,
+		ComplexID: complex.ID,
+		CourtID:   in.CourtID,
+		ClientSnapshot: &bookingstore.ClientSnapshot{
+			FirstName: in.ClientFirstName,
+			LastName:  in.ClientLastName,
+			Phone:     in.ClientPhone,
+			Email:     in.ClientEmail,
+		},
 		Date:             startDate,
 		StartTime:        in.StartTime,
 		DurationMinutes:  in.DurationMinutes,

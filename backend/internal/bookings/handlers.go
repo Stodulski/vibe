@@ -202,7 +202,7 @@ func toGenBooking(b *bookingstore.Booking) gen.Booking {
 	clientPhone := b.ClientPhone
 
 	return gen.Booking{
-		ClientId:         b.ClientID,
+		ClientId:         b.ClientIDOrNil(),
 		ClientName:       &clientName,
 		ClientPhone:      &clientPhone,
 		CollectionStatus: gen.CollectionStatus(b.CollectionStatus),
