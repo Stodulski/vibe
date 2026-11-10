@@ -2,11 +2,12 @@ package auth
 
 import (
 	"encoding/json"
-	"github.com/stodulski/vibe-server/internal/httpx"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stodulski/vibe-server/internal/httpx"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
