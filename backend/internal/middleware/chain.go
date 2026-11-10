@@ -405,6 +405,9 @@ var csrfExemptRoutes = map[string]string{
 
 	"POST /api/v1/book":        "public booking: clients book without an account, so no cookie is in play",
 	"POST /api/v1/book/cancel": "same flow, authenticated by the booking's own link token",
+	"POST /api/v1/book/holds":  "public booking: the slot hold is taken before the visitor has any account, so no cookie is in play",
+	"POST /api/v1/book/holds/{token}/release": "same flow, authenticated by the hold's own token; " +
+		"called by navigator.sendBeacon, which cannot send a CSRF header",
 
 	"POST /api/v1/public/email/unsubscribe":            "reached from a mail client or an emailed link, with no session; the signed token is the authentication",
 	"POST /api/v1/social/threads/uninstall":            "Meta's uninstall callback: sent by Meta with no session or cookie, authenticated by the signed_request HMAC keyed by the app secret",

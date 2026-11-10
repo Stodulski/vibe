@@ -842,7 +842,10 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "409":
-          description: Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict.
+          description: >-
+            Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock
+            conflict. With `hold_token`: the request does not match the hold (`conflict`), or the
+            hold is gone (`hold-expired`).
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -878,9 +881,117 @@ paths:
                   type: string
                   description: >-
                     Required only when Cloudflare Turnstile is configured and booking enforcement
+                    is on (`TURNSTILE_BOOKING_ENFORCE`), and only when no `hold_token` is sent. A
+                    missing or rejected token answers 422 on this field with `required` or
+                    `invalid`; Cloudflare being unreachable lets the booking through.
+                hold_token:
+                  type: string
+                  maxLength: 256
+                  description: >-
+                    The slot hold taken with `POST /api/v1/book/holds`. With it the held booking is
+                    converted: the hours come from the hold (the request's court, date, start and
+                    duration must match it or 409 `conflict`), no Turnstile token is checked, and
+                    the checkout expires when the hold does. An unknown, released, already
+                    converted or expired hold answers 409 `hold-expired`. Without it the booking is
+                    created as before holds existed.
+
+  /api/v1/book/holds:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicHoldCreate
+      summary: Hold a slot while the visitor fills in their details
+      description: >-
+        Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the
+        same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass
+        reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the
+        payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned
+        token converts it, and the hold ends by itself at `expires_at`. Refused with the same
+        answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address
+        (429).
+      security: []
+      responses:
+        "201":
+          description: Slot held.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hold]
+                properties:
+                  hold:
+                    type: object
+                    required: [token, expires_at]
+                    properties:
+                      token: {type: string, description: "Opaque secret naming the hold. Only its hash is stored."}
+                      expires_at: {type: string, format: date-time}
+        "400":
+          description: Malformed body, or the complex has no MercadoPago connected.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404":
+          description: Unknown or inactive complex or court, or the court belongs to a different complex.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "409":
+          description: >-
+            Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the
+            booking horizon, or already held or booked (`slot-unavailable`).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [complex_id, court_id, date, start_time, duration_minutes]
+              properties:
+                complex_id: {type: string, format: uuid}
+                court_id: {type: string, format: uuid}
+                date: {type: string, format: date}
+                start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                duration_minutes: {type: integer, description: "Must be one of the permitted slot durations."}
+                turnstile_token:
+                  type: string
+                  description: >-
+                    Required only when Cloudflare Turnstile is configured and booking enforcement
                     is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on
                     this field with `required` or `invalid`; Cloudflare being unreachable lets the
-                    booking through.
+                    hold through.
+                replaces:
+                  type: string
+                  maxLength: 256
+                  description: >-
+                    The visitor's previous hold token, released before this hold is taken: one
+                    browser holds one slot.
+
+  /api/v1/book/holds/{token}/release:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicHoldRelease
+      summary: Release a slot hold
+      description: >-
+        Public, and a POST so `navigator.sendBeacon` can call it when the page goes away. Releases
+        the hold if it is still an untouched hold; a converted or paid booking is never touched.
+        Answers 204 whatever happened, so it says nothing about which tokens exist.
+        Cross-tenant bypass reason `resolves`.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        "204":
+          description: Released, or there was nothing to release.
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
 
   /api/v1/book/status:
     get:

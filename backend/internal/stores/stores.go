@@ -374,8 +374,22 @@ type BookingRefundIntentManager interface {
 	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
 }
 
+// BookingHoldManager is the storefront's slot hold (POST /book/holds): the
+// pending visitor booking taken when a court is picked, before anybody is
+// named, and the three ways it ends — converted by POST /book, released by the
+// visitor, or deleted once its payment window has passed.
+type BookingHoldManager interface {
+	InsertHold(ctx context.Context, booking *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error
+	GetHold(ctx context.Context, tokenHash []byte) (*bookingstore.Booking, error)
+	ConvertHold(ctx context.Context, booking *bookingstore.Booking, tokenHash []byte) error
+	ReleaseHold(ctx context.Context, tokenHash []byte) (complexID uuid.UUID, released bool, err error)
+	DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([]uuid.UUID, error)
+	DeleteComplexHolds(ctx context.Context, complexID uuid.UUID) error
+}
+
 // BookingStore composes every booking-related store capability.
 type BookingStore interface {
+	BookingHoldManager
 	BookingCreator
 	BookingReader
 	BookingUpdater

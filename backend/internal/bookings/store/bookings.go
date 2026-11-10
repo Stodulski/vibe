@@ -416,7 +416,7 @@ func (m *Store) InsertSafeWithPayment(ctx context.Context, b *Booking, p *Counte
 	// the client will do. Nothing outside the transaction happens here, so a
 	// second run duplicates nothing.
 	return m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, q *db.Queries) error {
-		if err := m.insertSafe(ctx, tx, b); err != nil {
+		if err := m.insertSafe(ctx, tx, b, holdTag{}); err != nil {
 			return err
 		}
 		if p == nil {
@@ -441,10 +441,13 @@ func (m *Store) InsertSafeWithPayment(ctx context.Context, b *Booking, p *Counte
 	})
 }
 
-// insertSafe is InsertSafe's body, inside the transaction.
+// insertSafe is InsertSafe's body, inside the transaction. hold is empty for
+// every booking but a slot hold (InsertHold), whose token hash and address go
+// in with the row: bookings_client_or_snapshot admits a row that names nobody
+// only when it is a hold, and a CHECK is asked at the INSERT.
 //
 //nolint:funlen // single cohesive SQL-building-and-execution flow for one store operation
-func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
+func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking, hold holdTag) error {
 	// Acquire the advisory lock for every local day these hours touch, to
 	// serialize concurrent writers on the court. The payment confirmation path
 	// and the blocked-slot write take the same lock (see slot_guard.go), so an
@@ -561,9 +564,10 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
 			start_time, duration_minutes,
 			price, deposit_amount, status, collection_status, refund_status,
 			notes, created_by,
-			client_first_name, client_last_name, client_phone, client_email
+			client_first_name, client_last_name, client_phone, client_email,
+			hold_token_hash, hold_ip
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, reminder_sent_2h, created_at, updated_at, lower(span), upper(span)`,
 		data.UUIDToPg(b.ComplexID), data.UUIDToPg(b.CourtID), clientIDParam(b),
 		data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
@@ -573,6 +577,7 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking) error {
 		db.BookingStatus(b.Status), b.CollectionStatus, b.RefundStatus,
 		data.TextToPg(b.Notes), data.UUIDPtrToPg(b.CreatedBy),
 		data.TextToPg(first), data.TextToPg(last), data.TextToPg(phone), data.TextToPg(email),
+		hold.tokenHash, data.TextToPg(hold.ip),
 	).Scan(&id, &reminderSent2h, &createdAt, &updatedAt, &b.StartsAt, &b.EndsAt)
 	if err != nil {
 		if isSlotAlreadySold(err) {
@@ -1300,6 +1305,11 @@ func (m *Store) GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uu
 
 // getUnpaidPublicPendingEnriched is the one query behind both readers above:
 // public, pending and unpaid, narrowed by extra (which reads arg as $1).
+//
+// An untouched slot hold (hold_token_hash set) is left out: it has no checkout
+// to close and nobody to tell, so DeleteExpiredHolds and DeleteComplexHolds
+// release it instead. A converted hold has its token cleared and is read here
+// like any other storefront booking.
 func (m *Store) getUnpaidPublicPendingEnriched(ctx context.Context, extra string, arg any) ([]*CronBooking, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
@@ -1316,6 +1326,7 @@ func (m *Store) getUnpaidPublicPendingEnriched(ctx context.Context, extra string
 		WHERE b.status = 'pending'
 		  AND b.collection_status = 'unpaid'
 		  AND b.created_by IS NULL
+		  AND b.hold_token_hash IS NULL
 		  AND `+extra, arg)
 	if err != nil {
 		return nil, err

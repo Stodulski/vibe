@@ -448,6 +448,7 @@ func TestTheInProcessClientTableIsBounded(t *testing.T) {
 		{name: "gen", rps: 1000, burst: 1000},
 		authCeiling,
 		bookingCeiling,
+		holdCeiling,
 		{name: "user", rps: 1000, burst: 1000},
 	}, logger)
 	buckets.max = 2

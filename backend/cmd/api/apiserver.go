@@ -146,6 +146,18 @@ func (s *apiServer) BookingsPublicCreate(w http.ResponseWriter, r *http.Request,
 	s.app.bookings.PublicBook(w, r)
 }
 
+// BookingsPublicHoldCreate implements gen.ServerInterface for bookingsPublicHoldCreate
+// (POST /api/v1/book/holds). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsPublicHoldCreate(w http.ResponseWriter, r *http.Request) {
+	s.app.bookings.TakeHold(w, r)
+}
+
+// BookingsPublicHoldRelease implements gen.ServerInterface for bookingsPublicHoldRelease
+// (POST /api/v1/book/holds/{token}/release). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsPublicHoldRelease(w http.ResponseWriter, r *http.Request, token string) {
+	s.app.bookings.ReleaseHold(w, r, token)
+}
+
 // BookingsPublicCancel implements gen.ServerInterface for bookingsPublicCancel
 // (POST /api/v1/book/cancel). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingsPublicCancel(w http.ResponseWriter, r *http.Request) {

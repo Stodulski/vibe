@@ -57,6 +57,14 @@ type Store interface {
 	GetExpiredPendingEnriched(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error)
 	GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error)
 	CompletePastBookings(ctx context.Context) ([]uuid.UUID, error)
+
+	// The storefront's slot hold (hold.go).
+	InsertHold(ctx context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error
+	GetHold(ctx context.Context, tokenHash []byte) (*bookingstore.Booking, error)
+	ConvertHold(ctx context.Context, b *bookingstore.Booking, tokenHash []byte) error
+	ReleaseHold(ctx context.Context, tokenHash []byte) (complexID uuid.UUID, released bool, err error)
+	DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([]uuid.UUID, error)
+	DeleteComplexHolds(ctx context.Context, complexID uuid.UUID) error
 }
 
 // ClientStore resolves the person a booking is for. Owner bookings create the
@@ -306,6 +314,9 @@ type Handler struct {
 // answered by internal/httpx or by refuse itself.
 var refusals = httpx.Refusals{
 	ErrSlotTaken:               httpx.SlotUnavailable(slotTakenMessage),
+	ErrHoldExpired:             httpx.HoldExpired(holdExpiredMessage),
+	ErrHoldMismatch:            httpx.Conflict(holdMismatchMessage),
+	ErrTooManyHolds:            httpx.TooManyRequests(tooManyHoldsMessage),
 	ErrClientBlocked:           httpx.Forbidden("your account is blocked, contact the complex for more information"),
 	ErrMercadoPagoNotConnected: httpx.BadRequest("the complex does not have MercadoPago connected, contact the complex"),
 	ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),

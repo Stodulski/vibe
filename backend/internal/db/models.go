@@ -428,6 +428,8 @@ type Booking struct {
 	ClientLastName   pgtype.Text                      `json:"client_last_name"`
 	ClientPhone      pgtype.Text                      `json:"client_phone"`
 	ClientEmail      pgtype.Text                      `json:"client_email"`
+	HoldTokenHash    []byte                           `json:"hold_token_hash"`
+	HoldIp           pgtype.Text                      `json:"hold_ip"`
 }
 
 type BookingLinkToken struct {

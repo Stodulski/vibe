@@ -80,6 +80,12 @@ func SlotUnavailable(message any) Refusal {
 	return Refusal{http.StatusConflict, KindSlotUnavailable, message}
 }
 
+// HoldExpired refuses a booking whose slot hold is gone: 409, its own kind so
+// the storefront can send the visitor back to pick a time.
+func HoldExpired(message any) Refusal {
+	return Refusal{http.StatusConflict, KindHoldExpired, message}
+}
+
 // Gone refuses a resource that existed and deliberately does not any more: 410.
 func Gone(message any) Refusal { return Refusal{http.StatusGone, KindGone, message} }
 
