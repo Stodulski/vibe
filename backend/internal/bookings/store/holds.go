@@ -268,7 +268,7 @@ func (m *Store) DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([
 			h         ReleasedHold
 		)
 		if err := row.Scan(&complexID, &h.ComplexName, &h.ComplexSlug, &day); err != nil {
-			return h, err
+			return h, fmt.Errorf("scan freed hold: %w", err)
 		}
 		h.ComplexID = data.PgToUUID(complexID)
 		h.Day = data.PgToDate(day)
