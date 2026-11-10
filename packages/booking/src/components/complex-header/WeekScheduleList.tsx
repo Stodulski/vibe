@@ -66,7 +66,13 @@ export function WeekScheduleList({ schedules, selectedDate }: WeekScheduleListPr
               aria-current={row.isToday ? 'date' : undefined}
               className={cn(
                 'text-micro tracking-wide uppercase lg:text-sm lg:tracking-normal lg:normal-case',
-                row.isToday ? 'text-primary-400 font-semibold' : 'text-text-tertiary',
+                // Today is a dark tag with brand-green type, the same chip as
+                // the ticket's court tags: on the green card a colour change
+                // alone no longer shows. The negative margin keeps the label
+                // aligned with its hours.
+                row.isToday
+                  ? 'bg-text-inverse text-primary-500 -mx-1.5 w-fit rounded-md px-1.5 font-semibold'
+                  : 'text-text-tertiary',
               )}
             >
               {row.label}
@@ -75,7 +81,7 @@ export function WeekScheduleList({ schedules, selectedDate }: WeekScheduleListPr
               className={cn(
                 // A time range is one token: "08:00 -" over "23:00" reads as
                 // two different facts.
-                'text-micro whitespace-nowrap tabular-nums sm:text-xs xl:text-sm',
+                'text-micro mt-1 whitespace-nowrap tabular-nums sm:text-xs xl:text-sm',
                 row.isToday ? 'text-text-primary font-semibold' : 'text-text-secondary',
               )}
             >
